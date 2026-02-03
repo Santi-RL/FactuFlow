@@ -1,24 +1,54 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useClientesStore } from '@/stores/clientes'
+import certificadosService from '@/services/certificados.service'
+import type { CertificadoAlerta } from '@/types/certificado'
 import BaseCard from '@/components/ui/BaseCard.vue'
 import BaseSpinner from '@/components/ui/BaseSpinner.vue'
+import BaseAlert from '@/components/ui/BaseAlert.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 import { UsersIcon, DocumentTextIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline'
 
 const authStore = useAuthStore()
 const clientesStore = useClientesStore()
+const router = useRouter()
 const loading = ref(true)
+const alertasCertificados = ref<CertificadoAlerta[]>([])
 
 onMounted(async () => {
   try {
-    await clientesStore.fetchClientes({ per_page: 100 })
+    await Promise.all([
+      clientesStore.fetchClientes({ per_page: 100 }),
+      cargarAlertasCertificados()
+    ])
   } catch (error) {
     console.error('Error loading data:', error)
   } finally {
     loading.value = false
   }
 })
+
+const cargarAlertasCertificados = async () => {
+  try {
+    alertasCertificados.value = await certificadosService.obtenerAlertasVencimiento()
+  } catch (err) {
+    console.error('Error loading certificate alerts:', err)
+  }
+}
+
+const formatearFecha = (fecha: string) => {
+  return new Date(fecha).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+const irACertificados = () => {
+  router.push({ name: 'certificados' })
+}
 
 const stats = computed(() => [
   {
@@ -66,6 +96,48 @@ const stats = computed(() => [
     <BaseSpinner v-if="loading" />
 
     <div v-else>
+      <!-- Alertas de certificados -->
+      <BaseAlert
+        v-if="alertasCertificados.length > 0"
+        type="warning"
+        class="mb-6"
+      >
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <p class="font-semibold mb-2">
+              ⚠️ Certificado(s) próximo(s) a vencer
+            </p>
+            <div
+              v-for="alerta in alertasCertificados.slice(0, 2)"
+              :key="alerta.id"
+              class="text-sm mb-1"
+            >
+              <span class="font-medium">{{ alerta.nombre }}</span>
+              <span v-if="alerta.dias_restantes > 0">
+                vence en {{ alerta.dias_restantes }} día(s) ({{ formatearFecha(alerta.fecha_vencimiento) }})
+              </span>
+              <span v-else class="text-red-700 font-semibold">
+                ¡YA VENCIÓ! ({{ formatearFecha(alerta.fecha_vencimiento) }})
+              </span>
+            </div>
+            <p v-if="alertasCertificados.length > 2" class="text-sm mt-1">
+              y {{ alertasCertificados.length - 2 }} más...
+            </p>
+            <p class="text-sm mt-2">
+              Te recomendamos renovarlos pronto para evitar interrupciones en la facturación.
+            </p>
+          </div>
+          <BaseButton
+            @click="irACertificados"
+            variant="secondary"
+            size="sm"
+            class="ml-4 flex-shrink-0"
+          >
+            Ver certificados
+          </BaseButton>
+        </div>
+      </BaseAlert>
+
       <!-- Stats Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <BaseCard v-for="stat in stats" :key="stat.name" :padding="false">

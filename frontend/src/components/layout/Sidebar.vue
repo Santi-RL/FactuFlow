@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import {
@@ -7,19 +7,29 @@ import {
   UsersIcon,
   DocumentTextIcon,
   BuildingOfficeIcon,
+  KeyIcon,
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/vue/24/outline'
+import certificadosService from '@/services/certificados.service'
 
 const route = useRoute()
 const uiStore = useUIStore()
 
-const menuItems = [
+const certificadosPorVencer = ref(0)
+
+const menuItems = computed(() => [
   { name: 'Dashboard', icon: HomeIcon, path: '/' },
   { name: 'Clientes', icon: UsersIcon, path: '/clientes' },
   { name: 'Comprobantes', icon: DocumentTextIcon, path: '/comprobantes' },
+  { 
+    name: 'Certificados', 
+    icon: KeyIcon, 
+    path: '/certificados',
+    badge: certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null
+  },
   { name: 'Mi Empresa', icon: BuildingOfficeIcon, path: '/empresa' }
-]
+])
 
 const isActive = (path: string) => {
   if (path === '/') {
@@ -27,6 +37,22 @@ const isActive = (path: string) => {
   }
   return route.path.startsWith(path)
 }
+
+const cargarAlertasVencimiento = async () => {
+  try {
+    const alertas = await certificadosService.obtenerAlertasVencimiento()
+    certificadosPorVencer.value = alertas.length
+  } catch (err) {
+    // Silently fail, it's not critical
+    console.error('Error loading certificate alerts:', err)
+  }
+}
+
+onMounted(() => {
+  cargarAlertasVencimiento()
+  // Reload alerts every 5 minutes
+  setInterval(cargarAlertasVencimiento, 5 * 60 * 1000)
+})
 </script>
 
 <template>
@@ -76,8 +102,14 @@ const isActive = (path: string) => {
             ]"
             @click="uiStore.sidebarOpen = false"
           >
-            <component :is="item.icon" class="mr-3 h-5 w-5" />
-            {{ item.name }}
+            <component :is="item.icon" class="mr-3 h-5 w-5 flex-shrink-0" />
+            <span class="flex-1">{{ item.name }}</span>
+            <span
+              v-if="item.badge"
+              class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800"
+            >
+              {{ item.badge }}
+            </span>
           </router-link>
         </nav>
 
