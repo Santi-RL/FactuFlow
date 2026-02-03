@@ -12,7 +12,7 @@ services/
 ├── empresas.ts      # Servicio de empresas
 ├── comprobantes.ts  # Servicio de comprobantes
 ├── certificados.ts  # Servicio de certificados
-└── afip.ts          # Servicio de integración AFIP
+└── afip.ts          # Servicio de integración ARCA
 ```
 
 ## Cliente API Base

@@ -10,7 +10,7 @@ stores/
 ├── empresa.ts       # Datos de la empresa activa
 ├── clientes.ts      # Lista de clientes
 ├── comprobantes.ts  # Comprobantes emitidos
-└── certificados.ts  # Certificados AFIP
+└── certificados.ts  # Certificados ARCA
 ```
 
 ## Ejemplo de Store

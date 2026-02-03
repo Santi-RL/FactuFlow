@@ -1,6 +1,6 @@
 # FactuFlow Backend
 
-Backend de FactuFlow - Sistema de Facturación Electrónica AFIP - Argentina.
+Backend de FactuFlow - Sistema de Facturación Electrónica ARCA - Argentina.
 
 ## Tecnologías
 
@@ -163,7 +163,7 @@ backend/
 │   │   ├── certificados.py
 │   │   └── health.py
 │   ├── services/            # Lógica de negocio (futuro)
-│   └── afip/                # Integración AFIP (futuro)
+│   └── afip/                # Integración ARCA (futuro)
 ├── tests/                   # Tests
 │   ├── conftest.py
 │   ├── test_auth.py
@@ -171,7 +171,7 @@ backend/
 │   └── test_health.py
 ├── alembic/                 # Migraciones
 ├── data/                    # SQLite database (gitignored)
-├── certs/                   # Certificados AFIP (gitignored)
+├── certs/                   # Certificados ARCA (gitignored)
 ├── requirements.txt
 ├── requirements-dev.txt
 └── pytest.ini
@@ -225,7 +225,7 @@ Principales:
 
 - `APP_SECRET_KEY` - Clave secreta para JWT (⚠️ cambiar en producción)
 - `DATABASE_URL` - URL de conexión a la base de datos
-- `AFIP_ENV` - Ambiente de AFIP (homologacion/produccion)
+- `ARCA_ENV` - Ambiente de ARCA (homologacion/produccion)
 - `CORS_ORIGINS` - Orígenes permitidos para CORS
 
 ## Licencia

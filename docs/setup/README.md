@@ -164,7 +164,8 @@ docker-compose up -d --build
    APP_ENV=production
    APP_DEBUG=false
    APP_SECRET_KEY=<generar-clave-segura>
-   AFIP_ENV=produccion  # Solo si ya tenés certificados de producción
+   ARCA_ENV=produccion  # Solo si ya tenés certificados de producción
+   # También acepta AFIP_ENV por compatibilidad
    ```
 
 6. **Configurar Nginx (opcional, para HTTPS)**
