@@ -67,7 +67,7 @@ Si aplica, agregá capturas de pantalla.
 - OS: [ej. Ubuntu 22.04]
 - Navegador: [ej. Chrome 120]
 - Versión de FactuFlow: [ej. 1.0.0]
-- Ambiente AFIP: [homologación / producción]
+- Ambiente ARCA: [homologación / producción]
 
 ## Logs
 ```
@@ -300,7 +300,7 @@ En español, estilo Google o NumPy:
 ```python
 def emitir_factura(cliente_id: int, items: list[dict]) -> Comprobante:
     """
-    Emite una factura electrónica en AFIP.
+    Emite una factura electrónica en ARCA.
     
     Args:
         cliente_id: ID del cliente en la base de datos
@@ -310,7 +310,7 @@ def emitir_factura(cliente_id: int, items: list[dict]) -> Comprobante:
         Comprobante con CAE asignado
         
     Raises:
-        AFIPError: Si AFIP rechaza el comprobante
+        ARCAError: Si ARCA rechaza el comprobante
         ValidationError: Si los datos son inválidos
     """
     pass
@@ -418,13 +418,13 @@ Usamos **Conventional Commits** en **español**.
 
 ```bash
 # Nueva feature
-feat: agregar wizard de certificados AFIP
+feat: agregar wizard de certificados ARCA
 feat(frontend): implementar modal de confirmación
 feat(api): endpoint para consultar comprobantes
 
 # Bug fix
 fix: corregir cálculo de IVA en facturas tipo B
-fix(wsfe): manejar timeout en llamadas a AFIP
+fix(wsfe): manejar timeout en llamadas a ARCA
 fix(ui): alinear botones en formulario de cliente
 
 # Documentación
@@ -438,7 +438,7 @@ refactor(models): simplificar relaciones de SQLAlchemy
 
 # Tests
 test: agregar tests para modelo Comprobante
-test(wsaa): mockear respuesta de AFIP
+test(wsaa): mockear respuesta de ARCA
 
 # Chore
 chore: actualizar dependencias de FastAPI
@@ -525,7 +525,7 @@ describe('FormCliente', () => {
 - Certificados (.crt, .key, .pem, .p12, .pfx)
 - Claves privadas
 - Archivos .env con datos reales
-- Credenciales de AFIP
+- Credenciales de ARCA
 - Tokens o secrets
 
 ### Verificar Antes de Commit
@@ -555,7 +555,7 @@ Si encontrás una vulnerabilidad de seguridad:
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [Vue.js 3](https://vuejs.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
-- [AFIP Webservices](https://www.afip.gob.ar/ws/)
+- [ARCA Webservices](https://www.arca.gob.ar/ws/) (ex-AFIP)
 
 ### Herramientas
 - [Black Playground](https://black.vercel.app/)

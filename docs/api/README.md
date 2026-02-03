@@ -210,7 +210,7 @@ Authorization: Bearer {token}
 
 ---
 
-### Certificados AFIP
+### Certificados ARCA
 
 #### Listar Certificados
 

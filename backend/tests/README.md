@@ -45,5 +45,5 @@ Definidas en `conftest.py`:
 - Nombres de tests descriptivos: `test_crear_cliente_con_datos_validos`
 - Un archivo de test por módulo
 - Coverage mínimo del 80%
-- Mockear llamadas a AFIP (no llamar a servicios reales en CI)
+- Mockear llamadas a ARCA (no llamar a servicios reales en CI)
 - Tests de integración en carpeta separada (opcional)

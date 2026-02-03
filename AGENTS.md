@@ -2,13 +2,15 @@
 
 ## Descripción del Proyecto
 
-**FactuFlow** es un sistema de facturación electrónica para Argentina (AFIP) de código abierto. El objetivo es proporcionar una solución **liviana, self-hosted y user-friendly** para emitir comprobantes electrónicos válidos ante AFIP.
+**FactuFlow** es un sistema de facturación electrónica para Argentina (ARCA) de código abierto. El objetivo es proporcionar una solución **liviana, self-hosted y user-friendly** para emitir comprobantes electrónicos válidos ante ARCA (Agencia de Recaudación y Control Aduanero, anteriormente conocida como AFIP).
 
 ### Propósito Principal
 - Permitir a emprendedores y pequeñas empresas emitir facturas electrónicas sin depender de servicios de terceros
-- Gestionar certificados AFIP de forma simple y guiada
-- Integración completa con webservices AFIP (WSAA, WSFEv1)
+- Gestionar certificados ARCA de forma simple y guiada
+- Integración completa con webservices ARCA (WSAA, WSFEv1)
 - Interfaz moderna y fácil de usar para usuarios no técnicos
+
+**Nota importante**: Los webservices de ARCA aún utilizan las URLs y nomenclatura heredadas de AFIP (ej: wsaa.afip.gov.ar, WSFEv1). Esto es normal y no afecta el funcionamiento del sistema.
 
 ---
 
@@ -42,7 +44,7 @@
           │                                │
           ▼                                ▼
 ┌──────────────────┐           ┌──────────────────────┐
-│  SQLite DB       │           │  Webservices AFIP    │
+│  SQLite DB       │           │  Webservices ARCA    │
 │  - Empresas      │           │  - WSAA (auth)       │
 │  - Clientes      │           │  - WSFEv1 (facturas) │
 │  - Comprobantes  │           │  - Homologación/Prod │
@@ -69,7 +71,7 @@
 - `alembic` - Migraciones de BD
 - `pydantic` - Validación de datos
 - `python-dotenv` - Variables de entorno
-- `zeep` o `suds-jurko` - Cliente SOAP para AFIP
+- `zeep` o `suds-jurko` - Cliente SOAP para ARCA
 - `cryptography` - Manejo de certificados
 - `pytest` - Testing
 
@@ -211,7 +213,7 @@ const cuitFormateado = computed(() => {
 
 ```bash
 # ✅ Ejemplos válidos
-feat: agregar wizard de certificados AFIP
+feat: agregar wizard de certificados ARCA
 fix: corregir cálculo de IVA en facturas tipo B
 docs: actualizar guía de instalación con Docker
 refactor: extraer lógica de WSAA a servicio separado
@@ -243,7 +245,7 @@ FactuFlow/
 │   │   │       ├── clientes.py  # Endpoints de clientes
 │   │   │       ├── empresas.py  # Endpoints de empresas
 │   │   │       ├── comprobantes.py
-│   │   │       └── afip.py      # Endpoints de integración AFIP
+│   │   │       └── afip.py      # Endpoints de integración ARCA (legacy name)
 │   │   ├── core/
 │   │   │   ├── __init__.py
 │   │   │   ├── config.py        # Configuración (Settings)
@@ -272,7 +274,7 @@ FactuFlow/
 │   │       ├── wsaa.py           # Web Service Autenticación
 │   │       ├── wsfe.py           # Web Service Factura Electrónica
 │   │       ├── soap_client.py    # Cliente SOAP genérico
-│   │       └── exceptions.py     # Excepciones específicas AFIP
+│   │       └── exceptions.py     # Excepciones específicas ARCA
 │   ├── tests/
 │   │   ├── __init__.py
 │   │   ├── conftest.py           # Fixtures de pytest
@@ -363,7 +365,7 @@ FactuFlow/
 ├── data/                          # SQLite database (gitignored)
 │   └── .gitkeep
 │
-├── certs/                         # Certificados AFIP (gitignored)
+├── certs/                         # Certificados ARCA (gitignored)
 │   └── .gitkeep
 │
 ├── .github/
@@ -537,11 +539,11 @@ npm run type-check
 
 ---
 
-## Integración con AFIP
+## Integración con ARCA
 
 ### WSAA (Web Service de Autenticación y Autorización)
 
-El WSAA es el servicio de autenticación de AFIP. Funciona así:
+El WSAA es el servicio de autenticación de ARCA (ex-AFIP). Funciona así:
 
 1. **Generar TRA (Ticket de Requerimiento de Acceso)**
    - XML con datos del servicio solicitado (ej: "wsfe")
@@ -557,7 +559,7 @@ El WSAA es el servicio de autenticación de AFIP. Funciona así:
 
 4. **Usar Token y Sign en otros servicios**
    - Válidos por el tiempo especificado en TRA
-   - Cada webservice de AFIP requiere Token y Sign
+   - Cada webservice de ARCA requiere Token y Sign
 
 **Endpoints:**
 - Homologación: `https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl`
@@ -592,8 +594,8 @@ Servicio para emitir facturas electrónicas.
      -out certificado.csr
    ```
 
-2. **Subir CSR a AFIP**
-   - Ingresar a AFIP con Clave Fiscal
+2. **Subir CSR a ARCA**
+   - Ingresar a ARCA con Clave Fiscal (portal heredado de AFIP)
    - Administrador de Relaciones → Certificados
    - Subir CSR
    - Descargar certificado (.crt)
@@ -618,13 +620,14 @@ Servicio para emitir facturas electrónicas.
 
 **Producción:**
 - Para facturación real
-- Genera obligaciones fiscales ante AFIP
+- Genera obligaciones fiscales ante ARCA
 - Requiere certificados de producción
 - ⚠️ Validar exhaustivamente antes de usar
 
 **Variable de entorno:**
 ```bash
-AFIP_ENV=homologacion  # o "produccion"
+ARCA_ENV=homologacion  # o "produccion"
+# También acepta AFIP_ENV por compatibilidad
 ```
 
 ---
@@ -704,16 +707,16 @@ def test_crear_cliente_cuit_invalido(client):
     assert response.status_code == 422
 ```
 
-#### Mocks para AFIP
+#### Mocks para ARCA
 
 ```python
 # tests/test_afip/test_wsfe.py
 from unittest.mock import Mock, patch
 
 def test_solicitar_cae(client, db):
-    """Debe solicitar CAE a AFIP correctamente"""
+    """Debe solicitar CAE a ARCA correctamente"""
     
-    # Mock de la respuesta de AFIP
+    # Mock de la respuesta de ARCA
     mock_response = Mock()
     mock_response.FECAESolicitarResult.FeDetResp.FECAEDetResponse = [
         Mock(
@@ -838,13 +841,13 @@ describe('FormCliente', () => {
 
 ### 🔐 Variables Sensibles
 
-**SIEMPRE usar .env:**
-
+**Variable de entorno:**
 ```bash
 # .env (gitignored)
 APP_SECRET_KEY=gen3r4r-c0n-secrets.token_urlsafe()
 DATABASE_URL=sqlite:///./data/factuflow.db
-AFIP_CERTS_PATH=/app/certs
+ARCA_CERTS_PATH=/app/certs
+# También acepta AFIP_CERTS_PATH por compatibilidad
 ```
 
 **NUNCA hardcodear:**
@@ -955,7 +958,7 @@ class EncryptionService:
 ```python
 # Ejemplos de mensajes
 "El certificado vencerá en 7 días"
-"Error al conectar con AFIP. Por favor, verificá tu conexión."
+"Error al conectar con ARCA. Por favor, verificá tu conexión."
 "Factura emitida exitosamente. CAE: 12345678901234"
 ```
 

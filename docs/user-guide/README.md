@@ -32,9 +32,9 @@ Guía completa para usar FactuFlow y emitir facturas electrónicas.
      - Razón social
      - Domicilio fiscal
      - Fecha de inicio de actividades
-     - Puntos de venta habilitados en AFIP
+     - Puntos de venta habilitados en ARCA
 
-4. **Configurar Certificado AFIP**
+4. **Configurar Certificado ARCA**
    - Ir a "Certificados" en el menú
    - Seguir el [Wizard de Certificados](../certificates/README.md)
    - **Importante**: Empezar con ambiente de **Homologación** para pruebas
@@ -161,7 +161,7 @@ Guía completa para usar FactuFlow y emitir facturas electrónicas.
 
 1. **Click en "Emitir Comprobante"**
 
-2. **Esperar Respuesta de AFIP**
+2. **Esperar Respuesta de ARCA**
    - Se mostrará un spinner
    - Puede tardar 5-10 segundos
 
@@ -177,7 +177,7 @@ Guía completa para usar FactuFlow y emitir facturas electrónicas.
        - Enviar por Email
 
    **❌ Error: Comprobante Rechazado**
-   - AFIP mostrará el motivo del rechazo
+   - ARCA mostrará el motivo del rechazo
    - Ejemplos:
      - "CUIT inexistente"
      - "Punto de venta no habilitado"
@@ -219,7 +219,7 @@ Guía completa para usar FactuFlow y emitir facturas electrónicas.
    - Todos los datos del comprobante
    - Items detallados
    - CAE y vencimiento
-   - Código QR (según normativa AFIP)
+   - Código QR (según normativa ARCA)
 
 3. **Acciones Disponibles:**
    - **Imprimir**: Genera y abre PDF
@@ -238,7 +238,7 @@ El PDF incluye:
 - Datos del cliente
 - Tabla de items
 - Totales desglosados
-- Código QR según normativa AFIP
+- Código QR según normativa ARCA
 - Leyendas legales
 
 ---
@@ -283,19 +283,19 @@ El PDF incluye:
 
 ### ¿Puedo emitir facturas sin conexión a internet?
 
-No. FactuFlow necesita conexión para comunicarse con AFIP en tiempo real y obtener el CAE.
+No. FactuFlow necesita conexión para comunicarse con ARCA en tiempo real y obtener el CAE.
 
 ### ¿Puedo anular una factura?
 
 Las facturas electrónicas no se anulan, se emite una **Nota de Crédito** que cancela el comprobante original.
 
-### ¿Qué pasa si AFIP está en mantenimiento?
+### ¿Qué pasa si ARCA está en mantenimiento?
 
 FactuFlow mostrará un error. Intentá más tarde. Podés guardar como borrador para no perder los datos.
 
 ### ¿Puedo emitir múltiples facturas a la vez?
 
-No, cada factura debe emitirse individualmente y obtener su CAE de AFIP.
+No, cada factura debe emitirse individualmente y obtener su CAE de ARCA.
 
 ### ¿Los comprobantes de homologación son válidos?
 
@@ -303,20 +303,20 @@ No. Son solo para pruebas. Para facturación real, debés usar ambiente de **Pro
 
 ### ¿Cómo paso de homologación a producción?
 
-1. Obtener certificado de producción desde AFIP
+1. Obtener certificado de producción desde ARCA
 2. Subirlo a FactuFlow
-3. Cambiar `AFIP_ENV=produccion` en configuración
+3. Cambiar `ARCA_ENV=produccion` en configuración (o `AFIP_ENV` por compatibilidad)
 4. Reiniciar FactuFlow
 
 ⚠️ **Solo hacerlo cuando estés seguro de que todo funciona correctamente.**
 
 ### ¿Puedo facturar en dólares u otras monedas?
 
-Sí, AFIP soporta múltiples monedas. FactuFlow lo implementará en futuras versiones.
+Sí, ARCA soporta múltiples monedas. FactuFlow lo implementará en futuras versiones.
 
 ### ¿Qué es el CAE?
 
-**CAE** = Código de Autorización Electrónica. Es el número que AFIP asigna a tu factura para validarla. Sin CAE, la factura no es válida.
+**CAE** = Código de Autorización Electrónica. Es el número que ARCA asigna a tu factura para validarla. Sin CAE, la factura no es válida.
 
 ### ¿Cuánto tiempo tengo para imprimir/enviar la factura después de obtener el CAE?
 

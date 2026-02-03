@@ -161,9 +161,11 @@ Desarrollo del backend con FastAPI, estructura modular y base de datos.
 
 ---
 
-## Fase 2: Integración AFIP
+## Fase 2: Integración ARCA
 
-Integración completa con webservices de AFIP para autenticación y emisión de comprobantes.
+Integración completa con webservices de ARCA para autenticación y emisión de comprobantes.
+
+**Nota**: Los webservices de ARCA mantienen las URLs y nombres legacy de AFIP (wsaa.afip.gov.ar, etc.) por compatibilidad técnica.
 
 ### 2.1 Cliente SOAP Genérico
 - [ ] Configuración de zeep o suds
@@ -184,7 +186,7 @@ Integración completa con webservices de AFIP para autenticación y emisión de 
 - [ ] Llamada al WSAA
   - [ ] `loginCms()` con CMS firmado
   - [ ] Parsear respuesta (Token y Sign)
-  - [ ] Manejo de errores AFIP
+  - [ ] Manejo de errores ARCA
 - [ ] Cache de Token y Sign
   - [ ] Almacenar en BD o Redis
   - [ ] Auto-renovación antes de expiración
@@ -206,7 +208,7 @@ Integración completa con webservices de AFIP para autenticación y emisión de 
   - [ ] Cache local para optimización
 - [ ] `FECompConsultar` - Consultar comprobante
   - [ ] Buscar comprobante ya emitido
-  - [ ] Verificar estado en AFIP
+  - [ ] Verificar estado en ARCA
 - [ ] Métodos de parámetros
   - [ ] `FEParamGetTiposCbte` - Tipos de comprobante
   - [ ] `FEParamGetTiposDoc` - Tipos de documento
@@ -215,19 +217,19 @@ Integración completa con webservices de AFIP para autenticación y emisión de 
   - [ ] `FEParamGetPtosVenta` - Puntos de venta habilitados
   - [ ] Cache de parámetros en BD (actualizar diariamente)
 
-### 2.4 Manejo de Errores AFIP
+### 2.4 Manejo de Errores ARCA
 - [ ] Excepciones personalizadas
-  - [ ] `AFIPAuthError` - Error de autenticación
-  - [ ] `AFIPValidationError` - Error de validación
-  - [ ] `AFIPConnectionError` - Error de conexión
-  - [ ] `AFIPServiceError` - Error del servicio
-- [ ] Códigos de error AFIP mapeados
+  - [ ] `ARCAAuthError` - Error de autenticación
+  - [ ] `ARCAValidationError` - Error de validación
+  - [ ] `ARCAConnectionError` - Error de conexión
+  - [ ] `ARCAServiceError` - Error del servicio
+- [ ] Códigos de error ARCA mapeados
 - [ ] Mensajes de error amigables en español
 - [ ] Reintentos automáticos (con backoff exponencial)
 - [ ] Logging detallado de errores
 
 ### 2.5 Modo Homologación vs Producción
-- [ ] Variable de entorno `AFIP_ENV` (homologacion/produccion)
+- [ ] Variable de entorno `ARCA_ENV` (homologacion/produccion)
 - [ ] URLs de webservices según ambiente
 - [ ] Validación de certificados según ambiente
 - [ ] Advertencias visibles en UI cuando está en producción
@@ -242,7 +244,7 @@ Integración completa con webservices de AFIP para autenticación y emisión de 
   - [ ] CAE otorgado
   - [ ] Comprobante rechazado
   - [ ] Errores de validación
-- [ ] Tests de integración (con AFIP homologación)
+- [ ] Tests de integración (con ARCA homologación)
   - [ ] Solo si hay certificados de test
   - [ ] No ejecutar en CI (usar mocks)
 
@@ -369,7 +371,7 @@ Desarrollo del frontend con Vue.js 3, Tailwind CSS y componentes reutilizables.
 - [ ] `Configuracion.vue`
   - [ ] Datos de la empresa
   - [ ] Puntos de venta
-  - [ ] Configuración AFIP (homologación/producción)
+  - [ ] Configuración ARCA (homologación/producción)
 
 ---
 
@@ -387,7 +389,7 @@ El Wizard de Certificados es la funcionalidad MÁS IMPORTANTE para la UX. Debe s
 ### 4.2 Step 1: Introducción
 - [ ] Explicación sencilla de qué es un certificado
   - [ ] "Es como un DNI digital para tu empresa"
-  - [ ] "Te permite comunicarte con AFIP de forma segura"
+  - [ ] "Te permite comunicarte con ARCA de forma segura"
 - [ ] Diferencia homologación vs producción
   - [ ] "Homologación es para probar, producción es para facturas reales"
 - [ ] Advertencia de seguridad
@@ -397,7 +399,7 @@ El Wizard de Certificados es la funcionalidad MÁS IMPORTANTE para la UX. Debe s
 
 ### 4.3 Step 2: Generar CSR
 - [ ] Explicación de qué es un CSR
-  - [ ] "Es una solicitud de certificado que vas a enviar a AFIP"
+  - [ ] "Es una solicitud de certificado que vas a enviar a ARCA"
 - [ ] Dos opciones:
   - [ ] **Opción A**: Generar CSR desde FactuFlow
     - [ ] Formulario con datos (CUIT, nombre, etc.)
@@ -413,17 +415,17 @@ El Wizard de Certificados es la funcionalidad MÁS IMPORTANTE para la UX. Debe s
   ```
 - [ ] Botón "Ya tengo mi CSR, continuar"
 
-### 4.4 Step 3: Obtener Certificado desde AFIP
+### 4.4 Step 3: Obtener Certificado desde ARCA
 - [ ] Guía paso a paso con screenshots:
-  1. "Ingresá a AFIP con tu Clave Fiscal"
+  1. "Ingresá a ARCA con tu Clave Fiscal"
   2. "Andá a: Administrador de Relaciones → Certificados Digitales"
   3. "Hacé click en 'Nuevo Certificado'"
   4. "Seleccioná el servicio: wsfe (Factura Electrónica)"
   5. "Copiá y pegá tu CSR en el campo"
   6. "Descargá el certificado (.crt)"
 - [ ] Links directos:
-  - [ ] [AFIP Homologación](https://auth.afip.gov.ar/contribuyente_/...)
-  - [ ] [AFIP Producción](https://auth.afip.gov.ar/contribuyente_/...)
+  - [ ] [ARCA Homologación](https://auth.afip.gov.ar/contribuyente_/...)
+  - [ ] [ARCA Producción](https://auth.afip.gov.ar/contribuyente_/...)
 - [ ] Checkbox "Ya descargué mi certificado .crt"
 - [ ] Botón "Continuar"
 
@@ -444,7 +446,7 @@ El Wizard de Certificados es la funcionalidad MÁS IMPORTANTE para la UX. Debe s
 - [ ] Botón "Subir Certificado"
 
 ### 4.6 Step 5: Verificación y Test
-- [ ] Test de conexión con AFIP
+- [ ] Test de conexión con ARCA
   - [ ] Llamar a WSAA con el certificado
   - [ ] Intentar obtener Token y Sign
   - [ ] Mostrar resultado:
@@ -463,7 +465,7 @@ El Wizard de Certificados es la funcionalidad MÁS IMPORTANTE para la UX. Debe s
 - [ ] Detectar certificados próximos a vencer
 - [ ] Wizard similar pero simplificado:
   - [ ] Step 1: Generar nuevo CSR (con mismos datos)
-  - [ ] Step 2: Obtener nuevo certificado de AFIP
+  - [ ] Step 2: Obtener nuevo certificado de ARCA
   - [ ] Step 3: Subir y reemplazar
   - [ ] Step 4: Verificar
 - [ ] Mantener histórico de certificados antiguos
@@ -527,12 +529,12 @@ Funcionalidad completa para emitir facturas, notas de crédito y débito.
 - [ ] **Paso 4: Vista Previa**
   - [ ] Preview del comprobante formateado
   - [ ] Todos los datos visibles
-  - [ ] Advertencia: "Este comprobante se enviará a AFIP"
+  - [ ] Advertencia: "Este comprobante se enviará a ARCA"
   - [ ] Botones:
     - [ ] "Volver a editar"
     - [ ] "Emitir Comprobante"
 
-### 5.2 Emisión a AFIP
+### 5.2 Emisión a ARCA
 - [ ] Al hacer click en "Emitir":
   - [ ] Validar todos los datos
   - [ ] Loading spinner
@@ -541,15 +543,15 @@ Funcionalidad completa para emitir facturas, notas de crédito y débito.
   - [ ] Obtener Token y Sign (WSAA)
   - [ ] Obtener último comprobante autorizado
   - [ ] Armar request de FECAESolicitar
-  - [ ] Enviar a AFIP WSFEv1
+  - [ ] Enviar a ARCA WSFEv1
   - [ ] Parsear respuesta
 - [ ] Manejo de respuesta:
   - [ ] **Éxito**: CAE obtenido
     - [ ] Guardar comprobante en BD con CAE
     - [ ] Mostrar modal de éxito con CAE y vencimiento
     - [ ] Opciones: "Ver Comprobante", "Imprimir", "Enviar por Email"
-  - [ ] **Rechazo**: AFIP rechazó
-    - [ ] Mostrar errores de AFIP en español
+  - [ ] **Rechazo**: ARCA rechazó
+    - [ ] Mostrar errores de ARCA en español
     - [ ] Sugerencias de corrección
     - [ ] Volver a editar
   - [ ] **Error**: Error técnico
@@ -587,7 +589,7 @@ Funcionalidad completa para emitir facturas, notas de crédito y débito.
   - [ ] Datos del cliente
   - [ ] Tabla de items
   - [ ] Subtotal, IVA, Total
-  - [ ] Código QR (según normativa AFIP)
+  - [ ] Código QR (según normativa ARCA)
   - [ ] Leyendas legales
 - [ ] Acciones:
   - [ ] Imprimir (abre PDF)
@@ -611,7 +613,7 @@ Generación de PDFs legales y reportes de gestión.
   - [ ] Tipo de comprobante y letra (A/B/C) grande
   - [ ] Número de comprobante con formato
   - [ ] CAE y vencimiento CAE destacados
-  - [ ] Código QR según normativa AFIP:
+  - [ ] Código QR según normativa ARCA:
     - [ ] Contiene: URL de verificación, CUIT, tipo cbte, punto vta, número, CAE
     - [ ] Posición: esquina inferior derecha
   - [ ] Datos del cliente
@@ -626,7 +628,7 @@ Generación de PDFs legales y reportes de gestión.
   - [ ] Content-Type: application/pdf
 
 ### 6.2 Código QR
-- [ ] Generar QR según especificación AFIP
+- [ ] Generar QR según especificación ARCA
 - [ ] Formato del QR:
   ```
   https://www.afip.gob.ar/fe/qr/?p=BASE64_DATA
@@ -691,9 +693,9 @@ Optimización, testing exhaustivo y preparación para el lanzamiento de v1.0.0.
 - [ ] Tests E2E críticos:
   - [ ] Login y autenticación
   - [ ] Crear cliente
-  - [ ] Emitir factura completa (mock de AFIP)
+  - [ ] Emitir factura completa (mock de ARCA)
   - [ ] Generar PDF
-  - [ ] Wizard de certificados (mock de AFIP)
+  - [ ] Wizard de certificados (mock de ARCA)
 - [ ] Tests en diferentes navegadores
   - [ ] Chrome
   - [ ] Firefox
@@ -718,7 +720,7 @@ Optimización, testing exhaustivo y preparación para el lanzamiento de v1.0.0.
 - [ ] Videos tutoriales (opcional)
   - [ ] Instalación
   - [ ] Primera factura
-  - [ ] Certificados AFIP
+  - [ ] Certificados ARCA
 - [ ] Documentación técnica
   - [ ] Arquitectura del sistema
   - [ ] API Reference (auto-generada con OpenAPI)
@@ -728,7 +730,7 @@ Optimización, testing exhaustivo y preparación para el lanzamiento de v1.0.0.
 ### 7.3 Optimización de Rendimiento
 - [ ] Backend:
   - [ ] Índices en BD (CUIT, fechas, números de comprobante)
-  - [ ] Cache de parámetros AFIP (Redis o memoria)
+  - [ ] Cache de parámetros ARCA (Redis o memoria)
   - [ ] Compresión de responses (gzip)
   - [ ] Paginación eficiente
   - [ ] N+1 queries resueltas
@@ -828,10 +830,10 @@ Ideas para versiones futuras (no prioritarias):
 - [ ] Scanner de código de barras
 - [ ] Notificaciones push
 
-### Más Webservices AFIP
+### Más Webservices ARCA
 - [ ] WSFEX (Factura Exportación)
 - [ ] WSMTXCA (Monotributo)
-- [ ] Padrón AFIP (validar CUIT)
+- [ ] Padrón ARCA (validar CUIT)
 
 ---
 

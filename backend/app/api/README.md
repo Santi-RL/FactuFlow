@@ -14,8 +14,8 @@ api/
     ├── clientes.py      # CRUD de clientes
     ├── empresas.py      # CRUD de empresas
     ├── comprobantes.py  # Emisión y consulta de comprobantes
-    ├── certificados.py  # Gestión de certificados AFIP
-    └── afip.py          # Integración directa con AFIP (WSAA, WSFEv1)
+    ├── certificados.py  # Gestión de certificados ARCA
+    └── afip.py          # Integración directa con ARCA (WSAA, WSFEv1)
 ```
 
 ## Convenciones

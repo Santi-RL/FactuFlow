@@ -13,13 +13,13 @@ Datos fiscales del emisor de comprobantes:
 - Configuración de puntos de venta
 
 ### PuntoDeVenta
-Puntos de venta habilitados en AFIP:
+Puntos de venta habilitados en ARCA:
 - Número de punto de venta
 - Descripción/alias
 - Relación con Empresa
 
 ### Certificado
-Metadatos de certificados AFIP (NO el archivo):
+Metadatos de certificados ARCA (NO el archivo):
 - CUIT relacionado
 - Alias del certificado
 - Fechas de emisión y vencimiento

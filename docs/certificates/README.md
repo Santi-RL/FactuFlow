@@ -1,19 +1,23 @@
-# Certificados AFIP - Guía Completa
+# Certificados ARCA - Guía Completa
 
-Todo lo que necesitás saber sobre certificados digitales para facturar con AFIP.
+Todo lo que necesitás saber sobre certificados digitales para facturar con ARCA (Agencia de Recaudación y Control Aduanero).
+
+**Nota importante**: Aunque el organismo cambió su nombre a ARCA, el portal web y algunos sistemas aún pueden mostrar "AFIP" en las URLs y referencias técnicas. Esto es normal y no afecta el funcionamiento.
 
 ## ¿Qué es un Certificado Digital?
 
 Un certificado digital es como un **DNI electrónico** para tu empresa. Te permite:
-- Identificarte de forma segura ante AFIP
+- Identificarte de forma segura ante ARCA
 - Firmar digitalmente tus comprobantes
-- Comunicarte con los webservices de AFIP
+- Comunicarte con los webservices de ARCA
+
+**Nota técnica**: Los webservices de ARCA mantienen las URLs con "afip.gov.ar" por compatibilidad técnica (ej: wsaa.afip.gov.ar). Esto es normal.
 
 ### Componentes del Certificado
 
 1. **Certificado (.crt)**: La parte pública, identifica a tu empresa
 2. **Clave Privada (.key)**: La parte privada, **NUNCA compartir**
-3. **CSR**: Solicitud de certificado que enviás a AFIP
+3. **CSR**: Solicitud de certificado que enviás a ARCA
 
 ---
 
@@ -58,12 +62,12 @@ openssl req -new -newkey rsa:2048 -nodes \
 
 ---
 
-## Paso 2: Obtener Certificado desde AFIP
+## Paso 2: Obtener Certificado desde ARCA
 
 ### Para Homologación (Testing)
 
-1. **Ingresar a AFIP con Clave Fiscal**
-   - URL: https://auth.afip.gov.ar/contribuyente_/login.xhtml
+1. **Ingresar a ARCA con Clave Fiscal**
+   - URL: https://auth.afip.gov.ar/contribuyente_/login.xhtml (portal heredado)
    - Usar tu CUIT y Clave Fiscal nivel 3 o superior
 
 2. **Ir a Administrador de Relaciones**
@@ -87,6 +91,8 @@ openssl req -new -newkey rsa:2048 -nodes \
    - Se generará inmediatamente
    - Click en "Descargar"
    - Guardar como `certificado_homologacion.crt`
+
+**Nota**: El portal puede mostrar "AFIP" en algunas referencias, pero el certificado es válido para ARCA.
 
 ### Para Producción
 
@@ -116,7 +122,7 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
    - ○ Producción (para facturación real)
 
    **Paso 2: Subir Archivos**
-   - Subir certificado `.crt` descargado de AFIP
+   - Subir certificado `.crt` descargado de ARCA
    - Subir clave privada `.key` generada en Paso 1
 
    **Paso 3: Verificar Datos**
@@ -130,12 +136,14 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
    - Ej: "Certificado Producción 2024"
 
    **Paso 5: Test de Conexión**
-   - FactuFlow probará conectarse a AFIP
+   - FactuFlow probará conectarse a ARCA
    - ✅ Si es exitoso, el certificado está listo
    - ❌ Si hay error, revisar:
      - ¿El certificado corresponde a la clave privada?
      - ¿El ambiente es correcto?
      - ¿El certificado no está vencido?
+
+**Nota técnica**: La conexión usa los webservices heredados con URLs "afip.gov.ar". Esto es esperado y correcto.
 
 ---
 
@@ -143,7 +151,7 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
 
 ### ¿Cuándo vencen los certificados?
 
-Los certificados de AFIP tienen validez de **1 o 2 años** (según configuración).
+Los certificados de ARCA tienen validez de **1 o 2 años** (según configuración).
 
 ### Sistema de Alertas de FactuFlow
 
@@ -159,9 +167,9 @@ FactuFlow te alertará automáticamente:
    - Podés usar los mismos datos
    - Se generará nueva clave privada
 
-2. **Solicitar nuevo certificado en AFIP** (repetir Paso 2)
+2. **Solicitar nuevo certificado en ARCA** (repetir Paso 2)
    - El proceso es idéntico
-   - AFIP te dará un nuevo certificado
+   - ARCA te dará un nuevo certificado
 
 3. **Reemplazar en FactuFlow**
    - Ir a "Certificados"
@@ -213,7 +221,7 @@ FactuFlow te alertará automáticamente:
 - Formato incorrecto (debe ser .crt o .pem)
 
 **Solución:**
-- Descargar nuevamente desde AFIP
+- Descargar nuevamente desde ARCA
 - Verificar que se copió completo (debe empezar con `-----BEGIN CERTIFICATE-----`)
 
 ### Error: "La clave privada no corresponde al certificado"
@@ -230,11 +238,11 @@ FactuFlow te alertará automáticamente:
 **Solución:**
 - Generar nuevo certificado (ver sección Renovación)
 
-### Error al conectar con AFIP
+### Error al conectar con ARCA
 
 **Posibles causas:**
 - Sin conexión a internet
-- AFIP en mantenimiento
+- ARCA en mantenimiento
 - Certificado de ambiente incorrecto (homologación vs producción)
 
 **Solución:**
@@ -248,7 +256,7 @@ FactuFlow te alertará automáticamente:
 
 ### CUIT de Prueba
 
-Para homologación, podés usar el CUIT de prueba de AFIP:
+Para homologación, podés usar el CUIT de prueba de ARCA:
 - **CUIT**: 20409378472
 - Disponible para todos
 - Solo válido en ambiente de homologación
@@ -257,8 +265,8 @@ Para homologación, podés usar el CUIT de prueba de AFIP:
 
 El proceso es idéntico, pero:
 1. Usar el CUIT de prueba (o tu CUIT en homologación)
-2. Seleccionar ambiente "Homologación" en AFIP
-3. Usar en FactuFlow con `AFIP_ENV=homologacion`
+2. Seleccionar ambiente "Homologación" en ARCA
+3. Usar en FactuFlow con `ARCA_ENV=homologacion`
 
 ---
 
@@ -292,10 +300,10 @@ Técnicamente sí, pero NO es recomendable por seguridad. Si necesitás usar Fac
 Tendrás que generar un nuevo CSR y obtener un nuevo certificado. Los comprobantes anteriores siguen siendo válidos.
 
 **¿Puedo revocar un certificado?**
-Sí, desde AFIP → Administrador de Relaciones → Certificados → Revocar. Útil si creés que está comprometido.
+Sí, desde ARCA → Administrador de Relaciones → Certificados → Revocar. Útil si creés que está comprometido.
 
 **¿Los certificados tienen costo?**
-No, AFIP los emite gratuitamente.
+No, ARCA los emite gratuitamente.
 
 **¿Necesito certificado para cada punto de venta?**
 No, un certificado sirve para todos los puntos de venta de un CUIT.
