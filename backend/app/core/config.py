@@ -1,12 +1,19 @@
 """Configuración de la aplicación usando Pydantic Settings."""
 
 from typing import List
-from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
 
 
 class Settings(BaseSettings):
     """Configuración global de la aplicación."""
+    
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",  # Ignore extra fields from .env
+    )
     
     # App
     app_name: str = "FactuFlow"
@@ -28,9 +35,9 @@ class Settings(BaseSettings):
         alias="DATABASE_URL"
     )
     
-    # CORS
-    cors_origins: List[str] = Field(
-        default=["http://localhost:8080", "http://127.0.0.1:8080"],
+    # CORS - can be string or list
+    cors_origins: str | List[str] = Field(
+        default="http://localhost:8080,http://127.0.0.1:8080",
         alias="CORS_ORIGINS"
     )
     
@@ -41,18 +48,13 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     
-    class Config:
-        """Configuración de Pydantic Settings."""
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        
-        # Allow parsing comma-separated values for lists
-        @classmethod
-        def parse_env_var(cls, field_name: str, raw_val: str):
-            if field_name == "cors_origins":
-                return [origin.strip() for origin in raw_val.split(",")]
-            return raw_val
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS_ORIGINS from string to list."""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
 
 
 settings = Settings()
