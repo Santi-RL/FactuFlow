@@ -1,6 +1,6 @@
 # 🧾 FactuFlow
 
-**Sistema de Facturación Electrónica Argentina (AFIP) - Open Source**
+**Sistema de Facturación Electrónica Argentina (ARCA) - Open Source**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Estado: En Desarrollo](https://img.shields.io/badge/Estado-En%20Desarrollo-yellow.svg)]()
@@ -9,7 +9,7 @@
 
 ## 📋 Descripción
 
-FactuFlow es un sistema de facturación electrónica argentino, diseñado para ser **simple, liviano y fácil de usar**. Pensado para emprendedores, pequeñas empresas y desarrolladores que necesitan una solución self-hosted para emitir comprobantes electrónicos válidos ante AFIP.
+FactuFlow es un sistema de facturación electrónica argentino, diseñado para ser **simple, liviano y fácil de usar**. Pensado para emprendedores, pequeñas empresas y desarrolladores que necesitan una solución self-hosted para emitir comprobantes electrónicos válidos ante ARCA (Agencia de Recaudación y Control Aduanero, anteriormente conocida como AFIP).
 
 ### ✨ Características Principales
 
@@ -17,7 +17,7 @@ FactuFlow es un sistema de facturación electrónica argentino, diseñado para s
 - 🏠 **Self-Hosted**: Ejecutalo en tu PC, servidor local o VPS
 - 🎨 **Interfaz Moderna**: UI limpia y contemporánea
 - 👥 **User-Friendly**: Diseñado para usuarios no técnicos
-- 🔐 **Gestión de Certificados**: Wizard guiado para configurar certificados AFIP
+- 🔐 **Gestión de Certificados**: Wizard guiado para configurar certificados ARCA
 - 📄 **Comprobantes**: Facturas A, B, C, Notas de Crédito y Débito
 - 🐳 **Docker Ready**: Un comando para levantar todo
 - 🆓 **100% Open Source**: Licencia MIT, usalo como quieras
@@ -56,7 +56,7 @@ Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
 ## 📖 Documentación
 
 - [Guía de Instalación](docs/setup/README.md)
-- [Configuración de Certificados AFIP](docs/certificates/README.md)
+- [Configuración de Certificados ARCA](docs/certificates/README.md)
 - [Manual de Usuario](docs/user-guide/README.md)
 - [API Reference](docs/api/README.md)
 
@@ -88,7 +88,7 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 ## ⚠️ Disclaimer
 
-Este software es proporcionado "tal cual", sin garantías de ningún tipo. El usuario es responsable de verificar que los comprobantes emitidos cumplan con la normativa vigente de AFIP. Los desarrolladores no se hacen responsables por errores en la facturación o problemas fiscales derivados del uso de este sistema.
+Este software es proporcionado "tal cual", sin garantías de ningún tipo. El usuario es responsable de verificar que los comprobantes emitidos cumplan con la normativa vigente de ARCA. Los desarrolladores no se hacen responsables por errores en la facturación o problemas fiscales derivados del uso de este sistema.
 
 ---
 
