@@ -67,7 +67,7 @@ Si aplica, agregá capturas de pantalla.
 - OS: [ej. Ubuntu 22.04]
 - Navegador: [ej. Chrome 120]
 - Versión de FactuFlow: [ej. 1.0.0]
-- Ambiente AFIP: [homologación / producción]
+- Ambiente ARCA: [homologación / producción]
 
 ## Logs
 ```
@@ -438,7 +438,7 @@ refactor(models): simplificar relaciones de SQLAlchemy
 
 # Tests
 test: agregar tests para modelo Comprobante
-test(wsaa): mockear respuesta de AFIP
+test(wsaa): mockear respuesta de ARCA
 
 # Chore
 chore: actualizar dependencias de FastAPI
