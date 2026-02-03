@@ -9,7 +9,7 @@ interface Emits {
 
 const emit = defineEmits<Emits>()
 
-const tengocertificado = ref(false)
+const tengoElCertificado = ref(false)
 
 const abrirPortalArca = () => {
   window.open('https://auth.afip.gob.ar/contribuyente_/login.xhtml', '_blank')
