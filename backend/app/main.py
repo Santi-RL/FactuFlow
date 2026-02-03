@@ -2,12 +2,43 @@
 # Sistema de Facturación Electrónica Argentina (AFIP)
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
+from app.core.database import engine, Base
+from app.api import health, auth, empresas, clientes, puntos_venta, certificados
 
 app = FastAPI(
     title="FactuFlow API",
     description="Sistema de Facturación Electrónica AFIP - Argentina",
-    version="0.1.0"
+    version="0.1.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
 )
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Routers
+app.include_router(health.router, prefix="/api/health", tags=["Health"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Autenticación"])
+app.include_router(empresas.router, prefix="/api/empresas", tags=["Empresas"])
+app.include_router(clientes.router, prefix="/api/clientes", tags=["Clientes"])
+app.include_router(puntos_venta.router, prefix="/api/puntos-venta", tags=["Puntos de Venta"])
+app.include_router(certificados.router, prefix="/api/certificados", tags=["Certificados"])
+
+
+@app.on_event("startup")
+async def startup():
+    """Crear tablas en la base de datos al iniciar (solo desarrollo)."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 @app.get("/")
@@ -16,11 +47,5 @@ async def root():
     return {
         "message": "FactuFlow API",
         "version": "0.1.0",
-        "status": "En desarrollo"
+        "docs": "/api/docs"
     }
-
-
-@app.get("/health")
-async def health():
-    """Health check para Docker."""
-    return {"status": "healthy"}
