@@ -12,7 +12,7 @@ from .exceptions import (
     ArcaAuthError,
     ArcaValidationError,
     ArcaConnectionError,
-    ArcaServiceError
+    ArcaServiceError,
 )
 
 __all__ = [
