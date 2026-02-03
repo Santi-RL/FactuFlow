@@ -41,9 +41,21 @@ class Settings(BaseSettings):
         alias="CORS_ORIGINS"
     )
     
-    # AFIP
+    # AFIP/ARCA
     afip_env: str = Field(default="homologacion", alias="AFIP_ENV")
-    afip_certs_path: str = Field(default="./certs", alias="AFIP_CERTS_PATH")
+    certs_path: str = Field(default="./certs", alias="CERTS_PATH")
+    
+    @field_validator("certs_path", mode="before")
+    @classmethod
+    def parse_certs_path(cls, v, info):
+        """Parse certs path, fallback to AFIP_CERTS_PATH if not set."""
+        if v is None or v == "./certs":
+            # Try to get from AFIP_CERTS_PATH env var
+            import os
+            afip_path = os.getenv("AFIP_CERTS_PATH")
+            if afip_path:
+                return afip_path
+        return v
     
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
