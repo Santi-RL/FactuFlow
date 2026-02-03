@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # ====================================
+  # BACKEND - FastAPI + Python
+  # ====================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: factuflow-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-cambiar-esto-en-produccion}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - DATABASE_URL=sqlite:///./data/factuflow.db
+      - AFIP_ENV=${AFIP_ENV:-homologacion}
+      - AFIP_CERTS_PATH=/app/certs
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:8080}
+      - TZ=America/Argentina/Buenos_Aires
+    volumes:
+      # Persistencia de base de datos
+      - ./data:/app/data
+      # Persistencia de certificados AFIP
+      - ./certs:/app/certs
+      # Código fuente (desarrollo - hot reload)
+      - ./backend/app:/app/app
+      # Logs
+      - ./logs:/app/logs
+    networks:
+      - factuflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - db
+
+  # ====================================
+  # FRONTEND - Vue.js + Vite
+  # ====================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: factuflow-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - NODE_ENV=${NODE_ENV:-development}
+    volumes:
+      # Código fuente (desarrollo - hot reload)
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      # node_modules como volumen nombrado (performance)
+      - frontend-node-modules:/app/node_modules
+    networks:
+      - factuflow-network
+    depends_on:
+      - backend
+
+  # ====================================
+  # DATABASE - PostgreSQL (Opcional)
+  # ====================================
+  # Descomentar si querés usar PostgreSQL en lugar de SQLite
+  # db:
+  #   image: postgres:15-alpine
+  #   container_name: factuflow-db
+  #   restart: unless-stopped
+  #   environment:
+  #     - POSTGRES_USER=factuflow
+  #     - POSTGRES_PASSWORD=factuflow_password
+  #     - POSTGRES_DB=factuflow
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - factuflow-network
+  #   ports:
+  #     - "5432:5432"
+
+  # ====================================
+  # PLACEHOLDER DB (SQLite)
+  # ====================================
+  db:
+    # Este es un placeholder cuando usamos SQLite
+    # SQLite no necesita contenedor separado
+    image: alpine:latest
+    container_name: factuflow-db-placeholder
+    command: /bin/sh -c "echo 'Usando SQLite - no se requiere contenedor de BD separado' && tail -f /dev/null"
+    networks:
+      - factuflow-network
+
+# ====================================
+# NETWORKS
+# ====================================
+networks:
+  factuflow-network:
+    driver: bridge
+
+# ====================================
+# VOLUMES
+# ====================================
+volumes:
+  # Volumen para node_modules (mejor performance)
+  frontend-node-modules:
+  
+  # Si usás PostgreSQL, descomentar:
+  # postgres-data:
