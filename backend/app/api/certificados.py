@@ -427,7 +427,7 @@ async def obtener_alertas_vencimiento(
     Returns:
         Lista de certificados con alertas de vencimiento
     """
-    query = select(Certificado).where(Certificado.activo == True)
+    query = select(Certificado).where(Certificado.activo)
     
     if not current_user.es_admin:
         query = query.where(Certificado.empresa_id == current_user.empresa_id)

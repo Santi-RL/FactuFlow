@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     
     @field_validator("certs_path", mode="before")
     @classmethod
-    def parse_certs_path(cls, v, info):
+    def parse_certs_path(cls, v, _info):
         """Parse certs path, fallback to AFIP_CERTS_PATH if not set."""
         if v is None or v == "./certs":
             # Try to get from AFIP_CERTS_PATH env var

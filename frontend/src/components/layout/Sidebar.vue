@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUIStore } from '@/stores/ui'
 import {
@@ -17,6 +17,7 @@ const route = useRoute()
 const uiStore = useUIStore()
 
 const certificadosPorVencer = ref(0)
+let intervalId: number | null = null
 
 const menuItems = computed(() => [
   { name: 'Dashboard', icon: HomeIcon, path: '/' },
@@ -51,7 +52,13 @@ const cargarAlertasVencimiento = async () => {
 onMounted(() => {
   cargarAlertasVencimiento()
   // Reload alerts every 5 minutes
-  setInterval(cargarAlertasVencimiento, 5 * 60 * 1000)
+  intervalId = window.setInterval(cargarAlertasVencimiento, 5 * 60 * 1000)
+})
+
+onBeforeUnmount(() => {
+  if (intervalId !== null) {
+    clearInterval(intervalId)
+  }
 })
 </script>
 

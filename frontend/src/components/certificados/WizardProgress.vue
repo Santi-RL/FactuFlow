@@ -14,6 +14,25 @@ interface Props {
 
 const props = defineProps<Props>()
 
+import { computed } from 'vue'
+
+interface Step {
+  number: number
+  title: string
+  shortTitle: string
+}
+
+interface Props {
+  currentStep: number
+  steps: Step[]
+}
+
+const props = defineProps<Props>()
+
+// Constants for layout
+const CIRCLE_SIZE = '2.5rem'
+const LINE_OFFSET_PERCENTAGE = 50
+
 const getStepClasses = (stepNumber: number) => {
   const isActive = stepNumber === props.currentStep
   const isCompleted = stepNumber < props.currentStep
@@ -31,6 +50,16 @@ const getLineClasses = (stepNumber: number) => {
   return {
     'bg-green-500': isCompleted,
     'bg-gray-300': !isCompleted
+  }
+}
+
+const getLineStyle = (index: number, totalSteps: number) => {
+  const isLastStep = index === totalSteps - 2
+  
+  return {
+    left: `${LINE_OFFSET_PERCENTAGE}%`,
+    right: isLastStep ? `-${LINE_OFFSET_PERCENTAGE}%` : `calc(-100% + ${CIRCLE_SIZE})`,
+    width: isLastStep ? `${LINE_OFFSET_PERCENTAGE}%` : `calc(100% - ${CIRCLE_SIZE})`
   }
 }
 </script>
@@ -74,11 +103,7 @@ const getLineClasses = (stepNumber: number) => {
           v-if="index < steps.length - 1"
           class="absolute top-5 h-0.5 transition-all duration-300"
           :class="getLineClasses(step.number)"
-          :style="{
-            left: '50%',
-            right: index === steps.length - 2 ? '-50%' : `calc(-100% + 2.5rem)`,
-            width: index === steps.length - 2 ? '50%' : 'calc(100% - 2.5rem)'
-          }"
+          :style="getLineStyle(index, steps.length)"
         />
       </div>
     </div>
