@@ -13,6 +13,9 @@ import ClienteFormView from '@/views/clientes/ClienteFormView.vue'
 import ClienteDetailView from '@/views/clientes/ClienteDetailView.vue'
 import EmpresaConfigView from '@/views/empresa/EmpresaConfigView.vue'
 import ComprobantesListView from '@/views/comprobantes/ComprobantesListView.vue'
+import CertificadosListView from '@/views/certificados/CertificadosListView.vue'
+import CertificadoWizardView from '@/views/certificados/CertificadoWizardView.vue'
+import CertificadoExitoView from '@/views/certificados/CertificadoExitoView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -68,6 +71,27 @@ const router = createRouter({
           path: 'comprobantes',
           name: 'comprobantes',
           component: ComprobantesListView
+        },
+        {
+          path: 'certificados',
+          name: 'certificados',
+          component: CertificadosListView
+        },
+        {
+          path: 'certificados/nuevo',
+          name: 'certificado-wizard',
+          component: CertificadoWizardView
+        },
+        {
+          path: 'certificados/:id/renovar',
+          name: 'certificado-renovar',
+          component: CertificadoWizardView,
+          props: { renovar: true }
+        },
+        {
+          path: 'certificados/:id/exito',
+          name: 'certificado-exito',
+          component: CertificadoExitoView
         }
       ]
     }
