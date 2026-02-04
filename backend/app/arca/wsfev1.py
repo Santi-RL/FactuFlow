@@ -29,7 +29,6 @@ from app.arca.exceptions import (
 )
 from app.arca.utils import clean_cuit, format_importe
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -277,9 +276,9 @@ class WSFEv1Client:
         # Crear respuesta
         cae_response = CAEResponse(
             cae=fe_det_resp.CAE if hasattr(fe_det_resp, "CAE") else None,
-            cae_vencimiento=fe_det_resp.CAEFchVto
-            if hasattr(fe_det_resp, "CAEFchVto")
-            else None,
+            cae_vencimiento=(
+                fe_det_resp.CAEFchVto if hasattr(fe_det_resp, "CAEFchVto") else None
+            ),
             numero_comprobante=comprobante.cbte_desde,
             tipo_cbte=comprobante.tipo_cbte,
             punto_venta=comprobante.punto_venta,
@@ -346,9 +345,11 @@ class WSFEv1Client:
                 punto_venta=result.PtoVta,
                 tipo_cbte=result.CbteTipo,
                 numero=result.CbteNro,
-                cuit_emisor=str(result.CuitEmisor)
-                if hasattr(result, "CuitEmisor")
-                else self.cuit,
+                cuit_emisor=(
+                    str(result.CuitEmisor)
+                    if hasattr(result, "CuitEmisor")
+                    else self.cuit
+                ),
                 cae=result.CodAutorizacion,
                 cae_vencimiento=result.FchVto,
                 fecha_cbte=result.CbteFch,

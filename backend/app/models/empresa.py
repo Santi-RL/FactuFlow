@@ -9,9 +9,9 @@ from app.core.database import Base
 
 class Empresa(Base):
     """Modelo de Empresa emisora de comprobantes."""
-    
+
     __tablename__ = "empresas"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     razon_social = Column(String(255), nullable=False)
     cuit = Column(String(11), unique=True, index=True, nullable=False)
@@ -24,17 +24,29 @@ class Empresa(Base):
     telefono = Column(String(50), nullable=True)
     inicio_actividades = Column(Date, nullable=False)
     logo = Column(String(255), nullable=True)  # Path al archivo de logo
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
     # Relaciones
-    usuarios = relationship("Usuario", back_populates="empresa", cascade="all, delete-orphan")
-    clientes = relationship("Cliente", back_populates="empresa", cascade="all, delete-orphan")
-    puntos_venta = relationship("PuntoVenta", back_populates="empresa", cascade="all, delete-orphan")
-    certificados = relationship("Certificado", back_populates="empresa", cascade="all, delete-orphan")
-    comprobantes = relationship("Comprobante", back_populates="empresa", cascade="all, delete-orphan")
-    
+    usuarios = relationship(
+        "Usuario", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    clientes = relationship(
+        "Cliente", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    puntos_venta = relationship(
+        "PuntoVenta", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    certificados = relationship(
+        "Certificado", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    comprobantes = relationship(
+        "Comprobante", back_populates="empresa", cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<Empresa {self.razon_social} - CUIT: {self.cuit}>"

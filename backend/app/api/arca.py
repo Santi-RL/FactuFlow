@@ -36,7 +36,6 @@ from app.arca.exceptions import (
     ArcaServiceError,
 )
 
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 

@@ -23,10 +23,10 @@ async def test_create_cliente(client: AsyncClient, auth_headers: dict):
             "provincia": "Buenos Aires",
             "codigo_postal": "1001",
             "email": "cliente@test.com",
-            "telefono": "1122334455"
-        }
+            "telefono": "1122334455",
+        },
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["razon_social"] == "Cliente Test S.A."
@@ -37,17 +37,19 @@ async def test_create_cliente(client: AsyncClient, auth_headers: dict):
 
 
 @pytest.mark.asyncio
-async def test_list_clientes(client: AsyncClient, auth_headers: dict, db_session: AsyncSession):
+async def test_list_clientes(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession
+):
     """Test listar clientes."""
     # Crear algunos clientes de prueba
     from app.models.empresa import Empresa
-    
+
     # Obtener la empresa del usuario autenticado
-    # (el auth_headers proviene del setup user que no tiene empresa, 
+    # (el auth_headers proviene del setup user que no tiene empresa,
     # así que necesitamos crear una para el test)
-    
+
     response = await client.get("/api/clientes", headers=auth_headers)
-    
+
     # Puede estar vacío o tener los clientes creados en otros tests
     assert response.status_code == 200
     data = response.json()
@@ -68,15 +70,15 @@ async def test_get_cliente(client: AsyncClient, auth_headers: dict):
             "razon_social": "Cliente Get Test",
             "tipo_documento": "CUIT",
             "numero_documento": "20111222333",
-            "condicion_iva": "Monotributo"
-        }
+            "condicion_iva": "Monotributo",
+        },
     )
-    
+
     cliente_id = create_response.json()["id"]
-    
+
     # Obtener el cliente
     response = await client.get(f"/api/clientes/{cliente_id}", headers=auth_headers)
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == cliente_id
@@ -94,22 +96,19 @@ async def test_update_cliente(client: AsyncClient, auth_headers: dict):
             "razon_social": "Cliente Update Test",
             "tipo_documento": "CUIT",
             "numero_documento": "20444555666",
-            "condicion_iva": "RI"
-        }
+            "condicion_iva": "RI",
+        },
     )
-    
+
     cliente_id = create_response.json()["id"]
-    
+
     # Actualizar el cliente
     response = await client.put(
         f"/api/clientes/{cliente_id}",
         headers=auth_headers,
-        json={
-            "razon_social": "Cliente Actualizado",
-            "email": "actualizado@test.com"
-        }
+        json={"razon_social": "Cliente Actualizado", "email": "actualizado@test.com"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["razon_social"] == "Cliente Actualizado"
@@ -128,17 +127,17 @@ async def test_delete_cliente(client: AsyncClient, auth_headers: dict):
             "razon_social": "Cliente Delete Test",
             "tipo_documento": "DNI",
             "numero_documento": "12345678",
-            "condicion_iva": "CF"
-        }
+            "condicion_iva": "CF",
+        },
     )
-    
+
     cliente_id = create_response.json()["id"]
-    
+
     # Eliminar el cliente
     response = await client.delete(f"/api/clientes/{cliente_id}", headers=auth_headers)
-    
+
     assert response.status_code == 204
-    
+
     # Verificar que el cliente existe pero está inactivo
     get_response = await client.get(f"/api/clientes/{cliente_id}", headers=auth_headers)
     assert get_response.status_code == 200
@@ -149,7 +148,7 @@ async def test_delete_cliente(client: AsyncClient, auth_headers: dict):
 async def test_get_cliente_not_found(client: AsyncClient, auth_headers: dict):
     """Test obtener un cliente que no existe."""
     response = await client.get("/api/clientes/99999", headers=auth_headers)
-    
+
     assert response.status_code == 404
     assert "no encontrado" in response.json()["detail"].lower()
 
@@ -163,8 +162,8 @@ async def test_create_cliente_without_auth(client: AsyncClient):
             "razon_social": "Cliente Sin Auth",
             "tipo_documento": "CUIT",
             "numero_documento": "20777888999",
-            "condicion_iva": "RI"
-        }
+            "condicion_iva": "RI",
+        },
     )
-    
+
     assert response.status_code == 403

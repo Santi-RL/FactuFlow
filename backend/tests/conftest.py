@@ -12,7 +12,6 @@ from app.core.security import get_password_hash
 from app.models.usuario import Usuario
 from app.models.empresa import Empresa
 
-
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -46,11 +45,11 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session."""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     async with TestSessionLocal() as session:
         yield session
         await session.rollback()
-    
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
@@ -58,16 +57,19 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create a test client with database override."""
-    
+
     async def override_get_db():
         yield db_session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     from httpx import ASGITransport
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
         yield ac
-    
+
     app.dependency_overrides.clear()
 
 
@@ -75,7 +77,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 async def test_empresa(db_session: AsyncSession) -> Empresa:
     """Create a test empresa."""
     from datetime import date
-    
+
     empresa = Empresa(
         razon_social="Empresa Test S.A.",
         cuit="20123456789",
@@ -86,13 +88,13 @@ async def test_empresa(db_session: AsyncSession) -> Empresa:
         codigo_postal="1000",
         email="test@empresa.com",
         telefono="1234567890",
-        inicio_actividades=date(2020, 1, 1)
+        inicio_actividades=date(2020, 1, 1),
     )
-    
+
     db_session.add(empresa)
     await db_session.commit()
     await db_session.refresh(empresa)
-    
+
     return empresa
 
 
@@ -105,13 +107,13 @@ async def test_user(db_session: AsyncSession, test_empresa: Empresa) -> Usuario:
         nombre="Test User",
         activo=True,
         es_admin=False,
-        empresa_id=test_empresa.id
+        empresa_id=test_empresa.id,
     )
-    
+
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
-    
+
     return user
 
 
@@ -124,13 +126,13 @@ async def test_admin(db_session: AsyncSession) -> Usuario:
         nombre="Admin User",
         activo=True,
         es_admin=True,
-        empresa_id=None
+        empresa_id=None,
     )
-    
+
     db_session.add(admin)
     await db_session.commit()
     await db_session.refresh(admin)
-    
+
     return admin
 
 
@@ -139,12 +141,9 @@ async def auth_headers(client: AsyncClient, test_user) -> dict:
     """Get authentication headers for test user."""
     response = await client.post(
         "/api/auth/login",
-        json={
-            "email": "test@user.com",
-            "password": "testpassword123"
-        }
+        json={"email": "test@user.com", "password": "testpassword123"},
     )
-    
+
     assert response.status_code == 200, f"Login failed: {response.json()}"
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

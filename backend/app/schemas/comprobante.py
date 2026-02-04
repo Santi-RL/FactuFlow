@@ -5,11 +5,12 @@ from decimal import Decimal
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 
-
 # ==================== Items ====================
+
 
 class ItemComprobanteBase(BaseModel):
     """Schema base de Item de Comprobante."""
+
     codigo: Optional[str] = None
     descripcion: str = Field(..., min_length=1, max_length=500)
     cantidad: Decimal = Field(..., gt=0)
@@ -22,11 +23,13 @@ class ItemComprobanteBase(BaseModel):
 
 class ItemComprobanteCreate(ItemComprobanteBase):
     """Schema para crear Item de Comprobante."""
+
     pass
 
 
 class ItemComprobanteResponse(ItemComprobanteBase):
     """Schema de respuesta de Item de Comprobante."""
+
     id: int
     subtotal: Decimal
     comprobante_id: int
@@ -37,8 +40,10 @@ class ItemComprobanteResponse(ItemComprobanteBase):
 
 # ==================== Comprobante ====================
 
+
 class ComprobanteBase(BaseModel):
     """Schema base de Comprobante."""
+
     tipo_comprobante: int = Field(..., ge=1, le=999)
     observaciones: Optional[str] = Field(None, max_length=500)
     moneda: str = Field(default="PES", max_length=3)
@@ -48,14 +53,15 @@ class ComprobanteBase(BaseModel):
 class EmitirComprobanteRequest(ComprobanteBase):
     """
     Request para emitir un comprobante.
-    
+
     Incluye todos los datos necesarios para generar
     el comprobante y solicitar el CAE a ARCA.
     """
+
     empresa_id: int
     punto_venta_id: int
     concepto: int = Field(default=1, ge=1, le=3)  # 1=Productos, 2=Servicios, 3=Ambos
-    
+
     # Cliente/Receptor
     cliente_id: Optional[int] = None  # Si es cliente guardado
     tipo_documento: int = Field(..., ge=1)  # 80=CUIT, 96=DNI, etc.
@@ -63,22 +69,22 @@ class EmitirComprobanteRequest(ComprobanteBase):
     razon_social: str = Field(..., min_length=1, max_length=200)
     condicion_iva: str = Field(..., max_length=50)
     domicilio: Optional[str] = Field(None, max_length=200)
-    
+
     # Items
     items: List[ItemComprobanteCreate] = Field(..., min_length=1)
-    
+
     # Servicios (si concepto = 2 o 3)
     fecha_servicio_desde: Optional[date] = None
     fecha_servicio_hasta: Optional[date] = None
     fecha_vto_pago: Optional[date] = None
-    
+
     @field_validator("items")
     @classmethod
     def validate_items(cls, v):
         if not v or len(v) == 0:
             raise ValueError("Debe incluir al menos un ítem")
         return v
-    
+
     @field_validator("fecha_servicio_hasta")
     @classmethod
     def validate_fecha_servicio(cls, v, info):
@@ -90,6 +96,7 @@ class EmitirComprobanteRequest(ComprobanteBase):
 
 class EmitirComprobanteResponse(BaseModel):
     """Respuesta al emitir un comprobante."""
+
     exito: bool
     comprobante_id: Optional[int] = None
     tipo_comprobante: int
@@ -105,6 +112,7 @@ class EmitirComprobanteResponse(BaseModel):
 
 class ComprobanteResponse(ComprobanteBase):
     """Schema de respuesta de Comprobante."""
+
     id: int
     numero: int
     fecha_emision: date
@@ -119,24 +127,25 @@ class ComprobanteResponse(ComprobanteBase):
     cae: Optional[str] = None
     cae_vencimiento: Optional[date] = None
     estado: str
-    
+
     # Relaciones
     empresa_id: int
     punto_venta_id: int
     cliente_id: int
-    
+
     class Config:
         from_attributes = True
 
 
 class ComprobanteDetalleResponse(ComprobanteResponse):
     """Schema de respuesta de Comprobante con detalles completos."""
+
     items: List[ItemComprobanteResponse] = Field(default_factory=list)
-    
+
     # Datos del cliente
     cliente_nombre: Optional[str] = None
     cliente_cuit: Optional[str] = None
-    
+
     # Datos del punto de venta
     punto_venta_numero: Optional[int] = None
 
@@ -146,6 +155,7 @@ class ComprobanteDetalleResponse(ComprobanteResponse):
 
 class ComprobanteListResponse(BaseModel):
     """Schema para listado de comprobantes."""
+
     id: int
     tipo_comprobante: int
     numero: int
@@ -153,11 +163,11 @@ class ComprobanteListResponse(BaseModel):
     total: Decimal
     estado: str
     cae: Optional[str] = None
-    
+
     # Datos básicos del cliente
     cliente_nombre: str
     cliente_documento: str
-    
+
     # Datos del punto de venta
     punto_venta_numero: int
 
@@ -167,6 +177,7 @@ class ComprobanteListResponse(BaseModel):
 
 class PaginatedComprobantesResponse(BaseModel):
     """Respuesta paginada de comprobantes."""
+
     items: List[ComprobanteListResponse]
     total: int
     page: int
@@ -176,6 +187,7 @@ class PaginatedComprobantesResponse(BaseModel):
 
 class ProximoNumeroResponse(BaseModel):
     """Respuesta con el próximo número de comprobante."""
+
     punto_venta: int
     tipo_comprobante: int
     proximo_numero: int

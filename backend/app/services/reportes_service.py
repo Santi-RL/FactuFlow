@@ -13,30 +13,26 @@ from app.models.comprobante import Comprobante
 from app.models.cliente import Cliente
 
 # Constantes de alícuotas de IVA
-IVA_21 = Decimal('0.21')
-IVA_10_5 = Decimal('0.105')
-IVA_27 = Decimal('0.27')
+IVA_21 = Decimal("0.21")
+IVA_10_5 = Decimal("0.105")
+IVA_27 = Decimal("0.27")
 
 
 class ReportesService:
     """Servicio para generación de reportes de ventas e IVA."""
-    
+
     async def obtener_comprobantes_por_periodo(
-        self,
-        db: AsyncSession,
-        empresa_id: int,
-        desde: date,
-        hasta: date
+        self, db: AsyncSession, empresa_id: int, desde: date, hasta: date
     ) -> List[Comprobante]:
         """
         Obtiene todos los comprobantes de un período.
-        
+
         Args:
             db: Sesión de base de datos
             empresa_id: ID de la empresa
             desde: Fecha desde
             hasta: Fecha hasta
-            
+
         Returns:
             Lista de comprobantes
         """
@@ -45,50 +41,46 @@ class ReportesService:
             .options(
                 selectinload(Comprobante.cliente),
                 selectinload(Comprobante.punto_venta),
-                selectinload(Comprobante.items)
+                selectinload(Comprobante.items),
             )
             .where(
                 and_(
                     Comprobante.empresa_id == empresa_id,
                     Comprobante.fecha_emision >= desde,
                     Comprobante.fecha_emision <= hasta,
-                    Comprobante.estado == "autorizado"
+                    Comprobante.estado == "autorizado",
                 )
             )
             .order_by(Comprobante.fecha_emision, Comprobante.numero)
         )
-        
+
         result = await db.execute(query)
         return result.scalars().all()
-    
+
     async def generar_reporte_ventas(
-        self,
-        db: AsyncSession,
-        empresa_id: int,
-        desde: date,
-        hasta: date
+        self, db: AsyncSession, empresa_id: int, desde: date, hasta: date
     ) -> Dict[str, Any]:
         """
         Genera reporte de ventas por período.
-        
+
         Args:
             db: Sesión de base de datos
             empresa_id: ID de la empresa
             desde: Fecha desde
             hasta: Fecha hasta
-            
+
         Returns:
             Diccionario con comprobantes y resumen
         """
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
-        
+
         # Calcular totales por tipo
         total_facturas = Decimal(0)
         total_nc = Decimal(0)  # Notas de crédito
         total_nd = Decimal(0)  # Notas de débito
-        
+
         comprobantes_list = []
         for comp in comprobantes:
             comp_dict = {
@@ -106,7 +98,7 @@ class ReportesService:
                 "total": float(comp.total),
             }
             comprobantes_list.append(comp_dict)
-            
+
             # Clasificar por tipo
             if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
                 total_facturas += comp.total
@@ -114,42 +106,32 @@ class ReportesService:
                 total_nc += comp.total
             elif comp.tipo_comprobante in [2, 7, 12]:  # Notas de débito
                 total_nd += comp.total
-        
+
         total_neto = total_facturas + total_nd - total_nc
-        
+
         resumen = {
             "total_facturas": float(total_facturas),
             "total_notas_credito": float(total_nc),
             "total_notas_debito": float(total_nd),
             "total_neto": float(total_neto),
             "cantidad_comprobantes": len(comprobantes),
-            "periodo": {
-                "desde": desde.isoformat(),
-                "hasta": hasta.isoformat()
-            }
+            "periodo": {"desde": desde.isoformat(), "hasta": hasta.isoformat()},
         }
-        
-        return {
-            "comprobantes": comprobantes_list,
-            "resumen": resumen
-        }
-    
+
+        return {"comprobantes": comprobantes_list, "resumen": resumen}
+
     async def generar_reporte_iva(
-        self,
-        db: AsyncSession,
-        empresa_id: int,
-        periodo_mes: int,
-        periodo_anio: int
+        self, db: AsyncSession, empresa_id: int, periodo_mes: int, periodo_anio: int
     ) -> Dict[str, Any]:
         """
         Genera subdiario de IVA ventas para DDJJ.
-        
+
         Args:
             db: Sesión de base de datos
             empresa_id: ID de la empresa
             periodo_mes: Mes del período (1-12)
             periodo_anio: Año del período
-            
+
         Returns:
             Diccionario con detalle de IVA
         """
@@ -157,11 +139,11 @@ class ReportesService:
         desde = date(periodo_anio, periodo_mes, 1)
         ultimo_dia = monthrange(periodo_anio, periodo_mes)[1]
         hasta = date(periodo_anio, periodo_mes, ultimo_dia)
-        
+
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
-        
+
         # Procesar IVA
         total_gravado_21 = Decimal(0)
         total_gravado_10_5 = Decimal(0)
@@ -171,21 +153,23 @@ class ReportesService:
         total_iva_27 = Decimal(0)
         total_no_gravado = Decimal(0)
         total_exento = Decimal(0)
-        
+
         comprobantes_list = []
         for comp in comprobantes:
             # Calcular neto gravado por cada alícuota
             gravado_21 = comp.iva_21 / IVA_21 if comp.iva_21 > 0 else Decimal(0)
             gravado_10_5 = comp.iva_10_5 / IVA_10_5 if comp.iva_10_5 > 0 else Decimal(0)
             gravado_27 = comp.iva_27 / IVA_27 if comp.iva_27 > 0 else Decimal(0)
-            
+
             # Para comprobantes sin IVA (tipo C o exentos)
             neto_sin_iva = comp.total - comp.iva_21 - comp.iva_10_5 - comp.iva_27
-            
+
             comp_dict = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_letra": self._get_letra_comprobante(comp.tipo_comprobante),
-                "tipo_nombre": self._get_abreviatura_tipo_comprobante(comp.tipo_comprobante),
+                "tipo_nombre": self._get_abreviatura_tipo_comprobante(
+                    comp.tipo_comprobante
+                ),
                 "punto_venta": comp.punto_venta.numero,
                 "numero": comp.numero,
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
@@ -202,7 +186,7 @@ class ReportesService:
                 "total": float(comp.total),
             }
             comprobantes_list.append(comp_dict)
-            
+
             # Acumular totales
             total_gravado_21 += gravado_21
             total_iva_21 += comp.iva_21
@@ -210,10 +194,16 @@ class ReportesService:
             total_iva_10_5 += comp.iva_10_5
             total_gravado_27 += gravado_27
             total_iva_27 += comp.iva_27
-        
-        total_neto = total_gravado_21 + total_gravado_10_5 + total_gravado_27 + total_no_gravado + total_exento
+
+        total_neto = (
+            total_gravado_21
+            + total_gravado_10_5
+            + total_gravado_27
+            + total_no_gravado
+            + total_exento
+        )
         total_iva = total_iva_21 + total_iva_10_5 + total_iva_27
-        
+
         resumen = {
             "gravado_21": float(total_gravado_21),
             "iva_21": float(total_iva_21),
@@ -228,33 +218,30 @@ class ReportesService:
             "periodo": {
                 "mes": periodo_mes,
                 "anio": periodo_anio,
-                "nombre": self._get_nombre_mes(periodo_mes)
-            }
+                "nombre": self._get_nombre_mes(periodo_mes),
+            },
         }
-        
-        return {
-            "comprobantes": comprobantes_list,
-            "resumen": resumen
-        }
-    
+
+        return {"comprobantes": comprobantes_list, "resumen": resumen}
+
     async def obtener_ranking_clientes(
         self,
         db: AsyncSession,
         empresa_id: int,
         desde: date,
         hasta: date,
-        limite: int = 10
+        limite: int = 10,
     ) -> List[Dict[str, Any]]:
         """
         Obtiene ranking de clientes por facturación.
-        
+
         Args:
             db: Sesión de base de datos
             empresa_id: ID de la empresa
             desde: Fecha desde
             hasta: Fecha hasta
             limite: Cantidad de clientes a devolver
-            
+
         Returns:
             Lista de clientes con totales
         """
@@ -262,7 +249,7 @@ class ReportesService:
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
-        
+
         # Agrupar por cliente
         totales_por_cliente = {}
         for comp in comprobantes:
@@ -273,9 +260,9 @@ class ReportesService:
                     "razon_social": comp.cliente.razon_social,
                     "numero_documento": comp.cliente.numero_documento,
                     "total_facturado": Decimal(0),
-                    "cantidad_comprobantes": 0
+                    "cantidad_comprobantes": 0,
                 }
-            
+
             # Sumar o restar según el tipo
             if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
                 totales_por_cliente[cliente_id]["total_facturado"] += comp.total
@@ -283,22 +270,22 @@ class ReportesService:
                 totales_por_cliente[cliente_id]["total_facturado"] -= comp.total
             elif comp.tipo_comprobante in [2, 7, 12]:  # ND
                 totales_por_cliente[cliente_id]["total_facturado"] += comp.total
-            
+
             totales_por_cliente[cliente_id]["cantidad_comprobantes"] += 1
-        
+
         # Ordenar por total y limitar
         ranking = sorted(
             totales_por_cliente.values(),
             key=lambda x: x["total_facturado"],
-            reverse=True
+            reverse=True,
         )[:limite]
-        
+
         # Convertir Decimal a float
         for item in ranking:
             item["total_facturado"] = float(item["total_facturado"])
-        
+
         return ranking
-    
+
     def _get_letra_comprobante(self, tipo: int) -> str:
         """Obtiene la letra del comprobante."""
         if tipo in [1, 2, 3]:
@@ -308,31 +295,52 @@ class ReportesService:
         elif tipo in [11, 12, 13]:
             return "C"
         return ""
-    
+
     def _get_nombre_tipo_comprobante(self, tipo: int) -> str:
         """Obtiene el nombre corto del tipo de comprobante."""
         nombres = {
-            1: "Factura A", 2: "Nota Débito A", 3: "Nota Crédito A",
-            6: "Factura B", 7: "Nota Débito B", 8: "Nota Crédito B",
-            11: "Factura C", 12: "Nota Débito C", 13: "Nota Crédito C",
+            1: "Factura A",
+            2: "Nota Débito A",
+            3: "Nota Crédito A",
+            6: "Factura B",
+            7: "Nota Débito B",
+            8: "Nota Crédito B",
+            11: "Factura C",
+            12: "Nota Débito C",
+            13: "Nota Crédito C",
         }
         return nombres.get(tipo, "Comprobante")
-    
+
     def _get_abreviatura_tipo_comprobante(self, tipo: int) -> str:
         """Obtiene la abreviatura del tipo de comprobante para reportes."""
         abreviaturas = {
-            1: "FA", 2: "ND", 3: "NC",  # Tipo A
-            6: "FB", 7: "ND", 8: "NC",  # Tipo B
-            11: "FC", 12: "ND", 13: "NC",  # Tipo C
+            1: "FA",
+            2: "ND",
+            3: "NC",  # Tipo A
+            6: "FB",
+            7: "ND",
+            8: "NC",  # Tipo B
+            11: "FC",
+            12: "ND",
+            13: "NC",  # Tipo C
         }
         return abreviaturas.get(tipo, "CO")
-    
+
     def _get_nombre_mes(self, mes: int) -> str:
         """Obtiene el nombre del mes en español."""
         meses = {
-            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
-            5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
-            9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+            1: "Enero",
+            2: "Febrero",
+            3: "Marzo",
+            4: "Abril",
+            5: "Mayo",
+            6: "Junio",
+            7: "Julio",
+            8: "Agosto",
+            9: "Septiembre",
+            10: "Octubre",
+            11: "Noviembre",
+            12: "Diciembre",
         }
         return meses.get(mes, "")
 

@@ -14,10 +14,10 @@ async def test_setup_initial_user(client: AsyncClient):
             "email": "initial@test.com",
             "password": "password123",
             "nombre": "Initial User",
-            "empresa_id": None
-        }
+            "empresa_id": None,
+        },
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["email"] == "initial@test.com"
@@ -35,10 +35,10 @@ async def test_setup_fails_if_user_exists(client: AsyncClient, auth_headers: dic
             "email": "another@test.com",
             "password": "password123",
             "nombre": "Another User",
-            "empresa_id": None
-        }
+            "empresa_id": None,
+        },
     )
-    
+
     assert response.status_code == 400
     assert "Ya existe al menos un usuario" in response.json()["detail"]
 
@@ -48,12 +48,9 @@ async def test_login_success(client: AsyncClient, test_user):
     """Test login exitoso."""
     response = await client.post(
         "/api/auth/login",
-        json={
-            "email": "test@user.com",
-            "password": "testpassword123"
-        }
+        json={"email": "test@user.com", "password": "testpassword123"},
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
@@ -65,13 +62,9 @@ async def test_login_success(client: AsyncClient, test_user):
 async def test_login_wrong_password(client: AsyncClient, test_user):
     """Test login con contraseña incorrecta."""
     response = await client.post(
-        "/api/auth/login",
-        json={
-            "email": "test@user.com",
-            "password": "wrongpassword"
-        }
+        "/api/auth/login", json={"email": "test@user.com", "password": "wrongpassword"}
     )
-    
+
     assert response.status_code == 401
     assert "Email o contraseña incorrectos" in response.json()["detail"]
 
@@ -81,12 +74,9 @@ async def test_login_nonexistent_user(client: AsyncClient):
     """Test login con usuario que no existe."""
     response = await client.post(
         "/api/auth/login",
-        json={
-            "email": "nonexistent@test.com",
-            "password": "password123"
-        }
+        json={"email": "nonexistent@test.com", "password": "password123"},
     )
-    
+
     assert response.status_code == 401
     assert "Email o contraseña incorrectos" in response.json()["detail"]
 
@@ -95,7 +85,7 @@ async def test_login_nonexistent_user(client: AsyncClient):
 async def test_get_me(client: AsyncClient, auth_headers: dict):
     """Test obtener usuario actual."""
     response = await client.get("/api/auth/me", headers=auth_headers)
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "test@user.com"
@@ -106,5 +96,5 @@ async def test_get_me(client: AsyncClient, auth_headers: dict):
 async def test_get_me_without_auth(client: AsyncClient):
     """Test obtener usuario sin autenticación."""
     response = await client.get("/api/auth/me")
-    
+
     assert response.status_code == 403
