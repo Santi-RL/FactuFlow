@@ -13,6 +13,8 @@ import ClienteFormView from '@/views/clientes/ClienteFormView.vue'
 import ClienteDetailView from '@/views/clientes/ClienteDetailView.vue'
 import EmpresaConfigView from '@/views/empresa/EmpresaConfigView.vue'
 import ComprobantesListView from '@/views/comprobantes/ComprobantesListView.vue'
+import ComprobanteNuevoView from '@/views/comprobantes/ComprobanteNuevoView.vue'
+import ComprobanteDetalleView from '@/views/comprobantes/ComprobanteDetalleView.vue'
 import CertificadosListView from '@/views/certificados/CertificadosListView.vue'
 import CertificadoWizardView from '@/views/certificados/CertificadoWizardView.vue'
 import CertificadoExitoView from '@/views/certificados/CertificadoExitoView.vue'
@@ -71,6 +73,16 @@ const router = createRouter({
           path: 'comprobantes',
           name: 'comprobantes',
           component: ComprobantesListView
+        },
+        {
+          path: 'comprobantes/nuevo',
+          name: 'comprobante-nuevo',
+          component: ComprobanteNuevoView
+        },
+        {
+          path: 'comprobantes/:id',
+          name: 'comprobante-detalle',
+          component: ComprobanteDetalleView
         },
         {
           path: 'certificados',

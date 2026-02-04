@@ -14,21 +14,6 @@ interface Props {
 
 const props = defineProps<Props>()
 
-import { computed } from 'vue'
-
-interface Step {
-  number: number
-  title: string
-  shortTitle: string
-}
-
-interface Props {
-  currentStep: number
-  steps: Step[]
-}
-
-const props = defineProps<Props>()
-
 // Constants for layout
 const CIRCLE_SIZE = '2.5rem'
 const LINE_OFFSET_PERCENTAGE = 50
