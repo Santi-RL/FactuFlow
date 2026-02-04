@@ -18,6 +18,14 @@ import ComprobanteDetalleView from '@/views/comprobantes/ComprobanteDetalleView.
 import CertificadosListView from '@/views/certificados/CertificadosListView.vue'
 import CertificadoWizardView from '@/views/certificados/CertificadoWizardView.vue'
 import CertificadoExitoView from '@/views/certificados/CertificadoExitoView.vue'
+import ReportesView from '@/views/reportes/ReportesView.vue'
+import ReporteVentasView from '@/views/reportes/ReporteVentasView.vue'
+import ReporteIvaView from '@/views/reportes/ReporteIvaView.vue'
+import RankingClientesView from '@/views/reportes/RankingClientesView.vue'
+import ReportesView from '@/views/reportes/ReportesView.vue'
+import ReporteVentasView from '@/views/reportes/ReporteVentasView.vue'
+import ReporteIvaView from '@/views/reportes/ReporteIvaView.vue'
+import RankingClientesView from '@/views/reportes/RankingClientesView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -104,6 +112,26 @@ const router = createRouter({
           path: 'certificados/:id/exito',
           name: 'certificado-exito',
           component: CertificadoExitoView
+        },
+        {
+          path: 'reportes',
+          name: 'reportes',
+          component: ReportesView
+        },
+        {
+          path: 'reportes/ventas',
+          name: 'reporte-ventas',
+          component: ReporteVentasView
+        },
+        {
+          path: 'reportes/iva',
+          name: 'reporte-iva',
+          component: ReporteIvaView
+        },
+        {
+          path: 'reportes/clientes',
+          name: 'reporte-clientes',
+          component: RankingClientesView
         }
       ]
     }

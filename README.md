@@ -19,6 +19,7 @@ FactuFlow es un sistema de facturación electrónica argentino, diseñado para s
 - 👥 **User-Friendly**: Diseñado para usuarios no técnicos
 - 🔐 **Gestión de Certificados**: Wizard guiado para configurar certificados ARCA
 - 📄 **Comprobantes**: Facturas A, B, C, Notas de Crédito y Débito
+- 📊 **PDF y Reportes**: Generación de PDFs con QR ARCA y reportes de ventas/IVA
 - 🐳 **Docker Ready**: Un comando para levantar todo
 - 🆓 **100% Open Source**: Licencia MIT, usalo como quieras
 
@@ -57,6 +58,7 @@ Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
 
 - [Guía de Instalación](docs/setup/README.md)
 - [Configuración de Certificados ARCA](docs/certificates/README.md)
+- [PDF y Reportes](docs/FASE_6_PDF_REPORTES.md) 📊 **NUEVO**
 - [Manual de Usuario](docs/user-guide/README.md)
 - [API Reference](docs/api/README.md)
 
@@ -66,11 +68,15 @@ Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
 
 Consulta nuestro [ROADMAP.md](ROADMAP.md) para ver el plan de desarrollo completo.
 
-### Estado Actual: Fase 0 - Fundación
+### Estado Actual: Fase 6 - PDF y Reportes ✅
 - [x] Estructura inicial del proyecto
-- [ ] Configuración de Docker
-- [ ] Backend básico
-- [ ] Frontend básico
+- [x] Configuración de Docker
+- [x] Backend completo con FastAPI
+- [x] Frontend con Vue.js 3
+- [x] Wizard de certificados ARCA
+- [x] Emisión de comprobantes con CAE
+- [x] Generación de PDFs con QR ARCA
+- [x] Sistema de reportes (Ventas, IVA, Clientes)
 
 ---
 
