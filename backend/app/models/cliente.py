@@ -9,19 +9,19 @@ from app.core.database import Base
 
 class Cliente(Base):
     """Modelo de Cliente receptor de comprobantes."""
-    
+
     __tablename__ = "clientes"
-    
+
     # Índices para consultas frecuentes
     __table_args__ = (
         # Índice para búsqueda por documento (CUIT/DNI)
-        Index('ix_clientes_tipo_numero_doc', 'tipo_documento', 'numero_documento'),
+        Index("ix_clientes_tipo_numero_doc", "tipo_documento", "numero_documento"),
         # Índice para búsqueda por nombre
-        Index('ix_clientes_razon_social', 'razon_social'),
+        Index("ix_clientes_razon_social", "razon_social"),
         # Índice compuesto para listados por empresa
-        Index('ix_clientes_empresa_activo', 'empresa_id', 'activo'),
+        Index("ix_clientes_empresa_activo", "empresa_id", "activo"),
     )
-    
+
     id = Column(Integer, primary_key=True, index=True)
     razon_social = Column(String(255), nullable=False)
     tipo_documento = Column(String(20), nullable=False)  # CUIT, CUIL, DNI, etc.
@@ -35,17 +35,21 @@ class Cliente(Base):
     telefono = Column(String(50), nullable=True)
     notas = Column(String(500), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
-    
+
     # Relación con empresa
-    empresa_id = Column(Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False)
+    empresa_id = Column(
+        Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False
+    )
     empresa = relationship("Empresa", back_populates="clientes")
-    
+
     # Relación con comprobantes
     comprobantes = relationship("Comprobante", back_populates="cliente")
-    
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
     def __repr__(self) -> str:
         return f"<Cliente {self.razon_social} - {self.tipo_documento}: {self.numero_documento}>"

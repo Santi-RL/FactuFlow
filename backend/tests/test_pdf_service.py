@@ -83,53 +83,57 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
 
 class TestPDFService:
     """Tests para PDFService."""
-    
+
     def test_get_letra_comprobante_a(self, pdf_service):
         """Debe retornar 'A' para facturas tipo A."""
         assert pdf_service._get_letra_comprobante(1) == "A"
         assert pdf_service._get_letra_comprobante(2) == "A"
         assert pdf_service._get_letra_comprobante(3) == "A"
-    
+
     def test_get_letra_comprobante_b(self, pdf_service):
         """Debe retornar 'B' para facturas tipo B."""
         assert pdf_service._get_letra_comprobante(6) == "B"
         assert pdf_service._get_letra_comprobante(7) == "B"
         assert pdf_service._get_letra_comprobante(8) == "B"
-    
+
     def test_get_letra_comprobante_c(self, pdf_service):
         """Debe retornar 'C' para facturas tipo C."""
         assert pdf_service._get_letra_comprobante(11) == "C"
         assert pdf_service._get_letra_comprobante(12) == "C"
         assert pdf_service._get_letra_comprobante(13) == "C"
-    
+
     def test_get_nombre_comprobante(self, pdf_service):
         """Debe retornar el nombre del tipo de comprobante."""
         assert pdf_service._get_nombre_comprobante(1) == "FACTURA"
         assert pdf_service._get_nombre_comprobante(2) == "NOTA DE DÉBITO"
         assert pdf_service._get_nombre_comprobante(3) == "NOTA DE CRÉDITO"
         assert pdf_service._get_nombre_comprobante(6) == "FACTURA"
-    
+
     def test_get_tipo_documento_codigo(self, pdf_service):
         """Debe retornar el código correcto para cada tipo de documento."""
         assert pdf_service._get_tipo_documento_codigo("CUIT") == 80
         assert pdf_service._get_tipo_documento_codigo("CUIL") == 86
         assert pdf_service._get_tipo_documento_codigo("DNI") == 96
         assert pdf_service._get_tipo_documento_codigo("Otro") == 99
-    
+
     def test_generar_qr_arca(self, pdf_service, comprobante_mock):
         """Debe generar un código QR válido."""
         qr_base64 = pdf_service._generar_qr_arca(comprobante_mock)
-        
+
         assert qr_base64.startswith("data:image/png;base64,")
         assert len(qr_base64) > 100  # El QR debe tener contenido
-    
+
     @pytest.mark.asyncio
-    async def test_generar_pdf_comprobante(self, pdf_service, comprobante_mock, empresa_mock):
+    async def test_generar_pdf_comprobante(
+        self, pdf_service, comprobante_mock, empresa_mock
+    ):
         """Debe generar un PDF válido."""
         # Este test requiere que weasyprint esté instalado y configurado
-        pdf_bytes = await pdf_service.generar_pdf_comprobante(comprobante_mock, empresa_mock)
-        
+        pdf_bytes = await pdf_service.generar_pdf_comprobante(
+            comprobante_mock, empresa_mock
+        )
+
         assert isinstance(pdf_bytes, bytes)
         assert len(pdf_bytes) > 0
         # Verificar que sea un PDF válido (comienza con %PDF)
-        assert pdf_bytes[:4] == b'%PDF'
+        assert pdf_bytes[:4] == b"%PDF"

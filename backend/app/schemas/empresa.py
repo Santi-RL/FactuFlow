@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 class EmpresaBase(BaseModel):
     """Base schema para Empresa."""
+
     razon_social: str = Field(..., min_length=1, max_length=255)
     cuit: str = Field(..., min_length=11, max_length=11, pattern=r"^\d{11}$")
     condicion_iva: str = Field(..., pattern=r"^(RI|Monotributo|Exento)$")
@@ -22,11 +23,13 @@ class EmpresaBase(BaseModel):
 
 class EmpresaCreate(EmpresaBase):
     """Schema para crear Empresa."""
+
     pass
 
 
 class EmpresaUpdate(BaseModel):
     """Schema para actualizar Empresa."""
+
     razon_social: Optional[str] = Field(None, min_length=1, max_length=255)
     cuit: Optional[str] = Field(None, min_length=11, max_length=11, pattern=r"^\d{11}$")
     condicion_iva: Optional[str] = Field(None, pattern=r"^(RI|Monotributo|Exento)$")
@@ -42,9 +45,10 @@ class EmpresaUpdate(BaseModel):
 
 class EmpresaResponse(EmpresaBase):
     """Schema de respuesta de Empresa."""
+
     id: int
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True

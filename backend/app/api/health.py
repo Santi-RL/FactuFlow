@@ -13,27 +13,24 @@ router = APIRouter()
 async def health_check():
     """
     Health check básico.
-    
+
     Returns:
         Status de la aplicación
     """
-    return {
-        "status": "healthy",
-        "message": "FactuFlow API funcionando correctamente"
-    }
+    return {"status": "healthy", "message": "FactuFlow API funcionando correctamente"}
 
 
 @router.get("/db")
 async def health_check_db(db: AsyncSession = Depends(get_db)):
     """
     Health check de la base de datos.
-    
+
     Args:
         db: Sesión de base de datos
-        
+
     Returns:
         Status de la conexión a la base de datos
-        
+
     Raises:
         HTTPException: Si no se puede conectar a la base de datos
     """
@@ -41,13 +38,9 @@ async def health_check_db(db: AsyncSession = Depends(get_db)):
         # Ejecutar una query simple para verificar la conexión
         result = await db.execute(text("SELECT 1"))
         result.scalar()
-        
-        return {
-            "status": "healthy",
-            "message": "Conexión a la base de datos OK"
-        }
+
+        return {"status": "healthy", "message": "Conexión a la base de datos OK"}
     except Exception as e:
         raise HTTPException(
-            status_code=503,
-            detail=f"Error de conexión a la base de datos: {str(e)}"
+            status_code=503, detail=f"Error de conexión a la base de datos: {str(e)}"
         )

@@ -15,7 +15,6 @@ from app.arca.models import TicketAcceso
 from app.arca.exceptions import ArcaAuthError, ArcaConnectionError
 from app.arca.utils import clean_cuit
 
-
 logger = logging.getLogger(__name__)
 
 

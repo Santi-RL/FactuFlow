@@ -6,7 +6,6 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
-
 # Convertir DATABASE_URL a formato async si es SQLite
 database_url = settings.database_url
 if database_url.startswith("sqlite:///"):
@@ -33,13 +32,14 @@ AsyncSessionLocal = async_sessionmaker(
 # Base declarativa para los modelos
 class Base(DeclarativeBase):
     """Base class para todos los modelos SQLAlchemy."""
+
     pass
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency para obtener sesión de base de datos.
-    
+
     Yields:
         AsyncSession: Sesión de base de datos
     """
