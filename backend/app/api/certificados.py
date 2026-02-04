@@ -56,6 +56,61 @@ async def list_certificados(
     return certificados
 
 
+@router.get("/alertas-vencimiento", response_model=List[CertificadoAlerta])
+async def obtener_alertas_vencimiento(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+):
+    """
+    Obtiene certificados próximos a vencer para mostrar alertas.
+
+    Devuelve certificados que:
+    - Están activos
+    - Vencen en los próximos 30 días o ya vencieron
+
+    Args:
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+
+    Returns:
+        Lista de certificados con alertas de vencimiento
+    """
+    query = select(Certificado).where(Certificado.activo)
+
+    if not current_user.es_admin:
+        query = query.where(Certificado.empresa_id == current_user.empresa_id)
+
+    result = await db.execute(query)
+    certificados = result.scalars().all()
+
+    # Filtrar y calcular alertas
+    alertas = []
+    service = CertificadosService()
+    hoy = date.today()
+
+    for cert in certificados:
+        dias_restantes = (cert.fecha_vencimiento - hoy).days
+
+        # Solo incluir si está próximo a vencer o ya venció
+        if dias_restantes <= 30:
+            alertas.append(
+                CertificadoAlerta(
+                    id=cert.id,
+                    cuit=cert.cuit,
+                    nombre=cert.nombre,
+                    dias_restantes=dias_restantes,
+                    fecha_vencimiento=cert.fecha_vencimiento,
+                    ambiente=cert.ambiente,
+                    tipo_alerta=service.get_tipo_alerta(dias_restantes),
+                )
+            )
+
+    # Ordenar por días restantes (más urgente primero)
+    alertas.sort(key=lambda x: x.dias_restantes)
+
+    return alertas
+
+
 @router.get("/{certificado_id}", response_model=CertificadoResponse)
 async def get_certificado(
     certificado_id: int,
@@ -397,58 +452,3 @@ async def verificar_conexion(
             mensaje="Error inesperado",
             error="Ocurrió un error al verificar la conexión. Por favor, intentá nuevamente.",
         )
-
-
-@router.get("/alertas-vencimiento", response_model=List[CertificadoAlerta])
-async def obtener_alertas_vencimiento(
-    db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
-):
-    """
-    Obtiene certificados próximos a vencer para mostrar alertas.
-
-    Devuelve certificados que:
-    - Están activos
-    - Vencen en los próximos 30 días o ya vencieron
-
-    Args:
-        db: Sesión de base de datos
-        current_user: Usuario autenticado
-
-    Returns:
-        Lista de certificados con alertas de vencimiento
-    """
-    query = select(Certificado).where(Certificado.activo)
-
-    if not current_user.es_admin:
-        query = query.where(Certificado.empresa_id == current_user.empresa_id)
-
-    result = await db.execute(query)
-    certificados = result.scalars().all()
-
-    # Filtrar y calcular alertas
-    alertas = []
-    service = CertificadosService()
-    hoy = date.today()
-
-    for cert in certificados:
-        dias_restantes = (cert.fecha_vencimiento - hoy).days
-
-        # Solo incluir si está próximo a vencer o ya venció
-        if dias_restantes <= 30:
-            alertas.append(
-                CertificadoAlerta(
-                    id=cert.id,
-                    cuit=cert.cuit,
-                    nombre=cert.nombre,
-                    dias_restantes=dias_restantes,
-                    fecha_vencimiento=cert.fecha_vencimiento,
-                    ambiente=cert.ambiente,
-                    tipo_alerta=service.get_tipo_alerta(dias_restantes),
-                )
-            )
-
-    # Ordenar por días restantes (más urgente primero)
-    alertas.sort(key=lambda x: x.dias_restantes)
-
-    return alertas
