@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { mockApi, loginAsAdmin } from './helpers'
 
 /**
  * Tests E2E para navegación básica de FactuFlow
@@ -8,13 +9,8 @@ import { test, expect } from '@playwright/test'
 test.describe('Navegación', () => {
   // Antes de cada test, simular login
   test.beforeEach(async ({ page }) => {
-    // Ir a login y autenticarse
-    await page.goto('/login')
-    await page.getByLabel(/usuario/i).fill('admin')
-    await page.getByLabel(/contraseña/i).fill('admin123')
-    await page.getByRole('button', { name: /ingresar/i }).click()
-    // Esperar a que cargue el dashboard
-    await page.waitForURL(/dashboard/)
+    await mockApi(page)
+    await loginAsAdmin(page)
   })
 
   test('debe mostrar el sidebar con menú de navegación', async ({ page }) => {

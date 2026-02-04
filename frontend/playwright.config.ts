@@ -75,7 +75,7 @@ export default defineConfig({
 
   // Servidor de desarrollo local
   webServer: {
-    command: 'npm run preview',
+    command: 'npm run preview -- --port 8080 --strictPort',
     url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

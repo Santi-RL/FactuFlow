@@ -55,6 +55,7 @@ const formatMonto = (monto: number) => {
     <td class="px-4 py-3">
       <input
         type="text"
+        aria-label="Código"
         :value="item.codigo"
         @input="updateField('codigo', ($event.target as HTMLInputElement).value)"
         placeholder="Código"
@@ -66,6 +67,7 @@ const formatMonto = (monto: number) => {
     <td class="px-4 py-3">
       <input
         type="text"
+        aria-label="Descripción"
         :value="item.descripcion"
         @input="updateField('descripcion', ($event.target as HTMLInputElement).value)"
         placeholder="Descripción *"
@@ -78,6 +80,7 @@ const formatMonto = (monto: number) => {
     <td class="px-4 py-3">
       <input
         type="number"
+        aria-label="Cantidad"
         :value="item.cantidad"
         @input="updateField('cantidad', parseFloat(($event.target as HTMLInputElement).value) || 0)"
         placeholder="0"
@@ -92,6 +95,7 @@ const formatMonto = (monto: number) => {
     <td class="px-4 py-3">
       <input
         type="text"
+        aria-label="Unidad"
         :value="item.unidad"
         @input="updateField('unidad', ($event.target as HTMLInputElement).value)"
         placeholder="unidades"
@@ -103,6 +107,7 @@ const formatMonto = (monto: number) => {
     <td class="px-4 py-3">
       <input
         type="number"
+        aria-label="Precio Unitario"
         :value="item.precio_unitario"
         @input="updateField('precio_unitario', parseFloat(($event.target as HTMLInputElement).value) || 0)"
         placeholder="0.00"
@@ -116,6 +121,7 @@ const formatMonto = (monto: number) => {
     <!-- IVA -->
     <td class="px-4 py-3">
       <select
+        aria-label="IVA"
         :value="item.iva_porcentaje"
         @change="updateField('iva_porcentaje', parseFloat(($event.target as HTMLSelectElement).value))"
         class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"

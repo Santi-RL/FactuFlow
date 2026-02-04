@@ -266,10 +266,11 @@ const cancelar = () => {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Tipo de comprobante -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="tipo-comprobante" class="block text-sm font-medium text-gray-700 mb-1">
               Tipo de Comprobante *
             </label>
             <select
+              id="tipo-comprobante"
               v-model="formData.tipo_comprobante"
               @change="actualizarProximoNumero"
               required
@@ -283,10 +284,11 @@ const cancelar = () => {
 
           <!-- Punto de venta -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="punto-venta" class="block text-sm font-medium text-gray-700 mb-1">
               Punto de Venta *
             </label>
             <select
+              id="punto-venta"
               v-model="formData.punto_venta_id"
               @change="actualizarProximoNumero"
               required
@@ -300,10 +302,11 @@ const cancelar = () => {
 
           <!-- Concepto -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="concepto" class="block text-sm font-medium text-gray-700 mb-1">
               Concepto *
             </label>
             <select
+              id="concepto"
               v-model="formData.concepto"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

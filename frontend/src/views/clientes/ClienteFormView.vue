@@ -104,7 +104,8 @@ const handleSubmit = async () => {
     }
     router.push('/clientes')
   } catch (error: any) {
-    showError('Error', error.message || 'No se pudo guardar el cliente')
+    const detail = error.response?.data?.detail
+    showError('Error', detail || error.message || 'No se pudo guardar el cliente')
   } finally {
     loading.value = false
   }

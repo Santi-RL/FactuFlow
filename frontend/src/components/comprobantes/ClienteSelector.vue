@@ -124,13 +124,14 @@ const cerrarResultados = () => {
 
     <!-- Búsqueda de cliente -->
     <div v-if="!modoManual && !modelValue.cliente_id" class="mb-6">
-      <label class="block text-sm font-medium text-gray-700 mb-2">
+      <label for="cliente-busqueda" class="block text-sm font-medium text-gray-700 mb-2">
         Buscar cliente por nombre o CUIT
       </label>
       <div class="relative">
         <div class="relative">
           <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
+            id="cliente-busqueda"
             v-model="busqueda"
             type="text"
             placeholder="Buscar cliente..."
@@ -203,10 +204,11 @@ const cerrarResultados = () => {
       <!-- Tipo de documento y número -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="cliente-tipo-documento" class="block text-sm font-medium text-gray-700 mb-1">
             Tipo Documento *
           </label>
           <select
+            id="cliente-tipo-documento"
             :value="modelValue.tipo_documento"
             @change="updateField('tipo_documento', parseInt(($event.target as HTMLSelectElement).value))"
             required
@@ -220,10 +222,11 @@ const cerrarResultados = () => {
         </div>
 
         <div class="md:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="cliente-numero-documento" class="block text-sm font-medium text-gray-700 mb-1">
             Número *
           </label>
           <input
+            id="cliente-numero-documento"
             type="text"
             :value="modelValue.numero_documento"
             @input="updateField('numero_documento', ($event.target as HTMLInputElement).value)"
@@ -239,10 +242,11 @@ const cerrarResultados = () => {
 
       <!-- Condición IVA -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+        <label for="cliente-condicion-iva" class="block text-sm font-medium text-gray-700 mb-1">
           Condición IVA *
         </label>
         <select
+          id="cliente-condicion-iva"
           :value="modelValue.condicion_iva"
           @change="updateField('condicion_iva', ($event.target as HTMLSelectElement).value)"
           required
@@ -257,10 +261,11 @@ const cerrarResultados = () => {
 
       <!-- Razón Social -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+        <label for="cliente-razon-social" class="block text-sm font-medium text-gray-700 mb-1">
           Razón Social / Nombre *
         </label>
         <input
+          id="cliente-razon-social"
           type="text"
           :value="modelValue.razon_social"
           @input="updateField('razon_social', ($event.target as HTMLInputElement).value)"
@@ -272,10 +277,11 @@ const cerrarResultados = () => {
 
       <!-- Domicilio -->
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+        <label for="cliente-domicilio" class="block text-sm font-medium text-gray-700 mb-1">
           Domicilio (opcional)
         </label>
         <input
+          id="cliente-domicilio"
           type="text"
           :value="modelValue.domicilio"
           @input="updateField('domicilio', ($event.target as HTMLInputElement).value)"

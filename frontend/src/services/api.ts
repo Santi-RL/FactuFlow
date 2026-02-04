@@ -27,7 +27,19 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     // Si es 401, limpiar token y redirigir a login
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || ''
+    const isAuthLogin =
+      requestUrl.includes('/api/auth/login') || requestUrl.includes('auth/login')
+    const isAuthSetup =
+      requestUrl.includes('/api/auth/setup') || requestUrl.includes('auth/setup')
+    const isOnLoginPage = window.location.pathname === '/login'
+
+    if (
+      error.response?.status === 401 &&
+      !isAuthLogin &&
+      !isAuthSetup &&
+      !isOnLoginPage
+    ) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'

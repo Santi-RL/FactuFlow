@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { mockApi, loginAsAdmin } from './helpers'
 
 /**
  * Tests E2E para el Wizard de Certificados ARCA en FactuFlow
@@ -7,11 +8,8 @@ import { test, expect } from '@playwright/test'
 test.describe('Wizard de Certificados', () => {
   // Antes de cada test, simular login
   test.beforeEach(async ({ page }) => {
-    await page.goto('/login')
-    await page.getByLabel(/usuario/i).fill('admin')
-    await page.getByLabel(/contraseña/i).fill('admin123')
-    await page.getByRole('button', { name: /ingresar/i }).click()
-    await page.waitForURL(/dashboard/)
+    await mockApi(page)
+    await loginAsAdmin(page)
     await page.getByRole('link', { name: /certificados/i }).click()
     await page.waitForURL(/certificados/)
   })
@@ -67,10 +65,10 @@ test.describe('Wizard de Certificados', () => {
     
     // Ingresar CUIT inválido
     await page.getByLabel(/cuit/i).fill('123')
-    await page.getByRole('button', { name: /generar/i }).click()
+    await page.getByLabel(/nombre de la empresa/i).fill('Empresa Test')
     
-    // Debe mostrar error
-    await expect(page.getByText(/cuit.*inválido|11 dígitos/i)).toBeVisible()
+    // El botón debe estar deshabilitado
+    await expect(page.getByRole('button', { name: /generar/i })).toBeDisabled()
   })
 
   test('debe mostrar instrucciones del portal ARCA en paso 3', async ({ page }) => {
@@ -81,7 +79,9 @@ test.describe('Wizard de Certificados', () => {
     await page.getByRole('button', { name: /continuar|siguiente/i }).click()
     // Completar paso 2
     await page.getByLabel(/cuit/i).fill('20123456789')
-    await page.getByRole('button', { name: /continuar|ya tengo/i }).click()
+    await page.getByLabel(/nombre de la empresa/i).fill('Empresa Test')
+    await page.getByRole('button', { name: /generar/i }).click()
+    await page.getByRole('button', { name: /siguiente/i }).click()
     
     // Verificar instrucciones del portal ARCA
     await expect(page.getByText(/portal|arca|afip/i)).toBeVisible()

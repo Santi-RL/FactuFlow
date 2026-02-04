@@ -1,16 +1,21 @@
 import { test, expect } from '@playwright/test'
+import { mockApi, loginAsAdmin } from './helpers'
 
 /**
  * Tests E2E para autenticación de FactuFlow
  */
 
 test.describe('Autenticación', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockApi(page)
+  })
+
   test('debe mostrar la página de login', async ({ page }) => {
     await page.goto('/login')
     
     // Verificar elementos de la página de login
     await expect(page.getByRole('heading', { name: /iniciar sesión/i })).toBeVisible()
-    await expect(page.getByLabel(/usuario/i)).toBeVisible()
+    await expect(page.getByLabel(/correo electrónico/i)).toBeVisible()
     await expect(page.getByLabel(/contraseña/i)).toBeVisible()
     await expect(page.getByRole('button', { name: /ingresar/i })).toBeVisible()
   })
@@ -19,24 +24,16 @@ test.describe('Autenticación', () => {
     await page.goto('/login')
     
     // Completar formulario con datos inválidos
-    await page.getByLabel(/usuario/i).fill('usuario_invalido')
+    await page.getByLabel(/correo electrónico/i).fill('usuario_invalido@factuflow.com')
     await page.getByLabel(/contraseña/i).fill('password_invalida')
     await page.getByRole('button', { name: /ingresar/i }).click()
     
     // Verificar mensaje de error
-    await expect(page.getByText(/credenciales incorrectas|usuario o contraseña/i)).toBeVisible()
+    await expect(page.getByText(/email o contraseña incorrectos|credenciales incorrectas/i)).toBeVisible()
   })
 
   test('debe redirigir a dashboard después de login exitoso', async ({ page }) => {
-    await page.goto('/login')
-    
-    // Completar formulario con datos válidos (mock)
-    await page.getByLabel(/usuario/i).fill('admin')
-    await page.getByLabel(/contraseña/i).fill('admin123')
-    await page.getByRole('button', { name: /ingresar/i }).click()
-    
-    // Verificar redirección al dashboard
-    await expect(page).toHaveURL(/dashboard/)
+    await loginAsAdmin(page)
   })
 
   test('debe redirigir a login si no está autenticado', async ({ page }) => {
