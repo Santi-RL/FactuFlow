@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Empresa, EmpresaCreate, EmpresaUpdate } from '@/types/empresa'
 import { empresaService } from '@/services/empresa.service'
+import { useAuthStore } from '@/stores/auth'
 
 export const useEmpresaStore = defineStore('empresa', () => {
   const empresa = ref<Empresa | null>(null)
@@ -49,11 +50,19 @@ export const useEmpresaStore = defineStore('empresa', () => {
     }
   }
 
+  const cargarEmpresa = async () => {
+    const authStore = useAuthStore()
+    const empresaId = authStore.user?.empresa_id
+    if (!empresaId) return
+    await fetchEmpresa(empresaId)
+  }
+
   return {
     empresa,
     loading,
     error,
     fetchEmpresa,
+    cargarEmpresa,
     createEmpresa,
     updateEmpresa
   }

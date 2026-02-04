@@ -251,7 +251,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
                   {{ item.iva_porcentaje }}%
                 </td>
                 <td class="px-4 py-3 text-sm text-right font-mono text-gray-900">
-                  {{ formatMonto(item.subtotal) }}
+                  {{ formatMonto(item.subtotal ?? 0) }}
                 </td>
               </tr>
             </tbody>

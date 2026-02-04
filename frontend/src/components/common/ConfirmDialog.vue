@@ -12,7 +12,7 @@ interface Props {
   variant?: 'danger' | 'primary'
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: '¿Está seguro?',
   message: 'Esta acción no se puede deshacer',
   confirmText: 'Confirmar',

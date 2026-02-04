@@ -68,7 +68,20 @@ onMounted(async () => {
     try {
       await clientesStore.fetchCliente(clienteId.value)
       if (clientesStore.clienteActual) {
-        formData.value = { ...clientesStore.clienteActual }
+        const cliente = clientesStore.clienteActual
+        formData.value = {
+          razon_social: cliente.razon_social,
+          tipo_documento: cliente.tipo_documento,
+          numero_documento: cliente.numero_documento,
+          condicion_iva: cliente.condicion_iva,
+          domicilio: cliente.domicilio ?? '',
+          localidad: cliente.localidad ?? '',
+          provincia: cliente.provincia ?? '',
+          codigo_postal: cliente.codigo_postal ?? '',
+          email: cliente.email ?? '',
+          telefono: cliente.telefono ?? '',
+          notas: cliente.notas ?? ''
+        }
       }
     } catch (error) {
       showError('Error', 'No se pudo cargar el cliente')

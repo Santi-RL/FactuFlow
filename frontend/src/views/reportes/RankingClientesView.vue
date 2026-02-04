@@ -16,8 +16,7 @@ import {
   ArrowLeftIcon, 
   DocumentChartBarIcon, 
   TrophyIcon,
-  UserIcon,
-  DocumentTextIcon
+  UserIcon
 } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -216,7 +215,7 @@ const totalGeneral = computed(() => {
                 <TrophyIcon :class="['h-6 w-6', obtenerMedalla(cliente.posicion).color]" />
               </div>
               <BaseBadge
-                :variant="cliente.posicion === 1 ? 'warning' : cliente.posicion === 2 ? 'default' : 'secondary'"
+                :variant="cliente.posicion === 1 ? 'warning' : cliente.posicion === 2 ? 'default' : 'info'"
               >
                 {{ obtenerMedalla(cliente.posicion).label }}
               </BaseBadge>

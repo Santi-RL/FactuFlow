@@ -7,7 +7,7 @@ interface Props {
   icon?: any
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   title: 'No hay datos',
   message: 'No se encontraron resultados',
   icon: FolderOpenIcon
@@ -22,8 +22,10 @@ const props = withDefaults(defineProps<Props>(), {
     />
     <h3 class="text-lg font-medium text-gray-900 mb-1">{{ title }}</h3>
     <p class="text-gray-500">{{ message }}</p>
-    <div v-if="$slots.default" class="mt-6">
+    <div v-if="$slots.default || $slots.actions || $slots.action" class="mt-6">
       <slot />
+      <slot name="actions" />
+      <slot name="action" />
     </div>
   </div>
 </template>

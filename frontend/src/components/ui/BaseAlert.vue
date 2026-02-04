@@ -4,7 +4,7 @@ import { CheckCircleIcon, XCircleIcon, ExclamationTriangleIcon, InformationCircl
 
 interface Props {
   type: 'success' | 'error' | 'warning' | 'info'
-  title: string
+  title?: string
   message?: string
   dismissible?: boolean
 }
@@ -53,8 +53,11 @@ const iconColorClasses = computed(() => {
     <component :is="iconComponent" :class="['h-5 w-5 flex-shrink-0 mt-0.5', iconColorClasses]" />
     
     <div class="flex-1">
-      <h3 class="text-sm font-medium">{{ title }}</h3>
-      <p v-if="message" class="mt-1 text-sm opacity-90">{{ message }}</p>
+      <h3 v-if="title" class="text-sm font-medium">{{ title }}</h3>
+      <div v-if="$slots.default" :class="[title ? 'mt-1 text-sm opacity-90' : 'text-sm opacity-90']">
+        <slot />
+      </div>
+      <p v-else-if="message" :class="[title ? 'mt-1 text-sm opacity-90' : 'text-sm opacity-90']">{{ message }}</p>
     </div>
     
     <button

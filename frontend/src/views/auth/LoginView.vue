@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
-import { useNotification } from '@/composables/useNotification'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseCard from '@/components/ui/BaseCard.vue'
 import BaseAlert from '@/components/ui/BaseAlert.vue'
 
-const router = useRouter()
 const { login, loading } = useAuth()
-const { showError } = useNotification()
 
 const email = ref('')
 const password = ref('')

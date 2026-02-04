@@ -130,7 +130,7 @@ onMounted(() => {
     <BaseEmpty
       v-else-if="certificadosActivos.length === 0"
       title="No tenés certificados configurados"
-      description="Configurá tu primer certificado ARCA para comenzar a facturar electrónicamente"
+      message="Configurá tu primer certificado ARCA para comenzar a facturar electrónicamente"
     >
       <template #action>
         <BaseButton
@@ -158,13 +158,14 @@ onMounted(() => {
     
     <!-- Confirm Delete Dialog -->
     <ConfirmDialog
-      v-model="showConfirmDelete"
+      :show="showConfirmDelete"
       title="Eliminar certificado"
       message="¿Estás seguro que querés eliminar este certificado? Esta acción no se puede deshacer."
       confirm-text="Eliminar"
       cancel-text="Cancelar"
       variant="danger"
       @confirm="eliminarCertificado"
+      @cancel="showConfirmDelete = false"
     />
   </div>
 </template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { PlusIcon } from '@heroicons/vue/24/outline'
 import ItemRow from './ItemRow.vue'
 import type { ItemComprobante } from '@/types/comprobante'

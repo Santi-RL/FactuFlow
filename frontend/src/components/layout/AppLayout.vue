@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useUIStore } from '@/stores/ui'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'

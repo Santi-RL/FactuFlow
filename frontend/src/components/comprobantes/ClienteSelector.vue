@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { MagnifyingGlassIcon, UserPlusIcon } from '@heroicons/vue/24/outline'
 import { useClientesStore } from '@/stores/clientes'
 import { TIPOS_DOCUMENTO_NOMBRES, CONDICIONES_IVA } from '@/types/comprobante'
@@ -32,11 +32,26 @@ const busqueda = ref('')
 const mostrarResultados = ref(false)
 const modoManual = ref(false)
 
+const tipoDocumentoToCodigo: Record<string, number> = {
+  CUIT: 80,
+  CUIL: 86,
+  DNI: 96,
+  Pasaporte: 94,
+  LE: 89,
+  LC: 90,
+  CI: 99,
+}
+
+const mapTipoDocumento = (tipo?: string) => {
+  if (!tipo) return 99
+  return tipoDocumentoToCodigo[tipo] ?? 99
+}
+
 // Buscar clientes
 const buscarClientes = async () => {
   if (busqueda.value.length < 2) return
   
-  await clientesStore.listarClientes({
+  await clientesStore.fetchClientes({
     empresa_id: props.empresaId,
     search: busqueda.value,
     page: 1,
@@ -50,15 +65,15 @@ const buscarClientes = async () => {
 const seleccionarCliente = (cliente: any) => {
   emit('update:modelValue', {
     cliente_id: cliente.id,
-    tipo_documento: cliente.tipo_documento || 80,
-    numero_documento: cliente.cuit || cliente.dni || '',
-    razon_social: cliente.nombre,
+    tipo_documento: mapTipoDocumento(cliente.tipo_documento),
+    numero_documento: cliente.numero_documento || '',
+    razon_social: cliente.razon_social,
     condicion_iva: cliente.condicion_iva,
-    domicilio: cliente.domicilio,
+    domicilio: cliente.domicilio ?? undefined,
   })
   
   mostrarResultados.value = false
-  busqueda.value = cliente.nombre
+  busqueda.value = cliente.razon_social
 }
 
 // Activar modo manual
@@ -137,9 +152,9 @@ const cerrarResultados = () => {
             @click="seleccionarCliente(cliente)"
             class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0"
           >
-            <div class="font-medium text-gray-900">{{ cliente.nombre }}</div>
+            <div class="font-medium text-gray-900">{{ cliente.razon_social }}</div>
             <div class="text-sm text-gray-500">
-              {{ cliente.cuit || cliente.dni }} - {{ cliente.condicion_iva }}
+              {{ cliente.numero_documento }} - {{ cliente.condicion_iva }}
             </div>
           </button>
         </div>

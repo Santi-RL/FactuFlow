@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import BaseSpinner from './BaseSpinner.vue'
 
 interface Column {
@@ -15,7 +14,7 @@ interface Props {
   emptyText?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   loading: false,
   emptyText: 'No hay datos para mostrar'
 })

@@ -51,4 +51,5 @@ export interface ClienteListParams {
   per_page?: number
   search?: string
   activo?: boolean
+  empresa_id?: number
 }
