@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import health, auth, empresas, clientes, puntos_venta, certificados, arca, comprobantes
+from app.api import health, auth, empresas, clientes, puntos_venta, certificados, arca, comprobantes, pdf, reportes
 
 app = FastAPI(
     title="FactuFlow API",
@@ -34,6 +34,8 @@ app.include_router(puntos_venta.router, prefix="/api/puntos-venta", tags=["Punto
 app.include_router(certificados.router, prefix="/api/certificados", tags=["Certificados"])
 app.include_router(arca.router, prefix="/api/arca", tags=["ARCA"])
 app.include_router(comprobantes.router, prefix="/api/comprobantes", tags=["Comprobantes"])
+app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
+app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
 
 
 @app.on_event("startup")
