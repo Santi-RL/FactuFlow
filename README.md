@@ -3,7 +3,8 @@
 **Sistema de Facturación Electrónica Argentina (ARCA) - Open Source**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Estado: En Desarrollo](https://img.shields.io/badge/Estado-En%20Desarrollo-yellow.svg)]()
+[![Versión: 1.0.0](https://img.shields.io/badge/Versión-1.0.0-blue.svg)]()
+[![Estado: Estable](https://img.shields.io/badge/Estado-Estable-brightgreen.svg)]()
 
 ---
 
@@ -58,9 +59,10 @@ Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
 
 - [Guía de Instalación](docs/setup/README.md)
 - [Configuración de Certificados ARCA](docs/certificates/README.md)
-- [PDF y Reportes](docs/FASE_6_PDF_REPORTES.md) 📊 **NUEVO**
+- [PDF y Reportes](docs/FASE_6_PDF_REPORTES.md)
 - [Manual de Usuario](docs/user-guide/README.md)
 - [API Reference](docs/api/README.md)
+- [Changelog](CHANGELOG.md) 📋
 
 ---
 
@@ -68,7 +70,7 @@ Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
 
 Consulta nuestro [ROADMAP.md](ROADMAP.md) para ver el plan de desarrollo completo.
 
-### Estado Actual: Fase 6 - PDF y Reportes ✅
+### Estado Actual: v1.0.0 - Release Estable ✅
 - [x] Estructura inicial del proyecto
 - [x] Configuración de Docker
 - [x] Backend completo con FastAPI
@@ -77,6 +79,9 @@ Consulta nuestro [ROADMAP.md](ROADMAP.md) para ver el plan de desarrollo complet
 - [x] Emisión de comprobantes con CAE
 - [x] Generación de PDFs con QR ARCA
 - [x] Sistema de reportes (Ventas, IVA, Clientes)
+- [x] Tests E2E con Playwright
+- [x] Optimización de rendimiento (lazy loading, índices BD)
+- [x] Documentación completa
 
 ---
 

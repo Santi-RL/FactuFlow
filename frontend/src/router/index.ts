@@ -1,31 +1,31 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-// Layouts
+// Layout principal - carga inmediata
 import AppLayout from '@/components/layout/AppLayout.vue'
 
-// Views
+// Views públicas - carga inmediata para mejor UX
 import LoginView from '@/views/auth/LoginView.vue'
 import SetupView from '@/views/auth/SetupView.vue'
+
+// Dashboard - carga inmediata (primera vista del usuario)
 import DashboardView from '@/views/dashboard/DashboardView.vue'
-import ClientesListView from '@/views/clientes/ClientesListView.vue'
-import ClienteFormView from '@/views/clientes/ClienteFormView.vue'
-import ClienteDetailView from '@/views/clientes/ClienteDetailView.vue'
-import EmpresaConfigView from '@/views/empresa/EmpresaConfigView.vue'
-import ComprobantesListView from '@/views/comprobantes/ComprobantesListView.vue'
-import ComprobanteNuevoView from '@/views/comprobantes/ComprobanteNuevoView.vue'
-import ComprobanteDetalleView from '@/views/comprobantes/ComprobanteDetalleView.vue'
-import CertificadosListView from '@/views/certificados/CertificadosListView.vue'
-import CertificadoWizardView from '@/views/certificados/CertificadoWizardView.vue'
-import CertificadoExitoView from '@/views/certificados/CertificadoExitoView.vue'
-import ReportesView from '@/views/reportes/ReportesView.vue'
-import ReporteVentasView from '@/views/reportes/ReporteVentasView.vue'
-import ReporteIvaView from '@/views/reportes/ReporteIvaView.vue'
-import RankingClientesView from '@/views/reportes/RankingClientesView.vue'
-import ReportesView from '@/views/reportes/ReportesView.vue'
-import ReporteVentasView from '@/views/reportes/ReporteVentasView.vue'
-import ReporteIvaView from '@/views/reportes/ReporteIvaView.vue'
-import RankingClientesView from '@/views/reportes/RankingClientesView.vue'
+
+// Vistas protegidas - lazy loading para optimización
+const ClientesListView = () => import('@/views/clientes/ClientesListView.vue')
+const ClienteFormView = () => import('@/views/clientes/ClienteFormView.vue')
+const ClienteDetailView = () => import('@/views/clientes/ClienteDetailView.vue')
+const EmpresaConfigView = () => import('@/views/empresa/EmpresaConfigView.vue')
+const ComprobantesListView = () => import('@/views/comprobantes/ComprobantesListView.vue')
+const ComprobanteNuevoView = () => import('@/views/comprobantes/ComprobanteNuevoView.vue')
+const ComprobanteDetalleView = () => import('@/views/comprobantes/ComprobanteDetalleView.vue')
+const CertificadosListView = () => import('@/views/certificados/CertificadosListView.vue')
+const CertificadoWizardView = () => import('@/views/certificados/CertificadoWizardView.vue')
+const CertificadoExitoView = () => import('@/views/certificados/CertificadoExitoView.vue')
+const ReportesView = () => import('@/views/reportes/ReportesView.vue')
+const ReporteVentasView = () => import('@/views/reportes/ReporteVentasView.vue')
+const ReporteIvaView = () => import('@/views/reportes/ReporteIvaView.vue')
+const RankingClientesView = () => import('@/views/reportes/RankingClientesView.vue')
 
 const router = createRouter({
   history: createWebHistory(),

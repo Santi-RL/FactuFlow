@@ -1,7 +1,7 @@
 """Modelo Cliente - Receptor de facturas."""
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -11,6 +11,16 @@ class Cliente(Base):
     """Modelo de Cliente receptor de comprobantes."""
     
     __tablename__ = "clientes"
+    
+    # Índices para consultas frecuentes
+    __table_args__ = (
+        # Índice para búsqueda por documento (CUIT/DNI)
+        Index('ix_clientes_tipo_numero_doc', 'tipo_documento', 'numero_documento'),
+        # Índice para búsqueda por nombre
+        Index('ix_clientes_razon_social', 'razon_social'),
+        # Índice compuesto para listados por empresa
+        Index('ix_clientes_empresa_activo', 'empresa_id', 'activo'),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     razon_social = Column(String(255), nullable=False)

@@ -1,6 +1,6 @@
 {
   "name": "factuflow-frontend",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "format": "prettier --write src/"
+    "format": "prettier --write src/",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "vue": "^3.4.15",
@@ -29,6 +33,7 @@
     "eslint": "^8.56.0",
     "prettier": "^3.2.4",
     "vitest": "^1.2.1",
-    "@vue/test-utils": "^2.4.3"
+    "@vue/test-utils": "^2.4.3",
+    "@playwright/test": "^1.41.0"
   }
 }
