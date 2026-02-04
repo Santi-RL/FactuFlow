@@ -116,11 +116,17 @@ const stats = computed(() => [
               <span v-if="alerta.dias_restantes > 0">
                 vence en {{ alerta.dias_restantes }} día(s) ({{ formatearFecha(alerta.fecha_vencimiento) }})
               </span>
-              <span v-else class="text-red-700 font-semibold">
+              <span
+                v-else
+                class="text-red-700 font-semibold"
+              >
                 ¡YA VENCIÓ! ({{ formatearFecha(alerta.fecha_vencimiento) }})
               </span>
             </div>
-            <p v-if="alertasCertificados.length > 2" class="text-sm mt-1">
+            <p
+              v-if="alertasCertificados.length > 2"
+              class="text-sm mt-1"
+            >
               y {{ alertasCertificados.length - 2 }} más...
             </p>
             <p class="text-sm mt-2">
@@ -128,10 +134,10 @@ const stats = computed(() => [
             </p>
           </div>
           <BaseButton
-            @click="irACertificados"
             variant="secondary"
             size="sm"
             class="ml-4 flex-shrink-0"
+            @click="irACertificados"
           >
             Ver certificados
           </BaseButton>
@@ -140,15 +146,26 @@ const stats = computed(() => [
 
       <!-- Stats Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <BaseCard v-for="stat in stats" :key="stat.name" :padding="false">
+        <BaseCard
+          v-for="stat in stats"
+          :key="stat.name"
+          :padding="false"
+        >
           <div class="p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-600">{{ stat.name }}</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900">{{ stat.value }}</p>
+                <p class="text-sm font-medium text-gray-600">
+                  {{ stat.name }}
+                </p>
+                <p class="mt-2 text-3xl font-bold text-gray-900">
+                  {{ stat.value }}
+                </p>
               </div>
               <div :class="['p-3 rounded-lg', stat.bg]">
-                <component :is="stat.icon" :class="['h-6 w-6', stat.color]" />
+                <component
+                  :is="stat.icon"
+                  :class="['h-6 w-6', stat.color]"
+                />
               </div>
             </div>
           </div>
@@ -163,8 +180,12 @@ const stats = computed(() => [
             class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
           >
             <UsersIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">Nuevo Cliente</h3>
-            <p class="text-sm text-gray-500 mt-1">Agregar un cliente</p>
+            <h3 class="font-medium text-gray-900">
+              Nuevo Cliente
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">
+              Agregar un cliente
+            </p>
           </router-link>
 
           <router-link
@@ -172,8 +193,12 @@ const stats = computed(() => [
             class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
           >
             <DocumentTextIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">Emitir Factura</h3>
-            <p class="text-sm text-gray-500 mt-1">Crear comprobante</p>
+            <h3 class="font-medium text-gray-900">
+              Emitir Factura
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">
+              Crear comprobante
+            </p>
           </router-link>
 
           <router-link
@@ -181,8 +206,12 @@ const stats = computed(() => [
             class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
           >
             <CheckCircleIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">Configurar</h3>
-            <p class="text-sm text-gray-500 mt-1">Mi empresa</p>
+            <h3 class="font-medium text-gray-900">
+              Configurar
+            </h3>
+            <p class="text-sm text-gray-500 mt-1">
+              Mi empresa
+            </p>
           </router-link>
         </div>
       </BaseCard>

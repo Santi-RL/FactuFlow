@@ -45,9 +45,16 @@ const handleChange = (event: Event) => {
 
 <template>
   <div class="w-full">
-    <label v-if="label" :for="selectId" class="block text-sm font-medium text-gray-700 mb-1">
+    <label
+      v-if="label"
+      :for="selectId"
+      class="block text-sm font-medium text-gray-700 mb-1"
+    >
       {{ label }}
-      <span v-if="required" class="text-red-500">*</span>
+      <span
+        v-if="required"
+        class="text-red-500"
+      >*</span>
     </label>
     
     <select
@@ -59,7 +66,12 @@ const handleChange = (event: Event) => {
       v-bind="attrs"
       @change="handleChange"
     >
-      <option value="" disabled>{{ placeholder || 'Seleccionar...' }}</option>
+      <option
+        value=""
+        disabled
+      >
+        {{ placeholder || 'Seleccionar...' }}
+      </option>
       <option
         v-for="option in options"
         :key="option.value"
@@ -69,7 +81,10 @@ const handleChange = (event: Event) => {
       </option>
     </select>
     
-    <p v-if="error" class="mt-1 text-sm text-red-600">
+    <p
+      v-if="error"
+      class="mt-1 text-sm text-red-600"
+    >
       {{ error }}
     </p>
   </div>

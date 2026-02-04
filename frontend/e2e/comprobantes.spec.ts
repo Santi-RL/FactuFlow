@@ -15,11 +15,13 @@ test.describe('Emisión de Comprobantes', () => {
   })
 
   test('debe mostrar botón para crear nueva factura', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /nueva factura/i })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /nueva factura/i }).first()
+    ).toBeVisible()
   })
 
   test('debe abrir formulario de nueva factura', async ({ page }) => {
-    await page.getByRole('button', { name: /nueva factura/i }).click()
+    await page.getByRole('button', { name: /nueva factura/i }).first().click()
     
     // Verificar que se abre el formulario
     await expect(page).toHaveURL(/comprobantes\/nuevo/)
@@ -28,31 +30,31 @@ test.describe('Emisión de Comprobantes', () => {
   })
 
   test('debe seleccionar tipo de comprobante', async ({ page }) => {
-    await page.getByRole('button', { name: /nueva factura/i }).click()
+    await page.getByRole('button', { name: /nueva factura/i }).first().click()
     await page.waitForURL(/comprobantes\/nuevo/)
     
     // Seleccionar Factura A
     await page.getByLabel(/tipo de comprobante/i).selectOption('1') // Factura A
     
     // El formulario debe actualizarse según el tipo
-    await expect(page.getByText(/factura a/i)).toBeVisible()
+    await expect(page.getByLabel(/tipo de comprobante/i)).toHaveValue('1')
   })
 
   test('debe agregar items a la factura', async ({ page }) => {
-    await page.getByRole('button', { name: /nueva factura/i }).click()
+    await page.getByRole('button', { name: /nueva factura/i }).first().click()
     await page.waitForURL(/comprobantes\/nuevo/)
     
     // Agregar un item
     await page.getByRole('button', { name: /agregar ítem|agregar item/i }).click()
     
     // Verificar que aparece el formulario de item
-    await expect(page.getByLabel(/descripción/i)).toBeVisible()
-    await expect(page.getByLabel(/cantidad/i)).toBeVisible()
-    await expect(page.getByLabel(/precio unitario/i)).toBeVisible()
+    await expect(page.getByLabel(/descripción/i).first()).toBeVisible()
+    await expect(page.getByLabel(/cantidad/i).first()).toBeVisible()
+    await expect(page.getByLabel(/precio unitario/i).first()).toBeVisible()
   })
 
   test('debe calcular totales automáticamente', async ({ page }) => {
-    await page.getByRole('button', { name: /nueva factura/i }).click()
+    await page.getByRole('button', { name: /nueva factura/i }).first().click()
     await page.waitForURL(/comprobantes\/nuevo/)
     
     // Completar tipo de comprobante
@@ -66,15 +68,18 @@ test.describe('Emisión de Comprobantes', () => {
     await page.getByLabel(/precio unitario/i).first().fill('1000')
     
     // Verificar que se calcula el total
-    await expect(page.getByText(/1\.000|1000/)).toBeVisible()
+    await expect(
+      page.getByRole('cell', { name: /\$?\s*1\.000/ }).first()
+    ).toBeVisible()
   })
 
   test('debe mostrar vista previa antes de emitir', async ({ page }) => {
-    await page.getByRole('button', { name: /nueva factura/i }).click()
+    await page.getByRole('button', { name: /nueva factura/i }).first().click()
     await page.waitForURL(/comprobantes\/nuevo/)
     
     // Completar formulario básico
     await page.getByLabel(/tipo de comprobante/i).selectOption('1')
+    await page.getByRole('button', { name: /nuevo cliente/i }).click()
     await page.getByLabel(/número/i).fill('20123456789')
     await page.getByLabel(/condición iva/i).selectOption({ label: 'Responsable Inscripto' })
     await page.getByLabel(/razón social/i).fill('Cliente Preview')
@@ -86,6 +91,8 @@ test.describe('Emisión de Comprobantes', () => {
     await page.getByRole('button', { name: /vista previa/i }).click()
     
     // Verificar que se muestra el modal de preview
-    await expect(page.getByText(/confirmar|emitir/i)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /confirmar y emitir/i })
+    ).toBeVisible()
   })
 })

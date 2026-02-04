@@ -125,34 +125,46 @@ const continuar = () => {
       Subí tu certificado
     </h2>
     
-    <div v-if="!certificadoSubido" class="mb-6">
-      <BaseAlert v-if="error" type="error" class="mb-4">
+    <div
+      v-if="!certificadoSubido"
+      class="mb-6"
+    >
+      <BaseAlert
+        v-if="error"
+        type="error"
+        class="mb-4"
+      >
         {{ error }}
       </BaseAlert>
       
       <div
-        @drop.prevent="onDrop"
-        @dragover.prevent="onDragOver"
-        @dragleave="onDragLeave"
-        @click="selectFile"
         class="bg-white rounded-lg shadow-md border-2 border-dashed p-12 text-center cursor-pointer transition-all"
         :class="{
           'border-blue-400 bg-blue-50': dragActive && !loading,
           'border-gray-300 hover:border-gray-400 hover:bg-gray-50': !dragActive && !loading,
           'border-gray-200 bg-gray-50 cursor-not-allowed': loading
         }"
+        @drop.prevent="onDrop"
+        @dragover.prevent="onDragOver"
+        @dragleave="onDragLeave"
+        @click="selectFile"
       >
         <input
           ref="fileInputRef"
           type="file"
           accept=".crt,.cer,.pem"
           class="hidden"
-          @change="onFileSelect"
           :disabled="loading"
-        />
+          @change="onFileSelect"
+        >
         
-        <div v-if="!loading" class="space-y-4">
-          <div class="text-6xl">📄</div>
+        <div
+          v-if="!loading"
+          class="space-y-4"
+        >
+          <div class="text-6xl">
+            📄
+          </div>
           <div>
             <p class="text-lg font-semibold text-gray-900 mb-2">
               Arrastrá el archivo .crt aquí
@@ -166,8 +178,11 @@ const continuar = () => {
           </p>
         </div>
         
-        <div v-else class="space-y-4">
-          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div
+          v-else
+          class="space-y-4"
+        >
+          <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
           <p class="text-lg font-semibold text-gray-900">
             Validando certificado...
           </p>
@@ -175,9 +190,17 @@ const continuar = () => {
       </div>
     </div>
     
-    <div v-else class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <BaseAlert type="success" class="mb-6">
-        <p class="font-semibold mb-1">✅ Certificado cargado correctamente</p>
+    <div
+      v-else
+      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+    >
+      <BaseAlert
+        type="success"
+        class="mb-6"
+      >
+        <p class="font-semibold mb-1">
+          ✅ Certificado cargado correctamente
+        </p>
       </BaseAlert>
       
       <div class="bg-gray-50 rounded-lg p-6">
@@ -188,23 +211,39 @@ const continuar = () => {
         
         <dl class="space-y-3">
           <div class="flex justify-between">
-            <dt class="text-gray-600">CUIT:</dt>
-            <dd class="font-medium text-gray-900">{{ certificadoInfo?.cuit }}</dd>
+            <dt class="text-gray-600">
+              CUIT:
+            </dt>
+            <dd class="font-medium text-gray-900">
+              {{ certificadoInfo?.cuit }}
+            </dd>
           </div>
           
           <div class="flex justify-between">
-            <dt class="text-gray-600">Emitido:</dt>
-            <dd class="font-medium text-gray-900">{{ certificadoInfo?.fechaEmision }}</dd>
+            <dt class="text-gray-600">
+              Emitido:
+            </dt>
+            <dd class="font-medium text-gray-900">
+              {{ certificadoInfo?.fechaEmision }}
+            </dd>
           </div>
           
           <div class="flex justify-between">
-            <dt class="text-gray-600">Vence:</dt>
-            <dd class="font-medium text-gray-900">{{ certificadoInfo?.fechaVencimiento }}</dd>
+            <dt class="text-gray-600">
+              Vence:
+            </dt>
+            <dd class="font-medium text-gray-900">
+              {{ certificadoInfo?.fechaVencimiento }}
+            </dd>
           </div>
           
           <div class="flex justify-between">
-            <dt class="text-gray-600">Días restantes:</dt>
-            <dd class="font-medium text-green-600">{{ certificadoInfo?.diasRestantes }} días</dd>
+            <dt class="text-gray-600">
+              Días restantes:
+            </dt>
+            <dd class="font-medium text-green-600">
+              {{ certificadoInfo?.diasRestantes }} días
+            </dd>
           </div>
         </dl>
       </div>
@@ -212,17 +251,17 @@ const continuar = () => {
     
     <div class="flex justify-between">
       <BaseButton
-        @click="emit('prev')"
         variant="secondary"
         :disabled="loading"
+        @click="emit('prev')"
       >
         ← Anterior
       </BaseButton>
       
       <BaseButton
         v-if="certificadoSubido"
-        @click="continuar"
         variant="primary"
+        @click="continuar"
       >
         Siguiente →
       </BaseButton>

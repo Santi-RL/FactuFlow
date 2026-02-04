@@ -18,8 +18,8 @@ const handleLogout = async () => {
   <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-end px-6">
     <div class="relative">
       <button
-        @click="showDropdown = !showDropdown"
         class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        @click="showDropdown = !showDropdown"
       >
         <UserCircleIcon class="h-6 w-6" />
         <span>{{ authStore.user?.nombre || 'Usuario' }}</span>
@@ -32,13 +32,17 @@ const handleLogout = async () => {
         class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
       >
         <div class="px-4 py-2 border-b border-gray-200">
-          <p class="text-sm font-medium text-gray-900">{{ authStore.user?.nombre }}</p>
-          <p class="text-xs text-gray-500 truncate">{{ authStore.user?.email }}</p>
+          <p class="text-sm font-medium text-gray-900">
+            {{ authStore.user?.nombre }}
+          </p>
+          <p class="text-xs text-gray-500 truncate">
+            {{ authStore.user?.email }}
+          </p>
         </div>
         
         <button
-          @click="handleLogout"
           class="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          @click="handleLogout"
         >
           <ArrowRightOnRectangleIcon class="h-5 w-5" />
           Cerrar sesión

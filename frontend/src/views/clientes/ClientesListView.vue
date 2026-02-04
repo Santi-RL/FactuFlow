@@ -83,8 +83,12 @@ const confirmDelete = async () => {
   <div>
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Clientes</h1>
-        <p class="mt-2 text-gray-600">Gestión de clientes</p>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Clientes
+        </h1>
+        <p class="mt-2 text-gray-600">
+          Gestión de clientes
+        </p>
       </div>
       <BaseButton @click="handleNew">
         <PlusIcon class="h-5 w-5 mr-2" />
@@ -102,7 +106,7 @@ const confirmDelete = async () => {
             type="text"
             placeholder="Buscar por nombre o documento..."
             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+          >
         </div>
       </div>
 
@@ -115,8 +119,12 @@ const confirmDelete = async () => {
       >
         <template #cell-razon_social="{ row }">
           <div>
-            <div class="font-medium text-gray-900">{{ row.razon_social }}</div>
-            <div class="text-sm text-gray-500">{{ row.tipo_documento }}: {{ row.numero_documento }}</div>
+            <div class="font-medium text-gray-900">
+              {{ row.razon_social }}
+            </div>
+            <div class="text-sm text-gray-500">
+              {{ row.tipo_documento }}: {{ row.numero_documento }}
+            </div>
           </div>
         </template>
 
@@ -139,23 +147,23 @@ const confirmDelete = async () => {
         <template #actions="{ row }">
           <div class="flex gap-2">
             <button
-              @click="handleView(row)"
               class="text-blue-600 hover:text-blue-800"
               title="Ver"
+              @click="handleView(row)"
             >
               <EyeIcon class="h-5 w-5" />
             </button>
             <button
-              @click="handleEdit(row)"
               class="text-green-600 hover:text-green-800"
               title="Editar"
+              @click="handleEdit(row)"
             >
               <PencilIcon class="h-5 w-5" />
             </button>
             <button
-              @click="handleDeleteClick(row)"
               class="text-red-600 hover:text-red-800"
               title="Eliminar"
+              @click="handleDeleteClick(row)"
             >
               <TrashIcon class="h-5 w-5" />
             </button>

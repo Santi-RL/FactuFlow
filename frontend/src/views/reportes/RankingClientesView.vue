@@ -113,15 +113,19 @@ const totalGeneral = computed(() => {
     <div class="mb-6">
       <div class="flex items-center gap-4 mb-4">
         <button
-          @click="volver"
           class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           title="Volver"
+          @click="volver"
         >
           <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Ranking de Clientes</h1>
-          <p class="mt-1 text-gray-600">Clientes con mayor facturación en el período</p>
+          <h1 class="text-3xl font-bold text-gray-900">
+            Ranking de Clientes
+          </h1>
+          <p class="mt-1 text-gray-600">
+            Clientes con mayor facturación en el período
+          </p>
         </div>
       </div>
     </div>
@@ -160,9 +164,9 @@ const totalGeneral = computed(() => {
         </div>
         <div class="flex items-end">
           <BaseButton
-            @click="generarReporte"
             :disabled="loading"
             class="w-full"
+            @click="generarReporte"
           >
             <DocumentChartBarIcon class="h-5 w-5 mr-2" />
             Generar Reporte
@@ -172,7 +176,10 @@ const totalGeneral = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner />
     </div>
 
@@ -252,7 +259,9 @@ const totalGeneral = computed(() => {
 
       <!-- Resto del ranking (si hay más de 3) -->
       <BaseCard v-if="clientesConPosicion.length > 3">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Resto del Ranking</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Resto del Ranking
+        </h2>
         
         <div class="space-y-3">
           <div
@@ -279,13 +288,17 @@ const totalGeneral = computed(() => {
               <!-- Estadísticas (visible en desktop) -->
               <div class="hidden md:flex items-center gap-6">
                 <div class="text-right">
-                  <p class="text-sm text-gray-600">Comprobantes</p>
+                  <p class="text-sm text-gray-600">
+                    Comprobantes
+                  </p>
                   <p class="font-semibold text-gray-900">
                     {{ cliente.cantidad_comprobantes }}
                   </p>
                 </div>
                 <div class="text-right">
-                  <p class="text-sm text-gray-600">Total</p>
+                  <p class="text-sm text-gray-600">
+                    Total
+                  </p>
                   <p class="font-bold text-primary-600 text-lg">
                     {{ formatearMoneda(cliente.total_facturado) }}
                   </p>

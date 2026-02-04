@@ -257,26 +257,38 @@ const cancelar = () => {
         <DocumentTextIcon class="h-8 w-8" />
         Nueva Factura
       </h1>
-      <p class="mt-2 text-gray-600">Complete los datos para emitir un nuevo comprobante electrónico</p>
+      <p class="mt-2 text-gray-600">
+        Complete los datos para emitir un nuevo comprobante electrónico
+      </p>
     </div>
 
-    <form @submit.prevent="abrirVistaPrevia" class="space-y-6">
+    <form
+      class="space-y-6"
+      @submit.prevent="abrirVistaPrevia"
+    >
       <!-- Sección 1: Datos del Comprobante -->
       <BaseCard title="📄 Datos del Comprobante">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <!-- Tipo de comprobante -->
           <div>
-            <label for="tipo-comprobante" class="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              for="tipo-comprobante"
+              class="block text-sm font-medium text-gray-700 mb-1"
+            >
               Tipo de Comprobante *
             </label>
             <select
               id="tipo-comprobante"
               v-model="formData.tipo_comprobante"
-              @change="actualizarProximoNumero"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              @change="actualizarProximoNumero"
             >
-              <option v-for="tipo in tiposComprobanteDisponibles" :key="tipo.value" :value="tipo.value">
+              <option
+                v-for="tipo in tiposComprobanteDisponibles"
+                :key="tipo.value"
+                :value="tipo.value"
+              >
                 {{ tipo.label }}
               </option>
             </select>
@@ -284,17 +296,24 @@ const cancelar = () => {
 
           <!-- Punto de venta -->
           <div>
-            <label for="punto-venta" class="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              for="punto-venta"
+              class="block text-sm font-medium text-gray-700 mb-1"
+            >
               Punto de Venta *
             </label>
             <select
               id="punto-venta"
               v-model="formData.punto_venta_id"
-              @change="actualizarProximoNumero"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              @change="actualizarProximoNumero"
             >
-              <option v-for="pv in puntosVenta" :key="pv.id" :value="pv.id">
+              <option
+                v-for="pv in puntosVenta"
+                :key="pv.id"
+                :value="pv.id"
+              >
                 {{ String(pv.numero).padStart(4, '0') }} - {{ pv.descripcion }}
               </option>
             </select>
@@ -302,7 +321,10 @@ const cancelar = () => {
 
           <!-- Concepto -->
           <div>
-            <label for="concepto" class="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              for="concepto"
+              class="block text-sm font-medium text-gray-700 mb-1"
+            >
               Concepto *
             </label>
             <select
@@ -311,20 +333,32 @@ const cancelar = () => {
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option :value="TIPOS_CONCEPTO.PRODUCTOS">{{ TIPOS_CONCEPTO_NOMBRES[1] }}</option>
-              <option :value="TIPOS_CONCEPTO.SERVICIOS">{{ TIPOS_CONCEPTO_NOMBRES[2] }}</option>
-              <option :value="TIPOS_CONCEPTO.PRODUCTOS_Y_SERVICIOS">{{ TIPOS_CONCEPTO_NOMBRES[3] }}</option>
+              <option :value="TIPOS_CONCEPTO.PRODUCTOS">
+                {{ TIPOS_CONCEPTO_NOMBRES[1] }}
+              </option>
+              <option :value="TIPOS_CONCEPTO.SERVICIOS">
+                {{ TIPOS_CONCEPTO_NOMBRES[2] }}
+              </option>
+              <option :value="TIPOS_CONCEPTO.PRODUCTOS_Y_SERVICIOS">
+                {{ TIPOS_CONCEPTO_NOMBRES[3] }}
+              </option>
             </select>
           </div>
         </div>
 
         <!-- Próximo número -->
-        <div v-if="proximoNumero !== null" class="mt-4 text-sm text-gray-600">
+        <div
+          v-if="proximoNumero !== null"
+          class="mt-4 text-sm text-gray-600"
+        >
           El próximo número será: <span class="font-mono font-semibold">{{ String(proximoNumero).padStart(8, '0') }}</span>
         </div>
 
         <!-- Fechas de servicios -->
-        <div v-if="mostrarFechasServicios" class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div
+          v-if="mostrarFechasServicios"
+          class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4"
+        >
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Fecha Servicio Desde *
@@ -334,7 +368,7 @@ const cancelar = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
 
           <div>
@@ -346,7 +380,7 @@ const cancelar = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
 
           <div>
@@ -358,7 +392,7 @@ const cancelar = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
         </div>
       </BaseCard>
@@ -394,24 +428,24 @@ const cancelar = () => {
           rows="3"
           placeholder="Observaciones adicionales (opcional)"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        ></textarea>
+        />
       </BaseCard>
 
       <!-- Botones de acción -->
       <div class="flex items-center justify-end gap-4">
         <button
           type="button"
-          @click="cancelar"
           class="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          @click="cancelar"
         >
           Cancelar
         </button>
 
         <button
           type="button"
-          @click="abrirVistaPrevia"
           :disabled="!formularioValido"
           class="inline-flex items-center gap-2 px-6 py-2 text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          @click="abrirVistaPrevia"
         >
           <EyeIcon class="h-5 w-5" />
           Vista Previa

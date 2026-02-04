@@ -69,11 +69,17 @@ onBeforeUnmount(() => {
     <!-- Mobile menu button -->
     <div class="lg:hidden fixed top-4 left-4 z-50">
       <button
-        @click="uiStore.toggleSidebar"
         class="p-2 rounded-md text-gray-700 bg-white shadow-md"
+        @click="uiStore.toggleSidebar"
       >
-        <Bars3Icon v-if="!uiStore.sidebarOpen" class="h-6 w-6" />
-        <XMarkIcon v-else class="h-6 w-6" />
+        <Bars3Icon
+          v-if="!uiStore.sidebarOpen"
+          class="h-6 w-6"
+        />
+        <XMarkIcon
+          v-else
+          class="h-6 w-6"
+        />
       </button>
     </div>
 
@@ -94,7 +100,9 @@ onBeforeUnmount(() => {
       <div class="flex flex-col h-full">
         <!-- Logo -->
         <div class="flex items-center h-16 px-6 border-b border-gray-200">
-          <h1 class="text-xl font-bold text-primary-600">FactuFlow</h1>
+          <h1 class="text-xl font-bold text-primary-600">
+            FactuFlow
+          </h1>
         </div>
 
         <!-- Navigation -->
@@ -111,7 +119,10 @@ onBeforeUnmount(() => {
             ]"
             @click="uiStore.sidebarOpen = false"
           >
-            <component :is="item.icon" class="mr-3 h-5 w-5 flex-shrink-0" />
+            <component
+              :is="item.icon"
+              class="mr-3 h-5 w-5 flex-shrink-0"
+            />
             <span class="flex-1">{{ item.name }}</span>
             <span
               v-if="item.badge"

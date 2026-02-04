@@ -129,13 +129,17 @@ const tiposDisponibles = [
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Comprobantes</h1>
-        <p class="mt-2 text-gray-600">Gestión de facturas y comprobantes electrónicos</p>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Comprobantes
+        </h1>
+        <p class="mt-2 text-gray-600">
+          Gestión de facturas y comprobantes electrónicos
+        </p>
       </div>
 
       <button
-        @click="nuevaFactura"
         class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        @click="nuevaFactura"
       >
         <PlusIcon class="h-5 w-5" />
         Nueva Factura
@@ -156,9 +160,9 @@ const tiposDisponibles = [
               v-model="filtros.buscar"
               type="text"
               placeholder="Buscar por número o cliente..."
-              @keyup.enter="aplicarFiltros"
               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+              @keyup.enter="aplicarFiltros"
+            >
           </div>
         </div>
 
@@ -171,7 +175,7 @@ const tiposDisponibles = [
             v-model="filtros.desde"
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          >
         </div>
 
         <!-- Hasta -->
@@ -183,7 +187,7 @@ const tiposDisponibles = [
             v-model="filtros.hasta"
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          >
         </div>
 
         <!-- Tipo -->
@@ -195,8 +199,14 @@ const tiposDisponibles = [
             v-model="filtros.tipo"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option :value="null">Todos</option>
-            <option v-for="tipo in tiposDisponibles" :key="tipo.value" :value="tipo.value">
+            <option :value="null">
+              Todos
+            </option>
+            <option
+              v-for="tipo in tiposDisponibles"
+              :key="tipo.value"
+              :value="tipo.value"
+            >
               {{ tipo.label }}
             </option>
           </select>
@@ -205,16 +215,16 @@ const tiposDisponibles = [
         <!-- Botones -->
         <div class="md:col-span-3 flex items-end gap-2">
           <button
-            @click="aplicarFiltros"
             class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            @click="aplicarFiltros"
           >
             <FunnelIcon class="h-5 w-5" />
             Aplicar Filtros
           </button>
 
           <button
-            @click="limpiarFiltros"
             class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            @click="limpiarFiltros"
           >
             Limpiar
           </button>
@@ -223,9 +233,14 @@ const tiposDisponibles = [
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12">
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      <p class="mt-4 text-gray-600">Cargando comprobantes...</p>
+    <div
+      v-if="loading"
+      class="text-center py-12"
+    >
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <p class="mt-4 text-gray-600">
+        Cargando comprobantes...
+      </p>
     </div>
 
     <!-- Lista de comprobantes -->
@@ -234,17 +249,35 @@ const tiposDisponibles = [
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Tipo</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Número</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Fecha</th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Cliente</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Total</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Estado</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Acciones</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                Tipo
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                Número
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                Fecha
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                Cliente
+              </th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">
+                Total
+              </th>
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+                Estado
+              </th>
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="comprobante in comprobantesStore.comprobantes" :key="comprobante.id" class="hover:bg-gray-50">
+            <tr
+              v-for="comprobante in comprobantesStore.comprobantes"
+              :key="comprobante.id"
+              class="hover:bg-gray-50"
+            >
               <td class="px-4 py-3 text-sm text-gray-900">
                 {{ getTipoNombre(comprobante.tipo_comprobante) }}
               </td>
@@ -256,7 +289,9 @@ const tiposDisponibles = [
               </td>
               <td class="px-4 py-3 text-sm text-gray-900">
                 <div>{{ comprobante.cliente_nombre }}</div>
-                <div class="text-xs text-gray-500">{{ comprobante.cliente_documento }}</div>
+                <div class="text-xs text-gray-500">
+                  {{ comprobante.cliente_documento }}
+                </div>
               </td>
               <td class="px-4 py-3 text-sm text-right font-mono text-gray-900">
                 {{ formatMonto(comprobante.total) }}
@@ -268,9 +303,9 @@ const tiposDisponibles = [
               </td>
               <td class="px-4 py-3 text-center">
                 <button
-                  @click="verDetalle(comprobante.id)"
                   class="text-blue-600 hover:text-blue-700 p-1 rounded hover:bg-blue-50"
                   title="Ver detalle"
+                  @click="verDetalle(comprobante.id)"
                 >
                   <EyeIcon class="h-5 w-5" />
                 </button>
@@ -281,7 +316,10 @@ const tiposDisponibles = [
       </div>
 
       <!-- Paginación -->
-      <div v-if="comprobantesStore.totalPaginas > 1" class="mt-6 flex items-center justify-between">
+      <div
+        v-if="comprobantesStore.totalPaginas > 1"
+        class="mt-6 flex items-center justify-between"
+      >
         <div class="text-sm text-gray-700">
           Mostrando {{ ((comprobantesStore.paginaActual - 1) * comprobantesStore.paginacion.per_page) + 1 }} 
           - 
@@ -291,9 +329,9 @@ const tiposDisponibles = [
 
         <div class="flex gap-2">
           <button
-            @click="comprobantesStore.cambiarPagina(comprobantesStore.paginaActual - 1)"
             :disabled="comprobantesStore.paginaActual === 1"
             class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="comprobantesStore.cambiarPagina(comprobantesStore.paginaActual - 1)"
           >
             Anterior
           </button>
@@ -303,9 +341,9 @@ const tiposDisponibles = [
           </span>
 
           <button
-            @click="comprobantesStore.cambiarPagina(comprobantesStore.paginaActual + 1)"
             :disabled="comprobantesStore.paginaActual === comprobantesStore.totalPaginas"
             class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="comprobantesStore.cambiarPagina(comprobantesStore.paginaActual + 1)"
           >
             Siguiente
           </button>
@@ -322,8 +360,8 @@ const tiposDisponibles = [
       >
         <template #actions>
           <button
-            @click="nuevaFactura"
             class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            @click="nuevaFactura"
           >
             <PlusIcon class="h-5 w-5" />
             Nueva Factura

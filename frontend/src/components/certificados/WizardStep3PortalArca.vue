@@ -39,8 +39,8 @@ const abrirPortalArca = () => {
               Ingresá al portal de ARCA
             </h3>
             <button
-              @click="abrirPortalArca"
               class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+              @click="abrirPortalArca"
             >
               <span>🔗</span>
               <span>Ir al portal de ARCA</span>
@@ -149,7 +149,7 @@ const abrirPortalArca = () => {
           v-model="tengoElCertificado"
           type="checkbox"
           class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-        />
+        >
         <span class="text-gray-700">
           Ya tengo el certificado .crt descargado
         </span>
@@ -158,16 +158,16 @@ const abrirPortalArca = () => {
     
     <div class="flex justify-between">
       <BaseButton
-        @click="emit('prev')"
         variant="secondary"
+        @click="emit('prev')"
       >
         ← Anterior
       </BaseButton>
       
       <BaseButton
-        @click="emit('next')"
         variant="primary"
         :disabled="!tengoElCertificado"
+        @click="emit('next')"
       >
         Siguiente →
       </BaseButton>

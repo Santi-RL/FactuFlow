@@ -9,7 +9,9 @@ const emit = defineEmits<Emits>()
 <template>
   <div class="max-w-3xl mx-auto">
     <div class="text-center mb-8">
-      <div class="text-6xl mb-4">🔐</div>
+      <div class="text-6xl mb-4">
+        🔐
+      </div>
       <h2 class="text-3xl font-bold text-gray-900 mb-2">
         ¡Configuremos tu certificado ARCA!
       </h2>
@@ -54,15 +56,17 @@ const emit = defineEmits<Emits>()
             <span class="text-2xl">⏱️</span>
             <span class="text-lg font-semibold text-gray-900">Tiempo estimado:</span>
           </div>
-          <p class="text-gray-700 text-lg">10-15 minutos</p>
+          <p class="text-gray-700 text-lg">
+            10-15 minutos
+          </p>
         </div>
       </div>
     </div>
     
     <div class="flex justify-center">
       <button
-        @click="emit('next')"
         class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg shadow-md hover:shadow-lg"
+        @click="emit('next')"
       >
         Comenzar →
       </button>

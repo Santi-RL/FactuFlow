@@ -32,12 +32,18 @@ const handleSubmit = async () => {
   <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-primary-600 mb-2">FactuFlow</h1>
-        <p class="text-gray-600">Sistema de Facturación Electrónica ARCA</p>
+        <h1 class="text-4xl font-bold text-primary-600 mb-2">
+          FactuFlow
+        </h1>
+        <p class="text-gray-600">
+          Sistema de Facturación Electrónica ARCA
+        </p>
       </div>
 
       <BaseCard>
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">Iniciar Sesión</h2>
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">
+          Iniciar Sesión
+        </h2>
 
         <BaseAlert
           v-if="error"
@@ -48,7 +54,10 @@ const handleSubmit = async () => {
           @dismiss="error = ''"
         />
 
-        <form @submit.prevent="handleSubmit" class="space-y-4">
+        <form
+          class="space-y-4"
+          @submit.prevent="handleSubmit"
+        >
           <BaseInput
             v-model="email"
             type="email"
@@ -77,7 +86,10 @@ const handleSubmit = async () => {
 
         <div class="mt-4 text-center text-sm text-gray-600">
           ¿Primera vez?
-          <router-link to="/setup" class="text-primary-600 hover:text-primary-700 font-medium">
+          <router-link
+            to="/setup"
+            class="text-primary-600 hover:text-primary-700 font-medium"
+          >
             Configurar sistema
           </router-link>
         </div>

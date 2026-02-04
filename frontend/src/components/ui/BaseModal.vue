@@ -69,9 +69,14 @@ const handleOverlayClick = (event: MouseEvent) => {
             @click.stop
           >
             <!-- Header -->
-            <div v-if="title || $slots.header" class="flex items-center justify-between p-6 border-b border-gray-200">
+            <div
+              v-if="title || $slots.header"
+              class="flex items-center justify-between p-6 border-b border-gray-200"
+            >
               <h3 class="text-lg font-semibold text-gray-900">
-                <slot name="header">{{ title }}</slot>
+                <slot name="header">
+                  {{ title }}
+                </slot>
               </h3>
               <button
                 type="button"
@@ -88,7 +93,10 @@ const handleOverlayClick = (event: MouseEvent) => {
             </div>
 
             <!-- Footer -->
-            <div v-if="$slots.footer" class="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <div
+              v-if="$slots.footer"
+              class="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg"
+            >
               <slot name="footer" />
             </div>
           </div>

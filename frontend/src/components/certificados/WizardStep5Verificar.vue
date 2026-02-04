@@ -54,12 +54,15 @@ const verificarConexion = async () => {
         de que el certificado está bien configurado.
       </p>
       
-      <div v-if="!verificado" class="text-center">
+      <div
+        v-if="!verificado"
+        class="text-center"
+      >
         <BaseButton
-          @click="verificarConexion"
           variant="primary"
           :loading="loading"
           class="px-8 py-3 text-lg"
+          @click="verificarConexion"
         >
           <span v-if="!loading">🔌 Probar conexión</span>
           <span v-else>Verificando...</span>
@@ -68,12 +71,17 @@ const verificarConexion = async () => {
       
       <div v-else>
         <!-- Éxito -->
-        <div v-if="resultado?.exito" class="space-y-6">
+        <div
+          v-if="resultado?.exito"
+          class="space-y-6"
+        >
           <BaseAlert type="success">
             <div class="flex items-start gap-3">
               <span class="text-3xl">✅</span>
               <div>
-                <h3 class="font-bold text-lg mb-2">¡Conexión exitosa!</h3>
+                <h3 class="font-bold text-lg mb-2">
+                  ¡Conexión exitosa!
+                </h3>
                 <p class="text-sm">
                   Tu certificado está correctamente configurado y listo para usar.
                 </p>
@@ -115,12 +123,17 @@ const verificarConexion = async () => {
         </div>
         
         <!-- Error -->
-        <div v-else class="space-y-6">
+        <div
+          v-else
+          class="space-y-6"
+        >
           <BaseAlert type="error">
             <div class="flex items-start gap-3">
               <span class="text-3xl">❌</span>
               <div>
-                <h3 class="font-bold text-lg mb-2">No se pudo conectar</h3>
+                <h3 class="font-bold text-lg mb-2">
+                  No se pudo conectar
+                </h3>
                 <p class="text-sm mb-3">
                   {{ resultado?.error || resultado?.mensaje }}
                 </p>
@@ -151,8 +164,8 @@ const verificarConexion = async () => {
           
           <div class="flex gap-3 justify-center">
             <BaseButton
-              @click="verificarConexion"
               variant="secondary"
+              @click="verificarConexion"
             >
               Reintentar
             </BaseButton>
@@ -169,17 +182,17 @@ const verificarConexion = async () => {
     
     <div class="flex justify-between">
       <BaseButton
-        @click="emit('prev')"
         variant="secondary"
         :disabled="loading"
+        @click="emit('prev')"
       >
         ← Anterior
       </BaseButton>
       
       <BaseButton
         v-if="resultado?.exito"
-        @click="emit('finish')"
         variant="primary"
+        @click="emit('finish')"
       >
         Finalizar ✓
       </BaseButton>

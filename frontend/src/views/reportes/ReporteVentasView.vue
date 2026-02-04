@@ -116,15 +116,19 @@ const resumenCards = computed(() => {
     <div class="mb-6">
       <div class="flex items-center gap-4 mb-4">
         <button
-          @click="volver"
           class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           title="Volver"
+          @click="volver"
         >
           <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Reporte de Ventas</h1>
-          <p class="mt-1 text-gray-600">Resumen de comprobantes emitidos por período</p>
+          <h1 class="text-3xl font-bold text-gray-900">
+            Reporte de Ventas
+          </h1>
+          <p class="mt-1 text-gray-600">
+            Resumen de comprobantes emitidos por período
+          </p>
         </div>
       </div>
     </div>
@@ -146,9 +150,9 @@ const resumenCards = computed(() => {
         />
         <div class="flex items-end">
           <BaseButton
-            @click="generarReporte"
             :disabled="loading"
             class="w-full"
+            @click="generarReporte"
           >
             <DocumentChartBarIcon class="h-5 w-5 mr-2" />
             Generar Reporte
@@ -158,7 +162,10 @@ const resumenCards = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner />
     </div>
 
@@ -174,7 +181,9 @@ const resumenCards = computed(() => {
           <div class="p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-600">{{ card.label }}</p>
+                <p class="text-sm font-medium text-gray-600">
+                  {{ card.label }}
+                </p>
                 <p :class="['mt-2 text-2xl font-bold', card.color]">
                   {{ card.valor }}
                 </p>
@@ -203,11 +212,13 @@ const resumenCards = computed(() => {
       <!-- Tabla de Comprobantes -->
       <BaseCard>
         <div class="flex justify-between items-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-900">Detalle de Comprobantes</h2>
+          <h2 class="text-lg font-semibold text-gray-900">
+            Detalle de Comprobantes
+          </h2>
           <BaseButton
-            @click="exportarExcel"
             variant="secondary"
             size="sm"
+            @click="exportarExcel"
           >
             <ArrowDownTrayIcon class="h-4 w-4 mr-2" />
             Exportar Excel

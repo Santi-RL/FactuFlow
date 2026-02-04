@@ -174,6 +174,18 @@ git checkout -b docs/guia-instalacion
 
 ### 4. Tests
 
+#### CI local (mismo alcance que GitHub Actions)
+
+Antes de commitear, ejecutá el **CI local** que replica los mismos pasos del workflow de GitHub Actions:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/ci-local.ps1
+```
+
+El log queda en `.tmp/ci-local.log` y **se sobrescribe en cada ejecución**. El script **no se detiene** ante un fallo: ejecuta todas las etapas y muestra un **resumen final** con OK/WARN/FAIL. El exit code será distinto de 0 si hubo fallas.
+
+**Regla de sincronía obligatoria:** si agregás/modificás tests o pasos en `.github/workflows/ci.yml`, **tenés que** reflejar lo mismo en `scripts/ci-local.ps1` (y viceversa). El CI de GitHub y el CI local deben ejecutar **exactamente las mismas pruebas**.
+
 **Backend:**
 ```bash
 cd backend

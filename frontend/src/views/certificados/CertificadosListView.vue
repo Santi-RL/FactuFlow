@@ -89,9 +89,9 @@ onMounted(() => {
       </div>
       
       <BaseButton
-        @click="irAWizard"
         variant="primary"
         class="flex items-center gap-2"
+        @click="irAWizard"
       >
         <span>+</span>
         <span>Agregar certificado</span>
@@ -117,12 +117,19 @@ onMounted(() => {
     </BaseAlert>
     
     <!-- Error -->
-    <BaseAlert v-if="error && !loading" type="error" class="mb-6">
+    <BaseAlert
+      v-if="error && !loading"
+      type="error"
+      class="mb-6"
+    >
       {{ error }}
     </BaseAlert>
     
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner size="lg" />
     </div>
     
@@ -134,8 +141,8 @@ onMounted(() => {
     >
       <template #action>
         <BaseButton
-          @click="irAWizard"
           variant="primary"
+          @click="irAWizard"
         >
           Configurar certificado
         </BaseButton>

@@ -103,8 +103,8 @@ const eliminarItem = (index: number) => {
     <div class="bg-gray-50 px-4 py-3 border-t border-gray-200">
       <button
         type="button"
-        @click="agregarItem"
         class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-300 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        @click="agregarItem"
       >
         <PlusIcon class="h-5 w-5" />
         Agregar ítem
@@ -112,7 +112,10 @@ const eliminarItem = (index: number) => {
     </div>
 
     <!-- Mensaje si no hay items -->
-    <div v-if="items.length === 0" class="text-center py-8 text-gray-500">
+    <div
+      v-if="items.length === 0"
+      class="text-center py-8 text-gray-500"
+    >
       <p>No hay ítems. Agregue al menos uno para continuar.</p>
     </div>
   </div>

@@ -48,11 +48,13 @@ const numeroCompleto = computed(() => {
     <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
       <!-- Header del modal -->
       <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-gray-900">Vista Previa</h2>
+        <h2 class="text-2xl font-bold text-gray-900">
+          Vista Previa
+        </h2>
         <button
           type="button"
-          @click="emit('close')"
           class="text-gray-400 hover:text-gray-600"
+          @click="emit('close')"
         >
           <XMarkIcon class="h-6 w-6" />
         </button>
@@ -70,8 +72,12 @@ const numeroCompleto = computed(() => {
               </h3>
               <div class="text-sm text-gray-600 space-y-1">
                 <p>CUIT: {{ empresa?.cuit || '30-12345678-9' }}</p>
-                <p v-if="empresa?.domicilio">{{ empresa.domicilio }}</p>
-                <p v-if="empresa?.localidad">{{ empresa.localidad }}, {{ empresa.provincia }}</p>
+                <p v-if="empresa?.domicilio">
+                  {{ empresa.domicilio }}
+                </p>
+                <p v-if="empresa?.localidad">
+                  {{ empresa.localidad }}, {{ empresa.provincia }}
+                </p>
               </div>
             </div>
 
@@ -88,38 +94,57 @@ const numeroCompleto = computed(() => {
           </div>
 
           <!-- Separador -->
-          <div class="border-t-2 border-gray-300 my-6"></div>
+          <div class="border-t-2 border-gray-300 my-6" />
 
           <!-- Datos del cliente -->
           <div class="mb-8">
-            <h4 class="font-semibold text-gray-900 mb-3">Cliente:</h4>
+            <h4 class="font-semibold text-gray-900 mb-3">
+              Cliente:
+            </h4>
             <div class="text-sm text-gray-700 space-y-1">
               <p>{{ formData.cliente.razon_social }}</p>
               <p>{{ formData.cliente.numero_documento }}</p>
               <p>IVA: {{ formData.cliente.condicion_iva }}</p>
-              <p v-if="formData.cliente.domicilio">{{ formData.cliente.domicilio }}</p>
+              <p v-if="formData.cliente.domicilio">
+                {{ formData.cliente.domicilio }}
+              </p>
             </div>
           </div>
 
           <!-- Separador -->
-          <div class="border-t border-gray-200 my-6"></div>
+          <div class="border-t border-gray-200 my-6" />
 
           <!-- Tabla de items -->
           <div class="mb-8">
             <table class="w-full">
               <thead class="border-b border-gray-300">
                 <tr class="text-left text-sm font-semibold text-gray-700">
-                  <th class="pb-2">Descripción</th>
-                  <th class="pb-2 text-center">Cant.</th>
-                  <th class="pb-2 text-right">Precio</th>
-                  <th class="pb-2 text-right">Subtotal</th>
+                  <th class="pb-2">
+                    Descripción
+                  </th>
+                  <th class="pb-2 text-center">
+                    Cant.
+                  </th>
+                  <th class="pb-2 text-right">
+                    Precio
+                  </th>
+                  <th class="pb-2 text-right">
+                    Subtotal
+                  </th>
                 </tr>
               </thead>
               <tbody class="text-sm text-gray-700">
-                <tr v-for="(item, index) in formData.items" :key="index" class="border-b border-gray-100">
+                <tr
+                  v-for="(item, index) in formData.items"
+                  :key="index"
+                  class="border-b border-gray-100"
+                >
                   <td class="py-3">
                     {{ item.descripcion }}
-                    <span v-if="item.codigo" class="text-xs text-gray-500">({{ item.codigo }})</span>
+                    <span
+                      v-if="item.codigo"
+                      class="text-xs text-gray-500"
+                    >({{ item.codigo }})</span>
                   </td>
                   <td class="py-3 text-center">
                     {{ item.cantidad }} {{ item.unidad }}
@@ -136,7 +161,7 @@ const numeroCompleto = computed(() => {
           </div>
 
           <!-- Separador -->
-          <div class="border-t-2 border-gray-300 my-6"></div>
+          <div class="border-t-2 border-gray-300 my-6" />
 
           <!-- Totales -->
           <div class="flex justify-end">
@@ -145,15 +170,24 @@ const numeroCompleto = computed(() => {
                 <span class="text-gray-700">Subtotal:</span>
                 <span class="font-mono">{{ formatMonto(totales.subtotal) }}</span>
               </div>
-              <div v-if="totales.iva21 > 0" class="flex justify-between">
+              <div
+                v-if="totales.iva21 > 0"
+                class="flex justify-between"
+              >
                 <span class="text-gray-700">IVA 21%:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva21) }}</span>
               </div>
-              <div v-if="totales.iva105 > 0" class="flex justify-between">
+              <div
+                v-if="totales.iva105 > 0"
+                class="flex justify-between"
+              >
                 <span class="text-gray-700">IVA 10.5%:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva105) }}</span>
               </div>
-              <div v-if="totales.iva27 > 0" class="flex justify-between">
+              <div
+                v-if="totales.iva27 > 0"
+                class="flex justify-between"
+              >
                 <span class="text-gray-700">IVA 27%:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva27) }}</span>
               </div>
@@ -167,13 +201,20 @@ const numeroCompleto = computed(() => {
           </div>
 
           <!-- Observaciones -->
-          <div v-if="formData.observaciones" class="mt-6">
-            <h4 class="font-semibold text-gray-900 mb-2">Observaciones:</h4>
-            <p class="text-sm text-gray-700 whitespace-pre-line">{{ formData.observaciones }}</p>
+          <div
+            v-if="formData.observaciones"
+            class="mt-6"
+          >
+            <h4 class="font-semibold text-gray-900 mb-2">
+              Observaciones:
+            </h4>
+            <p class="text-sm text-gray-700 whitespace-pre-line">
+              {{ formData.observaciones }}
+            </p>
           </div>
 
           <!-- Separador -->
-          <div class="border-t border-gray-200 my-6"></div>
+          <div class="border-t border-gray-200 my-6" />
 
           <!-- CAE pendiente -->
           <div class="text-sm text-gray-500 space-y-1">
@@ -194,16 +235,16 @@ const numeroCompleto = computed(() => {
       <div class="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-4">
         <button
           type="button"
-          @click="emit('close')"
           class="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          @click="emit('close')"
         >
           Volver a editar
         </button>
 
         <button
           type="button"
-          @click="emit('confirm')"
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          @click="emit('confirm')"
         >
           <CheckIcon class="h-5 w-5" />
           Confirmar y Emitir

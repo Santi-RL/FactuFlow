@@ -60,7 +60,9 @@ const nombreAmbiente = computed(() => {
     <!-- Header -->
     <div class="flex items-start justify-between mb-4">
       <div class="flex items-center gap-3">
-        <div class="text-3xl">🔐</div>
+        <div class="text-3xl">
+          🔐
+        </div>
         <div>
           <h3 class="text-lg font-semibold text-gray-900">
             {{ certificado.nombre }}
@@ -118,15 +120,15 @@ const nombreAmbiente = computed(() => {
     <div class="flex gap-2">
       <button
         v-if="certificado.estado === 'por_vencer' || certificado.estado === 'vencido'"
-        @click="emit('renovar', certificado.id)"
         class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
+        @click="emit('renovar', certificado.id)"
       >
         Renovar
       </button>
       
       <button
-        @click="emit('eliminar', certificado.id)"
         class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-medium text-sm"
+        @click="emit('eliminar', certificado.id)"
       >
         Eliminar
       </button>

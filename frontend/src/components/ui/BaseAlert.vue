@@ -50,14 +50,30 @@ const iconColorClasses = computed(() => {
 
 <template>
   <div :class="['p-4 rounded-lg border flex items-start gap-3', colorClasses]">
-    <component :is="iconComponent" :class="['h-5 w-5 flex-shrink-0 mt-0.5', iconColorClasses]" />
+    <component
+      :is="iconComponent"
+      :class="['h-5 w-5 flex-shrink-0 mt-0.5', iconColorClasses]"
+    />
     
     <div class="flex-1">
-      <h3 v-if="title" class="text-sm font-medium">{{ title }}</h3>
-      <div v-if="$slots.default" :class="[title ? 'mt-1 text-sm opacity-90' : 'text-sm opacity-90']">
+      <h3
+        v-if="title"
+        class="text-sm font-medium"
+      >
+        {{ title }}
+      </h3>
+      <div
+        v-if="$slots.default"
+        :class="[title ? 'mt-1 text-sm opacity-90' : 'text-sm opacity-90']"
+      >
         <slot />
       </div>
-      <p v-else-if="message" :class="[title ? 'mt-1 text-sm opacity-90' : 'text-sm opacity-90']">{{ message }}</p>
+      <p
+        v-else-if="message"
+        :class="[title ? 'mt-1 text-sm opacity-90' : 'text-sm opacity-90']"
+      >
+        {{ message }}
+      </p>
     </div>
     
     <button

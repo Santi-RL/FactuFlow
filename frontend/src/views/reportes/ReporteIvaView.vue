@@ -159,15 +159,19 @@ const resumenTotales = computed(() => {
     <div class="mb-6">
       <div class="flex items-center gap-4 mb-4">
         <button
-          @click="volver"
           class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           title="Volver"
+          @click="volver"
         >
           <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Subdiario de IVA Ventas</h1>
-          <p class="mt-1 text-gray-600">Detalle de comprobantes por alícuotas de IVA</p>
+          <h1 class="text-3xl font-bold text-gray-900">
+            Subdiario de IVA Ventas
+          </h1>
+          <p class="mt-1 text-gray-600">
+            Detalle de comprobantes por alícuotas de IVA
+          </p>
         </div>
       </div>
     </div>
@@ -189,9 +193,9 @@ const resumenTotales = computed(() => {
         />
         <div class="md:col-span-2 flex items-end">
           <BaseButton
-            @click="generarReporte"
             :disabled="loading"
             class="w-full"
+            @click="generarReporte"
           >
             <DocumentChartBarIcon class="h-5 w-5 mr-2" />
             Generar Reporte
@@ -201,7 +205,10 @@ const resumenTotales = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner />
     </div>
 
@@ -226,7 +233,9 @@ const resumenTotales = computed(() => {
           :padding="false"
         >
           <div class="p-6">
-            <p class="text-sm font-medium text-gray-600 mb-4">{{ item.label }}</p>
+            <p class="text-sm font-medium text-gray-600 mb-4">
+              {{ item.label }}
+            </p>
             <div class="space-y-2">
               <div class="flex justify-between">
                 <span class="text-sm text-gray-600">Gravado:</span>
@@ -251,7 +260,9 @@ const resumenTotales = computed(() => {
           <div class="p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-600">{{ total.label }}</p>
+                <p class="text-sm font-medium text-gray-600">
+                  {{ total.label }}
+                </p>
                 <p :class="['mt-2 text-3xl font-bold', total.color]">
                   {{ total.valor }}
                 </p>
@@ -266,7 +277,9 @@ const resumenTotales = computed(() => {
 
       <!-- Tabla de Comprobantes -->
       <BaseCard>
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Detalle de Comprobantes</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+          Detalle de Comprobantes
+        </h2>
 
         <div class="overflow-x-auto">
           <BaseTable

@@ -114,8 +114,8 @@ const cerrarResultados = () => {
       <button
         v-if="!modoManual"
         type="button"
-        @click="activarModoManual"
         class="inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-green-700 bg-green-50 border border-green-300 rounded-md hover:bg-green-100"
+        @click="activarModoManual"
       >
         <UserPlusIcon class="h-4 w-4" />
         Nuevo cliente
@@ -123,8 +123,14 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Búsqueda de cliente -->
-    <div v-if="!modoManual && !modelValue.cliente_id" class="mb-6">
-      <label for="cliente-busqueda" class="block text-sm font-medium text-gray-700 mb-2">
+    <div
+      v-if="!modoManual && !modelValue.cliente_id"
+      class="mb-6"
+    >
+      <label
+        for="cliente-busqueda"
+        class="block text-sm font-medium text-gray-700 mb-2"
+      >
         Buscar cliente por nombre o CUIT
       </label>
       <div class="relative">
@@ -135,10 +141,10 @@ const cerrarResultados = () => {
             v-model="busqueda"
             type="text"
             placeholder="Buscar cliente..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             @input="buscarClientes"
             @blur="cerrarResultados"
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          >
         </div>
 
         <!-- Resultados de búsqueda -->
@@ -150,10 +156,12 @@ const cerrarResultados = () => {
             v-for="cliente in clientesStore.clientes"
             :key="cliente.id"
             type="button"
-            @click="seleccionarCliente(cliente)"
             class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0"
+            @click="seleccionarCliente(cliente)"
           >
-            <div class="font-medium text-gray-900">{{ cliente.razon_social }}</div>
+            <div class="font-medium text-gray-900">
+              {{ cliente.razon_social }}
+            </div>
             <div class="text-sm text-gray-500">
               {{ cliente.numero_documento }} - {{ cliente.condicion_iva }}
             </div>
@@ -171,9 +179,12 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Separador -->
-    <div v-if="!modoManual && !modelValue.cliente_id" class="relative mb-6">
+    <div
+      v-if="!modoManual && !modelValue.cliente_id"
+      class="relative mb-6"
+    >
       <div class="absolute inset-0 flex items-center">
-        <div class="w-full border-t border-gray-300"></div>
+        <div class="w-full border-t border-gray-300" />
       </div>
       <div class="relative flex justify-center text-sm">
         <span class="px-2 bg-white text-gray-500">O completar datos manualmente</span>
@@ -181,18 +192,23 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Cliente seleccionado -->
-    <div v-if="modelValue.cliente_id && !modoManual" class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div
+      v-if="modelValue.cliente_id && !modoManual"
+      class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+    >
       <div class="flex items-center justify-between">
         <div>
-          <div class="font-medium text-gray-900">{{ modelValue.razon_social }}</div>
+          <div class="font-medium text-gray-900">
+            {{ modelValue.razon_social }}
+          </div>
           <div class="text-sm text-gray-600">
             {{ modelValue.numero_documento }} - {{ modelValue.condicion_iva }}
           </div>
         </div>
         <button
           type="button"
-          @click="emit('update:modelValue', { tipo_documento: 80, numero_documento: '', razon_social: '', condicion_iva: '' }); modoManual = true"
           class="text-sm text-blue-600 hover:text-blue-700"
+          @click="emit('update:modelValue', { tipo_documento: 80, numero_documento: '', razon_social: '', condicion_iva: '' }); modoManual = true"
         >
           Cambiar
         </button>
@@ -200,41 +216,64 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Formulario manual -->
-    <div v-if="modoManual || modelValue.cliente_id" class="space-y-4">
+    <div
+      v-if="modoManual || modelValue.cliente_id"
+      class="space-y-4"
+    >
       <!-- Tipo de documento y número -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label for="cliente-tipo-documento" class="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            for="cliente-tipo-documento"
+            class="block text-sm font-medium text-gray-700 mb-1"
+          >
             Tipo Documento *
           </label>
           <select
             id="cliente-tipo-documento"
             :value="modelValue.tipo_documento"
-            @change="updateField('tipo_documento', parseInt(($event.target as HTMLSelectElement).value))"
             required
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            @change="updateField('tipo_documento', parseInt(($event.target as HTMLSelectElement).value))"
           >
-            <option :value="80">{{ TIPOS_DOCUMENTO_NOMBRES[80] }}</option>
-            <option :value="96">{{ TIPOS_DOCUMENTO_NOMBRES[96] }}</option>
-            <option :value="94">{{ TIPOS_DOCUMENTO_NOMBRES[94] }}</option>
-            <option v-if="!requiereCUIT" :value="99">{{ TIPOS_DOCUMENTO_NOMBRES[99] }}</option>
+            <option :value="80">
+              {{ TIPOS_DOCUMENTO_NOMBRES[80] }}
+            </option>
+            <option :value="96">
+              {{ TIPOS_DOCUMENTO_NOMBRES[96] }}
+            </option>
+            <option :value="94">
+              {{ TIPOS_DOCUMENTO_NOMBRES[94] }}
+            </option>
+            <option
+              v-if="!requiereCUIT"
+              :value="99"
+            >
+              {{ TIPOS_DOCUMENTO_NOMBRES[99] }}
+            </option>
           </select>
         </div>
 
         <div class="md:col-span-2">
-          <label for="cliente-numero-documento" class="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            for="cliente-numero-documento"
+            class="block text-sm font-medium text-gray-700 mb-1"
+          >
             Número *
           </label>
           <input
             id="cliente-numero-documento"
             type="text"
             :value="modelValue.numero_documento"
-            @input="updateField('numero_documento', ($event.target as HTMLInputElement).value)"
             placeholder="20-12345678-9"
             required
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <p v-if="requiereCUIT" class="mt-1 text-xs text-amber-600">
+            @input="updateField('numero_documento', ($event.target as HTMLInputElement).value)"
+          >
+          <p
+            v-if="requiereCUIT"
+            class="mt-1 text-xs text-amber-600"
+          >
             * Para comprobantes tipo A, el receptor debe tener CUIT
           </p>
         </div>
@@ -242,18 +281,27 @@ const cerrarResultados = () => {
 
       <!-- Condición IVA -->
       <div>
-        <label for="cliente-condicion-iva" class="block text-sm font-medium text-gray-700 mb-1">
+        <label
+          for="cliente-condicion-iva"
+          class="block text-sm font-medium text-gray-700 mb-1"
+        >
           Condición IVA *
         </label>
         <select
           id="cliente-condicion-iva"
           :value="modelValue.condicion_iva"
-          @change="updateField('condicion_iva', ($event.target as HTMLSelectElement).value)"
           required
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          @change="updateField('condicion_iva', ($event.target as HTMLSelectElement).value)"
         >
-          <option value="">Seleccione...</option>
-          <option v-for="condicion in CONDICIONES_IVA" :key="condicion" :value="condicion">
+          <option value="">
+            Seleccione...
+          </option>
+          <option
+            v-for="condicion in CONDICIONES_IVA"
+            :key="condicion"
+            :value="condicion"
+          >
             {{ condicion }}
           </option>
         </select>
@@ -261,33 +309,39 @@ const cerrarResultados = () => {
 
       <!-- Razón Social -->
       <div>
-        <label for="cliente-razon-social" class="block text-sm font-medium text-gray-700 mb-1">
+        <label
+          for="cliente-razon-social"
+          class="block text-sm font-medium text-gray-700 mb-1"
+        >
           Razón Social / Nombre *
         </label>
         <input
           id="cliente-razon-social"
           type="text"
           :value="modelValue.razon_social"
-          @input="updateField('razon_social', ($event.target as HTMLInputElement).value)"
           placeholder="Empresa Ejemplo S.A."
           required
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+          @input="updateField('razon_social', ($event.target as HTMLInputElement).value)"
+        >
       </div>
 
       <!-- Domicilio -->
       <div>
-        <label for="cliente-domicilio" class="block text-sm font-medium text-gray-700 mb-1">
+        <label
+          for="cliente-domicilio"
+          class="block text-sm font-medium text-gray-700 mb-1"
+        >
           Domicilio (opcional)
         </label>
         <input
           id="cliente-domicilio"
           type="text"
           :value="modelValue.domicilio"
-          @input="updateField('domicilio', ($event.target as HTMLInputElement).value)"
           placeholder="Av. Corrientes 1234, CABA"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+          @input="updateField('domicilio', ($event.target as HTMLInputElement).value)"
+        >
       </div>
     </div>
   </div>

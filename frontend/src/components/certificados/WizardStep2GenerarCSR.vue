@@ -112,7 +112,9 @@ const continuar = () => {
         <div class="flex gap-3">
           <span class="text-2xl">🔑</span>
           <div>
-            <p class="font-semibold text-gray-900">Clave Privada (.key)</p>
+            <p class="font-semibold text-gray-900">
+              Clave Privada (.key)
+            </p>
             <p class="text-sm text-gray-600">
               Es tu "contraseña secreta". <strong>NUNCA</strong> la compartas con nadie.
             </p>
@@ -122,7 +124,9 @@ const continuar = () => {
         <div class="flex gap-3">
           <span class="text-2xl">📄</span>
           <div>
-            <p class="font-semibold text-gray-900">Solicitud de Certificado (.csr)</p>
+            <p class="font-semibold text-gray-900">
+              Solicitud de Certificado (.csr)
+            </p>
             <p class="text-sm text-gray-600">
               Es lo que vas a subir al portal de ARCA para obtener tu certificado.
             </p>
@@ -131,12 +135,22 @@ const continuar = () => {
       </div>
     </div>
     
-    <div v-if="!csrGenerado" class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <BaseAlert v-if="error" type="error" class="mb-4">
+    <div
+      v-if="!csrGenerado"
+      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+    >
+      <BaseAlert
+        v-if="error"
+        type="error"
+        class="mb-4"
+      >
         {{ error }}
       </BaseAlert>
       
-      <form @submit.prevent="generarCSR" class="space-y-4">
+      <form
+        class="space-y-4"
+        @submit.prevent="generarCSR"
+      >
         <BaseInput
           v-model="cuit"
           label="CUIT"
@@ -183,9 +197,17 @@ const continuar = () => {
       </form>
     </div>
     
-    <div v-else class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <BaseAlert type="success" class="mb-4">
-        <p class="font-semibold mb-2">✅ CSR generado exitosamente</p>
+    <div
+      v-else
+      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+    >
+      <BaseAlert
+        type="success"
+        class="mb-4"
+      >
+        <p class="font-semibold mb-2">
+          ✅ CSR generado exitosamente
+        </p>
         <p class="text-sm">
           El archivo de solicitud (.csr) se descargó automáticamente.
           Guardá este archivo, lo vas a necesitar en el siguiente paso.
@@ -193,7 +215,9 @@ const continuar = () => {
       </BaseAlert>
       
       <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p class="font-semibold text-gray-900 mb-2">⚠️ IMPORTANTE</p>
+        <p class="font-semibold text-gray-900 mb-2">
+          ⚠️ IMPORTANTE
+        </p>
         <p class="text-sm text-gray-700">
           La clave privada (.key) se guardó de forma segura en el servidor.
           No la pierdas, ya que la vas a necesitar para usar el certificado.
@@ -203,16 +227,16 @@ const continuar = () => {
     
     <div class="flex justify-between">
       <BaseButton
-        @click="emit('prev')"
         variant="secondary"
+        @click="emit('prev')"
       >
         ← Anterior
       </BaseButton>
       
       <BaseButton
         v-if="csrGenerado"
-        @click="continuar"
         variant="primary"
+        @click="continuar"
       >
         Siguiente →
       </BaseButton>
