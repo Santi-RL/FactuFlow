@@ -12,6 +12,11 @@ from sqlalchemy.orm import selectinload
 from app.models.comprobante import Comprobante
 from app.models.cliente import Cliente
 
+# Constantes de alícuotas de IVA
+IVA_21 = Decimal('0.21')
+IVA_10_5 = Decimal('0.105')
+IVA_27 = Decimal('0.27')
+
 
 class ReportesService:
     """Servicio para generación de reportes de ventas e IVA."""
@@ -88,7 +93,7 @@ class ReportesService:
         for comp in comprobantes:
             comp_dict = {
                 "id": comp.id,
-                "fecha_emision": comp.fecha_emision.strftime("%d/%m/%Y"),
+                "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_comprobante": comp.tipo_comprobante,
                 "tipo_nombre": self._get_nombre_tipo_comprobante(comp.tipo_comprobante),
                 "letra": self._get_letra_comprobante(comp.tipo_comprobante),
@@ -119,8 +124,8 @@ class ReportesService:
             "total_neto": float(total_neto),
             "cantidad_comprobantes": len(comprobantes),
             "periodo": {
-                "desde": desde.strftime("%d/%m/%Y"),
-                "hasta": hasta.strftime("%d/%m/%Y")
+                "desde": desde.isoformat(),
+                "hasta": hasta.isoformat()
             }
         }
         
@@ -170,15 +175,15 @@ class ReportesService:
         comprobantes_list = []
         for comp in comprobantes:
             # Calcular neto gravado por cada alícuota
-            gravado_21 = comp.iva_21 / Decimal("0.21") if comp.iva_21 > 0 else Decimal(0)
-            gravado_10_5 = comp.iva_10_5 / Decimal("0.105") if comp.iva_10_5 > 0 else Decimal(0)
-            gravado_27 = comp.iva_27 / Decimal("0.27") if comp.iva_27 > 0 else Decimal(0)
+            gravado_21 = comp.iva_21 / IVA_21 if comp.iva_21 > 0 else Decimal(0)
+            gravado_10_5 = comp.iva_10_5 / IVA_10_5 if comp.iva_10_5 > 0 else Decimal(0)
+            gravado_27 = comp.iva_27 / IVA_27 if comp.iva_27 > 0 else Decimal(0)
             
             # Para comprobantes sin IVA (tipo C o exentos)
             neto_sin_iva = comp.total - comp.iva_21 - comp.iva_10_5 - comp.iva_27
             
             comp_dict = {
-                "fecha_emision": comp.fecha_emision.strftime("%d/%m/%Y"),
+                "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_letra": self._get_letra_comprobante(comp.tipo_comprobante),
                 "tipo_nombre": self._get_nombre_tipo_comprobante(comp.tipo_comprobante)[:2],
                 "punto_venta": comp.punto_venta.numero,

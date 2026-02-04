@@ -13,6 +13,9 @@ from weasyprint import HTML, CSS
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
 
+# Constante para URL del QR de AFIP (ARCA)
+ARCA_QR_BASE_URL = "https://www.afip.gob.ar/fe/qr/?p="
+
 
 class PDFService:
     """Servicio para generación de PDFs de comprobantes."""
@@ -100,7 +103,7 @@ class PDFService:
         base64_data = base64.b64encode(json_str.encode()).decode()
         
         # URL del QR
-        url_qr = f"https://www.afip.gob.ar/fe/qr/?p={base64_data}"
+        url_qr = f"{ARCA_QR_BASE_URL}{base64_data}"
         
         # Generar imagen QR
         qr = qrcode.QRCode(

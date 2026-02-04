@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotification } from '@/composables/useNotification'
+import { useFormatters } from '@/composables/useFormatters'
 import reportesService from '@/services/reportes.service'
 import type { ReporteClientes } from '@/services/reportes.service'
 import BaseCard from '@/components/ui/BaseCard.vue'
@@ -22,6 +23,7 @@ import {
 const router = useRouter()
 const authStore = useAuthStore()
 const { showError } = useNotification()
+const { formatearFecha, formatearMoneda, formatearCUIT } = useFormatters()
 
 const loading = ref(false)
 const reporte = ref<ReporteClientes | null>(null)
@@ -72,27 +74,6 @@ const generarReporte = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const formatearFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
-
-const formatearMoneda = (valor: number) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    minimumFractionDigits: 2
-  }).format(valor)
-}
-
-const formatearCUIT = (cuit: string) => {
-  if (!cuit || cuit.length !== 11) return cuit
-  return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`
 }
 
 const volver = () => {
