@@ -5,6 +5,7 @@ import { useComprobantesStore } from '@/stores/comprobantes'
 import { DocumentTextIcon, ArrowLeftIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
 import BaseCard from '@/components/ui/BaseCard.vue'
 import { TIPOS_COMPROBANTE_NOMBRES, ESTADOS_COMPROBANTE_NOMBRES } from '@/types/comprobante'
+import pdfService from '@/services/pdf.service'
 
 const route = useRoute()
 const router = useRouter()
@@ -76,9 +77,40 @@ const volver = () => {
   router.push({ name: 'comprobantes' })
 }
 
-const descargarPDF = () => {
-  // TODO: Implementar descarga de PDF
-  alert('Descarga de PDF en desarrollo')
+const descargandoPDF = ref(false)
+
+const descargarPDF = async () => {
+  if (!comprobante.value) return
+  
+  descargandoPDF.value = true
+  try {
+    const letra = obtenerLetraComprobante(comprobante.value.tipo_comprobante)
+    const filename = `${tipoComprobanteNombre.value}_${letra}_${numeroCompleto.value}.pdf`
+    await pdfService.descargarAutomatico(comprobante.value.id, filename)
+  } catch (error) {
+    console.error('Error al descargar PDF:', error)
+    alert('Error al descargar el PDF. Por favor, inténtalo de nuevo.')
+  } finally {
+    descargandoPDF.value = false
+  }
+}
+
+const previsualizarPDF = async () => {
+  if (!comprobante.value) return
+  
+  try {
+    await pdfService.previsualizarPDF(comprobante.value.id)
+  } catch (error) {
+    console.error('Error al previsualizar PDF:', error)
+    alert('Error al previsualizar el PDF. Por favor, inténtalo de nuevo.')
+  }
+}
+
+const obtenerLetraComprobante = (tipo: number): string => {
+  if ([1, 2, 3].includes(tipo)) return 'A'
+  if ([6, 7, 8].includes(tipo)) return 'B'
+  if ([11, 12, 13].includes(tipo)) return 'C'
+  return ''
 }
 </script>
 
@@ -100,13 +132,27 @@ const descargarPDF = () => {
         </h1>
       </div>
 
-      <button
-        @click="descargarPDF"
-        class="inline-flex items-center gap-2 px-4 py-2 text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100"
-      >
-        <ArrowDownTrayIcon class="h-5 w-5" />
-        Descargar PDF
-      </button>
+      <div class="flex gap-2" v-if="comprobante && comprobante.estado === 'autorizado'">
+        <button
+          @click="previsualizarPDF"
+          class="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          Ver PDF
+        </button>
+        <button
+          @click="descargarPDF"
+          :disabled="descargandoPDF"
+          class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ArrowDownTrayIcon class="h-5 w-5" />
+          <span v-if="!descargandoPDF">Descargar PDF</span>
+          <span v-else>Descargando...</span>
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->

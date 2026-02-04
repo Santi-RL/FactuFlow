@@ -22,6 +22,10 @@ import ReportesView from '@/views/reportes/ReportesView.vue'
 import ReporteVentasView from '@/views/reportes/ReporteVentasView.vue'
 import ReporteIvaView from '@/views/reportes/ReporteIvaView.vue'
 import RankingClientesView from '@/views/reportes/RankingClientesView.vue'
+import ReportesView from '@/views/reportes/ReportesView.vue'
+import ReporteVentasView from '@/views/reportes/ReporteVentasView.vue'
+import ReporteIvaView from '@/views/reportes/ReporteIvaView.vue'
+import RankingClientesView from '@/views/reportes/RankingClientesView.vue'
 
 const router = createRouter({
   history: createWebHistory(),

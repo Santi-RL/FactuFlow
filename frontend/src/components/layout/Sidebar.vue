@@ -9,7 +9,8 @@ import {
   BuildingOfficeIcon,
   KeyIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  ChartBarIcon
 } from '@heroicons/vue/24/outline'
 import certificadosService from '@/services/certificados.service'
 
@@ -23,6 +24,7 @@ const menuItems = computed(() => [
   { name: 'Dashboard', icon: HomeIcon, path: '/' },
   { name: 'Clientes', icon: UsersIcon, path: '/clientes' },
   { name: 'Comprobantes', icon: DocumentTextIcon, path: '/comprobantes' },
+  { name: 'Reportes', icon: ChartBarIcon, path: '/reportes' },
   { 
     name: 'Certificados', 
     icon: KeyIcon, 
