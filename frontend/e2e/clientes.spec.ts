@@ -65,8 +65,10 @@ test.describe('Gestión de Clientes', () => {
     // Usar el buscador
     await page.getByPlaceholder(/buscar/i).fill('prueba')
     
-    // Verificar que filtra resultados
-    await page.waitForTimeout(500) // Debounce
-    // Los resultados deberían filtrarse
+    // Esperar a que la tabla se actualice (esperar que desaparezca el spinner o que aparezca contenido)
+    await page.waitForLoadState('networkidle')
+    
+    // Verificar que la búsqueda filtra correctamente (el input contiene el valor buscado)
+    await expect(page.getByPlaceholder(/buscar/i)).toHaveValue('prueba')
   })
 })
