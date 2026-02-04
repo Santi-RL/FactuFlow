@@ -238,6 +238,19 @@ rm data/*.db-shm data/*.db-wal
 docker-compose up -d
 ```
 
+### Error: "password cannot be longer than 72 bytes" al ejecutar tests
+En Windows puede aparecer por incompatibilidad entre `passlib 1.7.4` y
+`bcrypt >= 4`, aunque la contraseña sea corta.
+
+Solución:
+- Usar `bcrypt<4` (ya fijado en `backend/requirements.txt`).
+- Si el entorno ya existía, reinstalar:
+
+```bash
+cd backend
+pip install -r requirements.txt --force-reinstall
+```
+
 ### Logs de errores
 ```bash
 # Backend

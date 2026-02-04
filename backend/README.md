@@ -131,6 +131,21 @@ pytest tests/test_auth.py -v
 pytest tests/test_clientes.py::test_create_cliente -v
 ```
 
+## Troubleshooting
+
+### Error: "password cannot be longer than 72 bytes" al ejecutar tests
+
+Esto no suele ser una contraseña real demasiado larga. En Windows se presenta por
+una incompatibilidad entre `passlib 1.7.4` y `bcrypt >= 4`.
+
+Solución:
+- Asegurarse de tener `bcrypt<4` instalado (ya está fijado en `requirements.txt`).
+- Si el entorno ya existía, reinstalar dependencias:
+
+```bash
+pip install -r requirements.txt --force-reinstall
+```
+
 ## Estructura del Proyecto
 
 ```
