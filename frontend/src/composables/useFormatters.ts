@@ -41,7 +41,8 @@ export const formatearMoneda = (valor: number): string => {
  * Formatea un CUIT argentino (XX-XXXXXXXX-X)
  */
 export const formatearCUIT = (cuit: string): string => {
-  if (!cuit || cuit.length !== 11) return cuit
+  if (!cuit) return ''
+  if (cuit.length !== 11) return cuit
   return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`
 }
 

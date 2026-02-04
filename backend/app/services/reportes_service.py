@@ -185,7 +185,7 @@ class ReportesService:
             comp_dict = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_letra": self._get_letra_comprobante(comp.tipo_comprobante),
-                "tipo_nombre": self._get_nombre_tipo_comprobante(comp.tipo_comprobante)[:2],
+                "tipo_nombre": self._get_abreviatura_tipo_comprobante(comp.tipo_comprobante),
                 "punto_venta": comp.punto_venta.numero,
                 "numero": comp.numero,
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
@@ -317,6 +317,15 @@ class ReportesService:
             11: "Factura C", 12: "Nota Débito C", 13: "Nota Crédito C",
         }
         return nombres.get(tipo, "Comprobante")
+    
+    def _get_abreviatura_tipo_comprobante(self, tipo: int) -> str:
+        """Obtiene la abreviatura del tipo de comprobante para reportes."""
+        abreviaturas = {
+            1: "FA", 2: "ND", 3: "NC",  # Tipo A
+            6: "FB", 7: "ND", 8: "NC",  # Tipo B
+            11: "FC", 12: "ND", 13: "NC",  # Tipo C
+        }
+        return abreviaturas.get(tipo, "CO")
     
     def _get_nombre_mes(self, mes: int) -> str:
         """Obtiene el nombre del mes en español."""
