@@ -4,10 +4,22 @@
 
 /**
  * Formatea una fecha en formato DD/MM/YYYY
+ * Maneja correctamente fechas ISO sin conversión de zona horaria
  */
 export const formatearFecha = (fecha: string | Date): string => {
-  const date = typeof fecha === 'string' ? new Date(fecha) : fecha
-  return date.toLocaleDateString('es-AR', {
+  if (typeof fecha === 'string') {
+    // Para fechas ISO (YYYY-MM-DD), parsear manualmente para evitar problemas de timezone
+    const [year, month, day] = fecha.split('T')[0].split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    return date.toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }
+  
+  // Para objetos Date
+  return fecha.toLocaleDateString('es-AR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'

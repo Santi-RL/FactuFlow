@@ -113,8 +113,8 @@ async def reporte_clientes(
         return {
             "clientes": ranking,
             "periodo": {
-                "desde": desde.strftime("%d/%m/%Y"),
-                "hasta": hasta.strftime("%d/%m/%Y")
+                "desde": desde.isoformat(),
+                "hasta": hasta.isoformat()
             }
         }
     except Exception as e:
