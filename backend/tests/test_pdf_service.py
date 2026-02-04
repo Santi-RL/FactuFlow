@@ -124,7 +124,6 @@ class TestPDFService:
         assert len(qr_base64) > 100  # El QR debe tener contenido
     
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="weasyprint version compatibility issue in CI")
     async def test_generar_pdf_comprobante(self, pdf_service, comprobante_mock, empresa_mock):
         """Debe generar un PDF válido."""
         # Este test requiere que weasyprint esté instalado y configurado
