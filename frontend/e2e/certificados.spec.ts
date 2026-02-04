@@ -1,0 +1,89 @@
+import { test, expect } from '@playwright/test'
+
+/**
+ * Tests E2E para el Wizard de Certificados ARCA en FactuFlow
+ */
+
+test.describe('Wizard de Certificados', () => {
+  // Antes de cada test, simular login
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel(/usuario/i).fill('admin')
+    await page.getByLabel(/contraseña/i).fill('admin123')
+    await page.getByRole('button', { name: /ingresar/i }).click()
+    await page.waitForURL(/dashboard/)
+    await page.getByRole('link', { name: /certificados/i }).click()
+    await page.waitForURL(/certificados/)
+  })
+
+  test('debe mostrar lista de certificados', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /certificados/i })).toBeVisible()
+  })
+
+  test('debe tener botón para nuevo certificado', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /nuevo certificado/i })).toBeVisible()
+  })
+
+  test('debe abrir wizard al hacer click en nuevo certificado', async ({ page }) => {
+    await page.getByRole('button', { name: /nuevo certificado/i }).click()
+    
+    // Verificar que se abre el wizard
+    await expect(page).toHaveURL(/certificados\/nuevo/)
+    
+    // Verificar Step 1 - Introducción
+    await expect(page.getByText(/bienvenido|introducción/i)).toBeVisible()
+  })
+
+  test('debe navegar entre pasos del wizard', async ({ page }) => {
+    await page.getByRole('button', { name: /nuevo certificado/i }).click()
+    await page.waitForURL(/certificados\/nuevo/)
+    
+    // Verificar indicador de progreso (5 pasos)
+    await expect(page.getByText(/paso 1/i)).toBeVisible()
+    
+    // Avanzar al paso 2
+    await page.getByRole('button', { name: /continuar|siguiente/i }).click()
+    await expect(page.getByText(/paso 2/i)).toBeVisible()
+  })
+
+  test('debe mostrar formulario de CSR en paso 2', async ({ page }) => {
+    await page.getByRole('button', { name: /nuevo certificado/i }).click()
+    await page.waitForURL(/certificados\/nuevo/)
+    
+    // Ir al paso 2
+    await page.getByRole('button', { name: /continuar|siguiente/i }).click()
+    
+    // Verificar campos del formulario CSR
+    await expect(page.getByLabel(/cuit/i)).toBeVisible()
+    await expect(page.getByLabel(/ambiente/i)).toBeVisible()
+  })
+
+  test('debe validar CUIT en formulario CSR', async ({ page }) => {
+    await page.getByRole('button', { name: /nuevo certificado/i }).click()
+    await page.waitForURL(/certificados\/nuevo/)
+    
+    // Ir al paso 2
+    await page.getByRole('button', { name: /continuar|siguiente/i }).click()
+    
+    // Ingresar CUIT inválido
+    await page.getByLabel(/cuit/i).fill('123')
+    await page.getByRole('button', { name: /generar/i }).click()
+    
+    // Debe mostrar error
+    await expect(page.getByText(/cuit.*inválido|11 dígitos/i)).toBeVisible()
+  })
+
+  test('debe mostrar instrucciones del portal ARCA en paso 3', async ({ page }) => {
+    await page.getByRole('button', { name: /nuevo certificado/i }).click()
+    await page.waitForURL(/certificados\/nuevo/)
+    
+    // Navegar hasta paso 3
+    await page.getByRole('button', { name: /continuar|siguiente/i }).click()
+    // Completar paso 2
+    await page.getByLabel(/cuit/i).fill('20123456789')
+    await page.getByRole('button', { name: /continuar|ya tengo/i }).click()
+    
+    // Verificar instrucciones del portal ARCA
+    await expect(page.getByText(/portal|arca|afip/i)).toBeVisible()
+  })
+})

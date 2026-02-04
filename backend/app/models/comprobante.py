@@ -2,7 +2,7 @@
 
 from datetime import datetime, date
 from decimal import Decimal
-from sqlalchemy import Column, Integer, String, Date, DateTime, Numeric, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, DateTime, Numeric, ForeignKey, Index
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -12,6 +12,20 @@ class Comprobante(Base):
     """Modelo de Comprobante (Facturas, NC, ND)."""
     
     __tablename__ = "comprobantes"
+    
+    # Índices compuestos para consultas frecuentes
+    __table_args__ = (
+        # Índice para búsqueda por tipo y número (único por punto de venta)
+        Index('ix_comprobantes_tipo_numero', 'tipo_comprobante', 'numero'),
+        # Índice para filtros por fecha
+        Index('ix_comprobantes_fecha_emision', 'fecha_emision'),
+        # Índice para búsqueda por CAE
+        Index('ix_comprobantes_cae', 'cae'),
+        # Índice para filtro por estado
+        Index('ix_comprobantes_estado', 'estado'),
+        # Índice compuesto para listados paginados
+        Index('ix_comprobantes_empresa_fecha', 'empresa_id', 'fecha_emision'),
+    )
     
     id = Column(Integer, primary_key=True, index=True)
     
