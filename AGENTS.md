@@ -28,6 +28,10 @@
 - Tailwind: priorizar utilidades sobre CSS custom.
 - UI y mensajes para usuarios en español (Argentina).
 
+## Git / Colaboración
+- No ejecutar `git push` sin pedido explícito del usuario. Si hay cambios listos para publicar, preparar commit(s) y pedir confirmación antes de pushear.
+- Preferir PRs para cambios no triviales; si se trabaja sobre `main`, minimizar commits “de ruido” (formato/lint) y agruparlos.
+
 ## Comandos
 ### Backend
 ```bash
