@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEmpresaStore } from '@/stores/empresa'
 import { useComprobantesStore } from '@/stores/comprobantes'
+import { usePuntosVentaStore } from '@/stores/puntos_venta'
 import { DocumentTextIcon, EyeIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline'
 import BaseCard from '@/components/ui/BaseCard.vue'
 import ClienteSelector from '@/components/comprobantes/ClienteSelector.vue'
@@ -20,6 +21,7 @@ import {
 const router = useRouter()
 const empresaStore = useEmpresaStore()
 const comprobantesStore = useComprobantesStore()
+const puntosVentaStore = usePuntosVentaStore()
 
 // Estado del formulario
 const formData = ref({
@@ -53,7 +55,7 @@ const formData = ref({
 const loading = ref(false)
 const mostrarPreview = ref(false)
 const proximoNumero = ref<number | null>(null)
-const puntosVenta = ref<any[]>([])
+const puntosVenta = computed(() => puntosVentaStore.puntosVenta)
 
 // Inicializar datos
 onMounted(async () => {
@@ -63,10 +65,11 @@ onMounted(async () => {
   }
   
   // Cargar puntos de venta
-  // TODO: Implementar endpoint de puntos de venta
-  puntosVenta.value = [
-    { id: 1, numero: 1, descripcion: 'Punto de Venta 1' }
-  ]
+  try {
+    await puntosVentaStore.fetchPuntosVenta()
+  } catch (error) {
+    console.error('Error al cargar puntos de venta:', error)
+  }
   
   if (puntosVenta.value.length > 0) {
     formData.value.punto_venta_id = puntosVenta.value[0].id
@@ -314,7 +317,7 @@ const cancelar = () => {
                 :key="pv.id"
                 :value="pv.id"
               >
-                {{ String(pv.numero).padStart(4, '0') }} - {{ pv.descripcion }}
+                {{ String(pv.numero).padStart(4, '0') }} - {{ pv.nombre || 'Sin nombre' }}
               </option>
             </select>
           </div>

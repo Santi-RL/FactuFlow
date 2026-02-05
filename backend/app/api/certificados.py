@@ -2,9 +2,10 @@
 
 import logging
 from datetime import date
+from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -12,6 +13,8 @@ from app.core.database import get_db
 from app.api.deps import get_current_empresa_user
 from app.models.usuario import Usuario
 from app.models.certificado import Certificado
+from app.models.empresa import Empresa
+from app.core.config import settings
 from app.schemas.certificado import (
     CertificadoResponse,
     GenerarCSRRequest,
@@ -54,6 +57,45 @@ async def list_certificados(
     certificados = result.scalars().all()
 
     return certificados
+
+
+@router.get("/keys", response_model=list[str])
+async def list_keys(
+    cuit: str = Query(..., pattern=r"^\d{11}$"),
+    ambiente: str = Query(..., pattern=r"^(homologacion|produccion)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+):
+    """
+    Listar claves privadas disponibles para un CUIT y ambiente.
+
+    Args:
+        cuit: CUIT asociado
+        ambiente: "homologacion" o "produccion"
+        db: Sesión de base de datos
+        current_user: Usuario autenticado
+
+    Returns:
+        Lista de nombres de archivos .key disponibles
+    """
+    if not current_user.es_admin:
+        result = await db.execute(
+            select(Empresa.cuit).where(Empresa.id == current_user.empresa_id)
+        )
+        empresa_cuit = result.scalar_one_or_none()
+        if empresa_cuit != cuit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para listar claves de otro CUIT",
+            )
+
+    certs_path = Path(settings.certs_path)
+    if not certs_path.exists():
+        return []
+
+    pattern = f"{cuit}_{ambiente}_*.key"
+    keys = sorted([p.name for p in certs_path.glob(pattern)], reverse=True)
+    return keys
 
 
 @router.get("/alertas-vencimiento", response_model=List[CertificadoAlerta])

@@ -124,6 +124,13 @@ const continuar = () => {
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
       Subí tu certificado
     </h2>
+
+    <BaseAlert
+      type="info"
+      class="mb-6"
+    >
+      Usando clave privada: <span class="font-mono">{{ props.keyFilename }}</span>
+    </BaseAlert>
     
     <div
       v-if="!certificadoSubido"

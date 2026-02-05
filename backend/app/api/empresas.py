@@ -2,10 +2,14 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.core.database import get_db
-from app.core.security import get_current_user, get_current_admin_user
+from app.core.security import (
+    get_current_user,
+    get_current_admin_user,
+    get_current_user_optional,
+)
 from app.models.usuario import Usuario
 from app.models.empresa import Empresa
 from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaResponse
@@ -37,7 +41,7 @@ async def list_empresas(
 async def create_empresa(
     empresa_data: EmpresaCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_admin_user),
+    current_user: Usuario | None = Depends(get_current_user_optional),
 ):
     """
     Crear una nueva empresa (solo admin).
@@ -45,7 +49,7 @@ async def create_empresa(
     Args:
         empresa_data: Datos de la empresa
         db: Sesión de base de datos
-        current_user: Usuario administrador autenticado
+        current_user: Usuario autenticado (opcional en setup inicial)
 
     Returns:
         Empresa creada
@@ -53,6 +57,23 @@ async def create_empresa(
     Raises:
         HTTPException: Si el CUIT ya existe
     """
+    # Permitir creación sin auth solo si no hay usuarios (setup inicial)
+    result_users = await db.execute(select(func.count(Usuario.id)))
+    user_count = result_users.scalar() or 0
+
+    if user_count > 0:
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No se pudo validar las credenciales",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if not current_user.es_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permisos de administrador",
+            )
+
     # Verificar que el CUIT no exista
     result = await db.execute(select(Empresa).where(Empresa.cuit == empresa_data.cuit))
     existing = result.scalar_one_or_none()

@@ -10,7 +10,8 @@ import {
   KeyIcon,
   Bars3Icon,
   XMarkIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  MapPinIcon
 } from '@heroicons/vue/24/outline'
 import certificadosService from '@/services/certificados.service'
 
@@ -31,6 +32,7 @@ const menuItems = computed(() => [
     path: '/certificados',
     badge: certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null
   },
+  { name: 'Puntos de venta', icon: MapPinIcon, path: '/puntos-venta' },
   { name: 'Mi Empresa', icon: BuildingOfficeIcon, path: '/empresa' }
 ])
 

@@ -192,13 +192,28 @@ class CertificadosService:
             for attr in cert.issuer:
                 issuer_dict[attr.oid._name] = attr.value
 
-            # Extraer CUIT del Common Name
-            cuit_cert = subject_dict.get("commonName", "")
+            def extraer_cuit(valor: str) -> str:
+                """Extrae dígitos del CUIT desde un string."""
+                if not valor:
+                    return ""
+                digitos = "".join(ch for ch in valor if ch.isdigit())
+                return digitos if len(digitos) == 11 else ""
+
+            # Extraer CUIT del CN o del SERIALNUMBER (ARCA usa alias en CN)
+            cn_attr = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+            serial_attr = cert.subject.get_attributes_for_oid(NameOID.SERIAL_NUMBER)
+            cn_valor = cn_attr[0].value if cn_attr else ""
+            serial_valor = serial_attr[0].value if serial_attr else ""
+
+            cuit_cert = extraer_cuit(cn_valor)
+            if not cuit_cert:
+                cuit_cert = extraer_cuit(serial_valor)
 
             # Verificar que el CUIT coincida
             if cuit_cert != cuit_esperado:
                 raise ArcaCertificateError(
-                    f"El CUIT del certificado ({cuit_cert}) no coincide con el esperado ({cuit_esperado})"
+                    "El CUIT del certificado no coincide con el esperado "
+                    f"(CN={cn_valor}, SERIALNUMBER={serial_valor}, esperado={cuit_esperado})"
                 )
 
             info = CertificadoInfo(

@@ -16,6 +16,7 @@ const ClientesListView = () => import('@/views/clientes/ClientesListView.vue')
 const ClienteFormView = () => import('@/views/clientes/ClienteFormView.vue')
 const ClienteDetailView = () => import('@/views/clientes/ClienteDetailView.vue')
 const EmpresaConfigView = () => import('@/views/empresa/EmpresaConfigView.vue')
+const PuntosVentaView = () => import('@/views/puntos_venta/PuntosVentaView.vue')
 const ComprobantesListView = () => import('@/views/comprobantes/ComprobantesListView.vue')
 const ComprobanteNuevoView = () => import('@/views/comprobantes/ComprobanteNuevoView.vue')
 const ComprobanteDetalleView = () => import('@/views/comprobantes/ComprobanteDetalleView.vue')
@@ -76,6 +77,11 @@ const router = createRouter({
           path: 'empresa',
           name: 'empresa',
           component: EmpresaConfigView
+        },
+        {
+          path: 'puntos-venta',
+          name: 'puntos-venta',
+          component: PuntosVentaView
         },
         {
           path: 'comprobantes',

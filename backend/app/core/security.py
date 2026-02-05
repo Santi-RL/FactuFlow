@@ -17,6 +17,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Security scheme para JWT
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -108,6 +109,60 @@ async def get_current_user(
     Raises:
         HTTPException: Si el token es inválido o el usuario no existe
     """
+    # Import here to avoid circular dependency
+    from app.models.usuario import Usuario
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar las credenciales",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    token = credentials.credentials
+    payload = decode_access_token(token)
+
+    if payload is None:
+        raise credentials_exception
+
+    email: str = payload.get("sub")
+    if email is None:
+        raise credentials_exception
+
+    # Buscar usuario en la base de datos
+    result = await db.execute(select(Usuario).where(Usuario.email == email))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise credentials_exception
+
+    if not user.activo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo"
+        )
+
+    return user
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Dependency opcional para obtener el usuario actual.
+
+    Si no hay credenciales, devuelve None. Si las credenciales son inválidas,
+    lanza una excepción HTTP 401.
+
+    Args:
+        credentials: Credenciales HTTP Bearer (opcional)
+        db: Sesión de base de datos
+
+    Returns:
+        Usuario actual o None si no hay token
+    """
+    if credentials is None:
+        return None
+
     # Import here to avoid circular dependency
     from app.models.usuario import Usuario
 

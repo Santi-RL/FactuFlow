@@ -2,7 +2,7 @@
 
 import base64
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Tuple
 
@@ -97,7 +97,7 @@ def verify_certificate_validity(cert: x509.Certificate) -> None:
     Raises:
         ArcaCertificateError: Si el certificado está vencido o no es válido aún
     """
-    now = datetime.utcnow()
+    now = datetime.now(tz=timezone.utc)
 
     if now < cert.not_valid_before_utc:
         raise ArcaCertificateError(
@@ -124,7 +124,8 @@ def generate_tra(servicio: str = "wsfe", ttl_hours: int = 12) -> str:
     if ttl_hours > 12:
         ttl_hours = 12
 
-    now = datetime.utcnow()
+    # WSAA valida contra horario local del servidor (AR); usar hora local
+    now = datetime.now()
     generation_time = now.strftime("%Y-%m-%dT%H:%M:%S")
     expiration_time = (now + timedelta(hours=ttl_hours)).strftime("%Y-%m-%dT%H:%M:%S")
     unique_id = int(now.timestamp())
@@ -173,7 +174,7 @@ def sign_tra(
 
         # Crear firma CMS (PKCS#7)
         # Usando SignedData sin atributos adicionales
-        options = [pkcs7.PKCS7Options.DetachedSignature]
+        options = [pkcs7.PKCS7Options.Binary]
 
         cms = (
             pkcs7.PKCS7SignatureBuilder()
@@ -182,9 +183,7 @@ def sign_tra(
             .sign(serialization.Encoding.DER, options)
         )
 
-        # Codificar en Base64
         cms_base64 = base64.b64encode(cms).decode("ascii")
-
         return cms_base64
 
     except ArcaCertificateError:
@@ -220,9 +219,7 @@ def create_signed_tra(
     tra = generate_tra(servicio, ttl_hours)
 
     # Firmar TRA
-    cms = sign_tra(tra, cert_path, key_path, key_password)
-
-    return cms
+    return sign_tra(tra, cert_path, key_path, key_password)
 
 
 def get_certificate_info(cert_path: str) -> dict:

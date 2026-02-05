@@ -92,6 +92,16 @@ class CertificadosService {
   }
 
   /**
+   * Lista claves privadas disponibles para un CUIT y ambiente
+   */
+  async listarClaves(cuit: string, ambiente: string): Promise<string[]> {
+    const response = await apiClient.get(`${this.basePath}/keys`, {
+      params: { cuit, ambiente }
+    })
+    return response.data
+  }
+
+  /**
    * Descarga el CSR como archivo
    */
   descargarCSR(csr: string, cuit: string): void {
