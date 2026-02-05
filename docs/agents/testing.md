@@ -3,16 +3,21 @@
 ## Backend
 ```bash
 cd backend
-pytest
-pytest tests/ -v
+# Igual que CI (ver .github/workflows/ci.yml)
+python -m pip install -r requirements.txt -r requirements-dev.txt
+black --check app/ tests/
+pytest tests/ -v --cov=app --cov-report=xml
 ```
 
 ## Frontend
 ```bash
 cd frontend
-npm run test
+# Igual que CI (ver .github/workflows/ci.yml)
+npm ci
+npm run type-check
+npm run lint
+npm run build
 npm run test:unit
-npm run test:e2e
 ```
 
 ## Notas
