@@ -5,7 +5,16 @@ from datetime import date
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+    status,
+    Query,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
