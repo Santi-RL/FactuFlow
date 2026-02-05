@@ -8,11 +8,10 @@ Los servicios encapsulan la lógica compleja y son llamados desde los endpoints.
 
 ```
 services/
-├── cliente_service.py       # CRUD y validaciones de clientes
-├── empresa_service.py       # Gestión de empresas
-├── comprobante_service.py   # Emisión y gestión de comprobantes
-├── certificado_service.py   # Gestión de certificados X.509
-└── facturacion_service.py   # Orquestación de emisión de facturas
+├── certificados_service.py  # CSR, validacion y operacion con certificados
+├── facturacion_service.py   # Orquestacion de emision de comprobantes
+├── pdf_service.py           # Generacion de PDF (QR ARCA, templates)
+└── reportes_service.py      # Reportes (ventas, IVA, ranking, etc.)
 ```
 
 ## Principios
@@ -22,37 +21,7 @@ services/
 - **Testeable**: Los servicios deben poder testearse independientemente
 - **Transaccional**: Manejar transacciones de BD dentro de servicios
 
-## Ejemplo
+## Donde entra cada servicio
 
-```python
-# services/cliente_service.py
-from sqlalchemy.orm import Session
-from app.models.cliente import Cliente
-from app.schemas.cliente import ClienteCreate
-
-class ClienteService:
-    @staticmethod
-    def crear_cliente(db: Session, cliente_data: ClienteCreate) -> Cliente:
-        """Crea un nuevo cliente con validaciones."""
-        # Validar CUIT
-        if not ClienteService.validar_cuit(cliente_data.cuit):
-            raise ValueError("CUIT inválido")
-        
-        # Verificar que no exista
-        existente = db.query(Cliente).filter(Cliente.cuit == cliente_data.cuit).first()
-        if existente:
-            raise ValueError("El CUIT ya existe")
-        
-        # Crear
-        cliente = Cliente(**cliente_data.dict())
-        db.add(cliente)
-        db.commit()
-        db.refresh(cliente)
-        return cliente
-    
-    @staticmethod
-    def validar_cuit(cuit: str) -> bool:
-        """Valida formato y dígito verificador de CUIT argentino."""
-        # Implementación de validación de CUIT
-        pass
-```
+- Validaciones y flujo ARCA: ver `backend/app/services/facturacion_service.py` y `backend/app/arca/`.
+- PDF/reportes: ver `docs/FASE_6_PDF_REPORTES.md`.

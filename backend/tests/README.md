@@ -7,13 +7,13 @@ Esta carpeta contiene todos los tests del backend.
 ```
 tests/
 ├── conftest.py              # Fixtures compartidas (DB, cliente de tests)
-├── test_clientes.py         # Tests de endpoints y servicios de clientes
-├── test_empresas.py         # Tests de empresas
-├── test_comprobantes.py     # Tests de comprobantes
-├── test_certificados.py     # Tests de certificados
-└── test_afip/
-    ├── test_wsaa.py         # Tests de WSAA (con mocks)
-    └── test_wsfe.py         # Tests de WSFEv1 (con mocks)
+├── test_auth.py             # Auth (setup/login/me)
+├── test_clientes.py         # Clientes
+├── test_certificados.py     # Certificados
+├── test_health.py           # Health checks
+├── test_pdf_service.py      # PDF service (generacion, QR, etc.)
+├── test_reportes_service.py # Reportes service
+└── test_arca/               # Tests de integracion ARCA (con mocks)
 ```
 
 ## Ejecutar Tests

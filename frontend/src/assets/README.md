@@ -1,23 +1,16 @@
 # Assets - Archivos Estáticos
 
-Esta carpeta contiene assets estáticos como imágenes, fuentes e iconos.
+Esta carpeta contiene assets del frontend.
 
 ## Estructura
 
 ```
 assets/
 ├── styles/
-│   ├── main.css         # Estilos globales y Tailwind
-│   └── variables.css    # Variables CSS custom
-├── images/
-│   ├── logo.svg         # Logo de FactuFlow
-│   ├── logo-white.svg   # Logo blanco (para fondos oscuros)
-│   └── placeholder.png  # Placeholders
-└── fonts/
-    └── README.md        # Si se usan fuentes custom
+│   └── main.css         # Tailwind + estilos globales
 ```
 
-## Estilos Globales
+Hoy el proyecto solo usa `assets/styles/main.css`. Si mas adelante se agregan imagenes/fuentes, se recomienda sumar `assets/images/` y `assets/fonts/` y documentarlo aca.
 
 ```css
 /* assets/styles/main.css */
@@ -64,11 +57,12 @@ assets/
 
 ```vue
 <script setup lang="ts">
-import logoUrl from '@/assets/images/logo.svg'
+// Ejemplo si se agrega un asset (imagen/fuente) al proyecto:
+// import logoUrl from '@/assets/images/logo.svg'
 </script>
 
 <template>
-  <img :src="logoUrl" alt="FactuFlow" />
+  <!-- <img :src="logoUrl" alt="FactuFlow" /> -->
 </template>
 ```
 
@@ -82,7 +76,7 @@ O directamente en template:
 
 ## Iconos
 
-Se recomienda usar **@heroicons/vue** en lugar de archivos SVG:
+Se recomienda usar **@heroicons/vue** en lugar de archivos SVG sueltos:
 
 ```bash
 npm install @heroicons/vue

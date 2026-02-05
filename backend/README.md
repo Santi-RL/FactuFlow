@@ -176,9 +176,14 @@ backend/
 │   │   ├── clientes.py
 │   │   ├── puntos_venta.py
 │   │   ├── certificados.py
+│   │   ├── arca.py
+│   │   ├── comprobantes.py
+│   │   ├── pdf.py
+│   │   ├── reportes.py
 │   │   └── health.py
-│   ├── services/            # Lógica de negocio (futuro)
-│   └── afip/                # Integración ARCA (futuro)
+│   ├── services/            # Lógica de negocio
+│   ├── arca/                # Integración ARCA (WSAA/WSFEv1, crypto, cache, utils)
+│   └── afip/                # Legacy (nomenclatura, sin codigo)
 ├── tests/                   # Tests
 │   ├── conftest.py
 │   ├── test_auth.py

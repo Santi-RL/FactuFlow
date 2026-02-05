@@ -57,6 +57,7 @@ Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
 
 ## 📖 Documentación
 
+- [Índice de documentación](docs/README.md)
 - [Guía de Instalación](docs/setup/README.md)
 - [Configuración de Certificados ARCA](docs/certificates/README.md)
 - [PDF y Reportes](docs/FASE_6_PDF_REPORTES.md)

@@ -88,9 +88,19 @@ logs/
 tmp/
 temp/
 *.tmp
+.codex_*
 
 # ARCA WS documentation (local reference only)
-docs/arca-ws/
+# PDFs/ZIPs suelen ser pesados. Se conserva un indice y notas en Markdown.
+docs/arca-ws/**
+!docs/arca-ws/
+!docs/arca-ws/README.md
+!docs/arca-ws/NOTAS.md
+# Permitir 1 fuente en Markdown (y mantener el resto como referencia local).
+!docs/arca-ws/wsass/
+docs/arca-ws/wsass/**
+!docs/arca-ws/wsass/introduccion-servicios.md
+docs/arca-ws/_extracted/
 
 # OS
 Thumbs.db

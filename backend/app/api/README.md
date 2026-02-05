@@ -1,27 +1,29 @@
-# Endpoints de la API
+# API (FastAPI)
 
-Esta carpeta contiene todos los endpoints de la API REST de FactuFlow.
+Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 
-## Estructura
+## Archivos
 
-```
-api/
-├── __init__.py
-├── deps.py              # Dependencias comunes (DB session, auth, etc.)
-└── v1/
-    ├── __init__.py
-    ├── router.py        # Router principal que incluye todos los routers
-    ├── clientes.py      # CRUD de clientes
-    ├── empresas.py      # CRUD de empresas
-    ├── comprobantes.py  # Emisión y consulta de comprobantes
-    ├── certificados.py  # Gestión de certificados ARCA
-    └── afip.py          # Integración directa con ARCA (WSAA, WSFEv1)
-```
+- `deps.py`: dependencias compartidas (DB session, usuario actual, etc.).
+- `health.py`: health checks.
+- `auth.py`: setup/login/me.
+- `empresas.py`: CRUD de empresas.
+- `clientes.py`: CRUD de clientes.
+- `puntos_venta.py`: CRUD de puntos de venta.
+- `certificados.py`: gestion de certificados (CSR, upload, verificacion, alertas).
+- `arca.py`: integracion ARCA (WSAA/WSFEv1 via `app/arca/`).
+- `comprobantes.py`: emision y consulta de comprobantes.
+- `pdf.py`: generacion/descarga de PDFs.
+- `reportes.py`: reportes (ventas, IVA, ranking, etc.).
+
+## Registro de routers
+
+Los routers se registran en `backend/app/main.py` con `app.include_router(...)`.
 
 ## Convenciones
 
-- Todos los endpoints deben tener documentación (docstrings)
-- Usar Pydantic schemas para request/response
-- Validar permisos con dependencies
-- Manejar errores con HTTPException
-- Loggear operaciones importantes
+- Imports absolutos desde `app/`.
+- Docstrings en espanol.
+- Usar schemas Pydantic para request/response.
+- Validar permisos con dependencies.
+- Manejar errores con `HTTPException`.

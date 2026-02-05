@@ -153,7 +153,7 @@ This update contains **only security patches** with no functional changes. It is
 
 ### Ongoing
 - 🔄 Regular dependency audits (monthly)
-- �� Monitor security advisories
+- Monitor security advisories
 - 🔄 Keep dependencies up to date
 
 ---

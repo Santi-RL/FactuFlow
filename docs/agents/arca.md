@@ -7,6 +7,7 @@
 ## Documentación oficial
 - La documentación oficial de Web Services está en `https://www.arca.gob.ar/ws/`.
 - Descargas e índice local: `docs/arca-ws/README.md`.
+- Notas rapidas (consultable) y busquedas: `docs/arca-ws/NOTAS.md`.
 
 ## Módulos relevantes
 - `backend/app/arca/wsaa.py`: autenticación WSAA.

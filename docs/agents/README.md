@@ -1,6 +1,7 @@
 # Docs para agentes
 
 ## Índice rápido por tema
+- Índice general de documentación: `docs/README.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Estructura del repo y ubicación de archivos: `docs/agents/structure.md`
 - Integración ARCA y nomenclatura legacy: `docs/agents/arca.md`
