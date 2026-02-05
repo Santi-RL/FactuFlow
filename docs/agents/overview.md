@@ -30,3 +30,4 @@
 ## Recursos
 - AFIP/ARCA Dev: `docs/agents/arca.md`
 - Certificados: `docs/certificates/README.md`
+- Estructura del repo: `docs/agents/structure.md`

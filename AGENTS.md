@@ -64,7 +64,9 @@ npm run type-check
 ## Documentación operativa
 - Índice: `docs/agents/README.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
+- Estructura del repo: `docs/agents/structure.md`
 - ARCA y endpoints: `docs/agents/arca.md`
+- Documentación oficial ARCA WS: `https://www.arca.gob.ar/ws/` (índice y descargas locales en `docs/arca-ws/README.md`)
 - Testing: `docs/agents/testing.md`
 - Seguridad: `docs/agents/security.md`
 - Contribución y commits: `CONTRIBUTING.md`

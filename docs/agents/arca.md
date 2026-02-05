@@ -4,6 +4,10 @@
 - ARCA es el nombre actual y debe ser el preferido en documentación y UI.
 - AFIP aparece en URLs y variables legacy por compatibilidad.
 
+## Documentación oficial
+- La documentación oficial de Web Services está en `https://www.arca.gob.ar/ws/`.
+- Descargas e índice local: `docs/arca-ws/README.md`.
+
 ## Módulos relevantes
 - `backend/app/arca/wsaa.py`: autenticación WSAA.
 - `backend/app/arca/wsfev1.py`: factura electrónica WSFEv1.

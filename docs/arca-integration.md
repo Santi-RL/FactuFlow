@@ -280,6 +280,7 @@ Para completar la integración:
 
 ## Documentación Adicional
 
+- [Documentación oficial ARCA WS](https://www.arca.gob.ar/ws/)
 - [Documentación oficial ARCA](https://www.arca.gob.ar/)
 - [Especificación WSAA](https://www.afip.gob.ar/ws/WSAA/Especificacion_Tecnica_WSAA_1.2.0.pdf)
 - [Especificación WSFEv1](https://www.afip.gob.ar/ws/WSFEV1/WSFEV1-especificacion.pdf)

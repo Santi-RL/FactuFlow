@@ -89,6 +89,9 @@ tmp/
 temp/
 *.tmp
 
+# ARCA WS documentation (local reference only)
+docs/arca-ws/
+
 # OS
 Thumbs.db
 .DS_Store
