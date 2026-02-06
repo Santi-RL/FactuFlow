@@ -704,6 +704,17 @@ Optimización, testing exhaustivo y preparación para el lanzamiento de v1.0.0.
   - [x] Mobile Chrome
   - [x] Mobile Safari
 
+---
+
+## Antes del Primer Deploy Real (Producción)
+
+Checklist de tareas que deben completarse antes de habilitar facturación real en producción.
+
+- [ ] Agregar suite E2E "real" (sin mocks) levantando backend + DB (por ejemplo con Docker Compose)
+  - [ ] Seed de datos de prueba (empresa, punto de venta, usuario)
+  - [ ] Flujo completo: login -> clientes -> comprobantes -> PDF -> reportes
+  - [ ] Ejecutar en CI (job separado) con criterios de estabilidad (retries, trazas, artifacts)
+
 ### 7.2 Documentación de Usuario ✅
 - [x] Manual de usuario completo
   - [x] Instalación con Docker
