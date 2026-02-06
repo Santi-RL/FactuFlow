@@ -114,6 +114,7 @@ const cerrarResultados = () => {
       <button
         v-if="!modoManual"
         type="button"
+        data-testid="cliente-nuevo-manual"
         class="inline-flex items-center gap-2 px-3 py-1 text-sm font-medium text-green-700 bg-green-50 border border-green-300 rounded-md hover:bg-green-100"
         @click="activarModoManual"
       >

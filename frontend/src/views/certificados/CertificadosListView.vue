@@ -80,7 +80,10 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex justify-between items-center mb-8">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+        <h1
+          class="text-3xl font-bold text-gray-900 mb-2"
+          data-testid="page-title"
+        >
           Certificados ARCA
         </h1>
         <p class="text-gray-600">
@@ -91,6 +94,7 @@ onMounted(() => {
       <BaseButton
         variant="primary"
         class="flex items-center gap-2"
+        data-testid="certificados-agregar"
         @click="irAWizard"
       >
         <span>+</span>

@@ -10,16 +10,16 @@ test.describe('Gestión de Clientes', () => {
   test.beforeEach(async ({ page }) => {
     await mockApi(page)
     await loginAsAdmin(page)
-    await page.getByRole('link', { name: /clientes/i }).click()
+    await page.getByTestId('nav-clientes').click()
     await page.waitForURL(/clientes/)
   })
 
   test('debe mostrar botón para crear nuevo cliente', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /nuevo cliente/i })).toBeVisible()
+    await expect(page.getByTestId('clientes-nuevo')).toBeVisible()
   })
 
   test('debe abrir formulario de nuevo cliente', async ({ page }) => {
-    await page.getByRole('button', { name: /nuevo cliente/i }).click()
+    await page.getByTestId('clientes-nuevo').click()
     
     // Verificar que se abre el formulario
     await expect(page).toHaveURL(/clientes\/nuevo/)
@@ -29,7 +29,7 @@ test.describe('Gestión de Clientes', () => {
   })
 
   test('debe validar CUIT al crear cliente', async ({ page }) => {
-    await page.getByRole('button', { name: /nuevo cliente/i }).click()
+    await page.getByTestId('clientes-nuevo').click()
     await page.waitForURL(/clientes\/nuevo/)
     
     // Intentar con CUIT inválido
@@ -42,7 +42,7 @@ test.describe('Gestión de Clientes', () => {
   })
 
   test('debe crear cliente con datos válidos', async ({ page }) => {
-    await page.getByRole('button', { name: /nuevo cliente/i }).click()
+    await page.getByTestId('clientes-nuevo').click()
     await page.waitForURL(/clientes\/nuevo/)
     
     // Completar formulario con datos válidos
@@ -60,13 +60,35 @@ test.describe('Gestión de Clientes', () => {
   })
 
   test('debe buscar clientes por nombre', async ({ page }) => {
-    // Usar el buscador
-    await page.getByPlaceholder(/buscar/i).fill('prueba')
-    
-    // Esperar a que la tabla se actualice (esperar que desaparezca el spinner o que aparezca contenido)
-    await page.waitForLoadState('networkidle')
-    
-    // Verificar que la búsqueda filtra correctamente (el input contiene el valor buscado)
-    await expect(page.getByPlaceholder(/buscar/i)).toHaveValue('prueba')
+    // Crear 2 clientes para verificar filtro
+    for (const razonSocial of ['Cliente Alpha', 'Cliente Beta']) {
+      await page.getByTestId('clientes-nuevo').click()
+      await page.waitForURL(/clientes\/nuevo/)
+      await page.getByLabel(/razón social/i).fill(razonSocial)
+      await page.getByLabel(/número de documento/i).fill('20123456789')
+      await page.getByLabel(/condición iva/i).selectOption({ label: 'Responsable Inscripto' })
+      await page.getByRole('button', { name: /crear cliente|guardar/i }).click()
+      await expect(page).toHaveURL(/clientes$/)
+    }
+
+    // Buscar
+    const searchInput = page.getByPlaceholder(/buscar/i)
+    const searchRequest = page.waitForRequest((req) => {
+      try {
+        const url = new URL(req.url())
+        return (
+          url.pathname === '/api/clientes' &&
+          (url.searchParams.get('search') || '').toLowerCase() === 'beta'
+        )
+      } catch {
+        return false
+      }
+    })
+    await searchInput.fill('beta')
+    await searchRequest
+
+    // Verificar filtro (Beta visible, Alpha no)
+    await expect(page.getByText('Cliente Beta')).toBeVisible()
+    await expect(page.locator('text=Cliente Alpha')).toHaveCount(0)
   })
 })

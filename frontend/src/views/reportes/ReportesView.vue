@@ -1,7 +1,10 @@
 <template>
   <div class="reportes-view">
     <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">
+      <h1
+        class="text-3xl font-bold text-gray-800"
+        data-testid="page-title"
+      >
         📊 Reportes
       </h1>
       <p class="text-gray-600 mt-2">

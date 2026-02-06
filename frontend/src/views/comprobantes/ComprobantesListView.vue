@@ -129,7 +129,10 @@ const tiposDisponibles = [
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
+        <h1
+          class="text-3xl font-bold text-gray-900"
+          data-testid="page-title"
+        >
           Comprobantes
         </h1>
         <p class="mt-2 text-gray-600">
@@ -138,6 +141,7 @@ const tiposDisponibles = [
       </div>
 
       <button
+        data-testid="comprobantes-nueva-factura"
         class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         @click="nuevaFactura"
       >
@@ -360,6 +364,7 @@ const tiposDisponibles = [
       >
         <template #actions>
           <button
+            data-testid="comprobantes-empty-nueva-factura"
             class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             @click="nuevaFactura"
           >

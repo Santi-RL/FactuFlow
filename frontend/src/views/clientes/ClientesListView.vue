@@ -83,14 +83,20 @@ const confirmDelete = async () => {
   <div>
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
+        <h1
+          class="text-3xl font-bold text-gray-900"
+          data-testid="page-title"
+        >
           Clientes
         </h1>
         <p class="mt-2 text-gray-600">
           Gestión de clientes
         </p>
       </div>
-      <BaseButton @click="handleNew">
+      <BaseButton
+        data-testid="clientes-nuevo"
+        @click="handleNew"
+      >
         <PlusIcon class="h-5 w-5 mr-2" />
         Nuevo Cliente
       </BaseButton>

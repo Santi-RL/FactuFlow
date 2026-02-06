@@ -256,7 +256,10 @@ const cancelar = () => {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+      <h1
+        class="text-3xl font-bold text-gray-900 flex items-center gap-3"
+        data-testid="page-title"
+      >
         <DocumentTextIcon class="h-8 w-8" />
         Nueva Factura
       </h1>
@@ -438,6 +441,7 @@ const cancelar = () => {
       <div class="flex items-center justify-end gap-4">
         <button
           type="button"
+          data-testid="comprobante-cancelar"
           class="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
           @click="cancelar"
         >
@@ -446,6 +450,7 @@ const cancelar = () => {
 
         <button
           type="button"
+          data-testid="comprobante-vista-previa"
           :disabled="!formularioValido"
           class="inline-flex items-center gap-2 px-6 py-2 text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="abrirVistaPrevia"
@@ -456,6 +461,7 @@ const cancelar = () => {
 
         <button
           type="submit"
+          data-testid="comprobante-emitir"
           :disabled="!formularioValido || loading"
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >

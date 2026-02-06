@@ -235,6 +235,7 @@ const numeroCompleto = computed(() => {
       <div class="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex items-center justify-end gap-4">
         <button
           type="button"
+          data-testid="comprobante-preview-close"
           class="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
           @click="emit('close')"
         >
@@ -243,6 +244,7 @@ const numeroCompleto = computed(() => {
 
         <button
           type="button"
+          data-testid="comprobante-confirmar-emitir"
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
           @click="emit('confirm')"
         >

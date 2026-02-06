@@ -63,7 +63,10 @@ const goToNextStep = () => {
   <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">
+      <h1
+        class="text-3xl font-bold text-gray-900 mb-2"
+        data-testid="page-title"
+      >
         Wizard de Certificados ARCA
       </h1>
       <p class="text-gray-600">

@@ -62,6 +62,7 @@ const verificarConexion = async () => {
           variant="primary"
           :loading="loading"
           class="px-8 py-3 text-lg"
+          data-testid="cert-wizard-verificar"
           @click="verificarConexion"
         >
           <span v-if="!loading">🔌 Probar conexión</span>
@@ -192,6 +193,7 @@ const verificarConexion = async () => {
       <BaseButton
         v-if="resultado?.exito"
         variant="primary"
+        data-testid="cert-wizard-finish"
         @click="emit('finish')"
       >
         Finalizar ✓

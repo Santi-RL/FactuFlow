@@ -159,6 +159,7 @@ const continuar = () => {
         <input
           ref="fileInputRef"
           type="file"
+          data-testid="cert-wizard-file"
           accept=".crt,.cer,.pem"
           class="hidden"
           :disabled="loading"
@@ -268,6 +269,7 @@ const continuar = () => {
       <BaseButton
         v-if="certificadoSubido"
         variant="primary"
+        data-testid="cert-wizard-step4-next"
         @click="continuar"
       >
         Siguiente →

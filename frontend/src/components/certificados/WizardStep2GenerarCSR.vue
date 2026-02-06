@@ -290,6 +290,7 @@ watch([cuitSinFormato, ambiente], () => {
             :loading="loading"
             :disabled="!formularioValido"
             class="w-full"
+            data-testid="cert-wizard-generar"
           >
             <span v-if="!loading">🔐 Generar automáticamente</span>
             <span v-else>Generando...</span>
@@ -433,6 +434,7 @@ watch([cuitSinFormato, ambiente], () => {
       <BaseButton
         variant="primary"
         :disabled="!puedeContinuar"
+        data-testid="cert-wizard-step2-next"
         @click="continuar"
       >
         Siguiente →

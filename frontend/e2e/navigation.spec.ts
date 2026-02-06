@@ -15,34 +15,35 @@ test.describe('Navegación', () => {
 
   test('debe mostrar el sidebar con menú de navegación', async ({ page }) => {
     // Verificar items del sidebar
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /clientes/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /comprobantes/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /certificados/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /reportes/i })).toBeVisible()
+    await expect(page.getByTestId('sidebar-logo')).toBeVisible()
+    await expect(page.getByTestId('nav-dashboard')).toBeVisible()
+    await expect(page.getByTestId('nav-clientes')).toBeVisible()
+    await expect(page.getByTestId('nav-comprobantes')).toBeVisible()
+    await expect(page.getByTestId('nav-certificados')).toBeVisible()
+    await expect(page.getByTestId('nav-reportes')).toBeVisible()
   })
 
   test('debe navegar a la página de clientes', async ({ page }) => {
-    await page.getByRole('link', { name: /clientes/i }).click()
+    await page.getByTestId('nav-clientes').click()
     await expect(page).toHaveURL(/clientes/)
-    await expect(page.getByRole('heading', { name: /clientes/i })).toBeVisible()
+    await expect(page.getByTestId('page-title')).toHaveText(/clientes/i)
   })
 
   test('debe navegar a la página de comprobantes', async ({ page }) => {
-    await page.getByRole('link', { name: /comprobantes/i }).click()
+    await page.getByTestId('nav-comprobantes').click()
     await expect(page).toHaveURL(/comprobantes/)
-    await expect(page.getByRole('heading', { name: /^comprobantes$/i })).toBeVisible()
+    await expect(page.getByTestId('page-title')).toHaveText(/comprobantes/i)
   })
 
   test('debe navegar a la página de certificados', async ({ page }) => {
-    await page.getByRole('link', { name: /certificados/i }).click()
+    await page.getByTestId('nav-certificados').click()
     await expect(page).toHaveURL(/certificados/)
-    await expect(page.getByRole('heading', { name: /^certificados arca$/i })).toBeVisible()
+    await expect(page.getByTestId('page-title')).toHaveText(/certificados/i)
   })
 
   test('debe navegar a la página de reportes', async ({ page }) => {
-    await page.getByRole('link', { name: /reportes/i }).click()
+    await page.getByTestId('nav-reportes').click()
     await expect(page).toHaveURL(/reportes/)
-    await expect(page.getByRole('heading', { name: /^📊\s*reportes$/i })).toBeVisible()
+    await expect(page.getByTestId('page-title')).toHaveText(/reportes/i)
   })
 })

@@ -167,6 +167,7 @@ const abrirPortalArca = () => {
       <BaseButton
         variant="primary"
         :disabled="!tengoElCertificado"
+        data-testid="cert-wizard-step3-next"
         @click="emit('next')"
       >
         Siguiente →

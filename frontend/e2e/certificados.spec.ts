@@ -10,26 +10,22 @@ test.describe('Wizard de Certificados', () => {
   test.beforeEach(async ({ page }) => {
     await mockApi(page)
     await loginAsAdmin(page)
-    await page.getByRole('link', { name: /certificados/i }).click()
+    await page.getByTestId('nav-certificados').click()
     await page.waitForURL(/certificados/)
   })
 
   test('debe mostrar lista de certificados', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /certificados/i })).toBeVisible()
+    await expect(page.getByTestId('page-title')).toHaveText(/certificados/i)
   })
 
   test('debe tener botón para nuevo certificado', async ({ page }) => {
     await expect(
-      page.getByRole('button', {
-        name: /agregar certificado|nuevo certificado|configurar certificado/i
-      })
+      page.getByTestId('certificados-agregar')
     ).toBeVisible()
   })
 
   test('debe abrir wizard al hacer click en nuevo certificado', async ({ page }) => {
-    await page.getByRole('button', {
-      name: /agregar certificado|nuevo certificado|configurar certificado/i
-    }).click()
+    await page.getByTestId('certificados-agregar').click()
     
     // Verificar que se abre el wizard
     await expect(page).toHaveURL(/certificados\/nuevo/)
@@ -41,9 +37,7 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe navegar entre pasos del wizard', async ({ page }) => {
-    await page.getByRole('button', {
-      name: /agregar certificado|nuevo certificado|configurar certificado/i
-    }).click()
+    await page.getByTestId('certificados-agregar').click()
     await page.waitForURL(/certificados\/nuevo/)
     
     // Verificar indicador de progreso (5 pasos)
@@ -59,9 +53,7 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe mostrar formulario de CSR en paso 2', async ({ page }) => {
-    await page.getByRole('button', {
-      name: /agregar certificado|nuevo certificado|configurar certificado/i
-    }).click()
+    await page.getByTestId('certificados-agregar').click()
     await page.waitForURL(/certificados\/nuevo/)
     
     // Ir al paso 2
@@ -73,9 +65,7 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe validar CUIT en formulario CSR', async ({ page }) => {
-    await page.getByRole('button', {
-      name: /agregar certificado|nuevo certificado|configurar certificado/i
-    }).click()
+    await page.getByTestId('certificados-agregar').click()
     await page.waitForURL(/certificados\/nuevo/)
     
     // Ir al paso 2
@@ -86,26 +76,49 @@ test.describe('Wizard de Certificados', () => {
     await page.getByLabel(/nombre de la empresa/i).fill('Empresa Test')
     
     // El botón debe estar deshabilitado
-    await expect(page.getByRole('button', { name: /generar/i })).toBeDisabled()
+    await expect(page.getByTestId('cert-wizard-generar')).toBeDisabled()
   })
 
-  test('debe mostrar instrucciones del portal ARCA en paso 3', async ({ page }) => {
-    await page.getByRole('button', {
-      name: /agregar certificado|nuevo certificado|configurar certificado/i
-    }).click()
+  test('debe completar el wizard completo (mock) hasta la pantalla de éxito', async ({ page }) => {
+    await page.getByTestId('certificados-agregar').click()
     await page.waitForURL(/certificados\/nuevo/)
-    
-    // Navegar hasta paso 3
+
+    // Step 1 -> Step 2
     await page.getByRole('button', { name: /comenzar|continuar|siguiente/i }).click()
-    // Completar paso 2
-    await page.getByLabel(/cuit/i).fill('20123456789')
+
+    // Step 2: generar CSR
+    await page.getByLabel(/cuit/i).fill('20-12345678-9')
     await page.getByLabel(/nombre de la empresa/i).fill('Empresa Test')
-    await page.getByRole('button', { name: /generar/i }).click()
-    await page.getByRole('button', { name: /siguiente/i }).click()
-    
-    // Verificar instrucciones del portal ARCA
+    await page.getByTestId('cert-wizard-generar').click()
+    await page.getByTestId('cert-wizard-step2-next').click()
+
+    // Step 3: confirmar que ya tengo el certificado
     await expect(
       page.getByRole('heading', { name: /obtené tu certificado en el portal de arca/i })
     ).toBeVisible()
+    await page.getByRole('checkbox').check()
+    await page.getByTestId('cert-wizard-step3-next').click()
+
+    // Step 4: subir certificado
+    await expect(page.getByRole('heading', { name: /subí tu certificado/i })).toBeVisible()
+    await page.getByTestId('cert-wizard-file').setInputFiles({
+      name: 'certificado.crt',
+      mimeType: 'application/x-x509-ca-cert',
+      buffer: Buffer.from(
+        '-----BEGIN CERTIFICATE-----\\nFAKE\\n-----END CERTIFICATE-----\\n'
+      ),
+    })
+    await expect(page.getByTestId('cert-wizard-step4-next')).toBeVisible()
+    await page.getByTestId('cert-wizard-step4-next').click()
+
+    // Step 5: verificar
+    await expect(page.getByTestId('cert-wizard-verificar')).toBeVisible()
+    await page.getByTestId('cert-wizard-verificar').click()
+    await expect(page.getByTestId('cert-wizard-finish')).toBeVisible()
+    await page.getByTestId('cert-wizard-finish').click()
+
+    // Exito
+    await expect(page).toHaveURL(/certificados\/\d+\/exito/)
+    await expect(page.getByRole('heading', { name: /felicitaciones/i })).toBeVisible()
   })
 })

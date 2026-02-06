@@ -22,18 +22,24 @@ const certificadosPorVencer = ref(0)
 let intervalId: number | null = null
 
 const menuItems = computed(() => [
-  { name: 'Dashboard', icon: HomeIcon, path: '/' },
-  { name: 'Clientes', icon: UsersIcon, path: '/clientes' },
-  { name: 'Comprobantes', icon: DocumentTextIcon, path: '/comprobantes' },
-  { name: 'Reportes', icon: ChartBarIcon, path: '/reportes' },
-  { 
-    name: 'Certificados', 
-    icon: KeyIcon, 
-    path: '/certificados',
-    badge: certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null
+  { name: 'Dashboard', icon: HomeIcon, path: '/', testId: 'nav-dashboard' },
+  { name: 'Clientes', icon: UsersIcon, path: '/clientes', testId: 'nav-clientes' },
+  {
+    name: 'Comprobantes',
+    icon: DocumentTextIcon,
+    path: '/comprobantes',
+    testId: 'nav-comprobantes',
   },
-  { name: 'Puntos de venta', icon: MapPinIcon, path: '/puntos-venta' },
-  { name: 'Mi Empresa', icon: BuildingOfficeIcon, path: '/empresa' }
+  { name: 'Reportes', icon: ChartBarIcon, path: '/reportes', testId: 'nav-reportes' },
+  {
+    name: 'Certificados',
+    icon: KeyIcon,
+    path: '/certificados',
+    testId: 'nav-certificados',
+    badge: certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null,
+  },
+  { name: 'Puntos de venta', icon: MapPinIcon, path: '/puntos-venta', testId: 'nav-puntos-venta' },
+  { name: 'Mi Empresa', icon: BuildingOfficeIcon, path: '/empresa', testId: 'nav-empresa' }
 ])
 
 const isActive = (path: string) => {
@@ -71,6 +77,7 @@ onBeforeUnmount(() => {
     <!-- Mobile menu button -->
     <div class="lg:hidden fixed top-4 left-4 z-50">
       <button
+        data-testid="sidebar-toggle"
         class="p-2 rounded-md text-gray-700 bg-white shadow-md"
         @click="uiStore.toggleSidebar"
       >
@@ -102,7 +109,10 @@ onBeforeUnmount(() => {
       <div class="flex flex-col h-full">
         <!-- Logo -->
         <div class="flex items-center h-16 px-6 border-b border-gray-200">
-          <h1 class="text-xl font-bold text-primary-600">
+          <h1
+            class="text-xl font-bold text-primary-600"
+            data-testid="sidebar-logo"
+          >
             FactuFlow
           </h1>
         </div>
@@ -113,6 +123,7 @@ onBeforeUnmount(() => {
             v-for="item in menuItems"
             :key="item.path"
             :to="item.path"
+            :data-testid="item.testId"
             :class="[
               'flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors',
               isActive(item.path)
