@@ -10,7 +10,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  perPage: 30
+  perPage: 30,
+  total: 0,
 })
 
 const emit = defineEmits<{

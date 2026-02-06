@@ -10,6 +10,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  title: '',
+  message: '',
   dismissible: true
 })
 

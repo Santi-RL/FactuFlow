@@ -8,6 +8,7 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
+  title: '',
   size: 'md'
 })
 
