@@ -104,7 +104,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.event_name == 'pull_request'
     needs: [backend, frontend]
     
     steps:
