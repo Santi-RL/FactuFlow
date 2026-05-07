@@ -2,10 +2,6 @@
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.empresa import Empresa
-from app.models.usuario import Usuario
 
 
 @pytest.mark.asyncio
@@ -163,3 +159,33 @@ class TestCertificadosService:
         assert service.get_tipo_alerta(1) == "danger"
         assert service.get_tipo_alerta(0) == "danger"
         assert service.get_tipo_alerta(-10) == "danger"
+
+    async def test_resolve_cert_storage_path_with_legacy_prefix(self, monkeypatch):
+        """Acepta paths legacy guardados como certs/<archivo> en la BD."""
+        from app.core.config import settings
+        from app.services.certificados_service import resolve_cert_storage_path
+
+        monkeypatch.setattr(settings, "certs_path", "./certs")
+
+        resolved = resolve_cert_storage_path(
+            "certs/23318277559_homologacion_20260309_190054.crt"
+        )
+
+        assert resolved.endswith(
+            "backend\\certs\\23318277559_homologacion_20260309_190054.crt"
+        )
+
+    async def test_resolve_cert_storage_path_with_filename_only(self, monkeypatch):
+        """Mantiene soporte para paths relativos simples sin prefijo."""
+        from app.core.config import settings
+        from app.services.certificados_service import resolve_cert_storage_path
+
+        monkeypatch.setattr(settings, "certs_path", "./certs")
+
+        resolved = resolve_cert_storage_path(
+            "23318277559_homologacion_20260309_190054.key"
+        )
+
+        assert resolved.endswith(
+            "backend\\certs\\23318277559_homologacion_20260309_190054.key"
+        )

@@ -1,37 +1,37 @@
 <script setup lang="ts">
-import { XMarkIcon } from '@heroicons/vue/24/outline'
+import { XMarkIcon } from "@heroicons/vue/24/outline";
 
 interface Props {
-  show: boolean
-  title?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  show: boolean;
+  title?: string;
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
 withDefaults(defineProps<Props>(), {
-  title: '',
-  size: 'md'
-})
+  title: "",
+  size: "md",
+});
 
 const emit = defineEmits<{
-  close: []
-}>()
+  close: [];
+}>();
 
 const sizeClasses = {
-  sm: 'max-w-md',
-  md: 'max-w-lg',
-  lg: 'max-w-2xl',
-  xl: 'max-w-4xl'
-}
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
+};
 
 const handleClose = () => {
-  emit('close')
-}
+  emit("close");
+};
 
 const handleOverlayClick = (event: MouseEvent) => {
   if (event.target === event.currentTarget) {
-    handleClose()
+    handleClose();
   }
-}
+};
 </script>
 
 <template>
@@ -66,7 +66,10 @@ const handleOverlayClick = (event: MouseEvent) => {
       >
         <div class="flex min-h-full items-center justify-center p-4">
           <div
-            :class="['relative w-full bg-white rounded-lg shadow-xl', sizeClasses[size]]"
+            :class="[
+              'relative w-full bg-white rounded-lg shadow-xl',
+              sizeClasses[size],
+            ]"
             @click.stop
           >
             <!-- Header -->

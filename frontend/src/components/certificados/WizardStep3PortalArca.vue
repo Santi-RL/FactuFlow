@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
+import { ref } from "vue";
+import BaseButton from "@/components/ui/BaseButton.vue";
 
 interface Emits {
-  (e: 'next'): void
-  (e: 'prev'): void
+  (e: "next"): void;
+  (e: "prev"): void;
 }
 
-const emit = defineEmits<Emits>()
+const emit = defineEmits<Emits>();
 
-const tengoElCertificado = ref(false)
+const tengoElCertificado = ref(false);
 
 const abrirPortalArca = () => {
-  window.open('https://auth.afip.gob.ar/contribuyente_/login.xhtml', '_blank')
-}
+  window.open("https://auth.afip.gob.ar/contribuyente_/login.xhtml", "_blank");
+};
 </script>
 
 <template>
@@ -21,17 +21,19 @@ const abrirPortalArca = () => {
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
       Obtené tu certificado en el portal de ARCA
     </h2>
-    
+
     <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
       <p class="text-gray-700 mb-6">
-        Ahora tenés que ir al portal de ARCA para obtener tu certificado.
-        Seguí estos pasos:
+        Ahora tenés que ir al portal de ARCA para obtener tu certificado. Seguí
+        estos pasos:
       </p>
-      
+
       <div class="space-y-6">
         <!-- Paso 1 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             1
           </div>
           <div>
@@ -48,10 +50,12 @@ const abrirPortalArca = () => {
             </button>
           </div>
         </div>
-        
+
         <!-- Paso 2 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             2
           </div>
           <div>
@@ -63,10 +67,12 @@ const abrirPortalArca = () => {
             </p>
           </div>
         </div>
-        
+
         <!-- Paso 3 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             3
           </div>
           <div>
@@ -74,14 +80,17 @@ const abrirPortalArca = () => {
               Buscá el servicio "Administración de Certificados Digitales"
             </h3>
             <p class="text-sm text-gray-600">
-              También puede aparecer como "WSASS" o en "Administrador de Relaciones"
+              También puede aparecer como "WSASS" o en "Administrador de
+              Relaciones"
             </p>
           </div>
         </div>
-        
+
         <!-- Paso 4 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             4
           </div>
           <div>
@@ -90,25 +99,27 @@ const abrirPortalArca = () => {
             </h3>
           </div>
         </div>
-        
+
         <!-- Paso 5 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             5
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
               Completá un nombre para identificar el certificado
             </h3>
-            <p class="text-sm text-gray-600">
-              Ejemplo: "FactuFlow Producción"
-            </p>
+            <p class="text-sm text-gray-600">Ejemplo: "FactuFlow Producción"</p>
           </div>
         </div>
-        
+
         <!-- Paso 6 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             6
           </div>
           <div>
@@ -117,10 +128,12 @@ const abrirPortalArca = () => {
             </h3>
           </div>
         </div>
-        
+
         <!-- Paso 7 -->
         <div class="flex gap-4">
-          <div class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
             7
           </div>
           <div>
@@ -128,42 +141,38 @@ const abrirPortalArca = () => {
               Descargá el certificado (.crt) que te genera ARCA
             </h3>
             <p class="text-sm text-gray-600">
-              💡 El archivo descargado suele llamarse algo como "certificado_XXXXXXXX.crt" o similar.
+              💡 El archivo descargado suele llamarse algo como
+              "certificado_XXXXXXXX.crt" o similar.
             </p>
           </div>
         </div>
       </div>
-      
+
       <div class="mt-6 pt-6 border-t border-gray-200">
-        <button
-          class="text-blue-600 hover:text-blue-700 font-medium text-sm"
-        >
+        <button class="text-blue-600 hover:text-blue-700 font-medium text-sm">
           ¿Tenés problemas? Ver guía detallada →
         </button>
       </div>
     </div>
-    
+
     <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
       <label class="flex items-start gap-3 cursor-pointer">
         <input
           v-model="tengoElCertificado"
           type="checkbox"
           class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-        >
+        />
         <span class="text-gray-700">
           Ya tengo el certificado .crt descargado
         </span>
       </label>
     </div>
-    
+
     <div class="flex justify-between">
-      <BaseButton
-        variant="secondary"
-        @click="emit('prev')"
-      >
+      <BaseButton variant="secondary" @click="emit('prev')">
         ← Anterior
       </BaseButton>
-      
+
       <BaseButton
         variant="primary"
         :disabled="!tengoElCertificado"

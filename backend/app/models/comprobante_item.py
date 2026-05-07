@@ -1,6 +1,5 @@
 """Modelo ComprobanteItem - Líneas de detalle de comprobantes."""
 
-from decimal import Decimal
 from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
 from sqlalchemy.orm import relationship
 

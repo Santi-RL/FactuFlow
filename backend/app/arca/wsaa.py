@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Optional
 from xml.etree import ElementTree as ET
 
-from zeep import Client
 from zeep.exceptions import Fault, TransportError
 
 from app.arca.config import ArcaAmbiente, ArcaConfig
@@ -13,6 +12,7 @@ from app.arca.crypto import create_signed_tra
 from app.arca.cache import get_token_cache
 from app.arca.models import TicketAcceso
 from app.arca.exceptions import ArcaAuthError, ArcaConnectionError
+from app.arca.soap import create_soap_client
 from app.arca.utils import clean_cuit
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class WSAAClient:
 
         # Cliente SOAP
         try:
-            self.client = Client(self.config.wsaa_url)
+            self.client = create_soap_client(self.config.wsaa_url)
         except Exception as e:
             raise ArcaConnectionError(f"Error al conectar con WSAA: {str(e)}")
 

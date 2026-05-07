@@ -1,75 +1,102 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
-import { useUIStore } from '@/stores/ui'
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { useRoute } from "vue-router";
+import { useUIStore } from "@/stores/ui";
 import {
   HomeIcon,
   UsersIcon,
   DocumentTextIcon,
+  DocumentDuplicateIcon,
   BuildingOfficeIcon,
   KeyIcon,
   Bars3Icon,
   XMarkIcon,
   ChartBarIcon,
-  MapPinIcon
-} from '@heroicons/vue/24/outline'
-import certificadosService from '@/services/certificados.service'
+  MapPinIcon,
+} from "@heroicons/vue/24/outline";
+import certificadosService from "@/services/certificados.service";
 
-const route = useRoute()
-const uiStore = useUIStore()
+const route = useRoute();
+const uiStore = useUIStore();
 
-const certificadosPorVencer = ref(0)
-let intervalId: number | null = null
+const certificadosPorVencer = ref(0);
+let intervalId: number | null = null;
 
 const menuItems = computed(() => [
-  { name: 'Dashboard', icon: HomeIcon, path: '/', testId: 'nav-dashboard' },
-  { name: 'Clientes', icon: UsersIcon, path: '/clientes', testId: 'nav-clientes' },
+  { name: "Dashboard", icon: HomeIcon, path: "/", testId: "nav-dashboard" },
   {
-    name: 'Comprobantes',
-    icon: DocumentTextIcon,
-    path: '/comprobantes',
-    testId: 'nav-comprobantes',
+    name: "Clientes",
+    icon: UsersIcon,
+    path: "/clientes",
+    testId: "nav-clientes",
   },
-  { name: 'Reportes', icon: ChartBarIcon, path: '/reportes', testId: 'nav-reportes' },
   {
-    name: 'Certificados',
+    name: "Comprobantes",
+    icon: DocumentTextIcon,
+    path: "/comprobantes",
+    testId: "nav-comprobantes",
+  },
+  {
+    name: "Emision masiva",
+    icon: DocumentDuplicateIcon,
+    path: "/comprobantes/lotes",
+    testId: "nav-lotes-comprobantes",
+  },
+  {
+    name: "Reportes",
+    icon: ChartBarIcon,
+    path: "/reportes",
+    testId: "nav-reportes",
+  },
+  {
+    name: "Certificados",
     icon: KeyIcon,
-    path: '/certificados',
-    testId: 'nav-certificados',
+    path: "/certificados",
+    testId: "nav-certificados",
     badge: certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null,
   },
-  { name: 'Puntos de venta', icon: MapPinIcon, path: '/puntos-venta', testId: 'nav-puntos-venta' },
-  { name: 'Mi Empresa', icon: BuildingOfficeIcon, path: '/empresa', testId: 'nav-empresa' }
-])
+  {
+    name: "Puntos de venta",
+    icon: MapPinIcon,
+    path: "/puntos-venta",
+    testId: "nav-puntos-venta",
+  },
+  {
+    name: "Emisores",
+    icon: BuildingOfficeIcon,
+    path: "/empresa",
+    testId: "nav-empresa",
+  },
+]);
 
 const isActive = (path: string) => {
-  if (path === '/') {
-    return route.path === '/'
+  if (path === "/") {
+    return route.path === "/";
   }
-  return route.path.startsWith(path)
-}
+  return route.path.startsWith(path);
+};
 
 const cargarAlertasVencimiento = async () => {
   try {
-    const alertas = await certificadosService.obtenerAlertasVencimiento()
-    certificadosPorVencer.value = alertas.length
+    const alertas = await certificadosService.obtenerAlertasVencimiento();
+    certificadosPorVencer.value = alertas.length;
   } catch (err) {
     // Silently fail, it's not critical
-    console.error('Error loading certificate alerts:', err)
+    console.error("Error loading certificate alerts:", err);
   }
-}
+};
 
 onMounted(() => {
-  cargarAlertasVencimiento()
+  cargarAlertasVencimiento();
   // Reload alerts every 5 minutes
-  intervalId = window.setInterval(cargarAlertasVencimiento, 5 * 60 * 1000)
-})
+  intervalId = window.setInterval(cargarAlertasVencimiento, 5 * 60 * 1000);
+});
 
 onBeforeUnmount(() => {
   if (intervalId !== null) {
-    clearInterval(intervalId)
+    clearInterval(intervalId);
   }
-})
+});
 </script>
 
 <template>
@@ -81,14 +108,8 @@ onBeforeUnmount(() => {
         class="p-2 rounded-md text-gray-700 bg-white shadow-md"
         @click="uiStore.toggleSidebar"
       >
-        <Bars3Icon
-          v-if="!uiStore.sidebarOpen"
-          class="h-6 w-6"
-        />
-        <XMarkIcon
-          v-else
-          class="h-6 w-6"
-        />
+        <Bars3Icon v-if="!uiStore.sidebarOpen" class="h-6 w-6" />
+        <XMarkIcon v-else class="h-6 w-6" />
       </button>
     </div>
 
@@ -103,7 +124,9 @@ onBeforeUnmount(() => {
     <aside
       :class="[
         'fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out',
-        uiStore.sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        uiStore.sidebarOpen
+          ? 'translate-x-0'
+          : '-translate-x-full lg:translate-x-0',
       ]"
     >
       <div class="flex flex-col h-full">
@@ -128,14 +151,11 @@ onBeforeUnmount(() => {
               'flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors',
               isActive(item.path)
                 ? 'bg-primary-50 text-primary-700'
-                : 'text-gray-700 hover:bg-gray-50'
+                : 'text-gray-700 hover:bg-gray-50',
             ]"
             @click="uiStore.sidebarOpen = false"
           >
-            <component
-              :is="item.icon"
-              class="mr-3 h-5 w-5 flex-shrink-0"
-            />
+            <component :is="item.icon" class="mr-3 h-5 w-5 flex-shrink-0" />
             <span class="flex-1">{{ item.name }}</span>
             <span
               v-if="item.badge"
@@ -148,7 +168,7 @@ onBeforeUnmount(() => {
 
         <!-- Version info -->
         <div class="p-4 border-t border-gray-200 text-xs text-gray-500">
-          FactuFlow v0.1.0
+          FactuFlow v0.2.0-mvp
         </div>
       </div>
     </aside>

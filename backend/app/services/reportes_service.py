@@ -1,16 +1,15 @@
 """Servicio para generación de reportes."""
 
-from datetime import date, datetime
+from datetime import date
 from typing import List, Dict, Any
 from decimal import Decimal
 from calendar import monthrange
 
-from sqlalchemy import select, and_, extract
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.comprobante import Comprobante
-from app.models.cliente import Cliente
 
 # Constantes de alícuotas de IVA
 IVA_21 = Decimal("0.21")
@@ -92,7 +91,7 @@ class ReportesService:
                 "punto_venta": comp.punto_venta.numero,
                 "numero": comp.numero,
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
-                "cliente_nombre": comp.cliente.razon_social,
+                "cliente_nombre": self._get_receptor_nombre(comp),
                 "subtotal": float(comp.subtotal),
                 "iva_total": float(comp.iva_21 + comp.iva_10_5 + comp.iva_27),
                 "total": float(comp.total),
@@ -161,9 +160,6 @@ class ReportesService:
             gravado_10_5 = comp.iva_10_5 / IVA_10_5 if comp.iva_10_5 > 0 else Decimal(0)
             gravado_27 = comp.iva_27 / IVA_27 if comp.iva_27 > 0 else Decimal(0)
 
-            # Para comprobantes sin IVA (tipo C o exentos)
-            neto_sin_iva = comp.total - comp.iva_21 - comp.iva_10_5 - comp.iva_27
-
             comp_dict = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_letra": self._get_letra_comprobante(comp.tipo_comprobante),
@@ -173,8 +169,8 @@ class ReportesService:
                 "punto_venta": comp.punto_venta.numero,
                 "numero": comp.numero,
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
-                "cuit_receptor": comp.cliente.numero_documento,
-                "razon_social_receptor": comp.cliente.razon_social,
+                "cuit_receptor": self._get_receptor_documento(comp),
+                "razon_social_receptor": self._get_receptor_nombre(comp),
                 "gravado_21": float(gravado_21),
                 "iva_21": float(comp.iva_21),
                 "gravado_10_5": float(gravado_10_5),
@@ -253,25 +249,29 @@ class ReportesService:
         # Agrupar por cliente
         totales_por_cliente = {}
         for comp in comprobantes:
-            cliente_id = comp.cliente.id
-            if cliente_id not in totales_por_cliente:
-                totales_por_cliente[cliente_id] = {
-                    "cliente_id": cliente_id,
-                    "razon_social": comp.cliente.razon_social,
-                    "numero_documento": comp.cliente.numero_documento,
+            grupo_key = (
+                f"cliente:{comp.cliente.id}"
+                if comp.cliente
+                else f"receptor:{self._get_receptor_documento(comp)}"
+            )
+            if grupo_key not in totales_por_cliente:
+                totales_por_cliente[grupo_key] = {
+                    "cliente_id": comp.cliente.id if comp.cliente else 0,
+                    "razon_social": self._get_receptor_nombre(comp),
+                    "numero_documento": self._get_receptor_documento(comp),
                     "total_facturado": Decimal(0),
                     "cantidad_comprobantes": 0,
                 }
 
             # Sumar o restar según el tipo
             if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
-                totales_por_cliente[cliente_id]["total_facturado"] += comp.total
+                totales_por_cliente[grupo_key]["total_facturado"] += comp.total
             elif comp.tipo_comprobante in [3, 8, 13]:  # NC
-                totales_por_cliente[cliente_id]["total_facturado"] -= comp.total
+                totales_por_cliente[grupo_key]["total_facturado"] -= comp.total
             elif comp.tipo_comprobante in [2, 7, 12]:  # ND
-                totales_por_cliente[cliente_id]["total_facturado"] += comp.total
+                totales_por_cliente[grupo_key]["total_facturado"] += comp.total
 
-            totales_por_cliente[cliente_id]["cantidad_comprobantes"] += 1
+            totales_por_cliente[grupo_key]["cantidad_comprobantes"] += 1
 
         # Ordenar por total y limitar
         ranking = sorted(
@@ -285,6 +285,22 @@ class ReportesService:
             item["total_facturado"] = float(item["total_facturado"])
 
         return ranking
+
+    def _get_receptor_nombre(self, comprobante: Comprobante) -> str:
+        """Nombre fiscal del receptor guardado en el comprobante."""
+        if comprobante.receptor_razon_social:
+            return comprobante.receptor_razon_social
+        if comprobante.cliente:
+            return comprobante.cliente.razon_social
+        return "A CONSUMIDOR FINAL"
+
+    def _get_receptor_documento(self, comprobante: Comprobante) -> str:
+        """Documento del receptor guardado en el comprobante."""
+        if comprobante.receptor_numero_documento:
+            return comprobante.receptor_numero_documento
+        if comprobante.cliente:
+            return comprobante.cliente.numero_documento
+        return "0"
 
     def _get_letra_comprobante(self, tipo: int) -> str:
         """Obtiene la letra del comprobante."""

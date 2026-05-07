@@ -18,6 +18,7 @@ from fastapi import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.api.deps import get_current_empresa_id
 from app.core.database import get_db
 from app.api.deps import get_current_empresa_user
 from app.models.usuario import Usuario
@@ -28,11 +29,13 @@ from app.schemas.certificado import (
     CertificadoResponse,
     GenerarCSRRequest,
     GenerarCSRResponse,
-    SubirCertificadoRequest,
     VerificacionResponse,
     CertificadoAlerta,
 )
-from app.services.certificados_service import CertificadosService
+from app.services.certificados_service import (
+    CertificadosService,
+    resolve_cert_storage_path,
+)
 from app.arca.wsaa import WSAAClient
 from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import ArcaCertificateError, ArcaAuthError, ArcaConnectionError
@@ -45,7 +48,7 @@ router = APIRouter()
 @router.get("", response_model=list[CertificadoResponse])
 async def list_certificados(
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Listar certificados.
@@ -57,10 +60,7 @@ async def list_certificados(
     Returns:
         Lista de certificados
     """
-    query = select(Certificado)
-
-    if not current_user.es_admin:
-        query = query.where(Certificado.empresa_id == current_user.empresa_id)
+    query = select(Certificado).where(Certificado.empresa_id == empresa_id)
 
     result = await db.execute(query)
     certificados = result.scalars().all()
@@ -73,7 +73,8 @@ async def list_keys(
     cuit: str = Query(..., pattern=r"^\d{11}$"),
     ambiente: str = Query(..., pattern=r"^(homologacion|produccion)$"),
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Listar claves privadas disponibles para un CUIT y ambiente.
@@ -87,16 +88,13 @@ async def list_keys(
     Returns:
         Lista de nombres de archivos .key disponibles
     """
-    if not current_user.es_admin:
-        result = await db.execute(
-            select(Empresa.cuit).where(Empresa.id == current_user.empresa_id)
+    result = await db.execute(select(Empresa.cuit).where(Empresa.id == empresa_id))
+    empresa_cuit = result.scalar_one_or_none()
+    if empresa_cuit != cuit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para listar claves de otro CUIT",
         )
-        empresa_cuit = result.scalar_one_or_none()
-        if empresa_cuit != cuit:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permiso para listar claves de otro CUIT",
-            )
 
     certs_path = Path(settings.certs_path)
     if not certs_path.exists():
@@ -110,7 +108,7 @@ async def list_keys(
 @router.get("/alertas-vencimiento", response_model=List[CertificadoAlerta])
 async def obtener_alertas_vencimiento(
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene certificados próximos a vencer para mostrar alertas.
@@ -126,10 +124,9 @@ async def obtener_alertas_vencimiento(
     Returns:
         Lista de certificados con alertas de vencimiento
     """
-    query = select(Certificado).where(Certificado.activo)
-
-    if not current_user.es_admin:
-        query = query.where(Certificado.empresa_id == current_user.empresa_id)
+    query = select(Certificado).where(
+        Certificado.activo, Certificado.empresa_id == empresa_id
+    )
 
     result = await db.execute(query)
     certificados = result.scalars().all()
@@ -166,7 +163,8 @@ async def obtener_alertas_vencimiento(
 async def get_certificado(
     certificado_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtener un certificado por ID.
@@ -193,7 +191,7 @@ async def get_certificado(
         )
 
     # Verificar permisos
-    if not current_user.es_admin and certificado.empresa_id != current_user.empresa_id:
+    if certificado.empresa_id != empresa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para ver este certificado",
@@ -206,7 +204,8 @@ async def get_certificado(
 async def delete_certificado(
     certificado_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Eliminar un certificado.
@@ -230,7 +229,7 @@ async def delete_certificado(
         )
 
     # Verificar permisos
-    if not current_user.es_admin and certificado.empresa_id != current_user.empresa_id:
+    if certificado.empresa_id != empresa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para eliminar este certificado",
@@ -244,7 +243,8 @@ async def delete_certificado(
 async def generar_csr(
     data: GenerarCSRRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Genera clave privada RSA 2048 y CSR para un CUIT.
@@ -267,6 +267,14 @@ async def generar_csr(
         HTTPException: Si hay error en la generación
     """
     try:
+        result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
+        empresa = result.scalar_one_or_none()
+        if not empresa or empresa.cuit != data.cuit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El CUIT del CSR debe coincidir con el emisor activo",
+            )
+
         logger.info(f"Generando CSR para CUIT: {data.cuit}")
 
         service = CertificadosService()
@@ -299,7 +307,8 @@ async def subir_certificado(
     ambiente: str = Form(...),
     key_filename: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Recibe el certificado .crt del portal de ARCA y lo valida.
@@ -327,6 +336,14 @@ async def subir_certificado(
         HTTPException: Si el certificado es inválido o no coincide con la clave
     """
     try:
+        result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
+        empresa = result.scalar_one_or_none()
+        if not empresa or empresa.cuit != cuit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El certificado debe coincidir con el emisor activo",
+            )
+
         logger.info(f"Subiendo certificado para CUIT: {cuit}")
 
         # Validar extensión del archivo
@@ -381,7 +398,7 @@ async def subir_certificado(
             archivo_key=str(key_path),
             activo=True,
             ambiente=ambiente,
-            empresa_id=current_user.empresa_id,
+            empresa_id=empresa_id,
         )
 
         db.add(certificado)
@@ -411,7 +428,8 @@ async def subir_certificado(
 async def verificar_conexion(
     certificado_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Prueba la conexión con ARCA usando el certificado.
@@ -444,7 +462,7 @@ async def verificar_conexion(
         )
 
     # Verificar permisos
-    if not current_user.es_admin and certificado.empresa_id != current_user.empresa_id:
+    if certificado.empresa_id != empresa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para verificar este certificado",
@@ -464,9 +482,9 @@ async def verificar_conexion(
         wsaa_client = WSAAClient(ambiente=ambiente)
 
         # Intentar login
-        ticket = await wsaa_client.login(
-            cert_path=certificado.archivo_crt,
-            key_path=certificado.archivo_key,
+        await wsaa_client.login(
+            cert_path=resolve_cert_storage_path(certificado.archivo_crt),
+            key_path=resolve_cert_storage_path(certificado.archivo_key),
             cuit=certificado.cuit,
             servicio="wsfe",
         )

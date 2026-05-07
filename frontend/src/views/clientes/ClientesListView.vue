@@ -1,102 +1,100 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useClientesStore } from '@/stores/clientes'
-import { useNotification } from '@/composables/useNotification'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseTable from '@/components/ui/BaseTable.vue'
-import BaseBadge from '@/components/ui/BaseBadge.vue'
-import Pagination from '@/components/common/Pagination.vue'
-import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import { ref, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
+import { useClientesStore } from "@/stores/clientes";
+import { useNotification } from "@/composables/useNotification";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseTable from "@/components/ui/BaseTable.vue";
+import BaseBadge from "@/components/ui/BaseBadge.vue";
+import Pagination from "@/components/common/Pagination.vue";
+import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  EyeIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/vue/24/outline";
 
-const router = useRouter()
-const clientesStore = useClientesStore()
-const { showSuccess, showError } = useNotification()
+const router = useRouter();
+const clientesStore = useClientesStore();
+const { showSuccess, showError } = useNotification();
 
-const search = ref('')
-const currentPage = ref(1)
-const showDeleteDialog = ref(false)
-const clienteToDelete = ref<number | null>(null)
+const search = ref("");
+const currentPage = ref(1);
+const showDeleteDialog = ref(false);
+const clienteToDelete = ref<number | null>(null);
 
 const columns = [
-  { key: 'razon_social', label: 'Razón Social', sortable: true },
-  { key: 'numero_documento', label: 'Documento', sortable: false },
-  { key: 'condicion_iva', label: 'IVA', sortable: false },
-  { key: 'email', label: 'Email', sortable: false },
-  { key: 'activo', label: 'Estado', sortable: false }
-]
+  { key: "razon_social", label: "Razón Social", sortable: true },
+  { key: "numero_documento", label: "Documento", sortable: false },
+  { key: "condicion_iva", label: "IVA", sortable: false },
+  { key: "email", label: "Email", sortable: false },
+  { key: "activo", label: "Estado", sortable: false },
+];
 
 onMounted(() => {
-  loadClientes()
-})
+  loadClientes();
+});
 
 watch([search, currentPage], () => {
-  loadClientes()
-})
+  loadClientes();
+});
 
 const loadClientes = async () => {
   try {
     await clientesStore.fetchClientes({
       page: currentPage.value,
       per_page: 30,
-      search: search.value || undefined
-    })
+      search: search.value || undefined,
+    });
   } catch (error: any) {
-    showError('Error', 'No se pudieron cargar los clientes')
+    showError("Error", "No se pudieron cargar los clientes");
   }
-}
+};
 
 const handleNew = () => {
-  router.push('/clientes/nuevo')
-}
+  router.push("/clientes/nuevo");
+};
 
 const handleView = (cliente: any) => {
-  router.push(`/clientes/${cliente.id}`)
-}
+  router.push(`/clientes/${cliente.id}`);
+};
 
 const handleEdit = (cliente: any) => {
-  router.push(`/clientes/${cliente.id}/editar`)
-}
+  router.push(`/clientes/${cliente.id}/editar`);
+};
 
 const handleDeleteClick = (cliente: any) => {
-  clienteToDelete.value = cliente.id
-  showDeleteDialog.value = true
-}
+  clienteToDelete.value = cliente.id;
+  showDeleteDialog.value = true;
+};
 
 const confirmDelete = async () => {
-  if (!clienteToDelete.value) return
+  if (!clienteToDelete.value) return;
 
   try {
-    await clientesStore.deleteCliente(clienteToDelete.value)
-    showSuccess('Cliente eliminado', 'El cliente se eliminó correctamente')
-    showDeleteDialog.value = false
-    clienteToDelete.value = null
+    await clientesStore.deleteCliente(clienteToDelete.value);
+    showSuccess("Cliente eliminado", "El cliente se eliminó correctamente");
+    showDeleteDialog.value = false;
+    clienteToDelete.value = null;
   } catch (error: any) {
-    showError('Error', 'No se pudo eliminar el cliente')
+    showError("Error", "No se pudo eliminar el cliente");
   }
-}
+};
 </script>
 
 <template>
   <div>
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1
-          class="text-3xl font-bold text-gray-900"
-          data-testid="page-title"
-        >
+        <h1 class="text-3xl font-bold text-gray-900" data-testid="page-title">
           Clientes
         </h1>
-        <p class="mt-2 text-gray-600">
-          Gestión de clientes
-        </p>
+        <p class="mt-2 text-gray-600">Gestión de clientes</p>
       </div>
-      <BaseButton
-        data-testid="clientes-nuevo"
-        @click="handleNew"
-      >
+      <BaseButton data-testid="clientes-nuevo" @click="handleNew">
         <PlusIcon class="h-5 w-5 mr-2" />
         Nuevo Cliente
       </BaseButton>
@@ -106,13 +104,15 @@ const confirmDelete = async () => {
       <!-- Search -->
       <div class="mb-6">
         <div class="relative">
-          <MagnifyingGlassIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <MagnifyingGlassIcon
+            class="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+          />
           <input
             v-model="search"
             type="text"
             placeholder="Buscar por nombre o documento..."
             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
+          />
         </div>
       </div>
 
@@ -141,12 +141,12 @@ const confirmDelete = async () => {
         </template>
 
         <template #cell-email="{ value }">
-          <span class="text-gray-600">{{ value || '-' }}</span>
+          <span class="text-gray-600">{{ value || "-" }}</span>
         </template>
 
         <template #cell-activo="{ value }">
           <BaseBadge :variant="value ? 'success' : 'default'">
-            {{ value ? 'Activo' : 'Inactivo' }}
+            {{ value ? "Activo" : "Inactivo" }}
           </BaseBadge>
         </template>
 

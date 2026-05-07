@@ -7,6 +7,11 @@ from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
+from app.models.lote_comprobante import (
+    LoteComprobante,
+    LoteComprobanteGrupo,
+    LoteComprobanteFila,
+)
 
 __all__ = [
     "Usuario",
@@ -16,4 +21,7 @@ __all__ = [
     "Cliente",
     "Comprobante",
     "ComprobanteItem",
+    "LoteComprobante",
+    "LoteComprobanteGrupo",
+    "LoteComprobanteFila",
 ]

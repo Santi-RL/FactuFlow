@@ -1,6 +1,7 @@
 """Endpoints de autenticación."""
 
 from datetime import datetime
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -16,6 +17,7 @@ from app.models.usuario import Usuario
 from app.schemas.usuario import UsuarioLogin, Token, UsuarioCreate, UsuarioResponse
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/login", response_model=Token)
@@ -38,6 +40,7 @@ async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(credentials.password, user.hashed_password):
+        logger.warning("Login rechazado para email=%s", credentials.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
@@ -45,6 +48,7 @@ async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
         )
 
     if not user.activo:
+        logger.warning("Intento de login con usuario inactivo email=%s", user.email)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo"
         )
@@ -55,6 +59,7 @@ async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
 
     # Crear token
     access_token = create_access_token(data={"sub": user.email})
+    logger.info("Login exitoso usuario_id=%s empresa_id=%s", user.id, user.empresa_id)
 
     return {"access_token": access_token, "token_type": "bearer", "user": user}
 
@@ -118,5 +123,6 @@ async def setup_initial_user(
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+    logger.info("Setup inicial completado con usuario admin id=%s", new_user.id)
 
     return new_user

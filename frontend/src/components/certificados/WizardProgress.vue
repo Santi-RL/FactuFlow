@@ -1,51 +1,54 @@
 <script setup lang="ts">
-
 interface Step {
-  number: number
-  title: string
-  shortTitle: string
+  number: number;
+  title: string;
+  shortTitle: string;
 }
 
 interface Props {
-  currentStep: number
-  steps: Step[]
+  currentStep: number;
+  steps: Step[];
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 // Constants for layout
-const CIRCLE_SIZE = '2.5rem'
-const LINE_OFFSET_PERCENTAGE = 50
+const CIRCLE_SIZE = "2.5rem";
+const LINE_OFFSET_PERCENTAGE = 50;
 
 const getStepClasses = (stepNumber: number) => {
-  const isActive = stepNumber === props.currentStep
-  const isCompleted = stepNumber < props.currentStep
-  
+  const isActive = stepNumber === props.currentStep;
+  const isCompleted = stepNumber < props.currentStep;
+
   return {
-    'bg-blue-600 text-white': isActive,
-    'bg-green-500 text-white': isCompleted,
-    'bg-gray-200 text-gray-500': !isActive && !isCompleted
-  }
-}
+    "bg-blue-600 text-white": isActive,
+    "bg-green-500 text-white": isCompleted,
+    "bg-gray-200 text-gray-500": !isActive && !isCompleted,
+  };
+};
 
 const getLineClasses = (stepNumber: number) => {
-  const isCompleted = stepNumber < props.currentStep
-  
+  const isCompleted = stepNumber < props.currentStep;
+
   return {
-    'bg-green-500': isCompleted,
-    'bg-gray-300': !isCompleted
-  }
-}
+    "bg-green-500": isCompleted,
+    "bg-gray-300": !isCompleted,
+  };
+};
 
 const getLineStyle = (index: number, totalSteps: number) => {
-  const isLastStep = index === totalSteps - 2
-  
+  const isLastStep = index === totalSteps - 2;
+
   return {
     left: `${LINE_OFFSET_PERCENTAGE}%`,
-    right: isLastStep ? `-${LINE_OFFSET_PERCENTAGE}%` : `calc(-100% + ${CIRCLE_SIZE})`,
-    width: isLastStep ? `${LINE_OFFSET_PERCENTAGE}%` : `calc(100% - ${CIRCLE_SIZE})`
-  }
-}
+    right: isLastStep
+      ? `-${LINE_OFFSET_PERCENTAGE}%`
+      : `calc(-100% + ${CIRCLE_SIZE})`,
+    width: isLastStep
+      ? `${LINE_OFFSET_PERCENTAGE}%`
+      : `calc(100% - ${CIRCLE_SIZE})`,
+  };
+};
 </script>
 
 <template>
@@ -66,7 +69,7 @@ const getLineStyle = (index: number, totalSteps: number) => {
           <span v-if="step.number < currentStep">✓</span>
           <span v-else>{{ step.number }}</span>
         </div>
-        
+
         <!-- Title -->
         <div class="mt-2 text-center">
           <p
@@ -74,14 +77,14 @@ const getLineStyle = (index: number, totalSteps: number) => {
             :class="{
               'text-blue-600': step.number === currentStep,
               'text-green-600': step.number < currentStep,
-              'text-gray-500': step.number > currentStep
+              'text-gray-500': step.number > currentStep,
             }"
           >
             <span class="hidden sm:inline">{{ step.title }}</span>
             <span class="inline sm:hidden">{{ step.shortTitle }}</span>
           </p>
         </div>
-        
+
         <!-- Connecting Line -->
         <div
           v-if="index < steps.length - 1"

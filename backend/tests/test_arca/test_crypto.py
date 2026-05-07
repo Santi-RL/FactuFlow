@@ -1,9 +1,8 @@
 """Tests para funciones de criptografía de ARCA."""
 
 import pytest
-from datetime import datetime
 
-from app.arca.crypto import generate_tra, get_certificate_info
+from app.arca.crypto import generate_tra
 from app.arca.exceptions import ArcaCertificateError
 
 

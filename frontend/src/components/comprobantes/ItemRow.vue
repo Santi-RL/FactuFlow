@@ -1,52 +1,52 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import { TrashIcon } from '@heroicons/vue/24/outline'
-import type { ItemComprobante } from '@/types/comprobante'
-import { ALICUOTAS_IVA } from '@/types/comprobante'
+import { computed, watch } from "vue";
+import { TrashIcon } from "@heroicons/vue/24/outline";
+import type { ItemComprobante } from "@/types/comprobante";
+import { ALICUOTAS_IVA } from "@/types/comprobante";
 
 interface Props {
-  item: ItemComprobante
-  index: number
+  item: ItemComprobante;
+  index: number;
 }
 
 interface Emits {
-  (e: 'update:item', item: ItemComprobante): void
-  (e: 'remove'): void
+  (e: "update:item", item: ItemComprobante): void;
+  (e: "remove"): void;
 }
 
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
 
 // Calcular subtotal automáticamente
 const subtotal = computed(() => {
-  const base = props.item.cantidad * props.item.precio_unitario
-  const descuento = base * (props.item.descuento_porcentaje / 100)
-  return base - descuento
-})
+  const base = props.item.cantidad * props.item.precio_unitario;
+  const descuento = base * (props.item.descuento_porcentaje / 100);
+  return base - descuento;
+});
 
 // Actualizar item cuando cambia el subtotal
 watch(subtotal, (newSubtotal) => {
-  emit('update:item', {
+  emit("update:item", {
     ...props.item,
     subtotal: newSubtotal,
-  })
-})
+  });
+});
 
 // Handlers
 const updateField = (field: keyof ItemComprobante, value: any) => {
-  emit('update:item', {
+  emit("update:item", {
     ...props.item,
     [field]: value,
-  })
-}
+  });
+};
 
 const formatMonto = (monto: number) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
     minimumFractionDigits: 2,
-  }).format(monto)
-}
+  }).format(monto);
+};
 </script>
 
 <template>
@@ -59,8 +59,10 @@ const formatMonto = (monto: number) => {
         :value="item.codigo"
         placeholder="Código"
         class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="updateField('codigo', ($event.target as HTMLInputElement).value)"
-      >
+        @input="
+          updateField('codigo', ($event.target as HTMLInputElement).value)
+        "
+      />
     </td>
 
     <!-- Descripción -->
@@ -72,8 +74,10 @@ const formatMonto = (monto: number) => {
         placeholder="Descripción *"
         required
         class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="updateField('descripcion', ($event.target as HTMLInputElement).value)"
-      >
+        @input="
+          updateField('descripcion', ($event.target as HTMLInputElement).value)
+        "
+      />
     </td>
 
     <!-- Cantidad -->
@@ -87,8 +91,13 @@ const formatMonto = (monto: number) => {
         min="0"
         required
         class="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="updateField('cantidad', parseFloat(($event.target as HTMLInputElement).value) || 0)"
-      >
+        @input="
+          updateField(
+            'cantidad',
+            parseFloat(($event.target as HTMLInputElement).value) || 0,
+          )
+        "
+      />
     </td>
 
     <!-- Unidad -->
@@ -99,8 +108,10 @@ const formatMonto = (monto: number) => {
         :value="item.unidad"
         placeholder="unidades"
         class="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="updateField('unidad', ($event.target as HTMLInputElement).value)"
-      >
+        @input="
+          updateField('unidad', ($event.target as HTMLInputElement).value)
+        "
+      />
     </td>
 
     <!-- Precio Unitario -->
@@ -114,8 +125,13 @@ const formatMonto = (monto: number) => {
         min="0"
         required
         class="w-28 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="updateField('precio_unitario', parseFloat(($event.target as HTMLInputElement).value) || 0)"
-      >
+        @input="
+          updateField(
+            'precio_unitario',
+            parseFloat(($event.target as HTMLInputElement).value) || 0,
+          )
+        "
+      />
     </td>
 
     <!-- IVA -->
@@ -124,7 +140,12 @@ const formatMonto = (monto: number) => {
         aria-label="IVA"
         :value="item.iva_porcentaje"
         class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @change="updateField('iva_porcentaje', parseFloat(($event.target as HTMLSelectElement).value))"
+        @change="
+          updateField(
+            'iva_porcentaje',
+            parseFloat(($event.target as HTMLSelectElement).value),
+          )
+        "
       >
         <option
           v-for="alicuota in ALICUOTAS_IVA"

@@ -6,7 +6,7 @@ Backend de FactuFlow - Sistema de Facturación Electrónica ARCA - Argentina.
 
 - **FastAPI** - Framework web moderno y rápido
 - **SQLAlchemy 2.0** - ORM con soporte async
-- **SQLite / PostgreSQL** - Base de datos
+- **PostgreSQL / SQLite dev** - Base de datos
 - **Alembic** - Migraciones de base de datos
 - **Pydantic** - Validación de datos
 - **JWT** - Autenticación con tokens
@@ -41,7 +41,7 @@ cp ../.env.example .env
 mkdir -p data certs logs
 ```
 
-### 5. Ejecutar migraciones (opcional)
+### 5. Ejecutar migraciones
 
 ```bash
 alembic upgrade head
@@ -109,6 +109,14 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 
 - `GET /api/health` - Health check básico
 - `GET /api/health/db` - Health check de base de datos
+
+### Emisión masiva
+
+- `GET /api/lotes-comprobantes/plantilla` - Descargar plantilla oficial de Excel
+- `POST /api/lotes-comprobantes/validar` - Validar y registrar un lote
+- `POST /api/lotes-comprobantes/{id}/procesar` - Emitir los comprobantes válidos del lote
+- `GET /api/lotes-comprobantes/{id}` - Ver estado y detalle del lote
+- `GET /api/lotes-comprobantes/{id}/archivo-observado` - Descargar archivo observado con mensajes por fila
 
 ## Testing
 
@@ -190,7 +198,7 @@ backend/
 │   ├── test_clientes.py
 │   └── test_health.py
 ├── alembic/                 # Migraciones
-├── data/                    # SQLite database (gitignored)
+├── data/                    # Datos locales/cache ARCA (gitignored)
 ├── certs/                   # Certificados ARCA (gitignored)
 ├── requirements.txt
 ├── requirements-dev.txt
@@ -246,6 +254,9 @@ Principales:
 - `APP_SECRET_KEY` - Clave secreta para JWT (⚠️ cambiar en producción)
 - `DATABASE_URL` - URL de conexión a la base de datos
 - `ARCA_ENV` - Ambiente de ARCA (homologacion/produccion)
+- `CERTS_PATH` - Carpeta donde se guardan certificados
+- `BATCH_SYNC_LIMIT` - Corte entre procesamiento sincrono y background
+- `BATCH_WORKER_ENABLED` - Worker para lotes grandes en segundo plano
 - `CORS_ORIGINS` - Orígenes permitidos para CORS
 
 ## Licencia

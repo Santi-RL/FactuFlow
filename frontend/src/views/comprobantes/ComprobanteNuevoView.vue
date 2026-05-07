@@ -1,143 +1,160 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useEmpresaStore } from '@/stores/empresa'
-import { useComprobantesStore } from '@/stores/comprobantes'
-import { usePuntosVentaStore } from '@/stores/puntos_venta'
-import { DocumentTextIcon, EyeIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import ClienteSelector from '@/components/comprobantes/ClienteSelector.vue'
-import ItemsTable from '@/components/comprobantes/ItemsTable.vue'
-import TotalesPanel from '@/components/comprobantes/TotalesPanel.vue'
-import ComprobantePreview from '@/components/comprobantes/ComprobantePreview.vue'
-import type { ItemComprobante, EmitirComprobanteRequest } from '@/types/comprobante'
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useNotification } from "@/composables/useNotification";
+import { useEmpresaStore } from "@/stores/empresa";
+import { useComprobantesStore } from "@/stores/comprobantes";
+import { usePuntosVentaStore } from "@/stores/puntos_venta";
+import {
+  DocumentTextIcon,
+  EyeIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/vue/24/outline";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import ClienteSelector from "@/components/comprobantes/ClienteSelector.vue";
+import ItemsTable from "@/components/comprobantes/ItemsTable.vue";
+import TotalesPanel from "@/components/comprobantes/TotalesPanel.vue";
+import ComprobantePreview from "@/components/comprobantes/ComprobantePreview.vue";
+import type {
+  ItemComprobante,
+  EmitirComprobanteRequest,
+} from "@/types/comprobante";
 import {
   TIPOS_COMPROBANTE,
   TIPOS_COMPROBANTE_NOMBRES,
   TIPOS_CONCEPTO,
   TIPOS_CONCEPTO_NOMBRES,
-} from '@/types/comprobante'
+} from "@/types/comprobante";
 
-const router = useRouter()
-const empresaStore = useEmpresaStore()
-const comprobantesStore = useComprobantesStore()
-const puntosVentaStore = usePuntosVentaStore()
+const router = useRouter();
+const empresaStore = useEmpresaStore();
+const comprobantesStore = useComprobantesStore();
+const puntosVentaStore = usePuntosVentaStore();
+const { showError, showSuccess, showWarning } = useNotification();
 
 // Estado del formulario
 const formData = ref({
   tipo_comprobante: TIPOS_COMPROBANTE.FACTURA_B,
   punto_venta_id: 0,
   concepto: TIPOS_CONCEPTO.PRODUCTOS,
-  
+
   // Cliente
   cliente: {
     cliente_id: undefined as number | undefined,
     tipo_documento: 80,
-    numero_documento: '',
-    razon_social: '',
-    condicion_iva: '',
-    domicilio: '',
+    numero_documento: "",
+    razon_social: "",
+    condicion_iva: "",
+    domicilio: "",
   },
-  
+
   // Items
   items: [] as ItemComprobante[],
-  
+
   // Servicios
-  fecha_servicio_desde: '',
-  fecha_servicio_hasta: '',
-  fecha_vto_pago: '',
-  
+  fecha_servicio_desde: "",
+  fecha_servicio_hasta: "",
+  fecha_vto_pago: "",
+
   // Observaciones
-  observaciones: '',
-})
+  observaciones: "",
+});
 
 // Estados
-const loading = ref(false)
-const mostrarPreview = ref(false)
-const proximoNumero = ref<number | null>(null)
-const puntosVenta = computed(() => puntosVentaStore.puntosVenta)
+const loading = ref(false);
+const mostrarPreview = ref(false);
+const mostrarCancelacion = ref(false);
+const proximoNumero = ref<number | null>(null);
+const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
 
 // Inicializar datos
 onMounted(async () => {
   // Cargar empresa si no está cargada
   if (!empresaStore.empresa) {
-    await empresaStore.cargarEmpresa()
+    await empresaStore.cargarEmpresa();
   }
-  
+
   // Cargar puntos de venta
   try {
-    await puntosVentaStore.fetchPuntosVenta()
+    await puntosVentaStore.fetchPuntosVenta();
   } catch (error) {
-    console.error('Error al cargar puntos de venta:', error)
+    console.error("Error al cargar puntos de venta:", error);
   }
-  
+
   if (puntosVenta.value.length > 0) {
-    formData.value.punto_venta_id = puntosVenta.value[0].id
+    formData.value.punto_venta_id = puntosVenta.value[0].id;
   }
-  
+
   // Agregar primer item vacío
   if (formData.value.items.length === 0) {
     formData.value.items.push({
-      codigo: '',
-      descripcion: '',
+      codigo: "",
+      descripcion: "",
       cantidad: 1,
-      unidad: 'unidades',
+      unidad: "unidades",
       precio_unitario: 0,
       descuento_porcentaje: 0,
       iva_porcentaje: 21,
       orden: 0,
-    })
+    });
   }
-  
+
   // Obtener próximo número
-  await actualizarProximoNumero()
-})
+  await actualizarProximoNumero();
+});
 
 // Computed
-const empresaId = computed(() => empresaStore.empresa?.id || 0)
+const empresaId = computed(() => empresaStore.empresa?.id || 0);
 
 const tiposComprobanteDisponibles = computed(() => {
   // TODO: Filtrar según configuración de empresa
   return [
     { value: TIPOS_COMPROBANTE.FACTURA_A, label: TIPOS_COMPROBANTE_NOMBRES[1] },
     { value: TIPOS_COMPROBANTE.FACTURA_B, label: TIPOS_COMPROBANTE_NOMBRES[6] },
-    { value: TIPOS_COMPROBANTE.FACTURA_C, label: TIPOS_COMPROBANTE_NOMBRES[11] },
-  ]
-})
+    {
+      value: TIPOS_COMPROBANTE.FACTURA_C,
+      label: TIPOS_COMPROBANTE_NOMBRES[11],
+    },
+  ];
+});
 
 const mostrarFechasServicios = computed(() => {
-  return formData.value.concepto !== TIPOS_CONCEPTO.PRODUCTOS
-})
+  return formData.value.concepto !== TIPOS_CONCEPTO.PRODUCTOS;
+});
 
 const totales = computed(() => {
-  let subtotal = 0
-  let iva21 = 0
-  let iva105 = 0
-  let iva27 = 0
-  
-  formData.value.items.forEach(item => {
-    const itemSubtotal = item.cantidad * item.precio_unitario * (1 - item.descuento_porcentaje / 100)
-    subtotal += itemSubtotal
-    
+  let subtotal = 0;
+  let iva21 = 0;
+  let iva105 = 0;
+  let iva27 = 0;
+
+  formData.value.items.forEach((item) => {
+    const itemSubtotal =
+      item.cantidad *
+      item.precio_unitario *
+      (1 - item.descuento_porcentaje / 100);
+    subtotal += itemSubtotal;
+
     if (item.iva_porcentaje === 21) {
-      iva21 += itemSubtotal * 0.21
+      iva21 += itemSubtotal * 0.21;
     } else if (item.iva_porcentaje === 10.5) {
-      iva105 += itemSubtotal * 0.105
+      iva105 += itemSubtotal * 0.105;
     } else if (item.iva_porcentaje === 27) {
-      iva27 += itemSubtotal * 0.27
+      iva27 += itemSubtotal * 0.27;
     }
-  })
-  
-  const total = subtotal + iva21 + iva105 + iva27
-  
+  });
+
+  const total = subtotal + iva21 + iva105 + iva27;
+
   return {
     subtotal,
     iva21,
     iva105,
     iva27,
     total,
-  }
-})
+  };
+});
 
 const formularioValido = computed(() => {
   return (
@@ -146,57 +163,62 @@ const formularioValido = computed(() => {
     formData.value.cliente.razon_social.length > 0 &&
     formData.value.cliente.condicion_iva.length > 0 &&
     formData.value.items.length > 0 &&
-    formData.value.items.every(item => 
-      item.descripcion.length > 0 && 
-      item.cantidad > 0 && 
-      item.precio_unitario >= 0
+    formData.value.items.every(
+      (item) =>
+        item.descripcion.length > 0 &&
+        item.cantidad > 0 &&
+        item.precio_unitario >= 0,
     ) &&
-    (!mostrarFechasServicios.value || (
-      formData.value.fecha_servicio_desde &&
-      formData.value.fecha_servicio_hasta &&
-      formData.value.fecha_vto_pago
-    ))
-  )
-})
+    (!mostrarFechasServicios.value ||
+      (formData.value.fecha_servicio_desde &&
+        formData.value.fecha_servicio_hasta &&
+        formData.value.fecha_vto_pago))
+  );
+});
 
 // Methods
 const actualizarProximoNumero = async () => {
-  if (!formData.value.punto_venta_id || !empresaId.value) return
-  
+  if (!formData.value.punto_venta_id || !empresaId.value) return;
+
   try {
-    const puntoVenta = puntosVenta.value.find(pv => pv.id === formData.value.punto_venta_id)
-    if (!puntoVenta) return
-    
+    const puntoVenta = puntosVenta.value.find(
+      (pv) => pv.id === formData.value.punto_venta_id,
+    );
+    if (!puntoVenta) return;
+
     proximoNumero.value = await comprobantesStore.obtenerProximoNumero(
       puntoVenta.numero,
       formData.value.tipo_comprobante,
-      empresaId.value
-    )
+      empresaId.value,
+    );
   } catch (error) {
-    console.error('Error al obtener próximo número:', error)
+    console.error("Error al obtener próximo número:", error);
   }
-}
+};
 
 const abrirVistaPrevia = () => {
   if (!formularioValido.value) {
-    alert('Por favor, complete todos los campos requeridos')
-    return
+    showWarning(
+      "Faltan datos para continuar",
+      "Revisa cliente, punto de venta, items y fechas obligatorias antes de abrir la vista previa.",
+    );
+    return;
   }
-  
-  mostrarPreview.value = true
-}
+
+  mostrarPreview.value = true;
+};
 
 const confirmarEmision = async () => {
-  loading.value = true
-  mostrarPreview.value = false
-  
+  loading.value = true;
+  mostrarPreview.value = false;
+
   try {
     const request: EmitirComprobanteRequest = {
       empresa_id: empresaId.value,
       punto_venta_id: formData.value.punto_venta_id,
       tipo_comprobante: formData.value.tipo_comprobante,
       concepto: formData.value.concepto,
-      
+
       // Cliente
       cliente_id: formData.value.cliente.cliente_id,
       tipo_documento: formData.value.cliente.tipo_documento,
@@ -204,52 +226,68 @@ const confirmarEmision = async () => {
       razon_social: formData.value.cliente.razon_social,
       condicion_iva: formData.value.cliente.condicion_iva,
       domicilio: formData.value.cliente.domicilio,
-      
+      guardar_cliente: true,
+
       // Items
       items: formData.value.items,
-      
+
       // Servicios
       fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
       fecha_servicio_hasta: formData.value.fecha_servicio_hasta || undefined,
       fecha_vto_pago: formData.value.fecha_vto_pago || undefined,
-      
+
       // Observaciones
       observaciones: formData.value.observaciones || undefined,
-      
+
       // Moneda
-      moneda: 'PES',
+      moneda: "PES",
       cotizacion: 1,
-    }
-    
-    const resultado = await comprobantesStore.emitirComprobante(request)
-    
+    };
+
+    const resultado = await comprobantesStore.emitirComprobante(request);
+
     if (resultado.exito) {
-      // Mostrar éxito y redirigir
-      alert(`✅ Comprobante emitido exitosamente!\n\nCAE: ${resultado.cae}\nTotal: $${resultado.total.toFixed(2)}`)
-      
+      showSuccess(
+        "Comprobante emitido",
+        `CAE ${resultado.cae || "sin informar"} | Total $${Number(resultado.total).toFixed(2)}`,
+      );
+
       // Redirigir al detalle
       if (resultado.comprobante_id) {
-        router.push({ name: 'comprobante-detalle', params: { id: resultado.comprobante_id } })
+        router.push({
+          name: "comprobante-detalle",
+          params: { id: resultado.comprobante_id },
+        });
       } else {
-        router.push({ name: 'comprobantes' })
+        router.push({ name: "comprobantes" });
       }
     } else {
-      // Mostrar error
-      alert(`❌ Error al emitir comprobante:\n\n${resultado.mensaje}\n\n${resultado.errores.join('\n')}`)
+      showError(
+        "No se pudo emitir el comprobante",
+        [resultado.mensaje, ...resultado.errores].filter(Boolean).join(" | "),
+      );
     }
   } catch (error: any) {
-    console.error('Error al emitir:', error)
-    alert(`❌ Error al emitir comprobante:\n\n${error.message || 'Error desconocido'}`)
+    console.error("Error al emitir:", error);
+    showError(
+      "Error al emitir comprobante",
+      error.response?.data?.detail?.mensaje ||
+        error.message ||
+        "Ocurrio un error inesperado. Revisa los datos e intenta nuevamente.",
+    );
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const cancelar = () => {
-  if (confirm('¿Está seguro que desea cancelar? Se perderán todos los cambios.')) {
-    router.push({ name: 'comprobantes' })
-  }
-}
+  mostrarCancelacion.value = true;
+};
+
+const confirmarCancelacion = () => {
+  mostrarCancelacion.value = false;
+  router.push({ name: "comprobantes" });
+};
 </script>
 
 <template>
@@ -268,10 +306,7 @@ const cancelar = () => {
       </p>
     </div>
 
-    <form
-      class="space-y-6"
-      @submit.prevent="abrirVistaPrevia"
-    >
+    <form class="space-y-6" @submit.prevent="abrirVistaPrevia">
       <!-- Sección 1: Datos del Comprobante -->
       <BaseCard title="📄 Datos del Comprobante">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -315,12 +350,9 @@ const cancelar = () => {
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @change="actualizarProximoNumero"
             >
-              <option
-                v-for="pv in puntosVenta"
-                :key="pv.id"
-                :value="pv.id"
-              >
-                {{ String(pv.numero).padStart(4, '0') }} - {{ pv.nombre || 'Sin nombre' }}
+              <option v-for="pv in puntosVenta" :key="pv.id" :value="pv.id">
+                {{ String(pv.numero).padStart(4, "0") }} -
+                {{ pv.nombre || "Sin nombre" }}
               </option>
             </select>
           </div>
@@ -353,11 +385,11 @@ const cancelar = () => {
         </div>
 
         <!-- Próximo número -->
-        <div
-          v-if="proximoNumero !== null"
-          class="mt-4 text-sm text-gray-600"
-        >
-          El próximo número será: <span class="font-mono font-semibold">{{ String(proximoNumero).padStart(8, '0') }}</span>
+        <div v-if="proximoNumero !== null" class="mt-4 text-sm text-gray-600">
+          El próximo número será:
+          <span class="font-mono font-semibold">{{
+            String(proximoNumero).padStart(8, "0")
+          }}</span>
         </div>
 
         <!-- Fechas de servicios -->
@@ -374,7 +406,7 @@ const cancelar = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
 
           <div>
@@ -386,7 +418,7 @@ const cancelar = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
 
           <div>
@@ -398,7 +430,7 @@ const cancelar = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
         </div>
       </BaseCard>
@@ -466,7 +498,7 @@ const cancelar = () => {
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <PaperAirplaneIcon class="h-5 w-5" />
-          {{ loading ? 'Emitiendo...' : 'Emitir Factura' }}
+          {{ loading ? "Emitiendo..." : "Emitir Factura" }}
         </button>
       </div>
     </form>
@@ -480,6 +512,16 @@ const cancelar = () => {
       :empresa="empresaStore.empresa"
       @close="mostrarPreview = false"
       @confirm="confirmarEmision"
+    />
+
+    <ConfirmDialog
+      :show="mostrarCancelacion"
+      title="Cancelar comprobante"
+      message="Se perderan los cambios que todavia no emitiste. Puedes volver al listado o seguir editando."
+      confirm-text="Salir sin guardar"
+      cancel-text="Seguir editando"
+      @confirm="confirmarCancelacion"
+      @cancel="mostrarCancelacion = false"
     />
   </div>
 </template>

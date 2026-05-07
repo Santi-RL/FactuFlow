@@ -17,6 +17,7 @@ lxml==5.1.0
 cryptography==42.0.4
 # Database
 psycopg2-binary==2.9.9
+asyncpg==0.29.0
 # Utils
 python-dateutil==2.8.2
 pytz==2023.3
@@ -27,3 +28,5 @@ qrcode[pil]==7.4.2
 Pillow==10.3.0
 # Excel export
 openpyxl==3.1.2
+# PDF parsing
+pypdf==4.2.0

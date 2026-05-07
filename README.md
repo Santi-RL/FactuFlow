@@ -1,117 +1,109 @@
-# 🧾 FactuFlow
+# FactuFlow
 
-**Sistema de Facturación Electrónica Argentina (ARCA) - Open Source**
+Sistema de facturacion electronica ARCA enfocado en usuarios administrativos no tecnicos, con emision individual y emision masiva por lote.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Versión: 1.0.0](https://img.shields.io/badge/Versión-1.0.0-blue.svg)]()
-[![Estado: Estable](https://img.shields.io/badge/Estado-Estable-brightgreen.svg)]()
+## Estado actual
 
----
+Version actual: `0.2.0-mvp`
 
-## 📋 Descripción
+En este momento el proyecto esta orientado a cerrar un MVP funcional en `homologacion` con estas capacidades:
 
-FactuFlow es un sistema de facturación electrónica argentino, diseñado para ser **simple, liviano y fácil de usar**. Pensado para emprendedores, pequeñas empresas y desarrolladores que necesitan una solución self-hosted para emitir comprobantes electrónicos válidos ante ARCA (Agencia de Recaudación y Control Aduanero, anteriormente conocida como AFIP).
+- configuracion inicial de empresa y usuario administrador
+- emision individual de comprobantes con CAE
+- emision masiva desde Excel con validacion previa, seguimiento del lote y archivo observado
+- certificados por empresa y ambiente
+- PDF de comprobantes y reportes basicos de ventas, IVA y ranking de clientes
+- selector de emisor activo para usuarios administradores
 
-### ✨ Características Principales
+## Lo mas importante del MVP
 
-- 🚀 **Liviano y Rápido**: Mínimo consumo de recursos, ideal para cualquier servidor
-- 🏠 **Self-Hosted**: Ejecutalo en tu PC, servidor local o VPS
-- 🎨 **Interfaz Moderna**: UI limpia y contemporánea
-- 👥 **User-Friendly**: Diseñado para usuarios no técnicos
-- 🔐 **Gestión de Certificados**: Wizard guiado para configurar certificados ARCA
-- 📄 **Comprobantes**: Facturas A, B, C, Notas de Crédito y Débito
-- 📊 **PDF y Reportes**: Generación de PDFs con QR ARCA y reportes de ventas/IVA
-- 🐳 **Docker Ready**: Un comando para levantar todo
-- 🆓 **100% Open Source**: Licencia MIT, usalo como quieras
+- la interfaz prioriza tareas guiadas, mensajes claros y contexto para personal administrativo
+- la emision masiva usa una plantilla Excel fija con `comprobante_ref` para agrupar varias filas en un mismo comprobante
+- cada lote pertenece a un solo emisor activo
+- hasta `100` comprobantes se procesan en la misma sesion; lotes mas grandes quedan en cola persistente y se procesan en segundo plano
+- los reportes solo consideran comprobantes autorizados
 
----
+## Puesta en marcha
 
-## 🛠️ Stack Tecnológico
-
-| Componente | Tecnología |
-|------------|------------|
-| Backend | Python 3.11+ / FastAPI |
-| Frontend | Vue.js 3 / Tailwind CSS |
-| Base de datos | SQLite (default) / PostgreSQL |
-| Despliegue | Docker / Docker Compose |
-
----
-
-## 🚀 Instalación Rápida (Docker)
+### Docker
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/Santi-RL/FactuFlow.git
-cd FactuFlow
-
-# Copiar variables de entorno
 cp .env.example .env
-
-# Levantar con Docker Compose
-docker-compose up -d
+docker-compose up --build
 ```
 
-Accede a `http://localhost:8080` y sigue el wizard de configuración inicial.
+Backend: `http://localhost:8000`
 
----
+Frontend: `http://localhost:8080`
 
-## 📖 Documentación
+El perfil local usa PostgreSQL, monta el codigo del backend y ejecuta `alembic upgrade head` antes de iniciar la API con reload.
 
-- [Índice de documentación](docs/README.md)
-- [Guía de Instalación](docs/setup/README.md)
-- [Configuración de Certificados ARCA](docs/certificates/README.md)
-- [PDF y Reportes](docs/FASE_6_PDF_REPORTES.md)
-- [Manual de Usuario](docs/user-guide/README.md)
-- [API Reference](docs/api/README.md)
-- [Changelog](CHANGELOG.md) 📋
+### Docker produccion / VPS
 
----
+```bash
+cp .env.production.example .env.production
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+```
 
-## 🗺️ Roadmap
+El perfil productivo no monta el codigo fuente, usa PostgreSQL, exige secretos y deja persistidos datos, certificados y logs en rutas configurables.
 
-Consulta nuestro [ROADMAP.md](ROADMAP.md) para ver el plan de desarrollo completo.
+### Desarrollo local
 
-### Estado Actual: v1.0.0 - Release Estable ✅
-- [x] Estructura inicial del proyecto
-- [x] Configuración de Docker
-- [x] Backend completo con FastAPI
-- [x] Frontend con Vue.js 3
-- [x] Wizard de certificados ARCA
-- [x] Emisión de comprobantes con CAE
-- [x] Generación de PDFs con QR ARCA
-- [x] Sistema de reportes (Ventas, IVA, Clientes)
-- [x] Tests E2E con Playwright
-- [x] Optimización de rendimiento (lazy loading, índices BD)
-- [x] Documentación completa
+Backend:
 
----
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
 
-## 🤝 Contribuir
+Frontend:
 
-¡Las contribuciones son bienvenidas! Por favor lee [CONTRIBUTING.md](CONTRIBUTING.md) antes de enviar un Pull Request.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
----
+### Crear usuario administrador
 
-## 📄 Licencia
+Para crear tu usuario propietario o promover un usuario existente a administrador:
 
-Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detalles.
+```bash
+cd backend
+.venv\Scripts\python.exe -m app.scripts.create_admin_user
+```
 
----
+El comando pide email, nombre y contrasena por consola. Si se ejecuta contra una base
+con `DATABASE_URL` de PostgreSQL, crea el administrador en esa base. Si ya existe un
+usuario con ese email, lo activa, lo deja como administrador y permite resetear su
+contrasena.
 
-## ⚠️ Disclaimer
+## Variables de entorno relevantes
 
-Este software es proporcionado "tal cual", sin garantías de ningún tipo. El usuario es responsable de verificar que los comprobantes emitidos cumplan con la normativa vigente de ARCA. Los desarrolladores no se hacen responsables por errores en la facturación o problemas fiscales derivados del uso de este sistema.
+- `ARCA_ENV`: `homologacion` o `produccion`
+- `CERTS_PATH`: carpeta de certificados
+- `BATCH_SYNC_LIMIT`: maximo de comprobantes para procesamiento sincrono
+- `BATCH_MAX_ROWS`: limite de filas del Excel
+- `BATCH_MAX_GROUPS`: limite de comprobantes por lote
+- `BATCH_WORKER_ENABLED`: habilita procesamiento en segundo plano de lotes grandes
+- `DATABASE_URL`: PostgreSQL recomendado para operacion real
+- `CORS_ORIGINS`: orígenes permitidos
 
----
+Se mantiene compatibilidad con variables legacy `AFIP_*` cuando todavia existan integraciones viejas.
 
-## 💬 Soporte
+## Documentacion
 
-- 🐛 [Reportar un Bug](https://github.com/Santi-RL/FactuFlow/issues/new?labels=bug)
-- 💡 [Sugerir una Feature](https://github.com/Santi-RL/FactuFlow/issues/new?labels=enhancement)
-- 📧 Contacto: [Abrir un Issue](https://github.com/Santi-RL/FactuFlow/issues)
+- [docs/README.md](docs/README.md)
+- [docs/agents/README.md](docs/agents/README.md)
+- [backend/README.md](backend/README.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [ROADMAP.md](ROADMAP.md)
 
----
+## Licencia
 
-<p align="center">
-  Hecho con ❤️ en Argentina 🇦🇷
-</p>
+MIT. Revisa [LICENSE](LICENSE).

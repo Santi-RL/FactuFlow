@@ -1,38 +1,44 @@
-import axios, { AxiosError } from 'axios'
-import type { ApiError } from '@/types/api'
+import axios, { AxiosError } from "axios";
+import type { ApiError } from "@/types/api";
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
-})
+});
 
 // Request interceptor para agregar el token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem("token");
+    const empresaActivaId = localStorage.getItem("empresa_activa_id");
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return config
+    if (empresaActivaId) {
+      config.headers["X-Empresa-Id"] = empresaActivaId;
+    }
+    return config;
   },
   (error) => {
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
 // Response interceptor para manejar errores
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
     // Si es 401, limpiar token y redirigir a login
-    const requestUrl = error.config?.url || ''
+    const requestUrl = error.config?.url || "";
     const isAuthLogin =
-      requestUrl.includes('/api/auth/login') || requestUrl.includes('auth/login')
+      requestUrl.includes("/api/auth/login") ||
+      requestUrl.includes("auth/login");
     const isAuthSetup =
-      requestUrl.includes('/api/auth/setup') || requestUrl.includes('auth/setup')
-    const isOnLoginPage = window.location.pathname === '/login'
+      requestUrl.includes("/api/auth/setup") ||
+      requestUrl.includes("auth/setup");
+    const isOnLoginPage = window.location.pathname === "/login";
 
     if (
       error.response?.status === 401 &&
@@ -40,12 +46,12 @@ apiClient.interceptors.response.use(
       !isAuthSetup &&
       !isOnLoginPage
     ) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/login";
     }
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
-export default apiClient
+export default apiClient;

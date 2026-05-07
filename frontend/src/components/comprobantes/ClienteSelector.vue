@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { MagnifyingGlassIcon, UserPlusIcon } from '@heroicons/vue/24/outline'
-import { useClientesStore } from '@/stores/clientes'
-import { TIPOS_DOCUMENTO_NOMBRES, CONDICIONES_IVA } from '@/types/comprobante'
+import { ref, computed } from "vue";
+import { MagnifyingGlassIcon, UserPlusIcon } from "@heroicons/vue/24/outline";
+import { useClientesStore } from "@/stores/clientes";
+import { TIPOS_DOCUMENTO_NOMBRES, CONDICIONES_IVA } from "@/types/comprobante";
 
 interface ClienteData {
-  cliente_id?: number
-  tipo_documento: number
-  numero_documento: string
-  razon_social: string
-  condicion_iva: string
-  domicilio?: string
+  cliente_id?: number;
+  tipo_documento: number;
+  numero_documento: string;
+  razon_social: string;
+  condicion_iva: string;
+  domicilio?: string;
 }
 
 interface Props {
-  modelValue: ClienteData
-  empresaId: number
-  tipoComprobante: number
+  modelValue: ClienteData;
+  empresaId: number;
+  tipoComprobante: number;
 }
 
 interface Emits {
-  (e: 'update:modelValue', value: ClienteData): void
+  (e: "update:modelValue", value: ClienteData): void;
 }
 
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
 
-const clientesStore = useClientesStore()
+const clientesStore = useClientesStore();
 
-const busqueda = ref('')
-const mostrarResultados = ref(false)
-const modoManual = ref(false)
+const busqueda = ref("");
+const mostrarResultados = ref(false);
+const modoManual = ref(false);
 
 const tipoDocumentoToCodigo: Record<string, number> = {
   CUIT: 80,
@@ -40,68 +40,68 @@ const tipoDocumentoToCodigo: Record<string, number> = {
   LE: 89,
   LC: 90,
   CI: 99,
-}
+};
 
 const mapTipoDocumento = (tipo?: string) => {
-  if (!tipo) return 99
-  return tipoDocumentoToCodigo[tipo] ?? 99
-}
+  if (!tipo) return 99;
+  return tipoDocumentoToCodigo[tipo] ?? 99;
+};
 
 // Buscar clientes
 const buscarClientes = async () => {
-  if (busqueda.value.length < 2) return
-  
+  if (busqueda.value.length < 2) return;
+
   await clientesStore.fetchClientes({
     empresa_id: props.empresaId,
     search: busqueda.value,
     page: 1,
     per_page: 10,
-  })
-  
-  mostrarResultados.value = true
-}
+  });
+
+  mostrarResultados.value = true;
+};
 
 // Seleccionar cliente
 const seleccionarCliente = (cliente: any) => {
-  emit('update:modelValue', {
+  emit("update:modelValue", {
     cliente_id: cliente.id,
     tipo_documento: mapTipoDocumento(cliente.tipo_documento),
-    numero_documento: cliente.numero_documento || '',
+    numero_documento: cliente.numero_documento || "",
     razon_social: cliente.razon_social,
     condicion_iva: cliente.condicion_iva,
     domicilio: cliente.domicilio ?? undefined,
-  })
-  
-  mostrarResultados.value = false
-  busqueda.value = cliente.razon_social
-}
+  });
+
+  mostrarResultados.value = false;
+  busqueda.value = cliente.razon_social;
+};
 
 // Activar modo manual
 const activarModoManual = () => {
-  modoManual.value = true
-  mostrarResultados.value = false
-}
+  modoManual.value = true;
+  mostrarResultados.value = false;
+};
 
 // Actualizar campo
 const updateField = (field: keyof ClienteData, value: any) => {
-  emit('update:modelValue', {
+  emit("update:modelValue", {
     ...props.modelValue,
     [field]: value,
-  })
-}
+  });
+};
 
 // Validar según tipo de comprobante
 const requiereCUIT = computed(() => {
   // Facturas A requieren CUIT
-  return [1, 2, 3].includes(props.tipoComprobante)
-})
+  return [1, 2, 3].includes(props.tipoComprobante);
+});
 
 // Watch para cerrar resultados al hacer clic fuera
 const cerrarResultados = () => {
   setTimeout(() => {
-    mostrarResultados.value = false
-  }, 200)
-}
+    mostrarResultados.value = false;
+  }, 200);
+};
 </script>
 
 <template>
@@ -124,10 +124,7 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Búsqueda de cliente -->
-    <div
-      v-if="!modoManual && !modelValue.cliente_id"
-      class="mb-6"
-    >
+    <div v-if="!modoManual && !modelValue.cliente_id" class="mb-6">
       <label
         for="cliente-busqueda"
         class="block text-sm font-medium text-gray-700 mb-2"
@@ -136,7 +133,9 @@ const cerrarResultados = () => {
       </label>
       <div class="relative">
         <div class="relative">
-          <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <MagnifyingGlassIcon
+            class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+          />
           <input
             id="cliente-busqueda"
             v-model="busqueda"
@@ -145,7 +144,7 @@ const cerrarResultados = () => {
             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             @input="buscarClientes"
             @blur="cerrarResultados"
-          >
+          />
         </div>
 
         <!-- Resultados de búsqueda -->
@@ -180,15 +179,14 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Separador -->
-    <div
-      v-if="!modoManual && !modelValue.cliente_id"
-      class="relative mb-6"
-    >
+    <div v-if="!modoManual && !modelValue.cliente_id" class="relative mb-6">
       <div class="absolute inset-0 flex items-center">
         <div class="w-full border-t border-gray-300" />
       </div>
       <div class="relative flex justify-center text-sm">
-        <span class="px-2 bg-white text-gray-500">O completar datos manualmente</span>
+        <span class="px-2 bg-white text-gray-500"
+          >O completar datos manualmente</span
+        >
       </div>
     </div>
 
@@ -209,7 +207,15 @@ const cerrarResultados = () => {
         <button
           type="button"
           class="text-sm text-blue-600 hover:text-blue-700"
-          @click="emit('update:modelValue', { tipo_documento: 80, numero_documento: '', razon_social: '', condicion_iva: '' }); modoManual = true"
+          @click="
+            emit('update:modelValue', {
+              tipo_documento: 80,
+              numero_documento: '',
+              razon_social: '',
+              condicion_iva: '',
+            });
+            modoManual = true;
+          "
         >
           Cambiar
         </button>
@@ -217,10 +223,7 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Formulario manual -->
-    <div
-      v-if="modoManual || modelValue.cliente_id"
-      class="space-y-4"
-    >
+    <div v-if="modoManual || modelValue.cliente_id" class="space-y-4">
       <!-- Tipo de documento y número -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -235,7 +238,12 @@ const cerrarResultados = () => {
             :value="modelValue.tipo_documento"
             required
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            @change="updateField('tipo_documento', parseInt(($event.target as HTMLSelectElement).value))"
+            @change="
+              updateField(
+                'tipo_documento',
+                parseInt(($event.target as HTMLSelectElement).value),
+              )
+            "
           >
             <option :value="80">
               {{ TIPOS_DOCUMENTO_NOMBRES[80] }}
@@ -246,10 +254,7 @@ const cerrarResultados = () => {
             <option :value="94">
               {{ TIPOS_DOCUMENTO_NOMBRES[94] }}
             </option>
-            <option
-              v-if="!requiereCUIT"
-              :value="99"
-            >
+            <option v-if="!requiereCUIT" :value="99">
               {{ TIPOS_DOCUMENTO_NOMBRES[99] }}
             </option>
           </select>
@@ -269,12 +274,14 @@ const cerrarResultados = () => {
             placeholder="20-12345678-9"
             required
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            @input="updateField('numero_documento', ($event.target as HTMLInputElement).value)"
-          >
-          <p
-            v-if="requiereCUIT"
-            class="mt-1 text-xs text-amber-600"
-          >
+            @input="
+              updateField(
+                'numero_documento',
+                ($event.target as HTMLInputElement).value,
+              )
+            "
+          />
+          <p v-if="requiereCUIT" class="mt-1 text-xs text-amber-600">
             * Para comprobantes tipo A, el receptor debe tener CUIT
           </p>
         </div>
@@ -293,11 +300,14 @@ const cerrarResultados = () => {
           :value="modelValue.condicion_iva"
           required
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          @change="updateField('condicion_iva', ($event.target as HTMLSelectElement).value)"
+          @change="
+            updateField(
+              'condicion_iva',
+              ($event.target as HTMLSelectElement).value,
+            )
+          "
         >
-          <option value="">
-            Seleccione...
-          </option>
+          <option value="">Seleccione...</option>
           <option
             v-for="condicion in CONDICIONES_IVA"
             :key="condicion"
@@ -323,8 +333,13 @@ const cerrarResultados = () => {
           placeholder="Empresa Ejemplo S.A."
           required
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          @input="updateField('razon_social', ($event.target as HTMLInputElement).value)"
-        >
+          @input="
+            updateField(
+              'razon_social',
+              ($event.target as HTMLInputElement).value,
+            )
+          "
+        />
       </div>
 
       <!-- Domicilio -->
@@ -341,8 +356,10 @@ const cerrarResultados = () => {
           :value="modelValue.domicilio"
           placeholder="Av. Corrientes 1234, CABA"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          @input="updateField('domicilio', ($event.target as HTMLInputElement).value)"
-        >
+          @input="
+            updateField('domicilio', ($event.target as HTMLInputElement).value)
+          "
+        />
       </div>
     </div>
   </div>

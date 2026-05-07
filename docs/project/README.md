@@ -15,4 +15,4 @@ Importante: estos documentos pueden quedar desactualizados. La documentacion "ca
   - Update de dependencias (security patch): `docs/project/security/SECURITY_UPDATE.md`
 - Notas:
   - Resumen de implementacion (wizard certificados): `docs/project/notes/IMPLEMENTATION_SUMMARY.md`
-
+  - Sesion 2026-03-09 (smoke real ARCA, fixes y punto de continuidad): `docs/project/notes/SESSION_2026-03-09.md`

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 interface Props {
-  title?: string
-  padding?: boolean
+  title?: string;
+  padding?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
-  title: '',
-  padding: true
-})
+  title: "",
+  padding: true,
+});
 </script>
 
 <template>
@@ -22,11 +22,11 @@ withDefaults(defineProps<Props>(), {
         </slot>
       </h3>
     </div>
-    
+
     <div :class="padding ? 'p-6' : ''">
       <slot />
     </div>
-    
+
     <div
       v-if="$slots.footer"
       class="px-6 py-4 border-t border-gray-200 bg-gray-50"

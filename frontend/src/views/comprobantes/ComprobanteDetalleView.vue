@@ -1,117 +1,144 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useComprobantesStore } from '@/stores/comprobantes'
-import { DocumentTextIcon, ArrowLeftIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import { TIPOS_COMPROBANTE_NOMBRES, ESTADOS_COMPROBANTE_NOMBRES } from '@/types/comprobante'
-import pdfService from '@/services/pdf.service'
+import { ref, onMounted, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useNotification } from "@/composables/useNotification";
+import { useComprobantesStore } from "@/stores/comprobantes";
+import {
+  DocumentTextIcon,
+  ArrowLeftIcon,
+  ArrowDownTrayIcon,
+} from "@heroicons/vue/24/outline";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import {
+  TIPOS_COMPROBANTE_NOMBRES,
+  ESTADOS_COMPROBANTE_NOMBRES,
+} from "@/types/comprobante";
+import pdfService from "@/services/pdf.service";
 
-const route = useRoute()
-const router = useRouter()
-const comprobantesStore = useComprobantesStore()
+const route = useRoute();
+const router = useRouter();
+const comprobantesStore = useComprobantesStore();
+const { showError } = useNotification();
 
-const loading = ref(true)
+const loading = ref(true);
 
 onMounted(async () => {
-  const id = parseInt(route.params.id as string)
-  
-  try {
-    await comprobantesStore.obtenerComprobante(id)
-  } catch (error) {
-    console.error('Error al cargar comprobante:', error)
-    alert('Error al cargar el comprobante')
-  } finally {
-    loading.value = false
-  }
-})
+  const id = parseInt(route.params.id as string);
 
-const comprobante = computed(() => comprobantesStore.comprobanteActual)
+  try {
+    await comprobantesStore.obtenerComprobante(id);
+  } catch (error) {
+    console.error("Error al cargar comprobante:", error);
+    showError(
+      "No se pudo cargar el comprobante",
+      "Verifica que el comprobante exista y que pertenezca a la empresa activa.",
+    );
+  } finally {
+    loading.value = false;
+  }
+});
+
+const comprobante = computed(() => comprobantesStore.comprobanteActual);
 
 const tipoComprobanteNombre = computed(() => {
-  if (!comprobante.value) return ''
-  return TIPOS_COMPROBANTE_NOMBRES[comprobante.value.tipo_comprobante] || 'Comprobante'
-})
+  if (!comprobante.value) return "";
+  return (
+    TIPOS_COMPROBANTE_NOMBRES[comprobante.value.tipo_comprobante] ||
+    "Comprobante"
+  );
+});
 
 const estadoNombre = computed(() => {
-  if (!comprobante.value) return ''
-  return ESTADOS_COMPROBANTE_NOMBRES[comprobante.value.estado] || comprobante.value.estado
-})
+  if (!comprobante.value) return "";
+  return (
+    ESTADOS_COMPROBANTE_NOMBRES[comprobante.value.estado] ||
+    comprobante.value.estado
+  );
+});
 
 const estadoColor = computed(() => {
-  if (!comprobante.value) return 'gray'
-  
+  if (!comprobante.value) return "gray";
+
   switch (comprobante.value.estado) {
-    case 'autorizado':
-      return 'green'
-    case 'rechazado':
-      return 'red'
-    case 'pendiente':
-      return 'yellow'
-    case 'anulado':
-      return 'gray'
+    case "autorizado":
+      return "green";
+    case "rechazado":
+      return "red";
+    case "pendiente":
+      return "yellow";
+    case "anulado":
+      return "gray";
     default:
-      return 'gray'
+      return "gray";
   }
-})
+});
 
 const numeroCompleto = computed(() => {
-  if (!comprobante.value) return ''
-  const puntoVenta = String(comprobante.value.punto_venta_numero || 0).padStart(4, '0')
-  const numero = String(comprobante.value.numero).padStart(8, '0')
-  return `${puntoVenta}-${numero}`
-})
+  if (!comprobante.value) return "";
+  const puntoVenta = String(comprobante.value.punto_venta_numero || 0).padStart(
+    4,
+    "0",
+  );
+  const numero = String(comprobante.value.numero).padStart(8, "0");
+  return `${puntoVenta}-${numero}`;
+});
 
 const formatMonto = (monto: number) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-  }).format(monto)
-}
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+  }).format(monto);
+};
 
 const formatFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString('es-AR')
-}
+  return new Date(fecha).toLocaleDateString("es-AR");
+};
 
 const volver = () => {
-  router.push({ name: 'comprobantes' })
-}
+  router.push({ name: "comprobantes" });
+};
 
-const descargandoPDF = ref(false)
+const descargandoPDF = ref(false);
 
 const descargarPDF = async () => {
-  if (!comprobante.value) return
-  
-  descargandoPDF.value = true
+  if (!comprobante.value) return;
+
+  descargandoPDF.value = true;
   try {
-    const letra = obtenerLetraComprobante(comprobante.value.tipo_comprobante)
-    const filename = `${tipoComprobanteNombre.value}_${letra}_${numeroCompleto.value}.pdf`
-    await pdfService.descargarAutomatico(comprobante.value.id, filename)
+    const letra = obtenerLetraComprobante(comprobante.value.tipo_comprobante);
+    const filename = `${tipoComprobanteNombre.value}_${letra}_${numeroCompleto.value}.pdf`;
+    await pdfService.descargarAutomatico(comprobante.value.id, filename);
   } catch (error) {
-    console.error('Error al descargar PDF:', error)
-    alert('Error al descargar el PDF. Por favor, inténtalo de nuevo.')
+    console.error("Error al descargar PDF:", error);
+    showError(
+      "No se pudo descargar el PDF",
+      "Intentalo nuevamente en unos segundos. Si el problema sigue, revisa el estado del comprobante.",
+    );
   } finally {
-    descargandoPDF.value = false
+    descargandoPDF.value = false;
   }
-}
+};
 
 const previsualizarPDF = async () => {
-  if (!comprobante.value) return
-  
+  if (!comprobante.value) return;
+
   try {
-    await pdfService.previsualizarPDF(comprobante.value.id)
+    await pdfService.previsualizarPDF(comprobante.value.id);
   } catch (error) {
-    console.error('Error al previsualizar PDF:', error)
-    alert('Error al previsualizar el PDF. Por favor, inténtalo de nuevo.')
+    console.error("Error al previsualizar PDF:", error);
+    showError(
+      "No se pudo abrir el PDF",
+      "Intentalo nuevamente en unos segundos.",
+    );
   }
-}
+};
 
 const obtenerLetraComprobante = (tipo: number): string => {
-  if ([1, 2, 3].includes(tipo)) return 'A'
-  if ([6, 7, 8].includes(tipo)) return 'B'
-  if ([11, 12, 13].includes(tipo)) return 'C'
-  return ''
-}
+  if ([1, 2, 3].includes(tipo)) return "A";
+  if ([6, 7, 8].includes(tipo)) return "B";
+  if ([11, 12, 13].includes(tipo)) return "C";
+  return "";
+};
 </script>
 
 <template>
@@ -174,40 +201,40 @@ const obtenerLetraComprobante = (tipo: number): string => {
     </div>
 
     <!-- Loading -->
-    <div
-      v-if="loading"
-      class="text-center py-12"
-    >
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-      <p class="mt-4 text-gray-600">
-        Cargando comprobante...
-      </p>
+    <div v-if="loading" class="text-center py-12">
+      <div
+        class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
+      />
+      <p class="mt-4 text-gray-600">Cargando comprobante...</p>
     </div>
 
     <!-- Contenido -->
-    <div
-      v-else-if="comprobante"
-      class="space-y-6"
-    >
+    <div v-else-if="comprobante" class="space-y-6">
       <!-- Información general -->
       <BaseCard>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1">Tipo</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >Tipo</label
+            >
             <p class="text-lg font-semibold text-gray-900">
               {{ tipoComprobanteNombre }}
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1">Número</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >Número</label
+            >
             <p class="text-lg font-mono font-semibold text-gray-900">
               {{ numeroCompleto }}
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1">Estado</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >Estado</label
+            >
             <span
               :class="[
                 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium',
@@ -222,21 +249,27 @@ const obtenerLetraComprobante = (tipo: number): string => {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1">Fecha Emisión</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >Fecha Emisión</label
+            >
             <p class="text-gray-900">
               {{ formatFecha(comprobante.fecha_emision) }}
             </p>
           </div>
 
           <div v-if="comprobante.cae">
-            <label class="block text-sm font-medium text-gray-500 mb-1">CAE</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >CAE</label
+            >
             <p class="text-gray-900 font-mono">
               {{ comprobante.cae }}
             </p>
           </div>
 
           <div v-if="comprobante.cae_vencimiento">
-            <label class="block text-sm font-medium text-gray-500 mb-1">Vencimiento CAE</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >Vencimiento CAE</label
+            >
             <p class="text-gray-900">
               {{ formatFecha(comprobante.cae_vencimiento) }}
             </p>
@@ -248,14 +281,18 @@ const obtenerLetraComprobante = (tipo: number): string => {
       <BaseCard title="👤 Cliente">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1">Razón Social</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >Razón Social</label
+            >
             <p class="text-gray-900">
               {{ comprobante.cliente_nombre }}
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1">CUIT / Documento</label>
+            <label class="block text-sm font-medium text-gray-500 mb-1"
+              >CUIT / Documento</label
+            >
             <p class="text-gray-900">
               {{ comprobante.cliente_cuit }}
             </p>
@@ -269,33 +306,42 @@ const obtenerLetraComprobante = (tipo: number): string => {
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+                >
                   Código
                 </th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                <th
+                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+                >
                   Descripción
                 </th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+                <th
+                  class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase"
+                >
                   Cantidad
                 </th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">
+                <th
+                  class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase"
+                >
                   Precio Unit.
                 </th>
-                <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+                <th
+                  class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase"
+                >
                   IVA
                 </th>
-                <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">
+                <th
+                  class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase"
+                >
                   Subtotal
                 </th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr
-                v-for="item in comprobante.items"
-                :key="item.id"
-              >
+              <tr v-for="item in comprobante.items" :key="item.id">
                 <td class="px-4 py-3 text-sm text-gray-600">
-                  {{ item.codigo || '-' }}
+                  {{ item.codigo || "-" }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-900">
                   {{ item.descripcion }}
@@ -303,13 +349,17 @@ const obtenerLetraComprobante = (tipo: number): string => {
                 <td class="px-4 py-3 text-sm text-center text-gray-900">
                   {{ item.cantidad }} {{ item.unidad }}
                 </td>
-                <td class="px-4 py-3 text-sm text-right font-mono text-gray-900">
+                <td
+                  class="px-4 py-3 text-sm text-right font-mono text-gray-900"
+                >
                   {{ formatMonto(item.precio_unitario) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-center text-gray-600">
                   {{ item.iva_porcentaje }}%
                 </td>
-                <td class="px-4 py-3 text-sm text-right font-mono text-gray-900">
+                <td
+                  class="px-4 py-3 text-sm text-right font-mono text-gray-900"
+                >
                   {{ formatMonto(item.subtotal ?? 0) }}
                 </td>
               </tr>
@@ -324,7 +374,9 @@ const obtenerLetraComprobante = (tipo: number): string => {
           <div class="w-80 space-y-3">
             <div class="flex justify-between text-gray-700">
               <span class="font-medium">Subtotal:</span>
-              <span class="font-mono">{{ formatMonto(comprobante.subtotal) }}</span>
+              <span class="font-mono">{{
+                formatMonto(comprobante.subtotal)
+              }}</span>
             </div>
 
             <div
@@ -332,7 +384,9 @@ const obtenerLetraComprobante = (tipo: number): string => {
               class="flex justify-between text-gray-700"
             >
               <span class="font-medium">IVA 21%:</span>
-              <span class="font-mono">{{ formatMonto(comprobante.iva_21) }}</span>
+              <span class="font-mono">{{
+                formatMonto(comprobante.iva_21)
+              }}</span>
             </div>
 
             <div
@@ -340,7 +394,9 @@ const obtenerLetraComprobante = (tipo: number): string => {
               class="flex justify-between text-gray-700"
             >
               <span class="font-medium">IVA 10.5%:</span>
-              <span class="font-mono">{{ formatMonto(comprobante.iva_10_5) }}</span>
+              <span class="font-mono">{{
+                formatMonto(comprobante.iva_10_5)
+              }}</span>
             </div>
 
             <div
@@ -348,13 +404,17 @@ const obtenerLetraComprobante = (tipo: number): string => {
               class="flex justify-between text-gray-700"
             >
               <span class="font-medium">IVA 27%:</span>
-              <span class="font-mono">{{ formatMonto(comprobante.iva_27) }}</span>
+              <span class="font-mono">{{
+                formatMonto(comprobante.iva_27)
+              }}</span>
             </div>
 
             <div class="border-t border-gray-300 pt-3">
               <div class="flex justify-between text-xl font-bold text-gray-900">
                 <span>TOTAL:</span>
-                <span class="font-mono">{{ formatMonto(comprobante.total) }}</span>
+                <span class="font-mono">{{
+                  formatMonto(comprobante.total)
+                }}</span>
               </div>
             </div>
           </div>
@@ -362,10 +422,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
       </BaseCard>
 
       <!-- Observaciones -->
-      <BaseCard
-        v-if="comprobante.observaciones"
-        title="📝 Observaciones"
-      >
+      <BaseCard v-if="comprobante.observaciones" title="📝 Observaciones">
         <p class="text-gray-700 whitespace-pre-line">
           {{ comprobante.observaciones }}
         </p>
@@ -373,13 +430,8 @@ const obtenerLetraComprobante = (tipo: number): string => {
     </div>
 
     <!-- Error -->
-    <div
-      v-else
-      class="text-center py-12"
-    >
-      <p class="text-red-600">
-        Error al cargar el comprobante
-      </p>
+    <div v-else class="text-center py-12">
+      <p class="text-red-600">Error al cargar el comprobante</p>
     </div>
   </div>
 </template>

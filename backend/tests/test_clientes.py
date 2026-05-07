@@ -4,8 +4,6 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.cliente import Cliente
-
 
 @pytest.mark.asyncio
 async def test_create_cliente(client: AsyncClient, auth_headers: dict):
@@ -42,7 +40,6 @@ async def test_list_clientes(
 ):
     """Test listar clientes."""
     # Crear algunos clientes de prueba
-    from app.models.empresa import Empresa
 
     # Obtener la empresa del usuario autenticado
     # (el auth_headers proviene del setup user que no tiene empresa,

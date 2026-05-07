@@ -1,6 +1,6 @@
 """Endpoints de Empresas."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -12,7 +12,17 @@ from app.core.security import (
 )
 from app.models.usuario import Usuario
 from app.models.empresa import Empresa
-from app.schemas.empresa import EmpresaCreate, EmpresaUpdate, EmpresaResponse
+from app.schemas.empresa import (
+    ConstanciaArcaResponse,
+    EmpresaCreate,
+    EmpresaResponse,
+    EmpresaUpdate,
+)
+from app.services.constancia_arca_service import (
+    ConstanciaArcaError,
+    extraer_texto_constancia_pdf,
+    parsear_constancia_arca,
+)
 
 router = APIRouter()
 
@@ -91,6 +101,46 @@ async def create_empresa(
     await db.refresh(nueva_empresa)
 
     return nueva_empresa
+
+
+@router.post("/extraer-constancia", response_model=ConstanciaArcaResponse)
+async def extraer_constancia_arca(
+    file: UploadFile = File(...),
+    _current_user: Usuario = Depends(get_current_admin_user),
+):
+    """
+    Extraer datos fiscales desde una constancia de inscripcion ARCA.
+
+    El endpoint no crea ni actualiza emisores. Solo devuelve datos detectados
+    para que el usuario los revise y complete antes de guardar.
+    """
+    if file.content_type not in {
+        "application/pdf",
+        "application/x-pdf",
+        "application/octet-stream",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sube una constancia en formato PDF.",
+        )
+
+    contenido = await file.read()
+    if len(contenido) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La constancia no puede superar 5 MB.",
+        )
+
+    try:
+        texto = extraer_texto_constancia_pdf(contenido)
+        datos = parsear_constancia_arca(texto)
+    except ConstanciaArcaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return datos.to_dict()
 
 
 @router.get("/{empresa_id}", response_model=EmpresaResponse)

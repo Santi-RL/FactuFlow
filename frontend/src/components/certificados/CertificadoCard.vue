@@ -1,68 +1,84 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Certificado } from '@/types/certificado'
-import CertificadoEstado from './CertificadoEstado.vue'
+import { computed } from "vue";
+import type { Certificado, VerificacionResponse } from "@/types/certificado";
+import CertificadoEstado from "./CertificadoEstado.vue";
 
 interface Props {
-  certificado: Certificado
+  certificado: Certificado;
+  verificando?: boolean;
+  resultadoVerificacion?: VerificacionResponse | null;
 }
 
 interface Emits {
-  (e: 'renovar', id: number): void
-  (e: 'eliminar', id: number): void
+  (e: "renovar", id: number): void;
+  (e: "eliminar", id: number): void;
+  (e: "verificar", id: number): void;
 }
 
-const props = defineProps<Props>()
-const emit = defineEmits<Emits>()
+const props = withDefaults(defineProps<Props>(), {
+  verificando: false,
+  resultadoVerificacion: null,
+});
+const emit = defineEmits<Emits>();
 
 const porcentajeVida = computed(() => {
-  const fechaEmision = new Date(props.certificado.fecha_emision)
-  const fechaVencimiento = new Date(props.certificado.fecha_vencimiento)
-  const hoy = new Date()
-  
-  const totalDias = Math.floor((fechaVencimiento.getTime() - fechaEmision.getTime()) / (1000 * 60 * 60 * 24))
-  const diasTranscurridos = Math.floor((hoy.getTime() - fechaEmision.getTime()) / (1000 * 60 * 60 * 24))
-  
-  const porcentaje = Math.max(0, Math.min(100, ((totalDias - diasTranscurridos) / totalDias) * 100))
-  
-  return Math.round(porcentaje)
-})
+  const fechaEmision = new Date(props.certificado.fecha_emision);
+  const fechaVencimiento = new Date(props.certificado.fecha_vencimiento);
+  const hoy = new Date();
+
+  const totalDias = Math.floor(
+    (fechaVencimiento.getTime() - fechaEmision.getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
+  const diasTranscurridos = Math.floor(
+    (hoy.getTime() - fechaEmision.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  const porcentaje = Math.max(
+    0,
+    Math.min(100, ((totalDias - diasTranscurridos) / totalDias) * 100),
+  );
+
+  return Math.round(porcentaje);
+});
 
 const barraColorClasses = computed(() => {
-  if (props.certificado.estado === 'vencido') {
-    return 'bg-red-500'
-  } else if (props.certificado.estado === 'por_vencer') {
-    return 'bg-yellow-500'
+  if (props.certificado.estado === "vencido") {
+    return "bg-red-500";
+  } else if (props.certificado.estado === "por_vencer") {
+    return "bg-yellow-500";
   }
-  return 'bg-green-500'
-})
+  return "bg-green-500";
+});
 
 const formatearFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
+  return new Date(fecha).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
 
 const formatearCUIT = (cuit: string) => {
   // Formato: XX-XXXXXXXX-X
-  return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`
-}
+  return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`;
+};
 
 const nombreAmbiente = computed(() => {
-  return props.certificado.ambiente === 'produccion' ? 'Producción' : 'Homologación'
-})
+  return props.certificado.ambiente === "produccion"
+    ? "Producción"
+    : "Homologación";
+});
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+  <div
+    class="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+  >
     <!-- Header -->
     <div class="flex items-start justify-between mb-4">
       <div class="flex items-center gap-3">
-        <div class="text-3xl">
-          🔐
-        </div>
+        <div class="text-3xl">🔐</div>
         <div>
           <h3 class="text-lg font-semibold text-gray-900">
             {{ certificado.nombre }}
@@ -74,33 +90,38 @@ const nombreAmbiente = computed(() => {
           />
         </div>
       </div>
-      
+
       <div
-        v-if="certificado.estado === 'por_vencer' || certificado.estado === 'vencido'"
+        v-if="
+          certificado.estado === 'por_vencer' ||
+          certificado.estado === 'vencido'
+        "
         class="text-2xl"
       >
         ⚠️
       </div>
     </div>
-    
+
     <!-- Info -->
     <div class="space-y-2 mb-4 text-sm">
       <div class="flex justify-between">
         <span class="text-gray-600">CUIT:</span>
         <span class="font-medium">{{ formatearCUIT(certificado.cuit) }}</span>
       </div>
-      
+
       <div class="flex justify-between">
         <span class="text-gray-600">Ambiente:</span>
         <span class="font-medium">{{ nombreAmbiente }}</span>
       </div>
-      
+
       <div class="flex justify-between">
         <span class="text-gray-600">Vence:</span>
-        <span class="font-medium">{{ formatearFecha(certificado.fecha_vencimiento) }}</span>
+        <span class="font-medium">{{
+          formatearFecha(certificado.fecha_vencimiento)
+        }}</span>
       </div>
     </div>
-    
+
     <!-- Progress Bar -->
     <div class="mb-4">
       <div class="flex justify-between text-xs text-gray-600 mb-1">
@@ -115,23 +136,55 @@ const nombreAmbiente = computed(() => {
         />
       </div>
     </div>
-    
+
     <!-- Actions -->
     <div class="flex gap-2">
       <button
-        v-if="certificado.estado === 'por_vencer' || certificado.estado === 'vencido'"
-        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
+        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+        :disabled="verificando"
+        @click="emit('verificar', certificado.id)"
+      >
+        {{ verificando ? "Probando..." : "Probar conexión" }}
+      </button>
+
+      <button
+        v-if="
+          certificado.estado === 'por_vencer' ||
+          certificado.estado === 'vencido'
+        "
+        class="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors font-medium text-sm"
         @click="emit('renovar', certificado.id)"
       >
         Renovar
       </button>
-      
+
       <button
         class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-medium text-sm"
         @click="emit('eliminar', certificado.id)"
       >
         Eliminar
       </button>
+    </div>
+
+    <div
+      v-if="resultadoVerificacion"
+      class="mt-4 rounded-md border p-3 text-sm"
+      :class="
+        resultadoVerificacion.exito
+          ? 'border-green-200 bg-green-50 text-green-800'
+          : 'border-red-200 bg-red-50 text-red-800'
+      "
+    >
+      <p class="font-semibold">
+        {{
+          resultadoVerificacion.exito
+            ? "Conexión exitosa"
+            : "No se pudo conectar"
+        }}
+      </p>
+      <p class="mt-1">
+        {{ resultadoVerificacion.error || resultadoVerificacion.mensaje }}
+      </p>
     </div>
   </div>
 </template>

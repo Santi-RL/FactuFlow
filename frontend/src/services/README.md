@@ -22,4 +22,3 @@ services/
 
 - Endpoints del backend usan prefijo `/api/...` (ver `backend/app/main.py`).
 - Evitar duplicar logica de negocio: el frontend arma requests, el backend valida.
-

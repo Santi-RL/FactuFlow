@@ -23,11 +23,11 @@ Hoy el proyecto solo usa `assets/styles/main.css`. Si mas adelante se agregan im
   body {
     @apply bg-gray-50 text-gray-900;
   }
-  
+
   h1 {
     @apply text-3xl font-bold mb-4;
   }
-  
+
   h2 {
     @apply text-2xl font-semibold mb-3;
   }
@@ -38,15 +38,15 @@ Hoy el proyecto solo usa `assets/styles/main.css`. Si mas adelante se agregan im
   .btn-primary {
     @apply px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition;
   }
-  
+
   .btn-secondary {
     @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition;
   }
-  
+
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
   }
-  
+
   .input {
     @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent;
   }
@@ -84,7 +84,7 @@ npm install @heroicons/vue
 
 ```vue
 <script setup lang="ts">
-import { UserIcon, DocumentTextIcon } from '@heroicons/vue/24/outline'
+import { UserIcon, DocumentTextIcon } from "@heroicons/vue/24/outline";
 </script>
 
 <template>

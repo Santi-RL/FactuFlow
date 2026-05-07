@@ -65,8 +65,19 @@ dist-ssr/
 *.db
 *.sqlite
 *.sqlite3
-data/*.db
-data/*.sqlite
+data/
+backend/data/
+!data/.gitkeep
+!backend/data/.gitkeep
+
+# Runtime / QA artifacts
+output/
+backend/output/
+playwright-report/
+test-results/
+backend/.pytest_cache/
+frontend/playwright-report/
+frontend/test-results/
 
 # Certificados AFIP - ¡NUNCA COMMITEAR!
 *.key

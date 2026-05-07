@@ -1,6 +1,6 @@
 """Modelo Empresa - Datos del emisor de facturas."""
 
-from datetime import datetime, date
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Date, DateTime
 from sqlalchemy.orm import relationship
 
@@ -46,6 +46,9 @@ class Empresa(Base):
     )
     comprobantes = relationship(
         "Comprobante", back_populates="empresa", cascade="all, delete-orphan"
+    )
+    lotes_comprobantes = relationship(
+        "LoteComprobante", back_populates="empresa", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

@@ -1,93 +1,119 @@
-# ARCA WS - Notas Rapidas (Consultable)
+# ARCA WS - Notas practicas
 
-Este archivo es una capa "consultable" encima de la documentacion oficial descargada (PDF/ZIP/TGZ) en `docs/arca-ws/`.
+Ultima actualizacion: 2026-05-05
 
-Objetivo: poder ubicar rapido donde esta cada cosa y tener un resumen corto de lo que solemos consultar durante el desarrollo.
+Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
 
-## Como buscar en la documentacion (recomendado)
+## Homologacion - checklist operativo real
 
-La mayoria de los manuales oficiales estan en PDF, por lo que no se pueden buscar comodamente con `rg` sin una extraccion previa.
+1. Adherir `WSASS - Autogestion Certificados Homologacion`
+2. Generar CSR con el CUIT del titular del certificado
+3. Crear DN y certificado en WSASS
+4. Crear autorizacion al servicio `wsfe` para el CUIT representado
+5. Verificar punto de venta habilitado
+6. Emitir y validar por `FECompConsultar`
 
-### Requisitos (una sola vez por maquina)
+## Lo que aprendimos hoy
 
-Instalar un extractor de PDF para que `scripts/arca_ws_extract.py` pueda convertir PDFs a texto.
+### 1. Verificacion de homologacion
 
-Opcion recomendada (Windows/macOS/Linux):
+- No confiar en QR como validacion de homologacion.
+- La verificacion correcta es por webservice, usando `FECompConsultar`.
 
-```bash
-python -m pip install --user --upgrade pdfminer.six
-```
+### 2. Puntos de venta
 
-Verificacion:
+- En el portal no se detecto una pantalla separada de "puntos de venta homologacion".
+- Hay que mirar la pantalla habitual `A/B/M de puntos de venta / emision`.
+- Para webservices, el indicio util es la columna `Sistema`, por ejemplo `RECE para aplicativo y web services`.
 
-```bash
-python -c "import pdfminer.high_level; print('pdfminer.six OK')"
-```
+### 3. `FEParamGetPtosVenta`
 
-1. Generar textos extraidos (local, no se commitea):
+- En homologacion puede responder `602 - Sin Resultados`.
+- Eso no significa necesariamente que el punto de venta sea invalido.
+- En esta sesion `FECompUltimoAutorizado` y la emision real si funcionaron.
 
-```bash
-python scripts/arca_ws_extract.py
-```
+### 4. `CondicionIVAReceptorId`
 
-2. Buscar con ripgrep:
+ARCA exigio este campo en homologacion.
 
-```bash
-rg -n "loginCms|TRA|Token|Sign|FECAESolicitar|FEDummy" docs/arca-ws/_extracted
-```
+Mapping aplicado en el proyecto:
+- `RI` -> `1`
+- `Monotributo` -> `6`
+- `Exento` -> `4`
+- `CF` -> `5`
 
-Nota: si no se puede extraer texto (faltan dependencias), el script igual genera indices y listados de archivos dentro de ZIP/TGZ.
+### 4.b Consumidor final
 
-## WSAA (autenticacion)
+- Para consumidor final, ARCA publica que el comprobante debe llevar la leyenda
+  `A CONSUMIDOR FINAL`.
+- Si el importe es igual o superior a `$10.000.000`, corresponde informar
+  CUIT/CUIL/CDI/DNI, pasaporte u otro documento valido.
+- FactuFlow usa tipo documento `99` y numero `0` cuando el Excel no trae
+  documento y el importe queda bajo ese umbral. No crea cliente persistente por
+  defecto en ese caso; guarda snapshot del receptor en el comprobante.
 
-Uso tipico:
+### 5. Estructura SOAP correcta en `FECAESolicitar`
 
-1. Generar un TRA (Ticket de Requerimiento de Acceso) para el servicio (por ejemplo `wsfe`).
-2. Firmar el TRA (CMS/PKCS#7) con el certificado X.509 y la clave privada.
-3. Enviar el CMS a `loginCms()` del WSAA.
-4. Usar `Token` y `Sign` para invocar el WS destino (por ejemplo WSFEv1).
+El proyecto tuvo que corregir estas estructuras:
 
-Documentos locales:
+- `FeDetReq` debe enviarse como:
+  - `{ "FECAEDetRequest": [ ... ] }`
+- `Iva` debe enviarse como:
+  - `{ "AlicIva": [ ... ] }`
+- `Tributos` debe enviarse como:
+  - `{ "Tributo": [ ... ] }`
 
-- Especificacion tecnica: `docs/arca-ws/wsaa/Especificacion_Tecnica_WSAA_1.2.2.pdf`
-- Manual dev: `docs/arca-ws/wsaa/WSAAmanualDev.pdf`
-- Guia certificados/relaciones: `docs/arca-ws/wsaa/WSAA.ObtenerCertificado.pdf`
-- Admin de relaciones: `docs/arca-ws/wsaa/ADMINREL.DelegarWS.pdf`
+### 6. Cache de tickets WSAA
 
-Ejemplos oficiales (archivos):
+- Antes el cache era solo en memoria.
+- Ahora persiste en disco para evitar depender del proceso actual.
+- Archivo actual: `backend/data/arca_token_cache.json`
 
-- Java: `docs/arca-ws/wsaa/wsaa_client_java.tgz`
-- PHP: `docs/arca-ws/wsaa/wsaa-client-php.zip`
-- .NET: `docs/arca-ws/wsaa/dev-wsaa-cliente-dotnet-cs.zip`, `docs/arca-ws/wsaa/dev-wsaa-cliente-dotnet-vb.zip`
-- PowerShell: `docs/arca-ws/wsaa/dev-wsaa-cliente-powershell.zip`
+### 7. CUIT correcto para WSFE
 
-## WSFE y servicios relacionados (manualistica)
+- Si el certificado pertenece a un titular y opera para una empresa representada, no mezclar ambos CUIT.
+- El helper de ARCA debe operar con el CUIT de la empresa activa representada.
+- Este punto fue clave para corregir la sincronizacion de puntos de venta desde UI.
 
-En este repo la integracion implementada es WSFEv1 (factura electronica) en `backend/app/arca/wsfev1.py`.
+### 8. Paths legacy de certificados
 
-Manuales locales relevantes:
+- La base local puede traer rutas tipo `certs/archivo.crt`.
+- El runtime ahora acepta path absoluto, filename simple y valor legacy con prefijo `certs/`.
+- Este ajuste destrabo la consulta de proximo numero y la emision individual desde UI.
 
-- WSFE (varios): `docs/arca-ws/wsfe/`
-  - `docs/arca-ws/wsfe/Web-Service-MTXCA-v25.pdf`
-  - `docs/arca-ws/wsfe/manual-desarrollador-ARCA-COMPG-v4-1.pdf`
-  - `docs/arca-ws/wsfe/Manual_Desarrollador_WSCT_v1.6.4.pdf`
-- Otros WS (si se agregan mas adelante):
-  - `docs/arca-ws/wsfe/WSFEX-Manualparaeldesarrollador_V3.1.1_ARCA.pdf` (exportacion)
-  - `docs/arca-ws/wsfe/WSSEG-ManualParaElDesarrollador_ARCA.pdf`
+## Donde mirar en el codigo
 
-## WSASS / Portal / Certificados (cadena y guias)
+- `backend/app/arca/cache.py`
+- `backend/app/arca/models.py`
+- `backend/app/arca/wsfev1.py`
+- `backend/app/services/facturacion_service.py`
+- `backend/app/services/lote_worker.py`
 
-- Introduccion (ya esta en Markdown): `docs/arca-ws/wsass/introduccion-servicios.md`
-- Guia: `docs/arca-ws/wsass/WSASS_como_adherirse.pdf`
-- Manual: `docs/arca-ws/wsass/WSASS_manual.pdf`
-- HTML de referencia: `docs/arca-ws/wsass/WSASS_html_index.html`
+## Produccion
 
-Cadena de certificacion (descargas ZIP):
+- Usar certificado productivo y autorizacion `wsfe` productiva; los certificados de homologacion no sirven para produccion.
+- Despues de crear el certificado productivo, asociar el alias del computador al
+  servicio `wsfe` desde `Administrador de Relaciones de Clave Fiscal`. Si falta
+  esa asociacion, WSAA devuelve `Computador no autorizado a acceder al servicio`.
+- Usar punto de venta productivo especifico para webservices y mantener numeracion correlativa.
+- En el piloto productivo de la Fundacion, `FEParamGetPtosVenta` devolvio
+  habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban bloqueados.
+- La lista completa de puntos con sistema, domicilio y nombre fantasia no vino
+  por WSFEv1; se importo desde la constancia PDF de puntos de venta.
+- El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
+  compatibilidad con el handshake del endpoint.
+- El perfil productivo del repo es `docker-compose.prod.yml` con PostgreSQL.
 
-- Homologacion: `docs/arca-ws/certificados/`
-- Produccion: `docs/arca-ws/certificados/`
+## Dato historico util
 
-## URLs y nomenclatura
+El smoke real de homologacion del 2026-03-09 emitio:
+- comprobante individual con CAE `86100017097127`
+- lote con CAEs `86100017097274` y `86100017097287`
 
-- El organismo es ARCA, pero muchas URLs siguen usando `afip.gov.ar` por compatibilidad tecnica.
-- Para endpoints y variables legacy ver `docs/agents/arca.md` y el modulo `backend/app/arca/config.py`.
+La QA real del 2026-04-10 agrego:
+- comprobante individual `0005-00000004` con CAE `86150042970986`
+- lote `0005-00000005` con CAE `86150042971165`
+- lote `0005-00000006` con CAE `86150042971178`
+
+Detalle completo:
+- `docs/project/notes/SESSION_2026-03-09.md`

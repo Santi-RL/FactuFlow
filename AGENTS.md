@@ -3,6 +3,8 @@
 ## Alcance
 - Este archivo define cómo trabajar en el repo.
 - La documentación operativa extendida está en `docs/agents/README.md`.
+- Antes de responder cualquier chat nuevo, leer `docs/agents/alignment-pending.md`. Si ese archivo tiene puntos sin completar, avisar que hay conflictos de alineación pendientes antes de continuar con el pedido.
+- Antes de retomar una sesión, leer `docs/agents/current-status.md`, `docs/agents/manual-qa.md` y `ROADMAP.md`.
 
 ## Nombres: ARCA vs AFIP
 - Usar ARCA en textos, UI y documentación nueva.
@@ -27,6 +29,20 @@
 - Vue: Composition API con `<script setup>`, TypeScript recomendado, componentes en PascalCase, events en kebab-case.
 - Tailwind: priorizar utilidades sobre CSS custom.
 - UI y mensajes para usuarios en español (Argentina).
+
+## Continuidad y documentación viva
+- Si el usuario pregunta "cómo está el proyecto", "qué es lo primero que debemos solucionar" o una variante equivalente, ir directo al primer punto pendiente de `docs/agents/alignment-pending.md`.
+- Si el usuario dice "seguir donde quedamos", arrancar por `docs/agents/current-status.md` y `docs/agents/manual-qa.md`.
+- Después de cambios importantes en producto, UX, flujos core o ARCA, actualizar siempre:
+  - `ROADMAP.md`
+  - `docs/agents/current-status.md`
+  - `docs/agents/manual-qa.md`
+  - `docs/user-guide/README.md`
+- Si el cambio impacta ARCA o homologación, actualizar también:
+  - `docs/agents/arca.md`
+  - `docs/arca-ws/NOTAS.md`
+- `docs/user-guide/README.md` debe mantenerse al día cada vez que cambien pantallas, textos, pasos de uso o limitaciones funcionales visibles para usuarios.
+- `docs/arca-ws/_extracted/` es material derivado. Si vuelve a generarse localmente, no tomarlo como fuente canónica.
 
 ## Git / Colaboración
 - No ejecutar `git push` sin pedido explícito del usuario. Si hay cambios listos para publicar, preparar commit(s) y pedir confirmación antes de pushear.
@@ -67,10 +83,15 @@ npm run type-check
 
 ## Documentación operativa
 - Índice: `docs/agents/README.md`
+- Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
+- Estado actual: `docs/agents/current-status.md`
+- QA manual: `docs/agents/manual-qa.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Estructura del repo: `docs/agents/structure.md`
 - ARCA y endpoints: `docs/agents/arca.md`
 - Documentación oficial ARCA WS: `https://www.arca.gob.ar/ws/` (índice y descargas locales en `docs/arca-ws/README.md`)
 - Testing: `docs/agents/testing.md`
 - Seguridad: `docs/agents/security.md`
+- Manual de usuario: `docs/user-guide/README.md`
+- Bitácora técnica reciente: `docs/project/notes/SESSION_2026-03-09.md`
 - Contribución y commits: `CONTRIBUTING.md`

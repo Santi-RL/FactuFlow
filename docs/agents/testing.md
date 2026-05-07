@@ -1,30 +1,65 @@
-# Guía de testing
+# Guia de testing
 
 ## Backend
+
 ```bash
 cd backend
-# Igual que CI (ver .github/workflows/ci.yml)
 python -m pip install -r requirements.txt -r requirements-dev.txt
+pytest tests/ -q
+ruff check app/ tests/
 black --check app/ tests/
-pytest tests/ -v --cov=app --cov-report=xml
 ```
 
 ## Frontend
+
 ```bash
 cd frontend
-# Igual que CI (ver .github/workflows/ci.yml)
-npm ci
+npm install
 npm run type-check
-npm run lint
 npm run build
 npm run test:unit
+npm run test:e2e
 ```
 
-## Checklist Antes De Push (Mantener "Todo Verde")
-- No dejar warnings en CI. Si aparece una annotation nueva (lint/type-check), se corrige o se justifica y se configura explícitamente la regla.
-- Frontend (cuando tocamos UI o flujos core): `npm run type-check`, `npm run lint`, `npm run build`, `npx playwright test --project=chromium` (smoke E2E con mocks)
-- Backend (cuando tocamos API/modelos/servicios): `pytest`, `ruff check app/ tests/` y/o `black --check app/ tests/` según lo que esté habilitado en el repo/CI
+## Arranque local
 
-## Notas
-- La configuración de pytest está en `backend/pytest.ini`.
-- Los tests de ARCA viven en `backend/tests/test_arca/`.
+La forma mas simple de levantar el proyecto completo es:
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\run-local.ps1
+```
+
+Servicios esperados:
+- Frontend: `http://localhost:8080`
+- Backend: `http://localhost:8000`
+
+## Checklist antes de cerrar una tarea importante
+
+- Si se toco backend: `pytest`
+- Si se toco frontend: `npm run type-check`
+- Si se toco un flujo visible: smoke manual o Playwright
+- Si se tocaron flujos core o UX: actualizar `docs/user-guide/README.md`
+- Siempre actualizar:
+  - `ROADMAP.md`
+  - `docs/agents/current-status.md`
+  - `docs/agents/manual-qa.md`
+
+## QA manual actual
+
+El ultimo checkpoint manual no esta en este archivo sino en:
+
+- `docs/agents/manual-qa.md`
+
+Eso evita mezclar instrucciones permanentes con el estado puntual de una sesion.
+
+## Smoke real ARCA
+
+El smoke real completado el 2026-03-09 quedo documentado en:
+
+- `docs/project/notes/SESSION_2026-03-09.md`
+
+Ese documento incluye:
+- problemas encontrados
+- como se resolvieron
+- CAEs emitidos
+- pendientes operativos

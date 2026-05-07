@@ -52,3 +52,17 @@ class EmpresaResponse(EmpresaBase):
 
     class Config:
         from_attributes = True
+
+
+class ConstanciaArcaResponse(BaseModel):
+    """Datos detectados desde una constancia de inscripcion ARCA."""
+
+    razon_social: Optional[str] = None
+    cuit: Optional[str] = None
+    condicion_iva: Optional[str] = None
+    domicilio: Optional[str] = None
+    localidad: Optional[str] = None
+    provincia: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    inicio_actividades: Optional[str] = None
+    warnings: list[str] = Field(default_factory=list)

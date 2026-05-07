@@ -1,7 +1,7 @@
 """Tests para el servicio de PDF."""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from datetime import date
 
 from app.services.pdf_service import PDFService

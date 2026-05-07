@@ -1,10 +1,16 @@
 """Tests para endpoints de API de ARCA."""
 
+from datetime import date, datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from httpx import AsyncClient
 
-from app.arca.models import TipoComprobante, TipoDocumento, TipoIva
+from app.api.arca import get_wsfe_client
+from app.arca.config import ArcaAmbiente
+from app.arca.models import TicketAcceso, TipoComprobante, TipoDocumento, TipoIva
+from app.models.certificado import Certificado
+from app.models.usuario import Usuario
 
 
 @pytest.mark.asyncio
@@ -143,3 +149,63 @@ class TestArcaAPIEndpoints:
         assert data["proximo_comprobante"] == 101
         assert data["punto_venta"] == 1
         assert data["tipo_cbte"] == 1
+
+
+@pytest.mark.asyncio
+@patch("app.api.arca.WSFEv1Client")
+@patch("app.api.arca.WSAAClient")
+async def test_get_wsfe_client_usa_cuit_empresa_activa(
+    mock_wsaa_class,
+    mock_wsfe_class,
+    db_session,
+    test_empresa,
+    test_user: Usuario,
+    tmp_path,
+):
+    """Debe autenticar y operar WSFE con el CUIT de la empresa activa."""
+    cert_path = tmp_path / "certificado.crt"
+    key_path = tmp_path / "certificado.key"
+    cert_path.write_text("CRT", encoding="ascii")
+    key_path.write_text("KEY", encoding="ascii")
+
+    certificado = Certificado(
+        nombre="Certificado QA",
+        cuit="23318277559",
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2028, 1, 1),
+        archivo_crt=str(cert_path),
+        archivo_key=str(key_path),
+        activo=True,
+        ambiente=ArcaAmbiente.HOMOLOGACION.value,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(certificado)
+    await db_session.commit()
+
+    ticket = TicketAcceso(
+        token="token",
+        sign="sign",
+        expiracion=datetime.now(timezone.utc) + timedelta(hours=1),
+        servicio="wsfe",
+    )
+    mock_wsaa = AsyncMock()
+    mock_wsaa.login.return_value = ticket
+    mock_wsaa_class.return_value = mock_wsaa
+
+    wsfe_mock = AsyncMock()
+    mock_wsfe_class.return_value = wsfe_mock
+
+    client = await get_wsfe_client(db_session, test_user, test_empresa.id)
+
+    assert client is wsfe_mock
+    mock_wsaa.login.assert_awaited_once_with(
+        cert_path=str(cert_path),
+        key_path=str(key_path),
+        cuit=test_empresa.cuit,
+        servicio="wsfe",
+    )
+    mock_wsfe_class.assert_called_once_with(
+        ambiente=ArcaAmbiente.HOMOLOGACION,
+        ticket=ticket,
+        cuit=test_empresa.cuit,
+    )

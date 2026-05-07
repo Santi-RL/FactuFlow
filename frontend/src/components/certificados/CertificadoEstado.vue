@@ -1,52 +1,52 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { EstadoCertificado } from '@/types/certificado'
+import { computed } from "vue";
+import type { EstadoCertificado } from "@/types/certificado";
 
 interface Props {
-  estado: EstadoCertificado
-  diasRestantes: number
+  estado: EstadoCertificado;
+  diasRestantes: number;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 const badgeClasses = computed(() => {
   switch (props.estado) {
-    case 'valido':
-      return 'bg-green-100 text-green-800 border-green-200'
-    case 'por_vencer':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-    case 'vencido':
-      return 'bg-red-100 text-red-800 border-red-200'
+    case "valido":
+      return "bg-green-100 text-green-800 border-green-200";
+    case "por_vencer":
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "vencido":
+      return "bg-red-100 text-red-800 border-red-200";
     default:
-      return 'bg-gray-100 text-gray-800 border-gray-200'
+      return "bg-gray-100 text-gray-800 border-gray-200";
   }
-})
+});
 
 const iconoEstado = computed(() => {
   switch (props.estado) {
-    case 'valido':
-      return '✅'
-    case 'por_vencer':
-      return '⚠️'
-    case 'vencido':
-      return '❌'
+    case "valido":
+      return "✅";
+    case "por_vencer":
+      return "⚠️";
+    case "vencido":
+      return "❌";
     default:
-      return '•'
+      return "•";
   }
-})
+});
 
 const textoEstado = computed(() => {
   switch (props.estado) {
-    case 'valido':
-      return 'Válido'
-    case 'por_vencer':
-      return 'Por vencer'
-    case 'vencido':
-      return 'Vencido'
+    case "valido":
+      return "Válido";
+    case "por_vencer":
+      return "Por vencer";
+    case "vencido":
+      return "Vencido";
     default:
-      return 'Desconocido'
+      return "Desconocido";
   }
-})
+});
 </script>
 
 <template>

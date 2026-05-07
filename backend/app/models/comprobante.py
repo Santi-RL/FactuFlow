@@ -1,7 +1,6 @@
 """Modelo Comprobante - Facturas, Notas de Crédito y Débito."""
 
-from datetime import datetime, date
-from decimal import Decimal
+from datetime import datetime
 from sqlalchemy import (
     Column,
     Integer,
@@ -11,6 +10,7 @@ from sqlalchemy import (
     Numeric,
     ForeignKey,
     Index,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -24,6 +24,13 @@ class Comprobante(Base):
 
     # Índices compuestos para consultas frecuentes
     __table_args__ = (
+        UniqueConstraint(
+            "empresa_id",
+            "punto_venta_id",
+            "tipo_comprobante",
+            "numero",
+            name="uq_comprobantes_empresa_pv_tipo_numero",
+        ),
         # Índice para búsqueda por tipo y número (único por punto de venta)
         Index("ix_comprobantes_tipo_numero", "tipo_comprobante", "numero"),
         # Índice para filtros por fecha
@@ -79,9 +86,17 @@ class Comprobante(Base):
     punto_venta = relationship("PuntoVenta", back_populates="comprobantes")
 
     cliente_id = Column(
-        Integer, ForeignKey("clientes.id", ondelete="RESTRICT"), nullable=False
+        Integer, ForeignKey("clientes.id", ondelete="RESTRICT"), nullable=True
     )
     cliente = relationship("Cliente", back_populates="comprobantes")
+
+    # Snapshot fiscal del receptor al momento de emitir.
+    # Permite emitir lotes masivos sin crear un cliente persistente por cada CF.
+    receptor_tipo_documento = Column(Integer, nullable=True)
+    receptor_numero_documento = Column(String(20), nullable=True)
+    receptor_razon_social = Column(String(255), nullable=True)
+    receptor_condicion_iva = Column(String(50), nullable=True)
+    receptor_domicilio = Column(String(255), nullable=True)
 
     # Items del comprobante
     items = relationship(

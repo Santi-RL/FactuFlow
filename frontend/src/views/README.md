@@ -17,4 +17,3 @@ views/
 ```
 
 Las rutas se definen en `frontend/src/router/index.ts`.
-

@@ -1,49 +1,43 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useAuth } from '@/composables/useAuth'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseAlert from '@/components/ui/BaseAlert.vue'
+import { ref } from "vue";
+import { useAuth } from "@/composables/useAuth";
+import BaseInput from "@/components/ui/BaseInput.vue";
+import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import BaseAlert from "@/components/ui/BaseAlert.vue";
 
-const { login, loading } = useAuth()
+const { login, loading } = useAuth();
 
-const email = ref('')
-const password = ref('')
-const error = ref('')
+const email = ref("");
+const password = ref("");
+const error = ref("");
 
 const handleSubmit = async () => {
-  error.value = ''
-  
+  error.value = "";
+
   if (!email.value || !password.value) {
-    error.value = 'Por favor complete todos los campos'
-    return
+    error.value = "Por favor complete todos los campos";
+    return;
   }
 
   try {
-    await login(email.value, password.value)
+    await login(email.value, password.value);
   } catch (err: any) {
-    error.value = err.message || 'Error al iniciar sesión'
+    error.value = err.message || "Error al iniciar sesión";
   }
-}
+};
 </script>
 
 <template>
   <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-primary-600 mb-2">
-          FactuFlow
-        </h1>
-        <p class="text-gray-600">
-          Sistema de Facturación Electrónica ARCA
-        </p>
+        <h1 class="text-4xl font-bold text-primary-600 mb-2">FactuFlow</h1>
+        <p class="text-gray-600">Sistema de Facturación Electrónica ARCA</p>
       </div>
 
       <BaseCard>
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">
-          Iniciar Sesión
-        </h2>
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Iniciar Sesión</h2>
 
         <BaseAlert
           v-if="error"
@@ -54,10 +48,7 @@ const handleSubmit = async () => {
           @dismiss="error = ''"
         />
 
-        <form
-          class="space-y-4"
-          @submit.prevent="handleSubmit"
-        >
+        <form class="space-y-4" @submit.prevent="handleSubmit">
           <BaseInput
             v-model="email"
             type="email"

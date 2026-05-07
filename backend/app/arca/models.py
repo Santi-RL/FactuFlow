@@ -1,6 +1,6 @@
 """Modelos Pydantic para requests y responses de ARCA."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,7 +19,11 @@ class TicketAcceso(BaseModel):
 
     def is_expired(self) -> bool:
         """Verifica si el ticket está expirado."""
-        return datetime.utcnow() >= self.expiracion
+        now = datetime.now(timezone.utc)
+        expiration = self.expiracion
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+        return now >= expiration
 
 
 # ==================== WSFEv1 Models ====================
@@ -102,6 +106,9 @@ class ComprobanteRequest(BaseModel):
         default="PES", description="ID de moneda (PES=Pesos, DOL=Dólares)"
     )
     moneda_cotiz: float = Field(default=1, description="Cotización de moneda")
+    condicion_iva_receptor_id: Optional[int] = Field(
+        None, description="ID de condición frente al IVA del receptor"
+    )
 
     # Observaciones
     observaciones: Optional[str] = Field(

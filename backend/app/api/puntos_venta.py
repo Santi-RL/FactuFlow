@@ -1,17 +1,26 @@
 """Endpoints de Puntos de Venta."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.api.arca import get_wsfe_client
+from app.api.deps import get_current_empresa_id
 from app.core.database import get_db
 from app.api.deps import get_current_empresa_user
+from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.models.punto_venta import PuntoVenta
 from app.schemas.punto_venta import (
+    ImportarPuntosVentaResponse,
     PuntoVentaCreate,
     PuntoVentaUpdate,
     PuntoVentaResponse,
+)
+from app.services.constancia_puntos_venta_service import (
+    ConstanciaPuntosVentaError,
+    extraer_texto_constancia_puntos_pdf,
+    parsear_constancia_puntos_venta,
 )
 
 router = APIRouter()
@@ -20,7 +29,7 @@ router = APIRouter()
 @router.get("", response_model=list[PuntoVentaResponse])
 async def list_puntos_venta(
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Listar puntos de venta.
@@ -32,10 +41,7 @@ async def list_puntos_venta(
     Returns:
         Lista de puntos de venta
     """
-    query = select(PuntoVenta)
-
-    if not current_user.es_admin:
-        query = query.where(PuntoVenta.empresa_id == current_user.empresa_id)
+    query = select(PuntoVenta).where(PuntoVenta.empresa_id == empresa_id)
 
     result = await db.execute(query)
     puntos_venta = result.scalars().all()
@@ -47,7 +53,7 @@ async def list_puntos_venta(
 async def create_punto_venta(
     punto_venta_data: PuntoVentaCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Crear un nuevo punto de venta.
@@ -66,7 +72,7 @@ async def create_punto_venta(
     # Verificar que no exista otro punto de venta con ese número en la empresa
     result = await db.execute(
         select(PuntoVenta).where(
-            PuntoVenta.empresa_id == current_user.empresa_id,
+            PuntoVenta.empresa_id == empresa_id,
             PuntoVenta.numero == punto_venta_data.numero,
         )
     )
@@ -80,7 +86,7 @@ async def create_punto_venta(
 
     # Crear punto de venta
     nuevo_punto_venta = PuntoVenta(
-        **punto_venta_data.model_dump(), empresa_id=current_user.empresa_id
+        **punto_venta_data.model_dump(), empresa_id=empresa_id
     )
 
     db.add(nuevo_punto_venta)
@@ -90,12 +96,135 @@ async def create_punto_venta(
     return nuevo_punto_venta
 
 
+@router.post("/importar-constancia", response_model=ImportarPuntosVentaResponse)
+async def importar_constancia_puntos_venta(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
+):
+    """Importar detalle de puntos de venta desde constancia ARCA."""
+
+    if file.content_type not in {
+        "application/pdf",
+        "application/x-pdf",
+        "application/octet-stream",
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sube una constancia en formato PDF.",
+        )
+
+    contenido = await file.read()
+    if len(contenido) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El PDF supera el limite de 5 MB.",
+        )
+
+    empresa = await db.get(Empresa, empresa_id)
+    if not empresa:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Emisor no encontrado",
+        )
+
+    try:
+        texto = extraer_texto_constancia_puntos_pdf(contenido)
+        datos = parsear_constancia_puntos_venta(texto)
+    except ConstanciaPuntosVentaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    warnings = list(datos.warnings)
+    if datos.cuit and datos.cuit != empresa.cuit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La constancia no corresponde al CUIT del emisor activo.",
+        )
+
+    estado_arca = await _obtener_estado_puntos_arca(db, current_user, empresa_id)
+
+    result = await db.execute(
+        select(PuntoVenta).where(PuntoVenta.empresa_id == empresa_id)
+    )
+    existentes = {pv.numero: pv for pv in result.scalars().all()}
+
+    creados = 0
+    actualizados = 0
+    omitidos = 0
+
+    for punto in datos.puntos_venta:
+        arca_status = estado_arca.get(punto.numero, {})
+        bloqueado = bool(arca_status.get("bloqueado", False))
+        fecha_baja = arca_status.get("fecha_baja")
+        activo = not bloqueado and not fecha_baja
+        nombre = punto.nombre_fantasia or punto.sistema
+
+        payload = {
+            "nombre": nombre,
+            "sistema": punto.sistema,
+            "domicilio": punto.domicilio,
+            "nombre_fantasia": punto.nombre_fantasia,
+            "es_webservice": punto.es_webservice,
+            "bloqueado": bloqueado,
+            "fecha_baja": fecha_baja,
+            "fuente": "constancia_arca",
+            "activo": activo,
+        }
+
+        if punto.numero in existentes:
+            pv = existentes[punto.numero]
+            for field, value in payload.items():
+                setattr(pv, field, value)
+            actualizados += 1
+            continue
+
+        db.add(PuntoVenta(numero=punto.numero, empresa_id=empresa_id, **payload))
+        creados += 1
+
+    await db.commit()
+
+    return ImportarPuntosVentaResponse(
+        total_constancia=len(datos.puntos_venta),
+        creados=creados,
+        actualizados=actualizados,
+        omitidos=omitidos,
+        warnings=warnings,
+    )
+
+
+async def _obtener_estado_puntos_arca(
+    db: AsyncSession,
+    current_user: Usuario,
+    empresa_id: int,
+) -> dict[int, dict[str, str | bool | None]]:
+    """Obtener estado tecnico ARCA de puntos webservice si esta disponible."""
+
+    try:
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_id)
+        puntos = await wsfe_client.fe_param_get_ptos_venta()
+    except Exception:
+        return {}
+
+    return {
+        punto.numero: {
+            "bloqueado": punto.bloqueado == "S",
+            "fecha_baja": punto.fecha_baja,
+        }
+        for punto in puntos
+    }
+
+
 @router.put("/{punto_venta_id}", response_model=PuntoVentaResponse)
 async def update_punto_venta(
     punto_venta_id: int,
     punto_venta_data: PuntoVentaUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Actualizar un punto de venta.
@@ -121,7 +250,7 @@ async def update_punto_venta(
         )
 
     # Verificar permisos
-    if not current_user.es_admin and punto_venta.empresa_id != current_user.empresa_id:
+    if punto_venta.empresa_id != empresa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para actualizar este punto de venta",
@@ -142,7 +271,8 @@ async def update_punto_venta(
 async def delete_punto_venta(
     punto_venta_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Desactivar un punto de venta.
@@ -164,7 +294,7 @@ async def delete_punto_venta(
         )
 
     # Verificar permisos
-    if not current_user.es_admin and punto_venta.empresa_id != current_user.empresa_id:
+    if punto_venta.empresa_id != empresa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para eliminar este punto de venta",

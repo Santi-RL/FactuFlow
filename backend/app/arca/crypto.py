@@ -1,10 +1,8 @@
 """Funciones de criptografía para firma de TRA con certificados X.509."""
 
 import base64
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Tuple
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization

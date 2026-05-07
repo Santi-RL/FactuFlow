@@ -1,50 +1,54 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useComprobantesStore } from '@/stores/comprobantes'
-import { useEmpresaStore } from '@/stores/empresa'
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useComprobantesStore } from "@/stores/comprobantes";
+import { useEmpresaStore } from "@/stores/empresa";
 import {
   DocumentTextIcon,
+  DocumentDuplicateIcon,
   PlusIcon,
   MagnifyingGlassIcon,
   EyeIcon,
   FunnelIcon,
-} from '@heroicons/vue/24/outline'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseEmpty from '@/components/ui/BaseEmpty.vue'
-import { TIPOS_COMPROBANTE_NOMBRES, ESTADOS_COMPROBANTE_NOMBRES } from '@/types/comprobante'
+} from "@heroicons/vue/24/outline";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import BaseEmpty from "@/components/ui/BaseEmpty.vue";
+import {
+  TIPOS_COMPROBANTE_NOMBRES,
+  ESTADOS_COMPROBANTE_NOMBRES,
+} from "@/types/comprobante";
 
-const router = useRouter()
-const comprobantesStore = useComprobantesStore()
-const empresaStore = useEmpresaStore()
+const router = useRouter();
+const comprobantesStore = useComprobantesStore();
+const empresaStore = useEmpresaStore();
 
 // Filtros
 const filtros = ref({
-  buscar: '',
-  desde: '',
-  hasta: '',
+  buscar: "",
+  desde: "",
+  hasta: "",
   tipo: null as number | null,
-})
+});
 
-const loading = ref(false)
+const loading = ref(false);
 
 onMounted(async () => {
   // Cargar empresa si no está cargada
   if (!empresaStore.empresa) {
-    await empresaStore.cargarEmpresa()
+    await empresaStore.cargarEmpresa();
   }
-  
-  // Cargar comprobantes
-  await cargarComprobantes()
-})
 
-const empresaId = computed(() => empresaStore.empresa?.id || 0)
+  // Cargar comprobantes
+  await cargarComprobantes();
+});
+
+const empresaId = computed(() => empresaStore.empresa?.id || 0);
 
 const cargarComprobantes = async (page = 1) => {
-  if (!empresaId.value) return
-  
-  loading.value = true
-  
+  if (!empresaId.value) return;
+
+  loading.value = true;
+
   try {
     await comprobantesStore.listarComprobantes({
       empresa_id: empresaId.value,
@@ -54,101 +58,145 @@ const cargarComprobantes = async (page = 1) => {
       hasta: filtros.value.hasta || undefined,
       tipo: filtros.value.tipo || undefined,
       buscar: filtros.value.buscar || undefined,
-    })
+    });
   } catch (error) {
-    console.error('Error al cargar comprobantes:', error)
+    console.error("Error al cargar comprobantes:", error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const aplicarFiltros = () => {
-  cargarComprobantes(1)
-}
+  cargarComprobantes(1);
+};
 
 const limpiarFiltros = () => {
   filtros.value = {
-    buscar: '',
-    desde: '',
-    hasta: '',
+    buscar: "",
+    desde: "",
+    hasta: "",
     tipo: null,
-  }
-  cargarComprobantes(1)
-}
+  };
+  cargarComprobantes(1);
+};
 
 const nuevaFactura = () => {
-  router.push({ name: 'comprobante-nuevo' })
-}
+  router.push({ name: "comprobante-nuevo" });
+};
+
+const nuevaEmisionMasiva = () => {
+  router.push({ name: "comprobantes-lotes" });
+};
 
 const verDetalle = (id: number) => {
-  router.push({ name: 'comprobante-detalle', params: { id } })
-}
+  router.push({ name: "comprobante-detalle", params: { id } });
+};
 
 const formatMonto = (monto: number) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-  }).format(monto)
-}
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+  }).format(monto);
+};
 
 const formatFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString('es-AR')
-}
+  return new Date(fecha).toLocaleDateString("es-AR");
+};
 
 const getTipoNombre = (tipo: number) => {
-  return TIPOS_COMPROBANTE_NOMBRES[tipo] || `Tipo ${tipo}`
-}
+  return TIPOS_COMPROBANTE_NOMBRES[tipo] || `Tipo ${tipo}`;
+};
 
 const getEstadoColor = (estado: string) => {
   switch (estado) {
-    case 'autorizado':
-      return 'bg-green-100 text-green-800'
-    case 'rechazado':
-      return 'bg-red-100 text-red-800'
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'anulado':
-      return 'bg-gray-100 text-gray-800'
+    case "autorizado":
+      return "bg-green-100 text-green-800";
+    case "rechazado":
+      return "bg-red-100 text-red-800";
+    case "pendiente":
+      return "bg-yellow-100 text-yellow-800";
+    case "anulado":
+      return "bg-gray-100 text-gray-800";
     default:
-      return 'bg-gray-100 text-gray-800'
+      return "bg-gray-100 text-gray-800";
   }
-}
+};
 
 const tiposDisponibles = [
-  { value: 1, label: 'Factura A' },
-  { value: 6, label: 'Factura B' },
-  { value: 11, label: 'Factura C' },
-  { value: 3, label: 'Nota Crédito A' },
-  { value: 8, label: 'Nota Crédito B' },
-  { value: 13, label: 'Nota Crédito C' },
-]
+  { value: 1, label: "Factura A" },
+  { value: 6, label: "Factura B" },
+  { value: 11, label: "Factura C" },
+  { value: 3, label: "Nota Crédito A" },
+  { value: 8, label: "Nota Crédito B" },
+  { value: 13, label: "Nota Crédito C" },
+];
 </script>
 
 <template>
   <div>
     <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
+    <div
+      class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+    >
       <div>
-        <h1
-          class="text-3xl font-bold text-gray-900"
-          data-testid="page-title"
-        >
+        <h1 class="text-3xl font-bold text-gray-900" data-testid="page-title">
           Comprobantes
         </h1>
         <p class="mt-2 text-gray-600">
-          Gestión de facturas y comprobantes electrónicos
+          Elegi si queres emitir un comprobante puntual o preparar un lote
+          masivo desde Excel.
         </p>
       </div>
 
-      <button
-        data-testid="comprobantes-nueva-factura"
-        class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        @click="nuevaFactura"
-      >
-        <PlusIcon class="h-5 w-5" />
-        Nueva Factura
-      </button>
+      <div class="flex flex-wrap gap-3">
+        <button
+          class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-blue-700 transition-colors hover:bg-blue-100"
+          @click="nuevaEmisionMasiva"
+        >
+          <DocumentDuplicateIcon class="h-5 w-5" />
+          Emision masiva
+        </button>
+
+        <button
+          data-testid="comprobantes-nueva-factura"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 hover:bg-blue-700"
+          @click="nuevaFactura"
+        >
+          <PlusIcon class="h-5 w-5" />
+          Nueva factura
+        </button>
+      </div>
     </div>
+
+    <BaseCard class="mb-6 border-blue-100 bg-blue-50">
+      <div class="grid gap-3 md:grid-cols-3">
+        <div>
+          <p class="text-sm font-semibold text-blue-900">
+            Cuando usar emision masiva
+          </p>
+          <p class="mt-1 text-sm text-blue-800">
+            Si vas a cargar muchas facturas, descarga la plantilla Excel y
+            valida todo antes de emitir.
+          </p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-blue-900">
+            Que controla el sistema
+          </p>
+          <p class="mt-1 text-sm text-blue-800">
+            Revisa empresa activa, cliente, punto de venta, tipos de comprobante
+            y errores por fila.
+          </p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-blue-900">Que pasa despues</p>
+          <p class="mt-1 text-sm text-blue-800">
+            Los comprobantes autorizados quedan listados aca junto con los
+            emitidos desde lote.
+          </p>
+        </div>
+      </div>
+    </BaseCard>
 
     <!-- Filtros -->
     <BaseCard class="mb-6">
@@ -159,14 +207,16 @@ const tiposDisponibles = [
             Buscar
           </label>
           <div class="relative">
-            <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <MagnifyingGlassIcon
+              class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+            />
             <input
               v-model="filtros.buscar"
               type="text"
               placeholder="Buscar por número o cliente..."
               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @keyup.enter="aplicarFiltros"
-            >
+            />
           </div>
         </div>
 
@@ -179,7 +229,7 @@ const tiposDisponibles = [
             v-model="filtros.desde"
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
+          />
         </div>
 
         <!-- Hasta -->
@@ -191,7 +241,7 @@ const tiposDisponibles = [
             v-model="filtros.hasta"
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
+          />
         </div>
 
         <!-- Tipo -->
@@ -203,9 +253,7 @@ const tiposDisponibles = [
             v-model="filtros.tipo"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option :value="null">
-              Todos
-            </option>
+            <option :value="null">Todos</option>
             <option
               v-for="tipo in tiposDisponibles"
               :key="tipo.value"
@@ -237,14 +285,11 @@ const tiposDisponibles = [
     </BaseCard>
 
     <!-- Loading -->
-    <div
-      v-if="loading"
-      class="text-center py-12"
-    >
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-      <p class="mt-4 text-gray-600">
-        Cargando comprobantes...
-      </p>
+    <div v-if="loading" class="text-center py-12">
+      <div
+        class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
+      />
+      <p class="mt-4 text-gray-600">Cargando comprobantes...</p>
     </div>
 
     <!-- Lista de comprobantes -->
@@ -253,25 +298,39 @@ const tiposDisponibles = [
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+              >
                 Tipo
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+              >
                 Número
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+              >
                 Fecha
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
+              >
                 Cliente
               </th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase"
+              >
                 Total
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase"
+              >
                 Estado
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">
+              <th
+                class="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase"
+              >
                 Acciones
               </th>
             </tr>
@@ -286,7 +345,9 @@ const tiposDisponibles = [
                 {{ getTipoNombre(comprobante.tipo_comprobante) }}
               </td>
               <td class="px-4 py-3 text-sm font-mono text-gray-900">
-                {{ String(comprobante.punto_venta_numero).padStart(4, '0') }}-{{ String(comprobante.numero).padStart(8, '0') }}
+                {{ String(comprobante.punto_venta_numero).padStart(4, "0") }}-{{
+                  String(comprobante.numero).padStart(8, "0")
+                }}
               </td>
               <td class="px-4 py-3 text-sm text-gray-600">
                 {{ formatFecha(comprobante.fecha_emision) }}
@@ -301,8 +362,16 @@ const tiposDisponibles = [
                 {{ formatMonto(comprobante.total) }}
               </td>
               <td class="px-4 py-3 text-center">
-                <span :class="['inline-flex items-center px-2 py-1 rounded-full text-xs font-medium', getEstadoColor(comprobante.estado)]">
-                  {{ ESTADOS_COMPROBANTE_NOMBRES[comprobante.estado] || comprobante.estado }}
+                <span
+                  :class="[
+                    'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
+                    getEstadoColor(comprobante.estado),
+                  ]"
+                >
+                  {{
+                    ESTADOS_COMPROBANTE_NOMBRES[comprobante.estado] ||
+                    comprobante.estado
+                  }}
                 </span>
               </td>
               <td class="px-4 py-3 text-center">
@@ -325,9 +394,20 @@ const tiposDisponibles = [
         class="mt-6 flex items-center justify-between"
       >
         <div class="text-sm text-gray-700">
-          Mostrando {{ ((comprobantesStore.paginaActual - 1) * comprobantesStore.paginacion.per_page) + 1 }} 
-          - 
-          {{ Math.min(comprobantesStore.paginaActual * comprobantesStore.paginacion.per_page, comprobantesStore.totalComprobantes) }}
+          Mostrando
+          {{
+            (comprobantesStore.paginaActual - 1) *
+              comprobantesStore.paginacion.per_page +
+            1
+          }}
+          -
+          {{
+            Math.min(
+              comprobantesStore.paginaActual *
+                comprobantesStore.paginacion.per_page,
+              comprobantesStore.totalComprobantes,
+            )
+          }}
           de {{ comprobantesStore.totalComprobantes }} comprobantes
         </div>
 
@@ -335,19 +415,30 @@ const tiposDisponibles = [
           <button
             :disabled="comprobantesStore.paginaActual === 1"
             class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            @click="comprobantesStore.cambiarPagina(comprobantesStore.paginaActual - 1)"
+            @click="
+              comprobantesStore.cambiarPagina(
+                comprobantesStore.paginaActual - 1,
+              )
+            "
           >
             Anterior
           </button>
 
           <span class="px-3 py-1 text-gray-700">
-            Página {{ comprobantesStore.paginaActual }} de {{ comprobantesStore.totalPaginas }}
+            Página {{ comprobantesStore.paginaActual }} de
+            {{ comprobantesStore.totalPaginas }}
           </span>
 
           <button
-            :disabled="comprobantesStore.paginaActual === comprobantesStore.totalPaginas"
+            :disabled="
+              comprobantesStore.paginaActual === comprobantesStore.totalPaginas
+            "
             class="px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            @click="comprobantesStore.cambiarPagina(comprobantesStore.paginaActual + 1)"
+            @click="
+              comprobantesStore.cambiarPagina(
+                comprobantesStore.paginaActual + 1,
+              )
+            "
           >
             Siguiente
           </button>

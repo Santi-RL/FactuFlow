@@ -65,10 +65,11 @@ class EmitirComprobanteRequest(ComprobanteBase):
     # Cliente/Receptor
     cliente_id: Optional[int] = None  # Si es cliente guardado
     tipo_documento: int = Field(..., ge=1)  # 80=CUIT, 96=DNI, etc.
-    numero_documento: str = Field(..., min_length=1, max_length=20)
-    razon_social: str = Field(..., min_length=1, max_length=200)
+    numero_documento: str = Field(..., max_length=20)
+    razon_social: str = Field(..., max_length=200)
     condicion_iva: str = Field(..., max_length=50)
     domicilio: Optional[str] = Field(None, max_length=200)
+    guardar_cliente: bool = True
 
     # Items
     items: List[ItemComprobanteCreate] = Field(..., min_length=1)
@@ -131,7 +132,12 @@ class ComprobanteResponse(ComprobanteBase):
     # Relaciones
     empresa_id: int
     punto_venta_id: int
-    cliente_id: int
+    cliente_id: Optional[int] = None
+    receptor_tipo_documento: Optional[int] = None
+    receptor_numero_documento: Optional[str] = None
+    receptor_razon_social: Optional[str] = None
+    receptor_condicion_iva: Optional[str] = None
+    receptor_domicilio: Optional[str] = None
 
     class Config:
         from_attributes = True

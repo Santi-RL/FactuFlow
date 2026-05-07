@@ -14,19 +14,11 @@ from pathlib import Path
 # Add parent directory to path to import app
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from app.core.config import settings
-from app.core.database import Base
+from app.core.config import settings  # noqa: E402
+from app.core.database import Base  # noqa: E402
 
 # Import all models to ensure they are registered with Base.metadata
-from app.models import (
-    Usuario,
-    Empresa,
-    PuntoVenta,
-    Certificado,
-    Cliente,
-    Comprobante,
-    ComprobanteItem,
-)
+import app.models  # noqa: F401,E402
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -42,7 +34,12 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Set the database URL from settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+database_url = settings.database_url
+if database_url.startswith("sqlite:///"):
+    database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+elif database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_offline() -> None:
@@ -71,7 +68,11 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with the given connection."""
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

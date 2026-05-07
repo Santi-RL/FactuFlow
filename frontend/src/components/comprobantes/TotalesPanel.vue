@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from "vue";
 
 interface Props {
-  subtotal: number
-  iva21: number
-  iva105: number
-  iva27: number
-  total: number
+  subtotal: number;
+  iva21: number;
+  iva105: number;
+  iva27: number;
+  total: number;
 }
 
-const props = defineProps<Props>()
+const props = defineProps<Props>();
 
 const formatMonto = (monto: number) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-  }).format(monto)
-}
+  return new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+  }).format(monto);
+};
 
 const tieneIva = computed(() => {
-  return props.iva21 > 0 || props.iva105 > 0 || props.iva27 > 0
-})
+  return props.iva21 > 0 || props.iva105 > 0 || props.iva27 > 0;
+});
 </script>
 
 <template>
@@ -33,28 +33,19 @@ const tieneIva = computed(() => {
       </div>
 
       <!-- IVA 21% -->
-      <div
-        v-if="iva21 > 0"
-        class="flex justify-between text-gray-700"
-      >
+      <div v-if="iva21 > 0" class="flex justify-between text-gray-700">
         <span class="font-medium">IVA 21%:</span>
         <span class="font-mono">{{ formatMonto(iva21) }}</span>
       </div>
 
       <!-- IVA 10.5% -->
-      <div
-        v-if="iva105 > 0"
-        class="flex justify-between text-gray-700"
-      >
+      <div v-if="iva105 > 0" class="flex justify-between text-gray-700">
         <span class="font-medium">IVA 10.5%:</span>
         <span class="font-mono">{{ formatMonto(iva105) }}</span>
       </div>
 
       <!-- IVA 27% -->
-      <div
-        v-if="iva27 > 0"
-        class="flex justify-between text-gray-700"
-      >
+      <div v-if="iva27 > 0" class="flex justify-between text-gray-700">
         <span class="font-medium">IVA 27%:</span>
         <span class="font-mono">{{ formatMonto(iva27) }}</span>
       </div>
@@ -68,10 +59,7 @@ const tieneIva = computed(() => {
       </div>
 
       <!-- Mensaje si no hay IVA -->
-      <div
-        v-if="!tieneIva"
-        class="text-sm text-gray-500 text-center pt-2"
-      >
+      <div v-if="!tieneIva" class="text-sm text-gray-500 text-center pt-2">
         * Los items no tienen IVA
       </div>
     </div>

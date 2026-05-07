@@ -1,8 +1,10 @@
 """Configuración de la aplicación usando Pydantic Settings."""
 
-from typing import List
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+from typing import List, Optional
+
 from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "FactuFlow"
-    app_version: str = "0.1.0"
+    app_version: str = "0.2.0-mvp"
     app_env: str = Field(default="development", alias="APP_ENV")
     app_debug: bool = Field(default=True, alias="APP_DEBUG")
 
@@ -42,24 +44,41 @@ class Settings(BaseSettings):
     )
 
     # AFIP/ARCA
-    afip_env: str = Field(default="homologacion", alias="AFIP_ENV")
+    arca_env: str = Field(default="homologacion", alias="ARCA_ENV")
     certs_path: str = Field(default="./certs", alias="CERTS_PATH")
+    arca_token_cache_path: str = Field(
+        default="./data/arca_token_cache.json", alias="ARCA_TOKEN_CACHE_PATH"
+    )
+    batch_sync_limit: int = Field(default=100, alias="BATCH_SYNC_LIMIT")
+    batch_max_rows: int = Field(default=20000, alias="BATCH_MAX_ROWS")
+    batch_max_groups: int = Field(default=5000, alias="BATCH_MAX_GROUPS")
+    batch_worker_enabled: bool = Field(default=True, alias="BATCH_WORKER_ENABLED")
+    batch_worker_poll_seconds: int = Field(default=5, alias="BATCH_WORKER_POLL_SECONDS")
+    batch_worker_batch_size: int = Field(default=1, alias="BATCH_WORKER_BATCH_SIZE")
 
     @field_validator("certs_path", mode="before")
     @classmethod
     def parse_certs_path(cls, v, _info):
         """Parse certs path, fallback to AFIP_CERTS_PATH if not set."""
         if v is None or v == "./certs":
-            # Try to get from AFIP_CERTS_PATH env var
-            import os
-
             afip_path = os.getenv("AFIP_CERTS_PATH")
             if afip_path:
                 return afip_path
         return v
 
+    @field_validator("arca_env", mode="before")
+    @classmethod
+    def parse_arca_env(cls, v, _info):
+        """Permite usar ARCA_ENV y mantiene compatibilidad con AFIP_ENV."""
+        if not v:
+            legacy = os.getenv("AFIP_ENV")
+            if legacy:
+                return legacy
+        return v or "homologacion"
+
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    log_file: Optional[str] = Field(default=None, alias="LOG_FILE")
 
     @field_validator("cors_origins", mode="before")
     @classmethod

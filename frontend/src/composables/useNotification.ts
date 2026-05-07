@@ -1,52 +1,52 @@
-import { useUIStore } from '@/stores/ui'
-import type { Notification } from '@/stores/ui'
+import { useUIStore } from "@/stores/ui";
+import type { Notification } from "@/stores/ui";
 
 export function useNotification() {
-  const uiStore = useUIStore()
+  const uiStore = useUIStore();
 
   const showSuccess = (title: string, message?: string, duration?: number) => {
     return uiStore.showNotification({
-      type: 'success',
+      type: "success",
       title,
       message,
-      duration
-    })
-  }
+      duration,
+    });
+  };
 
   const showError = (title: string, message?: string, duration?: number) => {
     return uiStore.showNotification({
-      type: 'error',
+      type: "error",
       title,
       message,
-      duration
-    })
-  }
+      duration,
+    });
+  };
 
   const showWarning = (title: string, message?: string, duration?: number) => {
     return uiStore.showNotification({
-      type: 'warning',
+      type: "warning",
       title,
       message,
-      duration
-    })
-  }
+      duration,
+    });
+  };
 
   const showInfo = (title: string, message?: string, duration?: number) => {
     return uiStore.showNotification({
-      type: 'info',
+      type: "info",
       title,
       message,
-      duration
-    })
-  }
+      duration,
+    });
+  };
 
-  const show = (notification: Omit<Notification, 'id'>) => {
-    return uiStore.showNotification(notification)
-  }
+  const show = (notification: Omit<Notification, "id">) => {
+    return uiStore.showNotification(notification);
+  };
 
   const hide = (id: string) => {
-    uiStore.hideNotification(id)
-  }
+    uiStore.hideNotification(id);
+  };
 
   return {
     showSuccess,
@@ -54,6 +54,6 @@ export function useNotification() {
     showWarning,
     showInfo,
     show,
-    hide
-  }
+    hide,
+  };
 }

@@ -1,33 +1,36 @@
 # Resumen del proyecto
 
-## Descripción
-- FactuFlow es un sistema de facturación electrónica para Argentina.
-- El objetivo es ser liviano, self-hosted y fácil de usar.
-- La integración principal es con ARCA (nomenclatura legacy AFIP en endpoints).
+## Que es FactuFlow
+
+FactuFlow es un sistema de facturacion electronica ARCA para Argentina. El foco actual del producto es permitir emision real, especialmente masiva, para personal administrativo no tecnico.
+
+## Objetivos confirmados
+
+- Emision individual y masiva con ARCA en homologacion.
+- UX simple, guiada y entendible para usuarios administrativos.
+- Operacion principal por una empresa a la vez.
+- PDF bajo demanda.
+- Reportes basicos de consulta.
+
+## Estado real al 2026-05-04
+
+- Backend y frontend operativos.
+- Lotes masivos por Excel implementados con validacion previa, idempotencia por archivo y worker reanudable para lotes grandes.
+- Selector de empresa activa implementado para admins.
+- Smoke real en homologacion completado con CAEs reales.
+- QA manual de interfaz cerrada para homologacion.
+- Repo preparado para configurar produccion con PostgreSQL; falta provisionar certificado, autorizacion `wsfe` y punto de venta productivos.
 
 ## Arquitectura
-- Frontend: Vue 3 + Tailwind, servido por Vite.
-- Backend: FastAPI con API REST.
-- DB: SQLite por defecto, PostgreSQL opcional.
+
+- Frontend: Vue 3 + Pinia + Vue Router + Vite.
+- Backend: FastAPI + SQLAlchemy + Pydantic.
+- DB: PostgreSQL recomendado para operacion real; SQLite solo para desarrollo puntual/legacy.
 - Servicios externos: WSAA y WSFEv1 de ARCA.
 
-## Stack principal
-- Backend: FastAPI, SQLAlchemy, Pydantic, Uvicorn, Zeep o cliente SOAP equivalente.
-- Frontend: Vue 3, Pinia, Vue Router, Axios, Tailwind, Vite.
-- Infra: Docker y Docker Compose.
+## Principios de trabajo
 
-## Idioma y mensajes
-- UI y documentación de usuario en español (Argentina).
-- Código en inglés o español, docstrings preferiblemente en español.
-
-## Principios de diseño
 - Simplicidad primero.
-- Usuario no técnico en mente.
-- Seguridad por defecto.
-- Self-hosted friendly.
-- Documentación abundante.
-
-## Recursos
-- AFIP/ARCA Dev: `docs/agents/arca.md`
-- Certificados: `docs/certificates/README.md`
-- Estructura del repo: `docs/agents/structure.md`
+- Usuario no tecnico en mente.
+- Seguridad y aislamiento por empresa.
+- Documentacion viva: si cambia algo importante, se actualizan `ROADMAP.md`, `docs/agents/current-status.md`, `docs/agents/manual-qa.md` y `docs/user-guide/README.md`.

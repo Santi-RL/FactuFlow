@@ -5,14 +5,15 @@ from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.config import settings
-from app.api.deps import get_current_empresa_user
-from app.models.usuario import Usuario
+from app.api.deps import get_current_empresa_id, get_current_empresa_user
 from app.models.certificado import Certificado
+from app.models.empresa import Empresa
+from app.models.usuario import Usuario
+from app.core.config import settings
+from app.core.database import get_db
 from app.arca.config import ArcaAmbiente
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
@@ -35,6 +36,7 @@ from app.arca.exceptions import (
     ArcaValidationError,
     ArcaServiceError,
 )
+from app.services.certificados_service import resolve_cert_storage_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -47,16 +49,14 @@ def get_ambiente() -> ArcaAmbiente:
     Returns:
         ArcaAmbiente (homologacion o produccion)
     """
-    ambiente_str = settings.afip_env.lower()
+    ambiente_str = settings.arca_env.lower()
 
     if ambiente_str == "produccion":
         return ArcaAmbiente.PRODUCCION
     return ArcaAmbiente.HOMOLOGACION
 
 
-async def get_certificado_activo(
-    db: AsyncSession, current_user: Usuario
-) -> Certificado:
+async def get_certificado_activo(db: AsyncSession, empresa_id: int) -> Certificado:
     """
     Obtiene el certificado activo para la empresa del usuario.
 
@@ -74,8 +74,8 @@ async def get_certificado_activo(
 
     result = await db.execute(
         select(Certificado).where(
-            Certificado.empresa_id == current_user.empresa_id,
-            Certificado.activo == True,
+            Certificado.empresa_id == empresa_id,
+            Certificado.activo.is_(True),
             Certificado.ambiente == ambiente.value,
         )
     )
@@ -91,7 +91,14 @@ async def get_certificado_activo(
     return certificado
 
 
-async def get_wsfe_client(db: AsyncSession, current_user: Usuario) -> WSFEv1Client:
+def resolve_cert_file(path_value: str) -> str:
+    """Resuelve un path de certificado absoluto o relativo."""
+    return resolve_cert_storage_path(path_value)
+
+
+async def get_wsfe_client(
+    db: AsyncSession, current_user: Usuario, empresa_id: int
+) -> WSFEv1Client:
     """
     Crea un cliente WSFEv1 autenticado.
 
@@ -106,13 +113,19 @@ async def get_wsfe_client(db: AsyncSession, current_user: Usuario) -> WSFEv1Clie
         HTTPException: Si hay error en la autenticación
     """
     try:
+        empresa = await db.get(Empresa, empresa_id)
+        if not empresa:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Empresa activa no encontrada",
+            )
+
         # Obtener certificado activo
-        certificado = await get_certificado_activo(db, current_user)
+        certificado = await get_certificado_activo(db, empresa_id)
 
         # Construir paths de certificado
-        certs_path = Path(settings.afip_certs_path)
-        cert_path = certs_path / certificado.archivo_crt
-        key_path = certs_path / certificado.archivo_key
+        cert_path = Path(resolve_cert_file(certificado.archivo_crt))
+        key_path = Path(resolve_cert_file(certificado.archivo_key))
 
         # Validar que existan los archivos
         if not cert_path.exists():
@@ -135,14 +148,12 @@ async def get_wsfe_client(db: AsyncSession, current_user: Usuario) -> WSFEv1Clie
         ticket = await wsaa_client.login(
             cert_path=str(cert_path),
             key_path=str(key_path),
-            cuit=certificado.cuit,
+            cuit=empresa.cuit,
             servicio="wsfe",
         )
 
         # Crear cliente WSFEv1
-        wsfe_client = WSFEv1Client(
-            ambiente=ambiente, ticket=ticket, cuit=certificado.cuit
-        )
+        wsfe_client = WSFEv1Client(ambiente=ambiente, ticket=ticket, cuit=empresa.cuit)
 
         return wsfe_client
 
@@ -170,6 +181,7 @@ async def get_wsfe_client(db: AsyncSession, current_user: Usuario) -> WSFEv1Clie
 async def test_conexion_arca(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Prueba la conexión con los webservices de ARCA usando FEDummy.
@@ -183,7 +195,7 @@ async def test_conexion_arca(
         Información del servidor de ARCA
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         result = await wsfe_client.fe_dummy()
 
         return {
@@ -207,6 +219,7 @@ async def test_conexion_arca(
 async def get_tipos_comprobante(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene los tipos de comprobante disponibles en ARCA.
@@ -215,7 +228,7 @@ async def get_tipos_comprobante(
         Lista de tipos de comprobante
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         tipos = await wsfe_client.fe_param_get_tipos_cbte()
         return tipos
 
@@ -232,6 +245,7 @@ async def get_tipos_comprobante(
 async def get_tipos_documento(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene los tipos de documento disponibles en ARCA.
@@ -240,7 +254,7 @@ async def get_tipos_documento(
         Lista de tipos de documento
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         tipos = await wsfe_client.fe_param_get_tipos_doc()
         return tipos
 
@@ -257,6 +271,7 @@ async def get_tipos_documento(
 async def get_tipos_iva(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene las alícuotas de IVA disponibles en ARCA.
@@ -265,7 +280,7 @@ async def get_tipos_iva(
         Lista de tipos de IVA
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         tipos = await wsfe_client.fe_param_get_tipos_iva()
         return tipos
 
@@ -282,6 +297,7 @@ async def get_tipos_iva(
 async def get_tipos_concepto(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene los tipos de concepto disponibles en ARCA.
@@ -290,7 +306,7 @@ async def get_tipos_concepto(
         Lista de tipos de concepto
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         tipos = await wsfe_client.fe_param_get_tipos_concepto()
         return tipos
 
@@ -307,6 +323,7 @@ async def get_tipos_concepto(
 async def get_tipos_monedas(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene los tipos de moneda disponibles en ARCA.
@@ -315,7 +332,7 @@ async def get_tipos_monedas(
         Lista de tipos de moneda
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         tipos = await wsfe_client.fe_param_get_tipos_monedas()
         return tipos
 
@@ -333,6 +350,7 @@ async def get_cotizacion(
     moneda_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene la cotización de una moneda.
@@ -344,7 +362,7 @@ async def get_cotizacion(
         Cotización actual de la moneda
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         cotizacion = await wsfe_client.fe_param_get_cotizacion(moneda_id)
         return cotizacion
 
@@ -361,6 +379,7 @@ async def get_cotizacion(
 async def get_puntos_venta(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene los puntos de venta habilitados para la empresa.
@@ -369,7 +388,7 @@ async def get_puntos_venta(
         Lista de puntos de venta
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         puntos = await wsfe_client.fe_param_get_ptos_venta()
         return puntos
 
@@ -388,6 +407,7 @@ async def get_ultimo_comprobante(
     tipo_cbte: int,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene el último número de comprobante autorizado.
@@ -400,7 +420,7 @@ async def get_ultimo_comprobante(
         Último número de comprobante
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         ultimo = await wsfe_client.fe_comp_ultimo_autorizado(punto_venta, tipo_cbte)
 
         return {
@@ -424,6 +444,7 @@ async def solicitar_cae(
     comprobante: ComprobanteRequest,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Solicita CAE (Código de Autorización Electrónica) para un comprobante.
@@ -435,7 +456,7 @@ async def solicitar_cae(
         CAE y datos del comprobante autorizado
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         cae_response = await wsfe_client.fe_cae_solicitar(comprobante)
 
         return cae_response
@@ -464,6 +485,7 @@ async def consultar_comprobante(
     numero: int,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Consulta un comprobante emitido previamente.
@@ -477,7 +499,7 @@ async def consultar_comprobante(
         Datos del comprobante consultado
     """
     try:
-        wsfe_client = await get_wsfe_client(db, current_user)
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         comprobante = await wsfe_client.fe_comp_consultar(
             punto_venta=punto_venta, tipo_cbte=tipo_cbte, numero=numero
         )

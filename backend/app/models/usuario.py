@@ -24,6 +24,7 @@ class Usuario(Base):
         Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=True
     )
     empresa = relationship("Empresa", back_populates="usuarios")
+    lotes_comprobantes = relationship("LoteComprobante", back_populates="usuario")
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

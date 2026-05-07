@@ -2,7 +2,6 @@
 
 import pytest
 from datetime import datetime, timedelta
-from pathlib import Path
 
 from app.arca.models import TicketAcceso
 

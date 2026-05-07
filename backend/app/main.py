@@ -1,28 +1,51 @@
-# FactuFlow Backend
-# Sistema de Facturación Electrónica Argentina (AFIP)
+"""Entrada principal de FactuFlow."""
+
+import logging
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import app.models  # noqa: F401
 from app.core.config import settings
 from app.core.database import engine, Base
+from app.services.lote_worker import ensure_lote_worker_running, stop_lote_worker
 from app.api import (
-    health,
-    auth,
-    empresas,
-    clientes,
-    puntos_venta,
-    certificados,
     arca,
+    auth,
+    certificados,
+    clientes,
     comprobantes,
+    empresas,
+    health,
+    lotes_comprobantes,
     pdf,
+    puntos_venta,
     reportes,
 )
 
+
+def configure_logging() -> None:
+    """Configura logging básico para desarrollo y producción."""
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if settings.log_file:
+        log_path = Path(settings.log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+
+
+configure_logging()
+
 app = FastAPI(
     title="FactuFlow API",
-    description="Sistema de Facturación Electrónica AFIP - Argentina",
-    version="0.1.0",
+    description="Sistema de Facturación Electrónica ARCA - Argentina",
+    version=settings.app_version,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
@@ -51,6 +74,11 @@ app.include_router(arca.router, prefix="/api/arca", tags=["ARCA"])
 app.include_router(
     comprobantes.router, prefix="/api/comprobantes", tags=["Comprobantes"]
 )
+app.include_router(
+    lotes_comprobantes.router,
+    prefix="/api/lotes-comprobantes",
+    tags=["Lotes de comprobantes"],
+)
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
 app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
 
@@ -58,11 +86,24 @@ app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
 @app.on_event("startup")
 async def startup():
     """Crear tablas en la base de datos al iniciar (solo desarrollo)."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.app_env.lower() in {"development", "test", "testing"}:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    app.state.lotes_background_tasks = set()
+    ensure_lote_worker_running(app)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Detiene tareas de background de forma ordenada."""
+    await stop_lote_worker(app)
 
 
 @app.get("/")
 async def root():
     """Endpoint raíz."""
-    return {"message": "FactuFlow API", "version": "0.1.0", "docs": "/api/docs"}
+    return {
+        "message": "FactuFlow API",
+        "version": settings.app_version,
+        "docs": "/api/docs",
+    }

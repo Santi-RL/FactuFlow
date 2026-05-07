@@ -1,113 +1,121 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { useNotification } from '@/composables/useNotification'
-import { useFormatters } from '@/composables/useFormatters'
-import reportesService from '@/services/reportes.service'
-import type { ReporteVentas } from '@/services/reportes.service'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import BaseSpinner from '@/components/ui/BaseSpinner.vue'
-import BaseTable from '@/components/ui/BaseTable.vue'
-import BaseEmpty from '@/components/ui/BaseEmpty.vue'
-import { ArrowLeftIcon, DocumentChartBarIcon, ArrowDownTrayIcon } from '@heroicons/vue/24/outline'
+import { ref, computed } from "vue";
+import { useRouter } from "vue-router";
+import { useEmpresaStore } from "@/stores/empresa";
+import { useNotification } from "@/composables/useNotification";
+import { useFormatters } from "@/composables/useFormatters";
+import reportesService from "@/services/reportes.service";
+import type { ReporteVentas } from "@/services/reportes.service";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseInput from "@/components/ui/BaseInput.vue";
+import BaseSpinner from "@/components/ui/BaseSpinner.vue";
+import BaseTable from "@/components/ui/BaseTable.vue";
+import BaseEmpty from "@/components/ui/BaseEmpty.vue";
+import { ArrowLeftIcon, DocumentChartBarIcon } from "@heroicons/vue/24/outline";
 
-const router = useRouter()
-const authStore = useAuthStore()
-const { showError } = useNotification()
-const { formatearFecha, formatearMoneda } = useFormatters()
+const router = useRouter();
+const empresaStore = useEmpresaStore();
+const { showError } = useNotification();
+const { formatearFecha, formatearMoneda } = useFormatters();
 
-const loading = ref(false)
-const reporte = ref<ReporteVentas | null>(null)
+const loading = ref(false);
+const reporte = ref<ReporteVentas | null>(null);
 
 // Fechas por defecto: mes actual
-const hoy = new Date()
-const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)
+const hoy = new Date();
+const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
 
-const desde = ref(primerDiaMes.toISOString().split('T')[0])
-const hasta = ref(ultimoDiaMes.toISOString().split('T')[0])
+const desde = ref(primerDiaMes.toISOString().split("T")[0]);
+const hasta = ref(ultimoDiaMes.toISOString().split("T")[0]);
 
 const columns = [
-  { key: 'fecha_emision', label: 'Fecha', sortable: false },
-  { key: 'tipo_nombre', label: 'Tipo', sortable: false },
-  { key: 'numero_completo', label: 'Número', sortable: false },
-  { key: 'cliente_nombre', label: 'Cliente', sortable: false },
-  { key: 'total', label: 'Total', sortable: false }
-]
+  { key: "fecha_emision", label: "Fecha", sortable: false },
+  { key: "tipo_nombre", label: "Tipo", sortable: false },
+  { key: "numero_completo", label: "Número", sortable: false },
+  { key: "cliente_nombre", label: "Cliente", sortable: false },
+  { key: "total", label: "Total", sortable: false },
+];
+
+const empresaActivaId = computed(
+  () => empresaStore.empresaActiva?.id || empresaStore.empresa?.id || null,
+);
 
 const generarReporte = async () => {
-  if (!authStore.user?.empresa_id) {
-    showError('Error', 'No se encontró la empresa asociada')
-    return
+  if (!empresaActivaId.value) {
+    showError(
+      "Empresa activa requerida",
+      "Selecciona la empresa con la que queres trabajar antes de generar el reporte.",
+    );
+    return;
   }
 
   if (!desde.value || !hasta.value) {
-    showError('Error', 'Debe seleccionar un rango de fechas')
-    return
+    showError("Error", "Debe seleccionar un rango de fechas");
+    return;
   }
 
   if (desde.value > hasta.value) {
-    showError('Error', 'La fecha "desde" no puede ser mayor que la fecha "hasta"')
-    return
+    showError(
+      "Error",
+      'La fecha "desde" no puede ser mayor que la fecha "hasta"',
+    );
+    return;
   }
 
-  loading.value = true
+  loading.value = true;
   try {
     reporte.value = await reportesService.obtenerReporteVentas(
-      authStore.user.empresa_id,
+      empresaActivaId.value,
       desde.value,
-      hasta.value
-    )
+      hasta.value,
+    );
   } catch (error: any) {
-    showError('Error', error.response?.data?.detail || 'No se pudo generar el reporte')
-    reporte.value = null
+    showError(
+      "Error",
+      error.response?.data?.detail || "No se pudo generar el reporte",
+    );
+    reporte.value = null;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const volver = () => {
-  router.push('/reportes')
-}
-
-const exportarExcel = () => {
-  // Placeholder para futura implementación
-  showError('Próximamente', 'La exportación a Excel estará disponible en breve')
-}
+  router.push("/reportes");
+};
 
 const resumenCards = computed(() => {
-  if (!reporte.value) return []
-  
+  if (!reporte.value) return [];
+
   return [
     {
-      label: 'Total Facturas',
+      label: "Total Facturas",
       valor: formatearMoneda(reporte.value.resumen.total_facturas),
-      color: 'text-green-600',
-      bg: 'bg-green-50'
+      color: "text-green-600",
+      bg: "bg-green-50",
     },
     {
-      label: 'Total Notas de Crédito',
+      label: "Total Notas de Crédito",
       valor: formatearMoneda(reporte.value.resumen.total_notas_credito),
-      color: 'text-red-600',
-      bg: 'bg-red-50'
+      color: "text-red-600",
+      bg: "bg-red-50",
     },
     {
-      label: 'Total Notas de Débito',
+      label: "Total Notas de Débito",
       valor: formatearMoneda(reporte.value.resumen.total_notas_debito),
-      color: 'text-blue-600',
-      bg: 'bg-blue-50'
+      color: "text-blue-600",
+      bg: "bg-blue-50",
     },
     {
-      label: 'Total Neto',
+      label: "Total Neto",
       valor: formatearMoneda(reporte.value.resumen.total_neto),
-      color: 'text-purple-600',
-      bg: 'bg-purple-50'
-    }
-  ]
-})
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+    },
+  ];
+});
 </script>
 
 <template>
@@ -123,9 +131,7 @@ const resumenCards = computed(() => {
           <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">
-            Reporte de Ventas
-          </h1>
+          <h1 class="text-3xl font-bold text-gray-900">Reporte de Ventas</h1>
           <p class="mt-1 text-gray-600">
             Resumen de comprobantes emitidos por período
           </p>
@@ -136,18 +142,8 @@ const resumenCards = computed(() => {
     <!-- Filtros -->
     <BaseCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BaseInput
-          v-model="desde"
-          type="date"
-          label="Desde"
-          required
-        />
-        <BaseInput
-          v-model="hasta"
-          type="date"
-          label="Hasta"
-          required
-        />
+        <BaseInput v-model="desde" type="date" label="Desde" required />
+        <BaseInput v-model="hasta" type="date" label="Hasta" required />
         <div class="flex items-end">
           <BaseButton
             :disabled="loading"
@@ -162,10 +158,7 @@ const resumenCards = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div
-      v-if="loading"
-      class="flex justify-center py-12"
-    >
+    <div v-if="loading" class="flex justify-center py-12">
       <BaseSpinner />
     </div>
 
@@ -200,7 +193,7 @@ const resumenCards = computed(() => {
       <div class="mb-4 text-sm text-gray-600">
         <p>
           <span class="font-medium">Período:</span>
-          {{ formatearFecha(reporte.resumen.periodo.desde) }} - 
+          {{ formatearFecha(reporte.resumen.periodo.desde) }} -
           {{ formatearFecha(reporte.resumen.periodo.hasta) }}
         </p>
         <p>
@@ -211,18 +204,18 @@ const resumenCards = computed(() => {
 
       <!-- Tabla de Comprobantes -->
       <BaseCard>
-        <div class="flex justify-between items-center mb-4">
+        <div
+          class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+        >
           <h2 class="text-lg font-semibold text-gray-900">
             Detalle de Comprobantes
           </h2>
-          <BaseButton
-            variant="secondary"
-            size="sm"
-            @click="exportarExcel"
+          <p
+            class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800"
           >
-            <ArrowDownTrayIcon class="h-4 w-4 mr-2" />
-            Exportar Excel
-          </BaseButton>
+            Este reporte es solo de consulta. Muestra comprobantes autorizados
+            de la empresa activa.
+          </p>
         </div>
 
         <BaseTable
@@ -238,7 +231,9 @@ const resumenCards = computed(() => {
           <template #cell-tipo_nombre="{ row }">
             <div>
               <span class="font-medium">{{ row.letra }}</span>
-              <span class="text-gray-600 text-sm ml-1">{{ row.tipo_nombre }}</span>
+              <span class="text-gray-600 text-sm ml-1">{{
+                row.tipo_nombre
+              }}</span>
             </div>
           </template>
 
@@ -251,7 +246,9 @@ const resumenCards = computed(() => {
           </template>
 
           <template #cell-total="{ value }">
-            <span class="font-semibold text-gray-900">{{ formatearMoneda(value) }}</span>
+            <span class="font-semibold text-gray-900">{{
+              formatearMoneda(value)
+            }}</span>
           </template>
         </BaseTable>
 
@@ -265,7 +262,8 @@ const resumenCards = computed(() => {
     <BaseEmpty v-else>
       <DocumentChartBarIcon class="h-12 w-12 mx-auto mb-4 text-gray-400" />
       <p class="text-gray-600">
-        Seleccione un rango de fechas y haga clic en "Generar Reporte" para ver los resultados
+        Seleccione un rango de fechas y haga clic en "Generar Reporte" para ver
+        los resultados
       </p>
     </BaseEmpty>
   </div>

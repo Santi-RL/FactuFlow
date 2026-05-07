@@ -4,7 +4,7 @@ import os
 import logging
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Tuple
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -21,6 +21,20 @@ from app.arca.crypto import (
 from app.arca.exceptions import ArcaCertificateError
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_cert_storage_path(path_value: str) -> str:
+    """Resuelve paths absolutos o relativos de certificados guardados en BD."""
+    path = Path(path_value)
+    if path.is_absolute():
+        return str(path)
+
+    certs_base = Path(settings.certs_path)
+    normalized_parts = list(path.parts)
+    if normalized_parts and normalized_parts[0] == certs_base.name:
+        path = Path(*normalized_parts[1:])
+
+    return str((certs_base / path).resolve())
 
 
 class CertificadoInfo:

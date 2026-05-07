@@ -1,9 +1,8 @@
 """Cliente para el Web Service de Factura Electrónica v1 (WSFEv1) de ARCA."""
 
 import logging
-from typing import List, Optional
+from typing import List
 
-from zeep import Client
 from zeep.exceptions import Fault, TransportError
 
 from app.arca.config import ArcaAmbiente, ArcaConfig
@@ -27,6 +26,7 @@ from app.arca.exceptions import (
     ArcaValidationError,
     ArcaConnectionError,
 )
+from app.arca.soap import create_soap_client
 from app.arca.utils import clean_cuit, format_importe
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class WSFEv1Client:
 
         # Cliente SOAP
         try:
-            self.client = Client(self.config.wsfe_url)
+            self.client = create_soap_client(self.config.wsfe_url)
         except Exception as e:
             raise ArcaConnectionError(f"Error al conectar con WSFEv1: {str(e)}")
 
@@ -183,6 +183,9 @@ class WSFEv1Client:
                 "MonCotiz": comprobante.moneda_cotiz,
             }
 
+            if comprobante.condicion_iva_receptor_id is not None:
+                fe_det["CondicionIVAReceptorId"] = comprobante.condicion_iva_receptor_id
+
             # Agregar fechas de servicio si aplica
             if comprobante.fecha_serv_desde:
                 fe_det["FchServDesde"] = comprobante.fecha_serv_desde
@@ -193,31 +196,39 @@ class WSFEv1Client:
 
             # Agregar IVA si hay
             if comprobante.iva:
-                fe_det["Iva"] = [
-                    {
-                        "Id": iva.id,
-                        "BaseImp": format_importe(iva.base_imp),
-                        "Importe": format_importe(iva.importe),
-                    }
-                    for iva in comprobante.iva
-                ]
+                fe_det["Iva"] = {
+                    "AlicIva": [
+                        {
+                            "Id": iva.id,
+                            "BaseImp": format_importe(iva.base_imp),
+                            "Importe": format_importe(iva.importe),
+                        }
+                        for iva in comprobante.iva
+                    ]
+                }
 
             # Agregar tributos si hay
             if comprobante.tributos:
-                fe_det["Tributos"] = [
-                    {
-                        "Id": trib.id,
-                        "Desc": trib.descripcion,
-                        "BaseImp": format_importe(trib.base_imp),
-                        "Alic": trib.alic,
-                        "Importe": format_importe(trib.importe),
-                    }
-                    for trib in comprobante.tributos
-                ]
+                fe_det["Tributos"] = {
+                    "Tributo": [
+                        {
+                            "Id": trib.id,
+                            "Desc": trib.descripcion,
+                            "BaseImp": format_importe(trib.base_imp),
+                            "Alic": trib.alic,
+                            "Importe": format_importe(trib.importe),
+                        }
+                        for trib in comprobante.tributos
+                    ]
+                }
 
             # Llamar al servicio
             response = self.client.service.FECAESolicitar(
-                Auth=auth, FeCAEReq={"FeCabReq": fe_cab_req, "FeDetReq": [fe_det]}
+                Auth=auth,
+                FeCAEReq={
+                    "FeCabReq": fe_cab_req,
+                    "FeDetReq": {"FECAEDetRequest": [fe_det]},
+                },
             )
 
             # Parsear respuesta
@@ -554,16 +565,45 @@ class WSFEv1Client:
             auth = self._get_auth_dict()
             response = self.client.service.FEParamGetPtosVenta(Auth=auth)
 
+            if hasattr(response, "Errors") and response.Errors:
+                err_list = response.Errors.Err
+                if not isinstance(err_list, list):
+                    err_list = [err_list]
+
+                # En homologación ARCA puede responder "Sin Resultados" aunque
+                # FECompUltimoAutorizado funcione correctamente para el punto.
+                if all(getattr(err, "Code", None) == 602 for err in err_list):
+                    return []
+
+                error = err_list[0]
+                raise ArcaServiceError(
+                    f"Error al obtener puntos de venta: {error.Msg}",
+                    codigo=str(error.Code),
+                )
+
+            if response.ResultGet is None:
+                return []
+
             ptos = response.ResultGet.PtoVenta
             if not isinstance(ptos, list):
                 ptos = [ptos]
+
+            def normalizar_fecha_baja(valor) -> str | None:
+                if valor is None:
+                    return None
+                texto = str(valor).strip()
+                if not texto or texto.upper() == "NULL":
+                    return None
+                return texto
 
             return [
                 PuntoVenta(
                     numero=p.Nro,
                     emision_tipo=p.EmisionTipo,
                     bloqueado=p.Bloqueado,
-                    fecha_baja=p.FchBaja if hasattr(p, "FchBaja") else None,
+                    fecha_baja=normalizar_fecha_baja(
+                        p.FchBaja if hasattr(p, "FchBaja") else None
+                    ),
                 )
                 for p in ptos
             ]

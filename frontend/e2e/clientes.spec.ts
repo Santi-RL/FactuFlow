@@ -10,8 +10,10 @@ test.describe('Gestión de Clientes', () => {
   test.beforeEach(async ({ page }) => {
     await mockApi(page)
     await loginAsAdmin(page)
-    await page.getByTestId('nav-clientes').click()
-    await page.waitForURL(/clientes/)
+    await Promise.all([
+      page.waitForURL(/clientes/),
+      page.getByTestId('nav-clientes').click(),
+    ])
   })
 
   test('debe mostrar botón para crear nuevo cliente', async ({ page }) => {
@@ -19,7 +21,10 @@ test.describe('Gestión de Clientes', () => {
   })
 
   test('debe abrir formulario de nuevo cliente', async ({ page }) => {
-    await page.getByTestId('clientes-nuevo').click()
+    await Promise.all([
+      page.waitForURL(/clientes\/nuevo/),
+      page.getByTestId('clientes-nuevo').click(),
+    ])
     
     // Verificar que se abre el formulario
     await expect(page).toHaveURL(/clientes\/nuevo/)
@@ -29,8 +34,10 @@ test.describe('Gestión de Clientes', () => {
   })
 
   test('debe validar CUIT al crear cliente', async ({ page }) => {
-    await page.getByTestId('clientes-nuevo').click()
-    await page.waitForURL(/clientes\/nuevo/)
+    await Promise.all([
+      page.waitForURL(/clientes\/nuevo/),
+      page.getByTestId('clientes-nuevo').click(),
+    ])
     
     // Intentar con CUIT inválido
     await page.getByLabel(/número de documento/i).fill('123')
@@ -42,8 +49,10 @@ test.describe('Gestión de Clientes', () => {
   })
 
   test('debe crear cliente con datos válidos', async ({ page }) => {
-    await page.getByTestId('clientes-nuevo').click()
-    await page.waitForURL(/clientes\/nuevo/)
+    await Promise.all([
+      page.waitForURL(/clientes\/nuevo/),
+      page.getByTestId('clientes-nuevo').click(),
+    ])
     
     // Completar formulario con datos válidos
     await page.getByLabel(/razón social/i).fill('Cliente de Prueba E2E')
@@ -62,8 +71,10 @@ test.describe('Gestión de Clientes', () => {
   test('debe buscar clientes por nombre', async ({ page }) => {
     // Crear 2 clientes para verificar filtro
     for (const razonSocial of ['Cliente Alpha', 'Cliente Beta']) {
-      await page.getByTestId('clientes-nuevo').click()
-      await page.waitForURL(/clientes\/nuevo/)
+      await Promise.all([
+        page.waitForURL(/clientes\/nuevo/),
+        page.getByTestId('clientes-nuevo').click(),
+      ])
       await page.getByLabel(/razón social/i).fill(razonSocial)
       await page.getByLabel(/número de documento/i).fill('20123456789')
       await page.getByLabel(/condición iva/i).selectOption({ label: 'Responsable Inscripto' })

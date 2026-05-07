@@ -1,21 +1,26 @@
 """API endpoints para generación de PDFs."""
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.api.deps import get_current_empresa_id
+from app.api.deps import get_current_empresa_user
 from app.core.database import get_db
 from app.models.comprobante import Comprobante
-from app.models.empresa import Empresa
+from app.models.usuario import Usuario
 from app.services.pdf_service import pdf_service
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
 
 @router.get("/comprobante/{comprobante_id}")
 async def descargar_pdf_comprobante(
-    comprobante_id: int, db: AsyncSession = Depends(get_db)
+    comprobante_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Genera y descarga el PDF de un comprobante.
@@ -44,6 +49,15 @@ async def descargar_pdf_comprobante(
 
     if not comprobante:
         raise HTTPException(status_code=404, detail="Comprobante no encontrado")
+    if not current_user.es_admin and comprobante.empresa_id != current_user.empresa_id:
+        raise HTTPException(
+            status_code=403, detail="No tienes acceso a este comprobante"
+        )
+    if current_user.es_admin and comprobante.empresa_id != empresa_activa_id:
+        raise HTTPException(
+            status_code=403,
+            detail="El comprobante no pertenece a la empresa activa seleccionada",
+        )
 
     # Generar PDF
     try:
@@ -70,7 +84,10 @@ async def descargar_pdf_comprobante(
 
 @router.get("/comprobante/{comprobante_id}/preview")
 async def preview_pdf_comprobante(
-    comprobante_id: int, db: AsyncSession = Depends(get_db)
+    comprobante_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Muestra el PDF en el navegador (sin descargar).
@@ -99,6 +116,15 @@ async def preview_pdf_comprobante(
 
     if not comprobante:
         raise HTTPException(status_code=404, detail="Comprobante no encontrado")
+    if not current_user.es_admin and comprobante.empresa_id != current_user.empresa_id:
+        raise HTTPException(
+            status_code=403, detail="No tienes acceso a este comprobante"
+        )
+    if current_user.es_admin and comprobante.empresa_id != empresa_activa_id:
+        raise HTTPException(
+            status_code=403,
+            detail="El comprobante no pertenece a la empresa activa seleccionada",
+        )
 
     # Generar PDF
     try:

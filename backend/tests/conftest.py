@@ -147,3 +147,16 @@ async def auth_headers(client: AsyncClient, test_user) -> dict:
     assert response.status_code == 200, f"Login failed: {response.json()}"
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def admin_auth_headers(client: AsyncClient, test_admin) -> dict:
+    """Get authentication headers for admin user."""
+    response = await client.post(
+        "/api/auth/login",
+        json={"email": "admin@test.com", "password": "adminpass123"},
+    )
+
+    assert response.status_code == 200, f"Login failed: {response.json()}"
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

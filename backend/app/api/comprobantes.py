@@ -5,17 +5,17 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func, or_, and_
+from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_current_empresa_id, get_db, get_current_user
+from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.usuario import Usuario
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     EmitirComprobanteResponse,
-    ComprobanteResponse,
     ComprobanteDetalleResponse,
     ComprobanteListResponse,
     PaginatedComprobantesResponse,
@@ -30,7 +30,9 @@ router = APIRouter()
 
 @router.get("/", response_model=PaginatedComprobantesResponse)
 async def listar_comprobantes(
-    empresa_id: int = Query(..., description="ID de la empresa"),
+    empresa_id: Optional[int] = Query(
+        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
+    ),
     desde: Optional[date] = Query(None, description="Fecha desde (filtro)"),
     hasta: Optional[date] = Query(None, description="Fecha hasta (filtro)"),
     tipo: Optional[int] = Query(None, description="Tipo de comprobante (filtro)"),
@@ -40,6 +42,7 @@ async def listar_comprobantes(
     per_page: int = Query(20, ge=1, le=100, description="Resultados por página"),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Lista comprobantes con filtros y paginación.
@@ -50,6 +53,8 @@ async def listar_comprobantes(
     - cliente_id: Cliente específico
     - buscar: Búsqueda por número o nombre de cliente
     """
+    empresa_id = empresa_activa_id if current_user.es_admin else current_user.empresa_id
+
     # Base query
     stmt = (
         select(Comprobante)
@@ -69,17 +74,13 @@ async def listar_comprobantes(
     if buscar:
         stmt = stmt.where(
             or_(
-                Comprobante.numero.cast(db.bind.dialect.type_descriptor(str)).like(
-                    f"%{buscar}%"
-                ),
+                cast(Comprobante.numero, String).like(f"%{buscar}%"),
+                Comprobante.receptor_razon_social.like(f"%{buscar}%"),
+                Comprobante.receptor_numero_documento.like(f"%{buscar}%"),
                 Comprobante.cliente.has(
                     or_(
-                        Comprobante.cliente.property.mapper.class_.nombre.like(
-                            f"%{buscar}%"
-                        ),
-                        Comprobante.cliente.property.mapper.class_.cuit.like(
-                            f"%{buscar}%"
-                        ),
+                        Cliente.razon_social.like(f"%{buscar}%"),
+                        Cliente.numero_documento.like(f"%{buscar}%"),
                     )
                 ),
             )
@@ -108,9 +109,13 @@ async def listar_comprobantes(
             total=c.total,
             estado=c.estado,
             cae=c.cae,
-            cliente_nombre=c.cliente.nombre if c.cliente else "Desconocido",
+            cliente_nombre=(
+                c.receptor_razon_social
+                or (c.cliente.razon_social if c.cliente else "Desconocido")
+            ),
             cliente_documento=(
-                c.cliente.cuit or c.cliente.dni or "N/A" if c.cliente else "N/A"
+                c.receptor_numero_documento
+                or (c.cliente.numero_documento if c.cliente else "N/A")
             ),
             punto_venta_numero=c.punto_venta.numero if c.punto_venta else 0,
         )
@@ -131,6 +136,7 @@ async def obtener_comprobante(
     comprobante_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene detalle completo de un comprobante.
@@ -148,10 +154,19 @@ async def obtener_comprobante(
     )
 
     result = await db.execute(stmt)
-    comprobante = result.scalar_one_or_none()
+    comprobante = result.unique().scalar_one_or_none()
 
     if not comprobante:
         raise HTTPException(status_code=404, detail="Comprobante no encontrado")
+    if not current_user.es_admin and comprobante.empresa_id != current_user.empresa_id:
+        raise HTTPException(
+            status_code=403, detail="No tienes acceso a este comprobante"
+        )
+    if current_user.es_admin and comprobante.empresa_id != empresa_activa_id:
+        raise HTTPException(
+            status_code=403,
+            detail="El comprobante no pertenece a la empresa activa seleccionada",
+        )
 
     # Mapear items
     items = [
@@ -193,9 +208,20 @@ async def obtener_comprobante(
         empresa_id=comprobante.empresa_id,
         punto_venta_id=comprobante.punto_venta_id,
         cliente_id=comprobante.cliente_id,
+        receptor_tipo_documento=comprobante.receptor_tipo_documento,
+        receptor_numero_documento=comprobante.receptor_numero_documento,
+        receptor_razon_social=comprobante.receptor_razon_social,
+        receptor_condicion_iva=comprobante.receptor_condicion_iva,
+        receptor_domicilio=comprobante.receptor_domicilio,
         items=items,
-        cliente_nombre=comprobante.cliente.nombre if comprobante.cliente else None,
-        cliente_cuit=comprobante.cliente.cuit if comprobante.cliente else None,
+        cliente_nombre=(
+            comprobante.receptor_razon_social
+            or (comprobante.cliente.razon_social if comprobante.cliente else None)
+        ),
+        cliente_cuit=(
+            comprobante.receptor_numero_documento
+            or (comprobante.cliente.numero_documento if comprobante.cliente else None)
+        ),
         punto_venta_numero=(
             comprobante.punto_venta.numero if comprobante.punto_venta else None
         ),
@@ -207,6 +233,7 @@ async def emitir_comprobante(
     request: EmitirComprobanteRequest,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Emite un comprobante electrónico.
@@ -231,6 +258,7 @@ async def emitir_comprobante(
     - 13: Nota de Crédito C
     """
     service = FacturacionService(db)
+    request = request.model_copy(update={"empresa_id": empresa_activa_id})
 
     try:
         resultado = await service.emitir_comprobante(request)
@@ -243,7 +271,8 @@ async def emitir_comprobante(
             )
 
         return resultado
-
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error al emitir comprobante: {str(e)}")
         raise HTTPException(
@@ -261,9 +290,12 @@ async def emitir_comprobante(
 async def obtener_proximo_numero(
     punto_venta: int,
     tipo: int,
-    empresa_id: int = Query(..., description="ID de la empresa"),
+    empresa_id: Optional[int] = Query(
+        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtiene el próximo número de comprobante disponible.
@@ -275,7 +307,9 @@ async def obtener_proximo_numero(
     from app.models.punto_venta import PuntoVenta
 
     stmt = select(PuntoVenta).where(
-        and_(PuntoVenta.numero == punto_venta, PuntoVenta.empresa_id == empresa_id)
+        and_(
+            PuntoVenta.numero == punto_venta, PuntoVenta.empresa_id == empresa_activa_id
+        )
     )
     result = await db.execute(stmt)
     pv = result.scalar_one_or_none()
@@ -285,7 +319,7 @@ async def obtener_proximo_numero(
 
     # Obtener próximo número
     service = FacturacionService(db)
-    proximo = await service.obtener_proximo_numero(empresa_id, pv.id, tipo)
+    proximo = await service.obtener_proximo_numero(empresa_activa_id, pv.id, tipo)
 
     return ProximoNumeroResponse(
         punto_venta=punto_venta, tipo_comprobante=tipo, proximo_numero=proximo

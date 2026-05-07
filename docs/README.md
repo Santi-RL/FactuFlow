@@ -12,10 +12,11 @@ Este directorio agrupa la documentacion del proyecto.
 - Integracion ARCA (doc tecnica): `docs/arca-integration.md`
 - PDFs y reportes: `docs/FASE_6_PDF_REPORTES.md`
 - Documentacion para agentes (operativa del repo): `docs/agents/README.md`
+- Estado actual y continuidad: `docs/agents/current-status.md`
+- QA manual en curso: `docs/agents/manual-qa.md`
 - Documentacion interna del proyecto (auditorias, notas, releases): `docs/project/README.md`
 
 ## Notas
 
 - Textos publicos y documentacion nueva: usar **ARCA**. "AFIP" queda para nomenclatura legacy (URLs/variables existentes).
 - Si estas buscando "donde esta X en el codigo", empeza por `docs/agents/structure.md`.
-

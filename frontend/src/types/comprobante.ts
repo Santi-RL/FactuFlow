@@ -3,117 +3,123 @@
  */
 
 export interface ItemComprobante {
-  id?: number
-  codigo?: string
-  descripcion: string
-  cantidad: number
-  unidad: string
-  precio_unitario: number
-  descuento_porcentaje: number
-  iva_porcentaje: number
-  subtotal?: number
-  orden: number
-  comprobante_id?: number
+  id?: number;
+  codigo?: string;
+  descripcion: string;
+  cantidad: number;
+  unidad: string;
+  precio_unitario: number;
+  descuento_porcentaje: number;
+  iva_porcentaje: number;
+  subtotal?: number;
+  orden: number;
+  comprobante_id?: number;
 }
 
 export interface EmitirComprobanteRequest {
-  empresa_id: number
-  punto_venta_id: number
-  tipo_comprobante: number
-  concepto: number
-  
+  empresa_id: number;
+  punto_venta_id: number;
+  tipo_comprobante: number;
+  concepto: number;
+
   // Cliente
-  cliente_id?: number
-  tipo_documento: number
-  numero_documento: string
-  razon_social: string
-  condicion_iva: string
-  domicilio?: string
-  
+  cliente_id?: number;
+  tipo_documento: number;
+  numero_documento: string;
+  razon_social: string;
+  condicion_iva: string;
+  domicilio?: string;
+  guardar_cliente?: boolean;
+
   // Items
-  items: ItemComprobante[]
-  
+  items: ItemComprobante[];
+
   // Servicios
-  fecha_servicio_desde?: string
-  fecha_servicio_hasta?: string
-  fecha_vto_pago?: string
-  
+  fecha_servicio_desde?: string;
+  fecha_servicio_hasta?: string;
+  fecha_vto_pago?: string;
+
   // Opcional
-  observaciones?: string
-  moneda: string
-  cotizacion: number
+  observaciones?: string;
+  moneda: string;
+  cotizacion: number;
 }
 
 export interface EmitirComprobanteResponse {
-  exito: boolean
-  comprobante_id?: number
-  tipo_comprobante: number
-  punto_venta: number
-  numero: number
-  fecha: string
-  cae?: string
-  cae_vencimiento?: string
-  total: number
-  mensaje: string
-  errores: string[]
+  exito: boolean;
+  comprobante_id?: number;
+  tipo_comprobante: number;
+  punto_venta: number;
+  numero: number;
+  fecha: string;
+  cae?: string;
+  cae_vencimiento?: string;
+  total: number;
+  mensaje: string;
+  errores: string[];
 }
 
 export interface Comprobante {
-  id: number
-  tipo_comprobante: number
-  numero: number
-  fecha_emision: string
-  fecha_vencimiento?: string
-  subtotal: number
-  descuento: number
-  iva_21: number
-  iva_10_5: number
-  iva_27: number
-  otros_impuestos: number
-  total: number
-  cae?: string
-  cae_vencimiento?: string
-  estado: string
-  moneda: string
-  cotizacion: number
-  observaciones?: string
-  empresa_id: number
-  punto_venta_id: number
-  cliente_id: number
+  id: number;
+  tipo_comprobante: number;
+  numero: number;
+  fecha_emision: string;
+  fecha_vencimiento?: string;
+  subtotal: number;
+  descuento: number;
+  iva_21: number;
+  iva_10_5: number;
+  iva_27: number;
+  otros_impuestos: number;
+  total: number;
+  cae?: string;
+  cae_vencimiento?: string;
+  estado: string;
+  moneda: string;
+  cotizacion: number;
+  observaciones?: string;
+  empresa_id: number;
+  punto_venta_id: number;
+  cliente_id?: number | null;
+  receptor_tipo_documento?: number | null;
+  receptor_numero_documento?: string | null;
+  receptor_razon_social?: string | null;
+  receptor_condicion_iva?: string | null;
+  receptor_domicilio?: string | null;
 }
 
 export interface ComprobanteDetalle extends Comprobante {
-  items: ItemComprobante[]
-  cliente_nombre?: string
-  cliente_cuit?: string
-  punto_venta_numero?: number
+  items: ItemComprobante[];
+  cliente_nombre?: string;
+  cliente_cuit?: string;
+  punto_venta_numero?: number;
 }
 
 export interface ComprobanteListItem {
-  id: number
-  tipo_comprobante: number
-  numero: number
-  fecha_emision: string
-  total: number
-  estado: string
-  cae?: string
-  cliente_nombre: string
-  cliente_documento: string
-  punto_venta_numero: number
+  id: number;
+  tipo_comprobante: number;
+  numero: number;
+  fecha_emision: string;
+  total: number;
+  estado: string;
+  cae?: string;
+  cliente_nombre: string;
+  cliente_documento: string;
+  punto_venta_numero: number;
 }
 
 export interface PaginatedComprobantesResponse {
-  items: ComprobanteListItem[]
-  total: number
-  page: number
-  per_page: number
-  pages: number
+  items: ComprobanteListItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
 }
 
 export interface ProximoNumeroResponse {
-  punto_venta: number
-  tipo_comprobante: number
-  proximo_numero: number
+  punto_venta: number;
+  tipo_comprobante: number;
+  proximo_numero: number;
 }
 
 // Tipos de comprobante
@@ -127,32 +133,32 @@ export const TIPOS_COMPROBANTE = {
   FACTURA_C: 11,
   NOTA_DEBITO_C: 12,
   NOTA_CREDITO_C: 13,
-} as const
+} as const;
 
 export const TIPOS_COMPROBANTE_NOMBRES: Record<number, string> = {
-  1: 'Factura A',
-  2: 'Nota de Débito A',
-  3: 'Nota de Crédito A',
-  6: 'Factura B',
-  7: 'Nota de Débito B',
-  8: 'Nota de Crédito B',
-  11: 'Factura C',
-  12: 'Nota de Débito C',
-  13: 'Nota de Crédito C',
-}
+  1: "Factura A",
+  2: "Nota de Débito A",
+  3: "Nota de Crédito A",
+  6: "Factura B",
+  7: "Nota de Débito B",
+  8: "Nota de Crédito B",
+  11: "Factura C",
+  12: "Nota de Débito C",
+  13: "Nota de Crédito C",
+};
 
 // Tipos de concepto
 export const TIPOS_CONCEPTO = {
   PRODUCTOS: 1,
   SERVICIOS: 2,
   PRODUCTOS_Y_SERVICIOS: 3,
-} as const
+} as const;
 
 export const TIPOS_CONCEPTO_NOMBRES: Record<number, string> = {
-  1: 'Productos',
-  2: 'Servicios',
-  3: 'Productos y Servicios',
-}
+  1: "Productos",
+  2: "Servicios",
+  3: "Productos y Servicios",
+};
 
 // Tipos de documento
 export const TIPOS_DOCUMENTO = {
@@ -191,46 +197,46 @@ export const TIPOS_DOCUMENTO = {
   CI_RIO_NEGRO: 22,
   CI_SANTA_CRUZ: 23,
   CI_TIERRA_DEL_FUEGO: 24,
-} as const
+} as const;
 
 export const TIPOS_DOCUMENTO_NOMBRES: Record<number, string> = {
-  80: 'CUIT',
-  86: 'CUIL',
-  96: 'DNI',
-  94: 'Pasaporte',
-  99: 'Consumidor Final',
-}
+  80: "CUIT",
+  86: "CUIL",
+  96: "DNI",
+  94: "Pasaporte",
+  99: "Consumidor Final",
+};
 
 // Alícuotas de IVA
 export const ALICUOTAS_IVA = [
-  { value: 0, label: 'Exento / 0%', porcentaje: 0 },
-  { value: 10.5, label: '10.5%', porcentaje: 10.5 },
-  { value: 21, label: '21%', porcentaje: 21 },
-  { value: 27, label: '27%', porcentaje: 27 },
-]
+  { value: 0, label: "Exento / 0%", porcentaje: 0 },
+  { value: 10.5, label: "10.5%", porcentaje: 10.5 },
+  { value: 21, label: "21%", porcentaje: 21 },
+  { value: 27, label: "27%", porcentaje: 27 },
+];
 
 // Condiciones IVA
 export const CONDICIONES_IVA = [
-  'Responsable Inscripto',
-  'Monotributo',
-  'Exento',
-  'Consumidor Final',
-  'Responsable No Inscripto',
-]
+  "Responsable Inscripto",
+  "Monotributo",
+  "Exento",
+  "Consumidor Final",
+  "Responsable No Inscripto",
+];
 
 // Estados de comprobante
 export const ESTADOS_COMPROBANTE = {
-  BORRADOR: 'borrador',
-  PENDIENTE: 'pendiente',
-  AUTORIZADO: 'autorizado',
-  RECHAZADO: 'rechazado',
-  ANULADO: 'anulado',
-} as const
+  BORRADOR: "borrador",
+  PENDIENTE: "pendiente",
+  AUTORIZADO: "autorizado",
+  RECHAZADO: "rechazado",
+  ANULADO: "anulado",
+} as const;
 
 export const ESTADOS_COMPROBANTE_NOMBRES: Record<string, string> = {
-  borrador: 'Borrador',
-  pendiente: 'Pendiente',
-  autorizado: 'Autorizado',
-  rechazado: 'Rechazado',
-  anulado: 'Anulado',
-}
+  borrador: "Borrador",
+  pendiente: "Pendiente",
+  autorizado: "Autorizado",
+  rechazado: "Rechazado",
+  anulado: "Anulado",
+};

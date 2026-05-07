@@ -1,48 +1,50 @@
 <script setup lang="ts">
-import { computed, useAttrs, useId } from 'vue'
+import { computed, useAttrs, useId } from "vue";
 
 interface Props {
-  label?: string
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date'
-  placeholder?: string
-  error?: string
-  hint?: string
-  required?: boolean
-  disabled?: boolean
-  modelValue?: string | number
+  label?: string;
+  type?: "text" | "email" | "password" | "number" | "tel" | "date";
+  placeholder?: string;
+  error?: string;
+  hint?: string;
+  required?: boolean;
+  disabled?: boolean;
+  modelValue?: string | number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  label: '',
-  type: 'text',
-  placeholder: '',
-  error: '',
-  hint: '',
+  label: "",
+  type: "text",
+  placeholder: "",
+  error: "",
+  hint: "",
   required: false,
   disabled: false,
-  modelValue: ''
-})
+  modelValue: "",
+});
 
 const emit = defineEmits<{
-  'update:modelValue': [value: string | number]
-}>()
+  "update:modelValue": [value: string | number];
+}>();
 
-const attrs = useAttrs()
-const generatedId = useId()
-const inputId = computed(() => (attrs.id as string) || generatedId)
+const attrs = useAttrs();
+const generatedId = useId();
+const inputId = computed(() => (attrs.id as string) || generatedId);
 
 const inputClasses = computed(() => {
-  const baseClasses = 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-200'
-  const normalClasses = 'border-gray-300 focus:ring-primary-500 focus:border-transparent'
-  const errorClasses = 'border-red-500 focus:ring-red-500'
-  
-  return `${baseClasses} ${props.error ? errorClasses : normalClasses}`
-})
+  const baseClasses =
+    "w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-200";
+  const normalClasses =
+    "border-gray-300 focus:ring-primary-500 focus:border-transparent";
+  const errorClasses = "border-red-500 focus:ring-red-500";
+
+  return `${baseClasses} ${props.error ? errorClasses : normalClasses}`;
+});
 
 const handleInput = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.value)
-}
+  const target = event.target as HTMLInputElement;
+  emit("update:modelValue", target.value);
+};
 </script>
 
 <template>
@@ -53,12 +55,9 @@ const handleInput = (event: Event) => {
       class="block text-sm font-medium text-gray-700 mb-1"
     >
       {{ label }}
-      <span
-        v-if="required"
-        class="text-red-500"
-      >*</span>
+      <span v-if="required" class="text-red-500">*</span>
     </label>
-    
+
     <input
       :id="inputId"
       :type="type"
@@ -69,19 +68,13 @@ const handleInput = (event: Event) => {
       :class="inputClasses"
       v-bind="attrs"
       @input="handleInput"
-    >
-    
-    <p
-      v-if="hint && !error"
-      class="mt-1 text-sm text-gray-500"
-    >
+    />
+
+    <p v-if="hint && !error" class="mt-1 text-sm text-gray-500">
       {{ hint }}
     </p>
-    
-    <p
-      v-if="error"
-      class="mt-1 text-sm text-red-600"
-    >
+
+    <p v-if="error" class="mt-1 text-sm text-red-600">
       {{ error }}
     </p>
   </div>

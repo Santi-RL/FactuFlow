@@ -18,4 +18,3 @@ stores/
 
 - Preferir `defineStore(..., () => { ... })` (setup stores) para tipado y composicion.
 - Si un store crece demasiado, mover logica a `frontend/src/services/` y dejar el store como orquestador.
-

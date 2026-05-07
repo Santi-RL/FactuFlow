@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: factuflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB requerido}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER requerido}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - ${FACTUFLOW_POSTGRES_DIR:-./data/postgres}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factuflow-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: factuflow-backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY requerido}
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      ARCA_ENV: ${ARCA_ENV:-produccion}
+      CERTS_PATH: /app/certs
+      ARCA_TOKEN_CACHE_PATH: /app/data/arca_token_cache.json
+      BATCH_SYNC_LIMIT: ${BATCH_SYNC_LIMIT:-100}
+      BATCH_MAX_ROWS: ${BATCH_MAX_ROWS:-20000}
+      BATCH_MAX_GROUPS: ${BATCH_MAX_GROUPS:-5000}
+      BATCH_WORKER_ENABLED: ${BATCH_WORKER_ENABLED:-true}
+      BATCH_WORKER_POLL_SECONDS: ${BATCH_WORKER_POLL_SECONDS:-5}
+      BATCH_WORKER_BATCH_SIZE: ${BATCH_WORKER_BATCH_SIZE:-1}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS requerido}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FILE: /app/logs/factuflow.log
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - ${FACTUFLOW_DATA_DIR:-./data/app}:/app/data
+      - ${FACTUFLOW_CERTS_DIR:-./certs}:/app/certs
+      - ${FACTUFLOW_LOGS_DIR:-./logs}:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - factuflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL requerido}
+    container_name: factuflow-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - backend
+    networks:
+      - factuflow-network
+
+networks:
+  factuflow-network:
+    driver: bridge

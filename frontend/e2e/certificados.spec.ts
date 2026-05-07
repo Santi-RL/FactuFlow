@@ -10,8 +10,10 @@ test.describe('Wizard de Certificados', () => {
   test.beforeEach(async ({ page }) => {
     await mockApi(page)
     await loginAsAdmin(page)
-    await page.getByTestId('nav-certificados').click()
-    await page.waitForURL(/certificados/)
+    await Promise.all([
+      page.waitForURL(/certificados/),
+      page.getByTestId('nav-certificados').click(),
+    ])
   })
 
   test('debe mostrar lista de certificados', async ({ page }) => {
@@ -25,7 +27,10 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe abrir wizard al hacer click en nuevo certificado', async ({ page }) => {
-    await page.getByTestId('certificados-agregar').click()
+    await Promise.all([
+      page.waitForURL(/certificados\/nuevo/),
+      page.getByTestId('certificados-agregar').click(),
+    ])
     
     // Verificar que se abre el wizard
     await expect(page).toHaveURL(/certificados\/nuevo/)
@@ -37,8 +42,10 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe navegar entre pasos del wizard', async ({ page }) => {
-    await page.getByTestId('certificados-agregar').click()
-    await page.waitForURL(/certificados\/nuevo/)
+    await Promise.all([
+      page.waitForURL(/certificados\/nuevo/),
+      page.getByTestId('certificados-agregar').click(),
+    ])
     
     // Verificar indicador de progreso (5 pasos)
     await expect(
@@ -53,8 +60,10 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe mostrar formulario de CSR en paso 2', async ({ page }) => {
-    await page.getByTestId('certificados-agregar').click()
-    await page.waitForURL(/certificados\/nuevo/)
+    await Promise.all([
+      page.waitForURL(/certificados\/nuevo/),
+      page.getByTestId('certificados-agregar').click(),
+    ])
     
     // Ir al paso 2
     await page.getByRole('button', { name: /comenzar|continuar|siguiente/i }).click()
@@ -65,8 +74,10 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe validar CUIT en formulario CSR', async ({ page }) => {
-    await page.getByTestId('certificados-agregar').click()
-    await page.waitForURL(/certificados\/nuevo/)
+    await Promise.all([
+      page.waitForURL(/certificados\/nuevo/),
+      page.getByTestId('certificados-agregar').click(),
+    ])
     
     // Ir al paso 2
     await page.getByRole('button', { name: /comenzar|continuar|siguiente/i }).click()
@@ -80,8 +91,10 @@ test.describe('Wizard de Certificados', () => {
   })
 
   test('debe completar el wizard completo (mock) hasta la pantalla de éxito', async ({ page }) => {
-    await page.getByTestId('certificados-agregar').click()
-    await page.waitForURL(/certificados\/nuevo/)
+    await Promise.all([
+      page.waitForURL(/certificados\/nuevo/),
+      page.getByTestId('certificados-agregar').click(),
+    ])
 
     // Step 1 -> Step 2
     await page.getByRole('button', { name: /comenzar|continuar|siguiente/i }).click()
@@ -111,7 +124,12 @@ test.describe('Wizard de Certificados', () => {
     await expect(page.getByTestId('cert-wizard-step4-next')).toBeVisible()
     await page.getByTestId('cert-wizard-step4-next').click()
 
-    // Step 5: verificar
+    // Step 5: confirmar autorizacion del servicio wsfe
+    await expect(page.getByRole('heading', { name: /autorizá el servicio de facturación/i })).toBeVisible()
+    await page.getByTestId('cert-wizard-wsfe-authorized').check()
+    await page.getByTestId('cert-wizard-step5-next').click()
+
+    // Step 6: verificar
     await expect(page.getByTestId('cert-wizard-verificar')).toBeVisible()
     await page.getByTestId('cert-wizard-verificar').click()
     await expect(page.getByTestId('cert-wizard-finish')).toBeVisible()

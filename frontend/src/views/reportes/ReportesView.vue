@@ -1,10 +1,7 @@
 <template>
   <div class="reportes-view">
     <div class="mb-6">
-      <h1
-        class="text-3xl font-bold text-gray-800"
-        data-testid="page-title"
-      >
+      <h1 class="text-3xl font-bold text-gray-800" data-testid="page-title">
         📊 Reportes
       </h1>
       <p class="text-gray-600 mt-2">
@@ -14,7 +11,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <!-- Reporte de Ventas -->
-      <div 
+      <div
         class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
         @click="irAReporteVentas"
       >
@@ -35,14 +32,13 @@
             </svg>
           </div>
         </div>
-        
-        <h2 class="text-xl font-bold text-gray-800 mb-2">
-          Ventas por Período
-        </h2>
+
+        <h2 class="text-xl font-bold text-gray-800 mb-2">Ventas por Período</h2>
         <p class="text-gray-600 mb-4">
-          Ver ventas y totales del período elegido. Incluye facturas, notas de crédito y débito.
+          Ver ventas y totales del período elegido. Incluye facturas, notas de
+          crédito y débito.
         </p>
-        
+
         <div class="flex items-center text-blue-600 font-medium">
           Ver reporte
           <svg
@@ -62,7 +58,7 @@
       </div>
 
       <!-- Subdiario IVA Ventas -->
-      <div 
+      <div
         class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
         @click="irAReporteIVA"
       >
@@ -83,14 +79,15 @@
             </svg>
           </div>
         </div>
-        
+
         <h2 class="text-xl font-bold text-gray-800 mb-2">
           Subdiario IVA Ventas
         </h2>
         <p class="text-gray-600 mb-4">
-          Para tu declaración jurada mensual. Detalle de IVA discriminado por alícuota.
+          Para tu declaración jurada mensual. Detalle de IVA discriminado por
+          alícuota.
         </p>
-        
+
         <div class="flex items-center text-green-600 font-medium">
           Ver reporte
           <svg
@@ -110,7 +107,7 @@
       </div>
 
       <!-- Ranking de Clientes -->
-      <div 
+      <div
         class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
         @click="irARankingClientes"
       >
@@ -131,14 +128,14 @@
             </svg>
           </div>
         </div>
-        
+
         <h2 class="text-xl font-bold text-gray-800 mb-2">
           Ranking de Clientes
         </h2>
         <p class="text-gray-600 mb-4">
           Clientes con mayor facturación en el período seleccionado.
         </p>
-        
+
         <div class="flex items-center text-purple-600 font-medium">
           Ver reporte
           <svg
@@ -179,7 +176,8 @@
             Información sobre reportes
           </h3>
           <p class="text-blue-800 text-sm">
-            Los reportes solo incluyen comprobantes autorizados por ARCA. Los comprobantes en estado borrador o pendiente no se contabilizan.
+            Los reportes solo incluyen comprobantes autorizados por ARCA. Los
+            comprobantes en estado borrador o pendiente no se contabilizan.
           </p>
         </div>
       </div>
@@ -188,21 +186,21 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { useRouter } from "vue-router";
 
-const router = useRouter()
+const router = useRouter();
 
 const irAReporteVentas = () => {
-  router.push({ name: 'reporte-ventas' })
-}
+  router.push({ name: "reporte-ventas" });
+};
 
 const irAReporteIVA = () => {
-  router.push({ name: 'reporte-iva' })
-}
+  router.push({ name: "reporte-iva" });
+};
 
 const irARankingClientes = () => {
-  router.push({ name: 'reporte-clientes' })
-}
+  router.push({ name: "reporte-clientes" });
+};
 </script>
 
 <style scoped>

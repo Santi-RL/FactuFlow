@@ -23,4 +23,3 @@ components/
 ## Componentes base
 
 Los componentes base del proyecto viven en `frontend/src/components/ui/` y usan prefijo `Base` (ej: `BaseButton.vue`, `BaseInput.vue`, `BaseModal.vue`).
-

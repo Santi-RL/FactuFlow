@@ -1,33 +1,33 @@
 <script setup lang="ts">
-import BaseSpinner from './BaseSpinner.vue'
+import BaseSpinner from "./BaseSpinner.vue";
 
 interface Column {
-  key: string
-  label: string
-  sortable?: boolean
+  key: string;
+  label: string;
+  sortable?: boolean;
 }
 
 interface Props {
-  columns: Column[]
-  data: any[]
-  loading?: boolean
-  emptyText?: string
+  columns: Column[];
+  data: any[];
+  loading?: boolean;
+  emptyText?: string;
 }
 
 withDefaults(defineProps<Props>(), {
   loading: false,
-  emptyText: 'No hay datos para mostrar'
-})
+  emptyText: "No hay datos para mostrar",
+});
 
 const emit = defineEmits<{
-  sort: [key: string]
-}>()
+  sort: [key: string];
+}>();
 
 const handleSort = (column: Column) => {
   if (column.sortable) {
-    emit('sort', column.key)
+    emit("sort", column.key);
   }
-}
+};
 </script>
 
 <template>
@@ -41,7 +41,7 @@ const handleSort = (column: Column) => {
             scope="col"
             :class="[
               'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
-              column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
+              column.sortable ? 'cursor-pointer hover:bg-gray-100' : '',
             ]"
             @click="handleSort(column)"
           >
@@ -96,10 +96,7 @@ const handleSort = (column: Column) => {
             v-if="$slots.actions"
             class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
           >
-            <slot
-              name="actions"
-              :row="row"
-            />
+            <slot name="actions" :row="row" />
           </td>
         </tr>
       </tbody>

@@ -96,7 +96,16 @@ docker-compose up -d --build
    alembic upgrade head
    ```
 
-5. **Ejecutar servidor**
+5. **Crear usuario administrador**
+   ```bash
+   python -m app.scripts.create_admin_user
+   ```
+
+   El comando usa la base configurada por `DATABASE_URL`. Pide email, nombre y
+   contrasena sin mostrarla en pantalla. Si el email ya existe, promueve ese usuario
+   a administrador, lo activa y permite resetear la contrasena.
+
+6. **Ejecutar servidor**
    ```bash
    uvicorn app.main:app --reload --port 8000
    ```
@@ -168,7 +177,26 @@ docker-compose up -d --build
    # También acepta AFIP_ENV por compatibilidad
    ```
 
-6. **Configurar Nginx (opcional, para HTTPS)**
+6. **Crear usuario propietario**
+
+   Con Docker Compose de produccion:
+
+   ```bash
+   docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backend \
+     python -m app.scripts.create_admin_user
+   ```
+
+   En una instalacion manual, activar el entorno del backend y ejecutar:
+
+   ```bash
+   cd backend
+   python -m app.scripts.create_admin_user
+   ```
+
+   Crear este usuario antes de la primera prueba real para tener acceso total a
+   empresas, certificados, puntos de venta, comprobantes, lotes y reportes.
+
+7. **Configurar Nginx (opcional, para HTTPS)**
    ```bash
    sudo apt install nginx certbot python3-certbot-nginx
    ```

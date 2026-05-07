@@ -1,342 +1,207 @@
-# Manual de Usuario - FactuFlow
+# Manual de usuario - FactuFlow
 
-Guía completa para usar FactuFlow y emitir facturas electrónicas.
+Ultima actualizacion: 2026-05-05
+
+Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
 ## Contenido
 
-1. [Configuración Inicial](#configuración-inicial)
-2. [Gestión de Clientes](#gestión-de-clientes)
-3. [Emisión de Facturas](#emisión-de-facturas)
-4. [Consulta de Comprobantes](#consulta-de-comprobantes)
-5. [Reportes](#reportes)
-6. [Preguntas Frecuentes](#preguntas-frecuentes)
-
----
-
-## Configuración Inicial
-
-### Primer Acceso
-
-1. **Acceder a FactuFlow**
-   - Abrir navegador en http://localhost:8080
-   - O tu dominio si está en producción
-
-2. **Login**
-   - Usuario: `admin` (por defecto)
-   - Password: La que configuraste durante la instalación
-
-3. **Configurar tu Empresa**
-   - Ir a "Configuración" en el menú
-   - Completar:
-     - CUIT de tu empresa
-     - Razón social
-     - Domicilio fiscal
-     - Fecha de inicio de actividades
-     - Puntos de venta habilitados en ARCA
-
-4. **Configurar Certificado ARCA**
-   - Ir a "Certificados" en el menú
-   - Seguir el [Wizard de Certificados](../certificates/README.md)
-   - **Importante**: Empezar con ambiente de **Homologación** para pruebas
-
----
-
-## Gestión de Clientes
-
-### Crear un Nuevo Cliente
-
-1. **Ir a "Clientes"** en el menú lateral
-
-2. **Click en "Nuevo Cliente"**
-
-3. **Completar el Formulario:**
-   - **CUIT/CUIL/DNI**: Número de documento del cliente
-     - FactuFlow validará automáticamente el formato
-   - **Tipo de Documento**: CUIT, CUIL, DNI, Pasaporte, etc.
-   - **Nombre/Razón Social**: Nombre completo o razón social
-   - **Condición IVA**:
-     - Responsable Inscripto
-     - Monotributista
-     - Consumidor Final
-     - Exento
-   - **Email** (opcional): Para enviar facturas automáticamente
-   - **Domicilio** (opcional): Dirección del cliente
-
-4. **Click en "Guardar"**
-
-### Editar Cliente
-
-1. Ir a "Clientes"
-2. Click en el ícono de lápiz (✏️) junto al cliente
-3. Modificar los datos necesarios
-4. Click en "Guardar"
-
-### Buscar Cliente
-
-- Usar la barra de búsqueda en la parte superior
-- Podés buscar por nombre o CUIT
-- Los resultados se filtran automáticamente
-
----
-
-## Emisión de Facturas
-
-### Nueva Factura - Paso a Paso
-
-#### Paso 1: Tipo de Comprobante
-
-1. **Click en "Nueva Factura"** en el menú o en la página de Comprobantes
-
-2. **Seleccionar Tipo:**
-   - **Factura A**: Para clientes Responsables Inscriptos
-     - Discrimina IVA
-     - Requiere CUIT del cliente
-   - **Factura B**: Para Consumidores Finales y Monotributistas
-     - IVA incluido
-     - Puede ser DNI o CUIT
-   - **Factura C**: Para operaciones exentas
-     - Sin IVA
-
-3. **Seleccionar Punto de Venta**
-   - Dropdown con tus puntos de venta habilitados
-   - El número de comprobante se asignará automáticamente
-
-#### Paso 2: Seleccionar Cliente
-
-1. **Buscar Cliente Existente:**
-   - Escribir nombre o CUIT en el buscador
-   - Seleccionar de la lista
-
-2. **O Crear Cliente Rápido:**
-   - Click en "Nuevo Cliente"
-   - Completar datos mínimos:
-     - CUIT/DNI
-     - Nombre
-     - Condición IVA
-   - Se guardará automáticamente
-
-#### Paso 3: Agregar Items
-
-1. **Click en "Agregar Item"**
-
-2. **Completar Datos del Item:**
-   - **Descripción**: Qué estás facturando
-     - Ej: "Servicios de consultoría - Enero 2024"
-     - Ej: "Producto XYZ - Código 123"
-   - **Cantidad**: Número de unidades
-   - **Precio Unitario**: Precio sin IVA (en Factura A)
-   - **IVA**: Seleccionar alícuota
-     - 0% (exento)
-     - 10.5%
-     - 21% (más común)
-     - 27%
-
-3. **Ver Subtotal Calculado**
-   - Se calcula automáticamente: Cantidad × Precio × (1 + IVA)
-
-4. **Agregar más items** si es necesario
-   - Click en "Agregar Item" nuevamente
-   - Repetir proceso
-
-5. **Verificar Totales**
-   - **Subtotal**: Suma de todos los items sin IVA
-   - **IVA**: Desglosado por alícuota
-   - **Total**: Importe final a pagar
-
-#### Paso 4: Vista Previa
-
-1. **Click en "Vista Previa"**
-
-2. **Revisar Todos los Datos:**
-   - Tipo y número de comprobante
-   - Datos del cliente
-   - Items y totales
-   - Todo debe ser correcto antes de emitir
-
-3. **Si hay errores:**
-   - Click en "Volver a Editar"
-   - Corregir los datos
-
-#### Paso 5: Emitir
-
-1. **Click en "Emitir Comprobante"**
-
-2. **Esperar Respuesta de ARCA**
-   - Se mostrará un spinner
-   - Puede tardar 5-10 segundos
-
-3. **Resultado:**
-
-   **✅ Éxito: CAE Otorgado**
-   - Se mostrará modal con:
-     - CAE (Código de Autorización Electrónica)
-     - Vencimiento del CAE
-     - Opciones:
-       - Ver Comprobante
-       - Imprimir PDF
-       - Enviar por Email
-
-   **❌ Error: Comprobante Rechazado**
-   - ARCA mostrará el motivo del rechazo
-   - Ejemplos:
-     - "CUIT inexistente"
-     - "Punto de venta no habilitado"
-     - "Error en cálculo de IVA"
-   - Corregir y volver a intentar
-
----
-
-## Consulta de Comprobantes
-
-### Listado de Comprobantes
-
-1. **Ir a "Comprobantes"** en el menú
-
-2. **Ver Listado Completo:**
-   - Tipo de comprobante (badge con color)
-   - Número (formato: 0001-00000123)
-   - Fecha
-   - Cliente
-   - Total
-   - CAE
-   - Estado (Autorizado/Rechazado)
-
-3. **Filtrar:**
-   - Por tipo de comprobante
-   - Por rango de fechas
-   - Por cliente
-   - Por estado
-
-4. **Ordenar:**
-   - Click en encabezados de columna
-   - Ordenar por fecha, número, total, etc.
-
-### Ver Detalle de Comprobante
-
-1. Click en el ícono de ojo (👁️) o en el número del comprobante
-
-2. **Ver Información Completa:**
-   - Todos los datos del comprobante
-   - Items detallados
-   - CAE y vencimiento
-   - Código QR (según normativa ARCA)
-
-3. **Acciones Disponibles:**
-   - **Imprimir**: Genera y abre PDF
-   - **Descargar PDF**: Descarga archivo
-   - **Enviar por Email**: Abre modal para enviar
-   - **Reimprimir**: Para comprobantes antiguos
-
-### Descargar PDF
-
-El PDF incluye:
-- Logo de tu empresa
-- Datos fiscales completos
-- Tipo de comprobante destacado (A, B, C)
-- Número de comprobante
-- CAE y vencimiento CAE
-- Datos del cliente
-- Tabla de items
-- Totales desglosados
-- Código QR según normativa ARCA
-- Leyendas legales
-
----
-
-## Reportes
-
-### Ventas por Período
-
-1. **Ir a "Reportes" → "Ventas"**
-
-2. **Seleccionar Período:**
-   - Rango de fechas personalizado
-   - O presets: Esta semana, Este mes, Este año
-
-3. **Ver Reporte:**
-   - Gráfico de ventas (barras o líneas)
-   - Total facturado
-   - Cantidad de comprobantes
-   - Promedio por comprobante
-
-4. **Exportar:**
-   - Excel (.xlsx)
-   - CSV
-   - PDF
-
-### IVA Ventas
-
-1. **Ir a "Reportes" → "IVA Ventas"**
-
-2. **Seleccionar Mes**
-
-3. **Ver Libro IVA:**
-   - Listado de todos los comprobantes
-   - Desglose de IVA por alícuota
-   - Totales para DDJJ
-
-4. **Exportar** para cargar en libro IVA digital
-
----
-
-## Preguntas Frecuentes
-
-### ¿Puedo emitir facturas sin conexión a internet?
-
-No. FactuFlow necesita conexión para comunicarse con ARCA en tiempo real y obtener el CAE.
-
-### ¿Puedo anular una factura?
-
-Las facturas electrónicas no se anulan, se emite una **Nota de Crédito** que cancela el comprobante original.
-
-### ¿Qué pasa si ARCA está en mantenimiento?
-
-FactuFlow mostrará un error. Intentá más tarde. Podés guardar como borrador para no perder los datos.
-
-### ¿Puedo emitir múltiples facturas a la vez?
-
-No, cada factura debe emitirse individualmente y obtener su CAE de ARCA.
-
-### ¿Los comprobantes de homologación son válidos?
-
-No. Son solo para pruebas. Para facturación real, debés usar ambiente de **Producción**.
-
-### ¿Cómo paso de homologación a producción?
-
-1. Obtener certificado de producción desde ARCA
-2. Subirlo a FactuFlow
-3. Cambiar `ARCA_ENV=produccion` en configuración (o `AFIP_ENV` por compatibilidad)
-4. Reiniciar FactuFlow
-
-⚠️ **Solo hacerlo cuando estés seguro de que todo funciona correctamente.**
-
-### ¿Puedo facturar en dólares u otras monedas?
-
-Sí, ARCA soporta múltiples monedas. FactuFlow lo implementará en futuras versiones.
-
-### ¿Qué es el CAE?
-
-**CAE** = Código de Autorización Electrónica. Es el número que ARCA asigna a tu factura para validarla. Sin CAE, la factura no es válida.
-
-### ¿Cuánto tiempo tengo para imprimir/enviar la factura después de obtener el CAE?
-
-El CAE tiene un vencimiento (generalmente 10 días). Debés entregar el comprobante al cliente antes de ese vencimiento.
-
-### ¿Puedo usar FactuFlow para múltiples empresas?
-
-Actualmente, cada instalación de FactuFlow es para una empresa (un CUIT). Para múltiples empresas, instalá múltiples instancias.
-
----
-
-## Soporte
-
-¿Necesitás ayuda?
-
-- 📖 [Guía de Certificados](../certificates/README.md)
-- 📖 [Guía de Instalación](../setup/README.md)
-- 💬 [GitHub Discussions](https://github.com/Santi-RL/FactuFlow/discussions)
-- 🐛 [Reportar Bug](https://github.com/Santi-RL/FactuFlow/issues)
-
----
-
-**¡Feliz Facturación! 📄✨**
+1. Acceso al sistema
+2. Emisor activo
+3. Dashboard
+4. Clientes
+5. Comprobantes
+6. Emision masiva
+7. Reportes
+8. Certificados
+9. Puntos de venta
+10. Emisores
+11. Limitaciones actuales
+
+## 1. Acceso al sistema
+
+1. Abrir FactuFlow en el navegador.
+2. Ingresar con tu correo electronico y contrasena.
+3. Si es la primera vez y no hay un usuario creado, usar la opcion `Configurar sistema`.
+
+Si ya existe al menos un usuario y se necesita crear otro administrador, hoy se hace
+con el comando operativo `python -m app.scripts.create_admin_user` desde el backend.
+Todavia no hay una pantalla de gestion de usuarios.
+
+## 2. Emisor activo
+
+Si tu usuario administra mas de un CUIT, en el encabezado veras el selector `Emisor activo`.
+
+Todo lo que hagas en estas secciones queda asociado a ese emisor:
+- comprobantes
+- emision masiva
+- certificados
+- reportes
+
+Antes de emitir o consultar informacion, verifica siempre que el emisor activo sea el correcto.
+
+## 3. Dashboard
+
+El dashboard muestra un resumen general y accesos rapidos.
+
+Hoy informa:
+- total de clientes
+- comprobantes emitidos en el mes actual
+- ultimo comprobante emitido
+- estado del certificado activo
+
+Desde ahi puedes ir directo a:
+- nuevo cliente
+- emitir factura
+- emision masiva
+- configurar empresa
+
+## 4. Clientes
+
+En `Clientes` puedes:
+- crear clientes
+- editar clientes
+- buscar por nombre o documento
+
+Datos habituales:
+- tipo y numero de documento
+- razon social o nombre
+- condicion frente al IVA
+- domicilio, localidad y provincia
+- email y telefono si corresponden
+
+## 5. Comprobantes
+
+En `Comprobantes` puedes:
+- ver el listado de comprobantes emitidos
+- filtrar por texto, tipo o rango de fechas
+- crear un comprobante puntual
+- abrir el detalle de un comprobante autorizado
+
+### Detalle de comprobante
+
+El detalle muestra:
+- tipo y numero
+- fecha
+- cliente
+- items
+- importes
+- CAE y vencimiento
+
+Si el comprobante esta autorizado, veras:
+- `Ver PDF`
+- `Descargar PDF`
+
+### Como funciona el PDF hoy
+
+- El PDF no se genera automaticamente al emitir.
+- Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
+- Esto evita guardar archivos innecesarios.
+
+## 6. Emision masiva
+
+La emision masiva esta pensada para cargar muchas facturas desde Excel.
+
+Flujo general:
+
+1. Descargar la plantilla.
+2. Completar el archivo respetando las columnas fijas.
+3. Subir el Excel.
+4. Validar errores por fila o por comprobante.
+5. Confirmar la emision.
+6. Revisar resultados del lote.
+7. Si lo necesitas, descargar el archivo observado del lote.
+
+Reglas principales:
+- un lote pertenece a un solo emisor activo
+- un comprobante puede ocupar varias filas agrupadas por `comprobante_ref`
+- los clientes precargados son opcionales para emision masiva
+- para consumidor final en comprobantes B/C de importe menor a `$10.000.000`,
+  puedes dejar vacios tipo de documento, numero, nombre y domicilio; FactuFlow
+  lo normaliza como `A CONSUMIDOR FINAL`
+- si el importe de consumidor final es igual o superior a `$10.000.000`, debes
+  informar CUIT, CUIL, CDI, DNI, pasaporte u otro documento valido
+- los comprobantes guardan una copia fiscal del receptor al emitir; editar un
+  cliente despues no cambia el receptor historico del comprobante
+- los errores se muestran por fila o por comprobante
+- las alicuotas de IVA permitidas son `0`, `10.5`, `21` y `27`
+- los lotes chicos se emiten en la misma sesion
+- los lotes grandes quedan `En cola` y se procesan en segundo plano con seguimiento automatico
+
+## 7. Reportes
+
+La seccion `Reportes` muestra consultas basicas:
+- ventas
+- IVA
+- ranking de clientes
+
+Los reportes usan el emisor activo seleccionado.
+
+## 8. Certificados
+
+En `Certificados` gestionas los certificados de ARCA por ambiente.
+
+Uso recomendado:
+- trabajar primero en homologacion
+- verificar vigencia del certificado antes de emitir
+- mantener un solo certificado activo por empresa y ambiente
+
+En la pantalla actual puedes:
+- ver nombre, CUIT, ambiente y vencimiento
+- agregar un certificado
+- probar la conexion del certificado activo contra ARCA antes de emitir
+- eliminar un certificado
+
+Al cargar un certificado nuevo, el wizard incluye un paso obligatorio para
+autorizar el servicio `wsfe` en ARCA antes de probar la conexion. En produccion
+esa autorizacion se hace desde `Administrador de Relaciones de Clave Fiscal`;
+en homologacion se hace desde WSASS. El certificado puede ser valido y aun asi
+fallar si no esta asociado a ese servicio.
+
+Antes de emitir comprobantes reales en produccion, usa `Probar conexion` sobre
+el certificado productivo del emisor activo. La prueba valida la comunicacion
+con ARCA usando ese certificado, sin generar comprobantes ni consumir
+numeracion fiscal.
+
+## 9. Puntos de venta
+
+En `Puntos de venta` puedes ver y sincronizar los puntos de venta habilitados para el emisor activo.
+
+Importante:
+- el numero debe coincidir con el punto de venta habilitado en ARCA para el sistema usado
+- para homologacion o produccion con webservices, validar el punto de venta antes de emitir
+- puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio
+- la sincronizacion importa solo puntos no bloqueados y sin fecha de baja
+- puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
+  completa de puntos, incluyendo sistema, domicilio y nombre de fantasia
+- FactuFlow marca como `Usable` solo los puntos Web Services activos, no
+  bloqueados y sin baja; los puntos Factuweb, Comprobantes en Linea o
+  Controlador Fiscal quedan visibles como referencia pero no se usan para emitir
+- los datos importados se pueden editar manualmente desde `Editar`
+
+## 10. Emisores
+
+En `Emisores` puedes editar y guardar los datos fiscales y generales del emisor activo, o agregar otro CUIT para operar.
+
+Al agregar un emisor, puedes subir una constancia de inscripcion ARCA en PDF.
+FactuFlow intenta completar automaticamente nombre fiscal, CUIT, condicion IVA,
+domicilio fiscal, localidad, provincia, codigo postal e inicio de actividades.
+Antes de guardar, revisa y corrige cualquier dato detectado.
+
+Revisa especialmente:
+- CUIT
+- razon social
+- domicilio
+- condicion IVA
+- fecha de inicio de actividades
+- email y telefono de contacto
+
+## 11. Limitaciones actuales
+
+Al 2026-05-04:
+
+- no existe todavia descarga masiva de PDFs desde el listado
+- el PDF se genera bajo demanda
+- los reportes son de consulta, no de exportacion
+- la validacion concluyente de homologacion se hace por webservice, no por QR
+- para una primera prueba real en produccion sigue faltando configurar certificado y punto de venta productivos

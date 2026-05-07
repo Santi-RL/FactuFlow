@@ -1,137 +1,144 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useClientesStore } from '@/stores/clientes'
-import { useNotification } from '@/composables/useNotification'
-import BaseCard from '@/components/ui/BaseCard.vue'
-import BaseButton from '@/components/ui/BaseButton.vue'
-import BaseInput from '@/components/ui/BaseInput.vue'
-import BaseSelect from '@/components/ui/BaseSelect.vue'
-import type { ClienteCreate, ClienteUpdate } from '@/types/cliente'
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useClientesStore } from "@/stores/clientes";
+import { useNotification } from "@/composables/useNotification";
+import BaseCard from "@/components/ui/BaseCard.vue";
+import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseInput from "@/components/ui/BaseInput.vue";
+import BaseSelect from "@/components/ui/BaseSelect.vue";
+import type { ClienteCreate, ClienteUpdate } from "@/types/cliente";
 
-const route = useRoute()
-const router = useRouter()
-const clientesStore = useClientesStore()
-const { showSuccess, showError } = useNotification()
+const route = useRoute();
+const router = useRouter();
+const clientesStore = useClientesStore();
+const { showSuccess, showError } = useNotification();
 
-const loading = ref(false)
-const isEdit = ref(false)
-const clienteId = ref<number | null>(null)
+const loading = ref(false);
+const isEdit = ref(false);
+const clienteId = ref<number | null>(null);
 
 const formData = ref<ClienteCreate | ClienteUpdate>({
-  razon_social: '',
-  tipo_documento: 'CUIT',
-  numero_documento: '',
-  condicion_iva: 'RI',
-  domicilio: '',
-  localidad: '',
-  provincia: '',
-  codigo_postal: '',
-  email: '',
-  telefono: '',
-  notas: ''
-})
+  razon_social: "",
+  tipo_documento: "CUIT",
+  numero_documento: "",
+  condicion_iva: "RI",
+  domicilio: "",
+  localidad: "",
+  provincia: "",
+  codigo_postal: "",
+  email: "",
+  telefono: "",
+  notas: "",
+});
 
 const tipoDocumentoOptions = [
-  { value: 'CUIT', label: 'CUIT' },
-  { value: 'CUIL', label: 'CUIL' },
-  { value: 'DNI', label: 'DNI' },
-  { value: 'LE', label: 'LE' },
-  { value: 'LC', label: 'LC' },
-  { value: 'Pasaporte', label: 'Pasaporte' },
-  { value: 'CI', label: 'CI' }
-]
+  { value: "CUIT", label: "CUIT" },
+  { value: "CUIL", label: "CUIL" },
+  { value: "DNI", label: "DNI" },
+  { value: "LE", label: "LE" },
+  { value: "LC", label: "LC" },
+  { value: "Pasaporte", label: "Pasaporte" },
+  { value: "CI", label: "CI" },
+];
 
 const condicionIvaOptions = [
-  { value: 'RI', label: 'Responsable Inscripto' },
-  { value: 'Monotributo', label: 'Monotributo' },
-  { value: 'CF', label: 'Consumidor Final' },
-  { value: 'Exento', label: 'Exento' }
-]
+  { value: "RI", label: "Responsable Inscripto" },
+  { value: "Monotributo", label: "Monotributo" },
+  { value: "CF", label: "Consumidor Final" },
+  { value: "Exento", label: "Exento" },
+];
 
 const provinciasOptions = [
-  { value: 'Buenos Aires', label: 'Buenos Aires' },
-  { value: 'CABA', label: 'CABA' },
-  { value: 'Córdoba', label: 'Córdoba' },
-  { value: 'Santa Fe', label: 'Santa Fe' },
-  { value: 'Mendoza', label: 'Mendoza' }
+  { value: "Buenos Aires", label: "Buenos Aires" },
+  { value: "CABA", label: "CABA" },
+  { value: "Córdoba", label: "Córdoba" },
+  { value: "Santa Fe", label: "Santa Fe" },
+  { value: "Mendoza", label: "Mendoza" },
   // Agregar más provincias según necesidad
-]
+];
 
 onMounted(async () => {
-  const id = route.params.id
-  if (id && id !== 'nuevo') {
-    isEdit.value = true
-    clienteId.value = parseInt(id as string)
-    
-    loading.value = true
+  const id = route.params.id;
+  if (id && id !== "nuevo") {
+    isEdit.value = true;
+    clienteId.value = parseInt(id as string);
+
+    loading.value = true;
     try {
-      await clientesStore.fetchCliente(clienteId.value)
+      await clientesStore.fetchCliente(clienteId.value);
       if (clientesStore.clienteActual) {
-        const cliente = clientesStore.clienteActual
+        const cliente = clientesStore.clienteActual;
         formData.value = {
           razon_social: cliente.razon_social,
           tipo_documento: cliente.tipo_documento,
           numero_documento: cliente.numero_documento,
           condicion_iva: cliente.condicion_iva,
-          domicilio: cliente.domicilio ?? '',
-          localidad: cliente.localidad ?? '',
-          provincia: cliente.provincia ?? '',
-          codigo_postal: cliente.codigo_postal ?? '',
-          email: cliente.email ?? '',
-          telefono: cliente.telefono ?? '',
-          notas: cliente.notas ?? ''
-        }
+          domicilio: cliente.domicilio ?? "",
+          localidad: cliente.localidad ?? "",
+          provincia: cliente.provincia ?? "",
+          codigo_postal: cliente.codigo_postal ?? "",
+          email: cliente.email ?? "",
+          telefono: cliente.telefono ?? "",
+          notas: cliente.notas ?? "",
+        };
       }
     } catch (error) {
-      showError('Error', 'No se pudo cargar el cliente')
-      router.push('/clientes')
+      showError("Error", "No se pudo cargar el cliente");
+      router.push("/clientes");
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
-})
+});
 
 const handleSubmit = async () => {
-  loading.value = true
+  loading.value = true;
   try {
     if (isEdit.value && clienteId.value) {
-      await clientesStore.updateCliente(clienteId.value, formData.value)
-      showSuccess('Cliente actualizado', 'Los cambios se guardaron correctamente')
+      await clientesStore.updateCliente(clienteId.value, formData.value);
+      showSuccess(
+        "Cliente actualizado",
+        "Los cambios se guardaron correctamente",
+      );
     } else {
-      await clientesStore.createCliente(formData.value as ClienteCreate)
-      showSuccess('Cliente creado', 'El cliente se creó correctamente')
+      await clientesStore.createCliente(formData.value as ClienteCreate);
+      showSuccess("Cliente creado", "El cliente se creó correctamente");
     }
-    router.push('/clientes')
+    router.push("/clientes");
   } catch (error: any) {
-    const detail = error.response?.data?.detail
-    showError('Error', detail || error.message || 'No se pudo guardar el cliente')
+    const detail = error.response?.data?.detail;
+    showError(
+      "Error",
+      detail || error.message || "No se pudo guardar el cliente",
+    );
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleCancel = () => {
-  router.push('/clientes')
-}
+  router.push("/clientes");
+};
 </script>
 
 <template>
   <div>
     <div class="mb-6">
       <h1 class="text-3xl font-bold text-gray-900">
-        {{ isEdit ? 'Editar Cliente' : 'Nuevo Cliente' }}
+        {{ isEdit ? "Editar Cliente" : "Nuevo Cliente" }}
       </h1>
       <p class="mt-2 text-gray-600">
-        {{ isEdit ? 'Actualizar información del cliente' : 'Agregar un nuevo cliente' }}
+        {{
+          isEdit
+            ? "Actualizar información del cliente"
+            : "Agregar un nuevo cliente"
+        }}
       </p>
     </div>
 
     <BaseCard>
-      <form
-        class="space-y-6"
-        @submit.prevent="handleSubmit"
-      >
+      <form class="space-y-6" @submit.prevent="handleSubmit">
         <div>
           <h3 class="text-lg font-semibold text-gray-900 mb-4">
             Información Básica
@@ -170,9 +177,7 @@ const handleCancel = () => {
         </div>
 
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
-            Domicilio
-          </h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Domicilio</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <BaseInput
@@ -203,9 +208,7 @@ const handleCancel = () => {
         </div>
 
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
-            Contacto
-          </h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Contacto</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <BaseInput
               v-model="formData.email"
@@ -244,11 +247,8 @@ const handleCancel = () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton
-            type="submit"
-            :loading="loading"
-          >
-            {{ isEdit ? 'Guardar Cambios' : 'Crear Cliente' }}
+          <BaseButton type="submit" :loading="loading">
+            {{ isEdit ? "Guardar Cambios" : "Crear Cliente" }}
           </BaseButton>
         </div>
       </form>

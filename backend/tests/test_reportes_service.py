@@ -2,7 +2,6 @@
 
 import pytest
 from datetime import date
-from decimal import Decimal
 
 from app.services.reportes_service import ReportesService
 

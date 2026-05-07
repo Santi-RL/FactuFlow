@@ -1,11 +1,12 @@
 """API endpoints para reportes."""
 
 from datetime import date
-from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_empresa_id, get_current_empresa_user
 from app.core.database import get_db
+from app.models.usuario import Usuario
 from app.services.reportes_service import reportes_service
 
 router = APIRouter()
@@ -13,10 +14,15 @@ router = APIRouter()
 
 @router.get("/ventas")
 async def reporte_ventas(
-    empresa_id: int = Query(..., description="ID de la empresa"),
+    empresa_id: int
+    | None = Query(
+        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
+    ),
     desde: date = Query(..., description="Fecha desde (YYYY-MM-DD)"),
     hasta: date = Query(..., description="Fecha hasta (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Genera reporte de ventas por período.
@@ -38,7 +44,7 @@ async def reporte_ventas(
 
     try:
         reporte = await reportes_service.generar_reporte_ventas(
-            db, empresa_id, desde, hasta
+            db, empresa_activa_id, desde, hasta
         )
         return reporte
     except Exception as e:
@@ -49,10 +55,15 @@ async def reporte_ventas(
 
 @router.get("/iva-ventas")
 async def reporte_iva_ventas(
-    empresa_id: int = Query(..., description="ID de la empresa"),
+    empresa_id: int
+    | None = Query(
+        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
+    ),
     periodo_mes: int = Query(..., ge=1, le=12, description="Mes del período (1-12)"),
     periodo_anio: int = Query(..., ge=2000, le=2100, description="Año del período"),
     db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Genera subdiario de IVA Ventas para DDJJ.
@@ -68,7 +79,7 @@ async def reporte_iva_ventas(
     """
     try:
         reporte = await reportes_service.generar_reporte_iva(
-            db, empresa_id, periodo_mes, periodo_anio
+            db, empresa_activa_id, periodo_mes, periodo_anio
         )
         return reporte
     except Exception as e:
@@ -79,11 +90,16 @@ async def reporte_iva_ventas(
 
 @router.get("/clientes")
 async def reporte_clientes(
-    empresa_id: int = Query(..., description="ID de la empresa"),
+    empresa_id: int
+    | None = Query(
+        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
+    ),
     desde: date = Query(..., description="Fecha desde (YYYY-MM-DD)"),
     hasta: date = Query(..., description="Fecha hasta (YYYY-MM-DD)"),
     limite: int = Query(10, ge=1, le=100, description="Cantidad de clientes a mostrar"),
     db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Ranking de clientes por facturación.
@@ -106,7 +122,7 @@ async def reporte_clientes(
 
     try:
         ranking = await reportes_service.obtener_ranking_clientes(
-            db, empresa_id, desde, hasta, limite
+            db, empresa_activa_id, desde, hasta, limite
         )
         return {
             "clientes": ranking,

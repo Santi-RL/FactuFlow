@@ -4,7 +4,6 @@ import base64
 import json
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
 
 import qrcode
 from jinja2 import Environment, FileSystemLoader
@@ -42,10 +41,11 @@ class PDFService:
         qr_base64 = self._generar_qr_arca(comprobante)
 
         # 2. Preparar datos para el template
+        cliente = self._get_receptor_pdf(comprobante)
         datos = {
             "comprobante": comprobante,
             "empresa": empresa,
-            "cliente": comprobante.cliente,
+            "cliente": cliente,
             "items": comprobante.items,
             "qr_base64": qr_base64,
             "letra": self._get_letra_comprobante(comprobante.tipo_comprobante),
@@ -53,7 +53,7 @@ class PDFService:
             "punto_venta_str": f"{comprobante.punto_venta.numero:04d}",
             "numero_str": f"{comprobante.numero:08d}",
             "tipo_documento_nombre": self._get_nombre_tipo_documento(
-                comprobante.cliente.tipo_documento
+                cliente.tipo_documento
             ),
         }
 
@@ -82,6 +82,12 @@ class PDFService:
             Imagen QR en base64 para embeber en HTML
         """
         # Armar JSON según especificación ARCA
+        receptor_tipo_documento = self._get_snapshot_int(
+            comprobante, "receptor_tipo_documento"
+        )
+        receptor_numero_documento = self._get_snapshot_str(
+            comprobante, "receptor_numero_documento"
+        )
         datos_qr = {
             "ver": 1,
             "fecha": comprobante.fecha_emision.strftime("%Y-%m-%d"),
@@ -92,10 +98,14 @@ class PDFService:
             "importe": float(comprobante.total),
             "moneda": comprobante.moneda,
             "ctz": float(comprobante.cotizacion),
-            "tipoDocRec": self._get_tipo_documento_codigo(
-                comprobante.cliente.tipo_documento
+            "tipoDocRec": receptor_tipo_documento
+            or self._get_tipo_documento_codigo(comprobante.cliente.tipo_documento),
+            "nroDocRec": int(
+                (
+                    receptor_numero_documento or comprobante.cliente.numero_documento
+                ).replace("-", "")
+                or "0"
             ),
-            "nroDocRec": int(comprobante.cliente.numero_documento.replace("-", "")),
             "tipoCodAut": "E",  # E = CAE
             "codAut": int(comprobante.cae) if comprobante.cae else 0,
         }
@@ -125,6 +135,47 @@ class PDFService:
         img_base64 = base64.b64encode(buffer.getvalue()).decode()
 
         return f"data:image/png;base64,{img_base64}"
+
+    def _get_receptor_pdf(self, comprobante: Comprobante):
+        """Devuelve un objeto simple con el snapshot del receptor para el PDF."""
+        receptor_razon_social = self._get_snapshot_str(
+            comprobante, "receptor_razon_social"
+        )
+        if receptor_razon_social:
+            tipo_documento = self._get_nombre_tipo_documento_codigo(
+                self._get_snapshot_int(comprobante, "receptor_tipo_documento")
+            )
+            return type(
+                "ReceptorPDF",
+                (),
+                {
+                    "razon_social": receptor_razon_social,
+                    "tipo_documento": tipo_documento,
+                    "numero_documento": (
+                        self._get_snapshot_str(comprobante, "receptor_numero_documento")
+                        or "0"
+                    ),
+                    "condicion_iva": (
+                        self._get_snapshot_str(comprobante, "receptor_condicion_iva")
+                        or "CF"
+                    ),
+                    "domicilio": self._get_snapshot_str(
+                        comprobante, "receptor_domicilio"
+                    ),
+                    "localidad": None,
+                },
+            )()
+        return comprobante.cliente
+
+    def _get_snapshot_str(self, comprobante: Comprobante, attr: str) -> str | None:
+        """Lee atributos snapshot evitando mocks o descriptores no resueltos."""
+        value = getattr(comprobante, attr, None)
+        return value if isinstance(value, str) else None
+
+    def _get_snapshot_int(self, comprobante: Comprobante, attr: str) -> int | None:
+        """Lee atributos snapshot numéricos evitando mocks o descriptores."""
+        value = getattr(comprobante, attr, None)
+        return value if isinstance(value, int) else None
 
     def _get_letra_comprobante(self, tipo: int) -> str:
         """
@@ -187,6 +238,19 @@ class PDFService:
             "Pasaporte": 94,
         }
         return codigos.get(tipo_documento, 99)  # 99 = Otro
+
+    def _get_nombre_tipo_documento_codigo(self, tipo_documento: int | None) -> str:
+        """Convierte código ARCA de documento a etiqueta legible."""
+        nombres = {
+            80: "CUIT",
+            86: "CUIL",
+            96: "DNI",
+            89: "LE",
+            90: "LC",
+            94: "Pasaporte",
+            99: "Consumidor Final",
+        }
+        return nombres.get(tipo_documento or 99, "Consumidor Final")
 
     def _get_nombre_tipo_documento(self, tipo_documento: str) -> str:
         """

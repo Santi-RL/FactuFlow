@@ -1,6 +1,6 @@
 """Modelo Certificado - Metadatos de certificados AFIP."""
 
-from datetime import datetime, date
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
