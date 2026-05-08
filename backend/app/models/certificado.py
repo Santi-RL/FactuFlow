@@ -1,4 +1,4 @@
-"""Modelo Certificado - Metadatos de certificados AFIP."""
+"""Modelo Certificado - Metadatos de certificados ARCA."""
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, ForeignKey
@@ -8,7 +8,7 @@ from app.core.database import Base
 
 
 class Certificado(Base):
-    """Modelo de Certificado AFIP (solo metadatos, no el archivo)."""
+    """Modelo de certificado ARCA (solo metadatos, no el archivo)."""
 
     __tablename__ = "certificados"
 

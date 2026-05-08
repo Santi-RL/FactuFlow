@@ -62,7 +62,7 @@ class Comprobante(Base):
     otros_impuestos = Column(Numeric(12, 2), default=0, nullable=False)
     total = Column(Numeric(12, 2), nullable=False)
 
-    # AFIP
+    # ARCA
     cae = Column(String(14), nullable=True)  # Nullable hasta autorizado
     cae_vencimiento = Column(Date, nullable=True)
     estado = Column(

@@ -38,12 +38,16 @@ export interface LoteComprobante {
   grupos_fallidos: number;
   mensaje_resumen: string | null;
   metadata_json: Record<string, string | number | null> | null;
+  mapeo_usado_json: Record<string, unknown> | null;
+  headers_detectados_json: string[] | null;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
   updated_at: string;
   empresa_id: number;
   usuario_id: number | null;
+  formato_importacion_id: number | null;
+  formato_importacion_version_id: number | null;
 }
 
 export interface LoteComprobanteDetalle extends LoteComprobante {

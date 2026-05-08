@@ -84,6 +84,28 @@ def _build_lote_excel(
     return stream.getvalue()
 
 
+def _build_extracto_bancario_excel(empresa_cuit: str) -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Extracto"
+    sheet.append(
+        [
+            "Fecha",
+            "Créditos",
+            "Leyendas Adicionales1",
+            "Leyendas Adicionales2",
+            "Pto Vta",
+        ]
+    )
+    sheet.append(["6/4/2026", "59.500,00", "CLIENTE UNO", "20409378472", 1])
+    sheet.append(["6/4/2026", "70.500,00", "CLIENTE DOS", "20409378472", 10])
+    sheet.append(["6/4/2026", "140.000,00", "CLIENTE TRES", "20409378472", 13])
+
+    stream = BytesIO()
+    workbook.save(stream)
+    return stream.getvalue()
+
+
 @pytest.fixture
 async def test_punto_venta(db_session: AsyncSession, test_empresa) -> PuntoVenta:
     punto = PuntoVenta(
@@ -269,6 +291,189 @@ async def test_validar_lote_consumidor_final_sin_documento_bajo_umbral(
     assert grupo["estado"] == "validado"
     assert grupo["cliente_documento"] == "0"
     assert grupo["cliente_razon_social"] == "A CONSUMIDOR FINAL"
+
+
+@pytest.mark.asyncio
+async def test_detectar_formato_extracto_bancario(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+):
+    response = await client.post(
+        "/api/formatos-importacion/detectar",
+        headers=auth_headers,
+        files={
+            "archivo": (
+                "extracto-bancario.xlsx",
+                _build_extracto_bancario_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["headers_detectados"] == [
+        "Fecha",
+        "Créditos",
+        "Leyendas Adicionales1",
+        "Leyendas Adicionales2",
+        "Pto Vta",
+    ]
+    assert data["formato_sugerido_version_id"] is not None
+    assert data["candidatos"][0]["confianza"] == "alta"
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_extracto_bancario_varios_puntos_venta(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    test_empresa.condicion_iva = "Exento"
+    for numero in [10, 13]:
+        db_session.add(
+            PuntoVenta(
+                numero=numero,
+                nombre=f"Punto {numero}",
+                activo=True,
+                es_webservice=True,
+                empresa_id=test_empresa.id,
+            )
+        )
+    await db_session.commit()
+    contenido = _build_extracto_bancario_excel(test_empresa.cuit)
+    detectar = await client.post(
+        "/api/formatos-importacion/detectar",
+        headers=auth_headers,
+        files={
+            "archivo": (
+                "extracto-bancario-multi-pv.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    formato_version_id = detectar.json()["formato_sugerido_version_id"]
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data={"formato_version_id": str(formato_version_id)},
+        files={
+            "archivo": (
+                "extracto-bancario-multi-pv.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is True
+    assert data["lote"]["grupos_validos"] == 3
+    assert data["lote"]["formato_importacion_version_id"] is not None
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}",
+        headers=auth_headers,
+    )
+    grupos = detalle.json()["grupos"]
+    assert [grupo["punto_venta_numero"] for grupo in grupos] == [1, 10, 13]
+    assert [grupo["cliente_documento"] for grupo in grupos] == ["0", "0", "0"]
+    assert [grupo["total_estimado"] for grupo in grupos] == [
+        "59500.00",
+        "70500.00",
+        "140000.00",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_extracto_bancario_exige_confirmar_formato(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        files={
+            "archivo": (
+                "extracto-sin-formato.xlsx",
+                _build_extracto_bancario_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "formato de importación" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_extracto_bancario_rechaza_factura_c_para_ri(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    for numero in [10, 13]:
+        db_session.add(
+            PuntoVenta(
+                numero=numero,
+                nombre=f"Punto {numero}",
+                activo=True,
+                es_webservice=True,
+                empresa_id=test_empresa.id,
+            )
+        )
+    await db_session.commit()
+    contenido = _build_extracto_bancario_excel(test_empresa.cuit)
+    detectar = await client.post(
+        "/api/formatos-importacion/detectar",
+        headers=auth_headers,
+        files={
+            "archivo": (
+                "extracto-ri.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    formato_version_id = detectar.json()["formato_sugerido_version_id"]
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data={"formato_version_id": str(formato_version_id)},
+        files={
+            "archivo": (
+                "extracto-ri.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is False
+    assert data["lote"]["grupos_con_error"] == 3
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}",
+        headers=auth_headers,
+    )
+    mensajes = detalle.json()["grupos"][0]["mensajes_json"]
+    assert any("Responsable Inscripto" in mensaje for mensaje in mensajes)
 
 
 @pytest.mark.asyncio

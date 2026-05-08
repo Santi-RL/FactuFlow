@@ -12,14 +12,18 @@ FactuFlow es un sistema de facturacion electronica ARCA para Argentina. El foco 
 - PDF bajo demanda.
 - Reportes basicos de consulta.
 
-## Estado real al 2026-05-04
+## Estado real al 2026-05-07
 
 - Backend y frontend operativos.
 - Lotes masivos por Excel implementados con validacion previa, idempotencia por archivo y worker reanudable para lotes grandes.
 - Selector de empresa activa implementado para admins.
 - Smoke real en homologacion completado con CAEs reales.
 - QA manual de interfaz cerrada para homologacion.
-- Repo preparado para configurar produccion con PostgreSQL; falta provisionar certificado, autorizacion `wsfe` y punto de venta productivos.
+- Produccion base verificada para el emisor real: certificado productivo,
+  autorizacion `wsfe` y puntos Web Services disponibles. La fuente canonica del
+  detalle operativo es `docs/agents/current-status.md`.
+- Falta ejecutar la primera prueba real controlada, previa confirmacion final
+  del punto de venta, backup/logs y lote chico definitivo.
 
 ## Arquitectura
 

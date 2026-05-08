@@ -1,13 +1,13 @@
 # Revision temporal de alineacion del proyecto
 
-Estado general: ACTIVO
+Estado general: COMPLETADO
 
 Ultima actualizacion: 2026-05-07
 
-Este archivo es temporal y existe para ordenar los conflictos detectados entre
-las instrucciones del proyecto, la documentacion viva y la implementacion real.
-Debe eliminarse solo cuando todos los puntos esten marcados como completados y
-esa decision quede reflejada en `AGENTS.md`.
+Este archivo fue temporal y ordeno los conflictos detectados entre las
+instrucciones del proyecto, la documentacion viva y la implementacion real.
+Todos los puntos quedaron completados el 2026-05-07. Se conserva como registro
+de cierre; si se elimina en el futuro, reflejar esa decision en `AGENTS.md`.
 
 ## Uso obligatorio para agentes
 
@@ -46,7 +46,7 @@ de configuracion intencionales.
 `output/`, reportes/resultados Playwright y caches runtime. Los artefactos ARCA,
 PDF/XLSX/CSR locales dejaron de aparecer como untracked versionables.
 
-### 2. [ ] Unificar el estado real de produccion en la documentacion viva
+### 2. [x] Completado - Unificar el estado real de produccion en la documentacion viva
 
 **Problema:** `docs/agents/current-status.md` y `ROADMAP.md` dicen que el
 certificado productivo, la autorizacion `wsfe` y los puntos Web Services reales
@@ -67,7 +67,17 @@ real controlada, no la configuracion productiva base.
 mismo punto de reanudacion productivo y no hay contradicciones sobre certificado,
 autorizacion `wsfe` ni puntos de venta productivos.
 
-### 3. [ ] Actualizar la documentacion de API REST al contrato real
+**Cierre:** Se definio `docs/agents/current-status.md` como fuente canonica del
+estado operativo. Se revalido por base local y por API segura contra ARCA
+produccion que el emisor real tiene certificado productivo activo, conexion ARCA
+OK, puntos Web Services `6`, `8`, `10`, `12`, `13` y `14` disponibles, `7` y
+`9` bloqueados, y ultimo comprobante Factura B en punto `6` igual a `0`. Se
+actualizaron `current-status.md`, `manual-qa.md`, `overview.md`,
+`user-guide/README.md`, `agents/arca.md`, `agents/testing.md`, `ROADMAP.md` y
+`agents/README.md` para que el punto de reanudacion sea la primera prueba real
+controlada, no la configuracion productiva desde cero.
+
+### 3. [x] Completado - Actualizar la documentacion de API REST al contrato real
 
 **Problema:** `docs/api/README.md` documenta endpoints `/api/v1/...`, Swagger en
 `/docs`, ReDoc en `/redoc`, rate limiting y rutas antiguas. El backend real
@@ -85,7 +95,13 @@ rate limiting salvo que se implemente.
 **Criterio de completado:** Los ejemplos de `docs/api/README.md` coinciden con
 los routers reales y no mencionan capacidades inexistentes.
 
-### 4. [ ] Resolver la doble estrategia de schema: Alembic vs `create_all`
+**Cierre:** Se reescribio `docs/api/README.md` contra `backend/app/main.py` y
+`backend/app/api/*.py`. Ahora documenta Swagger en `/api/docs`, ReDoc en
+`/api/redoc`, rutas reales bajo `/api`, `X-Empresa-Id`, lotes, PDF, reportes,
+checks ARCA seguros y advierte que no hay rate limiting implementado ni
+versionado HTTP en la URL.
+
+### 4. [x] Completado - Resolver la doble estrategia de schema: Alembic vs `create_all`
 
 **Problema:** El README y Docker usan `alembic upgrade head`, pero el backend
 ejecuta `Base.metadata.create_all` al iniciar en desarrollo/testing. Ademas
@@ -105,7 +121,13 @@ hace falta, o mover los tests a migraciones/fixtures explicitas.
 migraciones antes de servir la API, y queda documentado que SQLite legacy no es
 la base canonica para operacion real.
 
-### 5. [ ] Completar la documentacion de estructura interna con modulos nuevos
+**Cierre:** Se ajusto `run-local.ps1` para ejecutar `alembic upgrade head`
+antes de `uvicorn`. Se limito `Base.metadata.create_all` en `backend/app/main.py`
+a entornos `test`/`testing`, dejando Alembic como camino normal para desarrollo
+y produccion. Se actualizo `current-status.md` y `testing.md` para aclarar que
+la SQLite local es evidencia legacy, no fuente canonica de schema.
+
+### 5. [x] Completado - Completar la documentacion de estructura interna con modulos nuevos
 
 **Problema:** Existen modulos nuevos importantes que no aparecen o aparecen de
 forma incompleta en indices internos: `lotes_comprobantes`, `lote_worker`,
@@ -123,7 +145,14 @@ README de vistas/componentes que haya quedado incompleto.
 **Criterio de completado:** Los indices de estructura listan todos los modulos
 core actuales y explican donde va cada cambio nuevo.
 
-### 6. [ ] Limpiar nomenclatura publica AFIP restante y dejar solo legacy real
+**Cierre:** Se actualizaron `docs/agents/structure.md`,
+`backend/app/api/README.md`, `backend/app/services/README.md`,
+`backend/app/models/README.md`, `frontend/src/services/README.md` y
+`frontend/src/views/README.md` para incluir lotes, worker, constancias ARCA,
+SOAP ARCA, script `create_admin_user`, snapshot fiscal y tipos/servicios
+frontend de lotes.
+
+### 6. [x] Completado - Limpiar nomenclatura publica AFIP restante y dejar solo legacy real
 
 **Problema:** La regla del proyecto exige usar ARCA en UI, textos y
 documentacion nueva. Todavia quedan menciones conceptuales a AFIP en docstrings
@@ -140,7 +169,12 @@ documentada como compatibilidad y notas tecnicas que expliquen endpoints legacy.
 **Criterio de completado:** `rg -n "AFIP|Afip|afip"` solo devuelve URLs,
 variables legacy, carpeta legacy o explicaciones tecnicas intencionales.
 
-### 7. [ ] Decidir si las convenciones Python son obligatorias de verdad
+**Cierre:** Se corrigieron textos visibles, docstrings y comentarios de la app
+actual para usar ARCA. La busqueda en `backend/app` y `frontend/src` solo deja
+URLs oficiales heredadas `afip.gob.ar`, variables legacy `AFIP_*`,
+explicaciones tecnicas intencionales y la carpeta legacy `backend/app/afip/`.
+
+### 7. [x] Completado - Decidir si las convenciones Python son obligatorias de verdad
 
 **Problema:** `AGENTS.md` declara type hints obligatorios y docstrings en
 espanol. El codigo pasa `ruff` y `black`, pero hay funciones sin return type y
@@ -157,7 +191,12 @@ globalmente, abrir una tarea tecnica para normalizar firmas y docstrings.
 **Criterio de completado:** La regla queda aclarada en `AGENTS.md` y, si aplica,
 en tooling/documentacion de testing; no quedan expectativas ambiguas.
 
-### 8. [ ] Alinear versionado visible del backend, frontend y documentacion
+**Cierre:** Se aclaro en `AGENTS.md` y `CONTRIBUTING.md` que type hints y
+docstrings en español son obligatorios para codigo nuevo o modificado en
+funciones, clases y helpers publicos. El codigo historico se normaliza cuando se
+toca o en tareas tecnicas dedicadas; no se declara como deuda bloqueante global.
+
+### 8. [x] Completado - Alinear versionado visible del backend, frontend y documentacion
 
 **Problema:** El backend y la UI muestran `0.2.0-mvp`, mientras
 `frontend/package.json` mantiene `1.0.0`. La documentacion tambien conserva
@@ -173,7 +212,13 @@ sincronizadas. Ajustar UI/documentacion segun esa decision.
 **Criterio de completado:** La version que ve el usuario, la API y la
 documentacion tienen una interpretacion consistente.
 
-### 9. [ ] Ordenar la estrategia de verificacion frontend completa
+**Cierre:** Se definio como version de producto `0.2.0-mvp` desde
+`APP_VERSION` / `settings.app_version`, visible en API y UI. Se actualizo
+`backend/app/__init__.py` a `0.2.0-mvp` y `frontend/package.json` /
+`package-lock.json` a version tecnica semver `0.2.0`, equivalente a la version
+de producto sin sufijo.
+
+### 9. [x] Completado - Ordenar la estrategia de verificacion frontend completa
 
 **Problema:** La verificacion reciente confirma `type-check` y `build`, pero no
 se ejecuto E2E en esta auditoria. Ademas `npm run lint` esta configurado con
@@ -189,3 +234,9 @@ lo ejecute. Un check de lint puede modificar codigo sin que el agente lo espere.
 
 **Criterio de completado:** Hay comandos diferenciados para verificar y para
 autoformatear/autocorregir, y la documentacion de testing refleja esa diferencia.
+
+**Cierre:** Se agrego `npm run lint:check` como ESLint no destructivo y se
+documento la diferencia con `npm run lint`, que mantiene `--fix`. La guia de
+testing ahora distingue `lint:check`, `type-check`, `build`, `test:unit` y
+`test:e2e`, aclarando que E2E no es evidencia vigente hasta corregir el setup de
+Playwright.

@@ -21,9 +21,15 @@ class LotesComprobantesService {
     return response.data;
   }
 
-  async validar(archivo: File): Promise<LoteValidacionResponse> {
+  async validar(
+    archivo: File,
+    formatoVersionId?: number | null,
+  ): Promise<LoteValidacionResponse> {
     const formData = new FormData();
     formData.append("archivo", archivo);
+    if (formatoVersionId) {
+      formData.append("formato_version_id", String(formatoVersionId));
+    }
 
     const response = await apiClient.post<LoteValidacionResponse>(
       "/api/lotes-comprobantes/validar",

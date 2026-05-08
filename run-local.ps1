@@ -15,6 +15,7 @@ if (!(Test-Path ".venv")) {{
 if (!(Test-Path "data")) {{
   New-Item -ItemType Directory -Path "data" | Out-Null
 }}
+alembic upgrade head
 uvicorn app.main:app --reload --port 8000
 '@ -f $root
 

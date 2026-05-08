@@ -43,7 +43,7 @@ class Settings(BaseSettings):
         default="http://localhost:8080,http://127.0.0.1:8080", alias="CORS_ORIGINS"
     )
 
-    # AFIP/ARCA
+    # ARCA
     arca_env: str = Field(default="homologacion", alias="ARCA_ENV")
     certs_path: str = Field(default="./certs", alias="CERTS_PATH")
     arca_token_cache_path: str = Field(
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     @field_validator("certs_path", mode="before")
     @classmethod
     def parse_certs_path(cls, v, _info):
-        """Parse certs path, fallback to AFIP_CERTS_PATH if not set."""
+        """Parse certs path, con fallback legacy a AFIP_CERTS_PATH."""
         if v is None or v == "./certs":
             afip_path = os.getenv("AFIP_CERTS_PATH")
             if afip_path:

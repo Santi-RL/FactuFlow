@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-05
+Ultima actualizacion: 2026-05-08
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -100,17 +100,62 @@ Si el comprobante esta autorizado, veras:
 
 ## 6. Emision masiva
 
-La emision masiva esta pensada para cargar muchas facturas desde Excel.
+La emision masiva esta pensada para cargar muchas facturas desde Excel. Puede
+usar la plantilla oficial de FactuFlow o un formato de importacion configurado
+para archivos externos.
 
 Flujo general:
 
-1. Descargar la plantilla.
-2. Completar el archivo respetando las columnas fijas.
-3. Subir el Excel.
-4. Validar errores por fila o por comprobante.
-5. Confirmar la emision.
-6. Revisar resultados del lote.
-7. Si lo necesitas, descargar el archivo observado del lote.
+1. Descargar la plantilla oficial o preparar el archivo externo acordado.
+2. Subir el Excel.
+3. Revisar el formato sugerido por FactuFlow.
+4. Si es un archivo externo, elegir o confirmar el formato correcto.
+5. Validar errores por fila o por comprobante.
+6. Revisar comprobantes detectados, importes, receptor y punto de venta.
+7. Confirmar la emision con `Emitir comprobantes validos`.
+8. Revisar resultados del lote.
+9. Si lo necesitas, descargar el archivo observado del lote.
+
+Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
+recien ocurre cuando confirmas el lote validado.
+
+### Formatos de importacion
+
+La pantalla muestra formatos disponibles para el emisor activo:
+- formatos globales, reutilizables por cualquier emisor
+- formatos particulares de un emisor
+
+FactuFlow lee los encabezados del Excel, muestra las columnas detectadas y
+sugiere el formato con mayor coincidencia. La plantilla oficial puede validarse
+directamente; para archivos externos debes elegir o confirmar el formato antes
+de validar.
+
+Los formatos pueden mapear datos de tres maneras:
+- por encabezado, usando nombres o alias de columnas
+- por columna fija, usando letra o indice cuando el archivo no tiene encabezados
+  confiables
+- por constante, para completar campos que siempre tienen el mismo valor
+
+La administracion avanzada de formatos por emisor existe por API/configuracion;
+la pantalla actual se concentra en seleccionar y confirmar formatos ya
+disponibles.
+
+### Extractos bancarios
+
+Hay un formato global para extractos bancarios de creditos con estas columnas:
+- `Fecha`: fecha de origen del movimiento, opcional
+- `Créditos`: importe acreditado, obligatorio
+- `Leyendas Adicionales1`: receptor o leyenda equivalente, opcional
+- `Leyendas Adicionales2`: documento del receptor, opcional
+- `Pto Vta`: punto de venta, obligatorio
+
+Cada fila del extracto genera un comprobante. El formato global esta pensado
+para emisores Exento o Monotributo y usa Factura C, concepto productos, IVA `0`,
+item `Cobro registrado en cuenta bancaria` y no crea cliente persistente por
+defecto. Si el documento o receptor vienen vacios, aplican las reglas vigentes
+de consumidor final. Para emisores Responsable Inscripto, el lote queda
+observado y se debe crear un formato particular con Factura A/B segun
+corresponda.
 
 Reglas principales:
 - un lote pertenece a un solo emisor activo
@@ -198,10 +243,11 @@ Revisa especialmente:
 
 ## 11. Limitaciones actuales
 
-Al 2026-05-04:
+Al 2026-05-08:
 
 - no existe todavia descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda
 - los reportes son de consulta, no de exportacion
 - la validacion concluyente de homologacion se hace por webservice, no por QR
-- para una primera prueba real en produccion sigue faltando configurar certificado y punto de venta productivos
+- antes de la primera prueba real en produccion hay que confirmar el punto de
+  venta elegido, revisar backup/logs y emitir solo un lote chico controlado

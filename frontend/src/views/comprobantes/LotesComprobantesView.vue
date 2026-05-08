@@ -5,10 +5,17 @@ import BaseAlert from "@/components/ui/BaseAlert.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseEmpty from "@/components/ui/BaseEmpty.vue";
+import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import { useNotification } from "@/composables/useNotification";
+import formatosImportacionService from "@/services/formatos-importacion.service";
 import lotesComprobantesService from "@/services/lotes-comprobantes.service";
 import { useEmpresaStore } from "@/stores/empresa";
+import type {
+  FormatoImportacion,
+  FormatoImportacionCandidato,
+  FormatoImportacionDeteccion,
+} from "@/types/formato-importacion";
 import {
   ESTADOS_GRUPO_COLOR,
   ESTADOS_LOTE_COLOR,
@@ -31,10 +38,14 @@ const { showError, showInfo, showSuccess, showWarning } = useNotification();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const archivoSeleccionado = ref<File | null>(null);
+const formatosImportacion = ref<FormatoImportacion[]>([]);
+const deteccionFormato = ref<FormatoImportacionDeteccion | null>(null);
+const formatoSeleccionadoId = ref<string | number>("");
 const lotes = ref<LoteComprobante[]>([]);
 const loteActual = ref<LoteComprobanteDetalle | null>(null);
 const loadingLotes = ref(false);
 const validandoArchivo = ref(false);
+const detectandoFormato = ref(false);
 const procesandoLote = ref(false);
 const descargandoPlantilla = ref(false);
 const descargandoObservado = ref(false);
@@ -63,8 +74,48 @@ const hayProcesamientoEnCurso = computed(() => {
     lotes.value.some((lote) => ["en_cola", "procesando"].includes(lote.estado))
   );
 });
+const formatosOptions = computed(() => {
+  return formatosImportacion.value
+    .filter((formato) => !!formato.version_vigente)
+    .map((formato) => ({
+      value: formato.version_vigente?.id || "",
+      label: `${formato.nombre} (${formato.alcance})`,
+    }));
+});
+const candidatoPrincipal = computed<FormatoImportacionCandidato | null>(() => {
+  return deteccionFormato.value?.candidatos[0] || null;
+});
+const candidatoSeleccionado = computed<FormatoImportacionCandidato | null>(() => {
+  const selected = Number(formatoSeleccionadoId.value || 0);
+  if (!selected) {
+    return (
+      deteccionFormato.value?.candidatos.find(
+        (candidato) => candidato.formato_version_id === null,
+      ) || null
+    );
+  }
+
+  return (
+    deteccionFormato.value?.candidatos.find(
+      (candidato) => candidato.formato_version_id === selected,
+    ) || null
+  );
+});
+const requiereElegirFormato = computed(() => {
+  if (!archivoSeleccionado.value || !deteccionFormato.value) return false;
+  const principal = candidatoPrincipal.value;
+  if (!principal) return !formatoSeleccionadoId.value;
+  if (principal.formato_version_id === null && principal.confianza === "alta") {
+    return false;
+  }
+  return !formatoSeleccionadoId.value;
+});
 const puedeValidar = computed(
-  () => !!archivoSeleccionado.value && !!empresaActivaId.value,
+  () =>
+    !!archivoSeleccionado.value &&
+    !!empresaActivaId.value &&
+    !detectandoFormato.value &&
+    !requiereElegirFormato.value,
 );
 const puedeProcesar = computed(() => {
   if (!loteActual.value) return false;
@@ -137,6 +188,11 @@ const triggerFileSelection = () => {
 const handleArchivoSeleccionado = (event: Event) => {
   const target = event.target as HTMLInputElement;
   archivoSeleccionado.value = target.files?.[0] || null;
+  deteccionFormato.value = null;
+  formatoSeleccionadoId.value = "";
+  if (archivoSeleccionado.value) {
+    detectarFormatoArchivo(archivoSeleccionado.value);
+  }
 };
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -168,6 +224,46 @@ const cargarLotes = async (silent = false) => {
     if (!silent) {
       loadingLotes.value = false;
     }
+  }
+};
+
+const cargarFormatosImportacion = async () => {
+  if (!empresaActivaId.value) return;
+
+  try {
+    formatosImportacion.value = await formatosImportacionService.listar();
+  } catch (error: any) {
+    showError(
+      "No se pudieron cargar los formatos",
+      error.response?.data?.detail ||
+        "Revisa tu sesion antes de validar archivos externos.",
+    );
+  }
+};
+
+const detectarFormatoArchivo = async (archivo: File) => {
+  if (!empresaActivaId.value) return;
+
+  detectandoFormato.value = true;
+  try {
+    const resultado = await formatosImportacionService.detectar(archivo);
+    deteccionFormato.value = resultado;
+    formatoSeleccionadoId.value = "";
+
+    if (resultado.candidatos.length === 0) {
+      showWarning(
+        "Formato no reconocido",
+        "El sistema no encontro un formato confiable. Selecciona uno antes de validar.",
+      );
+    }
+  } catch (error: any) {
+    showError(
+      "No se pudo detectar el formato",
+      error.response?.data?.detail ||
+        "Puedes seleccionar un formato manualmente e intentar validar.",
+    );
+  } finally {
+    detectandoFormato.value = false;
   }
 };
 
@@ -221,7 +317,7 @@ const validarArchivo = async () => {
   if (!puedeValidar.value || !archivoSeleccionado.value) {
     showWarning(
       "Archivo requerido",
-      "Selecciona primero el Excel generado desde la plantilla oficial.",
+      "Selecciona primero un Excel de lote o un archivo externo con formato definido.",
     );
     return;
   }
@@ -230,6 +326,7 @@ const validarArchivo = async () => {
   try {
     const resultado = await lotesComprobantesService.validar(
       archivoSeleccionado.value,
+      Number(formatoSeleccionadoId.value || 0) || null,
     );
     showSuccess("Archivo validado", resultado.mensaje);
     await cargarLotes(true);
@@ -342,8 +439,11 @@ watch(
   async (empresaId) => {
     archivoSeleccionado.value = null;
     loteActual.value = null;
+    deteccionFormato.value = null;
+    formatoSeleccionadoId.value = "";
 
     if (!empresaId) return;
+    await cargarFormatosImportacion();
     await cargarLotes();
   },
   { immediate: false },
@@ -355,6 +455,7 @@ onMounted(async () => {
   }
 
   await cargarLotes();
+  await cargarFormatosImportacion();
   if (lotes.value[0]) {
     await cargarDetalleLote(lotes.value[0].id);
   }
@@ -403,8 +504,8 @@ onBeforeUnmount(() => {
             1. Descarga la plantilla
           </p>
           <p class="mt-2 text-sm text-blue-800">
-            Usa siempre el archivo oficial para evitar columnas mal escritas o
-            faltantes.
+            Puedes usar el archivo oficial o subir un Excel externo con formato
+            configurado.
           </p>
           <BaseButton
             class="mt-4 w-full"
@@ -436,8 +537,7 @@ onBeforeUnmount(() => {
           <ul class="mt-4 space-y-2 text-sm text-amber-900">
             <li>1 empresa por lote.</li>
             <li>
-              Cliente precargado opcional: el Excel alcanza para consumidor
-              final y operaciones masivas.
+              El mismo lote puede incluir varios puntos de venta del emisor.
             </li>
             <li>Si una fila falla, el sistema te indica como corregirla.</li>
           </ul>
@@ -469,8 +569,8 @@ onBeforeUnmount(() => {
             <h2 class="text-lg font-semibold text-gray-900">Validar archivo</h2>
           </div>
           <p class="mt-2 text-sm text-gray-600">
-            Que espera esta pantalla: un archivo `.xlsx` generado desde la
-            plantilla oficial para el emisor activo.
+            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma
+            el formato antes de validar.
           </p>
 
           <div
@@ -518,6 +618,61 @@ onBeforeUnmount(() => {
                 </BaseButton>
               </div>
             </div>
+          </div>
+
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-4 rounded-xl border border-gray-200 bg-white p-4"
+          >
+            <div
+              class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+            >
+              <div>
+                <p class="text-sm font-semibold text-gray-900">
+                  Formato de importacion
+                </p>
+                <p class="mt-1 text-sm text-gray-600">
+                  {{
+                    detectandoFormato
+                      ? "Detectando columnas del Excel..."
+                      : candidatoPrincipal
+                        ? `Sugerencia: ${candidatoPrincipal.nombre} (${Math.round(candidatoPrincipal.score * 100)}%)`
+                        : "Selecciona el formato que corresponde al origen del archivo."
+                  }}
+                </p>
+              </div>
+              <span
+                v-if="candidatoSeleccionado"
+                class="inline-flex rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+              >
+                Confianza {{ candidatoSeleccionado.confianza }}
+              </span>
+            </div>
+
+            <div class="mt-4 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+              <BaseSelect
+                v-model="formatoSeleccionadoId"
+                label="Formato"
+                :options="formatosOptions"
+                placeholder="Deteccion automatica"
+                :disabled="detectandoFormato"
+              />
+
+              <div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+                <p class="font-medium text-gray-900">Columnas detectadas</p>
+                <p class="mt-1 break-words">
+                  {{
+                    deteccionFormato?.headers_detectados.join(", ") ||
+                    "Todavia no se analizaron encabezados."
+                  }}
+                </p>
+              </div>
+            </div>
+
+            <BaseAlert v-if="requiereElegirFormato" type="warning" class="mt-4">
+              Confirma un formato antes de validar. Si el mapeo no coincide, el
+              sistema puede interpretar mal importes, receptor o punto de venta.
+            </BaseAlert>
           </div>
         </div>
 

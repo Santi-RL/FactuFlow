@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-05
+Ultima actualizacion: 2026-05-08
 
 ## Objetivo activo
 
@@ -9,18 +9,88 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 ## Estado real del producto
 
 - Backend FastAPI operativo con auth, empresas, clientes, puntos de venta, certificados, comprobantes, PDF, lotes y reportes.
+- Backend ya registra formatos configurables de importacion para lotes masivos, con formatos globales y particulares por emisor.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
+- Emision masiva ahora puede usar plantilla oficial o formatos configurables con autodeteccion asistida.
 - Selector de empresa activa implementado para admins.
 - Emision individual y masiva funcionando en homologacion y validadas manualmente desde la interfaz.
 - PDF generado bajo demanda y revalidado manualmente en preview y descarga.
 - Se corrigieron riesgos previos de salida a produccion:
   - numeracion protegida con lock local, advisory lock PostgreSQL y constraint unico
-  - idempotencia atomica de lote por hash de archivo y empresa
+  - idempotencia atomica de lote por hash de archivo, empresa y formato usado
   - validacion estricta de alicuotas IVA permitidas desde Excel
   - lotes grandes en cola persistente y reanudables por worker
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Alineacion de formatos de importacion 2026-05-08
+
+- Se documento la nueva capacidad de formatos de importacion configurables para
+  emision masiva.
+- El flujo soporta formatos globales y formatos particulares del emisor activo.
+- La carga de Excel detecta encabezados, calcula candidatos y exige elegir o
+  confirmar formato antes de validar cualquier archivo externo.
+- Los mapeos soportan origen por encabezado, por columna fija o por constante.
+- El lote persiste encabezados detectados, mapeo usado y version de formato para
+  trazabilidad.
+- El formato global inicial cubre extractos bancarios de creditos con columnas
+  `Fecha`, `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y
+  `Pto Vta`.
+- Ese formato global usa Factura C e IVA `0`, por lo que se valida solo para
+  emisores Exento/Monotributo; un emisor Responsable Inscripto debe usar un
+  formato particular con Factura A/B.
+- La validacion del lote queda separada de la emision: revisar y confirmar
+  `Emitir comprobantes validos` sigue siendo obligatorio antes de consumir
+  numeracion fiscal.
+- Quedo evidencia de QA visual local para este nuevo flujo con un extracto chico:
+  deteccion del formato bancario, confirmacion obligatoria del formato,
+  validacion de 3 comprobantes en puntos de venta `6`, `10` y `13`, y
+  `Ya emitidos = 0`. Antes de produccion sigue faltando repetirlo con el lote
+  definitivo y confirmar explicitamente la emision.
+
+### Verificacion operativa segura 2026-05-07
+
+- Se reviso la base local `backend/data/factuflow.db` sin exponer claves ni
+  certificados. Resultado:
+  - emisor real `30716164175` cargado como `FUNDACION ESCUELA DE GIMNASIA FEDE
+    MOLINARI`
+  - certificado productivo activo para ese emisor, vencimiento `2028-05-04`
+  - puntos Web Services usables `6`, `8`, `10`, `12`, `13` y `14`
+  - puntos Web Services bloqueados `7` y `9`
+  - lote `qa_lote_cf_sin_documento.xlsx` en estado `validado`, no emitido
+- Se verifico por API local, sin emitir comprobantes:
+  - `POST /api/certificados/verificar-conexion/3` con `X-Empresa-Id: 2`
+    devolvio `Conexion exitosa con ARCA`
+  - `GET /api/arca/test-conexion` devolvio `status=ok`, ambiente
+    `produccion` y servidores `OK`
+  - `GET /api/arca/puntos-venta` devolvio `6`, `8`, `10`, `12`, `13` y `14`
+    no bloqueados, y `7`, `9` bloqueados
+  - `GET /api/arca/ultimo-comprobante/6/6` devolvio ultimo comprobante `0` y
+    proximo `1` para Factura B en punto de venta `6`
+- Conclusion operativa: no falta configurar desde cero certificado productivo,
+  autorizacion `wsfe` ni puntos de venta Web Services. Falta confirmar el punto
+  de venta elegido, preparar el lote definitivo, verificar backup/logs y emitir
+  la primera prueba real controlada.
+
+### Verificacion automatizada 2026-05-07
+
+- Backend:
+  - `pytest tests -q`: 110 passed
+  - `ruff check app tests`: OK
+  - `black --check app tests`: OK
+- Frontend:
+  - `npm run lint:check`: 0 errores, 413 warnings de estilo Vue existentes
+  - `npm run type-check`: OK
+  - `npm run build`: OK
+  - `npm run test:unit`: OK, sin archivos de test unitarios
+  - Prueba visual local: OK en `http://localhost:8080/comprobantes/lotes`
+    subiendo `qa_extracto_bancario_pv_6_10_13.xlsx`, seleccionando el formato
+    global de extracto bancario y validando sin emitir
+  - `npm run test:e2e`: no confiable en esta corrida; Playwright mostro la
+    pantalla en blanco dentro del runner aunque `http://localhost:8080/login`
+    cargo correctamente con un script Playwright directo. No usar esta corrida
+    como evidencia funcional hasta corregir el setup E2E.
 
 ### Preparacion produccion 2026-05-04
 
@@ -135,6 +205,7 @@ Quedo validado manualmente:
 - Emision masiva:
   - descarga de plantilla
   - validacion de Excel
+  - confirmacion antes de emitir
   - emision real
   - descarga de archivo observado
 - Emision masiva productiva preparatoria:
@@ -172,6 +243,23 @@ Quedo validado manualmente:
   - usaba el CUIT del certificado en lugar del CUIT de la empresa activa
   - impacto: `Sincronizar con ARCA` devolvia `500`
   - estado: corregido y revalidado manualmente
+- Estrategia de schema local:
+  - `run-local.ps1` ahora ejecuta `alembic upgrade head` antes de levantar
+    `uvicorn`
+  - `backend/app/main.py` ya no ejecuta `create_all` en `development`; queda
+    limitado a `test`/`testing`
+  - estado: Alembic queda como camino normal de schema para arranque local y
+    productivo
+- Nomenclatura ARCA:
+  - se corrigieron textos visibles y docstrings/comentarios conceptuales que
+    todavia usaban AFIP
+  - en la app actual quedan menciones solo como URLs oficiales heredadas,
+    variables legacy `AFIP_*` o carpeta legacy `backend/app/afip/`
+- Versionado:
+  - la version de producto visible queda en `APP_VERSION` /
+    `settings.app_version`: `0.2.0-mvp`
+  - el frontend npm queda sincronizado a version tecnica semver `0.2.0`
+  - la UI mantiene `FactuFlow v0.2.0-mvp` como version de producto
 - Dashboard:
   - `Comprobantes del Mes`, `Ultimo Comprobante` y `Estado Certificado` estaban hardcodeados
   - estado: corregido
@@ -185,22 +273,30 @@ Quedo validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest` OK
-  - `ruff check` OK
-  - `black --check` OK
+  - `pytest tests -q` OK, 110 tests
+  - `ruff check app tests` OK
+  - `black --check app tests` OK
 - Frontend:
+  - `npm run lint:check` OK sin errores, con warnings de estilo Vue existentes
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK (sin casos definidos)
-  - `npm run test:e2e` OK
+  - `npm run test:unit` OK, sin casos definidos
+  - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
+    del runner; ver seccion `Verificacion automatizada 2026-05-07`
 
 ## Riesgos / pendientes inmediatos
 
-- La base local `backend/data/factuflow.db` sigue siendo legacy y no esta alineada de forma limpia con Alembic.
+- La base local `backend/data/factuflow.db` sigue siendo evidencia legacy
+  ajustada manualmente; para nuevas instalaciones y operacion real, el camino
+  canonico de schema es Alembic.
+- El formato global de extracto bancario ya tiene QA visual local sin emision.
+  Falta repetirlo con el lote definitivo antes de usarlo en produccion y falta
+  QA manual de formatos particulares creados para un emisor.
 - No existe todavia descarga masiva de PDFs en ZIP.
 - Falta el tramo operativo de cierre antes de la primera emision productiva:
   - confirmar punto de venta a usar para el primer CAE real
-  - definir/importar el lote chico definitivo
+  - definir/importar el lote chico definitivo, idealmente validando el formato
+    de extracto bancario si ese sera el origen real
   - checklist de backup / logs / restauracion
 - Para produccion usar `docker-compose.prod.yml`, PostgreSQL y `.env.production` basado en `.env.production.example`.
 
@@ -218,5 +314,7 @@ Cuando se quiera avanzar a la primera prueba real en produccion:
 
 1. Confirmar el punto de venta Web Services a usar en la primera prueba real.
 2. Preparar un Excel chico definitivo, idealmente 10 a 20 comprobantes o menos.
-3. Verificar backup/logs antes de emitir.
-4. Ejecutar una prueba controlada de bajo importe con evidencia.
+3. Si el origen es bancario, repetir la validacion con el lote definitivo,
+   confirmar el formato y revisar totales/puntos de venta antes de emitir.
+4. Verificar backup/logs antes de emitir.
+5. Ejecutar una prueba controlada de bajo importe con evidencia.

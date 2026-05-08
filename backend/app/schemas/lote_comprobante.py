@@ -59,12 +59,16 @@ class LoteComprobanteResponse(BaseModel):
     grupos_fallidos: int
     mensaje_resumen: Optional[str] = None
     metadata_json: dict[str, Any] | None = None
+    mapeo_usado_json: dict[str, Any] | None = None
+    headers_detectados_json: list[str] | None = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     empresa_id: int
     usuario_id: Optional[int] = None
+    formato_importacion_id: Optional[int] = None
+    formato_importacion_version_id: Optional[int] = None
 
     class Config:
         from_attributes = True

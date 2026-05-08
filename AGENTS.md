@@ -24,7 +24,10 @@
 - `docs/`: documentación del proyecto.
 
 ## Convenciones
-- Python: PEP8, `black` (88), type hints obligatorios, docstrings en español.
+- Python: PEP8, `black` (88). En codigo nuevo o modificado, type hints y
+  docstrings en español son obligatorios para funciones, clases y helpers
+  publicos. El codigo historico se normaliza cuando se toca o en tareas
+  tecnicas dedicadas.
 - FastAPI: imports absolutos desde `app/`.
 - Vue: Composition API con `<script setup>`, TypeScript recomendado, componentes en PascalCase, events en kebab-case.
 - Tailwind: priorizar utilidades sobre CSS custom.
@@ -59,8 +62,7 @@ pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --port 8000
 pytest
 ruff check app/ tests/
-black app/ tests/
-mypy app/
+black --check app/ tests/
 ```
 
 ### Frontend
@@ -71,6 +73,7 @@ npm run dev
 npm run test
 npm run test:unit
 npm run test:e2e
+npm run lint:check
 npm run lint
 npm run format
 npm run type-check

@@ -82,6 +82,13 @@
 - En produccion para `FUNDACION ESCUELA DE GIMNASIA FEDE MOLINARI`, ARCA
   devolvio habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban
   bloqueados.
+- El 2026-05-07 se revalido de forma segura por API local contra ARCA
+  produccion:
+  - `GET /api/arca/test-conexion`: `status=ok`, ambiente `produccion`
+  - `GET /api/arca/puntos-venta`: `6`, `8`, `10`, `12`, `13` y `14` no
+    bloqueados; `7` y `9` bloqueados
+  - `GET /api/arca/ultimo-comprobante/6/6`: ultimo comprobante `0`, proximo
+    `1` para Factura B en punto de venta `6`
 - `FEParamGetPtosVenta` no devuelve domicilio ni nombre fantasia. Esos datos se
   importan desde la constancia PDF de `Administracion de Puntos de Venta y
   Domicilios`.

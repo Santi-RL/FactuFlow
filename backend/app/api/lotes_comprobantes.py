@@ -9,6 +9,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Request,
     Response,
@@ -88,6 +89,7 @@ async def descargar_plantilla(
 @router.post("/validar", response_model=LoteValidacionResponse)
 async def validar_archivo_lote(
     archivo: UploadFile = File(...),
+    formato_version_id: int | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
@@ -108,6 +110,7 @@ async def validar_archivo_lote(
             archivo.filename,
             empresa,
             current_user,
+            formato_version_id=formato_version_id,
         )
     except LoteComprobanteError as exc:
         raise HTTPException(

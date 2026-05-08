@@ -15,11 +15,23 @@ black --check app/ tests/
 ```bash
 cd frontend
 npm install
+npm run lint:check
 npm run type-check
 npm run build
 npm run test:unit
 npm run test:e2e
 ```
+
+Nota 2026-05-07:
+
+- `npm run test:unit` no tiene archivos de test unitarios y sale con codigo 0.
+- `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup de
+  Playwright. En la ultima corrida el runner mostro pantalla en blanco aunque
+  `http://localhost:8080/login` cargo correctamente con un script Playwright
+  directo.
+- `npm run lint:check` es el check no destructivo de ESLint.
+- `npm run lint` ejecuta ESLint con `--fix`; usarlo solo cuando se quiere
+  autocorregir y revisar el diff posterior.
 
 ## Arranque local
 
@@ -32,6 +44,10 @@ powershell -ExecutionPolicy Bypass -File .\run-local.ps1
 Servicios esperados:
 - Frontend: `http://localhost:8080`
 - Backend: `http://localhost:8000`
+
+`run-local.ps1` ejecuta `alembic upgrade head` antes de iniciar el backend. En
+entornos normales no se crean tablas con `Base.metadata.create_all`; esa ruta
+queda limitada a tests.
 
 ## Checklist antes de cerrar una tarea importante
 

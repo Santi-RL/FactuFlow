@@ -16,6 +16,8 @@ Datos fiscales del emisor de comprobantes:
 Puntos de venta habilitados en ARCA:
 - Número de punto de venta
 - Descripción/alias
+- Sistema, domicilio y nombre fantasia importados desde constancia ARCA
+- Estado Web Services, bloqueado, fecha de baja y usabilidad FactuFlow
 - Relación con Empresa
 
 ### Certificado
@@ -43,6 +45,7 @@ Facturas, Notas de Crédito, Notas de Débito:
 - CAE (Código de Autorización Electrónica)
 - Totales (subtotal, IVA, total)
 - Estado
+- Snapshot fiscal del receptor al momento de emitir
 
 ### ComprobanteItem
 Líneas de detalle de un comprobante:
@@ -51,6 +54,25 @@ Líneas de detalle de un comprobante:
 - Precio unitario
 - Alícuota de IVA
 - Subtotal
+
+### LoteComprobante, LoteComprobanteGrupo y LoteComprobanteFila
+Emision masiva por Excel:
+- Archivo, hash, estado y modo de procesamiento
+- Formato de importacion usado, encabezados detectados y mapeo aplicado
+- Grupos por `comprobante_ref`
+- Filas originales del Excel con mensajes de validacion
+- Contadores de grupos validos, emitidos y fallidos
+- Datos para reanudar lotes grandes desde el worker
+
+### FormatoImportacion, FormatoImportacionVersion, FormatoImportacionCampo y FormatoImportacionRegla
+Formatos reutilizables para interpretar archivos externos de emision masiva:
+- Alcance `global` o particular de una Empresa
+- Version vigente con `configuracion_json`
+- Campos destino con origen por encabezado, columna o constante
+- Alias de encabezados, letras/indices de columna, transformaciones y valores
+  default
+- Reglas declarativas como agrupacion por fila
+- Trazabilidad desde `LoteComprobante` hacia el formato y version usados
 
 ## Convenciones
 

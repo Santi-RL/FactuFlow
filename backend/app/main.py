@@ -17,6 +17,7 @@ from app.api import (
     clientes,
     comprobantes,
     empresas,
+    formatos_importacion,
     health,
     lotes_comprobantes,
     pdf,
@@ -79,14 +80,19 @@ app.include_router(
     prefix="/api/lotes-comprobantes",
     tags=["Lotes de comprobantes"],
 )
+app.include_router(
+    formatos_importacion.router,
+    prefix="/api/formatos-importacion",
+    tags=["Formatos de importación"],
+)
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
 app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
 
 
 @app.on_event("startup")
 async def startup():
-    """Crear tablas en la base de datos al iniciar (solo desarrollo)."""
-    if settings.app_env.lower() in {"development", "test", "testing"}:
+    """Inicializa recursos de aplicacion."""
+    if settings.app_env.lower() in {"test", "testing"}:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
     app.state.lotes_background_tasks = set()

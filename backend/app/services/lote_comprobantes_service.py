@@ -31,6 +31,11 @@ from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
 from app.schemas.comprobante import EmitirComprobanteRequest, ItemComprobanteCreate
 from app.services.facturacion_service import FacturacionService, ValidationError
+from app.services.formatos_importacion_service import (
+    FormatoImportacionError,
+    FormatosImportacionService,
+    ImportacionNormalizada,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -213,15 +218,21 @@ class LoteComprobantesService:
         filename: str,
         empresa: Empresa,
         usuario: Usuario,
+        formato_version_id: int | None = None,
     ) -> LoteComprobante:
         """Valida un archivo Excel y persiste el lote con su detalle."""
         if not file_bytes:
             raise LoteComprobanteError("El archivo está vacío")
 
-        file_hash = hashlib.sha256(file_bytes).hexdigest()
+        file_hash = self._calcular_hash_lote(file_bytes, formato_version_id)
         await self._validar_idempotencia(empresa.id, file_hash)
 
-        filas_excel = self._leer_excel(file_bytes)
+        importacion = await self._leer_excel_para_lote(
+            file_bytes=file_bytes,
+            empresa=empresa,
+            formato_version_id=formato_version_id,
+        )
+        filas_excel = importacion["filas"]
         if len(filas_excel) > settings.batch_max_rows:
             raise LoteComprobanteError(
                 f"El archivo supera el máximo permitido de {settings.batch_max_rows} filas"
@@ -251,7 +262,16 @@ class LoteComprobantesService:
             total_filas=len(filas_excel),
             empresa_id=empresa.id,
             usuario_id=usuario.id,
-            metadata_json={"empresa_cuit": empresa.cuit},
+            formato_importacion_id=importacion["formato_importacion_id"],
+            formato_importacion_version_id=importacion[
+                "formato_importacion_version_id"
+            ],
+            headers_detectados_json=importacion["headers_detectados"],
+            mapeo_usado_json=importacion["mapeo_usado"],
+            metadata_json={
+                "empresa_cuit": empresa.cuit,
+                "formato_importacion": importacion["formato_nombre"],
+            },
         )
         self.db.add(lote)
         await self.db.flush()
@@ -325,6 +345,15 @@ class LoteComprobantesService:
             lote.grupos_con_error,
         )
         return lote
+
+    def _calcular_hash_lote(
+        self, file_bytes: bytes, formato_version_id: int | None
+    ) -> str:
+        """Calcula idempotencia por archivo y formato confirmado."""
+        formato_key = str(formato_version_id or "plantilla_oficial").encode("utf-8")
+        return hashlib.sha256(
+            file_bytes + b":factuflow-format:" + formato_key
+        ).hexdigest()
 
     async def encolar_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
         """Deja un lote validado en cola persistente para el worker."""
@@ -477,6 +506,69 @@ class LoteComprobantesService:
         workbook.save(stream)
         return stream.getvalue()
 
+    async def _leer_excel_para_lote(
+        self,
+        file_bytes: bytes,
+        empresa: Empresa,
+        formato_version_id: int | None,
+    ) -> dict[str, Any]:
+        """Lee una plantilla oficial o aplica un formato configurable."""
+        formatos_service = FormatosImportacionService(self.db)
+
+        if formato_version_id is not None:
+            try:
+                version = await formatos_service.obtener_version(
+                    formato_version_id,
+                    empresa.id,
+                )
+                importacion = await formatos_service.importar_con_version(
+                    file_bytes,
+                    empresa,
+                    version,
+                )
+            except FormatoImportacionError as exc:
+                raise LoteComprobanteError(str(exc)) from exc
+
+            return self._serializar_importacion_configurable(importacion)
+
+        try:
+            headers = formatos_service.leer_headers(file_bytes)
+        except FormatoImportacionError as exc:
+            raise LoteComprobanteError(str(exc)) from exc
+
+        if formatos_service.es_plantilla_oficial(headers, self.TEMPLATE_COLUMNS):
+            return {
+                "filas": self._leer_excel(file_bytes),
+                "headers_detectados": headers,
+                "mapeo_usado": {
+                    "tipo": "plantilla_oficial",
+                    "campos": {
+                        column: {"origen": "header", "header": column}
+                        for column in self.TEMPLATE_COLUMNS
+                    },
+                },
+                "formato_importacion_id": None,
+                "formato_importacion_version_id": None,
+                "formato_nombre": "Plantilla oficial FactuFlow",
+            }
+
+        raise LoteComprobanteError(
+            "El archivo no coincide con la plantilla oficial. Elegí y confirmá un formato de importación antes de validar el lote."
+        )
+
+    def _serializar_importacion_configurable(
+        self, importacion: ImportacionNormalizada
+    ) -> dict[str, Any]:
+        """Adapta la importación configurable a metadatos persistibles."""
+        return {
+            "filas": importacion.filas,
+            "headers_detectados": importacion.headers_detectados,
+            "mapeo_usado": importacion.mapeo_usado,
+            "formato_importacion_id": importacion.formato.id,
+            "formato_importacion_version_id": importacion.version.id,
+            "formato_nombre": importacion.formato.nombre,
+        }
+
     def _leer_excel(self, file_bytes: bytes) -> list[dict[str, Any]]:
         """Lee y normaliza las filas del Excel."""
         workbook = load_workbook(BytesIO(file_bytes), data_only=True)
@@ -607,6 +699,12 @@ class LoteComprobantesService:
             mensajes.append(
                 f"El tipo de comprobante del grupo {comprobante_ref} no está soportado"
             )
+        else:
+            tipo_error = self._validar_tipo_comprobante_emisor(
+                empresa, tipo_comprobante
+            )
+            if tipo_error:
+                mensajes.append(f"{comprobante_ref}: {tipo_error}")
 
         concepto = self._parse_int(header.get("concepto"))
         if concepto not in {1, 2, 3}:
@@ -709,6 +807,10 @@ class LoteComprobantesService:
                 mensajes.append(
                     f"La condición IVA del receptor en {comprobante_ref} no es válida"
                 )
+        elif tipo_documento == 80 and condicion_iva == "CF":
+            mensajes.append(
+                f"El receptor en {comprobante_ref} tiene CUIT pero figura como consumidor final. Configurá una condición IVA del receptor o dejá el documento vacío cuando la normativa lo permita."
+            )
 
         payload: EmitirComprobanteRequest | None = None
         if not mensajes:
@@ -802,6 +904,23 @@ class LoteComprobantesService:
             lote.estado = "cargado"
             lote.mensaje_resumen = "El lote fue cargado."
 
+    def _validar_tipo_comprobante_emisor(
+        self, empresa: Empresa, tipo_comprobante: int
+    ) -> str | None:
+        """Valida compatibilidad básica entre emisor y tipo de comprobante."""
+        condicion = str(empresa.condicion_iva or "").strip().upper()
+        tipos_a = {1, 2, 3}
+        tipos_c = {11, 12, 13}
+
+        if condicion == "RI" and tipo_comprobante in tipos_c:
+            return (
+                "El emisor Responsable Inscripto no puede emitir comprobantes "
+                "tipo C. Usá un formato particular con Factura A/B según corresponda."
+            )
+        if condicion in {"MONOTRIBUTO", "EXENTO"} and tipo_comprobante in tipos_a:
+            return "El emisor no Responsable Inscripto no puede emitir comprobantes tipo A."
+        return None
+
     async def _obtener_grupos_lote(self, lote_id: int) -> list[LoteComprobanteGrupo]:
         result = await self.db.execute(
             select(LoteComprobanteGrupo)
@@ -859,8 +978,17 @@ class LoteComprobantesService:
     ) -> Decimal | None:
         if value in (None, ""):
             return default
-        try:
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, (int, float)):
             return Decimal(str(value))
+        text = str(value).strip().replace("$", "").replace(" ", "")
+        if "," in text and "." in text:
+            text = text.replace(".", "").replace(",", ".")
+        elif "," in text:
+            text = text.replace(",", ".")
+        try:
+            return Decimal(text)
         except (InvalidOperation, ValueError):
             return None
 

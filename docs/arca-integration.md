@@ -2,7 +2,7 @@
 
 ## Resumen
 
-Se implementó la integración completa con los webservices de ARCA (Agencia de Recaudación y Control Aduanero, ex-AFIP) para emitir comprobantes electrónicos en Argentina.
+Se implementó la integración completa con los webservices de ARCA (Agencia de Recaudación y Control Aduanero) para emitir comprobantes electrónicos en Argentina.
 
 ## Componentes Implementados
 

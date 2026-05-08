@@ -12,7 +12,7 @@ from weasyprint import HTML, CSS
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
 
-# Constante para URL del QR de AFIP (ARCA)
+# URL oficial heredada del QR ARCA.
 ARCA_QR_BASE_URL = "https://www.afip.gob.ar/fe/qr/?p="
 
 

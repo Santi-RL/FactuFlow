@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-05
+Ultima actualizacion: 2026-05-08
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -26,6 +26,7 @@ FactuFlow no apunta a quedar como una utilidad puntual de facturacion. La vision
 
 Cerrar un MVP funcional centrado en:
 - emision individual y masiva por Excel
+- formatos de importacion configurables para archivos externos
 - uso administrativo no tecnico
 - homologacion real con ARCA
 - una empresa por vez, con base preparada para multiempresa posterior
@@ -43,6 +44,7 @@ Cerrar un MVP funcional centrado en:
 - [x] Integracion WSAA + WSFEv1 operativa en homologacion
 - [x] Emision individual real validada con CAE
 - [x] Emision masiva por Excel implementada
+- [x] Formatos de importacion configurables para emision masiva con alcance global y por emisor
 - [x] Emision masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
 - [x] Sincronizacion manual de puntos de venta ARCA validada desde UI
 - [~] Alineacion limpia entre base legacy y Alembic
@@ -52,6 +54,7 @@ Cerrar un MVP funcional centrado en:
 - [x] Vue + Pinia + Router operativos
 - [x] Dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y empresa operativos
 - [x] Selector de empresa activa para admins
+- [x] Autodeteccion asistida de formato al subir Excel externo para emision masiva
 - [x] QA manual guiada de flujos reales
 - [ ] Operaciones masivas de PDF desde listado
 
@@ -142,6 +145,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 ### Lotes
 - [x] Entidades de lote, grupo y filas
 - [x] Plantilla Excel fija
+- [x] Formatos de importacion configurables por encabezado, columna o constante
+- [x] Formato global para extractos bancarios con columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y `Pto Vta`
 - [x] Agrupacion por `comprobante_ref`
 - [x] Prevalidacion por fila y por comprobante
 - [x] Snapshot fiscal del receptor en comprobantes
@@ -151,9 +156,13 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 
 ### UX de lotes
 - [x] Wizard de emision masiva
+- [x] Confirmacion de formato antes de validar archivos externos
+- [x] Separacion clara entre validar lote y emitir comprobantes validos
 - [x] Mensajes basicos de validacion
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente
+- [x] QA manual local del formato global de extracto bancario sin emitir
+- [ ] QA manual especifica de formatos particulares por emisor
 - [ ] Descarga de archivo observado con errores mas amigable
 - [ ] Mejores estados de seguimiento para lotes grandes
 
@@ -184,15 +193,19 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 ### Base de datos
 - [x] Modelos principales definidos
 - [x] Migracion inicial de esquema creada
+- [x] Modelos versionados de formatos de importacion y trazabilidad del mapeo usado por lote
 - [~] Estrategia de convivencia con DB local legacy
 - [ ] Stamping/migracion limpia de instalaciones existentes
 - [ ] Politica clara de seeds y datos de desarrollo
 
 ### Calidad y testing
 - [x] Suite backend activa
-- [x] E2E frontend con Playwright
+- [~] E2E frontend con Playwright
 - [x] Smoke real de homologacion ejecutado manualmente
 - [x] QA manual funcional cerrada
+- [x] Script de lint frontend no destructivo `npm run lint:check`
+- [ ] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
+  confiable en auditorias
 - [ ] Cobertura mas profunda sobre detalles de comprobantes, PDF y reportes
 - [ ] Smoke automatizado de stack completo local
 
@@ -277,10 +290,11 @@ Objetivo: ampliar valor mas alla del MVP.
 
 ## Prioridades inmediatas
 
-1. Ejecutar primera prueba real controlada con lote chico y punto de venta Web Services confirmado
-2. Levantar entorno productivo con `docker-compose.prod.yml` y `.env.production`
-3. Probar backup/restauracion de PostgreSQL, certificados y logs
-4. Documentar evidencia del primer CAE productivo
+1. Repetir la validacion con el lote definitivo del usuario y confirmar totales/puntos de venta antes de emitir
+2. Ejecutar primera prueba real controlada con lote chico y punto de venta Web Services confirmado
+3. Levantar entorno productivo con `docker-compose.prod.yml` y `.env.production`
+4. Probar backup/restauracion de PostgreSQL, certificados y logs
+5. Documentar evidencia del primer CAE productivo
 
 ## Criterio de exito del MVP
 
@@ -288,6 +302,7 @@ El MVP se considera cerrado cuando:
 
 - una persona administrativa no tecnica puede emitir un comprobante individual sin ayuda tecnica
 - una persona administrativa no tecnica puede emitir un lote por Excel sin soporte tecnico constante
+- una persona administrativa no tecnica puede revisar el formato detectado y confirmar antes de emitir
 - los comprobantes quedan autorizados con CAE en homologacion
 - el usuario puede consultar comprobantes, ver PDF y operar reportes basicos
 - la documentacion permite retomar el proyecto y operarlo sin reconstruir contexto desde cero

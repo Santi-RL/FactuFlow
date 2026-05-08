@@ -291,7 +291,9 @@ Una vez aprobado, un mantenedor hará merge de tu PR. ¡Gracias por tu contribuc
 - Lint con **pylint** o **ruff**
 
 #### Type Hints
-Obligatorios en todas las funciones:
+Obligatorios en codigo nuevo o modificado para funciones, clases y helpers
+publicos. El codigo historico se normaliza cuando se toca o en tareas tecnicas
+dedicadas.
 
 ```python
 # ✅ BIEN
@@ -307,7 +309,8 @@ def calcular_total(items, iva=21):
 ```
 
 #### Docstrings
-En español, estilo Google o NumPy:
+En codigo nuevo o modificado, usar docstrings en español para funciones,
+clases y helpers publicos. Preferir estilo Google o NumPy:
 
 ```python
 def emitir_factura(cliente_id: int, items: list[dict]) -> Comprobante:

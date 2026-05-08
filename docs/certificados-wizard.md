@@ -2,7 +2,7 @@
 
 ## 📋 Descripción
 
-El Wizard de Certificados ARCA es una funcionalidad completa que guía al usuario paso a paso en la configuración de certificados digitales necesarios para emitir facturas electrónicas ante ARCA (ex-AFIP).
+El Wizard de Certificados ARCA es una funcionalidad completa que guía al usuario paso a paso en la configuración de certificados digitales necesarios para emitir facturas electrónicas ante ARCA.
 
 ## ✨ Características Implementadas
 

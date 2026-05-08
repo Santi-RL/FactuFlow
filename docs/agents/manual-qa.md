@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-05
+Ultima actualizacion: 2026-05-08
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -73,6 +73,8 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 
 - `Descargar plantilla` funciona.
 - La validacion del lote funciona.
+- El flujo mantiene la separacion entre validar y emitir: no se consume
+  numeracion fiscal hasta presionar `Emitir comprobantes validos`.
 - La emision del lote funciona desde UI.
 - `Descargar observado` funciona sobre el lote completado.
 - Se valido desde UI un lote productivo preparatorio con consumidor final sin
@@ -83,6 +85,20 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 - Resultado real:
   - `0005-00000005` -> CAE `86150042971165`
   - `0005-00000006` -> CAE `86150042971178`
+
+Validado localmente el 2026-05-08:
+- autodeteccion asistida de formato al subir Excel externo
+- seleccion/confirmacion obligatoria de formato para archivos externos
+- formato global `Extracto bancario - creditos IVA exento`
+- mapeo de columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`,
+  `Leyendas Adicionales2` y `Pto Vta`
+- validacion de un extracto chico con puntos de venta `6`, `10` y `13`
+- la validacion quedo sin emision: `Ya emitidos = 0`
+
+Pendiente antes de produccion:
+- repetir el recorrido con el lote definitivo
+- revisar totales, puntos de venta y formato confirmado
+- emitir solo con confirmacion explicita
 
 ### 7. Clientes
 
@@ -142,6 +158,8 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 - QA manual funcional cerrada para el alcance actual del MVP en homologacion.
 - El flujo de emision masiva ahora distingue lotes chicos sincronos y lotes grandes en cola.
 - La pantalla muestra estado `En cola` para lotes grandes y continua haciendo polling hasta `Procesando`/resultado final.
+- La pantalla de emision masiva permite revisar el formato detectado, confirmar
+  el formato de importacion y validar antes de emitir.
 - La pantalla `Emisores` permite agregar un nuevo emisor desde un modal y
   seleccionarlo como activo al crearlo.
 - En el modal `Agregar emisor`, la accion `Subir constancia` procesa un PDF de
@@ -152,10 +170,21 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 
 ## Punto de reanudacion
 
-Retomar en la preparacion de produccion:
+El estado operativo canonico esta en `docs/agents/current-status.md`.
 
-1. Certificado productivo.
-2. Autorizacion `wsfe` productiva.
-3. Punto de venta productivo.
-4. Levantar perfil productivo con PostgreSQL usando `docker-compose.prod.yml`.
-5. Checklist operativo de go-live y backup.
+Desde la QA manual, no queda pendiente volver a configurar desde cero
+certificado productivo, autorizacion `wsfe` ni puntos de venta productivos para
+el emisor real: esos puntos fueron verificados en la preparacion productiva y
+revalidados con checks seguros el 2026-05-07.
+
+Retomar en la preparacion de la primera prueba real controlada:
+
+1. Confirmar el punto de venta Web Services a usar, hoy candidato `6`.
+2. Preparar o revisar el lote chico definitivo.
+3. Si se usa un extracto bancario, repetir con el lote definitivo la validacion
+   ya probada localmente: autodeteccion, seleccion de formato, revision de
+   totales y confirmacion explicita antes de emitir.
+4. Verificar backup, logs y plan de restauracion.
+5. Levantar o confirmar el perfil productivo con PostgreSQL usando
+   `docker-compose.prod.yml`.
+6. Emitir la prueba real solo con confirmacion explicita.

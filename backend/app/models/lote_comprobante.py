@@ -48,6 +48,8 @@ class LoteComprobante(Base):
     grupos_fallidos = Column(Integer, nullable=False, default=0)
     mensaje_resumen = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=True)
+    mapeo_usado_json = Column(JSON, nullable=True)
+    headers_detectados_json = Column(JSON, nullable=True)
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -61,9 +63,21 @@ class LoteComprobante(Base):
     usuario_id = Column(
         Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
     )
+    formato_importacion_id = Column(
+        Integer,
+        ForeignKey("formatos_importacion.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    formato_importacion_version_id = Column(
+        Integer,
+        ForeignKey("formatos_importacion_versiones.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     empresa = relationship("Empresa", back_populates="lotes_comprobantes")
     usuario = relationship("Usuario", back_populates="lotes_comprobantes")
+    formato_importacion = relationship("FormatoImportacion")
+    formato_importacion_version = relationship("FormatoImportacionVersion")
     grupos = relationship(
         "LoteComprobanteGrupo",
         back_populates="lote",

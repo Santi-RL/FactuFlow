@@ -19,7 +19,7 @@ const emit = defineEmits<Emits>();
       <div class="prose prose-lg max-w-none">
         <p class="text-gray-700 mb-6">
           Para poder emitir facturas electrónicas, necesitás un certificado
-          digital que te identifica ante ARCA (ex-AFIP).
+          digital que te identifica ante ARCA.
         </p>
 
         <p class="text-gray-700 mb-6">

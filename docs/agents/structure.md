@@ -23,12 +23,19 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 ## Backend
 - `backend/app/main.py`: entrada de FastAPI y registro de routers.
 - `backend/app/api/`: endpoints REST por dominio.
-- `backend/app/arca/`: integración ARCA (WSAA, WSFEv1, crypto, cache, utils).
+- `backend/app/api/lotes_comprobantes.py`: endpoints de emision masiva por Excel.
+- `backend/app/api/formatos_importacion.py`: endpoints de formatos configurables para importar Excel externos.
+- `backend/app/arca/`: integración ARCA (WSAA, WSFEv1, SOAP, crypto, cache, utils).
 - `backend/app/afip/`: legacy (mantener solo compatibilidad).
 - `backend/app/core/`: configuración, seguridad y utilidades base.
 - `backend/app/models/`: modelos ORM.
 - `backend/app/schemas/`: esquemas Pydantic.
 - `backend/app/services/`: servicios de negocio.
+- `backend/app/models/formato_importacion.py`: modelos versionados de formatos, campos y reglas de importacion.
+- `backend/app/schemas/formato_importacion.py`: contratos de formatos, deteccion y candidatos.
+- `backend/app/services/formatos_importacion_service.py`: deteccion, resolucion de mapeos y normalizacion de archivos externos.
+- `backend/app/services/lote_worker.py`: worker reanudable de lotes grandes.
+- `backend/app/scripts/create_admin_user.py`: alta/promocion de usuario administrador.
 - `backend/app/templates/`: plantillas (PDF/HTML).
 - `backend/tests/`: tests del backend.
 - `backend/tests/test_arca/`: tests específicos de ARCA.
@@ -41,8 +48,12 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `frontend/src/components/ui/`: componentes base `Base*`.
 - `frontend/src/composables/`: hooks de Composition API.
 - `frontend/src/services/`: acceso a API.
+- `frontend/src/services/lotes-comprobantes.service.ts`: cliente HTTP de lotes.
+- `frontend/src/services/formatos-importacion.service.ts`: cliente HTTP para listar y detectar formatos de importacion.
 - `frontend/src/stores/`: estado global (Pinia).
 - `frontend/src/types/`: tipos compartidos.
+- `frontend/src/types/lote-comprobante.ts`: tipos del flujo de lotes.
+- `frontend/src/types/formato-importacion.ts`: tipos de formatos, versiones y candidatos detectados.
 - `frontend/src/assets/`: estáticos.
 
 ## Documentación
