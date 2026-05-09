@@ -13,9 +13,14 @@ export interface LoteComprobanteGrupo {
   orden: number;
   estado: string;
   tipo_comprobante: number | null;
+  concepto: number | null;
   punto_venta_numero: number | null;
   cliente_documento: string | null;
   cliente_razon_social: string | null;
+  fecha_emision: string | null;
+  fecha_servicio_desde: string | null;
+  fecha_servicio_hasta: string | null;
+  fecha_vto_pago: string | null;
   total_estimado: number;
   mensajes_json: string[];
   cae: string | null;
@@ -66,6 +71,20 @@ export interface LoteProcesamientoResponse {
   lote: LoteComprobante;
   mensaje: string;
   en_progreso: boolean;
+}
+
+export interface LoteOpcionesFechas {
+  concepto_modo: "productos" | "servicios" | "archivo" | "";
+  descripcion_item_modo: "archivo" | "fija" | "";
+  descripcion_item_fija?: string;
+  fecha_emision_modo: "archivo" | "fija" | "";
+  fecha_emision_fija?: string;
+  fecha_servicio_desde_modo: "archivo" | "fija" | "";
+  fecha_servicio_desde_fija?: string;
+  fecha_servicio_hasta_modo: "archivo" | "fija" | "";
+  fecha_servicio_hasta_fija?: string;
+  fecha_vto_pago_modo: "archivo" | "fija" | "";
+  fecha_vto_pago_fija?: string;
 }
 
 export const ESTADOS_LOTE_NOMBRES: Record<string, string> = {

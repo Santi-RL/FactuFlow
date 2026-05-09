@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-08
+Ultima actualizacion: 2026-05-09
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -46,7 +46,17 @@ Cerrar un MVP funcional centrado en:
 - [x] Emision masiva por Excel implementada
 - [x] Formatos de importacion configurables para emision masiva con alcance global y por emisor
 - [x] Emision masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
+- [x] Fecha de emision explicita; no se asume fecha del dia actual al emitir
+- [x] Confirmacion final obligatoria de fecha fiscal antes de solicitar CAE
+- [x] Concepto fiscal ARCA explicito; no se asume productos o servicios por defecto
+- [~] Descripcion/concepto facturado del item documentado como dato separado
+  del concepto fiscal ARCA; debe venir del archivo o de un valor fijo confirmado
+  para todo el lote, sin defaults ocultos
 - [x] Sincronizacion manual de puntos de venta ARCA validada desde UI
+- [x] Validacion de puntos de venta en emision normaliza `Bloqueado=N`/`S` de ARCA
+- [x] Factura C no informa objeto `Iva` en WSFE y bloquea items con IVA distinto de 0
+- [x] Notas de credito/debito informan comprobantes asociados en WSFE
+  (`CbtesAsoc`) cuando corresponde
 - [~] Alineacion limpia entre base legacy y Alembic
 - [ ] Arquitectura de jobs robusta para procesos largos
 
@@ -54,6 +64,8 @@ Cerrar un MVP funcional centrado en:
 - [x] Vue + Pinia + Router operativos
 - [x] Dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y empresa operativos
 - [x] Selector de empresa activa para admins
+- [x] Secciones principales scopiadas por emisor activo y verificadas al
+  cambiar el selector
 - [x] Autodeteccion asistida de formato al subir Excel externo para emision masiva
 - [x] QA manual guiada de flujos reales
 - [ ] Operaciones masivas de PDF desde listado
@@ -121,6 +133,7 @@ Objetivo: dejar la emision validada contra servicios reales.
 - [x] `FECompConsultar` util para verificacion
 - [x] Validacion de numeracion y punto de venta en emision
 - [x] Mapeo de `CondicionIVAReceptorId`
+- [x] Validacion local de ventana ARCA para fecha de emision antes de emitir
 - [~] Manejo fino de edge cases homologacion vs produccion
 
 ### Homologacion
@@ -147,8 +160,18 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Plantilla Excel fija
 - [x] Formatos de importacion configurables por encabezado, columna o constante
 - [x] Formato global para extractos bancarios con columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y `Pto Vta`
+- [x] Formato particular local para Cano (`Factura B IVA 21%`) con neto
+  gravado como precio del item, total como referencia y consumidor final sin
+  documento cuando corresponde
+- [x] Politica explicita de fecha de emision por lote: desde archivo o fecha fija confirmada
+- [x] Politica explicita de concepto fiscal ARCA por lote: productos, servicios
+  o definido por archivo
+- [x] Politica explicita de descripcion facturada del item por lote: desde
+  archivo o valor fijo para todo el lote, independiente del concepto fiscal ARCA
 - [x] Agrupacion por `comprobante_ref`
 - [x] Prevalidacion por fila y por comprobante
+- [x] Reintento seguro del mismo archivo cuando el lote previo no emitio CAE
+- [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
 - [x] Snapshot fiscal del receptor en comprobantes
 - [x] Clientes precargados opcionales para lotes masivos
 - [x] Emision sync para lotes chicos
@@ -156,13 +179,28 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 
 ### UX de lotes
 - [x] Wizard de emision masiva
-- [x] Confirmacion de formato antes de validar archivos externos
+- [x] Preseleccion del formato sugerido con alta confianza antes de validar
+  archivos externos
+- [x] Confirmacion de fecha de emision y fechas de servicio antes de validar
+- [x] Modal final de advertencia antes de emitir: confirma fecha fiscal y avisa
+  que luego no se podran emitir comprobantes con fecha anterior para ese mismo
+  punto de venta
+- [x] Confirmacion de concepto fiscal ARCA antes de validar; si viene del archivo, todas las filas deben indicar `Producto` o `Servicio`
+- [x] Confirmacion de descripcion/concepto facturado del item antes de validar:
+  desde archivo o texto fijo para todo el lote
 - [x] Separacion clara entre validar lote y emitir comprobantes validos
 - [x] Mensajes basicos de validacion
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente
 - [x] QA manual local del formato global de extracto bancario sin emitir
-- [ ] QA manual especifica de formatos particulares por emisor
+- [ ] QA visual local del selector obligatorio de fechas fiscales en lotes
+- [x] QA visual local de descripcion/concepto facturado del item independiente
+  del concepto fiscal ARCA, sin defaults ocultos
+- [x] Preparacion y validacion segura sin emision de lote de Nota de Credito C
+  para anular duplicados productivos
+- [x] Emision y verificacion por consulta ARCA de 19 Nota de Credito C para
+  anular duplicados productivos
+- [~] QA manual especifica de formatos particulares por emisor
 - [ ] Descarga de archivo observado con errores mas amigable
 - [ ] Mejores estados de seguimiento para lotes grandes
 
@@ -224,8 +262,9 @@ Objetivo: pasar de una operacion de una sola empresa a una plataforma gestionabl
 - [x] Alta basica de nuevos emisores desde UI admin
 - [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF
 - [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
-- [~] Re-scopeo de comprobantes, reportes y certificados por empresa activa
-- [ ] Multiempresa validado con mas de una empresa real de prueba
+- [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,
+  reportes, certificados, puntos de venta y nueva factura por empresa activa
+- [~] Multiempresa validado con mas de una empresa real de prueba
 - [ ] Alta y gestion de multiples empresas por admin global
 - [ ] Controles de permisos mas finos
 - [ ] Onboarding multiempresa mas claro
@@ -290,11 +329,17 @@ Objetivo: ampliar valor mas alla del MVP.
 
 ## Prioridades inmediatas
 
-1. Repetir la validacion con el lote definitivo del usuario y confirmar totales/puntos de venta antes de emitir
-2. Ejecutar primera prueba real controlada con lote chico y punto de venta Web Services confirmado
-3. Levantar entorno productivo con `docker-compose.prod.yml` y `.env.production`
-4. Probar backup/restauracion de PostgreSQL, certificados y logs
-5. Documentar evidencia del primer CAE productivo
+1. Resolver decisiones fiscales del lote `.tmp/ParaPruebas.xlsx`: elegir explicitamente tipo de concepto fiscal ARCA (`Productos`, `Servicios` o `Definido por archivo`); si se usa archivo, validar que todas las filas tengan columna con `Producto` o `Servicio`; definir fecha de emision permitida por ARCA cuando la fecha del archivo quede fuera de ventana
+2. Definir la descripcion/concepto facturado de los items del lote, por archivo o como valor fijo para todos los comprobantes, sin usar defaults ocultos
+3. Revalidar el lote definitivo con concepto fiscal ARCA, descripcion de item, fechas, totales y puntos de venta confirmados antes de emitir
+4. Verificar visualmente el modal final de fecha fiscal en emision individual,
+   facturas por lote y notas de credito antes de volver a produccion
+5. Documentar evidencia operativa de los 20 comprobantes productivos originales
+   y las 19 Nota de Credito C verificadas contra ARCA
+6. Levantar entorno productivo con `docker-compose.prod.yml` y `.env.production`
+7. Probar backup/restauracion de PostgreSQL, certificados y logs
+8. Preparar el proximo lote productivo solo despues de revisar la evidencia
+   fiscal del piloto
 
 ## Criterio de exito del MVP
 

@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-08
+Ultima actualizacion: 2026-05-09
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -33,12 +33,19 @@ Todavia no hay una pantalla de gestion de usuarios.
 Si tu usuario administra mas de un CUIT, en el encabezado veras el selector `Emisor activo`.
 
 Todo lo que hagas en estas secciones queda asociado a ese emisor:
+- dashboard
+- clientes
 - comprobantes
 - emision masiva
 - certificados
+- puntos de venta
 - reportes
+- nueva factura
 
 Antes de emitir o consultar informacion, verifica siempre que el emisor activo sea el correcto.
+Si cambias el emisor activo, las pantallas principales recargan la informacion
+para mostrar solo datos de ese CUIT. En `Nueva Factura`, cambiar el emisor
+recarga puntos de venta y limpia el cliente seleccionado.
 
 ## 3. Dashboard
 
@@ -110,14 +117,65 @@ Flujo general:
 2. Subir el Excel.
 3. Revisar el formato sugerido por FactuFlow.
 4. Si es un archivo externo, elegir o confirmar el formato correcto.
-5. Validar errores por fila o por comprobante.
-6. Revisar comprobantes detectados, importes, receptor y punto de venta.
-7. Confirmar la emision con `Emitir comprobantes validos`.
-8. Revisar resultados del lote.
-9. Si lo necesitas, descargar el archivo observado del lote.
+5. Elegir explicitamente si el lote corresponde a `Productos`, `Servicios` o
+   `Definido por archivo`.
+6. Definir la descripcion/concepto facturado del item: desde el archivo o como
+   texto fijo para todo el lote.
+7. Definir explicitamente la fecha de emision y, si corresponde, el periodo de
+   servicios y vencimiento de pago.
+8. Validar errores por fila o por comprobante.
+9. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
+   fechas, importes, receptor y punto de venta.
+10. Confirmar la emision con `Emitir comprobantes validos`.
+11. Revisar resultados del lote.
+12. Si lo necesitas, descargar el archivo observado del lote.
 
 Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
 recien ocurre cuando confirmas el lote validado.
+
+Si un lote termina `fallido` o `con_errores` sin haber emitido comprobantes,
+podes volver a subir el mismo archivo para revalidarlo. FactuFlow conserva el
+historial del intento anterior y solo permite el reintento cuando no hubo CAE
+emitido. Si el lote ya quedo validado para emitir o emitio algun comprobante, el
+archivo duplicado se bloquea para evitar facturacion repetida.
+
+Cuando presionas `Emitir comprobantes validos`, espera a que el lote termine y
+revisa el resumen final antes de volver a intentar. El sistema bloquea una
+segunda ejecucion del mismo lote si ya esta procesando o si ya fue procesado.
+
+Regla importante: FactuFlow no completa la fecha de emision con la fecha del dia
+por defecto. Antes de validar un lote debes elegir si la fecha de emision sale
+del archivo o si se usara una fecha fija para todos los comprobantes. Para
+comprobantes de servicios tambien debes definir como se completan `desde`,
+`hasta` y vencimiento de pago. Si una fecha elegida queda fuera de la ventana
+que ARCA permite para autorizar comprobantes, el lote queda observado antes de
+emitir. Para emitir, debes elegir una fecha permitida por el web service; el
+sistema no la reemplaza automaticamente.
+
+Antes de emitir, FactuFlow debe mostrar una confirmacion final de fecha fiscal
+con este texto: `Está seguro que quiere emitir comprobantes con fecha
+XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior
+para ese mismo punto de venta.` Si la fecha o el punto de venta no son los que
+corresponden, cancela la emision y vuelve a revisar el lote.
+
+Regla critica de concepto fiscal ARCA: FactuFlow no asume que el lote sea de
+productos o de servicios. Antes de validar debes elegir `Productos`,
+`Servicios` o `Definido por archivo`. Esta decision es fiscal y define como se
+arma el comprobante para ARCA, que ventana de fechas aplica y si hacen falta
+fechas de servicio. Si eliges `Definido por archivo`, el Excel debe traer una
+columna valida con `Producto` o `Servicio` en todas las filas. Si falta la
+columna o hay un valor distinto, FactuFlow informa el problema y no deja emitir
+ese lote hasta corregirlo o elegir un criterio valido.
+
+Regla critica de descripcion del item: el concepto fiscal ARCA no es el texto
+que aparece facturado en el renglon del comprobante. Textos como `Honorarios`,
+`Zapatillas`, `Servicio mensual` o `Abono` son la descripcion/concepto facturado
+del item. Esa descripcion tambien debe definirse antes de validar: puede venir
+de una columna del archivo o fijarse como un valor unico para todo el lote. No
+debe completarse con un default oculto del formato.
+
+Los lotes viejos validados antes de esta regla deben revalidarse. FactuFlow no
+permite procesarlos sin una politica de concepto fiscal guardada.
 
 ### Formatos de importacion
 
@@ -126,9 +184,12 @@ La pantalla muestra formatos disponibles para el emisor activo:
 - formatos particulares de un emisor
 
 FactuFlow lee los encabezados del Excel, muestra las columnas detectadas y
-sugiere el formato con mayor coincidencia. La plantilla oficial puede validarse
-directamente; para archivos externos debes elegir o confirmar el formato antes
-de validar.
+sugiere el formato con mayor coincidencia. Si la coincidencia es alta, ese
+formato queda seleccionado automaticamente y podes cambiarlo si no estas de
+acuerdo. Si no hay una sugerencia confiable, debes elegir el formato antes de
+validar. Si los encabezados no se analizaron automaticamente, la pantalla
+muestra la accion `Analizar encabezados` y mantiene bloqueada la validacion
+hasta completar ese paso.
 
 Los formatos pueden mapear datos de tres maneras:
 - por encabezado, usando nombres o alias de columnas
@@ -140,22 +201,84 @@ La administracion avanzada de formatos por emisor existe por API/configuracion;
 la pantalla actual se concentra en seleccionar y confirmar formatos ya
 disponibles.
 
+### Formato Cano
+
+El emisor Cano tiene configurado localmente el formato `Cano - Factura B IVA
+21%`. Esta pensado para archivos con columnas como `Fecha`, `Tipo`,
+`Punto de Venta`, `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
+
+El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa `Imp. Neto Gravado`
+como precio neto del item y `Imp. Total` como total de referencia. Como la
+muestra disponible no trae numero de documento real del receptor, FactuFlow lo
+trata como consumidor final sin documento cuando el importe esta bajo el umbral
+legal. Si un archivo futuro trae comprobantes que requieren identificar al
+receptor, se debe agregar una columna con documento real o ajustar el formato.
+
+La fecha del archivo no se usa automaticamente para emitir. Antes de validar el
+lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
+permitida por ARCA para todo el lote.
+
 ### Extractos bancarios
 
 Hay un formato global para extractos bancarios de creditos con estas columnas:
-- `Fecha`: fecha de origen del movimiento, opcional
+- `Fecha`: fecha de origen del movimiento, usada como fecha del archivo cuando
+  el usuario elige esa opcion. FactuFlow tambien interpreta fechas que Excel
+  entregue internamente como numero serial.
 - `Créditos`: importe acreditado, obligatorio
 - `Leyendas Adicionales1`: receptor o leyenda equivalente, opcional
 - `Leyendas Adicionales2`: documento del receptor, opcional
 - `Pto Vta`: punto de venta, obligatorio
 
 Cada fila del extracto genera un comprobante. El formato global esta pensado
-para emisores Exento o Monotributo y usa Factura C, concepto productos, IVA `0`,
-item `Cobro registrado en cuenta bancaria` y no crea cliente persistente por
-defecto. Si el documento o receptor vienen vacios, aplican las reglas vigentes
-de consumidor final. Para emisores Responsable Inscripto, el lote queda
-observado y se debe crear un formato particular con Factura A/B segun
-corresponda.
+para emisores Exento o Monotributo y usa Factura C e IVA `0`; no crea cliente
+persistente por defecto. No define por si solo si el lote es de productos o
+servicios, ni que descripcion del item se va a facturar: debes elegir el tipo de
+concepto fiscal ARCA y definir la descripcion facturada antes de validar. Si el
+documento o receptor vienen vacios, aplican las reglas vigentes de consumidor
+final. Para emisores Responsable Inscripto, el lote queda observado y se debe
+crear un formato particular con Factura A/B segun corresponda.
+
+En Factura C los items deben tener IVA 0. FactuFlow no informa el bloque IVA a
+ARCA para ese tipo de comprobante, porque el web service lo rechaza aunque la
+alicuota sea cero.
+
+### Notas de credito por lote
+
+La plantilla oficial tambien puede usarse para notas de credito. Para Nota de
+Credito C se usa `tipo_comprobante = 13`.
+
+Cuando una nota de credito anula o ajusta una factura, el Excel debe incluir el
+comprobante asociado:
+- `asociado_tipo_comprobante`
+- `asociado_punto_venta`
+- `asociado_numero`
+- `asociado_fecha`
+- `asociado_cuit`
+
+FactuFlow valida que esos datos existan antes de dejar la nota de credito lista
+para emitir, y los informa a ARCA como `CbtesAsoc`. No cargues importes
+negativos: el importe se carga positivo y el tipo de comprobante define que se
+trata de un credito.
+
+Si elegis servicios, no se debe emitir sin revisar el periodo de servicios. La
+fecha del extracto puede usarse como fecha de emision o como base del periodo
+solo si el usuario lo confirma y ARCA la admite para la fecha en que se solicita
+el CAE.
+
+Si el archivo observado informa que un punto de venta no esta habilitado, primero
+contrasta `Puntos de venta > Sincronizar con ARCA`. Para el emisor real usado en
+la prueba productiva, ARCA informa como no bloqueados los puntos `6`, `8`, `10`,
+`12`, `13` y `14`; `7` y `9` estan bloqueados.
+
+Si el archivo externo trae una columna para distinguir productos y servicios,
+usa `Definido por archivo` solo cuando todas las filas esten completas con
+`Producto` o `Servicio`. No cargues el archivo esperando que FactuFlow decida el
+concepto por defecto.
+
+Si el archivo externo trae una columna con la descripcion a facturar, usala como
+descripcion del item. Si no la trae, define un texto fijo para todo el lote
+antes de validar. No confundas esa descripcion con `Productos` o `Servicios`:
+son datos distintos.
 
 Reglas principales:
 - un lote pertenece a un solo emisor activo
@@ -170,6 +293,10 @@ Reglas principales:
   cliente despues no cambia el receptor historico del comprobante
 - los errores se muestran por fila o por comprobante
 - las alicuotas de IVA permitidas son `0`, `10.5`, `21` y `27`
+- el concepto fiscal ARCA del lote siempre debe ser confirmado por el usuario:
+  productos, servicios o definido por archivo
+- la descripcion/concepto facturado del item siempre debe venir del archivo o de
+  un valor fijo confirmado para el lote
 - los lotes chicos se emiten en la misma sesion
 - los lotes grandes quedan `En cola` y se procesan en segundo plano con seguimiento automatico
 

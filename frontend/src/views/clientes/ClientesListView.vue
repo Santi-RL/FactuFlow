@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useClientesStore } from "@/stores/clientes";
+import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -19,12 +20,14 @@ import {
 
 const router = useRouter();
 const clientesStore = useClientesStore();
+const empresaStore = useEmpresaStore();
 const { showSuccess, showError } = useNotification();
 
 const search = ref("");
 const currentPage = ref(1);
 const showDeleteDialog = ref(false);
 const clienteToDelete = ref<number | null>(null);
+const empresaId = computed(() => empresaStore.empresaActivaId || 0);
 
 const columns = [
   { key: "razon_social", label: "Razón Social", sortable: true },
@@ -34,17 +37,40 @@ const columns = [
   { key: "activo", label: "Estado", sortable: false },
 ];
 
-onMounted(() => {
-  loadClientes();
+onMounted(async () => {
+  if (!empresaStore.empresaActivaId) {
+    await empresaStore.inicializarEmpresaActiva();
+  } else if (!empresaStore.empresaActiva) {
+    await empresaStore.cargarEmpresa();
+  }
+
+  await loadClientes();
 });
 
 watch([search, currentPage], () => {
   loadClientes();
 });
 
+watch(
+  () => empresaStore.empresaActivaId,
+  async (nuevoEmpresaId, anteriorEmpresaId) => {
+    if (!nuevoEmpresaId || nuevoEmpresaId === anteriorEmpresaId) return;
+
+    if (currentPage.value !== 1) {
+      currentPage.value = 1;
+      return;
+    }
+
+    await loadClientes();
+  },
+);
+
 const loadClientes = async () => {
+  if (!empresaId.value) return;
+
   try {
     await clientesStore.fetchClientes({
+      empresa_id: empresaId.value,
       page: currentPage.value,
       per_page: 30,
       search: search.value || undefined,

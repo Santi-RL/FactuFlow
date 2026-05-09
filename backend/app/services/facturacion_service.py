@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Optional
 
@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import ArcaServiceError, ArcaValidationError
-from app.arca.models import ComprobanteRequest, IvaItem
+from app.arca.models import CbteAsocItem, ComprobanteRequest, IvaItem
 from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
@@ -45,6 +45,7 @@ class FacturacionService:
     _number_locks: dict[tuple[int, int, int], asyncio.Lock] = {}
     _number_locks_guard = asyncio.Lock()
     CONSUMIDOR_FINAL_IDENTIFICACION_MINIMA = Decimal("10000000")
+    TIPOS_COMPROBANTE_C = {11, 12, 13}
 
     TIPO_DOCUMENTO_CODIGO_A_NOMBRE = {
         80: "CUIT",
@@ -149,7 +150,7 @@ class FacturacionService:
                     tipo_comprobante=request.tipo_comprobante,
                     punto_venta=punto_venta.numero,
                     numero=proximo,
-                    fecha=date.today(),
+                    fecha=request.fecha_emision,
                     total=totales["total"],
                     mensaje="Error al solicitar CAE a ARCA",
                     errores=[str(e)],
@@ -175,7 +176,7 @@ class FacturacionService:
                     tipo_comprobante=request.tipo_comprobante,
                     punto_venta=punto_venta.numero,
                     numero=proximo,
-                    fecha=date.today(),
+                    fecha=request.fecha_emision,
                     total=totales["total"],
                     mensaje="La numeración ya fue registrada localmente",
                     errores=[
@@ -214,7 +215,7 @@ class FacturacionService:
                 tipo_comprobante=request.tipo_comprobante,
                 punto_venta=0,
                 numero=0,
-                fecha=date.today(),
+                fecha=request.fecha_emision,
                 total=Decimal("0"),
                 mensaje="Error de validación",
                 errores=[str(e)],
@@ -226,7 +227,7 @@ class FacturacionService:
                 tipo_comprobante=request.tipo_comprobante,
                 punto_venta=0,
                 numero=0,
-                fecha=date.today(),
+                fecha=request.fecha_emision,
                 total=Decimal("0"),
                 mensaje="Error inesperado",
                 errores=[f"Error interno: {str(e)}"],
@@ -363,6 +364,13 @@ class FacturacionService:
         if request.razon_social.strip() == "":
             raise ValidationError("La razón social del receptor es obligatoria")
 
+        if request.tipo_comprobante in self.TIPOS_COMPROBANTE_C:
+            for item in request.items:
+                if item.iva_porcentaje != Decimal("0"):
+                    raise ValidationError(
+                        "Para comprobantes tipo C, los ítems deben tener IVA 0"
+                    )
+
         # Servicios requieren fechas
         if request.concepto in [2, 3]:
             if not request.fecha_servicio_desde:
@@ -373,6 +381,8 @@ class FacturacionService:
                 raise ValidationError(
                     "Para servicios debe indicar fecha de vencimiento de pago"
                 )
+
+        self._validar_fecha_emision_arca(request.fecha_emision, request.concepto)
 
         # Validar que exista la empresa
         empresa = await self._obtener_empresa(request.empresa_id)
@@ -572,11 +582,22 @@ class FacturacionService:
             )
             return
         for punto in puntos:
-            if punto.numero == punto_venta_numero and not punto.bloqueado:
+            if punto.numero == punto_venta_numero and self._es_punto_arca_habilitado(
+                punto.bloqueado
+            ):
                 return
         raise ValidationError(
             f"El punto de venta {punto_venta_numero} no está habilitado en ARCA para esta empresa"
         )
+
+    @staticmethod
+    def _es_punto_arca_habilitado(bloqueado: object) -> bool:
+        """Interpreta el indicador `Bloqueado` devuelto por ARCA."""
+        if isinstance(bloqueado, bool):
+            return not bloqueado
+
+        texto = str(bloqueado).strip().upper()
+        return texto in {"N", "NO", "FALSE", "0"}
 
     def _armar_request_arca(
         self,
@@ -600,10 +621,11 @@ class FacturacionService:
         # Limpiar número de documento (solo dígitos)
         nro_doc = "".join(filter(str.isdigit, request.numero_documento))
 
-        # Calcular IVA para ARCA
+        # Calcular IVA para ARCA. Para comprobantes C no se informa objeto Iva.
         iva_items = []
+        informa_iva = request.tipo_comprobante not in self.TIPOS_COMPROBANTE_C
 
-        if totales["iva_21"] > 0:
+        if informa_iva and totales["iva_21"] > 0:
             iva_items.append(
                 IvaItem(
                     id=5,
@@ -612,7 +634,7 @@ class FacturacionService:
                 )
             )
 
-        if totales["iva_10_5"] > 0:
+        if informa_iva and totales["iva_10_5"] > 0:
             iva_items.append(
                 IvaItem(
                     id=4,  # 10.5%
@@ -621,7 +643,7 @@ class FacturacionService:
                 )
             )
 
-        if totales["iva_27"] > 0:
+        if informa_iva and totales["iva_27"] > 0:
             iva_items.append(
                 IvaItem(
                     id=6,
@@ -630,13 +652,25 @@ class FacturacionService:
                 )
             )
 
-        # Si no hay IVA, agregar IVA 0
-        if not iva_items:
+        if informa_iva and not iva_items:
             iva_items.append(
                 IvaItem(id=3, base_imp=totales["base_0"], importe=Decimal("0"))
             )
 
         # Crear request
+        cbtes_asoc = [
+            CbteAsocItem(
+                tipo=asociado.tipo_comprobante,
+                punto_venta=asociado.punto_venta,
+                numero=asociado.numero,
+                cuit=asociado.cuit,
+                fecha_cbte=asociado.fecha.strftime("%Y%m%d")
+                if asociado.fecha
+                else None,
+            )
+            for asociado in request.comprobantes_asociados
+        ]
+
         return ComprobanteRequest(
             punto_venta=punto_venta_numero,
             tipo_cbte=request.tipo_comprobante,
@@ -645,7 +679,7 @@ class FacturacionService:
             nro_doc=int(nro_doc),
             cbte_desde=numero,
             cbte_hasta=numero,
-            fecha_cbte=date.today().strftime("%Y%m%d"),
+            fecha_cbte=request.fecha_emision.strftime("%Y%m%d"),
             imp_total=totales["total"],
             imp_tot_conc=Decimal("0"),  # No implementado aún
             imp_neto=totales["subtotal"],
@@ -672,7 +706,8 @@ class FacturacionService:
                 if request.fecha_vto_pago
                 else None
             ),
-            iva=iva_items if iva_items else None,
+            iva=iva_items,
+            cbtes_asoc=cbtes_asoc,
         )
 
     async def _guardar_comprobante(
@@ -728,8 +763,9 @@ class FacturacionService:
         # Crear comprobante
         comprobante = Comprobante(
             tipo_comprobante=request.tipo_comprobante,
+            concepto=request.concepto,
             numero=numero,
-            fecha_emision=date.today(),
+            fecha_emision=request.fecha_emision,
             subtotal=totales["subtotal"],
             descuento=Decimal("0"),
             iva_21=totales["iva_21"],
@@ -784,6 +820,23 @@ class FacturacionService:
         await self.db.refresh(comprobante)
 
         return comprobante
+
+    def _validar_fecha_emision_arca(self, fecha_emision: date, concepto: int) -> None:
+        """Valida la ventana de fecha de comprobante admitida por WSFE."""
+        hoy = date.today()
+        dias = 10 if concepto in {2, 3} else 5
+        desde = hoy - timedelta(days=dias)
+        hasta = hoy + timedelta(days=dias)
+        if desde <= fecha_emision <= hasta:
+            return
+
+        tipo = "servicios" if concepto in {2, 3} else "productos"
+        raise ValidationError(
+            "La fecha de emisión "
+            f"{fecha_emision.strftime('%d/%m/%Y')} queda fuera de la ventana "
+            f"ARCA para {tipo}: debe estar entre "
+            f"{desde.strftime('%d/%m/%Y')} y {hasta.strftime('%d/%m/%Y')}."
+        )
 
     def _normalizar_tipo_documento(self, tipo_documento: int | str) -> str:
         """Convierte el tipo de documento a la representación persistida."""

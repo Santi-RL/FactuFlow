@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import unicodedata
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from typing import Any
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -29,7 +32,11 @@ from app.models.lote_comprobante import (
 )
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
-from app.schemas.comprobante import EmitirComprobanteRequest, ItemComprobanteCreate
+from app.schemas.comprobante import (
+    ComprobanteAsociadoCreate,
+    EmitirComprobanteRequest,
+    ItemComprobanteCreate,
+)
 from app.services.facturacion_service import FacturacionService, ValidationError
 from app.services.formatos_importacion_service import (
     FormatoImportacionError,
@@ -42,6 +49,35 @@ logger = logging.getLogger(__name__)
 
 class LoteComprobanteError(Exception):
     """Error funcional durante la validación o emisión del lote."""
+
+
+@dataclass(frozen=True)
+class OpcionesFechasLote:
+    """Define cómo tomar fechas fiscales al validar un lote."""
+
+    fecha_emision_modo: str
+    fecha_servicio_desde_modo: str
+    fecha_servicio_hasta_modo: str
+    fecha_vto_pago_modo: str
+    fecha_emision_fija: date | None = None
+    fecha_servicio_desde_fija: date | None = None
+    fecha_servicio_hasta_fija: date | None = None
+    fecha_vto_pago_fija: date | None = None
+
+
+@dataclass(frozen=True)
+class OpcionesConceptoLote:
+    """Define cómo tomar el concepto fiscal al validar un lote."""
+
+    concepto_modo: str
+
+
+@dataclass(frozen=True)
+class OpcionesDescripcionItemLote:
+    """Define cómo tomar la descripción facturada de los ítems del lote."""
+
+    descripcion_item_modo: str
+    descripcion_item_fija: str | None = None
 
 
 class LoteComprobantesService:
@@ -62,6 +98,7 @@ class LoteComprobantesService:
         "punto_venta_numero",
         "tipo_comprobante",
         "concepto",
+        "fecha_emision",
         "cliente_tipo_documento",
         "cliente_numero_documento",
         "cliente_razon_social",
@@ -78,12 +115,18 @@ class LoteComprobantesService:
         "item_descuento_porcentaje",
         "item_iva_porcentaje",
         "observaciones",
+        "asociado_tipo_comprobante",
+        "asociado_punto_venta",
+        "asociado_numero",
+        "asociado_fecha",
+        "asociado_cuit",
     ]
     HEADER_FIELDS = [
         "empresa_cuit",
         "punto_venta_numero",
         "tipo_comprobante",
         "concepto",
+        "fecha_emision",
         "cliente_tipo_documento",
         "cliente_numero_documento",
         "cliente_razon_social",
@@ -93,6 +136,11 @@ class LoteComprobantesService:
         "fecha_servicio_hasta",
         "fecha_vto_pago",
         "observaciones",
+        "asociado_tipo_comprobante",
+        "asociado_punto_venta",
+        "asociado_numero",
+        "asociado_fecha",
+        "asociado_cuit",
     ]
     TIPO_DOCUMENTO_MAP = {
         "CUIT": 80,
@@ -137,19 +185,25 @@ class LoteComprobantesService:
         ] = "2. Repetí los datos del comprobante en todas las filas que compartan el mismo comprobante_ref."
         instrucciones[
             "A5"
-        ] = "3. El lote debe corresponder a una única empresa. Usá el CUIT activo en la columna empresa_cuit."
+        ] = "3. Definí Productos/Servicios en pantalla o completá concepto con Producto/Servicio."
         instrucciones[
             "A6"
-        ] = "4. Si el comprobante es de servicios, completá las fechas de servicio y vencimiento."
+        ] = "4. La descripción facturada del ítem es independiente: completá item_descripcion o elegí una descripción fija en pantalla."
         instrucciones[
             "A7"
-        ] = "5. Para consumidor final de bajo importe podés dejar documento, nombre y domicilio vacíos."
+        ] = "5. El lote debe corresponder a una única empresa. Usá el CUIT activo en la columna empresa_cuit."
         instrucciones[
             "A8"
-        ] = "6. Si informás documento, tipos sugeridos: CUIT, DNI, CUIL, Pasaporte."
+        ] = "6. Completá fecha_emision o elegí una fecha fija en la pantalla antes de validar."
         instrucciones[
             "A9"
-        ] = "7. Condición IVA sugerida: Responsable Inscripto, Monotributo, Exento, Consumidor Final."
+        ] = "7. Para consumidor final de bajo importe podés dejar documento, nombre y domicilio vacíos."
+        instrucciones[
+            "A10"
+        ] = "8. Si informás documento, tipos sugeridos: CUIT, DNI, CUIL, Pasaporte."
+        instrucciones[
+            "A11"
+        ] = "9. Condición IVA sugerida: Responsable Inscripto, Monotributo, Exento, Consumidor Final."
 
         hoja = workbook.create_sheet("Comprobantes")
         hoja.append(self.TEMPLATE_COLUMNS)
@@ -161,9 +215,10 @@ class LoteComprobantesService:
             [
                 "LOTE-001",
                 empresa.cuit,
-                1,
+                "",
                 6,
-                1,
+                "",
+                "",
                 "",
                 "",
                 "",
@@ -189,6 +244,7 @@ class LoteComprobantesService:
                 1,
                 6,
                 1,
+                "",
                 "",
                 "",
                 "",
@@ -218,14 +274,29 @@ class LoteComprobantesService:
         filename: str,
         empresa: Empresa,
         usuario: Usuario,
+        opciones_fechas: OpcionesFechasLote,
+        opciones_concepto: OpcionesConceptoLote,
+        opciones_descripcion_item: OpcionesDescripcionItemLote,
         formato_version_id: int | None = None,
     ) -> LoteComprobante:
         """Valida un archivo Excel y persiste el lote con su detalle."""
         if not file_bytes:
             raise LoteComprobanteError("El archivo está vacío")
+        self._validar_opciones_concepto(opciones_concepto)
+        self._validar_opciones_descripcion_item(opciones_descripcion_item)
+        self._validar_opciones_fechas(
+            opciones_fechas,
+            requiere_fechas_servicio=opciones_concepto.concepto_modo != "productos",
+        )
 
-        file_hash = self._calcular_hash_lote(file_bytes, formato_version_id)
-        await self._validar_idempotencia(empresa.id, file_hash)
+        file_hash = self._calcular_hash_lote(
+            file_bytes,
+            formato_version_id,
+            opciones_fechas,
+            opciones_concepto,
+            opciones_descripcion_item,
+        )
+        await self._preparar_idempotencia(empresa.id, file_hash)
 
         importacion = await self._leer_excel_para_lote(
             file_bytes=file_bytes,
@@ -238,6 +309,21 @@ class LoteComprobantesService:
                 f"El archivo supera el máximo permitido de {settings.batch_max_rows} filas"
             )
         self._validar_empresa_del_lote(filas_excel, empresa)
+        self._validar_concepto_archivo_si_corresponde(importacion, opciones_concepto)
+        self._validar_descripcion_item_archivo_si_corresponde(
+            importacion, opciones_descripcion_item
+        )
+        filas_excel = [
+            self._aplicar_opciones_concepto(row, opciones_concepto)
+            for row in filas_excel
+        ]
+        filas_excel = [
+            self._aplicar_opciones_descripcion_item(row, opciones_descripcion_item)
+            for row in filas_excel
+        ]
+        filas_excel = [
+            self._aplicar_opciones_fechas(row, opciones_fechas) for row in filas_excel
+        ]
 
         puntos_venta = await self._obtener_puntos_venta(empresa.id)
         certificado = await self._obtener_certificado_activo(empresa.id)
@@ -271,6 +357,15 @@ class LoteComprobantesService:
             metadata_json={
                 "empresa_cuit": empresa.cuit,
                 "formato_importacion": importacion["formato_nombre"],
+                "opciones_fechas": self._serializar_opciones_fechas(opciones_fechas),
+                "opciones_concepto": self._serializar_opciones_concepto(
+                    opciones_concepto
+                ),
+                "opciones_descripcion_item": (
+                    self._serializar_opciones_descripcion_item(
+                        opciones_descripcion_item
+                    )
+                ),
             },
         )
         self.db.add(lote)
@@ -347,13 +442,275 @@ class LoteComprobantesService:
         return lote
 
     def _calcular_hash_lote(
-        self, file_bytes: bytes, formato_version_id: int | None
+        self,
+        file_bytes: bytes,
+        formato_version_id: int | None,
+        opciones_fechas: OpcionesFechasLote,
+        opciones_concepto: OpcionesConceptoLote,
+        opciones_descripcion_item: OpcionesDescripcionItemLote,
     ) -> str:
-        """Calcula idempotencia por archivo y formato confirmado."""
+        """Calcula idempotencia por archivo, formato y políticas fiscales."""
         formato_key = str(formato_version_id or "plantilla_oficial").encode("utf-8")
+        fechas_key = repr(
+            sorted(self._serializar_opciones_fechas(opciones_fechas).items())
+        ).encode("utf-8")
+        concepto_key = repr(
+            sorted(self._serializar_opciones_concepto(opciones_concepto).items())
+        ).encode("utf-8")
+        descripcion_key = repr(
+            sorted(
+                self._serializar_opciones_descripcion_item(
+                    opciones_descripcion_item
+                ).items()
+            )
+        ).encode("utf-8")
         return hashlib.sha256(
-            file_bytes + b":factuflow-format:" + formato_key
+            file_bytes
+            + b":factuflow-format:"
+            + formato_key
+            + b":factuflow-dates:"
+            + fechas_key
+            + b":factuflow-concept:"
+            + concepto_key
+            + b":factuflow-item-description:"
+            + descripcion_key
         ).hexdigest()
+
+    def _validar_opciones_concepto(self, opciones: OpcionesConceptoLote) -> None:
+        """Valida que el concepto fiscal haya sido elegido explícitamente."""
+        if opciones.concepto_modo not in {"productos", "servicios", "archivo"}:
+            raise LoteComprobanteError(
+                "Debes indicar si el lote corresponde a productos, servicios o si el concepto sale del archivo."
+            )
+
+    def _validar_opciones_descripcion_item(
+        self, opciones: OpcionesDescripcionItemLote
+    ) -> None:
+        """Valida que la descripción facturada haya sido elegida explícitamente."""
+        if opciones.descripcion_item_modo not in {"archivo", "fija"}:
+            raise LoteComprobanteError(
+                "Debes indicar si la descripción facturada sale del archivo o se fija para todo el lote."
+            )
+        if (
+            opciones.descripcion_item_modo == "fija"
+            and not (opciones.descripcion_item_fija or "").strip()
+        ):
+            raise LoteComprobanteError(
+                "Debes indicar la descripción facturada fija antes de validar el lote."
+            )
+
+    def _validar_opciones_fechas(
+        self, opciones: OpcionesFechasLote, requiere_fechas_servicio: bool
+    ) -> None:
+        """Valida que la política de fechas haya sido elegida explícitamente."""
+        modos_validos = {"archivo", "fija"}
+        if opciones.fecha_emision_modo not in modos_validos:
+            raise LoteComprobanteError(
+                "Debes indicar si la fecha de emisión sale del archivo o se fija manualmente."
+            )
+        if opciones.fecha_emision_modo == "fija" and not opciones.fecha_emision_fija:
+            raise LoteComprobanteError(
+                "Debes indicar la fecha de emisión fija antes de validar el lote."
+            )
+
+        if not requiere_fechas_servicio:
+            return
+
+        for nombre, modo, valor in [
+            (
+                "fecha desde del servicio",
+                opciones.fecha_servicio_desde_modo,
+                opciones.fecha_servicio_desde_fija,
+            ),
+            (
+                "fecha hasta del servicio",
+                opciones.fecha_servicio_hasta_modo,
+                opciones.fecha_servicio_hasta_fija,
+            ),
+            (
+                "vencimiento de pago",
+                opciones.fecha_vto_pago_modo,
+                opciones.fecha_vto_pago_fija,
+            ),
+        ]:
+            if modo not in modos_validos:
+                raise LoteComprobanteError(
+                    f"Debes indicar si la {nombre} sale del archivo o se fija manualmente."
+                )
+            if modo == "fija" and not valor:
+                raise LoteComprobanteError(
+                    f"Debes indicar la {nombre} fija antes de validar el lote."
+                )
+
+    def _serializar_opciones_concepto(
+        self, opciones: OpcionesConceptoLote
+    ) -> dict[str, str]:
+        """Convierte la política de concepto a un JSON persistible."""
+        return {"concepto_modo": opciones.concepto_modo}
+
+    def _serializar_opciones_descripcion_item(
+        self, opciones: OpcionesDescripcionItemLote
+    ) -> dict[str, str | None]:
+        """Convierte la política de descripción de ítem a JSON persistible."""
+        return {
+            "descripcion_item_modo": opciones.descripcion_item_modo,
+            "descripcion_item_fija": (
+                opciones.descripcion_item_fija.strip()
+                if opciones.descripcion_item_fija
+                else None
+            ),
+        }
+
+    def _serializar_opciones_fechas(
+        self, opciones: OpcionesFechasLote
+    ) -> dict[str, str | None]:
+        """Convierte la política de fechas a un JSON persistible."""
+        return {
+            "fecha_emision_modo": opciones.fecha_emision_modo,
+            "fecha_emision_fija": (
+                opciones.fecha_emision_fija.isoformat()
+                if opciones.fecha_emision_fija
+                else None
+            ),
+            "fecha_servicio_desde_modo": opciones.fecha_servicio_desde_modo,
+            "fecha_servicio_desde_fija": (
+                opciones.fecha_servicio_desde_fija.isoformat()
+                if opciones.fecha_servicio_desde_fija
+                else None
+            ),
+            "fecha_servicio_hasta_modo": opciones.fecha_servicio_hasta_modo,
+            "fecha_servicio_hasta_fija": (
+                opciones.fecha_servicio_hasta_fija.isoformat()
+                if opciones.fecha_servicio_hasta_fija
+                else None
+            ),
+            "fecha_vto_pago_modo": opciones.fecha_vto_pago_modo,
+            "fecha_vto_pago_fija": (
+                opciones.fecha_vto_pago_fija.isoformat()
+                if opciones.fecha_vto_pago_fija
+                else None
+            ),
+        }
+
+    def _validar_concepto_archivo_si_corresponde(
+        self,
+        importacion: dict[str, Any],
+        opciones: OpcionesConceptoLote,
+    ) -> None:
+        """Verifica que el Excel tenga columna de concepto cuando se la elige."""
+        if opciones.concepto_modo != "archivo":
+            return
+
+        concepto = importacion["mapeo_usado"].get("campos", {}).get("concepto")
+        if not concepto or concepto.get("origen") not in {"header", "columna"}:
+            raise LoteComprobanteError(
+                "Elegiste 'Definido por el archivo', pero el Excel no tiene una columna de concepto fiscal. Agrega una columna con Producto o Servicio en todas las filas, o elegí Productos/Servicios para todo el lote."
+            )
+        if concepto.get("encontrado") is False:
+            raise LoteComprobanteError(
+                "La columna de concepto fiscal no fue encontrada en el archivo. Debe indicar Producto o Servicio en todas las filas."
+            )
+
+    def _aplicar_opciones_concepto(
+        self, row: dict[str, Any], opciones: OpcionesConceptoLote
+    ) -> dict[str, Any]:
+        """Completa el concepto fiscal según la elección del usuario."""
+        updated = dict(row)
+        if opciones.concepto_modo == "productos":
+            updated["concepto"] = 1
+        elif opciones.concepto_modo == "servicios":
+            updated["concepto"] = 2
+        else:
+            updated["concepto"] = self._resolver_concepto_archivo(
+                updated.get("concepto")
+            )
+        return updated
+
+    def _validar_descripcion_item_archivo_si_corresponde(
+        self,
+        importacion: dict[str, Any],
+        opciones: OpcionesDescripcionItemLote,
+    ) -> None:
+        """Verifica que el Excel tenga descripción de ítem si se eligió archivo."""
+        if opciones.descripcion_item_modo != "archivo":
+            return
+
+        descripcion = (
+            importacion["mapeo_usado"].get("campos", {}).get("item_descripcion")
+        )
+        if not descripcion or descripcion.get("origen") not in {"header", "columna"}:
+            raise LoteComprobanteError(
+                "Elegiste que la descripción facturada salga del archivo, pero el Excel no tiene una columna de descripción del ítem. Agregá una columna de descripción o elegí una descripción fija para todo el lote."
+            )
+        if descripcion.get("encontrado") is False:
+            raise LoteComprobanteError(
+                "La columna de descripción facturada no fue encontrada en el archivo. Debe tener valor en todas las filas o debes elegir una descripción fija."
+            )
+
+    def _aplicar_opciones_descripcion_item(
+        self,
+        row: dict[str, Any],
+        opciones: OpcionesDescripcionItemLote,
+    ) -> dict[str, Any]:
+        """Completa la descripción facturada según la elección del usuario."""
+        updated = dict(row)
+        if opciones.descripcion_item_modo == "fija":
+            updated["item_descripcion"] = (opciones.descripcion_item_fija or "").strip()
+        return updated
+
+    def _resolver_concepto_archivo(self, value: Any) -> int | str:
+        """Convierte Producto/Servicio del archivo al código ARCA."""
+        normalized = self._normalizar_texto(value)
+        if normalized in {"producto", "productos"}:
+            return 1
+        if normalized in {"servicio", "servicios"}:
+            return 2
+        return value or ""
+
+    def _normalizar_texto(self, value: Any) -> str:
+        """Normaliza texto de Excel para comparar etiquetas fiscales."""
+        text = str(value or "").strip().lower()
+        decomposed = unicodedata.normalize("NFKD", text)
+        return decomposed.encode("ascii", "ignore").decode("ascii")
+
+    def _aplicar_opciones_fechas(
+        self, row: dict[str, Any], opciones: OpcionesFechasLote
+    ) -> dict[str, Any]:
+        """Completa las fechas fiscales del comprobante según la elección del usuario."""
+        updated = dict(row)
+        fuente_archivo = updated.get("fecha_emision") or updated.get("fecha_origen")
+        updated["fecha_emision"] = self._resolver_fecha_lote(
+            modo=opciones.fecha_emision_modo,
+            fecha_fija=opciones.fecha_emision_fija,
+            valor_archivo=fuente_archivo,
+        )
+        updated["fecha_servicio_desde"] = self._resolver_fecha_lote(
+            modo=opciones.fecha_servicio_desde_modo,
+            fecha_fija=opciones.fecha_servicio_desde_fija,
+            valor_archivo=updated.get("fecha_servicio_desde")
+            or updated.get("fecha_origen"),
+        )
+        updated["fecha_servicio_hasta"] = self._resolver_fecha_lote(
+            modo=opciones.fecha_servicio_hasta_modo,
+            fecha_fija=opciones.fecha_servicio_hasta_fija,
+            valor_archivo=updated.get("fecha_servicio_hasta")
+            or updated.get("fecha_origen"),
+        )
+        updated["fecha_vto_pago"] = self._resolver_fecha_lote(
+            modo=opciones.fecha_vto_pago_modo,
+            fecha_fija=opciones.fecha_vto_pago_fija,
+            valor_archivo=updated.get("fecha_vto_pago") or updated.get("fecha_origen"),
+        )
+        return updated
+
+    def _resolver_fecha_lote(
+        self, modo: str, fecha_fija: date | None, valor_archivo: Any
+    ) -> str:
+        """Resuelve una fecha de lote y la deja en formato ISO o vacía."""
+        if modo == "fija":
+            return fecha_fija.isoformat() if fecha_fija else ""
+        fecha = self._parse_date(valor_archivo)
+        return fecha.isoformat() if fecha else ""
 
     async def encolar_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
         """Deja un lote validado en cola persistente para el worker."""
@@ -419,14 +776,25 @@ class LoteComprobantesService:
             raise LoteComprobanteError(
                 "El lote debe estar validado o en cola antes de emitir"
             )
+        if not (lote.metadata_json or {}).get("opciones_concepto"):
+            raise LoteComprobanteError(
+                "Este lote fue validado antes de confirmar el concepto fiscal. Revalidá el archivo eligiendo Productos, Servicios o Definido por archivo antes de emitir."
+            )
+        if not (lote.metadata_json or {}).get("opciones_descripcion_item"):
+            raise LoteComprobanteError(
+                "Este lote fue validado antes de confirmar la descripción facturada. Revalidá el archivo eligiendo descripción desde archivo o una descripción fija antes de emitir."
+            )
 
-        lote.procesamiento_async = lote.total_grupos > settings.batch_sync_limit
-        lote.modo_procesamiento = (
-            "background" if lote.procesamiento_async else "sincronico"
+        procesamiento_async = lote.total_grupos > settings.batch_sync_limit
+        modo_procesamiento = "background" if procesamiento_async else "sincronico"
+        await self._tomar_lote_para_procesamiento(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            procesamiento_async=procesamiento_async,
+            modo_procesamiento=modo_procesamiento,
         )
-        lote.estado = "procesando"
-        lote.started_at = datetime.utcnow()
         await self.db.commit()
+        lote = await self.obtener_lote(lote_id, empresa_id)
         logger.info(
             "Procesando lote %s de empresa %s en modo %s",
             lote.id,
@@ -476,6 +844,34 @@ class LoteComprobantesService:
             lote.grupos_fallidos,
         )
         return lote
+
+    async def _tomar_lote_para_procesamiento(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        procesamiento_async: bool,
+        modo_procesamiento: str,
+    ) -> None:
+        """Marca un lote como procesando con transición atómica."""
+        result = await self.db.execute(
+            update(LoteComprobante)
+            .where(
+                LoteComprobante.id == lote_id,
+                LoteComprobante.empresa_id == empresa_id,
+                LoteComprobante.estado.in_(self.ESTADOS_PROCESABLES - {"procesando"}),
+            )
+            .values(
+                estado="procesando",
+                procesamiento_async=procesamiento_async,
+                modo_procesamiento=modo_procesamiento,
+                started_at=datetime.utcnow(),
+                mensaje_resumen="Procesando comprobantes...",
+            )
+        )
+        if result.rowcount != 1:
+            raise LoteComprobanteError(
+                "El lote ya está siendo procesado o fue procesado previamente."
+            )
 
     async def generar_archivo_observado(self, lote_id: int, empresa_id: int) -> bytes:
         """Genera un archivo observado con resultados por fila."""
@@ -616,8 +1012,8 @@ class LoteComprobantesService:
                 "El archivo mezcla empresas o no coincide con la empresa activa. Revisa la columna empresa_cuit y vuelve a subir el lote."
             )
 
-    async def _validar_idempotencia(self, empresa_id: int, archivo_hash: str) -> None:
-        """Evita crear el mismo lote más de una vez de forma accidental."""
+    async def _preparar_idempotencia(self, empresa_id: int, archivo_hash: str) -> None:
+        """Evita duplicados y libera reintentos seguros sin CAE emitido."""
         result = await self.db.execute(
             select(LoteComprobante).where(
                 LoteComprobante.empresa_id == empresa_id,
@@ -625,10 +1021,36 @@ class LoteComprobantesService:
             )
         )
         lote_existente = result.scalar_one_or_none()
-        if lote_existente is not None:
-            raise LoteComprobanteError(
-                "Ese archivo ya fue cargado previamente. Revisá el lote existente antes de volver a subirlo."
-            )
+        if lote_existente is None:
+            return
+
+        if self._lote_permite_reintento(lote_existente):
+            hash_anterior = lote_existente.archivo_hash
+            lote_existente.archivo_hash = hashlib.sha256(
+                (
+                    f"{hash_anterior}:reintento:{lote_existente.id}:"
+                    f"{datetime.utcnow().isoformat()}"
+                ).encode("utf-8")
+            ).hexdigest()
+            metadata = dict(lote_existente.metadata_json or {})
+            metadata["reemplazado_por_reintento"] = {
+                "archivo_hash_original": hash_anterior,
+                "fecha": datetime.utcnow().isoformat(),
+                "motivo": "El lote anterior no emitió comprobantes fiscales",
+            }
+            lote_existente.metadata_json = metadata
+            await self.db.flush()
+            return
+
+        raise LoteComprobanteError(
+            "Ese archivo ya fue cargado previamente. Revisá el lote existente antes de volver a subirlo."
+        )
+
+    def _lote_permite_reintento(self, lote: LoteComprobante) -> bool:
+        """Indica si un lote previo puede reemplazarse por una nueva validación."""
+        if lote.grupos_emitidos and lote.grupos_emitidos > 0:
+            return False
+        return lote.estado in {"con_errores", "fallido"}
 
     async def _obtener_puntos_venta(self, empresa_id: int) -> dict[int, PuntoVenta]:
         """Obtiene los puntos de venta activos de la empresa indexados por número."""
@@ -712,6 +1134,19 @@ class LoteComprobantesService:
                 f"El concepto del comprobante {comprobante_ref} debe ser 1, 2 o 3"
             )
 
+        fecha_emision = self._parse_date(header.get("fecha_emision"))
+        if not fecha_emision:
+            mensajes.append(
+                f"El comprobante {comprobante_ref} requiere fecha de emisión explícita"
+            )
+        elif concepto in {1, 2, 3}:
+            try:
+                self.facturacion_service._validar_fecha_emision_arca(
+                    fecha_emision, concepto
+                )
+            except ValidationError as exc:
+                mensajes.append(f"{comprobante_ref}: {exc}")
+
         tipo_documento = self._parse_tipo_documento(
             header.get("cliente_tipo_documento")
         )
@@ -729,6 +1164,28 @@ class LoteComprobantesService:
             ):
                 mensajes.append(
                     f"El comprobante {comprobante_ref} requiere fechas de servicio y vencimiento"
+                )
+
+        comprobantes_asociados: list[ComprobanteAsociadoCreate] = []
+        if tipo_comprobante in {3, 8, 13}:
+            asociado_tipo = self._parse_int(header.get("asociado_tipo_comprobante"))
+            asociado_pv = self._parse_int(header.get("asociado_punto_venta"))
+            asociado_numero = self._parse_int(header.get("asociado_numero"))
+            asociado_fecha = self._parse_date(header.get("asociado_fecha"))
+            asociado_cuit = clean_cuit(header.get("asociado_cuit", ""))
+            if not asociado_tipo or not asociado_pv or not asociado_numero:
+                mensajes.append(
+                    f"La nota de crédito {comprobante_ref} requiere comprobante asociado: tipo, punto de venta y número"
+                )
+            else:
+                comprobantes_asociados.append(
+                    ComprobanteAsociadoCreate(
+                        tipo_comprobante=asociado_tipo,
+                        punto_venta=asociado_pv,
+                        numero=asociado_numero,
+                        fecha=asociado_fecha,
+                        cuit=asociado_cuit or None,
+                    )
                 )
 
         items: list[ItemComprobanteCreate] = []
@@ -821,6 +1278,8 @@ class LoteComprobantesService:
                         punto_venta_id=puntos_venta[punto_venta_numero].id,
                         tipo_comprobante=tipo_comprobante,
                         concepto=concepto,
+                        fecha_emision=fecha_emision,
+                        confirmacion_fecha_fiscal=True,
                         tipo_documento=tipo_documento,
                         numero_documento=numero_documento,
                         razon_social=str(
@@ -832,6 +1291,7 @@ class LoteComprobantesService:
                         fecha_servicio_desde=fecha_servicio_desde,
                         fecha_servicio_hasta=fecha_servicio_hasta,
                         fecha_vto_pago=fecha_vto_pago,
+                        comprobantes_asociados=comprobantes_asociados,
                         observaciones=str(header.get("observaciones", "")).strip()
                         or None,
                         moneda="PES",
@@ -844,13 +1304,29 @@ class LoteComprobantesService:
                 mensajes.append(f"{comprobante_ref}: {exc}")
 
         if mensajes:
+            fechas_payload = {
+                "concepto": concepto,
+                "fecha_emision": fecha_emision.isoformat() if fecha_emision else None,
+                "fecha_servicio_desde": (
+                    fecha_servicio_desde.isoformat() if fecha_servicio_desde else None
+                ),
+                "fecha_servicio_hasta": (
+                    fecha_servicio_hasta.isoformat() if fecha_servicio_hasta else None
+                ),
+                "fecha_vto_pago": fecha_vto_pago.isoformat()
+                if fecha_vto_pago
+                else None,
+            }
             return {
                 "estado": "con_error",
                 "mensajes": sorted(set(mensajes)),
+                "payload": fechas_payload,
                 "tipo_comprobante": tipo_comprobante,
+                "concepto": concepto,
                 "punto_venta_numero": punto_venta_numero,
                 "cliente_documento": numero_documento,
                 "cliente_razon_social": header.get("cliente_razon_social", ""),
+                "fecha_emision": fecha_emision,
                 "total_estimado": Decimal("0"),
             }
 
@@ -861,9 +1337,11 @@ class LoteComprobantesService:
             "mensajes": ["Validado correctamente. Listo para emitir."],
             "payload": payload.model_dump(mode="json"),
             "tipo_comprobante": tipo_comprobante,
+            "concepto": concepto,
             "punto_venta_numero": punto_venta_numero,
             "cliente_documento": payload.numero_documento,
             "cliente_razon_social": payload.razon_social,
+            "fecha_emision": payload.fecha_emision,
             "total_estimado": totales["total"],
         }
 
@@ -927,6 +1405,7 @@ class LoteComprobantesService:
             .options(selectinload(LoteComprobanteGrupo.filas))
             .where(LoteComprobanteGrupo.lote_id == lote_id)
             .order_by(LoteComprobanteGrupo.orden)
+            .execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
 
@@ -941,6 +1420,7 @@ class LoteComprobantesService:
                 LoteComprobanteGrupo.estado == "validado",
             )
             .order_by(LoteComprobanteGrupo.orden)
+            .execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
 
@@ -995,10 +1475,23 @@ class LoteComprobantesService:
     def _parse_date(self, value: Any) -> date | None:
         if value in (None, ""):
             return None
+        if isinstance(value, datetime):
+            return value.date()
         if isinstance(value, date):
             return value
+        if isinstance(value, (int, float)) and 1 <= value <= 60000:
+            try:
+                return from_excel(value).date()
+            except (TypeError, ValueError):
+                return None
+        text = str(value).strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(text, fmt).date()
+            except ValueError:
+                continue
         try:
-            return datetime.fromisoformat(str(value)).date()
+            return datetime.fromisoformat(text).date()
         except ValueError:
             return None
 

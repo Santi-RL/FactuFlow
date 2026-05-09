@@ -12,12 +12,16 @@ export const useEmpresaStore = defineStore("empresa", () => {
   const error = ref<string | null>(null);
 
   const empresaActiva = computed(() => {
+    if (!empresaActivaId.value) {
+      return empresa.value;
+    }
+
     if (empresa.value && empresaActivaId.value === empresa.value.id) {
       return empresa.value;
     }
+
     return (
-      empresas.value.find((item) => item.id === empresaActivaId.value) ||
-      empresa.value
+      empresas.value.find((item) => item.id === empresaActivaId.value) || null
     );
   });
 

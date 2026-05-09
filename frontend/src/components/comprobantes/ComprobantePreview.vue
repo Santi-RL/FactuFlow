@@ -43,6 +43,12 @@ const numeroCompleto = computed(() => {
   const numero = String(props.proximoNumero || 0).padStart(8, "0");
   return `${puntoVenta}-${numero}`;
 });
+
+const fechaEmision = computed(() => {
+  if (!props.formData.fecha_emision) return "Sin definir";
+  const [year, month, day] = props.formData.fecha_emision.split("-");
+  return `${day}/${month}/${year}`;
+});
 </script>
 
 <template>
@@ -94,7 +100,7 @@ const numeroCompleto = computed(() => {
               </div>
               <div class="text-sm text-gray-600">
                 <p>Nro: {{ numeroCompleto }}</p>
-                <p>Fecha: {{ new Date().toLocaleDateString("es-AR") }}</p>
+                <p>Fecha: {{ fechaEmision }}</p>
               </div>
             </div>
           </div>

@@ -2,6 +2,7 @@ import apiClient from "./api";
 import type {
   LoteComprobante,
   LoteComprobanteDetalle,
+  LoteOpcionesFechas,
   LoteProcesamientoResponse,
   LoteValidacionResponse,
 } from "@/types/lote-comprobante";
@@ -24,11 +25,19 @@ class LotesComprobantesService {
   async validar(
     archivo: File,
     formatoVersionId?: number | null,
+    opcionesFechas?: LoteOpcionesFechas,
   ): Promise<LoteValidacionResponse> {
     const formData = new FormData();
     formData.append("archivo", archivo);
     if (formatoVersionId) {
       formData.append("formato_version_id", String(formatoVersionId));
+    }
+    if (opcionesFechas) {
+      Object.entries(opcionesFechas).forEach(([key, value]) => {
+        if (value) {
+          formData.append(key, String(value));
+        }
+      });
     }
 
     const response = await apiClient.post<LoteValidacionResponse>(
@@ -47,6 +56,12 @@ class LotesComprobantesService {
   async procesar(id: number): Promise<LoteProcesamientoResponse> {
     const response = await apiClient.post<LoteProcesamientoResponse>(
       `/api/lotes-comprobantes/${id}/procesar`,
+      null,
+      {
+        headers: {
+          "X-Confirmacion-Fecha-Fiscal": "true",
+        },
+      },
     );
     return response.data;
   }

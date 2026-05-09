@@ -28,7 +28,33 @@ Routers relacionados con emision masiva:
   candidatos por encabezados.
 - `/api/lotes-comprobantes`: validacion de Excel, procesamiento con confirmacion
   y descarga de archivo observado. `POST /validar` puede recibir
-  `formato_version_id` para aplicar el mapeo confirmado.
+  `formato_version_id` para aplicar el mapeo confirmado y exige politicas
+  fiscales explicitas: `concepto_modo`, `fecha_emision_modo` y fechas fijas
+  cuando corresponda.
+
+Regla critica: ningun endpoint de emision debe asumir fecha del dia actual como
+fecha fiscal. `fecha_emision` debe llegar explicita desde el usuario o desde una
+politica de lote confirmada antes de validar.
+
+Regla critica adicional: antes de llamar a un endpoint que pueda solicitar CAE
+real, la UI debe mostrar una confirmacion final de fecha fiscal:
+`Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
+No agregar rutas, workers o acciones administrativas que eviten esa confirmacion
+sin reemplazarla por una validacion equivalente y visible para el usuario.
+Los endpoints actuales tienen una barrera explicita: emision individual exige
+`confirmacion_fecha_fiscal=true` en el body y procesamiento de lotes exige
+`X-Confirmacion-Fecha-Fiscal: true`.
+
+Regla critica: ningun endpoint de emision debe asumir productos o servicios por
+default. `concepto` o `concepto_modo` deben llegar explicitamente antes de
+emitir o validar lotes. Esto define el tipo de concepto fiscal ARCA, no el texto
+facturado.
+
+Regla critica: la descripcion/concepto facturado del item tambien debe llegar de
+forma explicita. En emision individual via `items[].descripcion`; en lotes,
+desde una columna del archivo o desde un valor fijo confirmado para todo el
+lote. No usar defaults ocultos del formato ni reutilizar `Productos`/`Servicios`
+como descripcion facturable.
 
 ## Convenciones
 

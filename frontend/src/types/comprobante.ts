@@ -21,6 +21,8 @@ export interface EmitirComprobanteRequest {
   punto_venta_id: number;
   tipo_comprobante: number;
   concepto: number;
+  fecha_emision: string;
+  confirmacion_fecha_fiscal: boolean;
 
   // Cliente
   cliente_id?: number;
@@ -62,6 +64,7 @@ export interface EmitirComprobanteResponse {
 export interface Comprobante {
   id: number;
   tipo_comprobante: number;
+  concepto: number;
   numero: number;
   fecha_emision: string;
   fecha_vencimiento?: string;

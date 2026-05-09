@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from pathlib import Path
 
 from fastapi import (
@@ -10,6 +11,7 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     Request,
     Response,
@@ -33,11 +35,15 @@ from app.schemas.lote_comprobante import (
 from app.services.lote_comprobantes_service import (
     LoteComprobanteError,
     LoteComprobantesService,
+    OpcionesConceptoLote,
+    OpcionesDescripcionItemLote,
+    OpcionesFechasLote,
 )
 from app.services.lote_worker import ensure_lote_worker_running
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+CONFIRMACION_FECHA_FISCAL_HEADER = "true"
 
 
 def _serialize_lote(lote) -> LoteComprobanteResponse:
@@ -90,6 +96,17 @@ async def descargar_plantilla(
 async def validar_archivo_lote(
     archivo: UploadFile = File(...),
     formato_version_id: int | None = Form(None),
+    concepto_modo: str = Form(...),
+    descripcion_item_modo: str = Form(...),
+    descripcion_item_fija: str | None = Form(None),
+    fecha_emision_modo: str = Form(...),
+    fecha_emision_fija: date | None = Form(None),
+    fecha_servicio_desde_modo: str = Form(...),
+    fecha_servicio_desde_fija: date | None = Form(None),
+    fecha_servicio_hasta_modo: str = Form(...),
+    fecha_servicio_hasta_fija: date | None = Form(None),
+    fecha_vto_pago_modo: str = Form(...),
+    fecha_vto_pago_fija: date | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
@@ -104,12 +121,30 @@ async def validar_archivo_lote(
     contenido = await archivo.read()
     empresa = await _get_empresa(db, empresa_activa_id)
     service = LoteComprobantesService(db)
+    opciones_concepto = OpcionesConceptoLote(concepto_modo=concepto_modo)
+    opciones_descripcion_item = OpcionesDescripcionItemLote(
+        descripcion_item_modo=descripcion_item_modo,
+        descripcion_item_fija=descripcion_item_fija,
+    )
+    opciones_fechas = OpcionesFechasLote(
+        fecha_emision_modo=fecha_emision_modo,
+        fecha_emision_fija=fecha_emision_fija,
+        fecha_servicio_desde_modo=fecha_servicio_desde_modo,
+        fecha_servicio_desde_fija=fecha_servicio_desde_fija,
+        fecha_servicio_hasta_modo=fecha_servicio_hasta_modo,
+        fecha_servicio_hasta_fija=fecha_servicio_hasta_fija,
+        fecha_vto_pago_modo=fecha_vto_pago_modo,
+        fecha_vto_pago_fija=fecha_vto_pago_fija,
+    )
     try:
         lote = await service.validar_y_registrar_lote(
             contenido,
             archivo.filename,
             empresa,
             current_user,
+            opciones_fechas=opciones_fechas,
+            opciones_concepto=opciones_concepto,
+            opciones_descripcion_item=opciones_descripcion_item,
             formato_version_id=formato_version_id,
         )
     except LoteComprobanteError as exc:
@@ -129,11 +164,23 @@ async def validar_archivo_lote(
 async def procesar_lote(
     lote_id: int,
     request: Request,
+    x_confirmacion_fecha_fiscal: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """Procesa el lote validado."""
+    if x_confirmacion_fecha_fiscal != CONFIRMACION_FECHA_FISCAL_HEADER:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Antes de emitir debes confirmar la fecha fiscal. "
+                "Está seguro que quiere emitir comprobantes con fecha "
+                "XX/XX/XX? Recuerde que luego no podrá emitir comprobantes "
+                "con fecha anterior para ese mismo punto de venta."
+            ),
+        )
+
     service = LoteComprobantesService(db)
     try:
         lote = await service.obtener_lote(lote_id, empresa_activa_id)
@@ -155,7 +202,12 @@ async def procesar_lote(
             en_progreso=True,
         )
 
-    lote = await service.procesar_lote(lote_id, empresa_activa_id)
+    try:
+        lote = await service.procesar_lote(lote_id, empresa_activa_id)
+    except LoteComprobanteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     return LoteProcesamientoResponse(
         lote=_serialize_lote(lote),
         mensaje=lote.mensaje_resumen or "Lote procesado",

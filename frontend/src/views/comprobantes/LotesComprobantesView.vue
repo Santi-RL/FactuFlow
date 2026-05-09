@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
+import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
@@ -22,6 +23,7 @@ import {
   ESTADOS_LOTE_NOMBRES,
   type LoteComprobante,
   type LoteComprobanteDetalle,
+  type LoteOpcionesFechas,
 } from "@/types/lote-comprobante";
 import {
   ArrowDownTrayIcon,
@@ -41,6 +43,17 @@ const archivoSeleccionado = ref<File | null>(null);
 const formatosImportacion = ref<FormatoImportacion[]>([]);
 const deteccionFormato = ref<FormatoImportacionDeteccion | null>(null);
 const formatoSeleccionadoId = ref<string | number>("");
+const conceptoModo = ref<"productos" | "servicios" | "archivo" | "">("");
+const descripcionItemModo = ref<"archivo" | "fija" | "">("");
+const descripcionItemFija = ref("");
+const fechaEmisionModo = ref<"archivo" | "fija" | "">("");
+const fechaEmisionFija = ref("");
+const fechaServicioDesdeModo = ref<"archivo" | "fija" | "">("");
+const fechaServicioDesdeFija = ref("");
+const fechaServicioHastaModo = ref<"archivo" | "fija" | "">("");
+const fechaServicioHastaFija = ref("");
+const fechaVtoPagoModo = ref<"archivo" | "fija" | "">("");
+const fechaVtoPagoFija = ref("");
 const lotes = ref<LoteComprobante[]>([]);
 const loteActual = ref<LoteComprobanteDetalle | null>(null);
 const loadingLotes = ref(false);
@@ -49,11 +62,10 @@ const detectandoFormato = ref(false);
 const procesandoLote = ref(false);
 const descargandoPlantilla = ref(false);
 const descargandoObservado = ref(false);
+const mostrarConfirmacionFechaFiscal = ref(false);
 const pollingHandle = ref<number | null>(null);
 
-const empresaActiva = computed(
-  () => empresaStore.empresaActiva || empresaStore.empresa,
-);
+const empresaActiva = computed(() => empresaStore.empresaActiva);
 const empresaActivaId = computed(() => empresaActiva.value?.id || null);
 const loteEstadoNombre = computed(() => {
   if (!loteActual.value) return "";
@@ -102,7 +114,8 @@ const candidatoSeleccionado = computed<FormatoImportacionCandidato | null>(() =>
   );
 });
 const requiereElegirFormato = computed(() => {
-  if (!archivoSeleccionado.value || !deteccionFormato.value) return false;
+  if (!archivoSeleccionado.value || detectandoFormato.value) return false;
+  if (!deteccionFormato.value) return true;
   const principal = candidatoPrincipal.value;
   if (!principal) return !formatoSeleccionadoId.value;
   if (principal.formato_version_id === null && principal.confianza === "alta") {
@@ -110,12 +123,50 @@ const requiereElegirFormato = computed(() => {
   }
   return !formatoSeleccionadoId.value;
 });
+const opcionesFechasCompletas = computed(() => {
+  const requiereFechasServicio = conceptoModo.value !== "productos";
+  return (
+    !!fechaEmisionModo.value &&
+    (fechaEmisionModo.value !== "fija" || !!fechaEmisionFija.value) &&
+    (!requiereFechasServicio ||
+      (!!fechaServicioDesdeModo.value &&
+        (fechaServicioDesdeModo.value !== "fija" ||
+          !!fechaServicioDesdeFija.value) &&
+        !!fechaServicioHastaModo.value &&
+        (fechaServicioHastaModo.value !== "fija" ||
+          !!fechaServicioHastaFija.value) &&
+        !!fechaVtoPagoModo.value &&
+        (fechaVtoPagoModo.value !== "fija" || !!fechaVtoPagoFija.value)))
+  );
+});
+const descripcionItemCompleta = computed(() => {
+  return (
+    !!descripcionItemModo.value &&
+    (descripcionItemModo.value !== "fija" || !!descripcionItemFija.value.trim())
+  );
+});
+const opcionesFechas = computed<LoteOpcionesFechas>(() => ({
+  concepto_modo: conceptoModo.value,
+  descripcion_item_modo: descripcionItemModo.value,
+  descripcion_item_fija: descripcionItemFija.value.trim() || undefined,
+  fecha_emision_modo: fechaEmisionModo.value,
+  fecha_emision_fija: fechaEmisionFija.value || undefined,
+  fecha_servicio_desde_modo: fechaServicioDesdeModo.value,
+  fecha_servicio_desde_fija: fechaServicioDesdeFija.value || undefined,
+  fecha_servicio_hasta_modo: fechaServicioHastaModo.value,
+  fecha_servicio_hasta_fija: fechaServicioHastaFija.value || undefined,
+  fecha_vto_pago_modo: fechaVtoPagoModo.value,
+  fecha_vto_pago_fija: fechaVtoPagoFija.value || undefined,
+}));
 const puedeValidar = computed(
   () =>
     !!archivoSeleccionado.value &&
     !!empresaActivaId.value &&
     !detectandoFormato.value &&
-    !requiereElegirFormato.value,
+    !requiereElegirFormato.value &&
+    !!conceptoModo.value &&
+    descripcionItemCompleta.value &&
+    opcionesFechasCompletas.value,
 );
 const puedeProcesar = computed(() => {
   if (!loteActual.value) return false;
@@ -162,6 +213,38 @@ const necesitaCorreccion = computed(() => {
   return !!loteActual.value && loteActual.value.grupos_con_error > 0;
 });
 
+const fechasEmisionValidas = computed(() => {
+  const fechas = new Set<string>();
+  loteActual.value?.grupos
+    .filter((grupo) => grupo.estado === "validado" && grupo.fecha_emision)
+    .forEach((grupo) => fechas.add(formatDate(grupo.fecha_emision)));
+  return Array.from(fechas);
+});
+
+const puntosVentaValidos = computed(() => {
+  const puntos = new Set<number>();
+  loteActual.value?.grupos
+    .filter((grupo) => grupo.estado === "validado" && grupo.punto_venta_numero)
+    .forEach((grupo) => puntos.add(Number(grupo.punto_venta_numero)));
+  return Array.from(puntos).sort((a, b) => a - b);
+});
+
+const resumenFechasConfirmacion = computed(() => {
+  if (fechasEmisionValidas.value.length === 0) return "sin fecha definida";
+  return fechasEmisionValidas.value.join(", ");
+});
+
+const resumenPuntosVentaConfirmacion = computed(() => {
+  if (puntosVentaValidos.value.length === 0) return "";
+  return ` para los puntos de venta ${puntosVentaValidos.value
+    .map((punto) => String(punto).padStart(4, "0"))
+    .join(", ")}`;
+});
+
+const mensajeConfirmacionFechaFiscalLote = computed(() => {
+  return `Está seguro que quiere emitir comprobantes con fecha ${resumenFechasConfirmacion.value}${resumenPuntosVentaConfirmacion.value}? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`;
+});
+
 const formatDateTime = (value: string | null) => {
   if (!value) return "Sin iniciar";
 
@@ -174,11 +257,34 @@ const formatDateTime = (value: string | null) => {
   });
 };
 
+const formatDate = (value: string | null) => {
+  if (!value) return "-";
+  const [year, month, day] = value.split("T")[0].split("-");
+  return `${day}/${month}/${year}`;
+};
+
 const formatMoney = (value: number) => {
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
   }).format(value || 0);
+};
+
+const formatConcepto = (value: number | null) => {
+  if (value === 1) return "Productos";
+  if (value === 2) return "Servicios";
+  if (value === 3) return "Productos y servicios";
+  return "-";
+};
+
+const descripcionFacturada = (comprobanteRef: string) => {
+  const fila = loteActual.value?.filas.find(
+    (item) => item.comprobante_ref === comprobanteRef,
+  );
+  const descripcion = fila?.datos_json?.item_descripcion;
+  return typeof descripcion === "string" && descripcion.trim()
+    ? descripcion.trim()
+    : "-";
 };
 
 const triggerFileSelection = () => {
@@ -190,9 +296,17 @@ const handleArchivoSeleccionado = (event: Event) => {
   archivoSeleccionado.value = target.files?.[0] || null;
   deteccionFormato.value = null;
   formatoSeleccionadoId.value = "";
-  if (archivoSeleccionado.value) {
-    detectarFormatoArchivo(archivoSeleccionado.value);
-  }
+  conceptoModo.value = "";
+  descripcionItemModo.value = "";
+  descripcionItemFija.value = "";
+  fechaEmisionModo.value = "";
+  fechaEmisionFija.value = "";
+  fechaServicioDesdeModo.value = "";
+  fechaServicioDesdeFija.value = "";
+  fechaServicioHastaModo.value = "";
+  fechaServicioHastaFija.value = "";
+  fechaVtoPagoModo.value = "";
+  fechaVtoPagoFija.value = "";
 };
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -242,13 +356,22 @@ const cargarFormatosImportacion = async () => {
 };
 
 const detectarFormatoArchivo = async (archivo: File) => {
-  if (!empresaActivaId.value) return;
+  if (!empresaActivaId.value) {
+    showWarning(
+      "Emisor activo requerido",
+      "Selecciona un emisor antes de analizar los encabezados del Excel.",
+    );
+    return;
+  }
 
   detectandoFormato.value = true;
   try {
+    if (formatosImportacion.value.length === 0) {
+      await cargarFormatosImportacion();
+    }
     const resultado = await formatosImportacionService.detectar(archivo);
     deteccionFormato.value = resultado;
-    formatoSeleccionadoId.value = "";
+    formatoSeleccionadoId.value = resultado.formato_sugerido_version_id || "";
 
     if (resultado.candidatos.length === 0) {
       showWarning(
@@ -257,6 +380,8 @@ const detectarFormatoArchivo = async (archivo: File) => {
       );
     }
   } catch (error: any) {
+    deteccionFormato.value = null;
+    formatoSeleccionadoId.value = "";
     showError(
       "No se pudo detectar el formato",
       error.response?.data?.detail ||
@@ -327,6 +452,7 @@ const validarArchivo = async () => {
     const resultado = await lotesComprobantesService.validar(
       archivoSeleccionado.value,
       Number(formatoSeleccionadoId.value || 0) || null,
+      opcionesFechas.value,
     );
     showSuccess("Archivo validado", resultado.mensaje);
     await cargarLotes(true);
@@ -359,6 +485,7 @@ const procesarLote = async () => {
   }
 
   procesandoLote.value = true;
+  mostrarConfirmacionFechaFiscal.value = false;
   try {
     const resultado = await lotesComprobantesService.procesar(
       loteActual.value.id,
@@ -378,6 +505,11 @@ const procesarLote = async () => {
   } finally {
     procesandoLote.value = false;
   }
+};
+
+const solicitarConfirmacionEmisionLote = () => {
+  if (!puedeProcesar.value) return;
+  mostrarConfirmacionFechaFiscal.value = true;
 };
 
 const descargarObservado = async () => {
@@ -434,6 +566,13 @@ watch(hayProcesamientoEnCurso, (activo) => {
   }
 });
 
+watch([archivoSeleccionado, empresaActivaId], ([archivo, empresaId]) => {
+  if (!archivo || !empresaId || deteccionFormato.value || detectandoFormato.value) {
+    return;
+  }
+  detectarFormatoArchivo(archivo);
+});
+
 watch(
   empresaActivaId,
   async (empresaId) => {
@@ -441,6 +580,17 @@ watch(
     loteActual.value = null;
     deteccionFormato.value = null;
     formatoSeleccionadoId.value = "";
+    conceptoModo.value = "";
+    descripcionItemModo.value = "";
+    descripcionItemFija.value = "";
+    fechaEmisionModo.value = "";
+    fechaEmisionFija.value = "";
+    fechaServicioDesdeModo.value = "";
+    fechaServicioDesdeFija.value = "";
+    fechaServicioHastaModo.value = "";
+    fechaServicioHastaFija.value = "";
+    fechaVtoPagoModo.value = "";
+    fechaVtoPagoFija.value = "";
 
     if (!empresaId) return;
     await cargarFormatosImportacion();
@@ -654,7 +804,7 @@ onBeforeUnmount(() => {
                 v-model="formatoSeleccionadoId"
                 label="Formato"
                 :options="formatosOptions"
-                placeholder="Deteccion automatica"
+                placeholder="Selecciona un formato"
                 :disabled="detectandoFormato"
               />
 
@@ -670,8 +820,309 @@ onBeforeUnmount(() => {
             </div>
 
             <BaseAlert v-if="requiereElegirFormato" type="warning" class="mt-4">
-              Confirma un formato antes de validar. Si el mapeo no coincide, el
-              sistema puede interpretar mal importes, receptor o punto de venta.
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  {{
+                    deteccionFormato
+                      ? "Confirma un formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
+                      : "Todavia no se analizaron los encabezados del Excel. El analisis deberia iniciar automaticamente; si no avanza, reintentalo."
+                  }}
+                </span>
+                <BaseButton
+                  v-if="!deteccionFormato"
+                  size="sm"
+                  variant="secondary"
+                  :loading="detectandoFormato"
+                  @click="archivoSeleccionado && detectarFormatoArchivo(archivoSeleccionado)"
+                >
+                  Analizar encabezados
+                </BaseButton>
+              </div>
+            </BaseAlert>
+          </div>
+
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4"
+          >
+            <div class="flex items-start gap-3">
+              <InformationCircleIcon
+                class="mt-0.5 h-5 w-5 flex-shrink-0 text-sky-700"
+              />
+              <div>
+                <p class="text-sm font-semibold text-sky-950">
+                  Tipo de concepto fiscal ARCA obligatorio
+                </p>
+                <p class="mt-1 text-sm text-sky-900">
+                  Defini si el lote corresponde a productos, servicios o si el
+                  Excel lo indica fila por fila. No se usa un valor por defecto.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 text-sm text-gray-800 md:grid-cols-3">
+              <label class="rounded-lg border border-sky-100 bg-white p-3">
+                <span class="flex items-center gap-2 font-medium">
+                  <input
+                    v-model="conceptoModo"
+                    type="radio"
+                    value="productos"
+                    class="h-4 w-4 text-primary-600"
+                  />
+                  Productos
+                </span>
+              </label>
+              <label class="rounded-lg border border-sky-100 bg-white p-3">
+                <span class="flex items-center gap-2 font-medium">
+                  <input
+                    v-model="conceptoModo"
+                    type="radio"
+                    value="servicios"
+                    class="h-4 w-4 text-primary-600"
+                  />
+                  Servicios
+                </span>
+              </label>
+              <label class="rounded-lg border border-sky-100 bg-white p-3">
+                <span class="flex items-center gap-2 font-medium">
+                  <input
+                    v-model="conceptoModo"
+                    type="radio"
+                    value="archivo"
+                    class="h-4 w-4 text-primary-600"
+                  />
+                  Definido por el archivo
+                </span>
+                <span class="mt-2 block text-xs text-gray-600">
+                  El Excel debe tener una columna con Producto o Servicio en
+                  todas las filas.
+                </span>
+              </label>
+            </div>
+
+            <BaseAlert v-if="!conceptoModo" type="warning" class="mt-4">
+              Elegi el tipo de concepto fiscal ARCA antes de validar. Sin esta
+              confirmacion el lote no puede quedar listo para emitir.
+            </BaseAlert>
+          </div>
+
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4"
+          >
+            <div class="flex items-start gap-3">
+              <InformationCircleIcon
+                class="mt-0.5 h-5 w-5 flex-shrink-0 text-violet-700"
+              />
+              <div>
+                <p class="text-sm font-semibold text-violet-950">
+                  Descripción facturada obligatoria
+                </p>
+                <p class="mt-1 text-sm text-violet-900">
+                  Esto es el texto del ítem que verá el receptor, por ejemplo
+                  Honorarios o Zapatillas. Es distinto del tipo fiscal ARCA.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 text-sm text-gray-800 lg:grid-cols-2">
+              <label class="rounded-lg border border-violet-100 bg-white p-3">
+                <span class="flex items-center gap-2 font-medium">
+                  <input
+                    v-model="descripcionItemModo"
+                    type="radio"
+                    value="archivo"
+                    class="h-4 w-4 text-primary-600"
+                  />
+                  Utilizar la descripción del archivo
+                </span>
+                <span class="mt-2 block text-xs text-gray-600">
+                  El Excel debe traer una columna de descripción del ítem con
+                  valor en todas las filas.
+                </span>
+              </label>
+              <label class="rounded-lg border border-violet-100 bg-white p-3">
+                <span class="flex flex-wrap items-center gap-2 font-medium">
+                  <input
+                    v-model="descripcionItemModo"
+                    type="radio"
+                    value="fija"
+                    class="h-4 w-4 text-primary-600"
+                  />
+                  Utilizar esta descripción para todo el lote
+                </span>
+                <input
+                  v-model="descripcionItemFija"
+                  type="text"
+                  :disabled="descripcionItemModo !== 'fija'"
+                  placeholder="Ej.: Honorarios profesionales"
+                  class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                />
+              </label>
+            </div>
+
+            <BaseAlert
+              v-if="!descripcionItemCompleta"
+              type="warning"
+              class="mt-4"
+            >
+              Defini la descripción facturada antes de validar. No se usará una
+              descripción oculta del formato ni del sistema.
+            </BaseAlert>
+          </div>
+
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4"
+          >
+            <div class="flex items-start gap-3">
+              <ExclamationTriangleIcon
+                class="mt-0.5 h-5 w-5 flex-shrink-0 text-rose-700"
+              />
+              <div>
+                <p class="text-sm font-semibold text-rose-950">
+                  Fechas fiscales obligatorias
+                </p>
+                <p class="mt-1 text-sm text-rose-900">
+                  La fecha de emision no se completa automaticamente con la
+                  fecha de hoy. Elegi que fecha se usara antes de validar.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-4 xl:grid-cols-2">
+              <div class="rounded-lg border border-rose-100 bg-white p-4">
+                <p class="text-sm font-semibold text-gray-900">
+                  Fecha de emision
+                </p>
+                <div class="mt-3 space-y-3 text-sm text-gray-700">
+                  <label class="flex items-center gap-2">
+                    <input
+                      v-model="fechaEmisionModo"
+                      type="radio"
+                      value="archivo"
+                      class="h-4 w-4 text-primary-600"
+                    />
+                    Utilizar la fecha del archivo
+                  </label>
+                  <label class="flex flex-wrap items-center gap-2">
+                    <input
+                      v-model="fechaEmisionModo"
+                      type="radio"
+                      value="fija"
+                      class="h-4 w-4 text-primary-600"
+                    />
+                    Utilizar esta fecha para todos
+                    <input
+                      v-model="fechaEmisionFija"
+                      type="date"
+                      :disabled="fechaEmisionModo !== 'fija'"
+                      class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div class="rounded-lg border border-rose-100 bg-white p-4">
+                <p class="text-sm font-semibold text-gray-900">
+                  Periodo y vencimiento de servicios
+                </p>
+                <div class="mt-3 space-y-4 text-sm text-gray-700">
+                  <div>
+                    <p class="font-medium text-gray-800">Desde</p>
+                    <label class="mt-2 flex items-center gap-2">
+                      <input
+                        v-model="fechaServicioDesdeModo"
+                        type="radio"
+                        value="archivo"
+                        class="h-4 w-4 text-primary-600"
+                      />
+                      Utilizar la fecha del archivo
+                    </label>
+                    <label class="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        v-model="fechaServicioDesdeModo"
+                        type="radio"
+                        value="fija"
+                        class="h-4 w-4 text-primary-600"
+                      />
+                      Fijar
+                      <input
+                        v-model="fechaServicioDesdeFija"
+                        type="date"
+                        :disabled="fechaServicioDesdeModo !== 'fija'"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <p class="font-medium text-gray-800">Hasta</p>
+                    <label class="mt-2 flex items-center gap-2">
+                      <input
+                        v-model="fechaServicioHastaModo"
+                        type="radio"
+                        value="archivo"
+                        class="h-4 w-4 text-primary-600"
+                      />
+                      Utilizar la fecha del archivo
+                    </label>
+                    <label class="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        v-model="fechaServicioHastaModo"
+                        type="radio"
+                        value="fija"
+                        class="h-4 w-4 text-primary-600"
+                      />
+                      Fijar
+                      <input
+                        v-model="fechaServicioHastaFija"
+                        type="date"
+                        :disabled="fechaServicioHastaModo !== 'fija'"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <p class="font-medium text-gray-800">Vencimiento de pago</p>
+                    <label class="mt-2 flex items-center gap-2">
+                      <input
+                        v-model="fechaVtoPagoModo"
+                        type="radio"
+                        value="archivo"
+                        class="h-4 w-4 text-primary-600"
+                      />
+                      Utilizar la fecha del archivo
+                    </label>
+                    <label class="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        v-model="fechaVtoPagoModo"
+                        type="radio"
+                        value="fija"
+                        class="h-4 w-4 text-primary-600"
+                      />
+                      Fijar
+                      <input
+                        v-model="fechaVtoPagoFija"
+                        type="date"
+                        :disabled="fechaVtoPagoModo !== 'fija'"
+                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <BaseAlert
+              v-if="!opcionesFechasCompletas"
+              type="warning"
+              class="mt-4"
+            >
+              Completa la decision de fechas antes de validar. Si una fecha del
+              archivo queda fuera de la ventana ARCA, el lote quedara observado
+              y deberas elegir una fecha permitida antes de emitir.
             </BaseAlert>
           </div>
         </div>
@@ -685,6 +1136,10 @@ onBeforeUnmount(() => {
             <li>Emisor activo correcto.</li>
             <li>Certificado vigente para el ambiente actual.</li>
             <li>Punto de venta habilitado FactuFlow.</li>
+            <li>Fecha de emision confirmada antes de validar.</li>
+            <li>Tipo de concepto fiscal ARCA confirmado antes de validar.</li>
+            <li>Descripción facturada confirmada antes de validar.</li>
+            <li>Periodo de servicios confirmado cuando corresponda.</li>
             <li>
               Documento del receptor solo cuando corresponde por tipo o importe.
             </li>
@@ -746,7 +1201,7 @@ onBeforeUnmount(() => {
                 <BaseButton
                   :loading="procesandoLote"
                   :disabled="!puedeProcesar"
-                  @click="procesarLote"
+                  @click="solicitarConfirmacionEmisionLote"
                 >
                   <ArrowPathIcon class="mr-2 h-5 w-5" />
                   Emitir comprobantes validos
@@ -818,6 +1273,16 @@ onBeforeUnmount(() => {
                       Tipo / PV
                     </th>
                     <th
+                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                    >
+                      Fecha fiscal
+                    </th>
+                    <th
+                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                    >
+                      Descripción facturada
+                    </th>
+                    <th
                       class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-600"
                     >
                       Total estimado
@@ -854,8 +1319,24 @@ onBeforeUnmount(() => {
                     <td class="px-4 py-3 text-sm text-gray-700">
                       <p>Tipo {{ grupo.tipo_comprobante || "-" }}</p>
                       <p class="text-xs text-gray-500">
+                        {{ formatConcepto(grupo.concepto) }}
+                      </p>
+                      <p class="text-xs text-gray-500">
                         Punto de venta {{ grupo.punto_venta_numero || "-" }}
                       </p>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-700">
+                      <p>Emision {{ formatDate(grupo.fecha_emision) }}</p>
+                      <p
+                        v-if="grupo.fecha_servicio_desde || grupo.fecha_servicio_hasta"
+                        class="text-xs text-gray-500"
+                      >
+                        Servicio {{ formatDate(grupo.fecha_servicio_desde) }} -
+                        {{ formatDate(grupo.fecha_servicio_hasta) }}
+                      </p>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-700">
+                      {{ descripcionFacturada(grupo.comprobante_ref) }}
                     </td>
                     <td
                       class="px-4 py-3 text-right text-sm font-medium text-gray-900"
@@ -956,5 +1437,16 @@ onBeforeUnmount(() => {
         </BaseEmpty>
       </BaseCard>
     </div>
+
+    <ConfirmDialog
+      :show="mostrarConfirmacionFechaFiscal"
+      title="Confirmar fecha fiscal"
+      :message="mensajeConfirmacionFechaFiscalLote"
+      confirm-text="Emitir con esta fecha"
+      cancel-text="Volver a revisar"
+      variant="danger"
+      @confirm="procesarLote"
+      @cancel="mostrarConfirmacionFechaFiscal = false"
+    />
   </div>
 </template>

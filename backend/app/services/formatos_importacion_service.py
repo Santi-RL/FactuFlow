@@ -11,6 +11,7 @@ from io import BytesIO
 from typing import Any
 
 from openpyxl import load_workbook
+from openpyxl.utils.datetime import from_excel
 from openpyxl.utils.cell import column_index_from_string
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,14 +124,9 @@ FORMATO_BANCARIO_CONFIG: dict[str, Any] = {
             "requerido": True,
         },
         "tipo_comprobante": {"origen": "constante", "valor": 11},
-        "concepto": {"origen": "constante", "valor": 1},
         "cliente_condicion_iva": {
             "origen": "constante",
             "valor": "Consumidor Final",
-        },
-        "item_descripcion": {
-            "origen": "constante",
-            "valor": "Cobro registrado en cuenta bancaria",
         },
         "item_cantidad": {"origen": "constante", "valor": 1},
         "item_unidad": {"origen": "constante", "valor": "unidad"},
@@ -153,12 +149,16 @@ class FormatosImportacionService:
     async def asegurar_formatos_base(self) -> None:
         """Crea formatos globales base si la base aun no los tiene."""
         result = await self.db.execute(
-            select(FormatoImportacion).where(
+            select(FormatoImportacion)
+            .options(selectinload(FormatoImportacion.versiones))
+            .where(
                 FormatoImportacion.nombre == self.FORMATO_BANCARIO_NOMBRE,
                 FormatoImportacion.alcance == "global",
             )
         )
-        if result.scalar_one_or_none() is not None:
+        existente = result.scalar_one_or_none()
+        if existente is not None:
+            await self._actualizar_formato_base_si_corresponde(existente)
             return
 
         formato = FormatoImportacion(
@@ -173,9 +173,39 @@ class FormatosImportacionService:
         )
         self.db.add(formato)
         await self.db.flush()
+        await self._crear_version_formato_base(formato, version_numero=1)
+        await self.db.commit()
+
+    async def _actualizar_formato_base_si_corresponde(
+        self, formato: FormatoImportacion
+    ) -> None:
+        """Versiona el formato global si todavia usa una regla fiscal antigua."""
+        version_vigente = self._version_vigente(formato)
+        if version_vigente is None:
+            await self._crear_version_formato_base(formato, version_numero=1)
+            await self.db.commit()
+            return
+
+        campos = version_vigente.configuracion_json.get("campos", {})
+        concepto = campos.get("concepto")
+        item_descripcion = campos.get("item_descripcion")
+        if concepto is None and item_descripcion is None:
+            return
+
+        for version in formato.versiones:
+            if version.estado == "vigente":
+                version.estado = "reemplazada"
+        proxima_version = max(version.version for version in formato.versiones) + 1
+        await self._crear_version_formato_base(formato, version_numero=proxima_version)
+        await self.db.commit()
+
+    async def _crear_version_formato_base(
+        self, formato: FormatoImportacion, version_numero: int
+    ) -> FormatoImportacionVersion:
+        """Crea una version vigente del formato bancario global."""
         version = FormatoImportacionVersion(
             formato_id=formato.id,
-            version=1,
+            version=version_numero,
             estado="vigente",
             configuracion_json=FORMATO_BANCARIO_CONFIG,
             headers_firma_json={
@@ -200,7 +230,7 @@ class FormatosImportacionService:
                 activo=True,
             )
         )
-        await self.db.commit()
+        return version
 
     async def listar_formatos(self, empresa_id: int) -> list[FormatoImportacion]:
         """Lista formatos globales y formatos particulares del emisor."""
@@ -591,24 +621,28 @@ class FormatosImportacionService:
         fila_excel: int,
     ) -> dict[str, Any]:
         documento = clean_cuit(valores.get("cliente_numero_documento", ""))
-        importe_total = self._parse_decimal(valores.get("importe_total")) or Decimal(
-            "0"
-        )
+        importe_total = self._parse_decimal(valores.get("importe_total"))
+        precio_unitario = self._parse_decimal(valores.get("item_precio_unitario"))
+        total_receptor = importe_total or precio_unitario or Decimal("0")
         condicion_iva = str(
             valores.get("cliente_condicion_iva", "Consumidor Final") or ""
         ).strip()
         es_consumidor_final = condicion_iva.upper() in {"CF", "CONSUMIDOR FINAL"}
         if (
             es_consumidor_final
-            and importe_total < self.CONSUMIDOR_FINAL_IDENTIFICACION_MINIMA
+            and total_receptor < self.CONSUMIDOR_FINAL_IDENTIFICACION_MINIMA
         ):
             documento = ""
+        item_precio_unitario = valores.get(
+            "item_precio_unitario", valores.get("importe_total", "")
+        )
         return {
             "comprobante_ref": f"FILA-{fila_excel:05d}",
             "empresa_cuit": empresa.cuit,
             "punto_venta_numero": valores.get("punto_venta_numero", ""),
             "tipo_comprobante": valores.get("tipo_comprobante", 11),
-            "concepto": valores.get("concepto", 1),
+            "concepto": valores.get("concepto", ""),
+            "fecha_origen": valores.get("fecha_origen", ""),
             "cliente_tipo_documento": self._inferir_tipo_documento(documento),
             "cliente_numero_documento": documento,
             "cliente_razon_social": valores.get("cliente_razon_social", ""),
@@ -618,12 +652,10 @@ class FormatosImportacionService:
             "fecha_servicio_hasta": "",
             "fecha_vto_pago": "",
             "item_codigo": valores.get("item_codigo", ""),
-            "item_descripcion": valores.get(
-                "item_descripcion", "Cobro registrado en cuenta bancaria"
-            ),
+            "item_descripcion": valores.get("item_descripcion", ""),
             "item_cantidad": valores.get("item_cantidad", 1),
             "item_unidad": valores.get("item_unidad", "unidad"),
-            "item_precio_unitario": valores.get("importe_total", ""),
+            "item_precio_unitario": item_precio_unitario,
             "item_descuento_porcentaje": valores.get("item_descuento_porcentaje", 0),
             "item_iva_porcentaje": valores.get("item_iva_porcentaje", 0),
             "observaciones": valores.get("observaciones", ""),
@@ -671,6 +703,11 @@ class FormatosImportacionService:
             return value.date().isoformat()
         if isinstance(value, date):
             return value.isoformat()
+        if isinstance(value, (int, float)) and 1 <= value <= 60000:
+            try:
+                return from_excel(value).date().isoformat()
+            except (TypeError, ValueError):
+                return None
         text = str(value).strip()
         if not text:
             return None

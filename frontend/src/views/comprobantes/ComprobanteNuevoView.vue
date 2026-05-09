@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useEmpresaStore } from "@/stores/empresa";
@@ -37,7 +37,8 @@ const { showError, showSuccess, showWarning } = useNotification();
 const formData = ref({
   tipo_comprobante: TIPOS_COMPROBANTE.FACTURA_B,
   punto_venta_id: 0,
-  concepto: TIPOS_CONCEPTO.PRODUCTOS,
+  concepto: "" as number | "",
+  fecha_emision: "",
 
   // Cliente
   cliente: {
@@ -65,26 +66,42 @@ const formData = ref({
 const loading = ref(false);
 const mostrarPreview = ref(false);
 const mostrarCancelacion = ref(false);
+const mostrarConfirmacionFechaFiscal = ref(false);
 const proximoNumero = ref<number | null>(null);
 const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
+const empresaId = computed(() => empresaStore.empresaActivaId || 0);
+const empresaActiva = computed(() => empresaStore.empresaActiva);
 
-// Inicializar datos
-onMounted(async () => {
-  // Cargar empresa si no está cargada
-  if (!empresaStore.empresa) {
-    await empresaStore.cargarEmpresa();
-  }
+const limpiarClienteSeleccionado = () => {
+  formData.value.cliente = {
+    cliente_id: undefined,
+    tipo_documento: 80,
+    numero_documento: "",
+    razon_social: "",
+    condicion_iva: "",
+    domicilio: "",
+  };
+};
 
-  // Cargar puntos de venta
+const cargarDatosEmisorActivo = async () => {
   try {
     await puntosVentaStore.fetchPuntosVenta();
   } catch (error) {
     console.error("Error al cargar puntos de venta:", error);
   }
 
-  if (puntosVenta.value.length > 0) {
-    formData.value.punto_venta_id = puntosVenta.value[0].id;
+  formData.value.punto_venta_id = puntosVenta.value[0]?.id || 0;
+  proximoNumero.value = null;
+  await actualizarProximoNumero();
+};
+
+// Inicializar datos
+onMounted(async () => {
+  if (!empresaStore.empresaActivaId) {
+    await empresaStore.inicializarEmpresaActiva();
   }
+
+  await cargarDatosEmisorActivo();
 
   // Agregar primer item vacío
   if (formData.value.items.length === 0) {
@@ -100,12 +117,17 @@ onMounted(async () => {
     });
   }
 
-  // Obtener próximo número
-  await actualizarProximoNumero();
 });
 
-// Computed
-const empresaId = computed(() => empresaStore.empresa?.id || 0);
+watch(
+  () => empresaStore.empresaActivaId,
+  async (empresaIdActual, empresaIdAnterior) => {
+    if (!empresaIdActual || empresaIdActual === empresaIdAnterior) return;
+
+    limpiarClienteSeleccionado();
+    await cargarDatosEmisorActivo();
+  },
+);
 
 const tiposComprobanteDisponibles = computed(() => {
   // TODO: Filtrar según configuración de empresa
@@ -120,7 +142,10 @@ const tiposComprobanteDisponibles = computed(() => {
 });
 
 const mostrarFechasServicios = computed(() => {
-  return formData.value.concepto !== TIPOS_CONCEPTO.PRODUCTOS;
+  return (
+    formData.value.concepto === TIPOS_CONCEPTO.SERVICIOS ||
+    formData.value.concepto === TIPOS_CONCEPTO.PRODUCTOS_Y_SERVICIOS
+  );
 });
 
 const totales = computed(() => {
@@ -159,6 +184,8 @@ const totales = computed(() => {
 const formularioValido = computed(() => {
   return (
     formData.value.punto_venta_id > 0 &&
+    formData.value.concepto !== "" &&
+    formData.value.fecha_emision.length > 0 &&
     formData.value.cliente.numero_documento.length > 0 &&
     formData.value.cliente.razon_social.length > 0 &&
     formData.value.cliente.condicion_iva.length > 0 &&
@@ -174,6 +201,25 @@ const formularioValido = computed(() => {
         formData.value.fecha_servicio_hasta &&
         formData.value.fecha_vto_pago))
   );
+});
+
+const fechaEmisionLegible = computed(() => {
+  if (!formData.value.fecha_emision) return "sin definir";
+  const [year, month, day] = formData.value.fecha_emision.split("-");
+  return `${day}/${month}/${year}`;
+});
+
+const puntoVentaSeleccionado = computed(() => {
+  return puntosVenta.value.find(
+    (pv) => pv.id === formData.value.punto_venta_id,
+  );
+});
+
+const mensajeConfirmacionFechaFiscal = computed(() => {
+  const puntoVenta = puntoVentaSeleccionado.value?.numero
+    ? ` para el punto de venta ${String(puntoVentaSeleccionado.value.numero).padStart(4, "0")}`
+    : "";
+  return `Está seguro que quiere emitir comprobantes con fecha ${fechaEmisionLegible.value}${puntoVenta}? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`;
 });
 
 // Methods
@@ -208,16 +254,23 @@ const abrirVistaPrevia = () => {
   mostrarPreview.value = true;
 };
 
+const solicitarConfirmacionFechaFiscal = () => {
+  mostrarConfirmacionFechaFiscal.value = true;
+};
+
 const confirmarEmision = async () => {
   loading.value = true;
   mostrarPreview.value = false;
+  mostrarConfirmacionFechaFiscal.value = false;
 
   try {
     const request: EmitirComprobanteRequest = {
       empresa_id: empresaId.value,
       punto_venta_id: formData.value.punto_venta_id,
       tipo_comprobante: formData.value.tipo_comprobante,
-      concepto: formData.value.concepto,
+      concepto: Number(formData.value.concepto),
+      fecha_emision: formData.value.fecha_emision,
+      confirmacion_fecha_fiscal: true,
 
       // Cliente
       cliente_id: formData.value.cliente.cliente_id,
@@ -371,6 +424,7 @@ const confirmarCancelacion = () => {
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
+              <option disabled value="">Elegir productos o servicios</option>
               <option :value="TIPOS_CONCEPTO.PRODUCTOS">
                 {{ TIPOS_CONCEPTO_NOMBRES[1] }}
               </option>
@@ -381,6 +435,20 @@ const confirmarCancelacion = () => {
                 {{ TIPOS_CONCEPTO_NOMBRES[3] }}
               </option>
             </select>
+          </div>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Fecha de emision *
+            </label>
+            <input
+              v-model="formData.fecha_emision"
+              type="date"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
         </div>
 
@@ -509,9 +577,20 @@ const confirmarCancelacion = () => {
       :form-data="formData"
       :totales="totales"
       :proximo-numero="proximoNumero"
-      :empresa="empresaStore.empresa"
+      :empresa="empresaActiva"
       @close="mostrarPreview = false"
+      @confirm="solicitarConfirmacionFechaFiscal"
+    />
+
+    <ConfirmDialog
+      :show="mostrarConfirmacionFechaFiscal"
+      title="Confirmar fecha fiscal"
+      :message="mensajeConfirmacionFechaFiscal"
+      confirm-text="Emitir con esta fecha"
+      cancel-text="Volver a revisar"
+      variant="danger"
       @confirm="confirmarEmision"
+      @cancel="mostrarConfirmacionFechaFiscal = false"
     />
 
     <ConfirmDialog

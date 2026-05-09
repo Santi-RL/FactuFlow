@@ -11,6 +11,21 @@
 - AFIP queda solo como nomenclatura legacy en URLs y variables de entorno existentes.
 - Si agregás nuevos nombres públicos, preferí `ARCA_*` y mantené compatibilidad cuando sea necesario.
 
+## Regla fiscal critica: fecha de emision
+- Nunca jamas asumir la fecha de hoy como fecha fiscal de un comprobante.
+- Ningun flujo de emision, individual, masivo, factura, nota de credito o nota
+  de debito, puede usar `date.today()`, `datetime.today()`, `new Date()` ni
+  equivalentes como default de `fecha_emision`/`CbteFch`.
+- La fecha de emision debe ser un dato explicito definido por el usuario o
+  tomado del archivo solo cuando el usuario eligio esa politica.
+- Antes de emitir comprobantes reales debe mostrarse un modal de confirmacion
+  irreversible con este mensaje, reemplazando la fecha y, si aplica, indicando
+  el punto de venta:
+  `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
+- Si se agrega o modifica cualquier camino que pueda solicitar CAE a ARCA, hay
+  que verificar esta regla en UI, API, servicios, tests y documentacion antes de
+  darlo por terminado.
+
 ## Mapa rápido
 - `backend/app/main.py`: entrada FastAPI y registro de routers.
 - `backend/app/api/*.py`: endpoints (health, auth, empresas, clientes, puntos_venta, certificados, arca, comprobantes, pdf, reportes).

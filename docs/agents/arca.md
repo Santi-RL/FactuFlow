@@ -82,6 +82,10 @@
 - En produccion para `FUNDACION ESCUELA DE GIMNASIA FEDE MOLINARI`, ARCA
   devolvio habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban
   bloqueados.
+- `FEParamGetPtosVenta` devuelve el indicador `Bloqueado` como `N`/`S`; en
+  validaciones de emision debe normalizarse explicitamente. `N` significa no
+  bloqueado y debe tratarse como punto habilitado. No evaluar ese campo como
+  booleano directo.
 - El 2026-05-07 se revalido de forma segura por API local contra ARCA
   produccion:
   - `GET /api/arca/test-conexion`: `status=ok`, ambiente `produccion`
@@ -137,6 +141,80 @@
   - desde ese umbral exige documento
 - Para comprobantes tipo A se mantiene obligatorio CUIT valido del receptor.
 
+### Fecha de emision y periodo de servicios
+
+- FactuFlow no debe asumir que el comprobante se emite con la fecha del dia.
+- Esta regla aplica tambien a notas de credito y notas de debito: nunca usar la
+  fecha actual como default fiscal.
+- `CbteFch` se arma desde `fecha_emision`, un dato obligatorio confirmado por
+  el usuario o resuelto explicitamente desde el Excel.
+- Antes de solicitar CAE debe existir una confirmacion visible para el usuario:
+  `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
+- La API debe rechazar emisiones sin confirmacion fiscal explicita. En el
+  contrato actual, emision individual requiere `confirmacion_fecha_fiscal=true`
+  y procesamiento de lotes requiere `X-Confirmacion-Fecha-Fiscal: true`.
+- En emision masiva, antes de validar se debe elegir si la fecha de emision sale
+  del archivo o si se usa una fecha fija para todos los comprobantes.
+- Para concepto servicios o productos y servicios, tambien deben resolverse
+  `FchServDesde`, `FchServHasta` y `FchVtoPago`.
+- La validacion local aplica una ventana ARCA preventiva:
+  - productos: fecha de emision dentro de N-5 / N+5
+  - servicios o productos y servicios: fecha de emision dentro de N-10 / N+10
+  - N es la fecha de solicitud de autorizacion
+- Si un extracto bancario contiene movimientos de un mes anterior y la fecha del
+  archivo queda fuera de esa ventana, el lote debe quedar observado y no listo
+  para emitir hasta que el usuario/contador decida la fecha fiscal correcta.
+- Si Excel entrega la fecha del archivo como serial numerico, FactuFlow debe
+  convertirla a fecha real antes de validar la ventana ARCA.
+
+### Concepto fiscal ARCA vs descripcion del item
+
+- FactuFlow no debe asumir productos ni servicios por defecto.
+- El concepto fiscal ARCA es un dato tecnico/fiscal del comprobante. Antes de
+  emitir, el usuario debe elegir el concepto fiscal del lote:
+  `Productos`, `Servicios` o `Definido por archivo`.
+- Si el usuario elige `Productos`, el lote se trata como concepto ARCA
+  productos.
+- Si el usuario elige `Servicios`, el lote se trata como concepto ARCA
+  servicios y deben resolverse tambien `FchServDesde`, `FchServHasta` y
+  `FchVtoPago`.
+- Si el usuario elige `Definido por archivo`, el Excel debe incluir una columna
+  valida con `Producto` o `Servicio` en todas las filas. Si la columna falta o
+  una fila trae otro valor, la validacion debe informar el problema al usuario y
+  no dejar el comprobante listo para emitir.
+- Ese concepto fiscal ARCA no es la descripcion/concepto facturado del item.
+  `Honorarios`, `Zapatillas`, `Servicio mensual` o textos equivalentes son
+  descripciones de items y deben resolverse como dato separado.
+- La descripcion del item tambien debe definirse antes de validar o emitir un
+  lote: desde una columna del archivo o como valor fijo para todo el lote. No
+  debe salir de un default oculto del formato ni del hecho de haber elegido
+  `Productos` o `Servicios`.
+- Cuando una fecha tomada del archivo quede fuera de la ventana admitida por
+  ARCA para el concepto elegido, el usuario debe elegir una fecha permitida por
+  el web service antes de emitir. No se debe corregir automaticamente.
+
+### Notas de credito/debito y comprobantes asociados
+
+- Para notas de credito/debito, FactuFlow debe informar el comprobante asociado
+  en `FECAESolicitar` dentro de `CbtesAsoc`.
+- En lotes, las columnas oficiales para el asociado son:
+  `asociado_tipo_comprobante`, `asociado_punto_venta`, `asociado_numero`,
+  `asociado_fecha` y `asociado_cuit`.
+- Para Nota de Credito C se usa `tipo_comprobante = 13`; si el comprobante
+  original fue Factura C, el asociado normalmente es `tipo = 11` con el punto de
+  venta y numero de la factura que se anula.
+- La validacion de lotes bloquea notas de credito C/A/B si falta tipo, punto de
+  venta o numero del comprobante asociado.
+- Los importes se cargan positivos; el tipo de comprobante define el efecto
+  fiscal del credito.
+- Para los duplicados productivos del 2026-05-08 se preparo
+  `.tmp/PruebaNC.xlsx` con 19 Nota de Credito C y se valido sin emision contra
+  una copia de la base: 19 validas, 0 errores, 0 emitidas.
+- El usuario emitio luego esas 19 Nota de Credito C en produccion. Verificacion
+  posterior solo lectura por `FECompConsultar`: las 19 devolvieron
+  `Resultado=A`, CAE coincidente y `CbtesAsoc` contra la Factura C duplicada
+  esperada.
+
 ## Hallazgos tecnicos de integracion solucionados
 
 - Cache WSAA antes solo en memoria; ahora persiste en `backend/data/arca_token_cache.json`.
@@ -145,6 +223,13 @@
   - `Iva: { AlicIva: [...] }`
   - `Tributos: { Tributo: [...] }`
 - El proyecto ya contempla esas estructuras correctas.
+- Excepcion importante: para comprobantes tipo C (`11`, `12`, `13`) no se debe
+  informar el objeto `Iva`. ARCA rechaza esos comprobantes con codigo `10071`
+  aunque la alicuota enviada sea 0.
+- Para notas de credito/debito con comprobante relacionado, `CbtesAsoc` debe
+  enviarse como `{ "CbteAsoc": [...] }`.
+- En `FECompConsultar`, ARCA devuelve el numero consultado como
+  `CbteDesde`/`CbteHasta`; no asumir `CbteNro` en esa respuesta.
 - La numeracion de comprobantes ahora se protege con:
   - lock en memoria por empresa/punto de venta/tipo
   - advisory lock transaccional si la base es PostgreSQL

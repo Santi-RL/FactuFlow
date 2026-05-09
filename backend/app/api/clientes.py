@@ -6,8 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 
 from app.core.database import get_db
-from app.api.deps import get_current_empresa_user
-from app.models.usuario import Usuario
+from app.api.deps import get_current_empresa_id
 from app.models.cliente import Cliente
 from app.schemas.cliente import (
     ClienteCreate,
@@ -26,7 +25,7 @@ async def list_clientes(
     search: Optional[str] = None,
     activo: Optional[bool] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Listar clientes con paginación y búsqueda.
@@ -37,16 +36,12 @@ async def list_clientes(
         search: Término de búsqueda (razon_social, numero_documento)
         activo: Filtrar por estado activo/inactivo
         db: Sesión de base de datos
-        current_user: Usuario autenticado
+        empresa_activa_id: Empresa activa resuelta desde el usuario o header
 
     Returns:
         Lista paginada de clientes
     """
-    # Base query: solo clientes de la empresa del usuario (o todos si es admin)
-    query = select(Cliente)
-
-    if not current_user.es_admin:
-        query = query.where(Cliente.empresa_id == current_user.empresa_id)
+    query = select(Cliente).where(Cliente.empresa_id == empresa_activa_id)
 
     # Filtrar por búsqueda
     if search:
@@ -89,7 +84,7 @@ async def list_clientes(
 async def create_cliente(
     cliente_data: ClienteCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Crear un nuevo cliente.
@@ -97,15 +92,12 @@ async def create_cliente(
     Args:
         cliente_data: Datos del cliente
         db: Sesión de base de datos
-        current_user: Usuario autenticado
+        empresa_activa_id: Empresa activa resuelta desde el usuario o header
 
     Returns:
         Cliente creado
     """
-    # Crear cliente asociado a la empresa del usuario
-    nuevo_cliente = Cliente(
-        **cliente_data.model_dump(), empresa_id=current_user.empresa_id
-    )
+    nuevo_cliente = Cliente(**cliente_data.model_dump(), empresa_id=empresa_activa_id)
 
     db.add(nuevo_cliente)
     await db.commit()
@@ -118,7 +110,7 @@ async def create_cliente(
 async def get_cliente(
     cliente_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Obtener un cliente por ID.
@@ -126,7 +118,7 @@ async def get_cliente(
     Args:
         cliente_id: ID del cliente
         db: Sesión de base de datos
-        current_user: Usuario autenticado
+        empresa_activa_id: Empresa activa resuelta desde el usuario o header
 
     Returns:
         Cliente
@@ -142,8 +134,7 @@ async def get_cliente(
             status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado"
         )
 
-    # Verificar que pertenezca a la empresa del usuario (o sea admin)
-    if not current_user.es_admin and cliente.empresa_id != current_user.empresa_id:
+    if cliente.empresa_id != empresa_activa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para ver este cliente",
@@ -157,7 +148,7 @@ async def update_cliente(
     cliente_id: int,
     cliente_data: ClienteUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Actualizar un cliente.
@@ -166,7 +157,7 @@ async def update_cliente(
         cliente_id: ID del cliente
         cliente_data: Datos a actualizar
         db: Sesión de base de datos
-        current_user: Usuario autenticado
+        empresa_activa_id: Empresa activa resuelta desde el usuario o header
 
     Returns:
         Cliente actualizado
@@ -182,8 +173,7 @@ async def update_cliente(
             status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado"
         )
 
-    # Verificar permisos
-    if not current_user.es_admin and cliente.empresa_id != current_user.empresa_id:
+    if cliente.empresa_id != empresa_activa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para actualizar este cliente",
@@ -204,7 +194,7 @@ async def update_cliente(
 async def delete_cliente(
     cliente_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
     Desactivar un cliente (soft delete).
@@ -212,7 +202,7 @@ async def delete_cliente(
     Args:
         cliente_id: ID del cliente
         db: Sesión de base de datos
-        current_user: Usuario autenticado
+        empresa_activa_id: Empresa activa resuelta desde el usuario o header
 
     Raises:
         HTTPException: Si el cliente no existe o no pertenece a la empresa
@@ -225,8 +215,7 @@ async def delete_cliente(
             status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado"
         )
 
-    # Verificar permisos
-    if not current_user.es_admin and cliente.empresa_id != current_user.empresa_id:
+    if cliente.empresa_id != empresa_activa_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes permiso para eliminar este cliente",

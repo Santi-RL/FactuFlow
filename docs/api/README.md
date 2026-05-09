@@ -179,6 +179,25 @@ GET /api/comprobantes/proximo-numero/{punto_venta_id}/{tipo_comprobante}
 `POST /api/comprobantes/emitir` emite a traves del servicio de facturacion y
 puede consumir numeracion fiscal si `ARCA_ENV=produccion`.
 
+El body debe incluir `fecha_emision`. FactuFlow no la completa con la fecha del
+dia. Para comprobantes de servicios o productos y servicios tambien deben
+informarse `fecha_servicio_desde`, `fecha_servicio_hasta` y `fecha_vto_pago`.
+El backend valida preventivamente que `fecha_emision` este dentro de la ventana
+ARCA aplicable antes de solicitar CAE.
+
+La UI debe mostrar una confirmacion final antes de invocar este endpoint en
+produccion: `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX?
+Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese
+mismo punto de venta.` El body debe enviar `confirmacion_fecha_fiscal=true`
+despues de ese modal; si no llega, la API rechaza la emision.
+
+El body tambien debe definir explicitamente el concepto fiscal ARCA. No se debe
+asumir productos ni servicios por default. Los valores operativos esperados son
+productos, servicios o, en flujos masivos, definido por archivo. Este dato no es
+la descripcion del item: cada item debe traer su `descripcion` real, por ejemplo
+`Honorarios` o `Zapatillas`, como texto facturado independiente del concepto
+fiscal ARCA.
+
 ## Formatos De Importacion
 
 ```http
@@ -281,8 +300,11 @@ Formato global inicial:
 - Columnas esperadas: `Fecha`, `Créditos`/`Creditos`,
   `Leyendas Adicionales1`, `Leyendas Adicionales2`, `Pto Vta`
 - Requeridas: `Créditos`/`Creditos` y `Pto Vta`
-- Cada fila genera un comprobante con Factura C (`tipo_comprobante=11`), IVA
-  `0`, item `Cobro registrado en cuenta bancaria` y cliente no persistente.
+- Cada fila genera un comprobante con Factura C (`tipo_comprobante=11`) e IVA
+  `0`, y cliente no persistente. El formato no debe definir por defecto ni el
+  concepto fiscal ARCA ni la descripcion facturada del item: el usuario debe
+  elegir productos, servicios o archivo para el dato fiscal, y archivo o valor
+  fijo para el texto del item antes de validar.
 - Este formato global esta pensado para emisores Exento o Monotributo. Si el
   emisor activo es Responsable Inscripto, la validacion observa el lote para
   evitar emitir Factura C incorrectamente.
@@ -308,10 +330,49 @@ confirma. Lotes grandes pueden quedar en cola y continuar por worker.
 - `formato_version_id`: opcional. Si no se envia y el archivo coincide con la
   plantilla oficial, se usa la plantilla FactuFlow. Para archivos externos,
   enviar la version confirmada por `POST /api/formatos-importacion/detectar`.
+- `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
+- `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
+- `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.
+- Si `concepto_modo=archivo`, el formato confirmado debe mapear una columna del
+  Excel con `Producto` o `Servicio` en todas las filas. No se envia un nombre de
+  columna aparte en el form; se toma del mapeo del formato/plantilla.
+- `item_descripcion_modo`: requerido por contrato operativo para lotes
+  externos. Valores esperados: `archivo` o `fija`.
+- `item_descripcion_fija`: requerido cuando `item_descripcion_modo=fija`.
+- Si `item_descripcion_modo=archivo`, el formato/plantilla debe mapear una
+  columna con la descripcion/concepto facturado del item. Este texto es
+  independiente de `concepto_modo`: `Productos` o `Servicios` no son una
+  descripcion facturable suficiente.
+- `fecha_servicio_desde_modo`, `fecha_servicio_hasta_modo` y
+  `fecha_vto_pago_modo`: valores `archivo` o `fija` para comprobantes de
+  servicios.
+- `fecha_servicio_desde_fija`, `fecha_servicio_hasta_fija` y
+  `fecha_vto_pago_fija`: obligatorias cuando el modo correspondiente es `fija`.
 
 La validacion persiste el lote, encabezados detectados, mapeo usado y version de
 formato. No emite comprobantes. La emision ocurre solo con
 `POST /api/lotes-comprobantes/{lote_id}/procesar`.
+
+Regla fiscal critica: FactuFlow no asume fecha de emision del dia actual. La
+fecha de comprobante debe venir del archivo o de una fecha fija confirmada por
+el usuario. La validacion observa los comprobantes cuya fecha queda fuera de la
+ventana admitida por ARCA antes de permitir emitir. Si la fecha del archivo
+queda fuera de ventana, el usuario debe elegir una fecha permitida y revalidar.
+Antes de llamar a `procesar`, el cliente debe mostrar la confirmacion final de
+fecha fiscal con el mismo texto usado en emision individual y enviar el header
+`X-Confirmacion-Fecha-Fiscal: true`; si no llega, la API rechaza la emision.
+
+Regla fiscal critica: FactuFlow tampoco asume si el lote corresponde a productos
+o servicios. El usuario debe elegirlo antes de validar, o confirmar que el
+archivo trae esa definicion fila por fila. Si se usa `archivo`, la columna
+configurada debe existir y todas las filas deben tener `Producto` o `Servicio`;
+si falta o hay valores invalidos, la API debe devolver errores de validacion
+para informar al usuario y no dejar el lote listo para emitir.
+
+Regla de item critica: el concepto fiscal ARCA no es la descripcion/concepto
+facturado del item. El lote tambien debe definir la descripcion del item antes
+de validar o emitir, desde archivo o como valor fijo para todo el lote. No debe
+haber defaults ocultos como descripcion facturada.
 
 ## PDF
 

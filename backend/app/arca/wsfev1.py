@@ -222,6 +222,24 @@ class WSFEv1Client:
                     ]
                 }
 
+            if comprobante.cbtes_asoc:
+                fe_det["CbtesAsoc"] = {
+                    "CbteAsoc": [
+                        {
+                            key: value
+                            for key, value in {
+                                "Tipo": asociado.tipo,
+                                "PtoVta": asociado.punto_venta,
+                                "Nro": asociado.numero,
+                                "Cuit": asociado.cuit,
+                                "CbteFch": asociado.fecha_cbte,
+                            }.items()
+                            if value is not None
+                        }
+                        for asociado in comprobante.cbtes_asoc
+                    ]
+                }
+
             # Llamar al servicio
             response = self.client.service.FECAESolicitar(
                 Auth=auth,
@@ -355,7 +373,7 @@ class WSFEv1Client:
             return ComprobanteResponse(
                 punto_venta=result.PtoVta,
                 tipo_cbte=result.CbteTipo,
-                numero=result.CbteNro,
+                numero=getattr(result, "CbteNro", result.CbteDesde),
                 cuit_emisor=(
                     str(result.CuitEmisor)
                     if hasattr(result, "CuitEmisor")

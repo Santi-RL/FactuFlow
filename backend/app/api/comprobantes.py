@@ -189,6 +189,7 @@ async def obtener_comprobante(
     return ComprobanteDetalleResponse(
         id=comprobante.id,
         tipo_comprobante=comprobante.tipo_comprobante,
+        concepto=comprobante.concepto,
         numero=comprobante.numero,
         fecha_emision=comprobante.fecha_emision,
         fecha_vencimiento=comprobante.fecha_vencimiento,
@@ -257,6 +258,17 @@ async def emitir_comprobante(
     - 12: Nota de Débito C
     - 13: Nota de Crédito C
     """
+    if not request.confirmacion_fecha_fiscal:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Antes de emitir debes confirmar la fecha fiscal. "
+                "Está seguro que quiere emitir comprobantes con fecha "
+                "XX/XX/XX? Recuerde que luego no podrá emitir comprobantes "
+                "con fecha anterior para ese mismo punto de venta."
+            ),
+        )
+
     service = FacturacionService(db)
     request = request.model_copy(update={"empresa_id": empresa_activa_id})
 

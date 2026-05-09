@@ -9,6 +9,8 @@ export interface Notification {
   duration?: number;
 }
 
+const DEFAULT_NOTIFICATION_DURATION = 5000;
+
 export const useUIStore = defineStore("ui", () => {
   const loading = ref(false);
   const sidebarOpen = ref(true);
@@ -16,19 +18,21 @@ export const useUIStore = defineStore("ui", () => {
 
   const showNotification = (notification: Omit<Notification, "id">) => {
     const id = Date.now().toString();
+    const duration =
+      notification.duration ?? DEFAULT_NOTIFICATION_DURATION;
     const newNotification: Notification = {
       id,
-      duration: 5000,
       ...notification,
+      duration,
     };
 
     notifications.value.push(newNotification);
 
-    // Auto-remove después del duration
-    if (newNotification.duration) {
+    // `duration: 0` deja el aviso visible hasta que el usuario lo cierre.
+    if (duration > 0) {
       setTimeout(() => {
         hideNotification(id);
-      }, newNotification.duration);
+      }, duration);
     }
 
     return id;

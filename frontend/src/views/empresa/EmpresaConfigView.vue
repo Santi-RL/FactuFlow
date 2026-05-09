@@ -31,9 +31,7 @@ const extractingConstancia = ref(false);
 const constanciaInput = ref<HTMLInputElement | null>(null);
 const extractionWarnings = ref<string[]>([]);
 
-const empresaActiva = computed(
-  () => empresaStore.empresaActiva || empresaStore.empresa,
-);
+const empresaActiva = computed(() => empresaStore.empresaActiva);
 const condicionIvaOptions = [
   { value: "RI", label: "Responsable Inscripto" },
   { value: "Monotributo", label: "Monotributo" },

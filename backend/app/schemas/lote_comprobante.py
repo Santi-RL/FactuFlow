@@ -1,6 +1,6 @@
 """Schemas para emisión masiva de comprobantes."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
@@ -29,9 +29,14 @@ class LoteComprobanteGrupoResponse(BaseModel):
     orden: int
     estado: str
     tipo_comprobante: Optional[int] = None
+    concepto: Optional[int] = None
     punto_venta_numero: Optional[int] = None
     cliente_documento: Optional[str] = None
     cliente_razon_social: Optional[str] = None
+    fecha_emision: Optional[date] = None
+    fecha_servicio_desde: Optional[date] = None
+    fecha_servicio_hasta: Optional[date] = None
+    fecha_vto_pago: Optional[date] = None
     total_estimado: Decimal = Decimal("0")
     mensajes_json: list[str] = Field(default_factory=list)
     cae: Optional[str] = None

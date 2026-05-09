@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
 import { useEmpresaStore } from "@/stores/empresa";
@@ -32,17 +32,7 @@ const filtros = ref({
 
 const loading = ref(false);
 
-onMounted(async () => {
-  // Cargar empresa si no está cargada
-  if (!empresaStore.empresa) {
-    await empresaStore.cargarEmpresa();
-  }
-
-  // Cargar comprobantes
-  await cargarComprobantes();
-});
-
-const empresaId = computed(() => empresaStore.empresa?.id || 0);
+const empresaId = computed(() => empresaStore.empresaActivaId || 0);
 
 const cargarComprobantes = async (page = 1) => {
   if (!empresaId.value) return;
@@ -65,6 +55,24 @@ const cargarComprobantes = async (page = 1) => {
     loading.value = false;
   }
 };
+
+onMounted(async () => {
+  if (!empresaStore.empresaActivaId) {
+    await empresaStore.inicializarEmpresaActiva();
+  } else if (!empresaStore.empresaActiva) {
+    await empresaStore.cargarEmpresa();
+  }
+
+  await cargarComprobantes();
+});
+
+watch(
+  () => empresaStore.empresaActivaId,
+  async (nuevoEmpresaId, anteriorEmpresaId) => {
+    if (!nuevoEmpresaId || nuevoEmpresaId === anteriorEmpresaId) return;
+    await cargarComprobantes(1);
+  },
+);
 
 const aplicarFiltros = () => {
   cargarComprobantes(1);
@@ -168,36 +176,6 @@ const tiposDisponibles = [
       </div>
     </div>
 
-    <BaseCard class="mb-6 border-blue-100 bg-blue-50">
-      <div class="grid gap-3 md:grid-cols-3">
-        <div>
-          <p class="text-sm font-semibold text-blue-900">
-            Cuando usar emision masiva
-          </p>
-          <p class="mt-1 text-sm text-blue-800">
-            Si vas a cargar muchas facturas, descarga la plantilla Excel y
-            valida todo antes de emitir.
-          </p>
-        </div>
-        <div>
-          <p class="text-sm font-semibold text-blue-900">
-            Que controla el sistema
-          </p>
-          <p class="mt-1 text-sm text-blue-800">
-            Revisa empresa activa, cliente, punto de venta, tipos de comprobante
-            y errores por fila.
-          </p>
-        </div>
-        <div>
-          <p class="text-sm font-semibold text-blue-900">Que pasa despues</p>
-          <p class="mt-1 text-sm text-blue-800">
-            Los comprobantes autorizados quedan listados aca junto con los
-            emitidos desde lote.
-          </p>
-        </div>
-      </div>
-    </BaseCard>
-
     <!-- Filtros -->
     <BaseCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -294,6 +272,30 @@ const tiposDisponibles = [
 
     <!-- Lista de comprobantes -->
     <BaseCard v-else-if="comprobantesStore.hayComprobantes">
+      <div
+        class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p class="text-sm font-medium text-gray-900">
+          {{ comprobantesStore.totalComprobantes }} comprobantes encontrados
+        </p>
+        <p class="text-sm text-gray-600">
+          Mostrando
+          {{
+            (comprobantesStore.paginaActual - 1) *
+              comprobantesStore.paginacion.per_page +
+            1
+          }}
+          -
+          {{
+            Math.min(
+              comprobantesStore.paginaActual *
+                comprobantesStore.paginacion.per_page,
+              comprobantesStore.totalComprobantes,
+            )
+          }}
+        </p>
+      </div>
+
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
@@ -464,6 +466,36 @@ const tiposDisponibles = [
           </button>
         </template>
       </BaseEmpty>
+    </BaseCard>
+
+    <BaseCard class="mt-6 border-blue-100 bg-blue-50">
+      <div class="grid gap-3 md:grid-cols-3">
+        <div>
+          <p class="text-sm font-semibold text-blue-900">
+            Cuando usar emision masiva
+          </p>
+          <p class="mt-1 text-sm text-blue-800">
+            Si vas a cargar muchas facturas, descarga la plantilla Excel y
+            valida todo antes de emitir.
+          </p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-blue-900">
+            Que controla el sistema
+          </p>
+          <p class="mt-1 text-sm text-blue-800">
+            Revisa empresa activa, cliente, punto de venta, tipos de comprobante
+            y errores por fila.
+          </p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-blue-900">Que pasa despues</p>
+          <p class="mt-1 text-sm text-blue-800">
+            Los comprobantes autorizados quedan listados aca junto con los
+            emitidos desde lote.
+          </p>
+        </div>
+      </div>
     </BaseCard>
   </div>
 </template>

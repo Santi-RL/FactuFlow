@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
@@ -65,9 +65,7 @@ const columns = [
   { key: "total", label: "Total", sortable: false },
 ];
 
-const empresaActivaId = computed(
-  () => empresaStore.empresaActiva?.id || empresaStore.empresa?.id || null,
-);
+const empresaActivaId = computed(() => empresaStore.empresaActivaId);
 
 const generarReporte = async () => {
   if (!empresaActivaId.value) {
@@ -104,6 +102,26 @@ const generarReporte = async () => {
 const volver = () => {
   router.push("/reportes");
 };
+
+onMounted(async () => {
+  if (!empresaStore.empresaActivaId) {
+    await empresaStore.inicializarEmpresaActiva();
+  }
+});
+
+watch(
+  () => empresaStore.empresaActivaId,
+  async (empresaId, previousEmpresaId) => {
+    if (!empresaId || empresaId === previousEmpresaId) return;
+
+    const debeRegenerar = !!reporte.value;
+    reporte.value = null;
+
+    if (debeRegenerar) {
+      await generarReporte();
+    }
+  },
+);
 
 const resumenIVA = computed(() => {
   if (!reporte.value) return [];

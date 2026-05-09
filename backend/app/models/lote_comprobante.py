@@ -139,6 +139,36 @@ class LoteComprobanteGrupo(Base):
     )
     comprobante = relationship("Comprobante")
 
+    @property
+    def fecha_emision(self) -> str | None:
+        """Fecha fiscal de emisión resuelta para el grupo."""
+        payload = self.payload_json or {}
+        return payload.get("fecha_emision") or None
+
+    @property
+    def concepto(self) -> int | None:
+        """Concepto fiscal resuelto para el grupo."""
+        payload = self.payload_json or {}
+        return payload.get("concepto") or None
+
+    @property
+    def fecha_servicio_desde(self) -> str | None:
+        """Fecha desde del período de servicio resuelta para el grupo."""
+        payload = self.payload_json or {}
+        return payload.get("fecha_servicio_desde") or None
+
+    @property
+    def fecha_servicio_hasta(self) -> str | None:
+        """Fecha hasta del período de servicio resuelta para el grupo."""
+        payload = self.payload_json or {}
+        return payload.get("fecha_servicio_hasta") or None
+
+    @property
+    def fecha_vto_pago(self) -> str | None:
+        """Fecha de vencimiento de pago resuelta para el grupo."""
+        payload = self.payload_json or {}
+        return payload.get("fecha_vto_pago") or None
+
 
 class LoteComprobanteFila(Base):
     """Representa una fila individual del Excel importado."""

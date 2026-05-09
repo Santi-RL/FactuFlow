@@ -14,6 +14,76 @@ from app.models.punto_venta import PuntoVenta
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobante_rechaza_concepto_faltante(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+):
+    """No debe completar Productos por defecto si falta concepto."""
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers=auth_headers,
+        json={
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": 1,
+            "tipo_comprobante": 6,
+            "fecha_emision": date.today().isoformat(),
+            "tipo_documento": 96,
+            "numero_documento": "12345678",
+            "razon_social": "Cliente sin concepto",
+            "condicion_iva": "Consumidor Final",
+            "items": [
+                {
+                    "descripcion": "Servicio",
+                    "cantidad": 1,
+                    "unidad": "unidad",
+                    "precio_unitario": 100,
+                    "iva_porcentaje": 0,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_exige_confirmacion_fecha_fiscal(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+):
+    """No debe emitir por API si no se confirmó la fecha fiscal en la UI."""
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers=auth_headers,
+        json={
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": 1,
+            "tipo_comprobante": 6,
+            "concepto": 1,
+            "fecha_emision": date.today().isoformat(),
+            "tipo_documento": 96,
+            "numero_documento": "12345678",
+            "razon_social": "Cliente sin confirmacion",
+            "condicion_iva": "Consumidor Final",
+            "items": [
+                {
+                    "descripcion": "Servicio",
+                    "cantidad": 1,
+                    "unidad": "unidad",
+                    "precio_unitario": 100,
+                    "iva_porcentaje": 0,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 400
+    assert "confirmar la fecha fiscal" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_get_comprobante_detalle_con_items(
     client: AsyncClient,
     auth_headers: dict,
@@ -39,6 +109,7 @@ async def test_get_comprobante_detalle_con_items(
 
     comprobante = Comprobante(
         tipo_comprobante=6,
+        concepto=1,
         numero=1,
         fecha_emision=date(2026, 3, 9),
         subtotal=Decimal("1000.00"),

@@ -29,7 +29,7 @@ export const comprobantesService = {
   async listar(
     params: ListarComprobantesParams,
   ): Promise<PaginatedComprobantesResponse> {
-    const { data } = await api.get("/api/comprobantes", { params });
+    const { data } = await api.get("/api/comprobantes/", { params });
     return data;
   },
 

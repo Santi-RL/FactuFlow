@@ -27,6 +27,16 @@ class ItemComprobanteCreate(ItemComprobanteBase):
     pass
 
 
+class ComprobanteAsociadoCreate(BaseModel):
+    """Comprobante asociado a una nota de crédito o débito."""
+
+    tipo_comprobante: int = Field(..., ge=1, le=999)
+    punto_venta: int = Field(..., ge=1, le=99999)
+    numero: int = Field(..., ge=1)
+    fecha: Optional[date] = None
+    cuit: Optional[str] = Field(None, max_length=11)
+
+
 class ItemComprobanteResponse(ItemComprobanteBase):
     """Schema de respuesta de Item de Comprobante."""
 
@@ -60,7 +70,15 @@ class EmitirComprobanteRequest(ComprobanteBase):
 
     empresa_id: int
     punto_venta_id: int
-    concepto: int = Field(default=1, ge=1, le=3)  # 1=Productos, 2=Servicios, 3=Ambos
+    concepto: int = Field(..., ge=1, le=3)  # 1=Productos, 2=Servicios, 3=Ambos
+    fecha_emision: date
+    confirmacion_fecha_fiscal: bool = Field(
+        default=False,
+        description=(
+            "Debe llegar en true solo despues de que la UI muestre la "
+            "confirmacion irreversible de fecha fiscal."
+        ),
+    )
 
     # Cliente/Receptor
     cliente_id: Optional[int] = None  # Si es cliente guardado
@@ -78,6 +96,9 @@ class EmitirComprobanteRequest(ComprobanteBase):
     fecha_servicio_desde: Optional[date] = None
     fecha_servicio_hasta: Optional[date] = None
     fecha_vto_pago: Optional[date] = None
+    comprobantes_asociados: List[ComprobanteAsociadoCreate] = Field(
+        default_factory=list
+    )
 
     @field_validator("items")
     @classmethod
@@ -116,6 +137,7 @@ class ComprobanteResponse(ComprobanteBase):
 
     id: int
     numero: int
+    concepto: int
     fecha_emision: date
     fecha_vencimiento: Optional[date] = None
     subtotal: Decimal

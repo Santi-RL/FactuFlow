@@ -47,6 +47,7 @@ class Comprobante(Base):
 
     # Tipo y número
     tipo_comprobante = Column(Integer, nullable=False)  # 1=FA, 6=FB, 11=FC, 3=NCA, etc.
+    concepto = Column(Integer, nullable=False)  # 1=Productos, 2=Servicios, 3=Ambos
     numero = Column(Integer, nullable=False)
 
     # Fechas

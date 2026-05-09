@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-08
+Ultima actualizacion: 2026-05-09
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -32,6 +32,18 @@ cd backend
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
 
 ## Recorrido ejecutado y validado
+
+### Selector de emisor activo - QA 2026-05-09
+
+- Usuario usado: `visual@factuflow.dev`.
+- Se valido en `http://127.0.0.1:18082` que al cambiar el selector de emisor
+  activo las secciones vuelven a pedir datos con el `X-Empresa-Id` correcto:
+  Dashboard, Clientes, Comprobantes, Emision masiva, Certificados, Puntos de
+  venta, Nueva factura, Reporte de ventas, Subdiario IVA y Ranking de clientes.
+- En Reportes, si ya habia un resultado visible, el cambio de emisor regenera
+  el reporte con el mismo filtro para el nuevo emisor.
+- En Nueva factura, el cambio de emisor recarga puntos de venta/proximo numero
+  y limpia el cliente seleccionado para evitar mezclar datos entre CUITs.
 
 ### 1. Dashboard
 
@@ -88,21 +100,106 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 
 Validado localmente el 2026-05-08:
 - autodeteccion asistida de formato al subir Excel externo
-- seleccion/confirmacion obligatoria de formato para archivos externos
+- preseleccion automatica del formato sugerido cuando la coincidencia es alta;
+  el usuario puede cambiarlo si no esta de acuerdo
+- si al subir un archivo todavia no hay encabezados analizados, la pantalla
+  bloquea `Validar lote` y ofrece `Analizar encabezados` como reintento manual
 - formato global `Extracto bancario - creditos IVA exento`
 - mapeo de columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`,
   `Leyendas Adicionales2` y `Pto Vta`
 - validacion de un extracto chico con puntos de venta `6`, `10` y `13`
 - la validacion quedo sin emision: `Ya emitidos = 0`
+- formato particular local `Cano - Factura B IVA 21%` para el emisor
+  `CANO MAR TIN ESTEBAN` (`CUIT 20218628967`, Responsable Inscripto)
+- la muestra `.tmp/Prueba_formato_IVA_Cano.xlsx` detecta ese formato con
+  confianza alta, 7 filas y punto de venta `2`; mapea `Imp. Neto Gravado` como
+  precio neto del item e IVA constante `21`
+- la muestra no trae numero de documento real del receptor: la columna
+  `Nro. Doc. Receptor` contiene nombres y `Denominación Receptor` viene vacia,
+  por lo que la prueba debe tratar esos comprobantes como consumidor final sin
+  documento mientras el importe este bajo el umbral legal
+- la fecha de la muestra es `30/04/2026`; al probarla el usuario debe elegir
+  una politica de fecha permitida por ARCA antes de validar o emitir
+
+Cambio critico posterior el 2026-05-08:
+- la emision individual y masiva ya no debe asumir fecha del dia actual
+- el lote exige definir fecha de emision antes de validar: desde archivo o fecha
+  fija
+- el lote no debe asumir productos ni servicios por defecto; antes de validar y
+  emitir el usuario debe elegir `Productos`, `Servicios` o `Definido por archivo`
+- si se elige `Definido por archivo`, el Excel debe tener una columna valida con
+  `Producto` o `Servicio` en todas las filas; si falta o hay valores invalidos,
+  se informa al usuario y no se habilita la emision
+- el selector anterior define el tipo de concepto fiscal ARCA; no es la
+  descripcion/concepto facturado del item. La descripcion del item debe
+  definirse aparte, por columna del archivo o como texto fijo para todo el lote
+  antes de validar, por ejemplo `Honorarios`, `Zapatillas` o `Servicio mensual`
+- para servicios, el lote exige definir tambien fecha desde, fecha hasta y
+  vencimiento de pago: desde archivo o fechas fijas
+- la validacion observa fechas de emision fuera de ventana ARCA antes de emitir
+- si la fecha del archivo queda fuera de ventana ARCA, el usuario debe elegir
+  una fecha permitida por el web service antes de emitir
+- se probo `.tmp/ParaPruebas.xlsx`: el archivo trae fecha `06/04/2026` como
+  serial numerico de Excel; el sistema la interpreta correctamente, lo clasifica
+  como servicios con el formato global vigente y bloquea los 20 comprobantes por
+  estar fuera de ventana ARCA. No se emitio nada.
+- se revalido `.tmp/ParaPruebas.xlsx` despues de separar descripcion facturada:
+  si se elige descripcion desde archivo, el backend rechaza porque el Excel no
+  trae columna de descripcion; con descripcion fija de prueba `Honorarios`, el
+  lote `id=8` queda `con_errores`, 0 validos, 20 observados por fecha fuera de
+  ventana ARCA y 0 emitidos.
+- se reviso `.tmp/ParaPruebas-observado.xlsx`: el fallo de emision no era por
+  puntos de venta inexistentes en el Excel, sino por una normalizacion incorrecta
+  de `Bloqueado=N` devuelto por ARCA. Se corrigio la validacion para que puntos
+  como `6`, `10` y `13` no se rechacen cuando ARCA los informa no bloqueados.
+- se reviso el segundo fallo productivo observado: ARCA rechazo Factura C con
+  codigo `10071` porque el request informaba el objeto `Iva` con alicuota 0.
+  Se corrigio para no enviar `Iva` en tipos `11`, `12` y `13`, y para bloquear
+  localmente Factura C con items de IVA distinto de 0.
+- se corrigio el reintento de lotes: si el archivo ya fue cargado pero el lote
+  termino `fallido` o `con_errores` sin ningun comprobante emitido, ahora puede
+  volver a validarse el mismo archivo. El historial se conserva; solo se libera
+  la clave de idempotencia del intento anterior.
+- la primera prueba productiva real autorizo comprobantes con CAE. Se detecto
+  procesamiento concurrente por procesos backend viejos y se corrigio la toma
+  atomica del lote para impedir que una segunda ejecucion procese el mismo lote.
+- se preparo `.tmp/PruebaNC.xlsx` para anular los 19 comprobantes duplicados
+  mediante Nota de Credito C. El archivo se valido contra una copia de la base
+  local, sin emitir y sin registrar el lote en la base operativa: 19 grupos
+  validos, 0 observados, 0 emitidos. Cada grupo incluye el comprobante asociado
+  que debe enviarse a ARCA como `CbtesAsoc`.
+- el usuario proceso `.tmp/PruebaNC.xlsx` en produccion. Verificacion posterior
+  sin operaciones de emision: lote `12` completado, 19 grupos autorizados,
+  0 fallidos, 0 con error. `FECompConsultar` contra ARCA confirmo las 19 Nota de
+  Credito C con `Resultado=A`, CAE coincidente y `CbtesAsoc` contra las facturas
+  duplicadas esperadas.
+- incidente critico detectado despues: las 19 Nota de Credito C quedaron
+  emitidas con fecha fiscal `08/05/2026`. Desde ahora la QA manual de cualquier
+  emision debe verificar que aparece el modal `Confirmar fecha fiscal` con el
+  texto `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde
+  que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto
+  de venta.` antes de solicitar CAE.
+- verificacion tecnica asociada: la API tambien bloquea emision directa si falta
+  la confirmacion fiscal explicita (`confirmacion_fecha_fiscal=true` en emision
+  individual o `X-Confirmacion-Fecha-Fiscal: true` en procesamiento de lotes).
+- QA visual local: al subir `.tmp/ParaPruebas.xlsx`, la pantalla muestra el
+  selector `Tipo de concepto fiscal ARCA obligatorio`, el selector
+  `Descripcion facturada obligatoria`, las opciones de descripcion desde archivo
+  o fija, y la columna `Descripcion facturada` antes de emitir.
 
 Pendiente antes de produccion:
 - repetir el recorrido con el lote definitivo
+- definir con el usuario/contador la fecha de emision permitida por ARCA
+- definir con el usuario/contador la descripcion facturada real si no viene del
+  archivo
 - revisar totales, puntos de venta y formato confirmado
 - emitir solo con confirmacion explicita
 
 ### 7. Clientes
 
 - El listado carga correctamente.
+- Desde 2026-05-09, el listado respeta el emisor activo tambien para usuarios
+  admin y recarga al cambiar el selector.
 - En el flujo legacy de homologacion se verifico que los clientes creados automaticamente por emision masiva quedaron visibles:
   - `Consumidor Final Lote Uno`
   - `Consumidor Final Lote Dos`
@@ -115,6 +212,8 @@ Pendiente antes de produccion:
 - `Ventas por periodo` carga y muestra los 3 comprobantes de abril.
 - `IVA ventas` carga y refleja bases e IVA de abril.
 - `Ranking de clientes` carga y ordena correctamente los clientes facturados.
+- Desde 2026-05-09, los tres reportes usan el emisor activo y se regeneran al
+  cambiarlo si habia un resultado visible.
 
 ### 9. Certificados
 
@@ -182,8 +281,10 @@ Retomar en la preparacion de la primera prueba real controlada:
 1. Confirmar el punto de venta Web Services a usar, hoy candidato `6`.
 2. Preparar o revisar el lote chico definitivo.
 3. Si se usa un extracto bancario, repetir con el lote definitivo la validacion
-   ya probada localmente: autodeteccion, seleccion de formato, revision de
-   totales y confirmacion explicita antes de emitir.
+   ya probada localmente: autodeteccion, seleccion de formato, seleccion
+   explicita de concepto fiscal ARCA, definicion explicita de la descripcion
+   facturada del item, seleccion explicita de fechas fiscales permitidas por
+   ARCA, revision de totales y confirmacion explicita antes de emitir.
 4. Verificar backup, logs y plan de restauracion.
 5. Levantar o confirmar el perfil productivo con PostgreSQL usando
    `docker-compose.prod.yml`.

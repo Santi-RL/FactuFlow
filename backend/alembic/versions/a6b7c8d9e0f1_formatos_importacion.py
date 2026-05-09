@@ -85,14 +85,9 @@ FORMATO_BANCARIO_CONFIG = {
             "requerido": True,
         },
         "tipo_comprobante": {"origen": "constante", "valor": 11},
-        "concepto": {"origen": "constante", "valor": 1},
         "cliente_condicion_iva": {
             "origen": "constante",
             "valor": "Consumidor Final",
-        },
-        "item_descripcion": {
-            "origen": "constante",
-            "valor": "Cobro registrado en cuenta bancaria",
         },
         "item_cantidad": {"origen": "constante", "valor": 1},
         "item_unidad": {"origen": "constante", "valor": "unidad"},

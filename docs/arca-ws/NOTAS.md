@@ -1,6 +1,6 @@
 # ARCA WS - Notas practicas
 
-Ultima actualizacion: 2026-05-05
+Ultima actualizacion: 2026-05-08
 
 Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
 
@@ -31,6 +31,9 @@ Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los
 - En homologacion puede responder `602 - Sin Resultados`.
 - Eso no significa necesariamente que el punto de venta sea invalido.
 - En esta sesion `FECompUltimoAutorizado` y la emision real si funcionaron.
+- El campo `Bloqueado` llega como `N`/`S`. `N` significa no bloqueado; no debe
+  evaluarse como booleano directo porque cualquier string no vacio es truthy en
+  Python.
 
 ### 4. `CondicionIVAReceptorId`
 
@@ -52,6 +55,49 @@ Mapping aplicado en el proyecto:
   documento y el importe queda bajo ese umbral. No crea cliente persistente por
   defecto en ese caso; guarda snapshot del receptor en el comprobante.
 
+### 4.c Fecha de emision
+
+- No asumir fecha del dia actual para `CbteFch`.
+- La prohibicion aplica a facturas, notas de credito y notas de debito. No usar
+  `date.today()`, `datetime.today()`, `new Date()` ni equivalentes como default
+  de fecha fiscal.
+- FactuFlow exige `fecha_emision` explicita en emision individual y en lotes.
+- Antes de solicitar CAE, la UI debe mostrar: `Está seguro que quiere emitir
+  comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir
+  comprobantes con fecha anterior para ese mismo punto de venta.`
+- La API debe bloquear el pedido si no llega la confirmacion fiscal explicita:
+  `confirmacion_fecha_fiscal=true` para emision individual o
+  `X-Confirmacion-Fecha-Fiscal: true` para lotes.
+- En lotes, el usuario debe elegir si la fecha de emision sale del archivo o si
+  se fija una fecha para todos los comprobantes antes de validar.
+- Para servicios tambien se deben resolver `FchServDesde`, `FchServHasta` y
+  `FchVtoPago`.
+- Validacion preventiva usada por el proyecto:
+  - productos: N-5 / N+5
+  - servicios o productos y servicios: N-10 / N+10
+  - N es la fecha de solicitud de autorizacion
+- Si una fecha de extracto queda fuera de ventana, el lote debe quedar observado
+  antes de emitir para que el usuario/contador defina el criterio fiscal.
+
+### 4.d Concepto fiscal ARCA y descripcion facturada
+
+- No asumir productos ni servicios por defecto.
+- Antes de emitir, el usuario debe elegir `Productos`, `Servicios` o
+  `Definido por archivo`.
+- Si se elige `Definido por archivo`, el Excel debe traer una columna valida con
+  `Producto` o `Servicio` en todas las filas.
+- Si la columna falta o una fila trae un valor distinto, se debe informar al
+  usuario y bloquear la emision del lote observado.
+- Esto define el concepto fiscal ARCA del comprobante; no define el texto del
+  item facturado. La descripcion/concepto facturado del item, por ejemplo
+  `Honorarios`, `Zapatillas` o `Servicio mensual`, debe venir de una columna del
+  archivo o de un valor fijo confirmado para todo el lote.
+- No usar defaults ocultos para la descripcion del item antes de validar o
+  emitir.
+- Si la fecha del archivo queda fuera de la ventana ARCA aplicable al concepto,
+  el usuario debe elegir por pantalla una fecha permitida por el web service
+  antes de emitir.
+
 ### 5. Estructura SOAP correcta en `FECAESolicitar`
 
 El proyecto tuvo que corregir estas estructuras:
@@ -62,6 +108,27 @@ El proyecto tuvo que corregir estas estructuras:
   - `{ "AlicIva": [ ... ] }`
 - `Tributos` debe enviarse como:
   - `{ "Tributo": [ ... ] }`
+- Para notas de credito/debito con comprobante asociado, `CbtesAsoc` debe
+  enviarse como:
+  - `{ "CbteAsoc": [ ... ] }`
+- Para comprobantes tipo C (`11`, `12`, `13`), no enviar el objeto `Iva`.
+  ARCA rechaza con `10071` aunque se informe alicuota 0.
+
+### 5.b Notas de credito C por duplicados productivos
+
+- Para Nota de Credito C usar `tipo_comprobante = 13`.
+- Si anula una Factura C, informar como asociado `tipo = 11`, punto de venta,
+  numero, fecha y CUIT del emisor de la factura duplicada.
+- Los importes van positivos; el tipo de comprobante define que se trata de un
+  credito.
+- El 2026-05-08 se genero `.tmp/PruebaNC.xlsx` con 19 notas de credito para
+  anular duplicados productivos. Se valido contra una copia de la base, sin
+  emision: 19 validas, 0 errores, 0 emitidas.
+- Luego el usuario emitio las 19 notas en produccion. Verificacion posterior
+  solo lectura por `FECompConsultar`: 19 con `Resultado=A`, CAE coincidente e
+  informacion de `CbtesAsoc` contra la factura duplicada esperada.
+- En la respuesta de `FECompConsultar`, usar `CbteDesde`/`CbteHasta` para el
+  numero; no depender de `CbteNro`.
 
 ### 6. Cache de tickets WSAA
 
@@ -98,6 +165,9 @@ El proyecto tuvo que corregir estas estructuras:
 - Usar punto de venta productivo especifico para webservices y mantener numeracion correlativa.
 - En el piloto productivo de la Fundacion, `FEParamGetPtosVenta` devolvio
   habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban bloqueados.
+- El 2026-05-08 se corrigio la validacion de emision para interpretar
+  `Bloqueado=N` como punto habilitado. Antes de ese ajuste, el lote observado
+  podia marcar como no habilitados puntos validos como `6`, `10` y `13`.
 - La lista completa de puntos con sistema, domicilio y nombre fantasia no vino
   por WSFEv1; se importo desde la constancia PDF de puntos de venta.
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por

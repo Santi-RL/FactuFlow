@@ -57,6 +57,18 @@ class TributoItem(BaseModel):
         by_alias = False  # Serialize using field names, not aliases
 
 
+class CbteAsocItem(BaseModel):
+    """Comprobante asociado informado a WSFE."""
+
+    tipo: int = Field(..., description="Tipo de comprobante asociado")
+    punto_venta: int = Field(..., description="Punto de venta asociado")
+    numero: int = Field(..., description="Número del comprobante asociado")
+    cuit: Optional[str] = Field(None, description="CUIT del emisor asociado")
+    fecha_cbte: Optional[str] = Field(
+        None, description="Fecha del comprobante asociado (YYYYMMDD)"
+    )
+
+
 class ComprobanteRequest(BaseModel):
     """Request para solicitar CAE de un comprobante."""
 
@@ -66,7 +78,7 @@ class ComprobanteRequest(BaseModel):
         ..., description="Tipo de comprobante (1=FA, 6=FB, 11=FC, etc.)"
     )
     concepto: int = Field(
-        default=1, description="Concepto (1=Productos, 2=Servicios, 3=Ambos)"
+        ..., description="Concepto (1=Productos, 2=Servicios, 3=Ambos)"
     )
 
     # Cliente
@@ -119,6 +131,9 @@ class ComprobanteRequest(BaseModel):
     iva: List[IvaItem] = Field(default_factory=list, description="Items de IVA")
     tributos: List[TributoItem] = Field(
         default_factory=list, description="Tributos adicionales"
+    )
+    cbtes_asoc: List[CbteAsocItem] = Field(
+        default_factory=list, description="Comprobantes asociados"
     )
 
     @field_validator(
