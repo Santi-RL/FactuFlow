@@ -164,7 +164,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Plantilla Excel fija
 - [x] Formatos de importacion configurables por encabezado, columna o constante
 - [x] Formato global para extractos bancarios con columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y `Pto Vta`
-- [x] Formato particular local para Cano (`Factura B IVA 21%`) con neto
+- [x] Formato particular local para emisor Responsable Inscripto privado
+  (`Factura B IVA 21%`) con neto
   gravado como precio del item, total como referencia y consumidor final sin
   documento cuando corresponde
 - [x] Validacion de consistencia entre total informado por archivo externo y
@@ -216,7 +217,7 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Emision y verificacion por consulta ARCA de 19 Nota de Credito C para
   anular duplicados productivos
 - [x] Preparacion y validacion segura sin emision de 1113 Nota de Credito B
-  para corregir Factura B Cano emitidas con total usado como neto
+  para corregir Factura B de un emisor privado emitidas con total usado como neto
 - [~] QA manual especifica de formatos particulares por emisor
 - [ ] Descarga de archivo observado con errores mas amigable
 - [x] Progreso real de lotes con barra, timer, ETA, emitidos, fallidos y pendientes
@@ -278,7 +279,8 @@ Objetivo: pasar de una operacion de una sola empresa a una plataforma gestionabl
 - [x] Selector de emisor activo en frontend
 - [x] Alta basica de nuevos emisores desde UI admin
 - [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`
-- [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF
+- [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF y
+  constancia de opcion de Monotributo
 - [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
 - [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,
   reportes, certificados, puntos de venta y nueva factura por empresa activa
@@ -347,7 +349,7 @@ Objetivo: ampliar valor mas alla del MVP.
 
 ## Prioridades inmediatas
 
-1. Resolver decisiones fiscales del lote `.tmp/ParaPruebas.xlsx`: elegir explicitamente tipo de concepto fiscal ARCA (`Productos`, `Servicios` o `Definido por archivo`); si se usa archivo, validar que todas las filas tengan columna con `Producto` o `Servicio`; definir fecha de emision permitida por ARCA cuando la fecha del archivo quede fuera de ventana
+1. Resolver decisiones fiscales del lote privado local: elegir explicitamente tipo de concepto fiscal ARCA (`Productos`, `Servicios` o `Definido por archivo`); si se usa archivo, validar que todas las filas tengan columna con `Producto` o `Servicio`; definir fecha de emision permitida por ARCA cuando la fecha del archivo quede fuera de ventana
 2. Definir la descripcion/concepto facturado de los items del lote, por archivo o como valor fijo para todos los comprobantes, sin usar defaults ocultos
 3. Revalidar el lote definitivo con concepto fiscal ARCA, descripcion de item, fechas, totales y puntos de venta confirmados antes de emitir
 4. Verificar visualmente el modal final de fecha fiscal en emision individual,

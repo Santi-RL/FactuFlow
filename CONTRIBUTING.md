@@ -579,17 +579,26 @@ describe('FormCliente', () => {
 - Archivos .env con datos reales
 - Credenciales de ARCA
 - Tokens o secrets
+- CUITs reales, nombres de clientes o emisores reales
+- CAEs reales o evidencia fiscal privada
+- Bases locales, backups, dumps, logs de produccion
+- Excel/PDF de clientes, constancias ARCA reales, capturas privadas, trazas o
+  videos de QA/debug
 
 ### Verificar Antes de Commit
 
 ```bash
 # Revisar qué se va a commitear
-git status
+git status --short --untracked-files=all
 git diff --cached
 
 # Verificar que no haya archivos sensibles
-grep -r "password\|secret\|key" --include="*.py" --include="*.js"
+git grep -n -E "[0-9]{11}|password|secret|token|CAE|BEGIN (RSA |EC |)PRIVATE KEY"
 ```
+
+Usar datos sinteticos en tests, docs y ejemplos. Si una corrida real deja
+evidencia necesaria para continuidad operativa, guardarla fuera del repo en una
+carpeta ignorada y documentar solo un resumen redactado.
 
 ### Reportar Vulnerabilidades
 

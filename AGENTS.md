@@ -111,6 +111,15 @@ npm run type-check
 ## Seguridad y certificados
 - No commitear certificados ni claves privadas.
 - Usar `certs/` y `data/` (gitignored).
+- No commitear datos privados: CUITs reales, nombres de clientes o emisores,
+  credenciales, tokens, CAEs reales, capturas privadas, PDFs, Excel de clientes,
+  bases locales, logs ni evidencia de debug.
+- Mantener separado el proyecto publico del entorno privado. Los archivos
+  locales de prueba, QA, produccion, debug o evidencia deben ir a carpetas
+  ignoradas como `.tmp/`, `private/`, `evidence/`, `output/`, `data/`,
+  `backend/data/` o `certs/`.
+- Antes de commitear, revisar `git status --short --untracked-files=all` y el
+  diff staged para confirmar que no se sube material privado.
 - Ver detalles en `docs/agents/security.md`.
 
 ## Documentación operativa

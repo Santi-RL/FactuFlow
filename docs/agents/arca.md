@@ -79,7 +79,7 @@
 - En la practica se revisa la misma pantalla `A/B/M de puntos de venta / emision`.
 - Para webservices, el indicio util es la columna `Sistema`, por ejemplo `RECE para aplicativo y web services`.
 - En esta sesion se uso el punto de venta `5`.
-- En produccion para `FUNDACION ESCUELA DE GIMNASIA FEDE MOLINARI`, ARCA
+- En produccion para el emisor real privado, ARCA
   devolvio habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban
   bloqueados.
 - `FEParamGetPtosVenta` devuelve el indicador `Bloqueado` como `N`/`S`; en
@@ -214,8 +214,8 @@
   venta o numero del comprobante asociado.
 - Los importes se cargan positivos; el tipo de comprobante define el efecto
   fiscal del credito.
-- Para los duplicados productivos del 2026-05-08 se preparo
-  `.tmp/PruebaNC.xlsx` con 19 Nota de Credito C y se valido sin emision contra
+- Para los duplicados productivos del 2026-05-08 se preparo un Excel privado
+  local con 19 Nota de Credito C y se valido sin emision contra
   una copia de la base: 19 validas, 0 errores, 0 emitidas.
 - El usuario emitio luego esas 19 Nota de Credito C en produccion. Verificacion
   posterior solo lectura por `FECompConsultar`: las 19 devolvieron
@@ -250,19 +250,20 @@
 - Emision masiva real OK.
 - PDF de comprobante homologado generado.
 
-Los CAEs emitidos en la sesion estan documentados en `docs/project/notes/SESSION_2026-03-09.md`.
+Los CAEs emitidos en la sesion quedan como evidencia local privada y no deben
+copiarse a la documentacion versionada.
 
 ## QA real completada el 2026-04-10
 
 - `Ver PDF` y `Descargar PDF` revalidados manualmente.
 - Emision individual real desde UI:
   - `0005-00000004`
-  - CAE `86150042970986`
+  - CAE registrado en evidencia local privada
 - Emision masiva real desde UI:
   - `0005-00000005`
-  - CAE `86150042971165`
+  - CAE registrado en evidencia local privada
   - `0005-00000006`
-  - CAE `86150042971178`
+  - CAE registrado en evidencia local privada
 - `Sincronizar con ARCA` en puntos de venta corregido y revalidado manualmente.
 
 ## Referencias locales

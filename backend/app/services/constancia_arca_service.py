@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from io import BytesIO
 import re
+import unicodedata
 
 from pypdf import PdfReader
 
@@ -54,7 +55,13 @@ def extraer_texto_constancia_pdf(contenido: bytes) -> str:
     if not text.strip():
         raise ConstanciaArcaError("El PDF no contiene texto extraible.")
 
-    if "CONSTANCIADEINSCRIPCION" not in _compactar_letras(text):
+    texto_compacto = _compactar_letras(text)
+    es_constancia_inscripcion = "CONSTANCIADEINSCRIPCION" in texto_compacto
+    es_constancia_opcion = (
+        "CONSTANCIADEOPCION" in texto_compacto
+        and "REGIMENSIMPLIFICADOPARAPEQUENOSCONTRIBUYENTES" in texto_compacto
+    )
+    if not es_constancia_inscripcion and not es_constancia_opcion:
         raise ConstanciaArcaError(
             "El archivo no parece ser una constancia de inscripcion ARCA."
         )
@@ -103,7 +110,11 @@ def _normalizar(value: str) -> str:
 
 def _compactar_letras(value: str) -> str:
     """Compactar texto para detectar titulos aun si el PDF separa letras."""
-    return re.sub(r"[^A-Z]", "", value.upper())
+    sin_acentos = unicodedata.normalize("NFKD", value)
+    sin_marcas = "".join(
+        char for char in sin_acentos if not unicodedata.combining(char)
+    )
+    return re.sub(r"[^A-Z]", "", sin_marcas.upper())
 
 
 def _lineas_limpias(texto: str) -> list[str]:
@@ -121,11 +132,16 @@ def _extraer_cuit(texto: str) -> str | None:
 
 def _extraer_razon_social(lines: list[str]) -> str | None:
     """Extraer nombre fiscal o razon social."""
-    for line in lines:
+    for index, line in enumerate(lines):
         if "CUIT" not in line.upper():
             continue
-        name = re.split(r"\s+CUIT\s*:", line, flags=re.IGNORECASE)[0]
+        if re.match(r"^\s*CUIT\s*:", line, flags=re.IGNORECASE):
+            name = ""
+        else:
+            name = re.split(r"\s+CUIT\s*:", line, flags=re.IGNORECASE)[0]
         name = name.replace("CONSTANCIA DE INSCRIPCION", "").strip()
+        if not name and index + 1 < len(lines):
+            name = lines[index + 1]
         return _normalizar(name) or None
     return None
 
@@ -164,7 +180,7 @@ def _extraer_domicilio(
             break
 
     if start is None or end is None or end <= start:
-        return None, None, None, None
+        return _extraer_domicilio_constancia_opcion(lines)
 
     block = [
         line
@@ -176,15 +192,15 @@ def _extraer_domicilio(
         return None, None, None, None
 
     domicilio = _normalizar(block[0])
-    localidad = _normalizar(block[1])
-    cp_provincia = _normalizar(block[2])
+    localidad = _normalizar_ubicacion(block[1])
+    cp_provincia = _normalizar_ubicacion(block[2])
     match = re.match(r"(?P<cp>\d{4,8})\s*-\s*(?P<provincia>.+)", cp_provincia)
     if match:
         return (
             domicilio,
             localidad,
             match.group("cp"),
-            _normalizar(match.group("provincia")),
+            _normalizar_ubicacion(match.group("provincia")),
         )
 
     return domicilio, localidad, None, cp_provincia or None
@@ -192,6 +208,11 @@ def _extraer_domicilio(
 
 def _extraer_inicio_actividades(texto: str) -> str | None:
     """Extraer fecha de inicio como primer dia del mes detectado."""
+    start_match = re.search(r"FECHA DE INICIO:\s*(\d{2})-(\d{2})-(\d{4})", texto)
+    if start_match:
+        day, month, year = start_match.groups()
+        return date(int(year), int(month), int(day)).isoformat()
+
     month_matches = re.findall(r"Mes de inicio:\s*(\d{2})/(\d{4})", texto)
     if month_matches:
         fechas = [date(int(year), int(month), 1) for month, year in month_matches]
@@ -208,3 +229,44 @@ def _extraer_inicio_actividades(texto: str) -> str | None:
         return date(int(year), int(month), int(day)).isoformat()
 
     return None
+
+
+def _extraer_domicilio_constancia_opcion(
+    lines: list[str],
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """Extraer domicilio desde constancias de opcion monotributo."""
+    cuit_index = next(
+        (index for index, line in enumerate(lines) if "CUIT" in line.upper()),
+        None,
+    )
+    if cuit_index is None:
+        return None, None, None, None
+
+    block: list[str] = []
+    for line in lines[cuit_index + 2 :]:
+        if "CONSTANCIA DE OPC" in line.upper():
+            break
+        block.append(line)
+
+    if len(block) < 3:
+        return None, None, None, None
+
+    domicilio = _normalizar(block[0])
+    localidad = _normalizar_ubicacion(block[1])
+    cp_provincia = _normalizar_ubicacion(block[2])
+    match = re.match(r"(?P<cp>\d{4,8})\s*-\s*(?P<provincia>.+)", cp_provincia)
+    if not match:
+        return domicilio, localidad, None, cp_provincia or None
+
+    return (
+        domicilio,
+        localidad,
+        match.group("cp"),
+        _normalizar_ubicacion(match.group("provincia")),
+    )
+
+
+def _normalizar_ubicacion(value: str) -> str:
+    """Normalizar ubicaciones reparando cortes de letras comunes en PDFs."""
+    normalizado = _normalizar(value)
+    return re.sub(r"\b([A-Z])\s+([A-Z]{2})\b", r"\1\2", normalizado)

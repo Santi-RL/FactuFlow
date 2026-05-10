@@ -56,10 +56,19 @@ dist-ssr/
 *~
 .DS_Store
 
-# Environment variables
+# Environment variables / secrets
 .env
+.env.*
 .env.local
 .env.*.local
+!.env.example
+!.env.production.example
+!frontend/.env.example
+*.secret
+*.secrets
+*.credentials
+credentials.*
+secrets.*
 
 # Database
 *.db
@@ -71,6 +80,9 @@ backend/data/
 !backend/data/.gitkeep
 
 # Runtime / QA artifacts
+.tmp/
+.cache/
+.ruff_cache/
 output/
 backend/output/
 playwright-report/
@@ -79,19 +91,61 @@ backend/.pytest_cache/
 frontend/playwright-report/
 frontend/test-results/
 .playwright-mcp/
+blob-report/
+coverage/
+frontend/coverage/
 
-# Certificados AFIP - ¡NUNCA COMMITEAR!
+# Private local evidence and debug material
+private/
+local/
+debug/
+evidence/
+evidencia/
+factuflow-documentacion-base/
+screenshots/
+captures/
+capturas/
+exports/
+exportaciones/
+*.har
+*.trace
+*.webm
+*.mp4
+*screenshot*.png
+*captura*.png
+*qa-visual*.png
+*observado*.xlsx
+*observado*.xls
+*observado*.csv
+local-dev-pids.txt
+visual-qa-pids.txt
+ci-local.log
+
+# Private spreadsheets / office exports outside public fixture folders
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.tsv
+!docs/**/*.csv
+!backend/tests/fixtures/**
+!frontend/e2e/fixtures/**
+
+# Certificados ARCA - NUNCA COMMITEAR
 *.key
 *.crt
 *.pem
 *.p12
 *.pfx
+*.csr
 certs/*
 !certs/.gitkeep
 
 # Logs
 *.log
 logs/
+backend/logs/
+frontend/logs/
 
 # Docker
 .dockerignore
@@ -99,6 +153,7 @@ logs/
 # Temporary files
 tmp/
 temp/
+*.tmp/
 *.tmp
 .codex_*
 

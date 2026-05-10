@@ -19,8 +19,8 @@ Entornos esperados:
 ## Acceso local usado
 
 Solo para entorno local de desarrollo:
-- Usuario QA automatizable: `visual@factuflow.dev`
-- Contrasena QA local: `admin123`
+- Usuario QA automatizable: definido en la base local privada.
+- Contrasena QA local: definida en la base local privada.
 
 Para crear o promover un usuario propietario local, usar:
 
@@ -52,8 +52,7 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 
 ### Perfiles de carga masiva - QA 2026-05-09
 
-Validado visualmente en `http://127.0.0.1:8080` con
-`visual@factuflow.dev`:
+Validado visualmente en `http://127.0.0.1:8080` con usuario local privado:
 - En `Emisores > Carga masiva`, se creo un perfil de carga masiva con formato
   global, concepto `Servicios`, descripcion fija `Ajuste QA` y reglas relativas
   `ultimo_dia_mes_anterior`, `mes_anterior_completo` y `emision_mas_dias`.
@@ -67,7 +66,7 @@ Validado visualmente en `http://127.0.0.1:8080` con
   visibles y editables antes de validar.
 - Al modificar manualmente una fecha calculada, la pantalla mostro que la carga
   se validaria sin snapshot de perfil de carga masiva.
-- Se valido `.tmp/ParaPruebas.xlsx` para un emisor monotributo local con
+- Se valido un Excel privado local para un emisor monotributo local con
   puntos de venta QA `6`, `8`, `10`, `12` y `13`: 20 comprobantes validos,
   fecha fiscal resuelta `30/04/2026`, periodo `01/04/2026 - 30/04/2026` y
   descripcion `Ajuste QA`.
@@ -80,7 +79,7 @@ Validado visualmente en `http://127.0.0.1:8080` con
 
 ### Selector de emisor activo - QA 2026-05-09
 
-- Usuario usado: `visual@factuflow.dev`.
+- Usuario usado: cuenta QA local privada.
 - Se valido en `http://127.0.0.1:18082` que al cambiar el selector de emisor
   activo las secciones vuelven a pedir datos con el `X-Empresa-Id` correcto:
   Dashboard, Clientes, Comprobantes, Emision masiva, Certificados, Puntos de
@@ -124,7 +123,7 @@ Validado visualmente en `http://127.0.0.1:8080` con
 - Resultado real:
   - `Factura B`
   - `0005-00000004`
-  - CAE `86150042970986`
+  - CAE registrado en evidencia local privada
 
 ### 6. Emision masiva
 
@@ -134,14 +133,14 @@ Validado visualmente en `http://127.0.0.1:8080` con
   numeracion fiscal hasta presionar `Emitir comprobantes validos`.
 - La emision del lote funciona desde UI.
 - `Descargar observado` funciona sobre el lote completado.
-- Se valido desde UI un lote productivo preparatorio con consumidor final sin
-  documento (`qa_lote_cf_sin_documento.xlsx`) para el emisor real. Resultado:
+- Se valido desde UI un lote productivo preparatorio privado con consumidor
+  final sin documento para el emisor real privado. Resultado:
   `Validado`, `Listos para emitir = 1`, receptor `A CONSUMIDOR FINAL`,
   documento `0`, punto de venta `6`, total estimado `$1.210,00`. No se presiono
   `Emitir comprobantes validos`.
 - Resultado real:
-  - `0005-00000005` -> CAE `86150042971165`
-  - `0005-00000006` -> CAE `86150042971178`
+  - `0005-00000005` -> CAE registrado en evidencia local privada
+  - `0005-00000006` -> CAE registrado en evidencia local privada
 
 Validado localmente el 2026-05-08:
 - autodeteccion asistida de formato al subir Excel externo
@@ -154,9 +153,9 @@ Validado localmente el 2026-05-08:
   `Leyendas Adicionales2` y `Pto Vta`
 - validacion de un extracto chico con puntos de venta `6`, `10` y `13`
 - la validacion quedo sin emision: `Ya emitidos = 0`
-- formato particular local `Cano - Factura B IVA 21%` para el emisor
-  `CANO MAR TIN ESTEBAN` (`CUIT 20218628967`, Responsable Inscripto)
-- la muestra `.tmp/Prueba_formato_IVA_Cano.xlsx` detecta ese formato con
+- formato particular local `Factura B IVA 21%` para un emisor Responsable
+  Inscripto privado
+- la muestra privada local detecta ese formato con
   confianza alta, 7 filas y punto de venta `2`; mapea `Imp. Neto Gravado` como
   precio neto del item e IVA constante `21`
 - la muestra no trae numero de documento real del receptor: la columna
@@ -169,9 +168,9 @@ Validado localmente el 2026-05-08:
   `Imp. Total`, el total calculado desde item e IVA debe coincidir con ese total
   antes de habilitar emision. Un formato de prueba que usa `Imp. Total` como
   neto queda observado con error de diferencia de total.
-- se genero `.tmp/cano_nc_correccion/NotasCredito_Cano_Correccion_IVA_20260509.xlsx`
-  con 1113 Nota de Credito B para corregir el exceso de las Factura B Cano
-  `0002-00036340` a `0002-00037452`. Validacion contra copia de base local:
+- se genero un Excel privado local con 1113 Nota de Credito B para corregir el
+  exceso de Factura B de un emisor Responsable Inscripto privado. Validacion
+  contra copia de base local:
   1113 grupos validos, 0 errores, 0 emitidos, total `$7.288.804,44`.
 - queda documentado para usuario final que, en la plantilla oficial, FactuFlow
   procesa la hoja `Comprobantes`; hojas como `Resumen` o `Control` son solo
@@ -195,16 +194,16 @@ Cambio critico posterior el 2026-05-08:
 - la validacion observa fechas de emision fuera de ventana ARCA antes de emitir
 - si la fecha del archivo queda fuera de ventana ARCA, el usuario debe elegir
   una fecha permitida por el web service antes de emitir
-- se probo `.tmp/ParaPruebas.xlsx`: el archivo trae fecha `06/04/2026` como
+- se probo un Excel privado local: el archivo trae fecha `06/04/2026` como
   serial numerico de Excel; el sistema la interpreta correctamente, lo clasifica
   como servicios con el formato global vigente y bloquea los 20 comprobantes por
   estar fuera de ventana ARCA. No se emitio nada.
-- se revalido `.tmp/ParaPruebas.xlsx` despues de separar descripcion facturada:
+- se revalido ese Excel privado despues de separar descripcion facturada:
   si se elige descripcion desde archivo, el backend rechaza porque el Excel no
   trae columna de descripcion; con descripcion fija de prueba `Honorarios`, el
   lote `id=8` queda `con_errores`, 0 validos, 20 observados por fecha fuera de
   ventana ARCA y 0 emitidos.
-- se reviso `.tmp/ParaPruebas-observado.xlsx`: el fallo de emision no era por
+- se reviso el archivo observado privado: el fallo de emision no era por
   puntos de venta inexistentes en el Excel, sino por una normalizacion incorrecta
   de `Bloqueado=N` devuelto por ARCA. Se corrigio la validacion para que puntos
   como `6`, `10` y `13` no se rechacen cuando ARCA los informa no bloqueados.
@@ -219,12 +218,12 @@ Cambio critico posterior el 2026-05-08:
 - la primera prueba productiva real autorizo comprobantes con CAE. Se detecto
   procesamiento concurrente por procesos backend viejos y se corrigio la toma
   atomica del lote para impedir que una segunda ejecucion procese el mismo lote.
-- se preparo `.tmp/PruebaNC.xlsx` para anular los 19 comprobantes duplicados
+- se preparo un Excel privado local para anular los 19 comprobantes duplicados
   mediante Nota de Credito C. El archivo se valido contra una copia de la base
   local, sin emitir y sin registrar el lote en la base operativa: 19 grupos
   validos, 0 observados, 0 emitidos. Cada grupo incluye el comprobante asociado
   que debe enviarse a ARCA como `CbtesAsoc`.
-- el usuario proceso `.tmp/PruebaNC.xlsx` en produccion. Verificacion posterior
+- el usuario proceso ese Excel privado en produccion. Verificacion posterior
   sin operaciones de emision: lote `12` completado, 19 grupos autorizados,
   0 fallidos, 0 con error. `FECompConsultar` contra ARCA confirmo las 19 Nota de
   Credito C con `Resultado=A`, CAE coincidente y `CbtesAsoc` contra las facturas
@@ -238,7 +237,7 @@ Cambio critico posterior el 2026-05-08:
 - verificacion tecnica asociada: la API tambien bloquea emision directa si falta
   la confirmacion fiscal explicita (`confirmacion_fecha_fiscal=true` en emision
   individual o `X-Confirmacion-Fecha-Fiscal: true` en procesamiento de lotes).
-- QA visual local: al subir `.tmp/ParaPruebas.xlsx`, la pantalla muestra el
+- QA visual local: al subir el Excel privado, la pantalla muestra el
   selector `Tipo de concepto fiscal ARCA obligatorio`, el selector
   `Descripcion facturada obligatoria`, las opciones de descripcion desde archivo
   o fija, y la columna `Descripcion facturada` antes de emitir.
@@ -246,8 +245,8 @@ Cambio critico posterior el 2026-05-08:
 Pendiente antes de produccion:
 - repetir el recorrido con el lote definitivo
 - definir con el usuario/contador la fecha de emision permitida por ARCA
-- antes de emitir el archivo de notas de credito Cano, confirmar explicitamente
-  la fecha fiscal fija de emision permitida por ARCA
+- antes de emitir archivos de notas de credito de emisores privados, confirmar
+  explicitamente la fecha fiscal fija de emision permitida por ARCA
 - definir con el usuario/contador la descripcion facturada real si no viene del
   archivo
 - revisar totales, puntos de venta y formato confirmado
@@ -323,6 +322,9 @@ Pendiente antes de produccion:
   seleccionarlo como activo al crearlo.
 - En el modal `Agregar emisor`, la accion `Subir constancia` procesa un PDF de
   constancia ARCA y precompleta los datos detectados sin guardar automaticamente.
+- Se valido el parser con una constancia de opcion de Monotributo: detecta CUIT,
+  razon social, condicion Monotributo, domicilio, localidad, provincia, codigo
+  postal e inicio de actividades.
 - Puntos de venta respeta el emisor activo: al seleccionar un emisor nuevo sin
   puntos cargados, no muestra puntos de otros emisores.
 - Quedan pendientes las tareas externas de salida a produccion que no se resuelven desde esta QA local.

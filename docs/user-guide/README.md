@@ -414,9 +414,10 @@ Desde `Carga masiva` puedes crear, editar, eliminar y marcar un perfil de carga
 masiva como predeterminado. Ese perfil se usara para precargar la pantalla de
 emision masiva del mismo emisor.
 
-Al agregar un emisor, puedes subir una constancia de inscripcion ARCA en PDF.
-FactuFlow intenta completar automaticamente nombre fiscal, CUIT, condicion IVA,
-domicilio fiscal, localidad, provincia, codigo postal e inicio de actividades.
+Al agregar un emisor, puedes subir una constancia de inscripcion ARCA en PDF o
+una constancia de opcion de Monotributo. FactuFlow intenta completar
+automaticamente nombre fiscal, CUIT, condicion IVA, domicilio fiscal, localidad,
+provincia, codigo postal e inicio de actividades.
 Antes de guardar, revisa y corrige cualquier dato detectado.
 
 Revisa especialmente:

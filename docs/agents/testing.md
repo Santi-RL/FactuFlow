@@ -114,7 +114,7 @@ Fecha: 2026-05-09
   OK. Se verifico crear, editar, eliminar, predeterminar, autoaplicar, modificar
   antes de validar, validar Excel y abrir/cancelar el modal final de fecha
   fiscal sin emitir.
-- API local: `.tmp/ParaPruebas.xlsx` detectado como
+- API local: Excel privado local detectado como
   `Extracto bancario - creditos IVA exento`; al elegir servicios y
   `fecha_emision_modo=archivo` el lote `id=7` quedo con 20/20 grupos
   observados por fecha

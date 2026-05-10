@@ -21,8 +21,8 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "visual@factuflow.dev",
-  "password": "admin123"
+  "email": "admin.local@example.test",
+  "password": "CAMBIAR_EN_LOCAL"
 }
 ```
 
@@ -34,7 +34,7 @@ Respuesta:
   "token_type": "bearer",
   "user": {
     "id": 1,
-    "email": "visual@factuflow.dev",
+    "email": "admin.local@example.test",
     "empresa_id": 1,
     "es_admin": true
   }

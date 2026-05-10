@@ -217,8 +217,8 @@ uvicorn app.main:app --reload
 curl -X POST http://localhost:8000/api/auth/setup \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@factuflow.com",
-    "password": "admin123",
+    "email": "admin.local@example.test",
+    "password": "CAMBIAR_EN_LOCAL",
     "nombre": "Administrador"
   }'
 ```
@@ -229,8 +229,8 @@ curl -X POST http://localhost:8000/api/auth/setup \
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@factuflow.com",
-    "password": "admin123"
+    "email": "admin.local@example.test",
+    "password": "CAMBIAR_EN_LOCAL"
   }'
 ```
 

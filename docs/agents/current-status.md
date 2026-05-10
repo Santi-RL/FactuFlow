@@ -73,7 +73,7 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   fecha fiscal y `X-Confirmacion-Fecha-Fiscal: true`.
 - QA visual local completada en `http://127.0.0.1:8080`: creacion, edicion,
   eliminacion, marcado predeterminado, autoaplicacion por emisor, cambio manual
-  que anula snapshot, validacion de `.tmp/ParaPruebas.xlsx` y modal final
+  que anula snapshot, validacion de un Excel privado local y modal final
   `Confirmar fecha fiscal` con fecha `30/04/2026` y puntos de venta concretos.
   No se presiono la confirmacion de emision.
 
@@ -90,7 +90,7 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - Se corrigio `Nueva factura` para cargar puntos de venta, proximo numero,
   cliente y preview desde el emisor activo. Si cambia el emisor mientras se
   edita, se limpia el cliente seleccionado para evitar mezclar datos.
-- QA visual con `visual@factuflow.dev` en `http://127.0.0.1:18082`: Dashboard,
+- QA visual con usuario local de desarrollo en `http://127.0.0.1:18082`: Dashboard,
   Clientes, Comprobantes, Emision masiva, Certificados, Puntos de venta, Nueva
   factura y los tres reportes vuelven a consultar con el `X-Empresa-Id`
   correspondiente al selector.
@@ -112,7 +112,7 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - La columna `Fecha` de extractos bancarios se conserva como fecha de origen y
   puede usarse como fecha de emision solo si el usuario lo confirma.
 - La importacion reconoce fechas del archivo aunque Excel las entregue como
-  serial numerico, caso detectado en `.tmp/ParaPruebas.xlsx`.
+  serial numerico, caso detectado con evidencia local privada.
 - Se agregaron pruebas automatizadas para impedir que un extracto con fecha fuera
   de ventana quede listo para emitir.
 - Se corrigio una validacion critica de puntos de venta en emision: ARCA devuelve
@@ -136,13 +136,13 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - Se preparo la correccion operativa de los 19 comprobantes productivos
   duplicados: FactuFlow ya soporta notas de credito/debito con comprobante
   asociado informado a WSFE como `CbtesAsoc`.
-- Se genero `.tmp/PruebaNC.xlsx` con 19 Nota de Credito C, una por cada factura
+- Se genero un Excel privado local con 19 Nota de Credito C, una por cada factura
   duplicada a anular. El archivo se valido contra una copia de la base local,
   sin emitir ni registrar el lote en la base operativa: `19` grupos validos,
-  `0` errores, `0` emitidos, total estimado `$1.556.500,00`.
-- El usuario proceso `.tmp/PruebaNC.xlsx` en produccion. Verificacion posterior
+  `0` errores y `0` emitidos. Los importes quedan en evidencia local privada.
+- El usuario proceso ese archivo privado en produccion. Verificacion posterior
   solo lectura: lote `12` quedo `completado`, `19` grupos autorizados,
-  `0` fallidos, `0` con error, total `$1.556.500,00`.
+  `0` fallidos y `0` con error.
 - Se consultaron en ARCA produccion por `FECompConsultar` las 19 Nota de Credito
   C emitidas. Todas devolvieron `Resultado=A`, CAE coincidente, fecha
   `20260508`, importe coincidente y `CbtesAsoc` apuntando a la Factura C
@@ -203,9 +203,9 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   debe elegir si cada dato sale del archivo o se fija para todo el lote antes de
   validar. Se valida solo para emisores Exento/Monotributo; un emisor
   Responsable Inscripto debe usar un formato particular con Factura A/B.
-- Se configuro en la base local el formato particular del emisor Cano
-  (`CUIT 20218628967`): `Cano - Factura B IVA 21%`, version `5`. La muestra
-  `.tmp/Prueba_formato_IVA_Cano.xlsx` se detecta con confianza alta y mapea
+- Se configuro en la base local un formato particular para un emisor Responsable
+  Inscripto privado: `Factura B IVA 21%`, version `5`. La muestra privada local
+  se detecta con confianza alta y mapea
   `Fecha`, `Punto de Venta`, `Imp. Neto Gravado`, `Imp. Total` y
   `Nro. Doc. Receptor`. Como la muestra no trae numero de documento real, el
   receptor se trata como consumidor final sin documento cuando el importe queda
@@ -219,11 +219,10 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   debe coincidir con ese total. Si no coincide, el grupo queda con error y no se
   puede emitir. Esto bloquea el caso en que `Imp. Total` se use por error como
   neto gravado.
-- Incidente Cano: se detectaron 1113 Factura B del punto `2`, numeros
-  `36340` a `37452`, emitidas con `Imp. Total` usado como neto y por lo tanto
-  con 21% agregado de mas. Se preparo
-  `.tmp/cano_nc_correccion/NotasCredito_Cano_Correccion_IVA_20260509.xlsx`
-  con 1113 Nota de Credito B asociadas, total a acreditar `$7.288.804,44`.
+- Incidente con emisor Responsable Inscripto privado: se detectaron 1113
+  Factura B emitidas con `Imp. Total` usado como neto y por lo tanto con 21%
+  agregado de mas. Se preparo un Excel privado local
+  con 1113 Nota de Credito B asociadas.
   El archivo se valido contra una copia de la base local: 1113 grupos validos,
   0 errores y 0 emitidos.
 - La validacion del lote queda separada de la emision: revisar y confirmar
@@ -237,14 +236,13 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 
 ### Verificacion operativa segura 2026-05-07
 
-- Se reviso la base local `backend/data/factuflow.db` sin exponer claves ni
+- Se reviso la base local privada sin exponer claves ni
   certificados. Resultado:
-  - emisor real `30716164175` cargado como `FUNDACION ESCUELA DE GIMNASIA FEDE
-    MOLINARI`
+  - emisor productivo privado cargado
   - certificado productivo activo para ese emisor, vencimiento `2028-05-04`
   - puntos Web Services usables `6`, `8`, `10`, `12`, `13` y `14`
   - puntos Web Services bloqueados `7` y `9`
-  - lote `qa_lote_cf_sin_documento.xlsx` en estado `validado`, no emitido
+  - lote QA privado en estado `validado`, no emitido
 - Se verifico por API local, sin emitir comprobantes:
   - `POST /api/certificados/verificar-conexion/3` con `X-Empresa-Id: 2`
     devolvio `Conexion exitosa con ARCA`
@@ -271,7 +269,7 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - `npm run build`: OK
   - `npm run test:unit`: OK, sin archivos de test unitarios
   - Prueba visual local: OK en `http://localhost:8080/comprobantes/lotes`
-    subiendo `qa_extracto_bancario_pv_6_10_13.xlsx`, seleccionando el formato
+    subiendo un Excel QA privado, seleccionando el formato
     global de extracto bancario y validando sin emitir
   - `npm run test:e2e`: no confiable en esta corrida; Playwright mostro la
     pantalla en blanco dentro del runner aunque `http://localhost:8080/login`
@@ -284,10 +282,10 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - `pytest tests -q`: 128 passed
   - `ruff check app tests`: OK
   - `black --check app tests`: OK
-  - prueba real con `.tmp/ParaPruebas.xlsx`: 20 filas, fecha de archivo
+  - prueba real con Excel privado local: 20 filas, fecha de archivo
     `06/04/2026`; al elegir servicios el lote `id=7` queda observado con 20
     grupos con error por ventana ARCA; no se emitio ningun comprobante
-  - prueba segura posterior con `.tmp/ParaPruebas.xlsx`: al elegir descripcion
+  - prueba segura posterior con Excel privado local: al elegir descripcion
     desde archivo el backend rechaza la validacion porque el Excel no trae
     columna de descripcion facturada; al elegir descripcion fija de prueba
     `Honorarios`, el lote `id=8` queda con 20 grupos con error por ventana ARCA,
@@ -298,8 +296,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - `npm run build`: OK
   - `npm run test:unit`: OK, sin archivos de test unitarios
   - Revision visual basica en navegador: la ruta
-    `http://localhost:8080/comprobantes/lotes` carga correctamente; al subir
-    `.tmp/ParaPruebas.xlsx` muestra los controles `Tipo de concepto fiscal ARCA
+    `http://localhost:8080/comprobantes/lotes` carga correctamente; al subir un
+    Excel privado local muestra los controles `Tipo de concepto fiscal ARCA
     obligatorio`, `Descripcion facturada obligatoria`, las opciones de
     descripcion desde archivo o fija, y la columna `Descripcion facturada` en la
     grilla previa a emision.
@@ -317,7 +315,9 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - Se ajusto la UI para hablar de `Emisor activo` / `Emisores` y se agrego
   alta de nuevos emisores desde la pantalla fiscal.
 - El alta de emisores permite subir una constancia de inscripcion ARCA en PDF
-  para precompletar los campos fiscales antes de guardar.
+  para precompletar los campos fiscales antes de guardar. Desde 2026-05-10
+  tambien acepta constancias de opcion de Monotributo, donde ARCA muestra el
+  CUIT, razon social y domicilio en un layout distinto al de inscripcion.
 - Se corrigio el listado/alta de puntos de venta para que usuarios admin operen
   solo sobre el emisor activo seleccionado.
 - Se corrigio certificados para que usuarios admin solo vean, creen y verifiquen
@@ -329,8 +329,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   confirmar la autorizacion del servicio `wsfe` en ARCA. En produccion se hace
   desde `Administrador de Relaciones de Clave Fiscal`; sin esto ARCA devuelve
   "Computador no autorizado a acceder al servicio".
-- El certificado productivo del emisor real `FUNDACION ESCUELA DE GIMNASIA FEDE
-  MOLINARI` quedo probado desde la UI con resultado `Conexion exitosa con ARCA`.
+- El certificado productivo del emisor real privado quedo probado desde la UI
+  con resultado `Conexion exitosa con ARCA`.
 - El backend local se reinicio en `ARCA_ENV=produccion` para continuar con la
   prueba real. La sincronizacion productiva de puntos de venta devolvio `6`,
   `8`, `10`, `12`, `13` y `14` habilitados; `7` y `9` vinieron bloqueados y no
@@ -338,7 +338,7 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - Se agrego transporte SOAP con TLS `SECLEVEL=1` para endpoints legacy de ARCA
   que en produccion pueden fallar con `DH_KEY_TOO_SMALL`.
 - Se agrego importacion de constancia PDF de puntos de venta ARCA. La constancia
-  del CUIT `30716164175` importo los 14 puntos con sistema, domicilio y nombre
+  privada importo los 14 puntos con sistema, domicilio y nombre
   fantasia; FactuFlow distingue usables Web Services de Factuweb, Comprobantes
   en Linea y Controlador Fiscal, e indica bloqueados.
 - La emision masiva ahora toma el receptor desde el Excel sin exigir cliente
@@ -350,9 +350,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   (`receptor_tipo_documento`, `receptor_numero_documento`,
   `receptor_razon_social`, `receptor_condicion_iva`, `receptor_domicilio`) para
   que PDFs, listados y reportes no dependan de editar un cliente luego de emitir.
-- La base SQLite local fue ajustada manualmente por ser legacy; se dejo backup en
-  `backend/data/factuflow.before_receptor_snapshot_20260505_053724.db` y
-  `alembic_version` quedo en `e5f6a7b8c9d0`.
+- La base SQLite local privada fue ajustada manualmente por ser legacy; se dejo
+  backup local ignorado por Git y `alembic_version` quedo en `e5f6a7b8c9d0`.
 
 ### QA homologacion 2026-04-10
 
@@ -371,15 +370,15 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - Punto de venta: `5`
   - Tipo: `Factura B`
   - Numero: `1`
-  - CAE: `86100017097127`
+  - CAE: registrado en evidencia local privada
   - Vencimiento CAE: `2026-03-19`
 - Emision masiva
   - Grupo `SMOKE-LOTE-001`
     - Numero: `2`
-    - CAE: `86100017097274`
+    - CAE: registrado en evidencia local privada
   - Grupo `SMOKE-LOTE-002`
     - Numero: `3`
-    - CAE: `86100017097287`
+    - CAE: registrado en evidencia local privada
 
 ### QA real ejecutada hoy (2026-04-10)
 
@@ -387,15 +386,15 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - Punto de venta: `5`
   - Tipo: `Factura B`
   - Numero: `4`
-  - CAE: `86150042970986`
+  - CAE: registrado en evidencia local privada
   - Vencimiento CAE: `2026-04-19`
 - Emision masiva desde UI
   - Grupo `QA-LOTE-20260410-001`
     - Numero: `5`
-    - CAE: `86150042971165`
+    - CAE: registrado en evidencia local privada
   - Grupo `QA-LOTE-20260410-002`
     - Numero: `6`
-    - CAE: `86150042971178`
+    - CAE: registrado en evidencia local privada
 
 ## QA manual cerrada
 
@@ -421,8 +420,7 @@ Quedo validado manualmente:
   - emision real
   - descarga de archivo observado
 - Emision masiva productiva preparatoria:
-  - lote QA `qa_lote_cf_sin_documento.xlsx` validado desde API/UI para emisor
-    real
+  - lote QA privado validado desde API/UI para emisor real privado
   - receptor `A CONSUMIDOR FINAL`, documento `0`
   - punto de venta `6`, total estimado `$1.210,00`
   - no se emitio comprobante real; quedo listo para emitir como prueba visual
@@ -522,7 +520,7 @@ Quedo validado manualmente:
 
 ## Riesgos / pendientes inmediatos
 
-- La base local `backend/data/factuflow.db` sigue siendo evidencia legacy
+- La base local privada sigue siendo evidencia legacy
   ajustada manualmente; para nuevas instalaciones y operacion real, el camino
   canonico de schema es Alembic.
 - El formato global de extracto bancario ya tiene QA visual local sin emision.
@@ -530,7 +528,7 @@ Quedo validado manualmente:
   QA manual de formatos particulares creados para un emisor.
 - Falta definir con el usuario/contador la descripcion facturada real que se
   usara en el lote productivo si el archivo no trae columna de descripcion.
-- Las 19 notas de credito de `.tmp/PruebaNC.xlsx` ya fueron emitidas y
+- Las 19 notas de credito del Excel privado local ya fueron emitidas y
   verificadas por consulta ARCA. Mantener como evidencia la fecha de emision
   `08/05/2026` y el periodo de servicios `01/04/2026 - 30/04/2026`.
 - No existe todavia descarga masiva de PDFs en ZIP.

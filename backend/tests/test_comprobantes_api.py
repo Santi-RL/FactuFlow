@@ -119,7 +119,7 @@ async def test_get_comprobante_detalle_con_items(
         iva_27=Decimal("0.00"),
         otros_impuestos=Decimal("0.00"),
         total=Decimal("1210.00"),
-        cae="86100017097127",
+        cae="12345678901234",
         cae_vencimiento=date(2026, 3, 19),
         estado="autorizado",
         moneda="PES",

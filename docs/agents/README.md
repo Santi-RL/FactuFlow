@@ -30,6 +30,10 @@
 - Para GitHub, seguir el enfoque del plugin local: resolver primero repo/rama
   con Git, usar la app de GitHub para PRs/issues/metadatos cuando aplique, y
   usar `git`/`gh` para gaps como estado de rama, commits, push y checks.
+- Antes de preparar un commit, aplicar la politica de seguridad:
+  no subir datos privados, CUITs reales, nombres reales de clientes/emisores,
+  credenciales, CAEs reales, capturas privadas, Excel/PDF de clientes, bases,
+  logs ni evidencia local. Ver `docs/agents/security.md`.
 
 ## Indice rapido por tema
 

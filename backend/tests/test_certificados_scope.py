@@ -15,10 +15,10 @@ async def segundo_emisor_cert(db_session: AsyncSession) -> Empresa:
     """Crear un segundo emisor para validar scoping admin."""
     emisor = Empresa(
         razon_social="Segundo Emisor Cert",
-        cuit="30716164175",
+        cuit="30123456789",
         condicion_iva="Exento",
-        domicilio="Gorriti 133",
-        localidad="Boulogne",
+        domicilio="Calle Falsa 123",
+        localidad="Ciudad de Prueba",
         provincia="Buenos Aires",
         codigo_postal="1609",
         inicio_actividades=date(2018, 8, 1),

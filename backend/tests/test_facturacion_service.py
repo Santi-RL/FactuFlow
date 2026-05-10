@@ -226,7 +226,7 @@ def test_armar_request_arca_informa_comprobante_asociado(
                 punto_venta=13,
                 numero=1645,
                 fecha=date(2026, 4, 30),
-                cuit="30716164175",
+                cuit="30123456789",
             )
         ],
         items=[

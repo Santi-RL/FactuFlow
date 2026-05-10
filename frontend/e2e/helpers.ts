@@ -4,7 +4,7 @@ const now = new Date().toISOString();
 
 const adminUser = {
   id: 1,
-  email: "admin@factuflow.com",
+  email: "admin.local@example.test",
   nombre: "Admin",
   empresa_id: 1,
   activo: true,
@@ -49,7 +49,7 @@ const empresaSecundaria = {
 
 export const adminCredentials = {
   email: adminUser.email,
-  password: "admin123",
+  password: "E2E_PASSWORD_PLACEHOLDER",
 };
 
 const corsHeaders = {
