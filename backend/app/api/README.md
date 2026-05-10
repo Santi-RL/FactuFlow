@@ -15,6 +15,8 @@ Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 - `comprobantes.py`: emision y consulta de comprobantes.
 - `lotes_comprobantes.py`: plantilla, validacion, procesamiento y resultados de lotes Excel.
 - `formatos_importacion.py`: listado, creacion y autodeteccion de formatos configurables de Excel.
+- `perfiles_carga_masiva.py`: perfiles de carga masiva por emisor para precargar
+  configuracion visible de lotes.
 - `pdf.py`: generacion/descarga de PDFs.
 - `reportes.py`: reportes (ventas, IVA, ranking, etc.).
 
@@ -26,11 +28,15 @@ Routers relacionados con emision masiva:
 
 - `/api/formatos-importacion`: formatos globales y por emisor, mas deteccion de
   candidatos por encabezados.
+- `/api/perfiles-carga-masiva`: perfiles de carga masiva del emisor activo.
+  Permiten guardar formato sugerido, concepto fiscal ARCA, descripcion
+  facturada y reglas de fechas relativas como prellenado visible y editable.
 - `/api/lotes-comprobantes`: validacion de Excel, procesamiento con confirmacion
   y descarga de archivo observado. `POST /validar` puede recibir
   `formato_version_id` para aplicar el mapeo confirmado y exige politicas
   fiscales explicitas: `concepto_modo`, `fecha_emision_modo` y fechas fijas
-  cuando corresponda.
+  cuando corresponda. Tambien puede recibir `perfil_carga_masiva_id` para
+  guardar snapshot del perfil usado; el perfil no reemplaza esas politicas.
 
 Regla critica: ningun endpoint de emision debe asumir fecha del dia actual como
 fecha fiscal. `fecha_emision` debe llegar explicita desde el usuario o desde una

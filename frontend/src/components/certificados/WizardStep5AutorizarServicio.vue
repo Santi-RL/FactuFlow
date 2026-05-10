@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import type { Certificado } from "@/types/certificado";
 import BaseButton from "@/components/ui/BaseButton.vue";
-import BaseAlert from "@/components/ui/BaseAlert.vue";
 
 interface Props {
   certificado: Certificado;
@@ -13,14 +12,10 @@ interface Emits {
   (e: "prev"): void;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const servicioAutorizado = ref(false);
-
-const esProduccion = computed(
-  () => props.certificado.ambiente === "produccion",
-);
 
 const abrirPortalArca = () => {
   window.open("https://auth.afip.gob.ar/contribuyente_/login.xhtml", "_blank");
@@ -32,13 +27,6 @@ const abrirPortalArca = () => {
     <h2 class="text-2xl font-bold text-gray-900 mb-6">
       Autorizá el servicio de facturación
     </h2>
-
-    <BaseAlert type="warning" class="mb-6">
-      El certificado ya está cargado, pero ARCA no permite usarlo hasta que lo
-      asocies al servicio de negocio `wsfe`. Si salteás este paso, la prueba de
-      conexión puede fallar con "Computador no autorizado a acceder al
-      servicio".
-    </BaseAlert>
 
     <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
       <p class="text-gray-700 mb-6">
@@ -75,19 +63,8 @@ const abrirPortalArca = () => {
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
-              {{
-                esProduccion
-                  ? "Abrí Administrador de Relaciones de Clave Fiscal"
-                  : "Abrí WSASS"
-              }}
+              Abrí Administrador de Relaciones de Clave Fiscal
             </h3>
-            <p class="text-sm text-gray-600">
-              {{
-                esProduccion
-                  ? "En producción, la relación del certificado con el webservice se hace desde Administrador de Relaciones."
-                  : "En homologación, la relación se gestiona desde WSASS."
-              }}
-            </p>
           </div>
         </div>
 
@@ -99,12 +76,10 @@ const abrirPortalArca = () => {
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
-              Asociá el certificado al servicio `wsfe`
+              Seleccioná "Adherir servicio"
             </h3>
             <p class="text-sm text-gray-600">
-              Seleccioná el alias del computador/certificado que creaste para
-              FactuFlow y autorizalo para Web Service de Factura Electrónica
-              (`wsfe`).
+              En la siguiente pantalla elegí "ARCA" y luego "Web Services".
             </p>
           </div>
         </div>
@@ -117,11 +92,70 @@ const abrirPortalArca = () => {
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
-              Confirmá la relación
+              Buscá el servicio "Factura Electrónica"
+            </h3>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
+            5
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">
+              En la fila "Representante", hacé click en "Buscar"
+            </h3>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
+            6
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">
+              Elegí el computador fiscal
             </h3>
             <p class="text-sm text-gray-600">
-              Al finalizar, volvé a FactuFlow para ejecutar la prueba de
-              conexión contra ARCA.
+              En "Computador Fiscal", elegí "FactuFlow" o el alias que le hayas
+              puesto al certificado y luego confirmá.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
+            7
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">
+              Verificá los datos en pantalla
+            </h3>
+            <p class="text-sm text-gray-600">
+              Luego confirmá la nueva relación.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <div
+            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+          >
+            8
+          </div>
+          <div>
+            <h3 class="font-semibold text-gray-900 mb-2">
+              Volvé a FactuFlow para continuar
+            </h3>
+            <p class="text-sm text-gray-600">
+              Si todo sale bien, deberías ver una pantalla de confirmación de
+              ARCA.
             </p>
           </div>
         </div>
@@ -137,7 +171,8 @@ const abrirPortalArca = () => {
           data-testid="cert-wizard-wsfe-authorized"
         />
         <span class="text-gray-700">
-          Ya autoricé el servicio `wsfe` para este certificado en ARCA
+          Ya autoricé el servicio "Factura Electrónica" para este certificado en
+          ARCA
         </span>
       </label>
     </div>

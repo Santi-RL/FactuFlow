@@ -78,6 +78,7 @@ test-results/
 backend/.pytest_cache/
 frontend/playwright-report/
 frontend/test-results/
+.playwright-mcp/
 
 # Certificados AFIP - ¡NUNCA COMMITEAR!
 *.key

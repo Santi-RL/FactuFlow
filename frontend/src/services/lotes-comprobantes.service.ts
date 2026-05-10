@@ -26,11 +26,15 @@ class LotesComprobantesService {
     archivo: File,
     formatoVersionId?: number | null,
     opcionesFechas?: LoteOpcionesFechas,
+    perfilCargaMasivaId?: number | null,
   ): Promise<LoteValidacionResponse> {
     const formData = new FormData();
     formData.append("archivo", archivo);
     if (formatoVersionId) {
       formData.append("formato_version_id", String(formatoVersionId));
+    }
+    if (perfilCargaMasivaId) {
+      formData.append("perfil_carga_masiva_id", String(perfilCargaMasivaId));
     }
     if (opcionesFechas) {
       Object.entries(opcionesFechas).forEach(([key, value]) => {
@@ -58,6 +62,9 @@ class LotesComprobantesService {
       `/api/lotes-comprobantes/${id}/procesar`,
       null,
       {
+        params: {
+          background: true,
+        },
         headers: {
           "X-Confirmacion-Fecha-Fiscal": "true",
         },

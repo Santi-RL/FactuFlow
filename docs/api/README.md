@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Ultima actualizacion: 2026-05-08
+Ultima actualizacion: 2026-05-10
 
 Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -322,7 +322,9 @@ GET /api/lotes-comprobantes/{lote_id}/archivo-observado
 ```
 
 El flujo correcto es validar primero el Excel y procesar solo cuando el usuario
-confirma. Lotes grandes pueden quedar en cola y continuar por worker.
+confirma. Lotes grandes pueden quedar en cola y continuar por worker. La UI usa
+`POST /api/lotes-comprobantes/{lote_id}/procesar?background=true` tambien para
+lotes chicos, para mostrar progreso real por polling.
 
 `POST /api/lotes-comprobantes/validar` recibe `multipart/form-data`:
 
@@ -330,6 +332,11 @@ confirma. Lotes grandes pueden quedar en cola y continuar por worker.
 - `formato_version_id`: opcional. Si no se envia y el archivo coincide con la
   plantilla oficial, se usa la plantilla FactuFlow. Para archivos externos,
   enviar la version confirmada por `POST /api/formatos-importacion/detectar`.
+- `perfil_carga_masiva_id`: opcional. Si se envia, la validacion guarda un
+  snapshot del perfil de carga masiva aplicado. La UI debe omitirlo si el
+  usuario modifica la configuracion precargada antes de validar. El perfil no
+  reemplaza las politicas fiscales del form; esas politicas deben llegar ya
+  resueltas y visibles para el usuario.
 - `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
 - `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
 - `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.
@@ -353,6 +360,22 @@ La validacion persiste el lote, encabezados detectados, mapeo usado y version de
 formato. No emite comprobantes. La emision ocurre solo con
 `POST /api/lotes-comprobantes/{lote_id}/procesar`.
 
+`POST /api/lotes-comprobantes/{lote_id}/procesar` acepta query param opcional:
+
+- `background=true`: deja el lote en cola para procesamiento por worker aunque
+  sea un lote chico. La respuesta devuelve `en_progreso=true`, estado `en_cola`
+  y el cliente debe consultar `GET /api/lotes-comprobantes/{lote_id}` para
+  actualizar progreso, contadores, `started_at`, `finished_at` y
+  `mensaje_resumen`.
+- sin `background=true`: conserva compatibilidad con clientes existentes; lotes
+  chicos se procesan en la misma request y lotes grandes se encolan segun
+  `BATCH_SYNC_LIMIT`.
+
+Durante el procesamiento, el backend actualiza `grupos_emitidos`,
+`grupos_fallidos`, `grupos_validos` y `mensaje_resumen` despues de cada grupo,
+para que la UI pueda mostrar avance real, tiempo transcurrido y estimacion
+restante sin usar SSE/WebSocket.
+
 Regla fiscal critica: FactuFlow no asume fecha de emision del dia actual. La
 fecha de comprobante debe venir del archivo o de una fecha fija confirmada por
 el usuario. La validacion observa los comprobantes cuya fecha queda fuera de la
@@ -373,6 +396,40 @@ Regla de item critica: el concepto fiscal ARCA no es la descripcion/concepto
 facturado del item. El lote tambien debe definir la descripcion del item antes
 de validar o emitir, desde archivo o como valor fijo para todo el lote. No debe
 haber defaults ocultos como descripcion facturada.
+
+## Perfiles De Carga Masiva
+
+```http
+GET /api/perfiles-carga-masiva
+POST /api/perfiles-carga-masiva
+PUT /api/perfiles-carga-masiva/{perfil_id}
+DELETE /api/perfiles-carga-masiva/{perfil_id}
+POST /api/perfiles-carga-masiva/{perfil_id}/predeterminado
+```
+
+Los perfiles de carga masiva pertenecen al emisor activo resuelto por JWT y
+`X-Empresa-Id`. Permiten guardar una configuracion visible para precargar
+`Emision masiva`: formato opcional, concepto fiscal ARCA, descripcion facturada
+y reglas relativas de fechas.
+
+El payload usa `configuracion_json` versionado. Valores principales:
+- `formato_importacion_version_id`: opcional; debe ser global o pertenecer al
+  emisor activo.
+- `concepto_modo`: `productos`, `servicios`, `archivo` o vacio para completar
+  en la carga.
+- `descripcion_item_modo`: `archivo`, `fija` o vacio.
+- `fecha_emision.modo`: `archivo`, `manual`, `ultimo_dia_mes_anterior` o
+  `personalizada`.
+- `periodo_servicio.modo`: `archivo`, `manual`, `mes_anterior_completo`,
+  `mes_actual_completo` o `personalizado`.
+- `fecha_vto_pago.modo`: `archivo`, `manual`, `mismo_dia_emision`,
+  `emision_mas_dias` o `personalizada`.
+
+Regla critica: el perfil de carga masiva no valida ni emite. La UI debe resolver
+las reglas relativas a fechas concretas, mostrar todos los controles y dejar que
+el usuario edite antes de validar. `fecha_actual` no es un modo valido de fecha
+de emision para perfiles de carga masiva. Si se marca un perfil como
+predeterminado, la API desmarca cualquier otro predeterminado del mismo emisor.
 
 ## PDF
 

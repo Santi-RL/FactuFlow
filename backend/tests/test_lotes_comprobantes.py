@@ -132,6 +132,80 @@ def _build_lote_excel(
     return stream.getvalue()
 
 
+def _build_lote_excel_multi_grupo(empresa_cuit: str, total_grupos: int = 2) -> bytes:
+    """Construye un Excel de prueba con varios comprobantes independientes."""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Comprobantes"
+    sheet.append(
+        [
+            "comprobante_ref",
+            "empresa_cuit",
+            "punto_venta_numero",
+            "tipo_comprobante",
+            "concepto",
+            "fecha_emision",
+            "cliente_tipo_documento",
+            "cliente_numero_documento",
+            "cliente_razon_social",
+            "cliente_condicion_iva",
+            "cliente_domicilio",
+            "fecha_servicio_desde",
+            "fecha_servicio_hasta",
+            "fecha_vto_pago",
+            "item_codigo",
+            "item_descripcion",
+            "item_cantidad",
+            "item_unidad",
+            "item_precio_unitario",
+            "item_descuento_porcentaje",
+            "item_iva_porcentaje",
+            "observaciones",
+            "asociado_tipo_comprobante",
+            "asociado_punto_venta",
+            "asociado_numero",
+            "asociado_fecha",
+            "asociado_cuit",
+        ]
+    )
+    for index in range(1, total_grupos + 1):
+        sheet.append(
+            [
+                f"LOTE-{index:03d}",
+                empresa_cuit,
+                1,
+                6,
+                1,
+                date.today().isoformat(),
+                "CUIT",
+                "20409378472",
+                f"Cliente Lote {index}",
+                "Responsable Inscripto",
+                "Av. Siempre Viva 123",
+                "",
+                "",
+                "",
+                f"ITEM-{index:03d}",
+                "Servicio mensual",
+                1,
+                "unidad",
+                1000,
+                0,
+                21,
+                "Factura de prueba",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ]
+        )
+
+    stream = BytesIO()
+    workbook.save(stream)
+    return stream.getvalue()
+
+
 def _build_extracto_bancario_excel(
     empresa_cuit: str,
     fecha_movimiento: date | None = None,
@@ -316,7 +390,7 @@ async def test_certificado(db_session: AsyncSession, test_empresa) -> Certificad
         archivo_crt="empresa-test.crt",
         archivo_key="empresa-test.key",
         activo=True,
-        ambiente="homologacion",
+        ambiente=settings.arca_env,
         empresa_id=test_empresa.id,
     )
     db_session.add(certificado)
@@ -379,6 +453,67 @@ async def test_validar_lote_registra_grupos_y_filas(
     assert len(detalle_data["grupos"]) == 1
     assert len(detalle_data["filas"]) == 1
     assert detalle_data["grupos"][0]["estado"] == "validado"
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_guarda_snapshot_perfil_carga_masiva(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Debe conservar el perfil usado aunque luego se edite."""
+    test_certificado.ambiente = settings.arca_env
+    perfil = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json={
+            "nombre": "Servicios mensuales",
+            "descripcion": "Perfil de prueba",
+            "configuracion_json": {
+                "version": 1,
+                "formato_importacion_version_id": None,
+                "concepto_modo": "productos",
+                "descripcion_item_modo": "archivo",
+                "fecha_emision": {"modo": "archivo"},
+                "periodo_servicio": {"modo": "archivo"},
+                "fecha_vto_pago": {"modo": "archivo"},
+            },
+            "es_predeterminado": True,
+            "activo": True,
+        },
+    )
+    assert perfil.status_code == 201, perfil.text
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data={
+            **_opciones_fechas(),
+            "perfil_carga_masiva_id": str(perfil.json()["id"]),
+        },
+        files={
+            "archivo": (
+                "lote-con-perfil.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}",
+        headers=auth_headers,
+    )
+    metadata = detalle.json()["metadata_json"]
+    assert metadata["perfil_carga_masiva"]["id"] == perfil.json()["id"]
+    assert metadata["perfil_carga_masiva"]["nombre"] == "Servicios mensuales"
+    assert (
+        metadata["perfil_carga_masiva"]["configuracion_json"]["concepto_modo"]
+        == "productos"
+    )
 
 
 @pytest.mark.asyncio
@@ -774,6 +909,80 @@ async def test_validar_lote_formato_cano_factura_b_iva_21(
     assert grupo["total_estimado"] == "90000.00"
     assert fila["item_precio_unitario"] == "74380.1652892562"
     assert fila["item_iva_porcentaje"] == 21
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_formato_cano_bloquea_total_usado_como_neto(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Debe bloquear un formato que recalcula IVA sobre un total ya final."""
+    test_empresa.condicion_iva = "RI"
+    db_session.add(
+        PuntoVenta(
+            numero=2,
+            nombre="Cano PV 2",
+            activo=True,
+            es_webservice=True,
+            empresa_id=test_empresa.id,
+        )
+    )
+    await db_session.commit()
+
+    configuracion = _config_formato_cano_factura_b()
+    configuracion["campos"]["item_precio_unitario"] = {
+        "origen": "header",
+        "encabezados": ["Imp. Total"],
+        "transformacion": "decimal",
+        "requerido": True,
+    }
+    crear = await client.post(
+        "/api/formatos-importacion",
+        headers=auth_headers,
+        json={
+            "nombre": "Cano - Formato erroneo total como neto",
+            "descripcion": "Config de prueba que no debe quedar emitible.",
+            "configuracion_json": configuracion,
+        },
+    )
+    assert crear.status_code == 201, crear.text
+
+    contenido = _build_cano_factura_b_excel()
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data={
+            **_opciones_fechas(
+                concepto_modo="productos",
+                descripcion_item_modo="fija",
+                descripcion_item_fija="Venta mostrador",
+            ),
+            "formato_version_id": str(crear.json()["version_vigente"]["id"]),
+        },
+        files={
+            "archivo": (
+                "cano-total-como-neto.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is False
+    assert data["lote"]["grupos_con_error"] == 1
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}",
+        headers=auth_headers,
+    )
+    mensajes = detalle.json()["grupos"][0]["mensajes_json"]
+    assert any("no coincide con el total informado" in mensaje for mensaje in mensajes)
 
 
 @pytest.mark.asyncio
@@ -1293,6 +1502,8 @@ async def test_procesar_lote_sync_actualiza_resultados(
     test_punto_venta,
     test_certificado,
 ):
+    test_certificado.ambiente = settings.arca_env
+
     async def fake_emitir(self, request):
         return EmitirComprobanteResponse(
             exito=True,
@@ -1351,6 +1562,127 @@ async def test_procesar_lote_sync_actualiza_resultados(
 
 
 @pytest.mark.asyncio
+async def test_procesar_lote_background_encola_lote_chico(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Permite iniciar un lote chico en segundo plano para observar progreso."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.ensure_lote_worker_running",
+        lambda app: None,
+    )
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-background-chico.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar?background=true",
+        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+    )
+
+    assert procesar.status_code == 200, procesar.text
+    data = procesar.json()
+    assert data["en_progreso"] is True
+    assert data["lote"]["estado"] == "en_cola"
+    assert data["lote"]["modo_procesamiento"] == "background"
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_actualiza_contadores_parciales(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Debe persistir avance real entre grupos durante la emisión."""
+    test_certificado.ambiente = settings.arca_env
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-progreso-parcial.xlsx",
+                _build_lote_excel_multi_grupo(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+    llamadas = 0
+    avance_observado = None
+
+    async def fake_emitir(self, request):
+        nonlocal llamadas, avance_observado
+        llamadas += 1
+        if llamadas == 2:
+            result = await db_session.execute(
+                select(LoteComprobante).where(LoteComprobante.id == lote_id)
+            )
+            lote = result.scalar_one()
+            avance_observado = (
+                lote.grupos_emitidos,
+                lote.grupos_fallidos,
+                lote.grupos_validos,
+                lote.mensaje_resumen,
+            )
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=100 + llamadas,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=200 + llamadas,
+            fecha=request.fecha_emision,
+            cae=f"1234567890123{llamadas}",
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+            mensaje="Comprobante autorizado",
+            errores=[],
+        )
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fake_emitir,
+    )
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+    )
+
+    assert procesar.status_code == 200, procesar.text
+    assert avance_observado == (
+        1,
+        0,
+        1,
+        "Procesando comprobante 1 de 2...",
+    )
+    data = procesar.json()
+    assert data["lote"]["estado"] == "completado"
+    assert data["lote"]["grupos_emitidos"] == 2
+
+
+@pytest.mark.asyncio
 async def test_procesar_lote_exige_confirmacion_fecha_fiscal(
     client: AsyncClient,
     auth_headers: dict,
@@ -1375,6 +1707,7 @@ async def test_tomar_lote_para_procesamiento_es_atomico(
     test_certificado,
 ):
     """Un lote ya tomado no puede volver a tomarse para emisión."""
+    test_certificado.ambiente = settings.arca_env
     validar = await client.post(
         "/api/lotes-comprobantes/validar",
         headers=auth_headers,
@@ -1459,6 +1792,7 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
     test_punto_venta,
     test_certificado,
 ):
+    test_certificado.ambiente = settings.arca_env
     monkeypatch.setattr(settings, "batch_sync_limit", 0)
 
     async def fake_emitir(self, request):

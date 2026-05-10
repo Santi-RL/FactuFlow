@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
+import { CheckIcon } from "@heroicons/vue/24/solid";
+
 interface Step {
   number: number;
   title: string;
@@ -12,87 +15,109 @@ interface Props {
 
 const props = defineProps<Props>();
 
-// Constants for layout
-const CIRCLE_SIZE = "2.5rem";
-const LINE_OFFSET_PERCENTAGE = 50;
+const currentStepIndex = computed(() => {
+  const index = props.steps.findIndex(
+    (step) => step.number === props.currentStep,
+  );
+  return Math.max(index, 0);
+});
+
+const progressPercentage = computed(() => {
+  if (props.steps.length <= 1) return 0;
+  return (currentStepIndex.value / (props.steps.length - 1)) * 100;
+});
+
+const gridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${props.steps.length}, minmax(0, 1fr))`,
+}));
+
+const lineInset = computed(() => `${100 / (props.steps.length * 2)}%`);
+
+const lineStyle = computed(() => ({
+  left: lineInset.value,
+  right: lineInset.value,
+}));
+
+const progressStyle = computed(() => ({
+  width: `${progressPercentage.value}%`,
+}));
 
 const getStepClasses = (stepNumber: number) => {
   const isActive = stepNumber === props.currentStep;
   const isCompleted = stepNumber < props.currentStep;
 
   return {
-    "bg-blue-600 text-white": isActive,
-    "bg-green-500 text-white": isCompleted,
-    "bg-gray-200 text-gray-500": !isActive && !isCompleted,
+    "bg-blue-600 text-white border-blue-600 shadow-sm ring-4 ring-blue-100 scale-105":
+      isActive,
+    "bg-green-500 text-white border-green-500 shadow-sm": isCompleted,
+    "bg-white text-gray-500 border-gray-300": !isActive && !isCompleted,
   };
 };
 
-const getLineClasses = (stepNumber: number) => {
+const getLabelClasses = (stepNumber: number) => {
+  const isActive = stepNumber === props.currentStep;
   const isCompleted = stepNumber < props.currentStep;
 
   return {
-    "bg-green-500": isCompleted,
-    "bg-gray-300": !isCompleted,
-  };
-};
-
-const getLineStyle = (index: number, totalSteps: number) => {
-  const isLastStep = index === totalSteps - 2;
-
-  return {
-    left: `${LINE_OFFSET_PERCENTAGE}%`,
-    right: isLastStep
-      ? `-${LINE_OFFSET_PERCENTAGE}%`
-      : `calc(-100% + ${CIRCLE_SIZE})`,
-    width: isLastStep
-      ? `${LINE_OFFSET_PERCENTAGE}%`
-      : `calc(100% - ${CIRCLE_SIZE})`,
+    "text-blue-700 font-semibold": isActive,
+    "text-green-700 font-medium": isCompleted,
+    "text-gray-500 font-medium": !isActive && !isCompleted,
   };
 };
 </script>
 
 <template>
   <div class="w-full py-6">
-    <div class="flex items-center justify-between relative">
-      <!-- Steps -->
+    <div class="relative">
       <div
-        v-for="(step, index) in steps"
-        :key="step.number"
-        class="flex flex-col items-center relative z-10"
-        :class="{ 'flex-1': index < steps.length - 1 }"
+        class="absolute top-5 h-1 rounded-full bg-gray-200"
+        :style="lineStyle"
       >
-        <!-- Circle -->
         <div
-          class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300"
-          :class="getStepClasses(step.number)"
-        >
-          <span v-if="step.number < currentStep">✓</span>
-          <span v-else>{{ step.number }}</span>
-        </div>
-
-        <!-- Title -->
-        <div class="mt-2 text-center">
-          <p
-            class="text-xs font-medium transition-colors duration-300"
-            :class="{
-              'text-blue-600': step.number === currentStep,
-              'text-green-600': step.number < currentStep,
-              'text-gray-500': step.number > currentStep,
-            }"
-          >
-            <span class="hidden sm:inline">{{ step.title }}</span>
-            <span class="inline sm:hidden">{{ step.shortTitle }}</span>
-          </p>
-        </div>
-
-        <!-- Connecting Line -->
-        <div
-          v-if="index < steps.length - 1"
-          class="absolute top-5 h-0.5 transition-all duration-300"
-          :class="getLineClasses(step.number)"
-          :style="getLineStyle(index, steps.length)"
+          class="h-full rounded-full bg-green-500 transition-all duration-500 ease-out"
+          :style="progressStyle"
         />
       </div>
+
+      <ol class="relative grid items-start" :style="gridStyle">
+        <li
+          v-for="step in steps"
+          :key="step.number"
+          class="flex min-w-0 flex-col items-center text-center"
+          :aria-current="step.number === currentStep ? 'step' : undefined"
+        >
+          <div
+            class="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition-all duration-300"
+            :class="getStepClasses(step.number)"
+          >
+            <CheckIcon
+              v-if="step.number < currentStep"
+              class="h-5 w-5"
+              aria-hidden="true"
+            />
+            <span v-else>{{ step.number }}</span>
+          </div>
+
+          <div class="mt-3 min-w-0 px-1">
+            <p
+              class="truncate text-xs leading-4 transition-colors duration-300"
+              :class="getLabelClasses(step.number)"
+            >
+              <span class="hidden md:inline">{{ step.title }}</span>
+              <span class="inline md:hidden">{{ step.shortTitle }}</span>
+            </p>
+            <p
+              v-if="step.number === currentStep"
+              class="mt-1 hidden text-[11px] font-medium text-gray-500 sm:block"
+            >
+              Paso actual
+            </p>
+            <span class="sr-only" v-if="step.number < currentStep">
+              Completado
+            </span>
+          </div>
+        </li>
+      </ol>
     </div>
   </div>
 </template>

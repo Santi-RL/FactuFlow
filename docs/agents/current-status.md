@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-09
+Ultima actualizacion: 2026-05-10
 
 ## Objetivo activo
 
@@ -10,8 +10,14 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 
 - Backend FastAPI operativo con auth, empresas, clientes, puntos de venta, certificados, comprobantes, PDF, lotes y reportes.
 - Backend ya registra formatos configurables de importacion para lotes masivos, con formatos globales y particulares por emisor.
+- Backend ya registra perfiles de carga masiva por emisor para precargar
+  formato, concepto fiscal ARCA, descripcion facturada y reglas de fechas.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
 - Emision masiva ahora puede usar plantilla oficial o formatos configurables con autodeteccion asistida.
+- Emision masiva ahora puede aplicar perfiles de carga masiva visibles y
+  editables antes de validar.
+- Emision masiva muestra progreso real de emision para lotes chicos y grandes,
+  con timer de tiempo transcurrido y estimacion restante.
 - Selector de empresa activa implementado para admins.
 - Emision individual y masiva funcionando en homologacion y validadas manualmente desde la interfaz.
 - PDF generado bajo demanda y revalidado manualmente en preview y descarga.
@@ -23,6 +29,53 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Progreso real de lotes con timer 2026-05-10
+
+- `POST /api/lotes-comprobantes/{lote_id}/procesar` acepta
+  `background=true`. La UI lo usa siempre para poder seguir tambien lotes
+  chicos por polling.
+- La confirmacion fiscal sigue siendo obligatoria: el endpoint rechaza la
+  emision si falta `X-Confirmacion-Fecha-Fiscal: true`.
+- El procesamiento actualiza contadores del lote despues de cada grupo:
+  emitidos, fallidos, validos restantes y mensaje de avance.
+- La pantalla de emision masiva muestra avance real, estado `En cola`/
+  `Procesando`, emitidos, fallidos, pendientes, tiempo transcurrido y estimado
+  restante.
+- Verificacion controlada sin emision real: se agregaron tests con
+  `FacturacionService.emitir_comprobante` mockeado para lote chico background,
+  contadores parciales, bloqueo sin confirmacion fiscal y toma atomica.
+  Tambien se agregaron tests frontend para calculo de progreso, timer y ETA.
+
+### Perfiles de carga masiva por emisor 2026-05-09
+
+- Se agregaron perfiles de carga masiva por emisor activo, separados de los
+  formatos de importacion. El formato interpreta columnas; el perfil precarga la
+  pantalla de lotes con decisiones operativas visibles.
+- Cada emisor puede tener varios perfiles de carga masiva. Si tiene uno solo,
+  se aplica automaticamente en `Emision masiva`; si tiene varios, se aplica el
+  predeterminado; si no hay predeterminado, no se aplica ninguno.
+- `Emisores` ahora tiene pestaña `Carga masiva` para crear, editar, eliminar y
+  marcar perfiles como predeterminados.
+- Un perfil de carga masiva puede recordar formato de importacion opcional,
+  concepto fiscal ARCA, descripcion facturada y reglas relativas de fechas como
+  `ultimo_dia_mes_anterior`, `mes_anterior_completo`,
+  `mismo_dia_emision` o `emision_mas_dias`.
+- Por regla fiscal critica, el perfil de carga masiva no permite guardar
+  `fecha_actual` como fecha de emision: no debe convertir la fecha del navegador
+  en fecha fiscal.
+- Las reglas relativas se resuelven en la UI a fechas concretas antes de
+  validar. El backend de lotes sigue recibiendo `archivo` o `fija` con fecha
+  concreta, y guarda snapshot del perfil aplicado en `metadata_json` solo si el
+  usuario no modifico la configuracion precargada antes de validar.
+- No se modifico la barrera fiscal: el perfil no valida ni emite
+  automaticamente, y el procesamiento de lote sigue exigiendo el modal final de
+  fecha fiscal y `X-Confirmacion-Fecha-Fiscal: true`.
+- QA visual local completada en `http://127.0.0.1:8080`: creacion, edicion,
+  eliminacion, marcado predeterminado, autoaplicacion por emisor, cambio manual
+  que anula snapshot, validacion de `.tmp/ParaPruebas.xlsx` y modal final
+  `Confirmar fecha fiscal` con fecha `30/04/2026` y puntos de venta concretos.
+  No se presiono la confirmacion de emision.
 
 ### Consistencia por emisor activo 2026-05-09
 
@@ -161,6 +214,18 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   separado de `importe_total`. Esto permite usar neto gravado como precio del
   item y total solo como referencia para reglas de consumidor final, evitando
   recalcular IVA sobre un total ya incluido.
+- Se agrego una validacion de consistencia para formatos externos: si el archivo
+  trae un total informado, el total calculado por FactuFlow desde items e IVA
+  debe coincidir con ese total. Si no coincide, el grupo queda con error y no se
+  puede emitir. Esto bloquea el caso en que `Imp. Total` se use por error como
+  neto gravado.
+- Incidente Cano: se detectaron 1113 Factura B del punto `2`, numeros
+  `36340` a `37452`, emitidas con `Imp. Total` usado como neto y por lo tanto
+  con 21% agregado de mas. Se preparo
+  `.tmp/cano_nc_correccion/NotasCredito_Cano_Correccion_IVA_20260509.xlsx`
+  con 1113 Nota de Credito B asociadas, total a acreditar `$7.288.804,44`.
+  El archivo se valido contra una copia de la base local: 1113 grupos validos,
+  0 errores y 0 emitidos.
 - La validacion del lote queda separada de la emision: revisar y confirmar
   `Emitir comprobantes validos` sigue siendo obligatorio antes de consumir
   numeracion fiscal.

@@ -15,6 +15,7 @@ services/
 ├── formatos_importacion_service.py      # Formatos, autodeteccion y mapeo de Excel externos
 ├── lote_comprobantes_service.py         # Validacion y procesamiento de lotes Excel
 ├── lote_worker.py                       # Worker reanudable para lotes grandes
+├── perfiles_carga_masiva_service.py     # Perfiles de carga masiva por emisor
 ├── pdf_service.py                       # Generacion de PDF (QR ARCA, templates)
 └── reportes_service.py                  # Reportes (ventas, IVA, ranking, etc.)
 ```
@@ -45,7 +46,14 @@ services/
   de lotes. Un formato no debe ocultar defaults para concepto fiscal ARCA ni
   para descripcion del item antes de la validacion. En formatos de Responsable
   Inscripto, se puede mapear `item_precio_unitario` desde el neto gravado y
-  `importe_total` aparte como referencia para consumidor final.
+  `importe_total` aparte como referencia para consumidor final. Si un archivo
+  externo informa total, `lote_comprobantes_service.py` compara ese valor contra
+  el total calculado desde items e IVA y observa el grupo si no coincide.
+- Perfiles de carga masiva: ver `perfiles_carga_masiva_service.py`. Administra
+  configuraciones reutilizables por emisor activo para precargar la pantalla de
+  lotes. El perfil puede recordar formato, concepto fiscal ARCA, descripcion
+  facturada y reglas relativas de fechas, pero no valida ni emite por si mismo:
+  la UI resuelve y muestra los valores antes de llamar a lotes.
 - Extractos bancarios: el formato global inicial interpreta `Fecha`,
   `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y `Pto Vta`.
   La descripcion a facturar debe confirmarse aparte o venir mapeada desde el

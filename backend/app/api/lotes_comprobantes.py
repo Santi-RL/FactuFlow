@@ -13,6 +13,7 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Query,
     Request,
     Response,
     UploadFile,
@@ -40,6 +41,10 @@ from app.services.lote_comprobantes_service import (
     OpcionesFechasLote,
 )
 from app.services.lote_worker import ensure_lote_worker_running
+from app.services.perfiles_carga_masiva_service import (
+    PerfilCargaMasivaError,
+    PerfilesCargaMasivaService,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -96,6 +101,7 @@ async def descargar_plantilla(
 async def validar_archivo_lote(
     archivo: UploadFile = File(...),
     formato_version_id: int | None = Form(None),
+    perfil_carga_masiva_id: int | None = Form(None),
     concepto_modo: str = Form(...),
     descripcion_item_modo: str = Form(...),
     descripcion_item_fija: str | None = Form(None),
@@ -136,6 +142,18 @@ async def validar_archivo_lote(
         fecha_vto_pago_modo=fecha_vto_pago_modo,
         fecha_vto_pago_fija=fecha_vto_pago_fija,
     )
+    perfil_snapshot = None
+    if perfil_carga_masiva_id:
+        perfiles_service = PerfilesCargaMasivaService(db)
+        try:
+            perfil_snapshot = await perfiles_service.snapshot(
+                perfil_carga_masiva_id,
+                empresa_activa_id,
+            )
+        except PerfilCargaMasivaError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
     try:
         lote = await service.validar_y_registrar_lote(
             contenido,
@@ -146,6 +164,7 @@ async def validar_archivo_lote(
             opciones_concepto=opciones_concepto,
             opciones_descripcion_item=opciones_descripcion_item,
             formato_version_id=formato_version_id,
+            perfil_carga_masiva_snapshot=perfil_snapshot,
         )
     except LoteComprobanteError as exc:
         raise HTTPException(
@@ -164,6 +183,7 @@ async def validar_archivo_lote(
 async def procesar_lote(
     lote_id: int,
     request: Request,
+    background: bool = Query(False),
     x_confirmacion_fecha_fiscal: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
@@ -193,7 +213,7 @@ async def procesar_lote(
             detail="El lote no tiene comprobantes válidos para emitir",
         )
 
-    if lote.total_grupos > settings.batch_sync_limit:
+    if background or lote.total_grupos > settings.batch_sync_limit:
         lote = await service.encolar_lote(lote_id, empresa_activa_id)
         ensure_lote_worker_running(request.app)
         return LoteProcesamientoResponse(

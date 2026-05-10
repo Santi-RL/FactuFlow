@@ -25,8 +25,8 @@ const steps = [
   { number: 1, title: "Introducción", shortTitle: "Intro" },
   { number: 2, title: "Generar CSR", shortTitle: "CSR" },
   { number: 3, title: "Portal ARCA", shortTitle: "Portal" },
-  { number: 4, title: "Subir Cert", shortTitle: "Subir" },
-  { number: 5, title: "Autorizar wsfe", shortTitle: "wsfe" },
+  { number: 4, title: "Subir certificado", shortTitle: "Subir" },
+  { number: 5, title: "Autorizar WSFE", shortTitle: "WSFE" },
   { number: 6, title: "Verificar", shortTitle: "Verificar" },
 ];
 

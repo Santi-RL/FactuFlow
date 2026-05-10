@@ -24,7 +24,8 @@ npm run test:e2e
 
 Nota 2026-05-07:
 
-- `npm run test:unit` no tiene archivos de test unitarios y sale con codigo 0.
+- `npm run test:unit` incluye pruebas unitarias de perfiles de carga masiva y
+  fechas relativas.
 - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup de
   Playwright. En la ultima corrida el runner mostro pantalla en blanco aunque
   `http://localhost:8080/login` cargo correctamente con un script Playwright
@@ -53,6 +54,9 @@ queda limitada a tests.
 
 - Si se toco backend: `pytest`
 - Si se toco frontend: `npm run type-check`
+- Si se tocaron perfiles de carga masiva: ejecutar
+  `pytest tests/test_perfiles_carga_masiva.py` y
+  `npm run test:unit -- perfiles-carga-masiva`
 - Si se toco un flujo visible: smoke manual o Playwright
 - Si se tocaron flujos core o UX: actualizar `docs/user-guide/README.md`
 - Siempre actualizar:
@@ -70,9 +74,24 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesion.
 
 ## Ultima verificacion tecnica
 
-Fecha: 2026-05-08
+Fecha: 2026-05-10
 
-- Backend: `pytest tests -q` OK, 114 tests.
+- Backend focalizado: `python -m pytest tests/test_lotes_comprobantes.py -q`
+  OK, 30 tests. Cubre progreso real con emision mockeada, sin solicitar CAE
+  real, confirmacion fiscal obligatoria y concurrencia de procesamiento.
+- Backend: `ruff check app/api/lotes_comprobantes.py app/services/lote_comprobantes_service.py tests/test_lotes_comprobantes.py`
+  OK.
+- Backend: `black --check app/api/lotes_comprobantes.py app/services/lote_comprobantes_service.py tests/test_lotes_comprobantes.py`
+  OK.
+- Frontend focalizado: `npm run test:unit -- lote-progress` OK. Cubre calculo
+  de porcentaje, tiempo transcurrido, estimacion restante y lotes en cola.
+- Frontend: `npm run type-check` OK.
+- Frontend: `npm run lint:check -- --quiet` OK.
+- Frontend: `npm run build` OK.
+
+Fecha: 2026-05-09
+
+- Backend: `ARCA_ENV=homologacion pytest tests -q` OK, 141 tests.
 - Backend: `ruff check app tests` OK.
 - Backend: `black --check app tests` OK.
 - Backend: la prueba
@@ -81,18 +100,25 @@ Fecha: 2026-05-08
 - Backend: se agregaron pruebas para rechazar emisión individual sin `concepto`,
   aceptar `Producto`/`Servicio` desde archivo y rechazar `Definido por archivo`
   cuando el Excel no mapea columna de concepto.
+- Backend: `tests/test_perfiles_carga_masiva.py` cubre CRUD scopiado por
+  emisor, predeterminado unico, nombres por emisor, formatos accesibles,
+  rechazo de `fecha_actual` como fecha fiscal y reglas incompletas.
+- Frontend: `src/utils/perfiles-carga-masiva.spec.ts` cubre reglas relativas de
+  fechas y seleccion automatica de perfil de carga masiva.
+- Frontend: `npm run test:unit` OK.
+- Frontend: `npm run build` OK.
+- Frontend: `npm run type-check` OK.
+- Frontend: `npm run lint:check` OK sin errores; mantiene warnings de estilo
+  Vue existentes.
+- Browser: QA visual de perfiles de carga masiva en `http://127.0.0.1:8080`
+  OK. Se verifico crear, editar, eliminar, predeterminar, autoaplicar, modificar
+  antes de validar, validar Excel y abrir/cancelar el modal final de fecha
+  fiscal sin emitir.
 - API local: `.tmp/ParaPruebas.xlsx` detectado como
   `Extracto bancario - creditos IVA exento`; al elegir servicios y
   `fecha_emision_modo=archivo` el lote `id=7` quedo con 20/20 grupos
   observados por fecha
   `06/04/2026` fuera de ventana ARCA. No se emitio ningun comprobante.
-- Frontend: `npm run lint:check` OK sin errores, con 440 warnings de estilo Vue.
-- Frontend: `npm run type-check` OK.
-- Frontend: `npm run build` OK.
-- Frontend: `npm run test:unit` OK, sin archivos de test unitarios.
-- Browser: carga basica de `http://localhost:8080/comprobantes/lotes` OK; falta
-  QA visual subiendo un Excel para revisar los selectores de concepto y fechas
-  fiscales.
 
 ## Smoke real ARCA
 

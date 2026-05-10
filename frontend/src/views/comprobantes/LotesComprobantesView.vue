@@ -11,12 +11,14 @@ import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import { useNotification } from "@/composables/useNotification";
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import lotesComprobantesService from "@/services/lotes-comprobantes.service";
+import perfilesCargaMasivaService from "@/services/perfiles-carga-masiva.service";
 import { useEmpresaStore } from "@/stores/empresa";
 import type {
   FormatoImportacion,
   FormatoImportacionCandidato,
   FormatoImportacionDeteccion,
 } from "@/types/formato-importacion";
+import type { PerfilCargaMasiva } from "@/types/perfil-carga-masiva";
 import {
   ESTADOS_GRUPO_COLOR,
   ESTADOS_LOTE_COLOR,
@@ -26,10 +28,16 @@ import {
   type LoteOpcionesFechas,
 } from "@/types/lote-comprobante";
 import {
+  resolverPerfilCargaMasiva,
+  seleccionarPerfilInicial,
+} from "@/utils/perfiles-carga-masiva";
+import { calcularProgresoLote } from "@/utils/lote-progress";
+import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
   CheckCircleIcon,
   CloudArrowUpIcon,
+  Cog6ToothIcon,
   DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
@@ -41,8 +49,14 @@ const { showError, showInfo, showSuccess, showWarning } = useNotification();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const archivoSeleccionado = ref<File | null>(null);
 const formatosImportacion = ref<FormatoImportacion[]>([]);
+const perfilesCargaMasiva = ref<PerfilCargaMasiva[]>([]);
 const deteccionFormato = ref<FormatoImportacionDeteccion | null>(null);
 const formatoSeleccionadoId = ref<string | number>("");
+const perfilSeleccionadoId = ref<string | number>("");
+const perfilAplicadoId = ref<number | null>(null);
+const formatoAplicadoPorPerfilId = ref<number | null>(null);
+const configuracionModificada = ref(false);
+const aplicandoPerfil = ref(false);
 const conceptoModo = ref<"productos" | "servicios" | "archivo" | "">("");
 const descripcionItemModo = ref<"archivo" | "fija" | "">("");
 const descripcionItemFija = ref("");
@@ -57,6 +71,7 @@ const fechaVtoPagoFija = ref("");
 const lotes = ref<LoteComprobante[]>([]);
 const loteActual = ref<LoteComprobanteDetalle | null>(null);
 const loadingLotes = ref(false);
+const loadingPerfiles = ref(false);
 const validandoArchivo = ref(false);
 const detectandoFormato = ref(false);
 const procesandoLote = ref(false);
@@ -64,6 +79,9 @@ const descargandoPlantilla = ref(false);
 const descargandoObservado = ref(false);
 const mostrarConfirmacionFechaFiscal = ref(false);
 const pollingHandle = ref<number | null>(null);
+const timerHandle = ref<number | null>(null);
+const timerNow = ref(new Date());
+const inicioProcesamientoLocal = ref<Date | null>(null);
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
 const empresaActivaId = computed(() => empresaActiva.value?.id || null);
@@ -94,6 +112,26 @@ const formatosOptions = computed(() => {
       label: `${formato.nombre} (${formato.alcance})`,
     }));
 });
+const perfilesOptions = computed(() => [
+  {
+    value: "",
+    label: "Sin perfil de carga masiva",
+  },
+  ...perfilesCargaMasiva.value.map((perfil) => ({
+    value: perfil.id,
+    label: perfil.es_predeterminado
+      ? `${perfil.nombre} (predeterminado)`
+      : perfil.nombre,
+  })),
+]);
+const perfilAplicado = computed(() => {
+  if (!perfilAplicadoId.value) return null;
+  return (
+    perfilesCargaMasiva.value.find(
+      (perfil) => perfil.id === perfilAplicadoId.value,
+    ) || null
+  );
+});
 const candidatoPrincipal = computed<FormatoImportacionCandidato | null>(() => {
   return deteccionFormato.value?.candidatos[0] || null;
 });
@@ -115,6 +153,7 @@ const candidatoSeleccionado = computed<FormatoImportacionCandidato | null>(() =>
 });
 const requiereElegirFormato = computed(() => {
   if (!archivoSeleccionado.value || detectandoFormato.value) return false;
+  if (hayConflictoFormatoPerfil.value) return true;
   if (!deteccionFormato.value) return true;
   const principal = candidatoPrincipal.value;
   if (!principal) return !formatoSeleccionadoId.value;
@@ -122,6 +161,13 @@ const requiereElegirFormato = computed(() => {
     return false;
   }
   return !formatoSeleccionadoId.value;
+});
+const hayConflictoFormatoPerfil = computed(() => {
+  const perfilVersion = formatoAplicadoPorPerfilId.value;
+  const principal = candidatoPrincipal.value;
+  if (!perfilVersion || !principal || principal.confianza !== "alta") return false;
+  if (principal.formato_version_id === perfilVersion) return false;
+  return Number(formatoSeleccionadoId.value || 0) === perfilVersion;
 });
 const opcionesFechasCompletas = computed(() => {
   const requiereFechasServicio = conceptoModo.value !== "productos";
@@ -202,12 +248,51 @@ const resumenOperativo = computed(() => {
     },
   ];
 });
+const progresoLote = computed(() => {
+  if (!loteActual.value) return null;
+  const inicioLocal = ["en_cola", "procesando"].includes(loteActual.value.estado)
+    ? inicioProcesamientoLocal.value
+    : null;
+  return calcularProgresoLote(
+    loteActual.value,
+    timerNow.value,
+    inicioLocal,
+  );
+});
 const porcentajeProcesado = computed(() => {
-  if (!loteActual.value || loteActual.value.total_grupos === 0) return 0;
-
-  const terminados =
-    loteActual.value.grupos_emitidos + loteActual.value.grupos_fallidos;
-  return Math.round((terminados / loteActual.value.total_grupos) * 100);
+  return progresoLote.value?.porcentaje || 0;
+});
+const resumenAvanceLote = computed(() => {
+  if (!progresoLote.value) return "Sin lote seleccionado";
+  if (progresoLote.value.totalEmitible === 0) {
+    return "No hay comprobantes listos para emitir";
+  }
+  if (progresoLote.value.estaEnCola) {
+    return `En cola para procesar ${progresoLote.value.totalEmitible} comprobantes`;
+  }
+  if (progresoLote.value.estaProcesando) {
+    return `Procesando ${progresoLote.value.procesados} de ${progresoLote.value.totalEmitible} comprobantes`;
+  }
+  return `${progresoLote.value.procesados} de ${progresoLote.value.totalEmitible} comprobantes procesados`;
+});
+const detalleAvanceLote = computed(() => {
+  if (!progresoLote.value) return "";
+  return `Emitidos ${loteActual.value?.grupos_emitidos || 0} · Fallidos ${
+    loteActual.value?.grupos_fallidos || 0
+  } · Pendientes ${progresoLote.value.pendientes}`;
+});
+const mostrarBarraIndeterminada = computed(() => {
+  return (
+    !!progresoLote.value &&
+    progresoLote.value.estaActivo &&
+    (progresoLote.value.estaEnCola || progresoLote.value.procesados === 0)
+  );
+});
+const tiempoRestanteTexto = computed(() => {
+  if (!progresoLote.value) return "-";
+  if (progresoLote.value.estaActivo) return progresoLote.value.restanteTexto;
+  if (progresoLote.value.restanteSegundos === 0) return "00:00";
+  return "-";
 });
 const necesitaCorreccion = computed(() => {
   return !!loteActual.value && loteActual.value.grupos_con_error > 0;
@@ -287,15 +372,9 @@ const descripcionFacturada = (comprobanteRef: string) => {
     : "-";
 };
 
-const triggerFileSelection = () => {
-  fileInputRef.value?.click();
-};
-
-const handleArchivoSeleccionado = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  archivoSeleccionado.value = target.files?.[0] || null;
-  deteccionFormato.value = null;
+const limpiarConfiguracionLote = () => {
   formatoSeleccionadoId.value = "";
+  formatoAplicadoPorPerfilId.value = null;
   conceptoModo.value = "";
   descripcionItemModo.value = "";
   descripcionItemFija.value = "";
@@ -307,6 +386,94 @@ const handleArchivoSeleccionado = (event: Event) => {
   fechaServicioHastaFija.value = "";
   fechaVtoPagoModo.value = "";
   fechaVtoPagoFija.value = "";
+};
+
+const aplicarPerfilCargaMasiva = (
+  perfil: PerfilCargaMasiva,
+  mostrarAviso = true,
+) => {
+  aplicandoPerfil.value = true;
+  const perfilAplicadoLote = resolverPerfilCargaMasiva(perfil);
+  perfilSeleccionadoId.value = perfil.id;
+  perfilAplicadoId.value = perfil.id;
+  formatoAplicadoPorPerfilId.value =
+    Number(perfilAplicadoLote.formatoVersionId || 0) || null;
+  formatoSeleccionadoId.value = perfilAplicadoLote.formatoVersionId || "";
+  conceptoModo.value = perfilAplicadoLote.opciones.concepto_modo;
+  descripcionItemModo.value = perfilAplicadoLote.opciones.descripcion_item_modo;
+  descripcionItemFija.value =
+    perfilAplicadoLote.opciones.descripcion_item_fija || "";
+  fechaEmisionModo.value = perfilAplicadoLote.opciones.fecha_emision_modo;
+  fechaEmisionFija.value =
+    perfilAplicadoLote.opciones.fecha_emision_fija || "";
+  fechaServicioDesdeModo.value =
+    perfilAplicadoLote.opciones.fecha_servicio_desde_modo;
+  fechaServicioDesdeFija.value =
+    perfilAplicadoLote.opciones.fecha_servicio_desde_fija || "";
+  fechaServicioHastaModo.value =
+    perfilAplicadoLote.opciones.fecha_servicio_hasta_modo;
+  fechaServicioHastaFija.value =
+    perfilAplicadoLote.opciones.fecha_servicio_hasta_fija || "";
+  fechaVtoPagoModo.value = perfilAplicadoLote.opciones.fecha_vto_pago_modo;
+  fechaVtoPagoFija.value = perfilAplicadoLote.opciones.fecha_vto_pago_fija || "";
+  configuracionModificada.value = false;
+  window.setTimeout(() => {
+    aplicandoPerfil.value = false;
+  });
+
+  if (mostrarAviso) {
+    showInfo(
+      "Perfil de carga masiva aplicado",
+      "La configuración quedó completa en pantalla y puedes editarla antes de validar.",
+    );
+  }
+};
+
+const aplicarPerfilInicial = () => {
+  if (perfilesCargaMasiva.value.length === 0 || perfilAplicadoId.value) return;
+  const perfil = seleccionarPerfilInicial(perfilesCargaMasiva.value);
+  if (perfil) {
+    aplicarPerfilCargaMasiva(perfil, false);
+  }
+};
+
+const handlePerfilSeleccionado = () => {
+  const perfilId = Number(perfilSeleccionadoId.value || 0);
+  if (!perfilId) {
+    perfilAplicadoId.value = null;
+    formatoAplicadoPorPerfilId.value = null;
+    configuracionModificada.value = false;
+    limpiarConfiguracionLote();
+    return;
+  }
+  const perfil = perfilesCargaMasiva.value.find((item) => item.id === perfilId);
+  if (perfil) {
+    aplicarPerfilCargaMasiva(perfil);
+  }
+};
+
+const usarFormatoSugerido = () => {
+  formatoSeleccionadoId.value = candidatoPrincipal.value?.formato_version_id || "";
+  formatoAplicadoPorPerfilId.value = null;
+};
+
+const usarFormatoDelPerfil = () => {
+  formatoSeleccionadoId.value = formatoAplicadoPorPerfilId.value || "";
+};
+
+const triggerFileSelection = () => {
+  fileInputRef.value?.click();
+};
+
+const handleArchivoSeleccionado = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  archivoSeleccionado.value = target.files?.[0] || null;
+  deteccionFormato.value = null;
+  if (perfilAplicado.value) {
+    aplicarPerfilCargaMasiva(perfilAplicado.value, false);
+  } else {
+    limpiarConfiguracionLote();
+  }
 };
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -355,6 +522,24 @@ const cargarFormatosImportacion = async () => {
   }
 };
 
+const cargarPerfilesCargaMasiva = async () => {
+  if (!empresaActivaId.value) return;
+
+  loadingPerfiles.value = true;
+  try {
+    perfilesCargaMasiva.value = await perfilesCargaMasivaService.listar();
+    aplicarPerfilInicial();
+  } catch (error: any) {
+    showError(
+      "No se pudieron cargar los perfiles de carga masiva",
+      error.response?.data?.detail ||
+        "Revisa tu sesion antes de validar archivos.",
+    );
+  } finally {
+    loadingPerfiles.value = false;
+  }
+};
+
 const detectarFormatoArchivo = async (archivo: File) => {
   if (!empresaActivaId.value) {
     showWarning(
@@ -371,7 +556,9 @@ const detectarFormatoArchivo = async (archivo: File) => {
     }
     const resultado = await formatosImportacionService.detectar(archivo);
     deteccionFormato.value = resultado;
-    formatoSeleccionadoId.value = resultado.formato_sugerido_version_id || "";
+    if (!formatoAplicadoPorPerfilId.value) {
+      formatoSeleccionadoId.value = resultado.formato_sugerido_version_id || "";
+    }
 
     if (resultado.candidatos.length === 0) {
       showWarning(
@@ -453,6 +640,7 @@ const validarArchivo = async () => {
       archivoSeleccionado.value,
       Number(formatoSeleccionadoId.value || 0) || null,
       opcionesFechas.value,
+      perfilAplicadoId.value,
     );
     showSuccess("Archivo validado", resultado.mensaje);
     await cargarLotes(true);
@@ -486,6 +674,8 @@ const procesarLote = async () => {
 
   procesandoLote.value = true;
   mostrarConfirmacionFechaFiscal.value = false;
+  inicioProcesamientoLocal.value = new Date();
+  timerNow.value = new Date();
   try {
     const resultado = await lotesComprobantesService.procesar(
       loteActual.value.id,
@@ -496,7 +686,11 @@ const procesarLote = async () => {
     );
     await cargarLotes(true);
     await cargarDetalleLote(loteActual.value.id, true);
+    if (!resultado.en_progreso) {
+      inicioProcesamientoLocal.value = null;
+    }
   } catch (error: any) {
+    inicioProcesamientoLocal.value = null;
     showError(
       "No se pudo emitir el lote",
       error.response?.data?.detail ||
@@ -542,13 +736,16 @@ const descargarObservado = async () => {
 
 const iniciarPolling = () => {
   if (pollingHandle.value !== null) return;
+  if (!inicioProcesamientoLocal.value) {
+    inicioProcesamientoLocal.value = new Date();
+  }
 
   pollingHandle.value = window.setInterval(async () => {
     await cargarLotes(true);
     if (loteActual.value) {
       await cargarDetalleLote(loteActual.value.id, true);
     }
-  }, 5000);
+  }, 1500);
 };
 
 const detenerPolling = () => {
@@ -556,13 +753,31 @@ const detenerPolling = () => {
 
   window.clearInterval(pollingHandle.value);
   pollingHandle.value = null;
+  inicioProcesamientoLocal.value = null;
+};
+
+const iniciarTimer = () => {
+  if (timerHandle.value !== null) return;
+  timerNow.value = new Date();
+  timerHandle.value = window.setInterval(() => {
+    timerNow.value = new Date();
+  }, 1000);
+};
+
+const detenerTimer = () => {
+  if (timerHandle.value === null) return;
+
+  window.clearInterval(timerHandle.value);
+  timerHandle.value = null;
 };
 
 watch(hayProcesamientoEnCurso, (activo) => {
   if (activo) {
     iniciarPolling();
+    iniciarTimer();
   } else {
     detenerPolling();
+    detenerTimer();
   }
 });
 
@@ -574,26 +789,43 @@ watch([archivoSeleccionado, empresaActivaId], ([archivo, empresaId]) => {
 });
 
 watch(
+  [
+    formatoSeleccionadoId,
+    conceptoModo,
+    descripcionItemModo,
+    descripcionItemFija,
+    fechaEmisionModo,
+    fechaEmisionFija,
+    fechaServicioDesdeModo,
+    fechaServicioDesdeFija,
+    fechaServicioHastaModo,
+    fechaServicioHastaFija,
+    fechaVtoPagoModo,
+    fechaVtoPagoFija,
+  ],
+  () => {
+    if (aplicandoPerfil.value || !perfilAplicadoId.value) return;
+    configuracionModificada.value = true;
+    perfilAplicadoId.value = null;
+    formatoAplicadoPorPerfilId.value = null;
+  },
+);
+
+watch(
   empresaActivaId,
   async (empresaId) => {
     archivoSeleccionado.value = null;
     loteActual.value = null;
     deteccionFormato.value = null;
-    formatoSeleccionadoId.value = "";
-    conceptoModo.value = "";
-    descripcionItemModo.value = "";
-    descripcionItemFija.value = "";
-    fechaEmisionModo.value = "";
-    fechaEmisionFija.value = "";
-    fechaServicioDesdeModo.value = "";
-    fechaServicioDesdeFija.value = "";
-    fechaServicioHastaModo.value = "";
-    fechaServicioHastaFija.value = "";
-    fechaVtoPagoModo.value = "";
-    fechaVtoPagoFija.value = "";
+    perfilesCargaMasiva.value = [];
+    perfilSeleccionadoId.value = "";
+    perfilAplicadoId.value = null;
+    configuracionModificada.value = false;
+    limpiarConfiguracionLote();
 
     if (!empresaId) return;
     await cargarFormatosImportacion();
+    await cargarPerfilesCargaMasiva();
     await cargarLotes();
   },
   { immediate: false },
@@ -606,6 +838,7 @@ onMounted(async () => {
 
   await cargarLotes();
   await cargarFormatosImportacion();
+  await cargarPerfilesCargaMasiva();
   if (lotes.value[0]) {
     await cargarDetalleLote(lotes.value[0].id);
   }
@@ -613,6 +846,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   detenerPolling();
+  detenerTimer();
 });
 </script>
 
@@ -646,6 +880,62 @@ onBeforeUnmount(() => {
       Selecciona un emisor activo antes de descargar la plantilla o subir el
       archivo.
     </BaseAlert>
+
+    <BaseCard>
+      <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div>
+          <div class="flex items-center gap-2">
+            <Cog6ToothIcon class="h-5 w-5 text-primary-600" />
+            <h2 class="text-lg font-semibold text-gray-900">
+              Perfil de carga masiva
+            </h2>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">
+            Usa una configuración habitual del emisor activo. Todo lo aplicado
+            queda visible y editable antes de validar.
+          </p>
+          <div class="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <BaseSelect
+              v-model="perfilSeleccionadoId"
+              label="Perfil de carga masiva"
+              :options="perfilesOptions"
+              placeholder="Sin perfil de carga masiva"
+              :disabled="loadingPerfiles || perfilesCargaMasiva.length === 0"
+              @update:model-value="handlePerfilSeleccionado"
+            />
+            <router-link
+              to="/empresa"
+              class="inline-flex min-h-[42px] items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Administrar perfiles de carga masiva
+            </router-link>
+          </div>
+        </div>
+
+        <div
+          class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700"
+        >
+          <p class="font-medium text-gray-900">
+            {{
+              perfilAplicado
+                ? `Perfil de carga masiva aplicado: ${perfilAplicado.nombre}`
+                : "Sin perfil de carga masiva aplicado"
+            }}
+          </p>
+          <p v-if="configuracionModificada" class="mt-1 text-amber-700">
+            Configuración modificada en esta carga. Se validará sin snapshot de
+            perfil de carga masiva.
+          </p>
+          <p v-else class="mt-1 text-gray-500">
+            {{
+              perfilesCargaMasiva.length
+                ? "Puedes cambiarlo antes de validar."
+                : "Configuralos desde Emisores."
+            }}
+          </p>
+        </div>
+      </div>
+    </BaseCard>
 
     <BaseCard>
       <div class="grid gap-4 lg:grid-cols-3">
@@ -823,20 +1113,40 @@ onBeforeUnmount(() => {
               <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <span>
                   {{
-                    deteccionFormato
+                    hayConflictoFormatoPerfil
+                      ? "El perfil de carga masiva trae un formato, pero el Excel coincide con otro formato de alta confianza. Confirma cuál corresponde antes de validar."
+                      : deteccionFormato
                       ? "Confirma un formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
                       : "Todavia no se analizaron los encabezados del Excel. El analisis deberia iniciar automaticamente; si no avanza, reintentalo."
                   }}
                 </span>
-                <BaseButton
-                  v-if="!deteccionFormato"
-                  size="sm"
-                  variant="secondary"
-                  :loading="detectandoFormato"
-                  @click="archivoSeleccionado && detectarFormatoArchivo(archivoSeleccionado)"
-                >
-                  Analizar encabezados
-                </BaseButton>
+                <div class="flex flex-wrap gap-2">
+                  <BaseButton
+                    v-if="hayConflictoFormatoPerfil"
+                    size="sm"
+                    variant="secondary"
+                    @click="usarFormatoSugerido"
+                  >
+                    Usar sugerido
+                  </BaseButton>
+                  <BaseButton
+                    v-if="hayConflictoFormatoPerfil"
+                    size="sm"
+                    variant="secondary"
+                    @click="usarFormatoDelPerfil"
+                  >
+                    Usar perfil
+                  </BaseButton>
+                  <BaseButton
+                    v-if="!deteccionFormato"
+                    size="sm"
+                    variant="secondary"
+                    :loading="detectandoFormato"
+                    @click="archivoSeleccionado && detectarFormatoArchivo(archivoSeleccionado)"
+                  >
+                    Analizar encabezados
+                  </BaseButton>
+                </div>
               </div>
             </BaseAlert>
           </div>
@@ -1234,17 +1544,53 @@ onBeforeUnmount(() => {
               <div
                 class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
               >
-                <p class="text-sm font-medium text-gray-900">Avance del lote</p>
-                <p class="text-sm text-gray-600">
+                <div>
+                  <p class="text-sm font-medium text-gray-900">
+                    Avance del lote
+                  </p>
+                  <p class="mt-1 text-sm text-gray-600">
+                    {{ resumenAvanceLote }}
+                  </p>
+                </div>
+                <p class="text-sm font-semibold text-primary-700">
                   {{ porcentajeProcesado }}% procesado
                 </p>
               </div>
-              <div class="mt-3 h-3 overflow-hidden rounded-full bg-gray-200">
+              <div
+                class="mt-3 h-3 overflow-hidden rounded-full bg-gray-200"
+                :class="{ relative: mostrarBarraIndeterminada }"
+              >
                 <div
-                  class="h-full rounded-full bg-primary-600 transition-all"
+                  v-if="mostrarBarraIndeterminada"
+                  class="progress-indeterminate h-full rounded-full bg-primary-500/80"
+                />
+                <div
+                  v-else
+                  class="h-full rounded-full bg-primary-600 transition-all duration-500 ease-out"
                   :style="{ width: `${porcentajeProcesado}%` }"
                 />
               </div>
+              <div
+                class="mt-3 grid gap-2 text-sm text-gray-600 md:grid-cols-[1fr_auto_auto]"
+              >
+                <p>{{ detalleAvanceLote }}</p>
+                <p>
+                  <span class="font-medium text-gray-700">Transcurrido:</span>
+                  {{ progresoLote?.transcurridoTexto || "00:00" }}
+                </p>
+                <p>
+                  <span class="font-medium text-gray-700">
+                    Estimado restante:
+                  </span>
+                  {{ tiempoRestanteTexto }}
+                </p>
+              </div>
+              <p
+                v-if="loteActual.mensaje_resumen"
+                class="mt-2 text-xs text-gray-500"
+              >
+                {{ loteActual.mensaje_resumen }}
+              </p>
             </div>
 
             <BaseAlert v-if="necesitaCorreccion" type="warning" class="mt-6">
@@ -1450,3 +1796,21 @@ onBeforeUnmount(() => {
     />
   </div>
 </template>
+
+<style scoped>
+.progress-indeterminate {
+  animation: lote-progress-indeterminate 1.2s ease-in-out infinite;
+  transform: translateX(-100%);
+  width: 40%;
+}
+
+@keyframes lote-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(250%);
+  }
+}
+</style>

@@ -74,6 +74,15 @@ Formatos reutilizables para interpretar archivos externos de emision masiva:
 - Reglas declarativas como agrupacion por fila
 - Trazabilidad desde `LoteComprobante` hacia el formato y version usados
 
+### PerfilCargaMasiva
+Perfiles de carga masiva por emisor:
+- Nombre unico dentro de cada Empresa
+- Configuracion JSON versionada con formato opcional, concepto fiscal ARCA,
+  descripcion facturada y reglas de fechas relativas
+- Marca de predeterminado para precargar `Emision masiva`
+- Trazabilidad desde `LoteComprobante.metadata_json` cuando un lote se valida
+  con un perfil aplicado
+
 ## Convenciones
 
 - Un modelo por archivo

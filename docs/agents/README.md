@@ -15,6 +15,22 @@
 - `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitacora tecnica.
 - `docs/agents/arca.md` conserva detalles tecnicos ARCA y procedimientos seguros.
 
+## Git y GitHub
+
+- El flujo interno por defecto trabaja sobre `main`; no crear ramas nuevas salvo
+  pedido explicito del usuario.
+- Antes de empezar una implementacion, revisar estado local y remoto con Git.
+  Si hay commits locales sin push o cambios de una implementacion anterior, hay
+  que avisar y recomendar publicar/cerrar ese trabajo antes de seguir.
+- Despues de cada implementacion verificada, recomendar commit y push. No hacer
+  `git push` sin aprobacion explicita del usuario.
+- Usar commits chicos y con unidad logica: una implementacion por commit cuando
+  sea posible; bugs chicos relacionados pueden agruparse si forman una misma
+  correccion.
+- Para GitHub, seguir el enfoque del plugin local: resolver primero repo/rama
+  con Git, usar la app de GitHub para PRs/issues/metadatos cuando aplique, y
+  usar `git`/`gh` para gaps como estado de rama, commits, push y checks.
+
 ## Indice rapido por tema
 
 - Resumen y arquitectura: `docs/agents/overview.md`
@@ -26,6 +42,8 @@
 - API REST: `docs/api/README.md`
 - Formatos de importacion para emision masiva: `docs/api/README.md`,
   `backend/app/services/README.md`, `frontend/src/services/README.md`
+- Perfiles de carga masiva por emisor: `docs/user-guide/README.md`,
+  `docs/api/README.md`, `frontend/src/views/README.md`
 - Certificados y wizard: `docs/certificates/README.md`, `docs/certificados-wizard.md`
 - Instalacion y setup: `docs/setup/README.md`
 - Manual de usuario: `docs/user-guide/README.md`

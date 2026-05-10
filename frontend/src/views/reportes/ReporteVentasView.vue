@@ -248,10 +248,7 @@ const resumenCards = computed(() => {
 
           <template #cell-tipo_nombre="{ row }">
             <div>
-              <span class="font-medium">{{ row.letra }}</span>
-              <span class="text-gray-600 text-sm ml-1">{{
-                row.tipo_nombre
-              }}</span>
+              <span class="text-gray-900 text-sm">{{ row.tipo_nombre }}</span>
             </div>
           </template>
 

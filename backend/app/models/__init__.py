@@ -18,6 +18,7 @@ from app.models.formato_importacion import (
     FormatoImportacionCampo,
     FormatoImportacionRegla,
 )
+from app.models.perfil_carga_masiva import PerfilCargaMasiva
 
 __all__ = [
     "Usuario",
@@ -34,4 +35,5 @@ __all__ = [
     "FormatoImportacionVersion",
     "FormatoImportacionCampo",
     "FormatoImportacionRegla",
+    "PerfilCargaMasiva",
 ]

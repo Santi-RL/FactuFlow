@@ -325,8 +325,7 @@ const resumenTotales = computed(() => {
 
             <template #cell-tipo="{ row }">
               <div class="text-sm">
-                <span class="font-medium">{{ row.tipo_letra }}</span>
-                <span class="text-gray-600 ml-1">{{ row.tipo_nombre }}</span>
+                <span class="text-gray-900">{{ row.tipo_nombre }}</span>
               </div>
             </template>
 

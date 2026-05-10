@@ -114,24 +114,30 @@ para archivos externos.
 Flujo general:
 
 1. Descargar la plantilla oficial o preparar el archivo externo acordado.
-2. Subir el Excel.
-3. Revisar el formato sugerido por FactuFlow.
-4. Si es un archivo externo, elegir o confirmar el formato correcto.
-5. Elegir explicitamente si el lote corresponde a `Productos`, `Servicios` o
+2. Si existe, revisar el perfil de carga masiva aplicado para el emisor activo.
+3. Subir el Excel.
+4. Revisar el formato sugerido por FactuFlow.
+5. Si es un archivo externo, elegir o confirmar el formato correcto.
+6. Elegir explicitamente si el lote corresponde a `Productos`, `Servicios` o
    `Definido por archivo`.
-6. Definir la descripcion/concepto facturado del item: desde el archivo o como
+7. Definir la descripcion/concepto facturado del item: desde el archivo o como
    texto fijo para todo el lote.
-7. Definir explicitamente la fecha de emision y, si corresponde, el periodo de
+8. Definir explicitamente la fecha de emision y, si corresponde, el periodo de
    servicios y vencimiento de pago.
-8. Validar errores por fila o por comprobante.
-9. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
+9. Validar errores por fila o por comprobante.
+10. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
    fechas, importes, receptor y punto de venta.
-10. Confirmar la emision con `Emitir comprobantes validos`.
-11. Revisar resultados del lote.
-12. Si lo necesitas, descargar el archivo observado del lote.
+11. Confirmar la emision con `Emitir comprobantes validos`.
+12. Revisar resultados del lote.
+13. Si lo necesitas, descargar el archivo observado del lote.
 
 Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
 recien ocurre cuando confirmas el lote validado.
+
+Cuando uses la plantilla oficial de FactuFlow, el sistema lee la hoja llamada
+`Comprobantes`. Las hojas adicionales, por ejemplo `Resumen` o `Control`, son
+solo informativas y no se usan para emitir. Si el archivo no tiene una hoja
+llamada `Comprobantes`, FactuFlow intenta leer la primera hoja del Excel.
 
 Si un lote termina `fallido` o `con_errores` sin haber emitido comprobantes,
 podes volver a subir el mismo archivo para revalidarlo. FactuFlow conserva el
@@ -139,9 +145,13 @@ historial del intento anterior y solo permite el reintento cuando no hubo CAE
 emitido. Si el lote ya quedo validado para emitir o emitio algun comprobante, el
 archivo duplicado se bloquea para evitar facturacion repetida.
 
-Cuando presionas `Emitir comprobantes validos`, espera a que el lote termine y
-revisa el resumen final antes de volver a intentar. El sistema bloquea una
-segunda ejecucion del mismo lote si ya esta procesando o si ya fue procesado.
+Cuando presionas `Emitir comprobantes validos`, el lote queda en seguimiento y
+la pantalla muestra una barra de avance real. La barra informa comprobantes
+procesados, emitidos, fallidos, pendientes, tiempo transcurrido y tiempo
+estimado restante. Si el lote todavia esta `En cola`, el avance se muestra como
+estimacion hasta que el worker empieza a procesar. Revisa el resumen final antes
+de volver a intentar. El sistema bloquea una segunda ejecucion del mismo lote si
+ya esta procesando o si ya fue procesado.
 
 Regla importante: FactuFlow no completa la fecha de emision con la fecha del dia
 por defecto. Antes de validar un lote debes elegir si la fecha de emision sale
@@ -177,6 +187,35 @@ debe completarse con un default oculto del formato.
 Los lotes viejos validados antes de esta regla deben revalidarse. FactuFlow no
 permite procesarlos sin una politica de concepto fiscal guardada.
 
+### Perfiles de carga masiva
+
+Cada emisor puede tener perfiles de carga masiva para completar mas rapido la
+pantalla de emision masiva. Se administran desde `Emisores > Carga masiva`.
+
+Un perfil de carga masiva puede recordar:
+- formato de importacion opcional
+- concepto fiscal ARCA
+- descripcion facturada desde archivo o fija
+- fecha de emision relativa, por ejemplo ultimo dia del mes anterior, o una
+  fecha personalizada cargada de forma explicita
+- periodo de servicios, por ejemplo mes anterior completo o mes actual completo
+- vencimiento de pago, por ejemplo mismo dia de emision o emision mas una
+  cantidad de dias
+
+Si un emisor tiene un solo perfil de carga masiva, FactuFlow lo aplica al entrar
+en `Emision masiva`. Si tiene varios, se aplica el marcado como predeterminado.
+Si no hay predeterminado, el usuario elige uno.
+
+El perfil de carga masiva no valida ni emite automaticamente. Solo completa la
+pantalla con valores visibles. Antes de validar podes cambiar cualquier selector
+o fecha. Si el perfil trae reglas relativas, FactuFlow las muestra como fechas
+concretas en la pantalla antes de validar. Si cambias un dato precargado, esa
+carga queda como configuracion manual y no como snapshot del perfil de carga
+masiva.
+
+Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
+regla de fecha de emision.
+
 ### Formatos de importacion
 
 La pantalla muestra formatos disponibles para el emisor activo:
@@ -197,9 +236,15 @@ Los formatos pueden mapear datos de tres maneras:
   confiables
 - por constante, para completar campos que siempre tienen el mismo valor
 
-La administracion avanzada de formatos por emisor existe por API/configuracion;
-la pantalla actual se concentra en seleccionar y confirmar formatos ya
-disponibles.
+Si el archivo externo trae un total informado, FactuFlow compara ese total con
+el total calculado desde los items e IVA. Si no coinciden, el comprobante queda
+observado antes de emitir. Esta validacion evita usar por error una columna de
+total final como si fuera precio neto.
+
+La administracion de perfiles de carga masiva por emisor existe desde
+`Emisores > Carga masiva`. La administracion avanzada de formatos de
+importacion todavia se mantiene por API/configuracion; la pantalla de emision se
+concentra en seleccionar y confirmar formatos ya disponibles.
 
 ### Formato Cano
 
@@ -213,6 +258,10 @@ muestra disponible no trae numero de documento real del receptor, FactuFlow lo
 trata como consumidor final sin documento cuando el importe esta bajo el umbral
 legal. Si un archivo futuro trae comprobantes que requieren identificar al
 receptor, se debe agregar una columna con documento real o ajustar el formato.
+
+Si por configuracion o por archivo el total calculado no coincide con
+`Imp. Total`, el lote queda observado y no se puede emitir hasta corregir el
+mapeo.
 
 La fecha del archivo no se usa automaticamente para emitir. Antes de validar el
 lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
@@ -297,8 +346,9 @@ Reglas principales:
   productos, servicios o definido por archivo
 - la descripcion/concepto facturado del item siempre debe venir del archivo o de
   un valor fijo confirmado para el lote
-- los lotes chicos se emiten en la misma sesion
-- los lotes grandes quedan `En cola` y se procesan en segundo plano con seguimiento automatico
+- los lotes chicos y grandes se procesan con seguimiento automatico desde la UI
+- la barra de progreso muestra avance, tiempo transcurrido y estimacion restante
+- los lotes grandes pueden quedar `En cola` antes de pasar a `Procesando`
 
 ## 7. Reportes
 
@@ -324,10 +374,11 @@ En la pantalla actual puedes:
 - probar la conexion del certificado activo contra ARCA antes de emitir
 - eliminar un certificado
 
-Al cargar un certificado nuevo, el wizard incluye un paso obligatorio para
-autorizar el servicio `wsfe` en ARCA antes de probar la conexion. En produccion
-esa autorizacion se hace desde `Administrador de Relaciones de Clave Fiscal`;
-en homologacion se hace desde WSASS. El certificado puede ser valido y aun asi
+Al cargar un certificado nuevo, el wizard muestra una barra de pasos con avance
+visual y estados de completado. Incluye un paso obligatorio para autorizar el
+servicio `WSFE` en ARCA antes de probar la conexion. En produccion esa
+autorizacion se hace desde `Administrador de Relaciones de Clave Fiscal`; en
+homologacion se hace desde WSASS. El certificado puede ser valido y aun asi
 fallar si no esta asociado a ese servicio.
 
 Antes de emitir comprobantes reales en produccion, usa `Probar conexion` sobre
@@ -354,6 +405,14 @@ Importante:
 ## 10. Emisores
 
 En `Emisores` puedes editar y guardar los datos fiscales y generales del emisor activo, o agregar otro CUIT para operar.
+
+La pantalla tiene dos secciones:
+- `Datos del emisor`: datos fiscales y de contacto.
+- `Carga masiva`: perfiles de carga masiva del emisor activo.
+
+Desde `Carga masiva` puedes crear, editar, eliminar y marcar un perfil de carga
+masiva como predeterminado. Ese perfil se usara para precargar la pantalla de
+emision masiva del mismo emisor.
 
 Al agregar un emisor, puedes subir una constancia de inscripcion ARCA en PDF.
 FactuFlow intenta completar automaticamente nombre fiscal, CUIT, condicion IVA,

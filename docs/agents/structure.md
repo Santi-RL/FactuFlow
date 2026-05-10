@@ -25,6 +25,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/api/`: endpoints REST por dominio.
 - `backend/app/api/lotes_comprobantes.py`: endpoints de emision masiva por Excel.
 - `backend/app/api/formatos_importacion.py`: endpoints de formatos configurables para importar Excel externos.
+- `backend/app/api/perfiles_carga_masiva.py`: endpoints de perfiles de carga
+  masiva por emisor.
 - `backend/app/arca/`: integración ARCA (WSAA, WSFEv1, SOAP, crypto, cache, utils).
 - `backend/app/afip/`: legacy (mantener solo compatibilidad).
 - `backend/app/core/`: configuración, seguridad y utilidades base.
@@ -32,8 +34,11 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/schemas/`: esquemas Pydantic.
 - `backend/app/services/`: servicios de negocio.
 - `backend/app/models/formato_importacion.py`: modelos versionados de formatos, campos y reglas de importacion.
+- `backend/app/models/perfil_carga_masiva.py`: perfiles de carga masiva por emisor.
 - `backend/app/schemas/formato_importacion.py`: contratos de formatos, deteccion y candidatos.
+- `backend/app/schemas/perfil_carga_masiva.py`: contratos de perfiles de carga masiva.
 - `backend/app/services/formatos_importacion_service.py`: deteccion, resolucion de mapeos y normalizacion de archivos externos.
+- `backend/app/services/perfiles_carga_masiva_service.py`: CRUD, scoping y validacion de perfiles de carga masiva.
 - `backend/app/services/lote_worker.py`: worker reanudable de lotes grandes.
 - `backend/app/scripts/create_admin_user.py`: alta/promocion de usuario administrador.
 - `backend/app/templates/`: plantillas (PDF/HTML).
@@ -50,10 +55,12 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `frontend/src/services/`: acceso a API.
 - `frontend/src/services/lotes-comprobantes.service.ts`: cliente HTTP de lotes.
 - `frontend/src/services/formatos-importacion.service.ts`: cliente HTTP para listar y detectar formatos de importacion.
+- `frontend/src/services/perfiles-carga-masiva.service.ts`: cliente HTTP de perfiles de carga masiva.
 - `frontend/src/stores/`: estado global (Pinia).
 - `frontend/src/types/`: tipos compartidos.
 - `frontend/src/types/lote-comprobante.ts`: tipos del flujo de lotes.
 - `frontend/src/types/formato-importacion.ts`: tipos de formatos, versiones y candidatos detectados.
+- `frontend/src/types/perfil-carga-masiva.ts`: tipos de perfiles de carga masiva.
 - `frontend/src/assets/`: estáticos.
 
 ## Documentación

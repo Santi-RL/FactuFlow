@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-09
+Ultima actualizacion: 2026-05-10
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -32,6 +32,51 @@ cd backend
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
 
 ## Recorrido ejecutado y validado
+
+### Progreso de lotes con timer - verificacion controlada 2026-05-10
+
+- Se implemento seguimiento real de emision para lotes chicos y grandes: la UI
+  inicia el procesamiento con `background=true` y consulta el lote por polling.
+- La barra de avance muestra comprobantes procesados sobre emitibles, emitidos,
+  fallidos, pendientes, tiempo transcurrido y estimado restante.
+- Mientras el lote esta `En cola` o sin primer comprobante procesado, la barra
+  usa animacion indeterminada y muestra `Estimando...`.
+- Verificacion sin emision real: los tests backend mockean
+  `FacturacionService.emitir_comprobante`, por lo que no solicitan CAE ni
+  consumen numeracion fiscal real.
+- Se verifico por test que la API sigue bloqueando procesamiento sin
+  `X-Confirmacion-Fecha-Fiscal: true`.
+- Pendiente de QA visual opcional: levantar entorno local y confirmar en
+  navegador que el modal de fecha fiscal puede cancelarse con `Volver a revisar`
+  y que la barra avanza durante un lote mockeado o de homologacion controlada.
+
+### Perfiles de carga masiva - QA 2026-05-09
+
+Validado visualmente en `http://127.0.0.1:8080` con
+`visual@factuflow.dev`:
+- En `Emisores > Carga masiva`, se creo un perfil de carga masiva con formato
+  global, concepto `Servicios`, descripcion fija `Ajuste QA` y reglas relativas
+  `ultimo_dia_mes_anterior`, `mes_anterior_completo` y `emision_mas_dias`.
+- La UI ya no ofrece `Fecha actual` como regla persistible de fecha de emision
+  del perfil de carga masiva.
+- Se creo un segundo perfil de carga masiva, se marco como predeterminado, se
+  edito desde modal y se elimino con confirmacion visual.
+- En `Emision masiva`, el perfil de carga masiva predeterminado se aplico
+  automaticamente al cambiar de emisor y al entrar a la pantalla.
+- Formato, concepto fiscal ARCA, descripcion facturada y fechas quedaron
+  visibles y editables antes de validar.
+- Al modificar manualmente una fecha calculada, la pantalla mostro que la carga
+  se validaria sin snapshot de perfil de carga masiva.
+- Se valido `.tmp/ParaPruebas.xlsx` para un emisor monotributo local con
+  puntos de venta QA `6`, `8`, `10`, `12` y `13`: 20 comprobantes validos,
+  fecha fiscal resuelta `30/04/2026`, periodo `01/04/2026 - 30/04/2026` y
+  descripcion `Ajuste QA`.
+- Antes de emitir aparecio el modal `Confirmar fecha fiscal` con fecha concreta
+  y puntos de venta concretos:
+  `Está seguro que quiere emitir comprobantes con fecha 30/04/2026 para los puntos de venta 0006, 0008, 0010, 0012, 0013? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
+  Se cancelo con `Volver a revisar`; no se solicito CAE.
+- El cambio de emisor activo recargo perfiles, lotes y formatos sin mezclar
+  CUITs.
 
 ### Selector de emisor activo - QA 2026-05-09
 
@@ -120,6 +165,17 @@ Validado localmente el 2026-05-08:
   documento mientras el importe este bajo el umbral legal
 - la fecha de la muestra es `30/04/2026`; al probarla el usuario debe elegir
   una politica de fecha permitida por ARCA antes de validar o emitir
+- se agrego validacion anti-mapeo incorrecto: si un formato externo trae
+  `Imp. Total`, el total calculado desde item e IVA debe coincidir con ese total
+  antes de habilitar emision. Un formato de prueba que usa `Imp. Total` como
+  neto queda observado con error de diferencia de total.
+- se genero `.tmp/cano_nc_correccion/NotasCredito_Cano_Correccion_IVA_20260509.xlsx`
+  con 1113 Nota de Credito B para corregir el exceso de las Factura B Cano
+  `0002-00036340` a `0002-00037452`. Validacion contra copia de base local:
+  1113 grupos validos, 0 errores, 0 emitidos, total `$7.288.804,44`.
+- queda documentado para usuario final que, en la plantilla oficial, FactuFlow
+  procesa la hoja `Comprobantes`; hojas como `Resumen` o `Control` son solo
+  informativas.
 
 Cambio critico posterior el 2026-05-08:
 - la emision individual y masiva ya no debe asumir fecha del dia actual
@@ -190,6 +246,8 @@ Cambio critico posterior el 2026-05-08:
 Pendiente antes de produccion:
 - repetir el recorrido con el lote definitivo
 - definir con el usuario/contador la fecha de emision permitida por ARCA
+- antes de emitir el archivo de notas de credito Cano, confirmar explicitamente
+  la fecha fiscal fija de emision permitida por ARCA
 - definir con el usuario/contador la descripcion facturada real si no viene del
   archivo
 - revisar totales, puntos de venta y formato confirmado
@@ -255,8 +313,10 @@ Pendiente antes de produccion:
 ## Resultado
 
 - QA manual funcional cerrada para el alcance actual del MVP en homologacion.
-- El flujo de emision masiva ahora distingue lotes chicos sincronos y lotes grandes en cola.
-- La pantalla muestra estado `En cola` para lotes grandes y continua haciendo polling hasta `Procesando`/resultado final.
+- El flujo de emision masiva ahora inicia desde la UI lotes chicos y grandes en
+  segundo plano para poder mostrar avance real.
+- La pantalla muestra estado `En cola` / `Procesando`, barra de progreso,
+  emitidos, fallidos, pendientes, tiempo transcurrido y estimado restante.
 - La pantalla de emision masiva permite revisar el formato detectado, confirmar
   el formato de importacion y validar antes de emitir.
 - La pantalla `Emisores` permite agregar un nuevo emisor desde un modal y

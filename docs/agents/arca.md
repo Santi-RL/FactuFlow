@@ -155,6 +155,10 @@
   y procesamiento de lotes requiere `X-Confirmacion-Fecha-Fiscal: true`.
 - En emision masiva, antes de validar se debe elegir si la fecha de emision sale
   del archivo o si se usa una fecha fija para todos los comprobantes.
+- Un perfil de carga masiva puede precargar reglas relativas de fecha, pero la
+  UI debe resolverlas a fechas concretas visibles antes de validar. El backend
+  de lotes sigue recibiendo `archivo` o `fija`; el perfil no puede emitir ni
+  validar de forma silenciosa.
 - Para concepto servicios o productos y servicios, tambien deben resolverse
   `FchServDesde`, `FchServHasta` y `FchVtoPago`.
 - La validacion local aplica una ventana ARCA preventiva:
@@ -189,6 +193,9 @@
   lote: desde una columna del archivo o como valor fijo para todo el lote. No
   debe salir de un default oculto del formato ni del hecho de haber elegido
   `Productos` o `Servicios`.
+- Un perfil de carga masiva puede precargar el concepto fiscal ARCA y la
+  descripcion facturada, pero esos valores deben quedar visibles y editables en
+  pantalla antes de validar.
 - Cuando una fecha tomada del archivo quede fuera de la ventana admitida por
   ARCA para el concepto elegido, el usuario debe elegir una fecha permitida por
   el web service antes de emitir. No se debe corregir automaticamente.

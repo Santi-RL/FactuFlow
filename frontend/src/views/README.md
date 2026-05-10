@@ -21,8 +21,8 @@ Las rutas se definen en `frontend/src/router/index.ts`.
 ## Vistas relevantes
 
 - `comprobantes/LotesComprobantesView.vue`: emision masiva. Descarga plantilla,
-  sube Excel, consulta formatos de importacion, detecta encabezados, permite
-  confirmar el formato, exige seleccionar concepto fiscal ARCA
+  sube Excel, consulta perfiles de carga masiva y formatos de importacion,
+  detecta encabezados, permite confirmar el formato, exige seleccionar concepto fiscal ARCA
   (`Productos`/`Servicios`/archivo), descripcion/concepto facturado del item
   (archivo o valor fijo), fecha de emision y fechas de servicio, valida el lote
   y emite solo despues de la confirmacion del usuario. Antes de llamar a
@@ -33,3 +33,7 @@ Las rutas se definen en `frontend/src/router/index.ts`.
   default fiscal. Antes de emitir debe mostrar el mismo modal de confirmacion de
   fecha fiscal. Los items deben tener `descripcion` propia; esa descripcion no
   se reemplaza por el concepto fiscal ARCA.
+- `empresa/EmpresaConfigView.vue`: configuracion del emisor activo. La pestaña
+  `Datos del emisor` edita datos fiscales y la pestaña `Carga masiva` administra
+  perfiles de carga masiva por emisor. Esos perfiles solo precargan la pantalla
+  de lotes; no validan ni emiten automaticamente.

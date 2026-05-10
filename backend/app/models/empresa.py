@@ -50,6 +50,9 @@ class Empresa(Base):
     lotes_comprobantes = relationship(
         "LoteComprobante", back_populates="empresa", cascade="all, delete-orphan"
     )
+    perfiles_carga_masiva = relationship(
+        "PerfilCargaMasiva", back_populates="empresa", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Empresa {self.razon_social} - CUIT: {self.cuit}>"

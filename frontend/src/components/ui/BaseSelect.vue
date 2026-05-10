@@ -32,6 +32,9 @@ const emit = defineEmits<{
 const attrs = useAttrs();
 const generatedId = useId();
 const selectId = computed(() => (attrs.id as string) || generatedId);
+const tieneOpcionVacia = computed(() =>
+  props.options.some((option) => option.value === ""),
+);
 
 const selectClasses = computed(() => {
   const baseClasses =
@@ -69,7 +72,7 @@ const handleChange = (event: Event) => {
       v-bind="attrs"
       @change="handleChange"
     >
-      <option value="" disabled>
+      <option v-if="!tieneOpcionVacia" value="" disabled>
         {{ placeholder || "Seleccionar..." }}
       </option>
       <option

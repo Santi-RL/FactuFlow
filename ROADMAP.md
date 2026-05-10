@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-09
+Ultima actualizacion: 2026-05-10
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -45,6 +45,10 @@ Cerrar un MVP funcional centrado en:
 - [x] Emision individual real validada con CAE
 - [x] Emision masiva por Excel implementada
 - [x] Formatos de importacion configurables para emision masiva con alcance global y por emisor
+- [x] Perfiles de carga masiva por emisor para precargar formato, concepto,
+  descripcion y fechas visibles antes de validar
+- [x] Perfiles de carga masiva no permiten guardar fecha actual como regla de
+  emision fiscal
 - [x] Emision masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
 - [x] Fecha de emision explicita; no se asume fecha del dia actual al emitir
 - [x] Confirmacion final obligatoria de fecha fiscal antes de solicitar CAE
@@ -163,18 +167,22 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Formato particular local para Cano (`Factura B IVA 21%`) con neto
   gravado como precio del item, total como referencia y consumidor final sin
   documento cuando corresponde
+- [x] Validacion de consistencia entre total informado por archivo externo y
+  total calculado desde items e IVA antes de permitir emision
 - [x] Politica explicita de fecha de emision por lote: desde archivo o fecha fija confirmada
 - [x] Politica explicita de concepto fiscal ARCA por lote: productos, servicios
   o definido por archivo
 - [x] Politica explicita de descripcion facturada del item por lote: desde
   archivo o valor fijo para todo el lote, independiente del concepto fiscal ARCA
+- [x] Perfiles de carga masiva por emisor, con predeterminado y reglas
+  relativas de fechas resueltas en pantalla antes de validar
 - [x] Agrupacion por `comprobante_ref`
 - [x] Prevalidacion por fila y por comprobante
 - [x] Reintento seguro del mismo archivo cuando el lote previo no emitio CAE
 - [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
 - [x] Snapshot fiscal del receptor en comprobantes
 - [x] Clientes precargados opcionales para lotes masivos
-- [x] Emision sync para lotes chicos
+- [x] Emision de lotes chicos desde UI observable por background/polling
 - [x] Ejecucion asincronica para lotes grandes
 
 ### UX de lotes
@@ -188,21 +196,30 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Confirmacion de concepto fiscal ARCA antes de validar; si viene del archivo, todas las filas deben indicar `Producto` o `Servicio`
 - [x] Confirmacion de descripcion/concepto facturado del item antes de validar:
   desde archivo o texto fijo para todo el lote
+- [x] Selector de perfil de carga masiva en emision masiva, con aplicacion
+  automatica cuando el emisor tiene uno solo o uno predeterminado
+- [x] Si el usuario modifica una configuracion precargada por perfil de carga
+  masiva, el lote se valida sin snapshot de perfil aplicado
 - [x] Separacion clara entre validar lote y emitir comprobantes validos
 - [x] Mensajes basicos de validacion
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente
 - [x] QA manual local del formato global de extracto bancario sin emitir
-- [ ] QA visual local del selector obligatorio de fechas fiscales en lotes
+- [x] QA visual local del selector obligatorio de fechas fiscales en lotes
 - [x] QA visual local de descripcion/concepto facturado del item independiente
   del concepto fiscal ARCA, sin defaults ocultos
+- [x] QA visual local de perfiles de carga masiva: crear, editar, eliminar,
+  predeterminar, autoaplicar, modificar antes de validar y verificar modal final
+  de fecha fiscal sin emitir
 - [x] Preparacion y validacion segura sin emision de lote de Nota de Credito C
   para anular duplicados productivos
 - [x] Emision y verificacion por consulta ARCA de 19 Nota de Credito C para
   anular duplicados productivos
+- [x] Preparacion y validacion segura sin emision de 1113 Nota de Credito B
+  para corregir Factura B Cano emitidas con total usado como neto
 - [~] QA manual especifica de formatos particulares por emisor
 - [ ] Descarga de archivo observado con errores mas amigable
-- [ ] Mejores estados de seguimiento para lotes grandes
+- [x] Progreso real de lotes con barra, timer, ETA, emitidos, fallidos y pendientes
 
 ### Operacion masiva posterior a la emision
 - [ ] Descarga masiva de PDFs en ZIP
@@ -260,6 +277,7 @@ Objetivo: pasar de una operacion de una sola empresa a una plataforma gestionabl
 - [x] Header `X-Empresa-Id` para admins
 - [x] Selector de emisor activo en frontend
 - [x] Alta basica de nuevos emisores desde UI admin
+- [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`
 - [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF
 - [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
 - [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,

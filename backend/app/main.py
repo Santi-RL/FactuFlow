@@ -21,6 +21,7 @@ from app.api import (
     health,
     lotes_comprobantes,
     pdf,
+    perfiles_carga_masiva,
     puntos_venta,
     reportes,
 )
@@ -79,6 +80,11 @@ app.include_router(
     lotes_comprobantes.router,
     prefix="/api/lotes-comprobantes",
     tags=["Lotes de comprobantes"],
+)
+app.include_router(
+    perfiles_carga_masiva.router,
+    prefix="/api/perfiles-carga-masiva",
+    tags=["Perfiles de carga masiva"],
 )
 app.include_router(
     formatos_importacion.router,

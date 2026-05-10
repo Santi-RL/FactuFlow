@@ -113,6 +113,28 @@ export const mockApi = async (page: Page) => {
     comprobantes: [] as any[],
     nextComprobanteId: 1,
     lotes: [] as any[],
+    perfilesCargaMasiva: [] as any[],
+    nextPerfilCargaMasivaId: 1,
+    formatosImportacion: [
+      {
+        id: 1,
+        nombre: "Extracto bancario - creditos IVA exento",
+        descripcion: "Formato global para pruebas E2E",
+        alcance: "global",
+        activo: true,
+        empresa_id: null,
+        created_at: now,
+        updated_at: now,
+        version_vigente: {
+          id: 1,
+          version: 1,
+          estado: "vigente",
+          configuracion_json: {},
+          headers_firma_json: {},
+          created_at: now,
+        },
+      },
+    ] as any[],
     nextLoteId: 1,
     nextGrupoId: 1,
     nextFilaId: 1,
@@ -353,6 +375,122 @@ export const mockApi = async (page: Page) => {
       if (!hasAuthHeader(route)) return unauthorized(route);
       const id = Number(path.split("/").pop());
       state.clientes = state.clientes.filter((c) => c.id !== id);
+      return route.fulfill({ status: 204, headers: corsHeaders });
+    }
+
+    // Formatos y perfiles de carga masiva
+    if (path === "/api/formatos-importacion" && method === "GET") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const empresaId = getEmpresaActivaId(route);
+      return jsonResponse(
+        route,
+        200,
+        state.formatosImportacion.filter(
+          (formato) =>
+            formato.alcance === "global" || formato.empresa_id === empresaId,
+        ),
+      );
+    }
+
+    if (path === "/api/formatos-importacion/detectar" && method === "POST") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      return jsonResponse(route, 200, {
+        headers_detectados: ["Fecha", "Créditos", "Pto Vta"],
+        candidatos: [
+          {
+            formato_id: 1,
+            formato_version_id: 1,
+            nombre: "Extracto bancario - creditos IVA exento",
+            alcance: "global",
+            version: 1,
+            score: 0.95,
+            confianza: "alta",
+            columnas_detectadas: ["Fecha", "Créditos", "Pto Vta"],
+            columnas_faltantes: [],
+            mensajes: ["Formato sugerido por encabezados."],
+          },
+        ],
+        formato_sugerido_version_id: 1,
+        requiere_confirmacion: true,
+      });
+    }
+
+    if (path === "/api/perfiles-carga-masiva" && method === "GET") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const empresaId = getEmpresaActivaId(route);
+      return jsonResponse(
+        route,
+        200,
+        state.perfilesCargaMasiva.filter(
+          (perfil) => perfil.empresa_id === empresaId && perfil.activo,
+        ),
+      );
+    }
+
+    if (path === "/api/perfiles-carga-masiva" && method === "POST") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const empresaId = getEmpresaActivaId(route);
+      const body = parseBody(route) as any;
+      if (body.es_predeterminado) {
+        state.perfilesCargaMasiva.forEach((perfil) => {
+          if (perfil.empresa_id === empresaId) perfil.es_predeterminado = false;
+        });
+      }
+      const perfil = {
+        id: state.nextPerfilCargaMasivaId++,
+        empresa_id: empresaId,
+        nombre: body.nombre,
+        descripcion: body.descripcion || null,
+        configuracion_json: body.configuracion_json,
+        es_predeterminado: !!body.es_predeterminado,
+        activo: body.activo !== false,
+        created_at: now,
+        updated_at: now,
+      };
+      state.perfilesCargaMasiva.unshift(perfil);
+      return jsonResponse(route, 201, perfil);
+    }
+
+    if (
+      /^\/api\/perfiles-carga-masiva\/\d+\/predeterminado$/.test(path) &&
+      method === "POST"
+    ) {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const empresaId = getEmpresaActivaId(route);
+      const perfilId = Number(path.split("/")[3]);
+      const perfil = state.perfilesCargaMasiva.find(
+        (item) => item.id === perfilId && item.empresa_id === empresaId,
+      );
+      if (!perfil) return jsonResponse(route, 404, { detail: "No encontrado" });
+      state.perfilesCargaMasiva.forEach((item) => {
+        if (item.empresa_id === empresaId) item.es_predeterminado = false;
+      });
+      perfil.es_predeterminado = true;
+      return jsonResponse(route, 200, perfil);
+    }
+
+    if (/^\/api\/perfiles-carga-masiva\/\d+$/.test(path) && method === "PUT") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const empresaId = getEmpresaActivaId(route);
+      const perfilId = Number(path.split("/")[3]);
+      const perfil = state.perfilesCargaMasiva.find(
+        (item) => item.id === perfilId && item.empresa_id === empresaId,
+      );
+      if (!perfil) return jsonResponse(route, 404, { detail: "No encontrado" });
+      Object.assign(perfil, parseBody(route), { updated_at: now });
+      return jsonResponse(route, 200, perfil);
+    }
+
+    if (
+      /^\/api\/perfiles-carga-masiva\/\d+$/.test(path) &&
+      method === "DELETE"
+    ) {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const empresaId = getEmpresaActivaId(route);
+      const perfilId = Number(path.split("/")[3]);
+      state.perfilesCargaMasiva = state.perfilesCargaMasiva.filter(
+        (item) => !(item.id === perfilId && item.empresa_id === empresaId),
+      );
       return route.fulfill({ status: 204, headers: corsHeaders });
     }
 

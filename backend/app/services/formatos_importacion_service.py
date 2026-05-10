@@ -643,6 +643,7 @@ class FormatosImportacionService:
             "tipo_comprobante": valores.get("tipo_comprobante", 11),
             "concepto": valores.get("concepto", ""),
             "fecha_origen": valores.get("fecha_origen", ""),
+            "importe_total": valores.get("importe_total", ""),
             "cliente_tipo_documento": self._inferir_tipo_documento(documento),
             "cliente_numero_documento": documento,
             "cliente_razon_social": valores.get("cliente_razon_social", ""),

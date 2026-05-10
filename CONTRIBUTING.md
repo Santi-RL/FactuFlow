@@ -126,7 +126,44 @@ Bajo / Medio / Alto (opcional)
 
 ---
 
+## 🔧 Flujo interno de trabajo
+
+Para el trabajo diario del proyecto se usa `main` como rama activa. No crear
+branches nuevas salvo que el usuario lo pida explicitamente.
+
+Antes de empezar cualquier cambio:
+
+```bash
+git status --short --branch
+git fetch origin
+git rev-list --left-right --count origin/main...HEAD
+```
+
+Interpretacion minima:
+- Si hay commits locales adelante de `origin/main`, recomendar hacer push antes
+  de seguir.
+- Si hay cambios modificados o sin trackear de una implementacion anterior,
+  recomendar cerrarlos con commit y push antes de acumular trabajo nuevo.
+- Si hay cambios del usuario no relacionados, no revertirlos; trabajar alrededor
+  de ellos o pedir confirmacion si bloquean la tarea.
+
+Despues de implementar:
+- Ejecutar la verificacion proporcional al cambio.
+- Preparar un commit con unidad logica y mensaje Conventional Commit en espanol.
+- Recomendar push para mantener GitHub actualizado.
+- No ejecutar `git push` sin pedido explicito del usuario.
+
+Politica de commits:
+- Preferir una implementacion relevante por commit.
+- Agrupar cambios chicos o bugs relacionados si forman una misma correccion.
+- Evitar commits exclusivos de formato/lint si pueden integrarse al commit
+  funcional sin ensuciar la historia.
+
 ## 🔧 Proceso de Pull Requests
+
+El flujo con Pull Request sigue disponible para colaboraciones externas o
+cambios no triviales cuando se decida trabajar con ramas. En el trabajo interno
+habitual de FactuFlow, la regla anterior sobre `main` tiene prioridad.
 
 ### 1. Fork y Clone
 

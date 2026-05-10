@@ -79,10 +79,6 @@ const abrirPortalArca = () => {
             <h3 class="font-semibold text-gray-900 mb-2">
               Buscá el servicio "Administración de Certificados Digitales"
             </h3>
-            <p class="text-sm text-gray-600">
-              También puede aparecer como "WSASS" o en "Administrador de
-              Relaciones"
-            </p>
           </div>
         </div>
 
@@ -95,7 +91,7 @@ const abrirPortalArca = () => {
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
-              Seleccioná "Agregar Alias" o "Nuevo Certificado"
+              Seleccioná "Agregar Alias"
             </h3>
           </div>
         </div>
@@ -124,7 +120,8 @@ const abrirPortalArca = () => {
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
-              Subí el archivo .csr que descargaste en el paso anterior
+              Luego seleccioná "Agregar Alias" y subí el archivo .csr que
+              descargaste en el paso anterior
             </h3>
           </div>
         </div>
@@ -138,7 +135,8 @@ const abrirPortalArca = () => {
           </div>
           <div>
             <h3 class="font-semibold text-gray-900 mb-2">
-              Descargá el certificado (.crt) que te genera ARCA
+              Hacé click en "Ver" y descargá el certificado (.crt) que te genera
+              ARCA
             </h3>
             <p class="text-sm text-gray-600">
               💡 El archivo descargado suele llamarse algo como

@@ -70,6 +70,9 @@ Mapping aplicado en el proyecto:
   `X-Confirmacion-Fecha-Fiscal: true` para lotes.
 - En lotes, el usuario debe elegir si la fecha de emision sale del archivo o si
   se fija una fecha para todos los comprobantes antes de validar.
+- Los perfiles de carga masiva pueden sugerir reglas relativas como ultimo dia
+  del mes anterior o emision mas dias, pero la UI debe resolverlas a fechas
+  concretas visibles antes de validar. No son defaults fiscales silenciosos.
 - Para servicios tambien se deben resolver `FchServDesde`, `FchServHasta` y
   `FchVtoPago`.
 - Validacion preventiva usada por el proyecto:
@@ -94,6 +97,8 @@ Mapping aplicado en el proyecto:
   archivo o de un valor fijo confirmado para todo el lote.
 - No usar defaults ocultos para la descripcion del item antes de validar o
   emitir.
+- Los perfiles de carga masiva pueden precargar concepto fiscal ARCA y
+  descripcion facturada solo como valores visibles/editables antes de validar.
 - Si la fecha del archivo queda fuera de la ventana ARCA aplicable al concepto,
   el usuario debe elegir por pantalla una fecha permitida por el web service
   antes de emitir.

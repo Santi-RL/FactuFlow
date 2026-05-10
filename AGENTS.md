@@ -63,8 +63,22 @@
 - `docs/arca-ws/_extracted/` es material derivado. Si vuelve a generarse localmente, no tomarlo como fuente canónica.
 
 ## Git / Colaboración
-- No ejecutar `git push` sin pedido explícito del usuario. Si hay cambios listos para publicar, preparar commit(s) y pedir confirmación antes de pushear.
-- Preferir PRs para cambios no triviales; si se trabaja sobre `main`, minimizar commits “de ruido” (formato/lint) y agruparlos.
+- Rama de trabajo por defecto: `main`. No crear ramas nuevas salvo pedido
+  explicito del usuario.
+- Antes de empezar un cambio, revisar `git status --short --branch` y, si hace
+  falta, comparar con `origin/main`. Si hay commits locales sin publicar o
+  cambios listos de una implementacion anterior, avisar y recomendar cerrar ese
+  ciclo con commit/push antes de acumular trabajo nuevo.
+- Mantener cada implementacion relevante en su propio commit. Para ajustes
+  chicos, bugs relacionados o correcciones de una misma verificacion, se puede
+  agrupar un commit unico si mantiene una unidad logica clara.
+- Despues de implementar y verificar un cambio, recomendar commit y push para
+  mantener `main` local y GitHub sincronizados.
+- No ejecutar `git push` sin pedido explicito del usuario. Si hay cambios listos
+  para publicar, preparar commit(s) y pedir confirmacion antes de pushear.
+- Preferir PRs para cambios no triviales cuando el usuario lo pida. En el flujo
+  habitual sobre `main`, minimizar commits de ruido (formato/lint) y agruparlos
+  con el cambio funcional correspondiente.
 
 ## Comandos
 ### Backend

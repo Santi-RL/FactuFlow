@@ -42,7 +42,7 @@ export interface LoteComprobante {
   grupos_emitidos: number;
   grupos_fallidos: number;
   mensaje_resumen: string | null;
-  metadata_json: Record<string, string | number | null> | null;
+  metadata_json: Record<string, unknown> | null;
   mapeo_usado_json: Record<string, unknown> | null;
   headers_detectados_json: string[] | null;
   started_at: string | null;

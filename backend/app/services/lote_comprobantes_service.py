@@ -278,6 +278,7 @@ class LoteComprobantesService:
         opciones_concepto: OpcionesConceptoLote,
         opciones_descripcion_item: OpcionesDescripcionItemLote,
         formato_version_id: int | None = None,
+        perfil_carga_masiva_snapshot: dict[str, Any] | None = None,
     ) -> LoteComprobante:
         """Valida un archivo Excel y persiste el lote con su detalle."""
         if not file_bytes:
@@ -357,6 +358,7 @@ class LoteComprobantesService:
             metadata_json={
                 "empresa_cuit": empresa.cuit,
                 "formato_importacion": importacion["formato_nombre"],
+                "perfil_carga_masiva": perfil_carga_masiva_snapshot,
                 "opciones_fechas": self._serializar_opciones_fechas(opciones_fechas),
                 "opciones_concepto": self._serializar_opciones_concepto(
                     opciones_concepto
@@ -828,6 +830,8 @@ class LoteComprobantesService:
                 grupo.mensajes_json = [str(exc)]
                 await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
 
+            await self.db.flush()
+            await self._actualizar_progreso_lote(lote_id)
             await self.db.commit()
 
         lote = await self.obtener_lote(lote_id, empresa_id)
@@ -872,6 +876,14 @@ class LoteComprobantesService:
             raise LoteComprobanteError(
                 "El lote ya está siendo procesado o fue procesado previamente."
             )
+
+    async def _actualizar_progreso_lote(self, lote_id: int) -> None:
+        """Persiste los contadores parciales mientras un lote se procesa."""
+        result = await self.db.execute(
+            select(LoteComprobante).where(LoteComprobante.id == lote_id)
+        )
+        lote = result.scalar_one()
+        await self._actualizar_estado_lote(lote)
 
     async def generar_archivo_observado(self, lote_id: int, empresa_id: int) -> bytes:
         """Genera un archivo observado con resultados por fila."""
@@ -1234,6 +1246,21 @@ class LoteComprobantesService:
 
         if not items:
             mensajes.append(f"El comprobante {comprobante_ref} no tiene ítems válidos")
+        elif not mensajes:
+            total_archivo = self._total_informado_por_archivo(rows)
+            if total_archivo is not None:
+                total_calculado = self.facturacion_service._calcular_totales(items)[
+                    "total"
+                ]
+                diferencia = abs(total_calculado - total_archivo)
+                if diferencia > Decimal("0.01"):
+                    mensajes.append(
+                        f"El total calculado para {comprobante_ref} "
+                        f"({total_calculado:.2f}) no coincide con el total "
+                        f"informado por el archivo ({total_archivo:.2f}). "
+                        "Revisá si la columna usada como precio unitario ya "
+                        "incluye IVA."
+                    )
 
         if tipo_documento is None:
             tipo_documento_raw = str(header.get("cliente_tipo_documento", "")).strip()
@@ -1345,6 +1372,23 @@ class LoteComprobantesService:
             "total_estimado": totales["total"],
         }
 
+    def _total_informado_por_archivo(
+        self, rows: list[tuple[int, dict[str, Any]]]
+    ) -> Decimal | None:
+        """Suma el total informado por el archivo externo, si existe."""
+        total = Decimal("0")
+        encontrado = False
+        for _, row in rows:
+            valor = row.get("importe_total")
+            if valor in (None, ""):
+                continue
+            importe = self._parse_decimal(valor)
+            if importe is None:
+                continue
+            total += importe
+            encontrado = True
+        return total if encontrado else None
+
     async def _actualizar_estado_lote(self, lote: LoteComprobante) -> None:
         """Recalcula contadores y estado del lote."""
         grupos = await self._obtener_grupos_lote(lote.id)
@@ -1355,7 +1399,16 @@ class LoteComprobantesService:
         lote.grupos_fallidos = len([g for g in grupos if g.estado == "fallido"])
 
         if lote.estado == "procesando":
-            lote.mensaje_resumen = "Procesando comprobantes..."
+            total_emitible = (
+                lote.grupos_emitidos + lote.grupos_fallidos + lote.grupos_validos
+            )
+            procesados = lote.grupos_emitidos + lote.grupos_fallidos
+            if total_emitible:
+                lote.mensaje_resumen = (
+                    f"Procesando comprobante {procesados} de {total_emitible}..."
+                )
+            else:
+                lote.mensaje_resumen = "Procesando comprobantes..."
             return
         if lote.estado == "en_cola":
             lote.mensaje_resumen = "El lote está en cola para procesamiento."
