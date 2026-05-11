@@ -18,7 +18,10 @@ const ESTADOS_ACTIVOS = new Set(["en_cola", "procesando"]);
 
 const parseDate = (value?: string | null) => {
   if (!value) return null;
-  const parsed = new Date(value);
+  const trimmed = value.trim();
+  const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
+  const normalized = trimmed.includes("T") && !hasTimeZone ? `${trimmed}Z` : trimmed;
+  const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 

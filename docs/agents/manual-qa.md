@@ -287,6 +287,11 @@ Pendiente antes de produccion:
 - Se verifico el punto de venta `0005` activo.
 - Durante la QA se detecto y corrigio un fallo real en `Sincronizar con ARCA`.
 - Estado final: sincronizacion ejecutada con respuesta OK desde UI.
+- Verificacion puntual 2026-05-10: para un emisor privado, ARCA produccion
+  devolvio puntos con `Bloqueado=N` y sin fecha de baja. La UI los mostraba como
+  `Otro sistema` porque habian sido sincronizados solo con numero. Se corrigio
+  `Sincronizar con ARCA` para crear o actualizar puntos WSFE como Web Services
+  usables.
 - En preparacion productiva se sincronizaron para el emisor real los puntos
   habilitados `6`, `8`, `10`, `12`, `13` y `14`; ARCA devolvio `7` y `9`
   bloqueados.

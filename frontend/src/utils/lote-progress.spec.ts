@@ -53,7 +53,7 @@ describe("calcularProgresoLote", () => {
         grupos_con_error: 5,
         started_at: "2026-05-10T12:00:00",
       }),
-      new Date("2026-05-10T12:01:00"),
+      new Date("2026-05-10T12:01:00Z"),
     );
 
     expect(progreso.procesados).toBe(2);
@@ -67,8 +67,8 @@ describe("calcularProgresoLote", () => {
   it("muestra estimando cuando no hay comprobantes procesados", () => {
     const progreso = calcularProgresoLote(
       crearLote({ estado: "en_cola", grupos_validos: 3 }),
-      new Date("2026-05-10T12:00:30"),
-      new Date("2026-05-10T12:00:00"),
+      new Date("2026-05-10T12:00:30Z"),
+      new Date("2026-05-10T12:00:00Z"),
     );
 
     expect(progreso.estaEnCola).toBe(true);
@@ -86,11 +86,26 @@ describe("calcularProgresoLote", () => {
         started_at: "2026-05-10T12:00:00",
         finished_at: "2026-05-10T12:02:00",
       }),
-      new Date("2026-05-10T12:10:00"),
+      new Date("2026-05-10T12:10:00Z"),
     );
 
     expect(progreso.porcentaje).toBe(100);
     expect(progreso.transcurridoTexto).toBe("02:00");
     expect(progreso.restanteTexto).toBe("Estimando...");
+  });
+
+  it("interpreta timestamps sin zona horaria del backend como UTC", () => {
+    const progreso = calcularProgresoLote(
+      crearLote({
+        estado: "procesando",
+        grupos_validos: 23,
+        grupos_emitidos: 1,
+        started_at: "2026-05-10T12:00:00",
+      }),
+      new Date("2026-05-10T12:01:00Z"),
+    );
+
+    expect(progreso.transcurridoTexto).toBe("01:00");
+    expect(progreso.restanteTexto).toBe("23:00");
   });
 });

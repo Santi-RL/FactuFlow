@@ -96,6 +96,10 @@
 - `FEParamGetPtosVenta` no devuelve domicilio ni nombre fantasia. Esos datos se
   importan desde la constancia PDF de `Administracion de Puntos de Venta y
   Domicilios`.
+- Los puntos devueltos por `FEParamGetPtosVenta` pertenecen al servicio WSFE:
+  al sincronizarlos en FactuFlow deben quedar marcados como Web Services,
+  activos y no bloqueados cuando `Bloqueado=N` y no tienen fecha de baja. Si se
+  crean solo con numero, la UI los muestra erroneamente como `Otro sistema`.
 - La constancia permite ver tambien puntos de otros sistemas como Factuweb,
   Comprobantes en Linea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.

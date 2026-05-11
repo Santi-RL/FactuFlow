@@ -56,7 +56,8 @@ Cerrar un MVP funcional centrado en:
 - [~] Descripcion/concepto facturado del item documentado como dato separado
   del concepto fiscal ARCA; debe venir del archivo o de un valor fijo confirmado
   para todo el lote, sin defaults ocultos
-- [x] Sincronizacion manual de puntos de venta ARCA validada desde UI
+- [x] Sincronizacion manual de puntos de venta ARCA validada desde UI; los
+  puntos devueltos por WSFE se crean o actualizan como Web Services usables
 - [x] Validacion de puntos de venta en emision normaliza `Bloqueado=N`/`S` de ARCA
 - [x] Factura C no informa objeto `Iva` en WSFE y bloquea items con IVA distinto de 0
 - [x] Notas de credito/debito informan comprobantes asociados en WSFE

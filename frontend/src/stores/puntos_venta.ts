@@ -15,6 +15,21 @@ interface SyncResult {
   existentes: number;
 }
 
+const sistemaWebservice = (punto: PuntoVentaArca): string => {
+  const emisionTipo = punto.emision_tipo?.trim();
+  if (!emisionTipo) {
+    return "Factura Electronica - Web Services";
+  }
+
+  const detalle = emisionTipo.replace(/^CAE\s*-\s*/i, "").trim();
+  return detalle
+    ? `Factura Electronica - ${detalle} - Web Services`
+    : "Factura Electronica - Web Services";
+};
+
+const textoIndicaWebservice = (value: string | null): boolean =>
+  /web\s*services?/i.test(value || "");
+
 export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   const puntosVenta = ref<PuntoVenta[]>([]);
   const loading = ref(false);
@@ -120,16 +135,61 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
         const fechaBaja = pv.fecha_baja?.trim().toUpperCase();
         return pv.bloqueado !== "S" && (!fechaBaja || fechaBaja === "NULL");
       });
-      const existentes = new Set(locales.map((pv) => pv.numero));
+      const existentes = new Map(locales.map((pv) => [pv.numero, pv]));
       const nuevos = habilitados.filter((pv) => !existentes.has(pv.numero));
 
       const creados: PuntoVenta[] = [];
       for (const pv of nuevos) {
-        const creado = await puntosVentaService.create({ numero: pv.numero });
+        const creado = await puntosVentaService.create({
+          numero: pv.numero,
+          nombre: sistemaWebservice(pv),
+          sistema: sistemaWebservice(pv),
+          es_webservice: true,
+          bloqueado: false,
+          fecha_baja: null,
+          fuente: "arca_wsfe",
+        });
         creados.push(creado);
       }
 
-      const merged = [...locales, ...creados];
+      const actualizados: PuntoVenta[] = [];
+      for (const pv of habilitados) {
+        const local = existentes.get(pv.numero);
+        if (!local) continue;
+
+        const sistema = textoIndicaWebservice(local.sistema)
+          ? local.sistema
+          : sistemaWebservice(pv);
+        const needsUpdate =
+          !local.activo ||
+          !local.es_webservice ||
+          local.bloqueado ||
+          !!local.fecha_baja ||
+          !local.sistema ||
+          !textoIndicaWebservice(local.sistema) ||
+          !local.fuente;
+
+        if (!needsUpdate) continue;
+
+        const actualizado = await puntosVentaService.update(local.id, {
+          nombre: local.nombre || sistema,
+          sistema,
+          es_webservice: true,
+          bloqueado: false,
+          fecha_baja: null,
+          fuente: local.fuente || "arca_wsfe",
+          activo: true,
+        });
+        actualizados.push(actualizado);
+      }
+
+      const actualizadosPorNumero = new Map(
+        actualizados.map((pv) => [pv.numero, pv]),
+      );
+      const merged = [
+        ...locales.map((pv) => actualizadosPorNumero.get(pv.numero) || pv),
+        ...creados,
+      ];
       puntosVenta.value = merged.sort((a, b) => a.numero - b.numero);
 
       return {

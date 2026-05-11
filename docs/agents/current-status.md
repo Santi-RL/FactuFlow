@@ -30,6 +30,16 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 
 ## Lo mas importante que quedo hecho hoy
 
+### Sincronizacion de puntos WSFE 2026-05-10
+
+- Se verifico un emisor privado: ARCA produccion devuelve puntos por
+  `FEParamGetPtosVenta` con `Bloqueado=N` y sin fecha de baja.
+- La base local los tenia creados solo con numero, sin `sistema` ni
+  `es_webservice`, por lo que FactuFlow los mostraba como `Otro sistema`.
+- Se ajusto `Sincronizar con ARCA` para que los puntos devueltos por WSFE se
+  creen o actualicen como Web Services activos, no bloqueados y usables por
+  FactuFlow.
+
 ### Progreso real de lotes con timer 2026-05-10
 
 - `POST /api/lotes-comprobantes/{lote_id}/procesar` acepta
@@ -459,6 +469,13 @@ Quedo validado manualmente:
   - impacto: lotes con puntos `6`, `10` o `13` podian fallar al emitir aunque
     `GET /api/arca/puntos-venta` los mostrara no bloqueados
   - estado: corregido y cubierto con tests unitarios
+- Sincronizacion visual de puntos Web Services:
+  - `Sincronizar con ARCA` creaba puntos nuevos solo con numero, sin marcarlos
+    como Web Services
+  - impacto: emisores privados mostraban puntos devueltos por ARCA como
+    `Otro sistema` aunque ARCA los devolviera habilitados para WSFE
+  - estado: corregido en frontend; una nueva sincronizacion actualiza registros
+    existentes incompletos
 - Armado de IVA para Factura C:
   - el request ARCA enviaba `Iva: { AlicIva: [...] }` con alicuota 0
   - impacto: ARCA rechazaba con `[10071] Para comprobantes tipo C el objeto IVA

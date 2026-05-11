@@ -394,7 +394,8 @@ Importante:
 - el numero debe coincidir con el punto de venta habilitado en ARCA para el sistema usado
 - para homologacion o produccion con webservices, validar el punto de venta antes de emitir
 - puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio
-- la sincronizacion importa solo puntos no bloqueados y sin fecha de baja
+- la sincronizacion importa o actualiza puntos no bloqueados y sin fecha de
+  baja como puntos Web Services usables
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
   completa de puntos, incluyendo sistema, domicilio y nombre de fantasia
 - FactuFlow marca como `Usable` solo los puntos Web Services activos, no
