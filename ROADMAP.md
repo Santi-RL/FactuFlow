@@ -45,8 +45,8 @@ Cerrar un MVP funcional centrado en:
 - [x] Emision individual real validada con CAE
 - [x] Emision masiva por Excel implementada
 - [x] Formatos de importacion configurables para emision masiva con alcance global y por emisor
-- [x] Perfiles de carga masiva por emisor para precargar formato, concepto,
-  descripcion y fechas visibles antes de validar
+- [x] Perfiles de carga masiva por emisor para precargar formato, punto de
+  venta, concepto, descripcion y fechas visibles antes de validar
 - [x] Perfiles de carga masiva no permiten guardar fecha actual como regla de
   emision fiscal
 - [x] Emision masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
@@ -176,8 +176,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   o definido por archivo
 - [x] Politica explicita de descripcion facturada del item por lote: desde
   archivo o valor fijo para todo el lote, independiente del concepto fiscal ARCA
-- [x] Perfiles de carga masiva por emisor, con predeterminado y reglas
-  relativas de fechas resueltas en pantalla antes de validar
+- [x] Perfiles de carga masiva por emisor, con predeterminado, punto de venta y
+  reglas relativas de fechas resueltas en pantalla antes de validar
 - [x] Agrupacion por `comprobante_ref`
 - [x] Prevalidacion por fila y por comprobante
 - [x] Reintento seguro del mismo archivo cuando el lote previo no emitio CAE
@@ -200,6 +200,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   desde archivo o texto fijo para todo el lote
 - [x] Selector de perfil de carga masiva en emision masiva, con aplicacion
   automatica cuando el emisor tiene uno solo o uno predeterminado
+- [x] Selector de punto de venta en perfiles y emision masiva: usar el punto del
+  archivo o fijar uno usable del emisor activo
 - [x] Si el usuario modifica una configuracion precargada por perfil de carga
   masiva, el lote se valida sin snapshot de perfil aplicado
 - [x] Separacion clara entre validar lote y emitir comprobantes validos

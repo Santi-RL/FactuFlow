@@ -20,6 +20,7 @@ const crearPerfil = (
   configuracion_json: {
     version: 1,
     formato_importacion_version_id: 10,
+    punto_venta: { modo: "archivo", numero: null },
     concepto_modo: "servicios",
     descripcion_item_modo: "fija",
     descripcion_item_fija: "Ajuste",
@@ -38,6 +39,8 @@ describe("resolverPerfilCargaMasiva", () => {
     );
 
     expect(result.formatoVersionId).toBe(10);
+    expect(result.opciones.punto_venta_modo).toBe("archivo");
+    expect(result.opciones.punto_venta_numero).toBeUndefined();
     expect(result.opciones.fecha_emision_modo).toBe("fija");
     expect(result.opciones.fecha_emision_fija).toBe("2026-04-30");
     expect(result.opciones.fecha_servicio_desde_fija).toBe("2026-04-01");
@@ -75,6 +78,18 @@ describe("resolverPerfilCargaMasiva", () => {
     expect(result.opciones.fecha_emision_fija).toBeUndefined();
     expect(result.opciones.fecha_servicio_desde_modo).toBe("archivo");
     expect(result.opciones.fecha_vto_pago_modo).toBe("archivo");
+  });
+
+  it("resuelve punto de venta fijo del perfil", () => {
+    const result = resolverPerfilCargaMasiva(
+      crearPerfil({
+        punto_venta: { modo: "fijo", numero: 13 },
+      }),
+      new Date(2026, 4, 9),
+    );
+
+    expect(result.opciones.punto_venta_modo).toBe("fijo");
+    expect(result.opciones.punto_venta_numero).toBe(13);
   });
 });
 

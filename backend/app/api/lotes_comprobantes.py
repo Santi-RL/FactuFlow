@@ -39,6 +39,7 @@ from app.services.lote_comprobantes_service import (
     OpcionesConceptoLote,
     OpcionesDescripcionItemLote,
     OpcionesFechasLote,
+    OpcionesPuntoVentaLote,
 )
 from app.services.lote_worker import ensure_lote_worker_running
 from app.services.perfiles_carga_masiva_service import (
@@ -102,6 +103,8 @@ async def validar_archivo_lote(
     archivo: UploadFile = File(...),
     formato_version_id: int | None = Form(None),
     perfil_carga_masiva_id: int | None = Form(None),
+    punto_venta_modo: str = Form("archivo"),
+    punto_venta_numero: int | None = Form(None),
     concepto_modo: str = Form(...),
     descripcion_item_modo: str = Form(...),
     descripcion_item_fija: str | None = Form(None),
@@ -131,6 +134,10 @@ async def validar_archivo_lote(
     opciones_descripcion_item = OpcionesDescripcionItemLote(
         descripcion_item_modo=descripcion_item_modo,
         descripcion_item_fija=descripcion_item_fija,
+    )
+    opciones_punto_venta = OpcionesPuntoVentaLote(
+        punto_venta_modo=punto_venta_modo,
+        punto_venta_numero=punto_venta_numero,
     )
     opciones_fechas = OpcionesFechasLote(
         fecha_emision_modo=fecha_emision_modo,
@@ -163,6 +170,7 @@ async def validar_archivo_lote(
             opciones_fechas=opciones_fechas,
             opciones_concepto=opciones_concepto,
             opciones_descripcion_item=opciones_descripcion_item,
+            opciones_punto_venta=opciones_punto_venta,
             formato_version_id=formato_version_id,
             perfil_carga_masiva_snapshot=perfil_snapshot,
         )

@@ -77,6 +77,19 @@ Validado visualmente en `http://127.0.0.1:8080` con usuario local privado:
 - El cambio de emisor activo recargo perfiles, lotes y formatos sin mezclar
   CUITs.
 
+Actualizacion 2026-05-10:
+- Los perfiles de carga masiva permiten elegir `Utilizar punto de venta definido
+  en el archivo` o un punto de venta usable del emisor activo.
+- Si el emisor no tiene puntos usables cargados, el modal de perfil indica que
+  primero deben completarse en `Puntos de venta`.
+- En `Emision masiva`, el punto de venta aplicado por perfil queda visible y
+  editable antes de validar; si se elige un punto fijo, la validacion usa ese
+  punto para todos los comprobantes.
+- Verificacion automatizada sin emision: backend cubre perfil con punto
+  habilitado, rechazo de punto no usable, sobrescritura del punto del archivo al
+  validar lote y bloqueo de punto fijo no cargado. Frontend cubre resolucion de
+  punto fijo desde perfil.
+
 ### Selector de emisor activo - QA 2026-05-09
 
 - Usuario usado: cuenta QA local privada.

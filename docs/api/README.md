@@ -337,6 +337,14 @@ lotes chicos, para mostrar progreso real por polling.
   usuario modifica la configuracion precargada antes de validar. El perfil no
   reemplaza las politicas fiscales del form; esas politicas deben llegar ya
   resueltas y visibles para el usuario.
+- `punto_venta_modo`: opcional, default `archivo`. Valores: `archivo` o
+  `fijo`. Si es `archivo`, se usa el punto de venta mapeado desde el Excel. Si
+  es `fijo`, la validacion sobrescribe el punto de venta de todas las filas con
+  `punto_venta_numero`.
+- `punto_venta_numero`: requerido cuando `punto_venta_modo=fijo`. Debe existir
+  para el emisor activo y estar activo, Web Services, no bloqueado y sin fecha
+  de baja. Si no esta cargado en `Puntos de venta`, la API rechaza la
+  validacion.
 - `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
 - `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
 - `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.
@@ -409,12 +417,16 @@ POST /api/perfiles-carga-masiva/{perfil_id}/predeterminado
 
 Los perfiles de carga masiva pertenecen al emisor activo resuelto por JWT y
 `X-Empresa-Id`. Permiten guardar una configuracion visible para precargar
-`Emision masiva`: formato opcional, concepto fiscal ARCA, descripcion facturada
-y reglas relativas de fechas.
+`Emision masiva`: formato opcional, punto de venta, concepto fiscal ARCA,
+descripcion facturada y reglas relativas de fechas.
 
 El payload usa `configuracion_json` versionado. Valores principales:
 - `formato_importacion_version_id`: opcional; debe ser global o pertenecer al
   emisor activo.
+- `punto_venta.modo`: `archivo` para usar el punto definido en el Excel o
+  `fijo` para precargar un punto concreto del emisor.
+- `punto_venta.numero`: requerido cuando `punto_venta.modo=fijo`; debe estar
+  cargado como punto usable por FactuFlow en `Puntos de venta`.
 - `concepto_modo`: `productos`, `servicios`, `archivo` o vacio para completar
   en la carga.
 - `descripcion_item_modo`: `archivo`, `fija` o vacio.

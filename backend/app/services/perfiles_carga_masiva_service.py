@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
+from app.models.punto_venta import PuntoVenta
 from app.services.formatos_importacion_service import FormatosImportacionService
 
 
@@ -21,6 +22,7 @@ class PerfilesCargaMasivaService:
 
     MODOS_CONCEPTO = {"productos", "servicios", "archivo", ""}
     MODOS_DESCRIPCION = {"archivo", "fija", ""}
+    MODOS_PUNTO_VENTA = {"archivo", "fijo", ""}
     MODOS_FECHA_EMISION = {
         "archivo",
         "manual",
@@ -204,6 +206,7 @@ class PerfilesCargaMasivaService:
             raise PerfilCargaMasivaError(
                 "La política de descripción facturada del perfil es inválida"
             )
+        await self._validar_punto_venta(configuracion, empresa_id)
 
         self._validar_modo_anidado(
             configuracion,
@@ -284,3 +287,39 @@ class PerfilesCargaMasivaService:
             raise PerfilCargaMasivaError(f"La regla de {nombre} es inválida")
         if regla.get("modo", "") not in modos_validos:
             raise PerfilCargaMasivaError(f"La regla de {nombre} es inválida")
+
+    async def _validar_punto_venta(
+        self, configuracion: dict[str, Any], empresa_id: int
+    ) -> None:
+        """Valida que el punto de venta fijo pertenezca al emisor activo."""
+        regla = configuracion.get("punto_venta") or {"modo": "archivo"}
+        if not isinstance(regla, dict):
+            raise PerfilCargaMasivaError("La regla de punto de venta es inválida")
+        modo = regla.get("modo", "archivo")
+        if modo not in self.MODOS_PUNTO_VENTA:
+            raise PerfilCargaMasivaError("La regla de punto de venta es inválida")
+        if modo != "fijo":
+            return
+
+        try:
+            numero = int(regla.get("numero") or 0)
+        except (TypeError, ValueError) as exc:
+            raise PerfilCargaMasivaError(
+                "El punto de venta del perfil debe ser un número válido"
+            ) from exc
+
+        result = await self.db.execute(
+            select(PuntoVenta).where(
+                PuntoVenta.empresa_id == empresa_id,
+                PuntoVenta.numero == numero,
+                PuntoVenta.activo.is_(True),
+                PuntoVenta.es_webservice.is_(True),
+                PuntoVenta.bloqueado.is_(False),
+                PuntoVenta.fecha_baja.is_(None),
+            )
+        )
+        if result.scalar_one_or_none() is None:
+            raise PerfilCargaMasivaError(
+                "El punto de venta elegido no está habilitado para usar en FactuFlow. "
+                "Primero completá Puntos de venta para este emisor."
+            )

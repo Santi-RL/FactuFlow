@@ -11,7 +11,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - Backend FastAPI operativo con auth, empresas, clientes, puntos de venta, certificados, comprobantes, PDF, lotes y reportes.
 - Backend ya registra formatos configurables de importacion para lotes masivos, con formatos globales y particulares por emisor.
 - Backend ya registra perfiles de carga masiva por emisor para precargar
-  formato, concepto fiscal ARCA, descripcion facturada y reglas de fechas.
+  formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
+  de fechas.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
 - Emision masiva ahora puede usar plantilla oficial o formatos configurables con autodeteccion asistida.
 - Emision masiva ahora puede aplicar perfiles de carga masiva visibles y
@@ -68,8 +69,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - `Emisores` ahora tiene pestaña `Carga masiva` para crear, editar, eliminar y
   marcar perfiles como predeterminados.
 - Un perfil de carga masiva puede recordar formato de importacion opcional,
-  concepto fiscal ARCA, descripcion facturada y reglas relativas de fechas como
-  `ultimo_dia_mes_anterior`, `mes_anterior_completo`,
+  punto de venta, concepto fiscal ARCA, descripcion facturada y reglas relativas
+  de fechas como `ultimo_dia_mes_anterior`, `mes_anterior_completo`,
   `mismo_dia_emision` o `emision_mas_dias`.
 - Por regla fiscal critica, el perfil de carga masiva no permite guardar
   `fecha_actual` como fecha de emision: no debe convertir la fecha del navegador

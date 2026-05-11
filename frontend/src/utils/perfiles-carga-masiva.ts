@@ -49,6 +49,7 @@ const lastDayOfPreviousMonth = (baseDate: Date): Date => {
 export const configuracionPerfilVacia = (): PerfilCargaMasivaConfiguracion => ({
   version: 1,
   formato_importacion_version_id: null,
+  punto_venta: { modo: "archivo", numero: null },
   concepto_modo: "",
   descripcion_item_modo: "",
   descripcion_item_fija: "",
@@ -77,6 +78,12 @@ export const resolverPerfilCargaMasiva = (
     formatoVersionId: config.formato_importacion_version_id || "",
     opciones: {
       concepto_modo: config.concepto_modo || "",
+      punto_venta_modo:
+        config.punto_venta?.modo === "fijo" ? "fijo" : "archivo",
+      punto_venta_numero:
+        config.punto_venta?.modo === "fijo"
+          ? Number(config.punto_venta.numero || 0) || undefined
+          : undefined,
       descripcion_item_modo: config.descripcion_item_modo || "",
       descripcion_item_fija: config.descripcion_item_fija || undefined,
       fecha_emision_modo: fechaEmision.modo,

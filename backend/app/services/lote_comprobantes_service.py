@@ -80,6 +80,14 @@ class OpcionesDescripcionItemLote:
     descripcion_item_fija: str | None = None
 
 
+@dataclass(frozen=True)
+class OpcionesPuntoVentaLote:
+    """Define cómo tomar el punto de venta al validar un lote."""
+
+    punto_venta_modo: str = "archivo"
+    punto_venta_numero: int | None = None
+
+
 class LoteComprobantesService:
     """Servicio de carga y emisión masiva de comprobantes."""
 
@@ -277,14 +285,17 @@ class LoteComprobantesService:
         opciones_fechas: OpcionesFechasLote,
         opciones_concepto: OpcionesConceptoLote,
         opciones_descripcion_item: OpcionesDescripcionItemLote,
+        opciones_punto_venta: OpcionesPuntoVentaLote | None = None,
         formato_version_id: int | None = None,
         perfil_carga_masiva_snapshot: dict[str, Any] | None = None,
     ) -> LoteComprobante:
         """Valida un archivo Excel y persiste el lote con su detalle."""
         if not file_bytes:
             raise LoteComprobanteError("El archivo está vacío")
+        opciones_punto_venta = opciones_punto_venta or OpcionesPuntoVentaLote()
         self._validar_opciones_concepto(opciones_concepto)
         self._validar_opciones_descripcion_item(opciones_descripcion_item)
+        self._validar_opciones_punto_venta(opciones_punto_venta)
         self._validar_opciones_fechas(
             opciones_fechas,
             requiere_fechas_servicio=opciones_concepto.concepto_modo != "productos",
@@ -296,6 +307,7 @@ class LoteComprobantesService:
             opciones_fechas,
             opciones_concepto,
             opciones_descripcion_item,
+            opciones_punto_venta,
         )
         await self._preparar_idempotencia(empresa.id, file_hash)
 
@@ -327,6 +339,11 @@ class LoteComprobantesService:
         ]
 
         puntos_venta = await self._obtener_puntos_venta(empresa.id)
+        self._validar_punto_venta_fijo(opciones_punto_venta, puntos_venta)
+        filas_excel = [
+            self._aplicar_opciones_punto_venta(row, opciones_punto_venta)
+            for row in filas_excel
+        ]
         certificado = await self._obtener_certificado_activo(empresa.id)
         if certificado is None:
             raise LoteComprobanteError(
@@ -367,6 +384,9 @@ class LoteComprobantesService:
                     self._serializar_opciones_descripcion_item(
                         opciones_descripcion_item
                     )
+                ),
+                "opciones_punto_venta": self._serializar_opciones_punto_venta(
+                    opciones_punto_venta
                 ),
             },
         )
@@ -450,8 +470,9 @@ class LoteComprobantesService:
         opciones_fechas: OpcionesFechasLote,
         opciones_concepto: OpcionesConceptoLote,
         opciones_descripcion_item: OpcionesDescripcionItemLote,
+        opciones_punto_venta: OpcionesPuntoVentaLote,
     ) -> str:
-        """Calcula idempotencia por archivo, formato y políticas fiscales."""
+        """Calcula idempotencia por archivo, formato y políticas operativas."""
         formato_key = str(formato_version_id or "plantilla_oficial").encode("utf-8")
         fechas_key = repr(
             sorted(self._serializar_opciones_fechas(opciones_fechas).items())
@@ -466,6 +487,9 @@ class LoteComprobantesService:
                 ).items()
             )
         ).encode("utf-8")
+        punto_venta_key = repr(
+            sorted(self._serializar_opciones_punto_venta(opciones_punto_venta).items())
+        ).encode("utf-8")
         return hashlib.sha256(
             file_bytes
             + b":factuflow-format:"
@@ -476,6 +500,8 @@ class LoteComprobantesService:
             + concepto_key
             + b":factuflow-item-description:"
             + descripcion_key
+            + b":factuflow-point-of-sale:"
+            + punto_venta_key
         ).hexdigest()
 
     def _validar_opciones_concepto(self, opciones: OpcionesConceptoLote) -> None:
@@ -499,6 +525,31 @@ class LoteComprobantesService:
         ):
             raise LoteComprobanteError(
                 "Debes indicar la descripción facturada fija antes de validar el lote."
+            )
+
+    def _validar_opciones_punto_venta(self, opciones: OpcionesPuntoVentaLote) -> None:
+        """Valida que la política de punto de venta sea explícita y consistente."""
+        if opciones.punto_venta_modo not in {"archivo", "fijo"}:
+            raise LoteComprobanteError(
+                "Debes indicar si el punto de venta sale del archivo o se fija para todo el lote."
+            )
+        if opciones.punto_venta_modo == "fijo" and not opciones.punto_venta_numero:
+            raise LoteComprobanteError(
+                "Debes indicar el punto de venta fijo antes de validar el lote."
+            )
+
+    def _validar_punto_venta_fijo(
+        self,
+        opciones: OpcionesPuntoVentaLote,
+        puntos_venta: dict[int, PuntoVenta],
+    ) -> None:
+        """Verifica que el punto de venta fijo esté habilitado para FactuFlow."""
+        if opciones.punto_venta_modo != "fijo":
+            return
+        if opciones.punto_venta_numero not in puntos_venta:
+            raise LoteComprobanteError(
+                "El punto de venta elegido no está habilitado para usar en FactuFlow. "
+                "Primero completá Puntos de venta para este emisor."
             )
 
     def _validar_opciones_fechas(
@@ -561,6 +612,15 @@ class LoteComprobantesService:
                 if opciones.descripcion_item_fija
                 else None
             ),
+        }
+
+    def _serializar_opciones_punto_venta(
+        self, opciones: OpcionesPuntoVentaLote
+    ) -> dict[str, str | int | None]:
+        """Convierte la política de punto de venta a JSON persistible."""
+        return {
+            "punto_venta_modo": opciones.punto_venta_modo,
+            "punto_venta_numero": opciones.punto_venta_numero,
         }
 
     def _serializar_opciones_fechas(
@@ -658,6 +718,17 @@ class LoteComprobantesService:
         updated = dict(row)
         if opciones.descripcion_item_modo == "fija":
             updated["item_descripcion"] = (opciones.descripcion_item_fija or "").strip()
+        return updated
+
+    def _aplicar_opciones_punto_venta(
+        self,
+        row: dict[str, Any],
+        opciones: OpcionesPuntoVentaLote,
+    ) -> dict[str, Any]:
+        """Completa el punto de venta según la elección del usuario."""
+        updated = dict(row)
+        if opciones.punto_venta_modo == "fijo":
+            updated["punto_venta_numero"] = opciones.punto_venta_numero
         return updated
 
     def _resolver_concepto_archivo(self, value: Any) -> int | str:

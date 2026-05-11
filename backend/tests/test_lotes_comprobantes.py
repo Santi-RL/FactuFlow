@@ -24,6 +24,7 @@ from app.services.lote_comprobantes_service import (
 
 def _build_lote_excel(
     empresa_cuit: str,
+    punto_venta_numero: int | str = 1,
     concepto: int | str = 1,
     tipo_comprobante: int = 6,
     iva: int | float = 21,
@@ -99,7 +100,7 @@ def _build_lote_excel(
         [
             "LOTE-001",
             empresa_cuit,
-            1,
+            punto_venta_numero,
             tipo_comprobante,
             concepto,
             date.today().isoformat(),
@@ -348,11 +349,14 @@ def _opciones_fechas(
     concepto_modo: str = "productos",
     descripcion_item_modo: str = "archivo",
     descripcion_item_fija: str | None = None,
+    punto_venta_modo: str = "archivo",
+    punto_venta_numero: int | None = None,
 ) -> dict[str, str]:
     """Devuelve opciones explícitas para validar lotes."""
     data = {
         "concepto_modo": concepto_modo,
         "descripcion_item_modo": descripcion_item_modo,
+        "punto_venta_modo": punto_venta_modo,
         "fecha_emision_modo": fecha_emision_modo,
         "fecha_servicio_desde_modo": "archivo",
         "fecha_servicio_hasta_modo": "archivo",
@@ -362,6 +366,8 @@ def _opciones_fechas(
         data["fecha_emision_fija"] = fecha_emision_fija.isoformat()
     if descripcion_item_fija:
         data["descripcion_item_fija"] = descripcion_item_fija
+    if punto_venta_numero:
+        data["punto_venta_numero"] = str(punto_venta_numero)
     return data
 
 
@@ -453,6 +459,85 @@ async def test_validar_lote_registra_grupos_y_filas(
     assert len(detalle_data["grupos"]) == 1
     assert len(detalle_data["filas"]) == 1
     assert detalle_data["grupos"][0]["estado"] == "validado"
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_punto_venta_fijo_sobrescribe_archivo(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Debe permitir fijar un punto de venta habilitado para todo el lote."""
+    punto_fijo = PuntoVenta(
+        numero=13,
+        nombre="Web Services 13",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_fijo)
+    await db_session.commit()
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(
+            punto_venta_modo="fijo",
+            punto_venta_numero=13,
+        ),
+        files={
+            "archivo": (
+                "lote-pv-fijo.xlsx",
+                _build_lote_excel(test_empresa.cuit, punto_venta_numero=1),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}",
+        headers=auth_headers,
+    )
+    detalle_data = detalle.json()
+    assert detalle_data["grupos"][0]["punto_venta_numero"] == 13
+    assert detalle_data["filas"][0]["datos_json"]["punto_venta_numero"] == 13
+    assert (
+        detalle_data["metadata_json"]["opciones_punto_venta"]["punto_venta_numero"]
+        == 13
+    )
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_rechaza_punto_venta_fijo_no_habilitado(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """No debe validar con un punto fijo no usable por el emisor activo."""
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(
+            punto_venta_modo="fijo",
+            punto_venta_numero=99,
+        ),
+        files={
+            "archivo": (
+                "lote-pv-invalido.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Puntos de venta" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

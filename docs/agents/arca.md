@@ -163,6 +163,10 @@
   UI debe resolverlas a fechas concretas visibles antes de validar. El backend
   de lotes sigue recibiendo `archivo` o `fija`; el perfil no puede emitir ni
   validar de forma silenciosa.
+- Un perfil de carga masiva tambien puede precargar punto de venta. Las opciones
+  validas son usar el punto definido en el archivo o fijar un punto Web Services
+  activo, no bloqueado y sin baja del emisor activo. Si no esta cargado en
+  `Puntos de venta`, no se puede elegir como punto fijo.
 - Para concepto servicios o productos y servicios, tambien deben resolverse
   `FchServDesde`, `FchServHasta` y `FchVtoPago`.
 - La validacion local aplica una ventana ARCA preventiva:
@@ -197,9 +201,9 @@
   lote: desde una columna del archivo o como valor fijo para todo el lote. No
   debe salir de un default oculto del formato ni del hecho de haber elegido
   `Productos` o `Servicios`.
-- Un perfil de carga masiva puede precargar el concepto fiscal ARCA y la
-  descripcion facturada, pero esos valores deben quedar visibles y editables en
-  pantalla antes de validar.
+- Un perfil de carga masiva puede precargar punto de venta, concepto fiscal
+  ARCA y descripcion facturada, pero esos valores deben quedar visibles y
+  editables en pantalla antes de validar.
 - Cuando una fecha tomada del archivo quede fuera de la ventana admitida por
   ARCA para el concepto elegido, el usuario debe elegir una fecha permitida por
   el web service antes de emitir. No se debe corregir automaticamente.

@@ -1,5 +1,6 @@
 export type ConceptoPerfilCargaMasiva = "productos" | "servicios" | "archivo" | "";
 export type DescripcionPerfilCargaMasiva = "archivo" | "fija" | "";
+export type PuntoVentaPerfilModo = "archivo" | "fijo" | "";
 
 export type FechaEmisionPerfilModo =
   | "archivo"
@@ -38,9 +39,15 @@ export interface PerfilVencimientoRegla {
   dias?: number;
 }
 
+export interface PerfilPuntoVentaRegla {
+  modo: PuntoVentaPerfilModo;
+  numero?: number | null;
+}
+
 export interface PerfilCargaMasivaConfiguracion {
   version: number;
   formato_importacion_version_id?: number | null;
+  punto_venta: PerfilPuntoVentaRegla;
   concepto_modo: ConceptoPerfilCargaMasiva;
   descripcion_item_modo: DescripcionPerfilCargaMasiva;
   descripcion_item_fija?: string;

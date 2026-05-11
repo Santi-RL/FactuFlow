@@ -74,6 +74,8 @@ export interface LoteProcesamientoResponse {
 }
 
 export interface LoteOpcionesFechas {
+  punto_venta_modo: "archivo" | "fijo";
+  punto_venta_numero?: number;
   concepto_modo: "productos" | "servicios" | "archivo" | "";
   descripcion_item_modo: "archivo" | "fija" | "";
   descripcion_item_fija?: string;

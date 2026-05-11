@@ -7,6 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.empresa import Empresa
+from app.models.punto_venta import PuntoVenta
 
 
 def _perfil_payload(nombre: str = "Servicios mensuales") -> dict:
@@ -19,6 +20,7 @@ def _perfil_payload(nombre: str = "Servicios mensuales") -> dict:
         "configuracion_json": {
             "version": 1,
             "formato_importacion_version_id": None,
+            "punto_venta": {"modo": "archivo", "numero": None},
             "concepto_modo": "servicios",
             "descripcion_item_modo": "fija",
             "descripcion_item_fija": "Ajuste",
@@ -160,6 +162,70 @@ async def test_rechaza_reglas_incompletas_de_fechas(
 
     assert response.status_code == 400
     assert "vencimiento relativo" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_perfil_acepta_punto_venta_habilitado(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """Permite fijar un punto de venta Web Services del emisor activo."""
+    punto = PuntoVenta(
+        numero=13,
+        nombre="Web Services",
+        empresa_id=test_empresa.id,
+        activo=True,
+        es_webservice=True,
+        bloqueado=False,
+    )
+    db_session.add(punto)
+    await db_session.commit()
+
+    payload = _perfil_payload("Con punto fijo")
+    payload["configuracion_json"]["punto_venta"] = {"modo": "fijo", "numero": 13}
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["configuracion_json"]["punto_venta"]["numero"] == 13
+
+
+@pytest.mark.asyncio
+async def test_perfil_rechaza_punto_venta_no_habilitado(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """Rechaza puntos fijos que no estén cargados como usables por FactuFlow."""
+    punto = PuntoVenta(
+        numero=7,
+        nombre="Bloqueado",
+        empresa_id=test_empresa.id,
+        activo=True,
+        es_webservice=True,
+        bloqueado=True,
+    )
+    db_session.add(punto)
+    await db_session.commit()
+
+    payload = _perfil_payload("Con punto bloqueado")
+    payload["configuracion_json"]["punto_venta"] = {"modo": "fijo", "numero": 7}
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert "Puntos de venta" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

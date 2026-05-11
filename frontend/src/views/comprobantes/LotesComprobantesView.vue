@@ -12,6 +12,7 @@ import { useNotification } from "@/composables/useNotification";
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import lotesComprobantesService from "@/services/lotes-comprobantes.service";
 import perfilesCargaMasivaService from "@/services/perfiles-carga-masiva.service";
+import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useEmpresaStore } from "@/stores/empresa";
 import type {
   FormatoImportacion,
@@ -19,6 +20,7 @@ import type {
   FormatoImportacionDeteccion,
 } from "@/types/formato-importacion";
 import type { PerfilCargaMasiva } from "@/types/perfil-carga-masiva";
+import type { PuntoVenta } from "@/types/punto_venta";
 import {
   ESTADOS_GRUPO_COLOR,
   ESTADOS_LOTE_COLOR,
@@ -50,6 +52,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const archivoSeleccionado = ref<File | null>(null);
 const formatosImportacion = ref<FormatoImportacion[]>([]);
 const perfilesCargaMasiva = ref<PerfilCargaMasiva[]>([]);
+const puntosVenta = ref<PuntoVenta[]>([]);
 const deteccionFormato = ref<FormatoImportacionDeteccion | null>(null);
 const formatoSeleccionadoId = ref<string | number>("");
 const perfilSeleccionadoId = ref<string | number>("");
@@ -57,6 +60,8 @@ const perfilAplicadoId = ref<number | null>(null);
 const formatoAplicadoPorPerfilId = ref<number | null>(null);
 const configuracionModificada = ref(false);
 const aplicandoPerfil = ref(false);
+const puntoVentaModo = ref<"archivo" | "fijo">("archivo");
+const puntoVentaNumero = ref<number | "">("");
 const conceptoModo = ref<"productos" | "servicios" | "archivo" | "">("");
 const descripcionItemModo = ref<"archivo" | "fija" | "">("");
 const descripcionItemFija = ref("");
@@ -122,6 +127,18 @@ const perfilesOptions = computed(() => [
     label: perfil.es_predeterminado
       ? `${perfil.nombre} (predeterminado)`
       : perfil.nombre,
+  })),
+]);
+const puntosVentaFactuflow = computed(() =>
+  puntosVenta.value.filter((punto) => punto.usable_factuflow),
+);
+const puntoVentaOptions = computed(() => [
+  { value: "", label: "Seleccioná un punto de venta" },
+  ...puntosVentaFactuflow.value.map((punto) => ({
+    value: punto.numero,
+    label: `${String(punto.numero).padStart(4, "0")}${
+      punto.nombre ? ` - ${punto.nombre}` : ""
+    }`,
   })),
 ]);
 const perfilAplicado = computed(() => {
@@ -192,6 +209,9 @@ const descripcionItemCompleta = computed(() => {
   );
 });
 const opcionesFechas = computed<LoteOpcionesFechas>(() => ({
+  punto_venta_modo: puntoVentaModo.value,
+  punto_venta_numero:
+    puntoVentaModo.value === "fijo" ? Number(puntoVentaNumero.value) : undefined,
   concepto_modo: conceptoModo.value,
   descripcion_item_modo: descripcionItemModo.value,
   descripcion_item_fija: descripcionItemFija.value.trim() || undefined,
@@ -210,6 +230,7 @@ const puedeValidar = computed(
     !!empresaActivaId.value &&
     !detectandoFormato.value &&
     !requiereElegirFormato.value &&
+    (puntoVentaModo.value === "archivo" || !!puntoVentaNumero.value) &&
     !!conceptoModo.value &&
     descripcionItemCompleta.value &&
     opcionesFechasCompletas.value,
@@ -375,6 +396,8 @@ const descripcionFacturada = (comprobanteRef: string) => {
 const limpiarConfiguracionLote = () => {
   formatoSeleccionadoId.value = "";
   formatoAplicadoPorPerfilId.value = null;
+  puntoVentaModo.value = "archivo";
+  puntoVentaNumero.value = "";
   conceptoModo.value = "";
   descripcionItemModo.value = "";
   descripcionItemFija.value = "";
@@ -399,6 +422,9 @@ const aplicarPerfilCargaMasiva = (
   formatoAplicadoPorPerfilId.value =
     Number(perfilAplicadoLote.formatoVersionId || 0) || null;
   formatoSeleccionadoId.value = perfilAplicadoLote.formatoVersionId || "";
+  puntoVentaModo.value = perfilAplicadoLote.opciones.punto_venta_modo;
+  puntoVentaNumero.value =
+    perfilAplicadoLote.opciones.punto_venta_numero || "";
   conceptoModo.value = perfilAplicadoLote.opciones.concepto_modo;
   descripcionItemModo.value = perfilAplicadoLote.opciones.descripcion_item_modo;
   descripcionItemFija.value =
@@ -537,6 +563,20 @@ const cargarPerfilesCargaMasiva = async () => {
     );
   } finally {
     loadingPerfiles.value = false;
+  }
+};
+
+const cargarPuntosVenta = async () => {
+  if (!empresaActivaId.value) return;
+
+  try {
+    puntosVenta.value = await puntosVentaService.getAll();
+  } catch (error: any) {
+    showError(
+      "No se pudieron cargar los puntos de venta",
+      error.response?.data?.detail ||
+        "Revisa Puntos de venta antes de validar archivos.",
+    );
   }
 };
 
@@ -791,6 +831,8 @@ watch([archivoSeleccionado, empresaActivaId], ([archivo, empresaId]) => {
 watch(
   [
     formatoSeleccionadoId,
+    puntoVentaModo,
+    puntoVentaNumero,
     conceptoModo,
     descripcionItemModo,
     descripcionItemFija,
@@ -825,6 +867,7 @@ watch(
 
     if (!empresaId) return;
     await cargarFormatosImportacion();
+    await cargarPuntosVenta();
     await cargarPerfilesCargaMasiva();
     await cargarLotes();
   },
@@ -838,6 +881,7 @@ onMounted(async () => {
 
   await cargarLotes();
   await cargarFormatosImportacion();
+  await cargarPuntosVenta();
   await cargarPerfilesCargaMasiva();
   if (lotes.value[0]) {
     await cargarDetalleLote(lotes.value[0].id);
@@ -1148,6 +1192,78 @@ onBeforeUnmount(() => {
                   </BaseButton>
                 </div>
               </div>
+            </BaseAlert>
+          </div>
+
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4"
+          >
+            <div class="flex items-start gap-3">
+              <InformationCircleIcon
+                class="mt-0.5 h-5 w-5 flex-shrink-0 text-indigo-700"
+              />
+              <div>
+                <p class="text-sm font-semibold text-indigo-950">
+                  Punto de venta
+                </p>
+                <p class="mt-1 text-sm text-indigo-900">
+                  Podés usar el punto de venta definido en el archivo o fijar
+                  uno habilitado para FactuFlow en este emisor.
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid gap-3 text-sm text-gray-800 lg:grid-cols-2">
+              <label class="rounded-lg border border-indigo-100 bg-white p-3">
+                <span class="flex items-center gap-2 font-medium">
+                  <input
+                    v-model="puntoVentaModo"
+                    type="radio"
+                    value="archivo"
+                    class="h-4 w-4 text-primary-600"
+                  />
+                  Utilizar punto de venta definido en el archivo
+                </span>
+              </label>
+              <label class="rounded-lg border border-indigo-100 bg-white p-3">
+                <span class="flex items-center gap-2 font-medium">
+                  <input
+                    v-model="puntoVentaModo"
+                    type="radio"
+                    value="fijo"
+                    class="h-4 w-4 text-primary-600"
+                    :disabled="puntosVentaFactuflow.length === 0"
+                  />
+                  Utilizar punto de venta del emisor
+                </span>
+                <BaseSelect
+                  v-model="puntoVentaNumero"
+                  class="mt-3"
+                  label="Punto de venta"
+                  :options="puntoVentaOptions"
+                  :disabled="
+                    puntoVentaModo !== 'fijo' ||
+                    puntosVentaFactuflow.length === 0
+                  "
+                />
+              </label>
+            </div>
+
+            <BaseAlert
+              v-if="puntosVentaFactuflow.length === 0"
+              type="warning"
+              class="mt-4"
+            >
+              Para elegir un punto de venta fijo, primero completá los puntos de
+              venta habilitados del emisor en la pantalla Puntos de venta.
+            </BaseAlert>
+            <BaseAlert
+              v-else-if="puntoVentaModo === 'fijo' && !puntoVentaNumero"
+              type="warning"
+              class="mt-4"
+            >
+              Seleccioná el punto de venta del emisor antes de validar.
             </BaseAlert>
           </div>
 

@@ -73,6 +73,10 @@ Mapping aplicado en el proyecto:
 - Los perfiles de carga masiva pueden sugerir reglas relativas como ultimo dia
   del mes anterior o emision mas dias, pero la UI debe resolverlas a fechas
   concretas visibles antes de validar. No son defaults fiscales silenciosos.
+- Los perfiles de carga masiva pueden sugerir un punto de venta fijo solo si el
+  punto esta cargado para el emisor activo, es Web Services, activo, no
+  bloqueado y no tiene fecha de baja. Si no, el lote debe usar el punto del
+  archivo o completar primero `Puntos de venta`.
 - Para servicios tambien se deben resolver `FchServDesde`, `FchServHasta` y
   `FchVtoPago`.
 - Validacion preventiva usada por el proyecto:
@@ -97,8 +101,9 @@ Mapping aplicado en el proyecto:
   archivo o de un valor fijo confirmado para todo el lote.
 - No usar defaults ocultos para la descripcion del item antes de validar o
   emitir.
-- Los perfiles de carga masiva pueden precargar concepto fiscal ARCA y
-  descripcion facturada solo como valores visibles/editables antes de validar.
+- Los perfiles de carga masiva pueden precargar punto de venta, concepto fiscal
+  ARCA y descripcion facturada solo como valores visibles/editables antes de
+  validar.
 - Si la fecha del archivo queda fuera de la ventana ARCA aplicable al concepto,
   el usuario debe elegir por pantalla una fecha permitida por el web service
   antes de emitir.

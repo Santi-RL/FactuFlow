@@ -12,6 +12,7 @@ import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import { useNotification } from "@/composables/useNotification";
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import perfilesCargaMasivaService from "@/services/perfiles-carga-masiva.service";
+import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useEmpresaStore } from "@/stores/empresa";
 import type { FormatoImportacion } from "@/types/formato-importacion";
 import type { Empresa, EmpresaCreate, EmpresaUpdate } from "@/types/empresa";
@@ -20,6 +21,7 @@ import type {
   PerfilCargaMasivaConfiguracion,
   PerfilCargaMasivaPayload,
 } from "@/types/perfil-carga-masiva";
+import type { PuntoVenta } from "@/types/punto_venta";
 import { configuracionPerfilVacia } from "@/utils/perfiles-carga-masiva";
 import {
   BuildingOffice2Icon,
@@ -51,6 +53,7 @@ const extractionWarnings = ref<string[]>([]);
 const activeTab = ref<"datos" | "carga-masiva">("datos");
 const perfilesCargaMasiva = ref<PerfilCargaMasiva[]>([]);
 const formatosImportacion = ref<FormatoImportacion[]>([]);
+const puntosVenta = ref<PuntoVenta[]>([]);
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
 const condicionIvaOptions = [
@@ -120,6 +123,38 @@ const formatosOptions = computed(() => [
       label: `${formato.nombre} (${formato.alcance})`,
     })),
 ]);
+const puntosVentaFactuflow = computed(() =>
+  puntosVenta.value.filter((punto) => punto.usable_factuflow),
+);
+const puntoVentaPerfilOptions = computed(() => [
+  { value: "archivo", label: "Utilizar punto de venta definido en el archivo" },
+  ...puntosVentaFactuflow.value.map((punto) => ({
+    value: `fijo:${punto.numero}`,
+    label: `${String(punto.numero).padStart(4, "0")}${
+      punto.nombre ? ` - ${punto.nombre}` : ""
+    }`,
+  })),
+]);
+const perfilPuntoVentaSeleccionado = computed({
+  get: () => {
+    const regla = perfilForm.configuracion.punto_venta || { modo: "archivo" };
+    if (regla.modo === "fijo" && regla.numero) {
+      return `fijo:${regla.numero}`;
+    }
+    return "archivo";
+  },
+  set: (value: string | number) => {
+    const selected = String(value || "archivo");
+    if (selected.startsWith("fijo:")) {
+      perfilForm.configuracion.punto_venta = {
+        modo: "fijo",
+        numero: Number(selected.replace("fijo:", "")) || null,
+      };
+      return;
+    }
+    perfilForm.configuracion.punto_venta = { modo: "archivo", numero: null };
+  },
+});
 const perfilFormatoImportacionVersionId = computed({
   get: () => perfilForm.configuracion.formato_importacion_version_id || "",
   set: (value: string | number) => {
@@ -161,6 +196,10 @@ const sincronizarPerfilForm = (perfil: PerfilCargaMasiva) => {
   perfilForm.configuracion = {
     ...configuracionPerfilVacia(),
     ...perfil.configuracion_json,
+    punto_venta: {
+      ...configuracionPerfilVacia().punto_venta,
+      ...(perfil.configuracion_json.punto_venta || {}),
+    },
     fecha_emision: {
       ...configuracionPerfilVacia().fecha_emision,
       ...(perfil.configuracion_json.fecha_emision || {}),
@@ -199,6 +238,11 @@ const crearPayloadPerfil = (): PerfilCargaMasivaPayload => ({
     formato_importacion_version_id:
       Number(perfilForm.configuracion.formato_importacion_version_id || 0) ||
       null,
+    punto_venta: {
+      modo: perfilForm.configuracion.punto_venta?.modo || "archivo",
+      numero:
+        Number(perfilForm.configuracion.punto_venta?.numero || 0) || null,
+    },
     descripcion_item_fija:
       perfilForm.configuracion.descripcion_item_fija?.trim() || "",
     fecha_vto_pago: {
@@ -212,6 +256,11 @@ const descripcionPerfil = (perfil: PerfilCargaMasiva) => {
   const config = perfil.configuracion_json;
   const partes = [];
   if (config.concepto_modo) partes.push(`Concepto: ${config.concepto_modo}`);
+  if (config.punto_venta?.modo === "fijo" && config.punto_venta.numero) {
+    partes.push(`PV: ${String(config.punto_venta.numero).padStart(4, "0")}`);
+  } else {
+    partes.push("PV desde archivo");
+  }
   if (config.descripcion_item_modo === "fija") {
     partes.push(`Descripción: ${config.descripcion_item_fija || "-"}`);
   } else if (config.descripcion_item_modo) {
@@ -249,12 +298,14 @@ const cargarConfiguracionCargaMasiva = async () => {
 
   loadingPerfiles.value = true;
   try {
-    const [perfiles, formatos] = await Promise.all([
+    const [perfiles, formatos, puntos] = await Promise.all([
       perfilesCargaMasivaService.listar(),
       formatosImportacionService.listar(),
+      puntosVentaService.getAll(),
     ]);
     perfilesCargaMasiva.value = perfiles;
     formatosImportacion.value = formatos;
+    puntosVenta.value = puntos;
   } catch (error: any) {
     showError(
       "No se pudo cargar la configuración de carga masiva",
@@ -907,8 +958,8 @@ onMounted(async () => {
       <form class="space-y-5" @submit.prevent="guardarPerfil">
         <BaseAlert type="info">
           El perfil solo precarga la pantalla de Emisión masiva. Las fechas,
-          concepto fiscal ARCA y descripción facturada quedan visibles y
-          editables antes de validar.
+          punto de venta, concepto fiscal ARCA y descripción facturada quedan
+          visibles y editables antes de validar.
         </BaseAlert>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -918,12 +969,25 @@ onMounted(async () => {
             :options="formatosOptions"
             label="Formato de importación opcional"
           />
+          <BaseSelect
+            v-model="perfilPuntoVentaSeleccionado"
+            :options="puntoVentaPerfilOptions"
+            label="Punto de venta"
+          />
           <div class="md:col-span-2">
             <BaseInput
               v-model="perfilForm.descripcion"
               label="Descripción interna"
             />
           </div>
+          <BaseAlert
+            v-if="puntosVentaFactuflow.length === 0"
+            type="warning"
+            class="md:col-span-2"
+          >
+            Para elegir un punto de venta fijo, primero cargá los puntos de
+            venta habilitados del emisor en la pantalla Puntos de venta.
+          </BaseAlert>
           <BaseSelect
             v-model="perfilForm.configuracion.concepto_modo"
             :options="conceptoPerfilOptions"

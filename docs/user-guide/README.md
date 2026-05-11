@@ -118,18 +118,20 @@ Flujo general:
 3. Subir el Excel.
 4. Revisar el formato sugerido por FactuFlow.
 5. Si es un archivo externo, elegir o confirmar el formato correcto.
-6. Elegir explicitamente si el lote corresponde a `Productos`, `Servicios` o
+6. Elegir si el punto de venta sale del archivo o si se fija un punto habilitado
+   del emisor.
+7. Elegir explicitamente si el lote corresponde a `Productos`, `Servicios` o
    `Definido por archivo`.
-7. Definir la descripcion/concepto facturado del item: desde el archivo o como
+8. Definir la descripcion/concepto facturado del item: desde el archivo o como
    texto fijo para todo el lote.
-8. Definir explicitamente la fecha de emision y, si corresponde, el periodo de
+9. Definir explicitamente la fecha de emision y, si corresponde, el periodo de
    servicios y vencimiento de pago.
-9. Validar errores por fila o por comprobante.
-10. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
+10. Validar errores por fila o por comprobante.
+11. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
    fechas, importes, receptor y punto de venta.
-11. Confirmar la emision con `Emitir comprobantes validos`.
-12. Revisar resultados del lote.
-13. Si lo necesitas, descargar el archivo observado del lote.
+12. Confirmar la emision con `Emitir comprobantes validos`.
+13. Revisar resultados del lote.
+14. Si lo necesitas, descargar el archivo observado del lote.
 
 Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
 recien ocurre cuando confirmas el lote validado.
@@ -187,6 +189,13 @@ debe completarse con un default oculto del formato.
 Los lotes viejos validados antes de esta regla deben revalidarse. FactuFlow no
 permite procesarlos sin una politica de concepto fiscal guardada.
 
+Regla de punto de venta en lotes: podés usar el punto de venta definido en el
+archivo o fijar un punto habilitado del emisor. Para elegir un punto fijo, ese
+punto debe estar cargado primero en `Puntos de venta` y debe figurar como usable
+por FactuFlow. Si el emisor no tiene puntos habilitados cargados, la pantalla lo
+indica y solo queda disponible usar el punto informado por el archivo hasta
+completar la pantalla correspondiente.
+
 ### Perfiles de carga masiva
 
 Cada emisor puede tener perfiles de carga masiva para completar mas rapido la
@@ -194,6 +203,8 @@ pantalla de emision masiva. Se administran desde `Emisores > Carga masiva`.
 
 Un perfil de carga masiva puede recordar:
 - formato de importacion opcional
+- punto de venta: utilizar el definido en el archivo o fijar uno habilitado del
+  emisor
 - concepto fiscal ARCA
 - descripcion facturada desde archivo o fija
 - fecha de emision relativa, por ejemplo ultimo dia del mes anterior, o una
@@ -215,6 +226,10 @@ masiva.
 
 Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
 regla de fecha de emision.
+
+Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
+`Puntos de venta` para ese emisor y estar habilitado para usar en FactuFlow. Si
+todavia no hay puntos cargados, completalos primero desde esa pantalla.
 
 ### Formatos de importacion
 
