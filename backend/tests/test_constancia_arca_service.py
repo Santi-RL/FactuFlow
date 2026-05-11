@@ -4,6 +4,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.api import empresas
+from app.schemas.empresa import EmpresaCreate
 from app.services import constancia_arca_service
 from app.services.constancia_arca_service import parsear_constancia_arca
 
@@ -33,7 +34,7 @@ def test_parsear_constancia_arca_extrae_datos_del_emisor():
     assert datos.domicilio == "CALLE FALSA 123"
     assert datos.localidad == "CIUDAD DE PRUEBA"
     assert datos.codigo_postal == "1609"
-    assert datos.provincia == "BUENOS AIRES"
+    assert datos.provincia == "Buenos Aires"
     assert datos.inicio_actividades == "2018-08-01"
     assert datos.warnings == []
 
@@ -66,9 +67,90 @@ def test_parsear_constancia_opcion_monotributo_extrae_datos_del_emisor():
     assert datos.domicilio == "RIVADAVIA 286"
     assert datos.localidad == "JOSE CLEMENTE PAZ"
     assert datos.codigo_postal == "1665"
-    assert datos.provincia == "BUENOS AIRES"
+    assert datos.provincia == "Buenos Aires"
     assert datos.inicio_actividades == "2025-05-01"
     assert datos.warnings == []
+
+
+def test_parsear_constancia_inscripcion_persona_fisica_extrae_domicilio():
+    """Debe soportar constancias de inscripcion de persona fisica."""
+    texto = """
+    AGENCIA  DE RECAUDACION Y CONTROL  ADUANERO
+    CONST ANCIA DE INSCRIPCION
+     PERSONA  DE  PRUEBA  MA TIAS CUIT :  20-12345678-3
+    CARLOS CASARES 31 10
+    VICT ORIA
+    1644-BUENOS AIRES
+    IMPUEST OS/REGIMENES NACIONALES REGISTRADOS Y FECHA  DE ALTA
+    GANANCIAS PERSONAS FISICAS 07-2025
+    IVA 07-2025
+    ACTIVIDADES NACIONALES REGISTRADAS Y FECHA  DE ALTA
+    Actividad principal: 561014 SERVICIOS Mes de inicio: 07/2025
+    DOMICILIO FISCAL  - ARCA
+    """
+
+    datos = parsear_constancia_arca(texto)
+
+    assert datos.razon_social == "PERSONA DE PRUEBA MATIAS"
+    assert datos.cuit == "20123456783"
+    assert datos.condicion_iva == "RI"
+    assert datos.domicilio == "CARLOS CASARES 3110"
+    assert datos.localidad == "VICTORIA"
+    assert datos.codigo_postal == "1644"
+    assert datos.provincia == "Buenos Aires"
+    assert datos.inicio_actividades == "2025-07-01"
+    assert datos.warnings == []
+
+
+def test_parsear_constancia_no_completa_provincia_contaminada():
+    """No debe usar lineas tecnicas como provincia."""
+    texto = """
+    AGENCIA  DE RECAUDACION Y CONTROL  ADUANERO
+    CONST ANCIA DE INSCRIPCION
+     PERSONA  DE  PRUEBA  CUIT :  20-12345678-3
+    CALLE FALSA 123
+    CIUDAD DE PRUEBA
+    1644-IMPUEST OS/REGIMENES NACIONALES REGISTRADOS
+    IMPUEST OS/REGIMENES NACIONALES REGISTRADOS Y FECHA  DE ALTA
+    IVA 07-2025
+    Actividad principal: 561014 SERVICIOS Mes de inicio: 07/2025
+    """
+
+    datos = parsear_constancia_arca(texto)
+
+    assert datos.provincia is None
+    assert "No se pudo detectar provincia." in datos.warnings
+
+
+def test_empresa_create_normaliza_provincia():
+    """Debe normalizar provincia al crear emisores."""
+    empresa = EmpresaCreate(
+        razon_social="ENTIDAD DE PRUEBA",
+        cuit="30123456789",
+        condicion_iva="RI",
+        domicilio="CALLE FALSA 123",
+        localidad="CIUDAD DE PRUEBA",
+        provincia="BUENOS AIRES",
+        codigo_postal="1609",
+        inicio_actividades="2025-01-01",
+    )
+
+    assert empresa.provincia == "Buenos Aires"
+
+
+def test_empresa_create_rechaza_provincia_invalida():
+    """Debe rechazar provincias que no pertenezcan al catalogo argentino."""
+    with pytest.raises(ValueError):
+        EmpresaCreate(
+            razon_social="ENTIDAD DE PRUEBA",
+            cuit="30123456789",
+            condicion_iva="RI",
+            domicilio="CALLE FALSA 123",
+            localidad="CIUDAD DE PRUEBA",
+            provincia="IMPUESTOS/REGIMENES",
+            codigo_postal="1609",
+            inicio_actividades="2025-01-01",
+        )
 
 
 def test_extraer_texto_acepta_constancia_opcion_monotributo(

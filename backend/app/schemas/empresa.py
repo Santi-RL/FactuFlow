@@ -2,7 +2,9 @@
 
 from datetime import datetime, date
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.core.provincias import normalizar_provincia_argentina
 
 
 class EmpresaBase(BaseModel):
@@ -19,6 +21,15 @@ class EmpresaBase(BaseModel):
     telefono: Optional[str] = Field(None, max_length=50)
     inicio_actividades: date
     logo: Optional[str] = None
+
+    @field_validator("provincia", mode="before")
+    @classmethod
+    def validar_provincia(cls, value: str) -> str:
+        """Validar y normalizar provincia argentina."""
+        provincia = normalizar_provincia_argentina(value)
+        if not provincia:
+            raise ValueError("La provincia debe ser una provincia argentina valida")
+        return provincia
 
 
 class EmpresaCreate(EmpresaBase):
@@ -41,6 +52,17 @@ class EmpresaUpdate(BaseModel):
     telefono: Optional[str] = Field(None, max_length=50)
     inicio_actividades: Optional[date] = None
     logo: Optional[str] = None
+
+    @field_validator("provincia", mode="before")
+    @classmethod
+    def validar_provincia(cls, value: Optional[str]) -> Optional[str]:
+        """Validar y normalizar provincia argentina cuando se informa."""
+        if value is None:
+            return None
+        provincia = normalizar_provincia_argentina(value)
+        if not provincia:
+            raise ValueError("La provincia debe ser una provincia argentina valida")
+        return provincia
 
 
 class EmpresaResponse(EmpresaBase):

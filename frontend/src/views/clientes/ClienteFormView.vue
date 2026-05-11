@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useClientesStore } from "@/stores/clientes";
 import { useNotification } from "@/composables/useNotification";
+import { provinciasOptions } from "@/constants/provincias";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseInput from "@/components/ui/BaseInput.vue";
@@ -47,15 +48,6 @@ const condicionIvaOptions = [
   { value: "Monotributo", label: "Monotributo" },
   { value: "CF", label: "Consumidor Final" },
   { value: "Exento", label: "Exento" },
-];
-
-const provinciasOptions = [
-  { value: "Buenos Aires", label: "Buenos Aires" },
-  { value: "CABA", label: "CABA" },
-  { value: "Córdoba", label: "Córdoba" },
-  { value: "Santa Fe", label: "Santa Fe" },
-  { value: "Mendoza", label: "Mendoza" },
-  // Agregar más provincias según necesidad
 ];
 
 onMounted(async () => {

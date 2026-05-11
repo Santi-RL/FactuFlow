@@ -10,6 +10,11 @@ import BaseModal from "@/components/ui/BaseModal.vue";
 import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import { useNotification } from "@/composables/useNotification";
+import {
+  esProvinciaArgentina,
+  normalizarProvinciaArgentina,
+  provinciasOptions,
+} from "@/constants/provincias";
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import perfilesCargaMasivaService from "@/services/perfiles-carga-masiva.service";
 import { puntosVentaService } from "@/services/puntos_venta.service";
@@ -171,7 +176,7 @@ const sincronizarFormulario = (empresa: Empresa | null) => {
   form.condicion_iva = empresa.condicion_iva;
   form.domicilio = empresa.domicilio;
   form.localidad = empresa.localidad;
-  form.provincia = empresa.provincia;
+  form.provincia = normalizarProvinciaArgentina(empresa.provincia) || "";
   form.codigo_postal = empresa.codigo_postal;
   form.email = empresa.email || "";
   form.telefono = empresa.telefono || "";
@@ -221,7 +226,8 @@ const crearPayload = (source: typeof form): EmpresaCreate => ({
   condicion_iva: source.condicion_iva as Empresa["condicion_iva"],
   domicilio: source.domicilio.trim(),
   localidad: source.localidad.trim(),
-  provincia: source.provincia.trim(),
+  provincia:
+    normalizarProvinciaArgentina(source.provincia) || source.provincia.trim(),
   codigo_postal: source.codigo_postal.trim(),
   email: source.email.trim() || undefined,
   telefono: source.telefono.trim() || undefined,
@@ -489,7 +495,12 @@ const procesarConstancia = async (event: Event) => {
     aplicarValorExtraido("condicion_iva", datos.condicion_iva);
     aplicarValorExtraido("domicilio", datos.domicilio);
     aplicarValorExtraido("localidad", datos.localidad);
-    aplicarValorExtraido("provincia", datos.provincia);
+    if (esProvinciaArgentina(datos.provincia)) {
+      aplicarValorExtraido(
+        "provincia",
+        normalizarProvinciaArgentina(datos.provincia),
+      );
+    }
     aplicarValorExtraido("codigo_postal", datos.codigo_postal);
     aplicarValorExtraido("inicio_actividades", datos.inicio_actividades);
     extractionWarnings.value = datos.warnings || [];
@@ -622,7 +633,12 @@ onMounted(async () => {
               />
             </div>
             <BaseInput v-model="form.localidad" label="Localidad" required />
-            <BaseInput v-model="form.provincia" label="Provincia" required />
+            <BaseSelect
+              v-model="form.provincia"
+              label="Provincia"
+              :options="provinciasOptions"
+              required
+            />
             <BaseInput
               v-model="form.codigo_postal"
               label="Código postal"
@@ -906,9 +922,10 @@ onMounted(async () => {
             label="Localidad"
             required
           />
-          <BaseInput
+          <BaseSelect
             v-model="createForm.provincia"
             label="Provincia"
+            :options="provinciasOptions"
             required
           />
           <BaseInput

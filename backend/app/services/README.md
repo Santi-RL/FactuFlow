@@ -59,5 +59,8 @@ services/
   La descripcion a facturar debe confirmarse aparte o venir mapeada desde el
   archivo; no se debe inferir de `Productos`/`Servicios`.
 - Constancias ARCA: ver `constancia_arca_service.py` para emisores y
-  `constancia_puntos_venta_service.py` para puntos de venta.
+  `constancia_puntos_venta_service.py` para puntos de venta. El parser de
+  emisores distingue constancia de inscripcion de persona juridica, inscripcion
+  de persona fisica y opcion Monotributo; valida provincia contra el catalogo
+  argentino antes de completar el campo.
 - PDF/reportes: ver `docs/FASE_6_PDF_REPORTES.md`.

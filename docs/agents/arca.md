@@ -104,6 +104,18 @@
   Comprobantes en Linea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.
 
+### Constancias de emisores
+
+- El alta de emisores soporta constancias de inscripcion de persona juridica,
+  constancias de inscripcion de persona fisica y constancias de opcion de
+  Monotributo.
+- El parser debe validar provincia contra el catalogo argentino antes de
+  completar el formulario. Lineas tecnicas como `IMPUESTOS/REGIMENES`,
+  `ACTIVIDADES`, vigencia, URLs o footers no deben usarse como domicilio,
+  localidad ni provincia.
+- Los cortes de texto introducidos por el PDF deben sanearse solo por campo,
+  por ejemplo nombres, localidades y numeracion de domicilio.
+
 ### TLS en endpoints legacy
 
 - El WSDL productivo de WSFEv1 puede fallar en Python/OpenSSL moderno con

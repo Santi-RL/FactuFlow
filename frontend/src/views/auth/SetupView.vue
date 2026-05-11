@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
+import { provinciasOptions } from "@/constants/provincias";
 import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -45,33 +46,6 @@ const condicionIvaOptions = [
   { value: "RI", label: "Responsable Inscripto" },
   { value: "Monotributo", label: "Monotributo" },
   { value: "Exento", label: "Exento" },
-];
-
-const provinciasOptions = [
-  { value: "Buenos Aires", label: "Buenos Aires" },
-  { value: "CABA", label: "Ciudad Autónoma de Buenos Aires" },
-  { value: "Catamarca", label: "Catamarca" },
-  { value: "Chaco", label: "Chaco" },
-  { value: "Chubut", label: "Chubut" },
-  { value: "Córdoba", label: "Córdoba" },
-  { value: "Corrientes", label: "Corrientes" },
-  { value: "Entre Ríos", label: "Entre Ríos" },
-  { value: "Formosa", label: "Formosa" },
-  { value: "Jujuy", label: "Jujuy" },
-  { value: "La Pampa", label: "La Pampa" },
-  { value: "La Rioja", label: "La Rioja" },
-  { value: "Mendoza", label: "Mendoza" },
-  { value: "Misiones", label: "Misiones" },
-  { value: "Neuquén", label: "Neuquén" },
-  { value: "Río Negro", label: "Río Negro" },
-  { value: "Salta", label: "Salta" },
-  { value: "San Juan", label: "San Juan" },
-  { value: "San Luis", label: "San Luis" },
-  { value: "Santa Cruz", label: "Santa Cruz" },
-  { value: "Santa Fe", label: "Santa Fe" },
-  { value: "Santiago del Estero", label: "Santiago del Estero" },
-  { value: "Tierra del Fuego", label: "Tierra del Fuego" },
-  { value: "Tucumán", label: "Tucumán" },
 ];
 
 const nextStep = () => {
