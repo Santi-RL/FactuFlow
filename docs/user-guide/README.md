@@ -128,13 +128,17 @@ Flujo general:
    servicios y vencimiento de pago.
 10. Validar errores por fila o por comprobante.
 11. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
-   fechas, importes, receptor y punto de venta.
+   fechas, totales listos para emitir, receptor y punto de venta.
 12. Confirmar la emision con `Emitir comprobantes validos`.
 13. Revisar resultados del lote.
 14. Si lo necesitas, descargar el archivo observado del lote.
 
 Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
 recien ocurre cuando confirmas el lote validado.
+
+Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
+con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos
+valores contra el Excel antes de presionar `Emitir comprobantes validos`.
 
 Cuando uses la plantilla oficial de FactuFlow, el sistema lee la hoja llamada
 `Comprobantes`. Las hojas adicionales, por ejemplo `Resumen` o `Control`, son
@@ -281,6 +285,22 @@ mapeo.
 La fecha del archivo no se usa automaticamente para emitir. Antes de validar el
 lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
 permitida por ARCA para todo el lote.
+
+### Formato Roldan
+
+El emisor Roldan Gonzalo Matias tiene configurado localmente el formato
+`Roldan - Factura B IVA 21%`. Esta pensado para archivos con columnas
+`Fecha`, `Tipo`, `Punto de Venta`, `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
+
+El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa siempre
+`Imp. Neto Gravado` como precio neto del item. `Imp. Total` se usa solo como
+control de consistencia: si el total calculado desde neto e IVA no coincide con
+el total informado por el Excel, el comprobante queda observado antes de emitir.
+
+En el archivo privado revisado para abril 2026, la columna `Punto de Venta`
+esta vacia. Por eso el perfil de carga masiva del emisor fija el punto de venta
+`5`; antes de validar o emitir se debe revisar que esa seleccion sea correcta
+para el lote.
 
 ### Extractos bancarios
 
@@ -433,7 +453,9 @@ emision masiva del mismo emisor.
 Al agregar un emisor, puedes subir una constancia de inscripcion ARCA en PDF o
 una constancia de opcion de Monotributo. FactuFlow intenta completar
 automaticamente nombre fiscal, CUIT, condicion IVA, domicilio fiscal, localidad,
-provincia, codigo postal e inicio de actividades.
+provincia, codigo postal e inicio de actividades. Provincia se elige desde un
+catalogo cerrado de provincias argentinas; si la constancia no permite
+detectarla con seguridad, queda pendiente de revision manual.
 Antes de guardar, revisa y corrige cualquier dato detectado.
 
 Revisa especialmente:

@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-10
+Ultima actualizacion: 2026-05-11
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -32,6 +32,24 @@ cd backend
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
 
 ## Recorrido ejecutado y validado
+
+### Formato Roldan - Factura B IVA 21% - QA 2026-05-11
+
+- Se creo el formato particular `Roldan - Factura B IVA 21%` para
+  `ROLDAN GONZALO MATIAS` y se vinculo al perfil predeterminado del emisor.
+- El formato toma `Imp. Neto Gravado` como neto del item y usa `Imp. Total`
+  solo como control de consistencia.
+- El Excel privado revisado trae 1432 filas utiles, todas `Factura B`, fecha de
+  origen `28/02/2026`, receptor sin identificacion y columna `Punto de Venta`
+  vacia. Para la QA se uso el punto fijo `5` del perfil del emisor.
+- Validacion segura en copia de la base local, sin presionar ni ejecutar
+  procesamiento de emision: 1432 grupos validos, 0 observados, 0 emitidos.
+- La prueba negativa con `Imp. Total` usado como neto quedo bloqueada por la
+  validacion de consistencia: 1432 grupos con error y 0 emitidos.
+- El detalle del lote validado ahora muestra `Totales listos para emitir` antes
+  del avance y antes de confirmar emision: neto, IVA 21%, IVA 10,5% y total.
+  Verificacion automatizada frontend: el helper suma solo grupos validados y
+  reproduce el redondeo por comprobante.
 
 ### Progreso de lotes con timer - verificacion controlada 2026-05-10
 
@@ -343,6 +361,11 @@ Pendiente antes de produccion:
 - Se valido el parser con una constancia de opcion de Monotributo: detecta CUIT,
   razon social, condicion Monotributo, domicilio, localidad, provincia, codigo
   postal e inicio de actividades.
+- Se valido el parser con una constancia de inscripcion de persona fisica:
+  corrige cortes de texto del PDF en nombre, domicilio y localidad, detecta
+  codigo postal/provincia y no completa provincia con lineas tecnicas.
+- En `Emisores`, provincia se selecciona desde un catalogo cerrado de provincias
+  argentinas tanto en alta como en edicion.
 - Puntos de venta respeta el emisor activo: al seleccionar un emisor nuevo sin
   puntos cargados, no muestra puntos de otros emisores.
 - Quedan pendientes las tareas externas de salida a produccion que no se resuelven desde esta QA local.

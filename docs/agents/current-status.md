@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-10
+Ultima actualizacion: 2026-05-11
 
 ## Objetivo activo
 
@@ -30,6 +30,57 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Formato Roldan Factura B IVA 21% 2026-05-11
+
+- Se creo en la base local el formato particular `Roldan - Factura B IVA 21%`
+  para el emisor `ROLDAN GONZALO MATIAS`.
+- El formato mapea `Imp. Neto Gravado` como `item_precio_unitario` y `Imp.
+  Total` solo como total informado para control de consistencia. Esto evita
+  repetir el error de usar el total final como neto y volver a agregar IVA.
+- El Excel privado `Roldan a facturar 04-2026 ok envio.xlsx` contiene 1432
+  filas utiles, todas `Factura B`, fecha de origen `28/02/2026`, receptor sin
+  documento ni denominacion y columna `Punto de Venta` vacia.
+- El perfil predeterminado local del emisor Roldan quedo vinculado al formato,
+  mantiene punto de venta fijo `5`, concepto fiscal `Servicios`, descripcion
+  fija `Servicios` y reglas relativas existentes.
+- QA segura sin emision real sobre copia de base local: deteccion de formato
+  con confianza alta `1.0`; validacion con fecha de emision fija
+  `30/04/2026`, periodo `01/04/2026 - 30/04/2026`, vencimiento `30/04/2026`
+  y punto fijo `5`; resultado 1432 grupos validos, 0 con error, 0 emitidos.
+- QA negativa sobre copia de base local: un formato deliberadamente incorrecto
+  usando `Imp. Total` como neto dejo 1432 grupos con error por diferencia entre
+  total calculado y total informado, 0 validos y 0 emitidos.
+- En la pantalla de detalle del lote validado se agrego un bloque de totales
+  listos para emitir: comprobantes, neto, IVA 21%, IVA 10,5% y total. El
+  calculo se hace sobre grupos validados antes de presionar `Emitir
+  comprobantes validos`, para comparar contra el Excel sin solicitar CAE.
+
+### Constancias de emisores mas robustas 2026-05-10
+
+- El parser de constancias ARCA de emisores ahora distingue formatos de
+  inscripcion de persona juridica, inscripcion de persona fisica y opcion de
+  Monotributo.
+- La extraccion corrige cortes comunes introducidos por PDFs en nombre fiscal,
+  domicilio y localidad, y evita usar lineas tecnicas como provincia.
+- La provincia se valida contra un catalogo cerrado de provincias argentinas en
+  backend y en la pantalla `Emisores`; ya no queda como texto libre en alta o
+  edicion de emisor.
+
+### Punto de venta en perfiles de carga masiva 2026-05-10
+
+- Los perfiles de carga masiva ahora pueden precargar si el lote usa el punto de
+  venta definido en el archivo o un punto fijo del emisor activo.
+- Solo se puede guardar un punto fijo si esta cargado en `Puntos de venta` para
+  ese emisor y es usable por FactuFlow: Web Services, activo, no bloqueado y sin
+  fecha de baja.
+- Si el emisor no tiene puntos usables cargados, la UI indica que primero deben
+  completarse en `Puntos de venta`.
+- En `Emision masiva`, la seleccion queda visible y editable antes de validar.
+  Si se fija un punto, el backend sobrescribe el punto de venta de todas las
+  filas antes de validar y guarda la politica en `metadata_json`.
+  La barrera fiscal final no cambia: antes de solicitar CAE sigue apareciendo
+  el modal irreversible con fecha fiscal y puntos de venta concretos.
 
 ### Sincronizacion de puntos WSFE 2026-05-10
 
@@ -327,8 +378,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   alta de nuevos emisores desde la pantalla fiscal.
 - El alta de emisores permite subir una constancia de inscripcion ARCA en PDF
   para precompletar los campos fiscales antes de guardar. Desde 2026-05-10
-  tambien acepta constancias de opcion de Monotributo, donde ARCA muestra el
-  CUIT, razon social y domicilio en un layout distinto al de inscripcion.
+  tambien acepta constancias de opcion de Monotributo y constancias de
+  inscripcion de persona fisica con layout distinto al societario.
 - Se corrigio el listado/alta de puntos de venta para que usuarios admin operen
   solo sobre el emisor activo seleccionado.
 - Se corrigio certificados para que usuarios admin solo vean, creen y verifiquen

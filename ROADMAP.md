@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-10
+Ultima actualizacion: 2026-05-11
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -169,6 +169,9 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   (`Factura B IVA 21%`) con neto
   gravado como precio del item, total como referencia y consumidor final sin
   documento cuando corresponde
+- [x] Formato particular local `Roldan - Factura B IVA 21%`, vinculado al
+  perfil predeterminado del emisor, con `Imp. Neto Gravado` como neto del item
+  e `Imp. Total` solo como control de consistencia
 - [x] Validacion de consistencia entre total informado por archivo externo y
   total calculado desde items e IVA antes de permitir emision
 - [x] Politica explicita de fecha de emision por lote: desde archivo o fecha fija confirmada
@@ -205,6 +208,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Si el usuario modifica una configuracion precargada por perfil de carga
   masiva, el lote se valida sin snapshot de perfil aplicado
 - [x] Separacion clara entre validar lote y emitir comprobantes validos
+- [x] Resumen previo a emision con neto, IVA 21%, IVA 10,5% y total de
+  comprobantes listos para emitir
 - [x] Mensajes basicos de validacion
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente
@@ -281,9 +286,11 @@ Objetivo: pasar de una operacion de una sola empresa a una plataforma gestionabl
 - [x] Header `X-Empresa-Id` para admins
 - [x] Selector de emisor activo en frontend
 - [x] Alta basica de nuevos emisores desde UI admin
-- [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`
-- [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF y
-  constancia de opcion de Monotributo
+- [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`,
+  incluyendo punto de venta por archivo o punto fijo usable del emisor
+- [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF,
+  constancia de inscripcion de persona fisica y constancia de opcion de
+  Monotributo, con provincia validada contra catalogo argentino
 - [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
 - [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,
   reportes, certificados, puntos de venta y nueva factura por empresa activa
