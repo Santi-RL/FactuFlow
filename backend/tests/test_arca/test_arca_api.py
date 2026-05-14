@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from app.api.arca import get_wsfe_client
 from app.arca.config import ArcaAmbiente
 from app.arca.models import TicketAcceso, TipoComprobante, TipoDocumento, TipoIva
+from app.core.config import settings
 from app.models.certificado import Certificado
 from app.models.usuario import Usuario
 
@@ -161,8 +162,11 @@ async def test_get_wsfe_client_usa_cuit_empresa_activa(
     test_empresa,
     test_user: Usuario,
     tmp_path,
+    monkeypatch,
 ):
     """Debe autenticar y operar WSFE con el CUIT de la empresa activa."""
+    monkeypatch.setattr(settings, "arca_env", ArcaAmbiente.HOMOLOGACION.value)
+
     cert_path = tmp_path / "certificado.crt"
     key_path = tmp_path / "certificado.key"
     cert_path.write_text("CRT", encoding="ascii")

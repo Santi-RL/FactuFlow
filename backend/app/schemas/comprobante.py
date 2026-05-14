@@ -140,6 +140,9 @@ class ComprobanteResponse(ComprobanteBase):
     concepto: int
     fecha_emision: date
     fecha_vencimiento: Optional[date] = None
+    fecha_servicio_desde: Optional[date] = None
+    fecha_servicio_hasta: Optional[date] = None
+    fecha_vto_pago: Optional[date] = None
     subtotal: Decimal
     descuento: Decimal
     iva_21: Decimal

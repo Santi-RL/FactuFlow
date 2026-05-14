@@ -3,6 +3,7 @@ export interface Empresa {
   razon_social: string;
   cuit: string;
   condicion_iva: "RI" | "Monotributo" | "Exento";
+  ingresos_brutos: string | null;
   domicilio: string;
   localidad: string;
   provincia: string;
@@ -19,6 +20,7 @@ export interface EmpresaCreate {
   razon_social: string;
   cuit: string;
   condicion_iva: "RI" | "Monotributo" | "Exento";
+  ingresos_brutos?: string;
   domicilio: string;
   localidad: string;
   provincia: string;
@@ -33,6 +35,7 @@ export interface EmpresaUpdate {
   razon_social?: string;
   cuit?: string;
   condicion_iva?: "RI" | "Monotributo" | "Exento";
+  ingresos_brutos?: string;
   domicilio?: string;
   localidad?: string;
   provincia?: string;

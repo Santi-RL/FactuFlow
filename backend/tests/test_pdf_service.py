@@ -1,5 +1,7 @@
 """Tests para el servicio de PDF."""
 
+import base64
+import json
 import pytest
 from unittest.mock import Mock
 from datetime import date
@@ -25,6 +27,7 @@ def empresa_mock():
     empresa.razon_social = "Mi Empresa SRL"
     empresa.cuit = "30-12345678-9"
     empresa.condicion_iva = "Responsable Inscripto"
+    empresa.ingresos_brutos = "CM 12345678"
     empresa.domicilio = "Av. Corrientes 1234"
     empresa.localidad = "CABA"
     empresa.provincia = "Buenos Aires"
@@ -64,10 +67,15 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
     comprobante.tipo_comprobante = 6  # Factura B
     comprobante.numero = 127
     comprobante.fecha_emision = date(2026, 2, 3)
+    comprobante.fecha_servicio_desde = date(2026, 2, 1)
+    comprobante.fecha_servicio_hasta = date(2026, 2, 28)
+    comprobante.fecha_vto_pago = date(2026, 2, 28)
     comprobante.subtotal = 75000.00
+    comprobante.descuento = 0
     comprobante.iva_21 = 15750.00
     comprobante.iva_10_5 = 0
     comprobante.iva_27 = 0
+    comprobante.otros_impuestos = 0
     comprobante.total = 90750.00
     comprobante.cae = "74123456789012"
     comprobante.cae_vencimiento = date(2026, 2, 13)
@@ -122,6 +130,40 @@ class TestPDFService:
 
         assert qr_base64.startswith("data:image/png;base64,")
         assert len(qr_base64) > 100  # El QR debe tener contenido
+
+    def test_generar_qr_payload_arca(self, pdf_service, comprobante_mock):
+        """Debe armar el payload requerido por la especificación QR de ARCA."""
+        payload = pdf_service._generar_qr_payload_arca(comprobante_mock)
+
+        assert payload == {
+            "ver": 1,
+            "fecha": "2026-02-03",
+            "cuit": 30123456789,
+            "ptoVta": 1,
+            "tipoCmp": 6,
+            "nroCmp": 127,
+            "importe": 90750.0,
+            "moneda": "PES",
+            "ctz": 1.0,
+            "tipoDocRec": 80,
+            "nroDocRec": 20987654321,
+            "tipoCodAut": "E",
+            "codAut": 74123456789012,
+        }
+
+    def test_generar_qr_url_arca_codifica_payload_base64(
+        self, pdf_service, comprobante_mock
+    ):
+        """Debe codificar el JSON del comprobante en Base64 dentro de la URL."""
+        url = pdf_service._generar_qr_url_arca(comprobante_mock)
+        encoded = url.split("?p=", maxsplit=1)[1]
+        decoded = json.loads(base64.b64decode(encoded).decode("utf-8"))
+
+        assert url.startswith("https://www.afip.gob.ar/fe/qr/?p=")
+        assert decoded["ver"] == 1
+        assert decoded["fecha"] == "2026-02-03"
+        assert decoded["tipoCodAut"] == "E"
+        assert decoded["codAut"] == 74123456789012
 
     @pytest.mark.asyncio
     async def test_generar_pdf_comprobante(

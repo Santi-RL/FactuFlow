@@ -127,6 +127,10 @@
 
 - La forma confiable de verificar comprobantes de homologacion es `FECompConsultar`.
 - El QR sirve para comprobantes reales, pero no se tomo como mecanismo de validacion de homologacion.
+- El QR del PDF se arma segun la especificacion ARCA con una URL
+  `https://www.afip.gob.ar/fe/qr/?p={base64}`. El payload testeado incluye
+  `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`,
+  `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut` y `codAut`.
 
 ### Particularidades observadas en homologacion
 
@@ -164,6 +168,9 @@
   fecha actual como default fiscal.
 - `CbteFch` se arma desde `fecha_emision`, un dato obligatorio confirmado por
   el usuario o resuelto explicitamente desde el Excel.
+- En comprobantes nuevos, `fecha_servicio_desde`, `fecha_servicio_hasta` y
+  `fecha_vto_pago` se persisten junto al comprobante para poder reflejar en PDF
+  el periodo facturado y el vencimiento usados al solicitar CAE.
 - Antes de solicitar CAE debe existir una confirmacion visible para el usuario:
   `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
 - La API debe rechazar emisiones sin confirmacion fiscal explicita. En el

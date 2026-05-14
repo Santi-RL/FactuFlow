@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-11
+Ultima actualizacion: 2026-05-14
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -32,6 +32,21 @@ cd backend
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
 
 ## Recorrido ejecutado y validado
+
+### PDF profesional y QR ARCA - verificacion tecnica 2026-05-14
+
+- Se actualizo el PDF de comprobante para presentacion administrativa
+  profesional, sin copiar el formato oficial de ARCA.
+- El PDF muestra bloques de emisor, receptor, operacion, detalle, totales, CAE,
+  vencimiento CAE, leyenda ARCA y QR.
+- `Emisores` y el setup inicial permiten cargar `Ingresos Brutos`; el PDF lo
+  muestra si esta informado y, para emisores anteriores, indica `No informado`.
+- Los comprobantes nuevos guardan fechas de servicio y vencimiento de pago para
+  mostrarlas en el PDF cuando corresponda.
+- El QR se verifico por test decodificando el Base64 de la URL y comparando el
+  payload con los campos requeridos por ARCA.
+- Pendiente de QA visual: abrir un PDF real desde la UI y revisar legibilidad en
+  preview/descarga con un comprobante autorizado.
 
 ### Formato Roldan - Factura B IVA 21% - QA 2026-05-11
 
@@ -146,6 +161,8 @@ Actualizacion 2026-05-10:
 - `Ver PDF` abre correctamente.
 - Se visualizo CAE y QR.
 - `Descargar PDF` descarga correctamente el archivo.
+- Desde 2026-05-14 el PDF tiene nuevo diseño y requiere revalidacion visual en
+  navegador antes de tomarlo como evidencia manual vigente.
 
 ### 5. Nueva factura
 

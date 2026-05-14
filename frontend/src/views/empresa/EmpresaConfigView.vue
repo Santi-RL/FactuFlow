@@ -102,6 +102,7 @@ const crearFormularioVacio = () => ({
   razon_social: "",
   cuit: "",
   condicion_iva: "RI",
+  ingresos_brutos: "",
   domicilio: "",
   localidad: "",
   provincia: "",
@@ -174,6 +175,7 @@ const sincronizarFormulario = (empresa: Empresa | null) => {
   form.razon_social = empresa.razon_social;
   form.cuit = empresa.cuit;
   form.condicion_iva = empresa.condicion_iva;
+  form.ingresos_brutos = empresa.ingresos_brutos || "";
   form.domicilio = empresa.domicilio;
   form.localidad = empresa.localidad;
   form.provincia = normalizarProvinciaArgentina(empresa.provincia) || "";
@@ -224,6 +226,7 @@ const crearPayload = (source: typeof form): EmpresaCreate => ({
   razon_social: source.razon_social.trim(),
   cuit: source.cuit.replace(/\D/g, ""),
   condicion_iva: source.condicion_iva as Empresa["condicion_iva"],
+  ingresos_brutos: source.ingresos_brutos.trim() || undefined,
   domicilio: source.domicilio.trim(),
   localidad: source.localidad.trim(),
   provincia:
@@ -620,6 +623,11 @@ onMounted(async () => {
               required
             />
             <BaseInput
+              v-model="form.ingresos_brutos"
+              label="Ingresos Brutos"
+              placeholder="Ej.: CM 12345678 o Exento"
+            />
+            <BaseInput
               v-model="form.inicio_actividades"
               type="date"
               label="Inicio de actividades"
@@ -903,6 +911,11 @@ onMounted(async () => {
             :options="condicionIvaOptions"
             label="Condición IVA"
             required
+          />
+          <BaseInput
+            v-model="createForm.ingresos_brutos"
+            label="Ingresos Brutos"
+            placeholder="Ej.: CM 12345678 o Exento"
           />
           <BaseInput
             v-model="createForm.inicio_actividades"

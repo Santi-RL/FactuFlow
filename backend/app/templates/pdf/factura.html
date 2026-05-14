@@ -5,130 +5,235 @@
     <title>{{ tipo_nombre }} {{ letra }} {{ punto_venta_str }}-{{ numero_str }}</title>
 </head>
 <body>
-    <div class="factura">
-        <!-- Encabezado -->
-        <header class="header">
-            <div class="emisor">
-                {% if empresa.logo %}
-                <img src="{{ empresa.logo }}" alt="Logo" class="logo">
-                {% endif %}
-                <h1>{{ empresa.razon_social }}</h1>
-                <p>{{ empresa.domicilio }}</p>
-                <p>{{ empresa.localidad }}, {{ empresa.provincia }}</p>
-                <p>Condición IVA: {{ empresa.condicion_iva }}</p>
-                <p>Inicio Actividades: {{ empresa.inicio_actividades.strftime("%d/%m/%Y") }}</p>
+    <main class="comprobante">
+        <section class="topbar">
+            <div>
+                <p class="eyebrow">Comprobante electrónico autorizado</p>
+                <h1>{{ tipo_nombre }} {{ letra }}</h1>
             </div>
-            
-            <div class="letra-box">
-                <div class="letra">{{ letra }}</div>
-                <div class="codigo">Cód. {{ "%02d"|format(comprobante.tipo_comprobante) }}</div>
+            <div class="estado">
+                <span>{{ comprobante.estado | upper }}</span>
             </div>
-            
-            <div class="comprobante-info">
-                <h2>{{ tipo_nombre }}</h2>
-                <p><strong>Punto de Venta:</strong> {{ punto_venta_str }}</p>
-                <p><strong>Comp. Nro:</strong> {{ numero_str }}</p>
-                <p><strong>Fecha:</strong> {{ comprobante.fecha_emision.strftime("%d/%m/%Y") }}</p>
-                <p><strong>CUIT:</strong> {{ empresa.cuit }}</p>
-            </div>
-        </header>
-        
-        <div class="separator"></div>
-        
-        <!-- Receptor -->
-        <section class="receptor">
-            <h3>DATOS DEL RECEPTOR</h3>
-            <p><strong>{{ tipo_documento_nombre }}:</strong> {{ cliente.numero_documento }}</p>
-            <p><strong>Razón Social:</strong> {{ cliente.razon_social }}</p>
-            <p><strong>Condición IVA:</strong> {{ cliente.condicion_iva }}</p>
-            {% if cliente.domicilio %}
-            <p><strong>Domicilio:</strong> {{ cliente.domicilio }}{% if cliente.localidad %}, {{ cliente.localidad }}{% endif %}</p>
-            {% endif %}
         </section>
-        
-        <div class="separator"></div>
-        
-        <!-- Detalle -->
+
+        <header class="encabezado">
+            <section class="emisor bloque">
+                <div class="marca">
+                    {% if empresa.logo %}
+                    <img src="{{ empresa.logo }}" alt="Logo" class="logo">
+                    {% endif %}
+                    <div>
+                        <h2>{{ empresa.razon_social }}</h2>
+                        <p>{{ empresa.domicilio }}</p>
+                        <p>{{ empresa.localidad }}, {{ empresa.provincia }}{% if empresa.codigo_postal %} (CP {{ empresa.codigo_postal }}){% endif %}</p>
+                    </div>
+                </div>
+
+                <dl class="datos-grid">
+                    <div>
+                        <dt>CUIT</dt>
+                        <dd>{{ empresa.cuit | cuit_ar }}</dd>
+                    </div>
+                    <div>
+                        <dt>Condición IVA</dt>
+                        <dd>{{ empresa.condicion_iva }}</dd>
+                    </div>
+                    <div>
+                        <dt>Ingresos Brutos</dt>
+                        <dd>{{ ingresos_brutos or "No informado" }}</dd>
+                    </div>
+                    <div>
+                        <dt>Inicio de actividades</dt>
+                        <dd>{{ empresa.inicio_actividades | fecha_ar }}</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <aside class="comprobante-box">
+                <div class="letra-box">
+                    <strong>{{ letra }}</strong>
+                    <span>Cód. {{ tipo_codigo }}</span>
+                </div>
+                <dl>
+                    <div>
+                        <dt>Punto de venta</dt>
+                        <dd>{{ punto_venta_str }}</dd>
+                    </div>
+                    <div>
+                        <dt>Número</dt>
+                        <dd>{{ numero_str }}</dd>
+                    </div>
+                    <div>
+                        <dt>Fecha de emisión</dt>
+                        <dd>{{ comprobante.fecha_emision | fecha_ar }}</dd>
+                    </div>
+                    <div>
+                        <dt>CAE</dt>
+                        <dd>{{ comprobante.cae or "-" }}</dd>
+                    </div>
+                    <div>
+                        <dt>Vencimiento CAE</dt>
+                        <dd>{{ comprobante.cae_vencimiento | fecha_ar }}</dd>
+                    </div>
+                </dl>
+            </aside>
+        </header>
+
+        <section class="bloque receptor">
+            <div class="section-title">
+                <h3>Receptor</h3>
+            </div>
+            <dl class="datos-grid receptor-grid">
+                <div>
+                    <dt>{{ tipo_documento_nombre }}</dt>
+                    <dd>{{ cliente.numero_documento }}</dd>
+                </div>
+                <div>
+                    <dt>Razón social</dt>
+                    <dd>{{ cliente.razon_social }}</dd>
+                </div>
+                <div>
+                    <dt>Condición IVA</dt>
+                    <dd>{{ cliente.condicion_iva }}</dd>
+                </div>
+                <div>
+                    <dt>Domicilio</dt>
+                    <dd>
+                        {% if cliente.domicilio %}
+                            {{ cliente.domicilio }}{% if cliente.localidad %}, {{ cliente.localidad }}{% endif %}
+                        {% else %}
+                            No informado
+                        {% endif %}
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="bloque operacion">
+            <div class="section-title">
+                <h3>Operación</h3>
+            </div>
+            <dl class="datos-grid operacion-grid">
+                <div>
+                    <dt>Concepto fiscal ARCA</dt>
+                    <dd>{{ concepto_nombre }}</dd>
+                </div>
+                <div>
+                    <dt>Moneda</dt>
+                    <dd>{{ comprobante.moneda }} · Cotización {{ comprobante.cotizacion }}</dd>
+                </div>
+                <div>
+                    <dt>Condición de venta</dt>
+                    <dd>Contado</dd>
+                </div>
+                <div>
+                    <dt>Fecha de vencimiento de pago</dt>
+                    <dd>{{ comprobante.fecha_vto_pago | fecha_ar }}</dd>
+                </div>
+                {% if comprobante.fecha_servicio_desde or comprobante.fecha_servicio_hasta %}
+                <div>
+                    <dt>Período facturado</dt>
+                    <dd>{{ comprobante.fecha_servicio_desde | fecha_ar }} al {{ comprobante.fecha_servicio_hasta | fecha_ar }}</dd>
+                </div>
+                {% endif %}
+            </dl>
+        </section>
+
         <section class="detalle">
-            <h3>DETALLE</h3>
-            <table class="items-table">
+            <table>
                 <thead>
                     <tr>
                         <th class="col-codigo">Código</th>
                         <th class="col-descripcion">Descripción</th>
                         <th class="col-cantidad">Cantidad</th>
-                        <th class="col-precio">P. Unitario</th>
+                        <th class="col-unidad">Unidad</th>
+                        <th class="col-precio">Precio unit.</th>
+                        <th class="col-iva">IVA</th>
                         <th class="col-subtotal">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in items %}
                     <tr>
-                        <td class="col-codigo">{{ item.codigo or '-' }}</td>
-                        <td class="col-descripcion">{{ item.descripcion }}</td>
-                        <td class="col-cantidad">{{ "%.2f"|format(item.cantidad) }} {{ item.unidad }}</td>
-                        <td class="col-precio">$ {{ "{:,.2f}".format(item.precio_unitario) }}</td>
-                        <td class="col-subtotal">$ {{ "{:,.2f}".format(item.subtotal) }}</td>
+                        <td>{{ item.codigo or "-" }}</td>
+                        <td class="descripcion">{{ item.descripcion }}</td>
+                        <td class="num">{{ item.cantidad | cantidad_ar }}</td>
+                        <td>{{ item.unidad }}</td>
+                        <td class="num">$ {{ item.precio_unitario | importe_ar }}</td>
+                        <td class="num">{{ item.iva_porcentaje | cantidad_ar }}%</td>
+                        <td class="num">$ {{ item.subtotal | importe_ar }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </section>
-        
-        <div class="separator"></div>
-        
-        <!-- Totales -->
-        <section class="totales">
-            <div class="totales-grid">
-                <div class="totales-label">Subtotal:</div>
-                <div class="totales-valor">$ {{ "{:,.2f}".format(comprobante.subtotal) }}</div>
-                
-                {% if comprobante.iva_21 > 0 %}
-                <div class="totales-label">IVA 21%:</div>
-                <div class="totales-valor">$ {{ "{:,.2f}".format(comprobante.iva_21) }}</div>
-                {% endif %}
-                
-                {% if comprobante.iva_10_5 > 0 %}
-                <div class="totales-label">IVA 10.5%:</div>
-                <div class="totales-valor">$ {{ "{:,.2f}".format(comprobante.iva_10_5) }}</div>
-                {% endif %}
-                
-                {% if comprobante.iva_27 > 0 %}
-                <div class="totales-label">IVA 27%:</div>
-                <div class="totales-valor">$ {{ "{:,.2f}".format(comprobante.iva_27) }}</div>
-                {% endif %}
-                
-                <div class="totales-label total-label">TOTAL:</div>
-                <div class="totales-valor total-valor">$ {{ "{:,.2f}".format(comprobante.total) }}</div>
+
+        <section class="resumen">
+            {% if comprobante.observaciones %}
+            <div class="observaciones bloque">
+                <h3>Observaciones</h3>
+                <p>{{ comprobante.observaciones }}</p>
+            </div>
+            {% endif %}
+
+            <div class="totales bloque">
+                <dl>
+                    <div>
+                        <dt>Subtotal</dt>
+                        <dd>$ {{ comprobante.subtotal | importe_ar }}</dd>
+                    </div>
+                    {% if comprobante.descuento > 0 %}
+                    <div>
+                        <dt>Descuento</dt>
+                        <dd>$ {{ comprobante.descuento | importe_ar }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if comprobante.iva_21 > 0 %}
+                    <div>
+                        <dt>IVA 21%</dt>
+                        <dd>$ {{ comprobante.iva_21 | importe_ar }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if comprobante.iva_10_5 > 0 %}
+                    <div>
+                        <dt>IVA 10,5%</dt>
+                        <dd>$ {{ comprobante.iva_10_5 | importe_ar }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if comprobante.iva_27 > 0 %}
+                    <div>
+                        <dt>IVA 27%</dt>
+                        <dd>$ {{ comprobante.iva_27 | importe_ar }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if comprobante.otros_impuestos > 0 %}
+                    <div>
+                        <dt>Otros tributos</dt>
+                        <dd>$ {{ comprobante.otros_impuestos | importe_ar }}</dd>
+                    </div>
+                    {% endif %}
+                    <div class="total">
+                        <dt>Total</dt>
+                        <dd>$ {{ comprobante.total | importe_ar }}</dd>
+                    </div>
+                </dl>
             </div>
         </section>
-        
-        <!-- Observaciones -->
-        {% if comprobante.observaciones %}
-        <div class="separator"></div>
-        <section class="observaciones">
-            <h3>Observaciones</h3>
-            <p>{{ comprobante.observaciones }}</p>
-        </section>
-        {% endif %}
-        
-        <div class="separator"></div>
-        
-        <!-- CAE y QR -->
-        <footer class="footer">
+
+        <footer class="pie">
             <div class="qr">
                 <img src="{{ qr_base64 }}" alt="Código QR ARCA">
             </div>
-            <div class="cae-info">
-                {% if comprobante.cae %}
-                <p><strong>CAE:</strong> {{ comprobante.cae }}</p>
-                <p><strong>Vencimiento CAE:</strong> {{ comprobante.cae_vencimiento.strftime("%d/%m/%Y") }}</p>
+            <div class="pie-texto">
                 <p class="autorizado">Comprobante autorizado por ARCA</p>
-                {% else %}
-                <p class="no-autorizado">Comprobante NO autorizado</p>
-                {% endif %}
+                <p>El QR contiene los datos del comprobante según la especificación vigente de ARCA.</p>
+                <p>Esta Agencia no se responsabiliza por los datos ingresados en el detalle de la operación.</p>
+            </div>
+            <div class="arca">
+                <strong>ARCA</strong>
+                <span>Agencia de Recaudación y Control Aduanero</span>
             </div>
         </footer>
-    </div>
+    </main>
 </body>
 </html>

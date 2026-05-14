@@ -1,235 +1,314 @@
-/* Estilos para PDF de Comprobante - FactuFlow */
-
 @page {
     size: A4;
-    margin: 1cm;
+    margin: 14mm;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 body {
-    font-family: Arial, sans-serif;
-    font-size: 10pt;
-    line-height: 1.4;
-    color: #000;
+    margin: 0;
+    color: #111827;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    line-height: 1.35;
 }
 
-.factura {
-    width: 100%;
-    max-width: 19cm;
-    margin: 0 auto;
+.comprobante {
+    min-height: 100%;
 }
 
-/* Header */
-.header {
+.topbar {
+    align-items: flex-start;
+    border-bottom: 2px solid #111827;
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
-    page-break-inside: avoid;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
 }
 
-.emisor {
-    flex: 1;
-    font-size: 9pt;
+.eyebrow {
+    color: #4b5563;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: .08em;
+    margin: 0 0 3px;
+    text-transform: uppercase;
 }
 
-.emisor h1 {
-    font-size: 14pt;
-    margin: 0 0 5px 0;
-    font-weight: bold;
+h1, h2, h3, p, dl {
+    margin: 0;
 }
 
-.emisor p {
-    margin: 2px 0;
-}
-
-.logo {
-    max-width: 100px;
-    max-height: 60px;
-    margin-bottom: 5px;
-}
-
-.letra-box {
-    width: 80px;
-    text-align: center;
-    padding: 5px;
-    border: 2px solid #000;
-    margin: 0 10px;
-}
-
-.letra {
-    font-size: 36pt;
-    font-weight: bold;
+h1 {
+    font-size: 20pt;
     line-height: 1;
 }
 
-.codigo {
-    font-size: 8pt;
-    margin-top: 5px;
+h2 {
+    font-size: 15pt;
+    line-height: 1.1;
+    margin-bottom: 5px;
 }
 
-.comprobante-info {
-    flex: 1;
-    text-align: right;
+h3 {
     font-size: 9pt;
+    text-transform: uppercase;
 }
 
-.comprobante-info h2 {
-    font-size: 14pt;
-    margin: 0 0 10px 0;
-    font-weight: bold;
+.estado span {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 999px;
+    color: #047857;
+    display: inline-block;
+    font-size: 7.5pt;
+    font-weight: 700;
+    padding: 4px 9px;
 }
 
-.comprobante-info p {
-    margin: 2px 0;
-}
-
-/* Separador */
-.separator {
-    border-top: 1px solid #333;
-    margin: 10px 0;
-}
-
-/* Secciones */
-section {
-    margin: 15px 0;
-    page-break-inside: avoid;
-}
-
-section h3 {
-    font-size: 10pt;
-    font-weight: bold;
-    margin: 0 0 8px 0;
-    padding: 3px 0;
-    border-bottom: 1px solid #666;
-}
-
-.receptor p,
-.observaciones p {
-    margin: 4px 0;
-    font-size: 9pt;
-}
-
-/* Tabla de items */
-.items-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 9pt;
-}
-
-.items-table thead {
-    background-color: #f0f0f0;
-    border-bottom: 2px solid #333;
-}
-
-.items-table th {
-    padding: 6px 4px;
-    text-align: left;
-    font-weight: bold;
-}
-
-.items-table td {
-    padding: 6px 4px;
-    border-bottom: 1px solid #ddd;
-}
-
-.col-codigo {
-    width: 10%;
-}
-
-.col-descripcion {
-    width: 40%;
-}
-
-.col-cantidad {
-    width: 15%;
-    text-align: center;
-}
-
-.col-precio,
-.col-subtotal {
-    width: 17.5%;
-    text-align: right;
-}
-
-/* Totales */
-.totales {
-    margin: 20px 0;
-}
-
-.totales-grid {
+.encabezado {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 5px;
-    max-width: 400px;
-    margin-left: auto;
-    font-size: 10pt;
+    gap: 12px;
+    grid-template-columns: 1fr 190px;
+    margin-bottom: 12px;
 }
 
-.totales-label {
-    text-align: right;
-    padding-right: 15px;
+.bloque,
+.comprobante-box {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 12px;
 }
 
-.totales-valor {
-    text-align: right;
-    font-weight: bold;
-    min-width: 120px;
-}
-
-.total-label {
-    font-size: 12pt;
-    font-weight: bold;
-    padding-top: 5px;
-    border-top: 2px solid #000;
-}
-
-.total-valor {
-    font-size: 12pt;
-    padding-top: 5px;
-    border-top: 2px solid #000;
-}
-
-/* Footer */
-.footer {
+.marca {
     display: flex;
+    gap: 12px;
+}
+
+.logo {
+    max-height: 52px;
+    max-width: 92px;
+    object-fit: contain;
+}
+
+.emisor .marca p {
+    color: #374151;
+    margin-top: 2px;
+}
+
+.letra-box {
     align-items: center;
-    gap: 20px;
-    margin-top: 20px;
+    border: 2px solid #111827;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    height: 72px;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.letra-box strong {
+    font-size: 32pt;
+    line-height: .9;
+}
+
+.letra-box span {
+    color: #4b5563;
+    font-size: 7.5pt;
+    font-weight: 700;
+    margin-top: 3px;
+}
+
+.datos-grid {
+    display: grid;
+    gap: 8px 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 12px;
+}
+
+.receptor-grid,
+.operacion-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 10px;
+}
+
+dt {
+    color: #6b7280;
+    font-size: 7.5pt;
+    font-weight: 700;
+    margin-bottom: 1px;
+    text-transform: uppercase;
+}
+
+dd {
+    color: #111827;
+    font-weight: 700;
+    margin: 0;
+}
+
+.comprobante-box dl {
+    display: grid;
+    gap: 8px;
+}
+
+.section-title {
+    border-bottom: 1px solid #e5e7eb;
+    margin: -2px 0 10px;
+    padding-bottom: 6px;
+}
+
+.receptor,
+.operacion {
+    margin-bottom: 12px;
+}
+
+.detalle {
+    margin-bottom: 12px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+thead {
+    background: #f3f4f6;
+}
+
+th {
+    border: 1px solid #d1d5db;
+    color: #374151;
+    font-size: 7.5pt;
+    padding: 7px 6px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+td {
+    border: 1px solid #e5e7eb;
+    padding: 7px 6px;
+    vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+
+.col-codigo { width: 9%; }
+.col-descripcion { width: 35%; }
+.col-cantidad { width: 10%; }
+.col-unidad { width: 10%; }
+.col-precio { width: 13%; }
+.col-iva { width: 8%; }
+.col-subtotal { width: 15%; }
+
+.descripcion {
+    font-weight: 700;
+}
+
+.num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.resumen {
+    align-items: flex-start;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 245px;
+    margin-bottom: 14px;
+}
+
+.resumen .observaciones {
+    min-height: 86px;
+}
+
+.observaciones p {
+    color: #374151;
+    margin-top: 8px;
+}
+
+.totales {
+    margin-left: auto;
+    width: 245px;
+}
+
+.totales dl {
+    display: grid;
+    gap: 6px;
+}
+
+.totales dl div {
+    display: flex;
+    justify-content: space-between;
+}
+
+.totales dd,
+.totales dt {
+    font-size: 8.5pt;
+}
+
+.totales .total {
+    border-top: 2px solid #111827;
+    margin-top: 3px;
+    padding-top: 7px;
+}
+
+.totales .total dt,
+.totales .total dd {
+    color: #111827;
+    font-size: 13pt;
+}
+
+.pie {
+    align-items: center;
+    border-top: 2px solid #111827;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 92px 1fr 150px;
+    margin-top: 10px;
+    padding-top: 10px;
     page-break-inside: avoid;
 }
 
 .qr img {
-    width: 100px;
-    height: 100px;
+    height: 88px;
+    width: 88px;
 }
 
-.cae-info {
-    flex: 1;
-    font-size: 9pt;
+.pie-texto {
+    color: #4b5563;
+    font-size: 7.5pt;
 }
 
-.cae-info p {
-    margin: 3px 0;
+.pie-texto p {
+    margin-bottom: 3px;
 }
 
 .autorizado {
-    margin-top: 8px;
-    font-style: italic;
-    color: #666;
+    color: #111827;
+    font-size: 9pt;
+    font-weight: 700;
 }
 
-.no-autorizado {
-    margin-top: 8px;
-    font-weight: bold;
-    color: #cc0000;
+.arca {
+    text-align: right;
 }
 
-/* Observaciones */
-.observaciones {
-    background-color: #f9f9f9;
-    padding: 10px;
-    border-left: 3px solid #666;
+.arca strong {
+    color: #1f3a5f;
+    display: block;
+    font-size: 18pt;
+    line-height: 1;
 }
 
-.observaciones p {
-    margin: 0;
+.arca span {
+    color: #1f3a5f;
+    display: block;
+    font-size: 6.5pt;
+    font-weight: 700;
+    margin-top: 4px;
+    text-transform: uppercase;
 }

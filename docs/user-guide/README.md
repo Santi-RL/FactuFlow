@@ -104,6 +104,12 @@ Si el comprobante esta autorizado, veras:
 - El PDF no se genera automaticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
 - Esto evita guardar archivos innecesarios.
+- El PDF muestra emisor, receptor, datos de la operacion, detalle, totales, CAE,
+  vencimiento CAE y QR ARCA.
+- Si el emisor tiene `Ingresos Brutos` cargado en `Emisores`, tambien se muestra
+  en el PDF. Si no esta cargado, figura como `No informado`.
+- En comprobantes nuevos de servicios, el PDF muestra periodo facturado y
+  vencimiento de pago cuando esos datos fueron informados al emitir.
 
 ## 6. Emision masiva
 
@@ -441,6 +447,7 @@ Importante:
 ## 10. Emisores
 
 En `Emisores` puedes editar y guardar los datos fiscales y generales del emisor activo, o agregar otro CUIT para operar.
+Completa `Ingresos Brutos` para que ese dato salga informado en los PDFs.
 
 La pantalla tiene dos secciones:
 - `Datos del emisor`: datos fiscales y de contacto.

@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-11
+Ultima actualizacion: 2026-05-14
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -111,6 +111,8 @@ Objetivo: poder operar una empresa y emitir comprobantes reales.
 - [x] Endpoints base para auth, clientes, empresa y comprobantes
 - [x] Seguridad basica por empresa
 - [x] Generacion de PDF bajo demanda
+- [x] PDF de comprobante con formato administrativo profesional y QR ARCA
+  testeado por payload decodificable
 - [x] Reportes basicos de consulta
 - [~] Consistencia documental completa de endpoints y contratos
 
@@ -186,6 +188,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Reintento seguro del mismo archivo cuando el lote previo no emitio CAE
 - [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
 - [x] Snapshot fiscal del receptor en comprobantes
+- [x] Persistencia de fechas de servicio y vencimiento de pago en comprobantes
+  nuevos para reflejarlas en el PDF
 - [x] Clientes precargados opcionales para lotes masivos
 - [x] Emision de lotes chicos desde UI observable por background/polling
 - [x] Ejecucion asincronica para lotes grandes
@@ -213,6 +217,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Mensajes basicos de validacion
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente
+- [x] PDF de comprobante rediseñado sin replicar el formato ARCA, con datos
+  fiscales, CAE, QR, detalle y totales organizados profesionalmente
 - [x] QA manual local del formato global de extracto bancario sin emitir
 - [x] QA visual local del selector obligatorio de fechas fiscales en lotes
 - [x] QA visual local de descripcion/concepto facturado del item independiente

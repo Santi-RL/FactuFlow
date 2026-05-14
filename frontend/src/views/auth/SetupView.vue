@@ -33,6 +33,7 @@ const empresa = ref({
   razon_social: "",
   cuit: "",
   condicion_iva: "RI" as "RI" | "Monotributo" | "Exento",
+  ingresos_brutos: "",
   domicilio: "",
   localidad: "",
   provincia: "",
@@ -231,6 +232,12 @@ const handleSubmit = async () => {
             label="Condición IVA"
             :options="condicionIvaOptions"
             required
+          />
+
+          <BaseInput
+            v-model="empresa.ingresos_brutos"
+            label="Ingresos Brutos"
+            placeholder="Ej.: CM 12345678 o Exento"
           />
 
           <BaseInput

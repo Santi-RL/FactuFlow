@@ -53,6 +53,9 @@ class Comprobante(Base):
     # Fechas
     fecha_emision = Column(Date, nullable=False)
     fecha_vencimiento = Column(Date, nullable=True)
+    fecha_servicio_desde = Column(Date, nullable=True)
+    fecha_servicio_hasta = Column(Date, nullable=True)
+    fecha_vto_pago = Column(Date, nullable=True)
 
     # Importes
     subtotal = Column(Numeric(12, 2), nullable=False)

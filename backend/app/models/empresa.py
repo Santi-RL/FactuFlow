@@ -16,6 +16,7 @@ class Empresa(Base):
     razon_social = Column(String(255), nullable=False)
     cuit = Column(String(11), unique=True, index=True, nullable=False)
     condicion_iva = Column(String(50), nullable=False)  # RI, Monotributo, Exento
+    ingresos_brutos = Column(String(50), nullable=True)
     domicilio = Column(String(255), nullable=False)
     localidad = Column(String(100), nullable=False)
     provincia = Column(String(100), nullable=False)

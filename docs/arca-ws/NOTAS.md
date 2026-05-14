@@ -1,6 +1,6 @@
 # ARCA WS - Notas practicas
 
-Ultima actualizacion: 2026-05-08
+Ultima actualizacion: 2026-05-14
 
 Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
 
@@ -18,6 +18,11 @@ Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los
 ### 1. Verificacion de homologacion
 
 - No confiar en QR como validacion de homologacion.
+- El QR de PDF debe codificar la URL oficial heredada
+  `https://www.afip.gob.ar/fe/qr/?p={base64}` con JSON de comprobante en
+  Base64. En tests se decodifica el payload y se verifican campos ARCA:
+  `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`,
+  `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut`, `codAut`.
 - La verificacion correcta es por webservice, usando `FECompConsultar`.
 
 ### 2. Puntos de venta

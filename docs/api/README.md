@@ -83,6 +83,9 @@ DELETE /api/empresas/{empresa_id}
 `POST /api/empresas/extraer-constancia` recibe una constancia ARCA en PDF y
 devuelve datos fiscales detectados para precompletar el alta de emisor.
 
+Los emisores aceptan `ingresos_brutos` como campo opcional. Si esta cargado, se
+usa en el PDF de comprobantes.
+
 ## Clientes
 
 ```http
@@ -451,6 +454,10 @@ GET /api/pdf/comprobante/{comprobante_id}/preview
 ```
 
 El PDF se genera bajo demanda.
+Incluye QR ARCA con payload Base64 segun la especificacion oficial y muestra
+datos fiscales del emisor/receptor, operacion, detalle, totales, CAE y
+vencimiento CAE. En comprobantes nuevos de servicios tambien muestra periodo
+facturado y vencimiento de pago.
 
 ## Reportes
 

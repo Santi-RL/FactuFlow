@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-11
+Ultima actualizacion: 2026-05-14
 
 ## Objetivo activo
 
@@ -14,6 +14,9 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
   de fechas.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
+- PDF de comprobantes actualizado con formato administrativo mas prolijo,
+  datos fiscales completos disponibles, QR ARCA testeable por payload y fechas
+  de servicio/vencimiento persistidas en comprobantes nuevos.
 - Emision masiva ahora puede usar plantilla oficial o formatos configurables con autodeteccion asistida.
 - Emision masiva ahora puede aplicar perfiles de carga masiva visibles y
   editables antes de validar.
@@ -30,6 +33,26 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### PDF profesional y QR ARCA 2026-05-14
+
+- Se rediseño el PDF de comprobante para que se vea mas prolijo y profesional
+  sin replicar el formato visual oficial de ARCA.
+- El PDF ahora organiza emisor, receptor, operación, detalle, totales, CAE,
+  vencimiento CAE, leyenda ARCA y QR en bloques claros.
+- Se agrego `ingresos_brutos` al emisor para poder mostrar ese dato fiscal en
+  el PDF cuando este cargado. Los emisores existentes pueden completarlo desde
+  `Emisores`.
+- Los comprobantes nuevos persisten `fecha_servicio_desde`,
+  `fecha_servicio_hasta` y `fecha_vto_pago` para que el PDF muestre periodo
+  facturado y vencimiento cuando el concepto fiscal sea servicios o ambos.
+- El QR quedo separado en payload y URL testeables. La prueba decodifica el
+  Base64 y verifica campos oficiales: `ver`, `fecha`, `cuit`, `ptoVta`,
+  `tipoCmp`, `nroCmp`, `importe`, `moneda`, `ctz`, `tipoDocRec`,
+  `nroDocRec`, `tipoCodAut` y `codAut`.
+- Verificacion tecnica focalizada: `pytest tests/test_pdf_service.py
+  tests/test_facturacion_service.py -q`, `ruff check app tests alembic`,
+  `black --check app tests alembic` y `npm run type-check` OK.
 
 ### Formato Roldan Factura B IVA 21% 2026-05-11
 
@@ -601,6 +624,9 @@ Quedo validado manualmente:
   verificadas por consulta ARCA. Mantener como evidencia la fecha de emision
   `08/05/2026` y el periodo de servicios `01/04/2026 - 30/04/2026`.
 - No existe todavia descarga masiva de PDFs en ZIP.
+- Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
+  dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
+  `No informado`.
 - Falta el tramo operativo de cierre antes de la primera emision productiva:
   - confirmar punto de venta a usar para el primer CAE real
   - definir/importar el lote chico definitivo, idealmente validando el formato
