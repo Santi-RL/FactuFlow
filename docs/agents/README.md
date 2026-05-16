@@ -53,6 +53,8 @@
 - Manual de usuario: `docs/user-guide/README.md`
 - Seguridad y certificados: `docs/agents/security.md`
 - Guia de testing: `docs/agents/testing.md`
+- Puesta a punto y reportes Clawpatch:
+  `docs/project/audits/clawpatch/README.md`
 - Bitacora tecnica de la ultima sesion: `docs/project/notes/SESSION_2026-03-09.md`
 
 ## Regla de continuidad

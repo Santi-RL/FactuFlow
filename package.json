@@ -1,0 +1,15 @@
+{
+  "name": "factuflow",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "clawpatch:backend:init": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend init",
+    "clawpatch:backend:map": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend map",
+    "clawpatch:backend:status": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend status --json",
+    "clawpatch:backend:review": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend review --limit 10 --jobs 2",
+    "clawpatch:frontend:init": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend init",
+    "clawpatch:frontend:map": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend map",
+    "clawpatch:frontend:status": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend status --json",
+    "clawpatch:frontend:review": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend review --limit 10 --jobs 2"
+  }
+}

@@ -22,6 +22,36 @@ npm run test:unit
 npm run test:e2e
 ```
 
+## Puesta a punto Clawpatch
+
+Para ejecutar `clawpatch`, usar los scripts raiz documentados en
+`docs/project/audits/clawpatch/README.md`. El smoke minimo es:
+
+```bash
+npm run clawpatch:backend:map
+npm run clawpatch:frontend:map
+npm run clawpatch:backend:status
+npm run clawpatch:frontend:status
+```
+
+La regresion minima posterior es:
+
+```bash
+cd backend
+python -m pytest tests/test_lotes_comprobantes.py tests/test_facturacion_service.py tests/test_comprobantes_api.py -q
+ruff check app tests
+black --check app tests
+
+cd ../frontend
+npm run lint:check
+npm run type-check
+npm run build
+npm run test:unit
+```
+
+La puesta a punto no debe ejecutar `clawpatch fix`, no debe solicitar CAE ni
+modificar lógica de emisión fiscal.
+
 Nota 2026-05-07:
 
 - `npm run test:unit` incluye pruebas unitarias de perfiles de carga masiva y

@@ -1,0 +1,10 @@
+{
+  "name": "factuflow-backend",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "test": ".\\.venv\\Scripts\\python.exe -m pytest tests -q",
+    "lint": ".\\.venv\\Scripts\\python.exe -m ruff check app tests",
+    "format": ".\\.venv\\Scripts\\python.exe -m black --check app tests"
+  }
+}

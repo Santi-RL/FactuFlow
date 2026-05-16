@@ -82,6 +82,7 @@ backend/data/
 # Runtime / QA artifacts
 .tmp/
 .cache/
+.clawpatch/
 .ruff_cache/
 output/
 backend/output/

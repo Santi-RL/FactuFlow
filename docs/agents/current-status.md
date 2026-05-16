@@ -35,6 +35,22 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 
 ## Lo mas importante que quedo hecho hoy
 
+### Puesta a punto Clawpatch 2026-05-16
+
+- Se agrego estado local ignorado `.clawpatch/`, metadata minima
+  `backend/pyproject.toml`, manifiesto operativo `backend/package.json` y
+  scripts raiz para inicializar, mapear, consultar estado y revisar backend y
+  frontend con `clawpatch@0.1.0`.
+- La version actual de Clawpatch no trae mapper Python. Para que backend tenga
+  entradas detectables sin tocar runtime, el manifiesto del backend expone los
+  checks Python existentes contra `.venv`.
+- Smoke ejecutado sin fixes: backend detecta 4 features y frontend detecta 6
+  features. El estado interno queda fuera del historial Git en `.clawpatch/`.
+- Regresion tecnica posterior OK: backend `pytest tests -q`, `ruff`, `black`;
+  frontend `lint:check`, `type-check`, `build` y `test:unit`.
+- Reporte de cierre:
+  `docs/project/audits/clawpatch/2026-05-16-puesta-a-punto.md`.
+
 ### PDF profesional y QR ARCA 2026-05-14
 
 - Se rediseño el PDF de comprobante con una estructura mas cercana a la
@@ -624,6 +640,11 @@ Quedo validado manualmente:
 
 ## Riesgos / pendientes inmediatos
 
+- Revision de detecciones 2026-05-16: queda asentada en
+  `docs/project/audits/clawpatch/2026-05-16-detecciones.md`. No se aplicaron
+  fixes; el archivo registra hallazgos para reparar en una tarea posterior,
+  especialmente reanudacion/reencolado de lotes, barrera fiscal frontend,
+  certificados y limites de subida Excel.
 - La base local privada sigue siendo evidencia legacy
   ajustada manualmente; para nuevas instalaciones y operacion real, el camino
   canonico de schema es Alembic.
