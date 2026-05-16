@@ -28,11 +28,16 @@ Para ejecutar `clawpatch`, usar los scripts raiz documentados en
 `docs/project/audits/clawpatch/README.md`. El smoke minimo es:
 
 ```bash
-npm run clawpatch:backend:map
-npm run clawpatch:frontend:map
+npm run clawpatch:test-seeds
+npm run clawpatch:map-all
+npm run clawpatch:repo:status
 npm run clawpatch:backend:status
 npm run clawpatch:frontend:status
 ```
+
+`clawpatch:map-all` agrega features manuales versionadas para que la auditoria
+revise flujos reales de FactuFlow. El nivel `repo` cubre slices end-to-end
+frontend/backend; `backend` y `frontend` agregan slices focalizados por area.
 
 La regresion minima posterior es:
 

@@ -122,6 +122,13 @@ local-dev-pids.txt
 visual-qa-pids.txt
 ci-local.log
 
+# Clawpatch raw review reports can expose open security findings.
+# Keep raw/summarized findings local unless a sanitized public report is created.
+docs/project/audits/clawpatch/repo-*.md
+docs/project/audits/clawpatch/backend-*.md
+docs/project/audits/clawpatch/frontend-*.md
+docs/project/audits/clawpatch/resumen-*.md
+
 # Private spreadsheets / office exports outside public fixture folders
 *.xlsx
 *.xls

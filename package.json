@@ -4,12 +4,26 @@
   "private": true,
   "scripts": {
     "clawpatch:backend:init": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend init",
-    "clawpatch:backend:map": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend map",
+    "clawpatch:backend:map:native": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend map",
+    "clawpatch:backend:seed": "node tools/clawpatch/seed-features.mjs --area backend --root backend --state-dir .clawpatch/backend --strict",
+    "clawpatch:backend:map": "npm run clawpatch:backend:map:native && npm run clawpatch:backend:seed",
     "clawpatch:backend:status": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend status --json",
-    "clawpatch:backend:review": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend review --limit 10 --jobs 2",
+    "clawpatch:backend:review": "set PATH=tools\\clawpatch\\bin;%PATH%&& npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend review --limit 50 --jobs 1",
+    "clawpatch:backend:clean-locks": "npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend clean-locks",
     "clawpatch:frontend:init": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend init",
-    "clawpatch:frontend:map": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend map",
+    "clawpatch:frontend:map:native": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend map",
+    "clawpatch:frontend:seed": "node tools/clawpatch/seed-features.mjs --area frontend --root frontend --state-dir .clawpatch/frontend --strict",
+    "clawpatch:frontend:map": "npm run clawpatch:frontend:map:native && npm run clawpatch:frontend:seed",
     "clawpatch:frontend:status": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend status --json",
-    "clawpatch:frontend:review": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend review --limit 10 --jobs 2"
+    "clawpatch:frontend:review": "set PATH=tools\\clawpatch\\bin;%PATH%&& npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend review --limit 50 --jobs 1",
+    "clawpatch:frontend:clean-locks": "npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend clean-locks",
+    "clawpatch:repo:init": "npx -y clawpatch@0.1.0 --root . --state-dir .clawpatch/repo init",
+    "clawpatch:repo:seed": "node tools/clawpatch/seed-features.mjs --area repo --root . --state-dir .clawpatch/repo --strict",
+    "clawpatch:repo:map": "npm run clawpatch:repo:seed",
+    "clawpatch:repo:status": "npx -y clawpatch@0.1.0 --root . --state-dir .clawpatch/repo status --json",
+    "clawpatch:repo:review": "set PATH=tools\\clawpatch\\bin;%PATH%&& npx -y clawpatch@0.1.0 --root . --state-dir .clawpatch/repo review --limit 50 --jobs 1",
+    "clawpatch:repo:clean-locks": "npx -y clawpatch@0.1.0 --root . --state-dir .clawpatch/repo clean-locks",
+    "clawpatch:map-all": "npm run clawpatch:repo:map && npm run clawpatch:backend:map && npm run clawpatch:frontend:map",
+    "clawpatch:test-seeds": "node --test tools/clawpatch/*.test.mjs"
   }
 }

@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-14
+Ultima actualizacion: 2026-05-16
 
 ## Objetivo activo
 
@@ -46,6 +46,15 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   checks Python existentes contra `.venv`.
 - Smoke ejecutado sin fixes: backend detecta 4 features y frontend detecta 6
   features. El estado interno queda fuera del historial Git en `.clawpatch/`.
+- Ajuste posterior: se agrego una capa versionada de features manuales en
+  `tools/clawpatch/` para cubrir codigo real de FactuFlow. El smoke actual con
+  `npm run clawpatch:map-all` deja `repo=4`, `backend=10` y `frontend=10`
+  features. El nivel `repo` cubre flujos end-to-end frontend/backend y no usa
+  el mapper nativo de la raiz porque puede escanear carpetas locales ignoradas.
+- Review ejecutado sobre `repo`: 4 features end-to-end revisadas, 21 findings
+  abiertos, sin `fix`, sin CAE ni llamadas reales ARCA. Los reportes crudos
+  quedan como evidencia local ignorada por Git porque detallan hallazgos de
+  seguridad abiertos; el resumen publico debe ser sanitizado antes de subirse.
 - Regresion tecnica posterior OK: backend `pytest tests -q`, `ruff`, `black`;
   frontend `lint:check`, `type-check`, `build` y `test:unit`.
 - Reporte de cierre:
@@ -640,11 +649,12 @@ Quedo validado manualmente:
 
 ## Riesgos / pendientes inmediatos
 
-- Revision de detecciones 2026-05-16: queda asentada en
-  `docs/project/audits/clawpatch/2026-05-16-detecciones.md`. No se aplicaron
-  fixes; el archivo registra hallazgos para reparar en una tarea posterior,
-  especialmente reanudacion/reencolado de lotes, barrera fiscal frontend,
-  certificados y limites de subida Excel.
+- Revision de detecciones 2026-05-16: el reporte manual publico queda en
+  `docs/project/audits/clawpatch/2026-05-16-detecciones.md`. Los reportes
+  crudos de Clawpatch quedan como evidencia local ignorada por Git hasta que se
+  corrijan o se publique una version sanitizada. No se aplicaron fixes;
+  priorizar lotes/procesando, post-CAE, scoping multiemisor, certificados y
+  Factura C/IVA.
 - La base local privada sigue siendo evidencia legacy
   ajustada manualmente; para nuevas instalaciones y operacion real, el camino
   canonico de schema es Alembic.
