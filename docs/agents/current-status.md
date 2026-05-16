@@ -14,9 +14,10 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
   de fechas.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
-- PDF de comprobantes actualizado con formato administrativo mas prolijo,
-  datos fiscales completos disponibles, QR ARCA testeable por payload y fechas
-  de servicio/vencimiento persistidas en comprobantes nuevos.
+- PDF de comprobantes actualizado con formato administrativo alineado a la
+  ubicacion principal de la factura oficial ARCA, datos fiscales completos
+  disponibles, QR ARCA testeable por payload y fechas de servicio/vencimiento
+  persistidas en comprobantes nuevos.
 - Emision masiva ahora puede usar plantilla oficial o formatos configurables con autodeteccion asistida.
 - Emision masiva ahora puede aplicar perfiles de carga masiva visibles y
   editables antes de validar.
@@ -36,16 +37,27 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 
 ### PDF profesional y QR ARCA 2026-05-14
 
-- Se rediseño el PDF de comprobante para que se vea mas prolijo y profesional
-  sin replicar el formato visual oficial de ARCA.
-- El PDF ahora organiza emisor, receptor, operación, detalle, totales, CAE,
-  vencimiento CAE, leyenda ARCA y QR en bloques claros.
+- Se rediseño el PDF de comprobante con una estructura mas cercana a la
+  ubicacion de elementos principales de la factura oficial ARCA, sin copiar
+  identidad visual ni depender de un formato ARCA editable.
+- El PDF ahora organiza `ORIGINAL`, caja de letra/codigo, emisor, receptor,
+  periodo, detalle, totales, CAE, vencimiento CAE, leyenda ARCA y QR en una
+  hoja A4.
+- Para consumidor final sin documento, el PDF no expone el `0` tecnico usado en
+  WSFE/QR; muestra `Doc.: -`, consigna `Condicion frente al IVA: Consumidor
+  Final` y solo deja el nombre vacio cuando la razon social tambien es generica
+  (`A CONSUMIDOR FINAL`/`Consumidor Final`). Si el lote trae una razon social
+  real del receptor, se muestra aunque el documento sea tecnico `0`.
 - Se agrego `ingresos_brutos` al emisor para poder mostrar ese dato fiscal en
   el PDF cuando este cargado. Los emisores existentes pueden completarlo desde
   `Emisores`.
 - Los comprobantes nuevos persisten `fecha_servicio_desde`,
   `fecha_servicio_hasta` y `fecha_vto_pago` para que el PDF muestre periodo
   facturado y vencimiento cuando el concepto fiscal sea servicios o ambos.
+- Se agrego backfill por Alembic para comprobantes historicos emitidos por lote:
+  si el comprobante no tenia fechas de servicio pero el `payload_json` del grupo
+  las conservaba, se reconstruyen `fecha_servicio_desde`,
+  `fecha_servicio_hasta`, `fecha_vto_pago` y `fecha_vencimiento`.
 - El QR quedo separado en payload y URL testeables. La prueba decodifica el
   Base64 y verifica campos oficiales: `ver`, `fecha`, `cuit`, `ptoVta`,
   `tipoCmp`, `nroCmp`, `importe`, `moneda`, `ctz`, `tipoDocRec`,

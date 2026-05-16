@@ -98,6 +98,71 @@ async def test_guardar_comprobante_masivo_no_crea_cliente(
 
 
 @pytest.mark.asyncio
+async def test_guardar_comprobante_persiste_fechas_de_servicio(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """La emision debe conservar periodo de servicio y vencimiento de pago."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+
+    service = FacturacionService(db_session)
+    request = service.normalizar_receptor(
+        EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=2,
+            fecha_emision=date(2026, 4, 30),
+            fecha_servicio_desde=date(2026, 4, 1),
+            fecha_servicio_hasta=date(2026, 4, 30),
+            fecha_vto_pago=date(2026, 4, 30),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social="CLIENTE DE PRUEBA -",
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Abono mensual",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("21600"),
+                    iva_porcentaje=Decimal("21"),
+                )
+            ],
+        )
+    )
+    totales = service._calcular_totales(request.items)
+    resultado_arca = SimpleNamespace(
+        cae="99999999999999",
+        cae_vencimiento=date(2026, 5, 10).strftime("%Y%m%d"),
+    )
+
+    comprobante = await service._guardar_comprobante(
+        request=request,
+        numero=1001,
+        totales=totales,
+        resultado_arca=resultado_arca,
+        punto_venta=punto_venta,
+    )
+
+    assert comprobante.fecha_servicio_desde == date(2026, 4, 1)
+    assert comprobante.fecha_servicio_hasta == date(2026, 4, 30)
+    assert comprobante.fecha_vto_pago == date(2026, 4, 30)
+    assert comprobante.fecha_vencimiento == date(2026, 4, 30)
+
+
+@pytest.mark.asyncio
 async def test_validar_punto_venta_habilitado_acepta_bloqueado_n(
     db_session: AsyncSession,
 ):

@@ -5,6 +5,7 @@ import json
 import pytest
 from unittest.mock import Mock
 from datetime import date
+from types import SimpleNamespace
 
 from app.services.pdf_service import PDFService
 from app.models.comprobante import Comprobante
@@ -164,6 +165,50 @@ class TestPDFService:
         assert decoded["fecha"] == "2026-02-03"
         assert decoded["tipoCodAut"] == "E"
         assert decoded["codAut"] == 74123456789012
+
+    def test_receptor_consumidor_final_con_nombre_muestra_razon_social(
+        self, pdf_service
+    ):
+        """Debe ocultar el documento tecnico 0 sin borrar una razon social real."""
+        receptor = SimpleNamespace(
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social="CLIENTE DE PRUEBA -",
+            condicion_iva="CF",
+            domicilio="",
+            localidad="",
+        )
+
+        display = pdf_service._get_receptor_display(receptor)
+
+        assert display == {
+            "documento": "-",
+            "nombre": "CLIENTE DE PRUEBA -",
+            "condicion_iva": "Consumidor Final",
+            "domicilio": "",
+        }
+
+    def test_receptor_consumidor_final_generico_no_muestra_nombre_tecnico(
+        self, pdf_service
+    ):
+        """Debe evitar datos repetidos cuando el receptor es generico."""
+        receptor = SimpleNamespace(
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social="A CONSUMIDOR FINAL",
+            condicion_iva="CF",
+            domicilio="",
+            localidad="",
+        )
+
+        display = pdf_service._get_receptor_display(receptor)
+
+        assert display == {
+            "documento": "-",
+            "nombre": "",
+            "condicion_iva": "Consumidor Final",
+            "domicilio": "",
+        }
 
     @pytest.mark.asyncio
     async def test_generar_pdf_comprobante(

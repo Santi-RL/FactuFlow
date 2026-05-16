@@ -6,6 +6,7 @@ from datetime import date
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import qrcode
@@ -49,11 +50,12 @@ class PDFService:
 
         # 2. Preparar datos para el template
         cliente = self._get_receptor_pdf(comprobante)
+        receptor_display = self._get_receptor_display(cliente)
         datos = {
             "comprobante": comprobante,
             "empresa": empresa,
             "cliente": cliente,
-            "items": comprobante.items,
+            "items": self._preparar_items_pdf(comprobante.items),
             "qr_base64": qr_base64,
             "letra": self._get_letra_comprobante(comprobante.tipo_comprobante),
             "tipo_nombre": self._get_nombre_comprobante(comprobante.tipo_comprobante),
@@ -61,6 +63,11 @@ class PDFService:
             "concepto_nombre": self._get_nombre_concepto(comprobante.concepto),
             "punto_venta_str": f"{comprobante.punto_venta.numero:04d}",
             "numero_str": f"{comprobante.numero:08d}",
+            "empresa_cuit": "".join(filter(str.isdigit, empresa.cuit or "")),
+            "receptor_documento": receptor_display["documento"],
+            "receptor_nombre": receptor_display["nombre"],
+            "receptor_condicion_iva": receptor_display["condicion_iva"],
+            "receptor_domicilio": receptor_display["domicilio"],
             "tipo_documento_nombre": self._get_nombre_tipo_documento(
                 cliente.tipo_documento
             ),
@@ -80,6 +87,109 @@ class PDFService:
         pdf = HTML(string=html_content).write_pdf(stylesheets=stylesheets)
 
         return pdf
+
+    def _preparar_items_pdf(self, items: list[Any]) -> list[SimpleNamespace]:
+        """Prepara filas de detalle con datos calculados para el PDF."""
+        filas = []
+        for item in items:
+            cantidad = Decimal(str(getattr(item, "cantidad", 0) or 0))
+            precio_unitario = Decimal(str(getattr(item, "precio_unitario", 0) or 0))
+            descuento_porcentaje = Decimal(
+                str(getattr(item, "descuento_porcentaje", 0) or 0)
+            )
+            importe_bonificacion = (
+                cantidad * precio_unitario * descuento_porcentaje / Decimal("100")
+            )
+            filas.append(
+                SimpleNamespace(
+                    codigo=getattr(item, "codigo", None),
+                    descripcion=getattr(item, "descripcion", ""),
+                    cantidad=cantidad,
+                    unidad=getattr(item, "unidad", "unidades"),
+                    precio_unitario=precio_unitario,
+                    descuento_porcentaje=descuento_porcentaje,
+                    importe_bonificacion=importe_bonificacion,
+                    subtotal=getattr(item, "subtotal", Decimal("0")),
+                )
+            )
+        return filas
+
+    def _get_receptor_display(self, cliente: Any) -> dict[str, str]:
+        """Normaliza los datos visibles del receptor para evitar datos técnicos."""
+        tipo_documento = getattr(cliente, "tipo_documento", "") or ""
+        numero_documento = getattr(cliente, "numero_documento", "") or ""
+        razon_social = getattr(cliente, "razon_social", "") or ""
+        condicion_iva = getattr(cliente, "condicion_iva", "") or ""
+        domicilio = getattr(cliente, "domicilio", "") or ""
+        localidad = getattr(cliente, "localidad", "") or ""
+
+        es_consumidor_final = self._es_consumidor_final(
+            tipo_documento, numero_documento, razon_social, condicion_iva
+        )
+        documento = "-"
+        if not self._es_documento_consumidor_final(tipo_documento, numero_documento):
+            documento = numero_documento or "-"
+        domicilio_visible = domicilio
+        if domicilio_visible and localidad:
+            domicilio_visible = f"{domicilio_visible}, {localidad}"
+        nombre_visible = ""
+        if not self._es_razon_social_consumidor_final(razon_social):
+            nombre_visible = razon_social
+
+        return {
+            "documento": documento,
+            "nombre": nombre_visible,
+            "condicion_iva": (
+                "Consumidor Final"
+                if es_consumidor_final
+                else self._normalizar_condicion_iva(condicion_iva)
+            ),
+            "domicilio": domicilio_visible,
+        }
+
+    def _es_consumidor_final(
+        self,
+        tipo_documento: str,
+        numero_documento: str,
+        razon_social: str,
+        condicion_iva: str,
+    ) -> bool:
+        """Detecta consumidores finales para no exponer el documento técnico 0."""
+        numero_normalizado = str(numero_documento).replace("-", "").strip()
+        condicion_normalizada = str(condicion_iva).strip().lower()
+        return (
+            self._es_documento_consumidor_final(tipo_documento, numero_documento)
+            or self._es_razon_social_consumidor_final(razon_social)
+            or (
+                condicion_normalizada in {"cf", "consumidor final"}
+                and numero_normalizado in {"", "0"}
+            )
+        )
+
+    def _es_documento_consumidor_final(
+        self, tipo_documento: str, numero_documento: str
+    ) -> bool:
+        """Detecta el documento técnico usado por ARCA para consumidor final."""
+        tipo_normalizado = str(tipo_documento).strip().lower()
+        numero_normalizado = str(numero_documento).replace("-", "").strip()
+        return tipo_normalizado in {
+            "consumidor final",
+            "otro",
+            "99",
+            "",
+        } and numero_normalizado in {"", "0"}
+
+    def _es_razon_social_consumidor_final(self, razon_social: str) -> bool:
+        """Detecta nombres genéricos que no aportan datos reales del receptor."""
+        razon_normalizada = str(razon_social).strip().lower()
+        return razon_normalizada in {"", "a consumidor final", "consumidor final"}
+
+    def _normalizar_condicion_iva(self, condicion_iva: str) -> str:
+        """Convierte abreviaturas frecuentes de condición IVA a texto legible."""
+        normalizada = condicion_iva.strip()
+        if normalizada.upper() == "CF":
+            return "Consumidor Final"
+        return normalizada
 
     def _generar_qr_arca(self, comprobante: Comprobante) -> str:
         """

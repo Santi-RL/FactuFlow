@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-09
+Ultima actualizacion: 2026-05-14
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -104,12 +104,21 @@ Si el comprobante esta autorizado, veras:
 - El PDF no se genera automaticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
 - Esto evita guardar archivos innecesarios.
-- El PDF muestra emisor, receptor, datos de la operacion, detalle, totales, CAE,
-  vencimiento CAE y QR ARCA.
+- El PDF muestra `ORIGINAL`, letra y codigo de comprobante, emisor, receptor,
+  periodo facturado, detalle, totales, CAE, vencimiento CAE y QR ARCA en una
+  hoja A4 con ubicaciones principales similares a la factura oficial ARCA.
+- Si el receptor es consumidor final sin documento, el PDF muestra `Doc.: -`,
+  y consigna `Condicion frente al IVA: Consumidor Final`; el numero `0` queda
+  como dato tecnico para ARCA/QR y no se muestra como documento visible. Si el
+  comprobante tiene una razon social real del receptor, el PDF la muestra; si
+  solo trae un texto generico como `A CONSUMIDOR FINAL`, el nombre queda vacio.
 - Si el emisor tiene `Ingresos Brutos` cargado en `Emisores`, tambien se muestra
   en el PDF. Si no esta cargado, figura como `No informado`.
 - En comprobantes nuevos de servicios, el PDF muestra periodo facturado y
   vencimiento de pago cuando esos datos fueron informados al emitir.
+- En comprobantes historicos emitidos por lote, una migracion reconstruye el
+  periodo y vencimiento desde el payload guardado del lote cuando esos datos no
+  estaban persistidos en el comprobante.
 
 ## 6. Emision masiva
 

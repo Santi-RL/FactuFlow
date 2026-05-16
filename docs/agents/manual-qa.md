@@ -36,17 +36,29 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 ### PDF profesional y QR ARCA - verificacion tecnica 2026-05-14
 
 - Se actualizo el PDF de comprobante para presentacion administrativa
-  profesional, sin copiar el formato oficial de ARCA.
-- El PDF muestra bloques de emisor, receptor, operacion, detalle, totales, CAE,
-  vencimiento CAE, leyenda ARCA y QR.
+  profesional, alineando las ubicaciones principales con la factura oficial ARCA
+  sin copiar identidad visual ni formato editable oficial.
+- El PDF muestra `ORIGINAL`, caja de letra/codigo, emisor, receptor, periodo,
+  detalle, totales, CAE, vencimiento CAE, leyenda ARCA y QR en una hoja A4.
+- Para consumidor final sin documento, el PDF muestra `Doc.: -` y
+  `Condicion frente al IVA: Consumidor Final`, evitando exponer el `0` tecnico
+  usado por WSFE/QR. Si el receptor tiene una razon social real, se muestra; si
+  solo dice `A CONSUMIDOR FINAL`/`Consumidor Final`, el nombre queda vacio.
 - `Emisores` y el setup inicial permiten cargar `Ingresos Brutos`; el PDF lo
   muestra si esta informado y, para emisores anteriores, indica `No informado`.
 - Los comprobantes nuevos guardan fechas de servicio y vencimiento de pago para
   mostrarlas en el PDF cuando corresponda.
+- Se aplico migracion local para reconstruir fechas de servicio/vencimiento de
+  comprobantes historicos emitidos por lote desde el `payload_json` del grupo.
 - El QR se verifico por test decodificando el Base64 de la URL y comparando el
   payload con los campos requeridos por ARCA.
-- Pendiente de QA visual: abrir un PDF real desde la UI y revisar legibilidad en
-  preview/descarga con un comprobante autorizado.
+- Verificacion visual tecnica local: se renderizo un PDF de muestra a PNG desde
+  la plantilla real y quedo en una pagina con QR, CAE y totales visibles.
+- Verificacion tecnica sobre un comprobante autorizado local: el PDF queda en
+  una pagina y el texto extraido incluye periodo `01/04/2026 - 30/04/2026`,
+  vencimiento `30/04/2026`, CAE y razon social del receptor.
+- Pendiente de QA visual final: abrir un PDF real desde la UI y revisar
+  legibilidad en preview/descarga con un comprobante autorizado.
 
 ### Formato Roldan - Factura B IVA 21% - QA 2026-05-11
 
