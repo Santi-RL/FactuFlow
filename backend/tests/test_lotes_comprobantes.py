@@ -1,19 +1,24 @@
 """Tests para emision masiva de comprobantes."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 
 import pytest
 from httpx import AsyncClient
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import to_excel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.certificado import Certificado
-from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
+from app.models.comprobante import Comprobante
+from app.models.lote_comprobante import (
+    LoteComprobante,
+    LoteComprobanteFila,
+    LoteComprobanteGrupo,
+)
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteResponse
 from app.services.lote_comprobantes_service import (
@@ -131,6 +136,80 @@ def _build_lote_excel(
     stream = BytesIO()
     workbook.save(stream)
     return stream.getvalue()
+
+
+def _confirmacion_fecha_fiscal_header(
+    fecha_emision: date | None = None, punto_venta: int = 1
+) -> dict[str, str]:
+    """Construye el header de confirmación fiscal exacta para tests."""
+    fecha = fecha_emision or date.today()
+    return {
+        "X-Confirmacion-Fecha-Fiscal": (
+            f"fechas={fecha.isoformat()};puntos_venta={punto_venta}"
+        )
+    }
+
+
+@pytest.mark.asyncio
+async def test_archivo_observado_escapa_textos_con_formulas(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """El Excel observado no debe abrir formulas tomadas del archivo original."""
+    datos = {column: "" for column in LoteComprobantesService.TEMPLATE_COLUMNS}
+    datos.update(
+        {
+            "comprobante_ref": "=SUM(1,1)",
+            "empresa_cuit": test_empresa.cuit,
+            "item_descripcion": "+cmd",
+            "observaciones": " @malicioso",
+        }
+    )
+    lote = LoteComprobante(
+        nombre_archivo="observado.xlsx",
+        archivo_hash="hash-observado-formulas",
+        estado="con_errores",
+        total_filas=1,
+        total_grupos=1,
+        grupos_con_error=1,
+        empresa_id=test_empresa.id,
+    )
+    grupo = LoteComprobanteGrupo(
+        lote=lote,
+        comprobante_ref="=SUM(1,1)",
+        orden=1,
+        estado="con_error",
+        mensajes_json=["=HYPERLINK('http://malicioso')"],
+    )
+    fila = LoteComprobanteFila(
+        lote=lote,
+        grupo=grupo,
+        fila_excel=2,
+        comprobante_ref="=SUM(1,1)",
+        estado="con_error",
+        datos_json=datos,
+        mensajes_json=["=HYPERLINK('http://malicioso')"],
+    )
+    db_session.add_all([lote, grupo, fila])
+    await db_session.commit()
+    await db_session.refresh(lote)
+
+    service = LoteComprobantesService(db_session)
+    contenido = await service.generar_archivo_observado(lote.id, test_empresa.id)
+
+    workbook = load_workbook(BytesIO(contenido), data_only=False)
+    sheet = workbook["Resultados"]
+    headers = [cell.value for cell in sheet[1]]
+    row = {
+        header: sheet.cell(row=2, column=index + 1).value
+        for index, header in enumerate(headers)
+    }
+
+    assert row["comprobante_ref"] == "'=SUM(1,1)"
+    assert row["item_descripcion"] == "'+cmd"
+    assert row["observaciones"] == "' @malicioso"
+    assert row["resultado_mensajes"] == "'=HYPERLINK('http://malicioso')"
+    assert sheet["A2"].data_type == "s"
 
 
 def _build_lote_excel_multi_grupo(empresa_cuit: str, total_grupos: int = 2) -> bytes:
@@ -462,6 +541,92 @@ async def test_validar_lote_registra_grupos_y_filas(
 
 
 @pytest.mark.asyncio
+async def test_validar_lote_mixto_no_anuncia_emision_si_estado_no_procesable(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un lote con errores conserva contrato consistente: no puede emitirse."""
+    workbook = load_workbook(BytesIO(_build_lote_excel_multi_grupo(test_empresa.cuit)))
+    sheet = workbook["Comprobantes"]
+    sheet.cell(row=3, column=4).value = 11
+    sheet.cell(row=3, column=21).value = 21
+    stream = BytesIO()
+    workbook.save(stream)
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-mixto.xlsx",
+                stream.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is False
+    assert data["lote"]["estado"] == "con_errores"
+    assert data["lote"]["grupos_validos"] == 1
+    assert data["lote"]["grupos_con_error"] == 1
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_rechaza_xlsx_malformado(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """Un .xlsx corrupto debe devolver error funcional, no 500."""
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "corrupto.xlsx",
+                b"esto no es un zip",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "No se pudo leer el archivo Excel" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_rechaza_archivo_demasiado_grande(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """El límite de bytes debe aplicarse antes de parsear el Excel."""
+    monkeypatch.setattr(settings, "batch_max_upload_bytes", 10)
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "grande.xlsx",
+                b"01234567890",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "tamaño máximo" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_validar_lote_punto_venta_fijo_sobrescribe_archivo(
     client: AsyncClient,
     auth_headers: dict,
@@ -724,6 +889,53 @@ async def test_validar_lote_rechaza_iva_invalido(
 
 
 @pytest.mark.asyncio
+async def test_validar_lote_rechaza_factura_c_con_iva(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Factura C no puede quedar lista si el archivo trae IVA."""
+    test_empresa.condicion_iva = "Exento"
+    await db_session.commit()
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-factura-c-con-iva.xlsx",
+                _build_lote_excel(
+                    test_empresa.cuit,
+                    tipo_comprobante=11,
+                    iva=21,
+                    cliente_tipo_documento="",
+                    cliente_numero_documento="",
+                    cliente_razon_social="A CONSUMIDOR FINAL",
+                    cliente_condicion_iva="Consumidor Final",
+                ),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is False
+    assert data["lote"]["estado"] == "con_errores"
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}",
+        headers=auth_headers,
+    )
+    mensajes = detalle.json()["grupos"][0]["mensajes_json"]
+    assert any("tipo C no pueden incluir IVA" in mensaje for mensaje in mensajes)
+
+
+@pytest.mark.asyncio
 async def test_validar_lote_consumidor_final_sin_documento_bajo_umbral(
     client: AsyncClient,
     auth_headers: dict,
@@ -903,6 +1115,51 @@ async def test_detectar_formato_extracto_bancario(
     ]
     assert data["formato_sugerido_version_id"] is not None
     assert data["candidatos"][0]["confianza"] == "alta"
+
+
+@pytest.mark.asyncio
+async def test_detectar_formato_rechaza_archivo_demasiado_grande(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """La detección de formatos debe aplicar el mismo límite de upload."""
+    monkeypatch.setattr(settings, "batch_max_upload_bytes", 10)
+
+    response = await client.post(
+        "/api/formatos-importacion/detectar",
+        headers=auth_headers,
+        files={
+            "archivo": (
+                "grande.xlsx",
+                b"01234567890",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "tamaño máximo" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_crear_formato_rechaza_configuracion_malformada(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """La configuración de formato debe validarse antes de persistir."""
+    response = await client.post(
+        "/api/formatos-importacion",
+        headers=auth_headers,
+        json={
+            "nombre": "Formato invalido",
+            "descripcion": "No debe persistirse",
+            "configuracion_json": {"campos": {"importe_total": None}},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "debe ser un objeto" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -1145,6 +1402,86 @@ async def test_validar_lote_extracto_bancario_varios_puntos_venta(
     ]
     assert [grupo["concepto"] for grupo in grupos] == [2, 2, 2]
     assert grupos[0]["fecha_emision"] == date.today().isoformat()
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_formato_con_header_blanco_preserva_indices(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Los headers vacíos no deben desplazar los índices físicos del Excel."""
+    test_empresa.condicion_iva = "Exento"
+    for numero in [10, 13]:
+        db_session.add(
+            PuntoVenta(
+                numero=numero,
+                nombre=f"Punto {numero}",
+                activo=True,
+                es_webservice=True,
+                empresa_id=test_empresa.id,
+            )
+        )
+    await db_session.commit()
+    workbook = load_workbook(BytesIO(_build_extracto_bancario_excel(test_empresa.cuit)))
+    workbook.active.insert_cols(1)
+    stream = BytesIO()
+    workbook.save(stream)
+    contenido = stream.getvalue()
+
+    detectar = await client.post(
+        "/api/formatos-importacion/detectar",
+        headers=auth_headers,
+        files={
+            "archivo": (
+                "extracto-header-blanco.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert detectar.status_code == 200, detectar.text
+    assert detectar.json()["headers_detectados"][0] == ""
+    formato_version_id = detectar.json()["formato_sugerido_version_id"]
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data={
+            **_opciones_fechas(
+                concepto_modo="servicios",
+                descripcion_item_modo="fija",
+                descripcion_item_fija="Honorarios",
+            ),
+            "formato_version_id": str(formato_version_id),
+        },
+        files={
+            "archivo": (
+                "extracto-header-blanco.xlsx",
+                contenido,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is True
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}",
+        headers=auth_headers,
+    )
+    grupos = detalle.json()["grupos"]
+    assert [grupo["punto_venta_numero"] for grupo in grupos] == [1, 10, 13]
+    assert [grupo["total_estimado"] for grupo in grupos] == [
+        "59500.00",
+        "70500.00",
+        "140000.00",
+    ]
 
 
 @pytest.mark.asyncio
@@ -1626,7 +1963,7 @@ async def test_procesar_lote_sync_actualiza_resultados(
 
     procesar = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/procesar",
-        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
     )
 
     assert procesar.status_code == 200, procesar.text
@@ -1678,7 +2015,7 @@ async def test_procesar_lote_background_encola_lote_chico(
 
     procesar = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/procesar?background=true",
-        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
     )
 
     assert procesar.status_code == 200, procesar.text
@@ -1752,7 +2089,7 @@ async def test_procesar_lote_actualiza_contadores_parciales(
 
     procesar = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/procesar",
-        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
     )
 
     assert procesar.status_code == 200, procesar.text
@@ -1768,18 +2105,229 @@ async def test_procesar_lote_actualiza_contadores_parciales(
 
 
 @pytest.mark.asyncio
+async def test_procesar_lote_post_arca_requiere_reconciliacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un fallo post-ARCA en lote no debe quedar como reintentable."""
+    test_certificado.ambiente = settings.arca_env
+
+    async def fake_emitir(self, request):
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=654,
+            fecha=request.fecha_emision,
+            cae="12345678901235",
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+            mensaje="ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo",
+            errores=["No reintentes esta emisión"],
+            requiere_reconciliacion=True,
+            categoria_error="post_arca_persistencia",
+        )
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fake_emitir,
+    )
+
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-reconciliacion.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert procesar.status_code == 200, procesar.text
+    data = procesar.json()
+    assert data["lote"]["estado"] == "requiere_reconciliacion"
+    assert data["lote"]["grupos_emitidos"] == 0
+    assert data["lote"]["grupos_fallidos"] == 0
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{lote_id}/resultados",
+        headers=auth_headers,
+    )
+    grupo = detalle.json()["grupos"][0]
+    assert grupo["estado"] == "requiere_reconciliacion"
+    assert grupo["cae"] == "12345678901235"
+    assert grupo["numero_asignado"] == 654
+
+    service = LoteComprobantesService(db_session)
+    lote = await service.obtener_lote(lote_id, test_empresa.id)
+    assert service._lote_permite_reintento(lote) is False
+
+
+@pytest.mark.asyncio
+async def test_reanudar_lote_vincula_comprobante_ya_guardado_sin_reemitir(
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+):
+    """Si el comprobante ya fue guardado, reanudar no debe volver a emitirlo."""
+    emitir_request = {
+        "empresa_id": test_empresa.id,
+        "punto_venta_id": test_punto_venta.id,
+        "tipo_comprobante": 6,
+        "concepto": 1,
+        "fecha_emision": date.today().isoformat(),
+        "confirmacion_fecha_fiscal": True,
+        "tipo_documento": 80,
+        "numero_documento": "20409378472",
+        "razon_social": "Cliente Lote SA",
+        "condicion_iva": "RI",
+        "domicilio": "Av. Siempre Viva 123",
+        "moneda": "PES",
+        "cotizacion": "1",
+        "guardar_cliente": False,
+        "items": [
+            {
+                "descripcion": "Servicio mensual",
+                "cantidad": "1",
+                "unidad": "unidad",
+                "precio_unitario": "1000",
+                "iva_porcentaje": "21",
+            }
+        ],
+    }
+    lote = LoteComprobante(
+        nombre_archivo="lote-reanudar-idempotente.xlsx",
+        archivo_hash="hash-reanudar-idempotente",
+        estado="procesando",
+        total_filas=1,
+        total_grupos=1,
+        grupos_validos=1,
+        empresa_id=test_empresa.id,
+        metadata_json={
+            "opciones_concepto": {"concepto_modo": "archivo"},
+            "opciones_descripcion_item": {"descripcion_item_modo": "archivo"},
+        },
+        updated_at=datetime.utcnow()
+        - timedelta(minutes=settings.batch_processing_stale_minutes + 1),
+    )
+    grupo = LoteComprobanteGrupo(
+        lote=lote,
+        comprobante_ref="LOTE-001",
+        orden=1,
+        estado="validado",
+        tipo_comprobante=6,
+        punto_venta_numero=test_punto_venta.numero,
+        cliente_documento="20409378472",
+        cliente_razon_social="Cliente Lote SA",
+        total_estimado=Decimal("1210.00"),
+        payload_json=emitir_request,
+        mensajes_json=["Validado correctamente. Listo para emitir."],
+    )
+    fila = LoteComprobanteFila(
+        lote=lote,
+        grupo=grupo,
+        fila_excel=2,
+        comprobante_ref="LOTE-001",
+        estado="validado",
+        datos_json={},
+        mensajes_json=["Validado correctamente. Listo para emitir."],
+    )
+    comprobante = Comprobante(
+        tipo_comprobante=6,
+        concepto=1,
+        numero=77,
+        fecha_emision=date.today(),
+        subtotal=Decimal("1000.00"),
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("210.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=Decimal("1210.00"),
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 5, 26),
+        estado="autorizado",
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        empresa_id=test_empresa.id,
+        punto_venta_id=test_punto_venta.id,
+        receptor_tipo_documento=80,
+        receptor_numero_documento="20409378472",
+        receptor_razon_social="Cliente Lote SA",
+        receptor_condicion_iva="RI",
+        receptor_domicilio="Av. Siempre Viva 123",
+    )
+    db_session.add_all([lote, grupo, fila, comprobante])
+    await db_session.commit()
+    await db_session.refresh(lote)
+
+    service = LoteComprobantesService(db_session)
+
+    async def fail_emitir(_request):
+        raise AssertionError("No debe reemitir un grupo ya guardado")
+
+    service.facturacion_service.emitir_comprobante = fail_emitir
+
+    resultado = await service.procesar_lote(lote.id, test_empresa.id, reanudar=True)
+
+    assert resultado.estado == "completado"
+    detalle = await service.obtener_lote(lote.id, test_empresa.id)
+    assert detalle.grupos[0].estado == "autorizado"
+    assert detalle.grupos[0].comprobante_id == comprobante.id
+    assert detalle.grupos[0].numero_asignado == 77
+
+
+@pytest.mark.asyncio
 async def test_procesar_lote_exige_confirmacion_fecha_fiscal(
     client: AsyncClient,
     auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
 ):
     """No debe procesar lotes por API sin confirmacion fiscal final."""
+    test_certificado.ambiente = settings.arca_env
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-sin-confirmacion.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
     response = await client.post(
-        "/api/lotes-comprobantes/1/procesar",
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
         headers=auth_headers,
     )
 
     assert response.status_code == 400
-    assert "confirmar la fecha fiscal" in response.json()["detail"]
+    detalle = response.json()["detail"]
+    assert "confirmar la fecha fiscal exacta" in detalle
+    assert date.today().strftime("%d/%m/%y") in detalle
+    assert "0001" in detalle
+    assert "XX/XX/XX" not in detalle
 
 
 @pytest.mark.asyncio
@@ -1827,6 +2375,190 @@ async def test_tomar_lote_para_procesamiento_es_atomico(
 
 
 @pytest.mark.asyncio
+async def test_procesar_background_no_reencola_lote_en_proceso(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un lote en procesamiento no debe volver a estado en_cola."""
+    test_certificado.ambiente = settings.arca_env
+    worker_iniciado = False
+
+    def fake_ensure_worker(_app):
+        nonlocal worker_iniciado
+        worker_iniciado = True
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.ensure_lote_worker_running",
+        fake_ensure_worker,
+    )
+
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-procesando-background.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    lote = await db_session.get(LoteComprobante, lote_id)
+    lote.estado = "procesando"
+    lote.procesamiento_async = True
+    lote.modo_procesamiento = "background"
+    await db_session.commit()
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar?background=true",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert procesar.status_code == 200, procesar.text
+    data = procesar.json()
+    assert data["en_progreso"] is True
+    assert data["lote"]["estado"] == "procesando"
+    assert data["mensaje"] == "El lote ya está siendo procesado."
+    assert worker_iniciado is False
+
+
+@pytest.mark.asyncio
+async def test_reanudar_lote_procesando_solo_si_esta_stale(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """El worker solo puede retomar lotes procesando con lease vencido."""
+    test_certificado.ambiente = settings.arca_env
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-procesando-stale.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+    service = LoteComprobantesService(db_session)
+
+    await service._tomar_lote_para_procesamiento(
+        lote_id=lote_id,
+        empresa_id=test_empresa.id,
+        procesamiento_async=True,
+        modo_procesamiento="background",
+    )
+    await db_session.commit()
+
+    with pytest.raises(LoteComprobanteError, match="ya está siendo procesado"):
+        await service._tomar_lote_para_procesamiento(
+            lote_id=lote_id,
+            empresa_id=test_empresa.id,
+            procesamiento_async=True,
+            modo_procesamiento="background",
+            reanudar=True,
+        )
+
+    lote = await db_session.get(LoteComprobante, lote_id)
+    lote.updated_at = datetime.utcnow() - timedelta(
+        minutes=settings.batch_processing_stale_minutes + 1
+    )
+    await db_session.commit()
+
+    await service._tomar_lote_para_procesamiento(
+        lote_id=lote_id,
+        empresa_id=test_empresa.id,
+        procesamiento_async=True,
+        modo_procesamiento="background",
+        reanudar=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_reanuda_procesando_stale(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """El camino usado por el worker debe procesar lotes procesando stale."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "batch_sync_limit", 0)
+
+    async def fake_emitir(self, request):
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=432,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=987,
+            fecha=request.fecha_emision,
+            cae="12345678901236",
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+            mensaje="Comprobante autorizado",
+            errores=[],
+        )
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fake_emitir,
+    )
+
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-procesando-stale-worker.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+    service = LoteComprobantesService(db_session)
+
+    await service._tomar_lote_para_procesamiento(
+        lote_id=lote_id,
+        empresa_id=test_empresa.id,
+        procesamiento_async=True,
+        modo_procesamiento="background",
+    )
+    lote = await db_session.get(LoteComprobante, lote_id)
+    lote.updated_at = datetime.utcnow() - timedelta(
+        minutes=settings.batch_processing_stale_minutes + 1
+    )
+    await db_session.commit()
+
+    lote = await service.procesar_lote(lote_id, test_empresa.id, reanudar=True)
+
+    assert lote.estado == "completado"
+    assert lote.grupos_emitidos == 1
+
+
+@pytest.mark.asyncio
 async def test_procesar_lote_legacy_sin_descripcion_item_bloquea_emision(
     client: AsyncClient,
     auth_headers: dict,
@@ -1860,7 +2592,7 @@ async def test_procesar_lote_legacy_sin_descripcion_item_bloquea_emision(
 
     procesar = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/procesar",
-        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
     )
 
     assert procesar.status_code == 400
@@ -1917,7 +2649,7 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
 
     procesar = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/procesar",
-        headers={**auth_headers, "X-Confirmacion-Fecha-Fiscal": "true"},
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
     )
 
     assert procesar.status_code == 200, procesar.text

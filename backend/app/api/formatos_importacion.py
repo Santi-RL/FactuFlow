@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.formato_importacion import FormatoImportacion
 from app.models.usuario import Usuario
@@ -80,12 +81,18 @@ async def crear_formato_importacion(
 ):
     """Crea un formato configurable particular del emisor activo."""
     service = FormatosImportacionService(db)
-    formato = await service.crear_formato(
-        empresa_id=empresa_id,
-        nombre=data.nombre,
-        descripcion=data.descripcion,
-        configuracion=data.configuracion_json,
-    )
+    try:
+        formato = await service.crear_formato(
+            empresa_id=empresa_id,
+            nombre=data.nombre,
+            descripcion=data.descripcion,
+            configuracion=data.configuracion_json,
+        )
+    except FormatoImportacionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     formatos = await service.listar_formatos(empresa_id)
     creado = next(item for item in formatos if item.id == formato.id)
     return _serialize_formato(creado)
@@ -105,7 +112,15 @@ async def detectar_formato_importacion(
             detail="Debes subir un archivo Excel .xlsx",
         )
 
-    contenido = await archivo.read()
+    contenido = await archivo.read(settings.batch_max_upload_bytes + 1)
+    if len(contenido) > settings.batch_max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El archivo supera el tamaño máximo permitido "
+                f"de {settings.batch_max_upload_bytes // (1024 * 1024)} MB"
+            ),
+        )
     service = FormatosImportacionService(db)
     try:
         headers, candidatos = await service.detectar_formato(

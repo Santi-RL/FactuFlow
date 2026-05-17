@@ -21,6 +21,7 @@ const { formatearFecha, formatearMoneda } = useFormatters();
 
 const loading = ref(false);
 const reporte = ref<ReporteVentas | null>(null);
+let generarReporteRequestId = 0;
 
 // Fechas por defecto: mes actual
 const hoy = new Date();
@@ -41,7 +42,9 @@ const columns = [
 const empresaActivaId = computed(() => empresaStore.empresaActivaId);
 
 const generarReporte = async () => {
-  if (!empresaActivaId.value) {
+  const requestId = ++generarReporteRequestId;
+  const empresaIdSolicitada = empresaActivaId.value;
+  if (!empresaIdSolicitada) {
     showError(
       "Empresa activa requerida",
       "Selecciona la empresa con la que queres trabajar antes de generar el reporte.",
@@ -64,19 +67,28 @@ const generarReporte = async () => {
 
   loading.value = true;
   try {
-    reporte.value = await reportesService.obtenerReporteVentas(
-      empresaActivaId.value,
+    const resultado = await reportesService.obtenerReporteVentas(
       desde.value,
       hasta.value,
     );
+    if (
+      requestId === generarReporteRequestId &&
+      empresaActivaId.value === empresaIdSolicitada
+    ) {
+      reporte.value = resultado;
+    }
   } catch (error: any) {
-    showError(
-      "Error",
-      error.response?.data?.detail || "No se pudo generar el reporte",
-    );
-    reporte.value = null;
+    if (requestId === generarReporteRequestId) {
+      showError(
+        "Error",
+        error.response?.data?.detail || "No se pudo generar el reporte",
+      );
+      reporte.value = null;
+    }
   } finally {
-    loading.value = false;
+    if (requestId === generarReporteRequestId) {
+      loading.value = false;
+    }
   }
 };
 

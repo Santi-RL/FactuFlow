@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useUIStore } from "@/stores/ui";
+import { useEmpresaStore } from "@/stores/empresa";
 import {
   HomeIcon,
   UsersIcon,
@@ -18,9 +19,11 @@ import certificadosService from "@/services/certificados.service";
 
 const route = useRoute();
 const uiStore = useUIStore();
+const empresaStore = useEmpresaStore();
 
 const certificadosPorVencer = ref(0);
 let intervalId: number | null = null;
+let cargarAlertasRequestId = 0;
 
 const menuItems = computed(() => [
   { name: "Dashboard", icon: HomeIcon, path: "/", testId: "nav-dashboard" },
@@ -77,17 +80,52 @@ const isActive = (path: string) => {
 };
 
 const cargarAlertasVencimiento = async () => {
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
+  if (!empresaIdSolicitada) {
+    certificadosPorVencer.value = 0;
+    return;
+  }
+
+  const requestId = ++cargarAlertasRequestId;
   try {
     const alertas = await certificadosService.obtenerAlertasVencimiento();
+    if (
+      requestId !== cargarAlertasRequestId ||
+      empresaStore.empresaActivaId !== empresaIdSolicitada
+    ) {
+      return;
+    }
+
     certificadosPorVencer.value = alertas.length;
   } catch (err) {
+    if (
+      requestId !== cargarAlertasRequestId ||
+      empresaStore.empresaActivaId !== empresaIdSolicitada
+    ) {
+      return;
+    }
+
+    certificadosPorVencer.value = 0;
     // Silently fail, it's not critical
     console.error("Error loading certificate alerts:", err);
   }
 };
 
+watch(
+  () => empresaStore.empresaActivaId,
+  async (empresaId, anteriorId) => {
+    if (!empresaId) {
+      certificadosPorVencer.value = 0;
+      return;
+    }
+
+    if (empresaId === anteriorId) return;
+    await cargarAlertasVencimiento();
+  },
+  { immediate: true },
+);
+
 onMounted(() => {
-  cargarAlertasVencimiento();
   // Reload alerts every 5 minutes
   intervalId = window.setInterval(cargarAlertasVencimiento, 5 * 60 * 1000);
 });

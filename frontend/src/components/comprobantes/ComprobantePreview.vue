@@ -13,6 +13,7 @@ interface Props {
     total: number;
   };
   proximoNumero: number | null;
+  puntoVentaNumero: number | null;
   empresa: any;
 }
 
@@ -38,8 +39,7 @@ const tipoComprobanteNombre = computed(() => {
 });
 
 const numeroCompleto = computed(() => {
-  // TODO: Obtener punto de venta real
-  const puntoVenta = "0001";
+  const puntoVenta = String(props.puntoVentaNumero || 0).padStart(4, "0");
   const numero = String(props.proximoNumero || 0).padStart(8, "0");
   return `${puntoVenta}-${numero}`;
 });

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
+from app.core.bootstrap import BOOTSTRAP_LOCK, tomar_lock_bootstrap
 from app.core.security import (
     get_current_user,
     get_current_admin_user,
@@ -67,38 +68,43 @@ async def create_empresa(
     Raises:
         HTTPException: Si el CUIT ya existe
     """
-    # Permitir creación sin auth solo si no hay usuarios (setup inicial)
-    result_users = await db.execute(select(func.count(Usuario.id)))
-    user_count = result_users.scalar() or 0
+    async with BOOTSTRAP_LOCK:
+        await tomar_lock_bootstrap(db)
 
-    if user_count > 0:
-        if not current_user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No se pudo validar las credenciales",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        if not current_user.es_admin:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos de administrador",
-            )
+        # Permitir creación sin auth solo si no hay usuarios (setup inicial)
+        result_users = await db.execute(select(func.count(Usuario.id)))
+        user_count = result_users.scalar() or 0
 
-    # Verificar que el CUIT no exista
-    result = await db.execute(select(Empresa).where(Empresa.cuit == empresa_data.cuit))
-    existing = result.scalar_one_or_none()
+        if user_count > 0:
+            if not current_user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="No se pudo validar las credenciales",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            if not current_user.es_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No tienes permisos de administrador",
+                )
 
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ya existe una empresa con el CUIT {empresa_data.cuit}",
+        # Verificar que el CUIT no exista
+        result = await db.execute(
+            select(Empresa).where(Empresa.cuit == empresa_data.cuit)
         )
+        existing = result.scalar_one_or_none()
 
-    # Crear empresa
-    nueva_empresa = Empresa(**empresa_data.model_dump())
-    db.add(nueva_empresa)
-    await db.commit()
-    await db.refresh(nueva_empresa)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ya existe una empresa con el CUIT {empresa_data.cuit}",
+            )
+
+        # Crear empresa
+        nueva_empresa = Empresa(**empresa_data.model_dump())
+        db.add(nueva_empresa)
+        await db.commit()
+        await db.refresh(nueva_empresa)
 
     return nueva_empresa
 

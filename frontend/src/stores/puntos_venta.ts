@@ -8,6 +8,7 @@ import type {
 } from "@/types/punto_venta";
 import { puntosVentaService } from "@/services/puntos_venta.service";
 import { arcaService } from "@/services/arca.service";
+import { useEmpresaStore } from "@/stores/empresa";
 
 interface SyncResult {
   total_arca: number;
@@ -35,19 +36,32 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   const loading = ref(false);
   const syncing = ref(false);
   const error = ref<string | null>(null);
+  let fetchPuntosVentaRequestId = 0;
 
   const fetchPuntosVenta = async () => {
+    const requestId = ++fetchPuntosVentaRequestId;
+    const empresaStore = useEmpresaStore();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
     loading.value = true;
     error.value = null;
     try {
       const data = await puntosVentaService.getAll();
-      puntosVenta.value = data.sort((a, b) => a.numero - b.numero);
+      if (
+        requestId === fetchPuntosVentaRequestId &&
+        empresaStore.empresaActivaId === empresaIdSolicitada
+      ) {
+        puntosVenta.value = data.sort((a, b) => a.numero - b.numero);
+      }
     } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || "Error al cargar los puntos de venta";
+      if (requestId === fetchPuntosVentaRequestId) {
+        error.value =
+          err.response?.data?.detail || "Error al cargar los puntos de venta";
+      }
       throw err;
     } finally {
-      loading.value = false;
+      if (requestId === fetchPuntosVentaRequestId) {
+        loading.value = false;
+      }
     }
   };
 

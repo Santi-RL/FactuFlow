@@ -26,6 +26,8 @@
 
 - `ARCA_ENV`: `homologacion` o `produccion`
 - `CERTS_PATH`: base path de certificados
+- `ARCA_PRIVATE_KEY_PASSWORD`: contraseña local para cifrar claves privadas
+  nuevas. Si no se define, se usa `APP_SECRET_KEY`.
 - `ARCA_TOKEN_CACHE_PATH`: cache persistente de tickets WSAA
 - En produccion, usar PostgreSQL y `docker-compose.prod.yml`; no usar SQLite ni defaults de desarrollo.
 - Compatibilidad legacy:
@@ -63,14 +65,24 @@
   - autenticar WSAA para la empresa activa representada
   - construir `WSFEv1Client` con el CUIT de la empresa activa
 - Este ajuste fue necesario para corregir `GET /api/arca/puntos-venta`, que fallaba aunque la emision real funcionaba.
+- Antes de solicitar CAE, `FacturacionService` debe validar que el punto de
+  venta y el `cliente_id` opcional pertenezcan a la empresa activa. Si no
+  coinciden, la emision se rechaza localmente y no se llama a WSFE.
 
 ### Paths legacy de certificados
 
 - La base local puede contener valores legacy como `certs/archivo.crt`.
 - El proyecto ahora resuelve correctamente:
-  - paths absolutos
+  - paths absolutos dentro de `CERTS_PATH`
   - filenames simples
   - valores legacy con prefijo `certs/`
+- Los paths que resuelven fuera de `CERTS_PATH` se rechazan. El upload de
+  certificados solo acepta nombres de clave generados por FactuFlow para el
+  CUIT y ambiente del emisor activo.
+- Las claves privadas nuevas se guardan cifradas. Las claves legacy sin cifrar
+  siguen pudiendo leerse para no romper certificados existentes, pero no se
+  generan claves nuevas sin cifrado salvo que no exista ninguna contraseña de
+  aplicacion configurada.
 - Este fix fue necesario para que `Nueva factura` volviera a obtener el proximo numero desde homologacion.
 
 ### Puntos de venta
@@ -96,6 +108,10 @@
 - `FEParamGetPtosVenta` no devuelve domicilio ni nombre fantasia. Esos datos se
   importan desde la constancia PDF de `Administracion de Puntos de Venta y
   Domicilios`.
+- `GET /api/arca/status` informa el ambiente ARCA actual y si existe
+  certificado activo local para ese ambiente, sin llamar a ARCA ni consumir
+  numeracion. La UI de puntos de venta usa ese estado antes de permitir
+  sincronizacion WSFE.
 - Los puntos devueltos por `FEParamGetPtosVenta` pertenecen al servicio WSFE:
   al sincronizarlos en FactuFlow deben quedar marcados como Web Services,
   activos y no bloqueados cuando `Bloqueado=N` y no tienen fecha de baja. Si se
@@ -175,13 +191,20 @@
   `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
 - La API debe rechazar emisiones sin confirmacion fiscal explicita. En el
   contrato actual, emision individual requiere `confirmacion_fecha_fiscal=true`
-  y procesamiento de lotes requiere `X-Confirmacion-Fecha-Fiscal: true`.
+  y procesamiento de lotes requiere `X-Confirmacion-Fecha-Fiscal` con el token
+  exacto `fechas=AAAA-MM-DD,...;puntos_venta=N,...`, recalculado desde los
+  grupos validados.
+- Si `FECAESolicitar` devuelve CAE y luego falla la persistencia local, la
+  emision debe quedar como `requiere_reconciliacion`, conservando punto de
+  venta, numero, fecha, total y CAE. No debe tratarse como error reintentable.
 - En emision masiva, antes de validar se debe elegir si la fecha de emision sale
   del archivo o si se usa una fecha fija para todos los comprobantes.
 - Un perfil de carga masiva puede precargar reglas relativas de fecha, pero la
-  UI debe resolverlas a fechas concretas visibles antes de validar. El backend
-  de lotes sigue recibiendo `archivo` o `fija`; el perfil no puede emitir ni
-  validar de forma silenciosa.
+  UI no debe convertirlas usando la fecha del navegador al autoaplicar el
+  perfil. Deben quedar visibles para que el usuario elija una fecha exacta,
+  tome la fecha del archivo o confirme una base explicita antes de validar. El
+  backend de lotes sigue recibiendo `archivo` o `fija`; el perfil no puede
+  emitir ni validar de forma silenciosa.
 - Un perfil de carga masiva tambien puede precargar punto de venta. Las opciones
   validas son usar el punto definido en el archivo o fijar un punto Web Services
   activo, no bloqueado y sin baja del emisor activo. Si no esta cargado en
@@ -260,6 +283,9 @@
 - Excepcion importante: para comprobantes tipo C (`11`, `12`, `13`) no se debe
   informar el objeto `Iva`. ARCA rechaza esos comprobantes con codigo `10071`
   aunque la alicuota enviada sea 0.
+- FactuFlow tambien bloquea antes del WSFE los items tipo C con IVA distinto
+  de 0: en nueva factura la UI fuerza IVA 0 y en lotes la validacion marca el
+  grupo con error.
 - Para notas de credito/debito con comprobante relacionado, `CbtesAsoc` debe
   enviarse como `{ "CbteAsoc": [...] }`.
 - En `FECompConsultar`, ARCA devuelve el numero consultado como

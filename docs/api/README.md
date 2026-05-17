@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Ultima actualizacion: 2026-05-10
+Ultima actualizacion: 2026-05-17
 
 Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -149,6 +149,7 @@ comprobantes ni consume numeracion fiscal.
 
 ```http
 GET /api/arca/test-conexion
+GET /api/arca/status
 GET /api/arca/tipos-comprobante
 GET /api/arca/tipos-documento
 GET /api/arca/tipos-iva
@@ -163,6 +164,7 @@ GET /api/arca/consultar-comprobante/{punto_venta}/{tipo_cbte}/{numero}
 
 Endpoints seguros para verificar produccion sin emitir:
 
+- `GET /api/arca/status`
 - `GET /api/arca/test-conexion`
 - `GET /api/arca/puntos-venta`
 - `GET /api/arca/ultimo-comprobante/{punto_venta}/{tipo_cbte}`
@@ -258,7 +260,9 @@ Origenes soportados en `campos`:
 - `constante`: usa `valor` para completar siempre el mismo dato.
 
 `POST /api/formatos-importacion/detectar` recibe `multipart/form-data` con
-`archivo` (`.xlsx`) y devuelve:
+`archivo` (`.xlsx`). El backend rechaza archivos que superen
+`BATCH_MAX_UPLOAD_BYTES` o que no puedan abrirse como XLSX valido antes de
+intentar detectar encabezados. Si el archivo es valido, devuelve:
 
 ```json
 {
@@ -332,6 +336,8 @@ lotes chicos, para mostrar progreso real por polling.
 `POST /api/lotes-comprobantes/validar` recibe `multipart/form-data`:
 
 - `archivo`: Excel `.xlsx`.
+  El backend rechaza archivos que superen `BATCH_MAX_UPLOAD_BYTES` o que no
+  puedan abrirse como XLSX valido.
 - `formato_version_id`: opcional. Si no se envia y el archivo coincide con la
   plantilla oficial, se usa la plantilla FactuFlow. Para archivos externos,
   enviar la version confirmada por `POST /api/formatos-importacion/detectar`.
@@ -394,7 +400,15 @@ ventana admitida por ARCA antes de permitir emitir. Si la fecha del archivo
 queda fuera de ventana, el usuario debe elegir una fecha permitida y revalidar.
 Antes de llamar a `procesar`, el cliente debe mostrar la confirmacion final de
 fecha fiscal con el mismo texto usado en emision individual y enviar el header
-`X-Confirmacion-Fecha-Fiscal: true`; si no llega, la API rechaza la emision.
+`X-Confirmacion-Fecha-Fiscal` con el token exacto derivado de los grupos
+validados:
+
+```http
+X-Confirmacion-Fecha-Fiscal: fechas=AAAA-MM-DD,...;puntos_venta=N,...
+```
+
+La API recalcula ese token desde el lote validado y rechaza la emision si falta
+o no coincide. Esto evita confirmar un lote distinto al que el usuario reviso.
 
 Regla fiscal critica: FactuFlow tampoco asume si el lote corresponde a productos
 o servicios. El usuario debe elegirlo antes de validar, o confirmar que el
@@ -441,9 +455,11 @@ El payload usa `configuracion_json` versionado. Valores principales:
   `emision_mas_dias` o `personalizada`.
 
 Regla critica: el perfil de carga masiva no valida ni emite. La UI debe resolver
-las reglas relativas a fechas concretas, mostrar todos los controles y dejar que
-el usuario edite antes de validar. `fecha_actual` no es un modo valido de fecha
-de emision para perfiles de carga masiva. Si se marca un perfil como
+las reglas relativas solo cuando exista una base explicita del usuario o una
+politica del archivo; no debe convertirlas usando la fecha del navegador al
+autoaplicar un perfil en `Emision masiva`. Todos los controles deben quedar
+visibles y editables antes de validar. `fecha_actual` no es un modo valido de
+fecha de emision para perfiles de carga masiva. Si se marca un perfil como
 predeterminado, la API desmarca cualquier otro predeterminado del mismo emisor.
 
 ## PDF
@@ -468,6 +484,8 @@ GET /api/reportes/clientes
 ```
 
 Los reportes se calculan para el emisor activo.
+`GET /api/reportes/iva-ventas` calcula notas de credito/debito con signo
+fiscal correspondiente y el detalle discrimina alicuotas 10,5%, 21% y 27%.
 
 ## Codigos De Error
 

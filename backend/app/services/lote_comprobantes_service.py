@@ -7,15 +7,17 @@ import logging
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from typing import Any
+from zipfile import BadZipFile
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import select, update
+from sqlalchemy import desc, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -24,6 +26,7 @@ from app.arca.config import ArcaAmbiente
 from app.arca.utils import clean_cuit, validate_cuit
 from app.core.config import settings
 from app.models.certificado import Certificado
+from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
 from app.models.lote_comprobante import (
     LoteComprobante,
@@ -91,8 +94,13 @@ class OpcionesPuntoVentaLote:
 class LoteComprobantesService:
     """Servicio de carga y emisión masiva de comprobantes."""
 
-    ESTADOS_TERMINALES = {"completado", "autorizado_parcial", "fallido"}
-    ESTADOS_PROCESABLES = {"validado", "en_cola", "procesando"}
+    ESTADOS_TERMINALES = {
+        "completado",
+        "autorizado_parcial",
+        "fallido",
+        "requiere_reconciliacion",
+    }
+    ESTADOS_PROCESABLES = {"validado", "en_cola"}
     ALICUOTAS_IVA_PERMITIDAS = {
         Decimal("0"),
         Decimal("10.5"),
@@ -788,6 +796,8 @@ class LoteComprobantesService:
     async def encolar_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
         """Deja un lote validado en cola persistente para el worker."""
         lote = await self.obtener_lote(lote_id, empresa_id)
+        if lote.estado == "procesando":
+            return lote
         if lote.estado in self.ESTADOS_TERMINALES:
             return lote
         if lote.grupos_validos == 0:
@@ -845,7 +855,8 @@ class LoteComprobantesService:
             return lote
         if lote.estado in self.ESTADOS_TERMINALES:
             return lote
-        if lote.estado not in self.ESTADOS_PROCESABLES:
+        estado_reanudable = reanudar and lote.estado == "procesando"
+        if lote.estado not in self.ESTADOS_PROCESABLES and not estado_reanudable:
             raise LoteComprobanteError(
                 "El lote debe estar validado o en cola antes de emitir"
             )
@@ -865,6 +876,7 @@ class LoteComprobantesService:
             empresa_id=empresa_id,
             procesamiento_async=procesamiento_async,
             modo_procesamiento=modo_procesamiento,
+            reanudar=reanudar,
         )
         await self.db.commit()
         lote = await self.obtener_lote(lote_id, empresa_id)
@@ -880,6 +892,14 @@ class LoteComprobantesService:
             try:
                 payload = grupo.payload_json or {}
                 request = EmitirComprobanteRequest.model_validate(payload)
+                if reanudar and await self._reconciliar_grupo_autorizado_existente(
+                    grupo, request
+                ):
+                    await self.db.flush()
+                    await self._actualizar_progreso_lote(lote_id)
+                    await self.db.commit()
+                    continue
+
                 resultado = await self.facturacion_service.emitir_comprobante(request)
                 if resultado.exito:
                     grupo.estado = "autorizado"
@@ -891,6 +911,16 @@ class LoteComprobantesService:
                         f"CAE {resultado.cae}",
                     ]
                     await self._marcar_filas(grupo, "autorizado", grupo.mensajes_json)
+                elif resultado.requiere_reconciliacion:
+                    grupo.estado = "requiere_reconciliacion"
+                    grupo.cae = resultado.cae
+                    grupo.numero_asignado = resultado.numero
+                    grupo.mensajes_json = resultado.errores or [resultado.mensaje]
+                    await self._marcar_filas(
+                        grupo,
+                        "requiere_reconciliacion",
+                        grupo.mensajes_json,
+                    )
                 else:
                     grupo.estado = "fallido"
                     grupo.mensajes_json = resultado.errores or [resultado.mensaje]
@@ -926,14 +956,26 @@ class LoteComprobantesService:
         empresa_id: int,
         procesamiento_async: bool,
         modo_procesamiento: str,
+        reanudar: bool = False,
     ) -> None:
         """Marca un lote como procesando con transición atómica."""
+        stale_before = datetime.utcnow() - timedelta(
+            minutes=settings.batch_processing_stale_minutes
+        )
+        estados_tomables = self.ESTADOS_PROCESABLES
+        estado_condition = LoteComprobante.estado.in_(estados_tomables)
+        if reanudar:
+            estado_condition = estado_condition | (
+                (LoteComprobante.estado == "procesando")
+                & (LoteComprobante.updated_at < stale_before)
+            )
+
         result = await self.db.execute(
             update(LoteComprobante)
             .where(
                 LoteComprobante.id == lote_id,
                 LoteComprobante.empresa_id == empresa_id,
-                LoteComprobante.estado.in_(self.ESTADOS_PROCESABLES - {"procesando"}),
+                estado_condition,
             )
             .values(
                 estado="procesando",
@@ -956,6 +998,21 @@ class LoteComprobantesService:
         lote = result.scalar_one()
         await self._actualizar_estado_lote(lote)
 
+    @staticmethod
+    def _sanitizar_valor_excel_observado(value: Any) -> Any:
+        """Evita que Excel interprete texto observado como formula."""
+        if not isinstance(value, str) or value == "":
+            return value
+
+        if value[0] in {"=", "+", "-", "@", "\t", "\r"}:
+            return f"'{value}"
+
+        stripped = value.lstrip()
+        if stripped and stripped[0] in {"=", "+", "-", "@"}:
+            return f"'{value}"
+
+        return value
+
     async def generar_archivo_observado(self, lote_id: int, empresa_id: int) -> bytes:
         """Genera un archivo observado con resultados por fila."""
         lote = await self.obtener_lote(lote_id, empresa_id)
@@ -974,10 +1031,25 @@ class LoteComprobantesService:
 
         for fila_numero in sorted(filas_por_numero):
             fila = filas_por_numero[fila_numero]
-            row = [fila.datos_json.get(col) for col in self.TEMPLATE_COLUMNS]
-            row.extend([fila.estado, " | ".join(fila.mensajes_json or [])])
+            row = [
+                self._sanitizar_valor_excel_observado(fila.datos_json.get(col))
+                for col in self.TEMPLATE_COLUMNS
+            ]
+            row.extend(
+                [
+                    self._sanitizar_valor_excel_observado(fila.estado),
+                    self._sanitizar_valor_excel_observado(
+                        " | ".join(fila.mensajes_json or [])
+                    ),
+                ]
+            )
             hoja.append(row)
-            fill_color = "E2F0D9" if fila.estado == "autorizado" else "FDE9D9"
+            if fila.estado == "autorizado":
+                fill_color = "E2F0D9"
+            elif fila.estado == "requiere_reconciliacion":
+                fill_color = "FFF2CC"
+            else:
+                fill_color = "FDE9D9"
             for cell in hoja[hoja.max_row]:
                 cell.fill = PatternFill("solid", fgColor=fill_color)
 
@@ -1050,7 +1122,14 @@ class LoteComprobantesService:
 
     def _leer_excel(self, file_bytes: bytes) -> list[dict[str, Any]]:
         """Lee y normaliza las filas del Excel."""
-        workbook = load_workbook(BytesIO(file_bytes), data_only=True)
+        try:
+            workbook = load_workbook(
+                BytesIO(file_bytes), data_only=True, read_only=True
+            )
+        except (BadZipFile, InvalidFileException, OSError, ValueError) as exc:
+            raise LoteComprobanteError(
+                "No se pudo leer el archivo Excel. Verificá que sea un .xlsx válido generado desde la plantilla."
+            ) from exc
         sheet = (
             workbook["Comprobantes"]
             if "Comprobantes" in workbook.sheetnames
@@ -1074,6 +1153,10 @@ class LoteComprobantesService:
                 if idx < len(headers) and headers[idx]
             }
             filas.append(row_dict)
+            if len(filas) > settings.batch_max_rows:
+                raise LoteComprobanteError(
+                    f"El archivo supera el máximo permitido de {settings.batch_max_rows} filas"
+                )
 
         if not filas:
             raise LoteComprobanteError("La plantilla no contiene filas para procesar")
@@ -1157,11 +1240,14 @@ class LoteComprobantesService:
             else ArcaAmbiente.HOMOLOGACION.value
         )
         result = await self.db.execute(
-            select(Certificado).where(
+            select(Certificado)
+            .where(
                 Certificado.empresa_id == empresa_id,
                 Certificado.activo.is_(True),
                 Certificado.ambiente == ambiente,
             )
+            .order_by(Certificado.fecha_vencimiento.desc(), Certificado.id.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
@@ -1299,6 +1385,14 @@ class LoteComprobantesService:
             if iva is None or iva not in self.ALICUOTAS_IVA_PERMITIDAS:
                 mensajes.append(
                     f"La alícuota de IVA del ítem '{descripcion}' en {comprobante_ref} debe ser 0, 10.5, 21 o 27"
+                )
+                continue
+            if (
+                tipo_comprobante in FacturacionService.TIPOS_COMPROBANTE_C
+                and iva != Decimal("0")
+            ):
+                mensajes.append(
+                    f"Los comprobantes tipo C no pueden incluir IVA en el ítem '{descripcion}' de {comprobante_ref}"
                 )
                 continue
 
@@ -1468,12 +1562,19 @@ class LoteComprobantesService:
         lote.grupos_con_error = len([g for g in grupos if g.estado == "con_error"])
         lote.grupos_emitidos = len([g for g in grupos if g.estado == "autorizado"])
         lote.grupos_fallidos = len([g for g in grupos if g.estado == "fallido"])
+        grupos_reconciliacion = len(
+            [g for g in grupos if g.estado == "requiere_reconciliacion"]
+        )
 
         if lote.estado == "procesando":
             total_emitible = (
-                lote.grupos_emitidos + lote.grupos_fallidos + lote.grupos_validos
+                lote.grupos_emitidos
+                + lote.grupos_fallidos
+                + grupos_reconciliacion
+                + lote.grupos_validos
             )
             procesados = lote.grupos_emitidos + lote.grupos_fallidos
+            procesados += grupos_reconciliacion
             if total_emitible:
                 lote.mensaje_resumen = (
                     f"Procesando comprobante {procesados} de {total_emitible}..."
@@ -1485,7 +1586,13 @@ class LoteComprobantesService:
             lote.mensaje_resumen = "El lote está en cola para procesamiento."
             return
 
-        if lote.grupos_emitidos and (lote.grupos_fallidos or lote.grupos_con_error):
+        if grupos_reconciliacion:
+            lote.estado = "requiere_reconciliacion"
+            lote.mensaje_resumen = (
+                "ARCA pudo haber autorizado comprobantes que no quedaron guardados. "
+                "No reintentes este lote hasta reconciliarlo."
+            )
+        elif lote.grupos_emitidos and (lote.grupos_fallidos or lote.grupos_con_error):
             lote.estado = "autorizado_parcial"
             lote.mensaje_resumen = "El lote se procesó parcialmente. Revisá los comprobantes fallidos o con error."
         elif lote.grupos_emitidos == lote.total_grupos and lote.total_grupos > 0:
@@ -1547,6 +1654,46 @@ class LoteComprobantesService:
             .execution_options(populate_existing=True)
         )
         return list(result.scalars().all())
+
+    async def _reconciliar_grupo_autorizado_existente(
+        self, grupo: LoteComprobanteGrupo, request: EmitirComprobanteRequest
+    ) -> bool:
+        """Vincula un comprobante ya guardado si el worker reanuda tras un corte."""
+        totales = self.facturacion_service._calcular_totales(request.items)
+        comprobantes_vinculados = select(LoteComprobanteGrupo.comprobante_id).where(
+            LoteComprobanteGrupo.comprobante_id.is_not(None)
+        )
+        stmt = (
+            select(Comprobante)
+            .where(
+                Comprobante.empresa_id == request.empresa_id,
+                Comprobante.punto_venta_id == request.punto_venta_id,
+                Comprobante.tipo_comprobante == request.tipo_comprobante,
+                Comprobante.fecha_emision == request.fecha_emision,
+                Comprobante.total == totales["total"],
+                Comprobante.estado == "autorizado",
+                Comprobante.cae.is_not(None),
+                Comprobante.receptor_numero_documento == request.numero_documento,
+                Comprobante.receptor_razon_social == request.razon_social,
+                Comprobante.id.notin_(comprobantes_vinculados),
+            )
+            .order_by(desc(Comprobante.id))
+            .limit(1)
+        )
+        comprobante = (await self.db.execute(stmt)).scalar_one_or_none()
+        if comprobante is None:
+            return False
+
+        grupo.estado = "autorizado"
+        grupo.cae = comprobante.cae
+        grupo.numero_asignado = comprobante.numero
+        grupo.comprobante_id = comprobante.id
+        grupo.mensajes_json = [
+            "Comprobante ya guardado antes de reanudar el lote.",
+            f"CAE {comprobante.cae}",
+        ]
+        await self._marcar_filas(grupo, "autorizado", grupo.mensajes_json)
+        return True
 
     async def _marcar_filas(
         self, grupo: LoteComprobanteGrupo, estado: str, mensajes: list[str]

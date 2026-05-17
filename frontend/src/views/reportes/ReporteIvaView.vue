@@ -21,6 +21,7 @@ const { formatearFecha, formatearMoneda, formatearCUIT } = useFormatters();
 
 const loading = ref(false);
 const reporte = ref<ReporteIVA | null>(null);
+let generarReporteRequestId = 0;
 
 // Período por defecto: mes actual
 const hoy = new Date();
@@ -62,13 +63,17 @@ const columns = [
   { key: "iva_21", label: "IVA 21%", sortable: false },
   { key: "gravado_10_5", label: "Gravado 10.5%", sortable: false },
   { key: "iva_10_5", label: "IVA 10.5%", sortable: false },
+  { key: "gravado_27", label: "Gravado 27%", sortable: false },
+  { key: "iva_27", label: "IVA 27%", sortable: false },
   { key: "total", label: "Total", sortable: false },
 ];
 
 const empresaActivaId = computed(() => empresaStore.empresaActivaId);
 
 const generarReporte = async () => {
-  if (!empresaActivaId.value) {
+  const requestId = ++generarReporteRequestId;
+  const empresaIdSolicitada = empresaActivaId.value;
+  if (!empresaIdSolicitada) {
     showError(
       "Empresa activa requerida",
       "Selecciona la empresa con la que queres trabajar antes de generar el reporte.",
@@ -83,19 +88,28 @@ const generarReporte = async () => {
 
   loading.value = true;
   try {
-    reporte.value = await reportesService.obtenerReporteIVA(
-      empresaActivaId.value,
+    const resultado = await reportesService.obtenerReporteIVA(
       parseInt(mesActual.value),
       parseInt(anioActual.value),
     );
+    if (
+      requestId === generarReporteRequestId &&
+      empresaActivaId.value === empresaIdSolicitada
+    ) {
+      reporte.value = resultado;
+    }
   } catch (error: any) {
-    showError(
-      "Error",
-      error.response?.data?.detail || "No se pudo generar el reporte",
-    );
-    reporte.value = null;
+    if (requestId === generarReporteRequestId) {
+      showError(
+        "Error",
+        error.response?.data?.detail || "No se pudo generar el reporte",
+      );
+      reporte.value = null;
+    }
   } finally {
-    loading.value = false;
+    if (requestId === generarReporteRequestId) {
+      loading.value = false;
+    }
   }
 };
 
@@ -362,6 +376,18 @@ const resumenTotales = computed(() => {
             </template>
 
             <template #cell-iva_10_5="{ value }">
+              <span class="text-gray-900 text-sm font-medium">
+                {{ value > 0 ? formatearMoneda(value) : "-" }}
+              </span>
+            </template>
+
+            <template #cell-gravado_27="{ value }">
+              <span class="text-gray-900 text-sm">{{
+                value > 0 ? formatearMoneda(value) : "-"
+              }}</span>
+            </template>
+
+            <template #cell-iva_27="{ value }">
               <span class="text-gray-900 text-sm font-medium">
                 {{ value > 0 ? formatearMoneda(value) : "-" }}
               </span>

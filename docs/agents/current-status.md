@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-16
+Ultima actualizacion: 2026-05-17
 
 ## Objetivo activo
 
@@ -14,6 +14,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
   de fechas.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
+- Clawpatch backend/frontend/repo queda sin hallazgos abiertos despues del
+  ciclo de reparaciones 2026-05-16/17.
 - PDF de comprobantes actualizado con formato administrativo alineado a la
   ubicacion principal de la factura oficial ARCA, datos fiscales completos
   disponibles, QR ARCA testeable por payload y fechas de servicio/vencimiento
@@ -59,6 +61,94 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   frontend `lint:check`, `type-check`, `build` y `test:unit`.
 - Reporte de cierre:
   `docs/project/audits/clawpatch/2026-05-16-puesta-a-punto.md`.
+
+### Reparaciones Clawpatch 2026-05-16
+
+- Primer ciclo cerrado: la emision individual y la emision desde lotes validan
+  en `FacturacionService` que el punto de venta y el `cliente_id` opcional
+  pertenezcan al emisor activo antes de solicitar CAE. Esto evita vincular
+  comprobantes de un emisor con clientes o puntos de venta de otro CUIT.
+- Verificacion focalizada sin llamadas ARCA reales:
+  `pytest tests/test_facturacion_service.py tests/test_comprobantes_api.py -q`,
+  `ruff check app/services/facturacion_service.py tests/test_facturacion_service.py`
+  y `black --check app/services/facturacion_service.py tests/test_facturacion_service.py`.
+- Segundo ciclo cerrado: certificados ARCA endurecidos. El upload ya no acepta
+  `key_filename` con paths absolutos o traversal; los paths guardados deben
+  resolver dentro de `CERTS_PATH`; las claves privadas nuevas se cifran con
+  `ARCA_PRIVATE_KEY_PASSWORD` o, si no esta configurada, con `APP_SECRET_KEY`;
+  los nombres de certificados/claves incluyen nonce para evitar colisiones; al
+  subir una renovacion se desactivan certificados activos previos del mismo
+  emisor/ambiente; y al borrar un certificado se eliminan archivos gestionados
+  no compartidos.
+- Se agrego migracion Alembic `a3b4c5d6e7f8` con indice parcial unico para
+  permitir un solo certificado activo por emisor y ambiente.
+- Verificacion focalizada sin llamadas ARCA reales:
+  `pytest tests/test_certificados.py tests/test_certificados_scope.py tests/test_arca/test_arca_api.py -q`,
+  `ruff check` y `black --check` sobre modulos de certificados/ARCA tocados.
+- Tercer ciclo cerrado: lotes en `procesando` ya no pueden volver a
+  reencolarse por API. El worker procesa lotes `en_cola` y solo retoma lotes
+  `procesando` si no tuvieron actividad durante
+  `BATCH_PROCESSING_STALE_MINUTES` minutos. Esto evita dobles tomas de lotes
+  activos sin perder la posibilidad de recuperar procesos realmente trabados.
+  La ruta `procesar_lote(..., reanudar=True)` tambien permite continuar esos
+  lotes stale, que es el camino que usa el worker.
+- Verificacion focalizada sin llamadas ARCA reales:
+  `pytest tests/test_lotes_comprobantes.py::test_procesar_lote_background_encola_lote_chico tests/test_lotes_comprobantes.py::test_tomar_lote_para_procesamiento_es_atomico tests/test_lotes_comprobantes.py::test_procesar_background_no_reencola_lote_en_proceso tests/test_lotes_comprobantes.py::test_reanudar_lote_procesando_solo_si_esta_stale tests/test_lotes_comprobantes.py::test_procesar_lote_grande_encola_y_se_reanuda -q`,
+  `ruff check` y `black --check` sobre lotes/worker.
+- Cuarto ciclo cerrado: fallos posteriores a una respuesta ARCA con CAE ya no
+  quedan ocultos como errores genericos ni como fallos reintentables. La
+  respuesta conserva punto de venta, numero, fecha, total y CAE, marca
+  `requiere_reconciliacion=true`, la API individual responde `409`, y los lotes
+  pasan a estado `requiere_reconciliacion` para bloquear reintentos automaticos.
+- Verificacion focalizada sin llamadas ARCA reales:
+  `pytest tests/test_facturacion_service.py tests/test_comprobantes_api.py tests/test_lotes_comprobantes.py::test_procesar_lote_post_arca_requiere_reconciliacion -q`,
+  `ruff check`, `black --check`, frontend `type-check` y `lint:check`.
+- Quinto ciclo cerrado: Factura C queda bloqueada localmente con IVA distinto
+  de 0 antes de pedir CAE. En emision individual, la UI limita las alicuotas a
+  IVA 0 al elegir Factura C y normaliza items existentes; en lotes, la
+  validacion rechaza grupos tipo C con IVA mayor a 0.
+- Verificacion focalizada sin llamadas ARCA reales:
+  `pytest tests/test_lotes_comprobantes.py::test_validar_lote_rechaza_factura_c_con_iva tests/test_facturacion_service.py::test_validar_datos_rechaza_factura_c_con_iva -q`,
+  `ruff check`, `black --check`, frontend `type-check` y `lint:check`.
+- Sexto ciclo cerrado: el emisor activo quedo consistente entre UI y API. El
+  frontend usa `sessionStorage` como fuente por pestaña para `X-Empresa-Id` y
+  conserva `localStorage` solo como preferencia inicial. El backend acepta el
+  query legacy `empresa_id` solo si no contradice el header y rechaza conflictos
+  explicitos. La UI dejo de mandar `empresa_id` redundante en listados y
+  reportes.
+- Septimo ciclo cerrado: la vista previa de nueva factura ya muestra el punto
+  de venta seleccionado en lugar de usar siempre `0001`.
+- Octavo ciclo cerrado: el Excel observado de lotes escapa textos que Excel
+  podria interpretar como formulas, tanto desde datos originales como desde
+  mensajes de resultado.
+- Noveno ciclo cerrado: `Puntos de venta` consulta `GET /api/arca/status` y
+  habilita `Sincronizar con ARCA` solo si existe certificado activo para el
+  ambiente real configurado en backend (`ARCA_ENV`).
+- Verificacion focalizada sin llamadas ARCA reales:
+  `pytest tests/test_clientes.py::test_admin_puede_resolver_empresa_por_query_legacy tests/test_clientes.py::test_admin_rechaza_conflicto_header_y_query_empresa tests/test_clientes.py::test_usuario_no_admin_rechaza_empresa_query_ajena tests/test_comprobantes_api.py -q`,
+  `pytest tests/test_lotes_comprobantes.py::test_archivo_observado_escapa_textos_con_formulas -q`,
+  `pytest tests/test_arca/test_arca_api.py::TestArcaAPIEndpoints::test_status_informa_certificado_del_ambiente_actual -q`,
+  `ruff check`, `black --check`, frontend `type-check`,
+  `test:unit -- empresa-activa-storage` y `lint:check`.
+- Ciclos extendidos cerrados: backend y frontend quedaron revalidados feature
+  por feature con Clawpatch. Se corrigieron uploads XLSX malformados o grandes,
+  confirmacion fiscal de lotes con token exacto `fechas=...;puntos_venta=...`,
+  numeracion ARCA adelantada como reconciliacion, reportes IVA con signo de
+  notas de credito, bootstrap concurrente, carreras async por cambio de emisor
+  activo, Factura A solo con CUIT, orden estable de items, refresco post-CAE no
+  bloqueante, IVA 27% en detalle de subdiario y enlaces externos ARCA con
+  `noopener noreferrer`.
+- QA en Chrome posterior: `Nueva factura` ya no selecciona puntos que no son
+  usables por FactuFlow. El selector toma el primer punto Web Services activo,
+  no bloqueado y sin baja; `/api/comprobantes/proximo-numero` devuelve 400 de
+  negocio si alguien consulta un punto no usable, en lugar de filtrar como
+  error interno.
+- Cierre Clawpatch:
+  - backend `openFindings=0`
+  - frontend `openFindings=0`
+  - repo `openFindings=0`
+  - `clawpatch review --limit 50 --jobs 1` a nivel repo no encontro features
+    pendientes ni hallazgos nuevos.
 
 ### PDF profesional y QR ARCA 2026-05-14
 
@@ -158,7 +248,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   `background=true`. La UI lo usa siempre para poder seguir tambien lotes
   chicos por polling.
 - La confirmacion fiscal sigue siendo obligatoria: el endpoint rechaza la
-  emision si falta `X-Confirmacion-Fecha-Fiscal: true`.
+  emision si falta `X-Confirmacion-Fecha-Fiscal` con el token exacto de fechas
+  y puntos de venta validados.
 - El procesamiento actualiza contadores del lote despues de cada grupo:
   emitidos, fallidos, validos restantes y mensaje de avance.
 - La pantalla de emision masiva muestra avance real, estado `En cola`/
@@ -186,13 +277,15 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - Por regla fiscal critica, el perfil de carga masiva no permite guardar
   `fecha_actual` como fecha de emision: no debe convertir la fecha del navegador
   en fecha fiscal.
-- Las reglas relativas se resuelven en la UI a fechas concretas antes de
-  validar. El backend de lotes sigue recibiendo `archivo` o `fija` con fecha
-  concreta, y guarda snapshot del perfil aplicado en `metadata_json` solo si el
-  usuario no modifico la configuracion precargada antes de validar.
+- Las reglas relativas no se convierten usando la fecha del navegador al
+  autoaplicar un perfil en `Emision masiva`. El usuario debe elegir una fecha
+  exacta, tomarla del archivo o confirmar una base explicita antes de validar.
+  El backend de lotes sigue recibiendo `archivo` o `fija` con fecha concreta, y
+  guarda snapshot del perfil aplicado en `metadata_json` solo si el usuario no
+  modifico la configuracion precargada antes de validar.
 - No se modifico la barrera fiscal: el perfil no valida ni emite
   automaticamente, y el procesamiento de lote sigue exigiendo el modal final de
-  fecha fiscal y `X-Confirmacion-Fecha-Fiscal: true`.
+  fecha fiscal y el token exacto de `X-Confirmacion-Fecha-Fiscal`.
 - QA visual local completada en `http://127.0.0.1:8080`: creacion, edicion,
   eliminacion, marcado predeterminado, autoaplicacion por emisor, cambio manual
   que anula snapshot, validacion de un Excel privado local y modal final
@@ -277,7 +370,8 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
 - La confirmacion final ya no queda solo en la UI: `POST /api/comprobantes/emitir`
   exige `confirmacion_fecha_fiscal=true` y
   `POST /api/lotes-comprobantes/{lote_id}/procesar` exige
-  `X-Confirmacion-Fecha-Fiscal: true`.
+  `X-Confirmacion-Fecha-Fiscal` con el token exacto
+  `fechas=AAAA-MM-DD,...;puntos_venta=N,...`.
 - Se corrigio el parser local de `FECompConsultar`: ARCA devuelve
   `CbteDesde`/`CbteHasta` en la consulta de comprobante, no `CbteNro`.
 - Regla critica nueva de alineacion documental: FactuFlow no debe asumir
@@ -636,25 +730,23 @@ Quedo validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 128 tests
+  - `pytest tests -q` OK, 194 tests
   - `ruff check app tests` OK
   - `black --check app tests` OK
+  - `alembic heads` OK, head `a3b4c5d6e7f8`
 - Frontend:
-  - `npm run lint:check` OK sin errores, 444 warnings de estilo Vue existentes
+  - `npm run lint:check` OK sin errores, 465 warnings de estilo Vue existentes
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, sin casos definidos
+  - `npm run test:unit` OK, 41 tests
   - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
     del runner; ver seccion `Verificacion automatizada 2026-05-07`
 
 ## Riesgos / pendientes inmediatos
 
-- Revision de detecciones 2026-05-16: el reporte manual publico queda en
-  `docs/project/audits/clawpatch/2026-05-16-detecciones.md`. Los reportes
-  crudos de Clawpatch quedan como evidencia local ignorada por Git hasta que se
-  corrijan o se publique una version sanitizada. No se aplicaron fixes;
-  priorizar lotes/procesando, post-CAE, scoping multiemisor, certificados y
-  Factura C/IVA.
+- Revision Clawpatch 2026-05-16/17: los hallazgos reparados quedan resumidos en
+  `docs/project/audits/clawpatch/2026-05-16-reparaciones.md`. Backend,
+  frontend y repo quedan con `openFindings=0`.
 - La base local privada sigue siendo evidencia legacy
   ajustada manualmente; para nuevas instalaciones y operacion real, el camino
   canonico de schema es Alembic.

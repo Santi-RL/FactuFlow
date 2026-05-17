@@ -12,7 +12,6 @@ import type {
 } from "@/types/comprobante";
 
 export interface ListarComprobantesParams {
-  empresa_id: number;
   desde?: string;
   hasta?: string;
   tipo?: number;
@@ -57,11 +56,9 @@ export const comprobantesService = {
   async proximoNumero(
     puntoVenta: number,
     tipoComprobante: number,
-    empresaId: number,
   ): Promise<ProximoNumeroResponse> {
     const { data } = await api.get(
       `/api/comprobantes/proximo-numero/${puntoVenta}/${tipoComprobante}`,
-      { params: { empresa_id: empresaId } },
     );
     return data;
   },

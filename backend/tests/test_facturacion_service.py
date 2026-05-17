@@ -8,7 +8,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.arca.models import CAEResponse
 from app.models.cliente import Cliente
+from app.models.comprobante import Comprobante
+from app.models.empresa import Empresa
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import (
     ComprobanteAsociadoCreate,
@@ -346,3 +349,480 @@ async def test_validar_datos_rechaza_factura_c_con_iva(
 
     with pytest.raises(ValidationError, match="comprobantes tipo C"):
         await service._validar_datos(request)
+
+
+@pytest.mark.asyncio
+async def test_validar_datos_rechaza_punto_venta_de_otro_emisor(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """La emisión no puede usar puntos de venta de otro emisor."""
+    otro_emisor = Empresa(
+        razon_social="Otro Emisor S.A.",
+        cuit="20987654321",
+        condicion_iva="RI",
+        domicilio="Calle Externa 123",
+        localidad="Buenos Aires",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        email="otro@empresa.com",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(otro_emisor)
+    await db_session.flush()
+
+    punto_venta_ajeno = PuntoVenta(
+        numero=9,
+        nombre="PV ajeno",
+        activo=True,
+        es_webservice=True,
+        empresa_id=otro_emisor.id,
+    )
+    db_session.add(punto_venta_ajeno)
+    await db_session.flush()
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta_ajeno.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date.today(),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    with pytest.raises(ValidationError, match="Punto de venta.*empresa activa"):
+        await service._validar_datos(request)
+
+
+@pytest.mark.asyncio
+async def test_validar_datos_rechaza_cliente_de_otro_emisor(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """La emisión no puede vincular clientes de otro emisor."""
+    otro_emisor = Empresa(
+        razon_social="Emisor Cliente Ajeno S.A.",
+        cuit="20999888777",
+        condicion_iva="RI",
+        domicilio="Calle Cliente 123",
+        localidad="Buenos Aires",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        email="cliente-ajeno@empresa.com",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(otro_emisor)
+    await db_session.flush()
+
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="PV propio",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    cliente_ajeno = Cliente(
+        razon_social="Cliente Ajeno",
+        tipo_documento="DNI",
+        numero_documento="12345678",
+        condicion_iva="CF",
+        empresa_id=otro_emisor.id,
+    )
+    db_session.add_all([punto_venta, cliente_ajeno])
+    await db_session.flush()
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        cliente_id=cliente_ajeno.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date.today(),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    with pytest.raises(ValidationError, match="Cliente.*empresa activa"):
+        await service._validar_datos(request)
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Si falla la persistencia posterior a CAE, la respuesta no es reintentable."""
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado con CAE autorizado."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_cae_solicitar(self, _arca_request):
+            """Devuelve un CAE autorizado simulado."""
+            return SimpleNamespace(
+                cae="12345678901234",
+                cae_vencimiento="20260526",
+            )
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    async def fake_tomar_lock(self, *args, **kwargs):
+        return None
+
+    async def fake_obtener_empresa(self, empresa_id):
+        return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
+
+    async def fake_obtener_punto_venta(self, punto_venta_id, empresa_id=None):
+        return SimpleNamespace(id=punto_venta_id, numero=1)
+
+    async def fake_obtener_certificado_activo(self, empresa_id):
+        return SimpleNamespace(
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    async def fake_obtener_proximo(self, *args, **kwargs):
+        return 77
+
+    async def fail_guardar(self, *args, **kwargs):
+        raise RuntimeError("base no disponible")
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
+    monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
+    monkeypatch.setattr(
+        FacturacionService, "_obtener_punto_venta", fake_obtener_punto_venta
+    )
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_obtener_certificado_activo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(
+        FacturacionService, "_obtener_proximo_numero", fake_obtener_proximo
+    )
+    monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=1,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date.today(),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    resultado = await service.emitir_comprobante(request)
+
+    assert resultado.exito is False
+    assert resultado.requiere_reconciliacion is True
+    assert resultado.categoria_error == "post_arca_persistencia"
+    assert resultado.cae == "12345678901234"
+    assert resultado.numero == 77
+    assert resultado.punto_venta == 1
+    assert resultado.total == Decimal("1000.00")
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Una respuesta WSFE no aprobada no debe persistirse como autorizada."""
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado con resultado parcial sin CAE."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_cae_solicitar(self, _arca_request):
+            """Devuelve una respuesta no aprobada."""
+            return CAEResponse(
+                cae=None,
+                cae_vencimiento=None,
+                numero_comprobante=77,
+                tipo_cbte=6,
+                punto_venta=1,
+                resultado="P",
+            )
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    async def fake_tomar_lock(self, *args, **kwargs):
+        return None
+
+    async def fake_obtener_empresa(self, empresa_id):
+        return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
+
+    async def fake_obtener_punto_venta(self, punto_venta_id, empresa_id=None):
+        return SimpleNamespace(id=punto_venta_id, numero=1)
+
+    async def fake_obtener_certificado_activo(self, empresa_id):
+        return SimpleNamespace(
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    async def fake_obtener_proximo(self, *args, **kwargs):
+        return 77
+
+    async def fail_guardar(self, *args, **kwargs):
+        raise AssertionError("No debe guardar una respuesta sin aprobación")
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
+    monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
+    monkeypatch.setattr(
+        FacturacionService, "_obtener_punto_venta", fake_obtener_punto_venta
+    )
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_obtener_certificado_activo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(
+        FacturacionService, "_obtener_proximo_numero", fake_obtener_proximo
+    )
+    monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=1,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date.today(),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    resultado = await service.emitir_comprobante(request)
+    comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
+
+    assert resultado.exito is False
+    assert resultado.requiere_reconciliacion is False
+    assert resultado.categoria_error == "arca_no_aprobado"
+    assert resultado.cae is None
+    assert comprobantes == []
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantada(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Si ARCA tiene números ausentes localmente, no debe pedir otro CAE."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    db_session.add(
+        Comprobante(
+            tipo_comprobante=6,
+            concepto=1,
+            numero=76,
+            fecha_emision=date.today(),
+            subtotal=Decimal("1000.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("0.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("1000.00"),
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            estado="autorizado",
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+        )
+    )
+    await db_session.commit()
+    cae_solicitado = False
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado con ARCA adelantada."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Devuelve un último comprobante que no existe localmente."""
+            return 77
+
+        async def fe_cae_solicitar(self, _arca_request):
+            """No debe llamarse cuando falta reconciliar numeración."""
+            nonlocal cae_solicitado
+            cae_solicitado = True
+            raise AssertionError("No debe solicitar CAE con numeración desfasada")
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    async def fake_tomar_lock(self, *args, **kwargs):
+        return None
+
+    async def fake_obtener_empresa(self, empresa_id):
+        return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
+
+    async def fake_obtener_certificado_activo(self, empresa_id):
+        return SimpleNamespace(
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
+    monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_obtener_certificado_activo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date.today(),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    resultado = await service.emitir_comprobante(request)
+
+    assert resultado.exito is False
+    assert resultado.requiere_reconciliacion is True
+    assert resultado.categoria_error == "numeracion_arca_adelantada"
+    assert resultado.numero == 77
+    assert cae_solicitado is False

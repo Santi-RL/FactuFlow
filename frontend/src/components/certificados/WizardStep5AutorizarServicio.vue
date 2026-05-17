@@ -16,10 +16,7 @@ defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const servicioAutorizado = ref(false);
-
-const abrirPortalArca = () => {
-  window.open("https://auth.afip.gob.ar/contribuyente_/login.xhtml", "_blank");
-};
+const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 </script>
 
 <template>
@@ -45,13 +42,15 @@ const abrirPortalArca = () => {
             <h3 class="font-semibold text-gray-900 mb-2">
               Entrá al portal de ARCA
             </h3>
-            <button
+            <a
+              :href="portalArcaUrl"
+              target="_blank"
+              rel="noopener noreferrer"
               class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
-              @click="abrirPortalArca"
             >
               <span>Ir al portal de ARCA</span>
               <span>↗</span>
-            </button>
+            </a>
           </div>
         </div>
 

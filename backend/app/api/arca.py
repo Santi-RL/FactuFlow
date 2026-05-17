@@ -73,11 +73,14 @@ async def get_certificado_activo(db: AsyncSession, empresa_id: int) -> Certifica
     ambiente = get_ambiente()
 
     result = await db.execute(
-        select(Certificado).where(
+        select(Certificado)
+        .where(
             Certificado.empresa_id == empresa_id,
             Certificado.activo.is_(True),
             Certificado.ambiente == ambiente.value,
         )
+        .order_by(Certificado.fecha_vencimiento.desc(), Certificado.id.desc())
+        .limit(1)
     )
 
     certificado = result.scalar_one_or_none()
@@ -175,6 +178,37 @@ async def get_wsfe_client(
 
 
 # ==================== Endpoints ====================
+
+
+@router.get("/status")
+async def get_arca_status(
+    db: AsyncSession = Depends(get_db),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Devuelve el ambiente ARCA actual y la disponibilidad local de certificado."""
+    ambiente = get_ambiente()
+    result = await db.execute(
+        select(Certificado)
+        .where(
+            Certificado.empresa_id == empresa_activa_id,
+            Certificado.activo.is_(True),
+            Certificado.ambiente == ambiente.value,
+        )
+        .order_by(Certificado.fecha_vencimiento.desc(), Certificado.id.desc())
+        .limit(1)
+    )
+    certificado = result.scalar_one_or_none()
+
+    return {
+        "ambiente": ambiente.value,
+        "certificado_activo": certificado is not None,
+        "certificado_id": certificado.id if certificado else None,
+        "certificado_nombre": certificado.nombre if certificado else None,
+        "certificado_vencimiento": (
+            certificado.fecha_vencimiento.isoformat() if certificado else None
+        ),
+    }
 
 
 @router.get("/test-conexion")

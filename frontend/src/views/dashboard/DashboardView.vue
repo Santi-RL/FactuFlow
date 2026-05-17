@@ -30,6 +30,7 @@ const alertasCertificados = ref<CertificadoAlerta[]>([]);
 const totalComprobantesMes = ref(0);
 const ultimoComprobante = ref("-");
 const estadoCertificado = ref("Sin certificado");
+let cargarDashboardRequestId = 0;
 
 onMounted(async () => {
   if (!empresaStore.empresaActivaId) {
@@ -99,16 +100,19 @@ const formatearNumeroComprobante = (puntoVenta: number, numero: number) => {
 };
 
 const cargarDashboard = async () => {
-  if (!empresaStore.empresaActivaId) {
+  const requestId = ++cargarDashboardRequestId;
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
+  if (!empresaIdSolicitada) {
     loading.value = false;
     return;
   }
 
   loading.value = true;
+  const sigueVigente = () =>
+    requestId === cargarDashboardRequestId &&
+    empresaStore.empresaActivaId === empresaIdSolicitada;
 
   const { desde, hasta } = obtenerRangoMesActual();
-  const empresaId = empresaStore.empresaActivaId;
-
   try {
     const [
       clientesResult,
@@ -120,13 +124,14 @@ const cargarDashboard = async () => {
       clientesStore.fetchClientes({ per_page: 100 }),
       certificadosService.obtenerAlertasVencimiento(),
       certificadosService.listar(),
-      reportesService.obtenerReporteVentas(empresaId, desde, hasta),
+      reportesService.obtenerReporteVentas(desde, hasta),
       comprobantesService.listar({
-        empresa_id: empresaId,
         page: 1,
         per_page: 1,
       }),
     ]);
+
+    if (!sigueVigente()) return;
 
     if (clientesResult.status === "rejected") {
       console.error("Error loading clientes:", clientesResult.reason);
@@ -175,7 +180,9 @@ const cargarDashboard = async () => {
       }
     }
   } finally {
-    loading.value = false;
+    if (requestId === cargarDashboardRequestId) {
+      loading.value = false;
+    }
   }
 };
 

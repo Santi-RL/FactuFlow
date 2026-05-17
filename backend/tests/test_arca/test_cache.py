@@ -1,5 +1,8 @@
 """Tests para el cache de tokens de ARCA."""
 
+import os
+import stat
+
 import pytest
 from datetime import datetime, timedelta, timezone
 
@@ -164,6 +167,23 @@ class TestTokenCache:
 
         assert restored_ticket is not None
         assert restored_ticket.token == "persisted_token"
+
+    async def test_cache_file_uses_restrictive_permissions(self, tmp_path):
+        """Debe persistir token/sign con permisos restrictivos cuando aplica."""
+        cache = self.build_cache(tmp_path)
+        ticket = TicketAcceso(
+            token="persisted_token",
+            sign="persisted_sign",
+            expiracion=datetime.now(timezone.utc) + timedelta(hours=12),
+            servicio="wsfe",
+        )
+
+        await cache.set("persisted_key", ticket)
+
+        assert cache.storage_path.exists()
+        if os.name == "posix":
+            file_mode = stat.S_IMODE(cache.storage_path.stat().st_mode)
+            assert file_mode == stat.S_IRUSR | stat.S_IWUSR
 
     def test_get_cache_key(self, tmp_path):
         """Debe generar clave de cache correcta."""

@@ -1,8 +1,13 @@
 """Tests de endpoints de clientes."""
 
+from datetime import date
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.cliente import Cliente
+from app.models.empresa import Empresa
 
 
 @pytest.mark.asyncio
@@ -164,3 +169,122 @@ async def test_create_cliente_without_auth(client: AsyncClient):
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_puede_resolver_empresa_por_query_legacy(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+    db_session: AsyncSession,
+):
+    """El query legacy empresa_id debe seleccionar emisor si no hay header."""
+    empresa = Empresa(
+        razon_social="Empresa Query S.A.",
+        cuit="30111111118",
+        condicion_iva="RI",
+        domicilio="Av. Query 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(empresa)
+    await db_session.flush()
+    db_session.add(
+        Cliente(
+            empresa_id=empresa.id,
+            razon_social="Cliente Query",
+            tipo_documento="CUIT",
+            numero_documento="30123456780",
+            condicion_iva="RI",
+        )
+    )
+    await db_session.commit()
+
+    response = await client.get(
+        f"/api/clientes?empresa_id={empresa.id}",
+        headers=admin_auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["razon_social"] == "Cliente Query"
+
+
+@pytest.mark.asyncio
+async def test_admin_rechaza_conflicto_header_y_query_empresa(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """El backend no debe aceptar dos emisores distintos en el mismo request."""
+    segunda = Empresa(
+        razon_social="Empresa Header S.A.",
+        cuit="30222222224",
+        condicion_iva="RI",
+        domicilio="Av. Header 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(segunda)
+    await db_session.commit()
+    await db_session.refresh(segunda)
+
+    response = await client.get(
+        f"/api/clientes?empresa_id={test_empresa.id}",
+        headers={**admin_auth_headers, "X-Empresa-Id": str(segunda.id)},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "X-Empresa-Id y empresa_id no coinciden"
+
+
+@pytest.mark.asyncio
+async def test_admin_rechaza_header_empresa_cero(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+):
+    """Un selector explícito X-Empresa-Id=0 no debe caer al emisor por defecto."""
+    response = await client.get(
+        "/api/clientes",
+        headers={**admin_auth_headers, "X-Empresa-Id": "0"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "El header X-Empresa-Id de empresa debe ser positivo"
+    )
+
+
+@pytest.mark.asyncio
+async def test_usuario_no_admin_rechaza_empresa_query_ajena(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+):
+    """Un usuario comun no puede cambiar emisor por query ni por header."""
+    segunda = Empresa(
+        razon_social="Empresa Ajena S.A.",
+        cuit="30333333330",
+        condicion_iva="RI",
+        domicilio="Av. Ajena 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(segunda)
+    await db_session.commit()
+    await db_session.refresh(segunda)
+
+    response = await client.get(
+        f"/api/clientes?empresa_id={segunda.id}",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "No tienes permiso para operar con esa empresa"

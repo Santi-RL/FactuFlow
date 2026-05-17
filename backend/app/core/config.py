@@ -46,15 +46,24 @@ class Settings(BaseSettings):
     # ARCA
     arca_env: str = Field(default="homologacion", alias="ARCA_ENV")
     certs_path: str = Field(default="./certs", alias="CERTS_PATH")
+    arca_private_key_password: Optional[str] = Field(
+        default=None, alias="ARCA_PRIVATE_KEY_PASSWORD"
+    )
     arca_token_cache_path: str = Field(
         default="./data/arca_token_cache.json", alias="ARCA_TOKEN_CACHE_PATH"
     )
     batch_sync_limit: int = Field(default=100, alias="BATCH_SYNC_LIMIT")
+    batch_max_upload_bytes: int = Field(
+        default=10 * 1024 * 1024, alias="BATCH_MAX_UPLOAD_BYTES"
+    )
     batch_max_rows: int = Field(default=20000, alias="BATCH_MAX_ROWS")
     batch_max_groups: int = Field(default=5000, alias="BATCH_MAX_GROUPS")
     batch_worker_enabled: bool = Field(default=True, alias="BATCH_WORKER_ENABLED")
     batch_worker_poll_seconds: int = Field(default=5, alias="BATCH_WORKER_POLL_SECONDS")
     batch_worker_batch_size: int = Field(default=1, alias="BATCH_WORKER_BATCH_SIZE")
+    batch_processing_stale_minutes: int = Field(
+        default=120, alias="BATCH_PROCESSING_STALE_MINUTES"
+    )
 
     @field_validator("certs_path", mode="before")
     @classmethod

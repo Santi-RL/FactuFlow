@@ -4,7 +4,7 @@ import { useRouter } from "vue-router";
 import { usePuntosVentaStore } from "@/stores/puntos_venta";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
-import certificadosService from "@/services/certificados.service";
+import { arcaService } from "@/services/arca.service";
 import type { PuntoVenta, PuntoVentaUpdate } from "@/types/punto_venta";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -25,12 +25,15 @@ const empresaStore = useEmpresaStore();
 const { showSuccess, showError, showWarning } = useNotification();
 
 const tieneCertificadoActivo = ref(false);
+const ambienteArcaActual = ref<"homologacion" | "produccion" | null>(null);
 const cargandoCertificados = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const puntoEditando = ref<PuntoVenta | null>(null);
 const guardandoEdicion = ref(false);
 const editForm = ref<PuntoVentaUpdate>({});
 const mostrarSoloHabilitados = ref(false);
+let cargarDatosRequestId = 0;
+let cargarCertificadosRequestId = 0;
 
 const columns = [
   { key: "numero", label: "Numero", sortable: true },
@@ -89,29 +92,49 @@ const estadoPunto = (row: PuntoVenta) => {
   };
 };
 
-const cargarCertificados = async () => {
+const cargarCertificados = async (
+  empresaIdSolicitada = empresaStore.empresaActivaId,
+) => {
+  const requestId = ++cargarCertificadosRequestId;
   cargandoCertificados.value = true;
   try {
-    const certs = await certificadosService.listar();
-    tieneCertificadoActivo.value = certs.some((cert) => cert.activo);
+    const status = await arcaService.getStatus();
+    if (
+      requestId === cargarCertificadosRequestId &&
+      empresaStore.empresaActivaId === empresaIdSolicitada
+    ) {
+      ambienteArcaActual.value = status.ambiente;
+      tieneCertificadoActivo.value = status.certificado_activo;
+    }
   } catch (err: any) {
-    tieneCertificadoActivo.value = false;
+    if (
+      requestId === cargarCertificadosRequestId &&
+      empresaStore.empresaActivaId === empresaIdSolicitada
+    ) {
+      tieneCertificadoActivo.value = false;
+    }
   } finally {
-    cargandoCertificados.value = false;
+    if (requestId === cargarCertificadosRequestId) {
+      cargandoCertificados.value = false;
+    }
   }
 };
 
 const cargarDatos = async () => {
+  const requestId = ++cargarDatosRequestId;
   try {
     if (!empresaStore.empresaActivaId) {
       await empresaStore.inicializarEmpresaActiva();
     }
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
     await Promise.all([
       puntosVentaStore.fetchPuntosVenta(),
-      cargarCertificados(),
+      cargarCertificados(empresaIdSolicitada),
     ]);
   } catch (err: any) {
-    showError("Error", "No se pudieron cargar los puntos de venta");
+    if (requestId === cargarDatosRequestId) {
+      showError("Error", "No se pudieron cargar los puntos de venta");
+    }
   }
 };
 
@@ -123,7 +146,7 @@ const sincronizar = async () => {
   if (!tieneCertificadoActivo.value) {
     showWarning(
       "Certificado requerido",
-      "Carga un certificado activo para poder sincronizar",
+      `Carga un certificado activo para el ambiente ${ambienteArcaActual.value || "actual"} antes de sincronizar`,
     );
     return;
   }
@@ -273,7 +296,7 @@ watch(
     </div>
 
     <BaseAlert
-      v-if="!tieneCertificadoActivo"
+      v-if="!cargandoCertificados && !tieneCertificadoActivo"
       type="warning"
       title="Certificado requerido"
       :dismissible="false"
@@ -284,7 +307,8 @@ watch(
       >
         <span>
           No se pueden sincronizar los puntos de venta si no hay un certificado
-          activo cargado.
+          activo cargado para el ambiente
+          {{ ambienteArcaActual || "actual" }}.
         </span>
         <BaseButton variant="secondary" size="sm" @click="irACertificados">
           Ir a certificados

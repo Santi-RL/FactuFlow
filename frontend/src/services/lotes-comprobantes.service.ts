@@ -57,7 +57,10 @@ class LotesComprobantesService {
     return response.data;
   }
 
-  async procesar(id: number): Promise<LoteProcesamientoResponse> {
+  async procesar(
+    id: number,
+    confirmacionFechaFiscal: string,
+  ): Promise<LoteProcesamientoResponse> {
     const response = await apiClient.post<LoteProcesamientoResponse>(
       `/api/lotes-comprobantes/${id}/procesar`,
       null,
@@ -66,7 +69,7 @@ class LotesComprobantesService {
           background: true,
         },
         headers: {
-          "X-Confirmacion-Fecha-Fiscal": "true",
+          "X-Confirmacion-Fecha-Fiscal": confirmacionFechaFiscal,
         },
       },
     );

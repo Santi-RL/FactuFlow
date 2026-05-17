@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-14
+Ultima actualizacion: 2026-05-17
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -52,14 +52,30 @@ Cerrar un MVP funcional centrado en:
 - [x] Emision masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
 - [x] Fecha de emision explicita; no se asume fecha del dia actual al emitir
 - [x] Confirmacion final obligatoria de fecha fiscal antes de solicitar CAE
+- [x] Procesamiento de lotes exige token exacto de confirmacion fiscal con
+  fechas y puntos de venta validados, no un boolean generico
+- [x] Emision valida que punto de venta y cliente opcional pertenezcan al
+  emisor activo antes de solicitar CAE
+- [x] Nueva factura ofrece solo puntos de venta usables por FactuFlow y la API
+  rechaza numeracion para puntos no Web Services con error de negocio
+- [x] Uploads de lotes limitados por `BATCH_MAX_UPLOAD_BYTES` y XLSX
+  malformados rechazados antes de validar
 - [x] Concepto fiscal ARCA explicito; no se asume productos o servicios por defecto
 - [~] Descripcion/concepto facturado del item documentado como dato separado
   del concepto fiscal ARCA; debe venir del archivo o de un valor fijo confirmado
   para todo el lote, sin defaults ocultos
+- [x] Numeracion ARCA adelantada y fallos post-CAE quedan como
+  `requiere_reconciliacion`, sin persistir respuestas no aprobadas como
+  comprobantes emitidos
 - [x] Sincronizacion manual de puntos de venta ARCA validada desde UI; los
   puntos devueltos por WSFE se crean o actualizan como Web Services usables
 - [x] Validacion de puntos de venta en emision normaliza `Bloqueado=N`/`S` de ARCA
 - [x] Factura C no informa objeto `Iva` en WSFE y bloquea items con IVA distinto de 0
+- [x] UI de puntos de venta valida certificado activo del ambiente ARCA actual
+  antes de sincronizar WSFE
+- [x] Emisor activo consistente por pestaña y API con rechazo de conflictos
+  entre `X-Empresa-Id` y query legacy `empresa_id`
+- [x] Excel observado de lotes escapa valores con forma de formula
 - [x] Notas de credito/debito informan comprobantes asociados en WSFE
   (`CbtesAsoc`) cuando corresponde
 - [~] Alineacion limpia entre base legacy y Alembic
@@ -71,7 +87,12 @@ Cerrar un MVP funcional centrado en:
 - [x] Selector de empresa activa para admins
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
   cambiar el selector
+- [x] Vistas sensibles descartan respuestas asincronicas viejas al cambiar el
+  emisor activo, incluyendo reportes, certificados, puntos de venta y
+  numeracion de nueva factura
 - [x] Autodeteccion asistida de formato al subir Excel externo para emision masiva
+- [x] Nueva factura exige CUIT para Factura A y Notas A, y el refresco de lista
+  posterior a CAE es no bloqueante
 - [x] QA manual guiada de flujos reales
 - [ ] Operaciones masivas de PDF desde listado
 
@@ -156,6 +177,8 @@ Objetivo: dejar la emision validada contra servicios reales.
 - [~] Base funcional lista para primer piloto controlado
 - [x] Certificado productivo cargado y prueba WSAA/ARCA exitosa
 - [~] Certificados y proceso de produccion
+- [x] Certificados ARCA con paths gestionados dentro de `CERTS_PATH`, claves
+  nuevas cifradas y un unico certificado activo por emisor/ambiente
 - [ ] Checklist de salida a produccion
 - [ ] Validacion de diferencias operativas entre homologacion y produccion
 
@@ -183,11 +206,18 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Politica explicita de descripcion facturada del item por lote: desde
   archivo o valor fijo para todo el lote, independiente del concepto fiscal ARCA
 - [x] Perfiles de carga masiva por emisor, con predeterminado, punto de venta y
-  reglas relativas de fechas resueltas en pantalla antes de validar
+  reglas relativas de fechas visibles, sin materializar fecha fiscal en emision
+  masiva sin una base explicita del usuario
 - [x] Agrupacion por `comprobante_ref`
 - [x] Prevalidacion por fila y por comprobante
 - [x] Reintento seguro del mismo archivo cuando el lote previo no emitio CAE
 - [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
+- [x] Fallos post-CAE quedan como `requiere_reconciliacion` y no habilitan
+  reintentos automaticos
+- [x] Confirmacion fiscal final de lotes usa token exacto derivado de los grupos
+  validados: fechas y puntos de venta concretos
+- [x] Archivos XLSX malformados o por encima de `BATCH_MAX_UPLOAD_BYTES` quedan
+  rechazados antes de crear o validar lotes
 - [x] Snapshot fiscal del receptor en comprobantes
 - [x] Persistencia de fechas de servicio y vencimiento de pago en comprobantes
   nuevos y backfill desde payloads historicos de lotes para reflejarlas en el
@@ -195,6 +225,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Clientes precargados opcionales para lotes masivos
 - [x] Emision de lotes chicos desde UI observable por background/polling
 - [x] Ejecucion asincronica para lotes grandes
+- [x] Worker evita reencolar lotes activos y solo retoma `procesando` cuando
+  estan stale
 
 ### UX de lotes
 - [x] Wizard de emision masiva
@@ -277,14 +309,19 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Smoke real de homologacion ejecutado manualmente
 - [x] QA manual funcional cerrada
 - [x] Script de lint frontend no destructivo `npm run lint:check`
+- [x] Reparaciones Clawpatch 2026-05-16/17 cerradas con
+  backend/frontend/repo en `openFindings=0`
+- [x] Reportes IVA calculan notas de credito con signo negativo y el detalle de
+  subdiario incluye gravado e IVA 27%
 - [ ] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
   confiable en auditorias
 - [ ] Cobertura mas profunda sobre detalles de comprobantes, PDF y reportes
 - [ ] Smoke automatizado de stack completo local
 
 ### Robustez
-- [~] Jobs de lotes reanudables desde estado persistido en BD
-- [ ] Reintentos controlados para procesos largos
+- [x] Jobs de lotes reanudables desde estado persistido en BD con ventana stale
+- [x] Reintentos bloqueados cuando existe incertidumbre post-ARCA
+- [ ] Reintentos controlados para otros procesos largos
 - [~] Idempotencia mas visible para usuario final
 - [ ] Auditoria de eventos operativos criticos
 
@@ -303,6 +340,8 @@ Objetivo: pasar de una operacion de una sola empresa a una plataforma gestionabl
 - [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
 - [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,
   reportes, certificados, puntos de venta y nueva factura por empresa activa
+- [x] Scoping backend de emision contra punto de venta y cliente del emisor
+  activo
 - [~] Multiempresa validado con mas de una empresa real de prueba
 - [ ] Alta y gestion de multiples empresas por admin global
 - [ ] Controles de permisos mas finos

@@ -39,6 +39,27 @@ class ValidationError(Exception):
     pass
 
 
+class ReconciliacionNumeracionError(ValidationError):
+    """Error cuando ARCA registra comprobantes ausentes en FactuFlow."""
+
+    def __init__(
+        self,
+        ultimo_local: int,
+        ultimo_arca: int,
+        proximo_local: int,
+        proximo_arca: int,
+    ) -> None:
+        """Inicializa el detalle del desfase de numeración."""
+        self.ultimo_local = ultimo_local
+        self.ultimo_arca = ultimo_arca
+        self.proximo_local = proximo_local
+        self.proximo_arca = proximo_arca
+        super().__init__(
+            "ARCA registra comprobantes autorizados que no existen en FactuFlow. "
+            "Reconciliá la numeración antes de emitir nuevos comprobantes."
+        )
+
+
 class FacturacionService:
     """Servicio para emisión de comprobantes electrónicos."""
 
@@ -115,7 +136,9 @@ class FacturacionService:
 
             # 3. Obtener empresa y punto de venta
             empresa = await self._obtener_empresa(request.empresa_id)
-            punto_venta = await self._obtener_punto_venta(request.punto_venta_id)
+            punto_venta = await self._obtener_punto_venta(
+                request.punto_venta_id, request.empresa_id
+            )
             certificado = await self._obtener_certificado_activo(request.empresa_id)
 
             # 4. Autenticar contra ARCA y reconciliar numeración
@@ -126,13 +149,33 @@ class FacturacionService:
                 cuit=empresa.cuit,
             )
             await self._validar_punto_venta_habilitado(wsfe_client, punto_venta.numero)
-            proximo = await self._obtener_proximo_numero(
-                request.empresa_id,
-                request.punto_venta_id,
-                request.tipo_comprobante,
-                wsfe_client,
-                punto_venta.numero,
-            )
+            try:
+                proximo = await self._obtener_proximo_numero(
+                    request.empresa_id,
+                    request.punto_venta_id,
+                    request.tipo_comprobante,
+                    wsfe_client,
+                    punto_venta.numero,
+                )
+            except ReconciliacionNumeracionError as exc:
+                return EmitirComprobanteResponse(
+                    exito=False,
+                    tipo_comprobante=request.tipo_comprobante,
+                    punto_venta=punto_venta.numero,
+                    numero=exc.ultimo_arca,
+                    fecha=request.fecha_emision,
+                    total=totales["total"],
+                    mensaje="ARCA registra comprobantes que no están guardados en FactuFlow",
+                    errores=[
+                        str(exc),
+                        (
+                            f"Último local: {exc.ultimo_local}; "
+                            f"último ARCA: {exc.ultimo_arca}."
+                        ),
+                    ],
+                    requiere_reconciliacion=True,
+                    categoria_error="numeracion_arca_adelantada",
+                )
 
             # 5. Armar request para ARCA
             arca_request = self._armar_request_arca(
@@ -156,6 +199,16 @@ class FacturacionService:
                     errores=[str(e)],
                 )
 
+            respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
+                request=request,
+                punto_venta_numero=punto_venta.numero,
+                numero=proximo,
+                totales=totales,
+                resultado_arca=resultado,
+            )
+            if respuesta_no_aprobada is not None:
+                return respuesta_no_aprobada
+
             # 7. Guardar en BD
             try:
                 comprobante = await self._guardar_comprobante(
@@ -171,17 +224,37 @@ class FacturacionService:
                     request.tipo_comprobante,
                     proximo,
                 )
-                return EmitirComprobanteResponse(
-                    exito=False,
-                    tipo_comprobante=request.tipo_comprobante,
-                    punto_venta=punto_venta.numero,
+                return self._respuesta_post_arca_requiere_reconciliacion(
+                    request=request,
+                    punto_venta_numero=punto_venta.numero,
                     numero=proximo,
-                    fecha=request.fecha_emision,
-                    total=totales["total"],
-                    mensaje="La numeración ya fue registrada localmente",
+                    totales=totales,
+                    resultado_arca=resultado,
+                    mensaje="ARCA autorizó el comprobante, pero no se pudo guardar por conflicto de numeración",
                     errores=[
-                        "ARCA pudo haber autorizado el comprobante, pero no se pudo guardar por conflicto de numeración. Consultá ARCA y reconciliá antes de reintentar.",
+                        "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
                         str(exc.orig),
+                    ],
+                )
+            except Exception as exc:
+                await self.db.rollback()
+                logger.exception(
+                    "Fallo posterior a CAE autorizado. empresa=%s pv=%s tipo=%s numero=%s",
+                    request.empresa_id,
+                    punto_venta.numero,
+                    request.tipo_comprobante,
+                    proximo,
+                )
+                return self._respuesta_post_arca_requiere_reconciliacion(
+                    request=request,
+                    punto_venta_numero=punto_venta.numero,
+                    numero=proximo,
+                    totales=totales,
+                    resultado_arca=resultado,
+                    mensaje="ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo",
+                    errores=[
+                        "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
+                        str(exc),
                     ],
                 )
 
@@ -266,7 +339,7 @@ class FacturacionService:
         usar_arca: bool = True,
     ) -> int:
         """Obtiene el próximo número de comprobante disponible."""
-        punto_venta = await self._obtener_punto_venta(punto_venta_id)
+        punto_venta = await self._obtener_punto_venta(punto_venta_id, empresa_id)
         if not punto_venta:
             raise ValidationError("Punto de venta no encontrado")
 
@@ -389,10 +462,19 @@ class FacturacionService:
         if not empresa:
             raise ValidationError("Empresa no encontrada")
 
-        # Validar que exista el punto de venta
-        punto_venta = await self._obtener_punto_venta(request.punto_venta_id)
+        # Validar que exista el punto de venta en la empresa activa
+        punto_venta = await self._obtener_punto_venta(
+            request.punto_venta_id, request.empresa_id
+        )
         if not punto_venta:
-            raise ValidationError("Punto de venta no encontrado")
+            raise ValidationError("Punto de venta no encontrado para la empresa activa")
+
+        if request.cliente_id is not None:
+            cliente = await self._obtener_cliente(
+                request.cliente_id, request.empresa_id
+            )
+            if not cliente:
+                raise ValidationError("Cliente no encontrado para la empresa activa")
 
         # Validar items
         if not request.items or len(request.items) == 0:
@@ -511,14 +593,21 @@ class FacturacionService:
                 "La numeración local está adelantada respecto de ARCA. Revisá los comprobantes emitidos antes de continuar."
             )
 
-        if proximo_local != proximo_arca:
-            logger.warning(
-                "Desfase de numeración detectado. empresa=%s pv=%s tipo=%s local=%s arca=%s",
+        if proximo_local < proximo_arca:
+            logger.error(
+                "ARCA registra comprobantes ausentes localmente. "
+                "empresa=%s pv=%s tipo=%s ultimo_local=%s ultimo_arca=%s",
                 empresa_id,
                 punto_venta_numero,
                 tipo_comprobante,
-                proximo_local,
-                proximo_arca,
+                proximo_local - 1,
+                ultimo_arca,
+            )
+            raise ReconciliacionNumeracionError(
+                ultimo_local=proximo_local - 1,
+                ultimo_arca=ultimo_arca,
+                proximo_local=proximo_local,
+                proximo_arca=proximo_arca,
             )
 
         return max(proximo_local, proximo_arca)
@@ -529,21 +618,40 @@ class FacturacionService:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def _obtener_punto_venta(self, punto_venta_id: int) -> Optional[PuntoVenta]:
+    async def _obtener_punto_venta(
+        self, punto_venta_id: int, empresa_id: int | None = None
+    ) -> Optional[PuntoVenta]:
         """Obtiene un punto de venta por ID."""
         stmt = select(PuntoVenta).where(PuntoVenta.id == punto_venta_id)
+        if empresa_id is not None:
+            stmt = stmt.where(PuntoVenta.empresa_id == empresa_id)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def _obtener_cliente(
+        self, cliente_id: int, empresa_id: int
+    ) -> Optional[Cliente]:
+        """Obtiene un cliente por ID dentro de una empresa."""
+        stmt = select(Cliente).where(
+            Cliente.id == cliente_id,
+            Cliente.empresa_id == empresa_id,
+        )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
     async def _obtener_certificado_activo(self, empresa_id: int) -> Certificado:
         """Obtiene el certificado activo para la empresa y el ambiente actual."""
-        stmt = select(Certificado).where(
-            Certificado.empresa_id == empresa_id,
-            Certificado.activo.is_(True),
-            Certificado.ambiente == self._get_arca_ambiente().value,
+        stmt = (
+            select(Certificado)
+            .where(
+                Certificado.empresa_id == empresa_id,
+                Certificado.activo.is_(True),
+                Certificado.ambiente == self._get_arca_ambiente().value,
+            )
+            .order_by(Certificado.fecha_vencimiento.desc(), Certificado.id.desc())
         )
         result = await self.db.execute(stmt)
-        certificado = result.scalar_one_or_none()
+        certificado = result.scalars().first()
         if certificado is None:
             raise ValidationError(
                 "No hay un certificado activo configurado para la empresa en el ambiente actual"
@@ -710,6 +818,82 @@ class FacturacionService:
             cbtes_asoc=cbtes_asoc,
         )
 
+    def _respuesta_post_arca_requiere_reconciliacion(
+        self,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+        resultado_arca,
+        mensaje: str,
+        errores: list[str],
+    ) -> EmitirComprobanteResponse:
+        """Arma una respuesta no reintentable cuando ARCA ya autorizó CAE."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            cae=getattr(resultado_arca, "cae", None),
+            cae_vencimiento=self._parse_fecha_cae(
+                getattr(resultado_arca, "cae_vencimiento", None)
+            ),
+            total=totales["total"],
+            mensaje=mensaje,
+            errores=errores,
+            requiere_reconciliacion=True,
+            categoria_error="post_arca_persistencia",
+        )
+
+    def _respuesta_si_arca_no_autorizo(
+        self,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+        resultado_arca,
+    ) -> EmitirComprobanteResponse | None:
+        """Devuelve error si WSFE no aprobó la emisión con CAE válido."""
+        aprobado = bool(getattr(resultado_arca, "is_aprobado", True))
+        cae = getattr(resultado_arca, "cae", None)
+        cae_vencimiento = getattr(resultado_arca, "cae_vencimiento", None)
+        if aprobado and cae and cae_vencimiento:
+            return None
+
+        errores = self._mensajes_resultado_arca(resultado_arca)
+        if not errores:
+            resultado = getattr(resultado_arca, "resultado", "desconocido")
+            errores = [
+                f"ARCA devolvió resultado {resultado} sin CAE válido para persistir."
+            ]
+
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje="ARCA no aprobó el comprobante",
+            errores=errores,
+            categoria_error="arca_no_aprobado",
+        )
+
+    @staticmethod
+    def _mensajes_resultado_arca(resultado_arca) -> list[str]:
+        """Extrae errores y observaciones legibles de una respuesta WSFE."""
+        mensajes: list[str] = []
+        for attr in ("errores", "observaciones"):
+            for item in getattr(resultado_arca, attr, None) or []:
+                code = getattr(item, "code", None)
+                msg = getattr(item, "msg", None)
+                if code is not None and msg:
+                    mensajes.append(f"{code}: {msg}")
+                elif msg:
+                    mensajes.append(str(msg))
+        return mensajes
+
     async def _guardar_comprobante(
         self,
         request: EmitirComprobanteRequest,
@@ -733,6 +917,8 @@ class FacturacionService:
         """
         tipo_documento = self._normalizar_tipo_documento(request.tipo_documento)
         numero_documento = clean_cuit(request.numero_documento)
+        if not resultado_arca.cae or not resultado_arca.cae_vencimiento:
+            raise ValueError("No se puede guardar un comprobante sin CAE autorizado")
 
         # Obtener o crear cliente solo cuando el flujo lo pida explícitamente.
         cliente_id = request.cliente_id

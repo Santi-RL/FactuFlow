@@ -2,6 +2,8 @@
 
 import os
 import logging
+import re
+from uuid import uuid4
 from datetime import date, datetime
 from pathlib import Path
 from typing import Tuple
@@ -14,6 +16,7 @@ from cryptography.x509.oid import NameOID
 
 from app.core.config import settings
 from app.arca.crypto import (
+    get_default_private_key_password,
     load_certificate,
     load_private_key,
     verify_certificate_validity,
@@ -23,18 +26,68 @@ from app.arca.exceptions import ArcaCertificateError
 logger = logging.getLogger(__name__)
 
 
+MANAGED_CERT_FILENAME_RE = re.compile(
+    r"^(?P<cuit>\d{11})_"
+    r"(?P<ambiente>homologacion|produccion)_"
+    r"(?P<fecha>\d{8})_"
+    r"(?P<hora>\d{6})"
+    r"(?:_(?P<nonce>[0-9a-f]{32}))?"
+    r"\.(?P<extension>key|crt|cer|pem)$"
+)
+
+
+def _certs_base_path() -> Path:
+    """Resuelve el directorio administrado de certificados."""
+    return Path(settings.certs_path).resolve()
+
+
+def _ensure_path_inside_certs_base(path: Path) -> Path:
+    """Verifica que un path resuelto pertenezca al directorio de certificados."""
+    base = _certs_base_path()
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(base)
+    except ValueError as exc:
+        raise ArcaCertificateError(
+            "El archivo de certificado debe estar dentro del directorio administrado"
+        ) from exc
+    return resolved
+
+
 def resolve_cert_storage_path(path_value: str) -> str:
     """Resuelve paths absolutos o relativos de certificados guardados en BD."""
     path = Path(path_value)
     if path.is_absolute():
-        return str(path)
+        return str(_ensure_path_inside_certs_base(path))
 
-    certs_base = Path(settings.certs_path)
     normalized_parts = list(path.parts)
+    certs_base = _certs_base_path()
     if normalized_parts and normalized_parts[0] == certs_base.name:
         path = Path(*normalized_parts[1:])
 
-    return str((certs_base / path).resolve())
+    return str(_ensure_path_inside_certs_base(certs_base / path))
+
+
+def resolve_managed_cert_filename(
+    filename: str, cuit: str, ambiente: str, extension: str
+) -> Path:
+    """Resuelve un archivo administrado generado por FactuFlow."""
+    if Path(filename).name != filename or "/" in filename or "\\" in filename:
+        raise ArcaCertificateError("Nombre de archivo de certificado inválido")
+
+    match = MANAGED_CERT_FILENAME_RE.fullmatch(filename)
+    if not match:
+        raise ArcaCertificateError("Nombre de archivo de certificado inválido")
+
+    if match.group("cuit") != cuit or match.group("ambiente") != ambiente:
+        raise ArcaCertificateError(
+            "La clave privada no coincide con el CUIT y ambiente indicados"
+        )
+
+    if match.group("extension") != extension:
+        raise ArcaCertificateError("Tipo de archivo de certificado inválido")
+
+    return _ensure_path_inside_certs_base(_certs_base_path() / filename)
 
 
 class CertificadoInfo:
@@ -78,7 +131,7 @@ class CertificadosService:
 
     def __init__(self):
         """Inicializa el servicio de certificados."""
-        self.certs_path = Path(settings.certs_path)
+        self.certs_path = _certs_base_path()
         self.certs_path.mkdir(parents=True, exist_ok=True)
 
     async def generar_clave_y_csr(
@@ -125,17 +178,22 @@ class CertificadosService:
 
             # Generar nombres de archivo únicos
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            key_filename = f"{cuit}_{ambiente}_{timestamp}.key"
+            key_filename = f"{cuit}_{ambiente}_{timestamp}_{uuid4().hex}.key"
             key_path = self.certs_path / key_filename
 
             # Guardar clave privada con permisos restrictivos
+            key_password = get_default_private_key_password()
             key_pem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
+                encryption_algorithm=(
+                    serialization.BestAvailableEncryption(key_password)
+                    if key_password
+                    else serialization.NoEncryption()
+                ),
             )
 
-            with open(key_path, "wb") as f:
+            with open(key_path, "xb") as f:
                 f.write(key_pem)
 
             # Establecer permisos restrictivos (solo lectura para owner)
@@ -304,10 +362,10 @@ class CertificadosService:
         """
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            cert_filename = f"{cuit}_{ambiente}_{timestamp}.crt"
+            cert_filename = f"{cuit}_{ambiente}_{timestamp}_{uuid4().hex}.crt"
             cert_path = self.certs_path / cert_filename
 
-            with open(cert_path, "wb") as f:
+            with open(cert_path, "xb") as f:
                 f.write(contenido)
 
             # Establecer permisos restrictivos

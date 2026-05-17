@@ -49,7 +49,9 @@ No agregar rutas, workers o acciones administrativas que eviten esa confirmacion
 sin reemplazarla por una validacion equivalente y visible para el usuario.
 Los endpoints actuales tienen una barrera explicita: emision individual exige
 `confirmacion_fecha_fiscal=true` en el body y procesamiento de lotes exige
-`X-Confirmacion-Fecha-Fiscal: true`.
+`X-Confirmacion-Fecha-Fiscal` con el token exacto
+`fechas=AAAA-MM-DD,...;puntos_venta=N,...`, recalculado desde los grupos
+validados.
 
 Regla critica: ningun endpoint de emision debe asumir productos o servicios por
 default. `concepto` o `concepto_modo` deben llegar explicitamente antes de

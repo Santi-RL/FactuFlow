@@ -5,7 +5,10 @@ import type {
   LoteComprobanteFila,
   LoteComprobanteGrupo,
 } from "@/types/lote-comprobante";
-import { calcularTotalesListosParaEmitir } from "./lote-totals";
+import {
+  calcularTotalesListosParaEmitir,
+  parseImporteLote,
+} from "./lote-totals";
 
 const grupo = (
   comprobanteRef: string,
@@ -98,6 +101,7 @@ describe("calcularTotalesListosParaEmitir", () => {
       iva21: 210,
       iva105: 105,
       total: 2315,
+      valoresInvalidos: 0,
     });
   });
 
@@ -117,5 +121,35 @@ describe("calcularTotalesListosParaEmitir", () => {
     expect(totales.iva21).toBe(15945.16);
     expect(totales.iva105).toBe(0);
     expect(totales.total).toBe(91874.52);
+    expect(totales.valoresInvalidos).toBe(0);
+  });
+
+  it("interpreta importes con separadores locales argentinos", () => {
+    const totales = calcularTotalesListosParaEmitir(
+      lote(
+        [grupo("FILA-00002", 0), grupo("FILA-00003", 0)],
+        [
+          fila("FILA-00002", "1.234,56", "21"),
+          fila("FILA-00003", "$ 1.234,56", "10,5"),
+        ],
+      ),
+    );
+
+    expect(totales.neto).toBe(2469.12);
+    expect(totales.iva21).toBe(259.26);
+    expect(totales.iva105).toBe(129.63);
+    expect(totales.total).toBe(2858.01);
+    expect(totales.valoresInvalidos).toBe(0);
+    expect(parseImporteLote("1234,56")).toBe(1234.56);
+  });
+
+  it("marca formatos numericos ambiguos en lugar de convertirlos a cero", () => {
+    const totales = calcularTotalesListosParaEmitir(
+      lote([grupo("FILA-00002", 0)], [fila("FILA-00002", "1.234", 21)]),
+    );
+
+    expect(totales.neto).toBe(0);
+    expect(totales.total).toBe(0);
+    expect(totales.valoresInvalidos).toBe(1);
   });
 });

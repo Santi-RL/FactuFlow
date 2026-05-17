@@ -8,6 +8,7 @@ import type {
 } from "@/types/cliente";
 import type { PaginatedResponse } from "@/types/api";
 import { clientesService } from "@/services/clientes.service";
+import { useEmpresaStore } from "@/stores/empresa";
 
 export const useClientesStore = defineStore("clientes", () => {
   const clientes = ref<Cliente[]>([]);
@@ -20,26 +21,40 @@ export const useClientesStore = defineStore("clientes", () => {
     per_page: 30,
     pages: 0,
   });
+  let fetchClientesRequestId = 0;
 
   const fetchClientes = async (params?: ClienteListParams) => {
+    const requestId = ++fetchClientesRequestId;
+    const empresaStore = useEmpresaStore();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
     loading.value = true;
     error.value = null;
     try {
       const response: PaginatedResponse<Cliente> =
         await clientesService.getAll(params);
-      clientes.value = response.items;
-      pagination.value = {
-        total: response.total,
-        page: response.page,
-        per_page: response.per_page,
-        pages: response.pages,
-      };
+      if (
+        requestId === fetchClientesRequestId &&
+        empresaStore.empresaActivaId === empresaIdSolicitada
+      ) {
+        clientes.value = response.items;
+        pagination.value = {
+          total: response.total,
+          page: response.page,
+          per_page: response.per_page,
+          pages: response.pages,
+        };
+      }
+      return response;
     } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || "Error al cargar los clientes";
+      if (requestId === fetchClientesRequestId) {
+        error.value =
+          err.response?.data?.detail || "Error al cargar los clientes";
+      }
       throw err;
     } finally {
-      loading.value = false;
+      if (requestId === fetchClientesRequestId) {
+        loading.value = false;
+      }
     }
   };
 

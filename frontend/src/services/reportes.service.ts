@@ -100,13 +100,11 @@ class ReportesService {
    * Obtiene el reporte de ventas por período
    */
   async obtenerReporteVentas(
-    empresaId: number,
     desde: string,
     hasta: string,
   ): Promise<ReporteVentas> {
     const response = await api.get("/api/reportes/ventas", {
       params: {
-        empresa_id: empresaId,
         desde,
         hasta,
       },
@@ -118,13 +116,11 @@ class ReportesService {
    * Obtiene el subdiario de IVA ventas
    */
   async obtenerReporteIVA(
-    empresaId: number,
     mes: number,
     anio: number,
   ): Promise<ReporteIVA> {
     const response = await api.get("/api/reportes/iva-ventas", {
       params: {
-        empresa_id: empresaId,
         periodo_mes: mes,
         periodo_anio: anio,
       },
@@ -136,14 +132,12 @@ class ReportesService {
    * Obtiene el ranking de clientes por facturación
    */
   async obtenerRankingClientes(
-    empresaId: number,
     desde: string,
     hasta: string,
     limite: number = 10,
   ): Promise<ReporteClientes> {
     const response = await api.get("/api/reportes/clientes", {
       params: {
-        empresa_id: empresaId,
         desde,
         hasta,
         limite,

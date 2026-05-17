@@ -45,6 +45,59 @@ class TestArcaAPIEndpoints:
         assert data["status"] == "ok"
         assert "servidor" in data
 
+    async def test_status_informa_certificado_del_ambiente_actual(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session,
+        test_empresa,
+        monkeypatch,
+    ):
+        """El estado ARCA debe mirar certificados del ambiente configurado."""
+        monkeypatch.setattr(settings, "arca_env", ArcaAmbiente.PRODUCCION.value)
+        certificado_homologacion = Certificado(
+            nombre="Certificado homologacion",
+            cuit=test_empresa.cuit,
+            fecha_emision=date(2026, 1, 1),
+            fecha_vencimiento=date(2028, 1, 1),
+            archivo_crt="homo.crt",
+            archivo_key="homo.key",
+            activo=True,
+            ambiente=ArcaAmbiente.HOMOLOGACION.value,
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(certificado_homologacion)
+        await db_session.commit()
+
+        response = await client.get("/api/arca/status", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ambiente"] == "produccion"
+        assert data["certificado_activo"] is False
+
+        certificado_produccion = Certificado(
+            nombre="Certificado produccion",
+            cuit=test_empresa.cuit,
+            fecha_emision=date(2026, 1, 1),
+            fecha_vencimiento=date(2028, 1, 1),
+            archivo_crt="prod.crt",
+            archivo_key="prod.key",
+            activo=True,
+            ambiente=ArcaAmbiente.PRODUCCION.value,
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(certificado_produccion)
+        await db_session.commit()
+
+        response = await client.get("/api/arca/status", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ambiente"] == "produccion"
+        assert data["certificado_activo"] is True
+        assert data["certificado_nombre"] == "Certificado produccion"
+
     @patch("app.api.arca.get_wsfe_client")
     async def test_get_tipos_comprobante(
         self, mock_get_client, client: AsyncClient, auth_headers: dict
@@ -166,6 +219,7 @@ async def test_get_wsfe_client_usa_cuit_empresa_activa(
 ):
     """Debe autenticar y operar WSFE con el CUIT de la empresa activa."""
     monkeypatch.setattr(settings, "arca_env", ArcaAmbiente.HOMOLOGACION.value)
+    monkeypatch.setattr(settings, "certs_path", str(tmp_path))
 
     cert_path = tmp_path / "certificado.crt"
     key_path = tmp_path / "certificado.key"

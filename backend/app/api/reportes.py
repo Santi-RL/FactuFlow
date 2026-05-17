@@ -14,10 +14,6 @@ router = APIRouter()
 
 @router.get("/ventas")
 async def reporte_ventas(
-    empresa_id: int
-    | None = Query(
-        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
-    ),
     desde: date = Query(..., description="Fecha desde (YYYY-MM-DD)"),
     hasta: date = Query(..., description="Fecha hasta (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db),
@@ -28,7 +24,7 @@ async def reporte_ventas(
     Genera reporte de ventas por período.
 
     Args:
-        empresa_id: ID de la empresa
+        empresa_activa_id: Empresa activa resuelta por header o usuario
         desde: Fecha desde
         hasta: Fecha hasta
         db: Sesión de base de datos
@@ -55,10 +51,6 @@ async def reporte_ventas(
 
 @router.get("/iva-ventas")
 async def reporte_iva_ventas(
-    empresa_id: int
-    | None = Query(
-        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
-    ),
     periodo_mes: int = Query(..., ge=1, le=12, description="Mes del período (1-12)"),
     periodo_anio: int = Query(..., ge=2000, le=2100, description="Año del período"),
     db: AsyncSession = Depends(get_db),
@@ -69,7 +61,7 @@ async def reporte_iva_ventas(
     Genera subdiario de IVA Ventas para DDJJ.
 
     Args:
-        empresa_id: ID de la empresa
+        empresa_activa_id: Empresa activa resuelta por header o usuario
         periodo_mes: Mes del período (1-12)
         periodo_anio: Año del período
         db: Sesión de base de datos
@@ -90,10 +82,6 @@ async def reporte_iva_ventas(
 
 @router.get("/clientes")
 async def reporte_clientes(
-    empresa_id: int
-    | None = Query(
-        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
-    ),
     desde: date = Query(..., description="Fecha desde (YYYY-MM-DD)"),
     hasta: date = Query(..., description="Fecha hasta (YYYY-MM-DD)"),
     limite: int = Query(10, ge=1, le=100, description="Cantidad de clientes a mostrar"),
@@ -105,7 +93,7 @@ async def reporte_clientes(
     Ranking de clientes por facturación.
 
     Args:
-        empresa_id: ID de la empresa
+        empresa_activa_id: Empresa activa resuelta por header o usuario
         desde: Fecha desde
         hasta: Fecha hasta
         limite: Cantidad de clientes a devolver

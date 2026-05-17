@@ -7,6 +7,7 @@ import { ALICUOTAS_IVA } from "@/types/comprobante";
 interface Props {
   item: ItemComprobante;
   index: number;
+  soloIvaCero?: boolean;
 }
 
 interface Emits {
@@ -16,6 +17,13 @@ interface Emits {
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+
+const alicuotasDisponibles = computed(() => {
+  if (props.soloIvaCero) {
+    return ALICUOTAS_IVA.filter((alicuota) => alicuota.value === 0);
+  }
+  return ALICUOTAS_IVA;
+});
 
 // Calcular subtotal automáticamente
 const subtotal = computed(() => {
@@ -148,7 +156,7 @@ const formatMonto = (monto: number) => {
         "
       >
         <option
-          v-for="alicuota in ALICUOTAS_IVA"
+          v-for="alicuota in alicuotasDisponibles"
           :key="alicuota.value"
           :value="alicuota.value"
         >

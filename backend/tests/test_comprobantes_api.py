@@ -11,6 +11,8 @@ from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
 from app.models.punto_venta import PuntoVenta
+from app.schemas.comprobante import EmitirComprobanteResponse
+from app.services.facturacion_service import FacturacionService
 
 
 @pytest.mark.asyncio
@@ -81,6 +83,67 @@ async def test_emitir_comprobante_exige_confirmacion_fecha_fiscal(
 
     assert response.status_code == 400
     assert "confirmar la fecha fiscal" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_reconciliacion_devuelve_409(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """La API debe exponer datos fiscales si ARCA autorizó y falló persistencia."""
+
+    async def fake_emitir(self, request):
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=6,
+            numero=12,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            total=Decimal("1000.00"),
+            mensaje="ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo",
+            errores=["No reintentes esta emisión"],
+            requiere_reconciliacion=True,
+            categoria_error="post_arca_persistencia",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers=auth_headers,
+        json={
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": 1,
+            "tipo_comprobante": 6,
+            "concepto": 1,
+            "fecha_emision": date.today().isoformat(),
+            "confirmacion_fecha_fiscal": True,
+            "tipo_documento": 99,
+            "numero_documento": "0",
+            "razon_social": "A CONSUMIDOR FINAL",
+            "condicion_iva": "Consumidor Final",
+            "items": [
+                {
+                    "descripcion": "Servicio",
+                    "cantidad": 1,
+                    "unidad": "unidad",
+                    "precio_unitario": 1000,
+                    "iva_porcentaje": 0,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert detail["requiere_reconciliacion"] is True
+    assert detail["categoria_error"] == "post_arca_persistencia"
+    assert detail["cae"] == "12345678901234"
+    assert detail["numero"] == 12
 
 
 @pytest.mark.asyncio
@@ -158,3 +221,32 @@ async def test_get_comprobante_detalle_con_items(
     assert data["punto_venta_numero"] == 5
     assert len(data["items"]) == 1
     assert data["items"][0]["descripcion"] == "Producto API Test"
+
+
+@pytest.mark.asyncio
+async def test_proximo_numero_rechaza_punto_no_usable(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """No debe consultar ARCA para puntos que no son usables por FactuFlow."""
+    punto_venta = PuntoVenta(
+        numero=998,
+        nombre="Factuweb",
+        sistema="Factuweb (Imprenta) - Monotributo",
+        es_webservice=False,
+        bloqueado=False,
+        activo=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.commit()
+
+    response = await client.get(
+        "/api/comprobantes/proximo-numero/998/6",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+    assert "no está habilitado" in response.json()["detail"]

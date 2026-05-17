@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { Usuario, LoginCredentials, SetupData } from "@/types/auth";
 import { authService } from "@/services/auth.service";
+import { clearEmpresaActivaIdStorage } from "@/utils/empresa-activa-storage";
 
 export const useAuthStore = defineStore("auth", () => {
   const user = ref<Usuario | null>(null);
@@ -46,7 +47,7 @@ export const useAuthStore = defineStore("auth", () => {
     token.value = null;
     user.value = null;
     isAuthenticated.value = false;
-    localStorage.removeItem("empresa_activa_id");
+    clearEmpresaActivaIdStorage();
   };
 
   const checkAuth = async () => {

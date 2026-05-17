@@ -5,6 +5,7 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -22,7 +23,11 @@ from app.schemas.comprobante import (
     ProximoNumeroResponse,
     ItemComprobanteResponse,
 )
-from app.services.facturacion_service import FacturacionService
+from app.services.facturacion_service import (
+    FacturacionService,
+    ReconciliacionNumeracionError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,9 +35,6 @@ router = APIRouter()
 
 @router.get("/", response_model=PaginatedComprobantesResponse)
 async def listar_comprobantes(
-    empresa_id: Optional[int] = Query(
-        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
-    ),
     desde: Optional[date] = Query(None, description="Fecha desde (filtro)"),
     hasta: Optional[date] = Query(None, description="Fecha hasta (filtro)"),
     tipo: Optional[int] = Query(None, description="Tipo de comprobante (filtro)"),
@@ -276,6 +278,11 @@ async def emitir_comprobante(
         resultado = await service.emitir_comprobante(request)
 
         if not resultado.exito:
+            if resultado.requiere_reconciliacion:
+                raise HTTPException(
+                    status_code=409,
+                    detail=jsonable_encoder(resultado),
+                )
             # Si hay error, retornar 400
             raise HTTPException(
                 status_code=400,
@@ -302,9 +309,6 @@ async def emitir_comprobante(
 async def obtener_proximo_numero(
     punto_venta: int,
     tipo: int,
-    empresa_id: Optional[int] = Query(
-        None, description="ID de la empresa (opcional si se usa X-Empresa-Id)"
-    ),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
@@ -329,9 +333,32 @@ async def obtener_proximo_numero(
     if not pv:
         raise HTTPException(status_code=404, detail="Punto de venta no encontrado")
 
+    if not pv.usable_factuflow:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "El punto de venta seleccionado no está habilitado para emitir "
+                "por FactuFlow. Elegí un punto Web Services activo, no bloqueado "
+                "y sin fecha de baja."
+            ),
+        )
+
     # Obtener próximo número
     service = FacturacionService(db)
-    proximo = await service.obtener_proximo_numero(empresa_activa_id, pv.id, tipo)
+    try:
+        proximo = await service.obtener_proximo_numero(empresa_activa_id, pv.id, tipo)
+    except ReconciliacionNumeracionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "ARCA registra comprobantes que no están guardados en FactuFlow",
+                "errores": [str(exc)],
+                "requiere_reconciliacion": True,
+                "categoria_error": "numeracion_arca_adelantada",
+            },
+        ) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return ProximoNumeroResponse(
         punto_venta=punto_venta, tipo_comprobante=tipo, proximo_numero=proximo

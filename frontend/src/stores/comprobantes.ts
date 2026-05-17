@@ -95,8 +95,16 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
       }
 
       // Recargar listado si hay filtros activos
-      if (filtros.value.empresa_id) {
-        await listarComprobantes(filtros.value as ListarComprobantesParams);
+      if (Object.keys(filtros.value).length > 0) {
+        try {
+          await listarComprobantes(filtros.value as ListarComprobantesParams);
+        } catch (refreshError) {
+          console.warn(
+            "No se pudo refrescar el listado despues de emitir",
+            refreshError,
+          );
+          error.value = null;
+        }
       }
 
       return response;
@@ -115,13 +123,11 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   async function obtenerProximoNumero(
     puntoVenta: number,
     tipoComprobante: number,
-    empresaId: number,
   ) {
     try {
       const response = await comprobantesService.proximoNumero(
         puntoVenta,
         tipoComprobante,
-        empresaId,
       );
       return response.proximo_numero;
     } catch (e: any) {
@@ -140,7 +146,7 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   }
 
   function cambiarPagina(pagina: number) {
-    if (filtros.value.empresa_id) {
+    if (Object.keys(filtros.value).length > 0) {
       listarComprobantes({
         ...filtros.value,
         page: pagina,

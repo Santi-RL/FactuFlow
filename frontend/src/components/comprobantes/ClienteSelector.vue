@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { MagnifyingGlassIcon, UserPlusIcon } from "@heroicons/vue/24/outline";
 import { useClientesStore } from "@/stores/clientes";
-import { TIPOS_DOCUMENTO_NOMBRES, CONDICIONES_IVA } from "@/types/comprobante";
+import {
+  TIPOS_DOCUMENTO,
+  TIPOS_DOCUMENTO_NOMBRES,
+  CONDICIONES_IVA,
+} from "@/types/comprobante";
 
 interface ClienteData {
   cliente_id?: number;
@@ -15,7 +19,6 @@ interface ClienteData {
 
 interface Props {
   modelValue: ClienteData;
-  empresaId: number;
   tipoComprobante: number;
 }
 
@@ -47,12 +50,26 @@ const mapTipoDocumento = (tipo?: string) => {
   return tipoDocumentoToCodigo[tipo] ?? 99;
 };
 
+// Validar según tipo de comprobante
+const requiereCUIT = computed(() => {
+  // Facturas A requieren CUIT
+  return [1, 2, 3].includes(props.tipoComprobante);
+});
+
+const clienteUsaTipoDocumentoValido = (cliente: any) => {
+  if (!requiereCUIT.value) return true;
+  return mapTipoDocumento(cliente.tipo_documento) === TIPOS_DOCUMENTO.CUIT;
+};
+
+const clientesElegibles = computed(() =>
+  clientesStore.clientes.filter(clienteUsaTipoDocumentoValido),
+);
+
 // Buscar clientes
 const buscarClientes = async () => {
   if (busqueda.value.length < 2) return;
 
   await clientesStore.fetchClientes({
-    empresa_id: props.empresaId,
     search: busqueda.value,
     page: 1,
     per_page: 10,
@@ -63,9 +80,12 @@ const buscarClientes = async () => {
 
 // Seleccionar cliente
 const seleccionarCliente = (cliente: any) => {
+  const tipoDocumento = mapTipoDocumento(cliente.tipo_documento);
+  if (requiereCUIT.value && tipoDocumento !== TIPOS_DOCUMENTO.CUIT) return;
+
   emit("update:modelValue", {
     cliente_id: cliente.id,
-    tipo_documento: mapTipoDocumento(cliente.tipo_documento),
+    tipo_documento: tipoDocumento,
     numero_documento: cliente.numero_documento || "",
     razon_social: cliente.razon_social,
     condicion_iva: cliente.condicion_iva,
@@ -90,11 +110,29 @@ const updateField = (field: keyof ClienteData, value: any) => {
   });
 };
 
-// Validar según tipo de comprobante
-const requiereCUIT = computed(() => {
-  // Facturas A requieren CUIT
-  return [1, 2, 3].includes(props.tipoComprobante);
-});
+watch(
+  requiereCUIT,
+  (debeUsarCuit) => {
+    if (
+      !debeUsarCuit ||
+      props.modelValue.tipo_documento === TIPOS_DOCUMENTO.CUIT
+    ) {
+      return;
+    }
+
+    emit("update:modelValue", {
+      cliente_id: undefined,
+      tipo_documento: TIPOS_DOCUMENTO.CUIT,
+      numero_documento: "",
+      razon_social: "",
+      condicion_iva: "",
+      domicilio: "",
+    });
+    busqueda.value = "";
+    modoManual.value = true;
+  },
+  { immediate: true },
+);
 
 // Watch para cerrar resultados al hacer clic fuera
 const cerrarResultados = () => {
@@ -149,11 +187,11 @@ const cerrarResultados = () => {
 
         <!-- Resultados de búsqueda -->
         <div
-          v-if="mostrarResultados && clientesStore.clientes.length > 0"
+          v-if="mostrarResultados && clientesElegibles.length > 0"
           class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
         >
           <button
-            v-for="cliente in clientesStore.clientes"
+            v-for="cliente in clientesElegibles"
             :key="cliente.id"
             type="button"
             class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0"
@@ -170,7 +208,7 @@ const cerrarResultados = () => {
 
         <!-- Sin resultados -->
         <div
-          v-if="mostrarResultados && clientesStore.clientes.length === 0"
+          v-if="mostrarResultados && clientesElegibles.length === 0"
           class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500"
         >
           No se encontraron clientes
@@ -248,10 +286,10 @@ const cerrarResultados = () => {
             <option :value="80">
               {{ TIPOS_DOCUMENTO_NOMBRES[80] }}
             </option>
-            <option :value="96">
+            <option v-if="!requiereCUIT" :value="96">
               {{ TIPOS_DOCUMENTO_NOMBRES[96] }}
             </option>
-            <option :value="94">
+            <option v-if="!requiereCUIT" :value="94">
               {{ TIPOS_DOCUMENTO_NOMBRES[94] }}
             </option>
             <option v-if="!requiereCUIT" :value="99">

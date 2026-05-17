@@ -88,6 +88,7 @@ const pollingHandle = ref<number | null>(null);
 const timerHandle = ref<number | null>(null);
 const timerNow = ref(new Date());
 const inicioProcesamientoLocal = ref<Date | null>(null);
+let deteccionFormatoRequestId = 0;
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
 const empresaActivaId = computed(() => empresaActiva.value?.id || null);
@@ -153,22 +154,24 @@ const perfilAplicado = computed(() => {
 const candidatoPrincipal = computed<FormatoImportacionCandidato | null>(() => {
   return deteccionFormato.value?.candidatos[0] || null;
 });
-const candidatoSeleccionado = computed<FormatoImportacionCandidato | null>(() => {
-  const selected = Number(formatoSeleccionadoId.value || 0);
-  if (!selected) {
+const candidatoSeleccionado = computed<FormatoImportacionCandidato | null>(
+  () => {
+    const selected = Number(formatoSeleccionadoId.value || 0);
+    if (!selected) {
+      return (
+        deteccionFormato.value?.candidatos.find(
+          (candidato) => candidato.formato_version_id === null,
+        ) || null
+      );
+    }
+
     return (
       deteccionFormato.value?.candidatos.find(
-        (candidato) => candidato.formato_version_id === null,
+        (candidato) => candidato.formato_version_id === selected,
       ) || null
     );
-  }
-
-  return (
-    deteccionFormato.value?.candidatos.find(
-      (candidato) => candidato.formato_version_id === selected,
-    ) || null
-  );
-});
+  },
+);
 const requiereElegirFormato = computed(() => {
   if (!archivoSeleccionado.value || detectandoFormato.value) return false;
   if (hayConflictoFormatoPerfil.value) return true;
@@ -183,7 +186,8 @@ const requiereElegirFormato = computed(() => {
 const hayConflictoFormatoPerfil = computed(() => {
   const perfilVersion = formatoAplicadoPorPerfilId.value;
   const principal = candidatoPrincipal.value;
-  if (!perfilVersion || !principal || principal.confianza !== "alta") return false;
+  if (!perfilVersion || !principal || principal.confianza !== "alta")
+    return false;
   if (principal.formato_version_id === perfilVersion) return false;
   return Number(formatoSeleccionadoId.value || 0) === perfilVersion;
 });
@@ -212,7 +216,9 @@ const descripcionItemCompleta = computed(() => {
 const opcionesFechas = computed<LoteOpcionesFechas>(() => ({
   punto_venta_modo: puntoVentaModo.value,
   punto_venta_numero:
-    puntoVentaModo.value === "fijo" ? Number(puntoVentaNumero.value) : undefined,
+    puntoVentaModo.value === "fijo"
+      ? Number(puntoVentaNumero.value)
+      : undefined,
   concepto_modo: conceptoModo.value,
   descripcion_item_modo: descripcionItemModo.value,
   descripcion_item_fija: descripcionItemFija.value.trim() || undefined,
@@ -241,7 +247,7 @@ const puedeProcesar = computed(() => {
 
   return (
     loteActual.value.grupos_validos > 0 &&
-    !["en_cola", "procesando", "completado"].includes(loteActual.value.estado)
+    loteActual.value.estado === "validado"
   );
 });
 const resumenOperativo = computed(() => {
@@ -275,14 +281,12 @@ const totalesListosParaEmitir = computed(() =>
 );
 const progresoLote = computed(() => {
   if (!loteActual.value) return null;
-  const inicioLocal = ["en_cola", "procesando"].includes(loteActual.value.estado)
+  const inicioLocal = ["en_cola", "procesando"].includes(
+    loteActual.value.estado,
+  )
     ? inicioProcesamientoLocal.value
     : null;
-  return calcularProgresoLote(
-    loteActual.value,
-    timerNow.value,
-    inicioLocal,
-  );
+  return calcularProgresoLote(loteActual.value, timerNow.value, inicioLocal);
 });
 const porcentajeProcesado = computed(() => {
   return progresoLote.value?.porcentaje || 0;
@@ -337,6 +341,26 @@ const puntosVentaValidos = computed(() => {
     .filter((grupo) => grupo.estado === "validado" && grupo.punto_venta_numero)
     .forEach((grupo) => puntos.add(Number(grupo.punto_venta_numero)));
   return Array.from(puntos).sort((a, b) => a - b);
+});
+
+const confirmacionFechaFiscalLote = computed(() => {
+  const fechas = new Set<string>();
+  const puntos = new Set<number>();
+  loteActual.value?.grupos
+    .filter((grupo) => grupo.estado === "validado")
+    .forEach((grupo) => {
+      if (grupo.fecha_emision) {
+        fechas.add(grupo.fecha_emision.split("T")[0]);
+      }
+      if (grupo.punto_venta_numero) {
+        puntos.add(Number(grupo.punto_venta_numero));
+      }
+    });
+  const fechasToken = Array.from(fechas).sort().join(",");
+  const puntosToken = Array.from(puntos)
+    .sort((a, b) => a - b)
+    .join(",");
+  return `fechas=${fechasToken};puntos_venta=${puntosToken}`;
 });
 
 const resumenFechasConfirmacion = computed(() => {
@@ -427,15 +451,13 @@ const aplicarPerfilCargaMasiva = (
     Number(perfilAplicadoLote.formatoVersionId || 0) || null;
   formatoSeleccionadoId.value = perfilAplicadoLote.formatoVersionId || "";
   puntoVentaModo.value = perfilAplicadoLote.opciones.punto_venta_modo;
-  puntoVentaNumero.value =
-    perfilAplicadoLote.opciones.punto_venta_numero || "";
+  puntoVentaNumero.value = perfilAplicadoLote.opciones.punto_venta_numero || "";
   conceptoModo.value = perfilAplicadoLote.opciones.concepto_modo;
   descripcionItemModo.value = perfilAplicadoLote.opciones.descripcion_item_modo;
   descripcionItemFija.value =
     perfilAplicadoLote.opciones.descripcion_item_fija || "";
   fechaEmisionModo.value = perfilAplicadoLote.opciones.fecha_emision_modo;
-  fechaEmisionFija.value =
-    perfilAplicadoLote.opciones.fecha_emision_fija || "";
+  fechaEmisionFija.value = perfilAplicadoLote.opciones.fecha_emision_fija || "";
   fechaServicioDesdeModo.value =
     perfilAplicadoLote.opciones.fecha_servicio_desde_modo;
   fechaServicioDesdeFija.value =
@@ -445,7 +467,8 @@ const aplicarPerfilCargaMasiva = (
   fechaServicioHastaFija.value =
     perfilAplicadoLote.opciones.fecha_servicio_hasta_fija || "";
   fechaVtoPagoModo.value = perfilAplicadoLote.opciones.fecha_vto_pago_modo;
-  fechaVtoPagoFija.value = perfilAplicadoLote.opciones.fecha_vto_pago_fija || "";
+  fechaVtoPagoFija.value =
+    perfilAplicadoLote.opciones.fecha_vto_pago_fija || "";
   configuracionModificada.value = false;
   window.setTimeout(() => {
     aplicandoPerfil.value = false;
@@ -483,7 +506,8 @@ const handlePerfilSeleccionado = () => {
 };
 
 const usarFormatoSugerido = () => {
-  formatoSeleccionadoId.value = candidatoPrincipal.value?.formato_version_id || "";
+  formatoSeleccionadoId.value =
+    candidatoPrincipal.value?.formato_version_id || "";
   formatoAplicadoPorPerfilId.value = null;
 };
 
@@ -497,6 +521,7 @@ const triggerFileSelection = () => {
 
 const handleArchivoSeleccionado = (event: Event) => {
   const target = event.target as HTMLInputElement;
+  deteccionFormatoRequestId += 1;
   archivoSeleccionado.value = target.files?.[0] || null;
   deteccionFormato.value = null;
   if (perfilAplicado.value) {
@@ -593,12 +618,19 @@ const detectarFormatoArchivo = async (archivo: File) => {
     return;
   }
 
+  const requestId = ++deteccionFormatoRequestId;
+  const sigueVigente = () =>
+    requestId === deteccionFormatoRequestId &&
+    archivoSeleccionado.value === archivo;
+
   detectandoFormato.value = true;
   try {
     if (formatosImportacion.value.length === 0) {
       await cargarFormatosImportacion();
+      if (!sigueVigente()) return;
     }
     const resultado = await formatosImportacionService.detectar(archivo);
+    if (!sigueVigente()) return;
     deteccionFormato.value = resultado;
     if (!formatoAplicadoPorPerfilId.value) {
       formatoSeleccionadoId.value = resultado.formato_sugerido_version_id || "";
@@ -611,6 +643,7 @@ const detectarFormatoArchivo = async (archivo: File) => {
       );
     }
   } catch (error: any) {
+    if (!sigueVigente()) return;
     deteccionFormato.value = null;
     formatoSeleccionadoId.value = "";
     showError(
@@ -619,7 +652,9 @@ const detectarFormatoArchivo = async (archivo: File) => {
         "Puedes seleccionar un formato manualmente e intentar validar.",
     );
   } finally {
-    detectandoFormato.value = false;
+    if (sigueVigente()) {
+      detectandoFormato.value = false;
+    }
   }
 };
 
@@ -723,6 +758,7 @@ const procesarLote = async () => {
   try {
     const resultado = await lotesComprobantesService.procesar(
       loteActual.value.id,
+      confirmacionFechaFiscalLote.value,
     );
     showSuccess(
       resultado.en_progreso ? "Emision iniciada" : "Lote procesado",
@@ -826,7 +862,7 @@ watch(hayProcesamientoEnCurso, (activo) => {
 });
 
 watch([archivoSeleccionado, empresaActivaId], ([archivo, empresaId]) => {
-  if (!archivo || !empresaId || deteccionFormato.value || detectandoFormato.value) {
+  if (!archivo || !empresaId || deteccionFormato.value) {
     return;
   }
   detectarFormatoArchivo(archivo);
@@ -1057,8 +1093,8 @@ onBeforeUnmount(() => {
             <h2 class="text-lg font-semibold text-gray-900">Validar archivo</h2>
           </div>
           <p class="mt-2 text-sm text-gray-600">
-            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma
-            el formato antes de validar.
+            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma el
+            formato antes de validar.
           </p>
 
           <div
@@ -1158,14 +1194,16 @@ onBeforeUnmount(() => {
             </div>
 
             <BaseAlert v-if="requiereElegirFormato" type="warning" class="mt-4">
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div
+                class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
                 <span>
                   {{
                     hayConflictoFormatoPerfil
                       ? "El perfil de carga masiva trae un formato, pero el Excel coincide con otro formato de alta confianza. Confirma cuál corresponde antes de validar."
                       : deteccionFormato
-                      ? "Confirma un formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
-                      : "Todavia no se analizaron los encabezados del Excel. El analisis deberia iniciar automaticamente; si no avanza, reintentalo."
+                        ? "Confirma un formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
+                        : "Todavia no se analizaron los encabezados del Excel. El analisis deberia iniciar automaticamente; si no avanza, reintentalo."
                   }}
                 </span>
                 <div class="flex flex-wrap gap-2">
@@ -1190,7 +1228,10 @@ onBeforeUnmount(() => {
                     size="sm"
                     variant="secondary"
                     :loading="detectandoFormato"
-                    @click="archivoSeleccionado && detectarFormatoArchivo(archivoSeleccionado)"
+                    @click="
+                      archivoSeleccionado &&
+                      detectarFormatoArchivo(archivoSeleccionado)
+                    "
                   >
                     Analizar encabezados
                   </BaseButton>
@@ -1660,7 +1701,9 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div
+              class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
+            >
               <div
                 class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
               >
@@ -1669,7 +1712,8 @@ onBeforeUnmount(() => {
                     Totales listos para emitir
                   </p>
                   <p class="mt-1 text-sm text-emerald-900">
-                    Revisá estos importes contra el Excel antes de solicitar CAE.
+                    Revisá estos importes contra el Excel antes de solicitar
+                    CAE.
                   </p>
                 </div>
                 <p class="text-sm font-medium text-emerald-900">
@@ -1711,6 +1755,15 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
               </div>
+              <BaseAlert
+                v-if="totalesListosParaEmitir.valoresInvalidos > 0"
+                type="warning"
+                class="mt-4"
+              >
+                Hay importes con un formato ambiguo en
+                {{ totalesListosParaEmitir.valoresInvalidos }} fila(s)
+                validada(s). Revisa el Excel y vuelve a validar antes de emitir.
+              </BaseAlert>
             </div>
 
             <div class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -1847,7 +1900,10 @@ onBeforeUnmount(() => {
                     <td class="px-4 py-3 text-sm text-gray-700">
                       <p>Emision {{ formatDate(grupo.fecha_emision) }}</p>
                       <p
-                        v-if="grupo.fecha_servicio_desde || grupo.fecha_servicio_hasta"
+                        v-if="
+                          grupo.fecha_servicio_desde ||
+                          grupo.fecha_servicio_hasta
+                        "
                         class="text-xs text-gray-500"
                       >
                         Servicio {{ formatDate(grupo.fecha_servicio_desde) }} -

@@ -21,6 +21,7 @@ const showConfirmDelete = ref(false);
 const certificadoToDelete = ref<number | null>(null);
 const verificandoId = ref<number | null>(null);
 const resultadosVerificacion = ref<Record<number, VerificacionResponse>>({});
+let cargarCertificadosRequestId = 0;
 
 const certificadosActivos = computed(() =>
   certificados.value.filter((c) => c.activo),
@@ -33,6 +34,7 @@ const certificadosPorVencer = computed(() =>
 );
 
 const cargarCertificados = async () => {
+  const requestId = ++cargarCertificadosRequestId;
   loading.value = true;
   error.value = "";
 
@@ -40,12 +42,23 @@ const cargarCertificados = async () => {
     if (!empresaStore.empresaActivaId) {
       await empresaStore.inicializarEmpresaActiva();
     }
-    certificados.value = await certificadosService.listar();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
+    const resultado = await certificadosService.listar();
+    if (
+      requestId === cargarCertificadosRequestId &&
+      empresaStore.empresaActivaId === empresaIdSolicitada
+    ) {
+      certificados.value = resultado;
+    }
   } catch (err: any) {
-    error.value = "Error al cargar certificados";
-    console.error(err);
+    if (requestId === cargarCertificadosRequestId) {
+      error.value = "Error al cargar certificados";
+      console.error(err);
+    }
   } finally {
-    loading.value = false;
+    if (requestId === cargarCertificadosRequestId) {
+      loading.value = false;
+    }
   }
 };
 

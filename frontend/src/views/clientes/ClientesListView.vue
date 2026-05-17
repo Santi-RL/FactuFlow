@@ -70,7 +70,6 @@ const loadClientes = async () => {
 
   try {
     await clientesStore.fetchClientes({
-      empresa_id: empresaId.value,
       page: currentPage.value,
       per_page: 30,
       search: search.value || undefined,

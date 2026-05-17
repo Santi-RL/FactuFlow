@@ -41,7 +41,6 @@ const cargarComprobantes = async (page = 1) => {
 
   try {
     await comprobantesStore.listarComprobantes({
-      empresa_id: empresaId.value,
       page,
       per_page: 20,
       desde: filtros.value.desde || undefined,

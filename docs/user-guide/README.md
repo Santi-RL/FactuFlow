@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-14
+Ultima actualizacion: 2026-05-17
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -47,6 +47,13 @@ Si cambias el emisor activo, las pantallas principales recargan la informacion
 para mostrar solo datos de ese CUIT. En `Nueva Factura`, cambiar el emisor
 recarga puntos de venta y limpia el cliente seleccionado.
 
+El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
+cambias de emisor, esa nueva seleccion no cambia silenciosamente una factura o
+un lote que ya estabas revisando en la pestaña anterior.
+
+Como proteccion adicional, la emision se bloquea si el punto de venta o el
+cliente seleccionado no pertenecen al emisor activo.
+
 ## 3. Dashboard
 
 El dashboard muestra un resumen general y accesos rapidos.
@@ -84,6 +91,10 @@ En `Comprobantes` puedes:
 - filtrar por texto, tipo o rango de fechas
 - crear un comprobante puntual
 - abrir el detalle de un comprobante autorizado
+
+Al crear un comprobante puntual, el selector de punto de venta muestra solo los
+puntos habilitados para emitir por FactuFlow: Web Services activos, no
+bloqueados y sin fecha de baja.
 
 ### Detalle de comprobante
 
@@ -159,6 +170,8 @@ Cuando uses la plantilla oficial de FactuFlow, el sistema lee la hoja llamada
 `Comprobantes`. Las hojas adicionales, por ejemplo `Resumen` o `Control`, son
 solo informativas y no se usan para emitir. Si el archivo no tiene una hoja
 llamada `Comprobantes`, FactuFlow intenta leer la primera hoja del Excel.
+Si el XLSX esta malformado o supera el limite operativo configurado como
+`BATCH_MAX_UPLOAD_BYTES`, FactuFlow lo rechaza antes de validar el lote.
 
 Si un lote termina `fallido` o `con_errores` sin haber emitido comprobantes,
 podes volver a subir el mismo archivo para revalidarlo. FactuFlow conserva el
@@ -166,13 +179,20 @@ historial del intento anterior y solo permite el reintento cuando no hubo CAE
 emitido. Si el lote ya quedo validado para emitir o emitio algun comprobante, el
 archivo duplicado se bloquea para evitar facturacion repetida.
 
+Si el lote queda como `Requiere reconciliacion`, no lo reintentes. Ese estado
+significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
+pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
+datos locales.
+
 Cuando presionas `Emitir comprobantes validos`, el lote queda en seguimiento y
 la pantalla muestra una barra de avance real. La barra informa comprobantes
 procesados, emitidos, fallidos, pendientes, tiempo transcurrido y tiempo
 estimado restante. Si el lote todavia esta `En cola`, el avance se muestra como
 estimacion hasta que el worker empieza a procesar. Revisa el resumen final antes
 de volver a intentar. El sistema bloquea una segunda ejecucion del mismo lote si
-ya esta procesando o si ya fue procesado.
+ya esta procesando o si ya fue procesado. Si un proceso queda realmente trabado,
+el worker puede retomarlo solo despues de la ventana operativa configurada como
+`BATCH_PROCESSING_STALE_MINUTES`.
 
 Regla importante: FactuFlow no completa la fecha de emision con la fecha del dia
 por defecto. Antes de validar un lote debes elegir si la fecha de emision sale
@@ -187,7 +207,10 @@ Antes de emitir, FactuFlow debe mostrar una confirmacion final de fecha fiscal
 con este texto: `Está seguro que quiere emitir comprobantes con fecha
 XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior
 para ese mismo punto de venta.` Si la fecha o el punto de venta no son los que
-corresponden, cancela la emision y vuelve a revisar el lote.
+corresponden, cancela la emision y vuelve a revisar el lote. En lotes con mas
+de una fecha o punto de venta, la confirmacion debe mostrar todos los valores
+concretos; el backend solo procesa si la UI envia el token exacto calculado
+desde esos grupos validados.
 
 Regla critica de concepto fiscal ARCA: FactuFlow no asume que el lote sea de
 productos o de servicios. Antes de validar debes elegir `Productos`,
@@ -215,6 +238,9 @@ por FactuFlow. Si el emisor no tiene puntos habilitados cargados, la pantalla lo
 indica y solo queda disponible usar el punto informado por el archivo hasta
 completar la pantalla correspondiente.
 
+Al emitir, FactuFlow vuelve a verificar en backend que el punto de venta y un
+cliente precargado opcional pertenezcan al emisor activo.
+
 ### Perfiles de carga masiva
 
 Cada emisor puede tener perfiles de carga masiva para completar mas rapido la
@@ -238,10 +264,12 @@ Si no hay predeterminado, el usuario elige uno.
 
 El perfil de carga masiva no valida ni emite automaticamente. Solo completa la
 pantalla con valores visibles. Antes de validar podes cambiar cualquier selector
-o fecha. Si el perfil trae reglas relativas, FactuFlow las muestra como fechas
-concretas en la pantalla antes de validar. Si cambias un dato precargado, esa
-carga queda como configuracion manual y no como snapshot del perfil de carga
-masiva.
+o fecha. Si el perfil trae reglas relativas, FactuFlow no usa la fecha del
+navegador para convertirlas automaticamente en fecha fiscal al entrar a
+`Emision masiva`: antes de validar debes elegir una fecha exacta, tomarla del
+archivo o confirmar explicitamente la politica fiscal de esa carga. Si cambias
+un dato precargado, esa carga queda como configuracion manual y no como snapshot
+del perfil de carga masiva.
 
 Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
 regla de fecha de emision.
@@ -337,9 +365,11 @@ documento o receptor vienen vacios, aplican las reglas vigentes de consumidor
 final. Para emisores Responsable Inscripto, el lote queda observado y se debe
 crear un formato particular con Factura A/B segun corresponda.
 
-En Factura C los items deben tener IVA 0. FactuFlow no informa el bloque IVA a
-ARCA para ese tipo de comprobante, porque el web service lo rechaza aunque la
-alicuota sea cero.
+En Factura C los items deben tener IVA 0. En nueva factura, FactuFlow limita el
+selector de IVA a 0 cuando elegis Factura C; en emision masiva, los lotes tipo C
+con IVA distinto de 0 quedan con error antes de emitir. FactuFlow no informa el
+bloque IVA a ARCA para ese tipo de comprobante, porque el web service lo rechaza
+aunque la alicuota sea cero.
 
 ### Notas de credito por lote
 
@@ -408,6 +438,10 @@ La seccion `Reportes` muestra consultas basicas:
 - ranking de clientes
 
 Los reportes usan el emisor activo seleccionado.
+Si cambias el emisor activo mientras un reporte esta cargando, FactuFlow
+descarta la respuesta anterior para no mostrar datos de otro CUIT. El subdiario
+IVA muestra detalle por alicuota, incluyendo gravado e IVA 27% cuando
+corresponde.
 
 ## 8. Certificados
 
@@ -418,11 +452,19 @@ Uso recomendado:
 - verificar vigencia del certificado antes de emitir
 - mantener un solo certificado activo por empresa y ambiente
 
+Las claves privadas generadas por FactuFlow quedan guardadas dentro del
+directorio de certificados configurado y cifradas por la aplicacion. Si subes
+una renovacion para el mismo emisor y ambiente, FactuFlow deja activo el
+certificado nuevo y conserva el anterior como historico inactivo.
+
 En la pantalla actual puedes:
 - ver nombre, CUIT, ambiente y vencimiento
 - agregar un certificado
 - probar la conexion del certificado activo contra ARCA antes de emitir
 - eliminar un certificado
+
+Si cambias el emisor activo mientras la lista esta cargando, FactuFlow descarta
+la respuesta anterior para evitar mezclar certificados entre CUITs.
 
 Al cargar un certificado nuevo, el wizard muestra una barra de pasos con avance
 visual y estados de completado. Incluye un paso obligatorio para autorizar el
@@ -436,6 +478,11 @@ el certificado productivo del emisor activo. La prueba valida la comunicacion
 con ARCA usando ese certificado, sin generar comprobantes ni consumir
 numeracion fiscal.
 
+En `Puntos de venta`, la sincronizacion con ARCA se habilita solo cuando existe
+un certificado activo del emisor para el ambiente backend actual
+(`homologacion` o `produccion`). Un certificado activo de otro ambiente no
+habilita esa accion.
+
 ## 9. Puntos de venta
 
 En `Puntos de venta` puedes ver y sincronizar los puntos de venta habilitados para el emisor activo.
@@ -446,6 +493,8 @@ Importante:
 - puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio
 - la sincronizacion importa o actualiza puntos no bloqueados y sin fecha de
   baja como puntos Web Services usables
+- si cambias el emisor activo mientras la pantalla esta cargando, FactuFlow
+  descarta la respuesta anterior para no mezclar puntos de venta entre CUITs
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
   completa de puntos, incluyendo sistema, domicilio y nombre de fantasia
 - FactuFlow marca como `Usable` solo los puntos Web Services activos, no

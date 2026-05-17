@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import os
+import stat
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Optional
@@ -170,10 +172,16 @@ class TokenCache:
         try:
             self.storage_path.parent.mkdir(parents=True, exist_ok=True)
             if valid_tickets:
-                self.storage_path.write_text(
-                    json.dumps(valid_tickets, ensure_ascii=True, indent=2),
-                    encoding="utf-8",
+                fd = os.open(
+                    self.storage_path,
+                    os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                    stat.S_IRUSR | stat.S_IWUSR,
                 )
+                with os.fdopen(fd, "w", encoding="utf-8") as cache_file:
+                    cache_file.write(
+                        json.dumps(valid_tickets, ensure_ascii=True, indent=2)
+                    )
+                self.storage_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
             elif self.storage_path.exists():
                 self.storage_path.unlink()
         except OSError:

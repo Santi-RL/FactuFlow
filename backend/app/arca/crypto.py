@@ -9,7 +9,16 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.hazmat.backends import default_backend
 
+from app.core.config import settings
 from app.arca.exceptions import ArcaCertificateError
+
+
+def get_default_private_key_password() -> bytes | None:
+    """Obtiene la contraseña local para claves privadas ARCA nuevas."""
+    password = settings.arca_private_key_password or settings.secret_key
+    if not password:
+        return None
+    return password.encode("utf-8")
 
 
 def load_certificate(cert_path: str) -> x509.Certificate:
@@ -70,16 +79,29 @@ def load_private_key(key_path: str, password: bytes | None = None):
         with open(key_file, "rb") as f:
             key_data = f.read()
 
-        # Intentar cargar como PEM
-        try:
-            return serialization.load_pem_private_key(
-                key_data, password=password, backend=default_backend()
-            )
-        except Exception:
-            # Intentar cargar como DER
-            return serialization.load_der_private_key(
-                key_data, password=password, backend=default_backend()
-            )
+        passwords = [password]
+        if password is None:
+            passwords = [get_default_private_key_password(), None]
+        elif password is not None:
+            passwords = [password, None]
+
+        last_error: Exception | None = None
+        for candidate_password in passwords:
+            try:
+                return serialization.load_pem_private_key(
+                    key_data, password=candidate_password, backend=default_backend()
+                )
+            except Exception as pem_error:
+                last_error = pem_error
+
+            try:
+                return serialization.load_der_private_key(
+                    key_data, password=candidate_password, backend=default_backend()
+                )
+            except Exception as der_error:
+                last_error = der_error
+
+        raise ArcaCertificateError(f"Error al cargar clave privada: {last_error}")
 
     except Exception as e:
         raise ArcaCertificateError(f"Error al cargar clave privada: {str(e)}")

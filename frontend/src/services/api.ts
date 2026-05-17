@@ -1,5 +1,9 @@
 import axios, { AxiosError } from "axios";
 import type { ApiError } from "@/types/api";
+import {
+  clearEmpresaActivaIdStorage,
+  getEmpresaActivaIdForRequest,
+} from "@/utils/empresa-activa-storage";
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "",
@@ -12,7 +16,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    const empresaActivaId = localStorage.getItem("empresa_activa_id");
+    const empresaActivaId = getEmpresaActivaIdForRequest();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -48,6 +52,7 @@ apiClient.interceptors.response.use(
     ) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      clearEmpresaActivaIdStorage();
       window.location.href = "/login";
     }
     return Promise.reject(error);

@@ -9,10 +9,12 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from typing import Any
+from zipfile import BadZipFile
 
 from openpyxl import load_workbook
 from openpyxl.utils.datetime import from_excel
 from openpyxl.utils.cell import column_index_from_string
+from openpyxl.utils.exceptions import InvalidFileException
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -257,6 +259,7 @@ class FormatosImportacionService:
         configuracion: dict[str, Any],
     ) -> FormatoImportacion:
         """Crea un formato particular del emisor con versión inicial."""
+        self._validar_configuracion_formato(configuracion)
         formato = FormatoImportacion(
             nombre=nombre,
             descripcion=descripcion,
@@ -440,6 +443,41 @@ class FormatosImportacionService:
                 )
             )
 
+    def _validar_configuracion_formato(self, configuracion: dict[str, Any]) -> None:
+        """Valida la forma mínima del mapeo configurable antes de persistirlo."""
+        if not isinstance(configuracion, dict):
+            raise FormatoImportacionError("La configuración del formato es inválida")
+
+        campos = configuracion.get("campos")
+        if not isinstance(campos, dict) or not campos:
+            raise FormatoImportacionError(
+                "La configuración del formato debe incluir campos"
+            )
+
+        origenes_validos = {"header", "columna", "constante", "empresa"}
+        for campo_destino, config in campos.items():
+            if not isinstance(config, dict):
+                raise FormatoImportacionError(
+                    f"La configuración del campo {campo_destino} debe ser un objeto"
+                )
+
+            origen = config.get("origen", "header")
+            if origen not in origenes_validos:
+                raise FormatoImportacionError(
+                    f"El campo {campo_destino} usa un origen no soportado"
+                )
+
+            if origen == "header":
+                encabezados = config.get("encabezados")
+                if not isinstance(encabezados, list) or not any(
+                    str(item).strip() for item in encabezados
+                ):
+                    raise FormatoImportacionError(
+                        f"El campo {campo_destino} debe declarar encabezados"
+                    )
+            elif origen == "columna":
+                self._resolver_indice_columna(config)
+
     def _construir_firma_headers(self, configuracion: dict[str, Any]) -> dict[str, Any]:
         """Construye una firma simple de encabezados esperados."""
         requeridos: list[str] = []
@@ -519,7 +557,14 @@ class FormatosImportacionService:
         file_bytes: bytes,
         version: FormatoImportacionVersion | None = None,
     ):
-        workbook = load_workbook(BytesIO(file_bytes), data_only=True)
+        try:
+            workbook = load_workbook(
+                BytesIO(file_bytes), data_only=True, read_only=True
+            )
+        except (BadZipFile, InvalidFileException, OSError, ValueError) as exc:
+            raise FormatoImportacionError(
+                "No se pudo leer el archivo Excel. Verificá que sea un .xlsx válido."
+            ) from exc
         sheet_name = None
         header_row = 1
         if version is not None:
@@ -533,12 +578,8 @@ class FormatosImportacionService:
         else:
             sheet = workbook.active
 
-        headers = [
-            self.reparar_texto(cell.value)
-            for cell in sheet[header_row]
-            if self.reparar_texto(cell.value)
-        ]
-        if not headers:
+        headers = [self.reparar_texto(cell.value) for cell in sheet[header_row]]
+        if not any(headers):
             raise FormatoImportacionError(
                 "No se detectaron encabezados en la primera fila del Excel"
             )
@@ -550,6 +591,7 @@ class FormatosImportacionService:
         normalizados = {
             self.normalizar_etiqueta(header): {"header": header, "index": index}
             for index, header in enumerate(headers)
+            if self.normalizar_etiqueta(header)
         }
         campos: dict[str, Any] = {}
         for campo_destino, config in configuracion.get("campos", {}).items():
@@ -588,11 +630,19 @@ class FormatosImportacionService:
         }
 
     def _resolver_indice_columna(self, config: dict[str, Any]) -> int | None:
-        if config.get("indice_columna") is not None:
-            return int(config["indice_columna"])
-        if config.get("letra_columna"):
-            return column_index_from_string(config["letra_columna"]) - 1
-        return None
+        try:
+            if config.get("indice_columna") is not None:
+                index = int(config["indice_columna"])
+                if index < 0:
+                    raise ValueError
+                return index
+            if config.get("letra_columna"):
+                return column_index_from_string(str(config["letra_columna"])) - 1
+            return None
+        except (TypeError, ValueError) as exc:
+            raise FormatoImportacionError(
+                "La configuración de columna del formato es inválida"
+            ) from exc
 
     def _extraer_valores_configurados(
         self, row: tuple[Any, ...], mapeo: dict[str, Any]

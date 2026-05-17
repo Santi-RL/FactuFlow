@@ -3,6 +3,12 @@ import { computed, ref } from "vue";
 import type { Empresa, EmpresaCreate, EmpresaUpdate } from "@/types/empresa";
 import { empresaService } from "@/services/empresa.service";
 import { useAuthStore } from "@/stores/auth";
+import {
+  clearEmpresaActivaIdForRequest,
+  clearEmpresaActivaIdStorage,
+  getEmpresaActivaIdStorage,
+  setEmpresaActivaIdStorage,
+} from "@/utils/empresa-activa-storage";
 
 export const useEmpresaStore = defineStore("empresa", () => {
   const empresa = ref<Empresa | null>(null);
@@ -31,8 +37,13 @@ export const useEmpresaStore = defineStore("empresa", () => {
     try {
       empresa.value = await empresaService.getById(id);
       empresaActivaId.value = empresa.value.id;
-      localStorage.setItem("empresa_activa_id", String(empresa.value.id));
+      setEmpresaActivaIdStorage(empresa.value.id);
     } catch (err: any) {
+      if (empresaActivaId.value === id) {
+        empresaActivaId.value = null;
+        empresa.value = null;
+        clearEmpresaActivaIdStorage();
+      }
       error.value = err.response?.data?.detail || "Error al cargar la empresa";
       throw err;
     } finally {
@@ -50,7 +61,7 @@ export const useEmpresaStore = defineStore("empresa", () => {
         empresa.value,
       ];
       empresaActivaId.value = empresa.value.id;
-      localStorage.setItem("empresa_activa_id", String(empresa.value.id));
+      setEmpresaActivaIdStorage(empresa.value.id);
       return empresa.value;
     } catch (err: any) {
       error.value = err.response?.data?.detail || "Error al crear la empresa";
@@ -107,9 +118,15 @@ export const useEmpresaStore = defineStore("empresa", () => {
   };
 
   const setEmpresaActiva = async (id: number) => {
-    empresaActivaId.value = id;
-    localStorage.setItem("empresa_activa_id", String(id));
-    await fetchEmpresa(id);
+    clearEmpresaActivaIdForRequest();
+    try {
+      await fetchEmpresa(id);
+    } catch (err) {
+      empresa.value = null;
+      empresaActivaId.value = null;
+      clearEmpresaActivaIdStorage();
+      throw err;
+    }
   };
 
   const inicializarEmpresaActiva = async () => {
@@ -117,22 +134,31 @@ export const useEmpresaStore = defineStore("empresa", () => {
     if (!authStore.user) return;
 
     if (authStore.user.es_admin) {
+      clearEmpresaActivaIdForRequest();
       await fetchEmpresas();
-      const storedId = localStorage.getItem("empresa_activa_id");
+      const storedId = getEmpresaActivaIdStorage();
       const preferredId = storedId ? Number(storedId) : null;
-      const empresaId = preferredId || empresas.value[0]?.id || null;
+      const empresaPreferida =
+        Number.isFinite(preferredId) && preferredId
+          ? empresas.value.find((item) => item.id === preferredId)
+          : null;
+      if (storedId && !empresaPreferida) {
+        clearEmpresaActivaIdStorage();
+      }
+
+      const empresaId = empresaPreferida?.id || empresas.value[0]?.id || null;
       if (empresaId) {
         await setEmpresaActiva(empresaId);
+      } else {
+        empresa.value = null;
+        empresaActivaId.value = null;
+        clearEmpresaActivaIdStorage();
       }
       return;
     }
 
     if (authStore.user.empresa_id) {
-      empresaActivaId.value = authStore.user.empresa_id;
-      localStorage.setItem(
-        "empresa_activa_id",
-        String(authStore.user.empresa_id),
-      );
+      clearEmpresaActivaIdForRequest();
       await fetchEmpresa(authStore.user.empresa_id);
       empresas.value = empresa.value ? [empresa.value] : [];
     }

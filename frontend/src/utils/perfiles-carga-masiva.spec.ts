@@ -48,6 +48,17 @@ describe("resolverPerfilCargaMasiva", () => {
     expect(result.opciones.fecha_vto_pago_fija).toBe("2026-05-10");
   });
 
+  it("no resuelve fechas relativas sin una fecha base explicita", () => {
+    const result = resolverPerfilCargaMasiva(crearPerfil());
+
+    expect(result.formatoVersionId).toBe(10);
+    expect(result.opciones.fecha_emision_modo).toBe("");
+    expect(result.opciones.fecha_emision_fija).toBeUndefined();
+    expect(result.opciones.fecha_servicio_desde_modo).toBe("");
+    expect(result.opciones.fecha_servicio_hasta_modo).toBe("");
+    expect(result.opciones.fecha_vto_pago_modo).toBe("");
+  });
+
   it("resuelve fecha personalizada, mes actual completo y mismo dia de emision", () => {
     const result = resolverPerfilCargaMasiva(
       crearPerfil({

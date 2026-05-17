@@ -6,6 +6,7 @@ import type { ItemComprobante } from "@/types/comprobante";
 
 interface Props {
   items: ItemComprobante[];
+  soloIvaCero?: boolean;
 }
 
 interface Emits {
@@ -16,6 +17,9 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 const { showWarning } = useNotification();
 
+const normalizarOrdenItems = (items: ItemComprobante[]): ItemComprobante[] =>
+  items.map((item, index) => ({ ...item, orden: index }));
+
 const agregarItem = () => {
   const nuevoItem: ItemComprobante = {
     codigo: "",
@@ -24,17 +28,17 @@ const agregarItem = () => {
     unidad: "unidades",
     precio_unitario: 0,
     descuento_porcentaje: 0,
-    iva_porcentaje: 21,
-    orden: props.items.length,
+    iva_porcentaje: props.soloIvaCero ? 0 : 21,
+    orden: 0,
   };
 
-  emit("update:items", [...props.items, nuevoItem]);
+  emit("update:items", normalizarOrdenItems([...props.items, nuevoItem]));
 };
 
 const actualizarItem = (index: number, item: ItemComprobante) => {
   const nuevosItems = [...props.items];
   nuevosItems[index] = item;
-  emit("update:items", nuevosItems);
+  emit("update:items", normalizarOrdenItems(nuevosItems));
 };
 
 const eliminarItem = (index: number) => {
@@ -47,7 +51,7 @@ const eliminarItem = (index: number) => {
   }
 
   const nuevosItems = props.items.filter((_, i) => i !== index);
-  emit("update:items", nuevosItems);
+  emit("update:items", normalizarOrdenItems(nuevosItems));
 };
 </script>
 
@@ -113,6 +117,7 @@ const eliminarItem = (index: number) => {
             :key="index"
             :item="item"
             :index="index"
+            :solo-iva-cero="soloIvaCero"
             @update:item="(updatedItem) => actualizarItem(index, updatedItem)"
             @remove="eliminarItem(index)"
           />

@@ -67,7 +67,7 @@ export const seleccionarPerfilInicial = (
 
 export const resolverPerfilCargaMasiva = (
   perfil: PerfilCargaMasiva,
-  baseDate = new Date(),
+  baseDate?: Date,
 ): PerfilAplicadoLote => {
   const config = perfil.configuracion_json || configuracionPerfilVacia();
   const fechaEmision = resolverFechaEmision(config, baseDate);
@@ -100,12 +100,16 @@ export const resolverPerfilCargaMasiva = (
 
 const resolverFechaEmision = (
   config: PerfilCargaMasivaConfiguracion,
-  baseDate: Date,
+  baseDate?: Date,
 ): { modo: "archivo" | "fija" | ""; fecha?: string } => {
   const regla = config.fecha_emision || { modo: "manual" };
   if (regla.modo === "archivo") return { modo: "archivo" };
   if (regla.modo === "ultimo_dia_mes_anterior") {
-    return { modo: "fija", fecha: formatLocalDate(lastDayOfPreviousMonth(baseDate)) };
+    if (!baseDate) return { modo: "", fecha: undefined };
+    return {
+      modo: "fija",
+      fecha: formatLocalDate(lastDayOfPreviousMonth(baseDate)),
+    };
   }
   if (regla.modo === "personalizada" && regla.fecha) {
     return { modo: "fija", fecha: regla.fecha };
@@ -115,7 +119,7 @@ const resolverFechaEmision = (
 
 const resolverPeriodoServicio = (
   config: PerfilCargaMasivaConfiguracion,
-  baseDate: Date,
+  baseDate?: Date,
 ): {
   desdeModo: "archivo" | "fija" | "";
   hastaModo: "archivo" | "fija" | "";
@@ -127,6 +131,7 @@ const resolverPeriodoServicio = (
     return { desdeModo: "archivo", hastaModo: "archivo" };
   }
   if (regla.modo === "mes_anterior_completo") {
+    if (!baseDate) return { desdeModo: "", hastaModo: "" };
     return {
       desdeModo: "fija",
       hastaModo: "fija",
@@ -135,6 +140,7 @@ const resolverPeriodoServicio = (
     };
   }
   if (regla.modo === "mes_actual_completo") {
+    if (!baseDate) return { desdeModo: "", hastaModo: "" };
     return {
       desdeModo: "fija",
       hastaModo: "fija",

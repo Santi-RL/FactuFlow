@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -47,10 +48,21 @@ class LoteWorker:
 
     async def procesar_pendientes(self) -> None:
         """Procesa lotes pendientes en orden de carga."""
+        stale_before = datetime.utcnow() - timedelta(
+            minutes=settings.batch_processing_stale_minutes
+        )
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(LoteComprobante.id, LoteComprobante.empresa_id)
-                .where(LoteComprobante.estado.in_(("en_cola", "procesando")))
+                .where(
+                    or_(
+                        LoteComprobante.estado == "en_cola",
+                        (
+                            (LoteComprobante.estado == "procesando")
+                            & (LoteComprobante.updated_at < stale_before)
+                        ),
+                    )
+                )
                 .order_by(LoteComprobante.created_at)
                 .limit(settings.batch_worker_batch_size)
             )

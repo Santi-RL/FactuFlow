@@ -1,6 +1,6 @@
 # ARCA WS - Notas practicas
 
-Ultima actualizacion: 2026-05-14
+Ultima actualizacion: 2026-05-17
 
 Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
 
@@ -72,12 +72,19 @@ Mapping aplicado en el proyecto:
   comprobantes con fecha anterior para ese mismo punto de venta.`
 - La API debe bloquear el pedido si no llega la confirmacion fiscal explicita:
   `confirmacion_fecha_fiscal=true` para emision individual o
-  `X-Confirmacion-Fecha-Fiscal: true` para lotes.
+  `X-Confirmacion-Fecha-Fiscal` con token exacto
+  `fechas=AAAA-MM-DD,...;puntos_venta=N,...` para lotes.
+- Si ARCA ya devolvio CAE y falla la persistencia local posterior, conservar
+  punto de venta, numero, fecha, total y CAE, marcar
+  `requiere_reconciliacion` y bloquear reintentos. Primero consultar ARCA y
+  reconciliar.
 - En lotes, el usuario debe elegir si la fecha de emision sale del archivo o si
   se fija una fecha para todos los comprobantes antes de validar.
 - Los perfiles de carga masiva pueden sugerir reglas relativas como ultimo dia
-  del mes anterior o emision mas dias, pero la UI debe resolverlas a fechas
-  concretas visibles antes de validar. No son defaults fiscales silenciosos.
+  del mes anterior o emision mas dias, pero la UI no debe convertirlas usando la
+  fecha del navegador al autoaplicar el perfil. El usuario debe elegir una fecha
+  exacta, tomarla del archivo o confirmar una base explicita antes de validar.
+  No son defaults fiscales silenciosos.
 - Los perfiles de carga masiva pueden sugerir un punto de venta fijo solo si el
   punto esta cargado para el emisor activo, es Web Services, activo, no
   bloqueado y no tiene fecha de baja. Si no, el lote debe usar el punto del
@@ -128,6 +135,11 @@ El proyecto tuvo que corregir estas estructuras:
   - `{ "CbteAsoc": [ ... ] }`
 - Para comprobantes tipo C (`11`, `12`, `13`), no enviar el objeto `Iva`.
   ARCA rechaza con `10071` aunque se informe alicuota 0.
+- FactuFlow debe bloquear localmente cualquier item tipo C con IVA distinto de
+  0 antes de solicitar CAE.
+- Antes de habilitar acciones WSFE desde la UI, FactuFlow debe verificar que
+  haya certificado activo para el `ARCA_ENV` actual. Un certificado valido de
+  otro ambiente no sirve para esa operacion.
 
 ### 5.b Notas de credito C por duplicados productivos
 
@@ -156,11 +168,20 @@ El proyecto tuvo que corregir estas estructuras:
 - Si el certificado pertenece a un titular y opera para una empresa representada, no mezclar ambos CUIT.
 - El helper de ARCA debe operar con el CUIT de la empresa activa representada.
 - Este punto fue clave para corregir la sincronizacion de puntos de venta desde UI.
+- Antes de solicitar CAE, el backend debe confirmar que el punto de venta y el
+  `cliente_id` opcional sean del emisor activo. Un ID valido pero de otro CUIT
+  se rechaza localmente para no mezclar comprobantes, clientes ni numeracion.
 
 ### 8. Paths legacy de certificados
 
 - La base local puede traer rutas tipo `certs/archivo.crt`.
-- El runtime ahora acepta path absoluto, filename simple y valor legacy con prefijo `certs/`.
+- El runtime ahora acepta path absoluto dentro de `CERTS_PATH`, filename simple
+  y valor legacy con prefijo `certs/`.
+- El upload de certificados no acepta paths arbitrarios en `key_filename`: debe
+  ser una clave generada por FactuFlow para el CUIT y ambiente activos.
+- Las claves privadas nuevas se cifran con `ARCA_PRIVATE_KEY_PASSWORD` o, si no
+  esta configurada, con `APP_SECRET_KEY`. Las claves legacy sin cifrar se pueden
+  seguir leyendo para continuidad operativa.
 - Este ajuste destrabo la consulta de proximo numero y la emision individual desde UI.
 
 ## Donde mirar en el codigo

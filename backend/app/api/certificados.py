@@ -16,7 +16,7 @@ from fastapi import (
     Query,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.api.deps import get_current_empresa_id
 from app.core.database import get_db
@@ -35,6 +35,7 @@ from app.schemas.certificado import (
 from app.services.certificados_service import (
     CertificadosService,
     resolve_cert_storage_path,
+    resolve_managed_cert_filename,
 )
 from app.arca.wsaa import WSAAClient
 from app.arca.config import ArcaAmbiente
@@ -43,6 +44,19 @@ from app.arca.exceptions import ArcaCertificateError, ArcaAuthError, ArcaConnect
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _eliminar_archivo_guardado(ruta: str | Path | None) -> None:
+    """Elimina un archivo recién guardado si la operación no llega a persistirse."""
+    if ruta is None:
+        return
+
+    try:
+        path = Path(ruta)
+        if path.exists():
+            path.unlink()
+    except OSError:
+        logger.warning("No se pudo eliminar el certificado no persistido: %s", ruta)
 
 
 @router.get("", response_model=list[CertificadoResponse])
@@ -235,8 +249,42 @@ async def delete_certificado(
             detail="No tienes permiso para eliminar este certificado",
         )
 
+    await _eliminar_archivos_certificado_no_referenciados(db, certificado)
     await db.delete(certificado)
     await db.commit()
+
+
+async def _eliminar_archivos_certificado_no_referenciados(
+    db: AsyncSession, certificado: Certificado
+) -> None:
+    """Elimina archivos gestionados si no están referenciados por otro registro."""
+    rutas_propias: set[Path] = set()
+    for path_value in (certificado.archivo_crt, certificado.archivo_key):
+        try:
+            rutas_propias.add(Path(resolve_cert_storage_path(path_value)))
+        except ArcaCertificateError:
+            logger.warning(
+                "Se omite borrado de path fuera del directorio administrado: %s",
+                path_value,
+            )
+
+    otros = await db.execute(
+        select(Certificado).where(Certificado.id != certificado.id)
+    )
+    rutas_referenciadas: set[Path] = set()
+    for otro in otros.scalars().all():
+        for path_value in (otro.archivo_crt, otro.archivo_key):
+            try:
+                rutas_referenciadas.add(Path(resolve_cert_storage_path(path_value)))
+            except ArcaCertificateError:
+                logger.warning(
+                    "Se omite path de certificado fuera del directorio administrado: %s",
+                    path_value,
+                )
+
+    for ruta in rutas_propias - rutas_referenciadas:
+        if ruta.exists():
+            ruta.unlink()
 
 
 @router.post("/generar-csr", response_model=GenerarCSRResponse)
@@ -252,7 +300,7 @@ async def generar_csr(
     Este endpoint:
     - Genera una clave privada RSA de 2048 bits
     - Crea un CSR (Certificate Signing Request) con datos de ARCA
-    - Guarda la clave privada encriptada en el servidor
+    - Guarda la clave privada cifrada en el servidor
     - Devuelve el CSR para que el usuario lo suba al portal de ARCA
 
     Args:
@@ -291,6 +339,8 @@ async def generar_csr(
     except ArcaCertificateError as e:
         logger.error(f"Error generando CSR: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error inesperado generando CSR: {str(e)}")
         raise HTTPException(
@@ -335,6 +385,7 @@ async def subir_certificado(
     Raises:
         HTTPException: Si el certificado es inválido o no coincide con la clave
     """
+    cert_path: str | Path | None = None
     try:
         result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
         empresa = result.scalar_one_or_none()
@@ -367,15 +418,8 @@ async def subir_certificado(
                 detail="Ambiente debe ser 'homologacion' o 'produccion'",
             )
 
-        # Leer contenido del archivo
-        contenido = await file.read()
-
-        # Guardar certificado temporalmente
         service = CertificadosService()
-        cert_path = await service.guardar_certificado(contenido, cuit, ambiente)
-
-        # Construir path de la clave privada
-        key_path = service.certs_path / key_filename
+        key_path = resolve_managed_cert_filename(key_filename, cuit, ambiente, "key")
 
         if not key_path.exists():
             raise HTTPException(
@@ -383,9 +427,25 @@ async def subir_certificado(
                 detail="Clave privada no encontrada. Por favor generá el CSR nuevamente.",
             )
 
+        # Leer contenido del archivo
+        contenido = await file.read()
+
+        # Guardar certificado temporalmente
+        cert_path = await service.guardar_certificado(contenido, cuit, ambiente)
+
         # Validar certificado contra clave privada
         cert_info = await service.validar_certificado(
             str(cert_path), str(key_path), cuit
+        )
+
+        await db.execute(
+            update(Certificado)
+            .where(
+                Certificado.empresa_id == empresa_id,
+                Certificado.ambiente == ambiente,
+                Certificado.activo.is_(True),
+            )
+            .values(activo=False)
         )
 
         # Crear registro en BD
@@ -394,8 +454,8 @@ async def subir_certificado(
             cuit=cuit,
             fecha_emision=cert_info.fecha_emision,
             fecha_vencimiento=cert_info.fecha_vencimiento,
-            archivo_crt=cert_path,
-            archivo_key=str(key_path),
+            archivo_crt=Path(cert_path).name,
+            archivo_key=key_path.name,
             activo=True,
             ambiente=ambiente,
             empresa_id=empresa_id,
@@ -403,6 +463,7 @@ async def subir_certificado(
 
         db.add(certificado)
         await db.commit()
+        cert_path = None
         await db.refresh(certificado)
 
         logger.info(f"Certificado guardado exitosamente. ID: {certificado.id}")
@@ -410,11 +471,14 @@ async def subir_certificado(
         return certificado
 
     except ArcaCertificateError as e:
+        _eliminar_archivo_guardado(cert_path)
         logger.error(f"Error de validación de certificado: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException:
+        _eliminar_archivo_guardado(cert_path)
         raise
     except Exception as e:
+        _eliminar_archivo_guardado(cert_path)
         logger.error(f"Error inesperado subiendo certificado: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -478,15 +542,26 @@ async def verificar_conexion(
             else ArcaAmbiente.PRODUCCION
         )
 
+        cert_path = Path(resolve_cert_storage_path(certificado.archivo_crt))
+        key_path = Path(resolve_cert_storage_path(certificado.archivo_key))
+        if not cert_path.is_file() or not key_path.is_file():
+            return VerificacionResponse(
+                exito=False,
+                mensaje="No se pudo verificar el certificado",
+                error="El certificado o la clave privada no están disponibles en el servidor.",
+            )
+
         # Crear cliente WSAA
         wsaa_client = WSAAClient(ambiente=ambiente)
 
-        # Intentar login
+        # Intentar login sin reutilizar tickets cacheados: esta verificación
+        # debe probar el material del certificado seleccionado.
         await wsaa_client.login(
-            cert_path=resolve_cert_storage_path(certificado.archivo_crt),
-            key_path=resolve_cert_storage_path(certificado.archivo_key),
+            cert_path=str(cert_path),
+            key_path=str(key_path),
             cuit=certificado.cuit,
             servicio="wsfe",
+            force_new=True,
         )
 
         # Si llegamos aquí, la conexión fue exitosa

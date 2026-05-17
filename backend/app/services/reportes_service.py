@@ -156,9 +156,16 @@ class ReportesService:
         comprobantes_list = []
         for comp in comprobantes:
             # Calcular neto gravado por cada alícuota
+            signo = self._get_signo_comprobante(comp.tipo_comprobante)
             gravado_21 = comp.iva_21 / IVA_21 if comp.iva_21 > 0 else Decimal(0)
             gravado_10_5 = comp.iva_10_5 / IVA_10_5 if comp.iva_10_5 > 0 else Decimal(0)
             gravado_27 = comp.iva_27 / IVA_27 if comp.iva_27 > 0 else Decimal(0)
+            gravado_21_firmado = gravado_21 * signo
+            gravado_10_5_firmado = gravado_10_5 * signo
+            gravado_27_firmado = gravado_27 * signo
+            iva_21_firmado = comp.iva_21 * signo
+            iva_10_5_firmado = comp.iva_10_5 * signo
+            iva_27_firmado = comp.iva_27 * signo
 
             comp_dict = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
@@ -171,25 +178,25 @@ class ReportesService:
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
                 "cuit_receptor": self._get_receptor_documento(comp),
                 "razon_social_receptor": self._get_receptor_nombre(comp),
-                "gravado_21": float(gravado_21),
-                "iva_21": float(comp.iva_21),
-                "gravado_10_5": float(gravado_10_5),
-                "iva_10_5": float(comp.iva_10_5),
-                "gravado_27": float(gravado_27),
-                "iva_27": float(comp.iva_27),
+                "gravado_21": float(gravado_21_firmado),
+                "iva_21": float(iva_21_firmado),
+                "gravado_10_5": float(gravado_10_5_firmado),
+                "iva_10_5": float(iva_10_5_firmado),
+                "gravado_27": float(gravado_27_firmado),
+                "iva_27": float(iva_27_firmado),
                 "no_gravado": 0,  # TODO: implementar si hay items no gravados
                 "exento": 0,  # TODO: implementar si hay items exentos
-                "total": float(comp.total),
+                "total": float(comp.total * signo),
             }
             comprobantes_list.append(comp_dict)
 
             # Acumular totales
-            total_gravado_21 += gravado_21
-            total_iva_21 += comp.iva_21
-            total_gravado_10_5 += gravado_10_5
-            total_iva_10_5 += comp.iva_10_5
-            total_gravado_27 += gravado_27
-            total_iva_27 += comp.iva_27
+            total_gravado_21 += gravado_21_firmado
+            total_iva_21 += iva_21_firmado
+            total_gravado_10_5 += gravado_10_5_firmado
+            total_iva_10_5 += iva_10_5_firmado
+            total_gravado_27 += gravado_27_firmado
+            total_iva_27 += iva_27_firmado
 
         total_neto = (
             total_gravado_21
@@ -301,6 +308,12 @@ class ReportesService:
         if comprobante.cliente:
             return comprobante.cliente.numero_documento
         return "0"
+
+    def _get_signo_comprobante(self, tipo: int) -> Decimal:
+        """Devuelve el signo contable del tipo de comprobante."""
+        if tipo in [3, 8, 13]:
+            return Decimal("-1")
+        return Decimal("1")
 
     def _get_letra_comprobante(self, tipo: int) -> str:
         """Obtiene la letra del comprobante."""

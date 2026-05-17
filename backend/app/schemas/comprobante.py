@@ -130,6 +130,8 @@ class EmitirComprobanteResponse(BaseModel):
     total: Decimal
     mensaje: str
     errores: List[str] = Field(default_factory=list)
+    requiere_reconciliacion: bool = False
+    categoria_error: Optional[str] = None
 
 
 class ComprobanteResponse(ComprobanteBase):

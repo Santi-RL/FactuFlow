@@ -49,7 +49,57 @@ from app.services.perfiles_carga_masiva_service import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-CONFIRMACION_FECHA_FISCAL_HEADER = "true"
+
+
+def _lote_puede_emitirse(lote) -> bool:
+    return (
+        lote.grupos_validos > 0
+        and lote.estado in LoteComprobantesService.ESTADOS_PROCESABLES
+    )
+
+
+def _fecha_confirmacion_label(value: str) -> str:
+    parsed = date.fromisoformat(value[:10])
+    return parsed.strftime("%d/%m/%y")
+
+
+def _confirmacion_fecha_fiscal_lote(lote) -> tuple[str, str]:
+    grupos = [grupo for grupo in lote.grupos if grupo.estado == "validado"]
+    fechas = sorted(
+        {
+            str(grupo.fecha_emision)[:10]
+            for grupo in grupos
+            if getattr(grupo, "fecha_emision", None)
+        }
+    )
+    puntos_venta = sorted(
+        {
+            int(grupo.punto_venta_numero)
+            for grupo in grupos
+            if grupo.punto_venta_numero is not None
+        }
+    )
+    token = (
+        f"fechas={','.join(fechas)};"
+        f"puntos_venta={','.join(str(punto) for punto in puntos_venta)}"
+    )
+    fechas_label = ", ".join(_fecha_confirmacion_label(fecha) for fecha in fechas)
+    fecha_texto = (
+        f"fecha {fechas_label}" if len(fechas) == 1 else f"fechas {fechas_label}"
+    )
+    punto_texto = ""
+    if puntos_venta:
+        punto_label = ", ".join(f"{punto:04d}" for punto in puntos_venta)
+        punto_texto = (
+            f" para el punto de venta {punto_label}"
+            if len(puntos_venta) == 1
+            else f" para los puntos de venta {punto_label}"
+        )
+    mensaje = (
+        f"Está seguro que quiere emitir comprobantes con {fecha_texto}{punto_texto}? "
+        "Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta."
+    )
+    return token, mensaje
 
 
 def _serialize_lote(lote) -> LoteComprobanteResponse:
@@ -127,7 +177,15 @@ async def validar_archivo_lote(
             detail="Debes subir un archivo Excel .xlsx generado desde la plantilla oficial",
         )
 
-    contenido = await archivo.read()
+    contenido = await archivo.read(settings.batch_max_upload_bytes + 1)
+    if len(contenido) > settings.batch_max_upload_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El archivo supera el tamaño máximo permitido "
+                f"de {settings.batch_max_upload_bytes // (1024 * 1024)} MB"
+            ),
+        )
     empresa = await _get_empresa(db, empresa_activa_id)
     service = LoteComprobantesService(db)
     opciones_concepto = OpcionesConceptoLote(concepto_modo=concepto_modo)
@@ -181,7 +239,7 @@ async def validar_archivo_lote(
 
     return LoteValidacionResponse(
         lote=_serialize_lote(lote),
-        puede_emitirse=lote.grupos_validos > 0,
+        puede_emitirse=_lote_puede_emitirse(lote),
         requiere_background=lote.total_grupos > settings.batch_sync_limit,
         mensaje=lote.mensaje_resumen or "Lote validado",
     )
@@ -198,17 +256,6 @@ async def procesar_lote(
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """Procesa el lote validado."""
-    if x_confirmacion_fecha_fiscal != CONFIRMACION_FECHA_FISCAL_HEADER:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Antes de emitir debes confirmar la fecha fiscal. "
-                "Está seguro que quiere emitir comprobantes con fecha "
-                "XX/XX/XX? Recuerde que luego no podrá emitir comprobantes "
-                "con fecha anterior para ese mismo punto de venta."
-            ),
-        )
-
     service = LoteComprobantesService(db)
     try:
         lote = await service.obtener_lote(lote_id, empresa_activa_id)
@@ -221,12 +268,27 @@ async def procesar_lote(
             detail="El lote no tiene comprobantes válidos para emitir",
         )
 
+    confirmacion_esperada, mensaje_confirmacion = _confirmacion_fecha_fiscal_lote(lote)
+    if x_confirmacion_fecha_fiscal != confirmacion_esperada:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Antes de emitir debes confirmar la fecha fiscal exacta del lote. "
+                f"{mensaje_confirmacion} "
+                "Volvé a confirmar desde la pantalla del lote antes de procesar."
+            ),
+        )
+
     if background or lote.total_grupos > settings.batch_sync_limit:
         lote = await service.encolar_lote(lote_id, empresa_activa_id)
-        ensure_lote_worker_running(request.app)
+        if lote.estado != "procesando":
+            ensure_lote_worker_running(request.app)
+            mensaje = "El lote quedó en cola y se está procesando en segundo plano."
+        else:
+            mensaje = "El lote ya está siendo procesado."
         return LoteProcesamientoResponse(
             lote=_serialize_lote(lote),
-            mensaje="El lote quedó en cola y se está procesando en segundo plano.",
+            mensaje=mensaje,
             en_progreso=True,
         )
 

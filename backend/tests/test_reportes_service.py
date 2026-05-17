@@ -2,7 +2,10 @@
 
 import pytest
 from datetime import date
+from decimal import Decimal
 
+from app.models.comprobante import Comprobante
+from app.models.punto_venta import PuntoVenta
 from app.services.reportes_service import ReportesService
 
 
@@ -93,6 +96,87 @@ class TestReportesService:
         assert reporte["resumen"]["periodo"]["mes"] == 1
         assert reporte["resumen"]["periodo"]["anio"] == 2026
         assert reporte["resumen"]["periodo"]["nombre"] == "Enero"
+
+    @pytest.mark.asyncio
+    async def test_generar_reporte_iva_resta_notas_credito(
+        self, reportes_service, db_session, test_empresa
+    ):
+        """El subdiario IVA debe restar notas de crédito autorizadas."""
+        punto_venta = PuntoVenta(
+            numero=1,
+            nombre="Principal",
+            activo=True,
+            es_webservice=True,
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(punto_venta)
+        await db_session.flush()
+        db_session.add_all(
+            [
+                Comprobante(
+                    tipo_comprobante=6,
+                    concepto=1,
+                    numero=1,
+                    fecha_emision=date(2026, 5, 10),
+                    subtotal=Decimal("1000.00"),
+                    descuento=Decimal("0.00"),
+                    iva_21=Decimal("210.00"),
+                    iva_10_5=Decimal("0.00"),
+                    iva_27=Decimal("0.00"),
+                    otros_impuestos=Decimal("0.00"),
+                    total=Decimal("1210.00"),
+                    cae="12345678901234",
+                    cae_vencimiento=date(2026, 5, 20),
+                    estado="autorizado",
+                    moneda="PES",
+                    cotizacion=Decimal("1"),
+                    empresa_id=test_empresa.id,
+                    punto_venta_id=punto_venta.id,
+                    receptor_tipo_documento=80,
+                    receptor_numero_documento="20409378472",
+                    receptor_razon_social="Cliente IVA SA",
+                    receptor_condicion_iva="RI",
+                ),
+                Comprobante(
+                    tipo_comprobante=8,
+                    concepto=1,
+                    numero=2,
+                    fecha_emision=date(2026, 5, 11),
+                    subtotal=Decimal("200.00"),
+                    descuento=Decimal("0.00"),
+                    iva_21=Decimal("42.00"),
+                    iva_10_5=Decimal("0.00"),
+                    iva_27=Decimal("0.00"),
+                    otros_impuestos=Decimal("0.00"),
+                    total=Decimal("242.00"),
+                    cae="12345678901235",
+                    cae_vencimiento=date(2026, 5, 20),
+                    estado="autorizado",
+                    moneda="PES",
+                    cotizacion=Decimal("1"),
+                    empresa_id=test_empresa.id,
+                    punto_venta_id=punto_venta.id,
+                    receptor_tipo_documento=80,
+                    receptor_numero_documento="20409378472",
+                    receptor_razon_social="Cliente IVA SA",
+                    receptor_condicion_iva="RI",
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        reporte = await reportes_service.generar_reporte_iva(
+            db_session,
+            empresa_id=test_empresa.id,
+            periodo_mes=5,
+            periodo_anio=2026,
+        )
+
+        assert reporte["resumen"]["gravado_21"] == 800.0
+        assert reporte["resumen"]["iva_21"] == 168.0
+        assert reporte["resumen"]["total_iva"] == 168.0
+        assert reporte["comprobantes"][1]["gravado_21"] == -200.0
+        assert reporte["comprobantes"][1]["iva_21"] == -42.0
 
     @pytest.mark.asyncio
     async def test_obtener_ranking_clientes_empty(self, reportes_service, db_session):

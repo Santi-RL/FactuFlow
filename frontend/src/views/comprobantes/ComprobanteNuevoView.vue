@@ -25,6 +25,7 @@ import {
   TIPOS_COMPROBANTE_NOMBRES,
   TIPOS_CONCEPTO,
   TIPOS_CONCEPTO_NOMBRES,
+  TIPOS_DOCUMENTO,
 } from "@/types/comprobante";
 
 const router = useRouter();
@@ -68,9 +69,26 @@ const mostrarPreview = ref(false);
 const mostrarCancelacion = ref(false);
 const mostrarConfirmacionFechaFiscal = ref(false);
 const proximoNumero = ref<number | null>(null);
+let proximoNumeroRequestId = 0;
 const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
+const puntosVentaUsables = computed(() =>
+  puntosVenta.value.filter((puntoVenta) => puntoVenta.usable_factuflow),
+);
 const empresaId = computed(() => empresaStore.empresaActivaId || 0);
 const empresaActiva = computed(() => empresaStore.empresaActiva);
+const tiposComprobanteA = new Set<number>([
+  TIPOS_COMPROBANTE.FACTURA_A,
+  TIPOS_COMPROBANTE.NOTA_DEBITO_A,
+  TIPOS_COMPROBANTE.NOTA_CREDITO_A,
+]);
+const tiposComprobanteC = new Set<number>([TIPOS_COMPROBANTE.FACTURA_C]);
+
+const requiereClienteCuit = computed(() =>
+  tiposComprobanteA.has(formData.value.tipo_comprobante),
+);
+const esComprobanteC = computed(() =>
+  tiposComprobanteC.has(formData.value.tipo_comprobante),
+);
 
 const limpiarClienteSeleccionado = () => {
   formData.value.cliente = {
@@ -83,6 +101,18 @@ const limpiarClienteSeleccionado = () => {
   };
 };
 
+const normalizarOrdenItems = (items: ItemComprobante[]): ItemComprobante[] =>
+  items.map((item, index) => ({ ...item, orden: index }));
+
+const normalizarClienteParaTipoComprobante = () => {
+  if (
+    requiereClienteCuit.value &&
+    formData.value.cliente.tipo_documento !== TIPOS_DOCUMENTO.CUIT
+  ) {
+    limpiarClienteSeleccionado();
+  }
+};
+
 const cargarDatosEmisorActivo = async () => {
   try {
     await puntosVentaStore.fetchPuntosVenta();
@@ -90,7 +120,7 @@ const cargarDatosEmisorActivo = async () => {
     console.error("Error al cargar puntos de venta:", error);
   }
 
-  formData.value.punto_venta_id = puntosVenta.value[0]?.id || 0;
+  formData.value.punto_venta_id = puntosVentaUsables.value[0]?.id || 0;
   proximoNumero.value = null;
   await actualizarProximoNumero();
 };
@@ -116,7 +146,6 @@ onMounted(async () => {
       orden: 0,
     });
   }
-
 });
 
 watch(
@@ -140,6 +169,23 @@ const tiposComprobanteDisponibles = computed(() => {
     },
   ];
 });
+
+const normalizarIvaComprobanteC = () => {
+  if (!esComprobanteC.value) return;
+  formData.value.items = formData.value.items.map((item) => ({
+    ...item,
+    iva_porcentaje: 0,
+  }));
+};
+
+watch(
+  () => formData.value.tipo_comprobante,
+  async () => {
+    normalizarClienteParaTipoComprobante();
+    normalizarIvaComprobanteC();
+    await actualizarProximoNumero();
+  },
+);
 
 const mostrarFechasServicios = computed(() => {
   return (
@@ -189,12 +235,15 @@ const formularioValido = computed(() => {
     formData.value.cliente.numero_documento.length > 0 &&
     formData.value.cliente.razon_social.length > 0 &&
     formData.value.cliente.condicion_iva.length > 0 &&
+    (!requiereClienteCuit.value ||
+      formData.value.cliente.tipo_documento === TIPOS_DOCUMENTO.CUIT) &&
     formData.value.items.length > 0 &&
     formData.value.items.every(
       (item) =>
         item.descripcion.length > 0 &&
         item.cantidad > 0 &&
-        item.precio_unitario >= 0,
+        item.precio_unitario >= 0 &&
+        (!esComprobanteC.value || item.iva_porcentaje === 0),
     ) &&
     (!mostrarFechasServicios.value ||
       (formData.value.fecha_servicio_desde &&
@@ -224,21 +273,32 @@ const mensajeConfirmacionFechaFiscal = computed(() => {
 
 // Methods
 const actualizarProximoNumero = async () => {
-  if (!formData.value.punto_venta_id || !empresaId.value) return;
+  const requestId = ++proximoNumeroRequestId;
+  const puntoVentaId = formData.value.punto_venta_id;
+  const tipoComprobante = formData.value.tipo_comprobante;
+  proximoNumero.value = null;
+
+  if (!puntoVentaId || !empresaId.value) return;
 
   try {
-    const puntoVenta = puntosVenta.value.find(
-      (pv) => pv.id === formData.value.punto_venta_id,
-    );
-    if (!puntoVenta) return;
+    const puntoVenta = puntosVenta.value.find((pv) => pv.id === puntoVentaId);
+    if (!puntoVenta?.usable_factuflow) return;
 
-    proximoNumero.value = await comprobantesStore.obtenerProximoNumero(
+    const numero = await comprobantesStore.obtenerProximoNumero(
       puntoVenta.numero,
-      formData.value.tipo_comprobante,
-      empresaId.value,
+      tipoComprobante,
     );
+    if (
+      requestId === proximoNumeroRequestId &&
+      formData.value.punto_venta_id === puntoVentaId &&
+      formData.value.tipo_comprobante === tipoComprobante
+    ) {
+      proximoNumero.value = numero;
+    }
   } catch (error) {
-    console.error("Error al obtener próximo número:", error);
+    if (requestId === proximoNumeroRequestId) {
+      console.error("Error al obtener próximo número:", error);
+    }
   }
 };
 
@@ -282,7 +342,7 @@ const confirmarEmision = async () => {
       guardar_cliente: true,
 
       // Items
-      items: formData.value.items,
+      items: normalizarOrdenItems(formData.value.items),
 
       // Servicios
       fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
@@ -376,7 +436,6 @@ const confirmarCancelacion = () => {
               v-model="formData.tipo_comprobante"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              @change="actualizarProximoNumero"
             >
               <option
                 v-for="tipo in tiposComprobanteDisponibles"
@@ -403,11 +462,18 @@ const confirmarCancelacion = () => {
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @change="actualizarProximoNumero"
             >
-              <option v-for="pv in puntosVenta" :key="pv.id" :value="pv.id">
+              <option
+                v-for="pv in puntosVentaUsables"
+                :key="pv.id"
+                :value="pv.id"
+              >
                 {{ String(pv.numero).padStart(4, "0") }} -
                 {{ pv.nombre || "Sin nombre" }}
               </option>
             </select>
+            <p v-if="puntosVentaUsables.length === 0" class="mt-1 text-sm text-red-600">
+              No hay puntos de venta Web Services habilitados para emitir con FactuFlow.
+            </p>
           </div>
 
           <!-- Concepto -->
@@ -506,13 +572,13 @@ const confirmarCancelacion = () => {
       <!-- Sección 2: Cliente -->
       <ClienteSelector
         v-model="formData.cliente"
-        :empresa-id="empresaId"
         :tipo-comprobante="formData.tipo_comprobante"
       />
 
       <!-- Sección 3: Items -->
       <ItemsTable
         :items="formData.items"
+        :solo-iva-cero="esComprobanteC"
         @update:items="formData.items = $event"
       />
 
@@ -577,6 +643,7 @@ const confirmarCancelacion = () => {
       :form-data="formData"
       :totales="totales"
       :proximo-numero="proximoNumero"
+      :punto-venta-numero="puntoVentaSeleccionado?.numero || null"
       :empresa="empresaActiva"
       @close="mostrarPreview = false"
       @confirm="solicitarConfirmacionFechaFiscal"

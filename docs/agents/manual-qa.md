@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-14
+Ultima actualizacion: 2026-05-17
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -90,7 +90,41 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
   `FacturacionService.emitir_comprobante`, por lo que no solicitan CAE ni
   consumen numeracion fiscal real.
 - Se verifico por test que la API sigue bloqueando procesamiento sin
-  `X-Confirmacion-Fecha-Fiscal: true`.
+  `X-Confirmacion-Fecha-Fiscal` valido.
+- Verificacion tecnica 2026-05-16: si un lote ya esta `Procesando`, la API no
+  lo vuelve a bajar a `En cola` al pedir procesamiento background. El worker
+  solo retoma lotes `Procesando` cuando estan stale por
+  `BATCH_PROCESSING_STALE_MINUTES`, para evitar doble procesamiento de lotes
+  activos; el camino de reanudacion usado por el worker ya puede completar un
+  lote `Procesando` stale.
+- Verificacion tecnica 2026-05-16: si ARCA devuelve CAE pero FactuFlow no logra
+  persistir el comprobante, la emision queda marcada como
+  `requiere_reconciliacion` y no como `fallido`. En ese estado no debe
+  reintentarse el lote; corresponde consultar ARCA y reconciliar antes de
+  continuar.
+- Verificacion tecnica 2026-05-16: Factura C no permite items con IVA distinto
+  de 0. La emision individual fuerza el selector de IVA a 0 para Factura C y la
+  validacion de lotes rechaza archivos tipo C con IVA informado.
+- Verificacion tecnica 2026-05-16: el emisor activo queda aislado por pestaña
+  para que otra pestaña no cambie silenciosamente `X-Empresa-Id`; si header y
+  query legacy `empresa_id` no coinciden, la API rechaza el pedido.
+- Verificacion tecnica 2026-05-16: la vista previa de nueva factura muestra el
+  punto de venta elegido y el Excel observado de lotes escapa valores con forma
+  de formula.
+- Verificacion tecnica 2026-05-16: `Puntos de venta` solo habilita
+  `Sincronizar con ARCA` si hay certificado activo para el ambiente backend
+  actual, no por un certificado activo de otro ambiente.
+- Verificacion tecnica 2026-05-17: lotes rechazan XLSX malformados y uploads
+  mayores que `BATCH_MAX_UPLOAD_BYTES`; el procesamiento exige un header
+  `X-Confirmacion-Fecha-Fiscal` con token exacto
+  `fechas=AAAA-MM-DD,...;puntos_venta=N,...` calculado desde los grupos
+  validados; los mensajes de rechazo muestran fecha y punto concretos.
+- Verificacion tecnica 2026-05-17: perfiles con reglas relativas de fecha ya
+  no completan una fecha fiscal por contexto temporal al autoaplicarse en
+  `Emision masiva`; el usuario debe elegir fecha exacta o archivo antes de
+  validar.
+- Verificacion tecnica 2026-05-17: los totales previos de lotes interpretan
+  importes argentinos como `1.234,56` y avisan si queda algun valor ambiguo.
 - Pendiente de QA visual opcional: levantar entorno local y confirmar en
   navegador que el modal de fecha fiscal puede cancelarse con `Volver a revisar`
   y que la barra avanza durante un lote mockeado o de homologacion controlada.
@@ -146,6 +180,10 @@ Actualizacion 2026-05-10:
   el reporte con el mismo filtro para el nuevo emisor.
 - En Nueva factura, el cambio de emisor recarga puntos de venta/proximo numero
   y limpia el cliente seleccionado para evitar mezclar datos entre CUITs.
+- Verificacion tecnica 2026-05-16: el backend tambien bloquea la emision si el
+  request intenta usar un punto de venta o `cliente_id` de otro emisor. La
+  validacion ocurre en el servicio de facturacion antes de solicitar CAE y cubre
+  tanto emision individual como emision por lotes.
 
 ### 1. Dashboard
 
@@ -180,6 +218,10 @@ Actualizacion 2026-05-10:
 
 - Se completo el flujo real desde UI.
 - Se detecto y corrigio un fallo en `proximo-numero` causado por resolucion incorrecta del path de certificados legacy.
+- Verificacion tecnica 2026-05-17: `Nueva factura` solo ofrece puntos de venta
+  usables por FactuFlow para emitir. Si se consulta directo
+  `proximo-numero` con un punto no Web Services, la API responde 400 de negocio
+  y no un 500.
 - Resultado real:
   - `Factura B`
   - `0005-00000004`
@@ -296,7 +338,8 @@ Cambio critico posterior el 2026-05-08:
   de venta.` antes de solicitar CAE.
 - verificacion tecnica asociada: la API tambien bloquea emision directa si falta
   la confirmacion fiscal explicita (`confirmacion_fecha_fiscal=true` en emision
-  individual o `X-Confirmacion-Fecha-Fiscal: true` en procesamiento de lotes).
+  individual o `X-Confirmacion-Fecha-Fiscal` con fechas y puntos concretos en
+  procesamiento de lotes).
 - QA visual local: al subir el Excel privado, la pantalla muestra el
   selector `Tipo de concepto fiscal ARCA obligatorio`, el selector
   `Descripcion facturada obligatoria`, las opciones de descripcion desde archivo
@@ -331,6 +374,10 @@ Pendiente antes de produccion:
 - `Ranking de clientes` carga y ordena correctamente los clientes facturados.
 - Desde 2026-05-09, los tres reportes usan el emisor activo y se regeneran al
   cambiarlo si habia un resultado visible.
+- Verificacion tecnica 2026-05-17: los reportes descartan respuestas viejas si
+  el usuario cambia de emisor activo mientras hay pedidos en curso.
+- Verificacion tecnica 2026-05-17: el detalle del subdiario IVA incluye
+  columnas para gravado e IVA 27%.
 
 ### 9. Certificados
 
@@ -340,6 +387,14 @@ Pendiente antes de produccion:
   antes de emitir, reutilizando el endpoint scopiado por emisor activo.
 - Se agrego al wizard el paso previo de autorizar `wsfe` en ARCA antes de
   ejecutar `Probar conexion`.
+- Verificacion tecnica 2026-05-16: la carga de certificados solo acepta claves
+  privadas generadas por FactuFlow para el CUIT y ambiente del emisor activo, y
+  ubicadas dentro de `CERTS_PATH`. Una renovacion deja activo solo el
+  certificado nuevo del mismo emisor/ambiente. No se hicieron llamadas ARCA
+  reales en esta verificacion.
+- Verificacion tecnica 2026-05-17: el enlace al portal ARCA del wizard abre con
+  `target="_blank"` y `rel="noopener noreferrer"`; la lista de certificados
+  descarta respuestas viejas si cambia el emisor activo durante la carga.
 
 ### 10. Puntos de venta
 
@@ -358,6 +413,10 @@ Pendiente antes de produccion:
 - Se importo la constancia PDF de puntos de venta del CUIT real y se valido que
   quedan visibles sistema, domicilio, nombre fantasia, usabilidad FactuFlow y
   estado bloqueado/no bloqueado.
+- Verificacion tecnica 2026-05-17: `Puntos de venta` y el store descartan
+  respuestas viejas al cambiar el emisor activo; la habilitacion de
+  `Sincronizar con ARCA` sigue dependiendo del certificado activo del ambiente
+  backend actual.
 
 ### 11. Mi Empresa
 
@@ -397,6 +456,13 @@ Pendiente antes de produccion:
   argentinas tanto en alta como en edicion.
 - Puntos de venta respeta el emisor activo: al seleccionar un emisor nuevo sin
   puntos cargados, no muestra puntos de otros emisores.
+- Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
+  `openFindings=0`; la ultima revision repo no encontro features pendientes ni
+  hallazgos nuevos.
+- Verificacion automatizada 2026-05-17: backend `pytest tests -q` OK
+  (194 tests), `ruff`, `black` y `alembic heads` OK; frontend
+  `test:unit` OK (41 tests), `type-check` OK, `build` OK y `lint:check` OK
+  sin errores con 465 warnings de estilo Vue existentes.
 - Quedan pendientes las tareas externas de salida a produccion que no se resuelven desde esta QA local.
 
 ## Punto de reanudacion
