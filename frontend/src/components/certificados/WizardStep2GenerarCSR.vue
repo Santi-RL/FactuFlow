@@ -249,7 +249,9 @@ onMounted(async () => {
         <div class="flex gap-3">
           <span class="text-2xl">🔑</span>
           <div>
-            <p class="font-semibold text-gray-900">Clave Privada (.key)</p>
+            <p class="font-semibold text-gray-900">
+              Clave Privada (.key)
+            </p>
             <p class="text-sm text-gray-600">
               Es tu "contraseña secreta". <strong>NUNCA</strong> la compartas
               con nadie.
@@ -278,7 +280,7 @@ onMounted(async () => {
           v-model="usarCSRExistente"
           type="checkbox"
           class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-        />
+        >
         <span class="text-gray-700">
           Ya tengo el CSR generado y quiero continuar sin volver a crearlo
         </span>
@@ -289,7 +291,11 @@ onMounted(async () => {
       </p>
     </div>
 
-    <BaseAlert v-if="emisorActivo" type="info" class="mb-6">
+    <BaseAlert
+      v-if="emisorActivo"
+      type="info"
+      class="mb-6"
+    >
       El CSR se genera para el emisor activo:
       <strong>{{ emisorActivo.razon_social }}</strong>
       (CUIT {{ formatearCUIT(emisorActivo.cuit) }}). No ingreses el CUIT del
@@ -301,11 +307,18 @@ onMounted(async () => {
       v-if="!usarCSRExistente && !csrGenerado"
       class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
     >
-      <BaseAlert v-if="error" type="error" class="mb-4">
+      <BaseAlert
+        v-if="error"
+        type="error"
+        class="mb-4"
+      >
         {{ error }}
       </BaseAlert>
 
-      <form class="space-y-4" @submit.prevent="generarCSR">
+      <form
+        class="space-y-4"
+        @submit.prevent="generarCSR"
+      >
         <BaseInput
           v-model="cuit"
           label="CUIT del emisor"
@@ -332,7 +345,7 @@ onMounted(async () => {
           <template #help>
             <p class="text-sm text-gray-600 mt-1">
               <strong>Homologación:</strong> Para pruebas (recomendado para
-              comenzar)<br />
+              comenzar)<br>
               <strong>Producción:</strong> Para facturación real
             </p>
           </template>
@@ -358,7 +371,11 @@ onMounted(async () => {
       v-else-if="usarCSRExistente"
       class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
     >
-      <BaseAlert v-if="errorClaves" type="warning" class="mb-4">
+      <BaseAlert
+        v-if="errorClaves"
+        type="warning"
+        class="mb-4"
+      >
         {{ errorClaves }}
       </BaseAlert>
 
@@ -428,8 +445,13 @@ onMounted(async () => {
       v-else
       class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
     >
-      <BaseAlert type="success" class="mb-4">
-        <p class="font-semibold mb-2">✅ CSR generado exitosamente</p>
+      <BaseAlert
+        type="success"
+        class="mb-4"
+      >
+        <p class="font-semibold mb-2">
+          ✅ CSR generado exitosamente
+        </p>
         <p class="text-sm">
           El archivo de solicitud (.csr) se descargó automáticamente. Guardá
           este archivo, lo vas a necesitar en el siguiente paso.
@@ -437,7 +459,9 @@ onMounted(async () => {
       </BaseAlert>
 
       <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p class="font-semibold text-gray-900 mb-2">⚠️ IMPORTANTE</p>
+        <p class="font-semibold text-gray-900 mb-2">
+          ⚠️ IMPORTANTE
+        </p>
         <p class="text-sm text-gray-700">
           La clave privada (.key) se guardó de forma segura en el servidor. No
           la pierdas, ya que la vas a necesitar para usar el certificado.
@@ -455,14 +479,20 @@ onMounted(async () => {
       </div>
 
       <div class="mt-4 bg-gray-50 rounded-lg p-4">
-        <p class="text-sm text-gray-700 mb-2">Clave privada generada:</p>
+        <p class="text-sm text-gray-700 mb-2">
+          Clave privada generada:
+        </p>
         <div
           class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
         >
           <span class="font-mono text-sm text-gray-900 break-all">
             {{ csrData?.key_filename }}
           </span>
-          <BaseButton variant="secondary" size="sm" @click="copiarClave">
+          <BaseButton
+            variant="secondary"
+            size="sm"
+            @click="copiarClave"
+          >
             {{ claveCopiada ? "Copiada" : "Copiar nombre" }}
           </BaseButton>
         </div>
@@ -474,7 +504,10 @@ onMounted(async () => {
     </div>
 
     <div class="flex justify-between">
-      <BaseButton variant="secondary" @click="emit('prev')">
+      <BaseButton
+        variant="secondary"
+        @click="emit('prev')"
+      >
         ← Anterior
       </BaseButton>
 

@@ -60,7 +60,10 @@ const handleChange = (event: Event) => {
       class="block text-sm font-medium text-gray-700 mb-1"
     >
       {{ label }}
-      <span v-if="required" class="text-red-500">*</span>
+      <span
+        v-if="required"
+        class="text-red-500"
+      >*</span>
     </label>
 
     <select
@@ -72,7 +75,11 @@ const handleChange = (event: Event) => {
       v-bind="attrs"
       @change="handleChange"
     >
-      <option v-if="!tieneOpcionVacia" value="" disabled>
+      <option
+        v-if="!tieneOpcionVacia"
+        value=""
+        disabled
+      >
         {{ placeholder || "Seleccionar..." }}
       </option>
       <option
@@ -84,7 +91,10 @@ const handleChange = (event: Event) => {
       </option>
     </select>
 
-    <p v-if="error" class="mt-1 text-sm text-red-600">
+    <p
+      v-if="error"
+      class="mt-1 text-sm text-red-600"
+    >
       {{ error }}
     </p>
   </div>

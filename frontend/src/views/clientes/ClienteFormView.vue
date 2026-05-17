@@ -130,7 +130,10 @@ const handleCancel = () => {
     </div>
 
     <BaseCard>
-      <form class="space-y-6" @submit.prevent="handleSubmit">
+      <form
+        class="space-y-6"
+        @submit.prevent="handleSubmit"
+      >
         <div>
           <h3 class="text-lg font-semibold text-gray-900 mb-4">
             Información Básica
@@ -169,7 +172,9 @@ const handleCancel = () => {
         </div>
 
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Domicilio</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            Domicilio
+          </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <BaseInput
@@ -200,7 +205,9 @@ const handleCancel = () => {
         </div>
 
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Contacto</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            Contacto
+          </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <BaseInput
               v-model="formData.email"
@@ -239,7 +246,10 @@ const handleCancel = () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton type="submit" :loading="loading">
+          <BaseButton
+            type="submit"
+            :loading="loading"
+          >
             {{ isEdit ? "Guardar Cambios" : "Crear Cliente" }}
           </BaseButton>
         </div>

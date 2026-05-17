@@ -146,7 +146,10 @@ const tiposDisponibles = [
       class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900" data-testid="page-title">
+        <h1
+          class="text-3xl font-bold text-gray-900"
+          data-testid="page-title"
+        >
           Comprobantes
         </h1>
         <p class="mt-2 text-gray-600">
@@ -193,7 +196,7 @@ const tiposDisponibles = [
               placeholder="Buscar por número o cliente..."
               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @keyup.enter="aplicarFiltros"
-            />
+            >
           </div>
         </div>
 
@@ -206,7 +209,7 @@ const tiposDisponibles = [
             v-model="filtros.desde"
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          >
         </div>
 
         <!-- Hasta -->
@@ -218,7 +221,7 @@ const tiposDisponibles = [
             v-model="filtros.hasta"
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+          >
         </div>
 
         <!-- Tipo -->
@@ -230,7 +233,9 @@ const tiposDisponibles = [
             v-model="filtros.tipo"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option :value="null">Todos</option>
+            <option :value="null">
+              Todos
+            </option>
             <option
               v-for="tipo in tiposDisponibles"
               :key="tipo.value"
@@ -262,11 +267,16 @@ const tiposDisponibles = [
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12">
+    <div
+      v-if="loading"
+      class="text-center py-12"
+    >
       <div
         class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
       />
-      <p class="mt-4 text-gray-600">Cargando comprobantes...</p>
+      <p class="mt-4 text-gray-600">
+        Cargando comprobantes...
+      </p>
     </div>
 
     <!-- Lista de comprobantes -->
@@ -282,7 +292,7 @@ const tiposDisponibles = [
           {{
             (comprobantesStore.paginaActual - 1) *
               comprobantesStore.paginacion.per_page +
-            1
+              1
           }}
           -
           {{
@@ -371,7 +381,7 @@ const tiposDisponibles = [
                 >
                   {{
                     ESTADOS_COMPROBANTE_NOMBRES[comprobante.estado] ||
-                    comprobante.estado
+                      comprobante.estado
                   }}
                 </span>
               </td>
@@ -399,7 +409,7 @@ const tiposDisponibles = [
           {{
             (comprobantesStore.paginaActual - 1) *
               comprobantesStore.paginacion.per_page +
-            1
+              1
           }}
           -
           {{
@@ -488,7 +498,9 @@ const tiposDisponibles = [
           </p>
         </div>
         <div>
-          <p class="text-sm font-semibold text-blue-900">Que pasa despues</p>
+          <p class="text-sm font-semibold text-blue-900">
+            Que pasa despues
+          </p>
           <p class="mt-1 text-sm text-blue-800">
             Los comprobantes autorizados quedan listados aca junto con los
             emitidos desde lote.

@@ -182,12 +182,19 @@ watch(
     </BaseAlert>
 
     <!-- Error -->
-    <BaseAlert v-if="error && !loading" type="error" class="mb-6">
+    <BaseAlert
+      v-if="error && !loading"
+      type="error"
+      class="mb-6"
+    >
       {{ error }}
     </BaseAlert>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner size="lg" />
     </div>
 
@@ -198,14 +205,20 @@ watch(
       message="Configurá tu primer certificado ARCA para comenzar a facturar electrónicamente"
     >
       <template #action>
-        <BaseButton variant="primary" @click="irAWizard">
+        <BaseButton
+          variant="primary"
+          @click="irAWizard"
+        >
           Configurar certificado
         </BaseButton>
       </template>
     </BaseEmpty>
 
     <!-- Grid de certificados -->
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div
+      v-else
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+    >
       <CertificadoCard
         v-for="certificado in certificadosActivos"
         :key="certificado.id"

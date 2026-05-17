@@ -107,7 +107,9 @@ const abrirPortalArca = () => {
             <h3 class="font-semibold text-gray-900 mb-2">
               Completá un nombre para identificar el certificado
             </h3>
-            <p class="text-sm text-gray-600">Ejemplo: "FactuFlow Producción"</p>
+            <p class="text-sm text-gray-600">
+              Ejemplo: "FactuFlow Producción"
+            </p>
           </div>
         </div>
 
@@ -159,7 +161,7 @@ const abrirPortalArca = () => {
           v-model="tengoElCertificado"
           type="checkbox"
           class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-        />
+        >
         <span class="text-gray-700">
           Ya tengo el certificado .crt descargado
         </span>
@@ -167,7 +169,10 @@ const abrirPortalArca = () => {
     </div>
 
     <div class="flex justify-between">
-      <BaseButton variant="secondary" @click="emit('prev')">
+      <BaseButton
+        variant="secondary"
+        @click="emit('prev')"
+      >
         ← Anterior
       </BaseButton>
 

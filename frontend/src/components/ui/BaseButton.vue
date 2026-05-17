@@ -41,7 +41,11 @@ const classes = computed(() => {
 </script>
 
 <template>
-  <button :type="type" :class="classes" :disabled="disabled || loading">
+  <button
+    :type="type"
+    :class="classes"
+    :disabled="disabled || loading"
+  >
     <svg
       v-if="loading"
       class="animate-spin -ml-1 mr-2 h-4 w-4"

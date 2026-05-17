@@ -735,10 +735,10 @@ Quedo validado manualmente:
   - `black --check app tests` OK
   - `alembic heads` OK, head `a3b4c5d6e7f8`
 - Frontend:
-  - `npm run lint:check` OK sin errores, 465 warnings de estilo Vue existentes
+  - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 41 tests
+  - `npm run test:unit` OK, 44 tests
   - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
     del runner; ver seccion `Verificacion automatizada 2026-05-07`
 

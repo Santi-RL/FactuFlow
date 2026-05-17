@@ -96,7 +96,10 @@ const handleSort = (column: Column) => {
             v-if="$slots.actions"
             class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
           >
-            <slot name="actions" :row="row" />
+            <slot
+              name="actions"
+              :row="row"
+            />
           </td>
         </tr>
       </tbody>

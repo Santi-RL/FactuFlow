@@ -169,7 +169,9 @@ const totalGeneral = computed(() => {
           <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Ranking de Clientes</h1>
+          <h1 class="text-3xl font-bold text-gray-900">
+            Ranking de Clientes
+          </h1>
           <p class="mt-1 text-gray-600">
             Clientes con mayor facturación en el período
           </p>
@@ -180,8 +182,18 @@ const totalGeneral = computed(() => {
     <!-- Filtros -->
     <BaseCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <BaseInput v-model="desde" type="date" label="Desde" required />
-        <BaseInput v-model="hasta" type="date" label="Hasta" required />
+        <BaseInput
+          v-model="desde"
+          type="date"
+          label="Desde"
+          required
+        />
+        <BaseInput
+          v-model="hasta"
+          type="date"
+          label="Hasta"
+          required
+        />
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
             Límite
@@ -213,7 +225,10 @@ const totalGeneral = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner />
     </div>
 
@@ -347,13 +362,17 @@ const totalGeneral = computed(() => {
               <!-- Estadísticas (visible en desktop) -->
               <div class="hidden md:flex items-center gap-6">
                 <div class="text-right">
-                  <p class="text-sm text-gray-600">Comprobantes</p>
+                  <p class="text-sm text-gray-600">
+                    Comprobantes
+                  </p>
                   <p class="font-semibold text-gray-900">
                     {{ cliente.cantidad_comprobantes }}
                   </p>
                 </div>
                 <div class="text-right">
-                  <p class="text-sm text-gray-600">Total</p>
+                  <p class="text-sm text-gray-600">
+                    Total
+                  </p>
                   <p class="font-bold text-primary-600 text-lg">
                     {{ formatearMoneda(cliente.total_facturado) }}
                   </p>

@@ -80,15 +80,23 @@ const goToNextStep = () => {
       >
         Wizard de Certificados ARCA
       </h1>
-      <p class="text-gray-600">Configurá tu certificado digital paso a paso</p>
+      <p class="text-gray-600">
+        Configurá tu certificado digital paso a paso
+      </p>
     </div>
 
     <!-- Progress Bar -->
-    <WizardProgress :current-step="currentStep" :steps="steps" />
+    <WizardProgress
+      :current-step="currentStep"
+      :steps="steps"
+    />
 
     <!-- Steps Content -->
     <div class="mt-8">
-      <WizardStep1Intro v-if="currentStep === 1" @next="goToNextStep" />
+      <WizardStep1Intro
+        v-if="currentStep === 1"
+        @next="goToNextStep"
+      />
 
       <WizardStep2GenerarCSR
         v-else-if="currentStep === 2"

@@ -64,7 +64,10 @@ const iconColorClasses = computed(() => {
     />
 
     <div class="flex-1">
-      <h3 v-if="title" class="text-sm font-medium">
+      <h3
+        v-if="title"
+        class="text-sm font-medium"
+      >
         {{ title }}
       </h3>
       <div

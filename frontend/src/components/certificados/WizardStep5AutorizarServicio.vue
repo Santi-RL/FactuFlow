@@ -168,7 +168,7 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
           type="checkbox"
           class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
           data-testid="cert-wizard-wsfe-authorized"
-        />
+        >
         <span class="text-gray-700">
           Ya autoricé el servicio "Factura Electrónica" para este certificado en
           ARCA
@@ -177,7 +177,10 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
     </div>
 
     <div class="flex justify-between">
-      <BaseButton variant="secondary" @click="emit('prev')">
+      <BaseButton
+        variant="secondary"
+        @click="emit('prev')"
+      >
         ← Anterior
       </BaseButton>
 

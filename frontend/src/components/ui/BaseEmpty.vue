@@ -16,14 +16,20 @@ withDefaults(defineProps<Props>(), {
 
 <template>
   <div class="flex flex-col items-center justify-center py-12 text-center">
-    <component :is="icon" class="h-16 w-16 text-gray-400 mb-4" />
+    <component
+      :is="icon"
+      class="h-16 w-16 text-gray-400 mb-4"
+    />
     <h3 class="text-lg font-medium text-gray-900 mb-1">
       {{ title }}
     </h3>
     <p class="text-gray-500">
       {{ message }}
     </p>
-    <div v-if="$slots.default || $slots.actions || $slots.action" class="mt-6">
+    <div
+      v-if="$slots.default || $slots.actions || $slots.action"
+      class="mt-6"
+    >
       <slot />
       <slot name="actions" />
       <slot name="action" />

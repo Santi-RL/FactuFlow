@@ -162,7 +162,10 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Búsqueda de cliente -->
-    <div v-if="!modoManual && !modelValue.cliente_id" class="mb-6">
+    <div
+      v-if="!modoManual && !modelValue.cliente_id"
+      class="mb-6"
+    >
       <label
         for="cliente-busqueda"
         class="block text-sm font-medium text-gray-700 mb-2"
@@ -182,7 +185,7 @@ const cerrarResultados = () => {
             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             @input="buscarClientes"
             @blur="cerrarResultados"
-          />
+          >
         </div>
 
         <!-- Resultados de búsqueda -->
@@ -217,14 +220,15 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Separador -->
-    <div v-if="!modoManual && !modelValue.cliente_id" class="relative mb-6">
+    <div
+      v-if="!modoManual && !modelValue.cliente_id"
+      class="relative mb-6"
+    >
       <div class="absolute inset-0 flex items-center">
         <div class="w-full border-t border-gray-300" />
       </div>
       <div class="relative flex justify-center text-sm">
-        <span class="px-2 bg-white text-gray-500"
-          >O completar datos manualmente</span
-        >
+        <span class="px-2 bg-white text-gray-500">O completar datos manualmente</span>
       </div>
     </div>
 
@@ -261,7 +265,10 @@ const cerrarResultados = () => {
     </div>
 
     <!-- Formulario manual -->
-    <div v-if="modoManual || modelValue.cliente_id" class="space-y-4">
+    <div
+      v-if="modoManual || modelValue.cliente_id"
+      class="space-y-4"
+    >
       <!-- Tipo de documento y número -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
@@ -286,13 +293,22 @@ const cerrarResultados = () => {
             <option :value="80">
               {{ TIPOS_DOCUMENTO_NOMBRES[80] }}
             </option>
-            <option v-if="!requiereCUIT" :value="96">
+            <option
+              v-if="!requiereCUIT"
+              :value="96"
+            >
               {{ TIPOS_DOCUMENTO_NOMBRES[96] }}
             </option>
-            <option v-if="!requiereCUIT" :value="94">
+            <option
+              v-if="!requiereCUIT"
+              :value="94"
+            >
               {{ TIPOS_DOCUMENTO_NOMBRES[94] }}
             </option>
-            <option v-if="!requiereCUIT" :value="99">
+            <option
+              v-if="!requiereCUIT"
+              :value="99"
+            >
               {{ TIPOS_DOCUMENTO_NOMBRES[99] }}
             </option>
           </select>
@@ -318,8 +334,11 @@ const cerrarResultados = () => {
                 ($event.target as HTMLInputElement).value,
               )
             "
-          />
-          <p v-if="requiereCUIT" class="mt-1 text-xs text-amber-600">
+          >
+          <p
+            v-if="requiereCUIT"
+            class="mt-1 text-xs text-amber-600"
+          >
             * Para comprobantes tipo A, el receptor debe tener CUIT
           </p>
         </div>
@@ -345,7 +364,9 @@ const cerrarResultados = () => {
             )
           "
         >
-          <option value="">Seleccione...</option>
+          <option value="">
+            Seleccione...
+          </option>
           <option
             v-for="condicion in CONDICIONES_IVA"
             :key="condicion"
@@ -377,7 +398,7 @@ const cerrarResultados = () => {
               ($event.target as HTMLInputElement).value,
             )
           "
-        />
+        >
       </div>
 
       <!-- Domicilio -->
@@ -397,7 +418,7 @@ const cerrarResultados = () => {
           @input="
             updateField('domicilio', ($event.target as HTMLInputElement).value)
           "
-        />
+        >
       </div>
     </div>
   </div>

@@ -230,7 +230,12 @@ const resumenTotales = computed(() => {
     <!-- Filtros -->
     <BaseCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <BaseSelect v-model="mesActual" :options="meses" label="Mes" required />
+        <BaseSelect
+          v-model="mesActual"
+          :options="meses"
+          label="Mes"
+          required
+        />
         <BaseSelect
           v-model="anioActual"
           :options="anios"
@@ -251,7 +256,10 @@ const resumenTotales = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner />
     </div>
 
@@ -270,7 +278,11 @@ const resumenTotales = computed(() => {
 
       <!-- Resumen por Alícuota -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <BaseCard v-for="item in resumenIVA" :key="item.label" :padding="false">
+        <BaseCard
+          v-for="item in resumenIVA"
+          :key="item.label"
+          :padding="false"
+        >
           <div class="p-6">
             <p class="text-sm font-medium text-gray-600 mb-4">
               {{ item.label }}

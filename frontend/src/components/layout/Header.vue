@@ -82,7 +82,10 @@ const handleEmpresaChange = async (value: string | number) => {
     class="flex min-h-24 items-center justify-between gap-4 border-b border-gray-200 bg-white px-6 py-3"
   >
     <div class="flex-1 max-w-2xl">
-      <div v-if="authStore.user?.es_admin" class="max-w-xl">
+      <div
+        v-if="authStore.user?.es_admin"
+        class="max-w-xl"
+      >
         <BaseSelect
           :model-value="empresaStore.empresaActivaId || ''"
           :options="empresasOptions"
@@ -105,13 +108,18 @@ const handleEmpresaChange = async (value: string | number) => {
           class="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400"
         />
         <div>
-          <p class="font-medium text-gray-900">Emisor activo</p>
+          <p class="font-medium text-gray-900">
+            Emisor activo
+          </p>
           <p>{{ empresaActivaLabel }}</p>
         </div>
       </div>
     </div>
 
-    <div ref="dropdownRef" class="relative flex-shrink-0">
+    <div
+      ref="dropdownRef"
+      class="relative flex-shrink-0"
+    >
       <button
         class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
         @click="showDropdown = !showDropdown"

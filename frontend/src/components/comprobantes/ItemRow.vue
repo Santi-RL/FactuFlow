@@ -70,7 +70,7 @@ const formatMonto = (monto: number) => {
         @input="
           updateField('codigo', ($event.target as HTMLInputElement).value)
         "
-      />
+      >
     </td>
 
     <!-- Descripción -->
@@ -85,7 +85,7 @@ const formatMonto = (monto: number) => {
         @input="
           updateField('descripcion', ($event.target as HTMLInputElement).value)
         "
-      />
+      >
     </td>
 
     <!-- Cantidad -->
@@ -105,7 +105,7 @@ const formatMonto = (monto: number) => {
             parseFloat(($event.target as HTMLInputElement).value) || 0,
           )
         "
-      />
+      >
     </td>
 
     <!-- Unidad -->
@@ -119,7 +119,7 @@ const formatMonto = (monto: number) => {
         @input="
           updateField('unidad', ($event.target as HTMLInputElement).value)
         "
-      />
+      >
     </td>
 
     <!-- Precio Unitario -->
@@ -139,7 +139,7 @@ const formatMonto = (monto: number) => {
             parseFloat(($event.target as HTMLInputElement).value) || 0,
           )
         "
-      />
+      >
     </td>
 
     <!-- IVA -->

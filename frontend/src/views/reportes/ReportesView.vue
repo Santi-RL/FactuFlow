@@ -1,7 +1,10 @@
 <template>
   <div class="reportes-view">
     <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800" data-testid="page-title">
+      <h1
+        class="text-3xl font-bold text-gray-800"
+        data-testid="page-title"
+      >
         📊 Reportes
       </h1>
       <p class="text-gray-600 mt-2">
@@ -33,7 +36,9 @@
           </div>
         </div>
 
-        <h2 class="text-xl font-bold text-gray-800 mb-2">Ventas por Período</h2>
+        <h2 class="text-xl font-bold text-gray-800 mb-2">
+          Ventas por Período
+        </h2>
         <p class="text-gray-600 mb-4">
           Ver ventas y totales del período elegido. Incluye facturas, notas de
           crédito y débito.

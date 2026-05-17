@@ -38,10 +38,15 @@ const handleBack = () => {
   <div>
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Detalle del Cliente</h1>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Detalle del Cliente
+        </h1>
       </div>
       <div class="flex gap-3">
-        <BaseButton variant="secondary" @click="handleBack">
+        <BaseButton
+          variant="secondary"
+          @click="handleBack"
+        >
           <ArrowLeftIcon class="h-5 w-5 mr-2" />
           Volver
         </BaseButton>
@@ -62,28 +67,38 @@ const handleBack = () => {
           </h3>
           <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <dt class="text-sm font-medium text-gray-500">Razón Social</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Razón Social
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.razon_social }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Documento</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Documento
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.tipo_documento }}:
                 {{ clientesStore.clienteActual.numero_documento }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Condición IVA</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Condición IVA
+              </dt>
               <dd class="mt-1">
-                <BaseBadge>{{
-                  clientesStore.clienteActual.condicion_iva
-                }}</BaseBadge>
+                <BaseBadge>
+                  {{
+                    clientesStore.clienteActual.condicion_iva
+                  }}
+                </BaseBadge>
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Estado</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Estado
+              </dt>
               <dd class="mt-1">
                 <BaseBadge
                   :variant="
@@ -99,29 +114,42 @@ const handleBack = () => {
           </dl>
         </div>
 
-        <div v-if="clientesStore.clienteActual.domicilio" class="border-t pt-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Domicilio</h3>
+        <div
+          v-if="clientesStore.clienteActual.domicilio"
+          class="border-t pt-6"
+        >
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            Domicilio
+          </h3>
           <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <dt class="text-sm font-medium text-gray-500">Dirección</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Dirección
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.domicilio || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Localidad</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Localidad
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.localidad || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Provincia</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Provincia
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.provincia || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Código Postal</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Código Postal
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.codigo_postal || "-" }}
               </dd>
@@ -130,22 +158,33 @@ const handleBack = () => {
         </div>
 
         <div class="border-t pt-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Contacto</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            Contacto
+          </h3>
           <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <dt class="text-sm font-medium text-gray-500">Email</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Email
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.email || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">Teléfono</dt>
+              <dt class="text-sm font-medium text-gray-500">
+                Teléfono
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.telefono || "-" }}
               </dd>
             </div>
-            <div v-if="clientesStore.clienteActual.notas" class="md:col-span-2">
-              <dt class="text-sm font-medium text-gray-500">Notas</dt>
+            <div
+              v-if="clientesStore.clienteActual.notas"
+              class="md:col-span-2"
+            >
+              <dt class="text-sm font-medium text-gray-500">
+                Notas
+              </dt>
               <dd class="mt-1 text-sm text-gray-900">
                 {{ clientesStore.clienteActual.notas }}
               </dd>

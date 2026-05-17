@@ -461,8 +461,8 @@ Pendiente antes de produccion:
   hallazgos nuevos.
 - Verificacion automatizada 2026-05-17: backend `pytest tests -q` OK
   (194 tests), `ruff`, `black` y `alembic heads` OK; frontend
-  `test:unit` OK (41 tests), `type-check` OK, `build` OK y `lint:check` OK
-  sin errores con 465 warnings de estilo Vue existentes.
+  `test:unit` OK (44 tests), `type-check` OK, `build` OK y `lint:check` OK
+  sin errores ni warnings.
 - Quedan pendientes las tareas externas de salida a produccion que no se resuelven desde esta QA local.
 
 ## Punto de reanudacion

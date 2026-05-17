@@ -27,7 +27,11 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <BaseModal :show="show" size="sm" @close="emit('cancel')">
+  <BaseModal
+    :show="show"
+    size="sm"
+    @close="emit('cancel')"
+  >
     <div class="text-center">
       <div
         class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4"
@@ -43,10 +47,16 @@ const emit = defineEmits<{
       </p>
 
       <div class="flex gap-3 justify-center">
-        <BaseButton variant="secondary" @click="emit('cancel')">
+        <BaseButton
+          variant="secondary"
+          @click="emit('cancel')"
+        >
           {{ cancelText }}
         </BaseButton>
-        <BaseButton :variant="variant" @click="emit('confirm')">
+        <BaseButton
+          :variant="variant"
+          @click="emit('confirm')"
+        >
           {{ confirmText }}
         </BaseButton>
       </div>

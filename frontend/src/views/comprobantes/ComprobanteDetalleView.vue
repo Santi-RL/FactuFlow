@@ -201,40 +201,42 @@ const obtenerLetraComprobante = (tipo: number): string => {
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12">
+    <div
+      v-if="loading"
+      class="text-center py-12"
+    >
       <div
         class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
       />
-      <p class="mt-4 text-gray-600">Cargando comprobante...</p>
+      <p class="mt-4 text-gray-600">
+        Cargando comprobante...
+      </p>
     </div>
 
     <!-- Contenido -->
-    <div v-else-if="comprobante" class="space-y-6">
+    <div
+      v-else-if="comprobante"
+      class="space-y-6"
+    >
       <!-- Información general -->
       <BaseCard>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >Tipo</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">Tipo</label>
             <p class="text-lg font-semibold text-gray-900">
               {{ tipoComprobanteNombre }}
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >Número</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">Número</label>
             <p class="text-lg font-mono font-semibold text-gray-900">
               {{ numeroCompleto }}
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >Estado</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">Estado</label>
             <span
               :class="[
                 'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium',
@@ -249,27 +251,21 @@ const obtenerLetraComprobante = (tipo: number): string => {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >Fecha Emisión</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">Fecha Emisión</label>
             <p class="text-gray-900">
               {{ formatFecha(comprobante.fecha_emision) }}
             </p>
           </div>
 
           <div v-if="comprobante.cae">
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >CAE</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">CAE</label>
             <p class="text-gray-900 font-mono">
               {{ comprobante.cae }}
             </p>
           </div>
 
           <div v-if="comprobante.cae_vencimiento">
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >Vencimiento CAE</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">Vencimiento CAE</label>
             <p class="text-gray-900">
               {{ formatFecha(comprobante.cae_vencimiento) }}
             </p>
@@ -281,18 +277,14 @@ const obtenerLetraComprobante = (tipo: number): string => {
       <BaseCard title="👤 Cliente">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >Razón Social</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">Razón Social</label>
             <p class="text-gray-900">
               {{ comprobante.cliente_nombre }}
             </p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-500 mb-1"
-              >CUIT / Documento</label
-            >
+            <label class="block text-sm font-medium text-gray-500 mb-1">CUIT / Documento</label>
             <p class="text-gray-900">
               {{ comprobante.cliente_cuit }}
             </p>
@@ -339,7 +331,10 @@ const obtenerLetraComprobante = (tipo: number): string => {
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="item in comprobante.items" :key="item.id">
+              <tr
+                v-for="item in comprobante.items"
+                :key="item.id"
+              >
                 <td class="px-4 py-3 text-sm text-gray-600">
                   {{ item.codigo || "-" }}
                 </td>
@@ -422,7 +417,10 @@ const obtenerLetraComprobante = (tipo: number): string => {
       </BaseCard>
 
       <!-- Observaciones -->
-      <BaseCard v-if="comprobante.observaciones" title="📝 Observaciones">
+      <BaseCard
+        v-if="comprobante.observaciones"
+        title="📝 Observaciones"
+      >
         <p class="text-gray-700 whitespace-pre-line">
           {{ comprobante.observaciones }}
         </p>
@@ -430,8 +428,13 @@ const obtenerLetraComprobante = (tipo: number): string => {
     </div>
 
     <!-- Error -->
-    <div v-else class="text-center py-12">
-      <p class="text-red-600">Error al cargar el comprobante</p>
+    <div
+      v-else
+      class="text-center py-12"
+    >
+      <p class="text-red-600">
+        Error al cargar el comprobante
+      </p>
     </div>
   </div>
 </template>

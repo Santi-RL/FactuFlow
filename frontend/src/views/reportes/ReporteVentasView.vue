@@ -161,7 +161,9 @@ const resumenCards = computed(() => {
           <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">Reporte de Ventas</h1>
+          <h1 class="text-3xl font-bold text-gray-900">
+            Reporte de Ventas
+          </h1>
           <p class="mt-1 text-gray-600">
             Resumen de comprobantes emitidos por período
           </p>
@@ -172,8 +174,18 @@ const resumenCards = computed(() => {
     <!-- Filtros -->
     <BaseCard class="mb-6">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <BaseInput v-model="desde" type="date" label="Desde" required />
-        <BaseInput v-model="hasta" type="date" label="Hasta" required />
+        <BaseInput
+          v-model="desde"
+          type="date"
+          label="Desde"
+          required
+        />
+        <BaseInput
+          v-model="hasta"
+          type="date"
+          label="Hasta"
+          required
+        />
         <div class="flex items-end">
           <BaseButton
             :disabled="loading"
@@ -188,7 +200,10 @@ const resumenCards = computed(() => {
     </BaseCard>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner />
     </div>
 

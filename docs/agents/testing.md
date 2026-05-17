@@ -115,11 +115,10 @@ Fecha: 2026-05-17
 - Backend: `ruff check app tests` OK.
 - Backend: `black --check app tests` OK.
 - Backend: `alembic heads` OK, head `a3b4c5d6e7f8`.
-- Frontend completo: `npm run test:unit` OK, 41 tests.
+- Frontend completo: `npm run test:unit` OK, 44 tests.
 - Frontend: `npm run type-check` OK.
 - Frontend: `npm run build` OK.
-- Frontend: `npm run lint:check` OK sin errores, con 465 warnings de estilo
-  Vue existentes.
+- Frontend: `npm run lint:check` OK sin errores ni warnings.
 - Clawpatch: backend, frontend y repo quedan con `openFindings=0`; la revision
   repo final no encontro features pendientes ni hallazgos nuevos.
 

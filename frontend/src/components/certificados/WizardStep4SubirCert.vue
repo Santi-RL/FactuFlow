@@ -124,15 +124,27 @@ const continuar = () => {
 
 <template>
   <div class="max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">Subí tu certificado</h2>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+      Subí tu certificado
+    </h2>
 
-    <BaseAlert type="info" class="mb-6">
+    <BaseAlert
+      type="info"
+      class="mb-6"
+    >
       Usando clave privada:
       <span class="font-mono">{{ props.keyFilename }}</span>
     </BaseAlert>
 
-    <div v-if="!certificadoSubido" class="mb-6">
-      <BaseAlert v-if="error" type="error" class="mb-4">
+    <div
+      v-if="!certificadoSubido"
+      class="mb-6"
+    >
+      <BaseAlert
+        v-if="error"
+        type="error"
+        class="mb-4"
+      >
         {{ error }}
       </BaseAlert>
 
@@ -157,22 +169,32 @@ const continuar = () => {
           class="hidden"
           :disabled="loading"
           @change="onFileSelect"
-        />
+        >
 
-        <div v-if="!loading" class="space-y-4">
-          <div class="text-6xl">📄</div>
+        <div
+          v-if="!loading"
+          class="space-y-4"
+        >
+          <div class="text-6xl">
+            📄
+          </div>
           <div>
             <p class="text-lg font-semibold text-gray-900 mb-2">
               Arrastrá el archivo .crt aquí
             </p>
-            <p class="text-gray-600">o hacé clic para seleccionar</p>
+            <p class="text-gray-600">
+              o hacé clic para seleccionar
+            </p>
           </div>
           <p class="text-sm text-gray-500">
             Formatos aceptados: .crt, .cer, .pem
           </p>
         </div>
 
-        <div v-else class="space-y-4">
+        <div
+          v-else
+          class="space-y-4"
+        >
           <div
             class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
           />
@@ -187,8 +209,13 @@ const continuar = () => {
       v-else
       class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
     >
-      <BaseAlert type="success" class="mb-6">
-        <p class="font-semibold mb-1">✅ Certificado cargado correctamente</p>
+      <BaseAlert
+        type="success"
+        class="mb-6"
+      >
+        <p class="font-semibold mb-1">
+          ✅ Certificado cargado correctamente
+        </p>
       </BaseAlert>
 
       <div class="bg-gray-50 rounded-lg p-6">
@@ -199,28 +226,36 @@ const continuar = () => {
 
         <dl class="space-y-3">
           <div class="flex justify-between">
-            <dt class="text-gray-600">CUIT:</dt>
+            <dt class="text-gray-600">
+              CUIT:
+            </dt>
             <dd class="font-medium text-gray-900">
               {{ certificadoInfo?.cuit }}
             </dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-gray-600">Emitido:</dt>
+            <dt class="text-gray-600">
+              Emitido:
+            </dt>
             <dd class="font-medium text-gray-900">
               {{ certificadoInfo?.fechaEmision }}
             </dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-gray-600">Vence:</dt>
+            <dt class="text-gray-600">
+              Vence:
+            </dt>
             <dd class="font-medium text-gray-900">
               {{ certificadoInfo?.fechaVencimiento }}
             </dd>
           </div>
 
           <div class="flex justify-between">
-            <dt class="text-gray-600">Días restantes:</dt>
+            <dt class="text-gray-600">
+              Días restantes:
+            </dt>
             <dd class="font-medium text-green-600">
               {{ certificadoInfo?.diasRestantes }} días
             </dd>
@@ -230,7 +265,11 @@ const continuar = () => {
     </div>
 
     <div class="flex justify-between">
-      <BaseButton variant="secondary" :disabled="loading" @click="emit('prev')">
+      <BaseButton
+        variant="secondary"
+        :disabled="loading"
+        @click="emit('prev')"
+      >
         ← Anterior
       </BaseButton>
 

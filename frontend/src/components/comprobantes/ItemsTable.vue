@@ -138,7 +138,10 @@ const eliminarItem = (index: number) => {
     </div>
 
     <!-- Mensaje si no hay items -->
-    <div v-if="items.length === 0" class="text-center py-8 text-gray-500">
+    <div
+      v-if="items.length === 0"
+      class="text-center py-8 text-gray-500"
+    >
       <p>No hay ítems. Agregue al menos uno para continuar.</p>
     </div>
   </div>

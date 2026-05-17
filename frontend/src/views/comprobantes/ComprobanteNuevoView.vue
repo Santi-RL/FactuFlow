@@ -419,7 +419,10 @@ const confirmarCancelacion = () => {
       </p>
     </div>
 
-    <form class="space-y-6" @submit.prevent="abrirVistaPrevia">
+    <form
+      class="space-y-6"
+      @submit.prevent="abrirVistaPrevia"
+    >
       <!-- Sección 1: Datos del Comprobante -->
       <BaseCard title="📄 Datos del Comprobante">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -471,7 +474,10 @@ const confirmarCancelacion = () => {
                 {{ pv.nombre || "Sin nombre" }}
               </option>
             </select>
-            <p v-if="puntosVentaUsables.length === 0" class="mt-1 text-sm text-red-600">
+            <p
+              v-if="puntosVentaUsables.length === 0"
+              class="mt-1 text-sm text-red-600"
+            >
               No hay puntos de venta Web Services habilitados para emitir con FactuFlow.
             </p>
           </div>
@@ -490,7 +496,12 @@ const confirmarCancelacion = () => {
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option disabled value="">Elegir productos o servicios</option>
+              <option
+                disabled
+                value=""
+              >
+                Elegir productos o servicios
+              </option>
               <option :value="TIPOS_CONCEPTO.PRODUCTOS">
                 {{ TIPOS_CONCEPTO_NOMBRES[1] }}
               </option>
@@ -514,12 +525,15 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
         </div>
 
         <!-- Próximo número -->
-        <div v-if="proximoNumero !== null" class="mt-4 text-sm text-gray-600">
+        <div
+          v-if="proximoNumero !== null"
+          class="mt-4 text-sm text-gray-600"
+        >
           El próximo número será:
           <span class="font-mono font-semibold">{{
             String(proximoNumero).padStart(8, "0")
@@ -540,7 +554,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
 
           <div>
@@ -552,7 +566,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
 
           <div>
@@ -564,7 +578,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
         </div>
       </BaseCard>

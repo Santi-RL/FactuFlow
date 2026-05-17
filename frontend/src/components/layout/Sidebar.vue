@@ -146,8 +146,14 @@ onBeforeUnmount(() => {
         class="p-2 rounded-md text-gray-700 bg-white shadow-md"
         @click="uiStore.toggleSidebar"
       >
-        <Bars3Icon v-if="!uiStore.sidebarOpen" class="h-6 w-6" />
-        <XMarkIcon v-else class="h-6 w-6" />
+        <Bars3Icon
+          v-if="!uiStore.sidebarOpen"
+          class="h-6 w-6"
+        />
+        <XMarkIcon
+          v-else
+          class="h-6 w-6"
+        />
       </button>
     </div>
 
@@ -193,7 +199,10 @@ onBeforeUnmount(() => {
             ]"
             @click="uiStore.sidebarOpen = false"
           >
-            <component :is="item.icon" class="mr-3 h-5 w-5 flex-shrink-0" />
+            <component
+              :is="item.icon"
+              class="mr-3 h-5 w-5 flex-shrink-0"
+            />
             <span class="flex-1">{{ item.name }}</span>
             <span
               v-if="item.badge"

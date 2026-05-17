@@ -112,8 +112,12 @@ const handleSubmit = async () => {
   <div class="min-h-screen bg-gray-50 py-12 px-4">
     <div class="max-w-2xl mx-auto">
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-primary-600 mb-2">FactuFlow</h1>
-        <p class="text-gray-600">Configuración Inicial del Sistema</p>
+        <h1 class="text-4xl font-bold text-primary-600 mb-2">
+          FactuFlow
+        </h1>
+        <p class="text-gray-600">
+          Configuración Inicial del Sistema
+        </p>
       </div>
 
       <BaseCard>
@@ -163,7 +167,10 @@ const handleSubmit = async () => {
         />
 
         <!-- Step 1: Usuario -->
-        <div v-if="step === 1" class="space-y-4">
+        <div
+          v-if="step === 1"
+          class="space-y-4"
+        >
           <h2 class="text-xl font-bold text-gray-900 mb-4">
             Crear Usuario Administrador
           </h2>
@@ -201,12 +208,17 @@ const handleSubmit = async () => {
           />
 
           <div class="flex justify-end">
-            <BaseButton @click="nextStep"> Continuar </BaseButton>
+            <BaseButton @click="nextStep">
+              Continuar
+            </BaseButton>
           </div>
         </div>
 
         <!-- Step 2: Empresa -->
-        <div v-if="step === 2" class="space-y-4">
+        <div
+          v-if="step === 2"
+          class="space-y-4"
+        >
           <h2 class="text-xl font-bold text-gray-900 mb-4">
             Datos de la Empresa
           </h2>
@@ -292,10 +304,16 @@ const handleSubmit = async () => {
           />
 
           <div class="flex justify-between pt-4">
-            <BaseButton variant="secondary" @click="previousStep">
+            <BaseButton
+              variant="secondary"
+              @click="previousStep"
+            >
               Volver
             </BaseButton>
-            <BaseButton :loading="loading" @click="handleSubmit">
+            <BaseButton
+              :loading="loading"
+              @click="handleSubmit"
+            >
               Finalizar Configuración
             </BaseButton>
           </div>

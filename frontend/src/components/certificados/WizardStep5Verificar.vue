@@ -56,7 +56,10 @@ const verificarConexion = async () => {
         certificado está bien configurado.
       </p>
 
-      <div v-if="!verificado" class="text-center">
+      <div
+        v-if="!verificado"
+        class="text-center"
+      >
         <BaseButton
           variant="primary"
           :loading="loading"
@@ -71,12 +74,17 @@ const verificarConexion = async () => {
 
       <div v-else>
         <!-- Éxito -->
-        <div v-if="resultado?.exito" class="space-y-6">
+        <div
+          v-if="resultado?.exito"
+          class="space-y-6"
+        >
           <BaseAlert type="success">
             <div class="flex items-start gap-3">
               <span class="text-3xl">✅</span>
               <div>
-                <h3 class="font-bold text-lg mb-2">¡Conexión exitosa!</h3>
+                <h3 class="font-bold text-lg mb-2">
+                  ¡Conexión exitosa!
+                </h3>
                 <p class="text-sm">
                   Tu certificado está correctamente configurado y listo para
                   usar.
@@ -131,12 +139,17 @@ const verificarConexion = async () => {
         </div>
 
         <!-- Error -->
-        <div v-else class="space-y-6">
+        <div
+          v-else
+          class="space-y-6"
+        >
           <BaseAlert type="error">
             <div class="flex items-start gap-3">
               <span class="text-3xl">❌</span>
               <div>
-                <h3 class="font-bold text-lg mb-2">No se pudo conectar</h3>
+                <h3 class="font-bold text-lg mb-2">
+                  No se pudo conectar
+                </h3>
                 <p class="text-sm mb-3">
                   {{ resultado?.error || resultado?.mensaje }}
                 </p>
@@ -156,10 +169,8 @@ const verificarConexion = async () => {
               </li>
               <li class="flex gap-2">
                 <span>•</span>
-                <span
-                  >Asegurate de haber autorizado el servicio en el portal de
-                  ARCA</span
-                >
+                <span>Asegurate de haber autorizado el servicio en el portal de
+                  ARCA</span>
               </li>
               <li class="flex gap-2">
                 <span>•</span>
@@ -169,18 +180,27 @@ const verificarConexion = async () => {
           </div>
 
           <div class="flex gap-3 justify-center">
-            <BaseButton variant="secondary" @click="verificarConexion">
+            <BaseButton
+              variant="secondary"
+              @click="verificarConexion"
+            >
               Reintentar
             </BaseButton>
 
-            <BaseButton variant="secondary"> Ver ayuda </BaseButton>
+            <BaseButton variant="secondary">
+              Ver ayuda
+            </BaseButton>
           </div>
         </div>
       </div>
     </div>
 
     <div class="flex justify-between">
-      <BaseButton variant="secondary" :disabled="loading" @click="emit('prev')">
+      <BaseButton
+        variant="secondary"
+        :disabled="loading"
+        @click="emit('prev')"
+      >
         ← Anterior
       </BaseButton>
 

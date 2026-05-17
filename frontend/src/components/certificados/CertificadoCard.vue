@@ -78,7 +78,9 @@ const nombreAmbiente = computed(() => {
     <!-- Header -->
     <div class="flex items-start justify-between mb-4">
       <div class="flex items-center gap-3">
-        <div class="text-3xl">🔐</div>
+        <div class="text-3xl">
+          🔐
+        </div>
         <div>
           <h3 class="text-lg font-semibold text-gray-900">
             {{ certificado.nombre }}
@@ -94,7 +96,7 @@ const nombreAmbiente = computed(() => {
       <div
         v-if="
           certificado.estado === 'por_vencer' ||
-          certificado.estado === 'vencido'
+            certificado.estado === 'vencido'
         "
         class="text-2xl"
       >
@@ -150,7 +152,7 @@ const nombreAmbiente = computed(() => {
       <button
         v-if="
           certificado.estado === 'por_vencer' ||
-          certificado.estado === 'vencido'
+            certificado.estado === 'vencido'
         "
         class="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors font-medium text-sm"
         @click="emit('renovar', certificado.id)"

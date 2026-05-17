@@ -55,7 +55,10 @@ const handleInput = (event: Event) => {
       class="block text-sm font-medium text-gray-700 mb-1"
     >
       {{ label }}
-      <span v-if="required" class="text-red-500">*</span>
+      <span
+        v-if="required"
+        class="text-red-500"
+      >*</span>
     </label>
 
     <input
@@ -68,13 +71,19 @@ const handleInput = (event: Event) => {
       :class="inputClasses"
       v-bind="attrs"
       @input="handleInput"
-    />
+    >
 
-    <p v-if="hint && !error" class="mt-1 text-sm text-gray-500">
+    <p
+      v-if="hint && !error"
+      class="mt-1 text-sm text-gray-500"
+    >
       {{ hint }}
     </p>
 
-    <p v-if="error" class="mt-1 text-sm text-red-600">
+    <p
+      v-if="error"
+      class="mt-1 text-sm text-red-600"
+    >
       {{ error }}
     </p>
   </div>

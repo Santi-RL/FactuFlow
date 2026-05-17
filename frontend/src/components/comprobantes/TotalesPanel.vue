@@ -33,19 +33,28 @@ const tieneIva = computed(() => {
       </div>
 
       <!-- IVA 21% -->
-      <div v-if="iva21 > 0" class="flex justify-between text-gray-700">
+      <div
+        v-if="iva21 > 0"
+        class="flex justify-between text-gray-700"
+      >
         <span class="font-medium">IVA 21%:</span>
         <span class="font-mono">{{ formatMonto(iva21) }}</span>
       </div>
 
       <!-- IVA 10.5% -->
-      <div v-if="iva105 > 0" class="flex justify-between text-gray-700">
+      <div
+        v-if="iva105 > 0"
+        class="flex justify-between text-gray-700"
+      >
         <span class="font-medium">IVA 10.5%:</span>
         <span class="font-mono">{{ formatMonto(iva105) }}</span>
       </div>
 
       <!-- IVA 27% -->
-      <div v-if="iva27 > 0" class="flex justify-between text-gray-700">
+      <div
+        v-if="iva27 > 0"
+        class="flex justify-between text-gray-700"
+      >
         <span class="font-medium">IVA 27%:</span>
         <span class="font-mono">{{ formatMonto(iva27) }}</span>
       </div>
@@ -59,7 +68,10 @@ const tieneIva = computed(() => {
       </div>
 
       <!-- Mensaje si no hay IVA -->
-      <div v-if="!tieneIva" class="text-sm text-gray-500 text-center pt-2">
+      <div
+        v-if="!tieneIva"
+        class="text-sm text-gray-500 text-center pt-2"
+      >
         * Los items no tienen IVA
       </div>
     </div>

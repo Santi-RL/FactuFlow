@@ -940,7 +940,9 @@ onBeforeUnmount(() => {
       class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Emision masiva</h1>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Emision masiva
+        </h1>
         <p class="mt-2 max-w-3xl text-gray-600">
           Carga un Excel, revisa errores antes de emitir y sigue el resultado
           del lote sin perder contexto tecnico.
@@ -950,17 +952,22 @@ onBeforeUnmount(() => {
       <div
         class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm"
       >
-        <p class="font-semibold text-gray-900">Emisor activo</p>
+        <p class="font-semibold text-gray-900">
+          Emisor activo
+        </p>
         <p>
           {{
             empresaActiva?.razon_social ||
-            "Selecciona una empresa para empezar."
+              "Selecciona una empresa para empezar."
           }}
         </p>
       </div>
     </div>
 
-    <BaseAlert v-if="!empresaActivaId" type="warning">
+    <BaseAlert
+      v-if="!empresaActivaId"
+      type="warning"
+    >
       Selecciona un emisor activo antes de descargar la plantilla o subir el
       archivo.
     </BaseAlert>
@@ -1006,11 +1013,17 @@ onBeforeUnmount(() => {
                 : "Sin perfil de carga masiva aplicado"
             }}
           </p>
-          <p v-if="configuracionModificada" class="mt-1 text-amber-700">
+          <p
+            v-if="configuracionModificada"
+            class="mt-1 text-amber-700"
+          >
             Configuración modificada en esta carga. Se validará sin snapshot de
             perfil de carga masiva.
           </p>
-          <p v-else class="mt-1 text-gray-500">
+          <p
+            v-else
+            class="mt-1 text-gray-500"
+          >
             {{
               perfilesCargaMasiva.length
                 ? "Puedes cambiarlo antes de validar."
@@ -1090,7 +1103,9 @@ onBeforeUnmount(() => {
         <div>
           <div class="flex items-center gap-2">
             <CloudArrowUpIcon class="h-5 w-5 text-primary-600" />
-            <h2 class="text-lg font-semibold text-gray-900">Validar archivo</h2>
+            <h2 class="text-lg font-semibold text-gray-900">
+              Validar archivo
+            </h2>
           </div>
           <p class="mt-2 text-sm text-gray-600">
             Sube la plantilla oficial o un archivo `.xlsx` externo y confirma el
@@ -1106,7 +1121,7 @@ onBeforeUnmount(() => {
               accept=".xlsx"
               class="hidden"
               @change="handleArchivoSeleccionado"
-            />
+            >
 
             <div
               class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
@@ -1115,7 +1130,7 @@ onBeforeUnmount(() => {
                 <p class="font-medium text-gray-900">
                   {{
                     archivoSeleccionado?.name ||
-                    "Todavia no seleccionaste ningun archivo."
+                      "Todavia no seleccionaste ningun archivo."
                   }}
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
@@ -1128,7 +1143,10 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="flex flex-wrap gap-3">
-                <BaseButton variant="secondary" @click="triggerFileSelection">
+                <BaseButton
+                  variant="secondary"
+                  @click="triggerFileSelection"
+                >
                   <DocumentDuplicateIcon class="mr-2 h-5 w-5" />
                   Elegir archivo
                 </BaseButton>
@@ -1183,17 +1201,23 @@ onBeforeUnmount(() => {
               />
 
               <div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                <p class="font-medium text-gray-900">Columnas detectadas</p>
+                <p class="font-medium text-gray-900">
+                  Columnas detectadas
+                </p>
                 <p class="mt-1 break-words">
                   {{
                     deteccionFormato?.headers_detectados.join(", ") ||
-                    "Todavia no se analizaron encabezados."
+                      "Todavia no se analizaron encabezados."
                   }}
                 </p>
               </div>
             </div>
 
-            <BaseAlert v-if="requiereElegirFormato" type="warning" class="mt-4">
+            <BaseAlert
+              v-if="requiereElegirFormato"
+              type="warning"
+              class="mt-4"
+            >
               <div
                 class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
@@ -1230,7 +1254,7 @@ onBeforeUnmount(() => {
                     :loading="detectandoFormato"
                     @click="
                       archivoSeleccionado &&
-                      detectarFormatoArchivo(archivoSeleccionado)
+                        detectarFormatoArchivo(archivoSeleccionado)
                     "
                   >
                     Analizar encabezados
@@ -1267,7 +1291,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Utilizar punto de venta definido en el archivo
                 </span>
               </label>
@@ -1279,7 +1303,7 @@ onBeforeUnmount(() => {
                     value="fijo"
                     class="h-4 w-4 text-primary-600"
                     :disabled="puntosVentaFactuflow.length === 0"
-                  />
+                  >
                   Utilizar punto de venta del emisor
                 </span>
                 <BaseSelect
@@ -1289,7 +1313,7 @@ onBeforeUnmount(() => {
                   :options="puntoVentaOptions"
                   :disabled="
                     puntoVentaModo !== 'fijo' ||
-                    puntosVentaFactuflow.length === 0
+                      puntosVentaFactuflow.length === 0
                   "
                 />
               </label>
@@ -1339,7 +1363,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="productos"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Productos
                 </span>
               </label>
@@ -1350,7 +1374,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="servicios"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Servicios
                 </span>
               </label>
@@ -1361,7 +1385,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Definido por el archivo
                 </span>
                 <span class="mt-2 block text-xs text-gray-600">
@@ -1371,7 +1395,11 @@ onBeforeUnmount(() => {
               </label>
             </div>
 
-            <BaseAlert v-if="!conceptoModo" type="warning" class="mt-4">
+            <BaseAlert
+              v-if="!conceptoModo"
+              type="warning"
+              class="mt-4"
+            >
               Elegi el tipo de concepto fiscal ARCA antes de validar. Sin esta
               confirmacion el lote no puede quedar listo para emitir.
             </BaseAlert>
@@ -1404,7 +1432,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Utilizar la descripción del archivo
                 </span>
                 <span class="mt-2 block text-xs text-gray-600">
@@ -1419,7 +1447,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="fija"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Utilizar esta descripción para todo el lote
                 </span>
                 <input
@@ -1428,7 +1456,7 @@ onBeforeUnmount(() => {
                   :disabled="descripcionItemModo !== 'fija'"
                   placeholder="Ej.: Honorarios profesionales"
                   class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                />
+                >
               </label>
             </div>
 
@@ -1473,7 +1501,7 @@ onBeforeUnmount(() => {
                       type="radio"
                       value="archivo"
                       class="h-4 w-4 text-primary-600"
-                    />
+                    >
                     Utilizar la fecha del archivo
                   </label>
                   <label class="flex flex-wrap items-center gap-2">
@@ -1482,14 +1510,14 @@ onBeforeUnmount(() => {
                       type="radio"
                       value="fija"
                       class="h-4 w-4 text-primary-600"
-                    />
+                    >
                     Utilizar esta fecha para todos
                     <input
                       v-model="fechaEmisionFija"
                       type="date"
                       :disabled="fechaEmisionModo !== 'fija'"
                       class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                    />
+                    >
                   </label>
                 </div>
               </div>
@@ -1500,14 +1528,16 @@ onBeforeUnmount(() => {
                 </p>
                 <div class="mt-3 space-y-4 text-sm text-gray-700">
                   <div>
-                    <p class="font-medium text-gray-800">Desde</p>
+                    <p class="font-medium text-gray-800">
+                      Desde
+                    </p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaServicioDesdeModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -1516,26 +1546,28 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Fijar
                       <input
                         v-model="fechaServicioDesdeFija"
                         type="date"
                         :disabled="fechaServicioDesdeModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      />
+                      >
                     </label>
                   </div>
 
                   <div>
-                    <p class="font-medium text-gray-800">Hasta</p>
+                    <p class="font-medium text-gray-800">
+                      Hasta
+                    </p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaServicioHastaModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -1544,26 +1576,28 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Fijar
                       <input
                         v-model="fechaServicioHastaFija"
                         type="date"
                         :disabled="fechaServicioHastaModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      />
+                      >
                     </label>
                   </div>
 
                   <div>
-                    <p class="font-medium text-gray-800">Vencimiento de pago</p>
+                    <p class="font-medium text-gray-800">
+                      Vencimiento de pago
+                    </p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaVtoPagoModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -1572,14 +1606,14 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Fijar
                       <input
                         v-model="fechaVtoPagoFija"
                         type="date"
                         :disabled="fechaVtoPagoModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      />
+                      >
                     </label>
                   </div>
                 </div>
@@ -1601,7 +1635,9 @@ onBeforeUnmount(() => {
         <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div class="flex items-center gap-2">
             <ExclamationTriangleIcon class="h-5 w-5 text-amber-600" />
-            <h3 class="font-semibold text-gray-900">Controles previos</h3>
+            <h3 class="font-semibold text-gray-900">
+              Controles previos
+            </h3>
           </div>
           <ul class="mt-3 space-y-2 text-sm text-gray-700">
             <li>Emisor activo correcto.</li>
@@ -1819,7 +1855,11 @@ onBeforeUnmount(() => {
               </p>
             </div>
 
-            <BaseAlert v-if="necesitaCorreccion" type="warning" class="mt-6">
+            <BaseAlert
+              v-if="necesitaCorreccion"
+              type="warning"
+              class="mt-6"
+            >
               Hay comprobantes observados. Descarga el archivo observado para
               ver fila por fila que debes corregir antes de volver a subir el
               Excel.
@@ -1902,7 +1942,7 @@ onBeforeUnmount(() => {
                       <p
                         v-if="
                           grupo.fecha_servicio_desde ||
-                          grupo.fecha_servicio_hasta
+                            grupo.fecha_servicio_hasta
                         "
                         class="text-xs text-gray-500"
                       >
@@ -1968,7 +2008,10 @@ onBeforeUnmount(() => {
           <BaseSpinner />
         </div>
 
-        <div v-else-if="lotes.length > 0" class="space-y-3">
+        <div
+          v-else-if="lotes.length > 0"
+          class="space-y-3"
+        >
           <button
             v-for="lote in lotes"
             :key="lote.id"

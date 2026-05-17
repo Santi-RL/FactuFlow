@@ -9,7 +9,9 @@ const emit = defineEmits<Emits>();
 <template>
   <div class="max-w-3xl mx-auto">
     <div class="text-center mb-8">
-      <div class="text-6xl mb-4">🔐</div>
+      <div class="text-6xl mb-4">
+        🔐
+      </div>
       <h2 class="text-3xl font-bold text-gray-900 mb-2">
         ¡Configuremos tu certificado ARCA!
       </h2>
@@ -54,11 +56,11 @@ const emit = defineEmits<Emits>();
         <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
           <div class="flex items-center gap-3 mb-2">
             <span class="text-2xl">⏱️</span>
-            <span class="text-lg font-semibold text-gray-900"
-              >Tiempo estimado:</span
-            >
+            <span class="text-lg font-semibold text-gray-900">Tiempo estimado:</span>
           </div>
-          <p class="text-gray-700 text-lg">10-15 minutos</p>
+          <p class="text-gray-700 text-lg">
+            10-15 minutos
+          </p>
         </div>
       </div>
     </div>

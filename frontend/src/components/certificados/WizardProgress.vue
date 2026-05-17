@@ -79,7 +79,10 @@ const getLabelClasses = (stepNumber: number) => {
         />
       </div>
 
-      <ol class="relative grid items-start" :style="gridStyle">
+      <ol
+        class="relative grid items-start"
+        :style="gridStyle"
+      >
         <li
           v-for="step in steps"
           :key="step.number"
@@ -112,7 +115,10 @@ const getLabelClasses = (stepNumber: number) => {
             >
               Paso actual
             </p>
-            <span class="sr-only" v-if="step.number < currentStep">
+            <span
+              v-if="step.number < currentStep"
+              class="sr-only"
+            >
               Completado
             </span>
           </div>

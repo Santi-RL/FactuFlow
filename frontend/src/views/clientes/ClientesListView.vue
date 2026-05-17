@@ -114,12 +114,20 @@ const confirmDelete = async () => {
   <div>
     <div class="flex justify-between items-center mb-6">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900" data-testid="page-title">
+        <h1
+          class="text-3xl font-bold text-gray-900"
+          data-testid="page-title"
+        >
           Clientes
         </h1>
-        <p class="mt-2 text-gray-600">Gestión de clientes</p>
+        <p class="mt-2 text-gray-600">
+          Gestión de clientes
+        </p>
       </div>
-      <BaseButton data-testid="clientes-nuevo" @click="handleNew">
+      <BaseButton
+        data-testid="clientes-nuevo"
+        @click="handleNew"
+      >
         <PlusIcon class="h-5 w-5 mr-2" />
         Nuevo Cliente
       </BaseButton>
@@ -137,7 +145,7 @@ const confirmDelete = async () => {
             type="text"
             placeholder="Buscar por nombre o documento..."
             class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+          >
         </div>
       </div>
 

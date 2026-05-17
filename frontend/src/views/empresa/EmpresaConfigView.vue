@@ -538,7 +538,9 @@ onMounted(async () => {
       class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Emisores</h1>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Emisores
+        </h1>
         <p class="mt-2 max-w-3xl text-gray-600">
           Administra los datos fiscales de las personas o razones sociales que
           emiten comprobantes.
@@ -546,7 +548,11 @@ onMounted(async () => {
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <BaseButton variant="secondary" class="gap-2" @click="abrirCrearEmisor">
+        <BaseButton
+          variant="secondary"
+          class="gap-2"
+          @click="abrirCrearEmisor"
+        >
           <PlusIcon class="h-5 w-5" />
           Agregar emisor
         </BaseButton>
@@ -566,7 +572,10 @@ onMounted(async () => {
     </BaseAlert>
 
     <div class="border-b border-gray-200">
-      <nav class="-mb-px flex gap-6" aria-label="Secciones de emisor">
+      <nav
+        class="-mb-px flex gap-6"
+        aria-label="Secciones de emisor"
+      >
         <button
           type="button"
           :class="[
@@ -594,7 +603,10 @@ onMounted(async () => {
       </nav>
     </div>
 
-    <div v-if="loading" class="flex justify-center py-16">
+    <div
+      v-if="loading"
+      class="flex justify-center py-16"
+    >
       <BaseSpinner size="lg" />
     </div>
 
@@ -640,7 +652,11 @@ onMounted(async () => {
                 required
               />
             </div>
-            <BaseInput v-model="form.localidad" label="Localidad" required />
+            <BaseInput
+              v-model="form.localidad"
+              label="Localidad"
+              required
+            />
             <BaseSelect
               v-model="form.provincia"
               label="Provincia"
@@ -652,7 +668,11 @@ onMounted(async () => {
               label="Código postal"
               required
             />
-            <BaseInput v-model="form.telefono" label="Teléfono" type="tel" />
+            <BaseInput
+              v-model="form.telefono"
+              label="Teléfono"
+              type="tel"
+            />
             <div class="md:col-span-2">
               <BaseInput
                 v-model="form.email"
@@ -671,7 +691,9 @@ onMounted(async () => {
                   <BuildingOffice2Icon class="h-5 w-5" />
                 </div>
                 <div>
-                  <p class="text-sm text-gray-500">Emisor activo</p>
+                  <p class="text-sm text-gray-500">
+                    Emisor activo
+                  </p>
                   <p class="font-semibold text-gray-900">
                     {{ empresaActiva.razon_social }}
                   </p>
@@ -683,7 +705,9 @@ onMounted(async () => {
                   <IdentificationIcon class="h-5 w-5" />
                 </div>
                 <div>
-                  <p class="text-sm text-gray-500">CUIT</p>
+                  <p class="text-sm text-gray-500">
+                    CUIT
+                  </p>
                   <p class="font-semibold text-gray-900">
                     {{ empresaActiva.cuit }}
                   </p>
@@ -695,7 +719,9 @@ onMounted(async () => {
                   <CalendarDaysIcon class="h-5 w-5" />
                 </div>
                 <div>
-                  <p class="text-sm text-gray-500">Última actualización</p>
+                  <p class="text-sm text-gray-500">
+                    Última actualización
+                  </p>
                   <p class="font-semibold text-gray-900">
                     {{
                       new Date(empresaActiva.updated_at).toLocaleString("es-AR")
@@ -729,20 +755,29 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-else class="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+      <div
+        v-else
+        class="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]"
+      >
         <BaseCard title="Perfiles de carga masiva">
           <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <p class="text-sm text-gray-600">
               Configura valores habituales para precargar Emisión masiva. El
               usuario siempre podrá revisar y editar todo antes de validar.
             </p>
-            <BaseButton class="gap-2" @click="abrirCrearPerfil">
+            <BaseButton
+              class="gap-2"
+              @click="abrirCrearPerfil"
+            >
               <PlusIcon class="h-5 w-5" />
               Nuevo perfil
             </BaseButton>
           </div>
 
-          <div v-if="loadingPerfiles" class="flex justify-center py-10">
+          <div
+            v-if="loadingPerfiles"
+            class="flex justify-center py-10"
+          >
             <BaseSpinner />
           </div>
 
@@ -757,7 +792,9 @@ onMounted(async () => {
             >
               <div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <p class="font-semibold text-gray-900">{{ perfil.nombre }}</p>
+                  <p class="font-semibold text-gray-900">
+                    {{ perfil.nombre }}
+                  </p>
                   <span
                     v-if="perfil.es_predeterminado"
                     class="rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700"
@@ -803,7 +840,11 @@ onMounted(async () => {
             </div>
           </div>
 
-          <BaseAlert v-else type="info" class="mt-5">
+          <BaseAlert
+            v-else
+            type="info"
+            class="mt-5"
+          >
             Todavía no hay perfiles de carga masiva para este emisor. Cuando
             crees uno, Emisión masiva podrá aplicarlo automáticamente.
           </BaseAlert>
@@ -832,7 +873,10 @@ onMounted(async () => {
       </div>
     </template>
 
-    <BaseAlert v-else type="warning">
+    <BaseAlert
+      v-else
+      type="warning"
+    >
       No hay un emisor seleccionado. Agrega un emisor para empezar a configurar
       certificados, puntos de venta y comprobantes.
     </BaseAlert>
@@ -843,7 +887,10 @@ onMounted(async () => {
       size="xl"
       @close="cerrarCrearEmisor"
     >
-      <form class="space-y-5" @submit.prevent="crearEmisor">
+      <form
+        class="space-y-5"
+        @submit.prevent="crearEmisor"
+      >
         <BaseAlert type="info">
           Agrega una persona o razon social que va a emitir comprobantes. Puedes
           cargar una constancia ARCA para completar los datos principales y
@@ -882,13 +929,21 @@ onMounted(async () => {
             type="file"
             accept="application/pdf,.pdf"
             @change="procesarConstancia"
-          />
+          >
         </div>
 
-        <BaseAlert v-if="extractionWarnings.length > 0" type="warning">
-          <p class="mb-2 font-medium">Revisa estos datos manualmente:</p>
+        <BaseAlert
+          v-if="extractionWarnings.length > 0"
+          type="warning"
+        >
+          <p class="mb-2 font-medium">
+            Revisa estos datos manualmente:
+          </p>
           <ul class="list-disc space-y-1 pl-5">
-            <li v-for="warning in extractionWarnings" :key="warning">
+            <li
+              v-for="warning in extractionWarnings"
+              :key="warning"
+            >
               {{ warning }}
             </li>
           </ul>
@@ -968,7 +1023,10 @@ onMounted(async () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton type="submit" :loading="creating">
+          <BaseButton
+            type="submit"
+            :loading="creating"
+          >
             Agregar y seleccionar emisor
           </BaseButton>
         </div>
@@ -985,7 +1043,10 @@ onMounted(async () => {
       size="xl"
       @close="cerrarPerfilModal"
     >
-      <form class="space-y-5" @submit.prevent="guardarPerfil">
+      <form
+        class="space-y-5"
+        @submit.prevent="guardarPerfil"
+      >
         <BaseAlert type="info">
           El perfil solo precarga la pantalla de Emisión masiva. Las fechas,
           punto de venta, concepto fiscal ARCA y descripción facturada quedan
@@ -993,7 +1054,11 @@ onMounted(async () => {
         </BaseAlert>
 
         <div class="grid gap-4 md:grid-cols-2">
-          <BaseInput v-model="perfilForm.nombre" label="Nombre" required />
+          <BaseInput
+            v-model="perfilForm.nombre"
+            label="Nombre"
+            required
+          />
           <BaseSelect
             v-model="perfilFormatoImportacionVersionId"
             :options="formatosOptions"
@@ -1094,7 +1159,7 @@ onMounted(async () => {
             v-model="perfilForm.es_predeterminado"
             type="checkbox"
             class="h-4 w-4 rounded border-gray-300 text-primary-600"
-          />
+          >
           Usar como perfil de carga masiva predeterminado del emisor
         </label>
 
@@ -1106,7 +1171,10 @@ onMounted(async () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton type="submit" :loading="savingPerfil">
+          <BaseButton
+            type="submit"
+            :loading="savingPerfil"
+          >
             Guardar perfil
           </BaseButton>
         </div>

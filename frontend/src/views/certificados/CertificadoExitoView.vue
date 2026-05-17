@@ -47,15 +47,25 @@ onMounted(async () => {
 
 <template>
   <div class="container mx-auto px-4 py-8">
-    <div v-if="loading" class="flex justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex justify-center py-12"
+    >
       <BaseSpinner size="lg" />
     </div>
 
-    <div v-else class="max-w-2xl mx-auto">
+    <div
+      v-else
+      class="max-w-2xl mx-auto"
+    >
       <!-- Success Icon -->
       <div class="text-center mb-8">
-        <div class="text-8xl mb-4">🎉</div>
-        <h1 class="text-4xl font-bold text-gray-900 mb-2">¡Felicitaciones!</h1>
+        <div class="text-8xl mb-4">
+          🎉
+        </div>
+        <h1 class="text-4xl font-bold text-gray-900 mb-2">
+          ¡Felicitaciones!
+        </h1>
         <p class="text-xl text-gray-600">
           Tu certificado ARCA está configurado correctamente
         </p>
@@ -69,19 +79,28 @@ onMounted(async () => {
           Ya podés empezar a emitir facturas electrónicas.
         </p>
 
-        <div v-if="certificado" class="bg-gray-50 rounded-lg p-6 mb-6">
-          <h3 class="font-semibold text-gray-900 mb-4">📋 Resumen:</h3>
+        <div
+          v-if="certificado"
+          class="bg-gray-50 rounded-lg p-6 mb-6"
+        >
+          <h3 class="font-semibold text-gray-900 mb-4">
+            📋 Resumen:
+          </h3>
 
           <dl class="space-y-3">
             <div class="flex justify-between">
-              <dt class="text-gray-600">CUIT:</dt>
+              <dt class="text-gray-600">
+                CUIT:
+              </dt>
               <dd class="font-medium text-gray-900">
                 {{ formatearCUIT(certificado.cuit) }}
               </dd>
             </div>
 
             <div class="flex justify-between">
-              <dt class="text-gray-600">Ambiente:</dt>
+              <dt class="text-gray-600">
+                Ambiente:
+              </dt>
               <dd class="font-medium text-gray-900">
                 {{
                   certificado.ambiente === "produccion"
@@ -92,7 +111,9 @@ onMounted(async () => {
             </div>
 
             <div class="flex justify-between">
-              <dt class="text-gray-600">Válido hasta:</dt>
+              <dt class="text-gray-600">
+                Válido hasta:
+              </dt>
               <dd class="font-medium text-gray-900">
                 {{ formatearFecha(certificado.fecha_vencimiento) }}
               </dd>
@@ -109,11 +130,19 @@ onMounted(async () => {
 
       <!-- Actions -->
       <div class="flex gap-4 justify-center">
-        <BaseButton variant="primary" class="px-6" @click="irADashboard">
+        <BaseButton
+          variant="primary"
+          class="px-6"
+          @click="irADashboard"
+        >
           Ir al Dashboard
         </BaseButton>
 
-        <BaseButton variant="secondary" class="px-6" @click="irACertificados">
+        <BaseButton
+          variant="secondary"
+          class="px-6"
+          @click="irACertificados"
+        >
           Ver certificados
         </BaseButton>
       </div>
