@@ -16,6 +16,10 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `data/`: datos locales, DBs o artefactos temporales (gitignored).
 - `.env.example`: variables de entorno de referencia.
 - `docker-compose.yml`: orquestación local con Docker.
+- `FactuFlow Local.vbs`: acceso local Windows sin consola visible con launcher
+  en tray para desarrollo/QA.
+- `FactuFlow Local.cmd`: acceso de compatibilidad que delega en el launcher
+  oculto.
 - `run-local.ps1`: helper para correr el proyecto en Windows.
 - `README.md`: overview público del proyecto.
 - `AGENTS.md`: guía rápida para agentes.

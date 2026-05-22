@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-17
+Ultima actualizacion: 2026-05-18
 
 ## Objetivo activo
 
@@ -14,6 +14,14 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
   de fechas.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
+- Launcher local Windows manual agregado para desarrollo/QA: `FactuFlow
+  Local.vbs` inicia backend/frontend en segundo plano sin ventana de
+  PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
+  el sistema queda listo.
+- El login ya distingue servidor local no disponible de errores de credenciales
+  y guia al usuario a usar click derecho en el icono del tray >
+  `Reiniciar servicios`, o relanzar `FactuFlow Local.vbs` si el icono no
+  aparece.
 - Clawpatch backend/frontend/repo queda sin hallazgos abiertos despues del
   ciclo de reparaciones 2026-05-16/17.
 - PDF de comprobantes actualizado con formato administrativo alineado a la
@@ -36,6 +44,36 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Launcher local Windows 2026-05-18
+
+- Se agrego `FactuFlow Local.vbs` como acceso de doble click para iniciar el
+  entorno local sin exponer ventanas tecnicas. `FactuFlow Local.cmd` queda como
+  compatibilidad y delega en el mismo launcher oculto.
+- Se agrego `scripts/factuflow-local-tray.ps1`, un launcher con icono en el
+  tray que verifica backend, base de datos y frontend, inicia servicios faltantes
+  con el flujo actual y muestra estados verde/amarillo/rojo.
+- El menu del tray permite abrir FactuFlow, consultar estado del sistema,
+  reiniciar servicios iniciados por el launcher, detenerlos, abrir logs y salir.
+- Los logs quedan en `.tmp/local-launcher/` y no se versionan.
+- Esta etapa no es un instalador, no empaqueta dependencias y no configura
+  inicio automatico con Windows; sigue orientada a entorno local de desarrollo o
+  QA.
+- Verificacion: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+  scripts\factuflow-local-tray.ps1 -SelfTest`, backend `pytest tests -q`,
+  `ruff`, `black`; frontend `lint:check`, `type-check`, `build` y `test:unit`.
+
+### Login con backend local no disponible 2026-05-18
+
+- Se agrego chequeo de `GET /api/health` antes del login.
+- Si el backend local no responde, la UI muestra
+  `FactuFlow no está listo para iniciar sesión` y no envia credenciales.
+- El mensaje indica hacer click derecho en el icono de FactuFlow junto al reloj,
+  elegir `Reiniciar servicios`, esperar a que quede verde y presionar
+  `Reintentar`. Si el icono no aparece, indica abrir nuevamente
+  `FactuFlow Local.vbs`.
+- Quedo documentado el runbook de etapas futuras en
+  `docs/agents/local-launcher-runbook.md`.
 
 ### Puesta a punto Clawpatch 2026-05-16
 
@@ -730,7 +768,7 @@ Quedo validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 194 tests
+  - `pytest tests -q` OK, 195 tests
   - `ruff check app tests` OK
   - `black --check app tests` OK
   - `alembic heads` OK, head `a3b4c5d6e7f8`
@@ -738,7 +776,7 @@ Quedo validado manualmente:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 44 tests
+  - `npm run test:unit` OK, 47 tests
   - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
     del runner; ver seccion `Verificacion automatizada 2026-05-07`
 

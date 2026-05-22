@@ -43,7 +43,7 @@ Instrucciones paso a paso para instalar y configurar FactuFlow.
 6. **Acceder a la aplicación**
    - Frontend: http://localhost:8080
    - Backend API: http://localhost:8000
-   - Documentación API: http://localhost:8000/docs
+   - Documentación API: http://localhost:8000/api/docs
 
 7. **Ver logs (opcional)**
    ```bash
@@ -62,6 +62,24 @@ docker-compose up -d --build
 ---
 
 ## Instalación Manual (Sin Docker)
+
+### Windows local con launcher
+
+Para una PC local de desarrollo o QA ya preparada con Python, Node y npm, se
+puede iniciar FactuFlow con doble click en:
+
+```bash
+.\FactuFlow Local.vbs
+```
+
+El launcher inicia backend y frontend si estan cerrados sin dejar una ventana
+de PowerShell abierta, muestra un icono de estado junto al reloj de Windows y
+abre `http://localhost:8080` cuando el sistema queda listo. Los logs quedan en
+`.tmp/local-launcher/`. `FactuFlow Local.cmd` se conserva como acceso de
+compatibilidad y delega en el launcher oculto.
+
+Esta opcion no instala dependencias del sistema, no empaqueta la aplicacion y no
+configura inicio automatico con Windows.
 
 ### Requisitos Previos
 - Python 3.11+

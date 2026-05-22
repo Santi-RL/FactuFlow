@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-17
+Ultima actualizacion: 2026-05-18
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -20,9 +20,42 @@ Este manual describe el uso actual del producto. Si una funcion no aparece aca, 
 
 ## 1. Acceso al sistema
 
-1. Abrir FactuFlow en el navegador.
-2. Ingresar con tu correo electronico y contrasena.
-3. Si es la primera vez y no hay un usuario creado, usar la opcion `Configurar sistema`.
+En una instalacion local de Windows para desarrollo o QA, usar el acceso
+`FactuFlow Local.vbs` ubicado en la carpeta del proyecto. Ese acceso inicia
+FactuFlow en segundo plano sin dejar una ventana de PowerShell abierta, muestra
+un icono junto al reloj de Windows y abre el navegador cuando la aplicacion esta
+lista. `FactuFlow Local.cmd` queda como acceso de compatibilidad.
+
+Estados del icono local:
+- verde: FactuFlow esta listo para usar
+- amarillo: FactuFlow se esta iniciando
+- rojo: FactuFlow requiere atencion
+
+Desde el icono junto al reloj puedes:
+- abrir FactuFlow
+- consultar el estado del sistema
+- reiniciar servicios
+- detener servicios
+- abrir logs
+- salir del launcher local
+
+Si el icono queda rojo, usa `Estado del sistema` o `Abrir logs`. Los mensajes
+estan pensados para indicar si el problema esta en el servidor local, la base de
+datos, el frontend o un puerto ocupado por otra aplicacion.
+
+Si la pantalla de inicio de sesion indica que `FactuFlow no está listo para
+iniciar sesión`, hace click derecho en el icono de FactuFlow junto al reloj de
+Windows y elegi `Reiniciar servicios`. Cuando el icono quede verde, presiona
+`Reintentar` en la pantalla. Si no ves el icono, abre nuevamente
+`FactuFlow Local.vbs`.
+
+En una instalacion en VPS o servidor, no se usa el launcher local. En ese caso
+se entra desde la URL publicada de FactuFlow.
+
+Luego:
+
+1. Ingresar con tu correo electronico y contrasena.
+2. Si es la primera vez y no hay un usuario creado, usar la opcion `Configurar sistema`.
 
 Si ya existe al menos un usuario y se necesita crear otro administrador, hoy se hace
 con el comando operativo `python -m app.scripts.create_admin_user` desde el backend.
@@ -533,11 +566,13 @@ Revisa especialmente:
 
 ## 11. Limitaciones actuales
 
-Al 2026-05-08:
+Al 2026-05-18:
 
 - no existe todavia descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda
 - los reportes son de consulta, no de exportacion
 - la validacion concluyente de homologacion se hace por webservice, no por QR
+- el launcher local de Windows es manual y esta orientado a desarrollo/QA; no
+  es todavia un instalador ni configura inicio automatico con Windows
 - antes de la primera prueba real en produccion hay que confirmar el punto de
   venta elegido, revisar backup/logs y emitir solo un lote chico controlado

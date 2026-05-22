@@ -7,6 +7,15 @@ import type {
 } from "@/types/auth";
 
 export const authService = {
+  async checkBackendAvailable(): Promise<boolean> {
+    try {
+      await apiClient.get("/api/health");
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await apiClient.post<LoginResponse>(
       "/api/auth/login",

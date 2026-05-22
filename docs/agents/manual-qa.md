@@ -1,12 +1,23 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-17
+Ultima actualizacion: 2026-05-18
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
 ## Preparacion
 
-Levantar el proyecto:
+Levantar el proyecto con la UX local recomendada para Windows:
+
+```bash
+.\FactuFlow Local.vbs
+```
+
+El launcher queda en el tray de Windows sin dejar una ventana de PowerShell
+abierta y muestra estado verde, amarillo o rojo. Desde el menu del icono se
+puede abrir FactuFlow, consultar `Estado del sistema`, reiniciar servicios,
+detener servicios y abrir logs.
+
+Camino tecnico alternativo:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\run-local.ps1
@@ -15,6 +26,21 @@ powershell -ExecutionPolicy Bypass -File .\run-local.ps1
 Entornos esperados:
 - Frontend: `http://localhost:8080`
 - Backend: `http://localhost:8000`
+
+Logs del launcher local:
+- `.tmp/local-launcher/launcher.log`
+- `.tmp/local-launcher/backend.log`
+- `.tmp/local-launcher/frontend.log`
+
+Caso local con frontend activo y backend caido:
+
+1. Levantar solo el frontend.
+2. Abrir `/login`.
+3. Completar correo y contrasena.
+4. Presionar `Ingresar`.
+5. Verificar que aparece `FactuFlow no está listo para iniciar sesión`.
+6. Levantar backend y presionar `Reintentar`.
+7. Confirmar que el aviso desaparece y el login vuelve a operar.
 
 ## Acceso local usado
 
@@ -459,9 +485,9 @@ Pendiente antes de produccion:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificacion automatizada 2026-05-17: backend `pytest tests -q` OK
-  (194 tests), `ruff`, `black` y `alembic heads` OK; frontend
-  `test:unit` OK (44 tests), `type-check` OK, `build` OK y `lint:check` OK
+- Verificacion automatizada 2026-05-18: backend `pytest tests -q` OK
+  (195 tests), `ruff`, `black` y launcher local `-SelfTest` OK; frontend
+  `test:unit` OK (47 tests), `type-check` OK, `build` OK y `lint:check` OK
   sin errores ni warnings.
 - Quedan pendientes las tareas externas de salida a produccion que no se resuelven desde esta QA local.
 

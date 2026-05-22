@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-17
+Ultima actualizacion: 2026-05-18
 
 Este roadmap vuelve a cumplir dos funciones:
 - marcar el estado real del producto y del MVP
@@ -37,6 +37,7 @@ Cerrar un MVP funcional centrado en:
 - [x] Objetivo principal redefinido: emision masiva y UX administrativa simple
 - [x] Single-company operativo como foco inicial
 - [~] Criterios UX no tecnicos parcialmente implementados
+- [x] Login informa claramente cuando el servidor local no esta disponible
 - [ ] Multiempresa completo para admins globales
 
 ### Backend
@@ -98,6 +99,7 @@ Cerrar un MVP funcional centrado en:
 
 ### Operacion y plataforma
 - [x] Arranque local simple con `run-local.ps1`
+- [x] Launcher local Windows manual con icono en tray para desarrollo/QA
 - [x] Perfiles Docker separados para local y produccion
 - [x] PostgreSQL definido como base recomendada para operacion real
 - [x] Comando administrativo para crear/promover usuario propietario
@@ -110,6 +112,8 @@ Objetivo: tener un repo mantenible, ejecutable y documentado.
 
 - [x] Repositorio, estructura base y guias para agentes
 - [x] Backend y frontend levantables en local
+- [x] Acceso local manual `FactuFlow Local.vbs` sin consola visible, con estado
+  de backend, frontend y base de datos en tray
 - [x] `.env.example` y configuracion base
 - [x] Documentacion tecnica inicial
 - [~] Docker y compose alineados al estado real
@@ -284,7 +288,10 @@ Objetivo: reducir al minimo la necesidad de soporte tecnico para operar.
 - [x] Uso de espanol claro en pantallas core
 - [x] Eliminacion de `alert()` y `confirm()` nativos en flujos principales
 - [~] Mensajes accionables en errores de negocio
+- [x] Mensaje claro en login cuando el backend local no responde
 - [~] Ayudas contextuales en pantallas sensibles
+- [ ] Pantalla de estado del sistema dentro del frontend
+- [ ] Integracion formal entre launcher local y UI web
 - [ ] Tooltips y microcopy sistematizados en toda la app
 - [ ] Checklists previos a la emision
 - [ ] Vistas vacias guiadas

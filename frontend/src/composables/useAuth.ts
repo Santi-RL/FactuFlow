@@ -2,6 +2,15 @@ import { computed } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
 
+const SERVER_UNAVAILABLE_MESSAGE =
+  'No se pudo conectar con el servidor local. Hacé click derecho en el ícono de FactuFlow junto al reloj de Windows y elegí "Reiniciar servicios". Cuando el ícono quede verde, presioná "Reintentar". Si no ves el ícono, abrí nuevamente FactuFlow Local.vbs.';
+
+const isNetworkError = (error: any): boolean =>
+  !error.response &&
+  (error.code === "ERR_NETWORK" ||
+    error.code === "ECONNABORTED" ||
+    Boolean(error.request));
+
 export function useAuth() {
   const authStore = useAuthStore();
   const router = useRouter();
@@ -15,6 +24,9 @@ export function useAuth() {
       await authStore.login({ email, password });
       router.push("/");
     } catch (error: any) {
+      if (isNetworkError(error)) {
+        throw new Error(SERVER_UNAVAILABLE_MESSAGE);
+      }
       throw new Error(
         error.response?.data?.detail || "Error al iniciar sesión",
       );

@@ -25,6 +25,25 @@ En este momento el proyecto esta orientado a cerrar un MVP funcional en `homolog
 
 ## Puesta en marcha
 
+### Windows local con launcher
+
+Para una PC local de desarrollo o QA, usar:
+
+```bash
+.\FactuFlow Local.vbs
+```
+
+El launcher inicia backend y frontend en segundo plano sin dejar una ventana de
+PowerShell abierta, muestra un icono junto al reloj de Windows y abre
+`http://localhost:8080` cuando FactuFlow esta listo. El menu del icono permite
+abrir la app, consultar estado, reiniciar o detener servicios y abrir los logs
+locales en `.tmp/local-launcher/`. El acceso `FactuFlow Local.cmd` queda como
+compatibilidad y delega en el mismo launcher oculto.
+
+Esta opcion no es un instalador ni configura inicio automatico con Windows.
+Para produccion en servidor/VPS, usar Docker produccion y acceder por la URL
+publicada.
+
 ### Docker
 
 ```bash
@@ -47,7 +66,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 
 El perfil productivo no monta el codigo fuente, usa PostgreSQL, exige secretos y deja persistidos datos, certificados y logs en rutas configurables.
 
-### Desarrollo local
+### Desarrollo local tecnico
 
 Backend:
 

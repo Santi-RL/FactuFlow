@@ -71,7 +71,16 @@ Nota 2026-05-07:
 
 ## Arranque local
 
-La forma mas simple de levantar el proyecto completo es:
+La forma recomendada para QA manual local en Windows es:
+
+```bash
+.\FactuFlow Local.vbs
+```
+
+El launcher muestra estado en el tray sin dejar una ventana de PowerShell
+abierta y deja logs en `.tmp/local-launcher/`.
+
+El camino tecnico alternativo es:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\run-local.ps1
