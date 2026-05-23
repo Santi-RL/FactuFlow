@@ -6,22 +6,59 @@ Sistema de facturacion electronica ARCA enfocado en usuarios administrativos no 
 
 Version actual: `0.2.0-mvp`
 
-En este momento el proyecto esta orientado a cerrar un MVP funcional en `homologacion` con estas capacidades:
+En este momento el proyecto esta en una etapa post-piloto productivo: el MVP ya
+fue validado en homologacion y tambien se uso en produccion real controlada. El
+trabajo actual se concentra en consolidar operacion, documentacion, despliegue y
+robustez sin perder las reglas fiscales criticas.
+
+El corte `0.2.0-mvp` del 2026-05-22 es la linea base actual. El historial
+anterior queda resumido en `CHANGELOG.md`; no debe confundirse con el estado
+operativo vigente.
+
+Capacidades actuales:
 
 - configuracion inicial de empresa y usuario administrador
 - emision individual de comprobantes con CAE
 - emision masiva desde Excel con validacion previa, seguimiento del lote y archivo observado
 - certificados por empresa y ambiente
 - PDF de comprobantes y reportes basicos de ventas, IVA y ranking de clientes
-- selector de emisor activo para usuarios administradores
+- selector de emisor activo para que un contador independiente o estudio chico
+  opere varios CUITs sin mezclar informacion
+- uso productivo real controlado con evidencia privada local; no se versionan
+  CUITs, CAEs, comprobantes, Excels ni logs privados
+
+## Alcance de producto
+
+FactuFlow es una herramienta para facturar. No esta planificado incorporar
+manejo de cuentas corrientes, stock ni catalogos como modulos del producto.
+
+Las integraciones externas quedan como evolucion futura, posterior a tener la
+facturacion madura y productiva estable. Su objetivo sera obtener datos desde
+otras fuentes o aplicaciones, o enviar datos hacia ellas, aprovechando la API
+del sistema.
+
+El modelo multiemisor vigente es: un usuario puede administrar varios emisores,
+pero siempre opera con un emisor activo explicito por vez. No esta planificada
+por ahora una administracion central compleja con permisos finos, reportes
+globales y operacion simultanea entre multiples emisores.
+
+La observabilidad operativa estandar es parte del alcance post-piloto: el
+sistema debe explicar con lenguaje simple que paso, que impacto tiene y cual es
+el proximo paso seguro en emisiones, lotes, errores ARCA, reconciliaciones,
+estado del sistema y backups. Las herramientas avanzadas de monitoreo quedan
+para una etapa posterior.
 
 ## Lo mas importante del MVP
 
 - la interfaz prioriza tareas guiadas, mensajes claros y contexto para personal administrativo
 - la emision masiva usa una plantilla Excel fija con `comprobante_ref` para agrupar varias filas en un mismo comprobante
 - cada lote pertenece a un solo emisor activo
+- clientes, certificados, puntos de venta, comprobantes, lotes, PDFs y reportes
+  deben quedar siempre aislados por emisor activo
 - hasta `100` comprobantes se procesan en la misma sesion; lotes mas grandes quedan en cola persistente y se procesan en segundo plano
 - los reportes solo consideran comprobantes autorizados
+- ninguna emision real debe usar la fecha del dia como default fiscal; la fecha
+  debe ser explicita y confirmada por el usuario antes de solicitar CAE
 
 ## Puesta en marcha
 
@@ -41,8 +78,9 @@ locales en `.tmp/local-launcher/`. El acceso `FactuFlow Local.cmd` queda como
 compatibilidad y delega en el mismo launcher oculto.
 
 Esta opcion no es un instalador ni configura inicio automatico con Windows.
-Para produccion en servidor/VPS, usar Docker produccion y acceder por la URL
-publicada.
+El uso local con launcher ya esta implementado y testeado hasta nivel
+desarrollo/QA; el siguiente hito de despliegue es una instalacion en VPS con
+Docker produccion y PostgreSQL.
 
 ### Docker
 
@@ -65,6 +103,12 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 ```
 
 El perfil productivo no monta el codigo fuente, usa PostgreSQL, exige secretos y deja persistidos datos, certificados y logs en rutas configurables.
+
+Antes de operar el VPS con emisores reales hay una pregunta tecnica pendiente:
+validar si los certificados productivos actuales pueden migrarse desde el
+entorno local al VPS conservando clave, archivo y configuracion, o si conviene
+generar certificados nuevos para el servidor. La distribucion comercial
+instalable queda para despues de estabilizar el producto funcionando en VPS.
 
 ### Desarrollo local tecnico
 

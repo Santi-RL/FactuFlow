@@ -9,6 +9,11 @@ instrucciones del proyecto, la documentacion viva y la implementacion real.
 Todos los puntos quedaron completados el 2026-05-07. Se conserva como registro
 de cierre; si se elimina en el futuro, reflejar esa decision en `AGENTS.md`.
 
+Nota 2026-05-22: este archivo es historico. Algunos cierres mencionan el punto
+de reanudacion vigente al 2026-05-07, antes de la operacion productiva real
+posterior. Para estado actual usar `docs/agents/current-status.md`,
+`ROADMAP.md` y `CHANGELOG.md`.
+
 ## Uso obligatorio para agentes
 
 - Al iniciar cualquier chat nuevo, leer este archivo despues de `AGENTS.md`.

@@ -1,6 +1,6 @@
 # ARCA WS - Notas practicas
 
-Ultima actualizacion: 2026-05-17
+Ultima actualizacion: 2026-05-22
 
 Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
 
@@ -148,7 +148,7 @@ El proyecto tuvo que corregir estas estructuras:
   numero, fecha y CUIT del emisor de la factura duplicada.
 - Los importes van positivos; el tipo de comprobante define que se trata de un
   credito.
-- El 2026-05-08 se genero `.tmp/PruebaNC.xlsx` con 19 notas de credito para
+- El 2026-05-08 se genero un Excel privado local con 19 notas de credito para
   anular duplicados productivos. Se valido contra una copia de la base, sin
   emision: 19 validas, 0 errores, 0 emitidas.
 - Luego el usuario emitio las 19 notas en produccion. Verificacion posterior
@@ -209,17 +209,21 @@ El proyecto tuvo que corregir estas estructuras:
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
   compatibilidad con el handshake del endpoint.
 - El perfil productivo del repo es `docker-compose.prod.yml` con PostgreSQL.
+- Al 2026-05-22, FactuFlow ya fue usado en produccion real. No tratar la
+  produccion como pendiente de primer piloto; tratarla como operacion
+  post-piloto que requiere backup/restauracion, trazabilidad, observabilidad y
+  controles fiscales antes de cada nuevo lote.
 
 ## Dato historico util
 
 El smoke real de homologacion del 2026-03-09 emitio:
-- comprobante individual con CAE `86100017097127`
-- lote con CAEs `86100017097274` y `86100017097287`
+- comprobante individual con CAE registrado en evidencia local privada
+- lote con CAEs registrados en evidencia local privada
 
 La QA real del 2026-04-10 agrego:
-- comprobante individual `0005-00000004` con CAE `86150042970986`
-- lote `0005-00000005` con CAE `86150042971165`
-- lote `0005-00000006` con CAE `86150042971178`
+- comprobante individual `0005-00000004` con CAE registrado en evidencia local privada
+- lote `0005-00000005` con CAE registrado en evidencia local privada
+- lote `0005-00000006` con CAE registrado en evidencia local privada
 
 Detalle completo:
 - `docs/project/notes/SESSION_2026-03-09.md`

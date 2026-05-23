@@ -1,5 +1,10 @@
 # Integración con ARCA - Documentación
 
+> Nota 2026-05-22: este documento es un resumen tecnico historico de la
+> implementacion inicial. Para el contrato actual usar `docs/api/README.md`; para
+> estado operativo y reglas fiscales vigentes usar `docs/agents/arca.md`,
+> `docs/arca-ws/NOTAS.md` y `docs/agents/current-status.md`.
+
 ## Resumen
 
 Se implementó la integración completa con los webservices de ARCA (Agencia de Recaudación y Control Aduanero) para emitir comprobantes electrónicos en Argentina.
@@ -141,7 +146,10 @@ Dependencias ya existentes:
 
 ### Variables de Entorno
 
-Las siguientes variables ya existen en `.env.example`:
+La nomenclatura publica actual usa `ARCA_*`. Se mantienen aliases `AFIP_*` por
+compatibilidad legacy.
+
+Las siguientes variables legacy pueden aparecer en instalaciones antiguas:
 
 ```bash
 # Ambiente de ARCA: "homologacion" o "produccion"
@@ -151,9 +159,9 @@ AFIP_ENV=homologacion
 AFIP_CERTS_PATH=./certs
 ```
 
-También se aceptan:
-- `ARCA_ENV` (alternativa a `AFIP_ENV`)
-- `ARCA_CERTS_PATH` (alternativa a `AFIP_CERTS_PATH`)
+Preferir:
+- `ARCA_ENV`
+- `CERTS_PATH`
 
 ### Certificados
 
@@ -185,7 +193,7 @@ El sistema maneja automáticamente la autenticación:
   "tipo_cbte": 6,  # Factura B
   "concepto": 1,   # Productos
   "tipo_doc": 80,  # CUIT
-  "nro_doc": 20123456789,
+  "nro_doc": "<CUIT_RECEPTOR>",
   "cbte_desde": 1,
   "cbte_hasta": 1,
   "fecha_cbte": "20241231",
@@ -211,7 +219,7 @@ El sistema maneja automáticamente la autenticación:
 
 ```json
 {
-  "cae": "12345678901234",
+  "cae": "<CAE_OTORGADO>",
   "cae_vencimiento": "20250107",
   "numero_comprobante": 1,
   "tipo_cbte": 6,
@@ -227,7 +235,8 @@ El sistema maneja automáticamente la autenticación:
 ### Homologación (Testing)
 - WSAA: `https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl`
 - WSFEv1: `https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL`
-- CUIT de prueba: `20409378472`
+- CUIT de prueba: usar el valor provisto por ARCA para el entorno de
+  homologacion, sin versionar CUITs reales ni datos de clientes.
 
 ### Producción
 - WSAA: `https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl`
@@ -268,15 +277,22 @@ Los logs incluyen:
 - Errores de SOAP
 - Errores de servicio
 
-## Próximos Pasos
+## Estado posterior
 
-Para completar la integración:
+Varios puntos que en la implementacion inicial figuraban como proximos pasos ya
+fueron completados:
 
-1. **Crear wizard de configuración de certificados** en el frontend
-2. **Integrar con modelo Comprobante** para guardar CAE en BD
-3. **Agregar validaciones adicionales** (ej: verificar que punto de venta esté habilitado)
-4. **Implementar reintento automático** en caso de errores transitorios
-5. **Agregar soporte para otros webservices** (WSFEx, etc.)
+1. Wizard de certificados en frontend.
+2. Persistencia de CAE en `Comprobante`.
+3. Validacion de punto de venta, emisor activo y cliente opcional antes de
+   solicitar CAE.
+4. Manejo de fallos post-CAE como `requiere_reconciliacion`, sin reintentos
+   automaticos cuando existe incertidumbre fiscal.
+
+Pendientes actuales relacionados:
+- mejorar observabilidad y trazabilidad de operaciones productivas
+- formalizar backup/restauracion
+- evaluar soporte para otros webservices solo si entra en el alcance de producto
 
 ## Documentación Adicional
 

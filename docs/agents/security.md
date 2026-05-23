@@ -24,6 +24,18 @@
     trazas Playwright, logs, auditorias locales, planes privados de cambio y
     scripts exploratorios de debug
 
+## Aislamiento por emisor
+
+- FactuFlow usa un modelo multiemisor con un emisor activo explicito por vez,
+  orientado a contadores independientes y estudios chicos.
+- Clientes, certificados, puntos de venta, comprobantes, lotes, PDFs, reportes,
+  perfiles de carga masiva y formatos de importacion deben quedar siempre
+  scopiados al emisor activo.
+- Ningun flujo debe reutilizar silenciosamente datos de otro emisor. Ante duda,
+  bloquear la operacion y pedir una seleccion o validacion explicita.
+- Los cambios que toquen emision, lotes, certificados, puntos de venta,
+  clientes, reportes o PDFs deben considerar pruebas de regresion multiemisor.
+
 ## Checklist antes de commit
 
 Ejecutar una revision minima:

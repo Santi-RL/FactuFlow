@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-18
+Ultima actualizacion: 2026-05-22
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -64,6 +64,9 @@ Todavia no hay una pantalla de gestion de usuarios.
 ## 2. Emisor activo
 
 Si tu usuario administra mas de un CUIT, en el encabezado veras el selector `Emisor activo`.
+Este modelo esta pensado para contadores independientes o estudios chicos que
+gestionan varios emisores desde la misma instalacion, pero siempre trabajan con
+un solo emisor activo por vez.
 
 Todo lo que hagas en estas secciones queda asociado a ese emisor:
 - dashboard
@@ -86,6 +89,8 @@ un lote que ya estabas revisando en la pestaña anterior.
 
 Como proteccion adicional, la emision se bloquea si el punto de venta o el
 cliente seleccionado no pertenecen al emisor activo.
+La misma separacion aplica a certificados, comprobantes, lotes, PDFs, reportes,
+perfiles de carga y formatos de importacion: no deben mezclarse entre emisores.
 
 ## 3. Dashboard
 
@@ -341,11 +346,11 @@ La administracion de perfiles de carga masiva por emisor existe desde
 importacion todavia se mantiene por API/configuracion; la pantalla de emision se
 concentra en seleccionar y confirmar formatos ya disponibles.
 
-### Formato Cano
+### Formato privado Responsable Inscripto
 
-El emisor Cano tiene configurado localmente el formato `Cano - Factura B IVA
-21%`. Esta pensado para archivos con columnas como `Fecha`, `Tipo`,
-`Punto de Venta`, `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
+Existe un formato local privado para Factura B IVA 21%. Esta pensado para
+archivos con columnas como `Fecha`, `Tipo`, `Punto de Venta`,
+`Imp. Neto Gravado`, `IVA` e `Imp. Total`.
 
 El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa `Imp. Neto Gravado`
 como precio neto del item y `Imp. Total` como total de referencia. Como la
@@ -362,10 +367,10 @@ La fecha del archivo no se usa automaticamente para emitir. Antes de validar el
 lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
 permitida por ARCA para todo el lote.
 
-### Formato Roldan
+### Formato privado con punto fijo
 
-El emisor Roldan Gonzalo Matias tiene configurado localmente el formato
-`Roldan - Factura B IVA 21%`. Esta pensado para archivos con columnas
+Existe otro formato local privado de Factura B IVA 21% vinculado a un perfil de
+carga masiva con punto de venta fijo. Esta pensado para archivos con columnas
 `Fecha`, `Tipo`, `Punto de Venta`, `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
 
 El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa siempre
@@ -566,7 +571,7 @@ Revisa especialmente:
 
 ## 11. Limitaciones actuales
 
-Al 2026-05-18:
+Al 2026-05-22:
 
 - no existe todavia descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda
@@ -574,5 +579,11 @@ Al 2026-05-18:
 - la validacion concluyente de homologacion se hace por webservice, no por QR
 - el launcher local de Windows es manual y esta orientado a desarrollo/QA; no
   es todavia un instalador ni configura inicio automatico con Windows
-- antes de la primera prueba real en produccion hay que confirmar el punto de
-  venta elegido, revisar backup/logs y emitir solo un lote chico controlado
+- la produccion real ya fue operada; antes de cada nueva emision productiva hay
+  que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
+  descripcion facturada, totales, backup/logs y confirmacion irreversible
+- todavia falta una pantalla interna de `Estado del sistema` dentro del
+  frontend; debe explicar con mensajes simples si la aplicacion, la base, ARCA,
+  certificados y lotes estan correctos o necesitan atencion
+- todavia falta trazabilidad mas visible para lotes productivos/reintentos, con
+  estados y proximos pasos entendibles para usuarios no tecnicos

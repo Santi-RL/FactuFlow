@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-18
+Ultima actualizacion: 2026-05-22
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -86,10 +86,10 @@ Si deja de funcionar, validar la base local o resetear la clave con el mismo com
 - Pendiente de QA visual final: abrir un PDF real desde la UI y revisar
   legibilidad en preview/descarga con un comprobante autorizado.
 
-### Formato Roldan - Factura B IVA 21% - QA 2026-05-11
+### Formato privado - Factura B IVA 21% - QA 2026-05-11
 
-- Se creo el formato particular `Roldan - Factura B IVA 21%` para
-  `ROLDAN GONZALO MATIAS` y se vinculo al perfil predeterminado del emisor.
+- Se creo un formato particular de Factura B IVA 21% para un emisor privado y
+  se vinculo al perfil predeterminado de ese emisor.
 - El formato toma `Imp. Neto Gravado` como neto del item y usa `Imp. Total`
   solo como control de consistencia.
 - El Excel privado revisado trae 1432 filas utiles, todas `Factura B`, fecha de
@@ -371,15 +371,15 @@ Cambio critico posterior el 2026-05-08:
   `Descripcion facturada obligatoria`, las opciones de descripcion desde archivo
   o fija, y la columna `Descripcion facturada` antes de emitir.
 
-Pendiente antes de produccion:
-- repetir el recorrido con el lote definitivo
+Reglas vigentes para cualquier nueva emision productiva:
 - definir con el usuario/contador la fecha de emision permitida por ARCA
-- antes de emitir archivos de notas de credito de emisores privados, confirmar
-  explicitamente la fecha fiscal fija de emision permitida por ARCA
+- antes de emitir facturas, notas de credito o notas de debito de emisores
+  privados, confirmar explicitamente la fecha fiscal fija o la politica de
+  fecha tomada del archivo
 - definir con el usuario/contador la descripcion facturada real si no viene del
   archivo
 - revisar totales, puntos de venta y formato confirmado
-- emitir solo con confirmacion explicita
+- emitir solo con confirmacion explicita e irreversible
 
 ### 7. Clientes
 
@@ -462,6 +462,8 @@ Pendiente antes de produccion:
 ## Resultado
 
 - QA manual funcional cerrada para el alcance actual del MVP en homologacion.
+- Produccion real ya fue operada y verificada con evidencia privada local; este
+  documento conserva los hitos y reglas de QA sin copiar datos privados.
 - El flujo de emision masiva ahora inicia desde la UI lotes chicos y grandes en
   segundo plano para poder mostrar avance real.
 - La pantalla muestra estado `En cola` / `Procesando`, barra de progreso,
@@ -489,7 +491,9 @@ Pendiente antes de produccion:
   (195 tests), `ruff`, `black` y launcher local `-SelfTest` OK; frontend
   `test:unit` OK (47 tests), `type-check` OK, `build` OK y `lint:check` OK
   sin errores ni warnings.
-- Quedan pendientes las tareas externas de salida a produccion que no se resuelven desde esta QA local.
+- Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
+  solo desde QA local: observabilidad operativa estandar, backup/restauracion,
+  trazabilidad visible y soporte de despliegue.
 
 ## Punto de reanudacion
 
@@ -498,18 +502,20 @@ El estado operativo canonico esta en `docs/agents/current-status.md`.
 Desde la QA manual, no queda pendiente volver a configurar desde cero
 certificado productivo, autorizacion `wsfe` ni puntos de venta productivos para
 el emisor real: esos puntos fueron verificados en la preparacion productiva y
-revalidados con checks seguros el 2026-05-07.
+la produccion real ya fue utilizada.
 
-Retomar en la preparacion de la primera prueba real controlada:
+Retomar en consolidacion post-piloto:
 
-1. Confirmar el punto de venta Web Services a usar, hoy candidato `6`.
-2. Preparar o revisar el lote chico definitivo.
-3. Si se usa un extracto bancario, repetir con el lote definitivo la validacion
-   ya probada localmente: autodeteccion, seleccion de formato, seleccion
-   explicita de concepto fiscal ARCA, definicion explicita de la descripcion
-   facturada del item, seleccion explicita de fechas fiscales permitidas por
-   ARCA, revision de totales y confirmacion explicita antes de emitir.
-4. Verificar backup, logs y plan de restauracion.
+1. Usar `docs/agents/current-status.md` como estado operativo canonico.
+2. Mantener documentacion viva alineada con evidencia local segura, sin copiar
+   CUITs, CAEs, Excels, PDFs ni logs privados.
+3. Para nuevos lotes productivos, repetir siempre la validacion fiscal completa:
+   formato, concepto fiscal ARCA, descripcion facturada, fechas fiscales,
+   totales, puntos de venta y confirmacion irreversible.
+4. Verificar backup, logs y plan de restauracion antes de ampliar volumen o
+   incorporar nuevos emisores.
 5. Levantar o confirmar el perfil productivo con PostgreSQL usando
    `docker-compose.prod.yml`.
-6. Emitir la prueba real solo con confirmacion explicita.
+6. Implementar la observabilidad operativa estandar definida en
+   `docs/agents/operational-observability.md`, con mensajes simples y proximos
+   pasos claros para usuarios no tecnicos.

@@ -6,6 +6,7 @@
 - Estado operativo canonico y punto de reanudacion: `docs/agents/current-status.md`
 - QA manual y ultimo checkpoint: `docs/agents/manual-qa.md`
 - Roadmap canonico: `ROADMAP.md`
+- Changelog y corte versionado actual: `CHANGELOG.md`
 
 ## Fuente de verdad operativa
 
@@ -14,6 +15,12 @@
 - `docs/agents/manual-qa.md` registra recorridos de QA y hallazgos manuales, no reemplaza el estado canonico.
 - `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitacora tecnica.
 - `docs/agents/arca.md` conserva detalles tecnicos ARCA y procedimientos seguros.
+- `CHANGELOG.md` resume el avance historico y los cortes de version. No crear
+  snapshots largos si el cambio puede quedar cubierto por changelog, roadmap y
+  documentos vivos.
+- `docs/project/**` conserva auditorias y notas historicas puntuales. No es
+  fuente canonica de estado actual salvo que un documento vivo lo cite
+  explicitamente.
 
 ## Git y GitHub
 
@@ -55,7 +62,9 @@
 - Instalacion y setup: `docs/setup/README.md`
 - Manual de usuario: `docs/user-guide/README.md`
 - Seguridad y certificados: `docs/agents/security.md`
+- Observabilidad operativa estandar: `docs/agents/operational-observability.md`
 - Guia de testing: `docs/agents/testing.md`
+- Changelog y linea base actual: `CHANGELOG.md`
 - Puesta a punto y reportes Clawpatch:
   `docs/project/audits/clawpatch/README.md`
 - Bitacora tecnica de la ultima sesion: `docs/project/notes/SESSION_2026-03-09.md`
@@ -69,12 +78,21 @@ Si el usuario dice algo como "quiero seguir donde quedamos", la secuencia correc
 3. Leer `docs/agents/current-status.md`
 4. Leer `docs/agents/manual-qa.md`
 5. Confirmar el siguiente paso en `ROADMAP.md`
+6. Si hay contradicciones entre docs vivas y evidencia local/codigo, separar
+   hechos verificables de decisiones de producto abiertas. Corregir los hechos
+   comprobables en documentos vivos y resumir el cambio en `CHANGELOG.md`
+   cuando corresponda.
 
 Si el usuario pregunta "como esta el proyecto" o "que es lo primero que debemos
 solucionar", ir directo al primer punto pendiente de
 `docs/agents/alignment-pending.md`.
 
 No rearmar el contexto desde cero si esos archivos ya lo documentan.
+
+Si una contradiccion es verificable por codigo, tests o evidencia local segura,
+corregir la documentacion y marcar el estado como completado/historico. Si la
+contradiccion depende de una decision de producto futura, no resolverla por
+cuenta propia: dejarla expuesta como decision pendiente para el usuario.
 
 ## Como resolver dudas y errores
 

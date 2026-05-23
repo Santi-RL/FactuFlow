@@ -149,6 +149,16 @@ configura inicio automatico con Windows.
 
 ## Instalación en VPS (Producción)
 
+Este es el siguiente hito de despliegue despues del uso local con launcher. La
+instalacion local ya esta implementada y testeada hasta nivel desarrollo/QA; el
+VPS debe validar operacion real con Docker produccion, PostgreSQL, secretos,
+certificados, backups y logs persistentes.
+
+Antes de operar emisores reales en el VPS queda una pregunta tecnica abierta:
+confirmar si los certificados productivos usados localmente pueden
+migrarse/copiarse al servidor conservando clave, cifrado y metadatos, o si es
+necesario generar certificados nuevos para el VPS.
+
 ### Requisitos
 - VPS con Ubuntu 22.04 o superior
 - Dominio configurado (opcional)
@@ -182,8 +192,8 @@ configura inicio automatico con Windows.
 
 5. **Configurar .env para producción**
    ```bash
-   cp .env.example .env
-   nano .env
+   cp .env.production.example .env.production
+   nano .env.production
    ```
 
    Cambios importantes:
@@ -211,8 +221,9 @@ configura inicio automatico con Windows.
    python -m app.scripts.create_admin_user
    ```
 
-   Crear este usuario antes de la primera prueba real para tener acceso total a
-   empresas, certificados, puntos de venta, comprobantes, lotes y reportes.
+   Crear este usuario antes de operar una instalacion nueva para tener acceso
+   total a empresas, certificados, puntos de venta, comprobantes, lotes y
+   reportes.
 
 7. **Configurar Nginx (opcional, para HTTPS)**
    ```bash
@@ -246,12 +257,12 @@ configura inicio automatico con Windows.
    sudo certbot --nginx -d tu-dominio.com
    ```
 
-7. **Levantar FactuFlow**
+8. **Levantar FactuFlow**
    ```bash
-   docker-compose up -d
+   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
    ```
 
-8. **Configurar auto-inicio**
+9. **Configurar auto-inicio**
    ```bash
    sudo systemctl enable docker
    ```
@@ -314,4 +325,6 @@ Después de la instalación:
 1. Seguir el [Wizard de Certificados](../certificates/README.md)
 2. Configurar tu empresa en la aplicación
 3. Crear tu primer cliente
-4. Emitir tu primera factura de prueba (en homologación)
+4. Emitir primero comprobantes de prueba en homologación
+5. Pasar a producción solo con certificado/autorización `wsfe`, punto de venta
+   Web Services, backup/logs y fecha fiscal explícita confirmados

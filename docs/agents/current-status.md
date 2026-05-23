@@ -1,10 +1,12 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-18
+Ultima actualizacion: 2026-05-22
 
 ## Objetivo activo
 
-Dejar FactuFlow listo para una primera prueba real controlada en produccion, con homologacion estable y flujos administrativos validados desde la UI.
+Consolidar FactuFlow despues del piloto productivo real: documentacion
+alineada, reglas fiscales criticas preservadas, operacion masiva controlada,
+backups/restauracion y robustez de soporte antes de ampliar el uso.
 
 ## Estado real del producto
 
@@ -18,6 +20,13 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
   PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
   el sistema queda listo.
+- El uso local con launcher ya esta implementado y testeado hasta nivel
+  desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un
+  VPS con Docker produccion y PostgreSQL.
+- La observabilidad operativa estandar queda definida como requisito antes de
+  ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
+  logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
+  no tecnicos.
 - El login ya distingue servidor local no disponible de errores de credenciales
   y guia al usuario a usar click derecho en el icono del tray >
   `Reiniciar servicios`, o relanzar `FactuFlow Local.vbs` si el icono no
@@ -33,8 +42,16 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   editables antes de validar.
 - Emision masiva muestra progreso real de emision para lotes chicos y grandes,
   con timer de tiempo transcurrido y estimacion restante.
-- Selector de empresa activa implementado para admins.
+- Selector de emisor activo implementado para que contadores independientes o
+  estudios chicos operen varios emisores con un emisor activo explicito por vez.
+- La decision de producto vigente evita una plataforma multiempresa compleja
+  por ahora; el foco es reforzar que clientes, certificados, puntos de venta,
+  comprobantes, lotes, PDFs, reportes, perfiles y formatos no se mezclen entre
+  emisores.
 - Emision individual y masiva funcionando en homologacion y validadas manualmente desde la interfaz.
+- Produccion real ya fue utilizada con comprobantes autorizados y lotes
+  productivos. La evidencia detallada vive en base/logs/archivos privados
+  ignorados por Git y no debe copiarse a documentacion versionada.
 - PDF generado bajo demanda y revalidado manualmente en preview y descarga.
 - Se corrigieron riesgos previos de salida a produccion:
   - numeracion protegida con lock local, advisory lock PostgreSQL y constraint unico
@@ -44,6 +61,20 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Alineacion documental post-piloto 2026-05-22
+
+- Se verifico evidencia local en modo solo lectura y se confirmo que la
+  documentacion que todavia hablaba de "primera prueba real pendiente" estaba
+  desactualizada.
+- La operacion productiva real ya ocurrio. Los detalles privados de CUITs,
+  CAEs, clientes, comprobantes, Excels y logs siguen fuera de Git.
+- Se hizo un corte versionado en `CHANGELOG.md` para dejar `0.2.0-mvp` como
+  linea base actual y resumir el avance historico sin sumar snapshots largos.
+- Desde este punto, el foco operativo ya no es ejecutar el primer CAE real, sino
+  consolidar el uso post-piloto: evidencia resumida, backups/restauracion,
+  observabilidad, trazabilidad de lotes, descarga masiva de PDFs y mejoras de
+  soporte administrativo.
 
 ### Launcher local Windows 2026-05-18
 
@@ -219,17 +250,17 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
   tests/test_facturacion_service.py -q`, `ruff check app tests alembic`,
   `black --check app tests alembic` y `npm run type-check` OK.
 
-### Formato Roldan Factura B IVA 21% 2026-05-11
+### Formato privado Factura B IVA 21% 2026-05-11
 
-- Se creo en la base local el formato particular `Roldan - Factura B IVA 21%`
-  para el emisor `ROLDAN GONZALO MATIAS`.
+- Se creo en la base local un formato particular de Factura B IVA 21% para un
+  emisor privado.
 - El formato mapea `Imp. Neto Gravado` como `item_precio_unitario` y `Imp.
   Total` solo como total informado para control de consistencia. Esto evita
   repetir el error de usar el total final como neto y volver a agregar IVA.
-- El Excel privado `Roldan a facturar 04-2026 ok envio.xlsx` contiene 1432
-  filas utiles, todas `Factura B`, fecha de origen `28/02/2026`, receptor sin
-  documento ni denominacion y columna `Punto de Venta` vacia.
-- El perfil predeterminado local del emisor Roldan quedo vinculado al formato,
+- El Excel privado contiene 1432 filas utiles, todas `Factura B`, fecha de
+  origen `28/02/2026`, receptor sin documento ni denominacion y columna
+  `Punto de Venta` vacia.
+- El perfil predeterminado local del emisor privado quedo vinculado al formato,
   mantiene punto de venta fijo `5`, concepto fiscal `Servicios`, descripcion
   fija `Servicios` y reglas relativas existentes.
 - QA segura sin emision real sobre copia de base local: deteccion de formato
@@ -506,10 +537,10 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
     no bloqueados, y `7`, `9` bloqueados
   - `GET /api/arca/ultimo-comprobante/6/6` devolvio ultimo comprobante `0` y
     proximo `1` para Factura B en punto de venta `6`
-- Conclusion operativa: no falta configurar desde cero certificado productivo,
-  autorizacion `wsfe` ni puntos de venta Web Services. Falta confirmar el punto
-  de venta elegido, preparar el lote definitivo, verificar backup/logs y emitir
-  la primera prueba real controlada.
+- Conclusion operativa de ese momento: no faltaba configurar desde cero
+  certificado productivo, autorizacion `wsfe` ni puntos de venta Web Services.
+  Luego se avanzo a emision productiva real; este bloque queda como evidencia
+  historica de preparacion segura previa.
 
 ### Verificacion automatizada 2026-05-07
 
@@ -650,7 +681,10 @@ Dejar FactuFlow listo para una primera prueba real controlada en produccion, con
     - Numero: `6`
     - CAE: registrado en evidencia local privada
 
-## QA manual cerrada
+## QA manual historica cerrada
+
+Este bloque conserva recorridos previos a la operacion productiva real actual;
+no define el punto vigente de reanudacion.
 
 Quedo validado manualmente:
 
@@ -763,7 +797,8 @@ Quedo validado manualmente:
   - estado: reemplazada por formulario operativo conectado a la API
 - E2E frontend:
   - habia flakiness en Firefox por esperas de navegacion
-  - estado: corregido
+  - estado: esa flakiness puntual fue corregida; el setup general de
+    `npm run test:e2e` todavia no queda como evidencia vigente
 
 ## Verificacion automatizada vigente
 
@@ -788,42 +823,59 @@ Quedo validado manualmente:
 - La base local privada sigue siendo evidencia legacy
   ajustada manualmente; para nuevas instalaciones y operacion real, el camino
   canonico de schema es Alembic.
-- El formato global de extracto bancario ya tiene QA visual local sin emision.
-  Falta repetirlo con el lote definitivo antes de usarlo en produccion y falta
-  QA manual de formatos particulares creados para un emisor.
-- Falta definir con el usuario/contador la descripcion facturada real que se
-  usara en el lote productivo si el archivo no trae columna de descripcion.
-- Las 19 notas de credito del Excel privado local ya fueron emitidas y
-  verificadas por consulta ARCA. Mantener como evidencia la fecha de emision
-  `08/05/2026` y el periodo de servicios `01/04/2026 - 30/04/2026`.
+- La documentacion anterior al 2026-05-22 mezclaba estado pre-piloto con
+  evidencia productiva posterior. El corte `0.2.0-mvp` queda resumido en
+  `CHANGELOG.md`; los documentos vivos son la fuente vigente.
+- Para cada nueva emision productiva, seguir validando explicitamente punto de
+  venta, fecha fiscal, concepto fiscal ARCA, descripcion facturada, totales y
+  confirmacion irreversible antes de solicitar CAE.
+- La evidencia privada de lotes productivos, CAEs, comprobantes, Excels y logs
+  no debe versionarse. La documentacion publica debe registrar solo resúmenes
+  operativos sanitizados.
 - No existe todavia descarga masiva de PDFs en ZIP.
 - Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
-- Falta el tramo operativo de cierre antes de la primera emision productiva:
-  - confirmar punto de venta a usar para el primer CAE real
-  - definir/importar el lote chico definitivo, idealmente validando el formato
-    de extracto bancario si ese sera el origen real
-  - checklist de backup / logs / restauracion
-- Para produccion usar `docker-compose.prod.yml`, PostgreSQL y `.env.production` basado en `.env.production.example`.
+- Falta formalizar operacion productiva robusta:
+  - instalacion en VPS con Docker produccion y PostgreSQL
+  - decision tecnica sobre certificados ARCA: migrar/copiar los certificados
+    productivos locales al VPS o generar certificados nuevos para el servidor
+  - observabilidad operativa estandar segun
+    `docs/agents/operational-observability.md`
+  - backup/restauracion de PostgreSQL, certificados y logs
+  - trazabilidad visible de lotes productivos y reintentos
+  - pantalla `Estado del sistema` dentro del frontend con lenguaje simple
+- Para nuevas instalaciones productivas usar `docker-compose.prod.yml`,
+  PostgreSQL y `.env.production` basado en `.env.production.example`.
 
 ## Estado de salida
 
 - Homologacion: lista y validada.
-- Producto local: listo para un primer piloto controlado.
-- Produccion real: certificado productivo, autorizacion `wsfe` y puntos de venta
-  Web Services del emisor real quedaron verificados. Falta ejecutar la primera
-  prueba controlada con lote chico.
+- Producto local: operativo para desarrollo/QA con launcher Windows y flujo
+  tecnico alternativo.
+- Despliegue: el siguiente paso es VPS con `docker-compose.prod.yml`,
+  PostgreSQL, secretos productivos y estrategia definida para certificados.
+- Produccion real: ya fue utilizada con certificado productivo, autorizacion
+  `wsfe`, puntos Web Services y comprobantes autorizados. La siguiente etapa es
+  consolidar operacion post-piloto, no ejecutar un primer CAE.
 
 ## Punto exacto para retomar
 
-Cuando se quiera avanzar a la primera prueba real en produccion:
+Para continuar desde el estado actual:
 
-1. Confirmar el punto de venta Web Services a usar en la primera prueba real.
-2. Preparar un Excel chico definitivo, idealmente 10 a 20 comprobantes o menos.
-3. Si el origen es bancario, repetir la validacion con el lote definitivo,
-   confirmar el formato, elegir concepto fiscal ARCA, definir la descripcion
-   facturada del item, elegir fechas fiscales permitidas por ARCA y revisar
-   totales/puntos de venta antes de emitir.
-4. Verificar backup/logs antes de emitir.
-5. Ejecutar una prueba controlada de bajo importe con evidencia.
+1. Mantener alineada la documentacion viva con el estado post-piloto productivo
+   y conservar la historia como evidencia fechada.
+2. Instalar FactuFlow en VPS con Docker produccion y PostgreSQL.
+3. Resolver la pregunta tecnica de certificados ARCA para VPS: migrar/copiar
+   certificados productivos locales existentes o generar certificados nuevos
+   para el servidor.
+4. Definir y probar backup/restauracion de base, certificados y logs antes de
+   ampliar el uso productivo.
+5. Implementar observabilidad operativa estandar: pantalla de estado del
+   sistema, trazabilidad/reconciliacion de lotes, logs utiles para soporte,
+   mensajes simples y runbook de diagnostico.
+6. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs y
+   E2E confiable.
+7. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
+   fiscal ARCA, descripcion facturada, fechas fiscales permitidas, totales y
+   confirmacion final irreversible antes de emitir.

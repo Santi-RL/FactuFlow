@@ -1,6 +1,6 @@
 # Runbook del launcher local
 
-Ultima actualizacion: 2026-05-18
+Ultima actualizacion: 2026-05-22
 
 Este runbook documenta la experiencia local Windows de FactuFlow. El objetivo es
 que una persona administrativa no tecnica pueda abrir el sistema, entender si
@@ -35,16 +35,20 @@ QA manual:
 Estado: pendiente.
 
 Agregar una pantalla o panel de `Estado del sistema` dentro del frontend para
-mostrar, en lenguaje administrativo:
+mostrar, en lenguaje administrativo, el diagnostico minimo definido en
+`docs/agents/operational-observability.md`:
 
 - servidor de FactuFlow
 - base de datos
-- ambiente ARCA
-- conexion ARCA
-- certificado activo y vencimiento
+- worker de lotes
+- ambiente ARCA y conexion ARCA
+- certificado activo y vencimiento del emisor seleccionado
+- ultimo backup conocido o aviso de backup no verificado, cuando exista
 
 La pantalla no debe exponer puertos, stack traces ni detalles tecnicos como
-primer mensaje. Puede incluir una seccion secundaria para soporte.
+primer mensaje. Debe usar estados simples como `Correcto`,
+`Necesita atencion` y `No disponible`, con una explicacion corta y un proximo
+paso seguro. Puede incluir una seccion secundaria para soporte.
 
 ## Etapa 3 - Integracion launcher/UI
 

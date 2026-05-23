@@ -56,6 +56,19 @@
   al servicio`, aunque el certificado y la clave privada coincidan.
 - El wizard de FactuFlow tiene un paso previo a `Probar conexion` para confirmar
   esta asociacion.
+- Antes de mover la operacion a VPS hay que validar una decision tecnica:
+  confirmar si los certificados productivos existentes pueden migrarse/copiarse
+  desde el entorno local al VPS conservando clave, cifrado, archivo y metadatos,
+  o si corresponde generar certificados nuevos para el servidor.
+
+### Estado productivo real
+
+- Al 2026-05-22, FactuFlow ya fue usado en produccion real con comprobantes
+  autorizados. La evidencia detallada queda en base/logs/archivos privados y no
+  debe copiarse a documentacion versionada.
+- La regla vigente ya no es preparar "el primer CAE real", sino validar cada
+  nueva emision productiva con punto de venta, fecha fiscal, concepto fiscal
+  ARCA, descripcion facturada, totales, backup/logs y confirmacion irreversible.
 
 ### CUIT operativo para WSFE
 
@@ -294,7 +307,8 @@
   - lock en memoria por empresa/punto de venta/tipo
   - advisory lock transaccional si la base es PostgreSQL
   - constraint unico local por empresa/punto de venta/tipo/numero
-- Para una prueba real, sigue siendo obligatorio confirmar punto de venta productivo y numeracion correlativa en ARCA antes del primer CAE.
+- Para cada emision productiva, sigue siendo obligatorio confirmar punto de
+  venta productivo y numeracion correlativa en ARCA antes de solicitar CAE.
 
 ## Smoke real completado el 2026-03-09
 
