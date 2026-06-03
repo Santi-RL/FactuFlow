@@ -1,6 +1,6 @@
 # Visión de FactuFlow
 
-Última actualización: 2026-05-23
+Última actualización: 2026-06-03
 
 Estado: canónico y protegido.
 
@@ -49,6 +49,28 @@ FactuFlow está pensado para:
 - contadores independientes y estudios chicos que operan varios emisores
 - equipos que necesitan facturación individual, emisión masiva por Excel,
   PDFs, reportes operativos y trazabilidad clara
+
+## Modelo de instalación y recursos
+
+FactuFlow está pensado para instalarse localmente o en un VPS pequeño. Por eso,
+la aplicación debe mantenerse sencilla y eficiente en consumo de procesamiento,
+RAM y almacenamiento.
+
+La tarea que resuelve FactuFlow es concreta: facturar, revisar, auditar y
+sostener la operación administrativa de comprobantes ARCA. Cualquier cambio que
+optimice recursos sin perder funcionalidad va en la dirección correcta.
+Cualquier cambio que aumente de forma relevante el consumo de recursos, la
+persistencia de archivos o la complejidad operativa va en contra de esta visión
+y debe rechazarse en principio, salvo que el usuario pida implementarlo de forma
+explícita sabiendo que contradice esta regla.
+
+En instalaciones sobre VPS, FactuFlow debe almacenar solo los datos mínimos
+necesarios para funcionar, auditar y recuperar la operación. Todo artefacto que
+no sea vital para el funcionamiento permanente debe generarse bajo demanda,
+descargarse a la PC del usuario cuando corresponda y limpiarse del servidor
+después de cumplir su propósito. Por ejemplo, si el usuario obtiene el PDF de
+una o muchas facturas, esos PDFs deben quedar en la PC del usuario y no ocupar
+espacio permanente en el VPS.
 
 ## Problema que resuelve
 
@@ -107,6 +129,11 @@ visión de forma explícita.
   no deben versionarse.
 - La operación productiva debe ser repetible, respaldable, auditable y
   diagnosticable.
+- La aplicación debe poder operar razonablemente en instalaciones locales o VPS
+  pequeños, optimizando procesamiento, RAM y almacenamiento.
+- En VPS, solo deben persistirse los datos mínimos necesarios para operar,
+  auditar y recuperar el sistema; los artefactos descargables no vitales deben
+  generarse bajo demanda y limpiarse después de usarse.
 - Los cambios deben mejorar o preservar la capacidad de facturar con seguridad.
 - No se aceptan cambios que disminuyan la seguridad del producto.
 
@@ -123,6 +150,10 @@ arquitectura o actualizar documentación, verificar:
 6. ¿Evita incorporar módulos fuera de alcance sin decisión explícita de visión?
 7. ¿Evita exponer datos privados o evidencia sensible?
 8. ¿Puede explicarse como un paso hacia una operación productiva más robusta?
+9. ¿Mantiene el consumo de procesamiento, RAM y almacenamiento compatible con
+   una instalación local o un VPS pequeño?
+10. ¿Evita guardar de forma permanente artefactos no vitales, especialmente en
+    VPS?
 
 Si la respuesta a alguna pregunta crítica es no, el cambio debe detenerse hasta
 resolver la contradicción con el usuario.

@@ -50,13 +50,25 @@
 
 ## Revision asistida
 
-- No ejecutar `autoreview` automaticamente. Despues de cambios de codigo no
-  triviales o antes de commit/PR, recomendarlo al usuario como revision
-  asistida y pedir confirmacion explicita antes de correrlo, especialmente si
-  el motor puede enviar el diff a un servicio externo.
-- Si el usuario confirma la revision, ejecutar primero tests/lint/formato
+- No ejecutar `autoreview` automáticamente. El usuario puede pedirlo en
+  cualquier momento; si no lo pidió, sugerirlo solo cuando el cambio sea
+  importante o antes de cerrar un commit/PR no trivial, y pedir confirmación
+  explícita antes de correrlo.
+- Recomendarlo especialmente para cambios en autenticación, autorización,
+  usuarios, permisos, roles, sesiones, certificados, ARCA/WSAA/WSFE, emisión
+  fiscal, borrados, migraciones, datos fiscales, archivos locales, red,
+  seguridad multiemisor o confirmaciones irreversibles.
+- No insistir con `autoreview` para cambios chicos y de bajo riesgo, como texto,
+  documentación simple o estilos menores, salvo pedido del usuario.
+- Elegir el momento según costo y precisión: para cambios pequeños pero
+  sensibles conviene revisarlo enseguida; para varios cambios relacionados puede
+  convenir un único `autoreview` al cerrar el lote; si el diff mezcla temas
+  independientes, sugerir separar commits o revisiones.
+- Si el usuario confirma la revisión, ejecutar primero tests/lint/formato
   relevantes, revisar el diff real y verificar manualmente cada finding antes
-  de aplicar fixes.
+  de aplicar fixes. Si se corrige código por hallazgos aceptados, repetir
+  pruebas enfocadas y volver a correr `autoreview` hasta quedar limpio o hasta
+  que el usuario decida detener el ciclo.
 
 ## Indice rapido por tema
 
