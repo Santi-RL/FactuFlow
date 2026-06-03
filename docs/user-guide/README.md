@@ -50,8 +50,10 @@ Windows y elegi `Reiniciar servicios`. Cuando el icono quede verde, presiona
 `Reintentar` en la pantalla. Si no ves el icono, abre nuevamente
 `FactuFlow Local.vbs`.
 
-En una instalacion en VPS o servidor, no se usa el launcher local. En ese caso
-se entra desde la URL publicada de FactuFlow.
+En una instalación en VPS o servidor, no se usa el launcher local. En ese caso
+se entra desde la URL publicada de FactuFlow. FactuFlow está pensado para poder
+operar en un VPS pequeño, por lo que el servidor debe conservar solo los datos
+necesarios para funcionar, auditar y recuperar la operación.
 
 Luego:
 
@@ -155,6 +157,9 @@ Si el comprobante esta autorizado, veras:
 - El PDF no se genera automaticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
 - Esto evita guardar archivos innecesarios.
+- En una instalación sobre VPS, los PDFs descargados deben quedar en la PC del
+  usuario. FactuFlow no debe usarlos como almacenamiento permanente del
+  servidor.
 - El PDF muestra `ORIGINAL`, letra y codigo de comprobante, emisor, receptor,
   periodo facturado, detalle, totales, CAE, vencimiento CAE y QR ARCA en una
   hoja A4 con ubicaciones principales similares a la factura oficial ARCA.
@@ -226,10 +231,51 @@ historial del intento anterior y solo permite el reintento cuando no hubo CAE
 emitido. Si el lote ya quedo validado para emitir o emitio algun comprobante, el
 archivo duplicado se bloquea para evitar facturacion repetida.
 
-Si el lote queda como `Requiere reconciliacion`, no lo reintentes. Ese estado
+Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
 pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
-datos locales.
+datos locales. Si un reintento de fallidos se interrumpe justo después de
+tomar el comprobante para emisión, el grupo también queda para reconciliación:
+no vuelve automáticamente a `Fallido`, porque reemitirlo podría duplicar una
+autorización fiscal.
+
+### Gestión de lotes parciales y limpieza
+
+Cuando un lote queda con comprobantes emitidos y otros pendientes, FactuFlow
+puede mostrar acciones de resolución:
+
+- `Reintentar fallidos`: vuelve a solicitar CAE para comprobantes fallidos. La
+  pantalla muestra una confirmación de fecha fiscal y punto de venta; si esos
+  datos no son correctos, cancela y revisa el lote.
+- `Reconciliar ARCA Web`: úsalo cuando el comprobante pendiente ya fue emitido
+  manualmente desde ARCA Web. Debes cargar el comprobante visible, número
+  autorizado, CAE si lo tienes y motivo operativo. FactuFlow consulta ARCA antes
+  de registrar el comprobante localmente. También se usa para cerrar reintentos
+  interrumpidos que quedaron pendientes de verificación.
+- `Descartar visibles`: cierra comprobantes pendientes que no deben emitirse
+  desde ese lote. No se usa para comprobantes con incertidumbre post-ARCA.
+
+Estados de cierre:
+
+- `Completado`: todos los comprobantes fueron emitidos por FactuFlow.
+- `Cerrado reconciliado`: todos quedaron autorizados, pero uno o más fueron
+  emitidos fuera de FactuFlow y verificados contra ARCA.
+- `Cerrado con descartes`: el lote se cerró con comprobantes descartados por una
+  decisión operativa.
+
+Para ahorrar almacenamiento en VPS pequeños, un lote cerrado puede compactarse.
+Compactar elimina el detalle original por fila del Excel y conserva el resumen,
+los comprobantes agrupados, los importes, el estado y la auditoría. Después de
+presionar `Compactar detalle`, FactuFlow muestra una confirmación con estas
+consecuencias. Si confirmas, ya no se puede descargar el archivo observado de
+ese lote. No hace falta indicar un motivo: la compactación se registra como
+ahorro de almacenamiento.
+
+También puede eliminarse físicamente un lote sin emisión ni incertidumbre
+fiscal, por ejemplo una carga equivocada que no llegó a emitir comprobantes.
+FactuFlow no elimina lotes con comprobantes autorizados, reconciliados o
+inciertos. Si el lote tiene valor fiscal o dudas sobre ARCA, debe conservarse o
+cerrarse por reconciliación/descarte, no borrarse.
 
 Cuando presionas `Emitir comprobantes validos`, el lote queda en seguimiento y
 la pantalla muestra una barra de avance real. La barra informa comprobantes
@@ -615,10 +661,16 @@ se quite su propio permiso de administrador desde la pantalla.
 
 ## 12. Limitaciones actuales
 
-Al 2026-05-22:
+Al 2026-06-03:
 
 - no existe todavia descarga masiva de PDFs desde el listado
-- el PDF se genera bajo demanda
+- el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
+  servidor cuando la instalación corre en VPS
+- los artefactos descargables no vitales, como PDFs, ZIPs, archivos observados
+  y temporales, deben descargarse a la PC del usuario y limpiarse del servidor
+  después de cumplir su propósito operativo
+- no existe todavía un gestor de almacenamiento para administradores; está
+  planificado para ver uso total, uso por emisor y uso por tipo de dato
 - los reportes son de consulta, no de exportacion
 - la validacion concluyente de homologacion se hace por webservice, no por QR
 - el launcher local de Windows es manual y esta orientado a desarrollo/QA; no
@@ -629,5 +681,7 @@ Al 2026-05-22:
 - todavia falta una pantalla interna de `Estado del sistema` dentro del
   frontend; debe explicar con mensajes simples si la aplicacion, la base, ARCA,
   certificados y lotes estan correctos o necesitan atencion
-- todavia falta trazabilidad mas visible para lotes productivos/reintentos, con
-  estados y proximos pasos entendibles para usuarios no tecnicos
+- la gestión de lotes ya permite cerrar parciales, reconciliar externos,
+  descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
+  una vista administrativa más completa de eventos y trazabilidad histórica
+  para soporte

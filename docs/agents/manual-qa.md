@@ -32,6 +32,20 @@ Logs del launcher local:
 - `.tmp/local-launcher/backend.log`
 - `.tmp/local-launcher/frontend.log`
 
+## Criterio transversal de recursos
+
+La visión vigente asume instalaciones locales o VPS pequeños. En cualquier QA
+que toque lotes, PDFs, ZIPs, archivos observados, reportes o procesos largos,
+verificar que la solución no dependa de almacenar artefactos no vitales de forma
+permanente en el servidor. Los archivos descargables deben generarse bajo
+demanda, descargarse a la PC del usuario y limpiarse cuando cumplan su propósito
+operativo.
+
+Cuando se implemente el gestor de almacenamiento, la QA debe verificar que un
+administrador pueda ver uso total, desglose por emisor y desglose por tipo de
+dato sin exponer nombres de clientes, CUITs, CAEs, PDFs privados ni rutas
+internas sensibles.
+
 Caso local con frontend activo y backend caido:
 
 1. Levantar solo el frontend.
@@ -98,6 +112,43 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - Pendiente de QA visual local: abrir `Emisión masiva`, revisar que el aviso de
   fallback se vea correctamente en un lote mockeado o de prueba local, sin
   emitir comprobantes reales.
+
+### Gestión resolutiva de lotes parciales - verificación técnica 2026-06-03
+
+- Se agregó panel de resolución en `Emisión masiva` para lotes con pendientes:
+  reintentar fallidos, reconciliar comprobantes emitidos en ARCA Web, descartar
+  comprobantes visibles, compactar lotes cerrados y eliminar lotes sin emisión.
+- El reintento de fallidos exige el mismo tipo de confirmación fiscal exacta que
+  la emisión inicial: fecha fiscal y punto de venta deben coincidir con el token
+  calculado por backend.
+- Si un reintento queda interrumpido después de tomar el grupo, el grupo queda
+  como reconciliable y no vuelve automáticamente a fallido. Debe verificarse en
+  ARCA y cerrarse con `Reconciliar ARCA Web`.
+- La reconciliación externa no confía en datos cargados a mano: el backend
+  consulta ARCA con `FECompConsultar` y solo cierra el grupo si coinciden tipo,
+  punto de venta, número, fecha, total, emisor, receptor y CAE.
+- Los cierres quedan separados para QA:
+  - `Completado`: todo fue emitido por FactuFlow
+  - `Cerrado reconciliado`: todo quedó autorizado, con al menos un comprobante
+    emitido fuera de FactuFlow y verificado contra ARCA
+  - `Cerrado con descartes`: quedan comprobantes descartados por decisión
+    operativa
+- La compactación elimina el detalle original por fila de lotes cerrados; luego
+  el archivo observado ya no debe descargarse. El resumen del lote y los grupos
+  deben seguir visibles.
+- Compactar no pide motivo operativo: debe mostrar un popup con consecuencias y
+  registrar internamente el motivo estándar de ahorro de almacenamiento.
+- La eliminación física solo debe aparecer o prosperar si el lote no tiene
+  comprobantes emitidos, reconciliados ni inciertos.
+- Verificación automatizada segura, sin llamadas reales a ARCA:
+  backend `python -m pytest backend/tests/test_lotes_comprobantes.py -q` OK
+  (63 tests); frontend
+  `npm run test:unit -- --run src/utils/lote-progress.spec.ts src/utils/lote-totals.spec.ts src/views/comprobantes/LotesComprobantesView.spec.ts`
+  OK (14 tests), `npm run type-check` OK y `npm run lint:check` OK.
+- Pendiente de QA visual local: usar una base de prueba con un lote parcial,
+  verificar que las acciones se habilitan o bloquean según el estado, confirmar
+  que el modal de reintento muestra fecha/punto de venta concretos, y no emitir
+  comprobantes reales durante esa revisión salvo decisión explícita del usuario.
 
 ### Detalle paginado de lotes grandes - QA visual 2026-05-29
 
@@ -568,10 +619,16 @@ Retomar en consolidacion post-piloto:
 3. Para nuevos lotes productivos, repetir siempre la validacion fiscal completa:
    formato, concepto fiscal ARCA, descripcion facturada, fechas fiscales,
    totales, puntos de venta y confirmacion irreversible.
-4. Verificar backup, logs y plan de restauracion antes de ampliar volumen o
+4. Verificar backup, logs y plan de restauración antes de ampliar volumen o
    incorporar nuevos emisores.
-5. Levantar o confirmar el perfil productivo con PostgreSQL usando
+5. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
+   observados y temporales descargables no deben quedar como ocupación
+   permanente si no son vitales para operar, auditar o recuperar el sistema.
+6. Diseñar y luego validar el gestor de almacenamiento administrativo: uso
+   total, desglose por emisor, desglose por tipo de dato y limpieza segura de
+   artefactos no vitales.
+7. Levantar o confirmar el perfil productivo con PostgreSQL usando
    `docker-compose.prod.yml`.
-6. Implementar la observabilidad operativa estandar definida en
-   `docs/agents/operational-observability.md`, con mensajes simples y proximos
-   pasos claros para usuarios no tecnicos.
+8. Implementar la observabilidad operativa estándar definida en
+   `docs/agents/operational-observability.md`, con mensajes simples y próximos
+   pasos claros para usuarios no técnicos.

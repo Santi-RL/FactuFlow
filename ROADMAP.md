@@ -28,6 +28,10 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - uso administrativo no tecnico
 - homologacion real y operacion productiva inicial con ARCA
 - multiemisor con un emisor activo explicito por vez
+- instalación local o en VPS pequeño, con consumo eficiente de procesamiento,
+  RAM y almacenamiento
+- visibilidad administrativa del uso de almacenamiento por instalación, emisor
+  y tipo de dato
 - robustez operativa: backups, trazabilidad, observabilidad y soporte
 
 ## Decisiones de producto vigentes
@@ -57,6 +61,21 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - El despliegue local con launcher ya existe y esta probado hasta nivel
   desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un VPS
   con `docker-compose.prod.yml` y PostgreSQL.
+- FactuFlow debe poder operar en instalaciones locales o VPS pequeños. Las
+  decisiones de arquitectura, jobs, observabilidad, reportes, PDFs y
+  almacenamiento deben priorizar sencillez y bajo consumo de procesamiento, RAM
+  y disco sin perder funcionalidad fiscal u operativa.
+- En VPS, la persistencia debe limitarse a los datos mínimos necesarios para
+  operar, auditar y recuperar el sistema. PDFs, ZIPs, archivos observados y
+  otros artefactos descargables no vitales deben generarse bajo demanda,
+  descargarse a la PC del usuario y limpiarse del servidor después de cumplir su
+  propósito.
+- Debe incorporarse un gestor de almacenamiento para administradores, orientado
+  a diagnóstico y mantenimiento. Debe mostrar cuánto espacio usa la instalación
+  y desglosarlo, al menos, por emisor, base de datos, lotes, archivos
+  temporales, PDFs/ZIPs generados, archivos observados, certificados y logs. El
+  cálculo debe ser liviano, acotado a rutas y tablas conocidas, y no debe
+  exponer datos privados innecesarios.
 - La distribucion comercial instalable queda para una etapa posterior, cuando
   el producto sea estable y repetible funcionando en VPS.
 - La observabilidad operativa estandar es obligatoria antes de ampliar el uso
@@ -157,6 +176,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [~] Instalacion en VPS con Docker produccion y PostgreSQL como proximo hito
 - [ ] CI/CD completo y alineado al estado real del repo
 - [~] Observabilidad operativa estandar definida como requisito post-piloto
+- [ ] Gestor de almacenamiento administrativo para ver uso total y desglose por
+  emisor, lotes, base, temporales, artefactos descargables, certificados y logs
 - [ ] Observabilidad, backups y politicas operativas implementadas y probadas
 
 ## Fase 0 - Fundacion y base tecnica
@@ -273,6 +294,18 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
 - [x] Fallos post-CAE quedan como `requiere_reconciliacion` y no habilitan
   reintentos automaticos
+- [x] Gestión resolutiva de lotes parciales: reintento de fallidos con token de
+  fecha fiscal, reconciliación externa verificada contra ARCA, descarte
+  auditado de pendientes y cierre como `cerrado_reconciliado` o
+  `cerrado_con_descartes`
+- [x] Comprobantes emitidos fuera de FactuFlow pueden registrarse con
+  `origen_emision = arca_web` solo después de validar tipo, punto de venta,
+  número, receptor, fecha, total y CAE con `FECompConsultar`; un mismo
+  comprobante no puede cerrar más de un grupo local
+- [x] Compactación de lotes cerrados para ahorrar almacenamiento: elimina filas
+  originales del Excel y conserva resumen, grupos, comprobantes y auditoría
+- [x] Eliminación física permitida solo para lotes sin comprobantes emitidos ni
+  incertidumbre fiscal; los eventos operativos quedan preservados
 - [x] Confirmacion fiscal final de lotes usa token exacto derivado de los grupos
   validados: fechas y puntos de venta concretos
 - [x] Archivos XLSX malformados o por encima de `BATCH_MAX_UPLOAD_BYTES` quedan
@@ -335,11 +368,16 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Progreso real de lotes con barra, timer, ETA, emitidos, fallidos y pendientes
 - [x] Aviso visible cuando un lote degrada a modo unitario porque ARCA no
   informó `RegXReq`
+- [x] Panel de resolución en lotes para reintentar fallidos, reconciliar
+  comprobantes emitidos en ARCA Web, descartar pendientes visibles, compactar
+  lotes cerrados o eliminar lotes sin emisión
 
 ### Operacion masiva posterior a la emision
-- [ ] Descarga masiva de PDFs en ZIP
+- [ ] Descarga masiva de PDFs en ZIP generado bajo demanda y sin persistencia
+  permanente en VPS
 - [ ] Seleccion multiple en listado de comprobantes
-- [ ] Preparacion asincronica de PDFs para lotes grandes
+- [ ] Preparación asincrónica de PDFs para lotes grandes con limpieza de
+  temporales después de la descarga o vencimiento operativo
 - [ ] Trazabilidad de tareas masivas iniciadas por usuario
 
 ## Fase 4 - UX administrativa no tecnica
@@ -441,6 +479,13 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [ ] Logs operativos con identificador de seguimiento por emisor, usuario,
   lote/comprobante, job y error local o ARCA
 - [ ] Retencion de logs privados definida por entorno
+- [ ] Política de almacenamiento mínimo para VPS: temporales, PDFs, ZIPs,
+  archivos observados y artefactos no vitales con limpieza controlada
+- [x] Primera acción de limpieza segura sobre lotes: compactación de detalle de
+  filas en lotes cerrados y borrado restringido de lotes sin emisión
+- [ ] Gestor de almacenamiento para administradores, con uso total de la
+  instalación, desglose por emisor y tipo de dato, alertas simples de consumo y
+  acciones seguras de limpieza sobre artefactos no vitales
 - [ ] Healthchecks claros para backend, base, worker, ARCA y certificado del
   emisor activo
 - [ ] Backup y restauracion de base y certificados
@@ -453,6 +498,8 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   `docs/agents/operational-observability.md`
 - [ ] Pantalla `Estado del sistema` en la interfaz, con estados simples como
   `Correcto`, `Necesita atencion` y `No disponible`
+- [ ] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
+  sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
   reconciliaciones
 - [ ] Mensajes de error con explicacion simple, impacto y proximo paso seguro
@@ -509,11 +556,16 @@ Objetivo: ampliar valor mas alla del MVP.
    logs utiles para soporte y mensajes simples para usuarios no tecnicos.
 5. Formalizar backup/restauracion de PostgreSQL, certificados y logs antes de
    ampliar volumen productivo.
-6. Agregar descarga masiva de PDFs en ZIP y seleccion multiple desde el listado
-   de comprobantes.
-7. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
-   confiable en auditorias.
-8. Definir la politica de versiones posteriores al MVP.
+6. Definir política de almacenamiento mínimo y limpieza de artefactos
+   descargables para VPS, especialmente PDFs, ZIPs y temporales de lotes.
+7. Diseñar el gestor de almacenamiento administrativo: uso total, desglose por
+   emisor y tipo de dato, alertas simples y limpieza segura de artefactos no
+   vitales.
+8. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
+   de comprobantes, sin persistencia permanente en el servidor.
+9. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
+   confiable en auditorías.
+10. Definir la política de versiones posteriores al MVP.
 
 ## Criterio de exito del MVP
 

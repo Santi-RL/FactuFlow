@@ -165,6 +165,33 @@
   `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`,
   `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut` y `codAut`.
 
+### Reconciliación externa de lotes
+
+- Si un comprobante pendiente de un lote fue emitido manualmente en ARCA Web, no
+  alcanza con que el usuario cargue número o CAE: FactuFlow debe verificarlo con
+  `FECompConsultar`.
+- La reconciliación solo puede registrar el comprobante local cuando ARCA
+  confirma:
+  - CUIT del emisor activo
+  - tipo de comprobante
+  - punto de venta
+  - número
+  - tipo y número de documento del receptor
+  - fecha fiscal
+  - importe total
+  - resultado autorizado y CAE
+- Un comprobante externo verificado no puede cerrar más de un grupo del lote:
+  `lotes_comprobantes_grupos.comprobante_id` tiene unicidad parcial cuando no es
+  nulo.
+- Los comprobantes reconciliados quedan con `origen_emision = arca_web` para
+  distinguirlos de los emitidos por FactuFlow.
+- Si el lote estaba en `requiere_reconciliacion` o un grupo quedó
+  `reintentando` por un fallo post-ARCA, la acción correcta es consultar ARCA y
+  reconciliar; no se debe reintentar el CAE.
+- Un lote cerrado por reconciliación externa no debe marcarse como
+  `completado`, porque ese estado queda reservado para comprobantes emitidos por
+  FactuFlow.
+
 ### Particularidades observadas en homologacion
 
 - `FEParamGetPtosVenta` puede devolver error `602 - Sin Resultados` aun cuando `FECompUltimoAutorizado` y la emision real funcionen.

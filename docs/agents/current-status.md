@@ -29,6 +29,15 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
 - El uso local con launcher ya esta implementado y testeado hasta nivel
   desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un
   VPS con Docker produccion y PostgreSQL.
+- La visión vigente define que FactuFlow debe poder instalarse localmente o en
+  un VPS pequeño. Las nuevas decisiones técnicas deben optimizar
+  procesamiento, RAM y almacenamiento, y evitar persistir artefactos no vitales
+  cuando puedan generarse bajo demanda, descargarse a la PC del usuario y
+  limpiarse del servidor.
+- Queda planificado un gestor de almacenamiento administrativo para conocer el
+  uso total de la instalación y desglosarlo por emisor, base, lotes, temporales,
+  artefactos descargables, certificados y logs, con cálculo liviano y sin
+  exponer datos privados innecesarios.
 - La observabilidad operativa estandar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -116,6 +125,44 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
 - Verificación técnica segura, sin llamadas reales a ARCA ni CAEs:
   `python -m pytest backend/tests/test_arca/test_wsfev1.py backend/tests/test_facturacion_service.py::test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracion backend/tests/test_lotes_comprobantes.py::test_procesar_lote_usa_sublotes_arca_segun_regxreq backend/tests/test_lotes_comprobantes.py::test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso -q`
   OK (6 tests).
+
+### Gestión resolutiva y compactación de lotes 2026-06-03
+
+- Los lotes parciales ya no quedan obligados a vivir indefinidamente como
+  `autorizado_parcial`: la UI permite reintentar fallidos, reconciliar
+  comprobantes emitidos manualmente en ARCA Web o descartar pendientes que no
+  deben emitirse desde FactuFlow.
+- Reintentar fallidos vuelve a exigir el token exacto
+  `X-Confirmacion-Fecha-Fiscal` calculado desde esos grupos. No se relaja la
+  regla fiscal crítica de fecha de emisión.
+- El reintento toma el grupo de forma durable antes de pedir CAE. Si el proceso
+  se interrumpe en esa ventana, el grupo queda como `reintentando` y se trata
+  como reconciliable; no vuelve a `fallido` para evitar una segunda solicitud
+  fiscal sin verificar ARCA.
+- La reconciliación externa consulta `FECompConsultar` antes de tocar datos
+  locales. Solo se registra el comprobante como `origen_emision = arca_web` si
+  ARCA confirma emisor, receptor, tipo, punto de venta, número, fecha fiscal,
+  total y CAE.
+- Los cierres quedan diferenciados:
+  - `completado`: todos los comprobantes fueron emitidos por FactuFlow
+  - `cerrado_reconciliado`: todos quedaron autorizados, pero uno o más se
+    emitieron fuera de FactuFlow y fueron verificados contra ARCA
+  - `cerrado_con_descartes`: el lote se cerró con pendientes descartados por
+    decisión operativa
+- La compactación de lotes cerrados elimina las filas originales del Excel para
+  ahorrar almacenamiento y conserva lote, grupos, comprobantes, totales y
+  eventos auditables. Después de compactar, ya no se puede regenerar el archivo
+  observado porque ese archivo depende del detalle por fila.
+- Ajuste posterior de UX: compactar no requiere cargar motivo. La UI muestra un
+  popup con consecuencias y el evento interno usa el motivo estándar
+  `Compactación para ahorro de almacenamiento`.
+- La eliminación física queda restringida a lotes sin emisión ni incertidumbre
+  fiscal. Antes de borrar se registra un evento auditado con los metadatos del
+  lote eliminado.
+- Verificación enfocada segura, sin llamadas reales a ARCA ni CAEs:
+  backend `python -m pytest backend/tests/test_lotes_comprobantes.py -q` OK
+  (63 tests); frontend `npm run test:unit -- --run src/utils/lote-progress.spec.ts src/utils/lote-totals.spec.ts src/views/comprobantes/LotesComprobantesView.spec.ts`
+  OK (14 tests), `npm run type-check` OK y `npm run lint:check` OK.
 
 ### Detalle paginado de lotes grandes 2026-05-29
 
@@ -885,7 +932,7 @@ Quedo validado manualmente:
   - `pytest tests -q` OK, 221 tests
   - `ruff check app tests` OK
   - `black --check app tests` OK
-  - `alembic heads` OK, head `b4c5d6e7f8a9`
+  - `alembic heads` OK, head `c5d6e7f8a9b0`
 - Frontend:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
@@ -912,6 +959,13 @@ Quedo validado manualmente:
   no debe versionarse. La documentacion publica debe registrar solo resúmenes
   operativos sanitizados.
 - No existe todavia descarga masiva de PDFs en ZIP.
+- La descarga masiva de PDFs, archivos observados, ZIPs y otros artefactos
+  descargables debe diseñarse para VPS con almacenamiento mínimo: generación
+  bajo demanda, descarga a la PC del usuario y limpieza posterior del servidor.
+- No existe todavía gestor de almacenamiento para administradores. Debe
+  incorporarse como parte del diagnóstico operativo del VPS para ver uso total,
+  uso por emisor y uso por tipo de dato, sin escanear rutas fuera del alcance de
+  FactuFlow.
 - Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
@@ -921,6 +975,10 @@ Quedo validado manualmente:
     productivos locales al VPS o generar certificados nuevos para el servidor
   - observabilidad operativa estandar segun
     `docs/agents/operational-observability.md`
+  - política de almacenamiento mínimo y limpieza de artefactos descargables en
+    VPS
+  - gestor de almacenamiento administrativo con desglose por emisor y tipo de
+    dato
   - backup/restauracion de PostgreSQL, certificados y logs
   - trazabilidad visible de lotes productivos y reintentos
   - pantalla `Estado del sistema` dentro del frontend con lenguaje simple
@@ -945,16 +1003,22 @@ Para continuar desde el estado actual:
 1. Mantener alineada la documentacion viva con el estado post-piloto productivo
    y conservar la historia como evidencia fechada.
 2. Instalar FactuFlow en VPS con Docker produccion y PostgreSQL.
-3. Resolver la pregunta tecnica de certificados ARCA para VPS: migrar/copiar
+3. Resolver la pregunta técnica de certificados ARCA para VPS: migrar/copiar
    certificados productivos locales existentes o generar certificados nuevos
    para el servidor.
-4. Definir y probar backup/restauracion de base, certificados y logs antes de
+4. Definir la política de almacenamiento mínimo para VPS: qué queda persistido,
+   qué se genera bajo demanda y cómo se limpian PDFs, ZIPs, observados y
+   temporales no vitales.
+5. Diseñar el gestor de almacenamiento administrativo: uso total, desglose por
+   emisor y tipo de dato, alertas simples y limpieza segura de artefactos no
+   vitales.
+6. Definir y probar backup/restauración de base, certificados y logs antes de
    ampliar el uso productivo.
-5. Implementar observabilidad operativa estandar: pantalla de estado del
-   sistema, trazabilidad/reconciliacion de lotes, logs utiles para soporte,
-   mensajes simples y runbook de diagnostico.
-6. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs y
-   E2E confiable.
-7. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
-   fiscal ARCA, descripcion facturada, fechas fiscales permitidas, totales y
-   confirmacion final irreversible antes de emitir.
+7. Implementar observabilidad operativa estándar: pantalla de estado del
+   sistema, trazabilidad/reconciliación de lotes, logs útiles para soporte,
+   mensajes simples y runbook de diagnóstico.
+8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
+   persistencia permanente en el servidor y E2E confiable.
+9. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
+   fiscal ARCA, descripción facturada, fechas fiscales permitidas, totales y
+   confirmación final irreversible antes de emitir.

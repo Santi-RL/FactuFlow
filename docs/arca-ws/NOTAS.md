@@ -120,6 +120,22 @@ Mapping aplicado en el proyecto:
   el usuario debe elegir por pantalla una fecha permitida por el web service
   antes de emitir.
 
+### 4.e Reconciliación externa de lotes
+
+- Para comprobantes emitidos manualmente en ARCA Web, FactuFlow debe usar
+  `FECompConsultar` antes de registrarlos localmente.
+- La consulta debe coincidir con emisor activo, receptor, tipo, punto de venta,
+  número, fecha fiscal, total, resultado autorizado y CAE.
+- Un comprobante externo verificado no puede vincularse a más de un grupo local;
+  la base lo refuerza con unicidad parcial sobre el `comprobante_id` del grupo.
+- Esos comprobantes se guardan con `origen_emision = arca_web`.
+- Si un lote quedó en `requiere_reconciliacion` o un grupo quedó
+  `reintentando` por fallo posterior a ARCA, no reintentar. Primero consultar
+  ARCA y reconciliar.
+- `Completado` queda reservado para comprobantes emitidos por FactuFlow.
+  Cuando hubo emisión externa verificada, el cierre correcto es
+  `cerrado_reconciliado`.
+
 ### 5. Estructura SOAP correcta en `FECAESolicitar`
 
 El proyecto tuvo que corregir estas estructuras:
