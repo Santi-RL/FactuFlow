@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-29
+Ultima actualizacion: 2026-06-03
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -238,6 +238,16 @@ de volver a intentar. El sistema bloquea una segunda ejecucion del mismo lote si
 ya esta procesando o si ya fue procesado. Si un proceso queda realmente trabado,
 el worker puede retomarlo solo despues de la ventana operativa configurada como
 `BATCH_PROCESSING_STALE_MINUTES`.
+
+Para acelerar lotes grandes, FactuFlow consulta a ARCA cuántos comprobantes
+pueden enviarse por request (`RegXReq`) y divide la emisión en sublotes por
+punto de venta y tipo de comprobante. Esto no cambia la confirmación fiscal: el
+usuario sigue revisando fecha, punto de venta, concepto, descripción y totales
+antes de solicitar CAE.
+
+Si ARCA no informa la capacidad máxima por request, FactuFlow emite en modo
+unitario para no bloquear la operación. En ese caso la pantalla del lote muestra
+un aviso indicando que el procesamiento pudo demorar más por esa degradación.
 
 Regla importante: FactuFlow no completa la fecha de emision con la fecha del dia
 por defecto. Antes de validar un lote debes elegir si la fecha de emision sale

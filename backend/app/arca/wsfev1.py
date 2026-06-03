@@ -156,101 +156,11 @@ class WSFEv1Client:
             ArcaServiceError: Si hay error del servicio
         """
         try:
-            auth = self._get_auth_dict()
-
-            # Construir request
-            fe_cab_req = {
-                "CantReg": 1,
-                "PtoVta": comprobante.punto_venta,
-                "CbteTipo": comprobante.tipo_cbte,
-            }
-
-            # Construir detalle del comprobante
-            fe_det = {
-                "Concepto": comprobante.concepto,
-                "DocTipo": comprobante.tipo_doc,
-                "DocNro": comprobante.nro_doc,
-                "CbteDesde": comprobante.cbte_desde,
-                "CbteHasta": comprobante.cbte_hasta,
-                "CbteFch": comprobante.fecha_cbte,
-                "ImpTotal": format_importe(comprobante.imp_total),
-                "ImpTotConc": format_importe(comprobante.imp_tot_conc),
-                "ImpNeto": format_importe(comprobante.imp_neto),
-                "ImpOpEx": format_importe(comprobante.imp_op_ex),
-                "ImpIVA": format_importe(comprobante.imp_iva),
-                "ImpTrib": format_importe(comprobante.imp_trib),
-                "MonId": comprobante.moneda_id,
-                "MonCotiz": comprobante.moneda_cotiz,
-            }
-
-            if comprobante.condicion_iva_receptor_id is not None:
-                fe_det["CondicionIVAReceptorId"] = comprobante.condicion_iva_receptor_id
-
-            # Agregar fechas de servicio si aplica
-            if comprobante.fecha_serv_desde:
-                fe_det["FchServDesde"] = comprobante.fecha_serv_desde
-            if comprobante.fecha_serv_hasta:
-                fe_det["FchServHasta"] = comprobante.fecha_serv_hasta
-            if comprobante.fecha_vto_pago:
-                fe_det["FchVtoPago"] = comprobante.fecha_vto_pago
-
-            # Agregar IVA si hay
-            if comprobante.iva:
-                fe_det["Iva"] = {
-                    "AlicIva": [
-                        {
-                            "Id": iva.id,
-                            "BaseImp": format_importe(iva.base_imp),
-                            "Importe": format_importe(iva.importe),
-                        }
-                        for iva in comprobante.iva
-                    ]
-                }
-
-            # Agregar tributos si hay
-            if comprobante.tributos:
-                fe_det["Tributos"] = {
-                    "Tributo": [
-                        {
-                            "Id": trib.id,
-                            "Desc": trib.descripcion,
-                            "BaseImp": format_importe(trib.base_imp),
-                            "Alic": trib.alic,
-                            "Importe": format_importe(trib.importe),
-                        }
-                        for trib in comprobante.tributos
-                    ]
-                }
-
-            if comprobante.cbtes_asoc:
-                fe_det["CbtesAsoc"] = {
-                    "CbteAsoc": [
-                        {
-                            key: value
-                            for key, value in {
-                                "Tipo": asociado.tipo,
-                                "PtoVta": asociado.punto_venta,
-                                "Nro": asociado.numero,
-                                "Cuit": asociado.cuit,
-                                "CbteFch": asociado.fecha_cbte,
-                            }.items()
-                            if value is not None
-                        }
-                        for asociado in comprobante.cbtes_asoc
-                    ]
-                }
-
-            # Llamar al servicio
-            response = self.client.service.FECAESolicitar(
-                Auth=auth,
-                FeCAEReq={
-                    "FeCabReq": fe_cab_req,
-                    "FeDetReq": {"FECAEDetRequest": [fe_det]},
-                },
+            resultados = await self.fe_cae_solicitar_lote(
+                [comprobante],
+                rechazar_detalles_no_aprobados=True,
             )
-
-            # Parsear respuesta
-            return self._parse_cae_response(response, comprobante)
+            return resultados[0]
 
         except Fault as e:
             raise ArcaServiceError(f"Error SOAP: {e.message}")
@@ -258,6 +168,170 @@ class WSFEv1Client:
             raise
         except Exception as e:
             raise ArcaServiceError(f"Error inesperado: {str(e)}")
+
+    async def fe_cae_solicitar_lote(
+        self,
+        comprobantes: list[ComprobanteRequest],
+        rechazar_detalles_no_aprobados: bool = False,
+    ) -> list[CAEResponse]:
+        """
+        Solicita CAE para un lote homogéneo de comprobantes WSFE.
+
+        Todos los comprobantes deben compartir punto de venta y tipo. La
+        cantidad máxima debe resolverse previamente con `FECompTotXRequest`.
+        """
+        if not comprobantes:
+            raise ArcaValidationError("El lote ARCA debe incluir comprobantes")
+
+        punto_venta = comprobantes[0].punto_venta
+        tipo_cbte = comprobantes[0].tipo_cbte
+        if any(
+            comprobante.punto_venta != punto_venta or comprobante.tipo_cbte != tipo_cbte
+            for comprobante in comprobantes
+        ):
+            raise ArcaValidationError(
+                "Todos los comprobantes del request ARCA deben tener el mismo "
+                "punto de venta y tipo"
+            )
+
+        try:
+            auth = self._get_auth_dict()
+            response = self.client.service.FECAESolicitar(
+                Auth=auth,
+                FeCAEReq={
+                    "FeCabReq": {
+                        "CantReg": len(comprobantes),
+                        "PtoVta": punto_venta,
+                        "CbteTipo": tipo_cbte,
+                    },
+                    "FeDetReq": {
+                        "FECAEDetRequest": [
+                            self._build_fe_det_request(comprobante)
+                            for comprobante in comprobantes
+                        ]
+                    },
+                },
+            )
+            return self._parse_cae_response_list(
+                response,
+                comprobantes,
+                rechazar_detalles_no_aprobados=rechazar_detalles_no_aprobados,
+            )
+
+        except Fault as e:
+            raise ArcaServiceError(f"Error SOAP: {e.message}")
+        except (ArcaValidationError, ArcaServiceError):
+            raise
+        except Exception as e:
+            raise ArcaServiceError(f"Error inesperado: {str(e)}")
+
+    async def fe_comp_tot_x_request(self) -> int:
+        """
+        Consulta la cantidad máxima de registros permitida por request WSFE.
+
+        Returns:
+            Valor `RegXReq` informado por ARCA para FECAESolicitar.
+        """
+        try:
+            response = self.client.service.FECompTotXRequest(Auth=self._get_auth_dict())
+
+            if hasattr(response, "Errors") and response.Errors:
+                error = (
+                    response.Errors.Err[0]
+                    if isinstance(response.Errors.Err, list)
+                    else response.Errors.Err
+                )
+                raise ArcaServiceError(
+                    f"Error al obtener RegXReq: {error.Msg}",
+                    codigo=str(error.Code),
+                )
+
+            result = getattr(response, "ResultGet", response)
+            reg_x_req = getattr(result, "RegXReq", None)
+            if reg_x_req is None:
+                raise ArcaServiceError("ARCA no devolvió RegXReq")
+
+            return int(reg_x_req)
+
+        except ArcaServiceError:
+            raise
+        except Exception as e:
+            raise ArcaServiceError(f"Error al obtener RegXReq: {str(e)}")
+
+    def _build_fe_det_request(self, comprobante: ComprobanteRequest) -> dict:
+        """Construye el detalle `FECAEDetRequest` para un comprobante."""
+        fe_det = {
+            "Concepto": comprobante.concepto,
+            "DocTipo": comprobante.tipo_doc,
+            "DocNro": comprobante.nro_doc,
+            "CbteDesde": comprobante.cbte_desde,
+            "CbteHasta": comprobante.cbte_hasta,
+            "CbteFch": comprobante.fecha_cbte,
+            "ImpTotal": format_importe(comprobante.imp_total),
+            "ImpTotConc": format_importe(comprobante.imp_tot_conc),
+            "ImpNeto": format_importe(comprobante.imp_neto),
+            "ImpOpEx": format_importe(comprobante.imp_op_ex),
+            "ImpIVA": format_importe(comprobante.imp_iva),
+            "ImpTrib": format_importe(comprobante.imp_trib),
+            "MonId": comprobante.moneda_id,
+            "MonCotiz": comprobante.moneda_cotiz,
+        }
+
+        if comprobante.condicion_iva_receptor_id is not None:
+            fe_det["CondicionIVAReceptorId"] = comprobante.condicion_iva_receptor_id
+
+        if comprobante.fecha_serv_desde:
+            fe_det["FchServDesde"] = comprobante.fecha_serv_desde
+        if comprobante.fecha_serv_hasta:
+            fe_det["FchServHasta"] = comprobante.fecha_serv_hasta
+        if comprobante.fecha_vto_pago:
+            fe_det["FchVtoPago"] = comprobante.fecha_vto_pago
+
+        if comprobante.iva:
+            fe_det["Iva"] = {
+                "AlicIva": [
+                    {
+                        "Id": iva.id,
+                        "BaseImp": format_importe(iva.base_imp),
+                        "Importe": format_importe(iva.importe),
+                    }
+                    for iva in comprobante.iva
+                ]
+            }
+
+        if comprobante.tributos:
+            fe_det["Tributos"] = {
+                "Tributo": [
+                    {
+                        "Id": trib.id,
+                        "Desc": trib.descripcion,
+                        "BaseImp": format_importe(trib.base_imp),
+                        "Alic": trib.alic,
+                        "Importe": format_importe(trib.importe),
+                    }
+                    for trib in comprobante.tributos
+                ]
+            }
+
+        if comprobante.cbtes_asoc:
+            fe_det["CbtesAsoc"] = {
+                "CbteAsoc": [
+                    {
+                        key: value
+                        for key, value in {
+                            "Tipo": asociado.tipo,
+                            "PtoVta": asociado.punto_venta,
+                            "Nro": asociado.numero,
+                            "Cuit": asociado.cuit,
+                            "CbteFch": asociado.fecha_cbte,
+                        }.items()
+                        if value is not None
+                    }
+                    for asociado in comprobante.cbtes_asoc
+                ]
+            }
+
+        return fe_det
 
     def _parse_cae_response(
         self, response, comprobante: ComprobanteRequest
@@ -275,32 +349,66 @@ class WSFEv1Client:
         Raises:
             ArcaValidationError: Si el comprobante fue rechazado
         """
-        # Extraer resultado
-        fe_det_resp = (
-            response.FeDetResp.FECAEDetResponse[0]
-            if isinstance(response.FeDetResp.FECAEDetResponse, list)
-            else response.FeDetResp.FECAEDetResponse
-        )
+        return self._parse_cae_response_list(
+            response,
+            [comprobante],
+            rechazar_detalles_no_aprobados=True,
+        )[0]
 
+    def _parse_cae_response_list(
+        self,
+        response,
+        comprobantes: list[ComprobanteRequest],
+        rechazar_detalles_no_aprobados: bool,
+    ) -> list[CAEResponse]:
+        """Parsea una respuesta WSFE que puede contener varios detalles."""
+        detalles = self._normalizar_lista(
+            getattr(getattr(response, "FeDetResp", None), "FECAEDetResponse", None)
+        )
+        errores = self._parse_errors_response(response)
+
+        if not detalles:
+            mensajes = "; ".join(f"[{e.code}] {e.msg}" for e in errores)
+            raise ArcaServiceError(
+                f"ARCA no devolvió detalle de comprobantes. {mensajes}".strip()
+            )
+
+        if len(detalles) != len(comprobantes):
+            raise ArcaServiceError(
+                "ARCA devolvió una cantidad de detalles distinta a la solicitada"
+            )
+
+        resultados = [
+            self._parse_cae_det_response(detalle, comprobante, errores)
+            for detalle, comprobante in zip(detalles, comprobantes)
+        ]
+
+        if rechazar_detalles_no_aprobados:
+            for resultado in resultados:
+                if resultado.is_rechazado:
+                    error_msgs = [f"[{e.code}] {e.msg}" for e in resultado.errores]
+                    obs_msgs = [f"[{o.code}] {o.msg}" for o in resultado.observaciones]
+                    all_msgs = error_msgs + obs_msgs
+                    raise ArcaValidationError(
+                        f"Comprobante rechazado: {'; '.join(all_msgs)}"
+                    )
+
+        return resultados
+
+    def _parse_cae_det_response(
+        self,
+        fe_det_resp,
+        comprobante: ComprobanteRequest,
+        errores: list[ErrorArca],
+    ) -> CAEResponse:
+        """Convierte un `FECAEDetResponse` en `CAEResponse`."""
         # Extraer observaciones
         observaciones = []
         if hasattr(fe_det_resp, "Observaciones") and fe_det_resp.Observaciones:
-            obs_list = fe_det_resp.Observaciones.Obs
-            if not isinstance(obs_list, list):
-                obs_list = [obs_list]
-
             observaciones = [
-                Observacion(code=obs.Code, msg=obs.Msg) for obs in obs_list
+                Observacion(code=obs.Code, msg=obs.Msg)
+                for obs in self._normalizar_lista(fe_det_resp.Observaciones.Obs)
             ]
-
-        # Extraer errores
-        errores = []
-        if hasattr(response, "Errors") and response.Errors:
-            err_list = response.Errors.Err
-            if not isinstance(err_list, list):
-                err_list = [err_list]
-
-            errores = [ErrorArca(code=err.Code, msg=err.Msg) for err in err_list]
 
         # Crear respuesta
         cae_response = CAEResponse(
@@ -316,15 +424,26 @@ class WSFEv1Client:
             errores=errores,
         )
 
-        # Si fue rechazado, lanzar excepción
-        if cae_response.is_rechazado:
-            error_msgs = [f"[{e.code}] {e.msg}" for e in errores]
-            obs_msgs = [f"[{o.code}] {o.msg}" for o in observaciones]
-
-            all_msgs = error_msgs + obs_msgs
-            raise ArcaValidationError(f"Comprobante rechazado: {'; '.join(all_msgs)}")
-
         return cae_response
+
+    @staticmethod
+    def _normalizar_lista(valor) -> list:
+        """Normaliza respuestas SOAP que pueden venir como item o lista."""
+        if valor is None:
+            return []
+        if isinstance(valor, list):
+            return valor
+        return [valor]
+
+    def _parse_errors_response(self, response) -> list[ErrorArca]:
+        """Extrae errores globales de una respuesta WSFE."""
+        if not hasattr(response, "Errors") or not response.Errors:
+            return []
+
+        return [
+            ErrorArca(code=err.Code, msg=err.Msg)
+            for err in self._normalizar_lista(response.Errors.Err)
+        ]
 
     async def fe_comp_consultar(
         self, punto_venta: int, tipo_cbte: int, numero: int

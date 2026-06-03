@@ -29,6 +29,10 @@
 - `ARCA_PRIVATE_KEY_PASSWORD`: contraseña local para cifrar claves privadas
   nuevas. Si no se define, se usa `APP_SECRET_KEY`.
 - `ARCA_TOKEN_CACHE_PATH`: cache persistente de tickets WSAA
+- `ARCA_FECAESOLICITAR_BATCH_ENABLED`: habilita emisión de lotes WSFE por
+  sublotes cuando ARCA informa `RegXReq`.
+- `ARCA_FECAESOLICITAR_BATCH_MAX_REGISTROS`: límite operativo opcional. `0`
+  significa usar el `RegXReq` completo informado por ARCA.
 - En produccion, usar PostgreSQL y `docker-compose.prod.yml`; no usar SQLite ni defaults de desarrollo.
 - Compatibilidad legacy:
   - `AFIP_ENV`
@@ -301,6 +305,16 @@
   grupo con error.
 - Para notas de credito/debito con comprobante relacionado, `CbtesAsoc` debe
   enviarse como `{ "CbteAsoc": [...] }`.
+- Para emisión masiva, FactuFlow puede enviar varios detalles en un mismo
+  `FECAESolicitar`. En ese caso `CantReg` debe coincidir con la cantidad de
+  `FECAEDetRequest`, todos los detalles deben compartir punto de venta y tipo,
+  y el tamaño máximo se toma de `FECompTotXRequest.RegXReq`.
+- Si `FECompTotXRequest` falla o no devuelve `RegXReq`, FactuFlow no hace prueba
+  y error: degrada al flujo unitario existente y muestra un aviso persistente
+  en el lote.
+- Si un sublote ya enviado a ARCA queda sin detalle confiable, el lote se marca
+  como `requiere_reconciliacion` para bloquear reintentos automáticos hasta
+  consultar ARCA.
 - En `FECompConsultar`, ARCA devuelve el numero consultado como
   `CbteDesde`/`CbteHasta`; no asumir `CbteNro` en esa respuesta.
 - La numeracion de comprobantes ahora se protege con:

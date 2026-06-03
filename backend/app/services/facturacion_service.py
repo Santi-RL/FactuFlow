@@ -67,6 +67,17 @@ class FacturacionService:
     _number_locks_guard = asyncio.Lock()
     CONSUMIDOR_FINAL_IDENTIFICACION_MINIMA = Decimal("10000000")
     TIPOS_COMPROBANTE_C = {11, 12, 13}
+    TIPOS_COMPROBANTE_FCE_MIPYME = {
+        201,
+        202,
+        203,
+        206,
+        207,
+        208,
+        211,
+        212,
+        213,
+    }
 
     TIPO_DOCUMENTO_CODIGO_A_NOMBRE = {
         80: "CUIT",
@@ -105,6 +116,294 @@ class FacturacionService:
         )
         async with lock:
             return await self._emitir_comprobante_locked(request)
+
+    async def emitir_comprobantes_lote(
+        self,
+        requests: list[EmitirComprobanteRequest],
+        max_registros: int | None = None,
+    ) -> list[EmitirComprobanteResponse]:
+        """Emite un sublote homogéneo de comprobantes en un request ARCA."""
+        if not requests:
+            return []
+
+        lock = await self._get_number_lock(
+            requests[0].empresa_id,
+            requests[0].punto_venta_id,
+            requests[0].tipo_comprobante,
+        )
+        async with lock:
+            return await self._emitir_comprobantes_lote_locked(
+                requests,
+                max_registros=max_registros,
+            )
+
+    async def obtener_registros_maximos_por_request(self, empresa_id: int) -> int:
+        """Consulta en ARCA el máximo de comprobantes permitido por request."""
+        empresa = await self._obtener_empresa(empresa_id)
+        if not empresa:
+            raise ValidationError("Empresa no encontrada")
+
+        certificado = await self._obtener_certificado_activo(empresa_id)
+        ticket = await self._obtener_ticket_acceso(empresa, certificado)
+        wsfe_client = WSFEv1Client(
+            ambiente=self._get_arca_ambiente(),
+            ticket=ticket,
+            cuit=empresa.cuit,
+        )
+        return await wsfe_client.fe_comp_tot_x_request()
+
+    async def _emitir_comprobantes_lote_locked(
+        self,
+        requests: list[EmitirComprobanteRequest],
+        max_registros: int | None = None,
+    ) -> list[EmitirComprobanteResponse]:
+        """Ejecuta la emisión batch asumiendo que el lock local ya fue tomado."""
+        try:
+            requests = [self.normalizar_receptor(request) for request in requests]
+            self._validar_lote_homogeneo(requests, max_registros=max_registros)
+
+            for request in requests:
+                await self._validar_datos(request)
+
+            primer_request = requests[0]
+            await self._tomar_lock_numeracion(
+                primer_request.empresa_id,
+                primer_request.punto_venta_id,
+                primer_request.tipo_comprobante,
+            )
+
+            totales_por_request = [
+                self._calcular_totales(request.items) for request in requests
+            ]
+            empresa = await self._obtener_empresa(primer_request.empresa_id)
+            punto_venta = await self._obtener_punto_venta(
+                primer_request.punto_venta_id,
+                primer_request.empresa_id,
+            )
+            certificado = await self._obtener_certificado_activo(
+                primer_request.empresa_id
+            )
+
+            ticket = await self._obtener_ticket_acceso(empresa, certificado)
+            wsfe_client = WSFEv1Client(
+                ambiente=self._get_arca_ambiente(),
+                ticket=ticket,
+                cuit=empresa.cuit,
+            )
+            await self._validar_punto_venta_habilitado(
+                wsfe_client,
+                punto_venta.numero,
+            )
+            try:
+                proximo = await self._obtener_proximo_numero(
+                    primer_request.empresa_id,
+                    primer_request.punto_venta_id,
+                    primer_request.tipo_comprobante,
+                    wsfe_client,
+                    punto_venta.numero,
+                )
+            except ReconciliacionNumeracionError as exc:
+                return [
+                    self._respuesta_numeracion_arca_adelantada(
+                        request=request,
+                        punto_venta_numero=punto_venta.numero,
+                        numero=exc.ultimo_arca,
+                        totales=totales,
+                        exc=exc,
+                    )
+                    for request, totales in zip(requests, totales_por_request)
+                ]
+
+            arca_requests = [
+                self._armar_request_arca(
+                    request,
+                    proximo + index,
+                    totales,
+                    punto_venta.numero,
+                )
+                for index, (request, totales) in enumerate(
+                    zip(requests, totales_por_request)
+                )
+            ]
+
+            try:
+                resultados_arca = await wsfe_client.fe_cae_solicitar_lote(arca_requests)
+            except (ArcaServiceError, ArcaValidationError) as exc:
+                logger.error("Error al solicitar CAE por sublote: %s", str(exc))
+                return [
+                    self._respuesta_batch_sin_detalle_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta.numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                        error=str(exc),
+                    )
+                    for request, arca_request, totales in zip(
+                        requests,
+                        arca_requests,
+                        totales_por_request,
+                    )
+                ]
+
+            respuestas: list[EmitirComprobanteResponse] = []
+            persistencia_bloqueada = False
+            for request, arca_request, totales, resultado in zip(
+                requests,
+                arca_requests,
+                totales_por_request,
+                resultados_arca,
+            ):
+                respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
+                    request=request,
+                    punto_venta_numero=punto_venta.numero,
+                    numero=arca_request.cbte_desde,
+                    totales=totales,
+                    resultado_arca=resultado,
+                )
+                if respuesta_no_aprobada is not None:
+                    respuestas.append(respuesta_no_aprobada)
+                    continue
+
+                if persistencia_bloqueada:
+                    respuestas.append(
+                        self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta.numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            resultado_arca=resultado,
+                            mensaje=(
+                                "ARCA autorizó el comprobante, pero FactuFlow "
+                                "detuvo la persistencia del sublote por una "
+                                "reconciliación pendiente"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente."
+                            ],
+                        )
+                    )
+                    continue
+
+                try:
+                    comprobante = await self._guardar_comprobante(
+                        request,
+                        arca_request.cbte_desde,
+                        totales,
+                        resultado,
+                        punto_venta,
+                    )
+                except IntegrityError as exc:
+                    await self.db.rollback()
+                    persistencia_bloqueada = True
+                    logger.exception(
+                        "Conflicto de numeración al guardar comprobante batch autorizado. "
+                        "empresa=%s pv=%s tipo=%s numero=%s",
+                        request.empresa_id,
+                        punto_venta.numero,
+                        request.tipo_comprobante,
+                        arca_request.cbte_desde,
+                    )
+                    respuestas.append(
+                        self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta.numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            resultado_arca=resultado,
+                            mensaje=(
+                                "ARCA autorizó el comprobante, pero no se pudo guardar por conflicto de numeración"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
+                                str(exc.orig),
+                            ],
+                        )
+                    )
+                except Exception as exc:
+                    await self.db.rollback()
+                    persistencia_bloqueada = True
+                    logger.exception(
+                        "Fallo posterior a CAE autorizado en sublote. empresa=%s pv=%s tipo=%s numero=%s",
+                        request.empresa_id,
+                        punto_venta.numero,
+                        request.tipo_comprobante,
+                        arca_request.cbte_desde,
+                    )
+                    respuestas.append(
+                        self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta.numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            resultado_arca=resultado,
+                            mensaje=(
+                                "ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
+                                str(exc),
+                            ],
+                        )
+                    )
+                else:
+                    logger.info(
+                        "Comprobante batch emitido: empresa=%s tipo=%s pv=%s numero=%s cae=%s total=%s",
+                        request.empresa_id,
+                        request.tipo_comprobante,
+                        punto_venta.numero,
+                        resultado.numero_comprobante,
+                        resultado.cae,
+                        totales["total"],
+                    )
+                    respuestas.append(
+                        EmitirComprobanteResponse(
+                            exito=True,
+                            comprobante_id=comprobante.id,
+                            tipo_comprobante=request.tipo_comprobante,
+                            punto_venta=punto_venta.numero,
+                            numero=arca_request.cbte_desde,
+                            fecha=comprobante.fecha_emision,
+                            cae=resultado.cae,
+                            cae_vencimiento=self._parse_fecha_cae(
+                                resultado.cae_vencimiento
+                            ),
+                            total=totales["total"],
+                            mensaje="Comprobante emitido exitosamente",
+                        )
+                    )
+
+            return respuestas
+
+        except ValidationError as e:
+            logger.warning("Error de validación en sublote: %s", str(e))
+            return [
+                EmitirComprobanteResponse(
+                    exito=False,
+                    tipo_comprobante=request.tipo_comprobante,
+                    punto_venta=0,
+                    numero=0,
+                    fecha=request.fecha_emision,
+                    total=Decimal("0"),
+                    mensaje="Error de validación",
+                    errores=[str(e)],
+                )
+                for request in requests
+            ]
+        except Exception as e:
+            logger.error("Error inesperado al emitir sublote: %s", str(e))
+            return [
+                EmitirComprobanteResponse(
+                    exito=False,
+                    tipo_comprobante=request.tipo_comprobante,
+                    punto_venta=0,
+                    numero=0,
+                    fecha=request.fecha_emision,
+                    total=Decimal("0"),
+                    mensaje="Error inesperado",
+                    errores=[f"Error interno: {str(e)}"],
+                )
+                for request in requests
+            ]
 
     async def _emitir_comprobante_locked(
         self, request: EmitirComprobanteRequest
@@ -362,6 +661,97 @@ class FacturacionService:
             tipo_comprobante,
             wsfe_client,
             punto_venta.numero,
+        )
+
+    @staticmethod
+    def _validar_lote_homogeneo(
+        requests: list[EmitirComprobanteRequest],
+        max_registros: int | None = None,
+    ) -> None:
+        """Valida que un sublote pueda viajar en un único request WSFE."""
+        if not requests:
+            raise ValidationError("El sublote no tiene comprobantes para emitir")
+
+        if max_registros is not None and max_registros > 0:
+            if len(requests) > max_registros:
+                raise ValidationError(
+                    "El sublote supera la cantidad máxima permitida por ARCA"
+                )
+
+        primer = requests[0]
+        for request in requests:
+            if (
+                request.empresa_id != primer.empresa_id
+                or request.punto_venta_id != primer.punto_venta_id
+                or request.tipo_comprobante != primer.tipo_comprobante
+            ):
+                raise ValidationError(
+                    "Un sublote ARCA solo puede mezclar comprobantes del mismo "
+                    "emisor, punto de venta y tipo"
+                )
+
+            if (
+                request.tipo_comprobante
+                in FacturacionService.TIPOS_COMPROBANTE_FCE_MIPYME
+            ):
+                raise ValidationError(
+                    "Los comprobantes FCE/MiPyME deben emitirse de a uno según "
+                    "la documentación ARCA"
+                )
+
+    def _respuesta_numeracion_arca_adelantada(
+        self,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+        exc: ReconciliacionNumeracionError,
+    ) -> EmitirComprobanteResponse:
+        """Arma respuesta cuando ARCA tiene numeración ausente localmente."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje="ARCA registra comprobantes que no están guardados en FactuFlow",
+            errores=[
+                str(exc),
+                (
+                    f"Último local: {exc.ultimo_local}; "
+                    f"último ARCA: {exc.ultimo_arca}."
+                ),
+            ],
+            requiere_reconciliacion=True,
+            categoria_error="numeracion_arca_adelantada",
+        )
+
+    def _respuesta_batch_sin_detalle_requiere_reconciliacion(
+        self,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+        error: str,
+    ) -> EmitirComprobanteResponse:
+        """Arma respuesta no reintentable cuando un sublote no devuelve detalle."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje=(
+                "FactuFlow no pudo confirmar el resultado del sublote enviado a ARCA"
+            ),
+            errores=[
+                "No reintentes esta emisión hasta consultar ARCA y reconciliar la numeración localmente.",
+                error,
+            ],
+            requiere_reconciliacion=True,
+            categoria_error="arca_batch_sin_respuesta",
         )
 
     def _calcular_totales(self, items: list[ItemComprobanteCreate]) -> dict:

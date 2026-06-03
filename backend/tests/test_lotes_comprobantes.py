@@ -27,6 +27,12 @@ from app.services.lote_comprobantes_service import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _desactivar_batch_arca_por_defecto(monkeypatch: pytest.MonkeyPatch):
+    """Evita consultas WSAA/WSFE reales en tests que no prueban batching ARCA."""
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", False)
+
+
 def _build_lote_excel(
     empresa_cuit: str,
     punto_venta_numero: int | str = 1,
@@ -2212,6 +2218,161 @@ async def test_procesar_lote_actualiza_contadores_parciales(
     data = procesar.json()
     assert data["lote"]["estado"] == "completado"
     assert data["lote"]["grupos_emitidos"] == 2
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un lote elegible se divide en sublotes según RegXReq."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", True)
+    llamadas_batch: list[int] = []
+    numero = 0
+
+    async def fake_regxreq(self, empresa_id):
+        return 2
+
+    async def fake_emitir_lote(self, requests, max_registros=None):
+        nonlocal numero
+        llamadas_batch.append(len(requests))
+        respuestas = []
+        for request in requests:
+            numero += 1
+            respuestas.append(
+                EmitirComprobanteResponse(
+                    exito=True,
+                    comprobante_id=100 + numero,
+                    tipo_comprobante=request.tipo_comprobante,
+                    punto_venta=1,
+                    numero=numero,
+                    fecha=request.fecha_emision,
+                    cae=f"1234567890123{numero}",
+                    cae_vencimiento=date(2026, 3, 31),
+                    total=Decimal("1210.00"),
+                    mensaje="Comprobante autorizado",
+                    errores=[],
+                )
+            )
+        return respuestas
+
+    async def fail_emitir_unitario(self, request):
+        raise AssertionError("No debe usar emisión unitaria en sublotes de tamaño 2")
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.obtener_registros_maximos_por_request",
+        fake_regxreq,
+    )
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobantes_lote",
+        fake_emitir_lote,
+    )
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fail_emitir_unitario,
+    )
+
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-batch-regxreq.xlsx",
+                _build_lote_excel_multi_grupo(test_empresa.cuit, total_grupos=4),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert procesar.status_code == 200, procesar.text
+    data = procesar.json()
+    assert llamadas_batch == [2, 2]
+    assert data["lote"]["estado"] == "completado"
+    assert data["lote"]["metadata_json"]["arca_batch"]["reg_x_req"] == 2
+    assert data["lote"]["metadata_json"]["arca_batch"]["chunk_size"] == 2
+    assert data["lote"]["metadata_json"]["arca_batch"]["modo"] == "batch"
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Si RegXReq no está disponible, el lote usa modo unitario y avisa."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", True)
+
+    async def fake_regxreq(self, empresa_id):
+        raise RuntimeError("RegXReq no disponible")
+
+    async def fake_emitir(self, request):
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=123,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=456,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+            mensaje="Comprobante autorizado",
+            errores=[],
+        )
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.obtener_registros_maximos_por_request",
+        fake_regxreq,
+    )
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fake_emitir,
+    )
+
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-fallback-regxreq.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert procesar.status_code == 200, procesar.text
+    data = procesar.json()
+    arca_batch = data["lote"]["metadata_json"]["arca_batch"]
+    assert arca_batch["modo"] == "unitario_fallback"
+    assert arca_batch["fallback_unitario"] is True
+    assert "RegXReq no disponible" in arca_batch["fallback_motivo"]
+    assert "modo unitario" in data["lote"]["mensaje_resumen"]
 
 
 @pytest.mark.asyncio

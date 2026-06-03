@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-29
+Ultima actualizacion: 2026-06-03
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -58,6 +58,22 @@ cd backend
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
 
 ## Recorrido ejecutado y validado
+
+### Emisión masiva por sublotes ARCA - verificación técnica 2026-06-03
+
+- Se agregó emisión por sublotes WSFE para lotes elegibles: FactuFlow consulta
+  `FECompTotXRequest.RegXReq`, agrupa por punto de venta y tipo de comprobante,
+  y envía `FECAESolicitar` con `CantReg` mayor a 1 cuando corresponde.
+- Si la consulta de `RegXReq` falla, el lote degrada a modo unitario y muestra
+  aviso explícito al usuario en el detalle del lote.
+- La verificación fue automatizada y segura con mocks. No se hicieron llamadas
+  reales a ARCA, no se solicitaron CAEs y no se emitieron comprobantes.
+- Pruebas focalizadas ejecutadas:
+  `python -m pytest backend/tests/test_arca/test_wsfev1.py backend/tests/test_facturacion_service.py::test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracion backend/tests/test_lotes_comprobantes.py::test_procesar_lote_usa_sublotes_arca_segun_regxreq backend/tests/test_lotes_comprobantes.py::test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso -q`
+  OK.
+- Pendiente de QA visual local: abrir `Emisión masiva`, revisar que el aviso de
+  fallback se vea correctamente en un lote mockeado o de prueba local, sin
+  emitir comprobantes reales.
 
 ### Detalle paginado de lotes grandes - QA visual 2026-05-29
 

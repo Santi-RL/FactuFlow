@@ -240,6 +240,7 @@ const gruposPageMock = (): LoteComprobanteGruposPage => ({
 const mountView = async (
   perfiles: PerfilCargaMasiva[] = [],
   lotesIniciales: LoteComprobante[] = [],
+  resumen: LoteComprobanteResumen = loteResumenMock(),
 ) => {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -249,7 +250,7 @@ const mountView = async (
 
   mockedFormatos.listar.mockResolvedValue([formatoMock()]);
   mockedLotesDetalle.listar.mockResolvedValue(lotesIniciales);
-  mockedLotesDetalle.obtenerResumen.mockResolvedValue(loteResumenMock());
+  mockedLotesDetalle.obtenerResumen.mockResolvedValue(resumen);
   mockedLotesDetalle.obtenerGrupos.mockResolvedValue(gruposPageMock());
   mockedPerfiles.listar.mockResolvedValue(perfiles);
   mockedPuntosVenta.getAll.mockResolvedValue([]);
@@ -343,5 +344,28 @@ describe("LotesComprobantesView", () => {
     expect(wrapper.text()).toContain("Mostrando 1 a 100 de 1432 comprobantes");
     expect(wrapper.text()).toContain("El resumen fiscal considera el lote completo");
     expect(wrapper.findAll("tbody tr")).toHaveLength(1);
+  });
+
+  it("muestra aviso cuando ARCA degrada el lote a emisión unitaria", async () => {
+    const lote = loteResumenMock();
+    const resumen = {
+      ...lote,
+      metadata_json: {
+        arca_batch: {
+          modo: "unitario_fallback",
+          reg_x_req: null,
+          chunk_size: 1,
+          fallback_unitario: true,
+          fallback_motivo: "ARCA no devolvió RegXReq",
+        },
+      },
+    };
+
+    const wrapper = await mountView([], [lote], resumen);
+
+    expect(wrapper.text()).toContain(
+      "ARCA no informó la capacidad máxima por request",
+    );
+    expect(wrapper.text()).toContain("ARCA no devolvió RegXReq");
   });
 });

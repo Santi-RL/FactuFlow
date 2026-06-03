@@ -38,6 +38,7 @@ from app.models.usuario import Usuario
 from app.schemas.comprobante import (
     ComprobanteAsociadoCreate,
     EmitirComprobanteRequest,
+    EmitirComprobanteResponse,
     ItemComprobanteCreate,
 )
 from app.services.facturacion_service import FacturacionService, ValidationError
@@ -89,6 +90,25 @@ class OpcionesPuntoVentaLote:
 
     punto_venta_modo: str = "archivo"
     punto_venta_numero: int | None = None
+
+
+@dataclass(frozen=True)
+class GrupoPendienteEmision:
+    """Agrupa el registro del lote con el request listo para emitir."""
+
+    grupo: LoteComprobanteGrupo
+    request: EmitirComprobanteRequest
+
+
+@dataclass(frozen=True)
+class ConfiguracionBatchArca:
+    """Configuración efectiva de emisión por sublotes ARCA."""
+
+    habilitado: bool
+    reg_x_req: int | None
+    chunk_size: int
+    fallback_unitario: bool = False
+    fallback_motivo: str | None = None
 
 
 class LoteComprobantesService:
@@ -1058,7 +1078,12 @@ class LoteComprobantesService:
             lote.modo_procesamiento,
         )
 
+        config_batch = await self._resolver_configuracion_batch_arca(lote, empresa_id)
+        self._registrar_metadata_batch_arca(lote, config_batch)
+        await self.db.commit()
+
         grupos = await self._obtener_grupos_emitibles(lote_id)
+        pendientes: list[GrupoPendienteEmision] = []
         for grupo in grupos:
             try:
                 payload = grupo.payload_json or {}
@@ -1071,45 +1096,101 @@ class LoteComprobantesService:
                     await self.db.commit()
                     continue
 
-                resultado = await self.facturacion_service.emitir_comprobante(request)
-                if resultado.exito:
-                    grupo.estado = "autorizado"
-                    grupo.cae = resultado.cae
-                    grupo.numero_asignado = resultado.numero
-                    grupo.comprobante_id = resultado.comprobante_id
-                    grupo.mensajes_json = [
-                        resultado.mensaje,
-                        f"CAE {resultado.cae}",
-                    ]
-                    await self._marcar_filas(grupo, "autorizado", grupo.mensajes_json)
-                elif resultado.requiere_reconciliacion:
-                    grupo.estado = "requiere_reconciliacion"
-                    grupo.cae = resultado.cae
-                    grupo.numero_asignado = resultado.numero
-                    grupo.mensajes_json = resultado.errores or [resultado.mensaje]
-                    await self._marcar_filas(
-                        grupo,
-                        "requiere_reconciliacion",
-                        grupo.mensajes_json,
-                    )
-                else:
-                    grupo.estado = "fallido"
-                    grupo.mensajes_json = resultado.errores or [resultado.mensaje]
-                    await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
+                pendientes.append(GrupoPendienteEmision(grupo=grupo, request=request))
             except Exception as exc:  # pragma: no cover - fallback defensivo
                 logger.exception("Error procesando grupo %s", grupo.comprobante_ref)
                 grupo.estado = "fallido"
                 grupo.mensajes_json = [str(exc)]
                 await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
+                await self.db.flush()
+                await self._actualizar_progreso_lote(lote_id)
+                await self.db.commit()
 
-            await self.db.flush()
-            await self._actualizar_progreso_lote(lote_id)
-            await self.db.commit()
+        for sublote in self._iterar_sublotes_emision(pendientes, config_batch):
+            if self._sublote_requiere_emision_unitaria(sublote, config_batch):
+                for pendiente in sublote:
+                    try:
+                        resultado = await self.facturacion_service.emitir_comprobante(
+                            pendiente.request
+                        )
+                        await self._aplicar_resultado_emision_grupo(
+                            pendiente.grupo,
+                            resultado,
+                        )
+                    except Exception as exc:  # pragma: no cover - fallback defensivo
+                        logger.exception(
+                            "Error procesando grupo %s",
+                            pendiente.grupo.comprobante_ref,
+                        )
+                        pendiente.grupo.estado = "fallido"
+                        pendiente.grupo.mensajes_json = [str(exc)]
+                        await self._marcar_filas(
+                            pendiente.grupo,
+                            "fallido",
+                            pendiente.grupo.mensajes_json,
+                        )
+
+                    await self.db.flush()
+                    await self._actualizar_progreso_lote(lote_id)
+                    await self.db.commit()
+                continue
+
+            try:
+                resultados = await self.facturacion_service.emitir_comprobantes_lote(
+                    [pendiente.request for pendiente in sublote],
+                    max_registros=config_batch.chunk_size,
+                )
+            except Exception as exc:  # pragma: no cover - fallback defensivo
+                logger.exception("Error procesando sublote ARCA")
+                resultados = [
+                    EmitirComprobanteResponse(
+                        exito=False,
+                        tipo_comprobante=pendiente.request.tipo_comprobante,
+                        punto_venta=0,
+                        numero=0,
+                        fecha=pendiente.request.fecha_emision,
+                        total=Decimal("0"),
+                        mensaje="Error inesperado",
+                        errores=[str(exc)],
+                    )
+                    for pendiente in sublote
+                ]
+
+            if len(resultados) < len(sublote):
+                resultados.extend(
+                    [
+                        EmitirComprobanteResponse(
+                            exito=False,
+                            tipo_comprobante=pendiente.request.tipo_comprobante,
+                            punto_venta=0,
+                            numero=0,
+                            fecha=pendiente.request.fecha_emision,
+                            total=Decimal("0"),
+                            mensaje="Error inesperado",
+                            errores=[
+                                "FactuFlow no recibió respuesta para este comprobante dentro del sublote."
+                            ],
+                            requiere_reconciliacion=True,
+                            categoria_error="arca_batch_respuesta_incompleta",
+                        )
+                        for pendiente in sublote[len(resultados) :]
+                    ]
+                )
+
+            for pendiente, resultado in zip(sublote, resultados):
+                await self._aplicar_resultado_emision_grupo(
+                    pendiente.grupo,
+                    resultado,
+                )
+                await self.db.flush()
+                await self._actualizar_progreso_lote(lote_id)
+                await self.db.commit()
 
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         lote.finished_at = datetime.utcnow()
         lote.estado = "cargado"
         await self._actualizar_estado_lote(lote)
+        self._aplicar_aviso_batch_arca(lote)
         await self.db.commit()
         await self.db.refresh(lote)
         logger.info(
@@ -1168,6 +1249,171 @@ class LoteComprobantesService:
         )
         lote = result.scalar_one()
         await self._actualizar_estado_lote(lote)
+
+    async def _resolver_configuracion_batch_arca(
+        self,
+        lote: LoteComprobante,
+        empresa_id: int,
+    ) -> ConfiguracionBatchArca:
+        """Resuelve el tamaño de sublote ARCA que se usará en el procesamiento."""
+        if not settings.arca_fecaesolicitar_batch_enabled:
+            return ConfiguracionBatchArca(
+                habilitado=False,
+                reg_x_req=None,
+                chunk_size=1,
+            )
+
+        try:
+            reg_x_req = (
+                await self.facturacion_service.obtener_registros_maximos_por_request(
+                    empresa_id
+                )
+            )
+            if reg_x_req < 1:
+                raise LoteComprobanteError("ARCA devolvió RegXReq menor a 1")
+
+            limite_configurado = settings.arca_fecaesolicitar_batch_max_registros
+            chunk_size = reg_x_req
+            if limite_configurado > 0:
+                chunk_size = min(chunk_size, limite_configurado)
+
+            return ConfiguracionBatchArca(
+                habilitado=chunk_size > 1,
+                reg_x_req=reg_x_req,
+                chunk_size=max(1, chunk_size),
+            )
+        except Exception as exc:
+            logger.warning(
+                "No se pudo consultar RegXReq para lote %s; se degrada a modo unitario. error=%s",
+                lote.id,
+                str(exc),
+            )
+            return ConfiguracionBatchArca(
+                habilitado=False,
+                reg_x_req=None,
+                chunk_size=1,
+                fallback_unitario=True,
+                fallback_motivo=str(exc),
+            )
+
+    @staticmethod
+    def _registrar_metadata_batch_arca(
+        lote: LoteComprobante,
+        config: ConfiguracionBatchArca,
+    ) -> None:
+        """Guarda metadata operativa sobre el modo de emisión ARCA usado."""
+        metadata = dict(lote.metadata_json or {})
+        if config.fallback_unitario:
+            modo = "unitario_fallback"
+        elif config.habilitado:
+            modo = "batch"
+        else:
+            modo = "unitario"
+
+        metadata["arca_batch"] = {
+            "modo": modo,
+            "reg_x_req": config.reg_x_req,
+            "chunk_size": config.chunk_size,
+            "fallback_unitario": config.fallback_unitario,
+            "fallback_motivo": config.fallback_motivo,
+        }
+        lote.metadata_json = metadata
+
+    @staticmethod
+    def _aplicar_aviso_batch_arca(lote: LoteComprobante) -> None:
+        """Agrega al resumen un aviso si el lote debió degradar a modo unitario."""
+        arca_batch = (lote.metadata_json or {}).get("arca_batch") or {}
+        if not arca_batch.get("fallback_unitario"):
+            return
+
+        aviso = (
+            "ARCA no informó la capacidad máxima por request; FactuFlow emitió "
+            "en modo unitario para no bloquear la operación."
+        )
+        if not lote.mensaje_resumen:
+            lote.mensaje_resumen = aviso
+        elif aviso not in lote.mensaje_resumen:
+            lote.mensaje_resumen = f"{lote.mensaje_resumen} {aviso}"
+
+    @staticmethod
+    def _iterar_sublotes_emision(
+        pendientes: list[GrupoPendienteEmision],
+        config: ConfiguracionBatchArca,
+    ) -> list[list[GrupoPendienteEmision]]:
+        """Divide grupos pendientes por punto, tipo y tamaño efectivo."""
+        grupos_por_clave: dict[tuple[int, int], list[GrupoPendienteEmision]] = {}
+        orden_claves: list[tuple[int, int]] = []
+        for pendiente in pendientes:
+            clave = (
+                pendiente.request.punto_venta_id,
+                pendiente.request.tipo_comprobante,
+            )
+            if clave not in grupos_por_clave:
+                grupos_por_clave[clave] = []
+                orden_claves.append(clave)
+            grupos_por_clave[clave].append(pendiente)
+
+        sublotes: list[list[GrupoPendienteEmision]] = []
+        for clave in orden_claves:
+            grupo_clave = grupos_por_clave[clave]
+            primer = grupo_clave[0].request
+            chunk_size = config.chunk_size
+            if (
+                not config.habilitado
+                or config.fallback_unitario
+                or primer.tipo_comprobante
+                in FacturacionService.TIPOS_COMPROBANTE_FCE_MIPYME
+            ):
+                chunk_size = 1
+
+            for index in range(0, len(grupo_clave), chunk_size):
+                sublotes.append(grupo_clave[index : index + chunk_size])
+
+        return sublotes
+
+    @staticmethod
+    def _sublote_requiere_emision_unitaria(
+        sublote: list[GrupoPendienteEmision],
+        config: ConfiguracionBatchArca,
+    ) -> bool:
+        """Indica si el sublote debe usar el flujo unitario existente."""
+        if len(sublote) <= 1:
+            return True
+        if not config.habilitado or config.fallback_unitario:
+            return True
+        tipo_comprobante = sublote[0].request.tipo_comprobante
+        return tipo_comprobante in FacturacionService.TIPOS_COMPROBANTE_FCE_MIPYME
+
+    async def _aplicar_resultado_emision_grupo(
+        self,
+        grupo: LoteComprobanteGrupo,
+        resultado: EmitirComprobanteResponse,
+    ) -> None:
+        """Actualiza grupo y filas según la respuesta de emisión."""
+        if resultado.exito:
+            grupo.estado = "autorizado"
+            grupo.cae = resultado.cae
+            grupo.numero_asignado = resultado.numero
+            grupo.comprobante_id = resultado.comprobante_id
+            grupo.mensajes_json = [
+                resultado.mensaje,
+                f"CAE {resultado.cae}",
+            ]
+            await self._marcar_filas(grupo, "autorizado", grupo.mensajes_json)
+        elif resultado.requiere_reconciliacion:
+            grupo.estado = "requiere_reconciliacion"
+            grupo.cae = resultado.cae
+            grupo.numero_asignado = resultado.numero
+            grupo.mensajes_json = resultado.errores or [resultado.mensaje]
+            await self._marcar_filas(
+                grupo,
+                "requiere_reconciliacion",
+                grupo.mensajes_json,
+            )
+        else:
+            grupo.estado = "fallido"
+            grupo.mensajes_json = resultado.errores or [resultado.mensaje]
+            await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
 
     @staticmethod
     def _sanitizar_valor_excel_observado(value: Any) -> Any:
@@ -1727,15 +1973,21 @@ class LoteComprobantesService:
 
     async def _actualizar_estado_lote(self, lote: LoteComprobante) -> None:
         """Recalcula contadores y estado del lote."""
-        grupos = await self._obtener_grupos_lote(lote.id)
-        lote.total_grupos = len(grupos)
-        lote.grupos_validos = len([g for g in grupos if g.estado == "validado"])
-        lote.grupos_con_error = len([g for g in grupos if g.estado == "con_error"])
-        lote.grupos_emitidos = len([g for g in grupos if g.estado == "autorizado"])
-        lote.grupos_fallidos = len([g for g in grupos if g.estado == "fallido"])
-        grupos_reconciliacion = len(
-            [g for g in grupos if g.estado == "requiere_reconciliacion"]
+        conteos = dict(
+            (
+                await self.db.execute(
+                    select(LoteComprobanteGrupo.estado, func.count())
+                    .where(LoteComprobanteGrupo.lote_id == lote.id)
+                    .group_by(LoteComprobanteGrupo.estado)
+                )
+            ).all()
         )
+        lote.total_grupos = sum(conteos.values())
+        lote.grupos_validos = conteos.get("validado", 0)
+        lote.grupos_con_error = conteos.get("con_error", 0)
+        lote.grupos_emitidos = conteos.get("autorizado", 0)
+        lote.grupos_fallidos = conteos.get("fallido", 0)
+        grupos_reconciliacion = conteos.get("requiere_reconciliacion", 0)
 
         if lote.estado == "procesando":
             total_emitible = (

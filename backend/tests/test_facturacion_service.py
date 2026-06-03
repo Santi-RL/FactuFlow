@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.models import CAEResponse
+from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
@@ -698,6 +699,122 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
     assert resultado.categoria_error == "arca_no_aprobado"
     assert resultado.cae is None
     assert comprobantes == []
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracion(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Un sublote homogéneo debe solicitar CAE una vez y guardar números consecutivos."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente="homologacion",
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado para emisión batch."""
+
+        arca_requests = []
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Simula que ARCA no tiene comprobantes previos."""
+            return 0
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Captura el sublote y devuelve CAE aprobados."""
+            FakeWSFEClient.arca_requests.append(arca_requests)
+            return [
+                CAEResponse(
+                    cae=f"1234567890123{index}",
+                    cae_vencimiento="20260610",
+                    numero_comprobante=arca_request.cbte_desde,
+                    tipo_cbte=arca_request.tipo_cbte,
+                    punto_venta=arca_request.punto_venta,
+                    resultado="A",
+                )
+                for index, arca_request in enumerate(arca_requests, start=1)
+            ]
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    def request_cliente(nombre: str) -> EmitirComprobanteRequest:
+        return EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=1,
+            fecha_emision=date.today(),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social=nombre,
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Producto",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000"),
+                    iva_porcentaje=Decimal("0"),
+                )
+            ],
+        )
+
+    service = FacturacionService(db_session)
+    resultados = await service.emitir_comprobantes_lote(
+        [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")],
+        max_registros=2,
+    )
+    comprobantes = (
+        (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
+        .scalars()
+        .all()
+    )
+
+    assert [resultado.exito for resultado in resultados] == [True, True]
+    assert [resultado.numero for resultado in resultados] == [1, 2]
+    assert len(FakeWSFEClient.arca_requests) == 1
+    assert [request.cbte_desde for request in FakeWSFEClient.arca_requests[0]] == [
+        1,
+        2,
+    ]
+    assert [comprobante.numero for comprobante in comprobantes] == [1, 2]
 
 
 @pytest.mark.asyncio

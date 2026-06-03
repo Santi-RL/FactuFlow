@@ -51,6 +51,14 @@ const empresaStore = useEmpresaStore();
 const { showError, showInfo, showSuccess, showWarning } = useNotification();
 const GRUPOS_LOTE_PER_PAGE = 100;
 
+interface ArcaBatchMetadata {
+  fallback_unitario?: boolean;
+  fallback_motivo?: unknown;
+  reg_x_req?: unknown;
+  chunk_size?: unknown;
+  modo?: unknown;
+}
+
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const archivoSeleccionado = ref<File | null>(null);
 const formatosImportacion = ref<FormatoImportacion[]>([]);
@@ -112,6 +120,19 @@ const loteEstadoColor = computed(() => {
   return (
     ESTADOS_LOTE_COLOR[loteActual.value.estado] || "bg-gray-100 text-gray-800"
   );
+});
+const arcaBatchMetadata = computed<ArcaBatchMetadata | null>(() => {
+  const metadata = loteActual.value?.metadata_json;
+  const arcaBatch = metadata?.arca_batch;
+  if (!arcaBatch || typeof arcaBatch !== "object") return null;
+  return arcaBatch as ArcaBatchMetadata;
+});
+const mostrarAvisoFallbackArca = computed(
+  () => arcaBatchMetadata.value?.fallback_unitario === true,
+);
+const motivoFallbackArca = computed(() => {
+  const motivo = arcaBatchMetadata.value?.fallback_motivo;
+  return typeof motivo === "string" && motivo.trim() ? motivo.trim() : "";
 });
 const hayProcesamientoEnCurso = computed(() => {
   return (
@@ -1797,6 +1818,19 @@ onBeforeUnmount(() => {
                 </BaseButton>
               </div>
             </div>
+
+            <BaseAlert
+              v-if="mostrarAvisoFallbackArca"
+              type="warning"
+              class="mt-6"
+            >
+              ARCA no informó la capacidad máxima por request. FactuFlow emitió
+              este lote en modo unitario para no bloquear la operación, por lo
+              que el procesamiento pudo demorar más.
+              <span v-if="motivoFallbackArca">
+                Motivo técnico: {{ motivoFallbackArca }}
+              </span>
+            </BaseAlert>
 
             <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div

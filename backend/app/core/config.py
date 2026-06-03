@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     batch_processing_stale_minutes: int = Field(
         default=120, alias="BATCH_PROCESSING_STALE_MINUTES"
     )
+    arca_fecaesolicitar_batch_enabled: bool = Field(
+        default=True, alias="ARCA_FECAESOLICITAR_BATCH_ENABLED"
+    )
+    arca_fecaesolicitar_batch_max_registros: int = Field(
+        default=0, alias="ARCA_FECAESOLICITAR_BATCH_MAX_REGISTROS"
+    )
 
     @field_validator("certs_path", mode="before")
     @classmethod

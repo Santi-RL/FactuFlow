@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-29
+Ultima actualizacion: 2026-06-03
 
 ## Objetivo activo
 
@@ -61,6 +61,25 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Emisión masiva por sublotes ARCA 2026-06-03
+
+- El backend ahora puede emitir lotes WSFE en sublotes: consulta
+  `FECompTotXRequest`, toma `RegXReq` como máximo permitido y arma
+  `FECAESolicitar` con `CantReg` igual a la cantidad de detalles enviados.
+- Los sublotes se agrupan solo por mismo emisor, punto de venta y tipo de
+  comprobante. Los tipos FCE/MiPyME se fuerzan a emisión unitaria.
+- Si `FECompTotXRequest` falla o ARCA no devuelve `RegXReq`, FactuFlow degrada
+  al modo unitario existente, guarda metadata `arca_batch` en el lote y muestra
+  aviso en la pantalla para explicar que el procesamiento puede demorar más.
+- Si un sublote ya enviado no devuelve detalle confiable, el lote queda en
+  `requiere_reconciliacion` para evitar reintentos automáticos hasta consultar
+  ARCA.
+- El progreso del lote ahora recalcula contadores con agregaciones SQL, sin
+  cargar todos los grupos y filas en cada avance.
+- Verificación técnica segura, sin llamadas reales a ARCA ni CAEs:
+  `python -m pytest backend/tests/test_arca/test_wsfev1.py backend/tests/test_facturacion_service.py::test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracion backend/tests/test_lotes_comprobantes.py::test_procesar_lote_usa_sublotes_arca_segun_regxreq backend/tests/test_lotes_comprobantes.py::test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso -q`
+  OK (6 tests).
 
 ### Detalle paginado de lotes grandes 2026-05-29
 

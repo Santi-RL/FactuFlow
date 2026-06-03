@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-29
+Ultima actualizacion: 2026-06-03
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -200,6 +200,7 @@ Objetivo: dejar la emision validada contra servicios reales.
 
 ### WSFEv1
 - [x] `FECAESolicitar`
+- [x] `FECAESolicitar` por sublotes usando `FECompTotXRequest.RegXReq`
 - [x] `FECompUltimoAutorizado`
 - [x] `FECompConsultar` util para verificacion
 - [x] Validacion de numeracion y punto de venta en emision
@@ -270,6 +271,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Ejecucion asincronica para lotes grandes
 - [x] Worker evita reencolar lotes activos y solo retoma `procesando` cuando
   estan stale
+- [x] Emisión masiva por sublotes ARCA para grupos con mismo punto de venta y
+  tipo, con fallback unitario explícito si `RegXReq` no está disponible
 
 ### UX de lotes
 - [x] Wizard de emision masiva
@@ -315,6 +318,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [~] QA manual especifica de formatos particulares por emisor
 - [ ] Descarga de archivo observado con errores mas amigable
 - [x] Progreso real de lotes con barra, timer, ETA, emitidos, fallidos y pendientes
+- [x] Aviso visible cuando un lote degrada a modo unitario porque ARCA no
+  informó `RegXReq`
 
 ### Operacion masiva posterior a la emision
 - [ ] Descarga masiva de PDFs en ZIP

@@ -137,15 +137,19 @@ npm run type-check
   diff staged para confirmar que no se sube material privado.
 - Ver detalles en `docs/agents/security.md`.
 
-## Revision de codigo y seguridad
-- Usar `security-best-practices` si el usuario pide revision de seguridad o si se cambian autenticacion, certificados, ARCA/WSAA/WSFE, comprobantes, PDFs/Excel, datos fiscales, archivos locales, red, permisos o confirmaciones irreversibles.
-- No ejecutar `autoreview` automaticamente. Despues de cambios de codigo no triviales o antes de commit/PR, recomendar al usuario correrlo como revision asistida y pedir confirmacion explicita antes de ejecutarlo, especialmente si el motor puede enviar el diff a un servicio externo. Antes de correrlo, ejecutar tests/lint/formato relevantes; luego revisar el diff real y verificar manualmente cada finding antes de aplicar fixes.
-- Usar `clawpatch` para auditorias/backlog de mantenimiento de FactuFlow, no para fixes rapidos ni cambios solo documentales. En este repo ya existen estados separados; usar los state dirs existentes:
+## Revisión de código y seguridad
+- Usar `security-best-practices` si el usuario pide revisión de seguridad o si se cambian autenticación, certificados, ARCA/WSAA/WSFE, comprobantes, PDFs/Excel, datos fiscales, archivos locales, red, permisos o confirmaciones irreversibles.
+- No ejecutar `autoreview` automáticamente. Después de cambios de código no triviales o antes de commit/PR, recomendar al usuario correrlo como revisión asistida y pedir confirmación explícita antes de ejecutarlo, especialmente si el motor puede enviar el diff a un servicio externo. Antes de correrlo, ejecutar tests/lint/formato relevantes; luego revisar el diff real y verificar manualmente cada finding antes de aplicar fixes.
+- Autorización permanente del usuario para este proyecto: cuando el usuario pida o confirme ejecutar `autoreview`, queda permitido usar el motor Codex/OpenAI, enviarle el diff local necesario para la revisión y mantener habilitada la búsqueda web del helper. Esta autorización no habilita ejecutar `autoreview` sin pedido o confirmación explícita del usuario.
+- En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app:
+  `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
+  Ese comando ya funcionó en FactuFlow con motor `codex`, herramientas de solo lectura y búsqueda web habilitada.
+- Usar `clawpatch` para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. En este repo ya existen estados separados; usar los state dirs existentes:
   - Repo completo: `clawpatch --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
   - Backend: `clawpatch --state-dir .clawpatch/backend --config .clawpatch/backend/config.json status`
   - Frontend: `clawpatch --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json status`
-- Para revisar con Clawpatch, mantener el mismo `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmacion explicita y validaciones enfocadas.
-- No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decision explicita; preservar el historial existente.
+- Para revisar con Clawpatch, mantener el mismo `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmación explícita y validaciones enfocadas.
+- No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decisión explícita; preservar el historial existente.
 
 ## Documentación operativa
 - Vision canonica del producto: `VISION.md`

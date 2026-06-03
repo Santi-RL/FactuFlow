@@ -1,6 +1,6 @@
 # ARCA WS - Notas practicas
 
-Ultima actualizacion: 2026-05-22
+Ultima actualizacion: 2026-06-03
 
 Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
 
@@ -140,6 +140,23 @@ El proyecto tuvo que corregir estas estructuras:
 - Antes de habilitar acciones WSFE desde la UI, FactuFlow debe verificar que
   haya certificado activo para el `ARCA_ENV` actual. Un certificado valido de
   otro ambiente no sirve para esa operacion.
+
+### 5.a Sublotes en `FECAESolicitar`
+
+- `FECAESolicitar` permite enviar un comprobante o un lote de comprobantes.
+- `FeCabReq.CantReg` debe coincidir exactamente con la cantidad de detalles
+  `FECAEDetRequest` enviados.
+- Un request con mas de un detalle debe ser homogeneo: mismo `PtoVta` y mismo
+  `CbteTipo`.
+- La cantidad máxima no se debe hardcodear. Se consulta con
+  `FECompTotXRequest`, que devuelve `RegXReq`.
+- FactuFlow consulta `RegXReq` al procesar el lote y divide por sublotes de ese
+  tamaño. Si ARCA no informa `RegXReq`, degrada al modo unitario y deja aviso
+  explícito en el lote para el usuario.
+- Los tipos FCE/MiPyME documentados por ARCA se fuerzan a modo unitario aunque
+  `RegXReq` permita más registros.
+- Si un sublote enviado no devuelve detalle confiable, el lote queda en
+  `requiere_reconciliacion`; no se reintenta automáticamente.
 
 ### 5.b Notas de credito C por duplicados productivos
 
