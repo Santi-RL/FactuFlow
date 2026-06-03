@@ -98,6 +98,12 @@
 - Preferir PRs para cambios no triviales cuando el usuario lo pida. En el flujo
   habitual sobre `main`, minimizar commits de ruido (formato/lint) y agruparlos
   con el cambio funcional correspondiente.
+- En Codex con sandbox activo, los comandos que escriben en `.git` pueden fallar
+  con `Unable to create .git/index.lock: Permission denied` si se ejecutan sin
+  permiso elevado. Para preparar commits o publicar, usar directamente permisos
+  elevados en comandos de escritura Git (`git add`, `git commit`, `git push`) con
+  justificacion breve. Los comandos de lectura (`git status`, `git diff`,
+  `git log`) pueden ejecutarse normalmente salvo que el entorno los bloquee.
 
 ## Comandos
 ### Backend

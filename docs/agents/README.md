@@ -43,6 +43,12 @@
 - Para GitHub, seguir el enfoque del plugin local: resolver primero repo/rama
   con Git, usar la app de GitHub para PRs/issues/metadatos cuando aplique, y
   usar `git`/`gh` para gaps como estado de rama, commits, push y checks.
+- En Codex con sandbox activo, usar permisos elevados desde el inicio para
+  comandos Git que escriben en `.git`, como `git add`, `git commit` y
+  `git push`. Sin eso pueden fallar con
+  `Unable to create .git/index.lock: Permission denied`. Los comandos de lectura
+  como `git status`, `git diff` y `git log` pueden ejecutarse normalmente salvo
+  bloqueo puntual del entorno.
 - Antes de preparar un commit, aplicar la politica de seguridad:
   no subir datos privados, CUITs reales, nombres reales de clientes/emisores,
   credenciales, CAEs reales, capturas privadas, Excel/PDF de clientes, bases,
