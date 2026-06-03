@@ -10,6 +10,19 @@ ruff check app/ tests/
 black --check app/ tests/
 ```
 
+Los archivos Python deben mantenerse con saltos de línea LF. El repo fija esta
+política en `.gitattributes` para `*.py` y `*.pyi`, evitando que `core.autocrlf`
+de Windows deje el working tree en CRLF o mixto. Para verificarlo:
+
+```bash
+git ls-files --eol '*.py' '*.pyi'
+```
+
+Si `black --check app tests` se cuelga localmente sin reportar errores, revisar
+primero el cache local de Black. En Windows se confirmó que limpiar
+`%LOCALAPPDATA%\black\black\Cache\23.12.1` resuelve el cuelgue; luego Black
+regenera el cache y debe terminar normalmente.
+
 ## Frontend
 
 ```bash

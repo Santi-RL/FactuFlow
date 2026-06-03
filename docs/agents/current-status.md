@@ -15,6 +15,10 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
 - Backend ya registra perfiles de carga masiva por emisor para precargar
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
   de fechas.
+- Tooling Python actualizado el 2026-06-03: `.gitattributes` fija LF para
+  `*.py`/`*.pyi`, se normalizó el working tree Python, se limpió el cache local
+  roto de Black y `black --check app tests`, `ruff format --check app tests`,
+  `ruff check app tests` y `pytest tests -q` quedaron OK.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
 - Launcher local Windows manual agregado para desarrollo/QA: `FactuFlow
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
@@ -101,8 +105,9 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   `python -m pytest backend/tests/test_lotes_comprobantes.py -q` OK
   (46 tests), `ruff check` OK, `ruff format --check` OK; frontend
   `npm run test:unit -- LotesComprobantesView`, `npm run type-check` y
-  `npm run lint:check` OK. `black --check` quedo colgado localmente aun sobre
-  archivos chicos; se aplico formato y se verifico con `ruff format --check`.
+  `npm run lint:check` OK. Nota posterior 2026-06-03: el cuelgue local de
+  `black --check` se atribuyó al cache local de Black y quedó resuelto al
+  limpiar `C:\Users\SANTI\AppData\Local\black\black\Cache\23.12.1`.
 
 ### Alineacion documental post-piloto 2026-05-22
 

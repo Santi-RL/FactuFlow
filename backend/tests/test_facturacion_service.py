@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.models import CAEResponse
+from app.core.config import settings
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
@@ -723,7 +724,7 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
         archivo_crt="empresa-test.crt",
         archivo_key="empresa-test.key",
         activo=True,
-        ambiente="homologacion",
+        ambiente=settings.arca_env,
         empresa_id=test_empresa.id,
     )
     db_session.add_all([punto_venta, certificado])

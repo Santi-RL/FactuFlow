@@ -57,6 +57,10 @@
   docstrings en español son obligatorios para funciones, clases y helpers
   publicos. El codigo historico se normaliza cuando se toca o en tareas
   tecnicas dedicadas.
+- Los archivos Python se versionan con saltos de línea LF mediante
+  `.gitattributes` (`*.py text eol=lf`, `*.pyi text eol=lf`). Si en Windows
+  `black --check` vuelve a colgarse sin errores de formato, revisar/limpiar el
+  cache local de Black antes de diagnosticar deuda de formato.
 - FastAPI: imports absolutos desde `app/`.
 - Vue: Composition API con `<script setup>`, TypeScript recomendado, componentes en PascalCase, events en kebab-case.
 - Tailwind: priorizar utilidades sobre CSS custom.
