@@ -1,10 +1,10 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-05-22
+Ultima actualizacion: 2026-05-29
 
-Este roadmap vuelve a cumplir dos funciones:
-- marcar el estado real del producto y del MVP
-- conservar el norte de largo plazo para una plataforma robusta, desplegable y utilizable por muchas empresas
+Este roadmap traduce la vision estable del producto en prioridades, fases y
+trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
+desde este archivo.
 
 ## Como leer este archivo
 
@@ -14,14 +14,11 @@ Este roadmap vuelve a cumplir dos funciones:
 
 ## Vision del producto
 
-FactuFlow no apunta a quedar como una utilidad puntual de facturacion. La vision a largo plazo es una plataforma de facturacion electronica ARCA:
+La vision canonica del producto esta definida en `VISION.md`.
 
-- simple para personal administrativo no tecnico
-- robusta en operacion diaria
-- preparada para que contadores independientes y estudios chicos operen varios
-  emisores con seguridad
-- auditable, mantenible y documentada
-- con capacidad de escalar desde uso controlado hasta adopcion por multiples equipos o clientes
+Todo item de este roadmap debe alinearse con esa vision. Si una prioridad,
+fase, implementacion o cambio deseado contradice `VISION.md`, primero debe
+modificarse explicitamente la vision y recien despues incorporarse al roadmap.
 
 ## Objetivo actual
 
@@ -294,6 +291,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Separacion clara entre validar lote y emitir comprobantes validos
 - [x] Resumen previo a emision con neto, IVA 21%, IVA 10,5% y total de
   comprobantes listos para emitir
+- [x] Detalle de lotes grandes con resumen completo y grupos paginados desde
+  backend para evitar renderizar miles de comprobantes en una sola pantalla
 - [x] Mensajes basicos de validacion
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import Pagination from "@/components/common/Pagination.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
@@ -26,7 +27,8 @@ import {
   ESTADOS_LOTE_COLOR,
   ESTADOS_LOTE_NOMBRES,
   type LoteComprobante,
-  type LoteComprobanteDetalle,
+  type LoteComprobanteGrupoDetalle,
+  type LoteComprobanteResumen,
   type LoteOpcionesFechas,
 } from "@/types/lote-comprobante";
 import {
@@ -34,7 +36,6 @@ import {
   seleccionarPerfilInicial,
 } from "@/utils/perfiles-carga-masiva";
 import { calcularProgresoLote } from "@/utils/lote-progress";
-import { calcularTotalesListosParaEmitir } from "@/utils/lote-totals";
 import {
   ArrowDownTrayIcon,
   ArrowPathIcon,
@@ -48,6 +49,7 @@ import {
 
 const empresaStore = useEmpresaStore();
 const { showError, showInfo, showSuccess, showWarning } = useNotification();
+const GRUPOS_LOTE_PER_PAGE = 100;
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const archivoSeleccionado = ref<File | null>(null);
@@ -75,8 +77,15 @@ const fechaServicioHastaFija = ref("");
 const fechaVtoPagoModo = ref<"archivo" | "fija" | "">("");
 const fechaVtoPagoFija = ref("");
 const lotes = ref<LoteComprobante[]>([]);
-const loteActual = ref<LoteComprobanteDetalle | null>(null);
+const loteActual = ref<LoteComprobanteResumen | null>(null);
+const gruposLote = ref<LoteComprobanteGrupoDetalle[]>([]);
+const gruposLotePage = ref(1);
+const gruposLotePerPage = ref(GRUPOS_LOTE_PER_PAGE);
+const gruposLoteTotal = ref(0);
+const gruposLoteTotalPages = ref(0);
+const grupoEstadoFiltro = ref<string | number>("");
 const loadingLotes = ref(false);
+const loadingGruposLote = ref(false);
 const loadingPerfiles = ref(false);
 const validandoArchivo = ref(false);
 const detectandoFormato = ref(false);
@@ -142,6 +151,14 @@ const puntoVentaOptions = computed(() => [
       punto.nombre ? ` - ${punto.nombre}` : ""
     }`,
   })),
+]);
+const estadosGruposOptions = computed(() => [
+  { value: "", label: "Todos los estados" },
+  { value: "validado", label: "Listos para emitir" },
+  { value: "con_error", label: "Con observaciones" },
+  { value: "autorizado", label: "Autorizados" },
+  { value: "fallido", label: "Fallidos" },
+  { value: "requiere_reconciliacion", label: "Requiere reconciliacion" },
 ]);
 const perfilAplicado = computed(() => {
   if (!perfilAplicadoId.value) return null;
@@ -276,9 +293,17 @@ const resumenOperativo = computed(() => {
     },
   ];
 });
-const totalesListosParaEmitir = computed(() =>
-  calcularTotalesListosParaEmitir(loteActual.value),
-);
+const totalesListosParaEmitir = computed(() => {
+  const totales = loteActual.value?.totales_listos_para_emitir;
+  return {
+    comprobantes: totales?.comprobantes || 0,
+    neto: totales?.neto || 0,
+    iva21: totales?.iva21 || 0,
+    iva105: totales?.iva105 || 0,
+    total: totales?.total || 0,
+    valoresInvalidos: totales?.valores_invalidos || 0,
+  };
+});
 const progresoLote = computed(() => {
   if (!loteActual.value) return null;
   const inicioLocal = ["en_cola", "procesando"].includes(
@@ -328,39 +353,19 @@ const necesitaCorreccion = computed(() => {
 });
 
 const fechasEmisionValidas = computed(() => {
-  const fechas = new Set<string>();
-  loteActual.value?.grupos
-    .filter((grupo) => grupo.estado === "validado" && grupo.fecha_emision)
-    .forEach((grupo) => fechas.add(formatDate(grupo.fecha_emision)));
-  return Array.from(fechas);
+  return (loteActual.value?.fechas_emision_validas || []).map((fecha) =>
+    formatDate(fecha),
+  );
 });
 
 const puntosVentaValidos = computed(() => {
-  const puntos = new Set<number>();
-  loteActual.value?.grupos
-    .filter((grupo) => grupo.estado === "validado" && grupo.punto_venta_numero)
-    .forEach((grupo) => puntos.add(Number(grupo.punto_venta_numero)));
-  return Array.from(puntos).sort((a, b) => a - b);
+  return [...(loteActual.value?.puntos_venta_validos || [])].sort(
+    (a, b) => a - b,
+  );
 });
 
 const confirmacionFechaFiscalLote = computed(() => {
-  const fechas = new Set<string>();
-  const puntos = new Set<number>();
-  loteActual.value?.grupos
-    .filter((grupo) => grupo.estado === "validado")
-    .forEach((grupo) => {
-      if (grupo.fecha_emision) {
-        fechas.add(grupo.fecha_emision.split("T")[0]);
-      }
-      if (grupo.punto_venta_numero) {
-        puntos.add(Number(grupo.punto_venta_numero));
-      }
-    });
-  const fechasToken = Array.from(fechas).sort().join(",");
-  const puntosToken = Array.from(puntos)
-    .sort((a, b) => a - b)
-    .join(",");
-  return `fechas=${fechasToken};puntos_venta=${puntosToken}`;
+  return loteActual.value?.confirmacion_fecha_fiscal || "";
 });
 
 const resumenFechasConfirmacion = computed(() => {
@@ -376,7 +381,26 @@ const resumenPuntosVentaConfirmacion = computed(() => {
 });
 
 const mensajeConfirmacionFechaFiscalLote = computed(() => {
-  return `Está seguro que quiere emitir comprobantes con fecha ${resumenFechasConfirmacion.value}${resumenPuntosVentaConfirmacion.value}? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`;
+  return (
+    loteActual.value?.mensaje_confirmacion_fecha_fiscal ||
+    `Está seguro que quiere emitir comprobantes con fecha ${resumenFechasConfirmacion.value}${resumenPuntosVentaConfirmacion.value}? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
+  );
+});
+
+const paginaGruposInicio = computed(() => {
+  if (gruposLoteTotal.value === 0) return 0;
+  return (gruposLotePage.value - 1) * gruposLotePerPage.value + 1;
+});
+
+const paginaGruposFin = computed(() =>
+  Math.min(gruposLotePage.value * gruposLotePerPage.value, gruposLoteTotal.value),
+);
+
+const resumenPaginacionGrupos = computed(() => {
+  if (gruposLoteTotal.value === 0) {
+    return "No hay comprobantes para el filtro seleccionado.";
+  }
+  return `Mostrando ${paginaGruposInicio.value} a ${paginaGruposFin.value} de ${gruposLoteTotal.value} comprobantes.`;
 });
 
 const formatDateTime = (value: string | null) => {
@@ -411,14 +435,8 @@ const formatConcepto = (value: number | null) => {
   return "-";
 };
 
-const descripcionFacturada = (comprobanteRef: string) => {
-  const fila = loteActual.value?.filas.find(
-    (item) => item.comprobante_ref === comprobanteRef,
-  );
-  const descripcion = fila?.datos_json?.item_descripcion;
-  return typeof descripcion === "string" && descripcion.trim()
-    ? descripcion.trim()
-    : "-";
+const descripcionFacturada = (grupo: LoteComprobanteGrupoDetalle) => {
+  return grupo.descripcion_facturada?.trim() || "-";
 };
 
 const limpiarConfiguracionLote = () => {
@@ -658,12 +676,57 @@ const detectarFormatoArchivo = async (archivo: File) => {
   }
 };
 
+const cargarGruposLote = async (
+  loteId: number,
+  page = gruposLotePage.value,
+  silent = false,
+) => {
+  try {
+    if (!silent) {
+      loadingGruposLote.value = true;
+    }
+    const estado =
+      typeof grupoEstadoFiltro.value === "string" && grupoEstadoFiltro.value
+        ? grupoEstadoFiltro.value
+        : null;
+    const pagina = await lotesComprobantesService.obtenerGrupos(loteId, {
+      page,
+      perPage: gruposLotePerPage.value,
+      estado,
+    });
+    gruposLote.value = pagina.items;
+    gruposLotePage.value = pagina.page;
+    gruposLotePerPage.value = pagina.per_page;
+    gruposLoteTotal.value = pagina.total;
+    gruposLoteTotalPages.value = pagina.total_pages;
+  } catch (error: any) {
+    showError(
+      "No se pudo cargar el detalle",
+      error.response?.data?.detail ||
+        "Intenta cambiar de pagina o abrir el lote nuevamente.",
+    );
+  } finally {
+    if (!silent) {
+      loadingGruposLote.value = false;
+    }
+  }
+};
+
 const cargarDetalleLote = async (loteId: number, silent = false) => {
   try {
     if (!silent) {
       loadingLotes.value = true;
     }
-    loteActual.value = await lotesComprobantesService.obtener(loteId);
+    const esNuevoLote = loteActual.value?.id !== loteId;
+    if (esNuevoLote) {
+      gruposLote.value = [];
+      gruposLotePage.value = 1;
+      gruposLoteTotal.value = 0;
+      gruposLoteTotalPages.value = 0;
+      grupoEstadoFiltro.value = "";
+    }
+    loteActual.value = await lotesComprobantesService.obtenerResumen(loteId);
+    await cargarGruposLote(loteId, esNuevoLote ? 1 : gruposLotePage.value, true);
   } catch (error: any) {
     showError(
       "No se pudo abrir el lote",
@@ -675,6 +738,20 @@ const cargarDetalleLote = async (loteId: number, silent = false) => {
       loadingLotes.value = false;
     }
   }
+};
+
+const cambiarPaginaGrupos = async (page: number) => {
+  if (!loteActual.value || page === gruposLotePage.value) return;
+  await cargarGruposLote(loteActual.value.id, page);
+};
+
+const cambiarFiltroGrupos = async (value?: string | number) => {
+  if (value !== undefined) {
+    grupoEstadoFiltro.value = value;
+  }
+  if (!loteActual.value) return;
+  gruposLotePage.value = 1;
+  await cargarGruposLote(loteActual.value.id, 1);
 };
 
 const descargarPlantilla = async () => {
@@ -898,6 +975,11 @@ watch(
   async (empresaId) => {
     archivoSeleccionado.value = null;
     loteActual.value = null;
+    gruposLote.value = [];
+    gruposLotePage.value = 1;
+    gruposLoteTotal.value = 0;
+    gruposLoteTotalPages.value = 0;
+    grupoEstadoFiltro.value = "";
     deteccionFormato.value = null;
     perfilesCargaMasiva.value = [];
     perfilSeleccionadoId.value = "";
@@ -1865,7 +1947,38 @@ onBeforeUnmount(() => {
               Excel.
             </BaseAlert>
 
-            <div class="mt-6 overflow-x-auto">
+            <div
+              class="mt-6 flex flex-col gap-3 border-t border-gray-200 pt-6 lg:flex-row lg:items-end lg:justify-between"
+            >
+              <div>
+                <p class="text-sm font-semibold text-gray-900">
+                  Detalle de comprobantes
+                </p>
+                <p class="mt-1 text-sm text-gray-600">
+                  {{ resumenPaginacionGrupos }} El resumen fiscal considera el
+                  lote completo.
+                </p>
+              </div>
+              <BaseSelect
+                v-model="grupoEstadoFiltro"
+                class="w-full lg:max-w-xs"
+                label="Filtrar por estado"
+                :options="estadosGruposOptions"
+                @update:model-value="cambiarFiltroGrupos"
+              />
+            </div>
+
+            <div
+              v-if="loadingGruposLote"
+              class="mt-6 flex justify-center py-10"
+            >
+              <BaseSpinner />
+            </div>
+
+            <div
+              v-else-if="gruposLote.length > 0"
+              class="mt-6 overflow-x-auto"
+            >
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
@@ -1913,7 +2026,7 @@ onBeforeUnmount(() => {
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white">
                   <tr
-                    v-for="grupo in loteActual.grupos"
+                    v-for="grupo in gruposLote"
                     :key="grupo.id"
                     class="hover:bg-gray-50"
                   >
@@ -1951,7 +2064,7 @@ onBeforeUnmount(() => {
                       </p>
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-700">
-                      {{ descripcionFacturada(grupo.comprobante_ref) }}
+                      {{ descripcionFacturada(grupo) }}
                     </td>
                     <td
                       class="px-4 py-3 text-right text-sm font-medium text-gray-900"
@@ -1975,6 +2088,25 @@ onBeforeUnmount(() => {
                   </tr>
                 </tbody>
               </table>
+              <Pagination
+                v-if="gruposLoteTotalPages > 1"
+                :current-page="gruposLotePage"
+                :total-pages="gruposLoteTotalPages"
+                :per-page="gruposLotePerPage"
+                :total="gruposLoteTotal"
+                @update:current-page="cambiarPaginaGrupos"
+              />
+            </div>
+
+            <div
+              v-else
+              class="mt-6"
+            >
+              <BaseEmpty
+                title="Sin comprobantes para mostrar"
+                message="Cambia el filtro de estado para revisar otros comprobantes del lote."
+                :icon="DocumentDuplicateIcon"
+              />
             </div>
           </BaseCard>
         </template>

@@ -28,6 +28,10 @@ export interface LoteComprobanteGrupo {
   comprobante_id: number | null;
 }
 
+export interface LoteComprobanteGrupoDetalle extends LoteComprobanteGrupo {
+  descripcion_facturada: string | null;
+}
+
 export interface LoteComprobante {
   id: number;
   nombre_archivo: string;
@@ -58,6 +62,32 @@ export interface LoteComprobante {
 export interface LoteComprobanteDetalle extends LoteComprobante {
   grupos: LoteComprobanteGrupo[];
   filas: LoteComprobanteFila[];
+}
+
+export interface LoteTotalesListos {
+  comprobantes: number;
+  neto: number;
+  iva21: number;
+  iva105: number;
+  total: number;
+  valores_invalidos: number;
+}
+
+export interface LoteComprobanteResumen extends LoteComprobante {
+  confirmacion_fecha_fiscal: string;
+  mensaje_confirmacion_fecha_fiscal: string;
+  fechas_emision_validas: string[];
+  puntos_venta_validos: number[];
+  totales_listos_para_emitir: LoteTotalesListos;
+}
+
+export interface LoteComprobanteGruposPage {
+  items: LoteComprobanteGrupoDetalle[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  estado: string | null;
 }
 
 export interface LoteValidacionResponse {

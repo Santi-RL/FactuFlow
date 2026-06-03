@@ -115,6 +115,8 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 - `GET /api/lotes-comprobantes/plantilla` - Descargar plantilla oficial de Excel
 - `POST /api/lotes-comprobantes/validar` - Validar y registrar un lote
 - `POST /api/lotes-comprobantes/{id}/procesar` - Emitir los comprobantes válidos del lote
+- `GET /api/lotes-comprobantes/{id}/resumen` - Ver resumen fiscal liviano del lote
+- `GET /api/lotes-comprobantes/{id}/grupos` - Ver grupos del lote con paginación
 - `GET /api/lotes-comprobantes/{id}` - Ver estado y detalle del lote
 - `GET /api/lotes-comprobantes/{id}/archivo-observado` - Descargar archivo observado con mensajes por fila
 

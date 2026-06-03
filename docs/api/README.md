@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Ultima actualizacion: 2026-05-17
+Ultima actualizacion: 2026-05-29
 
 Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -323,6 +323,8 @@ GET /api/lotes-comprobantes
 GET /api/lotes-comprobantes/plantilla
 POST /api/lotes-comprobantes/validar
 POST /api/lotes-comprobantes/{lote_id}/procesar
+GET /api/lotes-comprobantes/{lote_id}/resumen
+GET /api/lotes-comprobantes/{lote_id}/grupos
 GET /api/lotes-comprobantes/{lote_id}
 GET /api/lotes-comprobantes/{lote_id}/resultados
 GET /api/lotes-comprobantes/{lote_id}/archivo-observado
@@ -332,6 +334,18 @@ El flujo correcto es validar primero el Excel y procesar solo cuando el usuario
 confirma. Lotes grandes pueden quedar en cola y continuar por worker. La UI usa
 `POST /api/lotes-comprobantes/{lote_id}/procesar?background=true` tambien para
 lotes chicos, para mostrar progreso real por polling.
+
+Para pantallas de usuario, preferir `GET /api/lotes-comprobantes/{lote_id}/resumen`
+y `GET /api/lotes-comprobantes/{lote_id}/grupos` en lugar de abrir el detalle
+completo con todas las filas. El endpoint de resumen devuelve los contadores,
+totales listos para emitir, fechas/puntos validados y el token exacto de
+confirmacion fiscal para el lote completo. El endpoint de grupos acepta
+`page`, `per_page` (maximo 200) y `estado` opcional, y devuelve la pagina con
+`items`, `total`, `total_pages`, `page` y `per_page`.
+
+`GET /api/lotes-comprobantes/{lote_id}` y `/resultados` conservan el contrato
+legacy de detalle completo con `grupos` y `filas`. No deben usarse para abrir
+lotes grandes en la UI porque pueden traer miles de registros.
 
 `POST /api/lotes-comprobantes/validar` recibe `multipart/form-data`:
 

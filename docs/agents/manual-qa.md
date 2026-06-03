@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-05-22
+Ultima actualizacion: 2026-05-29
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -58,6 +58,23 @@ cd backend
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
 
 ## Recorrido ejecutado y validado
+
+### Detalle paginado de lotes grandes - QA visual 2026-05-29
+
+- En navegador integrado se abrio `http://127.0.0.1:8080/comprobantes/lotes`
+  con usuario QA local y emisor activo privado.
+- Se reviso un lote local grande de 1432 comprobantes sin emitir. La pantalla
+  muestra el resumen completo del lote y la leyenda
+  `El resumen fiscal considera el lote completo`.
+- La grilla inicial carga 100 comprobantes y muestra
+  `Mostrando 1 a 100 de 1432 comprobantes`. Al avanzar, muestra
+  `Mostrando 101 a 200 de 1432 comprobantes`.
+- La medicion visual quedo acotada: 100 filas renderizadas, `nodeCount`
+  aproximado 2026 y `scrollHeight` aproximado 15371. La version anterior
+  renderizaba todo el ultimo lote, con aproximadamente 24629 nodos y
+  `scrollHeight` 165654.
+- No se presiono `Emitir comprobantes validos` ni se solicitaron CAE durante
+  esta QA.
 
 ### PDF profesional y QR ARCA - verificacion tecnica 2026-05-14
 

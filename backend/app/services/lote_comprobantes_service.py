@@ -8,7 +8,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
 from typing import Any
 from zipfile import BadZipFile
@@ -17,7 +17,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import desc, select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -795,7 +795,7 @@ class LoteComprobantesService:
 
     async def encolar_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
         """Deja un lote validado en cola persistente para el worker."""
-        lote = await self.obtener_lote(lote_id, empresa_id)
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         if lote.estado == "procesando":
             return lote
         if lote.estado in self.ESTADOS_TERMINALES:
@@ -845,11 +845,182 @@ class LoteComprobantesService:
             raise LoteComprobanteError("No se encontró el lote solicitado")
         return lote
 
+    async def obtener_lote_resumen(
+        self, lote_id: int, empresa_id: int
+    ) -> LoteComprobante:
+        """Obtiene un lote sin cargar relaciones pesadas."""
+        result = await self.db.execute(
+            select(LoteComprobante).where(
+                LoteComprobante.id == lote_id,
+                LoteComprobante.empresa_id == empresa_id,
+            )
+        )
+        lote = result.scalar_one_or_none()
+        if lote is None:
+            raise LoteComprobanteError("No se encontró el lote solicitado")
+        return lote
+
+    async def obtener_grupos_lote_paginados(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        page: int,
+        per_page: int,
+        estado: str | None = None,
+    ) -> tuple[list[LoteComprobanteGrupo], int]:
+        """Obtiene una página de grupos del lote validando el emisor activo."""
+        await self.obtener_lote_resumen(lote_id, empresa_id)
+        filtros = [LoteComprobanteGrupo.lote_id == lote_id]
+        if estado:
+            filtros.append(LoteComprobanteGrupo.estado == estado)
+
+        total_result = await self.db.execute(
+            select(func.count()).select_from(LoteComprobanteGrupo).where(*filtros)
+        )
+        total = int(total_result.scalar_one() or 0)
+        offset = max(page - 1, 0) * per_page
+        grupos_result = await self.db.execute(
+            select(LoteComprobanteGrupo)
+            .options(selectinload(LoteComprobanteGrupo.filas))
+            .where(*filtros)
+            .order_by(LoteComprobanteGrupo.orden, LoteComprobanteGrupo.id)
+            .offset(offset)
+            .limit(per_page)
+        )
+        return list(grupos_result.scalars().all()), total
+
+    async def obtener_resumen_operativo_lote(
+        self, lote_id: int, empresa_id: int
+    ) -> dict[str, Any]:
+        """Calcula metadatos completos del lote sin traer todas sus filas."""
+        await self.obtener_lote_resumen(lote_id, empresa_id)
+        result = await self.db.execute(
+            select(
+                LoteComprobanteGrupo.payload_json,
+                LoteComprobanteGrupo.punto_venta_numero,
+                LoteComprobanteGrupo.total_estimado,
+            ).where(
+                LoteComprobanteGrupo.lote_id == lote_id,
+                LoteComprobanteGrupo.estado == "validado",
+            )
+        )
+        filas = list(result.all())
+        fechas = sorted(
+            {
+                str((payload or {}).get("fecha_emision"))[:10]
+                for payload, _, _ in filas
+                if (payload or {}).get("fecha_emision")
+            }
+        )
+        puntos_venta = sorted(
+            {int(punto) for _, punto, _ in filas if punto is not None}
+        )
+        token = (
+            f"fechas={','.join(fechas)};"
+            f"puntos_venta={','.join(str(punto) for punto in puntos_venta)}"
+        )
+        return {
+            "confirmacion_fecha_fiscal": token,
+            "mensaje_confirmacion_fecha_fiscal": (
+                self._crear_mensaje_confirmacion_fecha_fiscal(fechas, puntos_venta)
+            ),
+            "fechas_emision_validas": fechas,
+            "puntos_venta_validos": puntos_venta,
+            "totales_listos_para_emitir": self._calcular_totales_payloads(filas),
+        }
+
+    def _crear_mensaje_confirmacion_fecha_fiscal(
+        self, fechas: list[str], puntos_venta: list[int]
+    ) -> str:
+        """Construye el texto de confirmación fiscal irreversible."""
+        fechas_label = ", ".join(
+            date.fromisoformat(fecha[:10]).strftime("%d/%m/%y") for fecha in fechas
+        )
+        fecha_texto = (
+            f"fecha {fechas_label}" if len(fechas) == 1 else f"fechas {fechas_label}"
+        )
+        punto_texto = ""
+        if puntos_venta:
+            punto_label = ", ".join(f"{punto:04d}" for punto in puntos_venta)
+            punto_texto = (
+                f" para el punto de venta {punto_label}"
+                if len(puntos_venta) == 1
+                else f" para los puntos de venta {punto_label}"
+            )
+        return (
+            f"Está seguro que quiere emitir comprobantes con {fecha_texto}{punto_texto}? "
+            "Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta."
+        )
+
+    def _calcular_totales_payloads(
+        self, filas: list[tuple[dict[str, Any] | None, int | None, Decimal]]
+    ) -> dict[str, Decimal | int]:
+        """Calcula totales fiscales desde los payloads ya validados."""
+        totales: dict[str, Decimal | int] = {
+            "comprobantes": 0,
+            "neto": Decimal("0"),
+            "iva21": Decimal("0"),
+            "iva105": Decimal("0"),
+            "total": Decimal("0"),
+            "valores_invalidos": 0,
+        }
+        for payload, _, total_estimado in filas:
+            payload = payload or {}
+            items = payload.get("items") if isinstance(payload, dict) else None
+            if not isinstance(items, list):
+                totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
+                continue
+
+            neto_grupo = Decimal("0")
+            iva21_grupo = Decimal("0")
+            iva105_grupo = Decimal("0")
+            for item in items:
+                if not isinstance(item, dict):
+                    totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
+                    continue
+                cantidad = self._parse_decimal(item.get("cantidad"), Decimal("0"))
+                precio = self._parse_decimal(item.get("precio_unitario"), Decimal("0"))
+                descuento = self._parse_decimal(
+                    item.get("descuento_porcentaje"), Decimal("0")
+                )
+                iva = self._parse_decimal(item.get("iva_porcentaje"), Decimal("0"))
+                if None in {cantidad, precio, descuento, iva}:
+                    totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
+                    continue
+                bruto = cantidad * precio
+                neto_item = bruto - bruto * (descuento / Decimal("100"))
+                neto_grupo += neto_item
+                if iva == Decimal("21"):
+                    iva21_grupo += neto_item * Decimal("0.21")
+                elif iva == Decimal("10.5"):
+                    iva105_grupo += neto_item * Decimal("0.105")
+
+            totales["comprobantes"] = int(totales["comprobantes"]) + 1
+            totales["neto"] = self._round_money(Decimal(totales["neto"]) + neto_grupo)
+            totales["iva21"] = self._round_money(
+                Decimal(totales["iva21"]) + iva21_grupo
+            )
+            totales["iva105"] = self._round_money(
+                Decimal(totales["iva105"]) + iva105_grupo
+            )
+            total_grupo = total_estimado or self._round_money(
+                neto_grupo + iva21_grupo + iva105_grupo
+            )
+            totales["total"] = self._round_money(
+                Decimal(totales["total"]) + total_grupo
+            )
+        return totales
+
+    @staticmethod
+    def _round_money(value: Decimal) -> Decimal:
+        """Redondea importes a centavos."""
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     async def procesar_lote(
         self, lote_id: int, empresa_id: int, reanudar: bool = False
     ) -> LoteComprobante:
         """Procesa un lote válido, en forma sincrónica o desde background."""
-        lote = await self.obtener_lote(lote_id, empresa_id)
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
 
         if lote.estado == "procesando" and not reanudar:
             return lote
@@ -879,7 +1050,7 @@ class LoteComprobantesService:
             reanudar=reanudar,
         )
         await self.db.commit()
-        lote = await self.obtener_lote(lote_id, empresa_id)
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         logger.info(
             "Procesando lote %s de empresa %s en modo %s",
             lote.id,
@@ -935,7 +1106,7 @@ class LoteComprobantesService:
             await self._actualizar_progreso_lote(lote_id)
             await self.db.commit()
 
-        lote = await self.obtener_lote(lote_id, empresa_id)
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         lote.finished_at = datetime.utcnow()
         lote.estado = "cargado"
         await self._actualizar_estado_lote(lote)

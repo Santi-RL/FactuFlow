@@ -4,7 +4,21 @@
 - Este archivo define cómo trabajar en el repo.
 - La documentación operativa extendida está en `docs/agents/README.md`.
 - Antes de responder cualquier chat nuevo, leer `docs/agents/alignment-pending.md`. Si ese archivo tiene puntos sin completar, avisar que hay conflictos de alineación pendientes antes de continuar con el pedido.
-- Antes de retomar una sesión, leer `docs/agents/current-status.md`, `docs/agents/manual-qa.md` y `ROADMAP.md`.
+- Antes de retomar una sesión, leer `VISION.md`,
+  `docs/agents/current-status.md`, `docs/agents/manual-qa.md` y `ROADMAP.md`.
+
+## Vision del producto
+- `VISION.md` es la fuente canonica y protegida de la vision del producto.
+- Antes de proponer, incorporar o implementar cambios de producto, UX,
+  arquitectura, flujos core, ARCA, documentacion operativa o roadmap, verificar
+  que el cambio se alinea con `VISION.md`.
+- Si un pedido del usuario contradice `VISION.md`, no implementarlo ni
+  incorporarlo al roadmap. Explicar la contradiccion citando la vision.
+- Si el usuario insiste con un cambio contrario a la vision, responder que
+  primero debe modificarse `VISION.md` y pedir confirmacion explicita para ese
+  cambio de vision antes de tocar roadmap, codigo o documentacion operativa.
+- Los agentes deben tratar `VISION.md` como solo lectura: no modificarlo salvo
+  pedido explicito del usuario de cambiar la vision del producto.
 
 ## Nombres: ARCA vs AFIP
 - Usar ARCA en textos, UI y documentación nueva.
@@ -52,6 +66,7 @@
 - Si el usuario pregunta "cómo está el proyecto", "qué es lo primero que debemos solucionar" o una variante equivalente, ir directo al primer punto pendiente de `docs/agents/alignment-pending.md`.
 - Si el usuario dice "seguir donde quedamos", arrancar por `docs/agents/current-status.md` y `docs/agents/manual-qa.md`.
 - Después de cambios importantes en producto, UX, flujos core o ARCA, actualizar siempre:
+  - `VISION.md` solo si el usuario pidio explicitamente cambiar la vision
   - `ROADMAP.md`
   - `docs/agents/current-status.md`
   - `docs/agents/manual-qa.md`
@@ -122,7 +137,18 @@ npm run type-check
   diff staged para confirmar que no se sube material privado.
 - Ver detalles en `docs/agents/security.md`.
 
+## Revision de codigo y seguridad
+- Usar `security-best-practices` si el usuario pide revision de seguridad o si se cambian autenticacion, certificados, ARCA/WSAA/WSFE, comprobantes, PDFs/Excel, datos fiscales, archivos locales, red, permisos o confirmaciones irreversibles.
+- No ejecutar `autoreview` automaticamente. Despues de cambios de codigo no triviales o antes de commit/PR, recomendar al usuario correrlo como revision asistida y pedir confirmacion explicita antes de ejecutarlo, especialmente si el motor puede enviar el diff a un servicio externo. Antes de correrlo, ejecutar tests/lint/formato relevantes; luego revisar el diff real y verificar manualmente cada finding antes de aplicar fixes.
+- Usar `clawpatch` para auditorias/backlog de mantenimiento de FactuFlow, no para fixes rapidos ni cambios solo documentales. En este repo ya existen estados separados; usar los state dirs existentes:
+  - Repo completo: `clawpatch --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
+  - Backend: `clawpatch --state-dir .clawpatch/backend --config .clawpatch/backend/config.json status`
+  - Frontend: `clawpatch --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json status`
+- Para revisar con Clawpatch, mantener el mismo `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmacion explicita y validaciones enfocadas.
+- No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decision explicita; preservar el historial existente.
+
 ## Documentación operativa
+- Vision canonica del producto: `VISION.md`
 - Índice: `docs/agents/README.md`
 - Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
 - Estado actual: `docs/agents/current-status.md`

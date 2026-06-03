@@ -13,6 +13,12 @@ import type {
 } from "@/types/formato-importacion";
 import type { PerfilCargaMasiva } from "@/types/perfil-carga-masiva";
 import type { Empresa } from "@/types/empresa";
+import type {
+  LoteComprobante,
+  LoteComprobanteGrupoDetalle,
+  LoteComprobanteGruposPage,
+  LoteComprobanteResumen,
+} from "@/types/lote-comprobante";
 import LotesComprobantesView from "./LotesComprobantesView.vue";
 
 vi.mock("@/services/formatos-importacion.service", () => ({
@@ -28,6 +34,8 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     validar: vi.fn(),
     procesar: vi.fn(),
     obtener: vi.fn(),
+    obtenerResumen: vi.fn(),
+    obtenerGrupos: vi.fn(),
   },
 }));
 
@@ -147,13 +155,92 @@ const mockedFormatos = formatosImportacionService as unknown as {
   listar: Mock;
   detectar: Mock;
 };
-const mockedLotes = lotesComprobantesService as unknown as { listar: Mock };
+const mockedLotesDetalle = lotesComprobantesService as unknown as {
+  listar: Mock;
+  obtener: Mock;
+  obtenerResumen: Mock;
+  obtenerGrupos: Mock;
+};
 const mockedPerfiles = perfilesCargaMasivaService as unknown as {
   listar: Mock;
 };
 const mockedPuntosVenta = puntosVentaService as unknown as { getAll: Mock };
 
-const mountView = async (perfiles: PerfilCargaMasiva[] = []) => {
+const loteResumenMock = (): LoteComprobanteResumen => ({
+  id: 12,
+  nombre_archivo: "lote-grande.xlsx",
+  archivo_hash: "hash-lote-grande",
+  estado: "validado",
+  modo_procesamiento: "background",
+  procesamiento_async: true,
+  total_filas: 1432,
+  total_grupos: 1432,
+  grupos_validos: 1432,
+  grupos_con_error: 0,
+  grupos_emitidos: 0,
+  grupos_fallidos: 0,
+  mensaje_resumen: "El lote se validó correctamente y puede emitirse.",
+  metadata_json: null,
+  mapeo_usado_json: null,
+  headers_detectados_json: null,
+  started_at: null,
+  finished_at: null,
+  created_at: "2026-05-01T00:00:00",
+  updated_at: "2026-05-01T00:00:00",
+  empresa_id: 1,
+  usuario_id: 1,
+  formato_importacion_id: null,
+  formato_importacion_version_id: null,
+  confirmacion_fecha_fiscal: "fechas=2026-05-20;puntos_venta=1",
+  mensaje_confirmacion_fecha_fiscal:
+    "Está seguro que quiere emitir comprobantes con fecha 20/05/26 para el punto de venta 0001? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.",
+  fechas_emision_validas: ["2026-05-20"],
+  puntos_venta_validos: [1],
+  totales_listos_para_emitir: {
+    comprobantes: 1432,
+    neto: 1432000,
+    iva21: 300720,
+    iva105: 0,
+    total: 1732720,
+    valores_invalidos: 0,
+  },
+});
+
+const grupoDetalleMock = (): LoteComprobanteGrupoDetalle => ({
+  id: 21,
+  comprobante_ref: "LOTE-001",
+  orden: 1,
+  estado: "validado",
+  tipo_comprobante: 6,
+  concepto: 1,
+  punto_venta_numero: 1,
+  cliente_documento: "20409378472",
+  cliente_razon_social: "Cliente Lote SA",
+  fecha_emision: "2026-05-20",
+  fecha_servicio_desde: null,
+  fecha_servicio_hasta: null,
+  fecha_vto_pago: null,
+  total_estimado: 1210,
+  mensajes_json: ["Validado correctamente. Listo para emitir."],
+  cae: null,
+  numero_asignado: null,
+  comprobante_id: null,
+  descripcion_facturada: "Servicio mensual",
+});
+
+const gruposPageMock = (): LoteComprobanteGruposPage => ({
+  items: [grupoDetalleMock()],
+  page: 1,
+  per_page: 100,
+  total: 1432,
+  total_pages: 15,
+  estado: null,
+});
+
+const mountView = async (
+  perfiles: PerfilCargaMasiva[] = [],
+  lotesIniciales: LoteComprobante[] = [],
+) => {
   const pinia = createPinia();
   setActivePinia(pinia);
   const empresaStore = useEmpresaStore();
@@ -161,7 +248,9 @@ const mountView = async (perfiles: PerfilCargaMasiva[] = []) => {
   empresaStore.empresaActivaId = 1;
 
   mockedFormatos.listar.mockResolvedValue([formatoMock()]);
-  mockedLotes.listar.mockResolvedValue([]);
+  mockedLotesDetalle.listar.mockResolvedValue(lotesIniciales);
+  mockedLotesDetalle.obtenerResumen.mockResolvedValue(loteResumenMock());
+  mockedLotesDetalle.obtenerGrupos.mockResolvedValue(gruposPageMock());
   mockedPerfiles.listar.mockResolvedValue(perfiles);
   mockedPuntosVenta.getAll.mockResolvedValue([]);
 
@@ -238,5 +327,21 @@ describe("LotesComprobantesView", () => {
     expect(vm.fechaServicioDesdeModo).toBe("");
     expect(vm.fechaServicioHastaModo).toBe("");
     expect(vm.fechaVtoPagoModo).toBe("");
+  });
+
+  it("abre lotes grandes con resumen y pagina de grupos", async () => {
+    const lote = loteResumenMock();
+    const wrapper = await mountView([], [lote]);
+
+    expect(mockedLotesDetalle.obtener).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerResumen).toHaveBeenCalledWith(lote.id);
+    expect(mockedLotesDetalle.obtenerGrupos).toHaveBeenCalledWith(lote.id, {
+      page: 1,
+      perPage: 100,
+      estado: null,
+    });
+    expect(wrapper.text()).toContain("Mostrando 1 a 100 de 1432 comprobantes");
+    expect(wrapper.text()).toContain("El resumen fiscal considera el lote completo");
+    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
   });
 });

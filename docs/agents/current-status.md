@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-05-22
+Ultima actualizacion: 2026-05-29
 
 ## Objetivo activo
 
@@ -61,6 +61,29 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Detalle paginado de lotes grandes 2026-05-29
+
+- La pantalla `Emision masiva` ya no abre el lote trayendo y renderizando todos
+  los grupos y filas. Ahora usa `GET /api/lotes-comprobantes/{lote_id}/resumen`
+  para el resumen fiscal completo y
+  `GET /api/lotes-comprobantes/{lote_id}/grupos` para una pagina de grupos.
+- El resumen fiscal conserva el alcance completo del lote: totales listos para
+  emitir, fechas de emision validas, puntos de venta validos y token exacto de
+  confirmacion fiscal `fechas=...;puntos_venta=...`.
+- La grilla de comprobantes carga 100 grupos por pagina y permite filtrar por
+  estado. El Excel observado sigue siendo el camino para revisar el detalle por
+  fila completo.
+- Verificacion visual local con navegador integrado sobre un lote de 1432
+  comprobantes: la vista inicial quedo en 100 filas renderizadas, `nodeCount`
+  aproximado 2026 y `scrollHeight` aproximado 15371. Antes de este cambio la
+  misma pagina tenia aproximadamente 24629 nodos y `scrollHeight` 165654.
+- Verificacion tecnica: backend
+  `python -m pytest backend/tests/test_lotes_comprobantes.py -q` OK
+  (46 tests), `ruff check` OK, `ruff format --check` OK; frontend
+  `npm run test:unit -- LotesComprobantesView`, `npm run type-check` y
+  `npm run lint:check` OK. `black --check` quedo colgado localmente aun sobre
+  archivos chicos; se aplico formato y se verifico con `ruff format --check`.
 
 ### Alineacion documental post-piloto 2026-05-22
 

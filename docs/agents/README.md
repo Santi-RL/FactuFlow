@@ -3,15 +3,21 @@
 ## Leer primero en cada sesion
 
 - Pendientes temporales de alineacion: `docs/agents/alignment-pending.md`
+- Vision canonica y protegida del producto: `VISION.md`
 - Estado operativo canonico y punto de reanudacion: `docs/agents/current-status.md`
 - QA manual y ultimo checkpoint: `docs/agents/manual-qa.md`
-- Roadmap canonico: `ROADMAP.md`
+- Roadmap de prioridades y fases: `ROADMAP.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 
 ## Fuente de verdad operativa
 
+- `VISION.md` es la fuente canonica de la vision del producto. Bloquea cambios
+  que la contradigan, salvo pedido explicito del usuario para modificar la
+  vision primero.
 - `docs/agents/current-status.md` es la fuente canonica para saber donde esta parado el proyecto hoy.
-- `ROADMAP.md` solo debe resumir prioridades y avance macro, no repetir evidencia operativa detallada.
+- `ROADMAP.md` solo debe resumir prioridades y avance macro alineado con
+  `VISION.md`; no debe redefinir la vision ni repetir evidencia operativa
+  detallada.
 - `docs/agents/manual-qa.md` registra recorridos de QA y hallazgos manuales, no reemplaza el estado canonico.
 - `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitacora tecnica.
 - `docs/agents/arca.md` conserva detalles tecnicos ARCA y procedimientos seguros.
@@ -42,8 +48,19 @@
   credenciales, CAEs reales, capturas privadas, Excel/PDF de clientes, bases,
   logs ni evidencia local. Ver `docs/agents/security.md`.
 
+## Revision asistida
+
+- No ejecutar `autoreview` automaticamente. Despues de cambios de codigo no
+  triviales o antes de commit/PR, recomendarlo al usuario como revision
+  asistida y pedir confirmacion explicita antes de correrlo, especialmente si
+  el motor puede enviar el diff a un servicio externo.
+- Si el usuario confirma la revision, ejecutar primero tests/lint/formato
+  relevantes, revisar el diff real y verificar manualmente cada finding antes
+  de aplicar fixes.
+
 ## Indice rapido por tema
 
+- Vision del producto: `VISION.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Pendientes temporales de alineacion: `docs/agents/alignment-pending.md`
 - Estructura del repo y ubicacion de archivos: `docs/agents/structure.md`
@@ -75,10 +92,11 @@ Si el usuario dice algo como "quiero seguir donde quedamos", la secuencia correc
 
 1. Leer `docs/agents/alignment-pending.md`
 2. Si hay puntos pendientes, avisarlo brevemente antes de continuar
-3. Leer `docs/agents/current-status.md`
-4. Leer `docs/agents/manual-qa.md`
-5. Confirmar el siguiente paso en `ROADMAP.md`
-6. Si hay contradicciones entre docs vivas y evidencia local/codigo, separar
+3. Leer `VISION.md`
+4. Leer `docs/agents/current-status.md`
+5. Leer `docs/agents/manual-qa.md`
+6. Confirmar el siguiente paso en `ROADMAP.md`
+7. Si hay contradicciones entre docs vivas y evidencia local/codigo, separar
    hechos verificables de decisiones de producto abiertas. Corregir los hechos
    comprobables en documentos vivos y resumir el cambio en `CHANGELOG.md`
    cuando corresponda.

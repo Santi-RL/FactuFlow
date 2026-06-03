@@ -502,6 +502,116 @@ async def test_descargar_plantilla_lote(
 
 
 @pytest.mark.asyncio
+async def test_obtener_resumen_y_grupos_paginados_lote(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """El detalle paginado debe evitar traer todo el lote para abrir la UI."""
+    lote = LoteComprobante(
+        nombre_archivo="lote-grande.xlsx",
+        archivo_hash="hash-lote-grande-paginado",
+        estado="validado",
+        total_filas=3,
+        total_grupos=3,
+        grupos_validos=2,
+        grupos_con_error=1,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(lote)
+    await db_session.flush()
+
+    for index, estado in enumerate(["validado", "validado", "con_error"], start=1):
+        payload = {
+            "fecha_emision": "2026-05-20",
+            "concepto": 1,
+            "items": [
+                {
+                    "cantidad": 1,
+                    "precio_unitario": 1000,
+                    "descuento_porcentaje": 0,
+                    "iva_porcentaje": 21,
+                }
+            ],
+        }
+        grupo = LoteComprobanteGrupo(
+            lote_id=lote.id,
+            comprobante_ref=f"LOTE-{index:03d}",
+            orden=index,
+            estado=estado,
+            tipo_comprobante=6,
+            punto_venta_numero=1,
+            cliente_documento="20409378472",
+            cliente_razon_social=f"Cliente {index}",
+            total_estimado=Decimal("1210"),
+            payload_json=payload,
+            mensajes_json=["Validado correctamente. Listo para emitir."]
+            if estado == "validado"
+            else ["Observado"],
+        )
+        db_session.add(grupo)
+        await db_session.flush()
+        db_session.add(
+            LoteComprobanteFila(
+                lote_id=lote.id,
+                grupo_id=grupo.id,
+                fila_excel=index + 1,
+                comprobante_ref=grupo.comprobante_ref,
+                estado=estado,
+                datos_json={"item_descripcion": f"Servicio {index}"},
+                mensajes_json=grupo.mensajes_json,
+            )
+        )
+    await db_session.commit()
+
+    resumen = await client.get(
+        f"/api/lotes-comprobantes/{lote.id}/resumen",
+        headers=auth_headers,
+    )
+    assert resumen.status_code == 200, resumen.text
+    resumen_data = resumen.json()
+    assert "grupos" not in resumen_data
+    assert "filas" not in resumen_data
+    assert resumen_data["confirmacion_fecha_fiscal"] == (
+        "fechas=2026-05-20;puntos_venta=1"
+    )
+    assert resumen_data["fechas_emision_validas"] == ["2026-05-20"]
+    assert resumen_data["puntos_venta_validos"] == [1]
+    assert resumen_data["totales_listos_para_emitir"] == {
+        "comprobantes": 2,
+        "neto": 2000,
+        "iva21": 420,
+        "iva105": 0,
+        "total": 2420,
+        "valores_invalidos": 0,
+    }
+
+    pagina = await client.get(
+        f"/api/lotes-comprobantes/{lote.id}/grupos?page=1&per_page=2",
+        headers=auth_headers,
+    )
+    assert pagina.status_code == 200, pagina.text
+    pagina_data = pagina.json()
+    assert pagina_data["total"] == 3
+    assert pagina_data["total_pages"] == 2
+    assert [item["comprobante_ref"] for item in pagina_data["items"]] == [
+        "LOTE-001",
+        "LOTE-002",
+    ]
+    assert pagina_data["items"][0]["descripcion_facturada"] == "Servicio 1"
+
+    filtrada = await client.get(
+        f"/api/lotes-comprobantes/{lote.id}/grupos?estado=validado&per_page=10",
+        headers=auth_headers,
+    )
+    assert filtrada.status_code == 200, filtrada.text
+    filtrada_data = filtrada.json()
+    assert filtrada_data["total"] == 2
+    assert {item["estado"] for item in filtrada_data["items"]} == {"validado"}
+
+
+@pytest.mark.asyncio
 async def test_validar_lote_registra_grupos_y_filas(
     client: AsyncClient,
     auth_headers: dict,

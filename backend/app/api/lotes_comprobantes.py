@@ -29,7 +29,10 @@ from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.schemas.lote_comprobante import (
     LoteComprobanteDetalleResponse,
+    LoteComprobanteGrupoDetalleResponse,
+    LoteComprobanteGruposPageResponse,
     LoteComprobanteResponse,
+    LoteComprobanteResumenResponse,
     LoteProcesamientoResponse,
     LoteValidacionResponse,
 )
@@ -58,56 +61,36 @@ def _lote_puede_emitirse(lote) -> bool:
     )
 
 
-def _fecha_confirmacion_label(value: str) -> str:
-    parsed = date.fromisoformat(value[:10])
-    return parsed.strftime("%d/%m/%y")
-
-
-def _confirmacion_fecha_fiscal_lote(lote) -> tuple[str, str]:
-    grupos = [grupo for grupo in lote.grupos if grupo.estado == "validado"]
-    fechas = sorted(
-        {
-            str(grupo.fecha_emision)[:10]
-            for grupo in grupos
-            if getattr(grupo, "fecha_emision", None)
-        }
-    )
-    puntos_venta = sorted(
-        {
-            int(grupo.punto_venta_numero)
-            for grupo in grupos
-            if grupo.punto_venta_numero is not None
-        }
-    )
-    token = (
-        f"fechas={','.join(fechas)};"
-        f"puntos_venta={','.join(str(punto) for punto in puntos_venta)}"
-    )
-    fechas_label = ", ".join(_fecha_confirmacion_label(fecha) for fecha in fechas)
-    fecha_texto = (
-        f"fecha {fechas_label}" if len(fechas) == 1 else f"fechas {fechas_label}"
-    )
-    punto_texto = ""
-    if puntos_venta:
-        punto_label = ", ".join(f"{punto:04d}" for punto in puntos_venta)
-        punto_texto = (
-            f" para el punto de venta {punto_label}"
-            if len(puntos_venta) == 1
-            else f" para los puntos de venta {punto_label}"
-        )
-    mensaje = (
-        f"Está seguro que quiere emitir comprobantes con {fecha_texto}{punto_texto}? "
-        "Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta."
-    )
-    return token, mensaje
-
-
 def _serialize_lote(lote) -> LoteComprobanteResponse:
     return LoteComprobanteResponse.model_validate(lote)
 
 
 def _serialize_lote_detalle(lote) -> LoteComprobanteDetalleResponse:
     return LoteComprobanteDetalleResponse.model_validate(lote)
+
+
+def _serialize_lote_resumen(
+    lote, resumen_operativo: dict
+) -> LoteComprobanteResumenResponse:
+    data = LoteComprobanteResponse.model_validate(lote).model_dump()
+    return LoteComprobanteResumenResponse(**data, **resumen_operativo)
+
+
+def _descripcion_facturada_grupo(grupo) -> str | None:
+    for fila in grupo.filas:
+        descripcion = (fila.datos_json or {}).get("item_descripcion")
+        if descripcion is None:
+            continue
+        descripcion_texto = str(descripcion).strip()
+        if descripcion_texto:
+            return descripcion_texto
+    return None
+
+
+def _serialize_grupo_detalle(grupo) -> LoteComprobanteGrupoDetalleResponse:
+    data = LoteComprobanteGrupoDetalleResponse.model_validate(grupo).model_dump()
+    data["descripcion_facturada"] = _descripcion_facturada_grupo(grupo)
+    return LoteComprobanteGrupoDetalleResponse(**data)
 
 
 async def _get_empresa(db: AsyncSession, empresa_id: int) -> Empresa:
@@ -258,7 +241,7 @@ async def procesar_lote(
     """Procesa el lote validado."""
     service = LoteComprobantesService(db)
     try:
-        lote = await service.obtener_lote(lote_id, empresa_activa_id)
+        lote = await service.obtener_lote_resumen(lote_id, empresa_activa_id)
     except LoteComprobanteError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -268,7 +251,11 @@ async def procesar_lote(
             detail="El lote no tiene comprobantes válidos para emitir",
         )
 
-    confirmacion_esperada, mensaje_confirmacion = _confirmacion_fecha_fiscal_lote(lote)
+    resumen_operativo = await service.obtener_resumen_operativo_lote(
+        lote_id, empresa_activa_id
+    )
+    confirmacion_esperada = resumen_operativo["confirmacion_fecha_fiscal"]
+    mensaje_confirmacion = resumen_operativo["mensaje_confirmacion_fecha_fiscal"]
     if x_confirmacion_fecha_fiscal != confirmacion_esperada:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -302,6 +289,59 @@ async def procesar_lote(
         lote=_serialize_lote(lote),
         mensaje=lote.mensaje_resumen or "Lote procesado",
         en_progreso=False,
+    )
+
+
+@router.get("/{lote_id}/resumen", response_model=LoteComprobanteResumenResponse)
+async def obtener_resumen_lote(
+    lote_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Obtiene el resumen liviano de un lote."""
+    service = LoteComprobantesService(db)
+    try:
+        lote = await service.obtener_lote_resumen(lote_id, empresa_activa_id)
+        resumen_operativo = await service.obtener_resumen_operativo_lote(
+            lote_id, empresa_activa_id
+        )
+    except LoteComprobanteError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _serialize_lote_resumen(lote, resumen_operativo)
+
+
+@router.get("/{lote_id}/grupos", response_model=LoteComprobanteGruposPageResponse)
+async def listar_grupos_lote(
+    lote_id: int,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(100, ge=1, le=200),
+    estado: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Lista los grupos de un lote con paginación server-side."""
+    service = LoteComprobantesService(db)
+    try:
+        grupos, total = await service.obtener_grupos_lote_paginados(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            page=page,
+            per_page=per_page,
+            estado=estado,
+        )
+    except LoteComprobanteError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    total_pages = (total + per_page - 1) // per_page if total else 0
+    return LoteComprobanteGruposPageResponse(
+        items=[_serialize_grupo_detalle(grupo) for grupo in grupos],
+        page=page,
+        per_page=per_page,
+        total=total,
+        total_pages=total_pages,
+        estado=estado,
     )
 
 

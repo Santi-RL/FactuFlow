@@ -2,10 +2,18 @@ import apiClient from "./api";
 import type {
   LoteComprobante,
   LoteComprobanteDetalle,
+  LoteComprobanteGruposPage,
+  LoteComprobanteResumen,
   LoteOpcionesFechas,
   LoteProcesamientoResponse,
   LoteValidacionResponse,
 } from "@/types/lote-comprobante";
+
+interface ObtenerGruposParams {
+  page?: number;
+  perPage?: number;
+  estado?: string | null;
+}
 
 class LotesComprobantesService {
   async listar(): Promise<LoteComprobante[]> {
@@ -18,6 +26,30 @@ class LotesComprobantesService {
   async obtener(id: number): Promise<LoteComprobanteDetalle> {
     const response = await apiClient.get<LoteComprobanteDetalle>(
       `/api/lotes-comprobantes/${id}`,
+    );
+    return response.data;
+  }
+
+  async obtenerResumen(id: number): Promise<LoteComprobanteResumen> {
+    const response = await apiClient.get<LoteComprobanteResumen>(
+      `/api/lotes-comprobantes/${id}/resumen`,
+    );
+    return response.data;
+  }
+
+  async obtenerGrupos(
+    id: number,
+    params: ObtenerGruposParams = {},
+  ): Promise<LoteComprobanteGruposPage> {
+    const response = await apiClient.get<LoteComprobanteGruposPage>(
+      `/api/lotes-comprobantes/${id}/grupos`,
+      {
+        params: {
+          page: params.page,
+          per_page: params.perPage,
+          estado: params.estado || undefined,
+        },
+      },
     );
     return response.data;
   }

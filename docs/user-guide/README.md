@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-05-22
+Ultima actualizacion: 2026-05-29
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -203,6 +203,13 @@ recien ocurre cuando confirmas el lote validado.
 Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
 con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos
 valores contra el Excel antes de presionar `Emitir comprobantes validos`.
+
+En lotes grandes, la pantalla no muestra todos los comprobantes a la vez. El
+resumen, los totales y la confirmacion fiscal se calculan sobre el lote
+completo, pero la grilla de detalle carga una pagina de comprobantes por vez.
+Podes cambiar de pagina o filtrar por estado para revisar listos, observados,
+autorizados, fallidos o casos que requieren reconciliacion. Para revisar el
+detalle completo por fila, usa `Descargar observado`.
 
 Cuando uses la plantilla oficial de FactuFlow, el sistema lee la hoja llamada
 `Comprobantes`. Las hojas adicionales, por ejemplo `Resumen` o `Control`, son

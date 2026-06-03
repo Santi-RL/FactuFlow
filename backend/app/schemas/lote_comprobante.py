@@ -47,6 +47,12 @@ class LoteComprobanteGrupoResponse(BaseModel):
         from_attributes = True
 
 
+class LoteComprobanteGrupoDetalleResponse(LoteComprobanteGrupoResponse):
+    """Representa un comprobante agrupado con datos derivados para la UI."""
+
+    descripcion_facturada: Optional[str] = None
+
+
 class LoteComprobanteResponse(BaseModel):
     """Representa el estado general de un lote."""
 
@@ -84,6 +90,40 @@ class LoteComprobanteDetalleResponse(LoteComprobanteResponse):
 
     grupos: list[LoteComprobanteGrupoResponse] = Field(default_factory=list)
     filas: list[LoteComprobanteFilaResponse] = Field(default_factory=list)
+
+
+class LoteTotalesListosResponse(BaseModel):
+    """Totales agregados de los comprobantes válidos del lote."""
+
+    comprobantes: int = 0
+    neto: float = 0
+    iva21: float = 0
+    iva105: float = 0
+    total: float = 0
+    valores_invalidos: int = 0
+
+
+class LoteComprobanteResumenResponse(LoteComprobanteResponse):
+    """Resumen operativo liviano para abrir lotes grandes."""
+
+    confirmacion_fecha_fiscal: str = ""
+    mensaje_confirmacion_fecha_fiscal: str = ""
+    fechas_emision_validas: list[str] = Field(default_factory=list)
+    puntos_venta_validos: list[int] = Field(default_factory=list)
+    totales_listos_para_emitir: LoteTotalesListosResponse = Field(
+        default_factory=LoteTotalesListosResponse
+    )
+
+
+class LoteComprobanteGruposPageResponse(BaseModel):
+    """Página de comprobantes agrupados de un lote."""
+
+    items: list[LoteComprobanteGrupoDetalleResponse] = Field(default_factory=list)
+    page: int
+    per_page: int
+    total: int
+    total_pages: int
+    estado: Optional[str] = None
 
 
 class LoteValidacionResponse(BaseModel):
