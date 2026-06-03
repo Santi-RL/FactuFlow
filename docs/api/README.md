@@ -98,6 +98,64 @@ administrador desactive o degrade su propia cuenta, y también impide cambiar el
 email propio desde la sesión actual porque el JWT vigente usa el email como
 identificador.
 
+## Almacenamiento
+
+```http
+GET /api/almacenamiento/resumen
+GET /api/almacenamiento/lotes-compactables
+GET /api/almacenamiento/logs
+GET /api/almacenamiento/temporales
+GET /api/almacenamiento/certificados-huerfanos
+POST /api/almacenamiento/exportaciones
+GET /api/almacenamiento/exportaciones/{token}/descargar
+POST /api/almacenamiento/exportaciones/{token}/confirmar-descarga
+POST /api/almacenamiento/exportaciones/{token}/confirmar-liberacion
+POST /api/almacenamiento/certificados-huerfanos/limpiar
+```
+
+Estos endpoints requieren `es_admin=true`. El gestor informa uso medido,
+recuperable, límite configurado, disco real, categorías y desglose seguro por
+emisor. No expone rutas absolutas, CUIT completo, CAEs, nombres de clientes ni
+contenido privado.
+
+`POST /api/almacenamiento/exportaciones` recibe una selección explícita:
+
+```json
+{
+  "lote_ids": [12],
+  "log_ids": ["factuflow.log.1"],
+  "temporal_ids": ["lotes/tmp-observado.xlsx"]
+}
+```
+
+La respuesta devuelve un token opaco, el nombre del ZIP y
+`checksum_sha256`. Para liberar espacio, el cliente debe descargar primero
+`GET /api/almacenamiento/exportaciones/{token}/descargar`, confirmar que el ZIP
+llegó al cliente usando el header `X-FactuFlow-Download-Token`, y recién
+después liberar:
+
+```json
+{
+  "checksum_sha256": "...",
+  "download_token": "..."
+}
+```
+
+La confirmación de liberación usa:
+
+```json
+{
+  "confirmacion": "YA_LO_DESCARGUE"
+}
+```
+
+La liberación valida contra el manifest del ZIP que logs y temporales no hayan
+cambiado desde el resguardo; si cambiaron, no los borra. Luego compacta lotes
+cerrados seleccionados y elimina logs/temporales revalidados por el servidor.
+Los certificados no se incluyen en el ZIP; la limpieza de certificados huérfanos
+usa una acción separada y solo acepta archivos gestionados por FactuFlow que no
+estén referenciados por la base.
+
 ## Empresas / Emisores
 
 ```http

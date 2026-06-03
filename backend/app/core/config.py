@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     arca_fecaesolicitar_batch_max_registros: int = Field(
         default=0, alias="ARCA_FECAESOLICITAR_BATCH_MAX_REGISTROS"
     )
+    storage_limit_bytes: Optional[int] = Field(
+        default=None, alias="STORAGE_LIMIT_BYTES"
+    )
+    storage_tmp_path: str = Field(default="./data/tmp", alias="STORAGE_TMP_PATH")
+    storage_log_retention_days: int = Field(
+        default=30, alias="STORAGE_LOG_RETENTION_DAYS"
+    )
+    storage_enable_cleanup: bool = Field(default=True, alias="STORAGE_ENABLE_CLEANUP")
 
     @field_validator("certs_path", mode="before")
     @classmethod

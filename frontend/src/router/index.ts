@@ -40,6 +40,7 @@ const ReporteIvaView = () => import("@/views/reportes/ReporteIvaView.vue");
 const RankingClientesView = () =>
   import("@/views/reportes/RankingClientesView.vue");
 const UsuariosView = () => import("@/views/usuarios/UsuariosView.vue");
+const SistemaView = () => import("@/views/sistema/SistemaView.vue");
 
 const router = createRouter({
   history: createWebHistory(),
@@ -95,6 +96,12 @@ const router = createRouter({
           path: "usuarios",
           name: "usuarios",
           component: UsuariosView,
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: "sistema",
+          name: "sistema",
+          component: SistemaView,
           meta: { requiresAdmin: true },
         },
         {

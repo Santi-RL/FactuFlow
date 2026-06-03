@@ -20,6 +20,7 @@ from app.models.formato_importacion import (
     FormatoImportacionRegla,
 )
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
+from app.models.evento_sistema import EventoSistema, ExportacionAlmacenamiento
 
 __all__ = [
     "Usuario",
@@ -38,4 +39,6 @@ __all__ = [
     "FormatoImportacionCampo",
     "FormatoImportacionRegla",
     "PerfilCargaMasiva",
+    "EventoSistema",
+    "ExportacionAlmacenamiento",
 ]

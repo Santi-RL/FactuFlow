@@ -28,6 +28,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/main.py`: entrada de FastAPI y registro de routers.
 - `backend/app/api/`: endpoints REST por dominio.
 - `backend/app/api/lotes_comprobantes.py`: endpoints de emision masiva por Excel.
+- `backend/app/api/almacenamiento.py`: endpoints administrativos de uso,
+  resguardo y limpieza segura de almacenamiento.
 - `backend/app/api/formatos_importacion.py`: endpoints de formatos configurables para importar Excel externos.
 - `backend/app/api/perfiles_carga_masiva.py`: endpoints de perfiles de carga
   masiva por emisor.
@@ -39,10 +41,16 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/services/`: servicios de negocio.
 - `backend/app/models/formato_importacion.py`: modelos versionados de formatos, campos y reglas de importacion.
 - `backend/app/models/perfil_carga_masiva.py`: perfiles de carga masiva por emisor.
+- `backend/app/models/evento_sistema.py`: auditoría administrativa y
+  exportaciones de almacenamiento.
 - `backend/app/schemas/formato_importacion.py`: contratos de formatos, deteccion y candidatos.
 - `backend/app/schemas/perfil_carga_masiva.py`: contratos de perfiles de carga masiva.
+- `backend/app/schemas/almacenamiento.py`: contratos del gestor de
+  almacenamiento.
 - `backend/app/services/formatos_importacion_service.py`: deteccion, resolucion de mapeos y normalizacion de archivos externos.
 - `backend/app/services/perfiles_carga_masiva_service.py`: CRUD, scoping y validacion de perfiles de carga masiva.
+- `backend/app/services/almacenamiento_service.py`: cálculo acotado de uso,
+  ZIPs de resguardo y limpieza confirmada.
 - `backend/app/services/lote_worker.py`: worker reanudable de lotes grandes.
 - `backend/app/scripts/create_admin_user.py`: alta/promocion de usuario administrador.
 - `backend/app/templates/`: plantillas (PDF/HTML).
@@ -58,11 +66,14 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `frontend/src/composables/`: hooks de Composition API.
 - `frontend/src/services/`: acceso a API.
 - `frontend/src/services/lotes-comprobantes.service.ts`: cliente HTTP de lotes.
+- `frontend/src/services/almacenamiento.service.ts`: cliente HTTP del gestor
+  administrativo de almacenamiento.
 - `frontend/src/services/formatos-importacion.service.ts`: cliente HTTP para listar y detectar formatos de importacion.
 - `frontend/src/services/perfiles-carga-masiva.service.ts`: cliente HTTP de perfiles de carga masiva.
 - `frontend/src/stores/`: estado global (Pinia).
 - `frontend/src/types/`: tipos compartidos.
 - `frontend/src/types/lote-comprobante.ts`: tipos del flujo de lotes.
+- `frontend/src/types/almacenamiento.ts`: tipos del gestor de almacenamiento.
 - `frontend/src/types/formato-importacion.ts`: tipos de formatos, versiones y candidatos detectados.
 - `frontend/src/types/perfil-carga-masiva.ts`: tipos de perfiles de carga masiva.
 - `frontend/src/assets/`: estáticos.

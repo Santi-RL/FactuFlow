@@ -69,12 +69,19 @@ Como minimo debe informar:
 - conexion ARCA segun ambiente
 - certificado activo del emisor seleccionado
 - vencimiento o problema visible del certificado
+- uso de almacenamiento de la instalación, con desglose por emisor y tipo de
+  dato, cuando el usuario sea administrador
 - ubicacion o acceso a logs relevantes cuando sea seguro
 - ultimo backup conocido o aviso de backup no verificado, cuando esa evidencia
   exista
 
 Los estados visibles deben usar etiquetas simples como `Correcto`,
 `Necesita atencion` y `No disponible`, con una explicacion corta.
+
+La primera vista administrativa de esta línea ya existe en
+`Sistema > Almacenamiento`: muestra uso medido, recuperable, límite
+configurado, espacio libre de disco, categorías y uso por emisor, y permite
+resguardar/descargar antes de liberar artefactos no vitales.
 
 ### 4. Backups y restauracion probados
 

@@ -14,6 +14,7 @@ services/
 ├── puntos_venta.service.ts   # Puntos de venta
 ├── certificados.service.ts   # Certificados
 ├── arca.service.ts           # ARCA (tipos, puntos de venta, dummy, etc.)
+├── almacenamiento.service.ts # Gestor administrativo de almacenamiento
 ├── comprobantes.service.ts   # Comprobantes
 ├── formatos-importacion.service.ts # Formatos configurables de importacion
 ├── lotes-comprobantes.service.ts # Emision masiva por Excel
@@ -27,6 +28,7 @@ services/
 - Endpoints del backend usan prefijo `/api/...` (ver `backend/app/main.py`).
 - Evitar duplicar logica de negocio: el frontend arma requests, el backend valida.
 - Los tipos de lotes viven en `frontend/src/types/lote-comprobante.ts`.
+- Los tipos de almacenamiento viven en `frontend/src/types/almacenamiento.ts`.
 - Los tipos de formatos viven en `frontend/src/types/formato-importacion.ts`.
 - Los tipos de perfiles de carga masiva viven en
   `frontend/src/types/perfil-carga-masiva.ts`.
@@ -35,6 +37,9 @@ services/
   solo cuando no hay usuarios.
 - `usuarios.service.ts` habla con `/api/usuarios`; esas rutas son exclusivas de
   administradores.
+- `almacenamiento.service.ts` habla con `/api/almacenamiento`; esas rutas son
+  exclusivas de administradores y cubren resumen, selección de artefactos,
+  resguardo ZIP, descarga y liberación posterior.
 - `formatos-importacion.service.ts` lista formatos disponibles y detecta
   candidatos desde un Excel antes de validar el lote.
 - `lotes-comprobantes.service.ts` puede enviar `formato_version_id` al validar

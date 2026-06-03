@@ -41,10 +41,31 @@ permanente en el servidor. Los archivos descargables deben generarse bajo
 demanda, descargarse a la PC del usuario y limpiarse cuando cumplan su propósito
 operativo.
 
-Cuando se implemente el gestor de almacenamiento, la QA debe verificar que un
-administrador pueda ver uso total, desglose por emisor y desglose por tipo de
-dato sin exponer nombres de clientes, CUITs, CAEs, PDFs privados ni rutas
-internas sensibles.
+En el gestor de almacenamiento, la QA debe verificar que un administrador pueda
+ver uso total, desglose por emisor y desglose por tipo de dato sin exponer
+nombres de clientes, CUITs, CAEs, PDFs privados ni rutas internas sensibles.
+
+Gestor de almacenamiento implementado:
+
+1. Iniciar sesión con un usuario administrador.
+2. Verificar que el menú `Sistema` aparece y que un usuario común no lo ve.
+3. Abrir `Sistema > Almacenamiento`.
+4. Confirmar que se muestran uso medido, recuperable, límite configurado,
+   espacio libre de disco, categorías y uso por emisor.
+5. Confirmar que las etiquetas de emisor no exponen CUIT completo, clientes,
+   CAEs ni rutas internas.
+6. Seleccionar un lote cerrado compactable, preparar el ZIP, descargarlo a la
+   PC y recién después confirmar `Ya lo descargué`.
+7. Verificar que el lote queda compactado: conserva resumen, grupos,
+   comprobantes, totales y auditoría, pero deja de tener filas originales para
+   regenerar observado.
+8. Repetir con logs antiguos o temporales de prueba ubicados en rutas
+   administradas por FactuFlow.
+9. Verificar que el log activo no aparece como limpiable.
+10. Verificar que certificados activos o referenciados no aparecen como
+    huérfanos; si se usa un archivo huérfano de prueba gestionado por
+    FactuFlow, confirmar que la limpieza no toca archivos manuales ni rutas
+    externas.
 
 Caso local con frontend activo y backend caido:
 
@@ -596,7 +617,7 @@ Reglas vigentes para cualquier nueva emision productiva:
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
 - Verificación automatizada vigente 2026-06-03: backend `pytest tests -q` OK
-  (221 tests), `ruff` y `black` OK; frontend `test:unit` OK (53 tests),
+  (243 tests), `ruff` y `black` OK; frontend `test:unit` OK (54 tests),
   `type-check` OK, `build` OK y `lint:check` OK sin errores ni warnings.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
   solo desde QA local: observabilidad operativa estandar, backup/restauracion,
@@ -624,9 +645,9 @@ Retomar en consolidacion post-piloto:
 5. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
    observados y temporales descargables no deben quedar como ocupación
    permanente si no son vitales para operar, auditar o recuperar el sistema.
-6. Diseñar y luego validar el gestor de almacenamiento administrativo: uso
-   total, desglose por emisor, desglose por tipo de dato y limpieza segura de
-   artefactos no vitales.
+6. Validar visualmente el gestor de almacenamiento administrativo: uso total,
+   desglose por emisor, desglose por tipo de dato, resguardo ZIP y limpieza
+   segura de artefactos no vitales.
 7. Levantar o confirmar el perfil productivo con PostgreSQL usando
    `docker-compose.prod.yml`.
 8. Implementar la observabilidad operativa estándar definida en

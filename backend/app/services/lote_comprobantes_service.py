@@ -1346,6 +1346,7 @@ class LoteComprobantesService:
         lote_id: int,
         empresa_id: int,
         usuario_id: int | None,
+        commit: bool = True,
     ) -> LoteComprobante:
         """Elimina filas detalladas de un lote cerrado conservando grupos y resumen."""
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
@@ -1369,8 +1370,11 @@ class LoteComprobantesService:
             motivo="Compactación para ahorro de almacenamiento",
             metadata_json={"filas_eliminadas": result.rowcount or 0},
         )
-        await self.db.commit()
-        await self.db.refresh(lote)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(lote)
+        else:
+            await self.db.flush()
         return lote
 
     def _validar_lote_resoluble(

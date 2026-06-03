@@ -8,6 +8,7 @@ Los servicios encapsulan la lógica compleja y son llamados desde los endpoints.
 
 ```
 services/
+├── almacenamiento_service.py            # Resumen, resguardo ZIP y limpieza segura de almacenamiento
 ├── certificados_service.py              # CSR, validacion y operacion con certificados
 ├── constancia_arca_service.py           # Extraccion de datos fiscales desde constancia ARCA
 ├── constancia_puntos_venta_service.py   # Extraccion de puntos de venta desde constancia ARCA
@@ -54,6 +55,12 @@ services/
   lotes. El perfil puede recordar formato, concepto fiscal ARCA, descripcion
   facturada y reglas relativas de fechas, pero no valida ni emite por si mismo:
   la UI resuelve y muestra los valores antes de llamar a lotes.
+- Almacenamiento: ver `almacenamiento_service.py`. Calcula uso de base, lotes,
+  certificados, logs, temporales y caché con operaciones acotadas; prepara ZIPs
+  de resguardo para lotes/logs/temporales seleccionados; compacta lotes cerrados
+  o elimina archivos solo después de una descarga confirmada; y limpia
+  certificados huérfanos únicamente cuando fueron gestionados por FactuFlow y no
+  están referenciados por la base.
 - Extractos bancarios: el formato global inicial interpreta `Fecha`,
   `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y `Pto Vta`.
   La descripcion a facturar debe confirmarse aparte o venir mapeada desde el

@@ -100,17 +100,19 @@ describe("Sidebar", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="nav-usuarios"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="nav-sistema"]').exists()).toBe(false);
 
     wrapper.unmount();
   });
 
-  it("muestra el menú Usuarios para administradores", async () => {
+  it("muestra los menús administrativos para administradores", async () => {
     const wrapper = mountSidebar();
     const authStore = useAuthStore();
     authStore.user = { ...usuarioBase, es_admin: true };
     await flushPromises();
 
     expect(wrapper.find('[data-testid="nav-usuarios"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="nav-sistema"]').exists()).toBe(true);
 
     wrapper.unmount();
   });

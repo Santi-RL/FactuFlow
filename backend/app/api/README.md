@@ -15,6 +15,8 @@ Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 - `arca.py`: integracion ARCA (WSAA/WSFEv1 via `app/arca/`).
 - `comprobantes.py`: emision y consulta de comprobantes.
 - `lotes_comprobantes.py`: plantilla, validacion, procesamiento y resultados de lotes Excel.
+- `almacenamiento.py`: gestor administrativo de almacenamiento, resguardos ZIP
+  y limpieza segura de artefactos no vitales.
 - `formatos_importacion.py`: listado, creacion y autodeteccion de formatos configurables de Excel.
 - `perfiles_carga_masiva.py`: perfiles de carga masiva por emisor para precargar
   configuracion visible de lotes.
@@ -45,7 +47,16 @@ politica de lote confirmada antes de validar.
 
 Regla de usuarios: `es_admin` significa administrar usuarios, no operar emisores.
 Todos los usuarios activos pueden operar el emisor activo seleccionado. Solo las
-rutas `/api/usuarios` quedan reservadas a administradores.
+rutas `/api/usuarios` y `/api/almacenamiento` quedan reservadas a
+administradores.
+
+Regla de almacenamiento: las rutas `/api/almacenamiento` solo pueden escanear
+rutas administradas por FactuFlow y tablas conocidas. No deben devolver rutas
+absolutas, CUITs completos, CAEs, nombres de clientes ni contenido de archivos.
+La liberación de espacio sobre lotes, logs o temporales debe ocurrir después de
+preparar un ZIP de resguardo, descargarlo, confirmar explícitamente la descarga
+con checksum y el token emitido por el endpoint de descarga, y confirmar luego
+`Ya lo descargué` antes de borrar o compactar.
 
 Regla critica adicional: antes de llamar a un endpoint que pueda solicitar CAE
 real, la UI debe mostrar una confirmacion final de fecha fiscal:

@@ -17,7 +17,8 @@ Este manual describe el uso actual del producto. Si una funcion no aparece aca, 
 9. Puntos de venta
 10. Emisores
 11. Usuarios
-12. Limitaciones actuales
+12. Sistema
+13. Limitaciones actuales
 
 ## 1. Acceso al sistema
 
@@ -659,7 +660,64 @@ Desactivar un usuario impide que vuelva a iniciar sesión, pero no borra su
 historial. FactuFlow no permite que un administrador se desactive a sí mismo ni
 se quite su propio permiso de administrador desde la pantalla.
 
-## 12. Limitaciones actuales
+## 12. Sistema
+
+La sección `Sistema` solo aparece para usuarios administradores. Por ahora
+incluye la pestaña `Almacenamiento`, pensada para instalaciones locales o VPS
+pequeños donde cada MB cuenta.
+
+Desde `Sistema > Almacenamiento` puedes ver:
+- uso medido de la instalación
+- espacio estimado recuperable
+- límite lógico configurado, si existe
+- espacio libre real del disco donde corre FactuFlow
+- desglose por categorías: base de datos, lotes, certificados, logs,
+  temporales y caché
+- desglose resumido por emisor, sin mostrar CUIT completo ni datos de clientes
+- lotes cerrados que todavía conservan filas originales compactables
+- logs antiguos rotados, sin incluir el log activo
+- temporales administrados por FactuFlow
+- certificados huérfanos gestionados por FactuFlow y no referenciados por la
+  base
+
+### Resguardar antes de liberar espacio
+
+Para lotes, logs antiguos y temporales, FactuFlow no libera espacio
+directamente desde la selección. Primero debes:
+
+1. Seleccionar los lotes, logs o temporales que quieres liberar.
+2. Presionar `Preparar ZIP`.
+3. Descargar el archivo de resguardo a tu PC con `Descargar resguardo`.
+4. Verificar que el archivo quedó guardado localmente.
+5. Recién entonces presionar `Liberar espacio` y confirmar `Ya lo descargué`.
+
+El ZIP incluye un manifest con el contenido exportado, tamaño y checksum. Al
+descargar, FactuFlow confirma el checksum del ZIP antes de habilitar la
+liberación desde la pantalla. En lotes cerrados, el resguardo incluye resumen y
+archivo observado cuando todavía
+puede generarse. Después de liberar espacio, FactuFlow compacta esos lotes y
+elimina el detalle original por fila del servidor. El lote, los comprobantes,
+grupos, totales y auditoría se conservan, pero el archivo observado ya no puede
+regenerarse desde el servidor.
+
+La liberación de logs y temporales solo afecta archivos revalidados por el
+backend dentro de rutas administradas. FactuFlow no acepta rutas manuales del
+usuario ni escanea carpetas generales del sistema.
+
+### Certificados huérfanos
+
+Los certificados huérfanos se limpian en una acción separada. FactuFlow solo
+muestra archivos que:
+- están dentro de la carpeta configurada de certificados
+- fueron generados o gestionados con el patrón interno de FactuFlow
+- no están referenciados por ningún certificado registrado en la base
+
+No se exportan claves privadas en los ZIPs de almacenamiento. Antes de limpiar
+certificados huérfanos, revisa que la lista corresponda a archivos gestionados
+que ya no se usan. Los certificados activos o referenciados no aparecen como
+limpiables.
+
+## 13. Limitaciones actuales
 
 Al 2026-06-03:
 
@@ -669,8 +727,10 @@ Al 2026-06-03:
 - los artefactos descargables no vitales, como PDFs, ZIPs, archivos observados
   y temporales, deben descargarse a la PC del usuario y limpiarse del servidor
   después de cumplir su propósito operativo
-- no existe todavía un gestor de almacenamiento para administradores; está
-  planificado para ver uso total, uso por emisor y uso por tipo de dato
+- el gestor de almacenamiento ya permite diagnóstico, resguardo ZIP y limpieza
+  manual de lotes compactables, logs antiguos, temporales y certificados
+  huérfanos; todavía no reemplaza una política completa de backup y
+  restauración
 - los reportes son de consulta, no de exportacion
 - la validacion concluyente de homologacion se hace por webservice, no por QR
 - el launcher local de Windows es manual y esta orientado a desarrollo/QA; no

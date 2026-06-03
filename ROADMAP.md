@@ -70,12 +70,13 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   otros artefactos descargables no vitales deben generarse bajo demanda,
   descargarse a la PC del usuario y limpiarse del servidor después de cumplir su
   propósito.
-- Debe incorporarse un gestor de almacenamiento para administradores, orientado
-  a diagnóstico y mantenimiento. Debe mostrar cuánto espacio usa la instalación
-  y desglosarlo, al menos, por emisor, base de datos, lotes, archivos
-  temporales, PDFs/ZIPs generados, archivos observados, certificados y logs. El
-  cálculo debe ser liviano, acotado a rutas y tablas conocidas, y no debe
-  exponer datos privados innecesarios.
+- El gestor de almacenamiento administrativo queda incorporado como herramienta
+  de diagnóstico y mantenimiento. Muestra cuánto espacio usa la instalación y lo
+  desglosa por emisor, base de datos, lotes, archivos temporales, caché,
+  certificados y logs. El cálculo es liviano, acotado a rutas y tablas
+  conocidas, y no expone datos privados innecesarios. Las acciones de limpieza
+  sobre lotes, logs y temporales exigen resguardo ZIP descargado antes de liberar
+  espacio.
 - La distribucion comercial instalable queda para una etapa posterior, cuando
   el producto sea estable y repetible funcionando en VPS.
 - La observabilidad operativa estandar es obligatoria antes de ampliar el uso
@@ -176,7 +177,7 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [~] Instalacion en VPS con Docker produccion y PostgreSQL como proximo hito
 - [ ] CI/CD completo y alineado al estado real del repo
 - [~] Observabilidad operativa estandar definida como requisito post-piloto
-- [ ] Gestor de almacenamiento administrativo para ver uso total y desglose por
+- [x] Gestor de almacenamiento administrativo para ver uso total y desglose por
   emisor, lotes, base, temporales, artefactos descargables, certificados y logs
 - [ ] Observabilidad, backups y politicas operativas implementadas y probadas
 
@@ -483,7 +484,7 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   archivos observados y artefactos no vitales con limpieza controlada
 - [x] Primera acción de limpieza segura sobre lotes: compactación de detalle de
   filas en lotes cerrados y borrado restringido de lotes sin emisión
-- [ ] Gestor de almacenamiento para administradores, con uso total de la
+- [x] Gestor de almacenamiento para administradores, con uso total de la
   instalación, desglose por emisor y tipo de dato, alertas simples de consumo y
   acciones seguras de limpieza sobre artefactos no vitales
 - [ ] Healthchecks claros para backend, base, worker, ARCA y certificado del
@@ -498,7 +499,7 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   `docs/agents/operational-observability.md`
 - [ ] Pantalla `Estado del sistema` en la interfaz, con estados simples como
   `Correcto`, `Necesita atencion` y `No disponible`
-- [ ] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
+- [x] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
   sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
   reconciliaciones
@@ -556,11 +557,12 @@ Objetivo: ampliar valor mas alla del MVP.
    logs utiles para soporte y mensajes simples para usuarios no tecnicos.
 5. Formalizar backup/restauracion de PostgreSQL, certificados y logs antes de
    ampliar volumen productivo.
-6. Definir política de almacenamiento mínimo y limpieza de artefactos
-   descargables para VPS, especialmente PDFs, ZIPs y temporales de lotes.
-7. Diseñar el gestor de almacenamiento administrativo: uso total, desglose por
-   emisor y tipo de dato, alertas simples y limpieza segura de artefactos no
-   vitales.
+6. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
+   descargables usando el gestor administrativo, especialmente PDFs, ZIPs y
+   temporales de lotes.
+7. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
+   resguardo ZIP, confirmación `Ya lo descargué`, compactación y limpieza
+   segura de temporales/logs/certificados huérfanos.
 8. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
    de comprobantes, sin persistencia permanente en el servidor.
 9. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia

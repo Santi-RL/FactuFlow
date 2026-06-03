@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.services.lote_worker import ensure_lote_worker_running, stop_lote_worker
 from app.api import (
+    almacenamiento,
     arca,
     auth,
     certificados,
@@ -95,6 +96,11 @@ app.include_router(
 )
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
 app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
+app.include_router(
+    almacenamiento.router,
+    prefix="/api/almacenamiento",
+    tags=["Almacenamiento"],
+)
 
 
 @app.on_event("startup")

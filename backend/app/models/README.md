@@ -83,6 +83,15 @@ Perfiles de carga masiva por emisor:
 - Trazabilidad desde `LoteComprobante.metadata_json` cuando un lote se valida
   con un perfil aplicado
 
+### EventoSistema y ExportacionAlmacenamiento
+Auditoría administrativa del sistema:
+- Eventos genéricos para acciones sensibles fuera del flujo fiscal principal,
+  como crear resguardos, descargar exportaciones, liberar almacenamiento o
+  limpiar certificados huérfanos gestionados.
+- Exportaciones ZIP del gestor de almacenamiento con token opaco, checksum,
+  tamaño, estado, selección aplicada y manifest del contenido resguardado.
+- No guardan contenido de archivos ni datos fiscales privados innecesarios.
+
 ## Convenciones
 
 - Un modelo por archivo

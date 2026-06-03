@@ -16,6 +16,7 @@ import {
   ChartBarIcon,
   MapPinIcon,
   UserGroupIcon,
+  ServerStackIcon,
 } from "@heroicons/vue/24/outline";
 import certificadosService from "@/services/certificados.service";
 
@@ -80,6 +81,13 @@ const menuItems = computed(() =>
       icon: UserGroupIcon,
       path: "/usuarios",
       testId: "nav-usuarios",
+      requiresAdmin: true,
+    },
+    {
+      name: "Sistema",
+      icon: ServerStackIcon,
+      path: "/sistema",
+      testId: "nav-sistema",
       requiresAdmin: true,
     },
   ].filter((item) => !item.requiresAdmin || authStore.user?.es_admin),

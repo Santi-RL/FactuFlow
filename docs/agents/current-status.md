@@ -34,10 +34,10 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   procesamiento, RAM y almacenamiento, y evitar persistir artefactos no vitales
   cuando puedan generarse bajo demanda, descargarse a la PC del usuario y
   limpiarse del servidor.
-- Queda planificado un gestor de almacenamiento administrativo para conocer el
-  uso total de la instalación y desglosarlo por emisor, base, lotes, temporales,
-  artefactos descargables, certificados y logs, con cálculo liviano y sin
-  exponer datos privados innecesarios.
+- Gestor de almacenamiento administrativo implementado para conocer el uso total
+  de la instalación y desglosarlo por emisor, base, lotes, temporales, caché,
+  certificados y logs, con cálculo liviano, acceso solo para administradores y
+  sin exponer datos privados innecesarios.
 - La observabilidad operativa estandar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -82,6 +82,30 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Gestor de almacenamiento administrativo 2026-06-03
+
+- Se agregó la sección administrativa `Sistema > Almacenamiento`, visible solo
+  para usuarios con `es_admin`.
+- El backend expone `/api/almacenamiento` para resumen de uso, lotes
+  compactables, logs antiguos, temporales administrados, certificados huérfanos
+  gestionados, creación de resguardos ZIP, descarga y liberación posterior.
+- La liberación de lotes, logs y temporales exige preparar un ZIP, descargarlo
+  y confirmar `Ya lo descargué`; no hay limpieza automática después de la
+  descarga.
+- Los lotes cerrados se compactan desde el gestor usando el mismo criterio de
+  ahorro de almacenamiento: se elimina el detalle original por fila y se
+  conservan lote, grupos, comprobantes, totales y auditoría.
+- Los certificados no se exportan en ZIP. La limpieza de certificados queda
+  separada y solo aplica a archivos gestionados por FactuFlow que no están
+  referenciados por la base.
+- Se agregó auditoría genérica con `EventoSistema` y registro de
+  `ExportacionAlmacenamiento` con token opaco, checksum, tamaño, selección y
+  manifest.
+- Verificación enfocada: backend
+  `pytest tests/test_almacenamiento.py -q` OK (7 tests); frontend
+  `npm run test:unit -- --run src/components/layout/Sidebar.spec.ts src/views/sistema/SistemaView.spec.ts`
+  OK.
 
 ### Gestión inicial de usuarios 2026-06-03
 
@@ -929,15 +953,15 @@ Quedo validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 221 tests
+  - `pytest tests -q` OK, 243 tests
   - `ruff check app tests` OK
   - `black --check app tests` OK
-  - `alembic heads` OK, head `c5d6e7f8a9b0`
+  - `alembic heads` OK, head `d0e1f2a3b4c5`
 - Frontend:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 53 tests
+  - `npm run test:unit` OK, 54 tests
   - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
     del runner; ver seccion `Verificacion automatizada 2026-05-07`
 
@@ -962,10 +986,10 @@ Quedo validado manualmente:
 - La descarga masiva de PDFs, archivos observados, ZIPs y otros artefactos
   descargables debe diseñarse para VPS con almacenamiento mínimo: generación
   bajo demanda, descarga a la PC del usuario y limpieza posterior del servidor.
-- No existe todavía gestor de almacenamiento para administradores. Debe
-  incorporarse como parte del diagnóstico operativo del VPS para ver uso total,
-  uso por emisor y uso por tipo de dato, sin escanear rutas fuera del alcance de
-  FactuFlow.
+- El gestor de almacenamiento administrativo ya existe para diagnóstico y
+  limpieza manual de artefactos no vitales. Queda pendiente validarlo
+  visualmente sobre una instalación real de VPS y complementarlo con
+  backup/restauración formal.
 - Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
@@ -975,10 +999,8 @@ Quedo validado manualmente:
     productivos locales al VPS o generar certificados nuevos para el servidor
   - observabilidad operativa estandar segun
     `docs/agents/operational-observability.md`
-  - política de almacenamiento mínimo y limpieza de artefactos descargables en
-    VPS
-  - gestor de almacenamiento administrativo con desglose por emisor y tipo de
-    dato
+  - validación de la política de almacenamiento mínimo y limpieza de artefactos
+    descargables en VPS usando el gestor administrativo
   - backup/restauracion de PostgreSQL, certificados y logs
   - trazabilidad visible de lotes productivos y reintentos
   - pantalla `Estado del sistema` dentro del frontend con lenguaje simple
@@ -1006,12 +1028,12 @@ Para continuar desde el estado actual:
 3. Resolver la pregunta técnica de certificados ARCA para VPS: migrar/copiar
    certificados productivos locales existentes o generar certificados nuevos
    para el servidor.
-4. Definir la política de almacenamiento mínimo para VPS: qué queda persistido,
-   qué se genera bajo demanda y cómo se limpian PDFs, ZIPs, observados y
-   temporales no vitales.
-5. Diseñar el gestor de almacenamiento administrativo: uso total, desglose por
-   emisor y tipo de dato, alertas simples y limpieza segura de artefactos no
-   vitales.
+4. Validar la política de almacenamiento mínimo para VPS usando el gestor
+   administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
+   limpian PDFs, ZIPs, observados y temporales no vitales.
+5. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
+   emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
+   artefactos no vitales.
 6. Definir y probar backup/restauración de base, certificados y logs antes de
    ampliar el uso productivo.
 7. Implementar observabilidad operativa estándar: pantalla de estado del
