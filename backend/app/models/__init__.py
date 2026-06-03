@@ -11,6 +11,7 @@ from app.models.lote_comprobante import (
     LoteComprobante,
     LoteComprobanteGrupo,
     LoteComprobanteFila,
+    LoteComprobanteEvento,
 )
 from app.models.formato_importacion import (
     FormatoImportacion,
@@ -31,6 +32,7 @@ __all__ = [
     "LoteComprobante",
     "LoteComprobanteGrupo",
     "LoteComprobanteFila",
+    "LoteComprobanteEvento",
     "FormatoImportacion",
     "FormatoImportacionVersion",
     "FormatoImportacionCampo",

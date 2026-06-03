@@ -106,6 +106,7 @@ async def listar_comprobantes(
             fecha_emision=c.fecha_emision,
             total=c.total,
             estado=c.estado,
+            origen_emision=c.origen_emision,
             cae=c.cae,
             cliente_nombre=(
                 c.receptor_razon_social
@@ -196,6 +197,7 @@ async def obtener_comprobante(
         cae=comprobante.cae,
         cae_vencimiento=comprobante.cae_vencimiento,
         estado=comprobante.estado,
+        origen_emision=comprobante.origen_emision,
         moneda=comprobante.moneda,
         cotizacion=comprobante.cotizacion,
         observaciones=comprobante.observaciones,

@@ -16,12 +16,15 @@ const crearLote = (overrides: Partial<LoteComprobante> = {}): LoteComprobante =>
   grupos_con_error: 0,
   grupos_emitidos: 0,
   grupos_fallidos: 0,
+  grupos_reconciliados_externos: 0,
+  grupos_descartados: 0,
   mensaje_resumen: null,
   metadata_json: null,
   mapeo_usado_json: null,
   headers_detectados_json: null,
   started_at: null,
   finished_at: null,
+  compactado_at: null,
   created_at: "2026-05-10T12:00:00",
   updated_at: "2026-05-10T12:00:00",
   empresa_id: 1,
@@ -29,7 +32,7 @@ const crearLote = (overrides: Partial<LoteComprobante> = {}): LoteComprobante =>
   formato_importacion_id: null,
   formato_importacion_version_id: null,
   ...overrides,
-});
+}) as LoteComprobante;
 
 describe("formatDuration", () => {
   it("formatea minutos y segundos", () => {

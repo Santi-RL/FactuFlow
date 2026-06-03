@@ -179,12 +179,15 @@ const loteResumenMock = (): LoteComprobanteResumen => ({
   grupos_con_error: 0,
   grupos_emitidos: 0,
   grupos_fallidos: 0,
+  grupos_reconciliados_externos: 0,
+  grupos_descartados: 0,
   mensaje_resumen: "El lote se validó correctamente y puede emitirse.",
   metadata_json: null,
   mapeo_usado_json: null,
   headers_detectados_json: null,
   started_at: null,
   finished_at: null,
+  compactado_at: null,
   created_at: "2026-05-01T00:00:00",
   updated_at: "2026-05-01T00:00:00",
   empresa_id: 1,
@@ -194,6 +197,9 @@ const loteResumenMock = (): LoteComprobanteResumen => ({
   confirmacion_fecha_fiscal: "fechas=2026-05-20;puntos_venta=1",
   mensaje_confirmacion_fecha_fiscal:
     "Está seguro que quiere emitir comprobantes con fecha 20/05/26 para el punto de venta 0001? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.",
+  confirmacion_reintento_fallidos: "",
+  mensaje_confirmacion_reintento_fallidos:
+    "No hay comprobantes pendientes con fecha fiscal para confirmar.",
   fechas_emision_validas: ["2026-05-20"],
   puntos_venta_validos: [1],
   totales_listos_para_emitir: {

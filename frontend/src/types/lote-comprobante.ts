@@ -45,12 +45,15 @@ export interface LoteComprobante {
   grupos_con_error: number;
   grupos_emitidos: number;
   grupos_fallidos: number;
+  grupos_reconciliados_externos: number;
+  grupos_descartados: number;
   mensaje_resumen: string | null;
   metadata_json: Record<string, unknown> | null;
   mapeo_usado_json: Record<string, unknown> | null;
   headers_detectados_json: string[] | null;
   started_at: string | null;
   finished_at: string | null;
+  compactado_at: string | null;
   created_at: string;
   updated_at: string;
   empresa_id: number;
@@ -76,6 +79,8 @@ export interface LoteTotalesListos {
 export interface LoteComprobanteResumen extends LoteComprobante {
   confirmacion_fecha_fiscal: string;
   mensaje_confirmacion_fecha_fiscal: string;
+  confirmacion_reintento_fallidos: string;
+  mensaje_confirmacion_reintento_fallidos: string;
   fechas_emision_validas: string[];
   puntos_venta_validos: number[];
   totales_listos_para_emitir: LoteTotalesListos;
@@ -103,6 +108,22 @@ export interface LoteProcesamientoResponse {
   en_progreso: boolean;
 }
 
+export interface LoteAccionResponse {
+  lote: LoteComprobante;
+  mensaje: string;
+}
+
+export interface ReconciliacionExternaItem {
+  grupo_id: number;
+  tipo_comprobante: number;
+  punto_venta_numero: number;
+  numero: number;
+  fecha_emision: string;
+  total: number;
+  cae?: string;
+  motivo: string;
+}
+
 export interface LoteOpcionesFechas {
   punto_venta_modo: "archivo" | "fijo";
   punto_venta_numero?: number;
@@ -126,8 +147,10 @@ export const ESTADOS_LOTE_NOMBRES: Record<string, string> = {
   con_errores: "Con errores",
   procesando: "Procesando",
   autorizado_parcial: "Autorizado parcial",
-  requiere_reconciliacion: "Requiere reconciliacion",
+  requiere_reconciliacion: "Requiere reconciliación",
   completado: "Completado",
+  cerrado_reconciliado: "Cerrado reconciliado",
+  cerrado_con_descartes: "Cerrado con descartes",
   fallido: "Fallido",
 };
 
@@ -140,14 +163,31 @@ export const ESTADOS_LOTE_COLOR: Record<string, string> = {
   autorizado_parcial: "bg-yellow-100 text-yellow-800",
   requiere_reconciliacion: "bg-orange-100 text-orange-800",
   completado: "bg-green-100 text-green-800",
+  cerrado_reconciliado: "bg-emerald-100 text-emerald-800",
+  cerrado_con_descartes: "bg-stone-100 text-stone-800",
   fallido: "bg-red-100 text-red-800",
 };
 
 export const ESTADOS_GRUPO_COLOR: Record<string, string> = {
   validado: "bg-blue-50 text-blue-700",
   autorizado: "bg-green-50 text-green-700",
+  autorizado_externo: "bg-emerald-50 text-emerald-700",
   con_error: "bg-amber-50 text-amber-700",
   requiere_reconciliacion: "bg-orange-50 text-orange-700",
+  reintentando: "bg-orange-50 text-orange-700",
   fallido: "bg-red-50 text-red-700",
+  descartado: "bg-stone-50 text-stone-700",
   cargado: "bg-gray-50 text-gray-700",
+};
+
+export const ESTADOS_GRUPO_NOMBRES: Record<string, string> = {
+  validado: "Validado",
+  autorizado: "Autorizado",
+  autorizado_externo: "Autorizado externo",
+  con_error: "Con observaciones",
+  requiere_reconciliacion: "Requiere reconciliación",
+  reintentando: "Requiere reconciliación",
+  fallido: "Fallido",
+  descartado: "Descartado",
+  cargado: "Cargado",
 };

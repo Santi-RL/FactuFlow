@@ -7,6 +7,7 @@ import BaseAlert from "@/components/ui/BaseAlert.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseEmpty from "@/components/ui/BaseEmpty.vue";
+import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import { useNotification } from "@/composables/useNotification";
@@ -24,12 +25,14 @@ import type { PerfilCargaMasiva } from "@/types/perfil-carga-masiva";
 import type { PuntoVenta } from "@/types/punto_venta";
 import {
   ESTADOS_GRUPO_COLOR,
+  ESTADOS_GRUPO_NOMBRES,
   ESTADOS_LOTE_COLOR,
   ESTADOS_LOTE_NOMBRES,
   type LoteComprobante,
   type LoteComprobanteGrupoDetalle,
   type LoteComprobanteResumen,
   type LoteOpcionesFechas,
+  type ReconciliacionExternaItem,
 } from "@/types/lote-comprobante";
 import {
   resolverPerfilCargaMasiva,
@@ -37,6 +40,7 @@ import {
 } from "@/utils/perfiles-carga-masiva";
 import { calcularProgresoLote } from "@/utils/lote-progress";
 import {
+  ArchiveBoxIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
   CheckCircleIcon,
@@ -45,6 +49,7 @@ import {
   DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
+  TrashIcon,
 } from "@heroicons/vue/24/outline";
 
 const empresaStore = useEmpresaStore();
@@ -100,7 +105,18 @@ const detectandoFormato = ref(false);
 const procesandoLote = ref(false);
 const descargandoPlantilla = ref(false);
 const descargandoObservado = ref(false);
+const resolviendoLote = ref<
+  "reintentar" | "descartar" | "reconciliar" | "compactar" | "eliminar" | null
+>(null);
 const mostrarConfirmacionFechaFiscal = ref(false);
+const mostrarConfirmacionReintentoFallidos = ref(false);
+const mostrarConfirmacionCompactar = ref(false);
+const motivoDescartar = ref("");
+const motivoEliminar = ref("");
+const externoGrupoId = ref<number | "">("");
+const externoNumero = ref<number | "">("");
+const externoCae = ref("");
+const externoMotivo = ref("");
 const pollingHandle = ref<number | null>(null);
 const timerHandle = ref<number | null>(null);
 const timerNow = ref(new Date());
@@ -178,8 +194,11 @@ const estadosGruposOptions = computed(() => [
   { value: "validado", label: "Listos para emitir" },
   { value: "con_error", label: "Con observaciones" },
   { value: "autorizado", label: "Autorizados" },
+  { value: "autorizado_externo", label: "Autorizados externos" },
   { value: "fallido", label: "Fallidos" },
-  { value: "requiere_reconciliacion", label: "Requiere reconciliacion" },
+  { value: "requiere_reconciliacion", label: "Requiere reconciliación" },
+  { value: "reintentando", label: "Reintento pendiente de verificar" },
+  { value: "descartado", label: "Descartados" },
 ]);
 const perfilAplicado = computed(() => {
   if (!perfilAplicadoId.value) return null;
@@ -288,6 +307,94 @@ const puedeProcesar = computed(() => {
     loteActual.value.estado === "validado"
   );
 });
+const hayFallidosParaReintentar = computed(
+  () => (loteActual.value?.grupos_fallidos || 0) > 0,
+);
+const gruposRequierenReconciliacionVisibles = computed(() =>
+  gruposLote.value.filter((grupo) =>
+    ["requiere_reconciliacion", "reintentando"].includes(grupo.estado),
+  ),
+);
+const totalPendientesResolucion = computed(() => {
+  if (!loteActual.value) return 0;
+  return (
+    loteActual.value.grupos_validos +
+    loteActual.value.grupos_con_error +
+    loteActual.value.grupos_fallidos +
+    gruposRequierenReconciliacionVisibles.value.length
+  );
+});
+const gruposDescartablesVisibles = computed(() =>
+  gruposLote.value.filter((grupo) =>
+    ["validado", "con_error", "fallido"].includes(grupo.estado),
+  ),
+);
+const gruposReconciliablesVisibles = computed(() =>
+  gruposLote.value.filter((grupo) =>
+    [
+      "validado",
+      "con_error",
+      "fallido",
+      "requiere_reconciliacion",
+      "reintentando",
+    ].includes(grupo.estado),
+  ),
+);
+const gruposDescartablesVisiblesIds = computed(() =>
+  gruposDescartablesVisibles.value.map((grupo) => grupo.id),
+);
+const hayPendientesResolucionVisibles = computed(
+  () =>
+    gruposDescartablesVisibles.value.length > 0 ||
+    gruposReconciliablesVisibles.value.length > 0,
+);
+const loteCerrado = computed(() =>
+  ["completado", "cerrado_reconciliado", "cerrado_con_descartes"].includes(
+    loteActual.value?.estado || "",
+  ),
+);
+const puedeCompactarLote = computed(
+  () =>
+    !!loteActual.value && loteCerrado.value && !loteActual.value.compactado_at,
+);
+const puedeEliminarLote = computed(() => {
+  if (!loteActual.value) return false;
+  if (
+    ["en_cola", "procesando", "requiere_reconciliacion"].includes(
+      loteActual.value.estado,
+    )
+  ) {
+    return false;
+  }
+  return (
+    loteActual.value.grupos_emitidos === 0 &&
+    loteActual.value.grupos_reconciliados_externos === 0
+  );
+});
+const grupoExternoSeleccionado = computed(() =>
+  gruposReconciliablesVisibles.value.find(
+    (grupo) => grupo.id === Number(externoGrupoId.value || 0),
+  ),
+);
+const grupoExternoOptions = computed(() => [
+  { value: "", label: "Seleccioná un comprobante visible" },
+  ...gruposReconciliablesVisibles.value.map((grupo) => ({
+    value: grupo.id,
+    label: `${grupo.comprobante_ref} · ${formatMoney(grupo.total_estimado)}`,
+  })),
+]);
+const puedeReconciliarExterno = computed(() => {
+  return (
+    !!grupoExternoSeleccionado.value &&
+    Number(externoNumero.value || 0) > 0 &&
+    externoMotivo.value.trim().length >= 3
+  );
+});
+const puedeDescartarVisibles = computed(
+  () =>
+    gruposDescartablesVisiblesIds.value.length > 0 &&
+    motivoDescartar.value.trim().length >= 3,
+);
 const resumenOperativo = computed(() => {
   if (!loteActual.value) return [];
 
@@ -305,12 +412,22 @@ const resumenOperativo = computed(() => {
     {
       label: "Con observaciones",
       value: loteActual.value.grupos_con_error,
-      hint: "Necesitan correccion antes de volver a subir el archivo.",
+      hint: "Necesitan corrección antes de volver a subir el archivo.",
     },
     {
       label: "Ya emitidos",
       value: loteActual.value.grupos_emitidos,
       hint: "Comprobantes autorizados con CAE.",
+    },
+    {
+      label: "Emitidos fuera",
+      value: loteActual.value.grupos_reconciliados_externos,
+      hint: "Comprobantes reconciliados desde ARCA Web.",
+    },
+    {
+      label: "Descartados",
+      value: loteActual.value.grupos_descartados,
+      hint: "Pendientes cerrados por decisión operativa.",
     },
   ];
 });
@@ -405,6 +522,25 @@ const mensajeConfirmacionFechaFiscalLote = computed(() => {
   return (
     loteActual.value?.mensaje_confirmacion_fecha_fiscal ||
     `Está seguro que quiere emitir comprobantes con fecha ${resumenFechasConfirmacion.value}${resumenPuntosVentaConfirmacion.value}? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
+  );
+});
+
+const confirmacionReintentoFallidos = computed(() => {
+  return loteActual.value?.confirmacion_reintento_fallidos || "";
+});
+
+const mensajeConfirmacionReintentoFallidos = computed(() => {
+  return (
+    loteActual.value?.mensaje_confirmacion_reintento_fallidos ||
+    "¿Está seguro que quiere reintentar los comprobantes fallidos? Recuerde que una emisión autorizada por ARCA no se puede deshacer."
+  );
+});
+
+const mensajeConfirmacionCompactar = computed(() => {
+  return (
+    "Al compactar se eliminará el detalle original por fila del Excel para ahorrar espacio. " +
+    "Se conservarán el resumen del lote, los comprobantes agrupados, los CAE, los comprobantes emitidos y la auditoría. " +
+    "Después no podrás descargar el archivo observado de este lote."
   );
 });
 
@@ -884,11 +1020,213 @@ const solicitarConfirmacionEmisionLote = () => {
   mostrarConfirmacionFechaFiscal.value = true;
 };
 
+const refrescarLoteDespuesAccion = async (loteId: number) => {
+  await cargarLotes(true);
+  await cargarDetalleLote(loteId, true);
+};
+
+const solicitarConfirmacionReintentoFallidos = () => {
+  if (!hayFallidosParaReintentar.value) {
+    showWarning(
+      "Sin fallidos para reintentar",
+      "El lote no tiene comprobantes fallidos pendientes.",
+    );
+    return;
+  }
+  mostrarConfirmacionReintentoFallidos.value = true;
+};
+
+const reintentarFallidos = async () => {
+  if (!loteActual.value) return;
+  const loteId = loteActual.value.id;
+  mostrarConfirmacionReintentoFallidos.value = false;
+  resolviendoLote.value = "reintentar";
+
+  try {
+    const resultado = await lotesComprobantesService.reintentarFallidos(
+      loteId,
+      [],
+      confirmacionReintentoFallidos.value,
+    );
+    showSuccess("Reintento finalizado", resultado.mensaje);
+    await refrescarLoteDespuesAccion(loteId);
+  } catch (error: any) {
+    showError(
+      "No se pudieron reintentar los fallidos",
+      error.response?.data?.detail ||
+        "Revisa la fecha fiscal confirmada y el estado del lote.",
+    );
+  } finally {
+    resolviendoLote.value = null;
+  }
+};
+
+const descartarGruposVisibles = async () => {
+  if (!loteActual.value) return;
+  const grupoIds = gruposDescartablesVisiblesIds.value;
+  if (grupoIds.length === 0) {
+    showWarning(
+      "Sin comprobantes descartables",
+      "La página actual no tiene comprobantes pendientes que puedan descartarse.",
+    );
+    return;
+  }
+  if (motivoDescartar.value.trim().length < 3) {
+    showWarning(
+      "Motivo requerido",
+      "Indica por qué esos comprobantes no se van a emitir desde FactuFlow.",
+    );
+    return;
+  }
+
+  const loteId = loteActual.value.id;
+  resolviendoLote.value = "descartar";
+  try {
+    const resultado = await lotesComprobantesService.descartarGrupos(
+      loteId,
+      grupoIds,
+      motivoDescartar.value.trim(),
+    );
+    motivoDescartar.value = "";
+    showSuccess("Comprobantes descartados", resultado.mensaje);
+    await refrescarLoteDespuesAccion(loteId);
+  } catch (error: any) {
+    showError(
+      "No se pudieron descartar",
+      error.response?.data?.detail ||
+        "Revisa que los comprobantes sigan pendientes y no emitidos.",
+    );
+  } finally {
+    resolviendoLote.value = null;
+  }
+};
+
+const reconciliarExterno = async () => {
+  if (!loteActual.value || !grupoExternoSeleccionado.value) return;
+  const grupo = grupoExternoSeleccionado.value;
+  if (!grupo.tipo_comprobante || !grupo.punto_venta_numero || !grupo.fecha_emision) {
+    showWarning(
+      "Datos incompletos",
+      "El comprobante seleccionado no tiene tipo, punto de venta o fecha fiscal para reconciliar.",
+    );
+    return;
+  }
+
+  const numero = Number(externoNumero.value || 0);
+  if (numero <= 0 || externoMotivo.value.trim().length < 3) {
+    showWarning(
+      "Datos requeridos",
+      "Indica el número autorizado en ARCA y un motivo operativo.",
+    );
+    return;
+  }
+
+  const loteId = loteActual.value.id;
+  const comprobante: ReconciliacionExternaItem = {
+    grupo_id: grupo.id,
+    tipo_comprobante: grupo.tipo_comprobante,
+    punto_venta_numero: grupo.punto_venta_numero,
+    numero,
+    fecha_emision: grupo.fecha_emision,
+    total: Number(grupo.total_estimado || 0),
+    cae: externoCae.value.trim() || undefined,
+    motivo: externoMotivo.value.trim(),
+  };
+
+  resolviendoLote.value = "reconciliar";
+  try {
+    const resultado = await lotesComprobantesService.reconciliarExternos(
+      loteId,
+      [comprobante],
+    );
+    externoGrupoId.value = "";
+    externoNumero.value = "";
+    externoCae.value = "";
+    externoMotivo.value = "";
+    showSuccess("Comprobante reconciliado", resultado.mensaje);
+    await refrescarLoteDespuesAccion(loteId);
+  } catch (error: any) {
+    showError(
+      "No se pudo reconciliar",
+      error.response?.data?.detail ||
+        "FactuFlow no pudo verificar ese comprobante contra ARCA.",
+    );
+  } finally {
+    resolviendoLote.value = null;
+  }
+};
+
+const compactarLote = async () => {
+  if (!loteActual.value) return;
+  const loteId = loteActual.value.id;
+  mostrarConfirmacionCompactar.value = false;
+  resolviendoLote.value = "compactar";
+  try {
+    const resultado = await lotesComprobantesService.compactar(loteId);
+    showSuccess("Lote compactado", resultado.mensaje);
+    await refrescarLoteDespuesAccion(loteId);
+  } catch (error: any) {
+    showError(
+      "No se pudo compactar",
+      error.response?.data?.detail ||
+        "Solo se pueden compactar lotes cerrados.",
+    );
+  } finally {
+    resolviendoLote.value = null;
+  }
+};
+
+const eliminarLote = async () => {
+  if (!loteActual.value) return;
+  if (motivoEliminar.value.trim().length < 3) {
+    showWarning(
+      "Motivo requerido",
+      "Indica por qué quieres eliminar este lote sin emisión.",
+    );
+    return;
+  }
+
+  const loteId = loteActual.value.id;
+  resolviendoLote.value = "eliminar";
+  try {
+    await lotesComprobantesService.eliminar(loteId, motivoEliminar.value.trim());
+    motivoEliminar.value = "";
+    loteActual.value = null;
+    gruposLote.value = [];
+    gruposLotePage.value = 1;
+    gruposLoteTotal.value = 0;
+    gruposLoteTotalPages.value = 0;
+    showSuccess(
+      "Lote eliminado",
+      "Se eliminó el lote porque no tenía comprobantes emitidos ni inciertos.",
+    );
+    await cargarLotes(true);
+    if (lotes.value[0]) {
+      await cargarDetalleLote(lotes.value[0].id, true);
+    }
+  } catch (error: any) {
+    showError(
+      "No se pudo eliminar",
+      error.response?.data?.detail ||
+        "No se eliminan lotes con emisión o incertidumbre fiscal.",
+    );
+  } finally {
+    resolviendoLote.value = null;
+  }
+};
+
 const descargarObservado = async () => {
   if (!loteActual.value) {
     showWarning(
       "Selecciona un lote",
       "Abre un lote para descargar el archivo observado con el detalle por fila.",
+    );
+    return;
+  }
+  if (loteActual.value.compactado_at) {
+    showWarning(
+      "Lote compactado",
+      "El detalle de filas ya fue eliminado para ahorrar espacio. El resumen del lote sigue disponible.",
     );
     return;
   }
@@ -1803,6 +2141,7 @@ onBeforeUnmount(() => {
                 <BaseButton
                   variant="secondary"
                   :loading="descargandoObservado"
+                  :disabled="!!loteActual.compactado_at"
                   @click="descargarObservado"
                 >
                   <ArrowDownTrayIcon class="mr-2 h-5 w-5" />
@@ -1832,6 +2171,17 @@ onBeforeUnmount(() => {
               </span>
             </BaseAlert>
 
+            <BaseAlert
+              v-if="loteActual.compactado_at"
+              type="info"
+              class="mt-6"
+            >
+              Este lote fue compactado el
+              {{ formatDateTime(loteActual.compactado_at) }}. Se conserva el
+              resumen fiscal y los comprobantes agrupados, pero ya no está
+              disponible el detalle original por fila.
+            </BaseAlert>
+
             <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div
                 v-for="item in resumenOperativo"
@@ -1850,6 +2200,206 @@ onBeforeUnmount(() => {
                 <p class="mt-3 text-3xl font-bold text-gray-900">
                   {{ item.value }}
                 </p>
+              </div>
+            </div>
+
+            <div
+              v-if="
+                totalPendientesResolucion > 0 ||
+                  hayPendientesResolucionVisibles
+              "
+              class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4"
+            >
+              <div
+                class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between"
+              >
+                <div>
+                  <p class="text-sm font-semibold text-amber-950">
+                    Resolver pendientes del lote
+                  </p>
+                  <p class="mt-1 text-sm text-amber-900">
+                    Reintenta fallidos cuando quieras emitirlos desde
+                    FactuFlow. Reconcilia solo comprobantes que ya verificaste
+                    como autorizados en ARCA Web. Descarta únicamente los que no
+                    deben emitirse desde este lote.
+                  </p>
+                </div>
+                <p class="text-sm font-medium text-amber-900">
+                  {{ totalPendientesResolucion }} pendientes contabilizados
+                </p>
+              </div>
+
+              <div class="mt-4 grid gap-4 xl:grid-cols-3">
+                <div class="rounded-lg border border-amber-100 bg-white p-4">
+                  <p class="text-sm font-semibold text-gray-900">
+                    Reintentar fallidos
+                  </p>
+                  <p class="mt-1 text-sm text-gray-600">
+                    Solicita CAE nuevamente para los comprobantes fallidos del
+                    lote, con la misma confirmación de fecha fiscal.
+                  </p>
+                  <BaseButton
+                    class="mt-4 w-full"
+                    size="sm"
+                    :loading="resolviendoLote === 'reintentar'"
+                    :disabled="
+                      !hayFallidosParaReintentar || resolviendoLote !== null
+                    "
+                    @click="solicitarConfirmacionReintentoFallidos"
+                  >
+                    <ArrowPathIcon class="mr-2 h-4 w-4" />
+                    Reintentar fallidos
+                  </BaseButton>
+                </div>
+
+                <div class="rounded-lg border border-amber-100 bg-white p-4">
+                  <p class="text-sm font-semibold text-gray-900">
+                    Descartar visibles
+                  </p>
+                  <p class="mt-1 text-sm text-gray-600">
+                    Cierra los comprobantes pendientes visibles sin emitirlos.
+                    No se usa para comprobantes inciertos.
+                  </p>
+                  <textarea
+                    v-model="motivoDescartar"
+                    rows="3"
+                    class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Motivo operativo"
+                  />
+                  <BaseButton
+                    class="mt-3 w-full"
+                    size="sm"
+                    variant="secondary"
+                    :loading="resolviendoLote === 'descartar'"
+                    :disabled="
+                      !puedeDescartarVisibles || resolviendoLote !== null
+                    "
+                    @click="descartarGruposVisibles"
+                  >
+                    <ExclamationTriangleIcon class="mr-2 h-4 w-4" />
+                    Descartar visibles
+                  </BaseButton>
+                </div>
+
+                <div class="rounded-lg border border-amber-100 bg-white p-4">
+                  <p class="text-sm font-semibold text-gray-900">
+                    Reconciliar ARCA Web
+                  </p>
+                  <p class="mt-1 text-sm text-gray-600">
+                    Vincula un comprobante emitido manualmente si ARCA confirma
+                    tipo, punto de venta, número, fecha, total y CAE.
+                  </p>
+                  <div class="mt-3 space-y-3">
+                    <BaseSelect
+                      v-model="externoGrupoId"
+                      label="Comprobante visible"
+                      :options="grupoExternoOptions"
+                      :disabled="resolviendoLote !== null"
+                    />
+                    <BaseInput
+                      v-model="externoNumero"
+                      type="number"
+                      min="1"
+                      label="Número autorizado"
+                      placeholder="Ej. 1234"
+                      :disabled="resolviendoLote !== null"
+                    />
+                    <BaseInput
+                      v-model="externoCae"
+                      label="CAE informado"
+                      placeholder="Opcional"
+                      :disabled="resolviendoLote !== null"
+                    />
+                    <textarea
+                      v-model="externoMotivo"
+                      rows="3"
+                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="Motivo operativo"
+                      :disabled="resolviendoLote !== null"
+                    />
+                  </div>
+                  <BaseButton
+                    class="mt-3 w-full"
+                    size="sm"
+                    :loading="resolviendoLote === 'reconciliar'"
+                    :disabled="
+                      !puedeReconciliarExterno || resolviendoLote !== null
+                    "
+                    @click="reconciliarExterno"
+                  >
+                    <CheckCircleIcon class="mr-2 h-4 w-4" />
+                    Reconciliar comprobante
+                  </BaseButton>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="puedeCompactarLote || puedeEliminarLote"
+              class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4"
+            >
+              <p class="text-sm font-semibold text-gray-900">
+                Limpieza de almacenamiento
+              </p>
+              <p class="mt-1 text-sm text-gray-600">
+                Estas acciones reducen espacio local sin emitir comprobantes.
+                Compactar conserva el lote cerrado; eliminar solo aplica cuando
+                no existe emisión ni incertidumbre fiscal.
+              </p>
+              <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                <div
+                  v-if="puedeCompactarLote"
+                  class="rounded-lg border border-gray-200 bg-white p-4"
+                >
+                  <p class="text-sm font-medium text-gray-900">
+                    Compactar lote cerrado
+                  </p>
+                  <p class="mt-2 text-sm text-gray-600">
+                    Elimina el detalle por fila del Excel para ahorrar espacio.
+                    El popup siguiente muestra las consecuencias antes de
+                    confirmar.
+                  </p>
+                  <BaseButton
+                    class="mt-3 w-full"
+                    size="sm"
+                    variant="secondary"
+                    :loading="resolviendoLote === 'compactar'"
+                    :disabled="resolviendoLote !== null"
+                    @click="mostrarConfirmacionCompactar = true"
+                  >
+                    <ArchiveBoxIcon class="mr-2 h-4 w-4" />
+                    Compactar detalle
+                  </BaseButton>
+                </div>
+
+                <div
+                  v-if="puedeEliminarLote"
+                  class="rounded-lg border border-red-100 bg-white p-4"
+                >
+                  <p class="text-sm font-medium text-gray-900">
+                    Eliminar lote sin emisión
+                  </p>
+                  <textarea
+                    v-model="motivoEliminar"
+                    rows="3"
+                    class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Motivo de eliminación"
+                  />
+                  <BaseButton
+                    class="mt-3 w-full"
+                    size="sm"
+                    variant="danger"
+                    :loading="resolviendoLote === 'eliminar'"
+                    :disabled="
+                      motivoEliminar.trim().length < 3 ||
+                        resolviendoLote !== null
+                    "
+                    @click="eliminarLote"
+                  >
+                    <TrashIcon class="mr-2 h-4 w-4" />
+                    Eliminar lote
+                  </BaseButton>
+                </div>
               </div>
             </div>
 
@@ -2113,7 +2663,7 @@ onBeforeUnmount(() => {
                             'bg-gray-50 text-gray-700',
                         ]"
                       >
-                        {{ grupo.estado }}
+                        {{ ESTADOS_GRUPO_NOMBRES[grupo.estado] || grupo.estado }}
                       </span>
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-600">
@@ -2205,10 +2755,12 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
-              <p>Validos: {{ lote.grupos_validos }}</p>
+              <p>Válidos: {{ lote.grupos_validos }}</p>
               <p>Errores: {{ lote.grupos_con_error }}</p>
               <p>Emitidos: {{ lote.grupos_emitidos }}</p>
               <p>Fallidos: {{ lote.grupos_fallidos }}</p>
+              <p>Externos: {{ lote.grupos_reconciliados_externos }}</p>
+              <p>Descartados: {{ lote.grupos_descartados }}</p>
             </div>
           </button>
         </div>
@@ -2231,6 +2783,26 @@ onBeforeUnmount(() => {
       variant="danger"
       @confirm="procesarLote"
       @cancel="mostrarConfirmacionFechaFiscal = false"
+    />
+    <ConfirmDialog
+      :show="mostrarConfirmacionReintentoFallidos"
+      title="Confirmar reintento"
+      :message="mensajeConfirmacionReintentoFallidos"
+      confirm-text="Reintentar fallidos"
+      cancel-text="Volver a revisar"
+      variant="danger"
+      @confirm="reintentarFallidos"
+      @cancel="mostrarConfirmacionReintentoFallidos = false"
+    />
+    <ConfirmDialog
+      :show="mostrarConfirmacionCompactar"
+      title="Compactar lote"
+      :message="mensajeConfirmacionCompactar"
+      confirm-text="Compactar"
+      cancel-text="Cancelar"
+      variant="danger"
+      @confirm="compactarLote"
+      @cancel="mostrarConfirmacionCompactar = false"
     />
   </div>
 </template>

@@ -14,6 +14,7 @@ from fastapi import (
     Header,
     HTTPException,
     Query,
+    Body,
     Request,
     Response,
     UploadFile,
@@ -23,17 +24,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user
+from app.api.arca import get_wsfe_client
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.schemas.lote_comprobante import (
+    LoteAccionResponse,
     LoteComprobanteDetalleResponse,
     LoteComprobanteGrupoDetalleResponse,
     LoteComprobanteGruposPageResponse,
     LoteComprobanteResponse,
     LoteComprobanteResumenResponse,
+    LoteDescartarGruposRequest,
+    LoteEliminarCompactarRequest,
+    LoteGrupoIdsRequest,
     LoteProcesamientoResponse,
+    LoteReconciliacionExternaRequest,
     LoteValidacionResponse,
 )
 from app.services.lote_comprobantes_service import (
@@ -292,6 +299,164 @@ async def procesar_lote(
     )
 
 
+@router.post("/{lote_id}/reintentar-fallidos", response_model=LoteAccionResponse)
+async def reintentar_fallidos_lote(
+    lote_id: int,
+    request_body: LoteGrupoIdsRequest = Body(default_factory=LoteGrupoIdsRequest),
+    x_confirmacion_fecha_fiscal: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Reintenta grupos fallidos del lote con confirmación fiscal exacta."""
+    service = LoteComprobantesService(db)
+    grupo_ids = request_body.grupo_ids or None
+    try:
+        confirmacion = await service.obtener_confirmacion_fiscal_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            estados={"fallido"},
+            grupo_ids=grupo_ids,
+        )
+        if x_confirmacion_fecha_fiscal != confirmacion["confirmacion_fecha_fiscal"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Antes de reintentar debes confirmar la fecha fiscal exacta. "
+                    f"{confirmacion['mensaje_confirmacion_fecha_fiscal']}"
+                ),
+            )
+        lote = await service.reintentar_grupos_fallidos(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            usuario_id=current_user.id,
+            grupo_ids=grupo_ids,
+        )
+    except HTTPException:
+        raise
+    except LoteComprobanteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+
+    return LoteAccionResponse(
+        lote=_serialize_lote(lote),
+        mensaje=lote.mensaje_resumen or "Reintento finalizado",
+    )
+
+
+@router.post("/{lote_id}/reconciliar-externos", response_model=LoteAccionResponse)
+async def reconciliar_emitidos_externos(
+    lote_id: int,
+    request_body: LoteReconciliacionExternaRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Registra comprobantes emitidos fuera de FactuFlow tras verificarlos en ARCA."""
+    service = LoteComprobantesService(db)
+    empresa = await _get_empresa(db, empresa_activa_id)
+    try:
+        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
+        lote = await service.reconciliar_emitidos_externos(
+            lote_id=lote_id,
+            empresa=empresa,
+            usuario_id=current_user.id,
+            comprobantes=[
+                item.model_dump(mode="json") for item in request_body.comprobantes
+            ],
+            consultar_comprobante=wsfe_client.fe_comp_consultar,
+        )
+    except LoteComprobanteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+
+    return LoteAccionResponse(
+        lote=_serialize_lote(lote),
+        mensaje=lote.mensaje_resumen or "Comprobantes externos reconciliados",
+    )
+
+
+@router.post("/{lote_id}/descartar-grupos", response_model=LoteAccionResponse)
+async def descartar_grupos_lote(
+    lote_id: int,
+    request_body: LoteDescartarGruposRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Descarta grupos pendientes que el usuario decide no emitir."""
+    service = LoteComprobantesService(db)
+    try:
+        lote = await service.descartar_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            usuario_id=current_user.id,
+            grupo_ids=request_body.grupo_ids,
+            motivo=request_body.motivo,
+        )
+    except LoteComprobanteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+
+    return LoteAccionResponse(
+        lote=_serialize_lote(lote),
+        mensaje=lote.mensaje_resumen or "Comprobantes descartados",
+    )
+
+
+@router.post("/{lote_id}/compactar", response_model=LoteAccionResponse)
+async def compactar_lote(
+    lote_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Compacta el detalle pesado de filas de un lote cerrado."""
+    service = LoteComprobantesService(db)
+    try:
+        lote = await service.compactar_lote(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            usuario_id=current_user.id,
+        )
+    except LoteComprobanteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+
+    return LoteAccionResponse(
+        lote=_serialize_lote(lote),
+        mensaje="El lote se compactó correctamente.",
+    )
+
+
+@router.delete("/{lote_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def eliminar_lote(
+    lote_id: int,
+    request_body: LoteEliminarCompactarRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Elimina físicamente un lote sin comprobantes emitidos ni inciertos."""
+    service = LoteComprobantesService(db)
+    try:
+        await service.eliminar_lote_sin_emision(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            usuario_id=current_user.id,
+            motivo=request_body.motivo,
+        )
+    except LoteComprobanteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/{lote_id}/resumen", response_model=LoteComprobanteResumenResponse)
 async def obtener_resumen_lote(
     lote_id: int,
@@ -390,7 +555,12 @@ async def descargar_archivo_observado(
         contenido = await service.generar_archivo_observado(lote_id, empresa_activa_id)
         lote = await service.obtener_lote(lote_id, empresa_activa_id)
     except LoteComprobanteError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        status_code = (
+            status.HTTP_400_BAD_REQUEST
+            if "compactado" in str(exc)
+            else status.HTTP_404_NOT_FOUND
+        )
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
     stem = Path(lote.nombre_archivo).stem
     filename = f"{stem}-observado.xlsx"

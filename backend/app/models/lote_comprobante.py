@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 
@@ -46,12 +47,15 @@ class LoteComprobante(Base):
     grupos_con_error = Column(Integer, nullable=False, default=0)
     grupos_emitidos = Column(Integer, nullable=False, default=0)
     grupos_fallidos = Column(Integer, nullable=False, default=0)
+    grupos_reconciliados_externos = Column(Integer, nullable=False, default=0)
+    grupos_descartados = Column(Integer, nullable=False, default=0)
     mensaje_resumen = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=True)
     mapeo_usado_json = Column(JSON, nullable=True)
     headers_detectados_json = Column(JSON, nullable=True)
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
+    compactado_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
@@ -90,6 +94,11 @@ class LoteComprobante(Base):
         cascade="all, delete-orphan",
         order_by="LoteComprobanteFila.fila_excel",
     )
+    eventos = relationship(
+        "LoteComprobanteEvento",
+        back_populates="lote",
+        order_by="LoteComprobanteEvento.created_at",
+    )
 
 
 class LoteComprobanteGrupo(Base):
@@ -103,6 +112,13 @@ class LoteComprobanteGrupo(Base):
             name="uq_lotes_comprobantes_grupos_lote_ref",
         ),
         Index("ix_lotes_comprobantes_grupos_lote_ref", "lote_id", "comprobante_ref"),
+        Index(
+            "uq_lotes_comprobantes_grupos_comprobante_id",
+            "comprobante_id",
+            unique=True,
+            sqlite_where=text("comprobante_id IS NOT NULL"),
+            postgresql_where=text("comprobante_id IS NOT NULL"),
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -197,3 +213,32 @@ class LoteComprobanteFila(Base):
 
     lote = relationship("LoteComprobante", back_populates="filas")
     grupo = relationship("LoteComprobanteGrupo", back_populates="filas")
+
+
+class LoteComprobanteEvento(Base):
+    """Registra decisiones operativas tomadas sobre un lote."""
+
+    __tablename__ = "lotes_comprobantes_eventos"
+    __table_args__ = (
+        Index("ix_lotes_comprobantes_eventos_lote", "lote_id", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    accion = Column(String(50), nullable=False)
+    motivo = Column(Text, nullable=True)
+    metadata_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    lote_id = Column(
+        Integer, ForeignKey("lotes_comprobantes.id", ondelete="SET NULL"), nullable=True
+    )
+    grupo_id = Column(
+        Integer,
+        ForeignKey("lotes_comprobantes_grupos.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    usuario_id = Column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
+    )
+
+    lote = relationship("LoteComprobante", back_populates="eventos")

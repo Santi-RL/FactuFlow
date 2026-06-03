@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class LoteComprobanteFilaResponse(BaseModel):
@@ -68,12 +68,15 @@ class LoteComprobanteResponse(BaseModel):
     grupos_con_error: int
     grupos_emitidos: int
     grupos_fallidos: int
+    grupos_reconciliados_externos: int = 0
+    grupos_descartados: int = 0
     mensaje_resumen: Optional[str] = None
     metadata_json: dict[str, Any] | None = None
     mapeo_usado_json: dict[str, Any] | None = None
     headers_detectados_json: list[str] | None = None
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    compactado_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     empresa_id: int
@@ -108,6 +111,8 @@ class LoteComprobanteResumenResponse(LoteComprobanteResponse):
 
     confirmacion_fecha_fiscal: str = ""
     mensaje_confirmacion_fecha_fiscal: str = ""
+    confirmacion_reintento_fallidos: str = ""
+    mensaje_confirmacion_reintento_fallidos: str = ""
     fechas_emision_validas: list[str] = Field(default_factory=list)
     puntos_venta_validos: list[int] = Field(default_factory=list)
     totales_listos_para_emitir: LoteTotalesListosResponse = Field(
@@ -141,3 +146,58 @@ class LoteProcesamientoResponse(BaseModel):
     lote: LoteComprobanteResponse
     mensaje: str
     en_progreso: bool
+
+
+class LoteGrupoIdsRequest(BaseModel):
+    """Selección explícita de grupos de un lote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    grupo_ids: list[int] = Field(default_factory=list)
+
+
+class LoteDescartarGruposRequest(BaseModel):
+    """Request para descartar grupos pendientes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    grupo_ids: list[int] = Field(..., min_length=1)
+    motivo: str = Field(..., min_length=3, max_length=500)
+
+
+class LoteEliminarCompactarRequest(BaseModel):
+    """Request con motivo obligatorio para acciones destructivas o compactación."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(..., min_length=3, max_length=500)
+
+
+class LoteReconciliacionExternaItem(BaseModel):
+    """Datos confirmados de un comprobante emitido fuera de FactuFlow."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    grupo_id: int
+    tipo_comprobante: int = Field(..., ge=1, le=999)
+    punto_venta_numero: int = Field(..., ge=1, le=99999)
+    numero: int = Field(..., ge=1)
+    fecha_emision: date
+    total: Decimal = Field(..., ge=0)
+    cae: Optional[str] = Field(None, min_length=1, max_length=20)
+    motivo: str = Field(..., min_length=3, max_length=500)
+
+
+class LoteReconciliacionExternaRequest(BaseModel):
+    """Request para reconciliar comprobantes emitidos en ARCA Web."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    comprobantes: list[LoteReconciliacionExternaItem] = Field(..., min_length=1)
+
+
+class LoteAccionResponse(BaseModel):
+    """Respuesta genérica de una acción resolutiva de lote."""
+
+    lote: LoteComprobanteResponse
+    mensaje: str

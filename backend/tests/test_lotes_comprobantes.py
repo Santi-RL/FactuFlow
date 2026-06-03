@@ -8,14 +8,17 @@ import pytest
 from httpx import AsyncClient
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import to_excel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.arca.exceptions import ArcaServiceError
+from app.arca.models import ComprobanteResponse as ArcaComprobanteResponse
 from app.core.config import settings
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
 from app.models.lote_comprobante import (
     LoteComprobante,
+    LoteComprobanteEvento,
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
@@ -488,6 +491,83 @@ async def test_certificado(db_session: AsyncSession, test_empresa) -> Certificad
     await db_session.commit()
     await db_session.refresh(certificado)
     return certificado
+
+
+async def _crear_lote_validado_por_api(
+    client: AsyncClient,
+    auth_headers: dict,
+    empresa_cuit: str,
+    nombre_archivo: str = "lote-resolucion.xlsx",
+    total_grupos: int = 1,
+) -> int:
+    """Crea un lote validado usando el endpoint público de carga masiva."""
+    archivo = (
+        _build_lote_excel_multi_grupo(empresa_cuit, total_grupos)
+        if total_grupos > 1
+        else _build_lote_excel(empresa_cuit)
+    )
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                nombre_archivo,
+                archivo,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    return int(response.json()["lote"]["id"])
+
+
+async def _marcar_grupos_lote(
+    db_session: AsyncSession,
+    lote_id: int,
+    estados: list[str],
+) -> list[LoteComprobanteGrupo]:
+    """Actualiza estados de grupos y recalcula el lote en pruebas."""
+    grupos = list(
+        (
+            await db_session.execute(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(grupos) >= len(estados)
+    for grupo, estado in zip(grupos, estados, strict=False):
+        grupo.estado = estado
+        grupo.mensajes_json = [f"Estado de prueba: {estado}"]
+        if estado in {"autorizado", "requiere_reconciliacion"}:
+            grupo.cae = "12345678901234"
+            grupo.numero_asignado = 100 + grupo.orden
+        filas = list(
+            (
+                await db_session.execute(
+                    select(LoteComprobanteFila).where(
+                        LoteComprobanteFila.grupo_id == grupo.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for fila in filas:
+            fila.estado = estado
+            fila.mensajes_json = grupo.mensajes_json
+
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    await db_session.flush()
+    service = LoteComprobantesService(db_session)
+    await service._actualizar_estado_lote(lote)
+    await db_session.commit()
+    return grupos
 
 
 @pytest.mark.asyncio
@@ -2447,6 +2527,982 @@ async def test_procesar_lote_post_arca_requiere_reconciliacion(
     service = LoteComprobantesService(db_session)
     lote = await service.obtener_lote(lote_id, test_empresa.id)
     assert service._lote_permite_reintento(lote) is False
+
+
+@pytest.mark.asyncio
+async def test_descartar_grupos_cierra_lote_con_descartes(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Descartar pendientes no emitidos debe cerrar un lote parcial."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-descartar-pendientes.xlsx",
+        total_grupos=2,
+    )
+    grupos = await _marcar_grupos_lote(
+        db_session,
+        lote_id,
+        ["autorizado", "fallido"],
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/descartar-grupos",
+        headers=auth_headers,
+        json={
+            "grupo_ids": [grupos[1].id],
+            "motivo": "Emitido manualmente en otro flujo operativo",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["lote"]
+    assert data["estado"] == "cerrado_con_descartes"
+    assert data["grupos_emitidos"] == 1
+    assert data["grupos_descartados"] == 1
+
+    grupo_descartado = await db_session.get(LoteComprobanteGrupo, grupos[1].id)
+    assert grupo_descartado.estado == "descartado"
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_exige_confirmacion_fecha_fiscal(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """El reintento de fallidos también debe confirmar fecha fiscal exacta."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-sin-confirmacion.xlsx",
+    )
+    await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=auth_headers,
+        json={"grupo_ids": []},
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "confirmar la fecha fiscal exacta" in detail
+    assert "0001" in detail
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_reclama_grupo_antes_de_emitir(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """El reintento debe sacar el grupo de fallido antes de pedir CAE."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-claim.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    grupo = grupos[0]
+    estados_vistos: list[str] = []
+
+    async def fake_emitir_locked(self, request, commit=True):
+        estado = await db_session.scalar(
+            select(LoteComprobanteGrupo.estado).where(
+                LoteComprobanteGrupo.id == grupo.id
+            )
+        )
+        estados_vistos.append(str(estado))
+        assert commit is False
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=grupo.punto_venta_numero,
+            numero=0,
+            fecha=request.fecha_emision,
+            total=Decimal("1210.00"),
+            mensaje="Error controlado",
+            errores=["Error controlado"],
+        )
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService._emitir_comprobante_locked",
+        fake_emitir_locked,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+        json={"grupo_ids": [grupo.id]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert estados_vistos == ["reintentando"]
+    await db_session.refresh(grupo)
+    assert grupo.estado == "fallido"
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_verifica_arca_y_crea_comprobante(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un comprobante manual se reconcilia solo si ARCA confirma los datos."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-externo.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    grupo = grupos[0]
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="12345678901235",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupo.fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=20409378472,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 456,
+                    "fecha_emision": str(grupo.fecha_emision),
+                    "total": 1210.0,
+                    "cae": "12345678901235",
+                    "motivo": "Emitido manualmente por ARCA Web",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()["lote"]
+    assert data["estado"] == "cerrado_reconciliado"
+    assert data["grupos_reconciliados_externos"] == 1
+
+    await db_session.refresh(grupo)
+    assert grupo.estado == "autorizado_externo"
+    assert grupo.numero_asignado == 456
+    assert grupo.comprobante_id is not None
+    comprobante = await db_session.get(Comprobante, grupo.comprobante_id)
+    assert comprobante.origen_emision == "arca_web"
+    assert comprobante.estado == "autorizado"
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_rechaza_receptor_distinto_en_arca(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """No se debe vincular un comprobante ARCA emitido a otro receptor."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-receptor-distinto.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    grupo = grupos[0]
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="12345678901238",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupo.fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=30712345678,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 456,
+                    "fecha_emision": str(grupo.fecha_emision),
+                    "total": 1210.0,
+                    "cae": "12345678901238",
+                    "motivo": "Emitido manualmente por ARCA Web",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert "receptor informado por ARCA no coincide" in response.json()["detail"]
+    await db_session.refresh(grupo)
+    assert grupo.estado == "fallido"
+    assert grupo.comprobante_id is None
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_rechaza_comprobante_ya_vinculado(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un comprobante externo no puede cerrar dos grupos distintos."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-externo-duplicado.xlsx",
+        total_grupos=2,
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido", "fallido"])
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="12345678901239",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupos[0].fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=20409378472,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    payload_base = {
+        "tipo_comprobante": grupos[0].tipo_comprobante,
+        "punto_venta_numero": grupos[0].punto_venta_numero,
+        "numero": 456,
+        "fecha_emision": str(grupos[0].fecha_emision),
+        "total": 1210.0,
+        "cae": "12345678901239",
+        "motivo": "Emitido manualmente por ARCA Web",
+    }
+    primera = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={"comprobantes": [{**payload_base, "grupo_id": grupos[0].id}]},
+    )
+    assert primera.status_code == 200, primera.text
+
+    segunda = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={"comprobantes": [{**payload_base, "grupo_id": grupos[1].id}]},
+    )
+
+    assert segunda.status_code == 400
+    assert "ya está vinculado a otro grupo" in segunda.json()["detail"]
+    await db_session.refresh(grupos[1])
+    assert grupos[1].estado == "fallido"
+    assert grupos[1].comprobante_id is None
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_resuelve_lote_con_reconciliacion_tecnica(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Los grupos inciertos deben poder cerrarse con verificación de ARCA."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-requiere-reconciliacion.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(
+        db_session,
+        lote_id,
+        ["requiere_reconciliacion"],
+    )
+    grupo = grupos[0]
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="12345678901236",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupo.fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=20409378472,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 789,
+                    "fecha_emision": str(grupo.fecha_emision),
+                    "total": 1210.0,
+                    "motivo": "Recuperación luego de corte post-ARCA",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["lote"]["estado"] == "cerrado_reconciliado"
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_resuelve_reintento_interrumpido(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un grupo reclamado para reintento debe cerrarse verificando ARCA."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-interrumpido.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["reintentando"])
+    grupo = grupos[0]
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="12345678901240",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupo.fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=20409378472,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 790,
+                    "fecha_emision": str(grupo.fecha_emision),
+                    "total": 1210.0,
+                    "motivo": "Recuperación de reintento interrumpido",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["lote"]["estado"] == "cerrado_reconciliado"
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_error_arca_responde_400_controlado(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un error esperado de consulta ARCA no debe escapar como 500."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-error-arca.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    grupo = grupos[0]
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(self, *args, **kwargs):
+            raise ArcaServiceError("Comprobante inexistente")
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 456,
+                    "fecha_emision": str(grupo.fecha_emision),
+                    "total": 1210.0,
+                    "motivo": "Emitido manualmente por ARCA Web",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        "No se pudo verificar el comprobante externo contra ARCA"
+        in response.json()["detail"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_rechaza_arca_sin_cae(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Una consulta ARCA autorizada pero sin CAE no puede cerrar el grupo."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-sin-cae.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    grupo = grupos[0]
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupo.fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=20409378472,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 456,
+                    "fecha_emision": str(grupo.fecha_emision),
+                    "total": 1210.0,
+                    "motivo": "Emitido manualmente por ARCA Web",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert "ARCA no devolvió un CAE válido" in response.json()["detail"]
+    await db_session.refresh(grupo)
+    assert grupo.estado == "fallido"
+    assert grupo.comprobante_id is None
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externo_con_error_incompleto_responde_400(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un grupo observado sin payload fiscal completo no debe escapar como 500."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-con-error-incompleto.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["con_error"])
+    grupo = grupos[0]
+    fecha_emision = str(grupo.fecha_emision)
+    grupo.payload_json = {}
+    await db_session.commit()
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(self, *args, **kwargs):  # pragma: no cover
+            raise AssertionError("No debe consultar ARCA con payload incompleto")
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupo.id,
+                    "tipo_comprobante": grupo.tipo_comprobante,
+                    "punto_venta_numero": grupo.punto_venta_numero,
+                    "numero": 456,
+                    "fecha_emision": fecha_emision,
+                    "total": 1210.0,
+                    "motivo": "Emitido manualmente por ARCA Web",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert "datos fiscales completos" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_reconciliar_externos_multi_item_es_atomico_si_un_item_falla(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Una reconciliación parcial fallida no debe dejar comprobantes huérfanos."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reconciliar-atomico.xlsx",
+        total_grupos=2,
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido", "fallido"])
+    consultas = 0
+
+    class FakeWsfeClient:
+        async def fe_comp_consultar(
+            self,
+            punto_venta: int,
+            tipo_cbte: int,
+            numero: int,
+        ) -> ArcaComprobanteResponse:
+            nonlocal consultas
+            consultas += 1
+            if consultas == 2:
+                raise ArcaServiceError("Comprobante inexistente")
+            return ArcaComprobanteResponse(
+                punto_venta=punto_venta,
+                tipo_cbte=tipo_cbte,
+                numero=numero,
+                cuit_emisor=test_empresa.cuit,
+                cae="12345678901237",
+                cae_vencimiento="20260630",
+                fecha_cbte=str(grupos[0].fecha_emision).replace("-", ""),
+                fecha_proceso="20260601",
+                imp_total=1210.0,
+                imp_neto=1000.0,
+                imp_iva=210.0,
+                imp_op_ex=0.0,
+                imp_tot_conc=0.0,
+                imp_trib=0.0,
+                moneda_id="PES",
+                moneda_cotiz=1.0,
+                tipo_doc=80,
+                nro_doc=20409378472,
+                resultado="A",
+            )
+
+    async def fake_get_wsfe_client(*args, **kwargs):
+        return FakeWsfeClient()
+
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.get_wsfe_client",
+        fake_get_wsfe_client,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reconciliar-externos",
+        headers=auth_headers,
+        json={
+            "comprobantes": [
+                {
+                    "grupo_id": grupos[0].id,
+                    "tipo_comprobante": grupos[0].tipo_comprobante,
+                    "punto_venta_numero": grupos[0].punto_venta_numero,
+                    "numero": 456,
+                    "fecha_emision": str(grupos[0].fecha_emision),
+                    "total": 1210.0,
+                    "motivo": "Emitido manualmente por ARCA Web",
+                },
+                {
+                    "grupo_id": grupos[1].id,
+                    "tipo_comprobante": grupos[1].tipo_comprobante,
+                    "punto_venta_numero": grupos[1].punto_venta_numero,
+                    "numero": 457,
+                    "fecha_emision": str(grupos[1].fecha_emision),
+                    "total": 1210.0,
+                    "motivo": "Emitido manualmente por ARCA Web",
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 400
+    assert consultas == 2
+
+    comprobantes = await db_session.scalar(
+        select(func.count())
+        .select_from(Comprobante)
+        .where(Comprobante.origen_emision == "arca_web")
+    )
+    assert comprobantes == 0
+
+    for grupo in grupos:
+        await db_session.refresh(grupo)
+        assert grupo.estado == "fallido"
+        assert grupo.comprobante_id is None
+
+
+@pytest.mark.asyncio
+async def test_compactar_lote_cerrado_elimina_filas_y_bloquea_observado(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Compactar debe eliminar filas pesadas sin borrar grupos ni resumen."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-compactar.xlsx",
+    )
+    await _marcar_grupos_lote(db_session, lote_id, ["autorizado"])
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/compactar",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    lote_data = response.json()["lote"]
+    assert lote_data["compactado_at"] is not None
+
+    filas = await db_session.scalar(
+        select(func.count())
+        .select_from(LoteComprobanteFila)
+        .where(LoteComprobanteFila.lote_id == lote_id)
+    )
+    grupos = await db_session.scalar(
+        select(func.count())
+        .select_from(LoteComprobanteGrupo)
+        .where(LoteComprobanteGrupo.lote_id == lote_id)
+    )
+    assert filas == 0
+    assert grupos == 1
+    evento = (
+        await db_session.execute(
+            select(LoteComprobanteEvento).where(
+                LoteComprobanteEvento.accion == "compactar_lote"
+            )
+        )
+    ).scalar_one()
+    assert evento.motivo == "Compactación para ahorro de almacenamiento"
+
+    observado = await client.get(
+        f"/api/lotes-comprobantes/{lote_id}/archivo-observado",
+        headers=auth_headers,
+    )
+    assert observado.status_code == 400
+    assert "compactado" in observado.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_eliminar_lote_sin_emision_permite_y_conserva_evento(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Solo se elimina físicamente un lote sin emisión ni incertidumbre."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-eliminar-sin-emision.xlsx",
+    )
+    await _marcar_grupos_lote(db_session, lote_id, ["con_error"])
+
+    response = await client.request(
+        "DELETE",
+        f"/api/lotes-comprobantes/{lote_id}",
+        headers=auth_headers,
+        json={"motivo": "Carga con archivo equivocado"},
+    )
+
+    assert response.status_code == 204, response.text
+    assert await db_session.get(LoteComprobante, lote_id) is None
+
+    evento = (
+        await db_session.execute(
+            select(LoteComprobanteEvento).where(
+                LoteComprobanteEvento.accion == "eliminar_lote"
+            )
+        )
+    ).scalar_one()
+    assert evento.lote_id is None
+    assert evento.metadata_json["lote_id_original"] == lote_id
+
+
+@pytest.mark.asyncio
+async def test_eliminar_lote_rechaza_emitidos_o_inciertos(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un lote con emisión o incertidumbre fiscal no puede borrarse."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-no-eliminar-emitido.xlsx",
+    )
+    await _marcar_grupos_lote(db_session, lote_id, ["autorizado"])
+
+    response = await client.request(
+        "DELETE",
+        f"/api/lotes-comprobantes/{lote_id}",
+        headers=auth_headers,
+        json={"motivo": "No quiero conservarlo"},
+    )
+
+    assert response.status_code == 400
+    assert "comprobantes emitidos" in response.json()["detail"]
+    assert await db_session.get(LoteComprobante, lote_id) is not None
 
 
 @pytest.mark.asyncio

@@ -155,6 +155,7 @@ class ComprobanteResponse(ComprobanteBase):
     cae: Optional[str] = None
     cae_vencimiento: Optional[date] = None
     estado: str
+    origen_emision: str = "factuflow"
 
     # Relaciones
     empresa_id: int
@@ -195,6 +196,7 @@ class ComprobanteListResponse(BaseModel):
     fecha_emision: date
     total: Decimal
     estado: str
+    origen_emision: str = "factuflow"
     cae: Optional[str] = None
 
     # Datos básicos del cliente

@@ -72,6 +72,7 @@ class Comprobante(Base):
     estado = Column(
         String(20), default="borrador", nullable=False
     )  # borrador, pendiente, autorizado, rechazado
+    origen_emision = Column(String(30), default="factuflow", nullable=False)
 
     # Datos adicionales
     moneda = Column(String(3), default="PES", nullable=False)

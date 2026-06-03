@@ -4,8 +4,10 @@ import type {
   LoteComprobanteDetalle,
   LoteComprobanteGruposPage,
   LoteComprobanteResumen,
+  LoteAccionResponse,
   LoteOpcionesFechas,
   LoteProcesamientoResponse,
+  ReconciliacionExternaItem,
   LoteValidacionResponse,
 } from "@/types/lote-comprobante";
 
@@ -106,6 +108,59 @@ class LotesComprobantesService {
       },
     );
     return response.data;
+  }
+
+  async reintentarFallidos(
+    id: number,
+    grupoIds: number[],
+    confirmacionFechaFiscal: string,
+  ): Promise<LoteAccionResponse> {
+    const response = await apiClient.post<LoteAccionResponse>(
+      `/api/lotes-comprobantes/${id}/reintentar-fallidos`,
+      { grupo_ids: grupoIds },
+      {
+        headers: {
+          "X-Confirmacion-Fecha-Fiscal": confirmacionFechaFiscal,
+        },
+      },
+    );
+    return response.data;
+  }
+
+  async reconciliarExternos(
+    id: number,
+    comprobantes: ReconciliacionExternaItem[],
+  ): Promise<LoteAccionResponse> {
+    const response = await apiClient.post<LoteAccionResponse>(
+      `/api/lotes-comprobantes/${id}/reconciliar-externos`,
+      { comprobantes },
+    );
+    return response.data;
+  }
+
+  async descartarGrupos(
+    id: number,
+    grupoIds: number[],
+    motivo: string,
+  ): Promise<LoteAccionResponse> {
+    const response = await apiClient.post<LoteAccionResponse>(
+      `/api/lotes-comprobantes/${id}/descartar-grupos`,
+      { grupo_ids: grupoIds, motivo },
+    );
+    return response.data;
+  }
+
+  async compactar(id: number): Promise<LoteAccionResponse> {
+    const response = await apiClient.post<LoteAccionResponse>(
+      `/api/lotes-comprobantes/${id}/compactar`,
+    );
+    return response.data;
+  }
+
+  async eliminar(id: number, motivo: string): Promise<void> {
+    await apiClient.delete(`/api/lotes-comprobantes/${id}`, {
+      data: { motivo },
+    });
   }
 
   async descargarPlantilla(): Promise<Blob> {

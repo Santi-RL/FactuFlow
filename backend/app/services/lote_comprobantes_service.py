@@ -17,12 +17,13 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import desc, func, select, update
+from sqlalchemy import delete, desc, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.arca.config import ArcaAmbiente
+from app.arca.exceptions import ArcaServiceError, ArcaValidationError
 from app.arca.utils import clean_cuit, validate_cuit
 from app.core.config import settings
 from app.models.certificado import Certificado
@@ -30,6 +31,7 @@ from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
 from app.models.lote_comprobante import (
     LoteComprobante,
+    LoteComprobanteEvento,
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
@@ -111,16 +113,30 @@ class ConfiguracionBatchArca:
     fallback_motivo: str | None = None
 
 
+@dataclass(frozen=True)
+class ResultadoArcaExterno:
+    """Datos mínimos de ARCA para guardar un comprobante reconciliado."""
+
+    cae: str
+    cae_vencimiento: str
+
+
 class LoteComprobantesService:
     """Servicio de carga y emisión masiva de comprobantes."""
 
     ESTADOS_TERMINALES = {
         "completado",
-        "autorizado_parcial",
+        "cerrado_reconciliado",
+        "cerrado_con_descartes",
         "fallido",
         "requiere_reconciliacion",
     }
     ESTADOS_PROCESABLES = {"validado", "en_cola"}
+    ESTADOS_RESOLUBLES = {"validado", "con_error", "fallido"}
+    ESTADOS_RECONCILIABLES = ESTADOS_RESOLUBLES | {
+        "requiere_reconciliacion",
+        "reintentando",
+    }
     ALICUOTAS_IVA_PERMITIDAS = {
         Decimal("0"),
         Decimal("10.5"),
@@ -925,34 +941,830 @@ class LoteComprobantesService:
             )
         )
         filas = list(result.all())
-        fechas = sorted(
-            {
-                str((payload or {}).get("fecha_emision"))[:10]
-                for payload, _, _ in filas
-                if (payload or {}).get("fecha_emision")
-            }
+        fechas, puntos_venta, token = self._crear_token_confirmacion_desde_payloads(
+            [(payload, punto) for payload, punto, _ in filas]
         )
-        puntos_venta = sorted(
-            {int(punto) for _, punto, _ in filas if punto is not None}
+        fallidos_result = await self.db.execute(
+            select(
+                LoteComprobanteGrupo.payload_json,
+                LoteComprobanteGrupo.punto_venta_numero,
+            ).where(
+                LoteComprobanteGrupo.lote_id == lote_id,
+                LoteComprobanteGrupo.estado == "fallido",
+            )
         )
-        token = (
-            f"fechas={','.join(fechas)};"
-            f"puntos_venta={','.join(str(punto) for punto in puntos_venta)}"
-        )
+        (
+            fechas_fallidos,
+            puntos_fallidos,
+            token_fallidos,
+        ) = self._crear_token_confirmacion_desde_payloads(list(fallidos_result.all()))
         return {
             "confirmacion_fecha_fiscal": token,
             "mensaje_confirmacion_fecha_fiscal": (
                 self._crear_mensaje_confirmacion_fecha_fiscal(fechas, puntos_venta)
+            ),
+            "confirmacion_reintento_fallidos": token_fallidos,
+            "mensaje_confirmacion_reintento_fallidos": (
+                self._crear_mensaje_confirmacion_fecha_fiscal(
+                    fechas_fallidos,
+                    puntos_fallidos,
+                )
             ),
             "fechas_emision_validas": fechas,
             "puntos_venta_validos": puntos_venta,
             "totales_listos_para_emitir": self._calcular_totales_payloads(filas),
         }
 
+    async def obtener_confirmacion_fiscal_grupos(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        estados: set[str],
+        grupo_ids: list[int] | None = None,
+    ) -> dict[str, str | list[int]]:
+        """Calcula el token fiscal exacto para grupos seleccionados."""
+        await self.obtener_lote_resumen(lote_id, empresa_id)
+        filtros = [
+            LoteComprobanteGrupo.lote_id == lote_id,
+            LoteComprobanteGrupo.estado.in_(estados),
+        ]
+        if grupo_ids:
+            filtros.append(LoteComprobanteGrupo.id.in_(grupo_ids))
+
+        result = await self.db.execute(
+            select(
+                LoteComprobanteGrupo.id,
+                LoteComprobanteGrupo.payload_json,
+                LoteComprobanteGrupo.punto_venta_numero,
+            ).where(*filtros)
+        )
+        filas = list(result.all())
+        if not filas:
+            raise LoteComprobanteError(
+                "No hay comprobantes seleccionados para resolver"
+            )
+
+        ids_encontrados = {int(grupo_id) for grupo_id, _, _ in filas}
+        if grupo_ids and ids_encontrados != set(grupo_ids):
+            raise LoteComprobanteError(
+                "Solo pueden resolverse comprobantes pendientes del lote activo"
+            )
+
+        fechas, puntos_venta, token = self._crear_token_confirmacion_desde_payloads(
+            [(payload, punto) for _, payload, punto in filas]
+        )
+        if not fechas or not puntos_venta:
+            raise LoteComprobanteError(
+                "Los comprobantes seleccionados no tienen fecha fiscal o punto de venta definido"
+            )
+        return {
+            "confirmacion_fecha_fiscal": token,
+            "mensaje_confirmacion_fecha_fiscal": (
+                self._crear_mensaje_confirmacion_fecha_fiscal(fechas, puntos_venta)
+            ),
+            "ids_grupos": sorted(ids_encontrados),
+        }
+
+    @staticmethod
+    def _crear_token_confirmacion_desde_payloads(
+        filas: list[tuple[dict[str, Any] | None, int | None]]
+    ) -> tuple[list[str], list[int], str]:
+        """Construye fechas, puntos y token fiscal desde payloads de grupos."""
+        fechas = sorted(
+            {
+                str((payload or {}).get("fecha_emision"))[:10]
+                for payload, _ in filas
+                if (payload or {}).get("fecha_emision")
+            }
+        )
+        puntos_venta = sorted({int(punto) for _, punto in filas if punto is not None})
+        token = (
+            f"fechas={','.join(fechas)};"
+            f"puntos_venta={','.join(str(punto) for punto in puntos_venta)}"
+        )
+        return fechas, puntos_venta, token
+
+    async def reintentar_grupos_fallidos(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        usuario_id: int | None,
+        grupo_ids: list[int] | None = None,
+    ) -> LoteComprobante:
+        """Reemite grupos fallidos ya seleccionados y confirmados."""
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        self._validar_lote_resoluble(lote)
+        grupos = await self._obtener_grupos_para_resolver(
+            lote_id=lote_id,
+            estados={"fallido"},
+            grupo_ids=grupo_ids,
+        )
+        if not grupos:
+            raise LoteComprobanteError(
+                "El lote no tiene comprobantes fallidos para reintentar"
+            )
+
+        for grupo in grupos:
+            grupo_reclamado = await self._reclamar_grupo_para_reintento(
+                lote_id=lote_id,
+                grupo_id=grupo.id,
+            )
+            if grupo_reclamado is None:
+                continue
+
+            try:
+                request = EmitirComprobanteRequest.model_validate(
+                    grupo_reclamado.payload_json or {}
+                )
+            except Exception as exc:  # pragma: no cover - defensa operacional
+                await self._marcar_reintento_fallido(
+                    lote_id=lote_id,
+                    empresa_id=empresa_id,
+                    usuario_id=usuario_id,
+                    grupo=grupo_reclamado,
+                    exc=exc,
+                )
+                continue
+
+            lock = await self.facturacion_service._get_number_lock(
+                request.empresa_id,
+                request.punto_venta_id,
+                request.tipo_comprobante,
+            )
+            async with lock:
+                try:
+                    resultado = (
+                        await self.facturacion_service._emitir_comprobante_locked(
+                            request,
+                            commit=False,
+                        )
+                    )
+                    await self._aplicar_resultado_emision_grupo(
+                        grupo_reclamado,
+                        resultado,
+                    )
+                    self._registrar_evento_lote(
+                        lote_id=lote_id,
+                        accion="reintentar_fallido",
+                        usuario_id=usuario_id,
+                        grupo_id=grupo_reclamado.id,
+                        metadata_json={
+                            "resultado": (
+                                "autorizado" if resultado.exito else "fallido"
+                            ),
+                            "numero": resultado.numero,
+                            "cae": resultado.cae,
+                        },
+                    )
+                    await self.db.flush()
+                    lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+                    await self._actualizar_estado_lote(lote)
+                    await self.db.commit()
+                except Exception as exc:  # pragma: no cover - defensa operacional
+                    await self._marcar_reintento_fallido(
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        usuario_id=usuario_id,
+                        grupo=grupo_reclamado,
+                        exc=exc,
+                    )
+
+        return await self.obtener_lote_resumen(lote_id, empresa_id)
+
+    async def descartar_grupos(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        usuario_id: int | None,
+        grupo_ids: list[int],
+        motivo: str,
+    ) -> LoteComprobante:
+        """Marca grupos pendientes como descartados por decisión operativa."""
+        motivo = motivo.strip()
+        if not motivo:
+            raise LoteComprobanteError(
+                "Debes indicar un motivo para descartar comprobantes"
+            )
+
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        self._validar_lote_resoluble(lote)
+        grupos = await self._obtener_grupos_para_resolver(
+            lote_id=lote_id,
+            estados=self.ESTADOS_RESOLUBLES,
+            grupo_ids=grupo_ids,
+        )
+        if len(grupos) != len(set(grupo_ids)):
+            raise LoteComprobanteError(
+                "Solo pueden descartarse comprobantes pendientes no emitidos"
+            )
+
+        for grupo in grupos:
+            estado_anterior = grupo.estado
+            grupo_reclamado = await self._reclamar_grupo_para_accion_resolutiva(
+                lote_id=lote_id,
+                grupo_id=grupo.id,
+                estados=self.ESTADOS_RESOLUBLES,
+                estado_claim="descartando",
+                mensaje_error=(
+                    "Solo pueden descartarse comprobantes pendientes no emitidos"
+                ),
+            )
+            grupo_reclamado.estado = "descartado"
+            grupo_reclamado.mensajes_json = [f"Descartado por usuario: {motivo}"]
+            await self._marcar_filas(
+                grupo_reclamado,
+                "descartado",
+                grupo_reclamado.mensajes_json,
+            )
+            self._registrar_evento_lote(
+                lote_id=lote_id,
+                accion="descartar_grupo",
+                usuario_id=usuario_id,
+                grupo_id=grupo_reclamado.id,
+                motivo=motivo,
+                metadata_json={"estado_anterior": estado_anterior},
+            )
+
+        await self.db.flush()
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        await self._actualizar_estado_lote(lote)
+        await self.db.commit()
+        return await self.obtener_lote_resumen(lote_id, empresa_id)
+
+    async def reconciliar_emitidos_externos(
+        self,
+        lote_id: int,
+        empresa: Empresa,
+        usuario_id: int | None,
+        comprobantes: list[dict[str, Any]],
+        consultar_comprobante,
+    ) -> LoteComprobante:
+        """Reconcila grupos emitidos fuera de FactuFlow verificando ARCA."""
+        lote = await self.obtener_lote_resumen(lote_id, empresa.id)
+        self._validar_lote_resoluble(lote, permitir_reconciliacion_tecnica=True)
+        if not comprobantes:
+            raise LoteComprobanteError("Debes indicar comprobantes para reconciliar")
+        self._validar_reconciliacion_sin_numeros_duplicados(comprobantes)
+
+        try:
+            for item in comprobantes:
+                motivo = str(item.get("motivo") or "").strip()
+                if not motivo:
+                    raise LoteComprobanteError(
+                        "Debes indicar un motivo para registrar comprobantes externos"
+                    )
+
+                grupo = await self._reclamar_grupo_para_accion_resolutiva(
+                    lote_id=lote_id,
+                    grupo_id=int(item["grupo_id"]),
+                    estados=self.ESTADOS_RECONCILIABLES,
+                    estado_claim="reconciliando",
+                    mensaje_error=(
+                        "Solo pueden reconciliarse comprobantes pendientes del lote activo"
+                    ),
+                )
+                try:
+                    request = EmitirComprobanteRequest.model_validate(
+                        grupo.payload_json or {}
+                    )
+                except Exception as exc:
+                    raise LoteComprobanteError(
+                        "El comprobante seleccionado no tiene datos fiscales completos para reconciliar"
+                    ) from exc
+                self._validar_datos_reconciliacion_externa(grupo, request, item)
+                try:
+                    consulta_arca = await consultar_comprobante(
+                        punto_venta=int(item["punto_venta_numero"]),
+                        tipo_cbte=int(item["tipo_comprobante"]),
+                        numero=int(item["numero"]),
+                    )
+                except (ArcaServiceError, ArcaValidationError, ValueError) as exc:
+                    raise LoteComprobanteError(
+                        "No se pudo verificar el comprobante externo contra ARCA. "
+                        f"Detalle: {exc}"
+                    ) from exc
+                self._validar_consulta_arca_externa(
+                    empresa=empresa,
+                    grupo=grupo,
+                    request=request,
+                    item=item,
+                    consulta_arca=consulta_arca,
+                )
+                comprobante = await self._crear_o_vincular_comprobante_externo(
+                    empresa=empresa,
+                    request=request,
+                    punto_venta_numero=int(item["punto_venta_numero"]),
+                    numero=int(item["numero"]),
+                    cae=str(consulta_arca.cae),
+                    cae_vencimiento=str(consulta_arca.cae_vencimiento),
+                )
+
+                grupo.estado = "autorizado_externo"
+                grupo.cae = comprobante.cae
+                grupo.numero_asignado = comprobante.numero
+                grupo.comprobante_id = comprobante.id
+                grupo.mensajes_json = [
+                    "Comprobante emitido fuera de FactuFlow y verificado contra ARCA.",
+                    f"CAE {comprobante.cae}",
+                    f"Motivo: {motivo}",
+                ]
+                await self._marcar_filas(
+                    grupo, "autorizado_externo", grupo.mensajes_json
+                )
+                self._registrar_evento_lote(
+                    lote_id=lote_id,
+                    accion="reconciliar_externo",
+                    usuario_id=usuario_id,
+                    grupo_id=grupo.id,
+                    motivo=motivo,
+                    metadata_json={
+                        "tipo_comprobante": item["tipo_comprobante"],
+                        "punto_venta_numero": item["punto_venta_numero"],
+                        "numero": item["numero"],
+                        "cae": comprobante.cae,
+                    },
+                )
+                await self.db.flush()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise LoteComprobanteError(
+                "El comprobante externo ya está vinculado a otro grupo del lote"
+            ) from exc
+        except Exception:
+            await self.db.rollback()
+            raise
+
+        lote = await self.obtener_lote_resumen(lote_id, empresa.id)
+        await self._actualizar_estado_lote(lote)
+        await self.db.commit()
+        return await self.obtener_lote_resumen(lote_id, empresa.id)
+
+    async def eliminar_lote_sin_emision(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        usuario_id: int | None,
+        motivo: str,
+    ) -> None:
+        """Elimina físicamente un lote sin evidencia fiscal emitida."""
+        motivo = motivo.strip()
+        if not motivo:
+            raise LoteComprobanteError("Debes indicar un motivo para eliminar el lote")
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        if lote.estado in {"en_cola", "procesando", "requiere_reconciliacion"}:
+            raise LoteComprobanteError("No se puede eliminar un lote activo o incierto")
+        if await self._lote_tiene_emision_o_incertidumbre(lote_id):
+            raise LoteComprobanteError(
+                "No se puede eliminar un lote con comprobantes emitidos o inciertos"
+            )
+
+        self._registrar_evento_lote(
+            lote_id=lote_id,
+            accion="eliminar_lote",
+            usuario_id=usuario_id,
+            motivo=motivo,
+            metadata_json={
+                "lote_id_original": lote.id,
+                "nombre_archivo": lote.nombre_archivo,
+                "archivo_hash": lote.archivo_hash,
+                "empresa_id": lote.empresa_id,
+                "estado": lote.estado,
+                "total_grupos": lote.total_grupos,
+            },
+        )
+        await self.db.flush()
+        await self.db.execute(
+            update(LoteComprobanteEvento)
+            .where(LoteComprobanteEvento.lote_id == lote_id)
+            .values(lote_id=None, grupo_id=None)
+        )
+        await self.db.delete(lote)
+        await self.db.commit()
+
+    async def compactar_lote(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        usuario_id: int | None,
+    ) -> LoteComprobante:
+        """Elimina filas detalladas de un lote cerrado conservando grupos y resumen."""
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        if lote.estado not in {
+            "completado",
+            "cerrado_reconciliado",
+            "cerrado_con_descartes",
+        }:
+            raise LoteComprobanteError("Solo se pueden compactar lotes cerrados")
+        if lote.compactado_at is not None:
+            return lote
+
+        result = await self.db.execute(
+            delete(LoteComprobanteFila).where(LoteComprobanteFila.lote_id == lote_id)
+        )
+        lote.compactado_at = datetime.utcnow()
+        self._registrar_evento_lote(
+            lote_id=lote_id,
+            accion="compactar_lote",
+            usuario_id=usuario_id,
+            motivo="Compactación para ahorro de almacenamiento",
+            metadata_json={"filas_eliminadas": result.rowcount or 0},
+        )
+        await self.db.commit()
+        await self.db.refresh(lote)
+        return lote
+
+    def _validar_lote_resoluble(
+        self,
+        lote: LoteComprobante,
+        permitir_reconciliacion_tecnica: bool = False,
+    ) -> None:
+        """Bloquea acciones manuales sobre lotes activos, cerrados o inciertos."""
+        if lote.estado in {"en_cola", "procesando"}:
+            raise LoteComprobanteError("El lote está en proceso y no puede resolverse")
+        if (
+            lote.estado == "requiere_reconciliacion"
+            and not permitir_reconciliacion_tecnica
+        ):
+            raise LoteComprobanteError(
+                "El lote requiere reconciliación técnica antes de resolver pendientes"
+            )
+        if lote.estado in {
+            "completado",
+            "cerrado_reconciliado",
+            "cerrado_con_descartes",
+        }:
+            raise LoteComprobanteError("El lote ya está cerrado")
+
+    async def _obtener_grupos_para_resolver(
+        self,
+        lote_id: int,
+        estados: set[str],
+        grupo_ids: list[int] | None,
+    ) -> list[LoteComprobanteGrupo]:
+        """Obtiene grupos de un lote que pueden recibir una acción resolutiva."""
+        filtros = [
+            LoteComprobanteGrupo.lote_id == lote_id,
+            LoteComprobanteGrupo.estado.in_(estados),
+        ]
+        if grupo_ids:
+            filtros.append(LoteComprobanteGrupo.id.in_(grupo_ids))
+        result = await self.db.execute(
+            select(LoteComprobanteGrupo)
+            .options(selectinload(LoteComprobanteGrupo.filas))
+            .where(*filtros)
+            .order_by(LoteComprobanteGrupo.orden, LoteComprobanteGrupo.id)
+        )
+        grupos = list(result.scalars().all())
+        if grupo_ids and {grupo.id for grupo in grupos} != set(grupo_ids):
+            raise LoteComprobanteError(
+                "La selección contiene comprobantes que no están pendientes"
+            )
+        return grupos
+
+    async def _obtener_grupo_para_resolver(
+        self,
+        lote_id: int,
+        grupo_id: int,
+        estados: set[str],
+    ) -> LoteComprobanteGrupo:
+        """Obtiene un único grupo resoluble por id."""
+        grupos = await self._obtener_grupos_para_resolver(
+            lote_id=lote_id,
+            estados=estados,
+            grupo_ids=[grupo_id],
+        )
+        if not grupos:
+            raise LoteComprobanteError("No se encontró el comprobante pendiente")
+        return grupos[0]
+
+    async def _reclamar_grupo_para_reintento(
+        self,
+        lote_id: int,
+        grupo_id: int,
+    ) -> LoteComprobanteGrupo | None:
+        """Toma un grupo fallido antes de solicitar CAE para evitar doble emisión."""
+        result = await self.db.execute(
+            update(LoteComprobanteGrupo)
+            .where(
+                LoteComprobanteGrupo.id == grupo_id,
+                LoteComprobanteGrupo.lote_id == lote_id,
+                LoteComprobanteGrupo.estado == "fallido",
+            )
+            .values(
+                estado="reintentando",
+                mensajes_json=["Reintento de emisión en curso."],
+            )
+        )
+        if result.rowcount != 1:
+            return None
+
+        await self.db.flush()
+        await self.db.commit()
+        return await self._obtener_grupo_para_resolver(
+            lote_id=lote_id,
+            grupo_id=grupo_id,
+            estados={"reintentando"},
+        )
+
+    async def _reclamar_grupo_para_accion_resolutiva(
+        self,
+        lote_id: int,
+        grupo_id: int,
+        estados: set[str],
+        estado_claim: str,
+        mensaje_error: str,
+    ) -> LoteComprobanteGrupo:
+        """Toma un grupo con transición condicional antes de resolverlo."""
+        result = await self.db.execute(
+            update(LoteComprobanteGrupo)
+            .where(
+                LoteComprobanteGrupo.id == grupo_id,
+                LoteComprobanteGrupo.lote_id == lote_id,
+                LoteComprobanteGrupo.estado.in_(estados),
+            )
+            .values(estado=estado_claim)
+        )
+        if result.rowcount != 1:
+            raise LoteComprobanteError(mensaje_error)
+
+        await self.db.flush()
+        return await self._obtener_grupo_para_resolver(
+            lote_id=lote_id,
+            grupo_id=grupo_id,
+            estados={estado_claim},
+        )
+
+    async def _marcar_reintento_fallido(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        usuario_id: int | None,
+        grupo: LoteComprobanteGrupo,
+        exc: Exception,
+    ) -> None:
+        """Persiste un reintento fallido y actualiza el resumen del lote."""
+        logger.exception("Error reintentando grupo fallido %s", grupo.id)
+        grupo.estado = "fallido"
+        grupo.mensajes_json = [str(exc)]
+        await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
+        self._registrar_evento_lote(
+            lote_id=lote_id,
+            accion="reintentar_fallido",
+            usuario_id=usuario_id,
+            grupo_id=grupo.id,
+            metadata_json={"resultado": "fallido", "error": str(exc)},
+        )
+        await self.db.flush()
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        await self._actualizar_estado_lote(lote)
+        await self.db.commit()
+
+    @staticmethod
+    def _validar_reconciliacion_sin_numeros_duplicados(
+        comprobantes: list[dict[str, Any]],
+    ) -> None:
+        """Evita cerrar más de un grupo contra el mismo comprobante externo."""
+        claves_vistas: set[tuple[int, int, int]] = set()
+        for item in comprobantes:
+            try:
+                clave = (
+                    int(item["tipo_comprobante"]),
+                    int(item["punto_venta_numero"]),
+                    int(item["numero"]),
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                raise LoteComprobanteError(
+                    "Los datos de comprobante externo no son válidos"
+                ) from exc
+
+            if clave in claves_vistas:
+                raise LoteComprobanteError(
+                    "No podés reconciliar dos grupos con el mismo comprobante externo"
+                )
+            claves_vistas.add(clave)
+
+    def _validar_datos_reconciliacion_externa(
+        self,
+        grupo: LoteComprobanteGrupo,
+        request: EmitirComprobanteRequest,
+        item: dict[str, Any],
+    ) -> None:
+        """Confirma que el usuario está reconciliando el grupo correcto."""
+        fecha = self._parse_date(item.get("fecha_emision"))
+        total = self._parse_decimal(item.get("total"))
+        if total is None:
+            raise LoteComprobanteError("El total informado no es válido")
+        total = self._redondear_centavos(total)
+        if int(item["tipo_comprobante"]) != request.tipo_comprobante:
+            raise LoteComprobanteError("El tipo informado no coincide con el lote")
+        if int(item["punto_venta_numero"]) != int(grupo.punto_venta_numero or 0):
+            raise LoteComprobanteError(
+                "El punto de venta informado no coincide con el lote"
+            )
+        if fecha != request.fecha_emision:
+            raise LoteComprobanteError("La fecha informada no coincide con el lote")
+        if total != self._redondear_centavos(Decimal(str(grupo.total_estimado))):
+            raise LoteComprobanteError("El total informado no coincide con el lote")
+
+    def _validar_consulta_arca_externa(
+        self,
+        empresa: Empresa,
+        grupo: LoteComprobanteGrupo,
+        request: EmitirComprobanteRequest,
+        item: dict[str, Any],
+        consulta_arca,
+    ) -> None:
+        """Valida que ARCA confirme exactamente el comprobante externo."""
+        fecha_esperada = self._parse_date(item.get("fecha_emision"))
+        total_esperado = self._parse_decimal(item.get("total"))
+        if total_esperado is None:
+            raise LoteComprobanteError("El total informado no es válido")
+        total_esperado = self._redondear_centavos(total_esperado)
+        fecha_arca = self._parse_arca_yyyymmdd(str(consulta_arca.fecha_cbte))
+        total_arca = self._redondear_centavos(Decimal(str(consulta_arca.imp_total)))
+        cae_informado = str(item.get("cae") or "").strip()
+        try:
+            tipo_doc_arca = int(consulta_arca.tipo_doc)
+            tipo_doc_esperado = int(request.tipo_documento)
+        except (TypeError, ValueError) as exc:
+            raise LoteComprobanteError(
+                "ARCA no devolvió un tipo de documento de receptor válido"
+            ) from exc
+        nro_doc_arca = clean_cuit(str(consulta_arca.nro_doc or ""))
+        nro_doc_esperado = clean_cuit(str(request.numero_documento or ""))
+
+        if consulta_arca.resultado != "A":
+            raise LoteComprobanteError("ARCA no informa el comprobante como autorizado")
+        if not str(consulta_arca.cae or "").strip():
+            raise LoteComprobanteError("ARCA no devolvió un CAE válido")
+        if not str(consulta_arca.cae_vencimiento or "").strip():
+            raise LoteComprobanteError("ARCA no devolvió vencimiento de CAE válido")
+        if clean_cuit(str(consulta_arca.cuit_emisor)) != clean_cuit(empresa.cuit):
+            raise LoteComprobanteError(
+                "El comprobante consultado no pertenece al emisor activo"
+            )
+        if int(consulta_arca.tipo_cbte) != int(item["tipo_comprobante"]):
+            raise LoteComprobanteError("ARCA devolvió otro tipo de comprobante")
+        if int(consulta_arca.punto_venta) != int(item["punto_venta_numero"]):
+            raise LoteComprobanteError("ARCA devolvió otro punto de venta")
+        if int(consulta_arca.numero) != int(item["numero"]):
+            raise LoteComprobanteError("ARCA devolvió otro número de comprobante")
+        if tipo_doc_arca != tipo_doc_esperado:
+            raise LoteComprobanteError(
+                "El tipo de documento del receptor informado por ARCA no coincide con el lote"
+            )
+        if nro_doc_arca != nro_doc_esperado:
+            raise LoteComprobanteError(
+                "El número de documento del receptor informado por ARCA no coincide con el lote"
+            )
+        if fecha_arca != fecha_esperada:
+            raise LoteComprobanteError(
+                "La fecha fiscal de ARCA no coincide con el lote"
+            )
+        if total_arca != total_esperado:
+            raise LoteComprobanteError(
+                "El total autorizado en ARCA no coincide con el lote"
+            )
+        if cae_informado and cae_informado != str(consulta_arca.cae):
+            raise LoteComprobanteError("El CAE informado no coincide con ARCA")
+        if total_esperado != self._redondear_centavos(
+            Decimal(str(grupo.total_estimado))
+        ):
+            raise LoteComprobanteError("El total informado no coincide con el grupo")
+
+    async def _crear_o_vincular_comprobante_externo(
+        self,
+        empresa: Empresa,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        cae: str,
+        cae_vencimiento: str,
+    ) -> Comprobante:
+        """Crea o vincula el comprobante local emitido externamente."""
+        punto_venta = await self._obtener_punto_venta_por_numero(
+            empresa_id=empresa.id,
+            numero=punto_venta_numero,
+        )
+        if punto_venta is None:
+            raise LoteComprobanteError(
+                "El punto de venta externo no está cargado para el emisor activo"
+            )
+        totales = self.facturacion_service._calcular_totales(request.items)
+        total_request = self._redondear_centavos(totales["total"])
+
+        result = await self.db.execute(
+            select(Comprobante).where(
+                Comprobante.empresa_id == empresa.id,
+                Comprobante.punto_venta_id == punto_venta.id,
+                Comprobante.tipo_comprobante == request.tipo_comprobante,
+                Comprobante.numero == numero,
+            )
+        )
+        existente = result.scalar_one_or_none()
+        if existente is not None:
+            grupo_vinculado_id = await self.db.scalar(
+                select(LoteComprobanteGrupo.id)
+                .where(LoteComprobanteGrupo.comprobante_id == existente.id)
+                .limit(1)
+            )
+            if grupo_vinculado_id is not None:
+                raise LoteComprobanteError(
+                    "El comprobante externo ya está vinculado a otro grupo del lote"
+                )
+            if (
+                existente.estado != "autorizado"
+                or existente.cae != cae
+                or existente.fecha_emision != request.fecha_emision
+                or self._redondear_centavos(Decimal(str(existente.total)))
+                != total_request
+            ):
+                raise LoteComprobanteError(
+                    "Ya existe un comprobante local con ese número y datos distintos"
+                )
+            return existente
+
+        resultado_arca = ResultadoArcaExterno(
+            cae=cae,
+            cae_vencimiento=cae_vencimiento,
+        )
+        return await self.facturacion_service._guardar_comprobante(
+            request,
+            numero,
+            totales,
+            resultado_arca,
+            punto_venta,
+            origen_emision="arca_web",
+            commit=False,
+        )
+
+    async def _obtener_punto_venta_por_numero(
+        self, empresa_id: int, numero: int
+    ) -> PuntoVenta | None:
+        """Busca un punto de venta del emisor por número."""
+        result = await self.db.execute(
+            select(PuntoVenta).where(
+                PuntoVenta.empresa_id == empresa_id,
+                PuntoVenta.numero == numero,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def _lote_tiene_emision_o_incertidumbre(self, lote_id: int) -> bool:
+        """Indica si un lote ya tiene evidencia fiscal que impide borrado físico."""
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(LoteComprobanteGrupo)
+            .where(
+                LoteComprobanteGrupo.lote_id == lote_id,
+                (
+                    LoteComprobanteGrupo.estado.in_(
+                        {
+                            "autorizado",
+                            "autorizado_externo",
+                            "requiere_reconciliacion",
+                            "reintentando",
+                        }
+                    )
+                    | LoteComprobanteGrupo.comprobante_id.is_not(None)
+                    | LoteComprobanteGrupo.cae.is_not(None)
+                ),
+            )
+        )
+        return int(result.scalar_one() or 0) > 0
+
+    def _registrar_evento_lote(
+        self,
+        lote_id: int,
+        accion: str,
+        usuario_id: int | None,
+        motivo: str | None = None,
+        grupo_id: int | None = None,
+        metadata_json: dict[str, Any] | None = None,
+    ) -> None:
+        """Agrega un evento auditable del lote en la sesión actual."""
+        self.db.add(
+            LoteComprobanteEvento(
+                lote_id=lote_id,
+                grupo_id=grupo_id,
+                usuario_id=usuario_id,
+                accion=accion,
+                motivo=motivo,
+                metadata_json=metadata_json,
+            )
+        )
+
+    @staticmethod
+    def _parse_arca_yyyymmdd(value: str) -> date:
+        """Convierte una fecha ARCA `YYYYMMDD` a `date`."""
+        return date(int(value[0:4]), int(value[4:6]), int(value[6:8]))
+
     def _crear_mensaje_confirmacion_fecha_fiscal(
         self, fechas: list[str], puntos_venta: list[int]
     ) -> str:
         """Construye el texto de confirmación fiscal irreversible."""
+        if not fechas:
+            return "No hay comprobantes pendientes con fecha fiscal para confirmar."
         fechas_label = ", ".join(
             date.fromisoformat(fecha[:10]).strftime("%d/%m/%y") for fecha in fechas
         )
@@ -1433,6 +2245,10 @@ class LoteComprobantesService:
     async def generar_archivo_observado(self, lote_id: int, empresa_id: int) -> bytes:
         """Genera un archivo observado con resultados por fila."""
         lote = await self.obtener_lote(lote_id, empresa_id)
+        if lote.compactado_at is not None:
+            raise LoteComprobanteError(
+                "El lote fue compactado y ya no conserva el detalle de filas para generar el observado."
+            )
         filas_por_numero = {fila.fila_excel: fila for fila in lote.filas}
         workbook = Workbook()
         hoja = workbook.active
@@ -1461,8 +2277,10 @@ class LoteComprobantesService:
                 ]
             )
             hoja.append(row)
-            if fila.estado == "autorizado":
+            if fila.estado in {"autorizado", "autorizado_externo"}:
                 fill_color = "E2F0D9"
+            elif fila.estado == "descartado":
+                fill_color = "E7E6E6"
             elif fila.estado == "requiere_reconciliacion":
                 fill_color = "FFF2CC"
             else:
@@ -1987,7 +2805,15 @@ class LoteComprobantesService:
         lote.grupos_con_error = conteos.get("con_error", 0)
         lote.grupos_emitidos = conteos.get("autorizado", 0)
         lote.grupos_fallidos = conteos.get("fallido", 0)
+        lote.grupos_reconciliados_externos = conteos.get("autorizado_externo", 0)
+        lote.grupos_descartados = conteos.get("descartado", 0)
         grupos_reconciliacion = conteos.get("requiere_reconciliacion", 0)
+        grupos_reconciliacion += conteos.get("reintentando", 0)
+        grupos_resueltos = (
+            lote.grupos_emitidos
+            + lote.grupos_reconciliados_externos
+            + lote.grupos_descartados
+        )
 
         if lote.estado == "procesando":
             total_emitible = (
@@ -2015,12 +2841,25 @@ class LoteComprobantesService:
                 "ARCA pudo haber autorizado comprobantes que no quedaron guardados. "
                 "No reintentes este lote hasta reconciliarlo."
             )
-        elif lote.grupos_emitidos and (lote.grupos_fallidos or lote.grupos_con_error):
-            lote.estado = "autorizado_parcial"
-            lote.mensaje_resumen = "El lote se procesó parcialmente. Revisá los comprobantes fallidos o con error."
-        elif lote.grupos_emitidos == lote.total_grupos and lote.total_grupos > 0:
+        elif lote.total_grupos and lote.grupos_emitidos == lote.total_grupos:
             lote.estado = "completado"
-            lote.mensaje_resumen = "Todos los comprobantes del lote fueron emitidos."
+            lote.mensaje_resumen = (
+                "Todos los comprobantes del lote fueron emitidos por FactuFlow."
+            )
+        elif lote.total_grupos and grupos_resueltos == lote.total_grupos:
+            if lote.grupos_descartados:
+                lote.estado = "cerrado_con_descartes"
+                lote.mensaje_resumen = "El lote quedó cerrado con comprobantes descartados por decisión operativa."
+            else:
+                lote.estado = "cerrado_reconciliado"
+                lote.mensaje_resumen = "El lote quedó cerrado con comprobantes emitidos fuera de FactuFlow y verificados contra ARCA."
+        elif (lote.grupos_emitidos or lote.grupos_reconciliados_externos) and (
+            lote.grupos_validos or lote.grupos_fallidos or lote.grupos_con_error
+        ):
+            lote.estado = "autorizado_parcial"
+            lote.mensaje_resumen = (
+                "El lote tiene comprobantes emitidos y pendientes por resolver."
+            )
         elif lote.grupos_con_error:
             lote.estado = "con_errores"
             lote.mensaje_resumen = (
@@ -2165,6 +3004,11 @@ class LoteComprobantesService:
             return Decimal(text)
         except (InvalidOperation, ValueError):
             return None
+
+    @staticmethod
+    def _redondear_centavos(value: Decimal) -> Decimal:
+        """Redondea importes fiscales a centavos para comparaciones exactas."""
+        return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     def _parse_date(self, value: Any) -> date | None:
         if value in (None, ""):

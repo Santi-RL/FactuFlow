@@ -108,14 +108,16 @@ class FacturacionService:
         self.db = db
 
     async def emitir_comprobante(
-        self, request: EmitirComprobanteRequest
+        self,
+        request: EmitirComprobanteRequest,
+        commit: bool = True,
     ) -> EmitirComprobanteResponse:
         """Serializa la emisión por empresa, punto de venta y tipo."""
         lock = await self._get_number_lock(
             request.empresa_id, request.punto_venta_id, request.tipo_comprobante
         )
         async with lock:
-            return await self._emitir_comprobante_locked(request)
+            return await self._emitir_comprobante_locked(request, commit=commit)
 
     async def emitir_comprobantes_lote(
         self,
@@ -406,7 +408,9 @@ class FacturacionService:
             ]
 
     async def _emitir_comprobante_locked(
-        self, request: EmitirComprobanteRequest
+        self,
+        request: EmitirComprobanteRequest,
+        commit: bool = True,
     ) -> EmitirComprobanteResponse:
         """
         Flujo completo de emisión de comprobante.
@@ -511,7 +515,12 @@ class FacturacionService:
             # 7. Guardar en BD
             try:
                 comprobante = await self._guardar_comprobante(
-                    request, proximo, totales, resultado, punto_venta
+                    request,
+                    proximo,
+                    totales,
+                    resultado,
+                    punto_venta,
+                    commit=commit,
                 )
             except IntegrityError as exc:
                 await self.db.rollback()
@@ -1291,6 +1300,8 @@ class FacturacionService:
         totales: dict,
         resultado_arca,
         punto_venta: PuntoVenta,
+        origen_emision: str = "factuflow",
+        commit: bool = True,
     ) -> Comprobante:
         """
         Guarda el comprobante en la base de datos.
@@ -1356,6 +1367,7 @@ class FacturacionService:
             cae=resultado_arca.cae,
             cae_vencimiento=self._parse_fecha_cae(resultado_arca.cae_vencimiento),
             estado="autorizado",
+            origen_emision=origen_emision,
             moneda=request.moneda,
             cotizacion=request.cotizacion,
             observaciones=request.observaciones,
@@ -1396,8 +1408,9 @@ class FacturacionService:
             )
             self.db.add(item)
 
-        await self.db.commit()
-        await self.db.refresh(comprobante)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(comprobante)
 
         return comprobante
 
