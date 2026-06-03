@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Ultima actualizacion: 2026-06-03
+Última actualización: 2026-06-03
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -16,7 +16,8 @@ Este manual describe el uso actual del producto. Si una funcion no aparece aca, 
 8. Certificados
 9. Puntos de venta
 10. Emisores
-11. Limitaciones actuales
+11. Usuarios
+12. Limitaciones actuales
 
 ## 1. Acceso al sistema
 
@@ -54,18 +55,19 @@ se entra desde la URL publicada de FactuFlow.
 
 Luego:
 
-1. Ingresar con tu correo electronico y contrasena.
-2. Si es la primera vez y no hay un usuario creado, usar la opcion `Configurar sistema`.
+1. Ingresar con tu correo electrónico y contraseña.
+2. Si es la primera vez y no hay un usuario creado, usar la opción `Configurar sistema`.
 
-Si ya existe al menos un usuario y se necesita crear otro administrador, hoy se hace
-con el comando operativo `python -m app.scripts.create_admin_user` desde el backend.
-Todavia no hay una pantalla de gestion de usuarios.
+La opción `Configurar sistema` solo aparece cuando la instalación no tiene
+usuarios. Ese flujo crea el usuario administrador propietario inicial y el
+primer emisor. Cuando ya existe al menos un usuario, el alta pública queda
+cerrada: los usuarios nuevos se crean desde `Usuarios`, dentro de la aplicación.
 
 ## 2. Emisor activo
 
-Si tu usuario administra mas de un CUIT, en el encabezado veras el selector `Emisor activo`.
-Este modelo esta pensado para contadores independientes o estudios chicos que
-gestionan varios emisores desde la misma instalacion, pero siempre trabajan con
+Todos los usuarios activos ven en el encabezado el selector `Emisor activo`.
+Este modelo está pensado para contadores independientes o estudios chicos que
+gestionan varios emisores desde la misma instalación, pero siempre trabajan con
 un solo emisor activo por vez.
 
 Todo lo que hagas en estas secciones queda asociado a ese emisor:
@@ -586,7 +588,32 @@ Revisa especialmente:
 - fecha de inicio de actividades
 - email y telefono de contacto
 
-## 11. Limitaciones actuales
+## 11. Usuarios
+
+La pantalla `Usuarios` solo aparece para usuarios administradores.
+
+Desde esa pantalla puedes:
+- crear usuarios
+- editar nombre, email, estado, rol y emisor preferido
+- desactivar usuarios
+- reactivar usuarios
+- restablecer contraseñas
+
+Un usuario común puede operar todos los emisores configurados: crear y editar
+emisores, emitir comprobantes, administrar certificados, sincronizar puntos de
+venta, usar emisión masiva y consultar reportes. La única restricción inicial
+visible es que no puede entrar al menú `Usuarios`. El borrado físico de un
+emisor queda reservado a administradores porque puede afectar historial fiscal
+y relaciones internas.
+
+El rol `Administrador` significa que puede administrar usuarios. No es un rol de
+acceso exclusivo a emisores.
+
+Desactivar un usuario impide que vuelva a iniciar sesión, pero no borra su
+historial. FactuFlow no permite que un administrador se desactive a sí mismo ni
+se quite su propio permiso de administrador desde la pantalla.
+
+## 12. Limitaciones actuales
 
 Al 2026-05-22:
 

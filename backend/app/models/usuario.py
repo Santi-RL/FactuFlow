@@ -32,6 +32,7 @@ class Usuario(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
     ultimo_login = Column(DateTime, nullable=True)
+    password_changed_at = Column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         return f"<Usuario {self.email}>"

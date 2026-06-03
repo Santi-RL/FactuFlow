@@ -2,6 +2,7 @@ import apiClient from "./api";
 import type {
   LoginCredentials,
   LoginResponse,
+  SetupStatus,
   Usuario,
   SetupData,
 } from "@/types/auth";
@@ -41,22 +42,7 @@ export const authService = {
   },
 
   async checkSetupRequired(): Promise<boolean> {
-    try {
-      // Intentar hacer una petición al endpoint de setup
-      // Si devuelve error 400, significa que ya hay usuarios
-      await apiClient.post("/api/auth/setup", {
-        email: "test@test.com",
-        password: "test",
-        nombre: "test",
-      });
-      return true;
-    } catch (error: any) {
-      // Si el error es 400 y el mensaje indica que ya existe un usuario, no se requiere setup
-      if (error.response?.status === 400) {
-        return false;
-      }
-      // Para cualquier otro error, asumir que no se requiere setup
-      return false;
-    }
+    const response = await apiClient.get<SetupStatus>("/api/auth/setup-status");
+    return response.data.setup_required;
   },
 };

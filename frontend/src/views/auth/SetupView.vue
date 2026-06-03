@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
+import { authService } from "@/services/auth.service";
 import { provinciasOptions } from "@/constants/provincias";
 import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseSelect from "@/components/ui/BaseSelect.vue";
@@ -17,6 +18,7 @@ const empresaStore = useEmpresaStore();
 const { showSuccess, showError } = useNotification();
 
 const loading = ref(false);
+const checkingSetup = ref(true);
 const error = ref("");
 const step = ref(1);
 
@@ -106,6 +108,26 @@ const handleSubmit = async () => {
     loading.value = false;
   }
 };
+
+onMounted(async () => {
+  try {
+    const setupRequired = await authService.checkSetupRequired();
+    if (!setupRequired) {
+      showError(
+        "Configuración inicial ya realizada",
+        "Iniciá sesión con un usuario existente.",
+      );
+      router.replace("/login");
+      return;
+    }
+  } catch (err: any) {
+    error.value =
+      err.response?.data?.detail ||
+      "No se pudo verificar el estado de instalación";
+  } finally {
+    checkingSetup.value = false;
+  }
+});
 </script>
 
 <template>
@@ -121,8 +143,18 @@ const handleSubmit = async () => {
       </div>
 
       <BaseCard>
+        <div
+          v-if="checkingSetup"
+          class="py-12 text-center text-sm text-gray-600"
+        >
+          Verificando estado de instalación...
+        </div>
+
         <!-- Progress indicator -->
-        <div class="mb-8">
+        <div
+          v-if="!checkingSetup"
+          class="mb-8"
+        >
           <div class="flex items-center justify-between mb-2">
             <span
               :class="[
@@ -168,7 +200,7 @@ const handleSubmit = async () => {
 
         <!-- Step 1: Usuario -->
         <div
-          v-if="step === 1"
+          v-if="!checkingSetup && step === 1"
           class="space-y-4"
         >
           <h2 class="text-xl font-bold text-gray-900 mb-4">
@@ -216,7 +248,7 @@ const handleSubmit = async () => {
 
         <!-- Step 2: Empresa -->
         <div
-          v-if="step === 2"
+          v-if="!checkingSetup && step === 2"
           class="space-y-4"
         >
           <h2 class="text-xl font-bold text-gray-900 mb-4">

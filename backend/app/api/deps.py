@@ -34,22 +34,14 @@ async def get_current_empresa_user(
     current_user: Usuario = Depends(get_current_user),
 ) -> Usuario:
     """
-    Dependency para verificar que el usuario tiene una empresa asignada.
+    Dependency para verificar que el usuario autenticado puede operar emisores.
 
     Args:
         current_user: Usuario actual
 
     Returns:
-        Usuario con empresa asignada
-
-    Raises:
-        HTTPException: Si el usuario no tiene empresa asignada
+        Usuario autenticado activo
     """
-    if current_user.empresa_id is None and not current_user.es_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Usuario no tiene empresa asignada",
-        )
     return current_user
 
 
@@ -62,10 +54,10 @@ async def get_current_empresa_id(
     Resuelve la empresa activa del request.
 
     Reglas:
-    - Usuario no admin: siempre usa su empresa asignada.
-    - Admin con header `X-Empresa-Id`: usa esa empresa si existe.
-    - Admin sin header y con empresa asignada: usa su empresa.
-    - Admin sin header ni empresa asignada:
+    - Cualquier usuario activo con header `X-Empresa-Id`: usa esa empresa si existe.
+    - Cualquier usuario activo con query legacy `empresa_id`: usa esa empresa si existe.
+    - Sin selección explícita y con empresa asignada: usa esa empresa preferida.
+    - Sin selección explícita ni empresa asignada:
       - si existe una sola empresa en el sistema, la usa.
       - si hay más de una, exige seleccionar empresa.
     """
@@ -90,22 +82,6 @@ async def get_current_empresa_id(
         empresa_header_id if empresa_header_id is not None else empresa_query_id
     )
 
-    if not current_user.es_admin:
-        if current_user.empresa_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario no tiene empresa asignada",
-            )
-        if (
-            empresa_solicitada_id is not None
-            and empresa_solicitada_id != current_user.empresa_id
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permiso para operar con esa empresa",
-            )
-        return current_user.empresa_id
-
     if empresa_solicitada_id is not None:
         result = await db.execute(
             select(Empresa.id).where(Empresa.id == empresa_solicitada_id)
@@ -119,7 +95,11 @@ async def get_current_empresa_id(
         return empresa_solicitada_id
 
     if current_user.empresa_id is not None:
-        return current_user.empresa_id
+        result = await db.execute(
+            select(Empresa.id).where(Empresa.id == current_user.empresa_id)
+        )
+        if result.scalar_one_or_none() is not None:
+            return current_user.empresa_id
 
     result = await db.execute(select(func.count(Empresa.id)))
     total_empresas = result.scalar_one()

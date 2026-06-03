@@ -1,6 +1,8 @@
 """Seguridad: autenticación, hashing de contraseñas, JWT tokens."""
 
 from datetime import datetime, timedelta
+from calendar import timegm
+from time import time
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -65,7 +67,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expiration_minutes)
 
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "iat": time()})
     encoded_jwt = jwt.encode(
         to_encode, settings.secret_key, algorithm=settings.jwt_algorithm
     )
@@ -90,6 +92,28 @@ def decode_access_token(token: str) -> Optional[dict]:
         return payload
     except JWTError:
         return None
+
+
+def _token_emitido_antes_de_password(
+    payload: dict, password_changed_at: datetime | None
+) -> bool:
+    """Indica si el token fue emitido antes del último cambio de contraseña."""
+    if password_changed_at is None:
+        return False
+
+    token_iat = payload.get("iat")
+    if token_iat is None:
+        return True
+
+    try:
+        token_timestamp = float(token_iat)
+    except (TypeError, ValueError, OSError):
+        return True
+
+    password_changed_timestamp = timegm(password_changed_at.utctimetuple())
+    password_changed_timestamp += password_changed_at.microsecond / 1_000_000
+
+    return token_timestamp < password_changed_timestamp
 
 
 async def get_current_user(
@@ -129,10 +153,17 @@ async def get_current_user(
         raise credentials_exception
 
     # Buscar usuario en la base de datos
-    result = await db.execute(select(Usuario).where(Usuario.email == email))
+    result = await db.execute(
+        select(Usuario)
+        .where(Usuario.email == email)
+        .execution_options(populate_existing=True)
+    )
     user = result.scalar_one_or_none()
 
     if user is None:
+        raise credentials_exception
+
+    if _token_emitido_antes_de_password(payload, user.password_changed_at):
         raise credentials_exception
 
     if not user.activo:
@@ -183,10 +214,17 @@ async def get_current_user_optional(
         raise credentials_exception
 
     # Buscar usuario en la base de datos
-    result = await db.execute(select(Usuario).where(Usuario.email == email))
+    result = await db.execute(
+        select(Usuario)
+        .where(Usuario.email == email)
+        .execution_options(populate_existing=True)
+    )
     user = result.scalar_one_or_none()
 
     if user is None:
+        raise credentials_exception
+
+    if _token_emitido_antes_de_password(payload, user.password_changed_at):
         raise credentials_exception
 
     if not user.activo:

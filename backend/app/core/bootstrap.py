@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 BOOTSTRAP_LOCK = asyncio.Lock()
+USER_ADMIN_LOCK = asyncio.Lock()
 
 
 async def tomar_lock_bootstrap(db: AsyncSession) -> None:
@@ -19,4 +20,16 @@ async def tomar_lock_bootstrap(db: AsyncSession) -> None:
     await db.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
         {"lock_key": "factuflow:bootstrap"},
+    )
+
+
+async def tomar_lock_admin_usuarios(db: AsyncSession) -> None:
+    """Toma un lock transaccional para cambios de administradores."""
+    bind = db.get_bind()
+    if bind.dialect.name != "postgresql":
+        return
+
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+        {"lock_key": "factuflow:admin-usuarios"},
     )

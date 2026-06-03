@@ -24,6 +24,7 @@ from app.api import (
     perfiles_carga_masiva,
     puntos_venta,
     reportes,
+    usuarios,
 )
 
 
@@ -64,6 +65,7 @@ app.add_middleware(
 # Routers
 app.include_router(health.router, prefix="/api/health", tags=["Health"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Autenticación"])
+app.include_router(usuarios.router, prefix="/api/usuarios", tags=["Usuarios"])
 app.include_router(empresas.router, prefix="/api/empresas", tags=["Empresas"])
 app.include_router(clientes.router, prefix="/api/clientes", tags=["Clientes"])
 app.include_router(

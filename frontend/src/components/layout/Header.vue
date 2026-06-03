@@ -7,7 +7,6 @@ import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
   ArrowRightOnRectangleIcon,
-  BuildingOffice2Icon,
   UserCircleIcon,
 } from "@heroicons/vue/24/outline";
 
@@ -25,14 +24,6 @@ const empresasOptions = computed(() =>
     label: `${empresa.razon_social} (${empresa.cuit})`,
   })),
 );
-
-const empresaActivaLabel = computed(() => {
-  if (!empresaStore.empresaActiva) {
-    return "Selecciona un emisor para empezar a trabajar.";
-  }
-
-  return `${empresaStore.empresaActiva.razon_social} | CUIT ${empresaStore.empresaActiva.cuit}`;
-});
 
 const handleDocumentClick = (event: MouseEvent) => {
   if (!dropdownRef.value) return;
@@ -82,10 +73,7 @@ const handleEmpresaChange = async (value: string | number) => {
     class="flex min-h-24 items-center justify-between gap-4 border-b border-gray-200 bg-white px-6 py-3"
   >
     <div class="flex-1 max-w-2xl">
-      <div
-        v-if="authStore.user?.es_admin"
-        class="max-w-xl"
-      >
+      <div class="max-w-xl">
         <BaseSelect
           :model-value="empresaStore.empresaActivaId || ''"
           :options="empresasOptions"
@@ -94,25 +82,19 @@ const handleEmpresaChange = async (value: string | number) => {
           :disabled="loadingEmpresas || empresasOptions.length === 0"
           @update:model-value="handleEmpresaChange"
         />
-        <p class="mt-1 text-xs text-gray-500">
-          Todo lo que hagas en comprobantes, emision masiva, certificados y
-          reportes se aplicara a este emisor.
+        <p
+          v-if="empresasOptions.length > 0"
+          class="mt-1 text-xs text-gray-500"
+        >
+          Todo lo que hagas en comprobantes, emisión masiva, certificados y
+          reportes se aplicará a este emisor.
         </p>
-      </div>
-
-      <div
-        v-else
-        class="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
-      >
-        <BuildingOffice2Icon
-          class="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400"
-        />
-        <div>
-          <p class="font-medium text-gray-900">
-            Emisor activo
-          </p>
-          <p>{{ empresaActivaLabel }}</p>
-        </div>
+        <p
+          v-else
+          class="mt-1 text-xs text-gray-500"
+        >
+          Creá un emisor para empezar a trabajar.
+        </p>
       </div>
     </div>
 
@@ -146,7 +128,7 @@ const handleEmpresaChange = async (value: string | number) => {
           @click="handleLogout"
         >
           <ArrowRightOnRectangleIcon class="h-5 w-5" />
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </div>
     </div>

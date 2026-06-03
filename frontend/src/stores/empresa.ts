@@ -97,12 +97,6 @@ export const useEmpresaStore = defineStore("empresa", () => {
   };
 
   const fetchEmpresas = async () => {
-    const authStore = useAuthStore();
-    if (!authStore.user?.es_admin) {
-      empresas.value = empresa.value ? [empresa.value] : [];
-      return empresas.value;
-    }
-
     loading.value = true;
     error.value = null;
     try {
@@ -133,34 +127,34 @@ export const useEmpresaStore = defineStore("empresa", () => {
     const authStore = useAuthStore();
     if (!authStore.user) return;
 
-    if (authStore.user.es_admin) {
-      clearEmpresaActivaIdForRequest();
-      await fetchEmpresas();
-      const storedId = getEmpresaActivaIdStorage();
-      const preferredId = storedId ? Number(storedId) : null;
-      const empresaPreferida =
-        Number.isFinite(preferredId) && preferredId
-          ? empresas.value.find((item) => item.id === preferredId)
-          : null;
-      if (storedId && !empresaPreferida) {
-        clearEmpresaActivaIdStorage();
-      }
+    clearEmpresaActivaIdForRequest();
+    await fetchEmpresas();
 
-      const empresaId = empresaPreferida?.id || empresas.value[0]?.id || null;
-      if (empresaId) {
-        await setEmpresaActiva(empresaId);
-      } else {
-        empresa.value = null;
-        empresaActivaId.value = null;
-        clearEmpresaActivaIdStorage();
-      }
-      return;
+    const storedId = getEmpresaActivaIdStorage();
+    const preferredId = storedId ? Number(storedId) : null;
+    const empresaPreferida =
+      Number.isFinite(preferredId) && preferredId
+        ? empresas.value.find((item) => item.id === preferredId)
+        : null;
+    if (storedId && !empresaPreferida) {
+      clearEmpresaActivaIdStorage();
     }
 
-    if (authStore.user.empresa_id) {
-      clearEmpresaActivaIdForRequest();
-      await fetchEmpresa(authStore.user.empresa_id);
-      empresas.value = empresa.value ? [empresa.value] : [];
+    const empresaDelUsuario = authStore.user.empresa_id
+      ? empresas.value.find((item) => item.id === authStore.user?.empresa_id)
+      : null;
+    const empresaId =
+      empresaPreferida?.id ||
+      empresaDelUsuario?.id ||
+      empresas.value[0]?.id ||
+      null;
+
+    if (empresaId) {
+      await setEmpresaActiva(empresaId);
+    } else {
+      empresa.value = null;
+      empresaActivaId.value = null;
+      clearEmpresaActivaIdStorage();
     }
   };
 

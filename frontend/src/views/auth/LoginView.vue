@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useAuth } from "@/composables/useAuth";
 import { authService } from "@/services/auth.service";
 import BaseInput from "@/components/ui/BaseInput.vue";
@@ -14,6 +14,7 @@ const password = ref("");
 const error = ref("");
 const serverUnavailable = ref(false);
 const checkingServer = ref(false);
+const setupRequired = ref(false);
 
 const serverUnavailableMessage =
   'No se pudo conectar con el servidor local. Hacé click derecho en el ícono de FactuFlow junto al reloj de Windows y elegí "Reiniciar servicios". Cuando el ícono quede verde, presioná "Reintentar". Si no ves el ícono, abrí nuevamente FactuFlow Local.vbs.';
@@ -32,6 +33,11 @@ const checkServerAvailability = async (): Promise<boolean> => {
 const retryServerConnection = async () => {
   error.value = "";
   await checkServerAvailability();
+  try {
+    setupRequired.value = await authService.checkSetupRequired();
+  } catch {
+    setupRequired.value = false;
+  }
 };
 
 const handleSubmit = async () => {
@@ -58,6 +64,14 @@ const handleSubmit = async () => {
     error.value = err.message || "Error al iniciar sesión";
   }
 };
+
+onMounted(async () => {
+  try {
+    setupRequired.value = await authService.checkSetupRequired();
+  } catch {
+    setupRequired.value = false;
+  }
+});
 </script>
 
 <template>
@@ -136,8 +150,11 @@ const handleSubmit = async () => {
           </BaseButton>
         </form>
 
-        <div class="mt-4 text-center text-sm text-gray-600">
-          ¿Primera vez?
+        <div
+          v-if="setupRequired"
+          class="mt-4 text-center text-sm text-gray-600"
+        >
+          ¿Primera instalación?
           <router-link
             to="/setup"
             class="text-primary-600 hover:text-primary-700 font-medium"

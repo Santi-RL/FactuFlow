@@ -1,6 +1,6 @@
 # Estado actual
 
-Ultima actualizacion: 2026-06-03
+Última actualización: 2026-06-03
 
 ## Objetivo activo
 
@@ -10,7 +10,8 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
 
 ## Estado real del producto
 
-- Backend FastAPI operativo con auth, empresas, clientes, puntos de venta, certificados, comprobantes, PDF, lotes y reportes.
+- Backend FastAPI operativo con auth, usuarios, empresas, clientes, puntos de
+  venta, certificados, comprobantes, PDF, lotes y reportes.
 - Backend ya registra formatos configurables de importacion para lotes masivos, con formatos globales y particulares por emisor.
 - Backend ya registra perfiles de carga masiva por emisor para precargar
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
@@ -19,7 +20,8 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   `*.py`/`*.pyi`, se normalizó el working tree Python, se limpió el cache local
   roto de Black y `black --check app tests`, `ruff format --check app tests`,
   `ruff check app tests` y `pytest tests -q` quedaron OK.
-- Frontend Vue operativo con dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y mi empresa.
+- Frontend Vue operativo con dashboard, clientes, comprobantes, emisión masiva,
+  reportes, certificados, puntos de venta, emisores y usuarios.
 - Launcher local Windows manual agregado para desarrollo/QA: `FactuFlow
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
   PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
@@ -35,6 +37,12 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   y guia al usuario a usar click derecho en el icono del tray >
   `Reiniciar servicios`, o relanzar `FactuFlow Local.vbs` si el icono no
   aparece.
+- El setup inicial queda cerrado cuando ya existe cualquier usuario. La pantalla
+  `Configurar sistema` se muestra solo con `GET /api/auth/setup-status` en
+  estado requerido; las altas posteriores se hacen desde el menú `Usuarios`.
+- El rol `es_admin` queda definido como permiso para administrar usuarios. Los
+  usuarios comunes activos pueden operar todos los emisores configurados; el
+  emisor activo sigue resolviendo el alcance de datos por request.
 - Clawpatch backend/frontend/repo queda sin hallazgos abiertos despues del
   ciclo de reparaciones 2026-05-16/17.
 - PDF de comprobantes actualizado con formato administrativo alineado a la
@@ -65,6 +73,30 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo mas importante que quedo hecho hoy
+
+### Gestión inicial de usuarios 2026-06-03
+
+- La instalación nueva mantiene el flujo de primer administrador propietario,
+  pero ahora expone `GET /api/auth/setup-status` para que la UI muestre
+  `Configurar sistema` solo cuando no hay usuarios.
+- Se agregó `/api/usuarios` para administradores: listar, crear, editar,
+  desactivar/reactivar y restablecer contraseña. No hay borrado físico de
+  usuarios.
+- El backend impide que un administrador desactive, degrade o cambie el email de
+  su propia cuenta desde la sesión activa, preservando acceso administrativo.
+- Todos los usuarios activos pueden seleccionar cualquier emisor configurado por
+  `X-Empresa-Id` o `empresa_id`; `empresa_id` del usuario queda como preferencia
+  inicial, no como restricción de acceso operativo. El borrado físico de
+  emisores queda reservado a administradores porque puede afectar historial
+  fiscal y relaciones internas; antes de borrar se limpia esa preferencia en
+  usuarios globales para no eliminar cuentas por cascade.
+- El frontend muestra el selector `Emisor activo` para todos los usuarios y
+  agrega la pantalla `Usuarios` solo para administradores, con guard de ruta.
+- Verificación focalizada:
+  `pytest tests/test_auth.py tests/test_usuarios_api.py tests/test_clientes.py tests/test_empresas.py -q`
+  OK (37 tests), frontend
+  `npm run test:unit -- --run src/views/auth/LoginView.spec.ts src/stores/empresa.spec.ts src/components/layout/Sidebar.spec.ts`
+  OK (12 tests) y `npm run type-check` OK.
 
 ### Emisión masiva por sublotes ARCA 2026-06-03
 
@@ -850,15 +882,15 @@ Quedo validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 195 tests
+  - `pytest tests -q` OK, 221 tests
   - `ruff check app tests` OK
   - `black --check app tests` OK
-  - `alembic heads` OK, head `a3b4c5d6e7f8`
+  - `alembic heads` OK, head `b4c5d6e7f8a9`
 - Frontend:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 47 tests
+  - `npm run test:unit` OK, 53 tests
   - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
     del runner; ver seccion `Verificacion automatizada 2026-05-07`
 

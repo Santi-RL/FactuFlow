@@ -1,6 +1,6 @@
 # QA manual
 
-Ultima actualizacion: 2026-06-03
+Última actualización: 2026-06-03
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -56,8 +56,32 @@ cd backend
 ```
 
 Si deja de funcionar, validar la base local o resetear la clave con el mismo comando.
+Con la aplicación ya configurada, las altas habituales se hacen desde
+`Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Gestión de usuarios - verificación técnica 2026-06-03
+
+- `GET /api/auth/setup-status` devuelve setup requerido solo cuando no hay
+  usuarios. El enlace `Configurar sistema` en login queda oculto en
+  instalaciones ya configuradas.
+- La pantalla `Usuarios` queda visible solo para administradores y permite alta,
+  edición, desactivación/reactivación y reseteo de contraseña.
+- Los usuarios comunes no ven el menú `Usuarios`, pero pueden seleccionar y
+  operar cualquier emisor configurado desde `Emisor activo`.
+- El backend bloquea login de usuarios inactivos y evita que un administrador
+  desactive, degrade o cambie el email de su propia cuenta desde la sesión
+  activa.
+- Verificación automatizada segura:
+  backend `pytest tests/test_auth.py tests/test_usuarios_api.py tests/test_clientes.py tests/test_empresas.py -q`
+  OK; frontend
+  `npm run test:unit -- --run src/views/auth/LoginView.spec.ts src/stores/empresa.spec.ts src/components/layout/Sidebar.spec.ts`
+  OK; `npm run type-check` OK.
+- Pendiente de QA visual local: iniciar con un administrador real, abrir
+  `Usuarios`, crear un usuario común de prueba, verificar que puede ingresar,
+  cambiar de emisor activo y no ver el menú `Usuarios`; luego desactivarlo y
+  confirmar que ya no puede iniciar sesión.
 
 ### Emisión masiva por sublotes ARCA - verificación técnica 2026-06-03
 
@@ -520,10 +544,9 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificacion automatizada 2026-05-18: backend `pytest tests -q` OK
-  (195 tests), `ruff`, `black` y launcher local `-SelfTest` OK; frontend
-  `test:unit` OK (47 tests), `type-check` OK, `build` OK y `lint:check` OK
-  sin errores ni warnings.
+- Verificación automatizada vigente 2026-06-03: backend `pytest tests -q` OK
+  (221 tests), `ruff` y `black` OK; frontend `test:unit` OK (53 tests),
+  `type-check` OK, `build` OK y `lint:check` OK sin errores ni warnings.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
   solo desde QA local: observabilidad operativa estandar, backup/restauracion,
   trazabilidad visible y soporte de despliegue.

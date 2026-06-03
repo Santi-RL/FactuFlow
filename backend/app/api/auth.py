@@ -15,10 +15,36 @@ from app.core.security import (
     get_current_user,
 )
 from app.models.usuario import Usuario
-from app.schemas.usuario import UsuarioLogin, Token, UsuarioCreate, UsuarioResponse
+from app.schemas.usuario import (
+    SetupStatus,
+    Token,
+    UsuarioCreate,
+    UsuarioLogin,
+    UsuarioResponse,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _credentials_exception() -> HTTPException:
+    """Construye una respuesta genérica para credenciales inválidas."""
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Email o contraseña incorrectos",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _normalizar_email(email: str) -> str:
+    """Normaliza emails para búsquedas y altas de usuarios."""
+    return email.strip().lower()
+
+
+async def _count_usuarios(db: AsyncSession) -> int:
+    """Cuenta usuarios existentes para resolver el estado de instalación."""
+    result = await db.execute(select(func.count(Usuario.id)))
+    return result.scalar() or 0
 
 
 @router.post("/login", response_model=Token)
@@ -36,17 +62,27 @@ async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
     Raises:
         HTTPException: Si las credenciales son incorrectas
     """
-    # Buscar usuario por email
-    result = await db.execute(select(Usuario).where(Usuario.email == credentials.email))
+    email_raw = str(credentials.email).strip()
+    email = _normalizar_email(email_raw)
+
+    # Buscar usuario por email exacto primero para instalaciones legacy.
+    result = await db.execute(select(Usuario).where(Usuario.email == email_raw))
     user = result.scalar_one_or_none()
+    if user is None:
+        result = await db.execute(
+            select(Usuario).where(func.lower(Usuario.email) == email)
+        )
+        usuarios = result.scalars().all()
+        if len(usuarios) > 1:
+            logger.error(
+                "Login ambiguo por emails duplicados en distinta capitalización"
+            )
+            raise _credentials_exception()
+        user = usuarios[0] if usuarios else None
 
     if not user or not verify_password(credentials.password, user.hashed_password):
-        logger.warning("Login rechazado para email=%s", credentials.email)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        logger.warning("Login rechazado para email=%s", email)
+        raise _credentials_exception()
 
     if not user.activo:
         logger.warning("Intento de login con usuario inactivo email=%s", user.email)
@@ -79,6 +115,18 @@ async def get_me(current_user: Usuario = Depends(get_current_user)):
     return current_user
 
 
+@router.get("/setup-status", response_model=SetupStatus)
+async def get_setup_status(db: AsyncSession = Depends(get_db)):
+    """
+    Indicar si el sistema todavía requiere configuración inicial.
+
+    Returns:
+        Estado de setup requerido
+    """
+    user_count = await _count_usuarios(db)
+    return SetupStatus(setup_required=user_count == 0)
+
+
 @router.post(
     "/setup", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED
 )
@@ -103,8 +151,7 @@ async def setup_initial_user(
         await tomar_lock_bootstrap(db)
 
         # Verificar si ya existe algún usuario dentro del lock de bootstrap
-        result = await db.execute(select(func.count(Usuario.id)))
-        user_count = result.scalar()
+        user_count = await _count_usuarios(db)
 
         if user_count > 0:
             raise HTTPException(
@@ -116,12 +163,13 @@ async def setup_initial_user(
         hashed_password = get_password_hash(user_data.password)
 
         new_user = Usuario(
-            email=user_data.email,
+            email=_normalizar_email(str(user_data.email)),
             hashed_password=hashed_password,
             nombre=user_data.nombre,
             es_admin=True,  # Primer usuario siempre es admin
             activo=True,
             empresa_id=user_data.empresa_id,
+            password_changed_at=datetime.utcnow(),
         )
 
         db.add(new_user)

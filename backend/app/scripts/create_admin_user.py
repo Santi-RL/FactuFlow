@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+from datetime import datetime
 from getpass import getpass
 import sys
 
@@ -107,6 +108,7 @@ async def _create_or_update_admin(args: argparse.Namespace) -> tuple[Usuario, bo
                 es_admin=True,
                 activo=not args.inactive,
                 empresa_id=args.empresa_id,
+                password_changed_at=datetime.utcnow(),
             )
             db.add(user)
             created = True
@@ -117,6 +119,7 @@ async def _create_or_update_admin(args: argparse.Namespace) -> tuple[Usuario, bo
             user.empresa_id = args.empresa_id
             if password is not None:
                 user.hashed_password = get_password_hash(password)
+                user.password_changed_at = datetime.utcnow()
             created = False
 
         try:

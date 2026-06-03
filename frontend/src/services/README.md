@@ -8,6 +8,7 @@ Servicios para hablar con el backend (HTTP).
 services/
 ├── api.ts                    # Axios configurado (baseURL, interceptors, etc.)
 ├── auth.service.ts           # Auth (setup/login/me)
+├── usuarios.service.ts       # Administración de usuarios
 ├── empresa.service.ts        # Empresa
 ├── clientes.service.ts       # Clientes
 ├── puntos_venta.service.ts   # Puntos de venta
@@ -29,6 +30,11 @@ services/
 - Los tipos de formatos viven en `frontend/src/types/formato-importacion.ts`.
 - Los tipos de perfiles de carga masiva viven en
   `frontend/src/types/perfil-carga-masiva.ts`.
+- Los tipos de usuarios viven en `frontend/src/types/auth.ts`.
+- `auth.service.ts` usa `GET /api/auth/setup-status` para mostrar setup inicial
+  solo cuando no hay usuarios.
+- `usuarios.service.ts` habla con `/api/usuarios`; esas rutas son exclusivas de
+  administradores.
 - `formatos-importacion.service.ts` lista formatos disponibles y detecta
   candidatos desde un Excel antes de validar el lote.
 - `lotes-comprobantes.service.ts` puede enviar `formato_version_id` al validar

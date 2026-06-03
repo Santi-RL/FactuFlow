@@ -6,7 +6,8 @@ Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 
 - `deps.py`: dependencias compartidas (DB session, usuario actual, etc.).
 - `health.py`: health checks.
-- `auth.py`: setup/login/me.
+- `auth.py`: setup-status/setup/login/me.
+- `usuarios.py`: administración de usuarios por administradores.
 - `empresas.py`: CRUD de empresas.
 - `clientes.py`: CRUD de clientes.
 - `puntos_venta.py`: CRUD de puntos de venta.
@@ -41,6 +42,10 @@ Routers relacionados con emision masiva:
 Regla critica: ningun endpoint de emision debe asumir fecha del dia actual como
 fecha fiscal. `fecha_emision` debe llegar explicita desde el usuario o desde una
 politica de lote confirmada antes de validar.
+
+Regla de usuarios: `es_admin` significa administrar usuarios, no operar emisores.
+Todos los usuarios activos pueden operar el emisor activo seleccionado. Solo las
+rutas `/api/usuarios` quedan reservadas a administradores.
 
 Regla critica adicional: antes de llamar a un endpoint que pueda solicitar CAE
 real, la UI debe mostrar una confirmacion final de fecha fiscal:

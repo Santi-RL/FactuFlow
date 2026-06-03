@@ -261,12 +261,12 @@ async def test_admin_rechaza_header_empresa_cero(
 
 
 @pytest.mark.asyncio
-async def test_usuario_no_admin_rechaza_empresa_query_ajena(
+async def test_usuario_comun_puede_resolver_empresa_por_query_legacy(
     client: AsyncClient,
     auth_headers: dict,
     db_session: AsyncSession,
 ):
-    """Un usuario comun no puede cambiar emisor por query ni por header."""
+    """Un usuario común puede operar cualquier emisor configurado."""
     segunda = Empresa(
         razon_social="Empresa Ajena S.A.",
         cuit="30333333330",
@@ -278,6 +278,16 @@ async def test_usuario_no_admin_rechaza_empresa_query_ajena(
         inicio_actividades=date(2020, 1, 1),
     )
     db_session.add(segunda)
+    await db_session.flush()
+    db_session.add(
+        Cliente(
+            empresa_id=segunda.id,
+            razon_social="Cliente Segundo Emisor",
+            tipo_documento="CUIT",
+            numero_documento="30777777774",
+            condicion_iva="RI",
+        )
+    )
     await db_session.commit()
     await db_session.refresh(segunda)
 
@@ -286,5 +296,7 @@ async def test_usuario_no_admin_rechaza_empresa_query_ajena(
         headers=auth_headers,
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "No tienes permiso para operar con esa empresa"
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["razon_social"] == "Cliente Segundo Emisor"

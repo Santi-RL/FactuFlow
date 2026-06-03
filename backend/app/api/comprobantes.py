@@ -10,10 +10,9 @@ from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.api.deps import get_current_empresa_id, get_db, get_current_user
+from app.api.deps import get_current_empresa_id, get_db
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
-from app.models.usuario import Usuario
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     EmitirComprobanteResponse,
@@ -43,7 +42,6 @@ async def listar_comprobantes(
     page: int = Query(1, ge=1, description="Página"),
     per_page: int = Query(20, ge=1, le=100, description="Resultados por página"),
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
@@ -55,12 +53,10 @@ async def listar_comprobantes(
     - cliente_id: Cliente específico
     - buscar: Búsqueda por número o nombre de cliente
     """
-    empresa_id = empresa_activa_id if current_user.es_admin else current_user.empresa_id
-
     # Base query
     stmt = (
         select(Comprobante)
-        .where(Comprobante.empresa_id == empresa_id)
+        .where(Comprobante.empresa_id == empresa_activa_id)
         .options(joinedload(Comprobante.cliente), joinedload(Comprobante.punto_venta))
     )
 
@@ -137,7 +133,6 @@ async def listar_comprobantes(
 async def obtener_comprobante(
     comprobante_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
@@ -160,11 +155,7 @@ async def obtener_comprobante(
 
     if not comprobante:
         raise HTTPException(status_code=404, detail="Comprobante no encontrado")
-    if not current_user.es_admin and comprobante.empresa_id != current_user.empresa_id:
-        raise HTTPException(
-            status_code=403, detail="No tienes acceso a este comprobante"
-        )
-    if current_user.es_admin and comprobante.empresa_id != empresa_activa_id:
+    if comprobante.empresa_id != empresa_activa_id:
         raise HTTPException(
             status_code=403,
             detail="El comprobante no pertenece a la empresa activa seleccionada",
@@ -235,7 +226,6 @@ async def obtener_comprobante(
 async def emitir_comprobante(
     request: EmitirComprobanteRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
@@ -310,7 +300,6 @@ async def obtener_proximo_numero(
     punto_venta: int,
     tipo: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """

@@ -2,6 +2,7 @@
 import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useUIStore } from "@/stores/ui";
+import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
   HomeIcon,
@@ -14,63 +15,75 @@ import {
   XMarkIcon,
   ChartBarIcon,
   MapPinIcon,
+  UserGroupIcon,
 } from "@heroicons/vue/24/outline";
 import certificadosService from "@/services/certificados.service";
 
 const route = useRoute();
 const uiStore = useUIStore();
+const authStore = useAuthStore();
 const empresaStore = useEmpresaStore();
 
 const certificadosPorVencer = ref(0);
 let intervalId: number | null = null;
 let cargarAlertasRequestId = 0;
 
-const menuItems = computed(() => [
-  { name: "Dashboard", icon: HomeIcon, path: "/", testId: "nav-dashboard" },
-  {
-    name: "Clientes",
-    icon: UsersIcon,
-    path: "/clientes",
-    testId: "nav-clientes",
-  },
-  {
-    name: "Comprobantes",
-    icon: DocumentTextIcon,
-    path: "/comprobantes",
-    testId: "nav-comprobantes",
-  },
-  {
-    name: "Emision masiva",
-    icon: DocumentDuplicateIcon,
-    path: "/comprobantes/lotes",
-    testId: "nav-lotes-comprobantes",
-  },
-  {
-    name: "Reportes",
-    icon: ChartBarIcon,
-    path: "/reportes",
-    testId: "nav-reportes",
-  },
-  {
-    name: "Certificados",
-    icon: KeyIcon,
-    path: "/certificados",
-    testId: "nav-certificados",
-    badge: certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null,
-  },
-  {
-    name: "Puntos de venta",
-    icon: MapPinIcon,
-    path: "/puntos-venta",
-    testId: "nav-puntos-venta",
-  },
-  {
-    name: "Emisores",
-    icon: BuildingOfficeIcon,
-    path: "/empresa",
-    testId: "nav-empresa",
-  },
-]);
+const menuItems = computed(() =>
+  [
+    { name: "Dashboard", icon: HomeIcon, path: "/", testId: "nav-dashboard" },
+    {
+      name: "Clientes",
+      icon: UsersIcon,
+      path: "/clientes",
+      testId: "nav-clientes",
+    },
+    {
+      name: "Comprobantes",
+      icon: DocumentTextIcon,
+      path: "/comprobantes",
+      testId: "nav-comprobantes",
+    },
+    {
+      name: "Emisión masiva",
+      icon: DocumentDuplicateIcon,
+      path: "/comprobantes/lotes",
+      testId: "nav-lotes-comprobantes",
+    },
+    {
+      name: "Reportes",
+      icon: ChartBarIcon,
+      path: "/reportes",
+      testId: "nav-reportes",
+    },
+    {
+      name: "Certificados",
+      icon: KeyIcon,
+      path: "/certificados",
+      testId: "nav-certificados",
+      badge:
+        certificadosPorVencer.value > 0 ? certificadosPorVencer.value : null,
+    },
+    {
+      name: "Puntos de venta",
+      icon: MapPinIcon,
+      path: "/puntos-venta",
+      testId: "nav-puntos-venta",
+    },
+    {
+      name: "Emisores",
+      icon: BuildingOfficeIcon,
+      path: "/empresa",
+      testId: "nav-empresa",
+    },
+    {
+      name: "Usuarios",
+      icon: UserGroupIcon,
+      path: "/usuarios",
+      testId: "nav-usuarios",
+      requiresAdmin: true,
+    },
+  ].filter((item) => !item.requiresAdmin || authStore.user?.es_admin),
+);
 
 const isActive = (path: string) => {
   if (path === "/") {

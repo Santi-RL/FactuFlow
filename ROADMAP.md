@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Ultima actualizacion: 2026-06-03
+Última actualización: 2026-06-03
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -44,6 +44,10 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - El modelo multiemisor vigente es el de una empresa/emisor activo por vez. Un
   contador independiente o estudio chico puede administrar varios CUITs, pero
   toda operacion debe quedar scopiada al emisor activo seleccionado.
+- El modelo inicial de usuarios es simple: el primer usuario de una instalación
+  es administrador propietario; luego solo administradores crean, desactivan,
+  reactivan o resetean usuarios. Todos los usuarios activos pueden operar todos
+  los emisores configurados; `es_admin` significa administrar usuarios.
 - No se avanza por ahora hacia una plataforma multiempresa compleja con
   administracion central completa, permisos finos por organizacion, reportes
   globales consolidados u operacion simultanea entre emisores.
@@ -69,6 +73,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   explicito por vez
 - [~] Criterios UX no tecnicos parcialmente implementados
 - [x] Login informa claramente cuando el servidor local no esta disponible
+- [x] Setup inicial cerrado cuando ya existe cualquier usuario y administración
+  de usuarios disponible dentro de la aplicación
 - [x] Produccion real inicial utilizada con comprobantes autorizados
 - [ ] Refuerzo continuo de aislamiento entre emisores antes de ampliar volumen
   o uso productivo
@@ -109,6 +115,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   antes de sincronizar WSFE
 - [x] Emisor activo consistente por pestaña y API con rechazo de conflictos
   entre `X-Empresa-Id` y query legacy `empresa_id`
+- [x] API `/api/usuarios` para administradores y `GET /api/auth/setup-status`
+  para mostrar setup inicial solo si no hay usuarios
 - [~] Endurecimiento de seguridad multiemisor para evitar mezcla de clientes,
   certificados, puntos de venta, comprobantes, lotes, PDFs, reportes, perfiles
   y formatos entre emisores
@@ -122,6 +130,11 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Vue + Pinia + Router operativos
 - [x] Dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y empresa operativos
 - [x] Selector de emisor activo para operar varios CUITs desde un usuario
+- [x] Selector de emisor activo visible para todos los usuarios activos
+- [x] Pantalla `Usuarios` reservada a administradores para alta, edición,
+  desactivación/reactivación y reseteo de claves
+- [ ] Cambio de contraseña propio para usuarios autenticados, sin intervención
+  del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
   cambiar el selector
 - [x] Vistas sensibles descartan respuestas asincronicas viejas al cambiar el
@@ -139,6 +152,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Perfiles Docker separados para local y produccion
 - [x] PostgreSQL definido como base recomendada para operacion real
 - [x] Comando administrativo para crear/promover usuario propietario
+- [x] Alta inicial por UI solo cuando la instalación no tiene usuarios; altas
+  posteriores desde menú `Usuarios`
 - [~] Instalacion en VPS con Docker produccion y PostgreSQL como proximo hito
 - [ ] CI/CD completo y alineado al estado real del repo
 - [~] Observabilidad operativa estandar definida como requisito post-piloto
@@ -342,6 +357,8 @@ Objetivo: reducir al minimo la necesidad de soporte tecnico para operar.
 - [ ] Checklists previos a la emision
 - [ ] Vistas vacias guiadas
 - [ ] Confirmaciones claras para acciones sensibles
+- [ ] Pantalla o sección `Mi cuenta` para que cada usuario cambie su propia
+  contraseña
 - [ ] Revision completa de accesibilidad y legibilidad
 
 ## Fase 5 - Datos, migraciones y estabilidad
@@ -386,8 +403,9 @@ explicito por vez. No incluye, por ahora, administracion central compleja,
 permisos finos por organizacion, reportes globales consolidados ni operacion
 simultanea entre emisores.
 
-- [x] Header `X-Empresa-Id` para admins
+- [x] Header `X-Empresa-Id` para usuarios autenticados activos
 - [x] Selector de emisor activo en frontend
+- [x] Usuarios operativos con acceso a todos los emisores configurados
 - [x] Alta basica de nuevos emisores desde UI admin
 - [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`,
   incluyendo punto de venta por archivo o punto fijo usable del emisor

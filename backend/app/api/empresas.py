@@ -2,13 +2,13 @@
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 
 from app.core.database import get_db
 from app.core.bootstrap import BOOTSTRAP_LOCK, tomar_lock_bootstrap
 from app.core.security import (
-    get_current_user,
     get_current_admin_user,
+    get_current_user,
     get_current_user_optional,
 )
 from app.models.usuario import Usuario
@@ -31,14 +31,14 @@ router = APIRouter()
 @router.get("", response_model=list[EmpresaResponse])
 async def list_empresas(
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_admin_user),
+    _current_user: Usuario = Depends(get_current_user),
 ):
     """
-    Listar todas las empresas (solo admin).
+    Listar todas las empresas configuradas.
 
     Args:
         db: Sesión de base de datos
-        current_user: Usuario administrador autenticado
+        current_user: Usuario autenticado
 
     Returns:
         Lista de empresas
@@ -55,7 +55,7 @@ async def create_empresa(
     current_user: Usuario | None = Depends(get_current_user_optional),
 ):
     """
-    Crear una nueva empresa (solo admin).
+    Crear una nueva empresa.
 
     Args:
         empresa_data: Datos de la empresa
@@ -82,11 +82,6 @@ async def create_empresa(
                     detail="No se pudo validar las credenciales",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            if not current_user.es_admin:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos de administrador",
-                )
 
         # Verificar que el CUIT no exista
         result = await db.execute(
@@ -112,7 +107,7 @@ async def create_empresa(
 @router.post("/extraer-constancia", response_model=ConstanciaArcaResponse)
 async def extraer_constancia_arca(
     file: UploadFile = File(...),
-    _current_user: Usuario = Depends(get_current_admin_user),
+    _current_user: Usuario = Depends(get_current_user),
 ):
     """
     Extraer datos fiscales desde una constancia de inscripcion ARCA.
@@ -153,7 +148,7 @@ async def extraer_constancia_arca(
 async def get_empresa(
     empresa_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    _current_user: Usuario = Depends(get_current_user),
 ):
     """
     Obtener una empresa por ID.
@@ -167,7 +162,7 @@ async def get_empresa(
         Empresa
 
     Raises:
-        HTTPException: Si la empresa no existe o el usuario no tiene permiso
+        HTTPException: Si la empresa no existe
     """
     result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     empresa = result.scalar_one_or_none()
@@ -175,13 +170,6 @@ async def get_empresa(
     if not empresa:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada"
-        )
-
-    # Verificar permisos: solo admin o usuario de la misma empresa
-    if not current_user.es_admin and current_user.empresa_id != empresa_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No tienes permiso para ver esta empresa",
         )
 
     return empresa
@@ -192,7 +180,7 @@ async def update_empresa(
     empresa_id: int,
     empresa_data: EmpresaUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    _current_user: Usuario = Depends(get_current_user),
 ):
     """
     Actualizar una empresa.
@@ -207,7 +195,7 @@ async def update_empresa(
         Empresa actualizada
 
     Raises:
-        HTTPException: Si la empresa no existe o el usuario no tiene permiso
+        HTTPException: Si la empresa no existe
     """
     result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     empresa = result.scalar_one_or_none()
@@ -215,13 +203,6 @@ async def update_empresa(
     if not empresa:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada"
-        )
-
-    # Verificar permisos: solo admin o usuario de la misma empresa
-    if not current_user.es_admin and current_user.empresa_id != empresa_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No tienes permiso para actualizar esta empresa",
         )
 
     # Actualizar campos
@@ -239,10 +220,10 @@ async def update_empresa(
 async def delete_empresa(
     empresa_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_admin_user),
+    _current_user: Usuario = Depends(get_current_admin_user),
 ):
     """
-    Eliminar una empresa (solo admin).
+    Eliminar una empresa (solo administradores).
 
     Args:
         empresa_id: ID de la empresa
@@ -260,5 +241,8 @@ async def delete_empresa(
             status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada"
         )
 
+    await db.execute(
+        update(Usuario).where(Usuario.empresa_id == empresa_id).values(empresa_id=None)
+    )
     await db.delete(empresa)
     await db.commit()

@@ -13,7 +13,8 @@ views/
 ├── clientes/        # CRUD clientes
 ├── comprobantes/    # Emision, consulta y lotes de comprobantes
 ├── certificados/    # Listado + wizard de certificados
-└── reportes/        # Reportes
+├── reportes/        # Reportes
+└── usuarios/        # Administración de usuarios
 ```
 
 Las rutas se definen en `frontend/src/router/index.ts`.
@@ -37,3 +38,7 @@ Las rutas se definen en `frontend/src/router/index.ts`.
   `Datos del emisor` edita datos fiscales y la pestaña `Carga masiva` administra
   perfiles de carga masiva por emisor. Esos perfiles solo precargan la pantalla
   de lotes; no validan ni emiten automaticamente.
+- `usuarios/UsuariosView.vue`: administración de usuarios. Solo se muestra a
+  administradores; permite crear, editar, desactivar/reactivar y resetear
+  contraseñas. Los usuarios comunes operan emisores, pero no acceden a esta
+  vista.

@@ -115,13 +115,21 @@ configura inicio automatico con Windows.
    ```
 
 5. **Crear usuario administrador**
+
+   Si la base todavía no tiene usuarios, también puedes abrir el frontend y
+   usar `Configurar sistema`. Esa opción crea el primer administrador
+   propietario y queda deshabilitada automáticamente cuando ya existe cualquier
+   usuario.
+
+   Camino alternativo por consola:
+
    ```bash
    python -m app.scripts.create_admin_user
    ```
 
    El comando usa la base configurada por `DATABASE_URL`. Pide email, nombre y
-   contrasena sin mostrarla en pantalla. Si el email ya existe, promueve ese usuario
-   a administrador, lo activa y permite resetear la contrasena.
+   contraseña sin mostrarla en pantalla. Si el email ya existe, promueve ese
+   usuario a administrador, lo activa y permite resetear la contraseña.
 
 6. **Ejecutar servidor**
    ```bash
@@ -207,7 +215,11 @@ necesario generar certificados nuevos para el VPS.
 
 6. **Crear usuario propietario**
 
-   Con Docker Compose de produccion:
+   Si el frontend ya está publicado y la base no tiene usuarios, entrar a la
+   aplicación y usar `Configurar sistema` para crear el primer administrador
+   propietario.
+
+   Camino alternativo por consola con Docker Compose de producción:
 
    ```bash
    docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backend \
@@ -221,9 +233,10 @@ necesario generar certificados nuevos para el VPS.
    python -m app.scripts.create_admin_user
    ```
 
-   Crear este usuario antes de operar una instalacion nueva para tener acceso
-   total a empresas, certificados, puntos de venta, comprobantes, lotes y
-   reportes.
+   Crear este usuario antes de operar una instalación nueva para tener acceso
+   total. Después de ese primer alta, los usuarios adicionales se administran
+   desde el menú `Usuarios`. Los usuarios comunes pueden operar todos los
+   emisores; solo el menú `Usuarios` queda reservado a administradores.
 
 7. **Configurar Nginx (opcional, para HTTPS)**
    ```bash

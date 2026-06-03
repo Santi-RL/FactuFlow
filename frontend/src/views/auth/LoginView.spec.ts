@@ -17,11 +17,13 @@ vi.mock("@/composables/useAuth", () => ({
 vi.mock("@/services/auth.service", () => ({
   authService: {
     checkBackendAvailable: vi.fn(),
+    checkSetupRequired: vi.fn(),
   },
 }));
 
 const mockedAuthService = authService as unknown as {
   checkBackendAvailable: Mock;
+  checkSetupRequired: Mock;
 };
 
 const mountView = () =>
@@ -43,6 +45,7 @@ const completarLogin = async (wrapper: ReturnType<typeof mount>) => {
 describe("LoginView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedAuthService.checkSetupRequired.mockResolvedValue(false);
   });
 
   it("muestra un mensaje claro si el backend no responde", async () => {
@@ -96,5 +99,15 @@ describe("LoginView", () => {
     expect(wrapper.text()).not.toContain(
       "FactuFlow no está listo para iniciar sesión",
     );
+  });
+
+  it("muestra el enlace de configuración solo si falta el setup inicial", async () => {
+    mockedAuthService.checkSetupRequired.mockResolvedValueOnce(true);
+    const wrapper = mountView();
+
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("¿Primera instalación?");
+    expect(wrapper.text()).toContain("Configurar sistema");
   });
 });

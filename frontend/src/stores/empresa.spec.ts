@@ -49,6 +49,17 @@ const usuarioAdmin: Usuario = {
   ultimo_login: null,
 };
 
+const usuarioOperativo: Usuario = {
+  id: 2,
+  email: "operativo@example.com",
+  nombre: "Operativo",
+  empresa_id: 1,
+  activo: true,
+  es_admin: false,
+  created_at: "2024-01-01T00:00:00",
+  ultimo_login: null,
+};
+
 const mockedEmpresaService = empresaService as unknown as {
   getAll: Mock;
   getById: Mock;
@@ -102,6 +113,27 @@ describe("empresa store", () => {
     expect(window.localStorage.getItem("empresa_activa_id")).toBeNull();
     expect(window.sessionStorage.getItem("empresa_activa_id")).toBeNull();
     expect(getEmpresaActivaIdForRequest()).toBeNull();
+  });
+
+  it("permite a un usuario operativo inicializar otro emisor guardado", async () => {
+    const empresaUno = empresaMock(1, "Emisor Uno");
+    const empresaDos = empresaMock(2, "Emisor Dos");
+    window.localStorage.setItem("empresa_activa_id", "2");
+
+    mockedEmpresaService.getAll.mockResolvedValue([empresaUno, empresaDos]);
+    mockedEmpresaService.getById.mockResolvedValue(empresaDos);
+
+    const authStore = useAuthStore();
+    authStore.user = usuarioOperativo;
+    const empresaStore = useEmpresaStore();
+
+    await empresaStore.inicializarEmpresaActiva();
+
+    expect(mockedEmpresaService.getAll).toHaveBeenCalled();
+    expect(mockedEmpresaService.getById).toHaveBeenCalledWith(2);
+    expect(empresaStore.empresaActivaId).toBe(2);
+    expect(empresaStore.empresas).toHaveLength(2);
+    expect(getEmpresaActivaIdForRequest()).toBe("2");
   });
 
   it("no persiste un emisor que falla la validacion", async () => {

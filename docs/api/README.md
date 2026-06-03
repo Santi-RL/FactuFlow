@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Ultima actualizacion: 2026-05-29
+Última actualización: 2026-06-03
 
 Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -47,11 +47,17 @@ Para endpoints protegidos:
 Authorization: Bearer {token}
 ```
 
-Para usuarios admin que operan un emisor activo distinto al propio, agregar:
+Para operar un emisor activo explícito, cualquier usuario autenticado puede
+agregar:
 
 ```http
 X-Empresa-Id: 2
 ```
+
+También se conserva el query legacy `empresa_id` para compatibilidad. Si se
+envían `X-Empresa-Id` y `empresa_id` con valores distintos, la API rechaza el
+pedido. El campo `user.es_admin` significa que el usuario puede administrar
+usuarios; no limita el acceso operativo a emisores.
 
 ## Health
 
@@ -66,8 +72,31 @@ GET /
 ```http
 POST /api/auth/login
 GET /api/auth/me
+GET /api/auth/setup-status
 POST /api/auth/setup
 ```
+
+`GET /api/auth/setup-status` devuelve `{"setup_required": true}` solo cuando no
+hay usuarios creados. `POST /api/auth/setup` crea el primer usuario
+administrador propietario y queda cerrado en cuanto existe cualquier usuario.
+
+## Usuarios
+
+```http
+GET /api/usuarios
+POST /api/usuarios
+PUT /api/usuarios/{usuario_id}
+POST /api/usuarios/{usuario_id}/desactivar
+POST /api/usuarios/{usuario_id}/reactivar
+POST /api/usuarios/{usuario_id}/reset-password
+```
+
+Estos endpoints requieren un usuario con `es_admin=true`. `DELETE` físico de
+usuarios no está expuesto: eliminar desde la interfaz significa desactivar
+`activo=false`, conservando historial y trazabilidad. El backend impide que un
+administrador desactive o degrade su propia cuenta, y también impide cambiar el
+email propio desde la sesión actual porque el JWT vigente usa el email como
+identificador.
 
 ## Empresas / Emisores
 
@@ -82,6 +111,12 @@ DELETE /api/empresas/{empresa_id}
 
 `POST /api/empresas/extraer-constancia` recibe una constancia ARCA en PDF y
 devuelve datos fiscales detectados para precompletar el alta de emisor.
+
+Todos los usuarios activos pueden listar, crear y editar emisores. El borrado
+físico `DELETE /api/empresas/{empresa_id}` queda reservado a administradores
+porque puede afectar historial fiscal y relaciones internas.
+Si un usuario tenía ese emisor como preferido, la API limpia esa preferencia
+antes de borrar el emisor; no borra la cuenta del usuario.
 
 Los emisores aceptan `ingresos_brutos` como campo opcional. Si esta cargado, se
 usa en el PDF de comprobantes.
@@ -211,9 +246,9 @@ POST /api/formatos-importacion
 POST /api/formatos-importacion/detectar
 ```
 
-Estos endpoints administran y detectan formatos configurables para emision
-masiva. Todos respetan el emisor activo por JWT y, para admins, por
-`X-Empresa-Id`.
+Estos endpoints administran y detectan formatos configurables para emisión
+masiva. Todos respetan el emisor activo resuelto por `X-Empresa-Id`, por el
+query legacy `empresa_id` o por la preferencia del usuario.
 
 `GET /api/formatos-importacion` lista formatos globales y formatos particulares
 del emisor activo. Cada formato expone su `version_vigente`.

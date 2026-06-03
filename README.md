@@ -17,13 +17,17 @@ operativo vigente.
 
 Capacidades actuales:
 
-- configuracion inicial de empresa y usuario administrador
+- configuracion inicial de empresa y usuario administrador propietario
+- gestion de usuarios desde la aplicacion: solo administradores pueden crear,
+  desactivar, reactivar o resetear usuarios
 - emision individual de comprobantes con CAE
 - emision masiva desde Excel con validacion previa, seguimiento del lote y archivo observado
 - certificados por empresa y ambiente
 - PDF de comprobantes y reportes basicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar informacion
+- todos los usuarios activos pueden operar todos los emisores configurados; el
+  rol administrador se reserva para administrar usuarios
 - uso productivo real controlado con evidencia privada local; no se versionan
   CUITs, CAEs, comprobantes, Excels ni logs privados
 
@@ -132,19 +136,28 @@ npm install
 npm run dev
 ```
 
-### Crear usuario administrador
+### Crear usuario administrador o propietario
 
-Para crear tu usuario propietario o promover un usuario existente a administrador:
+En una instalación nueva, la pantalla `Configurar sistema` solo aparece cuando
+no existe ningún usuario. Ese flujo crea el primer usuario administrador
+propietario y el primer emisor.
+
+Una vez creado al menos un usuario, el alta pública queda cerrada. Los nuevos
+usuarios se crean desde el menú `Usuarios`, visible únicamente para
+administradores.
+
+Para crear tu usuario propietario o promover un usuario existente a administrador
+desde consola:
 
 ```bash
 cd backend
 .venv\Scripts\python.exe -m app.scripts.create_admin_user
 ```
 
-El comando pide email, nombre y contrasena por consola. Si se ejecuta contra una base
-con `DATABASE_URL` de PostgreSQL, crea el administrador en esa base. Si ya existe un
-usuario con ese email, lo activa, lo deja como administrador y permite resetear su
-contrasena.
+El comando pide email, nombre y contraseña por consola. Si se ejecuta contra una
+base con `DATABASE_URL` de PostgreSQL, crea el administrador en esa base. Si ya
+existe un usuario con ese email, lo activa, lo deja como administrador y permite
+resetear su contraseña.
 
 ## Variables de entorno relevantes
 

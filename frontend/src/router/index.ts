@@ -39,6 +39,7 @@ const ReporteVentasView = () =>
 const ReporteIvaView = () => import("@/views/reportes/ReporteIvaView.vue");
 const RankingClientesView = () =>
   import("@/views/reportes/RankingClientesView.vue");
+const UsuariosView = () => import("@/views/usuarios/UsuariosView.vue");
 
 const router = createRouter({
   history: createWebHistory(),
@@ -89,6 +90,12 @@ const router = createRouter({
           path: "empresa",
           name: "empresa",
           component: EmpresaConfigView,
+        },
+        {
+          path: "usuarios",
+          name: "usuarios",
+          component: UsuariosView,
+          meta: { requiresAdmin: true },
         },
         {
           path: "puntos-venta",
@@ -171,11 +178,15 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+  const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
   const guestOnly = to.matched.some((record) => record.meta.guest);
 
   if (requiresAuth && !authStore.isAuthenticated) {
     // Redirigir a login si la ruta requiere autenticación
     next({ name: "login", query: { redirect: to.fullPath } });
+  } else if (requiresAdmin && !authStore.user?.es_admin) {
+    // Redirigir si el usuario no administra usuarios
+    next({ name: "dashboard" });
   } else if (guestOnly && authStore.isAuthenticated) {
     // Redirigir a dashboard si ya está autenticado y va a login/setup
     next({ name: "dashboard" });
