@@ -94,7 +94,8 @@
 - Perfiles de carga masiva por emisor: `docs/user-guide/README.md`,
   `docs/api/README.md`, `frontend/src/views/README.md`
 - Certificados y wizard: `docs/certificates/README.md`, `docs/certificados-wizard.md`
-- Instalacion y setup: `docs/setup/README.md`
+- Instalación y setup: `docs/setup/README.md`
+- Migración local a VPS: `docs/setup/vps-migration.md`
 - Manual de usuario: `docs/user-guide/README.md`
 - Seguridad y certificados: `docs/agents/security.md`
 - Observabilidad operativa estandar: `docs/agents/operational-observability.md`

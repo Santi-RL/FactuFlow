@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-03
+Última actualización: 2026-06-04
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -174,7 +174,9 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Comando administrativo para crear/promover usuario propietario
 - [x] Alta inicial por UI solo cuando la instalación no tiene usuarios; altas
   posteriores desde menú `Usuarios`
-- [~] Instalacion en VPS con Docker produccion y PostgreSQL como proximo hito
+- [~] Instalación en VPS con Docker producción y PostgreSQL como próximo hito
+- [x] Herramienta privada de preparación de migración local a PostgreSQL/VPS con
+  `preflight`, `export`, `import` y `validate`
 - [ ] CI/CD completo y alineado al estado real del repo
 - [~] Observabilidad operativa estandar definida como requisito post-piloto
 - [x] Gestor de almacenamiento administrativo para ver uso total y desglose por
@@ -409,7 +411,10 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Migracion inicial de esquema creada
 - [x] Modelos versionados de formatos de importacion y trazabilidad del mapeo usado por lote
 - [~] Estrategia de convivencia con DB local legacy
-- [ ] Stamping/migracion limpia de instalaciones existentes
+- [~] Stamping/migración limpia de instalaciones existentes
+- [x] Export/import privado desde SQLite local a PostgreSQL limpio, preservando
+  configuración operativa, certificados, formatos, perfiles, comprobantes e
+  ítems, y excluyendo lotes/artefactos no vitales
 - [ ] Politica clara de seeds y datos de desarrollo
 
 ### Calidad y testing
@@ -473,7 +478,9 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [x] `docker-compose.prod.yml` para VPS/produccion con PostgreSQL
 - [~] Instalacion real en VPS con `docker-compose.prod.yml`
 - [~] Variables de entorno cerradas por ambiente
-- [~] Guia de despliegue local y servidor
+- [~] Guía de despliegue local y servidor
+- [x] Runbook de migración local a VPS documentado en
+  `docs/setup/vps-migration.md`
 - [ ] Reverse proxy y TLS documentados
 
 ### Operacion
@@ -489,10 +496,12 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   acciones seguras de limpieza sobre artefactos no vitales
 - [ ] Healthchecks claros para backend, base, worker, ARCA y certificado del
   emisor activo
-- [ ] Backup y restauracion de base y certificados
-- [ ] Definir si los certificados productivos se migran desde local al VPS o si
-  se generan certificados nuevos para el servidor
-- [ ] Politica de manejo de secretos
+- [~] Backup y restauración de base y certificados
+- [x] Definir si los certificados productivos se migran desde local al VPS o si
+  se generan certificados nuevos para el servidor: se migran solo como reemplazo
+  del entorno local, con preflight obligatorio, archivos completos en
+  `CERTS_PATH` y re-cifrado de claves privadas para producción
+- [ ] Política de manejo de secretos
 
 ### Diagnostico operativo simple
 - [x] Decision de observabilidad operativa estandar documentada en
@@ -548,26 +557,28 @@ Objetivo: ampliar valor mas alla del MVP.
 
 1. Mantener documentacion viva alineada con el estado post-piloto productivo,
    separando evidencia privada de resumenes versionables.
-2. Realizar la instalacion en VPS con Docker produccion y PostgreSQL.
-3. Resolver la pregunta tecnica de certificados para VPS: migrar/copiar los
-   certificados productivos locales existentes o generar certificados nuevos
-   para el servidor.
-4. Implementar observabilidad operativa estandar: trazabilidad clara, pantalla
+2. Corregir en privado el certificado activo local que no resuelve `.crt` y
+   `.key` en `backend/certs`.
+3. Ejecutar el ensayo local de migración a PostgreSQL: `preflight`, `export`,
+   `alembic upgrade head`, `import` y `validate`.
+4. Realizar la instalación en VPS con Docker producción y PostgreSQL cuando el
+   ensayo local quede validado.
+5. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
    de estado del sistema integrada al launcher cuando exista un canal seguro,
-   logs utiles para soporte y mensajes simples para usuarios no tecnicos.
-5. Formalizar backup/restauracion de PostgreSQL, certificados y logs antes de
+   logs útiles para soporte y mensajes simples para usuarios no técnicos.
+6. Formalizar backup/restauración de PostgreSQL, certificados y logs antes de
    ampliar volumen productivo.
-6. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
+7. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
    descargables usando el gestor administrativo, especialmente PDFs, ZIPs y
    temporales de lotes.
-7. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
+8. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
    resguardo ZIP, confirmación `Ya lo descargué`, compactación y limpieza
    segura de temporales/logs/certificados huérfanos.
-8. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
+9. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
    de comprobantes, sin persistencia permanente en el servidor.
-9. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
+10. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
    confiable en auditorías.
-10. Definir la política de versiones posteriores al MVP.
+11. Definir la política de versiones posteriores al MVP.
 
 ## Criterio de exito del MVP
 

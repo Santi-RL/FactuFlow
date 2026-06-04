@@ -1,31 +1,31 @@
 # FactuFlow
 
-Sistema de facturacion electronica ARCA enfocado en usuarios administrativos no tecnicos, con emision individual y emision masiva por lote.
+Sistema de facturación electrónica ARCA enfocado en usuarios administrativos no técnicos, con emisión individual y emisión masiva por lote.
 
 ## Estado actual
 
 Version actual: `0.2.0-mvp`
 
-En este momento el proyecto esta en una etapa post-piloto productivo: el MVP ya
-fue validado en homologacion y tambien se uso en produccion real controlada. El
-trabajo actual se concentra en consolidar operacion, documentacion, despliegue y
-robustez sin perder las reglas fiscales criticas.
+En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
+fue validado en homologación y también se usó en producción real controlada. El
+trabajo actual se concentra en consolidar operación, documentación, despliegue y
+robustez sin perder las reglas fiscales críticas.
 
-El corte `0.2.0-mvp` del 2026-05-22 es la linea base actual. El historial
+El corte `0.2.0-mvp` del 2026-05-22 es la línea base actual. El historial
 anterior queda resumido en `CHANGELOG.md`; no debe confundirse con el estado
 operativo vigente.
 
 Capacidades actuales:
 
-- configuracion inicial de empresa y usuario administrador propietario
-- gestion de usuarios desde la aplicacion: solo administradores pueden crear,
+- configuración inicial de empresa y usuario administrador propietario
+- gestión de usuarios desde la aplicación: solo administradores pueden crear,
   desactivar, reactivar o resetear usuarios
-- emision individual de comprobantes con CAE
-- emision masiva desde Excel con validacion previa, seguimiento del lote y archivo observado
+- emisión individual de comprobantes con CAE
+- emisión masiva desde Excel con validación previa, seguimiento del lote y archivo observado
 - certificados por empresa y ambiente
 - PDF de comprobantes y reportes basicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
-  opere varios CUITs sin mezclar informacion
+  opere varios CUITs sin mezclar información
 - todos los usuarios activos pueden operar todos los emisores configurados; el
   rol administrador se reserva para administrar usuarios
 - uso productivo real controlado con evidencia privada local; no se versionan
@@ -99,20 +99,21 @@ Frontend: `http://localhost:8080`
 
 El perfil local usa PostgreSQL, monta el codigo del backend y ejecuta `alembic upgrade head` antes de iniciar la API con reload.
 
-### Docker produccion / VPS
+### Docker producción / VPS
 
 ```bash
 cp .env.production.example .env.production
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 ```
 
-El perfil productivo no monta el codigo fuente, usa PostgreSQL, exige secretos y deja persistidos datos, certificados y logs en rutas configurables.
+El perfil productivo no monta el código fuente, usa PostgreSQL, exige secretos
+y deja persistidos datos, certificados y logs en rutas configurables.
 
-Antes de operar el VPS con emisores reales hay una pregunta tecnica pendiente:
-validar si los certificados productivos actuales pueden migrarse desde el
-entorno local al VPS conservando clave, archivo y configuracion, o si conviene
-generar certificados nuevos para el servidor. La distribucion comercial
-instalable queda para despues de estabilizar el producto funcionando en VPS.
+Antes de operar el VPS con emisores reales, preparar la migración local con
+`docs/setup/vps-migration.md`: el primer import debe ensayarse sobre PostgreSQL
+local limpio, re-cifrando claves privadas con la contraseña productiva y sin
+solicitar CAE. La distribución comercial instalable queda para después de
+estabilizar el producto funcionando en VPS.
 
 ### Desarrollo local tecnico
 

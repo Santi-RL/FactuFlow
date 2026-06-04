@@ -1,8 +1,8 @@
-# ARCA WS - Notas practicas
+# ARCA WS - Notas prácticas
 
-Ultima actualizacion: 2026-06-03
+Última actualización: 2026-06-04
 
-Este archivo resume lo que conviene recordar rapido sin volver a abrir todos los PDFs.
+Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
 ## Homologacion - checklist operativo real
 
@@ -225,9 +225,10 @@ El proyecto tuvo que corregir estas estructuras:
 - `backend/app/services/facturacion_service.py`
 - `backend/app/services/lote_worker.py`
 
-## Produccion
+## Producción
 
-- Usar certificado productivo y autorizacion `wsfe` productiva; los certificados de homologacion no sirven para produccion.
+- Usar certificado productivo y autorización `wsfe` productiva; los certificados
+  de homologación no sirven para producción.
 - Despues de crear el certificado productivo, asociar el alias del computador al
   servicio `wsfe` desde `Administrador de Relaciones de Clave Fiscal`. Si falta
   esa asociacion, WSAA devuelve `Computador no autorizado a acceder al servicio`.
@@ -242,6 +243,14 @@ El proyecto tuvo que corregir estas estructuras:
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
   compatibilidad con el handshake del endpoint.
 - El perfil productivo del repo es `docker-compose.prod.yml` con PostgreSQL.
+- Antes de mover la operación a VPS, preparar el paquete con
+  `python -m app.scripts.vps_migration`: `preflight` debe bloquear cualquier
+  certificado activo sin `.crt` y `.key` resolubles, `export` re-cifra claves
+  privadas con la contraseña destino y `import` exige PostgreSQL limpio ya
+  migrado con Alembic.
+- La contraseña usada en `ARCA_MIGRATION_TARGET_KEY_PASSWORD` durante el export
+  debe coincidir con `ARCA_PRIVATE_KEY_PASSWORD` en `.env.production`.
+- La migración y el ensayo local no solicitan CAE ni emiten comprobantes.
 - Al 2026-05-22, FactuFlow ya fue usado en produccion real. No tratar la
   produccion como pendiente de primer piloto; tratarla como operacion
   post-piloto que requiere backup/restauracion, trazabilidad, observabilidad y

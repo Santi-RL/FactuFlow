@@ -24,6 +24,29 @@
     trazas Playwright, logs, auditorias locales, planes privados de cambio y
     scripts exploratorios de debug
 
+## Migración local a VPS
+
+- El runbook vigente está en `docs/setup/vps-migration.md`.
+- Los paquetes de migración generados en `.tmp/vps-migration/<timestamp>/` son
+  privados: contienen datos operativos, comprobantes, metadatos de certificados
+  y claves privadas re-cifradas. No se commitean ni se comparten en tickets,
+  chats o evidencia pública.
+- `preflight` debe bloquear si un certificado activo no tiene `.crt` y `.key`
+  resolubles dentro de `CERTS_PATH`. No se exportan certificados incompletos ni
+  rutas fuera de la carpeta gestionada.
+- `export` re-cifra las claves privadas activas con
+  `ARCA_MIGRATION_TARGET_KEY_PASSWORD`. Esa contraseña debe coincidir luego con
+  `ARCA_PRIVATE_KEY_PASSWORD` en el `.env.production` destino.
+- `import` solo debe ejecutarse sobre PostgreSQL limpio, ya migrado con Alembic
+  al head del paquete. No debe borrar ni mezclar datos operativos existentes.
+- La instalación local y el VPS no deben operar simultáneamente con los mismos
+  certificados productivos. Si el VPS reemplaza al entorno local, la SQLite
+  queda como histórico privado; si ambos van a operar, generar certificados
+  separados.
+- La preparación y el ensayo de migración no solicitan CAE ni emiten
+  comprobantes. Cualquier validación contra ARCA posterior debe limitarse a
+  consultas seguras y explícitas.
+
 ## Aislamiento por emisor
 
 - FactuFlow usa un modelo multiemisor con un emisor activo explicito por vez,
@@ -53,6 +76,11 @@ ignorada y dejar solo una descripcion redactada en la documentacion.
 - `APP_SECRET_KEY`
 - `DATABASE_URL`
 - `CERTS_PATH`
+- `FACTUFLOW_CERTS_DIR`
+- `ARCA_PRIVATE_KEY_PASSWORD`
+- `ARCA_MIGRATION_TARGET_KEY_PASSWORD` solo para exportación local privada
+- `ARCA_MIGRATION_SOURCE_KEY_PASSWORD` solo si las claves fuente ya están
+  cifradas
 - `AFIP_CERTS_PATH`
 - `AFIP_ENV`
 - `CORS_ORIGINS`

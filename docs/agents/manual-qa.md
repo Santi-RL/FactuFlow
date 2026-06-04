@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-03
+Última actualización: 2026-06-04
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,30 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Migración local a VPS - verificación técnica 2026-06-04
+
+- Se agregó la herramienta privada `python -m app.scripts.vps_migration` con
+  `preflight`, `export`, `import` y `validate`.
+- El alcance de QA de migración incluye emisores, usuarios, clientes, puntos de
+  venta, certificados, formatos, perfiles, comprobantes e ítems.
+- La QA debe confirmar que quedan excluidos lotes, filas, temporales, PDFs,
+  Excel, logs, cachés, eventos de sistema y exportaciones de almacenamiento.
+- Verificación automatizada segura:
+  `pytest tests/test_vps_migration.py -q` OK (8 tests),
+  `ruff check app/scripts/vps_migration.py tests/test_vps_migration.py` OK y
+  `black --check app/scripts/vps_migration.py tests/test_vps_migration.py` OK.
+- El preflight real sobre la instalación local bloquea por un certificado
+  activo sin `.crt` y `.key` resolubles dentro de `backend/certs`. Ese bloqueo
+  es correcto y debe mantenerse hasta corregir el material privado.
+- Pendiente de QA local después de corregir ese certificado: exportar paquete en
+  `.tmp/vps-migration/<timestamp>/`, levantar PostgreSQL local limpio con
+  Docker, ejecutar `alembic upgrade head`, importar, validar conteos,
+  secuencias, certificados, login, emisores, usuarios, clientes, puntos de
+  venta, comprobantes y reportes básicos.
+- Durante la preparación y el ensayo no se debe solicitar CAE ni emitir ningún
+  comprobante. `proximo-numero` solo puede probarse como consulta segura y
+  explícita, después de validar restauración y ambiente.
 
 ### Gestión de usuarios - verificación técnica 2026-06-03
 
@@ -640,16 +664,20 @@ Retomar en consolidacion post-piloto:
 3. Para nuevos lotes productivos, repetir siempre la validacion fiscal completa:
    formato, concepto fiscal ARCA, descripcion facturada, fechas fiscales,
    totales, puntos de venta y confirmacion irreversible.
-4. Verificar backup, logs y plan de restauración antes de ampliar volumen o
+4. Corregir el certificado activo local que no resuelve archivos privados y
+   repetir `vps_migration preflight`.
+5. Ensayar la migración en PostgreSQL local limpio con Docker: `export`,
+   `alembic upgrade head`, `import` y `validate`, sin solicitar CAE.
+6. Verificar backup, logs y plan de restauración antes de ampliar volumen o
    incorporar nuevos emisores.
-5. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
+7. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
    observados y temporales descargables no deben quedar como ocupación
    permanente si no son vitales para operar, auditar o recuperar el sistema.
-6. Validar visualmente el gestor de almacenamiento administrativo: uso total,
+8. Validar visualmente el gestor de almacenamiento administrativo: uso total,
    desglose por emisor, desglose por tipo de dato, resguardo ZIP y limpieza
    segura de artefactos no vitales.
-7. Levantar o confirmar el perfil productivo con PostgreSQL usando
+9. Levantar o confirmar el perfil productivo con PostgreSQL usando
    `docker-compose.prod.yml`.
-8. Implementar la observabilidad operativa estándar definida en
+10. Implementar la observabilidad operativa estándar definida en
    `docs/agents/operational-observability.md`, con mensajes simples y próximos
    pasos claros para usuarios no técnicos.

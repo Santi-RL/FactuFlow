@@ -157,15 +157,22 @@ configura inicio automatico con Windows.
 
 ## Instalación en VPS (Producción)
 
-Este es el siguiente hito de despliegue despues del uso local con launcher. La
-instalacion local ya esta implementada y testeada hasta nivel desarrollo/QA; el
-VPS debe validar operacion real con Docker produccion, PostgreSQL, secretos,
+Este es el siguiente hito de despliegue después del uso local con launcher. La
+instalación local ya está implementada y testeada hasta nivel desarrollo/QA; el
+VPS debe validar operación real con Docker producción, PostgreSQL, secretos,
 certificados, backups y logs persistentes.
 
-Antes de operar emisores reales en el VPS queda una pregunta tecnica abierta:
-confirmar si los certificados productivos usados localmente pueden
-migrarse/copiarse al servidor conservando clave, cifrado y metadatos, o si es
-necesario generar certificados nuevos para el VPS.
+Antes de operar emisores reales en el VPS, preparar y ensayar la migración
+local con el runbook [Migración local a VPS](./vps-migration.md). La decisión
+operativa vigente es migrar los certificados productivos activos solo si todos
+sus `.crt` y `.key` resuelven dentro de `CERTS_PATH`, re-cifrando las claves
+privadas con la nueva `ARCA_PRIVATE_KEY_PASSWORD` de producción. Si un
+certificado activo no resuelve archivos, el preflight debe bloquear hasta
+corregirlo en privado.
+
+La primera restauración no se hace en el VPS real: se valida sobre PostgreSQL
+local limpio con Docker, después de ejecutar `alembic upgrade head`, y sin
+solicitar CAE.
 
 ### Requisitos
 - VPS con Ubuntu 22.04 o superior

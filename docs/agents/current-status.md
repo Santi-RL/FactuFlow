@@ -1,12 +1,12 @@
 # Estado actual
 
-Última actualización: 2026-06-03
+Última actualización: 2026-06-04
 
 ## Objetivo activo
 
-Consolidar FactuFlow despues del piloto productivo real: documentacion
-alineada, reglas fiscales criticas preservadas, operacion masiva controlada,
-backups/restauracion y robustez de soporte antes de ampliar el uso.
+Consolidar FactuFlow después del piloto productivo real: documentación
+alineada, reglas fiscales críticas preservadas, operación masiva controlada,
+backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Estado real del producto
 
@@ -29,6 +29,13 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
 - El uso local con launcher ya esta implementado y testeado hasta nivel
   desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un
   VPS con Docker produccion y PostgreSQL.
+- Herramienta privada de migración local a VPS implementada para preparar el
+  paso de `backend/data/factuflow.db` a PostgreSQL, preservando configuración
+  operativa, certificados activos, formatos, perfiles, comprobantes e ítems, y
+  excluyendo lotes, artefactos, temporales, PDFs, Excel, logs y cachés.
+- El primer preflight real bloquea correctamente porque existe un certificado
+  activo local que no resuelve `.crt` y `.key` en `backend/certs`. Antes de
+  exportar hay que corregir ese material privado.
 - La visión vigente define que FactuFlow debe poder instalarse localmente o en
   un VPS pequeño. Las nuevas decisiones técnicas deben optimizar
   procesamiento, RAM y almacenamiento, y evitar persistir artefactos no vitales
@@ -81,7 +88,33 @@ backups/restauracion y robustez de soporte antes de ampliar el uso.
   - lotes grandes en cola persistente y reanudables por worker
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
-## Lo mas importante que quedo hecho hoy
+## Lo más importante que quedó hecho hoy
+
+### Preparación local de migración a VPS 2026-06-04
+
+- Se agregó `python -m app.scripts.vps_migration` con subcomandos
+  `preflight`, `export`, `import` y `validate`.
+- `preflight` valida SQLite local, head Alembic, tablas esperadas,
+  certificados activos y ausencia de certificados incompletos.
+- `export` genera paquetes privados en `.tmp/vps-migration/<timestamp>/` con
+  `manifest.json`, JSONL por tabla incluida, certificados activos y plantilla
+  privada de variables requeridas, sin guardar secretos reales en Git.
+- Las claves privadas exportadas se re-cifran con
+  `ARCA_MIGRATION_TARGET_KEY_PASSWORD`; el importador exige que
+  `.env.production` use la misma contraseña como `ARCA_PRIVATE_KEY_PASSWORD`.
+- `import` restaura sobre PostgreSQL limpio ya migrado con Alembic, preserva
+  IDs, ajusta secuencias y no modifica `alembic_version`.
+- `validate` compara conteos, tablas excluidas, certificados restaurados,
+  secuencias y disponibilidad básica opcional por API/login.
+- El alcance migrado es operación futura: emisores, usuarios, clientes, puntos
+  de venta, certificados, formatos, perfiles, comprobantes e ítems. Se excluyen
+  lotes, filas, temporales, PDFs, Excel, logs, cachés y exportaciones.
+- Verificación enfocada: `pytest tests/test_vps_migration.py -q` OK (8 tests),
+  `ruff check app/scripts/vps_migration.py tests/test_vps_migration.py` OK y
+  `black --check app/scripts/vps_migration.py tests/test_vps_migration.py` OK.
+- Verificación real segura: el preflight sobre la instalación local bloquea por
+  un certificado activo sin archivos resolubles. Ese bloqueo es esperado y debe
+  corregirse en privado antes de exportar.
 
 ### Gestor de almacenamiento administrativo 2026-06-03
 
@@ -993,11 +1026,13 @@ Quedo validado manualmente:
 - Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
-- Falta formalizar operacion productiva robusta:
-  - instalacion en VPS con Docker produccion y PostgreSQL
-  - decision tecnica sobre certificados ARCA: migrar/copiar los certificados
-    productivos locales al VPS o generar certificados nuevos para el servidor
-  - observabilidad operativa estandar segun
+- Falta formalizar operación productiva robusta:
+  - corregir en privado el certificado activo local que no resuelve `.crt` y
+    `.key`
+  - exportar el paquete privado de migración local a VPS
+  - restaurarlo primero en PostgreSQL local limpio con Docker
+  - instalación en VPS con Docker producción y PostgreSQL
+  - observabilidad operativa estándar según
     `docs/agents/operational-observability.md`
   - validación de la política de almacenamiento mínimo y limpieza de artefactos
     descargables en VPS usando el gestor administrativo
@@ -1012,8 +1047,9 @@ Quedo validado manualmente:
 - Homologacion: lista y validada.
 - Producto local: operativo para desarrollo/QA con launcher Windows y flujo
   tecnico alternativo.
-- Despliegue: el siguiente paso es VPS con `docker-compose.prod.yml`,
-  PostgreSQL, secretos productivos y estrategia definida para certificados.
+- Despliegue: el siguiente paso es corregir el certificado activo faltante,
+  ensayar la migración en PostgreSQL local y recién después avanzar al VPS con
+  `docker-compose.prod.yml`, PostgreSQL y secretos productivos.
 - Produccion real: ya fue utilizada con certificado productivo, autorizacion
   `wsfe`, puntos Web Services y comprobantes autorizados. La siguiente etapa es
   consolidar operacion post-piloto, no ejecutar un primer CAE.
@@ -1024,23 +1060,27 @@ Para continuar desde el estado actual:
 
 1. Mantener alineada la documentacion viva con el estado post-piloto productivo
    y conservar la historia como evidencia fechada.
-2. Instalar FactuFlow en VPS con Docker produccion y PostgreSQL.
-3. Resolver la pregunta técnica de certificados ARCA para VPS: migrar/copiar
-   certificados productivos locales existentes o generar certificados nuevos
-   para el servidor.
-4. Validar la política de almacenamiento mínimo para VPS usando el gestor
+2. Corregir en privado el certificado activo local que no resuelve `.crt` y
+   `.key` dentro de `backend/certs`.
+3. Ejecutar `python -m app.scripts.vps_migration preflight` y luego `export`
+   cuando el preflight quede limpio.
+4. Restaurar el paquete en PostgreSQL local limpio con Docker, usando
+   `alembic upgrade head`, `import` y `validate`.
+5. Instalar FactuFlow en VPS con Docker producción y PostgreSQL cuando el
+   ensayo local quede validado.
+6. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
-5. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
+7. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
    emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
    artefactos no vitales.
-6. Definir y probar backup/restauración de base, certificados y logs antes de
+8. Definir y probar backup/restauración de base, certificados y logs antes de
    ampliar el uso productivo.
-7. Implementar observabilidad operativa estándar: pantalla de estado del
+9. Implementar observabilidad operativa estándar: pantalla de estado del
    sistema, trazabilidad/reconciliación de lotes, logs útiles para soporte,
    mensajes simples y runbook de diagnóstico.
-8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
+10. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
    persistencia permanente en el servidor y E2E confiable.
-9. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
+11. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
    fiscal ARCA, descripción facturada, fechas fiscales permitidas, totales y
    confirmación final irreversible antes de emitir.

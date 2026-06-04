@@ -60,10 +60,16 @@
   al servicio`, aunque el certificado y la clave privada coincidan.
 - El wizard de FactuFlow tiene un paso previo a `Probar conexion` para confirmar
   esta asociacion.
-- Antes de mover la operacion a VPS hay que validar una decision tecnica:
-  confirmar si los certificados productivos existentes pueden migrarse/copiarse
-  desde el entorno local al VPS conservando clave, cifrado, archivo y metadatos,
-  o si corresponde generar certificados nuevos para el servidor.
+- Antes de mover la operación a VPS, usar el runbook
+  `docs/setup/vps-migration.md`. La decisión operativa vigente es migrar
+  certificados productivos activos solo si todos tienen `.crt` y `.key`
+  resolubles dentro de `CERTS_PATH`; el preflight bloquea certificados activos
+  incompletos.
+- La exportación re-cifra las claves privadas activas con una nueva contraseña
+  destino. Esa contraseña debe quedar como `ARCA_PRIVATE_KEY_PASSWORD` en
+  `.env.production` durante la importación y operación del VPS.
+- Si se necesita operar local y VPS simultáneamente, no reutilizar el mismo
+  certificado productivo: generar certificados separados.
 
 ### Estado productivo real
 

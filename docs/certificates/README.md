@@ -209,6 +209,26 @@ FactuFlow te alertará automáticamente:
 - ❌ Dejarla en carpetas compartidas sin encriptar
 - ❌ Usar el mismo certificado en múltiples instalaciones de FactuFlow
 
+## Migración a VPS
+
+Cuando el VPS va a reemplazar la instalación local operativa, los certificados
+productivos activos pueden migrarse con el runbook privado
+`docs/setup/vps-migration.md`.
+
+Condiciones:
+
+- Todos los certificados activos deben tener `.crt` y `.key` resolubles dentro
+  de `CERTS_PATH`; si falta alguno, el preflight bloquea la exportación.
+- Las claves privadas exportadas se re-cifran con una contraseña nueva para
+  producción.
+- El `.env.production` destino debe usar esa misma contraseña en
+  `ARCA_PRIVATE_KEY_PASSWORD`.
+- La SQLite local queda como histórico privado y no debe seguir operando en
+  paralelo con el VPS usando los mismos certificados.
+
+Si se necesita operar dos instalaciones al mismo tiempo, generar certificados
+separados para reducir el riesgo de exposición o uso cruzado.
+
 ---
 
 ## Troubleshooting
