@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-03
+Última actualización: 2026-06-04
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -139,6 +139,19 @@ Al crear un comprobante puntual, el selector de punto de venta muestra solo los
 puntos habilitados para emitir por FactuFlow: Web Services activos, no
 bloqueados y sin fecha de baja.
 
+Cuando confirmas la emisión final, FactuFlow genera una clave interna de
+idempotencia para esa operación. Si la conexión se corta o repetís el intento
+con los mismos datos, la aplicación reutiliza esa clave y el backend no vuelve
+a pedir CAE para el mismo comprobante. Si cambiás datos fiscales como fecha,
+punto de venta, receptor, ítems o comprobantes asociados, la operación exige una
+nueva confirmación.
+
+Si FactuFlow detecta que el comprobante se parece mucho a otro ya autorizado,
+muestra una advertencia de duplicado probable. Esa advertencia no bloquea por
+sí sola la emisión, pero exige una confirmación adicional antes de solicitar
+CAE. Revisá especialmente receptor, fecha fiscal, punto de venta, total,
+ítems y comprobantes asociados antes de continuar.
+
 ### Detalle de comprobante
 
 El detalle muestra:
@@ -208,6 +221,12 @@ Flujo general:
 Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
 recien ocurre cuando confirmas el lote validado.
 
+Al confirmar la emisión de un lote, FactuFlow también usa una clave interna de
+idempotencia. Esto evita que un doble click, un refresh o un retry de red vuelva
+a pedir CAE para el mismo procesamiento. La clave se conserva para el retry de
+la misma operación y se reemplaza si cambiás de lote, archivo, emisor o
+selección de grupos.
+
 Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
 con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos
 valores contra el Excel antes de presionar `Emitir comprobantes validos`.
@@ -231,6 +250,13 @@ podes volver a subir el mismo archivo para revalidarlo. FactuFlow conserva el
 historial del intento anterior y solo permite el reintento cuando no hubo CAE
 emitido. Si el lote ya quedo validado para emitir o emitio algun comprobante, el
 archivo duplicado se bloquea para evitar facturacion repetida.
+
+Además del bloqueo por archivo ya cargado, FactuFlow calcula duplicados lógicos
+por comprobante. Si detecta comprobantes muy similares dentro del lote o contra
+comprobantes locales ya autorizados, muestra una advertencia y pide una
+confirmación adicional. Confirmar esa advertencia solo indica que revisaste el
+riesgo de duplicado; no reemplaza la confirmación fiscal final de fecha y punto
+de venta.
 
 Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no

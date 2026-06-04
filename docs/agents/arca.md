@@ -171,6 +171,35 @@
   `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`,
   `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut` y `codAut`.
 
+### CAE, idempotencia e intentos fiscales
+
+- El CAE es la prueba de autorización fiscal devuelta por ARCA. No es la llave
+  primaria de idempotencia: FactuFlow no puede esperar a tener CAE para decidir
+  si una operación se repite, porque el riesgo crítico ocurre precisamente
+  durante o después de solicitarlo.
+- La idempotencia de request se controla con `X-Idempotency-Key`, emisor activo,
+  tipo de operación y hash estable del payload fiscal. La confirmación de
+  duplicado lógico no forma parte de ese hash para permitir continuar la misma
+  operación después de una advertencia.
+- Antes de llamar a `FECAESolicitar`, FactuFlow debe persistir una
+  `operaciones_idempotentes` y uno o más `intentos_emision_fiscal`, con número
+  planificado, punto de venta, tipo, fecha fiscal, total y receptor normalizado.
+- Si ARCA devuelve CAE y el comprobante se guarda correctamente, el intento
+  queda `autorizado` y vinculado al comprobante local.
+- Si ARCA devuelve CAE pero falla la persistencia local, el intento, grupo o
+  lote debe quedar `requiere_reconciliacion`. No se debe reintentar con otra
+  clave ni volver a solicitar CAE hasta consultar ARCA.
+- Si ARCA rechaza sin CAE, el intento queda como rechazo verificado y no debe
+  reservar numeración futura.
+- Si un intento queda `en_proceso` y supera la ventana
+  `FISCAL_ATTEMPT_STALE_MINUTES`, FactuFlow debe consultar `FECompConsultar`
+  por tipo, punto de venta y número planificado antes de liberar la numeración.
+  Si ARCA confirma CAE, se vincula o reconstruye el comprobante cuando existen
+  datos locales suficientes; si no, queda `requiere_reconciliacion`.
+- Si `FECompConsultar` confirma explícitamente que el comprobante no existe,
+  recién entonces se marca el intento como `fallido_verificado` y se libera la
+  numeración.
+
 ### Reconciliación externa de lotes
 
 - Si un comprobante pendiente de un lote fue emitido manualmente en ARCA Web, no

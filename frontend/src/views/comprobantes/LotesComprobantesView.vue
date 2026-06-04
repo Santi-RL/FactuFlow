@@ -110,7 +110,17 @@ const resolviendoLote = ref<
 >(null);
 const mostrarConfirmacionFechaFiscal = ref(false);
 const mostrarConfirmacionReintentoFallidos = ref(false);
+const mostrarConfirmacionDuplicadoLogico = ref(false);
 const mostrarConfirmacionCompactar = ref(false);
+const idempotencyKeyProcesar = ref<string | null>(null);
+const idempotencyKeyReintentar = ref<string | null>(null);
+const confirmacionDuplicadoProcesar = ref<string | null>(null);
+const confirmacionDuplicadoReintentar = ref<string | null>(null);
+const confirmacionDuplicadoPendiente = ref<"procesar" | "reintentar" | null>(
+  null,
+);
+const tokenDuplicadoPendiente = ref("");
+const mensajeConfirmacionDuplicadoLogico = ref("");
 const motivoDescartar = ref("");
 const motivoEliminar = ref("");
 const externoGrupoId = ref<number | "">("");
@@ -596,6 +606,44 @@ const descripcionFacturada = (grupo: LoteComprobanteGrupoDetalle) => {
   return grupo.descripcion_facturada?.trim() || "-";
 };
 
+const crearIdempotencyKey = (): string => {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return `ff-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const obtenerIdempotencyKeyProcesar = (): string => {
+  if (!idempotencyKeyProcesar.value) {
+    idempotencyKeyProcesar.value = crearIdempotencyKey();
+  }
+  return idempotencyKeyProcesar.value;
+};
+
+const obtenerIdempotencyKeyReintentar = (): string => {
+  if (!idempotencyKeyReintentar.value) {
+    idempotencyKeyReintentar.value = crearIdempotencyKey();
+  }
+  return idempotencyKeyReintentar.value;
+};
+
+const resetearIdempotencyKeyProcesar = () => {
+  idempotencyKeyProcesar.value = null;
+  confirmacionDuplicadoProcesar.value = null;
+};
+
+const resetearIdempotencyKeyReintentar = () => {
+  idempotencyKeyReintentar.value = null;
+  confirmacionDuplicadoReintentar.value = null;
+};
+
+const resetearConfirmacionDuplicadoPendiente = () => {
+  mostrarConfirmacionDuplicadoLogico.value = false;
+  confirmacionDuplicadoPendiente.value = null;
+  tokenDuplicadoPendiente.value = "";
+  mensajeConfirmacionDuplicadoLogico.value = "";
+};
+
 const limpiarConfiguracionLote = () => {
   formatoSeleccionadoId.value = "";
   formatoAplicadoPorPerfilId.value = null;
@@ -699,6 +747,9 @@ const handleArchivoSeleccionado = (event: Event) => {
   deteccionFormatoRequestId += 1;
   archivoSeleccionado.value = target.files?.[0] || null;
   deteccionFormato.value = null;
+  resetearIdempotencyKeyProcesar();
+  resetearIdempotencyKeyReintentar();
+  resetearConfirmacionDuplicadoPendiente();
   if (perfilAplicado.value) {
     aplicarPerfilCargaMasiva(perfilAplicado.value, false);
   } else {
@@ -881,6 +932,9 @@ const cargarDetalleLote = async (loteId: number, silent = false) => {
       gruposLoteTotal.value = 0;
       gruposLoteTotalPages.value = 0;
       grupoEstadoFiltro.value = "";
+      resetearIdempotencyKeyProcesar();
+      resetearIdempotencyKeyReintentar();
+      resetearConfirmacionDuplicadoPendiente();
     }
     loteActual.value = await lotesComprobantesService.obtenerResumen(loteId);
     await cargarGruposLote(loteId, esNuevoLote ? 1 : gruposLotePage.value, true);
@@ -888,7 +942,7 @@ const cargarDetalleLote = async (loteId: number, silent = false) => {
     showError(
       "No se pudo abrir el lote",
       error.response?.data?.detail ||
-        "El lote ya no esta disponible para esta empresa.",
+        "El lote ya no está disponible para esta empresa.",
     );
   } finally {
     if (!silent) {
@@ -926,7 +980,7 @@ const descargarPlantilla = async () => {
     downloadBlob(archivo, `factuflow-lote-${empresaActiva.value.cuit}.xlsx`);
     showSuccess(
       "Plantilla lista",
-      "Completa una fila por item y repeti los datos del comprobante en todas las filas del mismo comprobante_ref.",
+      "Completá una fila por ítem y repetí los datos del comprobante en todas las filas del mismo comprobante_ref.",
     );
   } catch (error: any) {
     showError(
@@ -962,7 +1016,7 @@ const validarArchivo = async () => {
     if (resultado.requiere_background) {
       showInfo(
         "Lote grande detectado",
-        "Como supera el limite sincrono, la emision se ejecutara en segundo plano cuando la confirmes.",
+        "Como supera el límite síncrono, la emisión se ejecutará en segundo plano cuando la confirmes.",
       );
     }
   } catch (error: any) {
@@ -974,6 +1028,51 @@ const validarArchivo = async () => {
   } finally {
     validandoArchivo.value = false;
   }
+};
+
+const prepararConfirmacionDuplicadoLogico = (
+  error: any,
+  accion: "procesar" | "reintentar",
+) => {
+  const detail = error.response?.data?.detail;
+  if (detail?.categoria_error !== "duplicado_logico_lote") {
+    return false;
+  }
+
+  const token = detail.confirmacion_duplicado_logico;
+  if (!token) return false;
+
+  confirmacionDuplicadoPendiente.value = accion;
+  tokenDuplicadoPendiente.value = token;
+  mensajeConfirmacionDuplicadoLogico.value =
+    [detail.mensaje, ...(detail.errores || [])].filter(Boolean).join(" ") ||
+    "Se detectaron comprobantes probablemente duplicados. Confirmá si corresponde solicitar CAE igualmente.";
+  mostrarConfirmacionDuplicadoLogico.value = true;
+  return true;
+};
+
+const detalleErrorComoTexto = (detail: unknown, fallback: string): string => {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+  if (!detail || typeof detail !== "object") {
+    return fallback;
+  }
+
+  const data = detail as { mensaje?: unknown; errores?: unknown };
+  const partes: string[] = [];
+  if (typeof data.mensaje === "string" && data.mensaje.trim()) {
+    partes.push(data.mensaje.trim());
+  }
+  if (Array.isArray(data.errores)) {
+    partes.push(
+      ...data.errores
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
+  }
+  return partes.join(" ") || fallback;
 };
 
 const procesarLote = async () => {
@@ -993,9 +1092,11 @@ const procesarLote = async () => {
     const resultado = await lotesComprobantesService.procesar(
       loteActual.value.id,
       confirmacionFechaFiscalLote.value,
+      obtenerIdempotencyKeyProcesar(),
+      confirmacionDuplicadoProcesar.value || undefined,
     );
     showSuccess(
-      resultado.en_progreso ? "Emision iniciada" : "Lote procesado",
+      resultado.en_progreso ? "Emisión iniciada" : "Lote procesado",
       resultado.mensaje,
     );
     await cargarLotes(true);
@@ -1005,10 +1106,15 @@ const procesarLote = async () => {
     }
   } catch (error: any) {
     inicioProcesamientoLocal.value = null;
+    if (prepararConfirmacionDuplicadoLogico(error, "procesar")) {
+      return;
+    }
     showError(
       "No se pudo emitir el lote",
-      error.response?.data?.detail ||
+      detalleErrorComoTexto(
+        error.response?.data?.detail,
         "Revisa las observaciones y vuelve a intentarlo.",
+      ),
     );
   } finally {
     procesandoLote.value = false;
@@ -1047,17 +1153,39 @@ const reintentarFallidos = async () => {
       loteId,
       [],
       confirmacionReintentoFallidos.value,
+      obtenerIdempotencyKeyReintentar(),
+      confirmacionDuplicadoReintentar.value || undefined,
     );
     showSuccess("Reintento finalizado", resultado.mensaje);
     await refrescarLoteDespuesAccion(loteId);
+    resetearIdempotencyKeyReintentar();
   } catch (error: any) {
+    if (prepararConfirmacionDuplicadoLogico(error, "reintentar")) {
+      return;
+    }
     showError(
       "No se pudieron reintentar los fallidos",
-      error.response?.data?.detail ||
+      detalleErrorComoTexto(
+        error.response?.data?.detail,
         "Revisa la fecha fiscal confirmada y el estado del lote.",
+      ),
     );
   } finally {
     resolviendoLote.value = null;
+  }
+};
+
+const confirmarDuplicadoLogicoLote = async () => {
+  const accion = confirmacionDuplicadoPendiente.value;
+  const token = tokenDuplicadoPendiente.value;
+  resetearConfirmacionDuplicadoPendiente();
+
+  if (accion === "procesar") {
+    confirmacionDuplicadoProcesar.value = token;
+    await procesarLote();
+  } else if (accion === "reintentar") {
+    confirmacionDuplicadoReintentar.value = token;
+    await reintentarFallidos();
   }
 };
 
@@ -1339,6 +1467,9 @@ watch(
     gruposLoteTotal.value = 0;
     gruposLoteTotalPages.value = 0;
     grupoEstadoFiltro.value = "";
+    resetearIdempotencyKeyProcesar();
+    resetearIdempotencyKeyReintentar();
+    resetearConfirmacionDuplicadoPendiente();
     deteccionFormato.value = null;
     perfilesCargaMasiva.value = [];
     perfilSeleccionadoId.value = "";
@@ -1382,11 +1513,11 @@ onBeforeUnmount(() => {
     >
       <div>
         <h1 class="text-3xl font-bold text-gray-900">
-          Emision masiva
+          Emisión masiva
         </h1>
         <p class="mt-2 max-w-3xl text-gray-600">
           Carga un Excel, revisa errores antes de emitir y sigue el resultado
-          del lote sin perder contexto tecnico.
+          del lote sin perder contexto técnico.
         </p>
       </div>
 
@@ -1571,7 +1702,7 @@ onBeforeUnmount(() => {
                 <p class="font-medium text-gray-900">
                   {{
                     archivoSeleccionado?.name ||
-                      "Todavia no seleccionaste ningun archivo."
+                      "Todavía no seleccionaste ningún archivo."
                   }}
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
@@ -1648,7 +1779,7 @@ onBeforeUnmount(() => {
                 <p class="mt-1 break-words">
                   {{
                     deteccionFormato?.headers_detectados.join(", ") ||
-                      "Todavia no se analizaron encabezados."
+                      "Todavía no se analizaron encabezados."
                   }}
                 </p>
               </div>
@@ -1668,7 +1799,7 @@ onBeforeUnmount(() => {
                       ? "El perfil de carga masiva trae un formato, pero el Excel coincide con otro formato de alta confianza. Confirma cuál corresponde antes de validar."
                       : deteccionFormato
                         ? "Confirma un formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
-                        : "Todavia no se analizaron los encabezados del Excel. El analisis deberia iniciar automaticamente; si no avanza, reintentalo."
+                        : "Todavía no se analizaron los encabezados del Excel. El análisis debería iniciar automáticamente; si no avanza, reinténtalo."
                   }}
                 </span>
                 <div class="flex flex-wrap gap-2">
@@ -1790,7 +1921,7 @@ onBeforeUnmount(() => {
                   Tipo de concepto fiscal ARCA obligatorio
                 </p>
                 <p class="mt-1 text-sm text-sky-900">
-                  Defini si el lote corresponde a productos, servicios o si el
+                  Definí si el lote corresponde a productos, servicios o si el
                   Excel lo indica fila por fila. No se usa un valor por defecto.
                 </p>
               </div>
@@ -1841,8 +1972,8 @@ onBeforeUnmount(() => {
               type="warning"
               class="mt-4"
             >
-              Elegi el tipo de concepto fiscal ARCA antes de validar. Sin esta
-              confirmacion el lote no puede quedar listo para emitir.
+              Elegí el tipo de concepto fiscal ARCA antes de validar. Sin esta
+              confirmación el lote no puede quedar listo para emitir.
             </BaseAlert>
           </div>
 
@@ -1906,7 +2037,7 @@ onBeforeUnmount(() => {
               type="warning"
               class="mt-4"
             >
-              Defini la descripción facturada antes de validar. No se usará una
+              Definí la descripción facturada antes de validar. No se usará una
               descripción oculta del formato ni del sistema.
             </BaseAlert>
           </div>
@@ -1924,8 +2055,8 @@ onBeforeUnmount(() => {
                   Fechas fiscales obligatorias
                 </p>
                 <p class="mt-1 text-sm text-rose-900">
-                  La fecha de emision no se completa automaticamente con la
-                  fecha de hoy. Elegi que fecha se usara antes de validar.
+                  La fecha de emisión no se completa automáticamente con la
+                  fecha de hoy. Elegí qué fecha se usará antes de validar.
                 </p>
               </div>
             </div>
@@ -1933,7 +2064,7 @@ onBeforeUnmount(() => {
             <div class="mt-4 grid gap-4 xl:grid-cols-2">
               <div class="rounded-lg border border-rose-100 bg-white p-4">
                 <p class="text-sm font-semibold text-gray-900">
-                  Fecha de emision
+                  Fecha de emisión
                 </p>
                 <div class="mt-3 space-y-3 text-sm text-gray-700">
                   <label class="flex items-center gap-2">
@@ -2084,7 +2215,7 @@ onBeforeUnmount(() => {
             <li>Emisor activo correcto.</li>
             <li>Certificado vigente para el ambiente actual.</li>
             <li>Punto de venta habilitado FactuFlow.</li>
-            <li>Fecha de emision confirmada antes de validar.</li>
+            <li>Fecha de emisión confirmada antes de validar.</li>
             <li>Tipo de concepto fiscal ARCA confirmado antes de validar.</li>
             <li>Descripción facturada confirmada antes de validar.</li>
             <li>Periodo de servicios confirmado cuando corresponda.</li>
@@ -2153,7 +2284,7 @@ onBeforeUnmount(() => {
                   @click="solicitarConfirmacionEmisionLote"
                 >
                   <ArrowPathIcon class="mr-2 h-5 w-5" />
-                  Emitir comprobantes validos
+                  Emitir comprobantes válidos
                 </BaseButton>
               </div>
             </div>
@@ -2635,7 +2766,7 @@ onBeforeUnmount(() => {
                       </p>
                     </td>
                     <td class="px-4 py-3 text-sm text-gray-700">
-                      <p>Emision {{ formatDate(grupo.fecha_emision) }}</p>
+                      <p>Emisión {{ formatDate(grupo.fecha_emision) }}</p>
                       <p
                         v-if="
                           grupo.fecha_servicio_desde ||
@@ -2697,7 +2828,7 @@ onBeforeUnmount(() => {
 
         <BaseCard v-else>
           <BaseEmpty
-            title="Todavia no hay un lote seleccionado"
+            title="Todavía no hay un lote seleccionado"
             message="Descarga la plantilla, sube el Excel y valida el archivo para ver el resumen completo aca."
             :icon="DocumentDuplicateIcon"
           />
@@ -2768,7 +2899,7 @@ onBeforeUnmount(() => {
         <BaseEmpty v-else>
           <DocumentDuplicateIcon class="mx-auto mb-4 h-12 w-12 text-gray-400" />
           <p class="text-gray-600">
-            Todavia no se cargaron lotes para esta empresa.
+            Todavía no se cargaron lotes para esta empresa.
           </p>
         </BaseEmpty>
       </BaseCard>
@@ -2793,6 +2924,16 @@ onBeforeUnmount(() => {
       variant="danger"
       @confirm="reintentarFallidos"
       @cancel="mostrarConfirmacionReintentoFallidos = false"
+    />
+    <ConfirmDialog
+      :show="mostrarConfirmacionDuplicadoLogico"
+      title="Duplicados probables"
+      :message="mensajeConfirmacionDuplicadoLogico"
+      confirm-text="Emitir igualmente"
+      cancel-text="Volver a revisar"
+      variant="danger"
+      @confirm="confirmarDuplicadoLogicoLote"
+      @cancel="resetearConfirmacionDuplicadoPendiente"
     />
     <ConfirmDialog
       :show="mostrarConfirmacionCompactar"

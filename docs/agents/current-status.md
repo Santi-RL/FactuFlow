@@ -84,11 +84,45 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Se corrigieron riesgos previos de salida a produccion:
   - numeracion protegida con lock local, advisory lock PostgreSQL y constraint unico
   - idempotencia atomica de lote por hash de archivo, empresa y formato usado
+  - idempotencia fiscal obligatoria por request para los caminos que solicitan
+    CAE, con `X-Idempotency-Key`, operación durable e intentos fiscales
+    reconciliables
   - validacion estricta de alicuotas IVA permitidas desde Excel
   - lotes grandes en cola persistente y reanudables por worker
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Idempotencia y deduplicación fiscal segura 2026-06-04
+
+- Se agregó idempotencia fiscal obligatoria para emisión individual,
+  procesamiento de lotes y reintento de fallidos.
+- El backend rechaza operaciones fiscales sin `X-Idempotency-Key`; misma clave
+  con mismo payload devuelve la respuesta persistida o el estado actual, y misma
+  clave con datos distintos devuelve conflicto.
+- Antes de solicitar CAE, FactuFlow persiste `operaciones_idempotentes` y
+  `intentos_emision_fiscal` con snapshot mínimo: emisor, usuario, tipo, punto de
+  venta, número planificado, fecha fiscal, total, receptor, CAE si existe,
+  lote/grupo y categoría de error.
+- La numeración queda reservada por intento fiscal para estados activos. Si un
+  intento queda `en_proceso` vencido, FactuFlow consulta `FECompConsultar` antes
+  de liberar la reserva o vincular un comprobante autorizado.
+- Si ARCA confirma CAE y FactuFlow puede encontrar o reconstruir el comprobante
+  desde un grupo de lote, lo vincula. Si no tiene payload fiscal completo, el
+  intento queda `requiere_reconciliacion`; no se reintenta automáticamente.
+- La deduplicación lógica es advertencia con confirmación adicional. La
+  confirmación de duplicado no integra el hash idempotente, por lo que permite
+  continuar la misma operación después de la advertencia sin cambiar clave.
+- La UI genera claves con `crypto.randomUUID()` por confirmación fiscal final,
+  las reutiliza para retries de la misma operación y las resetea cuando cambian
+  datos fiscales, lote, selección o cancelación definitiva.
+- La columna `Ref` de lotes queda fuera de este control: sigue siendo dato de
+  agrupación/UI del lote, no llave fiscal de idempotencia.
+- Verificación completa ejecutada después de la implementación: backend
+  `.venv\Scripts\python.exe -m pytest tests` OK (262 tests),
+  `ruff check backend\app backend\tests` OK y `black --check backend\app
+  backend\tests` OK; frontend `npm run test:unit` OK (57 tests),
+  `npm run type-check` OK y `npm run lint:check` OK.
 
 ### Preparación local de migración a VPS 2026-06-04
 

@@ -96,6 +96,42 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Idempotencia y deduplicación fiscal segura 2026-06-04
+
+- La API de emisión individual, procesamiento de lotes y reintento de fallidos
+  rechaza solicitudes sin `X-Idempotency-Key`. Esa validación debe ocurrir antes
+  de solicitar CAE.
+- En emisión individual, confirmar una factura genera una clave de idempotencia
+  por confirmación fiscal final. Si la llamada se repite con la misma clave y
+  los mismos datos, no debe solicitar CAE por segunda vez.
+- Si el usuario cambia fecha fiscal, punto de venta, receptor, ítems,
+  comprobantes asociados o cancela definitivamente la operación individual, la
+  UI debe resetear la clave y exigir una nueva confirmación final.
+- En emisión masiva, `Emitir comprobantes válidos` genera una clave para ese
+  procesamiento de lote y la conserva mientras el mismo lote siga en retry de
+  la misma acción. Cambiar lote, archivo, emisor o selección debe resetearla.
+- En `Reintentar fallidos`, la clave idempotente se genera al confirmar el
+  reintento y debe mantenerse si aparece una advertencia de duplicado lógico
+  para esos mismos grupos.
+- Si FactuFlow detecta duplicados lógicos, debe mostrar advertencia y pedir
+  confirmación adicional. Esa confirmación no cambia la clave idempotente ni
+  reemplaza la confirmación fiscal de fecha/punto de venta.
+- Si un intento fiscal queda `en_proceso` vencido, la QA técnica debe verificar
+  que FactuFlow consulta `FECompConsultar` antes de liberar la numeración. Si
+  ARCA confirma autorización pero no hay datos locales completos para
+  reconstruir el comprobante, el estado correcto es `requiere_reconciliacion`.
+- La columna `Ref` del detalle de lotes no participa como llave fiscal: solo
+  agrupa filas del archivo en un comprobante local. La idempotencia fiscal se
+  controla por clave de request, payload hash, intento fiscal y numeración.
+- Verificación automatizada enfocada: backend cubre clave ausente, replay con
+  misma clave, conflicto por payload distinto, constraint de puntos de venta e
+  intento stale consultando ARCA antes de liberar. Frontend cubre envío de clave
+  en emisión individual y procesamiento de lote.
+- Pendiente de QA visual local: abrir `Nueva factura` y `Emisión masiva`,
+  disparar una advertencia de duplicado probable con datos de prueba, confirmar
+  que aparece el segundo modal, que el retry usa la misma clave y que no hay
+  doble solicitud fiscal.
+
 ### Migración local a VPS - verificación técnica 2026-06-04
 
 - Se agregó la herramienta privada `python -m app.scripts.vps_migration` con
@@ -640,9 +676,9 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificación automatizada vigente 2026-06-03: backend `pytest tests -q` OK
-  (243 tests), `ruff` y `black` OK; frontend `test:unit` OK (54 tests),
-  `type-check` OK, `build` OK y `lint:check` OK sin errores ni warnings.
+- Verificación automatizada vigente 2026-06-04: backend `pytest tests` OK
+  (262 tests), `ruff` y `black` OK; frontend `test:unit` OK (57 tests),
+  `type-check` OK y `lint:check` OK sin errores ni warnings.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
   solo desde QA local: observabilidad operativa estandar, backup/restauracion,
   trazabilidad visible y soporte de despliegue.

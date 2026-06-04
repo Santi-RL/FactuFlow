@@ -36,6 +36,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     obtener: vi.fn(),
     obtenerResumen: vi.fn(),
     obtenerGrupos: vi.fn(),
+    reintentarFallidos: vi.fn(),
   },
 }));
 
@@ -160,6 +161,8 @@ const mockedLotesDetalle = lotesComprobantesService as unknown as {
   obtener: Mock;
   obtenerResumen: Mock;
   obtenerGrupos: Mock;
+  procesar: Mock;
+  reintentarFallidos: Mock;
 };
 const mockedPerfiles = perfilesCargaMasivaService as unknown as {
   listar: Mock;
@@ -200,6 +203,9 @@ const loteResumenMock = (): LoteComprobanteResumen => ({
   confirmacion_reintento_fallidos: "",
   mensaje_confirmacion_reintento_fallidos:
     "No hay comprobantes pendientes con fecha fiscal para confirmar.",
+  confirmacion_duplicado_logico: "",
+  mensaje_confirmacion_duplicado_logico: "",
+  cantidad_duplicados_logicos: 0,
   fechas_emision_validas: ["2026-05-20"],
   puntos_venta_validos: [1],
   totales_listos_para_emitir: {
@@ -373,5 +379,55 @@ describe("LotesComprobantesView", () => {
       "ARCA no informó la capacidad máxima por request",
     );
     expect(wrapper.text()).toContain("ARCA no devolvió RegXReq");
+  });
+
+  it("envia una clave de idempotencia al procesar un lote", async () => {
+    const lote = loteResumenMock();
+    mockedLotesDetalle.procesar.mockResolvedValue({
+      lote,
+      mensaje: "El lote quedó en cola.",
+      en_progreso: true,
+    });
+    const wrapper = await mountView([], [lote]);
+    const vm = wrapper.vm as unknown as {
+      procesarLote: () => Promise<void>;
+    };
+
+    await vm.procesarLote();
+
+    expect(mockedLotesDetalle.procesar).toHaveBeenCalledWith(
+      lote.id,
+      lote.confirmacion_fecha_fiscal,
+      expect.any(String),
+      undefined,
+    );
+  });
+
+  it("renueva la clave de idempotencia despues de reintentar fallidos", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      grupos_validos: 0,
+      grupos_fallidos: 1,
+      confirmacion_reintento_fallidos: "fechas=2026-05-20;puntos_venta=1",
+      mensaje_confirmacion_reintento_fallidos:
+        "Está seguro que quiere emitir comprobantes con fecha 20/05/26 para el punto de venta 0001?",
+    };
+    mockedLotesDetalle.reintentarFallidos.mockResolvedValue({
+      lote,
+      mensaje: "Reintento finalizado",
+    });
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as {
+      reintentarFallidos: () => Promise<void>;
+    };
+
+    await vm.reintentarFallidos();
+    await vm.reintentarFallidos();
+
+    const primeraClave = mockedLotesDetalle.reintentarFallidos.mock.calls[0][3];
+    const segundaClave = mockedLotesDetalle.reintentarFallidos.mock.calls[1][3];
+    expect(primeraClave).toEqual(expect.any(String));
+    expect(segundaClave).toEqual(expect.any(String));
+    expect(segundaClave).not.toBe(primeraClave);
   });
 });

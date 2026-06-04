@@ -82,12 +82,13 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
 
   async function emitirComprobante(
     request: EmitirComprobanteRequest,
+    idempotencyKey: string,
   ): Promise<EmitirComprobanteResponse> {
     loading.value = true;
     error.value = null;
 
     try {
-      const response = await comprobantesService.emitir(request);
+      const response = await comprobantesService.emitir(request, idempotencyKey);
 
       if (!response.exito) {
         error.value = response.mensaje;

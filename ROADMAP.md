@@ -58,6 +58,10 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - La seguridad multiemisor es prioritaria: clientes, certificados, puntos de
   venta, comprobantes, lotes, PDFs, reportes, perfiles de carga y formatos de
   importacion no deben mezclarse entre emisores.
+- Las operaciones que pueden solicitar CAE deben ser idempotentes desde backend,
+  no solo desde UI. Emisión individual, procesamiento de lotes y reintento de
+  fallidos exigen `X-Idempotency-Key`, persisten una operación durable antes de
+  ARCA y dejan intentos fiscales reconciliables si el resultado queda incierto.
 - El despliegue local con launcher ya existe y esta probado hasta nivel
   desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un VPS
   con `docker-compose.prod.yml` y PostgreSQL.
@@ -127,6 +131,15 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Numeracion ARCA adelantada y fallos post-CAE quedan como
   `requiere_reconciliacion`, sin persistir respuestas no aprobadas como
   comprobantes emitidos
+- [x] Idempotencia fiscal obligatoria para emisión individual, procesamiento de
+  lotes y reintento de fallidos mediante `X-Idempotency-Key`, hash estable de
+  payload y respuesta persistida.
+- [x] Intentos de emisión fiscal durables antes de ARCA, con reserva de
+  numeración, snapshot mínimo, CAE cuando exista y bloqueo de reintentos
+  inciertos hasta reconciliar.
+- [x] Intentos fiscales `en_proceso` vencidos se verifican con
+  `FECompConsultar` antes de liberar numeración o vincular un comprobante
+  autorizado.
 - [x] Sincronizacion manual de puntos de venta ARCA validada desde UI; los
   puntos devueltos por WSFE se crean o actualizan como Web Services usables
 - [x] Validacion de puntos de venta en emision normaliza `Bloqueado=N`/`S` de ARCA
@@ -242,6 +255,8 @@ Objetivo: dejar la emision validada contra servicios reales.
 - [x] `FECAESolicitar` por sublotes usando `FECompTotXRequest.RegXReq`
 - [x] `FECompUltimoAutorizado`
 - [x] `FECompConsultar` util para verificacion
+- [x] `FECompConsultar` usado para resolver intentos fiscales vencidos antes de
+  liberar numeración o registrar una autorización pendiente.
 - [x] Validacion de numeracion y punto de venta en emision
 - [x] Mapeo de `CondicionIVAReceptorId`
 - [x] Validacion local de ventana ARCA para fecha de emision antes de emitir
@@ -297,6 +312,11 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
 - [x] Fallos post-CAE quedan como `requiere_reconciliacion` y no habilitan
   reintentos automaticos
+- [x] Cada grupo emitible de lote o reintento crea un intento fiscal durable
+  asociado a la operación idempotente de usuario.
+- [x] Duplicados lógicos de comprobantes se informan como advertencia con
+  confirmación adicional; no son bloqueo automático ni forman parte del hash de
+  idempotencia.
 - [x] Gestión resolutiva de lotes parciales: reintento de fallidos con token de
   fecha fiscal, reconciliación externa verificada contra ARCA, descarte
   auditado de pendientes y cierre como `cerrado_reconciliado` o
@@ -436,7 +456,9 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Jobs de lotes reanudables desde estado persistido en BD con ventana stale
 - [x] Reintentos bloqueados cuando existe incertidumbre post-ARCA
 - [ ] Reintentos controlados para otros procesos largos
-- [~] Idempotencia mas visible para usuario final
+- [x] Idempotencia fiscal obligatoria y visible para usuario final en caminos de
+  CAE: misma clave y mismo payload no reemiten; misma clave con otros datos
+  devuelve conflicto; clave ausente se rechaza.
 - [ ] Auditoria de eventos operativos criticos
 
 ## Fase 6 - Multiemisor con emisor activo

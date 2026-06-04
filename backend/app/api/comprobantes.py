@@ -4,15 +4,17 @@ import logging
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import String, and_, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.api.deps import get_current_empresa_id, get_db
+from app.api.deps import get_current_empresa_id, get_current_empresa_user, get_db
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
+from app.models.idempotencia_fiscal import OperacionIdempotente
+from app.models.usuario import Usuario
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     EmitirComprobanteResponse,
@@ -27,9 +29,65 @@ from app.services.facturacion_service import (
     ReconciliacionNumeracionError,
     ValidationError,
 )
+from app.services.idempotencia_fiscal_service import (
+    IdempotenciaFiscalError,
+    IdempotenciaFiscalService,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _estado_operacion_desde_resultado(resultado: EmitirComprobanteResponse) -> str:
+    """Mapea una respuesta fiscal al estado de operación idempotente."""
+    if resultado.exito:
+        return "finalizado"
+    if resultado.categoria_error == "duplicado_logico":
+        return "requiere_confirmacion_duplicado"
+    if resultado.requiere_reconciliacion:
+        return "requiere_reconciliacion"
+    return "fallido"
+
+
+def _raise_resultado_no_exitoso(resultado: EmitirComprobanteResponse) -> None:
+    """Convierte un resultado no exitoso en el HTTPException correspondiente."""
+    if resultado.requiere_reconciliacion or resultado.categoria_error in {
+        "duplicado_logico",
+        "arca_respuesta_incierta",
+        "idempotencia_en_proceso",
+    }:
+        raise HTTPException(status_code=409, detail=jsonable_encoder(resultado))
+    raise HTTPException(
+        status_code=400,
+        detail={"mensaje": resultado.mensaje, "errores": resultado.errores},
+    )
+
+
+async def _resolver_operacion_emitir(
+    *,
+    db: AsyncSession,
+    request: EmitirComprobanteRequest,
+    empresa_id: int,
+    usuario_id: int | None,
+    idempotency_key: str | None,
+) -> tuple[IdempotenciaFiscalService, OperacionIdempotente, bool]:
+    """Obtiene o crea la operación idempotente para emisión individual."""
+    idempotencia = IdempotenciaFiscalService(db)
+    payload = request.model_dump(mode="json")
+    payload_hash = idempotencia.calcular_payload_hash(
+        idempotencia.payload_sin_confirmacion_duplicado(payload)
+    )
+    try:
+        operacion, creada = await idempotencia.obtener_o_crear_operacion(
+            empresa_id=empresa_id,
+            usuario_id=usuario_id,
+            idempotency_key=idempotency_key,
+            tipo_operacion="emitir_comprobante",
+            payload_hash=payload_hash,
+        )
+    except IdempotenciaFiscalError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    return idempotencia, operacion, creada
 
 
 @router.get("/", response_model=PaginatedComprobantesResponse)
@@ -227,7 +285,9 @@ async def obtener_comprobante(
 @router.post("/emitir", response_model=EmitirComprobanteResponse)
 async def emitir_comprobante(
     request: EmitirComprobanteRequest,
+    x_idempotency_key: str | None = Header(default=None),
     db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
     """
@@ -265,21 +325,88 @@ async def emitir_comprobante(
 
     service = FacturacionService(db)
     request = request.model_copy(update={"empresa_id": empresa_activa_id})
+    idempotencia, operacion, creada = await _resolver_operacion_emitir(
+        db=db,
+        request=request,
+        empresa_id=empresa_activa_id,
+        usuario_id=current_user.id,
+        idempotency_key=x_idempotency_key,
+    )
+
+    confirmacion_duplicado_autorizada = False
+    if not creada:
+        if operacion.response_json is not None:
+            if (
+                IdempotenciaFiscalService.requiere_confirmacion_duplicado(
+                    operacion.response_json
+                )
+                and request.confirmacion_duplicado_logico
+            ):
+                operacion, tomada = await idempotencia.marcar_operacion_en_proceso(
+                    operacion
+                )
+                if tomada:
+                    confirmacion_duplicado_autorizada = True
+                elif operacion.response_json is not None:
+                    resultado_guardado = EmitirComprobanteResponse.model_validate(
+                        operacion.response_json
+                    )
+                    if not resultado_guardado.exito:
+                        _raise_resultado_no_exitoso(resultado_guardado)
+                    return resultado_guardado
+                else:
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "mensaje": "La operación fiscal ya está en proceso o requiere verificación.",
+                            "errores": [
+                                "No vuelvas a solicitar CAE con otra clave hasta revisar el estado de ARCA y de FactuFlow."
+                            ],
+                            "categoria_error": "idempotencia_en_proceso",
+                        },
+                    )
+            else:
+                resultado_guardado = EmitirComprobanteResponse.model_validate(
+                    operacion.response_json
+                )
+                if not resultado_guardado.exito:
+                    _raise_resultado_no_exitoso(resultado_guardado)
+                return resultado_guardado
+        else:
+            resultado_actual = await service.resolver_operacion_idempotente_incompleta(
+                operacion.id
+            )
+            if resultado_actual is not None:
+                if resultado_actual.categoria_error != "idempotencia_en_proceso":
+                    await idempotencia.guardar_respuesta_operacion(
+                        operacion,
+                        response_json=resultado_actual,
+                        estado=_estado_operacion_desde_resultado(resultado_actual),
+                    )
+                if not resultado_actual.exito:
+                    _raise_resultado_no_exitoso(resultado_actual)
+                return resultado_actual
+    if request.confirmacion_duplicado_logico != confirmacion_duplicado_autorizada:
+        request = request.model_copy(
+            update={
+                "confirmacion_duplicado_logico": (confirmacion_duplicado_autorizada)
+            }
+        )
 
     try:
-        resultado = await service.emitir_comprobante(request)
+        resultado = await service.emitir_comprobante(
+            request,
+            operacion_id=operacion.id,
+            usuario_id=current_user.id,
+        )
+        await idempotencia.guardar_respuesta_operacion(
+            operacion,
+            response_json=resultado,
+            estado=_estado_operacion_desde_resultado(resultado),
+        )
 
         if not resultado.exito:
-            if resultado.requiere_reconciliacion:
-                raise HTTPException(
-                    status_code=409,
-                    detail=jsonable_encoder(resultado),
-                )
-            # Si hay error, retornar 400
-            raise HTTPException(
-                status_code=400,
-                detail={"mensaje": resultado.mensaje, "errores": resultado.errores},
-            )
+            _raise_resultado_no_exitoso(resultado)
 
         return resultado
     except HTTPException:

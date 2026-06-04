@@ -69,6 +69,15 @@ Los endpoints actuales tienen una barrera explicita: emision individual exige
 `fechas=AAAA-MM-DD,...;puntos_venta=N,...`, recalculado desde los grupos
 validados.
 
+Regla crítica de idempotencia fiscal: los endpoints que pueden solicitar CAE
+deben exigir `X-Idempotency-Key` antes de entrar al flujo ARCA. Actualmente
+aplica a `POST /api/comprobantes/emitir`,
+`POST /api/lotes-comprobantes/{lote_id}/procesar` y
+`POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos`. Misma clave con
+mismo payload devuelve la respuesta o estado persistido sin reemitir; misma
+clave con payload distinto devuelve conflicto. La confirmación de duplicado
+lógico no forma parte del hash idempotente.
+
 Regla critica: ningun endpoint de emision debe asumir productos o servicios por
 default. `concepto` o `concepto_modo` deben llegar explicitamente antes de
 emitir o validar lotes. Esto define el tipo de concepto fiscal ARCA, no el texto

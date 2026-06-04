@@ -21,6 +21,10 @@ from app.models.formato_importacion import (
 )
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.evento_sistema import EventoSistema, ExportacionAlmacenamiento
+from app.models.idempotencia_fiscal import (
+    OperacionIdempotente,
+    IntentoEmisionFiscal,
+)
 
 __all__ = [
     "Usuario",
@@ -41,4 +45,6 @@ __all__ = [
     "PerfilCargaMasiva",
     "EventoSistema",
     "ExportacionAlmacenamiento",
+    "OperacionIdempotente",
+    "IntentoEmisionFiscal",
 ]

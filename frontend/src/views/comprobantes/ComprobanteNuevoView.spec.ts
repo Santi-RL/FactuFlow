@@ -93,6 +93,7 @@ const deferred = <T>() => {
 
 const mockedComprobantesService = comprobantesService as unknown as {
   proximoNumero: Mock;
+  emitir: Mock;
 };
 const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
@@ -246,5 +247,78 @@ describe("ComprobanteNuevoView", () => {
     vm.formData.cliente.tipo_documento = TIPOS_DOCUMENTO.CUIT;
     await flushPromises();
     expect(vm.formularioValido).toBe(true);
+  });
+
+  it("envia una clave de idempotencia al confirmar la emision", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    mockedComprobantesService.emitir.mockResolvedValue({
+      exito: true,
+      comprobante_id: 55,
+      tipo_comprobante: 6,
+      punto_venta: 1,
+      numero: 100,
+      fecha: "2026-05-20",
+      cae: "12345678901234",
+      cae_vencimiento: "2026-05-30",
+      total: 121,
+      mensaje: "Autorizado",
+      errores: [],
+    });
+    const wrapper = await mountView();
+    const vm = wrapper.vm as unknown as {
+      formData: {
+        punto_venta_id: number;
+        concepto: number | "";
+        fecha_emision: string;
+        cliente: {
+          tipo_documento: number;
+          numero_documento: string;
+          razon_social: string;
+          condicion_iva: string;
+        };
+        items: Array<{
+          descripcion: string;
+          cantidad: number;
+          unidad: string;
+          precio_unitario: number;
+          descuento_porcentaje: number;
+          iva_porcentaje: number;
+          orden: number;
+        }>;
+      };
+      confirmarEmision: () => Promise<void>;
+    };
+
+    vm.formData.punto_venta_id = 1;
+    vm.formData.concepto = TIPOS_CONCEPTO.PRODUCTOS;
+    vm.formData.fecha_emision = "2026-05-20";
+    vm.formData.cliente = {
+      tipo_documento: TIPOS_DOCUMENTO.DNI,
+      numero_documento: "12345678",
+      razon_social: "Cliente Demo",
+      condicion_iva: "Consumidor Final",
+    };
+    vm.formData.items = [
+      {
+        descripcion: "Servicio",
+        cantidad: 1,
+        unidad: "unidad",
+        precio_unitario: 100,
+        descuento_porcentaje: 0,
+        iva_porcentaje: 21,
+        orden: 0,
+      },
+    ];
+
+    await vm.confirmarEmision();
+
+    expect(mockedComprobantesService.emitir).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmacion_fecha_fiscal: true,
+      }),
+      expect.any(String),
+    );
   });
 });

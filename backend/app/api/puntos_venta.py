@@ -258,6 +258,23 @@ async def update_punto_venta(
 
     # Actualizar campos
     update_data = punto_venta_data.model_dump(exclude_unset=True)
+    if "numero" in update_data and update_data["numero"] != punto_venta.numero:
+        result = await db.execute(
+            select(PuntoVenta).where(
+                PuntoVenta.empresa_id == empresa_id,
+                PuntoVenta.numero == update_data["numero"],
+                PuntoVenta.id != punto_venta.id,
+            )
+        )
+        if result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Ya existe un punto de venta con el número "
+                    f"{update_data['numero']}"
+                ),
+            )
+
     for field, value in update_data.items():
         setattr(punto_venta, field, value)
 

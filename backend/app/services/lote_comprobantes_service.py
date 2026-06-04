@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import unicodedata
 from collections import defaultdict
@@ -35,6 +36,7 @@ from app.models.lote_comprobante import (
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
+from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
 from app.schemas.comprobante import (
@@ -43,12 +45,17 @@ from app.schemas.comprobante import (
     EmitirComprobanteResponse,
     ItemComprobanteCreate,
 )
+from app.schemas.lote_comprobante import (
+    LoteComprobanteResponse,
+    LoteProcesamientoResponse,
+)
 from app.services.facturacion_service import FacturacionService, ValidationError
 from app.services.formatos_importacion_service import (
     FormatoImportacionError,
     FormatosImportacionService,
     ImportacionNormalizada,
 )
+from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
 logger = logging.getLogger(__name__)
 
@@ -489,6 +496,23 @@ class LoteComprobantesService:
                 self.db.add(fila)
 
         await self.db.flush()
+        duplicados_logicos = await self.obtener_confirmacion_duplicado_logico_grupos(
+            lote_id=lote.id,
+            empresa_id=empresa.id,
+            estados={"validado"},
+        )
+        if duplicados_logicos["cantidad_duplicados_logicos"]:
+            metadata = dict(lote.metadata_json or {})
+            metadata["duplicados_logicos"] = {
+                "cantidad": duplicados_logicos["cantidad_duplicados_logicos"],
+                "confirmacion": duplicados_logicos["confirmacion_duplicado_logico"],
+            }
+            lote.metadata_json = metadata
+            await self._agregar_advertencia_duplicado_logico(
+                grupo_ids=duplicados_logicos["ids_grupos"],
+                mensaje=duplicados_logicos["mensaje_confirmacion_duplicado_logico"],
+            )
+            await self.db.flush()
         await self._actualizar_estado_lote(lote)
         try:
             await self.db.commit()
@@ -829,7 +853,13 @@ class LoteComprobantesService:
         fecha = self._parse_date(valor_archivo)
         return fecha.isoformat() if fecha else ""
 
-    async def encolar_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
+    async def encolar_lote(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        operacion_id: int | None = None,
+        confirmacion_duplicado_logico: bool = False,
+    ) -> LoteComprobante:
         """Deja un lote validado en cola persistente para el worker."""
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         if lote.estado == "procesando":
@@ -847,6 +877,11 @@ class LoteComprobantesService:
         lote.mensaje_resumen = (
             "El lote quedó en cola para procesamiento en segundo plano."
         )
+        if operacion_id is not None:
+            metadata = dict(lote.metadata_json or {})
+            metadata["operacion_idempotente_id"] = operacion_id
+            metadata["confirmacion_duplicado_logico"] = confirmacion_duplicado_logico
+            lote.metadata_json = metadata
         await self.db.commit()
         await self.db.refresh(lote)
         return lote
@@ -862,6 +897,55 @@ class LoteComprobantesService:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def calcular_material_idempotente_grupos(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+        estados: set[str] | None = None,
+        grupo_ids: list[int] | None = None,
+    ) -> dict[str, Any]:
+        """Calcula una huella estable de los payloads fiscales del lote."""
+        stmt = (
+            select(LoteComprobanteGrupo.id, LoteComprobanteGrupo.payload_json)
+            .join(LoteComprobante, LoteComprobante.id == LoteComprobanteGrupo.lote_id)
+            .where(
+                LoteComprobanteGrupo.lote_id == lote_id,
+                LoteComprobante.empresa_id == empresa_id,
+                LoteComprobanteGrupo.payload_json.is_not(None),
+            )
+            .order_by(LoteComprobanteGrupo.id)
+        )
+        if estados is not None:
+            stmt = stmt.where(LoteComprobanteGrupo.estado.in_(estados))
+        if grupo_ids:
+            stmt = stmt.where(LoteComprobanteGrupo.id.in_(grupo_ids))
+
+        rows = (await self.db.execute(stmt)).all()
+        grupos = [
+            {
+                "grupo_id": grupo_id,
+                "payload_hash": hashlib.sha256(
+                    json.dumps(
+                        payload_json or {},
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        default=str,
+                    ).encode("utf-8")
+                ).hexdigest(),
+            }
+            for grupo_id, payload_json in rows
+        ]
+        encoded = json.dumps(
+            grupos,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return {
+            "grupo_ids": [grupo["grupo_id"] for grupo in grupos],
+            "grupos_hash": hashlib.sha256(encoded).hexdigest(),
+        }
 
     async def obtener_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
         """Obtiene un lote con grupos y filas."""
@@ -958,6 +1042,11 @@ class LoteComprobantesService:
             puntos_fallidos,
             token_fallidos,
         ) = self._crear_token_confirmacion_desde_payloads(list(fallidos_result.all()))
+        duplicados = await self.obtener_confirmacion_duplicado_logico_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            estados={"validado"},
+        )
         return {
             "confirmacion_fecha_fiscal": token,
             "mensaje_confirmacion_fecha_fiscal": (
@@ -970,6 +1059,13 @@ class LoteComprobantesService:
                     puntos_fallidos,
                 )
             ),
+            "confirmacion_duplicado_logico": duplicados[
+                "confirmacion_duplicado_logico"
+            ],
+            "mensaje_confirmacion_duplicado_logico": duplicados[
+                "mensaje_confirmacion_duplicado_logico"
+            ],
+            "cantidad_duplicados_logicos": duplicados["cantidad_duplicados_logicos"],
             "fechas_emision_validas": fechas,
             "puntos_venta_validos": puntos_venta,
             "totales_listos_para_emitir": self._calcular_totales_payloads(filas),
@@ -1025,6 +1121,128 @@ class LoteComprobantesService:
             "ids_grupos": sorted(ids_encontrados),
         }
 
+    async def obtener_confirmacion_duplicado_logico_grupos(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        estados: set[str],
+        grupo_ids: list[int] | None = None,
+    ) -> dict[str, Any]:
+        """Calcula una confirmación adicional para duplicados lógicos probables."""
+        await self.obtener_lote_resumen(lote_id, empresa_id)
+        filtros = [
+            LoteComprobanteGrupo.lote_id == lote_id,
+            LoteComprobanteGrupo.estado.in_(estados),
+        ]
+        if grupo_ids:
+            filtros.append(LoteComprobanteGrupo.id.in_(grupo_ids))
+
+        result = await self.db.execute(
+            select(
+                LoteComprobanteGrupo.id,
+                LoteComprobanteGrupo.comprobante_ref,
+                LoteComprobanteGrupo.payload_json,
+                LoteComprobanteGrupo.punto_venta_numero,
+            ).where(*filtros)
+        )
+        filas = list(result.all())
+        if not filas:
+            return {
+                "confirmacion_duplicado_logico": "",
+                "mensaje_confirmacion_duplicado_logico": "",
+                "cantidad_duplicados_logicos": 0,
+                "ids_grupos": [],
+            }
+
+        idempotencia = IdempotenciaFiscalService(self.db)
+        huellas: dict[int, str] = {}
+        refs: dict[int, str] = {}
+        duplicados_ids: set[int] = set()
+        for grupo_id, comprobante_ref, payload, punto_venta_numero in filas:
+            try:
+                request = EmitirComprobanteRequest.model_validate(payload or {})
+                totales = self.facturacion_service._calcular_totales(request.items)
+                huella = idempotencia.calcular_huella_logica(
+                    request=request,
+                    punto_venta_numero=int(punto_venta_numero or 0),
+                    total=totales["total"],
+                )
+                huellas[int(grupo_id)] = huella
+                refs[int(grupo_id)] = str(comprobante_ref)
+                punto_venta = await self.facturacion_service._obtener_punto_venta(
+                    request.punto_venta_id,
+                    empresa_id,
+                )
+                if punto_venta and await idempotencia.buscar_duplicado_logico(
+                    request=request,
+                    punto_venta=punto_venta,
+                    total=totales["total"],
+                ):
+                    duplicados_ids.add(int(grupo_id))
+            except Exception:  # pragma: no cover - defensivo, no bloquea validación
+                continue
+
+        grupos_por_huella: dict[str, list[int]] = defaultdict(list)
+        for grupo_id, huella in huellas.items():
+            grupos_por_huella[huella].append(grupo_id)
+        for ids in grupos_por_huella.values():
+            if len(ids) > 1:
+                duplicados_ids.update(ids)
+
+        if not duplicados_ids:
+            return {
+                "confirmacion_duplicado_logico": "",
+                "mensaje_confirmacion_duplicado_logico": "",
+                "cantidad_duplicados_logicos": 0,
+                "ids_grupos": [],
+            }
+
+        material = "|".join(
+            sorted(
+                huellas[grupo_id] for grupo_id in duplicados_ids if grupo_id in huellas
+            )
+        )
+        token_hash = hashlib.sha256(material.encode("utf-8")).hexdigest()
+        cantidad = len(duplicados_ids)
+        refs_label = ", ".join(refs[grupo_id] for grupo_id in sorted(duplicados_ids))
+        return {
+            "confirmacion_duplicado_logico": (
+                f"duplicados_logicos={token_hash};cantidad={cantidad}"
+            ),
+            "mensaje_confirmacion_duplicado_logico": (
+                "Se detectaron comprobantes probablemente duplicados "
+                f"({refs_label}). Confirmá explícitamente si corresponde "
+                "solicitar CAE de todos modos."
+            ),
+            "cantidad_duplicados_logicos": cantidad,
+            "ids_grupos": sorted(duplicados_ids),
+        }
+
+    async def _agregar_advertencia_duplicado_logico(
+        self,
+        grupo_ids: list[int],
+        mensaje: str,
+    ) -> None:
+        """Agrega una advertencia visible sin cambiar el estado emitible."""
+        if not grupo_ids or not mensaje:
+            return
+
+        result = await self.db.execute(
+            select(LoteComprobanteGrupo)
+            .options(selectinload(LoteComprobanteGrupo.filas))
+            .where(LoteComprobanteGrupo.id.in_(grupo_ids))
+        )
+        for grupo in result.scalars().all():
+            mensajes_grupo = list(grupo.mensajes_json or [])
+            if mensaje not in mensajes_grupo:
+                mensajes_grupo.append(mensaje)
+            grupo.mensajes_json = mensajes_grupo
+            for fila in grupo.filas:
+                mensajes_fila = list(fila.mensajes_json or [])
+                if mensaje not in mensajes_fila:
+                    mensajes_fila.append(mensaje)
+                fila.mensajes_json = mensajes_fila
+
     @staticmethod
     def _crear_token_confirmacion_desde_payloads(
         filas: list[tuple[dict[str, Any] | None, int | None]]
@@ -1050,6 +1268,8 @@ class LoteComprobantesService:
         empresa_id: int,
         usuario_id: int | None,
         grupo_ids: list[int] | None = None,
+        operacion_id: int | None = None,
+        confirmacion_duplicado_logico: bool = False,
     ) -> LoteComprobante:
         """Reemite grupos fallidos ya seleccionados y confirmados."""
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
@@ -1076,6 +1296,11 @@ class LoteComprobantesService:
                 request = EmitirComprobanteRequest.model_validate(
                     grupo_reclamado.payload_json or {}
                 )
+                request = request.model_copy(
+                    update={
+                        "confirmacion_duplicado_logico": (confirmacion_duplicado_logico)
+                    }
+                )
             except Exception as exc:  # pragma: no cover - defensa operacional
                 await self._marcar_reintento_fallido(
                     lote_id=lote_id,
@@ -1097,6 +1322,10 @@ class LoteComprobantesService:
                         await self.facturacion_service._emitir_comprobante_locked(
                             request,
                             commit=False,
+                            operacion_id=operacion_id,
+                            usuario_id=usuario_id,
+                            lote_id=lote_id,
+                            grupo_id=grupo_reclamado.id,
                         )
                     )
                     await self._aplicar_resultado_emision_grupo(
@@ -1853,14 +2082,42 @@ class LoteComprobantesService:
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     async def procesar_lote(
-        self, lote_id: int, empresa_id: int, reanudar: bool = False
+        self,
+        lote_id: int,
+        empresa_id: int,
+        reanudar: bool = False,
+        operacion_id: int | None = None,
+        usuario_id: int | None = None,
+        confirmacion_duplicado_logico: bool = False,
     ) -> LoteComprobante:
         """Procesa un lote válido, en forma sincrónica o desde background."""
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        if operacion_id is None:
+            operacion_id = (lote.metadata_json or {}).get("operacion_idempotente_id")
+        if not confirmacion_duplicado_logico:
+            confirmacion_duplicado_logico = bool(
+                (lote.metadata_json or {}).get("confirmacion_duplicado_logico")
+            )
+        metadata_actual = lote.metadata_json or {}
+        if operacion_id is not None and (
+            metadata_actual.get("operacion_idempotente_id") != operacion_id
+            or bool(metadata_actual.get("confirmacion_duplicado_logico"))
+            != confirmacion_duplicado_logico
+        ):
+            metadata = dict(lote.metadata_json or {})
+            metadata["operacion_idempotente_id"] = operacion_id
+            metadata["confirmacion_duplicado_logico"] = confirmacion_duplicado_logico
+            lote.metadata_json = metadata
+            await self.db.flush()
 
         if lote.estado == "procesando" and not reanudar:
             return lote
         if lote.estado in self.ESTADOS_TERMINALES:
+            if reanudar and operacion_id is not None:
+                await self._guardar_respuesta_operacion_background(
+                    lote,
+                    operacion_id,
+                )
             return lote
         estado_reanudable = reanudar and lote.estado == "procesando"
         if lote.estado not in self.ESTADOS_PROCESABLES and not estado_reanudable:
@@ -1904,6 +2161,11 @@ class LoteComprobantesService:
             try:
                 payload = grupo.payload_json or {}
                 request = EmitirComprobanteRequest.model_validate(payload)
+                request = request.model_copy(
+                    update={
+                        "confirmacion_duplicado_logico": (confirmacion_duplicado_logico)
+                    }
+                )
                 if reanudar and await self._reconciliar_grupo_autorizado_existente(
                     grupo, request
                 ):
@@ -1927,7 +2189,11 @@ class LoteComprobantesService:
                 for pendiente in sublote:
                     try:
                         resultado = await self.facturacion_service.emitir_comprobante(
-                            pendiente.request
+                            pendiente.request,
+                            operacion_id=operacion_id,
+                            usuario_id=usuario_id,
+                            lote_id=lote_id,
+                            grupo_id=pendiente.grupo.id,
                         )
                         await self._aplicar_resultado_emision_grupo(
                             pendiente.grupo,
@@ -1955,6 +2221,15 @@ class LoteComprobantesService:
                 resultados = await self.facturacion_service.emitir_comprobantes_lote(
                     [pendiente.request for pendiente in sublote],
                     max_registros=config_batch.chunk_size,
+                    contextos=[
+                        {
+                            "operacion_id": operacion_id,
+                            "usuario_id": usuario_id,
+                            "lote_id": lote_id,
+                            "grupo_id": pendiente.grupo.id,
+                        }
+                        for pendiente in sublote
+                    ],
                 )
             except Exception as exc:  # pragma: no cover - fallback defensivo
                 logger.exception("Error procesando sublote ARCA")
@@ -2009,6 +2284,11 @@ class LoteComprobantesService:
         self._aplicar_aviso_batch_arca(lote)
         await self.db.commit()
         await self.db.refresh(lote)
+        if reanudar and operacion_id is not None:
+            await self._guardar_respuesta_operacion_background(
+                lote,
+                operacion_id,
+            )
         logger.info(
             "Lote %s finalizado con estado %s: emitidos=%s fallidos=%s",
             lote.id,
@@ -2017,6 +2297,39 @@ class LoteComprobantesService:
             lote.grupos_fallidos,
         )
         return lote
+
+    async def _guardar_respuesta_operacion_background(
+        self,
+        lote: LoteComprobante,
+        operacion_id: int,
+    ) -> None:
+        """Actualiza la operación idempotente de un lote procesado por worker."""
+        result = await self.db.execute(
+            select(OperacionIdempotente).where(
+                OperacionIdempotente.id == operacion_id,
+                OperacionIdempotente.empresa_id == lote.empresa_id,
+            )
+        )
+        operacion = result.scalar_one_or_none()
+        if operacion is None:
+            return
+
+        respuesta = LoteProcesamientoResponse(
+            lote=LoteComprobanteResponse.model_validate(lote),
+            mensaje=lote.mensaje_resumen or "Lote procesado",
+            en_progreso=lote.estado in {"en_cola", "procesando"},
+        )
+        estado = "finalizado"
+        if lote.estado == "requiere_reconciliacion":
+            estado = "requiere_reconciliacion"
+        elif respuesta.en_progreso:
+            estado = "en_proceso"
+
+        await IdempotenciaFiscalService(self.db).guardar_respuesta_operacion(
+            operacion,
+            response_json=respuesta,
+            estado=estado,
+        )
 
     async def _tomar_lote_para_procesamiento(
         self,

@@ -68,6 +68,10 @@ const loading = ref(false);
 const mostrarPreview = ref(false);
 const mostrarCancelacion = ref(false);
 const mostrarConfirmacionFechaFiscal = ref(false);
+const mostrarConfirmacionDuplicadoLogico = ref(false);
+const mensajeConfirmacionDuplicadoLogico = ref("");
+const idempotencyKeyEmision = ref<string | null>(null);
+const confirmacionDuplicadoLogico = ref(false);
 const proximoNumero = ref<number | null>(null);
 let proximoNumeroRequestId = 0;
 const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
@@ -103,6 +107,27 @@ const limpiarClienteSeleccionado = () => {
 
 const normalizarOrdenItems = (items: ItemComprobante[]): ItemComprobante[] =>
   items.map((item, index) => ({ ...item, orden: index }));
+
+const crearIdempotencyKey = (): string => {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return `ff-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const obtenerIdempotencyKeyEmision = (): string => {
+  if (!idempotencyKeyEmision.value) {
+    idempotencyKeyEmision.value = crearIdempotencyKey();
+  }
+  return idempotencyKeyEmision.value;
+};
+
+const resetearIdempotencyKeyEmision = () => {
+  idempotencyKeyEmision.value = null;
+  confirmacionDuplicadoLogico.value = false;
+  mostrarConfirmacionDuplicadoLogico.value = false;
+  mensajeConfirmacionDuplicadoLogico.value = "";
+};
 
 const normalizarClienteParaTipoComprobante = () => {
   if (
@@ -153,10 +178,13 @@ watch(
   async (empresaIdActual, empresaIdAnterior) => {
     if (!empresaIdActual || empresaIdActual === empresaIdAnterior) return;
 
+    resetearIdempotencyKeyEmision();
     limpiarClienteSeleccionado();
     await cargarDatosEmisorActivo();
   },
 );
+
+watch(formData, resetearIdempotencyKeyEmision, { deep: true });
 
 const tiposComprobanteDisponibles = computed(() => {
   // TODO: Filtrar según configuración de empresa
@@ -331,6 +359,7 @@ const confirmarEmision = async () => {
       concepto: Number(formData.value.concepto),
       fecha_emision: formData.value.fecha_emision,
       confirmacion_fecha_fiscal: true,
+      confirmacion_duplicado_logico: confirmacionDuplicadoLogico.value,
 
       // Cliente
       cliente_id: formData.value.cliente.cliente_id,
@@ -357,7 +386,10 @@ const confirmarEmision = async () => {
       cotizacion: 1,
     };
 
-    const resultado = await comprobantesStore.emitirComprobante(request);
+    const resultado = await comprobantesStore.emitirComprobante(
+      request,
+      obtenerIdempotencyKeyEmision(),
+    );
 
     if (resultado.exito) {
       showSuccess(
@@ -367,11 +399,13 @@ const confirmarEmision = async () => {
 
       // Redirigir al detalle
       if (resultado.comprobante_id) {
+        resetearIdempotencyKeyEmision();
         router.push({
           name: "comprobante-detalle",
           params: { id: resultado.comprobante_id },
         });
       } else {
+        resetearIdempotencyKeyEmision();
         router.push({ name: "comprobantes" });
       }
     } else {
@@ -382,15 +416,31 @@ const confirmarEmision = async () => {
     }
   } catch (error: any) {
     console.error("Error al emitir:", error);
+    const detail = error.response?.data?.detail;
+    if (detail?.categoria_error === "duplicado_logico") {
+      mensajeConfirmacionDuplicadoLogico.value =
+        [detail.mensaje, ...(detail.errores || [])]
+          .filter(Boolean)
+          .join(" ") ||
+        "Existe un comprobante local muy similar ya autorizado. Confirmá si corresponde emitirlo igualmente.";
+      mostrarConfirmacionDuplicadoLogico.value = true;
+      return;
+    }
     showError(
       "Error al emitir comprobante",
-      error.response?.data?.detail?.mensaje ||
+      detail?.mensaje ||
         error.message ||
-        "Ocurrio un error inesperado. Revisa los datos e intenta nuevamente.",
+        "Ocurrió un error inesperado. Revisa los datos e intenta nuevamente.",
     );
   } finally {
     loading.value = false;
   }
+};
+
+const confirmarDuplicadoLogico = async () => {
+  confirmacionDuplicadoLogico.value = true;
+  mostrarConfirmacionDuplicadoLogico.value = false;
+  await confirmarEmision();
 };
 
 const cancelar = () => {
@@ -398,6 +448,7 @@ const cancelar = () => {
 };
 
 const confirmarCancelacion = () => {
+  resetearIdempotencyKeyEmision();
   mostrarCancelacion.value = false;
   router.push({ name: "comprobantes" });
 };
@@ -518,7 +569,7 @@ const confirmarCancelacion = () => {
         <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Fecha de emision *
+              Fecha de emisión *
             </label>
             <input
               v-model="formData.fecha_emision"
@@ -675,9 +726,20 @@ const confirmarCancelacion = () => {
     />
 
     <ConfirmDialog
+      :show="mostrarConfirmacionDuplicadoLogico"
+      title="Duplicado probable"
+      :message="mensajeConfirmacionDuplicadoLogico"
+      confirm-text="Emitir igualmente"
+      cancel-text="Volver a revisar"
+      variant="danger"
+      @confirm="confirmarDuplicadoLogico"
+      @cancel="mostrarConfirmacionDuplicadoLogico = false"
+    />
+
+    <ConfirmDialog
       :show="mostrarCancelacion"
       title="Cancelar comprobante"
-      message="Se perderan los cambios que todavia no emitiste. Puedes volver al listado o seguir editando."
+      message="Se perderán los cambios que todavía no emitiste. Puedes volver al listado o seguir editando."
       confirm-text="Salir sin guardar"
       cancel-text="Seguir editando"
       @confirm="confirmarCancelacion"

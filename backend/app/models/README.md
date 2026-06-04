@@ -64,6 +64,16 @@ Emision masiva por Excel:
 - Contadores de grupos validos, emitidos y fallidos
 - Datos para reanudar lotes grandes desde el worker
 
+### OperacionIdempotente e IntentoEmisionFiscal
+Control fiscal durable para caminos que pueden solicitar CAE:
+- Una operación por `X-Idempotency-Key`, emisor, usuario, tipo de operación y
+  hash estable del payload fiscal
+- Respuesta persistida para replay seguro sin volver a llamar a ARCA
+- Intentos fiscales por comprobante planificado, con tipo, punto de venta,
+  número, fecha, total, receptor, CAE si existe y estado reconciliable
+- Reserva única de numeración activa para evitar doble solicitud fiscal en
+  estados inciertos
+
 ### FormatoImportacion, FormatoImportacionVersion, FormatoImportacionCampo y FormatoImportacionRegla
 Formatos reutilizables para interpretar archivos externos de emision masiva:
 - Alcance `global` o particular de una Empresa

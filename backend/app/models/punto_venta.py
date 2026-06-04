@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 
@@ -12,6 +13,14 @@ class PuntoVenta(Base):
     """Modelo de Punto de Venta."""
 
     __tablename__ = "puntos_venta"
+    __table_args__ = (
+        UniqueConstraint(
+            "empresa_id",
+            "numero",
+            name="uq_puntos_venta_empresa_numero",
+        ),
+        Index("ix_puntos_venta_empresa_numero", "empresa_id", "numero"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     numero = Column(Integer, nullable=False)  # 1-99999

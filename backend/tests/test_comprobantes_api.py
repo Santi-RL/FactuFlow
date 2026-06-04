@@ -15,6 +15,36 @@ from app.schemas.comprobante import EmitirComprobanteResponse
 from app.services.facturacion_service import FacturacionService
 
 
+def _idempotency_header(key: str = "idem-test-emitir") -> dict[str, str]:
+    """Construye header de idempotencia para tests fiscales."""
+    return {"X-Idempotency-Key": key}
+
+
+def _request_emitir_base(test_empresa) -> dict:
+    """Construye un request mínimo de emisión confirmada."""
+    return {
+        "empresa_id": test_empresa.id,
+        "punto_venta_id": 1,
+        "tipo_comprobante": 6,
+        "concepto": 1,
+        "fecha_emision": date.today().isoformat(),
+        "confirmacion_fecha_fiscal": True,
+        "tipo_documento": 99,
+        "numero_documento": "0",
+        "razon_social": "A CONSUMIDOR FINAL",
+        "condicion_iva": "Consumidor Final",
+        "items": [
+            {
+                "descripcion": "Servicio",
+                "cantidad": 1,
+                "unidad": "unidad",
+                "precio_unitario": 1000,
+                "iva_porcentaje": 0,
+            }
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_emitir_comprobante_rechaza_concepto_faltante(
     client: AsyncClient,
@@ -94,7 +124,7 @@ async def test_emitir_comprobante_reconciliacion_devuelve_409(
 ):
     """La API debe exponer datos fiscales si ARCA autorizó y falló persistencia."""
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
         return EmitirComprobanteResponse(
             exito=False,
             tipo_comprobante=request.tipo_comprobante,
@@ -114,28 +144,8 @@ async def test_emitir_comprobante_reconciliacion_devuelve_409(
 
     response = await client.post(
         "/api/comprobantes/emitir",
-        headers=auth_headers,
-        json={
-            "empresa_id": test_empresa.id,
-            "punto_venta_id": 1,
-            "tipo_comprobante": 6,
-            "concepto": 1,
-            "fecha_emision": date.today().isoformat(),
-            "confirmacion_fecha_fiscal": True,
-            "tipo_documento": 99,
-            "numero_documento": "0",
-            "razon_social": "A CONSUMIDOR FINAL",
-            "condicion_iva": "Consumidor Final",
-            "items": [
-                {
-                    "descripcion": "Servicio",
-                    "cantidad": 1,
-                    "unidad": "unidad",
-                    "precio_unitario": 1000,
-                    "iva_porcentaje": 0,
-                }
-            ],
-        },
+        headers={**auth_headers, **_idempotency_header()},
+        json=_request_emitir_base(test_empresa),
     )
 
     assert response.status_code == 409
@@ -144,6 +154,115 @@ async def test_emitir_comprobante_reconciliacion_devuelve_409(
     assert detail["categoria_error"] == "post_arca_persistencia"
     assert detail["cae"] == "12345678901234"
     assert detail["numero"] == 12
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_exige_idempotency_key(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+):
+    """No debe solicitar CAE si falta X-Idempotency-Key."""
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers=auth_headers,
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 400
+    assert "X-Idempotency-Key" in response.json()["detail"]["mensaje"]
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_replay_misma_clave_no_reemite(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """La misma clave y payload debe devolver la respuesta persistida."""
+    llamadas = 0
+
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=100 + llamadas,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=6,
+            numero=20 + llamadas,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    headers = {**auth_headers, **_idempotency_header("idem-replay")}
+    payload = _request_emitir_base(test_empresa)
+
+    primera = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    segunda = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+
+    assert primera.status_code == 200, primera.text
+    assert segunda.status_code == 200, segunda.text
+    assert llamadas == 1
+    assert segunda.json()["numero"] == primera.json()["numero"]
+    assert segunda.json()["comprobante_id"] == primera.json()["comprobante_id"]
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_misma_clave_payload_distinto_devuelve_409(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Una clave reutilizada con otro payload debe fallar antes de emitir."""
+
+    async def fake_emitir(self, request, **kwargs):
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=101,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=6,
+            numero=21,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    headers = {**auth_headers, **_idempotency_header("idem-conflicto")}
+    payload = _request_emitir_base(test_empresa)
+
+    primera = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    payload_distinto = {**payload, "observaciones": "Otro dato fiscal"}
+    segunda = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload_distinto,
+    )
+
+    assert primera.status_code == 200, primera.text
+    assert segunda.status_code == 409
+    assert "otros datos" in segunda.json()["detail"]["mensaje"]
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,7 @@ from app.models.lote_comprobante import (
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
+from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteResponse
 from app.services.lote_comprobantes_service import (
@@ -148,14 +149,17 @@ def _build_lote_excel(
 
 
 def _confirmacion_fecha_fiscal_header(
-    fecha_emision: date | None = None, punto_venta: int = 1
+    fecha_emision: date | None = None,
+    punto_venta: int = 1,
+    idempotency_key: str = "idem-lote-test",
 ) -> dict[str, str]:
     """Construye el header de confirmación fiscal exacta para tests."""
     fecha = fecha_emision or date.today()
     return {
         "X-Confirmacion-Fecha-Fiscal": (
             f"fechas={fecha.isoformat()};puntos_venta={punto_venta}"
-        )
+        ),
+        "X-Idempotency-Key": idempotency_key,
     }
 
 
@@ -2121,8 +2125,11 @@ async def test_procesar_lote_sync_actualiza_resultados(
     test_certificado,
 ):
     test_certificado.ambiente = settings.arca_env
+    llamadas = 0
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
         return EmitirComprobanteResponse(
             exito=True,
             comprobante_id=123,
@@ -2168,6 +2175,19 @@ async def test_procesar_lote_sync_actualiza_resultados(
     assert data["lote"]["estado"] == "completado"
     assert data["lote"]["grupos_emitidos"] == 1
     assert data["lote"]["grupos_fallidos"] == 0
+    assert llamadas == 1
+
+    replay = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert replay.status_code == 200, replay.text
+    replay_data = replay.json()
+    assert replay_data["en_progreso"] is False
+    assert replay_data["lote"]["estado"] == "completado"
+    assert replay_data["lote"]["grupos_emitidos"] == 1
+    assert llamadas == 1
 
     detalle = await client.get(
         f"/api/lotes-comprobantes/{lote_id}/resultados",
@@ -2184,6 +2204,7 @@ async def test_procesar_lote_background_encola_lote_chico(
     client: AsyncClient,
     auth_headers: dict,
     monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
     test_certificado,
@@ -2193,6 +2214,29 @@ async def test_procesar_lote_background_encola_lote_chico(
     monkeypatch.setattr(
         "app.api.lotes_comprobantes.ensure_lote_worker_running",
         lambda app: None,
+    )
+    llamadas = 0
+
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=200 + llamadas,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=500 + llamadas,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+            mensaje="Comprobante autorizado",
+            errores=[],
+        )
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fake_emitir,
     )
     validar = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -2219,6 +2263,30 @@ async def test_procesar_lote_background_encola_lote_chico(
     assert data["en_progreso"] is True
     assert data["lote"]["estado"] == "en_cola"
     assert data["lote"]["modo_procesamiento"] == "background"
+
+    operacion = (
+        (
+            await db_session.execute(
+                select(OperacionIdempotente).where(
+                    OperacionIdempotente.idempotency_key == "idem-lote-test"
+                )
+            )
+        )
+        .scalars()
+        .one()
+    )
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json["en_progreso"] is True
+
+    service = LoteComprobantesService(db_session)
+    lote = await service.procesar_lote(lote_id, test_empresa.id, reanudar=True)
+    await db_session.refresh(operacion)
+
+    assert lote.estado == "completado"
+    assert llamadas == 1
+    assert operacion.estado == "finalizado"
+    assert operacion.response_json["en_progreso"] is False
+    assert operacion.response_json["lote"]["estado"] == "completado"
 
 
 @pytest.mark.asyncio
@@ -2250,7 +2318,7 @@ async def test_procesar_lote_actualiza_contadores_parciales(
     llamadas = 0
     avance_observado = None
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
         nonlocal llamadas, avance_observado
         llamadas += 1
         if llamadas == 2:
@@ -2318,7 +2386,7 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
     async def fake_regxreq(self, empresa_id):
         return 2
 
-    async def fake_emitir_lote(self, requests, max_registros=None):
+    async def fake_emitir_lote(self, requests, max_registros=None, contextos=None):
         nonlocal numero
         llamadas_batch.append(len(requests))
         respuestas = []
@@ -2341,7 +2409,7 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
             )
         return respuestas
 
-    async def fail_emitir_unitario(self, request):
+    async def fail_emitir_unitario(self, request, **kwargs):
         raise AssertionError("No debe usar emisión unitaria en sublotes de tamaño 2")
 
     monkeypatch.setattr(
@@ -2402,7 +2470,7 @@ async def test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso(
     async def fake_regxreq(self, empresa_id):
         raise RuntimeError("RegXReq no disponible")
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
         return EmitirComprobanteResponse(
             exito=True,
             comprobante_id=123,
@@ -2468,7 +2536,7 @@ async def test_procesar_lote_post_arca_requiere_reconciliacion(
     """Un fallo post-ARCA en lote no debe quedar como reintentable."""
     test_certificado.ambiente = settings.arca_env
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
         return EmitirComprobanteResponse(
             exito=False,
             tipo_comprobante=request.tipo_comprobante,
@@ -2591,14 +2659,17 @@ async def test_reintentar_fallidos_exige_confirmacion_fecha_fiscal(
 
     response = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
-        headers=auth_headers,
+        headers={
+            **auth_headers,
+            "X-Idempotency-Key": "idem-reintento-sin-confirmacion",
+        },
         json={"grupo_ids": []},
     )
 
     assert response.status_code == 400
     detail = response.json()["detail"]
-    assert "confirmar la fecha fiscal exacta" in detail
-    assert "0001" in detail
+    assert "confirmar la fecha fiscal exacta" in detail["mensaje"]
+    assert "0001" in detail["mensaje"]
 
 
 @pytest.mark.asyncio
@@ -2622,7 +2693,7 @@ async def test_reintentar_fallidos_reclama_grupo_antes_de_emitir(
     grupo = grupos[0]
     estados_vistos: list[str] = []
 
-    async def fake_emitir_locked(self, request, commit=True):
+    async def fake_emitir_locked(self, request, commit=True, **kwargs):
         estado = await db_session.scalar(
             select(LoteComprobanteGrupo.estado).where(
                 LoteComprobanteGrupo.id == grupo.id
@@ -3605,7 +3676,7 @@ async def test_reanudar_lote_vincula_comprobante_ya_guardado_sin_reemitir(
 
     service = LoteComprobantesService(db_session)
 
-    async def fail_emitir(_request):
+    async def fail_emitir(_request, **kwargs):
         raise AssertionError("No debe reemitir un grupo ya guardado")
 
     service.facturacion_service.emitir_comprobante = fail_emitir
@@ -3646,15 +3717,54 @@ async def test_procesar_lote_exige_confirmacion_fecha_fiscal(
 
     response = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/procesar",
-        headers=auth_headers,
+        headers={**auth_headers, "X-Idempotency-Key": "idem-lote-sin-confirmacion"},
     )
 
     assert response.status_code == 400
     detalle = response.json()["detail"]
-    assert "confirmar la fecha fiscal exacta" in detalle
-    assert date.today().strftime("%d/%m/%y") in detalle
-    assert "0001" in detalle
-    assert "XX/XX/XX" not in detalle
+    assert "confirmar la fecha fiscal exacta" in detalle["mensaje"]
+    assert date.today().strftime("%d/%m/%y") in detalle["mensaje"]
+    assert "0001" in detalle["mensaje"]
+    assert "XX/XX/XX" not in detalle["mensaje"]
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_exige_idempotency_key(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """No debe procesar un lote confirmado sin clave de idempotencia."""
+    test_certificado.ambiente = settings.arca_env
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-sin-idem.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={
+            **auth_headers,
+            "X-Confirmacion-Fecha-Fiscal": (
+                f"fechas={date.today().isoformat()};puntos_venta=1"
+            ),
+        },
+    )
+
+    assert response.status_code == 400
+    assert "X-Idempotency-Key" in response.json()["detail"]["mensaje"]
 
 
 @pytest.mark.asyncio
@@ -3831,7 +3941,7 @@ async def test_procesar_lote_reanuda_procesando_stale(
     test_certificado.ambiente = settings.arca_env
     monkeypatch.setattr(settings, "batch_sync_limit", 0)
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
         return EmitirComprobanteResponse(
             exito=True,
             comprobante_id=432,
@@ -3923,7 +4033,8 @@ async def test_procesar_lote_legacy_sin_descripcion_item_bloquea_emision(
     )
 
     assert procesar.status_code == 400
-    assert "descripción facturada" in procesar.json()["detail"]
+    detail = procesar.json()["detail"]
+    assert "descripción facturada" in detail["mensaje"]
 
 
 @pytest.mark.asyncio
@@ -3939,7 +4050,7 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
     test_certificado.ambiente = settings.arca_env
     monkeypatch.setattr(settings, "batch_sync_limit", 0)
 
-    async def fake_emitir(self, request):
+    async def fake_emitir(self, request, **kwargs):
         return EmitirComprobanteResponse(
             exito=True,
             comprobante_id=321,

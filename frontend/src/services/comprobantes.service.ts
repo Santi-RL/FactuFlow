@@ -45,8 +45,13 @@ export const comprobantesService = {
    */
   async emitir(
     request: EmitirComprobanteRequest,
+    idempotencyKey: string,
   ): Promise<EmitirComprobanteResponse> {
-    const { data } = await api.post("/api/comprobantes/emitir", request);
+    const { data } = await api.post("/api/comprobantes/emitir", request, {
+      headers: {
+        "X-Idempotency-Key": idempotencyKey,
+      },
+    });
     return data;
   },
 

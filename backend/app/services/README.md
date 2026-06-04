@@ -14,6 +14,7 @@ services/
 ├── constancia_puntos_venta_service.py   # Extraccion de puntos de venta desde constancia ARCA
 ├── facturacion_service.py               # Orquestacion de emision de comprobantes
 ├── formatos_importacion_service.py      # Formatos, autodeteccion y mapeo de Excel externos
+├── idempotencia_fiscal_service.py       # Idempotencia y deduplicación fiscal
 ├── lote_comprobantes_service.py         # Validacion y procesamiento de lotes Excel
 ├── lote_worker.py                       # Worker reanudable para lotes grandes
 ├── perfiles_carga_masiva_service.py     # Perfiles de carga masiva por emisor
@@ -35,6 +36,11 @@ services/
   solicitar CAE; no usar fecha del dia como default fiscal. `concepto` tambien
   es obligatorio; no asumir productos o servicios por default. Ese `concepto`
   es el tipo de concepto fiscal ARCA, no la descripcion del item.
+- Idempotencia fiscal: ver `idempotencia_fiscal_service.py`. Los caminos que
+  solicitan CAE deben exigir `X-Idempotency-Key`, persistir una operación
+  durable, crear intentos fiscales antes de ARCA y bloquear reintentos inciertos
+  hasta consultar `FECompConsultar` o reconciliar. Los duplicados lógicos son
+  advertencias con confirmación adicional, no bloqueos automáticos.
 - Lotes masivos: ver `backend/app/services/lote_comprobantes_service.py` y
   `backend/app/services/lote_worker.py`. Los lotes requieren politica explicita
   de concepto fiscal ARCA, descripcion/concepto facturado del item, fecha de

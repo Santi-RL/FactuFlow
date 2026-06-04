@@ -113,6 +113,9 @@ class LoteComprobanteResumenResponse(LoteComprobanteResponse):
     mensaje_confirmacion_fecha_fiscal: str = ""
     confirmacion_reintento_fallidos: str = ""
     mensaje_confirmacion_reintento_fallidos: str = ""
+    confirmacion_duplicado_logico: str = ""
+    mensaje_confirmacion_duplicado_logico: str = ""
+    cantidad_duplicados_logicos: int = 0
     fechas_emision_validas: list[str] = Field(default_factory=list)
     puntos_venta_validos: list[int] = Field(default_factory=list)
     totales_listos_para_emitir: LoteTotalesListosResponse = Field(

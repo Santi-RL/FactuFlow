@@ -45,5 +45,9 @@ services/
 - `lotes-comprobantes.service.ts` puede enviar `formato_version_id` al validar
   cuando el usuario confirmo un formato externo, y `perfil_carga_masiva_id`
   cuando corresponde guardar snapshot del perfil aplicado.
+- `comprobantes.service.ts` y `lotes-comprobantes.service.ts` envían
+  `X-Idempotency-Key` en las acciones que pueden solicitar CAE. La clave se
+  genera en la vista al confirmar la operación fiscal y se conserva para retries
+  de esa misma operación.
 - `perfiles-carga-masiva.service.ts` lista, crea, edita, elimina y marca como
   predeterminado perfiles del emisor activo.

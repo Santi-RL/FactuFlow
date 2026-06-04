@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.empresa import Empresa
@@ -80,3 +81,58 @@ async def test_admin_crea_punto_venta_en_emisor_activo(
     data = response.json()
     assert data["numero"] == 12
     assert data["empresa_id"] == segundo_emisor.id
+
+
+@pytest.mark.asyncio
+async def test_punto_venta_numero_unico_por_emisor(
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """La base debe impedir dos puntos con el mismo número en un emisor."""
+    db_session.add_all(
+        [
+            PuntoVenta(
+                numero=22, nombre="PV A", activo=True, empresa_id=test_empresa.id
+            ),
+            PuntoVenta(
+                numero=22, nombre="PV B", activo=True, empresa_id=test_empresa.id
+            ),
+        ]
+    )
+
+    with pytest.raises(IntegrityError):
+        await db_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_update_punto_venta_rechaza_numero_duplicado_por_emisor(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """La API no debe permitir duplicar el número al editar un punto."""
+    punto_a = PuntoVenta(
+        numero=31,
+        nombre="PV A",
+        activo=True,
+        empresa_id=test_empresa.id,
+    )
+    punto_b = PuntoVenta(
+        numero=32,
+        nombre="PV B",
+        activo=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_a, punto_b])
+    await db_session.commit()
+    await db_session.refresh(punto_b)
+
+    response = await client.put(
+        f"/api/puntos-venta/{punto_b.id}",
+        headers=admin_auth_headers,
+        json={"numero": 31},
+    )
+
+    assert response.status_code == 400
+    assert "Ya existe un punto de venta con el número 31" in response.json()["detail"]

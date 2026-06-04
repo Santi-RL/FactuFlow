@@ -43,11 +43,16 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/models/perfil_carga_masiva.py`: perfiles de carga masiva por emisor.
 - `backend/app/models/evento_sistema.py`: auditoría administrativa y
   exportaciones de almacenamiento.
+- `backend/app/models/idempotencia_fiscal.py`: operaciones idempotentes e
+  intentos fiscales durables para emisión ARCA segura.
 - `backend/app/schemas/formato_importacion.py`: contratos de formatos, deteccion y candidatos.
 - `backend/app/schemas/perfil_carga_masiva.py`: contratos de perfiles de carga masiva.
 - `backend/app/schemas/almacenamiento.py`: contratos del gestor de
   almacenamiento.
 - `backend/app/services/formatos_importacion_service.py`: deteccion, resolucion de mapeos y normalizacion de archivos externos.
+- `backend/app/services/idempotencia_fiscal_service.py`: idempotencia fiscal,
+  reserva de numeración activa, deduplicación lógica y reconciliación de
+  intentos.
 - `backend/app/services/perfiles_carga_masiva_service.py`: CRUD, scoping y validacion de perfiles de carga masiva.
 - `backend/app/services/almacenamiento_service.py`: cálculo acotado de uso,
   ZIPs de resguardo y limpieza confirmada.

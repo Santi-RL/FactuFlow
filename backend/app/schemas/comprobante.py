@@ -79,6 +79,13 @@ class EmitirComprobanteRequest(ComprobanteBase):
             "confirmacion irreversible de fecha fiscal."
         ),
     )
+    confirmacion_duplicado_logico: bool = Field(
+        default=False,
+        description=(
+            "Debe llegar en true solo despues de que la UI confirme una "
+            "advertencia de duplicado lógico probable."
+        ),
+    )
 
     # Cliente/Receptor
     cliente_id: Optional[int] = None  # Si es cliente guardado

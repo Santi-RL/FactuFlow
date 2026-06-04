@@ -81,6 +81,9 @@ export interface LoteComprobanteResumen extends LoteComprobante {
   mensaje_confirmacion_fecha_fiscal: string;
   confirmacion_reintento_fallidos: string;
   mensaje_confirmacion_reintento_fallidos: string;
+  confirmacion_duplicado_logico: string;
+  mensaje_confirmacion_duplicado_logico: string;
+  cantidad_duplicados_logicos: number;
   fechas_emision_validas: string[];
   puntos_venta_validos: number[];
   totales_listos_para_emitir: LoteTotalesListos;

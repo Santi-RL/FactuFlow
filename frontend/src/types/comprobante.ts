@@ -23,6 +23,7 @@ export interface EmitirComprobanteRequest {
   concepto: number;
   fecha_emision: string;
   confirmacion_fecha_fiscal: boolean;
+  confirmacion_duplicado_logico?: boolean;
 
   // Cliente
   cliente_id?: number;
@@ -59,6 +60,8 @@ export interface EmitirComprobanteResponse {
   total: number;
   mensaje: string;
   errores: string[];
+  requiere_reconciliacion?: boolean;
+  categoria_error?: string | null;
 }
 
 export interface Comprobante {

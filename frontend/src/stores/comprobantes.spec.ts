@@ -79,12 +79,16 @@ describe("comprobantes store", () => {
       new Error("Fallo transitorio"),
     );
 
-    await expect(store.emitirComprobante(requestMock())).resolves.toMatchObject(
-      {
-        exito: true,
-        comprobante_id: 99,
-        cae: "12345678901234",
-      },
+    await expect(
+      store.emitirComprobante(requestMock(), "idem-store-test"),
+    ).resolves.toMatchObject({
+      exito: true,
+      comprobante_id: 99,
+      cae: "12345678901234",
+    });
+    expect(mockedComprobantesService.emitir).toHaveBeenCalledWith(
+      expect.any(Object),
+      "idem-store-test",
     );
     expect(mockedComprobantesService.listar).toHaveBeenCalledWith({
       page: 1,

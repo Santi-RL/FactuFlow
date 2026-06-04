@@ -2,11 +2,11 @@
 
 import asyncio
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import desc, select, text
+from sqlalchemy import desc, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,8 +22,15 @@ from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
 from app.models.cliente import Cliente
 from app.models.empresa import Empresa
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
+from app.models.lote_comprobante import (
+    LoteComprobante,
+    LoteComprobanteFila,
+    LoteComprobanteGrupo,
+)
 from app.models.punto_venta import PuntoVenta
 from app.services.certificados_service import resolve_cert_storage_path
+from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     EmitirComprobanteResponse,
@@ -111,18 +118,30 @@ class FacturacionService:
         self,
         request: EmitirComprobanteRequest,
         commit: bool = True,
+        operacion_id: int | None = None,
+        usuario_id: int | None = None,
+        lote_id: int | None = None,
+        grupo_id: int | None = None,
     ) -> EmitirComprobanteResponse:
         """Serializa la emisión por empresa, punto de venta y tipo."""
         lock = await self._get_number_lock(
             request.empresa_id, request.punto_venta_id, request.tipo_comprobante
         )
         async with lock:
-            return await self._emitir_comprobante_locked(request, commit=commit)
+            return await self._emitir_comprobante_locked(
+                request,
+                commit=commit,
+                operacion_id=operacion_id,
+                usuario_id=usuario_id,
+                lote_id=lote_id,
+                grupo_id=grupo_id,
+            )
 
     async def emitir_comprobantes_lote(
         self,
         requests: list[EmitirComprobanteRequest],
         max_registros: int | None = None,
+        contextos: list[dict[str, int | None]] | None = None,
     ) -> list[EmitirComprobanteResponse]:
         """Emite un sublote homogéneo de comprobantes en un request ARCA."""
         if not requests:
@@ -137,6 +156,7 @@ class FacturacionService:
             return await self._emitir_comprobantes_lote_locked(
                 requests,
                 max_registros=max_registros,
+                contextos=contextos,
             )
 
     async def obtener_registros_maximos_por_request(self, empresa_id: int) -> int:
@@ -154,15 +174,103 @@ class FacturacionService:
         )
         return await wsfe_client.fe_comp_tot_x_request()
 
+    async def resolver_operacion_idempotente_incompleta(
+        self,
+        operacion_id: int,
+    ) -> EmitirComprobanteResponse | None:
+        """Resuelve una operación sin respuesta antes de permitir un retry."""
+        result = await self.db.execute(
+            select(IntentoEmisionFiscal)
+            .where(IntentoEmisionFiscal.operacion_id == operacion_id)
+            .order_by(IntentoEmisionFiscal.id)
+        )
+        intentos = list(result.scalars().all())
+        if not intentos:
+            operacion = await self.db.get(OperacionIdempotente, operacion_id)
+            stale_before = datetime.utcnow() - timedelta(
+                minutes=settings.fiscal_attempt_stale_minutes
+            )
+            if operacion is not None and operacion.created_at < stale_before:
+                return None
+            return EmitirComprobanteResponse(
+                exito=False,
+                tipo_comprobante=0,
+                punto_venta=0,
+                numero=0,
+                fecha=date(1970, 1, 1),
+                total=Decimal("0"),
+                mensaje="La operación fiscal ya está en proceso.",
+                errores=[
+                    "Esperá el resultado o revisá el estado antes de volver a solicitar CAE."
+                ],
+                categoria_error="idempotencia_en_proceso",
+            )
+
+        intento = intentos[0]
+        respuesta = await self._respuesta_desde_intento_resuelto(intento)
+        if respuesta is not None:
+            return respuesta
+
+        if intento.estado != "en_proceso":
+            return self._respuesta_intento_requiere_reconciliacion(intento)
+
+        stale_before = datetime.utcnow() - timedelta(
+            minutes=settings.fiscal_attempt_stale_minutes
+        )
+        if intento.created_at >= stale_before:
+            return EmitirComprobanteResponse(
+                exito=False,
+                tipo_comprobante=intento.tipo_comprobante,
+                punto_venta=intento.punto_venta_numero,
+                numero=intento.numero_planificado or 0,
+                fecha=intento.fecha_emision,
+                total=Decimal(str(intento.total)),
+                mensaje="La operación fiscal ya está en proceso.",
+                errores=[
+                    "Esperá el resultado o revisá el estado antes de volver a solicitar CAE."
+                ],
+                categoria_error="idempotencia_en_proceso",
+            )
+
+        empresa = await self._obtener_empresa(intento.empresa_id)
+        if empresa is None:
+            return self._respuesta_intento_requiere_reconciliacion(intento)
+        certificado = await self._obtener_certificado_activo(intento.empresa_id)
+        ticket = await self._obtener_ticket_acceso(empresa, certificado)
+        wsfe_client = WSFEv1Client(
+            ambiente=self._get_arca_ambiente(),
+            ticket=ticket,
+            cuit=empresa.cuit,
+        )
+        reconciliado = await self._reconciliar_intento_stale(
+            intento=intento,
+            wsfe_client=wsfe_client,
+            punto_venta_numero=intento.punto_venta_numero,
+        )
+        await self.db.refresh(intento)
+
+        if intento.estado == "fallido_verificado":
+            return None
+        respuesta = await self._respuesta_desde_intento_resuelto(intento)
+        if respuesta is not None:
+            return respuesta
+        if reconciliado is not None or intento.estado == "requiere_reconciliacion":
+            return self._respuesta_intento_requiere_reconciliacion(intento)
+        return None
+
     async def _emitir_comprobantes_lote_locked(
         self,
         requests: list[EmitirComprobanteRequest],
         max_registros: int | None = None,
+        contextos: list[dict[str, int | None]] | None = None,
     ) -> list[EmitirComprobanteResponse]:
         """Ejecuta la emisión batch asumiendo que el lock local ya fue tomado."""
         try:
             requests = [self.normalizar_receptor(request) for request in requests]
             self._validar_lote_homogeneo(requests, max_registros=max_registros)
+            contextos = contextos or [{} for _ in requests]
+            if len(contextos) != len(requests):
+                contextos = [{} for _ in requests]
 
             for request in requests:
                 await self._validar_datos(request)
@@ -216,6 +324,24 @@ class FacturacionService:
                     for request, totales in zip(requests, totales_por_request)
                 ]
 
+            idempotencia = IdempotenciaFiscalService(self.db)
+            intentos: list[IntentoEmisionFiscal | None] = []
+            for index, (request, totales, contexto) in enumerate(
+                zip(requests, totales_por_request, contextos)
+            ):
+                intentos.append(
+                    await idempotencia.crear_intento_emision(
+                        request=request,
+                        punto_venta=punto_venta,
+                        numero_planificado=proximo + index,
+                        total=totales["total"],
+                        operacion_id=contexto.get("operacion_id"),
+                        usuario_id=contexto.get("usuario_id"),
+                        lote_id=contexto.get("lote_id"),
+                        grupo_id=contexto.get("grupo_id"),
+                    )
+                )
+
             arca_requests = [
                 self._armar_request_arca(
                     request,
@@ -232,7 +358,7 @@ class FacturacionService:
                 resultados_arca = await wsfe_client.fe_cae_solicitar_lote(arca_requests)
             except (ArcaServiceError, ArcaValidationError) as exc:
                 logger.error("Error al solicitar CAE por sublote: %s", str(exc))
-                return [
+                respuestas_inciertas = [
                     self._respuesta_batch_sin_detalle_requiere_reconciliacion(
                         request=request,
                         punto_venta_numero=punto_venta.numero,
@@ -246,14 +372,21 @@ class FacturacionService:
                         totales_por_request,
                     )
                 ]
+                for intento, respuesta in zip(intentos, respuestas_inciertas):
+                    await idempotencia.actualizar_intento_desde_respuesta(
+                        intento,
+                        respuesta,
+                    )
+                return respuestas_inciertas
 
             respuestas: list[EmitirComprobanteResponse] = []
             persistencia_bloqueada = False
-            for request, arca_request, totales, resultado in zip(
+            for request, arca_request, totales, resultado, intento in zip(
                 requests,
                 arca_requests,
                 totales_por_request,
                 resultados_arca,
+                intentos,
             ):
                 respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
                     request=request,
@@ -263,27 +396,34 @@ class FacturacionService:
                     resultado_arca=resultado,
                 )
                 if respuesta_no_aprobada is not None:
+                    await idempotencia.actualizar_intento_desde_respuesta(
+                        intento,
+                        respuesta_no_aprobada,
+                    )
                     respuestas.append(respuesta_no_aprobada)
                     continue
 
                 if persistencia_bloqueada:
-                    respuestas.append(
-                        self._respuesta_post_arca_requiere_reconciliacion(
-                            request=request,
-                            punto_venta_numero=punto_venta.numero,
-                            numero=arca_request.cbte_desde,
-                            totales=totales,
-                            resultado_arca=resultado,
-                            mensaje=(
-                                "ARCA autorizó el comprobante, pero FactuFlow "
-                                "detuvo la persistencia del sublote por una "
-                                "reconciliación pendiente"
-                            ),
-                            errores=[
-                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente."
-                            ],
-                        )
+                    respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta.numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                        resultado_arca=resultado,
+                        mensaje=(
+                            "ARCA autorizó el comprobante, pero FactuFlow "
+                            "detuvo la persistencia del sublote por una "
+                            "reconciliación pendiente"
+                        ),
+                        errores=[
+                            "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente."
+                        ],
                     )
+                    await idempotencia.actualizar_intento_desde_respuesta(
+                        intento,
+                        respuesta,
+                    )
+                    respuestas.append(respuesta)
                     continue
 
                 try:
@@ -305,22 +445,25 @@ class FacturacionService:
                         request.tipo_comprobante,
                         arca_request.cbte_desde,
                     )
-                    respuestas.append(
-                        self._respuesta_post_arca_requiere_reconciliacion(
-                            request=request,
-                            punto_venta_numero=punto_venta.numero,
-                            numero=arca_request.cbte_desde,
-                            totales=totales,
-                            resultado_arca=resultado,
-                            mensaje=(
-                                "ARCA autorizó el comprobante, pero no se pudo guardar por conflicto de numeración"
-                            ),
-                            errores=[
-                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
-                                str(exc.orig),
-                            ],
-                        )
+                    respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta.numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                        resultado_arca=resultado,
+                        mensaje=(
+                            "ARCA autorizó el comprobante, pero no se pudo guardar por conflicto de numeración"
+                        ),
+                        errores=[
+                            "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
+                            str(exc.orig),
+                        ],
                     )
+                    await idempotencia.actualizar_intento_desde_respuesta(
+                        intento,
+                        respuesta,
+                    )
+                    respuestas.append(respuesta)
                 except Exception as exc:
                     await self.db.rollback()
                     persistencia_bloqueada = True
@@ -331,22 +474,25 @@ class FacturacionService:
                         request.tipo_comprobante,
                         arca_request.cbte_desde,
                     )
-                    respuestas.append(
-                        self._respuesta_post_arca_requiere_reconciliacion(
-                            request=request,
-                            punto_venta_numero=punto_venta.numero,
-                            numero=arca_request.cbte_desde,
-                            totales=totales,
-                            resultado_arca=resultado,
-                            mensaje=(
-                                "ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo"
-                            ),
-                            errores=[
-                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
-                                str(exc),
-                            ],
-                        )
+                    respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta.numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                        resultado_arca=resultado,
+                        mensaje=(
+                            "ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo"
+                        ),
+                        errores=[
+                            "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
+                            str(exc),
+                        ],
                     )
+                    await idempotencia.actualizar_intento_desde_respuesta(
+                        intento,
+                        respuesta,
+                    )
+                    respuestas.append(respuesta)
                 else:
                     logger.info(
                         "Comprobante batch emitido: empresa=%s tipo=%s pv=%s numero=%s cae=%s total=%s",
@@ -357,22 +503,25 @@ class FacturacionService:
                         resultado.cae,
                         totales["total"],
                     )
-                    respuestas.append(
-                        EmitirComprobanteResponse(
-                            exito=True,
-                            comprobante_id=comprobante.id,
-                            tipo_comprobante=request.tipo_comprobante,
-                            punto_venta=punto_venta.numero,
-                            numero=arca_request.cbte_desde,
-                            fecha=comprobante.fecha_emision,
-                            cae=resultado.cae,
-                            cae_vencimiento=self._parse_fecha_cae(
-                                resultado.cae_vencimiento
-                            ),
-                            total=totales["total"],
-                            mensaje="Comprobante emitido exitosamente",
-                        )
+                    respuesta = EmitirComprobanteResponse(
+                        exito=True,
+                        comprobante_id=comprobante.id,
+                        tipo_comprobante=request.tipo_comprobante,
+                        punto_venta=punto_venta.numero,
+                        numero=arca_request.cbte_desde,
+                        fecha=comprobante.fecha_emision,
+                        cae=resultado.cae,
+                        cae_vencimiento=self._parse_fecha_cae(
+                            resultado.cae_vencimiento
+                        ),
+                        total=totales["total"],
+                        mensaje="Comprobante emitido exitosamente",
                     )
+                    await idempotencia.actualizar_intento_desde_respuesta(
+                        intento,
+                        respuesta,
+                    )
+                    respuestas.append(respuesta)
 
             return respuestas
 
@@ -411,6 +560,10 @@ class FacturacionService:
         self,
         request: EmitirComprobanteRequest,
         commit: bool = True,
+        operacion_id: int | None = None,
+        usuario_id: int | None = None,
+        lote_id: int | None = None,
+        grupo_id: int | None = None,
     ) -> EmitirComprobanteResponse:
         """
         Flujo completo de emisión de comprobante.
@@ -443,6 +596,22 @@ class FacturacionService:
                 request.punto_venta_id, request.empresa_id
             )
             certificado = await self._obtener_certificado_activo(request.empresa_id)
+            idempotencia = IdempotenciaFiscalService(self.db)
+
+            if not request.confirmacion_duplicado_logico:
+                duplicado = await idempotencia.buscar_duplicado_logico(
+                    request=request,
+                    punto_venta=punto_venta,
+                    total=totales["total"],
+                )
+                if duplicado is not None:
+                    return self._respuesta_duplicado_logico(
+                        request=request,
+                        punto_venta_numero=punto_venta.numero,
+                        numero=duplicado.numero,
+                        totales=totales,
+                        comprobante_id=duplicado.id,
+                    )
 
             # 4. Autenticar contra ARCA y reconciliar numeración
             ticket = await self._obtener_ticket_acceso(empresa, certificado)
@@ -481,6 +650,16 @@ class FacturacionService:
                 )
 
             # 5. Armar request para ARCA
+            intento = await idempotencia.crear_intento_emision(
+                request=request,
+                punto_venta=punto_venta,
+                numero_planificado=proximo,
+                total=totales["total"],
+                operacion_id=operacion_id,
+                usuario_id=usuario_id,
+                lote_id=lote_id,
+                grupo_id=grupo_id,
+            )
             arca_request = self._armar_request_arca(
                 request, proximo, totales, punto_venta.numero
             )
@@ -491,16 +670,27 @@ class FacturacionService:
 
             except (ArcaServiceError, ArcaValidationError) as e:
                 logger.error(f"Error al solicitar CAE: {str(e)}")
-                return EmitirComprobanteResponse(
+                respuesta = EmitirComprobanteResponse(
                     exito=False,
                     tipo_comprobante=request.tipo_comprobante,
                     punto_venta=punto_venta.numero,
                     numero=proximo,
                     fecha=request.fecha_emision,
                     total=totales["total"],
-                    mensaje="Error al solicitar CAE a ARCA",
-                    errores=[str(e)],
+                    mensaje="FactuFlow no pudo confirmar el resultado de la solicitud a ARCA",
+                    errores=[
+                        "No reintentes esta emisión hasta consultar ARCA y reconciliar la numeración localmente.",
+                        str(e),
+                    ],
+                    requiere_reconciliacion=True,
+                    categoria_error="arca_respuesta_incierta",
                 )
+                await idempotencia.actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta,
+                    commit=commit,
+                )
+                return respuesta
 
             respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
                 request=request,
@@ -510,6 +700,11 @@ class FacturacionService:
                 resultado_arca=resultado,
             )
             if respuesta_no_aprobada is not None:
+                await idempotencia.actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta_no_aprobada,
+                    commit=commit,
+                )
                 return respuesta_no_aprobada
 
             # 7. Guardar en BD
@@ -532,7 +727,7 @@ class FacturacionService:
                     request.tipo_comprobante,
                     proximo,
                 )
-                return self._respuesta_post_arca_requiere_reconciliacion(
+                respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                     request=request,
                     punto_venta_numero=punto_venta.numero,
                     numero=proximo,
@@ -544,6 +739,12 @@ class FacturacionService:
                         str(exc.orig),
                     ],
                 )
+                await idempotencia.actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta,
+                    commit=commit,
+                )
+                return respuesta
             except Exception as exc:
                 await self.db.rollback()
                 logger.exception(
@@ -553,7 +754,7 @@ class FacturacionService:
                     request.tipo_comprobante,
                     proximo,
                 )
-                return self._respuesta_post_arca_requiere_reconciliacion(
+                respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                     request=request,
                     punto_venta_numero=punto_venta.numero,
                     numero=proximo,
@@ -565,6 +766,12 @@ class FacturacionService:
                         str(exc),
                     ],
                 )
+                await idempotencia.actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta,
+                    commit=commit,
+                )
+                return respuesta
 
             # 8. Retornar resultado
             logger.info(
@@ -576,7 +783,7 @@ class FacturacionService:
                 resultado.cae,
                 totales["total"],
             )
-            return EmitirComprobanteResponse(
+            respuesta = EmitirComprobanteResponse(
                 exito=True,
                 comprobante_id=comprobante.id,
                 tipo_comprobante=request.tipo_comprobante,
@@ -588,6 +795,12 @@ class FacturacionService:
                 total=totales["total"],
                 mensaje="Comprobante emitido exitosamente",
             )
+            await idempotencia.actualizar_intento_desde_respuesta(
+                intento,
+                respuesta,
+                commit=commit,
+            )
+            return respuesta
 
         except ValidationError as e:
             logger.warning(f"Error de validación: {str(e)}")
@@ -761,6 +974,30 @@ class FacturacionService:
             ],
             requiere_reconciliacion=True,
             categoria_error="arca_batch_sin_respuesta",
+        )
+
+    def _respuesta_duplicado_logico(
+        self,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+        comprobante_id: int,
+    ) -> EmitirComprobanteResponse:
+        """Arma una advertencia de duplicado lógico probable."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            comprobante_id=comprobante_id,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje="Existe un comprobante local muy similar ya autorizado",
+            errores=[
+                "Si corresponde emitirlo igualmente, confirmá el duplicado probable antes de solicitar CAE."
+            ],
+            categoria_error="duplicado_logico",
         )
 
     def _calcular_totales(self, items: list[ItemComprobanteCreate]) -> dict:
@@ -962,6 +1199,20 @@ class FacturacionService:
         punto_venta_numero: Optional[int] = None,
     ) -> int:
         """Obtiene el próximo número de comprobante disponible."""
+        intento_bloqueante = await self._resolver_intento_bloqueante(
+            empresa_id=empresa_id,
+            punto_venta_id=punto_venta_id,
+            tipo_comprobante=tipo_comprobante,
+            wsfe_client=wsfe_client,
+            punto_venta_numero=punto_venta_numero,
+        )
+        if intento_bloqueante is not None:
+            raise ValidationError(
+                "Existe una emisión en proceso o pendiente de reconciliación "
+                "para este emisor, punto de venta y tipo de comprobante. "
+                "Consultá ARCA y reconciliá antes de emitir nuevos comprobantes."
+            )
+
         # Buscar el último comprobante del mismo tipo y punto de venta
         stmt = (
             select(Comprobante)
@@ -1010,6 +1261,306 @@ class FacturacionService:
             )
 
         return max(proximo_local, proximo_arca)
+
+    async def _resolver_intento_bloqueante(
+        self,
+        *,
+        empresa_id: int,
+        punto_venta_id: int,
+        tipo_comprobante: int,
+        wsfe_client: Optional[WSFEv1Client],
+        punto_venta_numero: Optional[int],
+    ) -> IntentoEmisionFiscal | None:
+        """Reconcilia intentos vencidos antes de bloquear nueva numeración."""
+        while True:
+            intento = await IdempotenciaFiscalService(
+                self.db
+            ).existe_intento_bloqueante(
+                empresa_id,
+                punto_venta_id,
+                tipo_comprobante,
+            )
+            if intento is None:
+                return None
+            if intento.estado != "en_proceso" or intento.numero_planificado is None:
+                return intento
+
+            stale_before = datetime.utcnow() - timedelta(
+                minutes=settings.fiscal_attempt_stale_minutes
+            )
+            if intento.created_at >= stale_before:
+                return intento
+            if wsfe_client is None or punto_venta_numero is None:
+                return intento
+
+            reconciliado = await self._reconciliar_intento_stale(
+                intento=intento,
+                wsfe_client=wsfe_client,
+                punto_venta_numero=punto_venta_numero,
+            )
+            if reconciliado is not None:
+                return reconciliado
+
+    async def _respuesta_desde_intento_resuelto(
+        self,
+        intento: IntentoEmisionFiscal,
+    ) -> EmitirComprobanteResponse | None:
+        """Construye respuesta idempotente para un intento ya autorizado."""
+        if intento.estado != "autorizado" or not intento.comprobante_id:
+            return None
+
+        comprobante = await self.db.get(Comprobante, intento.comprobante_id)
+        if comprobante is None:
+            return None
+
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=comprobante.id,
+            tipo_comprobante=comprobante.tipo_comprobante,
+            punto_venta=intento.punto_venta_numero,
+            numero=comprobante.numero,
+            fecha=comprobante.fecha_emision,
+            cae=comprobante.cae,
+            cae_vencimiento=comprobante.cae_vencimiento,
+            total=Decimal(str(comprobante.total)),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    def _respuesta_intento_requiere_reconciliacion(
+        self,
+        intento: IntentoEmisionFiscal,
+    ) -> EmitirComprobanteResponse:
+        """Construye respuesta no reintentable para un intento incierto."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=intento.tipo_comprobante,
+            punto_venta=intento.punto_venta_numero,
+            numero=intento.numero_planificado or 0,
+            fecha=intento.fecha_emision,
+            cae=intento.cae,
+            cae_vencimiento=intento.cae_vencimiento,
+            total=Decimal(str(intento.total)),
+            mensaje=(
+                intento.mensaje
+                or "La operación fiscal requiere reconciliación antes de continuar."
+            ),
+            errores=[
+                "No vuelvas a solicitar CAE hasta verificar el comprobante en ARCA."
+            ],
+            requiere_reconciliacion=True,
+            categoria_error=intento.categoria_error or "idempotencia_en_proceso",
+        )
+
+    async def _reconciliar_intento_stale(
+        self,
+        *,
+        intento: IntentoEmisionFiscal,
+        wsfe_client: WSFEv1Client,
+        punto_venta_numero: int,
+    ) -> IntentoEmisionFiscal | None:
+        """Consulta ARCA por un intento vencido antes de liberar la reserva."""
+        try:
+            consulta_arca = await wsfe_client.fe_comp_consultar(
+                punto_venta=punto_venta_numero,
+                tipo_cbte=intento.tipo_comprobante,
+                numero=intento.numero_planificado,
+            )
+        except ArcaServiceError as exc:
+            if self._arca_indica_comprobante_inexistente(exc):
+                intento.estado = "fallido_verificado"
+                intento.categoria_error = "arca_no_registrado"
+                intento.mensaje = (
+                    "ARCA no registra el comprobante planificado; "
+                    "la numeración local queda liberada."
+                )
+                self.db.add(intento)
+                await self.db.commit()
+                return None
+
+            intento.estado = "requiere_reconciliacion"
+            intento.categoria_error = "arca_consulta_incierta"
+            intento.mensaje = (
+                "No se pudo verificar en ARCA si el comprobante planificado "
+                "fue autorizado."
+            )
+            self.db.add(intento)
+            await self.db.commit()
+            return intento
+
+        if not await self._validar_consulta_intento_stale(intento, consulta_arca):
+            intento.estado = "requiere_reconciliacion"
+            intento.categoria_error = "arca_consulta_inconsistente"
+            intento.mensaje = (
+                "ARCA devolvió datos distintos para el comprobante planificado."
+            )
+            self.db.add(intento)
+            await self.db.commit()
+            return intento
+
+        comprobante = await self._crear_o_vincular_intento_autorizado(
+            intento=intento,
+            consulta_arca=consulta_arca,
+        )
+        if comprobante is None:
+            intento.estado = "requiere_reconciliacion"
+            intento.categoria_error = "arca_autorizado_sin_payload_local"
+            intento.cae = str(consulta_arca.cae)
+            intento.cae_vencimiento = self._parse_fecha_cae(
+                str(consulta_arca.cae_vencimiento)
+            )
+            intento.mensaje = (
+                "ARCA confirma CAE para el intento, pero FactuFlow no tiene "
+                "datos completos para reconstruir automáticamente el comprobante."
+            )
+            self.db.add(intento)
+            await self.db.commit()
+            return intento
+
+        intento.estado = "autorizado"
+        intento.comprobante_id = comprobante.id
+        intento.cae = comprobante.cae
+        intento.cae_vencimiento = comprobante.cae_vencimiento
+        intento.mensaje = "Intento vencido reconciliado contra ARCA."
+        self.db.add(intento)
+        await self.db.commit()
+        return None
+
+    async def _validar_consulta_intento_stale(
+        self,
+        intento: IntentoEmisionFiscal,
+        consulta_arca,
+    ) -> bool:
+        """Valida que la consulta ARCA coincida con el snapshot del intento."""
+        empresa = await self._obtener_empresa(intento.empresa_id)
+        if empresa is None:
+            return False
+
+        try:
+            fecha_arca = datetime.strptime(
+                str(consulta_arca.fecha_cbte), "%Y%m%d"
+            ).date()
+            total_arca = Decimal(str(consulta_arca.imp_total)).quantize(Decimal("0.01"))
+            tipo_doc_arca = int(consulta_arca.tipo_doc)
+            nro_doc_arca = clean_cuit(str(consulta_arca.nro_doc or ""))
+        except (TypeError, ValueError):
+            return False
+
+        return all(
+            [
+                consulta_arca.resultado == "A",
+                bool(str(consulta_arca.cae or "").strip()),
+                bool(str(consulta_arca.cae_vencimiento or "").strip()),
+                clean_cuit(str(consulta_arca.cuit_emisor)) == clean_cuit(empresa.cuit),
+                int(consulta_arca.tipo_cbte) == int(intento.tipo_comprobante),
+                int(consulta_arca.punto_venta) == int(intento.punto_venta_numero),
+                int(consulta_arca.numero) == int(intento.numero_planificado),
+                fecha_arca == intento.fecha_emision,
+                total_arca == Decimal(str(intento.total)).quantize(Decimal("0.01")),
+                tipo_doc_arca == int(intento.receptor_tipo_documento or 0),
+                nro_doc_arca
+                == clean_cuit(str(intento.receptor_numero_documento or "")),
+            ]
+        )
+
+    async def _crear_o_vincular_intento_autorizado(
+        self,
+        *,
+        intento: IntentoEmisionFiscal,
+        consulta_arca,
+    ) -> Comprobante | None:
+        """Crea o vincula el comprobante confirmado por ARCA para un intento."""
+        existente = await self.db.scalar(
+            select(Comprobante).where(
+                Comprobante.empresa_id == intento.empresa_id,
+                Comprobante.punto_venta_id == intento.punto_venta_id,
+                Comprobante.tipo_comprobante == intento.tipo_comprobante,
+                Comprobante.numero == intento.numero_planificado,
+            )
+        )
+        if existente is not None:
+            if (
+                existente.estado == "autorizado"
+                and existente.cae == str(consulta_arca.cae)
+                and existente.fecha_emision == intento.fecha_emision
+                and Decimal(str(existente.total)).quantize(Decimal("0.01"))
+                == Decimal(str(intento.total)).quantize(Decimal("0.01"))
+            ):
+                return existente
+            return None
+
+        if intento.grupo_id is None:
+            return None
+
+        grupo = await self.db.get(LoteComprobanteGrupo, intento.grupo_id)
+        if grupo is None or not grupo.payload_json:
+            return None
+
+        punto_venta = await self._obtener_punto_venta(
+            intento.punto_venta_id,
+            intento.empresa_id,
+        )
+        if punto_venta is None:
+            return None
+
+        request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
+        totales = self._calcular_totales(request.items)
+        if Decimal(str(totales["total"])).quantize(Decimal("0.01")) != Decimal(
+            str(intento.total)
+        ).quantize(Decimal("0.01")):
+            return None
+
+        comprobante = await self._guardar_comprobante(
+            request,
+            intento.numero_planificado,
+            totales,
+            consulta_arca,
+            punto_venta,
+            commit=False,
+        )
+        grupo.estado = "autorizado"
+        grupo.cae = comprobante.cae
+        grupo.numero_asignado = comprobante.numero
+        grupo.comprobante_id = comprobante.id
+        grupo.mensajes_json = [
+            "Comprobante reconciliado automáticamente contra ARCA.",
+            f"CAE {comprobante.cae}",
+        ]
+        await self.db.execute(
+            update(LoteComprobanteFila)
+            .where(LoteComprobanteFila.grupo_id == grupo.id)
+            .values(estado="autorizado", mensajes_json=grupo.mensajes_json)
+        )
+        lote = await self.db.get(LoteComprobante, grupo.lote_id)
+        if lote is not None:
+            lote.mensaje_resumen = "Se reconciliaron comprobantes autorizados por ARCA."
+            from app.services.lote_comprobantes_service import LoteComprobantesService
+
+            await LoteComprobantesService(self.db)._actualizar_estado_lote(lote)
+            if (
+                lote.estado
+                in {
+                    "completado",
+                    "cerrado_reconciliado",
+                    "autorizado_parcial",
+                }
+                and lote.finished_at is None
+            ):
+                lote.finished_at = datetime.utcnow()
+        return comprobante
+
+    @staticmethod
+    def _arca_indica_comprobante_inexistente(exc: ArcaServiceError) -> bool:
+        """Detecta respuestas ARCA explícitas de comprobante inexistente."""
+        codigo = str(exc.codigo or "").strip()
+        mensaje = str(exc.mensaje or "").strip().lower()
+        if codigo in {"602", "10016"}:
+            return True
+        return mensaje in {
+            "comprobante inexistente",
+            "el comprobante consultado es inexistente",
+            "comprobante consultado inexistente",
+            "sin resultados para el comprobante consultado",
+        }
 
     async def _obtener_empresa(self, empresa_id: int) -> Optional[Empresa]:
         """Obtiene una empresa por ID."""

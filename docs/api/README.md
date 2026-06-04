@@ -277,6 +277,12 @@ GET /api/comprobantes/proximo-numero/{punto_venta_id}/{tipo_comprobante}
 `POST /api/comprobantes/emitir` emite a traves del servicio de facturacion y
 puede consumir numeracion fiscal si `ARCA_ENV=produccion`.
 
+Este endpoint exige el header `X-Idempotency-Key`. El cliente debe generar una
+clave nueva por confirmación fiscal final y conservarla para retries de la
+misma operación. Misma clave con mismo payload devuelve la respuesta persistida
+o el estado actual sin volver a llamar a ARCA; misma clave con datos distintos
+devuelve `409`; clave ausente devuelve `400`.
+
 El body debe incluir `fecha_emision`. FactuFlow no la completa con la fecha del
 dia. Para comprobantes de servicios o productos y servicios tambien deben
 informarse `fecha_servicio_desde`, `fecha_servicio_hasta` y `fecha_vto_pago`.
@@ -288,6 +294,12 @@ produccion: `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX?
 Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese
 mismo punto de venta.` El body debe enviar `confirmacion_fecha_fiscal=true`
 despues de ese modal; si no llega, la API rechaza la emision.
+
+Si el backend detecta un duplicado lógico probable, responde `409` con
+`categoria_error=duplicado_logico`. El cliente puede volver a enviar el mismo
+payload y la misma `X-Idempotency-Key` con `confirmacion_duplicado_logico=true`
+después de mostrar una advertencia adicional al usuario. Esa confirmación no
+forma parte del hash idempotente.
 
 El body tambien debe definir explicitamente el concepto fiscal ARCA. No se debe
 asumir productos ni servicios por default. Los valores operativos esperados son
@@ -416,6 +428,7 @@ GET /api/lotes-comprobantes
 GET /api/lotes-comprobantes/plantilla
 POST /api/lotes-comprobantes/validar
 POST /api/lotes-comprobantes/{lote_id}/procesar
+POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos
 GET /api/lotes-comprobantes/{lote_id}/resumen
 GET /api/lotes-comprobantes/{lote_id}/grupos
 GET /api/lotes-comprobantes/{lote_id}
@@ -494,6 +507,21 @@ formato. No emite comprobantes. La emision ocurre solo con
 - sin `background=true`: conserva compatibilidad con clientes existentes; lotes
   chicos se procesan en la misma request y lotes grandes se encolan segun
   `BATCH_SYNC_LIMIT`.
+
+Este endpoint exige `X-Idempotency-Key`. La clave cubre lote, modo background y
+confirmación fiscal; debe mantenerse para retries de la misma operación. Si el
+lote tiene duplicados lógicos probables, la API responde `409` con
+`categoria_error=duplicado_logico_lote` y `confirmacion_duplicado_logico`. El
+cliente debe mostrar una advertencia adicional y, si el usuario decide
+continuar, reenviar la misma clave con el header
+`X-Confirmacion-Duplicado-Logico` igual al token recibido.
+
+`POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos` comparte el mismo
+contrato idempotente: exige `X-Idempotency-Key`,
+`X-Confirmacion-Fecha-Fiscal` y, si corresponde,
+`X-Confirmacion-Duplicado-Logico`. El body puede incluir `grupo_ids` para
+acotar el reintento. Un grupo tomado para reintento que queda incierto debe
+tratarse como reconciliable, no como fallido reintentable.
 
 Durante el procesamiento, el backend actualiza `grupos_emitidos`,
 `grupos_fallidos`, `grupos_validos` y `mensaje_resumen` despues de cada grupo,

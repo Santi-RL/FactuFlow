@@ -136,6 +136,30 @@ Mapping aplicado en el proyecto:
   Cuando hubo emisión externa verificada, el cierre correcto es
   `cerrado_reconciliado`.
 
+### 4.f Idempotencia fiscal y CAE
+
+- La llave de idempotencia de una emisión no es el CAE. La llave operativa es
+  `X-Idempotency-Key` junto con emisor, tipo de operación y hash del payload
+  fiscal.
+- El CAE confirma autorización fiscal y sirve para persistir, auditar y
+  reconciliar; llega después de la llamada irreversible a ARCA, por eso no puede
+  ser el primer control de duplicación.
+- Emisión individual, procesamiento de lotes y reintento de fallidos deben
+  rechazar pedidos sin `X-Idempotency-Key` antes de solicitar CAE.
+- Misma clave y mismo payload debe devolver la respuesta ya persistida o el
+  estado actual de la operación, sin volver a llamar a ARCA. Misma clave con
+  datos distintos debe devolver conflicto.
+- Antes de `FECAESolicitar`, FactuFlow debe crear intento fiscal durable con
+  tipo, punto de venta, número planificado, fecha, total y receptor. Esa reserva
+  bloquea reintentos inciertos.
+- Si un intento queda `en_proceso` vencido, consultar `FECompConsultar` por
+  tipo, punto y número planificado. Solo liberar numeración si ARCA confirma que
+  el comprobante no existe. Si ARCA confirma CAE, vincular o reconstruir cuando
+  haya datos locales suficientes; si no, dejar `requiere_reconciliacion`.
+- Los duplicados lógicos son advertencias operativas: pueden requerir
+  confirmación adicional, pero no reemplazan la confirmación fiscal ni bloquean
+  automáticamente la emisión.
+
 ### 5. Estructura SOAP correcta en `FECAESolicitar`
 
 El proyecto tuvo que corregir estas estructuras:

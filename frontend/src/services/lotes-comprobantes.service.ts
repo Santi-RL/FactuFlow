@@ -94,6 +94,8 @@ class LotesComprobantesService {
   async procesar(
     id: number,
     confirmacionFechaFiscal: string,
+    idempotencyKey: string,
+    confirmacionDuplicadoLogico?: string,
   ): Promise<LoteProcesamientoResponse> {
     const response = await apiClient.post<LoteProcesamientoResponse>(
       `/api/lotes-comprobantes/${id}/procesar`,
@@ -104,6 +106,12 @@ class LotesComprobantesService {
         },
         headers: {
           "X-Confirmacion-Fecha-Fiscal": confirmacionFechaFiscal,
+          "X-Idempotency-Key": idempotencyKey,
+          ...(confirmacionDuplicadoLogico
+            ? {
+                "X-Confirmacion-Duplicado-Logico": confirmacionDuplicadoLogico,
+              }
+            : {}),
         },
       },
     );
@@ -114,6 +122,8 @@ class LotesComprobantesService {
     id: number,
     grupoIds: number[],
     confirmacionFechaFiscal: string,
+    idempotencyKey: string,
+    confirmacionDuplicadoLogico?: string,
   ): Promise<LoteAccionResponse> {
     const response = await apiClient.post<LoteAccionResponse>(
       `/api/lotes-comprobantes/${id}/reintentar-fallidos`,
@@ -121,6 +131,12 @@ class LotesComprobantesService {
       {
         headers: {
           "X-Confirmacion-Fecha-Fiscal": confirmacionFechaFiscal,
+          "X-Idempotency-Key": idempotencyKey,
+          ...(confirmacionDuplicadoLogico
+            ? {
+                "X-Confirmacion-Duplicado-Logico": confirmacionDuplicadoLogico,
+              }
+            : {}),
         },
       },
     );

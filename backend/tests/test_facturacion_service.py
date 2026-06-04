@@ -1,6 +1,6 @@
 """Tests del servicio de facturación."""
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -8,12 +8,14 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.arca.exceptions import ArcaServiceError
 from app.arca.models import CAEResponse
 from app.core.config import settings
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import (
     ComprobanteAsociadoCreate,
@@ -21,6 +23,7 @@ from app.schemas.comprobante import (
     ItemComprobanteCreate,
 )
 from app.services.facturacion_service import FacturacionService, ValidationError
+from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
 
 class FakeWSFEClient:
@@ -590,6 +593,110 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """La emisión `commit=False` no debe confirmar comprobante ni intento final."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado con CAE autorizado."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Simula que ARCA no tiene comprobantes previos."""
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Devuelve un CAE aprobado para el comprobante solicitado."""
+            return CAEResponse(
+                cae="12345678901234",
+                cae_vencimiento="20260610",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date.today(),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    service = FacturacionService(db_session)
+    resultado = await service.emitir_comprobante(request, commit=False)
+
+    assert resultado.exito is True
+
+    await db_session.rollback()
+
+    comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
+    intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
+
+    assert comprobantes == []
+    assert len(intentos) == 1
+    assert intentos[0].estado == "en_proceso"
+    assert intentos[0].comprobante_id is None
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
     db_session: AsyncSession,
     test_empresa,
@@ -944,3 +1051,190 @@ async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantad
     assert resultado.categoria_error == "numeracion_arca_adelantada"
     assert resultado.numero == 77
     assert cae_solicitado is False
+
+
+@pytest.mark.asyncio
+async def test_intento_stale_consulta_arca_antes_de_liberar_numero(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """Un intento vencido solo libera numeración si ARCA confirma que no existe."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    intento = IntentoEmisionFiscal(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        punto_venta_numero=punto_venta.numero,
+        tipo_comprobante=6,
+        numero_planificado=1,
+        fecha_emision=date(2026, 4, 30),
+        total=Decimal("1000.00"),
+        receptor_tipo_documento=99,
+        receptor_numero_documento="0",
+        receptor_razon_social="A CONSUMIDOR FINAL",
+        payload_hash="payload-stale",
+        huella_logica="huella-stale",
+        estado="en_proceso",
+        created_at=datetime.utcnow()
+        - timedelta(minutes=settings.fiscal_attempt_stale_minutes + 1),
+    )
+    db_session.add(intento)
+    await db_session.commit()
+
+    class FakeWSFEClient:
+        """Cliente WSFE que confirma ausencia del comprobante planificado."""
+
+        def __init__(self) -> None:
+            """Inicializa contador de consultas."""
+            self.consultas: list[tuple[int, int, int]] = []
+
+        async def fe_comp_consultar(self, punto_venta, tipo_cbte, numero):
+            """Simula una respuesta explícita de comprobante inexistente."""
+            self.consultas.append((punto_venta, tipo_cbte, numero))
+            raise ArcaServiceError("Comprobante inexistente", codigo="10016")
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """ARCA no tiene comprobantes autorizados todavía."""
+            return 0
+
+    wsfe_client = FakeWSFEClient()
+    service = FacturacionService(db_session)
+
+    proximo = await service._obtener_proximo_numero(
+        test_empresa.id,
+        punto_venta.id,
+        6,
+        wsfe_client,
+        punto_venta.numero,
+    )
+
+    await db_session.refresh(intento)
+    assert proximo == 1
+    assert wsfe_client.consultas == [(1, 6, 1)]
+    assert intento.estado == "fallido_verificado"
+    assert intento.categoria_error == "arca_no_registrado"
+
+
+@pytest.mark.asyncio
+async def test_intento_stale_no_libera_numero_con_error_arca_ambiguo(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """Un error ARCA ambiguo no debe liberar una numeración incierta."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    intento = IntentoEmisionFiscal(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        punto_venta_numero=punto_venta.numero,
+        tipo_comprobante=6,
+        numero_planificado=1,
+        fecha_emision=date.today(),
+        total=Decimal("1000.00"),
+        receptor_tipo_documento=99,
+        receptor_numero_documento="0",
+        receptor_razon_social="A CONSUMIDOR FINAL",
+        payload_hash="payload-stale-ambiguo",
+        huella_logica="huella-stale-ambiguo",
+        estado="en_proceso",
+        created_at=datetime.utcnow()
+        - timedelta(minutes=settings.fiscal_attempt_stale_minutes + 1),
+    )
+    db_session.add(intento)
+    await db_session.commit()
+
+    class FakeWSFEClient:
+        """Cliente WSFE con error no concluyente."""
+
+        async def fe_comp_consultar(self, punto_venta, tipo_cbte, numero):
+            """Simula un error que no prueba inexistencia fiscal."""
+            raise ArcaServiceError("El token no existe o está vencido")
+
+    service = FacturacionService(db_session)
+    with pytest.raises(ValidationError, match="pendiente de reconciliación"):
+        await service._obtener_proximo_numero(
+            test_empresa.id,
+            punto_venta.id,
+            6,
+            FakeWSFEClient(),
+            punto_venta.numero,
+        )
+
+    await db_session.refresh(intento)
+    assert intento.estado == "requiere_reconciliacion"
+    assert intento.categoria_error == "arca_consulta_incierta"
+
+
+@pytest.mark.asyncio
+async def test_confirmacion_duplicado_toma_operacion_solo_una_vez(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """Solo un retry confirmado puede continuar una operación pausada."""
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-duplicado-cas",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-duplicado-cas",
+        estado="requiere_confirmacion_duplicado",
+        response_json={
+            "mensaje": "Duplicado probable",
+            "categoria_error": "duplicado_logico",
+        },
+    )
+    db_session.add(operacion)
+    await db_session.commit()
+    await db_session.refresh(operacion)
+
+    service = IdempotenciaFiscalService(db_session)
+    operacion, tomada = await service.marcar_operacion_en_proceso(operacion)
+    assert tomada is True
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+
+    operacion, tomada = await service.marcar_operacion_en_proceso(operacion)
+    assert tomada is False
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+
+
+@pytest.mark.asyncio
+async def test_operacion_incompleta_sin_intentos_no_continua_si_no_esta_stale(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """Un replay temprano sin intento fiscal no debe entrar de nuevo a ARCA."""
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-sin-intento",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-sin-intento",
+        estado="en_proceso",
+        response_json=None,
+    )
+    db_session.add(operacion)
+    await db_session.commit()
+    await db_session.refresh(operacion)
+
+    service = FacturacionService(db_session)
+    respuesta = await service.resolver_operacion_idempotente_incompleta(operacion.id)
+
+    assert respuesta is not None
+    assert respuesta.exito is False
+    assert respuesta.categoria_error == "idempotencia_en_proceso"

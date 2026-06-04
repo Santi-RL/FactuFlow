@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     batch_processing_stale_minutes: int = Field(
         default=120, alias="BATCH_PROCESSING_STALE_MINUTES"
     )
+    fiscal_attempt_stale_minutes: int = Field(
+        default=120, alias="FISCAL_ATTEMPT_STALE_MINUTES"
+    )
     arca_fecaesolicitar_batch_enabled: bool = Field(
         default=True, alias="ARCA_FECAESOLICITAR_BATCH_ENABLED"
     )
