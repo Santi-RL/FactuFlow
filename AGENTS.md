@@ -40,6 +40,32 @@
   que verificar esta regla en UI, API, servicios, tests y documentacion antes de
   darlo por terminado.
 
+## Diseño fiscal crítico
+- FactuFlow debe priorizar solidez, seguridad y confiabilidad fiscal. Un error
+  en emisión, numeración, CAE, fechas fiscales, puntos de venta, comprobantes
+  asociados, receptor, total, idempotencia, reconciliación o multiemisor puede
+  generar comprobantes incorrectos con consecuencias impositivas y legales.
+- Antes de implementar una nueva funcionalidad, corrección o mejora que toque
+  ARCA/WSAA/WSFE, emisión individual, emisión masiva, reintentos,
+  reconciliación, numeración, CAE, migraciones fiscales, puntos de venta,
+  certificados, comprobantes, notas de crédito/débito, datos fiscales,
+  confirmaciones irreversibles o aislamiento por emisor, completar primero el
+  checklist de diseño fiscal: `docs/agents/fiscal-change-checklist.md`.
+- El diseño debe bajar a invariantes verificables, tabla de estados, orden de
+  operaciones, fallos intermedios, concurrencia, rollback/reconciliación,
+  migraciones y matriz de tests. No alcanza con describir el flujo feliz.
+- Para cambios fiscales críticos, definir los tests antes o durante el diseño.
+  Cada invariante relevante debe tener una prueba automatizada o una razón
+  explícita para no cubrirla. Los tests deben incluir errores, carreras,
+  replays, datos legacy, cambios de payload y estados inciertos.
+- Evitar implementar un cambio fiscal grande como un único diff amplio. Cuando
+  sea posible, dividir en cortes verticales revisables: modelo/migración,
+  servicio, API, UI, docs y tests. Cerrar cada corte sensible antes de acumular
+  otro.
+- Aplicar desde el diseño la misma disciplina que exige `autoreview`: revisar
+  rutas vecinas, contratos externos, casos límite, clases de bug repetidas y
+  ownership correcto. No esperar al final para descubrir invariantes faltantes.
+
 ## Mapa rápido
 - `backend/app/main.py`: entrada FastAPI y registro de routers.
 - `backend/app/api/*.py`: endpoints (health, auth, empresas, clientes, puntos_venta, certificados, arca, comprobantes, pdf, reportes).
@@ -158,6 +184,22 @@ npm run type-check
   - Si el diff empieza a mezclar temas independientes, sugerir cortar en commits o revisiones separadas para optimizar tiempo, tokens y calidad de hallazgos.
   - Antes de commit/PR de cambios no triviales, recordar la opción de `autoreview` si todavía no se ejecutó en ese ciclo.
 - Antes de correr `autoreview`, ejecutar tests/lint/formato relevantes siempre que sea razonable. Después, revisar el diff real y verificar manualmente cada finding antes de aplicar fixes. Si se aceptan fixes que cambian código, repetir las pruebas enfocadas y volver a correr `autoreview` hasta que no queden hallazgos aceptados/accionables o hasta que el usuario decida detener el ciclo.
+- Para cambios fiscales críticos, usar `autoreview` de forma escalonada cuando
+  el usuario lo pida o confirme:
+  1. Primera pasada con `gpt-5.5` y `low` para detectar errores evidentes de
+     diseño, contratos rotos o casos omitidos con bajo costo.
+  2. Cuando `low` quede limpio, pasar a `medium` para buscar problemas menos
+     obvios.
+  3. Cuando `medium` quede limpio, pasar a `high` antes de cerrar el cambio.
+  4. Si una pasada encuentra hallazgos aceptados y se cambia código, repetir
+     tests enfocados y volver al nivel mínimo que pueda validar el arreglo; no
+     saltar directo a `high` salvo que el riesgo lo justifique.
+- Los hallazgos de `autoreview` son asesoramiento, no órdenes. Para cada
+  finding, clasificar explícitamente si se acepta, se rechaza o se difiere. Solo
+  corregirlo si representa un riesgo real, una regresión, un contrato roto, un
+  caso fiscal inseguro o una mejora necesaria dentro del alcance. Rechazar
+  hallazgos especulativos, cambios sobredimensionados o refactors que no
+  reduzcan un riesgo concreto.
 - Autorización permanente del usuario para este proyecto: cuando el usuario pida o confirme ejecutar `autoreview`, queda permitido usar el motor Codex/OpenAI, enviarle el diff local necesario para la revisión y mantener habilitada la búsqueda web del helper. Esta autorización no habilita ejecutar `autoreview` sin pedido o confirmación explícita del usuario.
 - En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app:
   `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
@@ -178,6 +220,8 @@ npm run type-check
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Estructura del repo: `docs/agents/structure.md`
 - ARCA y endpoints: `docs/agents/arca.md`
+- Checklist de diseño fiscal crítico:
+  `docs/agents/fiscal-change-checklist.md`
 - Documentación oficial ARCA WS: `https://www.arca.gob.ar/ws/` (índice y descargas locales en `docs/arca-ws/README.md`)
 - Testing: `docs/agents/testing.md`
 - Seguridad: `docs/agents/security.md`

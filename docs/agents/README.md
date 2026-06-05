@@ -75,6 +75,15 @@
   de aplicar fixes. Si se corrige código por hallazgos aceptados, repetir
   pruebas enfocadas y volver a correr `autoreview` hasta quedar limpio o hasta
   que el usuario decida detener el ciclo.
+- Para cambios fiscales críticos, aplicar primero el checklist
+  `docs/agents/fiscal-change-checklist.md`. Si el usuario confirma
+  `autoreview`, usar corridas escalonadas con `gpt-5.5`: primero `low`, luego
+  `medium` cuando `low` quede limpio, y recién después `high`. No usar una
+  revisión de alto razonamiento para encontrar errores básicos que debieron
+  detectarse en diseño, tests o revisión temprana.
+- Los hallazgos son asesoramiento. Clasificar cada uno como aceptado, rechazado
+  o diferido antes de modificar código. Corregir solo hallazgos que reduzcan un
+  riesgo real o cubran un contrato roto dentro del alcance.
 
 ## Indice rapido por tema
 
@@ -83,6 +92,8 @@
 - Pendientes temporales de alineacion: `docs/agents/alignment-pending.md`
 - Estructura del repo y ubicacion de archivos: `docs/agents/structure.md`
 - Integracion ARCA y hallazgos de homologacion: `docs/agents/arca.md`
+- Checklist de diseño fiscal crítico:
+  `docs/agents/fiscal-change-checklist.md`
 - Documentacion oficial ARCA WS curada: `docs/arca-ws/README.md`
 - Notas practicas ARCA: `docs/arca-ws/NOTAS.md`
 - API REST: `docs/api/README.md`

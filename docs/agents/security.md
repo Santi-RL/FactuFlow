@@ -59,6 +59,18 @@
 - Los cambios que toquen emision, lotes, certificados, puntos de venta,
   clientes, reportes o PDFs deben considerar pruebas de regresion multiemisor.
 
+## Cambios fiscales críticos
+
+- Antes de modificar emisión fiscal, ARCA/WSFE, CAE, numeración, fechas
+  fiscales, comprobantes, notas de crédito/débito, reintentos, reconciliación,
+  certificados, puntos de venta, migraciones fiscales o confirmaciones
+  irreversibles, completar `docs/agents/fiscal-change-checklist.md`.
+- El diseño debe identificar invariantes, estados, fallos intermedios,
+  concurrencia, constraints, reconciliación y matriz de tests antes del código.
+- Si se usa `autoreview`, hacerlo de forma escalonada y crítica: `gpt-5.5 low`,
+  luego `medium`, luego `high` solo cuando el nivel anterior quede sin
+  hallazgos aceptados. No aplicar hallazgos automáticamente.
+
 ## Checklist antes de commit
 
 Ejecutar una revision minima:

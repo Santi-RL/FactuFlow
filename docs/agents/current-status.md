@@ -124,6 +124,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   backend\tests` OK; frontend `npm run test:unit` OK (57 tests),
   `npm run type-check` OK y `npm run lint:check` OK.
 
+### Control de diseño fiscal crítico 2026-06-04
+
+- Se agregó `docs/agents/fiscal-change-checklist.md` como checklist obligatorio
+  antes de implementar funcionalidades, correcciones o mejoras que afecten
+  ARCA/WSFE, CAE, numeración, fechas fiscales, comprobantes, lotes, reintentos,
+  reconciliación, certificados, puntos de venta, migraciones fiscales,
+  confirmaciones irreversibles o aislamiento por emisor.
+- Las instrucciones ahora exigen diseñar cambios fiscales con invariantes
+  verificables, tabla de estados, orden de operaciones, fallos intermedios,
+  concurrencia, constraints, reconciliación y matriz de tests antes del código.
+- El uso de `autoreview` para cambios fiscales críticos queda definido como
+  escalonado y crítico: `gpt-5.5 low`, luego `medium` y luego `high`, corrigiendo
+  solo hallazgos aceptados después de verificarlos contra el código y el alcance
+  real.
+
 ### Preparación local de migración a VPS 2026-06-04
 
 - Se agregó `python -m app.scripts.vps_migration` con subcomandos
