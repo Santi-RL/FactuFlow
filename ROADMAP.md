@@ -190,6 +190,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [~] Instalación en VPS con Docker producción y PostgreSQL como próximo hito
 - [x] Herramienta privada de preparación de migración local a PostgreSQL/VPS con
   `preflight`, `export`, `import` y `validate`
+- [x] Ensayo local de restauración en PostgreSQL con Docker: Alembic head,
+  importación, validación de conteos/certificados/secuencias y healthcheck OK
 - [ ] CI/CD completo y alineado al estado real del repo
 - [~] Observabilidad operativa estandar definida como requisito post-piloto
 - [x] Gestor de almacenamiento administrativo para ver uso total y desglose por
@@ -579,28 +581,27 @@ Objetivo: ampliar valor mas alla del MVP.
 
 1. Mantener documentacion viva alineada con el estado post-piloto productivo,
    separando evidencia privada de resumenes versionables.
-2. Corregir en privado el certificado activo local que no resuelve `.crt` y
-   `.key` en `backend/certs`.
-3. Ejecutar el ensayo local de migración a PostgreSQL: `preflight`, `export`,
-   `alembic upgrade head`, `import` y `validate`.
-4. Realizar la instalación en VPS con Docker producción y PostgreSQL cuando el
-   ensayo local quede validado.
-5. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
+2. Versionar los fixes detectados durante el ensayo local: migración Alembic
+   idempotente para PostgreSQL limpio y parser `.env` compatible con UTF-8 con
+   BOM.
+3. Realizar la instalación en VPS con Docker producción y PostgreSQL usando el
+   paquete privado ya validado localmente.
+4. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
    de estado del sistema integrada al launcher cuando exista un canal seguro,
    logs útiles para soporte y mensajes simples para usuarios no técnicos.
-6. Formalizar backup/restauración de PostgreSQL, certificados y logs antes de
+5. Formalizar backup/restauración de PostgreSQL, certificados y logs antes de
    ampliar volumen productivo.
-7. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
+6. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
    descargables usando el gestor administrativo, especialmente PDFs, ZIPs y
    temporales de lotes.
-8. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
+7. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
    resguardo ZIP, confirmación `Ya lo descargué`, compactación y limpieza
    segura de temporales/logs/certificados huérfanos.
-9. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
+8. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
    de comprobantes, sin persistencia permanente en el servidor.
-10. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
+9. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
    confiable en auditorías.
-11. Definir la política de versiones posteriores al MVP.
+10. Definir la política de versiones posteriores al MVP.
 
 ## Criterio de exito del MVP
 

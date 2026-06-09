@@ -33,9 +33,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   paso de `backend/data/factuflow.db` a PostgreSQL, preservando configuración
   operativa, certificados activos, formatos, perfiles, comprobantes e ítems, y
   excluyendo lotes, artefactos, temporales, PDFs, Excel, logs y cachés.
-- El primer preflight real bloquea correctamente porque existe un certificado
-  activo local que no resuelve `.crt` y `.key` en `backend/certs`. Antes de
-  exportar hay que corregir ese material privado.
+- El preflight real bloqueó inicialmente por un certificado demo activo que
+  apuntaba a `pendiente.crt` / `pendiente.key`. Se hizo backup privado de la
+  SQLite, se desactivó solo ese placeholder demo y el preflight quedó OK con 9
+  certificados activos.
 - La visión vigente define que FactuFlow debe poder instalarse localmente o en
   un VPS pequeño. Las nuevas decisiones técnicas deben optimizar
   procesamiento, RAM y almacenamiento, y evitar persistir artefactos no vitales
@@ -158,12 +159,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El alcance migrado es operación futura: emisores, usuarios, clientes, puntos
   de venta, certificados, formatos, perfiles, comprobantes e ítems. Se excluyen
   lotes, filas, temporales, PDFs, Excel, logs, cachés y exportaciones.
-- Verificación enfocada: `pytest tests/test_vps_migration.py -q` OK (8 tests),
+- Verificación enfocada: `pytest tests/test_vps_migration.py -q` OK (9 tests),
   `ruff check app/scripts/vps_migration.py tests/test_vps_migration.py` OK y
   `black --check app/scripts/vps_migration.py tests/test_vps_migration.py` OK.
-- Verificación real segura: el preflight sobre la instalación local bloquea por
-  un certificado activo sin archivos resolubles. Ese bloqueo es esperado y debe
-  corregirse en privado antes de exportar.
+- Ensayo real local seguro completado en PostgreSQL con Docker:
+  `alembic upgrade head` llegó a `e2f3a4b5c6d7`, la importación del paquete
+  privado quedó OK, `validate` quedó OK, las tablas excluidas quedaron vacías,
+  las secuencias quedaron por encima del máximo ID restaurado, se restauraron 9
+  `.crt` y 9 `.key`, y `/api/health` respondió 200 contra el backend temporal.
+  No se solicitó CAE ni se hicieron emisiones.
 
 ### Gestor de almacenamiento administrativo 2026-06-03
 
@@ -1076,10 +1080,9 @@ Quedo validado manualmente:
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
 - Falta formalizar operación productiva robusta:
-  - corregir en privado el certificado activo local que no resuelve `.crt` y
-    `.key`
-  - exportar el paquete privado de migración local a VPS
-  - restaurarlo primero en PostgreSQL local limpio con Docker
+  - versionar el fix de migración PostgreSQL limpia y parser `.env` UTF-8 con
+    BOM detectado durante el ensayo
+  - conservar el paquete privado validado y su contraseña fuera de Git
   - instalación en VPS con Docker producción y PostgreSQL
   - observabilidad operativa estándar según
     `docs/agents/operational-observability.md`
@@ -1096,9 +1099,10 @@ Quedo validado manualmente:
 - Homologacion: lista y validada.
 - Producto local: operativo para desarrollo/QA con launcher Windows y flujo
   tecnico alternativo.
-- Despliegue: el siguiente paso es corregir el certificado activo faltante,
-  ensayar la migración en PostgreSQL local y recién después avanzar al VPS con
-  `docker-compose.prod.yml`, PostgreSQL y secretos productivos.
+- Despliegue: la migración local a PostgreSQL ya fue ensayada correctamente.
+  El siguiente paso es versionar los fixes detectados en el ensayo y preparar
+  la instalación VPS con `docker-compose.prod.yml`, PostgreSQL y secretos
+  productivos.
 - Produccion real: ya fue utilizada con certificado productivo, autorizacion
   `wsfe`, puntos Web Services y comprobantes autorizados. La siguiente etapa es
   consolidar operacion post-piloto, no ejecutar un primer CAE.
@@ -1109,14 +1113,13 @@ Para continuar desde el estado actual:
 
 1. Mantener alineada la documentacion viva con el estado post-piloto productivo
    y conservar la historia como evidencia fechada.
-2. Corregir en privado el certificado activo local que no resuelve `.crt` y
-   `.key` dentro de `backend/certs`.
-3. Ejecutar `python -m app.scripts.vps_migration preflight` y luego `export`
-   cuando el preflight quede limpio.
-4. Restaurar el paquete en PostgreSQL local limpio con Docker, usando
-   `alembic upgrade head`, `import` y `validate`.
-5. Instalar FactuFlow en VPS con Docker producción y PostgreSQL cuando el
-   ensayo local quede validado.
+2. Commit y push de los fixes del ensayo: migración Alembic idempotente para
+   PostgreSQL limpio y lectura `.env` UTF-8 con BOM.
+3. Preparar `.env.production` real del VPS con la misma
+   `ARCA_PRIVATE_KEY_PASSWORD` usada para el paquete validado.
+4. Instalar FactuFlow en VPS con Docker producción y PostgreSQL.
+5. Importar el paquete validado en el VPS solo después de correr
+   `alembic upgrade head` y confirmar base limpia.
 6. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.

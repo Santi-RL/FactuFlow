@@ -141,20 +141,23 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - La QA debe confirmar que quedan excluidos lotes, filas, temporales, PDFs,
   Excel, logs, cachés, eventos de sistema y exportaciones de almacenamiento.
 - Verificación automatizada segura:
-  `pytest tests/test_vps_migration.py -q` OK (8 tests),
+  `pytest tests/test_vps_migration.py -q` OK (9 tests),
   `ruff check app/scripts/vps_migration.py tests/test_vps_migration.py` OK y
   `black --check app/scripts/vps_migration.py tests/test_vps_migration.py` OK.
-- El preflight real sobre la instalación local bloquea por un certificado
-  activo sin `.crt` y `.key` resolubles dentro de `backend/certs`. Ese bloqueo
-  es correcto y debe mantenerse hasta corregir el material privado.
-- Pendiente de QA local después de corregir ese certificado: exportar paquete en
-  `.tmp/vps-migration/<timestamp>/`, levantar PostgreSQL local limpio con
-  Docker, ejecutar `alembic upgrade head`, importar, validar conteos,
-  secuencias, certificados, login, emisores, usuarios, clientes, puntos de
-  venta, comprobantes y reportes básicos.
-- Durante la preparación y el ensayo no se debe solicitar CAE ni emitir ningún
-  comprobante. `proximo-numero` solo puede probarse como consulta segura y
-  explícita, después de validar restauración y ambiente.
+- El preflight real bloqueó inicialmente por un certificado demo activo con
+  archivos `pendiente.crt` / `pendiente.key` inexistentes. Se hizo backup
+  privado de la SQLite y se desactivó solo ese placeholder demo; luego el
+  preflight quedó OK con 9 certificados activos.
+- Ensayo local completado: se exportó paquete privado, se levantó PostgreSQL
+  local limpio con Docker, se ejecutó `alembic upgrade head`, se importó el
+  paquete regenerado con contraseña consistente y `validate` quedó OK.
+- Controles adicionales del ensayo: 10 emisores, 2 usuarios, 39 puntos de
+  venta, 10 certificados, 5795 comprobantes y 5795 ítems restaurados; tablas de
+  lotes/eventos/exportaciones excluidas en cero; secuencias PostgreSQL por
+  encima del mayor ID; 9 `.crt` y 9 `.key` restaurados; `/api/health` respondió
+  200 contra un backend temporal.
+- Durante la preparación y el ensayo no se solicitó CAE ni se emitió ningún
+  comprobante.
 
 ### Gestión de usuarios - verificación técnica 2026-06-03
 
@@ -700,9 +703,9 @@ Retomar en consolidacion post-piloto:
 3. Para nuevos lotes productivos, repetir siempre la validacion fiscal completa:
    formato, concepto fiscal ARCA, descripcion facturada, fechas fiscales,
    totales, puntos de venta y confirmacion irreversible.
-4. Corregir el certificado activo local que no resuelve archivos privados y
-   repetir `vps_migration preflight`.
-5. Ensayar la migración en PostgreSQL local limpio con Docker: `export`,
+4. Versionar el fix detectado durante el ensayo: migración Alembic idempotente
+   para PostgreSQL limpio y parser `.env` compatible con UTF-8 con BOM.
+5. Preparar la instalación VPS y repetir allí el flujo ya probado localmente:
    `alembic upgrade head`, `import` y `validate`, sin solicitar CAE.
 6. Verificar backup, logs y plan de restauración antes de ampliar volumen o
    incorporar nuevos emisores.

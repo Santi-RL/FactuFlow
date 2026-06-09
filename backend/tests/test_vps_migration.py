@@ -473,6 +473,19 @@ def _write_production_env(path: Path) -> None:
     )
 
 
+def test_parsea_env_con_bom_de_powershell(tmp_path: Path) -> None:
+    """El importador debe aceptar `.env` UTF-8 con BOM de Windows PowerShell."""
+    env_path = tmp_path / ".env.production"
+    _write_production_env(env_path)
+    content = env_path.read_text(encoding="utf-8")
+    env_path.write_text(content, encoding="utf-8-sig")
+
+    values = vps_migration.parse_env_file(env_path)
+
+    assert values["APP_SECRET_KEY"] == "clave"
+    assert values["ARCA_PRIVATE_KEY_PASSWORD"] == "clave-destino-larga"
+
+
 def test_import_no_inserta_filas_si_falla_restauracion_de_certificados(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

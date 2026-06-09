@@ -619,7 +619,7 @@ def parse_env_file(path: Path) -> dict[str, str]:
     if not env_path.is_file():
         raise MigrationError(f"No existe el archivo de entorno: {env_path}")
     values: dict[str, str] = {}
-    for line in env_path.read_text(encoding="utf-8").splitlines():
+    for line in env_path.read_text(encoding="utf-8-sig").splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#") or "=" not in stripped:
             continue
