@@ -82,9 +82,9 @@ locales en `.tmp/local-launcher/`. El acceso `FactuFlow Local.cmd` queda como
 compatibilidad y delega en el mismo launcher oculto.
 
 Esta opcion no es un instalador ni configura inicio automatico con Windows.
-El uso local con launcher ya esta implementado y testeado hasta nivel
-desarrollo/QA; el siguiente hito de despliegue es una instalacion en VPS con
-Docker produccion y PostgreSQL.
+El uso local con launcher ya está implementado y testeado hasta nivel
+desarrollo/QA. La primera instalación privada en VPS con Docker producción,
+PostgreSQL y HTTPS quedó validada el 2026-06-09.
 
 ### Docker
 
@@ -109,11 +109,13 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 El perfil productivo no monta el código fuente, usa PostgreSQL, exige secretos
 y deja persistidos datos, certificados y logs en rutas configurables.
 
-Antes de operar el VPS con emisores reales, preparar la migración local con
+Antes de operar un VPS con emisores reales, preparar la migración local con
 `docs/setup/vps-migration.md`: el primer import debe ensayarse sobre PostgreSQL
 local limpio, re-cifrando claves privadas con la contraseña productiva y sin
-solicitar CAE. La distribución comercial instalable queda para después de
-estabilizar el producto funcionando en VPS.
+solicitar CAE. La instalación publicada puede quedar detrás de Caddy, Nginx u
+otro reverse proxy HTTPS, manteniendo secretos y datos privados fuera de Git. La
+distribución comercial instalable queda para después de estabilizar el producto
+funcionando en VPS.
 
 ### Desarrollo local tecnico
 

@@ -173,7 +173,7 @@ Comando Windows habitual:
 ```powershell
 $env:PYTHONUTF8='1'
 $env:PYTHONIOENCODING='utf-8'
-python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --engine codex --model gpt-5.5 --thinking low --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"
+python %USERPROFILE%\.codex\skills\autoreview\scripts\autoreview --mode local --engine codex --model gpt-5.5 --thinking low --codex-bin "%LOCALAPPDATA%\OpenAI\Codex\bin\codex.exe"
 ```
 
 Cambiar `--thinking low` por `medium` o `high` solo cuando el nivel anterior no

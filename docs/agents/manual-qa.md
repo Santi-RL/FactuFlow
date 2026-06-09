@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-04
+Última actualización: 2026-06-09
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -158,6 +158,30 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   200 contra un backend temporal.
 - Durante la preparación y el ensayo no se solicitó CAE ni se emitió ningún
   comprobante.
+
+### VPS privado - QA no destructiva 2026-06-09
+
+- Se restauró en el VPS un paquete privado validado sobre PostgreSQL limpio ya
+  migrado con Alembic.
+- `python -m app.scripts.vps_migration validate` quedó OK contra la base,
+  certificados restaurados y health público HTTPS.
+- La URL HTTPS de la instalación respondió `HTTP 200`.
+- `/api/health` respondió
+  `{"status":"healthy","message":"FactuFlow API funcionando correctamente"}`.
+- HTTP redirige a HTTPS.
+- `GET /api/auth/setup-status` devolvió `setup_required=false`, por lo que la
+  instalación ya tiene usuarios y no expone el setup inicial.
+- Smoke de navegador headless: la app redirigió a `/login?redirect=/`, mostró
+  la pantalla de inicio de sesión y no produjo errores de consola ni requests
+  fallidos.
+- Los servicios existentes del host siguieron sanos después de recargar el
+  reverse proxy.
+- No se solicitó CAE, no se emitieron comprobantes y no se probaron endpoints
+  ARCA que puedan consumir numeración fiscal.
+- Pendiente manual por credenciales: iniciar sesión, revisar emisor activo,
+  emisores, usuarios, clientes, puntos de venta, certificados, comprobantes,
+  PDFs y reportes básicos. No emitir comprobantes durante esta revisión salvo
+  decisión explícita.
 
 ### Gestión de usuarios - verificación técnica 2026-06-03
 
@@ -705,8 +729,8 @@ Retomar en consolidacion post-piloto:
    totales, puntos de venta y confirmacion irreversible.
 4. Versionar el fix detectado durante el ensayo: migración Alembic idempotente
    para PostgreSQL limpio y parser `.env` compatible con UTF-8 con BOM.
-5. Preparar la instalación VPS y repetir allí el flujo ya probado localmente:
-   `alembic upgrade head`, `import` y `validate`, sin solicitar CAE.
+5. La instalación VPS privada ya quedó publicada por HTTPS; continuar con QA
+   autenticada real sin emitir comprobantes.
 6. Verificar backup, logs y plan de restauración antes de ampliar volumen o
    incorporar nuevos emisores.
 7. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,

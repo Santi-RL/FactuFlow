@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-04
+Última actualización: 2026-06-09
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -55,6 +55,10 @@ En una instalación en VPS o servidor, no se usa el launcher local. En ese caso
 se entra desde la URL publicada de FactuFlow. FactuFlow está pensado para poder
 operar en un VPS pequeño, por lo que el servidor debe conservar solo los datos
 necesarios para funcionar, auditar y recuperar la operación.
+
+En una instalación VPS publicada, el acceso debe hacerse por HTTPS. Si la base
+ya tiene usuarios, la opción `Configurar sistema` no aparece: los usuarios
+nuevos se crean desde `Usuarios` con una cuenta administradora.
 
 Luego:
 

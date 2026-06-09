@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-04
+Última actualización: 2026-06-09
 
 ## Objetivo activo
 
@@ -26,9 +26,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
   PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
   el sistema queda listo.
-- El uso local con launcher ya esta implementado y testeado hasta nivel
-  desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un
-  VPS con Docker produccion y PostgreSQL.
+- El uso local con launcher ya está implementado y testeado hasta nivel
+  desarrollo/QA. La primera instalación privada en VPS con Docker producción,
+  PostgreSQL y HTTPS quedó validada el 2026-06-09.
 - Herramienta privada de migración local a VPS implementada para preparar el
   paso de `backend/data/factuflow.db` a PostgreSQL, preservando configuración
   operativa, certificados activos, formatos, perfiles, comprobantes e ítems, y
@@ -93,6 +93,25 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Instalación VPS privada validada 2026-06-09
+
+- Se instaló FactuFlow en un VPS privado existente sin afectar otros servicios
+  del host.
+- La app quedó con PostgreSQL remoto, backend, frontend y configuración privada
+  fuera de Git.
+- Se importó un paquete privado validado sobre PostgreSQL limpio ya migrado con
+  Alembic hasta `e2f3a4b5c6d7`.
+- `python -m app.scripts.vps_migration validate` quedó OK contra la base,
+  certificados restaurados, tablas excluidas y health público HTTPS.
+- Se publicó la instalación detrás de un reverse proxy HTTPS. HTTP redirige a
+  HTTPS.
+- QA no destructiva ejecutada: `/`, `/api/health`, `/api/docs`,
+  `/api/auth/setup-status`, smoke de navegador headless sobre login público,
+  health de FactuFlow y verificación de servicios existentes del host.
+- Durante la instalación no se solicitó CAE ni se emitió ningún comprobante.
+- Se detectó y corrigió en `backend/Dockerfile` una dependencia faltante de
+  WeasyPrint para producción: librerías nativas de Cairo/Pango/GObject.
 
 ### Idempotencia y deduplicación fiscal segura 2026-06-04
 
@@ -296,7 +315,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   `npm run test:unit -- LotesComprobantesView`, `npm run type-check` y
   `npm run lint:check` OK. Nota posterior 2026-06-03: el cuelgue local de
   `black --check` se atribuyó al cache local de Black y quedó resuelto al
-  limpiar `C:\Users\SANTI\AppData\Local\black\black\Cache\23.12.1`.
+  limpiar `%LOCALAPPDATA%\black\black\Cache\23.12.1`.
 
 ### Alineacion documental post-piloto 2026-05-22
 
@@ -1080,10 +1099,11 @@ Quedo validado manualmente:
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
 - Falta formalizar operación productiva robusta:
-  - versionar el fix de migración PostgreSQL limpia y parser `.env` UTF-8 con
-    BOM detectado durante el ensayo
+  - versionar el fix pendiente de `backend/Dockerfile` para dependencias
+    nativas de WeasyPrint
   - conservar el paquete privado validado y su contraseña fuera de Git
-  - instalación en VPS con Docker producción y PostgreSQL
+  - validar login y recorridos autenticados reales en la instalación VPS
+    privada
   - observabilidad operativa estándar según
     `docs/agents/operational-observability.md`
   - validación de la política de almacenamiento mínimo y limpieza de artefactos
@@ -1099,10 +1119,8 @@ Quedo validado manualmente:
 - Homologacion: lista y validada.
 - Producto local: operativo para desarrollo/QA con launcher Windows y flujo
   tecnico alternativo.
-- Despliegue: la migración local a PostgreSQL ya fue ensayada correctamente.
-  El siguiente paso es versionar los fixes detectados en el ensayo y preparar
-  la instalación VPS con `docker-compose.prod.yml`, PostgreSQL y secretos
-  productivos.
+- Despliegue: la migración local a PostgreSQL fue ensayada correctamente y la
+  primera instalación privada en VPS quedó publicada por HTTPS.
 - Produccion real: ya fue utilizada con certificado productivo, autorizacion
   `wsfe`, puntos Web Services y comprobantes autorizados. La siguiente etapa es
   consolidar operacion post-piloto, no ejecutar un primer CAE.
@@ -1113,26 +1131,23 @@ Para continuar desde el estado actual:
 
 1. Mantener alineada la documentacion viva con el estado post-piloto productivo
    y conservar la historia como evidencia fechada.
-2. Commit y push de los fixes del ensayo: migración Alembic idempotente para
-   PostgreSQL limpio y lectura `.env` UTF-8 con BOM.
-3. Preparar `.env.production` real del VPS con la misma
-   `ARCA_PRIVATE_KEY_PASSWORD` usada para el paquete validado.
-4. Instalar FactuFlow en VPS con Docker producción y PostgreSQL.
-5. Importar el paquete validado en el VPS solo después de correr
-   `alembic upgrade head` y confirmar base limpia.
-6. Validar la política de almacenamiento mínimo para VPS usando el gestor
+2. Validar manualmente login y recorridos autenticados reales en la instalación
+   VPS privada.
+3. Commit y push del fix de `backend/Dockerfile` para dependencias nativas de
+   WeasyPrint en producción.
+4. Definir y probar backup/restauración de PostgreSQL, certificados y logs
+   antes de ampliar el uso productivo.
+5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
-7. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
+6. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
    emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
    artefactos no vitales.
-8. Definir y probar backup/restauración de base, certificados y logs antes de
-   ampliar el uso productivo.
-9. Implementar observabilidad operativa estándar: pantalla de estado del
+7. Implementar observabilidad operativa estándar: pantalla de estado del
    sistema, trazabilidad/reconciliación de lotes, logs útiles para soporte,
    mensajes simples y runbook de diagnóstico.
-10. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
+8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
    persistencia permanente en el servidor y E2E confiable.
-11. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
+9. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
    fiscal ARCA, descripción facturada, fechas fiscales permitidas, totales y
    confirmación final irreversible antes de emitir.

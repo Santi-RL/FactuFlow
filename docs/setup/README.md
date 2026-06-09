@@ -157,10 +157,12 @@ configura inicio automatico con Windows.
 
 ## Instalación en VPS (Producción)
 
-Este es el siguiente hito de despliegue después del uso local con launcher. La
-instalación local ya está implementada y testeada hasta nivel desarrollo/QA; el
-VPS debe validar operación real con Docker producción, PostgreSQL, secretos,
-certificados, backups y logs persistentes.
+La primera instalación privada en VPS quedó publicada el 2026-06-09 con Docker
+producción, PostgreSQL y reverse proxy HTTPS.
+
+Para una instalación nueva o una reinstalación, seguir este mismo criterio: base
+PostgreSQL limpia, Alembic en `head`, paquete privado validado, certificados en
+`CERTS_PATH`, secretos fuera de Git y QA no destructiva antes de operar.
 
 Antes de operar emisores reales en el VPS, preparar y ensayar la migración
 local con el runbook [Migración local a VPS](./vps-migration.md). La decisión
@@ -170,9 +172,9 @@ privadas con la nueva `ARCA_PRIVATE_KEY_PASSWORD` de producción. Si un
 certificado activo no resuelve archivos, el preflight debe bloquear hasta
 corregirlo en privado.
 
-La primera restauración no se hace en el VPS real: se valida sobre PostgreSQL
-local limpio con Docker, después de ejecutar `alembic upgrade head`, y sin
-solicitar CAE.
+La primera restauración no se hace directamente en el VPS real: se valida sobre
+PostgreSQL local limpio con Docker, después de ejecutar `alembic upgrade head`,
+y sin solicitar CAE.
 
 ### Requisitos
 - VPS con Ubuntu 22.04 o superior
@@ -245,7 +247,24 @@ solicitar CAE.
    desde el menú `Usuarios`. Los usuarios comunes pueden operar todos los
    emisores; solo el menú `Usuarios` queda reservado a administradores.
 
-7. **Configurar Nginx (opcional, para HTTPS)**
+7. **Configurar reverse proxy y HTTPS**
+
+   Con Caddy, el frontend de FactuFlow puede publicarse solo en loopback o en
+   una red Docker interna compartida con el reverse proxy. El Caddyfile contiene
+   un bloque equivalente a:
+
+   ```caddyfile
+   factuflow.example.com {
+       reverse_proxy factuflow-frontend:80
+   }
+   ```
+
+   Antes de recargar Caddy, hacer backup del Caddyfile, validar con
+   `caddy validate` y recargar con `caddy reload`. Si el reverse proxy comparte
+   host con otros servicios, preferir reload validado antes que reiniciar
+   contenedores o procesos ajenos.
+
+   Alternativa genérica con Nginx:
    ```bash
    sudo apt install nginx certbot python3-certbot-nginx
    ```

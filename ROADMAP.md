@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-04
+Última actualización: 2026-06-09
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -187,7 +187,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Comando administrativo para crear/promover usuario propietario
 - [x] Alta inicial por UI solo cuando la instalación no tiene usuarios; altas
   posteriores desde menú `Usuarios`
-- [~] Instalación en VPS con Docker producción y PostgreSQL como próximo hito
+- [x] Primera instalación privada en VPS con Docker producción, PostgreSQL y
+  HTTPS validada
 - [x] Herramienta privada de preparación de migración local a PostgreSQL/VPS con
   `preflight`, `export`, `import` y `validate`
 - [x] Ensayo local de restauración en PostgreSQL con Docker: Alembic head,
@@ -500,12 +501,12 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [x] Dockerfiles y compose existentes
 - [x] `docker-compose.yml` para local/desarrollo
 - [x] `docker-compose.prod.yml` para VPS/produccion con PostgreSQL
-- [~] Instalacion real en VPS con `docker-compose.prod.yml`
+- [x] Instalación real en VPS con `docker-compose.prod.yml`
 - [~] Variables de entorno cerradas por ambiente
 - [~] Guía de despliegue local y servidor
 - [x] Runbook de migración local a VPS documentado en
   `docs/setup/vps-migration.md`
-- [ ] Reverse proxy y TLS documentados
+- [x] Reverse proxy y TLS validados en una instalación privada
 
 ### Operacion
 - [ ] Logs operativos con identificador de seguimiento por emisor, usuario,
@@ -581,11 +582,10 @@ Objetivo: ampliar valor mas alla del MVP.
 
 1. Mantener documentacion viva alineada con el estado post-piloto productivo,
    separando evidencia privada de resumenes versionables.
-2. Versionar los fixes detectados durante el ensayo local: migración Alembic
-   idempotente para PostgreSQL limpio y parser `.env` compatible con UTF-8 con
-   BOM.
-3. Realizar la instalación en VPS con Docker producción y PostgreSQL usando el
-   paquete privado ya validado localmente.
+2. Validar manualmente la instalación VPS privada con login real, sin emitir
+   comprobantes.
+3. Versionar el fix de `backend/Dockerfile` para dependencias nativas de
+   WeasyPrint en producción.
 4. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
    de estado del sistema integrada al launcher cuando exista un canal seguro,
    logs útiles para soporte y mensajes simples para usuarios no técnicos.
