@@ -131,6 +131,27 @@
   justificacion breve. Los comandos de lectura (`git status`, `git diff`,
   `git log`) pueden ejecutarse normalmente salvo que el entorno los bloquee.
 
+## Producción, despliegue y auditoría
+- El flujo productivo recomendado está documentado en
+  `docs/agents/production-workflow.md`.
+- `git push` no significa despliegue. La instalación productiva en VPS se
+  actualiza solo con decisión explícita del usuario y contra un commit o tag
+  identificable.
+- El desarrollo y los fixes se hacen en local; GitHub conserva el código
+  público; el VPS conserva estado operativo, base, certificados, logs y
+  configuración privada.
+- No hacer cambios permanentes de código directamente en el VPS. Si se detecta
+  un fix urgente en producción, llevarlo al repo local, probarlo, commitearlo y
+  desplegarlo de forma controlada.
+- Ante errores productivos de emisión o lotes, auditar primero el VPS en modo
+  solo lectura: base, logs, intentos fiscales, idempotencia y, si corresponde,
+  consultas ARCA seguras como `FECompUltimoAutorizado` o `FECompConsultar`.
+- Nunca reintentar automáticamente una emisión fallida sin determinar antes si
+  ARCA autorizó o no el comprobante.
+- Los detalles concretos de la instalación real, como IP, dominio, usuario SSH,
+  rutas, comandos del host, backups, certificados, CAEs, CUITs y logs, deben
+  quedar en documentación privada del VPS, no en este repositorio público.
+
 ## Comandos
 ### Backend
 ```bash
@@ -222,6 +243,8 @@ npm run type-check
 - ARCA y endpoints: `docs/agents/arca.md`
 - Checklist de diseño fiscal crítico:
   `docs/agents/fiscal-change-checklist.md`
+- Flujo de desarrollo, despliegue y auditoría productiva:
+  `docs/agents/production-workflow.md`
 - Documentación oficial ARCA WS: `https://www.arca.gob.ar/ws/` (índice y descargas locales en `docs/arca-ws/README.md`)
 - Testing: `docs/agents/testing.md`
 - Seguridad: `docs/agents/security.md`

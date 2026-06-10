@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-09
+Última actualización: 2026-06-10
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -62,9 +62,11 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   no solo desde UI. Emisión individual, procesamiento de lotes y reintento de
   fallidos exigen `X-Idempotency-Key`, persisten una operación durable antes de
   ARCA y dejan intentos fiscales reconciliables si el resultado queda incierto.
-- El despliegue local con launcher ya existe y esta probado hasta nivel
-  desarrollo/QA. El siguiente hito de despliegue es instalar FactuFlow en un VPS
-  con `docker-compose.prod.yml` y PostgreSQL.
+- El despliegue local con launcher ya existe y está probado hasta nivel
+  desarrollo/QA. La primera instalación privada en VPS con
+  `docker-compose.prod.yml`, PostgreSQL y HTTPS ya quedó operativa; el siguiente
+  hito de plataforma es robustecer operación, observabilidad, recuperación y
+  mantenimiento.
 - FactuFlow debe poder operar en instalaciones locales o VPS pequeños. Las
   decisiones de arquitectura, jobs, observabilidad, reportes, PDFs y
   almacenamiento deben priorizar sencillez y bajo consumo de procesamiento, RAM
@@ -193,11 +195,18 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   `preflight`, `export`, `import` y `validate`
 - [x] Ensayo local de restauración en PostgreSQL con Docker: Alembic head,
   importación, validación de conteos/certificados/secuencias y healthcheck OK
+- [x] Cierre operativo inicial del VPS: checkout limpio, configuración privada
+  fuera de Git, servicios sanos y reverse proxy HTTPS funcionando
+- [x] Backup manual inicial validado: dump PostgreSQL, certificados,
+  configuración privada, copia cifrada fuera del VPS y restauración de prueba
+  desde la copia cifrada
 - [ ] CI/CD completo y alineado al estado real del repo
-- [~] Observabilidad operativa estandar definida como requisito post-piloto
+- [~] Observabilidad operativa estándar definida como requisito post-piloto
 - [x] Gestor de almacenamiento administrativo para ver uso total y desglose por
   emisor, lotes, base, temporales, artefactos descargables, certificados y logs
-- [ ] Observabilidad, backups y politicas operativas implementadas y probadas
+- [~] Observabilidad, backups manuales y políticas operativas iniciales
+  parcialmente probadas; falta automatización, retención y recuperación a VPS
+  nuevo
 
 ## Fase 0 - Fundacion y base tecnica
 
@@ -506,6 +515,8 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [~] Guía de despliegue local y servidor
 - [x] Runbook de migración local a VPS documentado en
   `docs/setup/vps-migration.md`
+- [x] Flujo público de desarrollo, versionado, despliegue manual y auditoría
+  productiva documentado en `docs/agents/production-workflow.md`
 - [x] Reverse proxy y TLS validados en una instalación privada
 
 ### Operacion
@@ -521,7 +532,12 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   acciones seguras de limpieza sobre artefactos no vitales
 - [ ] Healthchecks claros para backend, base, worker, ARCA y certificado del
   emisor activo
-- [~] Backup y restauración de base y certificados
+- [~] Backup y restauración de base y certificados: prueba manual validada,
+  automatización y retención pendientes
+- [ ] Automatización de backups cifrados con validación periódica, política de
+  retención, destino externo y alertas de fallo
+- [ ] Runbook completo de recuperación a un VPS nuevo desde repositorio limpio,
+  backup cifrado y configuración privada
 - [x] Definir si los certificados productivos se migran desde local al VPS o si
   se generan certificados nuevos para el servidor: se migran solo como reemplazo
   del entorno local, con preflight obligatorio, archivos completos en
@@ -580,28 +596,30 @@ Objetivo: ampliar valor mas alla del MVP.
 
 ## Prioridades inmediatas
 
-1. Mantener documentacion viva alineada con el estado post-piloto productivo,
-   separando evidencia privada de resumenes versionables.
-2. Validar manualmente la instalación VPS privada con login real, sin emitir
-   comprobantes.
-3. Versionar el fix de `backend/Dockerfile` para dependencias nativas de
-   WeasyPrint en producción.
+1. Guardar la clave real del backup cifrado en un gestor de contraseñas seguro,
+   fuera de Git y fuera del VPS.
+2. Mantener documentación viva alineada con el estado post-piloto productivo,
+   separando evidencia privada de resúmenes versionables.
+3. Convertir los detalles observados durante el uso real en un backlog
+   priorizado: riesgos fiscales, UX, PDFs, reportes y soporte.
 4. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
    de estado del sistema integrada al launcher cuando exista un canal seguro,
    logs útiles para soporte y mensajes simples para usuarios no técnicos.
-5. Formalizar backup/restauración de PostgreSQL, certificados y logs antes de
-   ampliar volumen productivo.
-6. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
+5. Diseñar la automatización futura de backups cifrados con validación,
+   retención y destino externo, pero no implementarla todavía hasta cerrar la
+   política operativa.
+6. Documentar y ensayar el runbook completo de recuperación a un VPS nuevo.
+7. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
    descargables usando el gestor administrativo, especialmente PDFs, ZIPs y
    temporales de lotes.
-7. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
+8. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
    resguardo ZIP, confirmación `Ya lo descargué`, compactación y limpieza
    segura de temporales/logs/certificados huérfanos.
-8. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
+9. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
    de comprobantes, sin persistencia permanente en el servidor.
-9. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
+10. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
    confiable en auditorías.
-10. Definir la política de versiones posteriores al MVP.
+11. Definir la política de versiones posteriores al MVP.
 
 ## Criterio de exito del MVP
 

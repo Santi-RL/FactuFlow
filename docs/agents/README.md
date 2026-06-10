@@ -21,6 +21,8 @@
 - `docs/agents/manual-qa.md` registra recorridos de QA y hallazgos manuales, no reemplaza el estado canonico.
 - `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitacora tecnica.
 - `docs/agents/arca.md` conserva detalles tecnicos ARCA y procedimientos seguros.
+- `docs/agents/production-workflow.md` define el flujo público y sanitizado de
+  desarrollo local, versionado, despliegue manual al VPS y auditoría productiva.
 - `CHANGELOG.md` resume el avance historico y los cortes de version. No crear
   snapshots largos si el cambio puede quedar cubierto por changelog, roadmap y
   documentos vivos.
@@ -107,6 +109,8 @@
 - Certificados y wizard: `docs/certificates/README.md`, `docs/certificados-wizard.md`
 - Instalación y setup: `docs/setup/README.md`
 - Migración local a VPS: `docs/setup/vps-migration.md`
+- Flujo de desarrollo, despliegue y auditoría productiva:
+  `docs/agents/production-workflow.md`
 - Manual de usuario: `docs/user-guide/README.md`
 - Seguridad y certificados: `docs/agents/security.md`
 - Observabilidad operativa estandar: `docs/agents/operational-observability.md`

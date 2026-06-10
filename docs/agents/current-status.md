@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-09
+Última actualización: 2026-06-10
 
 ## Objetivo activo
 
@@ -29,6 +29,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El uso local con launcher ya está implementado y testeado hasta nivel
   desarrollo/QA. La primera instalación privada en VPS con Docker producción,
   PostgreSQL y HTTPS quedó validada el 2026-06-09.
+- El VPS quedó cerrado operativamente después del primer uso real: checkout
+  limpio y alineado con `origin/main`, configuración privada fuera de Git,
+  servicios sanos, backup manual validado, copia cifrada fuera del VPS y
+  restauración de prueba verificada.
 - Herramienta privada de migración local a VPS implementada para preparar el
   paso de `backend/data/factuflow.db` a PostgreSQL, preservando configuración
   operativa, certificados activos, formatos, perfiles, comprobantes e ítems, y
@@ -81,6 +85,16 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Produccion real ya fue utilizada con comprobantes autorizados y lotes
   productivos. La evidencia detallada vive en base/logs/archivos privados
   ignorados por Git y no debe copiarse a documentacion versionada.
+- La auditoría post-emisión productiva se ejecutó con llamadas ARCA seguras de
+  solo lectura. No solicitó CAE, no emitió comprobantes y no modificó datos.
+  Resultado sanitario: numeración local alineada con ARCA para combinaciones
+  operativas consultables, CAE y totales coincidentes en los últimos
+  comprobantes consultados, secuencias PostgreSQL correctas y sin
+  inconsistencias internas bloqueantes.
+- El flujo público de desarrollo, versionado, despliegue manual al VPS y
+  auditoría productiva quedó documentado en
+  `docs/agents/production-workflow.md`. Los datos concretos de la instalación
+  real quedan en documentación privada del VPS.
 - PDF generado bajo demanda y revalidado manualmente en preview y descarga.
 - Se corrigieron riesgos previos de salida a produccion:
   - numeracion protegida con lock local, advisory lock PostgreSQL y constraint unico
@@ -112,6 +126,31 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Durante la instalación no se solicitó CAE ni se emitió ningún comprobante.
 - Se detectó y corrigió en `backend/Dockerfile` una dependencia faltante de
   WeasyPrint para producción: librerías nativas de Cairo/Pango/GObject.
+
+### Cierre operativo, backup y auditoría post-emisión 2026-06-10
+
+- El VPS quedó operativo detrás de HTTPS con FactuFlow, PostgreSQL y
+  configuración privada fuera del repositorio público.
+- El checkout remoto quedó limpio y alineado con `origin/main`. El warning de
+  Docker Compose por `version` obsoleto se resolvió quitando esa línea del
+  compose productivo y actualizando el VPS.
+- Se generó un backup manual privado de PostgreSQL, certificados,
+  configuración privada y snapshots operativos mínimos. El backup se validó con
+  checksums, `pg_restore --list` y restauración en una base temporal.
+- Se creó una copia cifrada fuera del VPS y se probó restaurarla en un
+  PostgreSQL local efímero desde el archivo cifrado. La prueba confirmó que el
+  dump puede recuperarse sin depender del servidor original.
+- La automatización de backups no se implementa todavía por decisión operativa:
+  queda pendiente definir frecuencia, retención, almacenamiento externo,
+  verificación periódica y runbook completo de recuperación a un VPS nuevo.
+- Después de emisiones reales hechas desde la instalación VPS, se ejecutó una
+  auditoría segura contra ARCA con `FECompUltimoAutorizado` y
+  `FECompConsultar`. Fue una revisión de solo lectura: no solicitó CAE, no
+  emitió comprobantes, no reinició servicios y no modificó datos.
+- La auditoría no encontró desfases fiscales ni inconsistencias bloqueantes
+  entre FactuFlow y ARCA para las combinaciones operativas consultables. Una
+  combinación histórica sin certificado activo quedó registrada como no
+  consultable, no como error operativo actual.
 
 ### Idempotencia y deduplicación fiscal segura 2026-06-04
 
@@ -1093,22 +1132,20 @@ Quedo validado manualmente:
   bajo demanda, descarga a la PC del usuario y limpieza posterior del servidor.
 - El gestor de almacenamiento administrativo ya existe para diagnóstico y
   limpieza manual de artefactos no vitales. Queda pendiente validarlo
-  visualmente sobre una instalación real de VPS y complementarlo con
-  backup/restauración formal.
+  visualmente sobre una instalación real de VPS con datos de prueba controlados.
 - Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
   `No informado`.
 - Falta formalizar operación productiva robusta:
-  - versionar el fix pendiente de `backend/Dockerfile` para dependencias
-    nativas de WeasyPrint
-  - conservar el paquete privado validado y su contraseña fuera de Git
-  - validar login y recorridos autenticados reales en la instalación VPS
-    privada
+  - guardar la clave real de recuperación del backup cifrado en un gestor de
+    contraseñas seguro, fuera de Git y fuera del VPS
+  - automatizar backups cifrados con validación, frecuencia, retención y
+    destino externo definidos
+  - documentar y ensayar el runbook completo de recuperación a un VPS nuevo
   - observabilidad operativa estándar según
     `docs/agents/operational-observability.md`
   - validación de la política de almacenamiento mínimo y limpieza de artefactos
     descargables en VPS usando el gestor administrativo
-  - backup/restauracion de PostgreSQL, certificados y logs
   - trazabilidad visible de lotes productivos y reintentos
   - pantalla `Estado del sistema` dentro del frontend con lenguaje simple
 - Para nuevas instalaciones productivas usar `docker-compose.prod.yml`,
@@ -1119,33 +1156,36 @@ Quedo validado manualmente:
 - Homologacion: lista y validada.
 - Producto local: operativo para desarrollo/QA con launcher Windows y flujo
   tecnico alternativo.
-- Despliegue: la migración local a PostgreSQL fue ensayada correctamente y la
-  primera instalación privada en VPS quedó publicada por HTTPS.
+- Despliegue: la migración local a PostgreSQL fue ensayada correctamente, la
+  primera instalación privada en VPS quedó publicada por HTTPS y el cierre
+  operativo inicial quedó documentado.
 - Produccion real: ya fue utilizada con certificado productivo, autorizacion
-  `wsfe`, puntos Web Services y comprobantes autorizados. La siguiente etapa es
-  consolidar operacion post-piloto, no ejecutar un primer CAE.
+  `wsfe`, puntos Web Services y comprobantes autorizados. La auditoría
+  post-emisión de solo lectura no detectó desfases fiscales bloqueantes. La
+  siguiente etapa es consolidar operación post-piloto y corregir detalles
+  funcionales/UX observados en uso real.
 
 ## Punto exacto para retomar
 
 Para continuar desde el estado actual:
 
-1. Mantener alineada la documentacion viva con el estado post-piloto productivo
-   y conservar la historia como evidencia fechada.
-2. Validar manualmente login y recorridos autenticados reales en la instalación
-   VPS privada.
-3. Commit y push del fix de `backend/Dockerfile` para dependencias nativas de
-   WeasyPrint en producción.
-4. Definir y probar backup/restauración de PostgreSQL, certificados y logs
-   antes de ampliar el uso productivo.
-5. Validar la política de almacenamiento mínimo para VPS usando el gestor
+1. Mantener alineada la documentación viva con el estado post-piloto productivo
+   y conservar la historia como evidencia fechada sin datos privados.
+2. Guardar la clave real del backup cifrado en un gestor de contraseñas seguro,
+   porque la copia DPAPI local no es portable a otra PC o usuario.
+3. Convertir los detalles observados durante el uso real en un backlog
+   priorizado, separando riesgos fiscales, UX, PDF, reportes y soporte.
+4. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
-6. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
+5. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
    emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
    artefactos no vitales.
-7. Implementar observabilidad operativa estándar: pantalla de estado del
+6. Implementar observabilidad operativa estándar: pantalla de estado del
    sistema, trazabilidad/reconciliación de lotes, logs útiles para soporte,
    mensajes simples y runbook de diagnóstico.
+7. Diseñar la automatización futura de backups cifrados con validación y
+   retención, pero no implementarla todavía hasta definir política operativa.
 8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
    persistencia permanente en el servidor y E2E confiable.
 9. Para cada nuevo lote productivo, validar formato, punto de venta, concepto

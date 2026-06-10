@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-09
+Última actualización: 2026-06-10
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -178,10 +178,32 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   reverse proxy.
 - No se solicitó CAE, no se emitieron comprobantes y no se probaron endpoints
   ARCA que puedan consumir numeración fiscal.
-- Pendiente manual por credenciales: iniciar sesión, revisar emisor activo,
-  emisores, usuarios, clientes, puntos de venta, certificados, comprobantes,
-  PDFs y reportes básicos. No emitir comprobantes durante esta revisión salvo
-  decisión explícita.
+- En esa etapa quedó pendiente la QA autenticada por credenciales: iniciar
+  sesión, revisar emisor activo, emisores, usuarios, clientes, puntos de venta,
+  certificados, comprobantes, PDFs y reportes básicos. Ese punto fue superado
+  después por uso autenticado real y auditoría post-emisión; la evidencia
+  sensible queda fuera de Git.
+
+### VPS privado - cierre post-emisión, backup y restauración 2026-06-10
+
+- La instalación VPS ya fue usada con login real y emisión productiva real por
+  decisión operativa del usuario. La evidencia sensible queda fuera de Git.
+- Se ejecutó una auditoría posterior segura con llamadas ARCA de solo lectura:
+  `FECompUltimoAutorizado` para revisar numeración y `FECompConsultar` para
+  contrastar el último comprobante local por combinación consultable.
+- La auditoría no solicitó CAE, no emitió comprobantes, no modificó datos y no
+  reinició servicios.
+- Resultado sanitizado: numeración local alineada con ARCA para combinaciones
+  operativas consultables, últimos CAE/totales consultados coincidentes,
+  secuencias PostgreSQL correctas y sin inconsistencias internas bloqueantes.
+- Se generó un backup manual privado del VPS y se validó con checksums,
+  inspección de `pg_restore` y restauración en una base temporal.
+- Se creó una copia cifrada fuera del VPS y se probó restaurarla desde cero en
+  un PostgreSQL local efímero. La prueba confirmó que el dump cifrado puede
+  recuperarse sin depender del servidor original.
+- Queda pendiente por decisión operativa no automatizar backups todavía. Antes
+  de hacerlo hay que definir frecuencia, retención, almacenamiento externo,
+  monitoreo de fallos y runbook completo de recuperación.
 
 ### Gestión de usuarios - verificación técnica 2026-06-03
 
@@ -707,8 +729,9 @@ Reglas vigentes para cualquier nueva emision productiva:
   (262 tests), `ruff` y `black` OK; frontend `test:unit` OK (57 tests),
   `type-check` OK y `lint:check` OK sin errores ni warnings.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
-  solo desde QA local: observabilidad operativa estandar, backup/restauracion,
-  trazabilidad visible y soporte de despliegue.
+  solo desde QA local: observabilidad operativa estándar, automatización futura
+  de backups, política de retención, trazabilidad visible y soporte de
+  despliegue.
 
 ## Punto de reanudacion
 
@@ -727,20 +750,22 @@ Retomar en consolidacion post-piloto:
 3. Para nuevos lotes productivos, repetir siempre la validacion fiscal completa:
    formato, concepto fiscal ARCA, descripcion facturada, fechas fiscales,
    totales, puntos de venta y confirmacion irreversible.
-4. Versionar el fix detectado durante el ensayo: migración Alembic idempotente
-   para PostgreSQL limpio y parser `.env` compatible con UTF-8 con BOM.
-5. La instalación VPS privada ya quedó publicada por HTTPS; continuar con QA
-   autenticada real sin emitir comprobantes.
-6. Verificar backup, logs y plan de restauración antes de ampliar volumen o
-   incorporar nuevos emisores.
-7. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
+4. La instalación VPS privada ya quedó publicada por HTTPS, fue usada con login
+   real y tiene auditoría post-emisión sanitizada sin desfases fiscales
+   bloqueantes.
+5. Guardar la clave real del backup cifrado en un gestor de contraseñas seguro;
+   la copia local protegida por DPAPI sirve como resguardo de esta PC, pero no
+   reemplaza un secreto portable.
+6. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
    observados y temporales descargables no deben quedar como ocupación
    permanente si no son vitales para operar, auditar o recuperar el sistema.
-8. Validar visualmente el gestor de almacenamiento administrativo: uso total,
+7. Validar visualmente el gestor de almacenamiento administrativo: uso total,
    desglose por emisor, desglose por tipo de dato, resguardo ZIP y limpieza
    segura de artefactos no vitales.
-9. Levantar o confirmar el perfil productivo con PostgreSQL usando
-   `docker-compose.prod.yml`.
-10. Implementar la observabilidad operativa estándar definida en
+8. Implementar la observabilidad operativa estándar definida en
    `docs/agents/operational-observability.md`, con mensajes simples y próximos
    pasos claros para usuarios no técnicos.
+9. Diseñar, pero no implementar todavía, la automatización de backups cifrados
+   con validación periódica, retención y destino externo.
+10. Convertir los detalles detectados durante la emisión real en backlog
+   priorizado antes de seguir ampliando uso.
