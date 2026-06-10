@@ -25,6 +25,7 @@ vi.mock("@/services/formatos-importacion.service", () => ({
   default: {
     listar: vi.fn(),
     detectar: vi.fn(),
+    descargar: vi.fn(),
   },
 }));
 
@@ -37,6 +38,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     obtenerResumen: vi.fn(),
     obtenerGrupos: vi.fn(),
     reintentarFallidos: vi.fn(),
+    descargarPlantilla: vi.fn(),
   },
 }));
 
@@ -155,6 +157,7 @@ const deferred = <T>() => {
 const mockedFormatos = formatosImportacionService as unknown as {
   listar: Mock;
   detectar: Mock;
+  descargar: Mock;
 };
 const mockedLotesDetalle = lotesComprobantesService as unknown as {
   listar: Mock;
@@ -163,6 +166,7 @@ const mockedLotesDetalle = lotesComprobantesService as unknown as {
   obtenerGrupos: Mock;
   procesar: Mock;
   reintentarFallidos: Mock;
+  descargarPlantilla: Mock;
 };
 const mockedPerfiles = perfilesCargaMasivaService as unknown as {
   listar: Mock;
@@ -340,6 +344,27 @@ describe("LotesComprobantesView", () => {
     expect(vm.fechaServicioDesdeModo).toBe("");
     expect(vm.fechaServicioHastaModo).toBe("");
     expect(vm.fechaVtoPagoModo).toBe("");
+  });
+
+  it("no descarga la plantilla oficial si el perfil apunta a una version no vigente", async () => {
+    const perfil = {
+      ...perfilRelativoMock(),
+      configuracion_json: {
+        ...perfilRelativoMock().configuracion_json,
+        formato_importacion_version_id: 999,
+      },
+    };
+    const wrapper = await mountView([perfil]);
+    const vm = wrapper.vm as unknown as {
+      formatoSeleccionadoId: string | number;
+      descargarPlantilla: () => Promise<void>;
+    };
+
+    expect(Number(vm.formatoSeleccionadoId)).toBe(999);
+    await vm.descargarPlantilla();
+
+    expect(mockedFormatos.descargar).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.descargarPlantilla).not.toHaveBeenCalled();
   });
 
   it("abre lotes grandes con resumen y pagina de grupos", async () => {

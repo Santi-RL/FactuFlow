@@ -1229,6 +1229,57 @@ async def test_validar_lote_nota_credito_requiere_comprobante_asociado(
 
 
 @pytest.mark.asyncio
+async def test_validar_lote_nota_debito_requiere_comprobante_asociado(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Una nota de débito no puede quedar lista sin comprobante asociado."""
+    test_empresa.condicion_iva = "Exento"
+    await db_session.commit()
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(concepto_modo="servicios"),
+        files={
+            "archivo": (
+                "lote-nd-sin-asociado.xlsx",
+                _build_lote_excel(
+                    test_empresa.cuit,
+                    tipo_comprobante=12,
+                    concepto=2,
+                    iva=0,
+                    cliente_tipo_documento="",
+                    cliente_numero_documento="",
+                    cliente_razon_social="A CONSUMIDOR FINAL",
+                    cliente_condicion_iva="Consumidor Final",
+                    fecha_servicio_desde=date(2026, 5, 31),
+                    fecha_servicio_hasta=date(2026, 5, 31),
+                    fecha_vto_pago=date(2026, 5, 31),
+                ),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is False
+    assert data["lote"]["grupos_con_error"] == 1
+
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}",
+        headers=auth_headers,
+    )
+    mensajes = detalle.json()["grupos"][0]["mensajes_json"]
+    assert any("requiere comprobante asociado" in mensaje for mensaje in mensajes)
+
+
+@pytest.mark.asyncio
 async def test_validar_lote_nota_credito_guarda_comprobante_asociado_en_payload(
     client: AsyncClient,
     auth_headers: dict,

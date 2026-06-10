@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-09
+Última actualización: 2026-06-10
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -81,25 +81,25 @@ Todo lo que hagas en estas secciones queda asociado a ese emisor:
 - dashboard
 - clientes
 - comprobantes
-- emision masiva
+- emisión masiva
 - certificados
 - puntos de venta
 - reportes
 - nueva factura
 
-Antes de emitir o consultar informacion, verifica siempre que el emisor activo sea el correcto.
-Si cambias el emisor activo, las pantallas principales recargan la informacion
+Antes de emitir o consultar información, verifica siempre que el emisor activo sea el correcto.
+Si cambias el emisor activo, las pantallas principales recargan la información
 para mostrar solo datos de ese CUIT. En `Nueva Factura`, cambiar el emisor
 recarga puntos de venta y limpia el cliente seleccionado.
 
 El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
-cambias de emisor, esa nueva seleccion no cambia silenciosamente una factura o
+cambias de emisor, esa nueva selección no cambia silenciosamente una factura o
 un lote que ya estabas revisando en la pestaña anterior.
 
-Como proteccion adicional, la emision se bloquea si el punto de venta o el
+Como protección adicional, la emisión se bloquea si el punto de venta o el
 cliente seleccionado no pertenecen al emisor activo.
-La misma separacion aplica a certificados, comprobantes, lotes, PDFs, reportes,
-perfiles de carga y formatos de importacion: no deben mezclarse entre emisores.
+La misma separación aplica a certificados, comprobantes, lotes, PDFs, reportes,
+perfiles de carga y formatos de importación: no deben mezclarse entre emisores.
 
 ## 3. Dashboard
 
@@ -194,36 +194,37 @@ Si el comprobante esta autorizado, veras:
   periodo y vencimiento desde el payload guardado del lote cuando esos datos no
   estaban persistidos en el comprobante.
 
-## 6. Emision masiva
+## 6. Emisión masiva
 
-La emision masiva esta pensada para cargar muchas facturas desde Excel. Puede
-usar la plantilla oficial de FactuFlow o un formato de importacion configurado
-para archivos externos.
+La emisión masiva está pensada para cargar muchas facturas desde Excel. Puede
+usar la plantilla oficial de FactuFlow o una plantilla configurada para un
+emisor o para todos los emisores.
 
 Flujo general:
 
-1. Descargar la plantilla oficial o preparar el archivo externo acordado.
+1. Descargar la plantilla oficial, la plantilla recordada por el perfil o la
+   plantilla configurada para ese emisor.
 2. Si existe, revisar el perfil de carga masiva aplicado para el emisor activo.
 3. Subir el Excel.
-4. Revisar el formato sugerido por FactuFlow.
-5. Si es un archivo externo, elegir o confirmar el formato correcto.
+4. Revisar la plantilla/formato sugerido por FactuFlow.
+5. Si es un archivo externo, elegir o confirmar la plantilla correcta.
 6. Elegir si el punto de venta sale del archivo o si se fija un punto habilitado
    del emisor.
-7. Elegir explicitamente si el lote corresponde a `Productos`, `Servicios` o
+7. Elegir explícitamente si el lote corresponde a `Productos`, `Servicios` o
    `Definido por archivo`.
-8. Definir la descripcion/concepto facturado del item: desde el archivo o como
+8. Definir la descripción/concepto facturado del ítem: desde el archivo o como
    texto fijo para todo el lote.
-9. Definir explicitamente la fecha de emision y, si corresponde, el periodo de
+9. Definir explícitamente la fecha de emisión y, si corresponde, el período de
    servicios y vencimiento de pago.
 10. Validar errores por fila o por comprobante.
-11. Revisar comprobantes detectados, concepto fiscal ARCA, descripcion del item,
+11. Revisar comprobantes detectados, concepto fiscal ARCA, descripción del ítem,
    fechas, totales listos para emitir, receptor y punto de venta.
-12. Confirmar la emision con `Emitir comprobantes validos`.
+12. Confirmar la emisión con `Emitir comprobantes válidos`.
 13. Revisar resultados del lote.
 14. Si lo necesitas, descargar el archivo observado del lote.
 
-Validar un lote no emite comprobantes ni consume numeracion fiscal. La emision
-recien ocurre cuando confirmas el lote validado.
+Validar un lote no emite comprobantes ni consume numeración fiscal. La emisión
+recién ocurre cuando confirmas el lote validado.
 
 Al confirmar la emisión de un lote, FactuFlow también usa una clave interna de
 idempotencia. Esto evita que un doble click, un refresh o un retry de red vuelva
@@ -308,14 +309,14 @@ FactuFlow no elimina lotes con comprobantes autorizados, reconciliados o
 inciertos. Si el lote tiene valor fiscal o dudas sobre ARCA, debe conservarse o
 cerrarse por reconciliación/descarte, no borrarse.
 
-Cuando presionas `Emitir comprobantes validos`, el lote queda en seguimiento y
+Cuando presionas `Emitir comprobantes válidos`, el lote queda en seguimiento y
 la pantalla muestra una barra de avance real. La barra informa comprobantes
 procesados, emitidos, fallidos, pendientes, tiempo transcurrido y tiempo
-estimado restante. Si el lote todavia esta `En cola`, el avance se muestra como
-estimacion hasta que el worker empieza a procesar. Revisa el resumen final antes
-de volver a intentar. El sistema bloquea una segunda ejecucion del mismo lote si
-ya esta procesando o si ya fue procesado. Si un proceso queda realmente trabado,
-el worker puede retomarlo solo despues de la ventana operativa configurada como
+estimado restante. Si el lote todavía está `En cola`, el avance se muestra como
+estimación hasta que el worker empieza a procesar. Revisa el resumen final antes
+de volver a intentar. El sistema bloquea una segunda ejecución del mismo lote si
+ya está procesando o si ya fue procesado. Si un proceso queda realmente trabado,
+el worker puede retomarlo solo después de la ventana operativa configurada como
 `BATCH_PROCESSING_STALE_MINUTES`.
 
 Para acelerar lotes grandes, FactuFlow consulta a ARCA cuántos comprobantes
@@ -328,42 +329,42 @@ Si ARCA no informa la capacidad máxima por request, FactuFlow emite en modo
 unitario para no bloquear la operación. En ese caso la pantalla del lote muestra
 un aviso indicando que el procesamiento pudo demorar más por esa degradación.
 
-Regla importante: FactuFlow no completa la fecha de emision con la fecha del dia
-por defecto. Antes de validar un lote debes elegir si la fecha de emision sale
-del archivo o si se usara una fecha fija para todos los comprobantes. Para
-comprobantes de servicios tambien debes definir como se completan `desde`,
+Regla importante: FactuFlow no completa la fecha de emisión con la fecha del día
+por defecto. Antes de validar un lote debes elegir si la fecha de emisión sale
+del archivo o si se usará una fecha fija para todos los comprobantes. Para
+comprobantes de servicios también debes definir cómo se completan `desde`,
 `hasta` y vencimiento de pago. Si una fecha elegida queda fuera de la ventana
 que ARCA permite para autorizar comprobantes, el lote queda observado antes de
 emitir. Para emitir, debes elegir una fecha permitida por el web service; el
-sistema no la reemplaza automaticamente.
+sistema no la reemplaza automáticamente.
 
-Antes de emitir, FactuFlow debe mostrar una confirmacion final de fecha fiscal
+Antes de emitir, FactuFlow debe mostrar una confirmación final de fecha fiscal
 con este texto: `Está seguro que quiere emitir comprobantes con fecha
 XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior
 para ese mismo punto de venta.` Si la fecha o el punto de venta no son los que
-corresponden, cancela la emision y vuelve a revisar el lote. En lotes con mas
-de una fecha o punto de venta, la confirmacion debe mostrar todos los valores
-concretos; el backend solo procesa si la UI envia el token exacto calculado
+corresponden, cancela la emisión y vuelve a revisar el lote. En lotes con más
+de una fecha o punto de venta, la confirmación debe mostrar todos los valores
+concretos; el backend solo procesa si la UI envía el token exacto calculado
 desde esos grupos validados.
 
-Regla critica de concepto fiscal ARCA: FactuFlow no asume que el lote sea de
+Regla crítica de concepto fiscal ARCA: FactuFlow no asume que el lote sea de
 productos o de servicios. Antes de validar debes elegir `Productos`,
-`Servicios` o `Definido por archivo`. Esta decision es fiscal y define como se
-arma el comprobante para ARCA, que ventana de fechas aplica y si hacen falta
+`Servicios` o `Definido por archivo`. Esta decisión es fiscal y define cómo se
+arma el comprobante para ARCA, qué ventana de fechas aplica y si hacen falta
 fechas de servicio. Si eliges `Definido por archivo`, el Excel debe traer una
-columna valida con `Producto` o `Servicio` en todas las filas. Si falta la
+columna válida con `Producto` o `Servicio` en todas las filas. Si falta la
 columna o hay un valor distinto, FactuFlow informa el problema y no deja emitir
-ese lote hasta corregirlo o elegir un criterio valido.
+ese lote hasta corregirlo o elegir un criterio válido.
 
-Regla critica de descripcion del item: el concepto fiscal ARCA no es el texto
-que aparece facturado en el renglon del comprobante. Textos como `Honorarios`,
-`Zapatillas`, `Servicio mensual` o `Abono` son la descripcion/concepto facturado
-del item. Esa descripcion tambien debe definirse antes de validar: puede venir
-de una columna del archivo o fijarse como un valor unico para todo el lote. No
+Regla crítica de descripción del ítem: el concepto fiscal ARCA no es el texto
+que aparece facturado en el renglón del comprobante. Textos como `Honorarios`,
+`Zapatillas`, `Servicio mensual` o `Abono` son la descripción/concepto facturado
+del ítem. Esa descripción también debe definirse antes de validar: puede venir
+de una columna del archivo o fijarse como un valor único para todo el lote. No
 debe completarse con un default oculto del formato.
 
 Los lotes viejos validados antes de esta regla deben revalidarse. FactuFlow no
-permite procesarlos sin una politica de concepto fiscal guardada.
+permite procesarlos sin una política de concepto fiscal guardada.
 
 Regla de punto de venta en lotes: podés usar el punto de venta definido en el
 archivo o fijar un punto habilitado del emisor. Para elegir un punto fijo, ese
@@ -377,70 +378,95 @@ cliente precargado opcional pertenezcan al emisor activo.
 
 ### Perfiles de carga masiva
 
-Cada emisor puede tener perfiles de carga masiva para completar mas rapido la
-pantalla de emision masiva. Se administran desde `Emisores > Carga masiva`.
+Cada emisor puede tener perfiles de carga masiva para completar más rápido la
+pantalla de emisión masiva. Se administran desde `Emisores > Carga masiva`.
 
 Un perfil de carga masiva puede recordar:
-- formato de importacion opcional
+- plantilla opcional
 - punto de venta: utilizar el definido en el archivo o fijar uno habilitado del
   emisor
 - concepto fiscal ARCA
-- descripcion facturada desde archivo o fija
-- fecha de emision relativa, por ejemplo ultimo dia del mes anterior, o una
-  fecha personalizada cargada de forma explicita
-- periodo de servicios, por ejemplo mes anterior completo o mes actual completo
-- vencimiento de pago, por ejemplo mismo dia de emision o emision mas una
+- descripción facturada desde archivo o fija
+- fecha de emisión relativa, por ejemplo último día del mes anterior, o una
+  fecha personalizada cargada de forma explícita
+- período de servicios, por ejemplo mes anterior completo o mes actual completo
+- vencimiento de pago, por ejemplo mismo día de emisión o emisión más una
   cantidad de dias
 
 Si un emisor tiene un solo perfil de carga masiva, FactuFlow lo aplica al entrar
-en `Emision masiva`. Si tiene varios, se aplica el marcado como predeterminado.
+en `Emisión masiva`. Si tiene varios, se aplica el marcado como predeterminado.
 Si no hay predeterminado, el usuario elige uno.
 
-El perfil de carga masiva no valida ni emite automaticamente. Solo completa la
-pantalla con valores visibles. Antes de validar podes cambiar cualquier selector
+Si una plantilla se edita y queda una versión nueva, los perfiles que recordaban
+la versión anterior deben actualizarse antes de validar nuevos lotes. FactuFlow
+rechaza versiones reemplazadas para nuevas cargas para evitar usar mapeos
+obsoletos.
+
+El perfil de carga masiva no valida ni emite automáticamente. Solo completa la
+pantalla con valores visibles. Antes de validar podés cambiar cualquier selector
 o fecha. Si el perfil trae reglas relativas, FactuFlow no usa la fecha del
-navegador para convertirlas automaticamente en fecha fiscal al entrar a
-`Emision masiva`: antes de validar debes elegir una fecha exacta, tomarla del
-archivo o confirmar explicitamente la politica fiscal de esa carga. Si cambias
-un dato precargado, esa carga queda como configuracion manual y no como snapshot
+navegador para convertirlas automáticamente en fecha fiscal al entrar a
+`Emisión masiva`: antes de validar debes elegir una fecha exacta, tomarla del
+archivo o confirmar explícitamente la política fiscal de esa carga. Si cambias
+un dato precargado, esa carga queda como configuración manual y no como snapshot
 del perfil de carga masiva.
 
 Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
-regla de fecha de emision.
+regla de fecha de emisión.
 
 Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
 `Puntos de venta` para ese emisor y estar habilitado para usar en FactuFlow. Si
 todavia no hay puntos cargados, completalos primero desde esa pantalla.
 
-### Formatos de importacion
+### Plantillas de carga masiva
 
-La pantalla muestra formatos disponibles para el emisor activo:
-- formatos globales, reutilizables por cualquier emisor
-- formatos particulares de un emisor
+La pantalla habla de `Plantillas`, aunque internamente el backend las guarda
+como formatos de importación versionados. Se administran desde
+`Emisores > Carga masiva > Plantillas`.
+
+Una plantilla puede ser:
+- global, reutilizable por cualquier emisor y administrada solo por usuarios
+  administradores
+- exclusiva del emisor activo, administrable por usuarios activos
+- del sistema, protegida contra edición directa
 
 FactuFlow lee los encabezados del Excel, muestra las columnas detectadas y
-sugiere el formato con mayor coincidencia. Si la coincidencia es alta, ese
-formato queda seleccionado automaticamente y podes cambiarlo si no estas de
-acuerdo. Si no hay una sugerencia confiable, debes elegir el formato antes de
-validar. Si los encabezados no se analizaron automaticamente, la pantalla
-muestra la accion `Analizar encabezados` y mantiene bloqueada la validacion
+sugiere la plantilla/formato con mayor coincidencia. Si la coincidencia es alta,
+esa plantilla queda seleccionada automáticamente y podés cambiarla si no estás
+de acuerdo. Si no hay una sugerencia confiable, debes elegir la plantilla antes
+de validar. Si los encabezados no se analizaron automáticamente, la pantalla
+muestra la acción `Analizar encabezados` y mantiene bloqueada la validación
 hasta completar ese paso.
 
-Los formatos pueden mapear datos de tres maneras:
+Desde `Emisores > Carga masiva > Plantillas` puedes crear una plantilla desde
+cero o subir un Excel de ejemplo para tomar encabezados. El constructor permite
+ordenar, agregar y quitar columnas, elegir qué campo FactuFlow representa cada
+columna, definir valores fijos, revisar compatibilidad con el emisor activo y
+descargar un `.xlsx` con hoja `Comprobantes`, hoja `Instrucciones` y metadatos
+no fiscales en una hoja oculta.
+
+Las plantillas pueden mapear datos de cuatro maneras:
 - por encabezado, usando nombres o alias de columnas
-- por columna fija, usando letra o indice cuando el archivo no tiene encabezados
+- por columna fija, usando letra o índice cuando el archivo no tiene encabezados
   confiables
 - por constante, para completar campos que siempre tienen el mismo valor
+- por emisor, solo para datos que FactuFlow resuelve explícitamente, como el
+  CUIT del emisor activo
+
+El IVA del ítem debe estar definido de forma explícita en la plantilla: puede
+venir desde una columna del Excel o quedar fijo como constante. Para Factura C,
+esa constante debe ser `0`; FactuFlow no debe completar el IVA por un valor
+oculto.
 
 Si el archivo externo trae un total informado, FactuFlow compara ese total con
-el total calculado desde los items e IVA. Si no coinciden, el comprobante queda
-observado antes de emitir. Esta validacion evita usar por error una columna de
+el total calculado desde los ítems e IVA. Si no coinciden, el comprobante queda
+observado antes de emitir. Esta validación evita usar por error una columna de
 total final como si fuera precio neto.
 
-La administracion de perfiles de carga masiva por emisor existe desde
-`Emisores > Carga masiva`. La administracion avanzada de formatos de
-importacion todavia se mantiene por API/configuracion; la pantalla de emision se
-concentra en seleccionar y confirmar formatos ya disponibles.
+Descargar una plantilla no valida ni emite comprobantes. Los metadatos ocultos
+del Excel solo ayudan a sugerir la plantilla al subirlo; FactuFlow no confía en
+esos metadatos para emitir. Siempre vuelve a validar archivo, perfil, emisor,
+fechas, tipo de comprobante, punto de venta y comprobantes asociados.
 
 ### Formato privado Responsable Inscripto
 
@@ -566,71 +592,71 @@ Reglas principales:
 
 ## 7. Reportes
 
-La seccion `Reportes` muestra consultas basicas:
+La sección `Reportes` muestra consultas básicas:
 - ventas
 - IVA
 - ranking de clientes
 
 Los reportes usan el emisor activo seleccionado.
-Si cambias el emisor activo mientras un reporte esta cargando, FactuFlow
+Si cambias el emisor activo mientras un reporte está cargando, FactuFlow
 descarta la respuesta anterior para no mostrar datos de otro CUIT. El subdiario
-IVA muestra detalle por alicuota, incluyendo gravado e IVA 27% cuando
+IVA muestra detalle por alícuota, incluyendo gravado e IVA 27% cuando
 corresponde.
 
 ## 8. Certificados
 
-En `Certificados` gestionas los certificados de ARCA por ambiente.
+En `Certificados` gestionás los certificados de ARCA por ambiente.
 
 Uso recomendado:
-- trabajar primero en homologacion
+- trabajar primero en homologación
 - verificar vigencia del certificado antes de emitir
 - mantener un solo certificado activo por empresa y ambiente
 
 Las claves privadas generadas por FactuFlow quedan guardadas dentro del
-directorio de certificados configurado y cifradas por la aplicacion. Si subes
-una renovacion para el mismo emisor y ambiente, FactuFlow deja activo el
-certificado nuevo y conserva el anterior como historico inactivo.
+directorio de certificados configurado y cifradas por la aplicación. Si subís
+una renovación para el mismo emisor y ambiente, FactuFlow deja activo el
+certificado nuevo y conserva el anterior como histórico inactivo.
 
 En la pantalla actual puedes:
 - ver nombre, CUIT, ambiente y vencimiento
 - agregar un certificado
-- probar la conexion del certificado activo contra ARCA antes de emitir
+- probar la conexión del certificado activo contra ARCA antes de emitir
 - eliminar un certificado
 
-Si cambias el emisor activo mientras la lista esta cargando, FactuFlow descarta
+Si cambias el emisor activo mientras la lista está cargando, FactuFlow descarta
 la respuesta anterior para evitar mezclar certificados entre CUITs.
 
 Al cargar un certificado nuevo, el wizard muestra una barra de pasos con avance
 visual y estados de completado. Incluye un paso obligatorio para autorizar el
-servicio `WSFE` en ARCA antes de probar la conexion. En produccion esa
-autorizacion se hace desde `Administrador de Relaciones de Clave Fiscal`; en
-homologacion se hace desde WSASS. El certificado puede ser valido y aun asi
-fallar si no esta asociado a ese servicio.
+servicio `WSFE` en ARCA antes de probar la conexión. En producción esa
+autorización se hace desde `Administrador de Relaciones de Clave Fiscal`; en
+homologación se hace desde WSASS. El certificado puede ser válido y aun así
+fallar si no está asociado a ese servicio.
 
-Antes de emitir comprobantes reales en produccion, usa `Probar conexion` sobre
-el certificado productivo del emisor activo. La prueba valida la comunicacion
+Antes de emitir comprobantes reales en producción, usa `Probar conexión` sobre
+el certificado productivo del emisor activo. La prueba valida la comunicación
 con ARCA usando ese certificado, sin generar comprobantes ni consumir
-numeracion fiscal.
+numeración fiscal.
 
-En `Puntos de venta`, la sincronizacion con ARCA se habilita solo cuando existe
+En `Puntos de venta`, la sincronización con ARCA se habilita solo cuando existe
 un certificado activo del emisor para el ambiente backend actual
-(`homologacion` o `produccion`). Un certificado activo de otro ambiente no
-habilita esa accion.
+(`homologación` o `producción`). Un certificado activo de otro ambiente no
+habilita esa acción.
 
 ## 9. Puntos de venta
 
 En `Puntos de venta` puedes ver y sincronizar los puntos de venta habilitados para el emisor activo.
 
 Importante:
-- el numero debe coincidir con el punto de venta habilitado en ARCA para el sistema usado
-- para homologacion o produccion con webservices, validar el punto de venta antes de emitir
+- el número debe coincidir con el punto de venta habilitado en ARCA para el sistema usado
+- para homologación o producción con webservices, validar el punto de venta antes de emitir
 - puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio
-- la sincronizacion importa o actualiza puntos no bloqueados y sin fecha de
+- la sincronización importa o actualiza puntos no bloqueados y sin fecha de
   baja como puntos Web Services usables
-- si cambias el emisor activo mientras la pantalla esta cargando, FactuFlow
+- si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
-  completa de puntos, incluyendo sistema, domicilio y nombre de fantasia
+  completa de puntos, incluyendo sistema, domicilio y nombre de fantasía
 - FactuFlow marca como `Usable` solo los puntos Web Services activos, no
   bloqueados y sin baja; los puntos Factuweb, Comprobantes en Linea o
   Controlador Fiscal quedan visibles como referencia pero no se usan para emitir
@@ -643,13 +669,21 @@ Completa `Ingresos Brutos` para que ese dato salga informado en los PDFs.
 
 La pantalla tiene dos secciones:
 - `Datos del emisor`: datos fiscales y de contacto.
-- `Carga masiva`: perfiles de carga masiva del emisor activo.
+- `Carga masiva`: perfiles y plantillas de carga masiva.
 
-Desde `Carga masiva` puedes crear, editar, eliminar y marcar un perfil de carga
-masiva como predeterminado. Ese perfil se usara para precargar la pantalla de
-emision masiva del mismo emisor.
+Desde `Carga masiva > Perfiles` puedes crear, editar, eliminar y marcar un
+perfil de carga masiva como predeterminado. Ese perfil se usará para precargar
+la pantalla de emisión masiva del mismo emisor.
 
-Al agregar un emisor, puedes subir una constancia de inscripcion ARCA en PDF o
+Desde `Carga masiva > Plantillas` puedes crear plantillas visuales del emisor
+activo, iniciar una plantilla desde un Excel de ejemplo, revisar compatibilidad,
+descargar el Excel generado, clonar plantillas del sistema y desactivar
+plantillas propias. Las plantillas globales solo pueden crearlas o modificarlas
+usuarios administradores. El alcance de una plantilla existente no se cambia
+editándola; si necesitás otro alcance, cloná la plantilla y elegí el destino de
+la copia.
+
+Al agregar un emisor, puedes subir una constancia de inscripción ARCA en PDF o
 una constancia de opcion de Monotributo. FactuFlow intenta completar
 automaticamente nombre fiscal, CUIT, condicion IVA, domicilio fiscal, localidad,
 provincia, codigo postal e inicio de actividades. Provincia se elige desde un

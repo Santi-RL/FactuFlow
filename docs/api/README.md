@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 2026-06-03
+Última actualización: 2026-06-10
 
 Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -308,23 +308,55 @@ la descripcion del item: cada item debe traer su `descripcion` real, por ejemplo
 `Honorarios` o `Zapatillas`, como texto facturado independiente del concepto
 fiscal ARCA.
 
-## Formatos De Importacion
+## Plantillas / Formatos De Importación
 
 ```http
 GET /api/formatos-importacion
 POST /api/formatos-importacion
+GET /api/formatos-importacion/catalogo-campos
+POST /api/formatos-importacion/analizar-excel
+POST /api/formatos-importacion/compatibilidad
 POST /api/formatos-importacion/detectar
+GET /api/formatos-importacion/{formato_id}
+PUT /api/formatos-importacion/{formato_id}
+DELETE /api/formatos-importacion/{formato_id}
+POST /api/formatos-importacion/{formato_id}/clonar
+GET /api/formatos-importacion/{formato_id}/descargar
 ```
 
-Estos endpoints administran y detectan formatos configurables para emisión
-masiva. Todos respetan el emisor activo resuelto por `X-Empresa-Id`, por el
+La UI habla de `Plantillas`. Internamente siguen siendo
+`formatos_importacion` versionados para no duplicar dominio ni romper lotes
+existentes. Todos respetan el emisor activo resuelto por `X-Empresa-Id`, por el
 query legacy `empresa_id` o por la preferencia del usuario.
 
-`GET /api/formatos-importacion` lista formatos globales y formatos particulares
-del emisor activo. Cada formato expone su `version_vigente`.
+`GET /api/formatos-importacion` lista plantillas globales y plantillas
+particulares del emisor activo. Cada una expone su `version_vigente`.
 
-`POST /api/formatos-importacion` crea un formato particular del emisor activo.
-Los formatos globales salen de migraciones/seed de sistema, no de esta ruta.
+`POST /api/formatos-importacion` crea una plantilla. Los usuarios activos pueden
+crear plantillas con `alcance=emisor`; `alcance=global` queda reservado a
+administradores porque afecta a todos los emisores. Las plantillas internas del
+sistema se marcan en `configuracion_json.plantilla_sistema_protegida=true`: se
+pueden clonar, pero no editar ni desactivar directamente.
+
+`PUT /api/formatos-importacion/{formato_id}` actualiza datos y, si cambia
+`configuracion_json`, reemplaza la versión vigente por una versión nueva. No
+borra versiones históricas usadas por lotes. Solo administradores pueden editar
+plantillas globales o promover una plantilla de emisor a global.
+
+`DELETE /api/formatos-importacion/{formato_id}` es soft-delete:
+`activo=false`.
+
+`POST /api/formatos-importacion/{formato_id}/clonar` crea una copia editable y
+quita la marca protegida si venía de una plantilla del sistema.
+
+`GET /api/formatos-importacion/{formato_id}/descargar` genera un `.xlsx` bajo
+demanda con hoja `Comprobantes`, hoja `Instrucciones` y hoja oculta
+`_factuflow` con metadatos no fiscales. La validación backend no confía en esos
+metadatos para emitir.
+
+`GET /api/formatos-importacion/catalogo-campos` devuelve los campos FactuFlow
+disponibles para el constructor visual, agrupados por emisor, comprobante,
+receptor, fechas, ítems, totales y comprobantes asociados.
 
 Ejemplo minimo de configuracion:
 
@@ -332,10 +364,24 @@ Ejemplo minimo de configuracion:
 {
   "nombre": "Banco X - creditos",
   "descripcion": "Extracto mensual del banco X",
+  "alcance": "emisor",
   "configuracion_json": {
     "tipo": "extracto_bancario_creditos",
     "header_row": 1,
     "modo_agrupacion": "fila",
+    "plantilla": {
+      "nombre_publico": "Banco X - créditos",
+      "columnas": [
+        {
+          "campo_destino": "importe_total",
+          "etiqueta": "Créditos",
+          "origen": "header",
+          "transformacion": "decimal",
+          "requerido": true,
+          "ejemplo": "10000.00"
+        }
+      ]
+    },
     "campos": {
       "importe_total": {
         "origen": "header",
@@ -363,6 +409,29 @@ Origenes soportados en `campos`:
 - `header`: busca encabezados o alias normalizados.
 - `columna`: usa `letra_columna` o `indice_columna`.
 - `constante`: usa `valor` para completar siempre el mismo dato.
+- `empresa`: toma datos del emisor activo solo cuando el campo tiene resolvedor
+  implementado; en esta versión se limita a `empresa_cuit`.
+
+`POST /api/formatos-importacion/analizar-excel` recibe `multipart/form-data`
+con `archivo` (`.xlsx`) y devuelve hoja, fila de encabezado y columnas
+detectadas. Sirve para iniciar el constructor visual desde un Excel de ejemplo.
+
+`POST /api/formatos-importacion/compatibilidad` recibe:
+
+```json
+{
+  "configuracion_json": {},
+  "perfil_configuracion_json": {}
+}
+```
+
+Devuelve `estado` (`compatible`, `advertencia` o `incompatible`) y mensajes
+separados en `faltantes`, `omitibles`, `advertencias` y `conflictos`. Cruza la
+plantilla con el perfil y el emisor activo para detectar columnas faltantes,
+datos omitibles porque el perfil fija valores, conflictos donde el perfil exige
+datos desde archivo y la plantilla no los trae, incompatibilidades de
+Responsable Inscripto/Monotributo/Exento con tipos A/B/C, productos/servicios y
+notas de crédito/débito sin comprobante asociado.
 
 `POST /api/formatos-importacion/detectar` recibe `multipart/form-data` con
 `archivo` (`.xlsx`). El backend rechaza archivos que superen
@@ -569,8 +638,8 @@ POST /api/perfiles-carga-masiva/{perfil_id}/predeterminado
 
 Los perfiles de carga masiva pertenecen al emisor activo resuelto por JWT y
 `X-Empresa-Id`. Permiten guardar una configuracion visible para precargar
-`Emision masiva`: formato opcional, punto de venta, concepto fiscal ARCA,
-descripcion facturada y reglas relativas de fechas.
+`Emision masiva`: plantilla/formato opcional, punto de venta, concepto fiscal
+ARCA, descripcion facturada y reglas relativas de fechas.
 
 El payload usa `configuracion_json` versionado. Valores principales:
 - `formato_importacion_version_id`: opcional; debe ser global o pertenecer al

@@ -172,8 +172,17 @@ const formatosOptions = computed(() => {
     .filter((formato) => !!formato.version_vigente)
     .map((formato) => ({
       value: formato.version_vigente?.id || "",
-      label: `${formato.nombre} (${formato.alcance})`,
+      label: `${formato.nombre} (${formato.alcance === "global" ? "global" : "emisor"})`,
     }));
+});
+const plantillaSeleccionada = computed(() => {
+  const selected = Number(formatoSeleccionadoId.value || 0);
+  if (!selected) return null;
+  return (
+    formatosImportacion.value.find(
+      (formato) => formato.version_vigente?.id === selected,
+    ) || null
+  );
 });
 const perfilesOptions = computed(() => [
   {
@@ -976,11 +985,26 @@ const descargarPlantilla = async () => {
 
   descargandoPlantilla.value = true;
   try {
-    const archivo = await lotesComprobantesService.descargarPlantilla();
-    downloadBlob(archivo, `factuflow-lote-${empresaActiva.value.cuit}.xlsx`);
+    const plantilla = plantillaSeleccionada.value;
+    if (formatoSeleccionadoId.value && !plantilla) {
+      showError(
+        "Plantilla no disponible",
+        "El perfil apunta a una versión de plantilla que ya no está vigente. Actualiza el perfil o elegí una plantilla vigente antes de descargar.",
+      );
+      return;
+    }
+    const archivo = plantilla
+      ? await formatosImportacionService.descargar(plantilla.id)
+      : await lotesComprobantesService.descargarPlantilla();
+    const filename = plantilla
+      ? `plantilla-${plantilla.nombre.replace(/\W+/g, "-").toLowerCase()}.xlsx`
+      : `factuflow-lote-${empresaActiva.value.cuit}.xlsx`;
+    downloadBlob(archivo, filename);
     showSuccess(
       "Plantilla lista",
-      "Completá una fila por ítem y repetí los datos del comprobante en todas las filas del mismo comprobante_ref.",
+      plantilla
+        ? `Descargaste la plantilla ${plantilla.nombre}.`
+        : "Completá una fila por ítem y repetí los datos del comprobante en todas las filas del mismo comprobante_ref.",
     );
   } catch (error: any) {
     showError(
@@ -1613,8 +1637,8 @@ onBeforeUnmount(() => {
             1. Descarga la plantilla
           </p>
           <p class="mt-2 text-sm text-blue-800">
-            Puedes usar el archivo oficial o subir un Excel externo con formato
-            configurado.
+            Puedes usar el archivo oficial o la plantilla configurada por el
+            perfil de carga masiva.
           </p>
           <BaseButton
             class="mt-4 w-full"
@@ -1680,8 +1704,8 @@ onBeforeUnmount(() => {
             </h2>
           </div>
           <p class="mt-2 text-sm text-gray-600">
-            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma el
-            formato antes de validar.
+            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma
+            la plantilla/formato antes de validar.
           </p>
 
           <div
@@ -1743,7 +1767,7 @@ onBeforeUnmount(() => {
             >
               <div>
                 <p class="text-sm font-semibold text-gray-900">
-                  Formato de importacion
+                  Plantilla/formato de importación
                 </p>
                 <p class="mt-1 text-sm text-gray-600">
                   {{
@@ -1751,7 +1775,7 @@ onBeforeUnmount(() => {
                       ? "Detectando columnas del Excel..."
                       : candidatoPrincipal
                         ? `Sugerencia: ${candidatoPrincipal.nombre} (${Math.round(candidatoPrincipal.score * 100)}%)`
-                        : "Selecciona el formato que corresponde al origen del archivo."
+                        : "Selecciona la plantilla/formato que corresponde al origen del archivo."
                   }}
                 </p>
               </div>
@@ -1766,9 +1790,9 @@ onBeforeUnmount(() => {
             <div class="mt-4 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
               <BaseSelect
                 v-model="formatoSeleccionadoId"
-                label="Formato"
+                label="Plantilla/formato"
                 :options="formatosOptions"
-                placeholder="Selecciona un formato"
+                placeholder="Selecciona una plantilla"
                 :disabled="detectandoFormato"
               />
 
@@ -1796,9 +1820,9 @@ onBeforeUnmount(() => {
                 <span>
                   {{
                     hayConflictoFormatoPerfil
-                      ? "El perfil de carga masiva trae un formato, pero el Excel coincide con otro formato de alta confianza. Confirma cuál corresponde antes de validar."
+                      ? "El perfil de carga masiva trae una plantilla, pero el Excel coincide con otra de alta confianza. Confirma cuál corresponde antes de validar."
                       : deteccionFormato
-                        ? "Confirma un formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
+                        ? "Confirma una plantilla/formato antes de validar. Si el mapeo no coincide, el sistema puede interpretar mal importes, receptor o punto de venta."
                         : "Todavía no se analizaron los encabezados del Excel. El análisis debería iniciar automáticamente; si no avanza, reinténtalo."
                   }}
                 </span>
@@ -2197,7 +2221,7 @@ onBeforeUnmount(() => {
               type="warning"
               class="mt-4"
             >
-              Completa la decision de fechas antes de validar. Si una fecha del
+              Completa la decisión de fechas antes de validar. Si una fecha del
               archivo queda fuera de la ventana ARCA, el lote quedara observado
               y deberas elegir una fecha permitida antes de emitir.
             </BaseAlert>

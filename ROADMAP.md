@@ -85,7 +85,7 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   espacio.
 - La distribucion comercial instalable queda para una etapa posterior, cuando
   el producto sea estable y repetible funcionando en VPS.
-- La observabilidad operativa estandar es obligatoria antes de ampliar el uso
+- La observabilidad operativa estándar es obligatoria antes de ampliar el uso
   productivo. Debe permitir diagnosticar emisiones, lotes, errores ARCA,
   reconciliaciones, estado del sistema y backups con lenguaje simple para
   usuarios no tecnicos. No requiere todavia monitoreo complejo con herramientas
@@ -111,6 +111,10 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Emision individual real validada con CAE
 - [x] Emision masiva por Excel implementada
 - [x] Formatos de importacion configurables para emision masiva con alcance global y por emisor
+- [x] Administrador visual de plantillas de carga masiva sobre
+  `formatos_importacion`, con plantillas globales o por emisor, clonado de
+  plantillas protegidas, versionado, compatibilidad con perfiles y descarga
+  `.xlsx` generada bajo demanda.
 - [x] Perfiles de carga masiva por emisor para precargar formato, punto de
   venta, concepto, descripcion y fechas visibles antes de validar
 - [x] Perfiles de carga masiva no permiten guardar fecha actual como regla de
@@ -176,6 +180,9 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   emisor activo, incluyendo reportes, certificados, puntos de venta y
   numeracion de nueva factura
 - [x] Autodeteccion asistida de formato al subir Excel externo para emision masiva
+- [x] `Emisores > Carga masiva` incorpora subvista de `Plantillas` para crear,
+  editar, clonar, desactivar, revisar compatibilidad y descargar Exceles
+  visuales para usuarios no tecnicos.
 - [x] Nueva factura exige CUIT para Factura A y Notas A, y el refresco de lista
   posterior a CAE es no bloqueante
 - [x] QA manual guiada de flujos reales
@@ -488,7 +495,7 @@ simultanea entre emisores.
 - [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`,
   incluyendo punto de venta por archivo o punto fijo usable del emisor
 - [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF,
-  constancia de inscripcion de persona fisica y constancia de opcion de
+  constancia de inscripción de persona física y constancia de opción de
   Monotributo, con provincia validada contra catalogo argentino
 - [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
 - [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,
@@ -545,7 +552,7 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [ ] Política de manejo de secretos
 
 ### Diagnostico operativo simple
-- [x] Decision de observabilidad operativa estandar documentada en
+- [x] Decisión de observabilidad operativa estándar documentada en
   `docs/agents/operational-observability.md`
 - [ ] Pantalla `Estado del sistema` en la interfaz, con estados simples como
   `Correcto`, `Necesita atencion` y `No disponible`
@@ -573,7 +580,7 @@ Objetivo: profesionalizar la entrega del producto.
 ### Distribucion
 - [ ] Instalacion simplificada para terceros, posterior a estabilizar VPS
 - [ ] Plantillas de configuracion por ambiente
-- [ ] Demo controlada o entorno de evaluacion
+- [ ] Demo controlada o entorno de evaluación
 - [ ] Procedimiento de upgrade entre versiones
 
 ### Soporte y adopcion

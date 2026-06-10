@@ -12,7 +12,13 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 - Backend FastAPI operativo con auth, usuarios, empresas, clientes, puntos de
   venta, certificados, comprobantes, PDF, lotes y reportes.
-- Backend ya registra formatos configurables de importacion para lotes masivos, con formatos globales y particulares por emisor.
+- Backend ya registra formatos configurables de importación para lotes masivos,
+  con formatos globales y particulares por emisor. La capa pública ahora los
+  presenta como `Plantillas`: se pueden crear, editar con nueva versión,
+  clonar, desactivar, descargar como `.xlsx`, analizar desde un Excel de
+  ejemplo y evaluar contra perfil/emisor. Las plantillas globales quedan
+  reservadas a administradores; los usuarios activos administran plantillas del
+  emisor activo.
 - Backend ya registra perfiles de carga masiva por emisor para precargar
   formato, punto de venta, concepto fiscal ARCA, descripcion facturada y reglas
   de fechas.
@@ -50,7 +56,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   de la instalación y desglosarlo por emisor, base, lotes, temporales, caché,
   certificados y logs, con cálculo liviano, acceso solo para administradores y
   sin exponer datos privados innecesarios.
-- La observabilidad operativa estandar queda definida como requisito antes de
+- La observabilidad operativa estándar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
   no tecnicos.
@@ -70,14 +76,25 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   ubicacion principal de la factura oficial ARCA, datos fiscales completos
   disponibles, QR ARCA testeable por payload y fechas de servicio/vencimiento
   persistidas en comprobantes nuevos.
-- Emision masiva ahora puede usar plantilla oficial o formatos configurables con autodeteccion asistida.
+- Emisión masiva ahora puede usar plantilla oficial o plantillas/formato
+  configurables con autodetección asistida. Si un perfil recuerda una
+  plantilla, la descarga usa esa plantilla; si no, conserva la plantilla oficial.
 - Emision masiva ahora puede aplicar perfiles de carga masiva visibles y
   editables antes de validar.
+- `Emisores > Carga masiva` tiene subtabs de `Perfiles` y `Plantillas`. El
+  constructor visual permite partir de cero o de encabezados de un Excel,
+  ordenar/agregar/quitar campos, fijar valores constantes, revisar
+  compatibilidad y descargar un Excel con hoja `Comprobantes`, hoja
+  `Instrucciones` y metadatos no fiscales ocultos.
+- QA visual local de plantillas ejecutada el 2026-06-10: creación desde cero,
+  constructor desde Excel, clonación de plantilla protegida, scoping por emisor,
+  permisos de usuario común, descarga directa y descarga desde perfil en
+  `Emisión masiva`, sin validar lotes, emitir ni llamar a ARCA.
 - Emision masiva muestra progreso real de emision para lotes chicos y grandes,
   con timer de tiempo transcurrido y estimacion restante.
 - Selector de emisor activo implementado para que contadores independientes o
   estudios chicos operen varios emisores con un emisor activo explicito por vez.
-- La decision de producto vigente evita una plataforma multiempresa compleja
+- La decisión de producto vigente evita una plataforma multiempresa compleja
   por ahora; el foco es reforzar que clientes, certificados, puntos de venta,
   comprobantes, lotes, PDFs, reportes, perfiles y formatos no se mezclen entre
   emisores.
@@ -572,7 +589,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 ### Constancias de emisores mas robustas 2026-05-10
 
 - El parser de constancias ARCA de emisores ahora distingue formatos de
-  inscripcion de persona juridica, inscripcion de persona fisica y opcion de
+  inscripción de persona jurídica, inscripción de persona física y opción de
   Monotributo.
 - La extraccion corrige cortes comunes introducidos por PDFs en nombre fiscal,
   domicilio y localidad, y evita usar lineas tecnicas como provincia.
@@ -896,7 +913,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El alta de emisores permite subir una constancia de inscripcion ARCA en PDF
   para precompletar los campos fiscales antes de guardar. Desde 2026-05-10
   tambien acepta constancias de opcion de Monotributo y constancias de
-  inscripcion de persona fisica con layout distinto al societario.
+  inscripción de persona física con layout distinto al societario.
 - Se corrigio el listado/alta de puntos de venta para que usuarios admin operen
   solo sobre el emisor activo seleccionado.
 - Se corrigio certificados para que usuarios admin solo vean, creen y verifiquen
@@ -1065,7 +1082,7 @@ Quedo validado manualmente:
   - impacto: se autorizaron comprobantes adicionales reales antes de que el lote
     terminara de reflejar el resumen correcto
   - estado: se agrego toma atomica de lote; si ya esta procesando o procesado,
-    una segunda ejecucion queda bloqueada
+    una segunda ejecución queda bloqueada
 - Estrategia de schema local:
   - `run-local.ps1` ahora ejecuta `alembic upgrade head` antes de levantar
     `uvicorn`

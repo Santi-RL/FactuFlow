@@ -13,7 +13,7 @@ services/
 ├── constancia_arca_service.py           # Extraccion de datos fiscales desde constancia ARCA
 ├── constancia_puntos_venta_service.py   # Extraccion de puntos de venta desde constancia ARCA
 ├── facturacion_service.py               # Orquestacion de emision de comprobantes
-├── formatos_importacion_service.py      # Formatos, autodeteccion y mapeo de Excel externos
+├── formatos_importacion_service.py      # Plantillas/formato, compatibilidad, descarga XLSX y mapeo de Excel externos
 ├── idempotencia_fiscal_service.py       # Idempotencia y deduplicación fiscal
 ├── lote_comprobantes_service.py         # Validacion y procesamiento de lotes Excel
 ├── lote_worker.py                       # Worker reanudable para lotes grandes
@@ -47,15 +47,18 @@ services/
   emision y fechas de servicio antes de validar. El concepto fiscal puede ser
   `Productos`, `Servicios` o venir del archivo; la descripcion del item puede
   venir del archivo o de un valor fijo para todo el lote.
-- Formatos de importacion: ver `formatos_importacion_service.py`. Administra
-  formatos globales y por emisor, detecta encabezados, resuelve mapeos por
-  encabezado/columna/constante y normaliza archivos externos al contrato interno
-  de lotes. Un formato no debe ocultar defaults para concepto fiscal ARCA ni
-  para descripcion del item antes de la validacion. En formatos de Responsable
-  Inscripto, se puede mapear `item_precio_unitario` desde el neto gravado y
-  `importe_total` aparte como referencia para consumidor final. Si un archivo
-  externo informa total, `lote_comprobantes_service.py` compara ese valor contra
-  el total calculado desde items e IVA y observa el grupo si no coincide.
+- Plantillas/formato de importación: ver `formatos_importacion_service.py`.
+  Administra plantillas globales y por emisor, protege plantillas internas del
+  sistema, versiona ediciones, analiza Exceles de ejemplo, evalúa
+  compatibilidad con perfil/emisor, genera `.xlsx` visuales y detecta
+  encabezados. Los mapeos pueden venir por encabezado, columna, constante o
+  dato del emisor. Una plantilla no debe ocultar defaults para concepto fiscal
+  ARCA ni para descripcion del item antes de la validacion. En formatos de
+  Responsable Inscripto, se puede mapear `item_precio_unitario` desde el neto
+  gravado y `importe_total` aparte como referencia para consumidor final. Si un
+  archivo externo informa total, `lote_comprobantes_service.py` compara ese
+  valor contra el total calculado desde items e IVA y observa el grupo si no
+  coincide.
 - Perfiles de carga masiva: ver `perfiles_carga_masiva_service.py`. Administra
   configuraciones reutilizables por emisor activo para precargar la pantalla de
   lotes. El perfil puede recordar formato, concepto fiscal ARCA, descripcion
@@ -74,6 +77,6 @@ services/
 - Constancias ARCA: ver `constancia_arca_service.py` para emisores y
   `constancia_puntos_venta_service.py` para puntos de venta. El parser de
   emisores distingue constancia de inscripcion de persona juridica, inscripcion
-  de persona fisica y opcion Monotributo; valida provincia contra el catalogo
+  de persona física y opción Monotributo; valida provincia contra el catálogo
   argentino antes de completar el campo.
 - PDF/reportes: ver `docs/FASE_6_PDF_REPORTES.md`.

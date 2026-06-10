@@ -96,6 +96,41 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Plantillas de carga masiva - QA visual ejecutada 2026-06-10
+
+- Entorno: backend `http://localhost:8000`, frontend `http://localhost:8080`,
+  navegador Playwright Chromium headless en viewport de escritorio.
+- Se inició sesión con un usuario administrador local de QA y se seleccionó un
+  emisor activo de prueba compatible con comprobantes C.
+- Se abrió `Emisores > Carga masiva > Plantillas` y se confirmó que la pantalla
+  lista plantillas del emisor, globales y del sistema.
+- Se verificó que una plantilla protegida del sistema no permite edición ni
+  desactivación directa desde la UI, y que sí permite clonarse como copia
+  editable del emisor.
+- Se creó una plantilla desde cero, se revisó el panel de compatibilidad, se
+  agregaron, quitaron y reordenaron columnas, y se guardó correctamente.
+- Se descargó el `.xlsx` de la plantilla creada y se inspeccionó con
+  `openpyxl`: hojas `Comprobantes`, `Instrucciones`, hoja oculta `_factuflow`,
+  columnas visibles esperadas y fila superior congelada.
+- Se subió un Excel de ejemplo con encabezados y se confirmó que el constructor
+  inicia filas editables con esos encabezados.
+- Se cambió de emisor activo y se confirmó que la plantilla exclusiva del
+  emisor anterior no aparece mezclada en el nuevo emisor.
+- Se creó un perfil temporal local que recuerda la plantilla creada, se abrió
+  `Emisión masiva`, se aplicó el perfil y se confirmó que `Descargar plantilla`
+  descarga esa plantilla.
+- Se inició sesión con un usuario común local de QA y se confirmó que el
+  constructor no ofrece alcance global. También se verificó que las plantillas
+  protegidas siguen bloqueadas para edición y desactivación.
+- No se emitió, no se validó ningún lote para CAE y no se llamó a ARCA durante
+  esta QA.
+- Artefactos visuales y descargas quedaron solo en `output/playwright/`, ruta
+  ignorada por Git porque puede contener datos privados del entorno local.
+
+Cobertura no visual complementaria ya verificada por pruebas automatizadas:
+versionado en edición, scoping global/emisor, validaciones fiscales de
+compatibilidad, notas de crédito/débito y contratos de importación.
+
 ### Idempotencia y deduplicación fiscal segura 2026-06-04
 
 - La API de emisión individual, procesamiento de lotes y reintento de fallidos
@@ -583,7 +618,7 @@ Cambio critico posterior el 2026-05-08:
   la clave de idempotencia del intento anterior.
 - la primera prueba productiva real autorizo comprobantes con CAE. Se detecto
   procesamiento concurrente por procesos backend viejos y se corrigio la toma
-  atomica del lote para impedir que una segunda ejecucion procese el mismo lote.
+  atómica del lote para impedir que una segunda ejecución procese el mismo lote.
 - se preparo un Excel privado local para anular los 19 comprobantes duplicados
   mediante Nota de Credito C. El archivo se valido contra una copia de la base
   local, sin emitir y sin registrar el lote en la base operativa: 19 grupos
@@ -715,7 +750,7 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Se valido el parser con una constancia de opcion de Monotributo: detecta CUIT,
   razon social, condicion Monotributo, domicilio, localidad, provincia, codigo
   postal e inicio de actividades.
-- Se valido el parser con una constancia de inscripcion de persona fisica:
+- Se validó el parser con una constancia de inscripción de persona física:
   corrige cortes de texto del PDF en nombre, domicilio y localidad, detecta
   codigo postal/provincia y no completa provincia con lineas tecnicas.
 - En `Emisores`, provincia se selecciona desde un catalogo cerrado de provincias

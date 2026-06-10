@@ -350,12 +350,14 @@ async def test_valida_formato_global_y_rechaza_formato_de_otro_emisor(
                 "header_row": 1,
                 "modo_agrupacion": "fila",
                 "campos": {
+                    "tipo_comprobante": {"origen": "constante", "valor": 11},
+                    "item_iva_porcentaje": {"origen": "constante", "valor": 0},
                     "importe_total": {
                         "origen": "header",
                         "encabezados": ["Importe"],
                         "transformacion": "decimal",
                         "requerido": True,
-                    }
+                    },
                 },
             },
         },

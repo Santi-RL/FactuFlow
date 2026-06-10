@@ -4,7 +4,7 @@ import { XMarkIcon } from "@heroicons/vue/24/outline";
 interface Props {
   show: boolean;
   title?: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 }
 
 withDefaults(defineProps<Props>(), {
@@ -21,6 +21,8 @@ const sizeClasses = {
   md: "max-w-lg",
   lg: "max-w-2xl",
   xl: "max-w-4xl",
+  "2xl": "max-w-6xl",
+  full: "max-w-[min(98vw,1440px)]",
 };
 
 const handleClose = () => {
@@ -64,10 +66,10 @@ const handleOverlayClick = (event: MouseEvent) => {
         class="fixed inset-0 z-50 overflow-y-auto"
         @click="handleOverlayClick"
       >
-        <div class="flex min-h-full items-center justify-center p-4">
+        <div class="flex min-h-full items-center justify-center p-3 sm:p-4">
           <div
             :class="[
-              'relative w-full bg-white rounded-lg shadow-xl',
+              'relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden bg-white rounded-lg shadow-xl',
               sizeClasses[size],
             ]"
             @click.stop
@@ -75,7 +77,7 @@ const handleOverlayClick = (event: MouseEvent) => {
             <!-- Header -->
             <div
               v-if="title || $slots.header"
-              class="flex items-center justify-between p-6 border-b border-gray-200"
+              class="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6"
             >
               <h3 class="text-lg font-semibold text-gray-900">
                 <slot name="header">
@@ -92,14 +94,14 @@ const handleOverlayClick = (event: MouseEvent) => {
             </div>
 
             <!-- Content -->
-            <div class="p-6">
+            <div class="min-h-0 overflow-y-auto p-4 sm:p-6">
               <slot />
             </div>
 
             <!-- Footer -->
             <div
               v-if="$slots.footer"
-              class="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg"
+              class="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 p-4 sm:p-6 rounded-b-lg"
             >
               <slot name="footer" />
             </div>

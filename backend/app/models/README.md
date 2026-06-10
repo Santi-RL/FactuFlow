@@ -75,14 +75,19 @@ Control fiscal durable para caminos que pueden solicitar CAE:
   estados inciertos
 
 ### FormatoImportacion, FormatoImportacionVersion, FormatoImportacionCampo y FormatoImportacionRegla
-Formatos reutilizables para interpretar archivos externos de emision masiva:
+Plantillas/formato reutilizables para interpretar archivos externos de emision
+masiva:
 - Alcance `global` o particular de una Empresa
 - Version vigente con `configuracion_json`
-- Campos destino con origen por encabezado, columna o constante
+- Configuración visual opcional dentro de `configuracion_json.plantilla` para
+  columnas, etiquetas, orden, ejemplos y reglas de generación `.xlsx`
+- Campos destino con origen por encabezado, columna, constante o dato del emisor
 - Alias de encabezados, letras/indices de columna, transformaciones y valores
   default
 - Reglas declarativas como agrupacion por fila
 - Trazabilidad desde `LoteComprobante` hacia el formato y version usados
+- Las plantillas internas del sistema se protegen por metadatos de
+  configuración; se clonan para editar, no se modifican directamente
 
 ### PerfilCargaMasiva
 Perfiles de carga masiva por emisor:

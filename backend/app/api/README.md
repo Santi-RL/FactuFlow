@@ -11,13 +11,15 @@ Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 - `empresas.py`: CRUD de empresas.
 - `clientes.py`: CRUD de clientes.
 - `puntos_venta.py`: CRUD de puntos de venta.
-- `certificados.py`: gestion de certificados (CSR, upload, verificacion, alertas).
+- `certificados.py`: gestión de certificados (CSR, upload, verificación, alertas).
 - `arca.py`: integracion ARCA (WSAA/WSFEv1 via `app/arca/`).
 - `comprobantes.py`: emision y consulta de comprobantes.
 - `lotes_comprobantes.py`: plantilla, validacion, procesamiento y resultados de lotes Excel.
 - `almacenamiento.py`: gestor administrativo de almacenamiento, resguardos ZIP
   y limpieza segura de artefactos no vitales.
-- `formatos_importacion.py`: listado, creacion y autodeteccion de formatos configurables de Excel.
+- `formatos_importacion.py`: administración de plantillas/formato de Excel,
+  catálogo de campos, análisis de Excel de ejemplo, compatibilidad,
+  versionado, clonado, descarga y autodetección.
 - `perfiles_carga_masiva.py`: perfiles de carga masiva por emisor para precargar
   configuracion visible de lotes.
 - `pdf.py`: generacion/descarga de PDFs.
@@ -29,8 +31,11 @@ Los routers se registran en `backend/app/main.py` con `app.include_router(...)`.
 
 Routers relacionados con emision masiva:
 
-- `/api/formatos-importacion`: formatos globales y por emisor, mas deteccion de
-  candidatos por encabezados.
+- `/api/formatos-importacion`: plantillas/formato globales y por emisor,
+  administración versionada, protección de plantillas del sistema, descarga
+  `.xlsx`, compatibilidad con perfil/emisor y detección de candidatos por
+  encabezados. Las mutaciones con alcance global quedan reservadas a
+  administradores.
 - `/api/perfiles-carga-masiva`: perfiles de carga masiva del emisor activo.
   Permiten guardar formato sugerido, concepto fiscal ARCA, descripcion
   facturada y reglas de fechas relativas como prellenado visible y editable.

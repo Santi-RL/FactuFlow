@@ -16,7 +16,7 @@ services/
 ├── arca.service.ts           # ARCA (tipos, puntos de venta, dummy, etc.)
 ├── almacenamiento.service.ts # Gestor administrativo de almacenamiento
 ├── comprobantes.service.ts   # Comprobantes
-├── formatos-importacion.service.ts # Formatos configurables de importacion
+├── formatos-importacion.service.ts # Plantillas/formato configurables de importacion
 ├── lotes-comprobantes.service.ts # Emision masiva por Excel
 ├── perfiles-carga-masiva.service.ts # Perfiles de carga masiva por emisor
 ├── pdf.service.ts            # PDFs
@@ -40,8 +40,10 @@ services/
 - `almacenamiento.service.ts` habla con `/api/almacenamiento`; esas rutas son
   exclusivas de administradores y cubren resumen, selección de artefactos,
   resguardo ZIP, descarga y liberación posterior.
-- `formatos-importacion.service.ts` lista formatos disponibles y detecta
-  candidatos desde un Excel antes de validar el lote.
+- `formatos-importacion.service.ts` respalda la UI pública de `Plantillas`:
+  lista, crea, edita, desactiva, clona, descarga, analiza Exceles de ejemplo,
+  evalúa compatibilidad y detecta candidatos desde un Excel antes de validar el
+  lote.
 - `lotes-comprobantes.service.ts` puede enviar `formato_version_id` al validar
   cuando el usuario confirmo un formato externo, y `perfil_carga_masiva_id`
   cuando corresponde guardar snapshot del perfil aplicado.

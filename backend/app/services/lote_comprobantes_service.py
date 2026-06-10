@@ -2888,7 +2888,7 @@ class LoteComprobantesService:
                 )
 
         comprobantes_asociados: list[ComprobanteAsociadoCreate] = []
-        if tipo_comprobante in {3, 8, 13}:
+        if tipo_comprobante in {2, 3, 7, 8, 12, 13}:
             asociado_tipo = self._parse_int(header.get("asociado_tipo_comprobante"))
             asociado_pv = self._parse_int(header.get("asociado_punto_venta"))
             asociado_numero = self._parse_int(header.get("asociado_numero"))
@@ -2896,7 +2896,7 @@ class LoteComprobantesService:
             asociado_cuit = clean_cuit(header.get("asociado_cuit", ""))
             if not asociado_tipo or not asociado_pv or not asociado_numero:
                 mensajes.append(
-                    f"La nota de crédito {comprobante_ref} requiere comprobante asociado: tipo, punto de venta y número"
+                    f"La nota de crédito/débito {comprobante_ref} requiere comprobante asociado: tipo, punto de venta y número"
                 )
             else:
                 comprobantes_asociados.append(
