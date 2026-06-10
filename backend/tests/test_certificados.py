@@ -542,9 +542,10 @@ class TestCertificadosService:
             "certs/23318277559_homologacion_20260309_190054.crt"
         )
 
-        assert resolved.endswith(
-            "backend\\certs\\23318277559_homologacion_20260309_190054.crt"
-        )
+        resolved_path = Path(resolved)
+        assert resolved_path.name == "23318277559_homologacion_20260309_190054.crt"
+        assert resolved_path.parent.name == "certs"
+        assert resolved_path.parent.parent.name == "backend"
 
     async def test_resolve_cert_storage_path_with_filename_only(self, monkeypatch):
         """Mantiene soporte para paths relativos simples sin prefijo."""
@@ -557,9 +558,10 @@ class TestCertificadosService:
             "23318277559_homologacion_20260309_190054.key"
         )
 
-        assert resolved.endswith(
-            "backend\\certs\\23318277559_homologacion_20260309_190054.key"
-        )
+        resolved_path = Path(resolved)
+        assert resolved_path.name == "23318277559_homologacion_20260309_190054.key"
+        assert resolved_path.parent.name == "certs"
+        assert resolved_path.parent.parent.name == "backend"
 
     async def test_resolve_cert_storage_path_rejects_escape(
         self, tmp_path: Path, monkeypatch
