@@ -91,6 +91,12 @@
 - Vue: Composition API con `<script setup>`, TypeScript recomendado, componentes en PascalCase, events en kebab-case.
 - Tailwind: priorizar utilidades sobre CSS custom.
 - UI y mensajes para usuarios en español (Argentina).
+- Los tests deben ser portables entre Windows local y GitHub Actions en Linux.
+  No comparar paths como strings con separadores fijos (`\` o `/`). Para asserts
+  de rutas usar `pathlib.Path`, `Path.parts`, `Path.name`, `Path.parent`,
+  `os.path.normpath` o comparaciones equivalentes independientes del sistema
+  operativo. Si un fallo de CI viene de diferencias Windows/Linux, corregir el
+  test o helper para expresar la intención real, no forzar el formato local.
 
 ## Continuidad y documentación viva
 - Si el usuario pregunta "cómo está el proyecto", "qué es lo primero que debemos solucionar" o una variante equivalente, ir directo al primer punto pendiente de `docs/agents/alignment-pending.md`.
