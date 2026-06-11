@@ -462,6 +462,9 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Smoke real de homologacion ejecutado manualmente
 - [x] QA manual funcional cerrada
 - [x] Script de lint frontend no destructivo `npm run lint:check`
+- [ ] Migrar el entorno de build/test del frontend y CI a Node.js 24 LTS,
+  validando `npm ci`, `type-check`, `lint:check`, `build` y `test:unit`, y
+  documentando la versión recomendada para desarrollo local.
 - [x] Reparaciones Clawpatch 2026-05-16/17 cerradas con
   backend/frontend/repo en `openFindings=0`
 - [x] Reportes IVA calculan notas de credito con signo negativo y el detalle de
