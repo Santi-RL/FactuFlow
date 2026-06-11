@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     
     defaults:
       run:
@@ -52,10 +53,11 @@ jobs:
           pytest tests/ -v --cov=app --cov-report=xml
       
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v7
         with:
-          file: backend/coverage.xml
+          files: backend/coverage.xml
           flags: backend
+          use_oidc: true
 
   # ====================================
   # Frontend Build & Lint
