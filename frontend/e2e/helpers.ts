@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 
-const now = new Date().toISOString();
+const now = "2026-03-09T12:00:00.000Z";
 
 const adminUser = {
   id: 1,
@@ -55,7 +55,8 @@ export const adminCredentials = {
 const corsHeaders = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-  "access-control-allow-headers": "Content-Type, Authorization",
+  "access-control-allow-headers":
+    "Content-Type, Authorization, X-Empresa-Id, X-Idempotency-Key, X-Confirmacion-Fecha-Fiscal, X-Confirmacion-Duplicado-Logico",
 };
 
 const jsonResponse = (route: Route, status: number, payload: unknown) => {
@@ -87,6 +88,27 @@ const parseBody = (route: Route) => {
   }
 };
 
+const multipartFieldValue = (route: Route, field: string) => {
+  const raw = route.request().postData();
+  if (!raw) return "";
+  const marker = `name="${field}"`;
+  const index = raw.indexOf(marker);
+  if (index === -1) return "";
+  const valueStart = raw.indexOf("\r\n\r\n", index);
+  if (valueStart === -1) return "";
+  const valueEnd = raw.indexOf("\r\n", valueStart + 4);
+  return raw.slice(valueStart + 4, valueEnd === -1 ? undefined : valueEnd);
+};
+
+const requireMultipartFields = (
+  route: Route,
+  fields: Record<string, string>,
+) => {
+  return Object.entries(fields)
+    .filter(([field, expected]) => multipartFieldValue(route, field) !== expected)
+    .map(([field]) => field);
+};
+
 const getEmpresaActivaId = (route: Route) => {
   const headers = route.request().headers();
   const empresaHeader = headers["x-empresa-id"] || headers["X-Empresa-Id"];
@@ -103,7 +125,16 @@ export const mockApi = async (page: Page) => {
         id: 1,
         numero: 1,
         nombre: "PV 0001",
+        sistema: "Factura Electronica - Web Services",
+        domicilio: "Av. Siempre Viva 123",
+        nombre_fantasia: null,
+        es_webservice: true,
+        bloqueado: false,
+        fecha_baja: null,
+        fuente: "arca_wsfe",
         activo: true,
+        usable_factuflow: true,
+        empresa_id: 1,
         created_at: now,
         updated_at: now,
       },
@@ -157,6 +188,18 @@ export const mockApi = async (page: Page) => {
         status: 204,
         headers: corsHeaders,
       });
+    }
+
+    // Health / setup
+    if (path === "/api/health" && method === "GET") {
+      return jsonResponse(route, 200, {
+        status: "healthy",
+        message: "FactuFlow API funcionando correctamente",
+      });
+    }
+
+    if (path === "/api/auth/setup-status" && method === "GET") {
+      return jsonResponse(route, 200, { setup_required: false });
     }
 
     // Auth
@@ -535,6 +578,17 @@ export const mockApi = async (page: Page) => {
 
     if (path === "/api/lotes-comprobantes/validar" && method === "POST") {
       if (!hasAuthHeader(route)) return unauthorized(route);
+      const missingOrInvalidFields = requireMultipartFields(route, {
+        punto_venta_modo: "archivo",
+        concepto_modo: "productos",
+        descripcion_item_modo: "archivo",
+        fecha_emision_modo: "archivo",
+      });
+      if (missingOrInvalidFields.length > 0) {
+        return jsonResponse(route, 400, {
+          detail: `Faltan decisiones fiscales obligatorias: ${missingOrInvalidFields.join(", ")}`,
+        });
+      }
 
       const empresaId = getEmpresaActivaId(route);
       const empresaActiva =
@@ -549,7 +603,10 @@ export const mockApi = async (page: Page) => {
         orden: 1,
         estado: "validado",
         tipo_comprobante: 6,
+        concepto: 1,
         punto_venta_numero: 1,
+        fecha_emision: "2026-03-09",
+        descripcion_facturada: "Producto E2E",
         cliente_documento: "20409378472",
         cliente_razon_social: "Cliente E2E SRL",
         total_estimado: 1210,
@@ -569,7 +626,7 @@ export const mockApi = async (page: Page) => {
           empresa_cuit: empresaActiva.cuit,
           punto_venta_numero: 1,
           tipo_comprobante: 6,
-          item_descripcion: "Servicio mensual",
+          item_descripcion: "Producto E2E",
         },
         mensajes_json: ["Validado correctamente. Listo para emitir."],
       };
@@ -587,8 +644,32 @@ export const mockApi = async (page: Page) => {
         grupos_con_error: 0,
         grupos_emitidos: 0,
         grupos_fallidos: 0,
+        grupos_descartados: 0,
+        grupos_reconciliados_externos: 0,
         mensaje_resumen: "El lote se valido correctamente y puede emitirse.",
+        fechas_emision_validas: ["2026-03-09"],
+        puntos_venta_validos: [1],
+        confirmacion_fecha_fiscal: "confirmar-fecha-e2e",
+        mensaje_confirmacion_fecha_fiscal:
+          "Está seguro que quiere emitir comprobantes con fecha 09/03/2026 para los puntos de venta 0001? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.",
+        confirmacion_reintento_fallidos: "confirmar-reintento-e2e",
+        mensaje_confirmacion_reintento_fallidos:
+          "¿Está seguro que quiere reintentar los comprobantes fallidos? Recuerde que una emisión autorizada por ARCA no se puede deshacer.",
+        confirmacion_duplicado_logico: "",
+        mensaje_confirmacion_duplicado_logico: "",
+        cantidad_duplicados_logicos: 0,
+        totales_listos_para_emitir: {
+          comprobantes: 1,
+          neto: 1000,
+          iva21: 210,
+          iva105: 0,
+          total: 1210,
+          valores_invalidos: 0,
+        },
         metadata_json: { empresa_cuit: empresaActiva.cuit },
+        mapeo_usado_json: {},
+        headers_detectados_json: ["Fecha", "Créditos", "Pto Vta"],
+        compactado_at: null,
         started_at: null,
         finished_at: null,
         created_at: now,
@@ -609,6 +690,38 @@ export const mockApi = async (page: Page) => {
     }
 
     if (
+      /^\/api\/lotes-comprobantes\/\d+\/resumen$/.test(path) &&
+      method === "GET"
+    ) {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const loteId = Number(path.split("/")[3]);
+      const lote = state.lotes.find((item) => item.id === loteId);
+      if (!lote)
+        return jsonResponse(route, 404, { detail: "Lote no encontrado" });
+      const { grupos, filas, ...resumen } = lote;
+      return jsonResponse(route, 200, resumen);
+    }
+
+    if (
+      /^\/api\/lotes-comprobantes\/\d+\/grupos$/.test(path) &&
+      method === "GET"
+    ) {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const loteId = Number(path.split("/")[3]);
+      const lote = state.lotes.find((item) => item.id === loteId);
+      if (!lote)
+        return jsonResponse(route, 404, { detail: "Lote no encontrado" });
+      return jsonResponse(route, 200, {
+        items: lote.grupos,
+        page: Number(url.searchParams.get("page") || 1),
+        per_page: Number(url.searchParams.get("per_page") || 20),
+        total: lote.grupos.length,
+        total_pages: 1,
+        estado: url.searchParams.get("estado") || null,
+      });
+    }
+
+    if (
       /^\/api\/lotes-comprobantes\/\d+\/procesar$/.test(path) &&
       method === "POST"
     ) {
@@ -617,6 +730,20 @@ export const mockApi = async (page: Page) => {
       const lote = state.lotes.find((item) => item.id === loteId);
       if (!lote)
         return jsonResponse(route, 404, { detail: "Lote no encontrado" });
+      const headers = route.request().headers();
+      if (!headers["x-idempotency-key"]) {
+        return jsonResponse(route, 400, {
+          detail: "Falta X-Idempotency-Key para procesar el lote.",
+        });
+      }
+      if (
+        headers["x-confirmacion-fecha-fiscal"] !==
+        lote.confirmacion_fecha_fiscal
+      ) {
+        return jsonResponse(route, 400, {
+          detail: "Falta confirmación fiscal explícita del lote.",
+        });
+      }
 
       lote.estado = "completado";
       lote.grupos_validos = 0;
@@ -704,6 +831,27 @@ export const mockApi = async (page: Page) => {
     ) {
       if (!hasAuthHeader(route)) return unauthorized(route);
       const body = parseBody(route) as any;
+      const headers = route.request().headers();
+      if (!headers["x-idempotency-key"]) {
+        return jsonResponse(route, 400, {
+          detail: "Falta X-Idempotency-Key para emitir.",
+        });
+      }
+      if (!body.fecha_emision) {
+        return jsonResponse(route, 400, {
+          detail: "La fecha de emisión es obligatoria.",
+        });
+      }
+      if (!body.concepto) {
+        return jsonResponse(route, 400, {
+          detail: "El concepto fiscal ARCA es obligatorio.",
+        });
+      }
+      if (body.confirmacion_fecha_fiscal !== true) {
+        return jsonResponse(route, 400, {
+          detail: "Falta confirmación fiscal explícita.",
+        });
+      }
       const id = state.nextComprobanteId++;
       const resp = {
         exito: true,
@@ -722,7 +870,7 @@ export const mockApi = async (page: Page) => {
         punto_venta_id: body.punto_venta_id ?? 1,
         tipo_comprobante: body.tipo_comprobante ?? 6,
         numero: 1,
-        fecha_emision: new Date().toISOString(),
+        fecha_emision: body.fecha_emision,
         cliente_nombre: body.razon_social ?? "Cliente",
         cliente_documento: body.numero_documento ?? "",
         total: resp.total,
@@ -736,8 +884,9 @@ export const mockApi = async (page: Page) => {
 
   // Endpoints con prefijo /api
   await page.route("**/api/**", handler);
-  // Endpoints legacy sin /api (ej: /comprobantes/*)
-  await page.route("**/comprobantes**", handler);
+  // Endpoints legacy sin /api (ej: /comprobantes/*). No interceptar módulos
+  // de Vite como /src/services/comprobantes.service.ts.
+  await page.route(/^https?:\/\/[^/]+\/comprobantes(?:\/.*)?(?:\?.*)?$/, handler);
 };
 
 export const loginAsAdmin = async (page: Page) => {

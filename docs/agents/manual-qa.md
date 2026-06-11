@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-10
+Última actualización: 2026-06-11
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -760,9 +760,11 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificación automatizada vigente 2026-06-04: backend `pytest tests` OK
-  (262 tests), `ruff` y `black` OK; frontend `test:unit` OK (57 tests),
-  `type-check` OK y `lint:check` OK sin errores ni warnings.
+- Verificación automatizada vigente 2026-06-11: frontend `npm run test:e2e
+  -- --reporter=list` OK (31 tests en Chromium desktop), `npm run test:unit`
+  OK (58 tests), `npm run build` OK, `npm run type-check` OK y
+  `npm run lint:check` OK. La matriz
+  multinavegador/mobile queda opt-in con `E2E_FULL_BROWSER_MATRIX=1`.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
   solo desde QA local: observabilidad operativa estándar, automatización futura
   de backups, política de retención, trazabilidad visible y soporte de

@@ -84,7 +84,7 @@ test.describe('Wizard de Certificados', () => {
     
     // Ingresar CUIT inválido
     await page.getByLabel(/cuit/i).fill('123')
-    await page.getByLabel(/nombre de la empresa/i).fill('Empresa Test')
+    await page.getByLabel(/nombre fiscal|razón social/i).fill('Empresa Test')
     
     // El botón debe estar deshabilitado
     await expect(page.getByTestId('cert-wizard-generar')).toBeDisabled()
@@ -101,7 +101,7 @@ test.describe('Wizard de Certificados', () => {
 
     // Step 2: generar CSR
     await page.getByLabel(/cuit/i).fill('20-12345678-9')
-    await page.getByLabel(/nombre de la empresa/i).fill('Empresa Test')
+    await page.getByLabel(/nombre fiscal|razón social/i).fill('Empresa Test')
     await page.getByTestId('cert-wizard-generar').click()
     await page.getByTestId('cert-wizard-step2-next').click()
 

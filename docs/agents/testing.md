@@ -70,15 +70,24 @@ npm run test:unit
 La puesta a punto no debe ejecutar `clawpatch fix`, no debe solicitar CAE ni
 modificar lógica de emisión fiscal.
 
-Nota 2026-05-07:
+Nota 2026-06-10:
 
 - `npm run test:unit` incluye pruebas unitarias de perfiles de carga masiva y
   fechas relativas.
-- `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup de
-  Playwright. En la ultima corrida el runner mostro pantalla en blanco aunque
-  `http://localhost:8080/login` cargo correctamente con un script Playwright
-  directo.
+- `npm run test:e2e` es evidencia vigente para Chromium desktop local. El script
+  levanta Vite en `127.0.0.1:18080`, ejecuta Playwright y corta el servidor al
+  finalizar para evitar procesos colgados en Windows. Si el puerto está ocupado,
+  detener el proceso existente o usar `E2E_PORT`.
+- La matriz completa de navegadores/mobile queda opt-in con la variable
+  `E2E_FULL_BROWSER_MATRIX=1`; no es el recorrido por defecto porque los flujos
+  administrativos de plantillas y emisión masiva están pensados para PC. En
+  PowerShell usar `$env:E2E_FULL_BROWSER_MATRIX='1'; npm run test:e2e`; en bash
+  usar `E2E_FULL_BROWSER_MATRIX=1 npm run test:e2e`.
 - `npm run lint:check` es el check no destructivo de ESLint.
+- En Windows, ejecutar `npm run lint:check` separado de `npm run build` o de
+  procesos Vite activos. Si se corre en paralelo, ESLint puede intentar leer un
+  archivo temporal `vite.config.ts.timestamp-*.mjs` que Vite ya eliminó y dar un
+  falso `ENOENT`.
 - `npm run lint` ejecuta ESLint con `--fix`; usarlo solo cuando se quiere
   autocorregir y revisar el diff posterior.
 
@@ -130,6 +139,15 @@ El ultimo checkpoint manual no esta en este archivo sino en:
 Eso evita mezclar instrucciones permanentes con el estado puntual de una sesion.
 
 ## Ultima verificacion tecnica
+
+Fecha: 2026-06-11
+
+- Frontend E2E: `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium
+  desktop.
+- Frontend completo: `npm run test:unit` OK, 58 tests.
+- Frontend: `npm run build` OK.
+- Frontend: `npm run type-check` OK.
+- Frontend: `npm run lint:check` OK.
 
 Fecha: 2026-05-22
 

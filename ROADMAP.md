@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-10
+Última actualización: 2026-06-11
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -458,7 +458,7 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 
 ### Calidad y testing
 - [x] Suite backend activa
-- [~] E2E frontend con Playwright
+- [x] E2E frontend con Playwright confiable para Chromium desktop local
 - [x] Smoke real de homologacion ejecutado manualmente
 - [x] QA manual funcional cerrada
 - [x] Script de lint frontend no destructivo `npm run lint:check`
@@ -466,8 +466,8 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   backend/frontend/repo en `openFindings=0`
 - [x] Reportes IVA calculan notas de credito con signo negativo y el detalle de
   subdiario incluye gravado e IVA 27%
-- [ ] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
-  confiable en auditorias
+- [x] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
+  confiable en auditorías locales de escritorio
 - [ ] Cobertura mas profunda sobre detalles de comprobantes, PDF y reportes
 - [ ] Smoke automatizado de stack completo local
 
@@ -624,9 +624,7 @@ Objetivo: ampliar valor mas alla del MVP.
    segura de temporales/logs/certificados huérfanos.
 9. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
    de comprobantes, sin persistencia permanente en el servidor.
-10. Corregir el setup E2E para que `npm run test:e2e` vuelva a ser evidencia
-   confiable en auditorías.
-11. Definir la política de versiones posteriores al MVP.
+10. Definir la política de versiones posteriores al MVP.
 
 ## Criterio de exito del MVP
 

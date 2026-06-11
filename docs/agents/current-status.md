@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-10
+Última actualización: 2026-06-11
 
 ## Objetivo activo
 
@@ -124,6 +124,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### E2E frontend recuperado 2026-06-11
+
+- `npm run test:e2e` vuelve a ser evidencia local confiable para Chromium
+  desktop: el wrapper levanta Vite en un puerto dedicado, falla si el puerto ya
+  está ocupado, ejecuta Playwright y corta el servidor al finalizar.
+- Los mocks E2E de emisión individual y masiva ahora exigen fecha fiscal
+  explícita, concepto fiscal ARCA, confirmación fiscal e idempotencia, para no
+  tapar regresiones críticas solo con respuestas mockeadas.
+- La matriz completa de navegadores/mobile queda opt-in con
+  `E2E_FULL_BROWSER_MATRIX=1`. No es el recorrido por defecto porque estos
+  flujos administrativos están pensados para PC.
+- Verificación frontend ejecutada: `npm run test:e2e -- --reporter=list` OK
+  (31 tests), `npm run test:unit` OK (58 tests), `npm run build` OK,
+  `npm run type-check` OK y `npm run lint:check` OK.
 
 ### Instalación VPS privada validada 2026-06-09
 
@@ -1107,9 +1122,12 @@ Quedo validado manualmente:
   - era una pantalla placeholder
   - estado: reemplazada por formulario operativo conectado a la API
 - E2E frontend:
-  - habia flakiness en Firefox por esperas de navegacion
-  - estado: esa flakiness puntual fue corregida; el setup general de
-    `npm run test:e2e` todavia no queda como evidencia vigente
+  - el setup de Playwright quedó recuperado para auditorías locales de
+    escritorio: `npm run test:e2e` levanta Vite en puerto dedicado, ejecuta
+    Chromium y corta el servidor al finalizar
+  - la matriz completa de navegadores/mobile queda opt-in con
+    `E2E_FULL_BROWSER_MATRIX=1`, porque la sección de plantillas y emisión
+    masiva está pensada para uso en PC
 
 ## Verificacion automatizada vigente
 
@@ -1122,9 +1140,9 @@ Quedo validado manualmente:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 54 tests
-  - `npm run test:e2e` no queda como evidencia vigente hasta corregir el setup
-    del runner; ver seccion `Verificacion automatizada 2026-05-07`
+  - `npm run test:unit` OK, 58 tests
+  - `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium desktop,
+    con servidor Vite dedicado en `127.0.0.1:18080`
 
 ## Riesgos / pendientes inmediatos
 
@@ -1204,7 +1222,8 @@ Para continuar desde el estado actual:
 7. Diseñar la automatización futura de backups cifrados con validación y
    retención, pero no implementarla todavía hasta definir política operativa.
 8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
-   persistencia permanente en el servidor y E2E confiable.
+   persistencia permanente en el servidor y ampliar E2E donde aporte evidencia
+   real de flujos críticos.
 9. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
    fiscal ARCA, descripción facturada, fechas fiscales permitidas, totales y
    confirmación final irreversible antes de emitir.

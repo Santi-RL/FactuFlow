@@ -1,5 +1,36 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const fullBrowserMatrix = process.env.E2E_FULL_BROWSER_MATRIX === "1";
+const externalServer = process.env.E2E_EXTERNAL_SERVER === "1";
+const e2eHost = "127.0.0.1";
+const e2ePort = Number(process.env.E2E_PORT || 18080);
+const e2eBaseURL = `http://${e2eHost}:${e2ePort}`;
+
+const chromiumProject = {
+  name: "chromium",
+  use: { ...devices["Desktop Chrome"] },
+};
+
+const fullBrowserProjects = [
+  chromiumProject,
+  {
+    name: "firefox",
+    use: { ...devices["Desktop Firefox"] },
+  },
+  {
+    name: "webkit",
+    use: { ...devices["Desktop Safari"] },
+  },
+  {
+    name: "mobile-chrome",
+    use: { ...devices["Pixel 5"] },
+  },
+  {
+    name: "mobile-safari",
+    use: { ...devices["iPhone 12"] },
+  },
+];
+
 /**
  * Configuración de Playwright para tests E2E de FactuFlow
  *
@@ -18,8 +49,8 @@ export default defineConfig({
   // Reintentos en CI
   retries: process.env.CI ? 2 : 0,
 
-  // Workers en CI
-  workers: process.env.CI ? 1 : 4,
+  // Un solo worker mantiene estables los mocks E2E y replica CI.
+  workers: 1,
 
   // Reporter
   reporter: [["html", { open: "never" }], ["list"]],
@@ -27,7 +58,7 @@ export default defineConfig({
   // Configuración global de tests
   use: {
     // URL base de la aplicación
-    baseURL: "http://localhost:8080",
+    baseURL: e2eBaseURL,
 
     // Capturar screenshot solo en fallos
     screenshot: "only-on-failure",
@@ -45,36 +76,21 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
   },
 
-  // Proyectos para diferentes navegadores
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-    },
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
-    },
-    // Tests en móvil
-    {
-      name: "mobile-chrome",
-      use: { ...devices["Pixel 5"] },
-    },
-    {
-      name: "mobile-safari",
-      use: { ...devices["iPhone 12"] },
-    },
-  ],
+  // Suite estable por defecto. La matriz completa se ejecuta solo bajo pedido
+  // con E2E_FULL_BROWSER_MATRIX=1.
+  projects: fullBrowserMatrix ? fullBrowserProjects : [chromiumProject],
 
-  // Servidor de desarrollo local
-  webServer: {
-    command: "npm run preview -- --port 8080 --strictPort",
-    url: "http://localhost:8080",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  ...(externalServer
+    ? {}
+    : {
+        // Servidor local determinístico para E2E. No reutilizar dev servers activos:
+        // pueden servir módulos fuente de Vite y volver los mocks demasiado amplios.
+        webServer: {
+          command:
+            `node ./node_modules/vite/bin/vite.js --host ${e2eHost} --port ${e2ePort} --strictPort`,
+          url: e2eBaseURL,
+          reuseExistingServer: false,
+          timeout: 120 * 1000,
+        },
+      }),
 });

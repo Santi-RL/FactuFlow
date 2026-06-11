@@ -49,7 +49,7 @@ test.describe("Navegación", () => {
     ]);
     await expect(page).toHaveURL(/comprobantes\/lotes/);
     await expect(
-      page.getByRole("heading", { name: /emision masiva/i }),
+      page.getByRole("heading", { name: /emisión masiva/i }),
     ).toBeVisible();
   });
 

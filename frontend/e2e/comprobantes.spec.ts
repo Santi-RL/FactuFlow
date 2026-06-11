@@ -103,6 +103,8 @@ test.describe("Emisión de Comprobantes", () => {
 
     // Completar formulario básico
     await page.getByLabel(/tipo de comprobante/i).selectOption("1");
+    await page.getByLabel(/concepto/i).selectOption("1");
+    await page.locator('input[type="date"]').first().fill("2026-03-09");
     await page.getByTestId("cliente-nuevo-manual").click();
     await page.getByLabel(/número/i).fill("20123456789");
     await page
@@ -141,6 +143,8 @@ test.describe("Emisión de Comprobantes", () => {
 
     await page.getByLabel(/tipo de comprobante/i).selectOption("6"); // Factura B
     await page.getByLabel(/punto de venta/i).selectOption({ index: 0 });
+    await page.getByLabel(/concepto/i).selectOption("1");
+    await page.locator('input[type="date"]').first().fill("2026-03-09");
 
     // Cliente manual
     await page.getByTestId("cliente-nuevo-manual").click();
@@ -170,7 +174,11 @@ test.describe("Emisión de Comprobantes", () => {
       page.getByTestId("comprobante-confirmar-emitir"),
     ).toBeVisible();
 
-    // Preparar espera de emisión y confirmar
+    await page.getByTestId("comprobante-confirmar-emitir").click();
+    await expect(
+      page.getByRole("button", { name: /emitir con esta fecha/i }),
+    ).toBeVisible();
+
     const emitirRequest = page.waitForRequest((req) => {
       const url = req.url();
       return (
@@ -180,10 +188,9 @@ test.describe("Emisión de Comprobantes", () => {
       );
     });
     await Promise.all([
-      page.getByTestId("comprobante-confirmar-emitir").click(),
+      page.getByRole("button", { name: /emitir con esta fecha/i }).click(),
       emitirRequest,
     ]);
-    await emitirRequest;
 
     // Debe volver al listado
     await expect(page).toHaveURL(/comprobantes$/);

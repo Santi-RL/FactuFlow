@@ -13,8 +13,8 @@
     "format": "prettier --write src/",
     "test": "vitest",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e": "node ./scripts/run-e2e.mjs",
+    "test:e2e:ui": "node ./scripts/run-e2e.mjs --ui"
   },
   "dependencies": {
     "axios": "^1.6.5",

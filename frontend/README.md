@@ -289,15 +289,24 @@ colors: {
 ## 🧪 Testing
 
 ```bash
-# Tests unitarios (cuando estén implementados)
-npm run test
+# Tests unitarios
+npm run test:unit
+
+# E2E local en Chromium desktop
+npm run test:e2e
 
 # Type checking
 npm run type-check
 
-# Lint
-npm run lint
+# Lint no destructivo
+npm run lint:check
 ```
+
+`npm run test:e2e` usa un servidor Vite dedicado en `127.0.0.1:18080` y lo
+cierra al terminar. Si el puerto está ocupado, detener ese proceso o configurar
+`E2E_PORT`. Para ejecutar la matriz completa de navegadores y mobile, usar
+`$env:E2E_FULL_BROWSER_MATRIX='1'; npm run test:e2e` en PowerShell o
+`E2E_FULL_BROWSER_MATRIX=1 npm run test:e2e` en bash.
 
 ## 📝 Convenciones de Código
 

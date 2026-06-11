@@ -12,9 +12,9 @@ test.describe("Emisión masiva", () => {
   });
 
   test("debe permitir cambiar la empresa activa", async ({ page }) => {
-    await expect(page.getByLabel(/empresa activa/i)).toBeVisible();
-    await page.getByLabel(/empresa activa/i).selectOption("2");
-    await expect(page.getByLabel(/empresa activa/i)).toHaveValue("2");
+    await expect(page.getByLabel(/emisor activo/i)).toBeVisible();
+    await page.getByLabel(/emisor activo/i).selectOption("2");
+    await expect(page.getByLabel(/emisor activo/i)).toHaveValue("2");
     await expect(
       page.getByText("Sucursal Norte SRL", { exact: true }),
     ).toBeVisible();
@@ -28,23 +28,40 @@ test.describe("Emisión masiva", () => {
       buffer: Buffer.from("archivo e2e"),
     });
 
+    await page.getByRole("radio", { name: /productos/i }).check();
+    await page
+      .getByRole("radio", { name: /utilizar la descripción del archivo/i })
+      .check();
+    await page
+      .getByRole("radio", { name: /^utilizar la fecha del archivo$/i })
+      .first()
+      .check();
+
+    await expect(
+      page.getByRole("button", { name: /validar lote/i }),
+    ).toBeEnabled();
     await page.getByRole("button", { name: /validar lote/i }).click();
 
     await expect(page.getByText(/archivo validado/i)).toBeVisible();
     await expect(
       page.getByRole("heading", { name: /lote-e2e-1\.xlsx/i }),
     ).toBeVisible();
-    await expect(page.getByText(/listos para emitir/i)).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /emitir comprobantes validos/i }),
+      page.getByText("Listos para emitir", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /emitir comprobantes válidos/i }),
     ).toBeEnabled();
 
     await page
-      .getByRole("button", { name: /emitir comprobantes validos/i })
+      .getByRole("button", { name: /emitir comprobantes válidos/i })
+      .click();
+    await page
+      .getByRole("button", { name: /emitir con esta fecha/i })
       .click();
 
     await expect(
-      page.getByText(/lote procesado|emision iniciada/i),
+      page.getByText(/lote procesado|emisión iniciada/i),
     ).toBeVisible();
     await expect(
       page.getByRole("main").getByText("Completado", { exact: true }).first(),
@@ -52,7 +69,8 @@ test.describe("Emisión masiva", () => {
     await expect(
       page
         .getByRole("main")
-        .getByText(/todos los comprobantes del lote fueron emitidos/i),
+        .getByText(/todos los comprobantes del lote fueron emitidos/i)
+        .first(),
     ).toBeVisible();
   });
 });
