@@ -38,6 +38,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     obtenerResumen: vi.fn(),
     obtenerGrupos: vi.fn(),
     reintentarFallidos: vi.fn(),
+    descartarGrupos: vi.fn(),
     descargarPlantilla: vi.fn(),
   },
 }));
@@ -63,6 +64,9 @@ vi.mock("@/composables/useNotification", () => ({
   }),
 }));
 
+const CUIT_EMISOR_TEST_NO_REAL = ["30", "70000000", "1"].join("");
+const CUIT_RECEPTOR_TEST_NO_REAL = ["20", "40937847", "2"].join("");
+
 const formatoMock = (): FormatoImportacion => ({
   id: 1,
   nombre: "Formato Base",
@@ -85,7 +89,7 @@ const formatoMock = (): FormatoImportacion => ({
 const empresaMock = (): Empresa => ({
   id: 1,
   razon_social: "Emisor Demo",
-  cuit: "30700000001",
+  cuit: CUIT_EMISOR_TEST_NO_REAL,
   condicion_iva: "RI",
   ingresos_brutos: null,
   domicilio: "Av. Demo 123",
@@ -166,6 +170,7 @@ const mockedLotesDetalle = lotesComprobantesService as unknown as {
   obtenerGrupos: Mock;
   procesar: Mock;
   reintentarFallidos: Mock;
+  descartarGrupos: Mock;
   descargarPlantilla: Mock;
 };
 const mockedPerfiles = perfilesCargaMasivaService as unknown as {
@@ -230,7 +235,7 @@ const grupoDetalleMock = (): LoteComprobanteGrupoDetalle => ({
   tipo_comprobante: 6,
   concepto: 1,
   punto_venta_numero: 1,
-  cliente_documento: "20409378472",
+  cliente_documento: CUIT_RECEPTOR_TEST_NO_REAL,
   cliente_razon_social: "Cliente Lote SA",
   fecha_emision: "2026-05-20",
   fecha_servicio_desde: null,
@@ -257,6 +262,7 @@ const mountView = async (
   perfiles: PerfilCargaMasiva[] = [],
   lotesIniciales: LoteComprobante[] = [],
   resumen: LoteComprobanteResumen = loteResumenMock(),
+  grupos: LoteComprobanteGruposPage = gruposPageMock(),
 ) => {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -267,7 +273,7 @@ const mountView = async (
   mockedFormatos.listar.mockResolvedValue([formatoMock()]);
   mockedLotesDetalle.listar.mockResolvedValue(lotesIniciales);
   mockedLotesDetalle.obtenerResumen.mockResolvedValue(resumen);
-  mockedLotesDetalle.obtenerGrupos.mockResolvedValue(gruposPageMock());
+  mockedLotesDetalle.obtenerGrupos.mockResolvedValue(grupos);
   mockedPerfiles.listar.mockResolvedValue(perfiles);
   mockedPuntosVenta.getAll.mockResolvedValue([]);
 
@@ -379,7 +385,9 @@ describe("LotesComprobantesView", () => {
       estado: null,
     });
     expect(wrapper.text()).toContain("Mostrando 1 a 100 de 1432 comprobantes");
-    expect(wrapper.text()).toContain("El resumen fiscal considera el lote completo");
+    expect(wrapper.text()).toContain(
+      "El resumen fiscal considera el lote completo",
+    );
     expect(wrapper.findAll("tbody tr")).toHaveLength(1);
   });
 
@@ -404,6 +412,133 @@ describe("LotesComprobantesView", () => {
       "ARCA no informó la capacidad máxima por request",
     );
     expect(wrapper.text()).toContain("ARCA no devolvió RegXReq");
+  });
+
+  it("cuenta pendientes de reconciliación en el avance de lote incierto", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      estado: "requiere_reconciliacion",
+      grupos_validos: 0,
+      mensaje_resumen:
+        "El procesamiento quedó en estado incierto. No reintentes este lote.",
+      totales_listos_para_emitir: {
+        comprobantes: 0,
+        neto: 0,
+        iva21: 0,
+        iva105: 0,
+        total: 0,
+        valores_invalidos: 0,
+      },
+    };
+    const grupo = {
+      ...grupoDetalleMock(),
+      estado: "requiere_reconciliacion",
+      mensajes_json: [
+        "El lote quedó en estado incierto durante el procesamiento.",
+      ],
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      items: [grupo],
+      page: 1,
+      per_page: 100,
+      total: 1,
+      total_pages: 1,
+      estado: null,
+    });
+
+    expect(wrapper.text()).toContain("No hay comprobantes listos para emitir");
+    expect(wrapper.text()).toContain("Pendientes visibles 1");
+    expect(wrapper.text()).not.toContain(
+      "Validado correctamente. Listo para emitir.",
+    );
+  });
+
+  it("deshabilita reintento de fallidos cuando el lote está incierto", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      estado: "requiere_reconciliacion",
+      grupos_validos: 0,
+      grupos_fallidos: 1,
+      mensaje_resumen:
+        "El procesamiento quedó en estado incierto. No reintentes este lote.",
+      totales_listos_para_emitir: {
+        comprobantes: 0,
+        neto: 0,
+        iva21: 0,
+        iva105: 0,
+        total: 0,
+        valores_invalidos: 0,
+      },
+    };
+    const grupo = {
+      ...grupoDetalleMock(),
+      estado: "fallido",
+      mensajes_json: ["Fallo técnico previo."],
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      items: [grupo],
+      page: 1,
+      per_page: 100,
+      total: 1,
+      total_pages: 1,
+      estado: null,
+    });
+
+    const botonReintento = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Reintentar fallidos"));
+
+    expect(botonReintento).toBeTruthy();
+    expect(botonReintento?.attributes("disabled")).toBeDefined();
+
+    await botonReintento?.trigger("click");
+
+    expect(mockedLotesDetalle.reintentarFallidos).not.toHaveBeenCalled();
+  });
+
+  it("deshabilita descarte de visibles cuando el lote está incierto", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      estado: "requiere_reconciliacion",
+      grupos_validos: 0,
+      grupos_fallidos: 1,
+      mensaje_resumen:
+        "El procesamiento quedó en estado incierto. No descartes este lote.",
+      totales_listos_para_emitir: {
+        comprobantes: 0,
+        neto: 0,
+        iva21: 0,
+        iva105: 0,
+        total: 0,
+        valores_invalidos: 0,
+      },
+    };
+    const grupo = {
+      ...grupoDetalleMock(),
+      estado: "fallido",
+      mensajes_json: ["Fallo técnico previo."],
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      items: [grupo],
+      page: 1,
+      per_page: 100,
+      total: 1,
+      total_pages: 1,
+      estado: null,
+    });
+
+    await wrapper.find("textarea").setValue("Auditar antes de cerrar");
+
+    const botonDescartar = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Descartar visibles"));
+
+    expect(botonDescartar).toBeTruthy();
+    expect(botonDescartar?.attributes("disabled")).toBeDefined();
+
+    await botonDescartar?.trigger("click");
+
+    expect(mockedLotesDetalle.descartarGrupos).not.toHaveBeenCalled();
   });
 
   it("envia una clave de idempotencia al procesar un lote", async () => {

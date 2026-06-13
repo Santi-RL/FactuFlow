@@ -140,11 +140,11 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesion.
 
 ## Ultima verificacion tecnica
 
-Fecha: 2026-06-11
+Fecha: 2026-06-13
 
 - Frontend E2E: `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium
   desktop.
-- Frontend completo: `npm run test:unit` OK, 58 tests.
+- Frontend completo: `npm run test:unit` OK, 61 tests.
 - Frontend: `npm run build` OK.
 - Frontend: `npm run type-check` OK.
 - Frontend: `npm run lint:check` OK.

@@ -18,7 +18,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import delete, desc, func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -36,7 +36,7 @@ from app.models.lote_comprobante import (
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
-from app.models.idempotencia_fiscal import OperacionIdempotente
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
 from app.schemas.comprobante import (
@@ -884,6 +884,116 @@ class LoteComprobantesService:
             lote.metadata_json = metadata
         await self.db.commit()
         await self.db.refresh(lote)
+        return lote
+
+    async def bloquear_lote_procesando_stale(
+        self,
+        lote_id: int,
+        empresa_id: int,
+        *,
+        motivo: str | None = None,
+        commit: bool = True,
+    ) -> LoteComprobante:
+        """Bloquea un lote vencido para evitar reemisión fiscal automática."""
+        stale_before = datetime.utcnow() - timedelta(
+            minutes=settings.batch_processing_stale_minutes
+        )
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        if lote.estado != "procesando" or lote.updated_at >= stale_before:
+            return lote
+
+        grupos_reconciliados = await self._reconciliar_grupos_autorizados_existentes(
+            lote_id
+        )
+        lote.estado = "cargado"
+        await self.db.flush()
+        await self._actualizar_estado_lote(lote)
+        if (
+            lote.estado
+            in {
+                "completado",
+                "cerrado_reconciliado",
+                "cerrado_con_descartes",
+            }
+            and not await self._lote_tiene_intentos_fiscales_inciertos(lote.id)
+            and await self._lote_tiene_evidencia_fiscal_local_coherente(lote.id)
+        ):
+            if lote.finished_at is None:
+                lote.finished_at = datetime.utcnow()
+            motivo_cierre = (
+                (
+                    "El worker vinculó comprobantes locales ya autorizados "
+                    "sin solicitar nuevos CAE."
+                )
+                if grupos_reconciliados
+                else (
+                    "El worker cerró un lote stale con comprobantes locales "
+                    "ya autorizados sin solicitar nuevos CAE."
+                )
+            )
+            self._registrar_evento_lote(
+                lote_id=lote.id,
+                accion="reconciliacion_local_stale",
+                usuario_id=None,
+                motivo=motivo_cierre,
+                metadata_json={
+                    "grupos_reconciliados": grupos_reconciliados,
+                    "estado_final": lote.estado,
+                },
+            )
+            operacion_id = (lote.metadata_json or {}).get("operacion_idempotente_id")
+            if operacion_id is not None:
+                await self._guardar_respuesta_operacion_background(lote, operacion_id)
+            if commit:
+                await self.db.commit()
+                await self.db.refresh(lote)
+            else:
+                await self.db.flush()
+            return lote
+
+        grupos_marcados_reconciliacion = (
+            await self._marcar_grupos_validos_stale_para_reconciliacion(lote)
+        )
+        await self._actualizar_contadores_lote(lote)
+        lote.estado = "requiere_reconciliacion"
+        lote.finished_at = datetime.utcnow()
+        lote.mensaje_resumen = (
+            "El procesamiento quedó en estado incierto. No reintentes este lote: "
+            "primero hay que reconciliar contra ARCA para confirmar qué "
+            "comprobantes fueron autorizados."
+        )
+        metadata = dict(lote.metadata_json or {})
+        metadata["bloqueo_operativo"] = {
+            "motivo": "procesamiento_stale_requiere_reconciliacion",
+            "stale_minutes": settings.batch_processing_stale_minutes,
+            "blocked_at": lote.finished_at.isoformat(),
+        }
+        lote.metadata_json = metadata
+        self._registrar_evento_lote(
+            lote_id=lote.id,
+            accion="bloqueo_operativo_no_reemitir",
+            usuario_id=None,
+            motivo=motivo
+            or (
+                "El worker detectó un lote procesando vencido y lo bloqueó para "
+                "reconciliación antes de cualquier nuevo CAE."
+            ),
+            metadata_json={
+                "estado_anterior": "procesando",
+                "estado_nuevo": "requiere_reconciliacion",
+                "stale_minutes": settings.batch_processing_stale_minutes,
+                "grupos_reconciliados_localmente": grupos_reconciliados,
+                "grupos_marcados_reconciliacion": grupos_marcados_reconciliacion,
+            },
+        )
+        operacion_id = metadata.get("operacion_idempotente_id")
+        if operacion_id is not None:
+            await self._guardar_respuesta_operacion_background(lote, operacion_id)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(lote)
+        else:
+            await self.db.flush()
         return lote
 
     async def listar_lotes(
@@ -2110,7 +2220,21 @@ class LoteComprobantesService:
             lote.metadata_json = metadata
             await self.db.flush()
 
-        if lote.estado == "procesando" and not reanudar:
+        if lote.estado == "procesando":
+            if reanudar:
+                stale_before = datetime.utcnow() - timedelta(
+                    minutes=settings.batch_processing_stale_minutes
+                )
+                if lote.updated_at < stale_before:
+                    return await self.bloquear_lote_procesando_stale(
+                        lote_id,
+                        empresa_id,
+                        motivo=(
+                            "El worker detectó que el lote seguía procesando después "
+                            "de la ventana segura y lo bloqueó para reconciliación "
+                            "antes de cualquier nuevo CAE."
+                        ),
+                    )
             return lote
         if lote.estado in self.ESTADOS_TERMINALES:
             if reanudar and operacion_id is not None:
@@ -2119,8 +2243,7 @@ class LoteComprobantesService:
                     operacion_id,
                 )
             return lote
-        estado_reanudable = reanudar and lote.estado == "procesando"
-        if lote.estado not in self.ESTADOS_PROCESABLES and not estado_reanudable:
+        if lote.estado not in self.ESTADOS_PROCESABLES:
             raise LoteComprobanteError(
                 "El lote debe estar validado o en cola antes de emitir"
             )
@@ -2340,16 +2463,8 @@ class LoteComprobantesService:
         reanudar: bool = False,
     ) -> None:
         """Marca un lote como procesando con transición atómica."""
-        stale_before = datetime.utcnow() - timedelta(
-            minutes=settings.batch_processing_stale_minutes
-        )
         estados_tomables = self.ESTADOS_PROCESABLES
         estado_condition = LoteComprobante.estado.in_(estados_tomables)
-        if reanudar:
-            estado_condition = estado_condition | (
-                (LoteComprobante.estado == "procesando")
-                & (LoteComprobante.updated_at < stale_before)
-            )
 
         result = await self.db.execute(
             update(LoteComprobante)
@@ -3106,8 +3221,47 @@ class LoteComprobantesService:
             encontrado = True
         return total if encontrado else None
 
-    async def _actualizar_estado_lote(self, lote: LoteComprobante) -> None:
-        """Recalcula contadores y estado del lote."""
+    async def _marcar_grupos_validos_stale_para_reconciliacion(
+        self, lote: LoteComprobante
+    ) -> int:
+        """Marca grupos válidos de un lote stale como fiscalmente inciertos."""
+        mensaje = (
+            "El lote quedó en estado incierto durante el procesamiento. "
+            "No reintentes este comprobante: primero hay que reconciliar "
+            "contra ARCA para confirmar si fue autorizado."
+        )
+        grupos = (
+            (
+                await self.db.execute(
+                    select(LoteComprobanteGrupo).where(
+                        LoteComprobanteGrupo.lote_id == lote.id,
+                        LoteComprobanteGrupo.estado == "validado",
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for grupo in grupos:
+            grupo.estado = "requiere_reconciliacion"
+            grupo.mensajes_json = [mensaje]
+        if grupos:
+            grupo_ids = [grupo.id for grupo in grupos]
+            await self.db.execute(
+                update(LoteComprobanteFila)
+                .where(LoteComprobanteFila.grupo_id.in_(grupo_ids))
+                .values(
+                    estado="requiere_reconciliacion",
+                    mensajes_json=[mensaje],
+                )
+            )
+            await self.db.flush()
+        return len(grupos)
+
+    async def _actualizar_contadores_lote(
+        self, lote: LoteComprobante
+    ) -> dict[str, int]:
+        """Recalcula contadores del lote desde sus grupos."""
         conteos = dict(
             (
                 await self.db.execute(
@@ -3124,6 +3278,11 @@ class LoteComprobantesService:
         lote.grupos_fallidos = conteos.get("fallido", 0)
         lote.grupos_reconciliados_externos = conteos.get("autorizado_externo", 0)
         lote.grupos_descartados = conteos.get("descartado", 0)
+        return conteos
+
+    async def _actualizar_estado_lote(self, lote: LoteComprobante) -> None:
+        """Recalcula contadores y estado del lote."""
+        conteos = await self._actualizar_contadores_lote(lote)
         grupos_reconciliacion = conteos.get("requiere_reconciliacion", 0)
         grupos_reconciliacion += conteos.get("reintentando", 0)
         grupos_resueltos = (
@@ -3234,33 +3393,135 @@ class LoteComprobantesService:
         )
         return list(result.scalars().all())
 
+    async def _reconciliar_grupos_autorizados_existentes(self, lote_id: int) -> int:
+        """Vincula comprobantes locales ya autorizados sin solicitar CAE."""
+        reconciliados = 0
+        for grupo in await self._obtener_grupos_emitibles(lote_id):
+            try:
+                payload = grupo.payload_json or {}
+                request = EmitirComprobanteRequest.model_validate(payload)
+                if await self._reconciliar_grupo_autorizado_existente(grupo, request):
+                    reconciliados += 1
+            except Exception:  # pragma: no cover - fallback defensivo
+                logger.exception(
+                    "No se pudo reconciliar localmente el grupo %s",
+                    grupo.comprobante_ref,
+                )
+        return reconciliados
+
+    async def _lote_tiene_intentos_fiscales_inciertos(self, lote_id: int) -> bool:
+        """Indica si un lote tiene intentos fiscales que requieren reconciliación."""
+        intento_incierto = (
+            await self.db.execute(
+                select(IntentoEmisionFiscal.id)
+                .where(
+                    IntentoEmisionFiscal.lote_id == lote_id,
+                    IntentoEmisionFiscal.estado.in_(
+                        {"en_proceso", "requiere_reconciliacion"}
+                    ),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        return intento_incierto is not None
+
+    async def _lote_tiene_evidencia_fiscal_local_coherente(self, lote_id: int) -> bool:
+        """Verifica grupos autorizados antes de cerrar un lote stale localmente."""
+        grupos_autorizados = list(
+            (
+                await self.db.execute(
+                    select(LoteComprobanteGrupo)
+                    .options(selectinload(LoteComprobanteGrupo.filas))
+                    .where(
+                        LoteComprobanteGrupo.lote_id == lote_id,
+                        LoteComprobanteGrupo.estado == "autorizado",
+                    )
+                    .order_by(LoteComprobanteGrupo.orden)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for grupo in grupos_autorizados:
+            try:
+                request = EmitirComprobanteRequest.model_validate(
+                    grupo.payload_json or {}
+                )
+            except Exception:
+                logger.exception(
+                    "No se pudo validar payload local del grupo autorizado %s",
+                    grupo.comprobante_ref,
+                )
+                return False
+            if not await self._reconciliar_grupo_autorizado_existente(grupo, request):
+                return False
+        return True
+
     async def _reconciliar_grupo_autorizado_existente(
         self, grupo: LoteComprobanteGrupo, request: EmitirComprobanteRequest
     ) -> bool:
-        """Vincula un comprobante ya guardado si el worker reanuda tras un corte."""
+        """Vincula solo comprobantes respaldados por un intento fiscal del grupo."""
         totales = self.facturacion_service._calcular_totales(request.items)
-        comprobantes_vinculados = select(LoteComprobanteGrupo.comprobante_id).where(
-            LoteComprobanteGrupo.comprobante_id.is_not(None)
-        )
-        stmt = (
-            select(Comprobante)
+        result_intentos = await self.db.execute(
+            select(IntentoEmisionFiscal)
             .where(
-                Comprobante.empresa_id == request.empresa_id,
-                Comprobante.punto_venta_id == request.punto_venta_id,
-                Comprobante.tipo_comprobante == request.tipo_comprobante,
-                Comprobante.fecha_emision == request.fecha_emision,
-                Comprobante.total == totales["total"],
-                Comprobante.estado == "autorizado",
-                Comprobante.cae.is_not(None),
-                Comprobante.receptor_numero_documento == request.numero_documento,
-                Comprobante.receptor_razon_social == request.razon_social,
-                Comprobante.id.notin_(comprobantes_vinculados),
+                IntentoEmisionFiscal.lote_id == grupo.lote_id,
+                IntentoEmisionFiscal.grupo_id == grupo.id,
             )
-            .order_by(desc(Comprobante.id))
-            .limit(1)
+            .order_by(IntentoEmisionFiscal.id)
         )
-        comprobante = (await self.db.execute(stmt)).scalar_one_or_none()
+        intentos_grupo = list(result_intentos.scalars().all())
+        if any(
+            intento.estado in {"en_proceso", "requiere_reconciliacion"}
+            for intento in intentos_grupo
+        ):
+            return False
+        intentos_autorizados = [
+            intento for intento in intentos_grupo if intento.estado == "autorizado"
+        ]
+        if len(intentos_autorizados) != 1:
+            return False
+
+        intento = intentos_autorizados[0]
+        if (
+            intento.comprobante_id is None
+            or intento.numero_planificado is None
+            or not intento.cae
+        ):
+            return False
+
+        comprobante = (
+            await self.db.execute(
+                select(Comprobante)
+                .options(
+                    selectinload(Comprobante.punto_venta),
+                    selectinload(Comprobante.items),
+                )
+                .where(Comprobante.id == intento.comprobante_id)
+            )
+        ).scalar_one_or_none()
         if comprobante is None:
+            return False
+
+        comprobante_vinculado = (
+            await self.db.execute(
+                select(LoteComprobanteGrupo.id)
+                .where(
+                    LoteComprobanteGrupo.comprobante_id == comprobante.id,
+                    LoteComprobanteGrupo.id != grupo.id,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if comprobante_vinculado is not None:
+            return False
+
+        if not self._intento_local_coincide_con_grupo(
+            intento=intento,
+            comprobante=comprobante,
+            request=request,
+            total=self._redondear_centavos(Decimal(str(totales["total"]))),
+        ):
             return False
 
         grupo.estado = "autorizado"
@@ -3268,11 +3529,148 @@ class LoteComprobantesService:
         grupo.numero_asignado = comprobante.numero
         grupo.comprobante_id = comprobante.id
         grupo.mensajes_json = [
-            "Comprobante ya guardado antes de reanudar el lote.",
+            "Comprobante ya guardado y respaldado por intento fiscal del lote.",
             f"CAE {comprobante.cae}",
         ]
         await self._marcar_filas(grupo, "autorizado", grupo.mensajes_json)
         return True
+
+    def _intento_local_coincide_con_grupo(
+        self,
+        *,
+        intento: IntentoEmisionFiscal,
+        comprobante: Comprobante,
+        request: EmitirComprobanteRequest,
+        total: Decimal,
+    ) -> bool:
+        """Valida que intento, comprobante y payload del grupo sean el mismo CAE."""
+        total_intento = self._redondear_centavos(Decimal(str(intento.total)))
+        total_comprobante = self._redondear_centavos(Decimal(str(comprobante.total)))
+        idempotencia = IdempotenciaFiscalService(self.db)
+        payload = request.model_dump(mode="json")
+        payload_hash = idempotencia.calcular_payload_hash(
+            idempotencia.payload_sin_confirmacion_duplicado(payload)
+        )
+        huella_request = idempotencia.calcular_huella_logica(
+            request=request,
+            punto_venta_numero=intento.punto_venta_numero,
+            total=total,
+        )
+        huella_comprobante = idempotencia.calcular_huella_logica_comprobante(
+            comprobante
+        )
+        return all(
+            [
+                intento.payload_hash == payload_hash,
+                intento.huella_logica == huella_request,
+                huella_comprobante == huella_request,
+                self._comprobante_snapshot_coincide_con_request(comprobante, request),
+                intento.empresa_id == request.empresa_id,
+                intento.punto_venta_id == request.punto_venta_id,
+                intento.tipo_comprobante == request.tipo_comprobante,
+                intento.fecha_emision == request.fecha_emision,
+                total_intento == total,
+                intento.receptor_tipo_documento == request.tipo_documento,
+                intento.receptor_numero_documento == request.numero_documento,
+                intento.receptor_razon_social == request.razon_social,
+                comprobante.empresa_id == request.empresa_id,
+                comprobante.punto_venta_id == request.punto_venta_id,
+                comprobante.tipo_comprobante == request.tipo_comprobante,
+                comprobante.numero == intento.numero_planificado,
+                comprobante.fecha_emision == request.fecha_emision,
+                total_comprobante == total,
+                comprobante.estado == "autorizado",
+                comprobante.cae == intento.cae,
+                bool(comprobante.cae),
+                bool(comprobante.cae_vencimiento),
+                comprobante.cae_vencimiento == intento.cae_vencimiento,
+                comprobante.receptor_tipo_documento == request.tipo_documento,
+                comprobante.receptor_numero_documento == request.numero_documento,
+                comprobante.receptor_razon_social == request.razon_social,
+            ]
+        )
+
+    def _comprobante_snapshot_coincide_con_request(
+        self,
+        comprobante: Comprobante,
+        request: EmitirComprobanteRequest,
+    ) -> bool:
+        """Compara el snapshot fiscal local guardado contra el request original."""
+        if comprobante.concepto != request.concepto:
+            return False
+        if comprobante.fecha_servicio_desde != request.fecha_servicio_desde:
+            return False
+        if comprobante.fecha_servicio_hasta != request.fecha_servicio_hasta:
+            return False
+        if comprobante.fecha_vto_pago != request.fecha_vto_pago:
+            return False
+        if comprobante.fecha_vencimiento != request.fecha_vto_pago:
+            return False
+        if self._normalizar_texto_snapshot(comprobante.moneda).upper() != (
+            self._normalizar_texto_snapshot(request.moneda).upper()
+        ):
+            return False
+        if self._decimal_snapshot(comprobante.cotizacion) != self._decimal_snapshot(
+            request.cotizacion
+        ):
+            return False
+        if self._normalizar_texto_snapshot(
+            comprobante.receptor_condicion_iva
+        ) != self._normalizar_texto_snapshot(request.condicion_iva):
+            return False
+        if self._normalizar_texto_snapshot(
+            comprobante.receptor_domicilio
+        ) != self._normalizar_texto_snapshot(request.domicilio):
+            return False
+
+        items_comprobante = sorted(comprobante.items, key=lambda item: item.orden)
+        items_request = sorted(request.items, key=lambda item: item.orden)
+        if len(items_comprobante) != len(items_request):
+            return False
+        for item_comprobante, item_request in zip(items_comprobante, items_request):
+            if item_comprobante.orden != item_request.orden:
+                return False
+            if self._normalizar_texto_snapshot(
+                item_comprobante.codigo
+            ) != self._normalizar_texto_snapshot(item_request.codigo):
+                return False
+            if self._normalizar_texto_snapshot(
+                item_comprobante.descripcion
+            ) != self._normalizar_texto_snapshot(item_request.descripcion):
+                return False
+            if self._normalizar_texto_snapshot(
+                item_comprobante.unidad
+            ) != self._normalizar_texto_snapshot(item_request.unidad):
+                return False
+            if self._decimal_snapshot(item_comprobante.cantidad) != (
+                self._decimal_snapshot(item_request.cantidad)
+            ):
+                return False
+            if self._decimal_snapshot(item_comprobante.precio_unitario) != (
+                self._decimal_snapshot(item_request.precio_unitario)
+            ):
+                return False
+            if self._decimal_snapshot(item_comprobante.descuento_porcentaje) != (
+                self._decimal_snapshot(item_request.descuento_porcentaje)
+            ):
+                return False
+            if self._decimal_snapshot(item_comprobante.iva_porcentaje) != (
+                self._decimal_snapshot(item_request.iva_porcentaje)
+            ):
+                return False
+        return True
+
+    @staticmethod
+    def _normalizar_texto_snapshot(value: Any) -> str:
+        """Normaliza textos persistidos para comparar snapshots locales."""
+        return str(value or "").strip()
+
+    @staticmethod
+    def _decimal_snapshot(value: Any) -> Decimal:
+        """Normaliza decimales persistidos para comparar snapshots locales."""
+        if value is None:
+            return Decimal("0")
+        return Decimal(str(value))
 
     async def _marcar_filas(
         self, grupo: LoteComprobanteGrupo, estado: str, mensajes: list[str]

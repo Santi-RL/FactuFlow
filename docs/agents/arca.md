@@ -199,6 +199,17 @@
 - Si `FECompConsultar` confirma explícitamente que el comprobante no existe,
   recién entonces se marca el intento como `fallido_verificado` y se libera la
   numeración.
+- En emisión masiva, un lote `procesando` que supera
+  `BATCH_PROCESSING_STALE_MINUTES` no debe reanudarse automáticamente para
+  solicitar CAE. El worker solo puede vincular comprobantes locales ya
+  autorizados sin llamar a ARCA si existe un intento fiscal `autorizado` del
+  mismo lote y grupo, con `comprobante_id`, número planificado, CAE, fecha,
+  receptor y total coherentes. Un comprobante local parecido pero sin ese
+  intento fuerte no cierra automáticamente el grupo. Si queda cualquier
+  pendiente o incertidumbre, debe marcar el lote `requiere_reconciliacion`,
+  registrar `bloqueo_operativo_no_reemitir`, marcar los grupos `validado`
+  remanentes como `requiere_reconciliacion` y exigir auditoría antes de
+  continuar.
 
 ### Reconciliación externa de lotes
 
@@ -376,7 +387,8 @@
   en el lote.
 - Si un sublote ya enviado a ARCA queda sin detalle confiable, el lote se marca
   como `requiere_reconciliacion` para bloquear reintentos automáticos hasta
-  consultar ARCA.
+  consultar ARCA. Los grupos todavía `validado` no deben seguir apareciendo
+  como listos para emisión dentro de ese lote incierto.
 - En `FECompConsultar`, ARCA devuelve el numero consultado como
   `CbteDesde`/`CbteHasta`; no asumir `CbteNro` en esa respuesta.
 - La numeracion de comprobantes ahora se protege con:

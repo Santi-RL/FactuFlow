@@ -327,7 +327,9 @@ const puedeProcesar = computed(() => {
   );
 });
 const hayFallidosParaReintentar = computed(
-  () => (loteActual.value?.grupos_fallidos || 0) > 0,
+  () =>
+    loteActual.value?.estado !== "requiere_reconciliacion" &&
+    (loteActual.value?.grupos_fallidos || 0) > 0,
 );
 const gruposRequierenReconciliacionVisibles = computed(() =>
   gruposLote.value.filter((grupo) =>
@@ -411,6 +413,7 @@ const puedeReconciliarExterno = computed(() => {
 });
 const puedeDescartarVisibles = computed(
   () =>
+    loteActual.value?.estado !== "requiere_reconciliacion" &&
     gruposDescartablesVisiblesIds.value.length > 0 &&
     motivoDescartar.value.trim().length >= 3,
 );
@@ -488,6 +491,11 @@ const resumenAvanceLote = computed(() => {
 });
 const detalleAvanceLote = computed(() => {
   if (!progresoLote.value) return "";
+  if (loteActual.value?.estado === "requiere_reconciliacion") {
+    return `Emitidos ${loteActual.value?.grupos_emitidos || 0} · Fallidos ${
+      loteActual.value?.grupos_fallidos || 0
+    } · Pendientes visibles ${totalPendientesResolucion.value}`;
+  }
   return `Emitidos ${loteActual.value?.grupos_emitidos || 0} · Fallidos ${
     loteActual.value?.grupos_fallidos || 0
   } · Pendientes ${progresoLote.value.pendientes}`;
@@ -2380,7 +2388,7 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
                 <p class="text-sm font-medium text-amber-900">
-                  {{ totalPendientesResolucion }} pendientes contabilizados
+                  {{ totalPendientesResolucion }} pendientes visibles contabilizados
                 </p>
               </div>
 

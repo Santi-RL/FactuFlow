@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-11
+Última actualización: 2026-06-12
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -390,12 +390,15 @@ compatibilidad, notas de crédito/débito y contratos de importación.
   consumen numeracion fiscal real.
 - Se verifico por test que la API sigue bloqueando procesamiento sin
   `X-Confirmacion-Fecha-Fiscal` valido.
-- Verificacion tecnica 2026-05-16: si un lote ya esta `Procesando`, la API no
-  lo vuelve a bajar a `En cola` al pedir procesamiento background. El worker
-  solo retoma lotes `Procesando` cuando estan stale por
-  `BATCH_PROCESSING_STALE_MINUTES`, para evitar doble procesamiento de lotes
-  activos; el camino de reanudacion usado por el worker ya puede completar un
-  lote `Procesando` stale.
+- Actualización técnica 2026-06-12: si un lote ya está `Procesando`, la API no
+  lo vuelve a bajar a `En cola` al pedir procesamiento background. Si el worker
+  encuentra un lote `Procesando` vencido por
+  `BATCH_PROCESSING_STALE_MINUTES`, ya no lo reanuda para pedir CAE. Primero
+  vincula comprobantes locales ya autorizados si puede hacerlo sin llamar a
+  ARCA; si queda cualquier comprobante pendiente o incertidumbre, lo marca como
+  `requiere_reconciliacion` y registra `bloqueo_operativo_no_reemitir`. Los
+  grupos que seguían `validado` también pasan a `requiere_reconciliacion` para
+  que la pantalla no los presente como listos para emitir.
 - Verificacion tecnica 2026-05-16: si ARCA devuelve CAE pero FactuFlow no logra
   persistir el comprobante, la emision queda marcada como
   `requiere_reconciliacion` y no como `fallido`. En ese estado no debe
@@ -760,11 +763,18 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificación automatizada vigente 2026-06-11: frontend `npm run test:e2e
+- Verificación automatizada vigente 2026-06-13: frontend `npm run test:e2e
   -- --reporter=list` OK (31 tests en Chromium desktop), `npm run test:unit`
-  OK (58 tests), `npm run build` OK, `npm run type-check` OK y
+  OK (61 tests), `npm run build` OK, `npm run type-check` OK y
   `npm run lint:check` OK. La matriz
   multinavegador/mobile queda opt-in con `E2E_FULL_BROWSER_MATRIX=1`.
+- QA local post-incidente 2026-06-12 sobre lote `requiere_reconciliacion`:
+  navegador Playwright con base aislada en `.tmp`, sin llamadas reales a ARCA.
+  La pantalla mostró `Requiere reconciliación`, `Listos para emitir 0`,
+  pendientes visibles, grupo en reconciliación, sin mensaje de `Validado
+  correctamente. Listo para emitir.`, y acciones sensibles deshabilitadas:
+  `Emitir comprobantes válidos`, `Reintentar fallidos`, `Descartar visibles` y
+  `Reconciliar comprobante`. No hubo errores de consola.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
   solo desde QA local: observabilidad operativa estándar, automatización futura
   de backups, política de retención, trazabilidad visible y soporte de

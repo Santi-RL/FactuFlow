@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-11
+Última actualización: 2026-06-13
 
 ## Objetivo activo
 
@@ -120,10 +120,46 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
     CAE, con `X-Idempotency-Key`, operación durable e intentos fiscales
     reconciliables
   - validacion estricta de alicuotas IVA permitidas desde Excel
-  - lotes grandes en cola persistente y reanudables por worker
+  - lotes grandes en cola persistente; si quedan `procesando` vencidos, el
+    worker los bloquea en `requiere_reconciliacion` antes de cualquier nuevo CAE
+    y marca los grupos `validado` remanentes como pendientes de reconciliación
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Contención P0 de reanudación insegura de lotes 2026-06-12
+
+- Después del incidente productivo de emisión masiva documentado en el VPS, se
+  corrigió el contrato local del worker: un lote `procesando` que supera
+  `BATCH_PROCESSING_STALE_MINUTES` ya no se reanuda automáticamente para pedir
+  nuevos CAE.
+- Si el lote vencido tiene comprobantes locales ya autorizados y no vinculados,
+  FactuFlow solo puede reconciliarlos localmente sin llamar a ARCA cuando existe
+  un `intentos_emision_fiscal` autorizado del mismo `lote_id` y `grupo_id`, con
+  `comprobante_id`, número planificado, CAE, fecha, receptor y total
+  coherentes. Si esa reconciliación local fuerte cierra el lote, queda en el
+  estado cerrado que corresponda: `completado`, `cerrado_reconciliado` o
+  `cerrado_con_descartes`.
+- Si después de esa reconciliación quedan comprobantes pendientes o el estado
+  sigue incierto, el lote pasa a `requiere_reconciliacion`, queda registrado un
+  evento `bloqueo_operativo_no_reemitir` y la operación idempotente observable
+  queda en estado de reconciliación.
+- Los grupos que seguían `validado` dentro de un lote stale bloqueado también
+  pasan a `requiere_reconciliacion`, con mensaje de no reintento, para que la UI
+  no los muestre como comprobantes listos para emitir.
+- El worker ahora procesa automáticamente solo lotes `en_cola`; los lotes
+  `procesando` vencidos se convierten en tarea de auditoría/reconciliación, no
+  en reemisión. Si falla el bloqueo de cualquier lote vencido, el worker
+  pospone los lotes `en_cola` de ese ciclo para no avanzar con nuevos CAE sobre
+  una cola fiscal todavía incierta.
+- La UI no ofrece `Reintentar fallidos` cuando el lote está
+  `requiere_reconciliacion`; en ese estado muestra pendientes visibles porque el
+  detalle de grupos está paginado y la resolución debe hacerse por auditoría.
+- Verificación final sin llamadas ARCA reales: `pytest tests -q` OK
+  (303 tests), `ruff check app tests` OK y `black --check app tests` OK.
+  Frontend: `npm run test:unit` OK (61 tests), `npm run build` OK,
+  `npm run type-check` OK, `npm run lint:check` OK y
+  `npm run test:e2e -- --reporter=list` OK (31 tests).
 
 ### E2E frontend recuperado 2026-06-11
 
@@ -137,7 +173,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   `E2E_FULL_BROWSER_MATRIX=1`. No es el recorrido por defecto porque estos
   flujos administrativos están pensados para PC.
 - Verificación frontend ejecutada: `npm run test:e2e -- --reporter=list` OK
-  (31 tests), `npm run test:unit` OK (58 tests), `npm run build` OK,
+  (31 tests), `npm run test:unit` OK (61 tests), `npm run build` OK,
   `npm run type-check` OK y `npm run lint:check` OK.
 
 ### Instalación VPS privada validada 2026-06-09
@@ -480,15 +516,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Verificacion focalizada sin llamadas ARCA reales:
   `pytest tests/test_certificados.py tests/test_certificados_scope.py tests/test_arca/test_arca_api.py -q`,
   `ruff check` y `black --check` sobre modulos de certificados/ARCA tocados.
-- Tercer ciclo cerrado: lotes en `procesando` ya no pueden volver a
-  reencolarse por API. El worker procesa lotes `en_cola` y solo retoma lotes
-  `procesando` si no tuvieron actividad durante
-  `BATCH_PROCESSING_STALE_MINUTES` minutos. Esto evita dobles tomas de lotes
-  activos sin perder la posibilidad de recuperar procesos realmente trabados.
-  La ruta `procesar_lote(..., reanudar=True)` tambien permite continuar esos
-  lotes stale, que es el camino que usa el worker.
+- Tercer ciclo actualizado el 2026-06-12: lotes en `procesando` ya no pueden
+  volver a reencolarse por API ni reanudarse automáticamente por stale. El
+  worker procesa lotes `en_cola`; si detecta un lote `procesando` vencido,
+  primero vincula comprobantes locales ya autorizados cuando puede hacerlo sin
+  pedir CAE y, si queda cualquier incertidumbre o pendiente, marca el lote como
+  `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir`. Los
+  grupos `validado` remanentes pasan a `requiere_reconciliacion`.
 - Verificacion focalizada sin llamadas ARCA reales:
-  `pytest tests/test_lotes_comprobantes.py::test_procesar_lote_background_encola_lote_chico tests/test_lotes_comprobantes.py::test_tomar_lote_para_procesamiento_es_atomico tests/test_lotes_comprobantes.py::test_procesar_background_no_reencola_lote_en_proceso tests/test_lotes_comprobantes.py::test_reanudar_lote_procesando_solo_si_esta_stale tests/test_lotes_comprobantes.py::test_procesar_lote_grande_encola_y_se_reanuda -q`,
+  `pytest tests/test_lotes_comprobantes.py::test_procesar_lote_background_encola_lote_chico tests/test_lotes_comprobantes.py::test_tomar_lote_para_procesamiento_es_atomico tests/test_lotes_comprobantes.py::test_procesar_background_no_reencola_lote_en_proceso tests/test_lotes_comprobantes.py::test_tomar_lote_no_reanuda_procesando_stale tests/test_lotes_comprobantes.py::test_procesar_lote_procesando_stale_bloquea_sin_emitir tests/test_lotes_comprobantes.py::test_procesar_lote_grande_encola_y_se_reanuda -q`,
   `ruff check` y `black --check` sobre lotes/worker.
 - Cuarto ciclo cerrado: fallos posteriores a una respuesta ARCA con CAE ya no
   quedan ocultos como errores genericos ni como fallos reintentables. La
@@ -918,7 +954,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Se separo Docker local de Docker produccion.
 - Se adopto PostgreSQL como base recomendada para operacion real.
 - Se agregaron constraints de integridad para numeracion e idempotencia de lotes.
-- Se agrego worker de lotes reanudable desde estados persistidos.
+- Se agregó worker de lotes persistente para procesar `en_cola`; desde
+  2026-06-12, los lotes `procesando` vencidos ya no se reemiten
+  automáticamente y pasan a reconciliación si no pueden cerrarse solo con
+  comprobantes locales ya autorizados; los grupos `validado` remanentes quedan
+  marcados como `requiere_reconciliacion`.
 - Se endurecio la validacion de IVA en Excel.
 - Se ampliaron limites default de lotes a `20000` filas y `5000` comprobantes.
 - Se agrego el comando `python -m app.scripts.create_admin_user` para crear o
@@ -1132,15 +1172,15 @@ Quedo validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 243 tests
+  - `pytest tests -q` OK, 303 tests
   - `ruff check app tests` OK
   - `black --check app tests` OK
-  - `alembic heads` OK, head `d0e1f2a3b4c5`
+  - `alembic heads` OK, head `e2f3a4b5c6d7`
 - Frontend:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 58 tests
+  - `npm run test:unit` OK, 61 tests
   - `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium desktop,
     con servidor Vite dedicado en `127.0.0.1:18080`
 

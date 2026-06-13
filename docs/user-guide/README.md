@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-10
+Última actualización: 2026-06-12
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -266,10 +266,15 @@ de venta.
 Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
 pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
-datos locales. Si un reintento de fallidos se interrumpe justo después de
-tomar el comprobante para emisión, el grupo también queda para reconciliación:
-no vuelve automáticamente a `Fallido`, porque reemitirlo podría duplicar una
-autorización fiscal.
+datos locales. Si un lote que estaba `Procesando` queda vencido, los grupos que
+todavía figuraban como validados pasan a reconciliación para no mostrarse como
+listos para emitir, y la pantalla muestra pendientes visibles porque el detalle
+del lote se consulta por páginas. En ese estado `Reintentar fallidos` queda
+deshabilitado aunque existan grupos fallidos: la acción segura es auditar y
+reconciliar. Si un reintento de fallidos se interrumpe justo después de tomar el
+comprobante para emisión, el grupo también queda para reconciliación: no vuelve
+automáticamente a `Fallido`, porque reemitirlo podría duplicar una autorización
+fiscal.
 
 ### Gestión de lotes parciales y limpieza
 
@@ -278,7 +283,8 @@ puede mostrar acciones de resolución:
 
 - `Reintentar fallidos`: vuelve a solicitar CAE para comprobantes fallidos. La
   pantalla muestra una confirmación de fecha fiscal y punto de venta; si esos
-  datos no son correctos, cancela y revisa el lote.
+  datos no son correctos, cancela y revisa el lote. No se habilita para lotes en
+  `Requiere reconciliación`.
 - `Reconciliar ARCA Web`: úsalo cuando el comprobante pendiente ya fue emitido
   manualmente desde ARCA Web. Debes cargar el comprobante visible, número
   autorizado, CAE si lo tienes y motivo operativo. FactuFlow consulta ARCA antes
@@ -315,9 +321,12 @@ procesados, emitidos, fallidos, pendientes, tiempo transcurrido y tiempo
 estimado restante. Si el lote todavía está `En cola`, el avance se muestra como
 estimación hasta que el worker empieza a procesar. Revisa el resumen final antes
 de volver a intentar. El sistema bloquea una segunda ejecución del mismo lote si
-ya está procesando o si ya fue procesado. Si un proceso queda realmente trabado,
-el worker puede retomarlo solo después de la ventana operativa configurada como
-`BATCH_PROCESSING_STALE_MINUTES`.
+ya está procesando o si ya fue procesado. Si un proceso queda trabado y supera
+la ventana operativa configurada como `BATCH_PROCESSING_STALE_MINUTES`,
+FactuFlow no vuelve a pedir CAE automáticamente. Primero vincula comprobantes
+locales ya autorizados si puede hacerlo sin consultar ARCA; si queda cualquier
+pendiente o duda fiscal, el lote pasa a `Requiere reconciliación` y debe
+auditarse antes de continuar.
 
 Para acelerar lotes grandes, FactuFlow consulta a ARCA cuántos comprobantes
 pueden enviarse por request (`RegXReq`) y divide la emisión en sublotes por

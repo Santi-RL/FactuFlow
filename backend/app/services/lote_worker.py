@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class LoteWorker:
-    """Procesa lotes en cola y reanuda lotes interrumpidos."""
+    """Procesa lotes en cola y bloquea lotes interrumpidos."""
 
     def __init__(self) -> None:
         self._stop_event = asyncio.Event()
@@ -52,17 +52,58 @@ class LoteWorker:
             minutes=settings.batch_processing_stale_minutes
         )
         async with AsyncSessionLocal() as db:
-            result = await db.execute(
+            result_stale = await db.execute(
                 select(LoteComprobante.id, LoteComprobante.empresa_id)
                 .where(
-                    or_(
-                        LoteComprobante.estado == "en_cola",
-                        (
-                            (LoteComprobante.estado == "procesando")
-                            & (LoteComprobante.updated_at < stale_before)
-                        ),
-                    )
+                    LoteComprobante.estado == "procesando",
+                    LoteComprobante.updated_at < stale_before,
                 )
+                .order_by(LoteComprobante.updated_at)
+                .limit(settings.batch_worker_batch_size)
+            )
+            stale_lotes = result_stale.all()
+
+        for lote_id, empresa_id in stale_lotes:
+            async with AsyncSessionLocal() as db:
+                service = LoteComprobantesService(db)
+                try:
+                    logger.warning(
+                        "Worker bloqueando lote stale %s para reconciliación",
+                        lote_id,
+                    )
+                    await service.bloquear_lote_procesando_stale(lote_id, empresa_id)
+                except Exception:
+                    logger.exception(
+                        "No se pudo bloquear lote stale %s para reconciliación",
+                        lote_id,
+                    )
+                    logger.warning(
+                        "Worker pospone lotes en cola hasta resolver el bloqueo stale"
+                    )
+                    return
+
+        if stale_lotes:
+            async with AsyncSessionLocal() as db:
+                stale_restante = (
+                    await db.execute(
+                        select(LoteComprobante.id)
+                        .where(
+                            LoteComprobante.estado == "procesando",
+                            LoteComprobante.updated_at < stale_before,
+                        )
+                        .limit(1)
+                    )
+                ).scalar_one_or_none()
+            if stale_restante is not None:
+                logger.warning(
+                    "Worker pospone lotes en cola hasta bloquear todos los lotes stale"
+                )
+                return
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(LoteComprobante.id, LoteComprobante.empresa_id)
+                .where(LoteComprobante.estado == "en_cola")
                 .order_by(LoteComprobante.created_at)
                 .limit(settings.batch_worker_batch_size)
             )

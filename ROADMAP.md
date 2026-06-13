@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-11
+Última actualización: 2026-06-12
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -359,8 +359,12 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [x] Clientes precargados opcionales para lotes masivos
 - [x] Emision de lotes chicos desde UI observable por background/polling
 - [x] Ejecucion asincronica para lotes grandes
-- [x] Worker evita reencolar lotes activos y solo retoma `procesando` cuando
-  estan stale
+- [x] Worker evita reencolar lotes activos y ya no reemite lotes `procesando`
+  stale: los bloquea como `requiere_reconciliacion` salvo reconciliación local
+  respaldada por un intento fiscal autorizado del mismo lote/grupo con
+  comprobante, número, CAE y datos fiscales coherentes. Si el bloqueo de un
+  stale falla, no avanza con lotes `en_cola` en ese ciclo. Los grupos
+  `validado` remanentes quedan como `requiere_reconciliacion`.
 - [x] Emisión masiva por sublotes ARCA para grupos con mismo punto de venta y
   tipo, con fallback unitario explícito si `RegXReq` no está disponible
 
@@ -475,7 +479,9 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [ ] Smoke automatizado de stack completo local
 
 ### Robustez
-- [x] Jobs de lotes reanudables desde estado persistido en BD con ventana stale
+- [x] Jobs de lotes persistidos en BD con ventana stale segura: la ventana ya
+  no habilita reemisión automática, sino bloqueo y reconciliación; los grupos
+  emitibles remanentes quedan marcados como inciertos.
 - [x] Reintentos bloqueados cuando existe incertidumbre post-ARCA
 - [ ] Reintentos controlados para otros procesos largos
 - [x] Idempotencia fiscal obligatoria y visible para usuario final en caminos de

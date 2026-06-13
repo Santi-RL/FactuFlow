@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 2026-06-04
+Última actualización: 2026-06-12
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -132,6 +132,15 @@ Mapping aplicado en el proyecto:
 - Si un lote quedó en `requiere_reconciliacion` o un grupo quedó
   `reintentando` por fallo posterior a ARCA, no reintentar. Primero consultar
   ARCA y reconciliar.
+- Si un lote masivo queda `procesando` y supera la ventana operativa
+  `BATCH_PROCESSING_STALE_MINUTES`, la ventana vencida no habilita reemisión
+  automática. El worker solo puede vincular comprobantes locales ya autorizados
+  sin pedir CAE si están respaldados por un intento fiscal `autorizado` del
+  mismo lote/grupo, con comprobante, número planificado, CAE, fecha, receptor y
+  total coherentes. Un comprobante local parecido pero sin ese intento no debe
+  cerrar el grupo. Si queda cualquier pendiente o duda, debe pasar a
+  `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir` y marcar
+  los grupos `validado` remanentes como `requiere_reconciliacion`.
 - `Completado` queda reservado para comprobantes emitidos por FactuFlow.
   Cuando hubo emisión externa verificada, el cierre correcto es
   `cerrado_reconciliado`.
@@ -196,7 +205,8 @@ El proyecto tuvo que corregir estas estructuras:
 - Los tipos FCE/MiPyME documentados por ARCA se fuerzan a modo unitario aunque
   `RegXReq` permita más registros.
 - Si un sublote enviado no devuelve detalle confiable, el lote queda en
-  `requiere_reconciliacion`; no se reintenta automáticamente.
+  `requiere_reconciliacion`; no se reintenta automáticamente y ningún grupo
+  remanente debe seguir mostrándose como listo para emitir.
 
 ### 5.b Notas de credito C por duplicados productivos
 
