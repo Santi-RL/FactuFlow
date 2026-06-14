@@ -6,14 +6,22 @@ Esta carpeta contiene assets del frontend.
 
 ```
 assets/
+├── brand/
+│   ├── README.md
+│   └── factuflow-wordmark.svg
 ├── styles/
+│   ├── brand.css        # Tokens visuales de marca
 │   └── main.css         # Tailwind + estilos globales
 ```
 
-Hoy el proyecto solo usa `assets/styles/main.css`. Si mas adelante se agregan imagenes/fuentes, se recomienda sumar `assets/images/` y `assets/fonts/` y documentarlo aca.
+La carpeta `brand/` contiene solo assets públicos aprobados para usar en la
+aplicación. No debe contener prompts, referencias privadas ni capturas con datos
+reales.
 
 ```css
 /* assets/styles/main.css */
+@import "./brand.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -71,6 +79,21 @@ O directamente en template:
 ```vue
 <template>
   <img src="@/assets/images/logo.svg" alt="FactuFlow" />
+</template>
+```
+
+Para assets de marca:
+
+```vue
+<script setup lang="ts">
+import wordmarkUrl from "@/assets/brand/factuflow-wordmark.svg";
+</script>
+
+<template>
+  <img
+    :src="wordmarkUrl"
+    alt="FactuFlow"
+  >
 </template>
 ```
 

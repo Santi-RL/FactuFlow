@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 112" role="img" aria-labelledby="title desc">
+  <title id="title">FactuFlow wordmark</title>
+  <desc id="desc">Wordmark tipográfico de FactuFlow en carbón y teal.</desc>
+  <style>
+    .ff-word {
+      font-family: Inter, "Public Sans", "Segoe UI", Arial, sans-serif;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+  </style>
+  <text class="ff-word" x="8" y="78" font-size="72" fill="#18232E">Factu</text>
+  <text class="ff-word" x="221" y="78" font-size="72" fill="#0D6B6D">Flow</text>
+</svg>

@@ -1,0 +1,27 @@
+:root {
+  --ff-font-primary: Inter, "Public Sans", "Segoe UI", Arial, sans-serif;
+  --ff-font-secondary: "Public Sans", "Segoe UI", Arial, sans-serif;
+
+  --ff-color-brand-carbon: #101418;
+  --ff-color-brand-ink: #18232e;
+  --ff-color-brand-slate: #425466;
+  --ff-color-brand-teal: #0d6b6d;
+  --ff-color-brand-flow: #1597ad;
+  --ff-color-brand-mint: #e6f4f3;
+
+  --ff-color-surface-page: #f5f8fa;
+  --ff-color-surface-card: #ffffff;
+  --ff-color-border-subtle: #d8e1e8;
+
+  --ff-color-status-success: #0e7c66;
+  --ff-color-status-warning: #b7791f;
+  --ff-color-status-danger: #b42318;
+  --ff-color-status-info: #2563eb;
+
+  --ff-radius-control: 6px;
+  --ff-radius-panel: 8px;
+  --ff-radius-modal: 12px;
+
+  --ff-shadow-panel: 0 1px 2px rgba(16, 20, 24, 0.08);
+  --ff-shadow-overlay: 0 18px 40px rgba(16, 20, 24, 0.18);
+}

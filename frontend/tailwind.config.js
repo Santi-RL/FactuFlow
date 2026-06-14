@@ -7,6 +7,27 @@ export default {
   theme: {
     extend: {
       colors: {
+        brand: {
+          carbon: 'var(--ff-color-brand-carbon)',
+          ink: 'var(--ff-color-brand-ink)',
+          slate: 'var(--ff-color-brand-slate)',
+          teal: 'var(--ff-color-brand-teal)',
+          flow: 'var(--ff-color-brand-flow)',
+          mint: 'var(--ff-color-brand-mint)',
+        },
+        surface: {
+          page: 'var(--ff-color-surface-page)',
+          card: 'var(--ff-color-surface-card)',
+        },
+        border: {
+          subtle: 'var(--ff-color-border-subtle)',
+        },
+        status: {
+          success: 'var(--ff-color-status-success)',
+          warning: 'var(--ff-color-status-warning)',
+          danger: 'var(--ff-color-status-danger)',
+          info: 'var(--ff-color-status-info)',
+        },
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -22,7 +43,16 @@ export default {
         // Colores de ARCA/Argentina
         celeste: '#74acdf',
         sol: '#f6b40e',
-      }
+      },
+      borderRadius: {
+        control: 'var(--ff-radius-control)',
+        panel: 'var(--ff-radius-panel)',
+        modal: 'var(--ff-radius-modal)',
+      },
+      boxShadow: {
+        panel: 'var(--ff-shadow-panel)',
+        overlay: 'var(--ff-shadow-overlay)',
+      },
     },
   },
   plugins: [],
