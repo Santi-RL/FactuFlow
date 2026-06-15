@@ -36,21 +36,25 @@ const handleBack = () => {
 
 <template>
   <div>
-    <div class="flex justify-between items-center mb-6">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
+        <h1 class="text-3xl font-bold text-brand-ink">
           Detalle del Cliente
         </h1>
       </div>
-      <div class="flex gap-3">
+      <div class="flex flex-col gap-3 sm:flex-row">
         <BaseButton
+          class="w-full sm:w-auto"
           variant="secondary"
           @click="handleBack"
         >
           <ArrowLeftIcon class="h-5 w-5 mr-2" />
           Volver
         </BaseButton>
-        <BaseButton @click="handleEdit">
+        <BaseButton
+          class="w-full sm:w-auto"
+          @click="handleEdit"
+        >
           <PencilIcon class="h-5 w-5 mr-2" />
           Editar
         </BaseButton>
@@ -62,29 +66,29 @@ const handleBack = () => {
     <BaseCard v-else-if="clientesStore.clienteActual">
       <div class="space-y-6">
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          <h3 class="mb-4 text-lg font-semibold text-brand-ink">
             Información Básica
           </h3>
-          <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <dl class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Razón Social
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.razon_social }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Documento
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.tipo_documento }}:
                 {{ clientesStore.clienteActual.numero_documento }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Condición IVA
               </dt>
               <dd class="mt-1">
@@ -96,7 +100,7 @@ const handleBack = () => {
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Estado
               </dt>
               <dd class="mt-1">
@@ -116,65 +120,65 @@ const handleBack = () => {
 
         <div
           v-if="clientesStore.clienteActual.domicilio"
-          class="border-t pt-6"
+          class="border-t border-border-subtle pt-6"
         >
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          <h3 class="mb-4 text-lg font-semibold text-brand-ink">
             Domicilio
           </h3>
-          <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <dl class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Dirección
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.domicilio || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Localidad
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.localidad || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Provincia
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.provincia || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Código Postal
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.codigo_postal || "-" }}
               </dd>
             </div>
           </dl>
         </div>
 
-        <div class="border-t pt-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        <div class="border-t border-border-subtle pt-6">
+          <h3 class="mb-4 text-lg font-semibold text-brand-ink">
             Contacto
           </h3>
-          <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <dl class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Email
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.email || "-" }}
               </dd>
             </div>
             <div>
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Teléfono
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.telefono || "-" }}
               </dd>
             </div>
@@ -182,10 +186,10 @@ const handleBack = () => {
               v-if="clientesStore.clienteActual.notas"
               class="md:col-span-2"
             >
-              <dt class="text-sm font-medium text-gray-500">
+              <dt class="text-sm font-medium text-brand-slate">
                 Notas
               </dt>
-              <dd class="mt-1 text-sm text-gray-900">
+              <dd class="mt-1 text-sm text-brand-ink">
                 {{ clientesStore.clienteActual.notas }}
               </dd>
             </div>

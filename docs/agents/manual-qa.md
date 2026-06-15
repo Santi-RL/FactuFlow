@@ -96,6 +96,26 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - detalle de cliente 2026-06-15
+
+- Alcance revisado: título, acciones `Volver` y `Editar`, secciones de
+  información básica, domicilio y contacto en `ClienteDetailView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-cliente-detalle-desktop.png`
+  - `private/brand-lab/exports/corte-cliente-detalle-mobile.png`
+- Controles visuales realizados:
+  - escritorio: acciones alineadas arriba a la derecha, secciones legibles y
+    separadores sutiles
+  - mobile: botones `Volver` y `Editar` ocupan el ancho disponible, sin
+    superposición con el contenido
+  - contenido: etiquetas, valores, badges y notas visibles con datos ficticios
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - Clientes 2026-06-15
 
 - Alcance revisado: encabezado de pantalla, botón `Nuevo Cliente`, buscador,

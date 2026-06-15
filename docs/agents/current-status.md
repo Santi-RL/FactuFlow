@@ -132,6 +132,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - detalle de cliente 2026-06-15
+
+- Se aplicaron tokens de marca a `ClienteDetailView`: título, acciones,
+  secciones de lectura, etiquetas, valores y separadores.
+- El cambio quedó acotado a clases visuales y adaptación responsive de botones.
+  No se modificaron stores, servicios, rutas, carga de datos, navegación,
+  edición, loading ni manejo de errores.
+- QA visual local con sesión ficticia y respuestas API simuladas: detalle de
+  cliente en escritorio y mobile, con datos sanitizados. Las capturas quedaron
+  en `private/brand-lab/exports/` con prefijo `corte-cliente-detalle-*`. No se
+  usaron datos reales, no se llamó al backend productivo y no se solicitó CAE.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - Clientes 2026-06-15
 
 - Se aplicaron tokens de marca a la pantalla general `Clientes`: encabezado,
