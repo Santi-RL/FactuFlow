@@ -132,6 +132,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - usuarios 2026-06-15
+
+- Se aplicaron tokens de marca a `UsuariosView`: encabezado, textos de tabla,
+  acciones inline, checkboxes y modales de creación/restablecimiento de clave.
+- El cambio quedó acotado a presentación visual. No se modificaron permisos,
+  validaciones, servicios, stores, endpoints, backend ni lógica de usuarios.
+- QA visual local ejecutada con sesión administradora ficticia y respuestas API
+  simuladas para listado, modal de creación, modal de clave y mobile. Las
+  capturas sanitizadas quedaron en
+  `private/brand-lab/exports/corte-usuarios-*`; no se usaron datos reales,
+  backend productivo ni ARCA.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - dashboard 2026-06-15
 
 - Se aplicaron tokens de marca a `DashboardView`: encabezado, alerta de

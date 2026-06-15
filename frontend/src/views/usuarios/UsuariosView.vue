@@ -323,10 +323,10 @@ onMounted(() => {
       class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
+        <h1 class="text-3xl font-bold text-brand-ink">
           Usuarios
         </h1>
-        <p class="mt-2 text-gray-600">
+        <p class="mt-2 text-brand-slate">
           Administrá altas, accesos y estado de inicio de sesión.
         </p>
       </div>
@@ -354,10 +354,10 @@ onMounted(() => {
       >
         <template #cell-nombre="{ row }">
           <div>
-            <p class="font-medium text-gray-900">
+            <p class="font-medium text-brand-ink">
               {{ row.nombre }}
             </p>
-            <p class="text-sm text-gray-500">
+            <p class="text-sm text-brand-slate">
               {{ row.email }}
             </p>
           </div>
@@ -376,13 +376,13 @@ onMounted(() => {
         </template>
 
         <template #cell-empresa="{ row }">
-          <span class="text-gray-700">
+          <span class="text-brand-slate">
             {{ nombreEmpresa(row.empresa_id) }}
           </span>
         </template>
 
         <template #cell-ultimo_login="{ value }">
-          <span class="text-gray-600">
+          <span class="text-brand-slate">
             {{ formatDateTime(value) }}
           </span>
         </template>
@@ -391,7 +391,7 @@ onMounted(() => {
           <div class="flex justify-end gap-2">
             <button
               type="button"
-              class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+              class="inline-flex items-center gap-1 rounded-control text-brand-flow transition-colors hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
               @click="abrirEditar(row)"
             >
               <PencilSquareIcon class="h-4 w-4" />
@@ -399,7 +399,7 @@ onMounted(() => {
             </button>
             <button
               type="button"
-              class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-800"
+              class="inline-flex items-center gap-1 rounded-control text-brand-slate transition-colors hover:text-brand-ink focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
               @click="abrirReset(row)"
             >
               <KeyIcon class="h-4 w-4" />
@@ -408,7 +408,7 @@ onMounted(() => {
             <button
               v-if="row.activo"
               type="button"
-              class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex items-center gap-1 rounded-control text-status-danger transition-colors hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-status-danger focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="row.id === authStore.user?.id"
               @click="confirmarAccion(row, 'desactivar')"
             >
@@ -418,7 +418,7 @@ onMounted(() => {
             <button
               v-else
               type="button"
-              class="inline-flex items-center gap-1 text-green-700 hover:text-green-900"
+              class="inline-flex items-center gap-1 rounded-control text-status-success transition-colors hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-status-success focus:ring-offset-2"
               @click="confirmarAccion(row, 'reactivar')"
             >
               <CheckCircleIcon class="h-4 w-4" />
@@ -471,20 +471,20 @@ onMounted(() => {
           label="Emisor preferido"
           :options="empresaOptions"
         />
-        <label class="flex items-center gap-2 text-sm text-gray-700">
+        <label class="flex items-center gap-2 text-sm text-brand-slate">
           <input
             v-model="form.es_admin"
             type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
             :disabled="usuarioEditando?.id === authStore.user?.id"
           >
           Puede administrar usuarios
         </label>
-        <label class="flex items-center gap-2 text-sm text-gray-700">
+        <label class="flex items-center gap-2 text-sm text-brand-slate">
           <input
             v-model="form.activo"
             type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
             :disabled="usuarioEditando?.id === authStore.user?.id"
           >
           Usuario activo
@@ -522,7 +522,7 @@ onMounted(() => {
         @dismiss="resetError = ''"
       />
       <div class="space-y-4">
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-brand-slate">
           {{ usuarioReset?.nombre }}
         </p>
         <BaseInput

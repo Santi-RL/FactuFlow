@@ -96,6 +96,31 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - usuarios 2026-06-15
+
+- Alcance revisado: encabezado, acción `Crear usuario`, tabla de usuarios,
+  acciones inline, badges existentes, checkboxes y modales de creación y
+  restablecimiento de contraseña en `UsuariosView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión administradora
+  ficticia y respuestas API simuladas. No se usaron datos reales, no se llamó a
+  ARCA, no se emitieron comprobantes, no se enviaron formularios y no se tocó
+  backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-usuarios-listado-desktop-v3.png`
+  - `private/brand-lab/exports/corte-usuarios-crear-modal-desktop-accent.png`
+  - `private/brand-lab/exports/corte-usuarios-clave-modal-desktop-accent.png`
+  - `private/brand-lab/exports/corte-usuarios-listado-mobile-v3.png`
+- Controles visuales realizados:
+  - escritorio: tabla, acciones `Editar`/`Clave`, botón principal y badges
+    legibles y alineados con la identidad v01
+  - modales: campos, checkboxes con acento de marca y acciones inferiores
+    legibles, sin superposición
+  - mobile: encabezado, selector de emisor, acción principal y tabla con scroll
+    horizontal interno, sin desborde de página
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - dashboard 2026-06-15
 
 - Alcance revisado: encabezado, alerta de certificados, cards de métricas,
