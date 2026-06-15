@@ -1,186 +1,110 @@
 <template>
-  <div class="reportes-view">
+  <div>
     <div class="mb-6">
       <h1
-        class="text-3xl font-bold text-gray-800"
+        class="text-3xl font-bold text-brand-ink"
         data-testid="page-title"
       >
-        📊 Reportes
+        Reportes
       </h1>
-      <p class="text-gray-600 mt-2">
-        Consulta reportes de ventas, IVA y clientes
+      <p class="mt-2 text-brand-slate">
+        Consultá reportes de ventas, IVA y clientes
       </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       <!-- Reporte de Ventas -->
-      <div
-        class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
-        @click="irAReporteVentas"
+      <router-link
+        :to="{ name: 'reporte-ventas' }"
+        class="group rounded-panel border border-border-subtle bg-surface-card p-6 text-left shadow-panel transition-all hover:-translate-y-0.5 hover:border-brand-flow hover:shadow-overlay focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
       >
-        <div class="flex items-start mb-4">
-          <div class="bg-blue-100 rounded-lg p-3">
-            <svg
-              class="w-8 h-8 text-blue-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
+        <div class="mb-4 flex items-start">
+          <div class="rounded-panel bg-brand-mint p-3">
+            <ChartBarIcon class="h-8 w-8 text-brand-teal" />
           </div>
         </div>
 
-        <h2 class="text-xl font-bold text-gray-800 mb-2">
+        <h2 class="mb-2 text-xl font-bold text-brand-ink">
           Ventas por Período
         </h2>
-        <p class="text-gray-600 mb-4">
+        <p class="mb-4 text-brand-slate">
           Ver ventas y totales del período elegido. Incluye facturas, notas de
           crédito y débito.
         </p>
 
-        <div class="flex items-center text-blue-600 font-medium">
+        <div
+          class="flex items-center font-medium text-brand-flow transition-colors group-hover:text-brand-teal"
+        >
           Ver reporte
-          <svg
-            class="w-4 h-4 ml-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+          <ArrowRightIcon class="ml-2 h-4 w-4" />
         </div>
-      </div>
+      </router-link>
 
       <!-- Subdiario IVA Ventas -->
-      <div
-        class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
-        @click="irAReporteIVA"
+      <router-link
+        :to="{ name: 'reporte-iva' }"
+        class="group rounded-panel border border-border-subtle bg-surface-card p-6 text-left shadow-panel transition-all hover:-translate-y-0.5 hover:border-brand-flow hover:shadow-overlay focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
       >
-        <div class="flex items-start mb-4">
-          <div class="bg-green-100 rounded-lg p-3">
-            <svg
-              class="w-8 h-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+        <div class="mb-4 flex items-start">
+          <div class="rounded-panel bg-emerald-50 p-3">
+            <DocumentTextIcon class="h-8 w-8 text-status-success" />
           </div>
         </div>
 
-        <h2 class="text-xl font-bold text-gray-800 mb-2">
+        <h2 class="mb-2 text-xl font-bold text-brand-ink">
           Subdiario IVA Ventas
         </h2>
-        <p class="text-gray-600 mb-4">
+        <p class="mb-4 text-brand-slate">
           Para tu declaración jurada mensual. Detalle de IVA discriminado por
           alícuota.
         </p>
 
-        <div class="flex items-center text-green-600 font-medium">
+        <div
+          class="flex items-center font-medium text-status-success transition-opacity group-hover:opacity-80"
+        >
           Ver reporte
-          <svg
-            class="w-4 h-4 ml-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+          <ArrowRightIcon class="ml-2 h-4 w-4" />
         </div>
-      </div>
+      </router-link>
 
       <!-- Ranking de Clientes -->
-      <div
-        class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
-        @click="irARankingClientes"
+      <router-link
+        :to="{ name: 'reporte-clientes' }"
+        class="group rounded-panel border border-border-subtle bg-surface-card p-6 text-left shadow-panel transition-all hover:-translate-y-0.5 hover:border-brand-flow hover:shadow-overlay focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
       >
-        <div class="flex items-start mb-4">
-          <div class="bg-purple-100 rounded-lg p-3">
-            <svg
-              class="w-8 h-8 text-purple-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
+        <div class="mb-4 flex items-start">
+          <div class="rounded-panel bg-surface-page p-3">
+            <UsersIcon class="h-8 w-8 text-brand-flow" />
           </div>
         </div>
 
-        <h2 class="text-xl font-bold text-gray-800 mb-2">
+        <h2 class="mb-2 text-xl font-bold text-brand-ink">
           Ranking de Clientes
         </h2>
-        <p class="text-gray-600 mb-4">
+        <p class="mb-4 text-brand-slate">
           Clientes con mayor facturación en el período seleccionado.
         </p>
 
-        <div class="flex items-center text-purple-600 font-medium">
+        <div
+          class="flex items-center font-medium text-brand-flow transition-colors group-hover:text-brand-teal"
+        >
           Ver reporte
-          <svg
-            class="w-4 h-4 ml-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+          <ArrowRightIcon class="ml-2 h-4 w-4" />
         </div>
-      </div>
+      </router-link>
     </div>
 
     <!-- Información adicional -->
-    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="mt-8 rounded-panel border border-border-subtle bg-brand-mint p-4">
       <div class="flex items-start">
-        <svg
-          class="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
+        <InformationCircleIcon
+          class="mr-3 mt-0.5 h-5 w-5 flex-shrink-0 text-brand-teal"
+        />
         <div>
-          <h3 class="font-semibold text-blue-900 mb-1">
+          <h3 class="mb-1 font-semibold text-brand-ink">
             Información sobre reportes
           </h3>
-          <p class="text-blue-800 text-sm">
+          <p class="text-sm text-brand-slate">
             Los reportes solo incluyen comprobantes autorizados por ARCA. Los
             comprobantes en estado borrador o pendiente no se contabilizan.
           </p>
@@ -191,23 +115,11 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from "vue-router";
-
-const router = useRouter();
-
-const irAReporteVentas = () => {
-  router.push({ name: "reporte-ventas" });
-};
-
-const irAReporteIVA = () => {
-  router.push({ name: "reporte-iva" });
-};
-
-const irARankingClientes = () => {
-  router.push({ name: "reporte-clientes" });
-};
+import {
+  ArrowRightIcon,
+  ChartBarIcon,
+  DocumentTextIcon,
+  InformationCircleIcon,
+  UsersIcon,
+} from "@heroicons/vue/24/outline";
 </script>
-
-<style scoped>
-/* Estilos adicionales si son necesarios */
-</style>

@@ -96,6 +96,28 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - índice de reportes 2026-06-15
+
+- Alcance revisado: encabezado, tarjetas de `Ventas por Período`, `Subdiario
+  IVA Ventas`, `Ranking de Clientes`, iconografía, estados de foco/hover y aviso
+  informativo en `ReportesView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas para el layout. No se usaron datos reales, no se
+  llamó a ARCA, no se abrieron reportes con datos y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-reportes-desktop.png`
+  - `private/brand-lab/exports/corte-reportes-mobile.png`
+- Controles visuales realizados:
+  - escritorio: tres tarjetas de navegación alineadas, legibles y con jerarquía
+    visual consistente
+  - mobile: tarjetas en una columna, textos sin desbordes y aviso informativo
+    legible
+  - navegación: las tarjetas quedan como enlaces de router con foco visible,
+    conservando las mismas rutas de destino
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - usuarios 2026-06-15
 
 - Alcance revisado: encabezado, acción `Crear usuario`, tabla de usuarios,

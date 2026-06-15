@@ -132,6 +132,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - índice de reportes 2026-06-15
+
+- Se aplicaron tokens de marca a `ReportesView`: encabezado, tarjetas de
+  navegación, iconografía, estados de foco/hover y aviso informativo.
+- El cambio quedó acotado a presentación visual y accesibilidad de controles
+  clickeables. No se modificaron rutas, reportes, servicios, stores, backend ni
+  lógica fiscal.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  el índice de reportes en escritorio y mobile. Las capturas sanitizadas
+  quedaron en `private/brand-lab/exports/corte-reportes-*`; no se usaron datos
+  reales, backend productivo ni ARCA.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - usuarios 2026-06-15
 
 - Se aplicaron tokens de marca a `UsuariosView`: encabezado, textos de tabla,
