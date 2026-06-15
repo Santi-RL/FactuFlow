@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import BaseModal from "../ui/BaseModal.vue";
 import BaseButton from "../ui/BaseButton.vue";
 import { ExclamationTriangleIcon } from "@heroicons/vue/24/outline";
@@ -24,6 +25,16 @@ const emit = defineEmits<{
   confirm: [];
   cancel: [];
 }>();
+
+const iconShellClasses = computed(() => ({
+  danger: "bg-[rgba(180,35,24,0.10)]",
+  primary: "bg-brand-mint",
+}));
+
+const iconClasses = computed(() => ({
+  danger: "text-status-danger",
+  primary: "text-brand-teal",
+}));
 </script>
 
 <template>
@@ -34,19 +45,24 @@ const emit = defineEmits<{
   >
     <div class="text-center">
       <div
-        class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4"
+        :class="[
+          'mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full',
+          iconShellClasses[variant],
+        ]"
       >
-        <ExclamationTriangleIcon class="h-6 w-6 text-red-600" />
+        <ExclamationTriangleIcon
+          :class="['h-6 w-6', iconClasses[variant]]"
+        />
       </div>
 
-      <h3 class="text-lg font-semibold text-gray-900 mb-2">
+      <h3 class="mb-2 text-lg font-semibold text-brand-ink">
         {{ title }}
       </h3>
-      <p class="text-sm text-gray-500 mb-6">
+      <p class="mb-6 text-sm leading-6 text-brand-slate">
         {{ message }}
       </p>
 
-      <div class="flex gap-3 justify-center">
+      <div class="flex flex-col-reverse justify-center gap-3 sm:flex-row">
         <BaseButton
           variant="secondary"
           @click="emit('cancel')"
