@@ -18,6 +18,7 @@ import {
   UserGroupIcon,
   ServerStackIcon,
 } from "@heroicons/vue/24/outline";
+import wordmarkUrl from "@/assets/brand/factuflow-wordmark.svg";
 import certificadosService from "@/services/certificados.service";
 
 const route = useRoute();
@@ -164,7 +165,7 @@ onBeforeUnmount(() => {
     <div class="lg:hidden fixed top-4 left-4 z-50">
       <button
         data-testid="sidebar-toggle"
-        class="p-2 rounded-md text-gray-700 bg-white shadow-md"
+        class="rounded-control border border-border-subtle bg-surface-card p-2 text-brand-ink shadow-panel"
         @click="uiStore.toggleSidebar"
       >
         <Bars3Icon
@@ -181,14 +182,14 @@ onBeforeUnmount(() => {
     <!-- Overlay for mobile -->
     <div
       v-if="uiStore.sidebarOpen"
-      class="lg:hidden fixed inset-0 bg-gray-600 bg-opacity-75 z-40"
+      class="lg:hidden fixed inset-0 z-40 bg-gray-900 bg-opacity-50"
       @click="uiStore.toggleSidebar"
     />
 
     <!-- Sidebar -->
     <aside
       :class="[
-        'fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out',
+        'fixed lg:static inset-y-0 left-0 z-40 w-64 transform border-r border-border-subtle bg-surface-card shadow-panel transition-transform duration-200 ease-in-out',
         uiStore.sidebarOpen
           ? 'translate-x-0'
           : '-translate-x-full lg:translate-x-0',
@@ -196,27 +197,35 @@ onBeforeUnmount(() => {
     >
       <div class="flex flex-col h-full">
         <!-- Logo -->
-        <div class="flex items-center h-16 px-6 border-b border-gray-200">
-          <h1
-            class="text-xl font-bold text-primary-600"
+        <div
+          class="flex h-16 items-center border-b border-border-subtle pl-16 pr-5 lg:px-5"
+        >
+          <router-link
+            to="/"
+            class="flex items-center"
             data-testid="sidebar-logo"
+            @click="uiStore.sidebarOpen = false"
           >
-            FactuFlow
-          </h1>
+            <img
+              :src="wordmarkUrl"
+              alt="FactuFlow"
+              class="h-8 w-auto"
+            >
+          </router-link>
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+        <nav class="flex-1 space-y-1.5 overflow-y-auto px-3 py-5">
           <router-link
             v-for="item in menuItems"
             :key="item.path"
             :to="item.path"
             :data-testid="item.testId"
             :class="[
-              'flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+              'flex items-center rounded-control px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2',
               isActive(item.path)
-                ? 'bg-primary-50 text-primary-700'
-                : 'text-gray-700 hover:bg-gray-50',
+                ? 'bg-brand-mint text-brand-teal'
+                : 'text-brand-slate hover:bg-gray-50 hover:text-brand-ink',
             ]"
             @click="uiStore.sidebarOpen = false"
           >
@@ -227,7 +236,7 @@ onBeforeUnmount(() => {
             <span class="flex-1">{{ item.name }}</span>
             <span
               v-if="item.badge"
-              class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800"
+              class="ml-2 rounded-full bg-status-danger px-2 py-0.5 text-xs font-semibold text-white"
             >
               {{ item.badge }}
             </span>
@@ -235,7 +244,7 @@ onBeforeUnmount(() => {
         </nav>
 
         <!-- Version info -->
-        <div class="p-4 border-t border-gray-200 text-xs text-gray-500">
+        <div class="border-t border-border-subtle p-4 text-xs text-brand-slate">
           FactuFlow v0.2.0-mvp
         </div>
       </div>

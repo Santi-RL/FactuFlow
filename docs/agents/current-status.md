@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-13
+Última actualización: 2026-06-15
 
 ## Objetivo activo
 
@@ -28,6 +28,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   `ruff check app tests` y `pytest tests -q` quedaron OK.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emisión masiva,
   reportes, certificados, puntos de venta, emisores y usuarios.
+- Integración visual controlada iniciada en frontend público: el corte 1 agregó
+  fundaciones de identidad sin cambios visibles y el corte 2A aplicó la marca
+  solo al shell común de la app (layout, header, sidebar, footer y estado móvil
+  del menú), sin tocar lógica fiscal, servicios, rutas ni pantallas de emisión.
 - Launcher local Windows manual agregado para desarrollo/QA: `FactuFlow
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
   PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
@@ -126,6 +130,26 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - shell común 2026-06-15
+
+- Se aplicó la identidad v01 aprobada al shell común del frontend: fondo general
+  de página, header, sidebar, footer, estados de navegación y wordmark de
+  FactuFlow en la barra lateral.
+- El cambio quedó acotado a `AppLayout`, `Header`, `Sidebar`, `Footer` y al
+  estado inicial del menú móvil en el store UI. No se modificaron rutas,
+  servicios, stores fiscales, formularios de emisión, ARCA, CAE, fechas
+  fiscales, lotes ni backend.
+- En mobile, el menú lateral ahora inicia cerrado y se abre con el botón de la
+  esquina superior izquierda. Se corrigieron superposiciones del botón con el
+  header y con el wordmark del sidebar.
+- QA visual local con sesión ficticia y respuestas API simuladas: capturas
+  sanitizadas generadas en `private/brand-lab/exports/` para escritorio, mobile
+  cerrado y mobile con menú abierto. No se usaron datos reales, no se llamó al
+  backend productivo y no se solicitó CAE.
+- Verificación frontend: `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK, `npm run test:unit` OK (61 tests) y `git diff --check`
+  OK.
 
 ### Contención P0 de reanudación insegura de lotes 2026-06-12
 

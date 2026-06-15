@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-12
+Última actualización: 2026-06-15
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - shell común 2026-06-15
+
+- Alcance revisado: layout principal autenticado, header, selector de emisor,
+  sidebar, navegación activa, footer y menú móvil.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/app-shell-corte-2a-desktop.png`
+  - `private/brand-lab/exports/app-shell-corte-2a-mobile.png`
+  - `private/brand-lab/exports/app-shell-corte-2a-mobile-menu.png`
+- Controles visuales realizados:
+  - escritorio: wordmark visible, navegación activa en teal/mint, header y
+    footer sin cambios funcionales, sin overflow horizontal
+  - mobile cerrado: menú lateral oculto por defecto, botón de menú visible,
+    header sin superposición con el selector de emisor
+  - mobile abierto: menú lateral visible, botón de cerrar sin pisar el
+    wordmark, overlay aplicado y navegación usable
+- Verificación automatizada asociada: `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK, `npm run test:unit` OK
+  (61 tests), `npm run test:unit -- Sidebar.spec.ts` OK y `git diff --check`
+  OK.
 
 ### Plantillas de carga masiva - QA visual ejecutada 2026-06-10
 

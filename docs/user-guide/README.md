@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-12
+Última actualización: 2026-06-15
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
@@ -64,6 +64,9 @@ Luego:
 
 1. Ingresar con tu correo electrónico y contraseña.
 2. Si es la primera vez y no hay un usuario creado, usar la opción `Configurar sistema`.
+
+En pantallas chicas, el menú lateral se abre con el botón de menú de la esquina
+superior izquierda y se cierra desde el mismo botón o al elegir una sección.
 
 La opción `Configurar sistema` solo aparece cuando la instalación no tiene
 usuarios. Ese flujo crea el usuario administrador propietario inicial y el

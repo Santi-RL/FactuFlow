@@ -8,7 +8,7 @@ const uiStore = useUIStore();
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex">
+  <div class="flex min-h-screen bg-surface-page text-brand-ink">
     <!-- Sidebar -->
     <Sidebar />
 
@@ -18,7 +18,7 @@ const uiStore = useUIStore();
       <Header />
 
       <!-- Page content -->
-      <main class="flex-1 p-6 overflow-auto">
+      <main class="flex-1 overflow-auto p-6">
         <router-view />
       </main>
 

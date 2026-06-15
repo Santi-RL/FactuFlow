@@ -70,9 +70,9 @@ const handleEmpresaChange = async (value: string | number) => {
 
 <template>
   <header
-    class="flex min-h-24 items-center justify-between gap-4 border-b border-gray-200 bg-white px-6 py-3"
+    class="flex min-h-24 flex-col items-stretch gap-3 border-b border-border-subtle bg-surface-card px-6 pb-3 pt-16 shadow-panel lg:flex-row lg:items-center lg:justify-between lg:gap-4 lg:py-3"
   >
-    <div class="flex-1 max-w-2xl">
+    <div class="w-full flex-1 lg:max-w-2xl">
       <div class="max-w-xl">
         <BaseSelect
           :model-value="empresaStore.empresaActivaId || ''"
@@ -84,14 +84,14 @@ const handleEmpresaChange = async (value: string | number) => {
         />
         <p
           v-if="empresasOptions.length > 0"
-          class="mt-1 text-xs text-gray-500"
+          class="mt-1 text-xs text-brand-slate"
         >
           Todo lo que hagas en comprobantes, emisión masiva, certificados y
           reportes se aplicará a este emisor.
         </p>
         <p
           v-else
-          class="mt-1 text-xs text-gray-500"
+          class="mt-1 text-xs text-brand-slate"
         >
           Creá un emisor para empezar a trabajar.
         </p>
@@ -100,10 +100,10 @@ const handleEmpresaChange = async (value: string | number) => {
 
     <div
       ref="dropdownRef"
-      class="relative flex-shrink-0"
+      class="relative flex-shrink-0 self-end lg:self-auto"
     >
       <button
-        class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+        class="flex items-center gap-2 rounded-control px-3 py-2 text-sm font-medium text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
         @click="showDropdown = !showDropdown"
       >
         <UserCircleIcon class="h-6 w-6" />
@@ -112,19 +112,19 @@ const handleEmpresaChange = async (value: string | number) => {
 
       <div
         v-if="showDropdown"
-        class="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+        class="absolute right-0 mt-2 w-56 rounded-panel border border-border-subtle bg-surface-card py-1 shadow-overlay"
       >
-        <div class="border-b border-gray-200 px-4 py-2">
-          <p class="text-sm font-medium text-gray-900">
+        <div class="border-b border-border-subtle px-4 py-2">
+          <p class="text-sm font-medium text-brand-ink">
             {{ authStore.user?.nombre }}
           </p>
-          <p class="truncate text-xs text-gray-500">
+          <p class="truncate text-xs text-brand-slate">
             {{ authStore.user?.email }}
           </p>
         </div>
 
         <button
-          class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+          class="flex w-full items-center gap-2 px-4 py-2 text-sm text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal"
           @click="handleLogout"
         >
           <ArrowRightOnRectangleIcon class="h-5 w-5" />

@@ -13,7 +13,7 @@ const DEFAULT_NOTIFICATION_DURATION = 5000;
 
 export const useUIStore = defineStore("ui", () => {
   const loading = ref(false);
-  const sidebarOpen = ref(true);
+  const sidebarOpen = ref(false);
   const notifications = ref<Notification[]>([]);
 
   const showNotification = (notification: Omit<Notification, "id">) => {
