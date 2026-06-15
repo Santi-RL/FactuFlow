@@ -191,29 +191,29 @@ const stats = computed(() => [
     name: "Total Clientes",
     value: clientesStore.pagination.total || 0,
     icon: UsersIcon,
-    color: "text-blue-600",
-    bg: "bg-blue-100",
+    color: "text-brand-teal",
+    bg: "bg-brand-mint",
   },
   {
     name: "Comprobantes del Mes",
     value: totalComprobantesMes.value,
     icon: DocumentTextIcon,
-    color: "text-green-600",
-    bg: "bg-green-100",
+    color: "text-status-success",
+    bg: "bg-emerald-50",
   },
   {
     name: "Último Comprobante",
     value: ultimoComprobante.value,
     icon: CheckCircleIcon,
-    color: "text-purple-600",
-    bg: "bg-purple-100",
+    color: "text-brand-flow",
+    bg: "bg-surface-page",
   },
   {
     name: "Estado Certificado",
     value: estadoCertificado.value,
     icon: ExclamationTriangleIcon,
-    color: "text-yellow-600",
-    bg: "bg-yellow-100",
+    color: "text-amber-700",
+    bg: "bg-amber-50",
   },
 ]);
 </script>
@@ -221,10 +221,10 @@ const stats = computed(() => [
 <template>
   <div>
     <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900">
+      <h1 class="text-3xl font-bold text-brand-ink">
         ¡Bienvenido, {{ authStore.user?.nombre }}!
       </h1>
-      <p class="mt-2 text-gray-600">
+      <p class="mt-2 text-brand-slate">
         Panel de control de FactuFlow
       </p>
     </div>
@@ -238,7 +238,7 @@ const stats = computed(() => [
         type="warning"
         class="mb-6"
       >
-        <div class="flex items-start justify-between">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex-1">
             <p class="font-semibold mb-2">
               ⚠️ Certificado(s) próximo(s) a vencer
@@ -256,7 +256,7 @@ const stats = computed(() => [
               </span>
               <span
                 v-else
-                class="text-red-700 font-semibold"
+                class="font-semibold text-status-danger"
               >
                 ¡YA VENCIÓ! ({{ formatearFecha(alerta.fecha_vencimiento) }})
               </span>
@@ -275,7 +275,7 @@ const stats = computed(() => [
           <BaseButton
             variant="secondary"
             size="sm"
-            class="ml-4 flex-shrink-0"
+            class="w-full sm:ml-4 sm:w-auto sm:flex-shrink-0"
             @click="irACertificados"
           >
             Ver certificados
@@ -284,7 +284,7 @@ const stats = computed(() => [
       </BaseAlert>
 
       <!-- Stats Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <BaseCard
           v-for="stat in stats"
           :key="stat.name"
@@ -293,14 +293,14 @@ const stats = computed(() => [
           <div class="p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-600">
+                <p class="text-sm font-medium text-brand-slate">
                   {{ stat.name }}
                 </p>
-                <p class="mt-2 text-3xl font-bold text-gray-900">
+                <p class="mt-2 text-3xl font-bold text-brand-ink">
                   {{ stat.value }}
                 </p>
               </div>
-              <div :class="['p-3 rounded-lg', stat.bg]">
+              <div :class="['rounded-panel p-3', stat.bg]">
                 <component
                   :is="stat.icon"
                   :class="['h-6 w-6', stat.color]"
@@ -316,52 +316,52 @@ const stats = computed(() => [
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <router-link
             to="/clientes/nuevo"
-            class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
+            class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <UsersIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">
+            <UsersIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <h3 class="font-medium text-brand-ink">
               Nuevo Cliente
             </h3>
-            <p class="text-sm text-gray-500 mt-1">
+            <p class="mt-1 text-sm text-brand-slate">
               Agregar un cliente
             </p>
           </router-link>
 
           <router-link
             to="/comprobantes"
-            class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
+            class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <DocumentTextIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">
+            <DocumentTextIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <h3 class="font-medium text-brand-ink">
               Emitir Factura
             </h3>
-            <p class="text-sm text-gray-500 mt-1">
+            <p class="mt-1 text-sm text-brand-slate">
               Crear comprobante
             </p>
           </router-link>
 
           <router-link
             to="/comprobantes/lotes"
-            class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
+            class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <DocumentDuplicateIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">
-              Emision masiva
+            <DocumentDuplicateIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <h3 class="font-medium text-brand-ink">
+              Emisión masiva
             </h3>
-            <p class="text-sm text-gray-500 mt-1">
+            <p class="mt-1 text-sm text-brand-slate">
               Validar y emitir lotes
             </p>
           </router-link>
 
           <router-link
             to="/empresa"
-            class="p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors text-center"
+            class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <CheckCircleIcon class="h-8 w-8 mx-auto mb-2 text-gray-400" />
-            <h3 class="font-medium text-gray-900">
+            <CheckCircleIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <h3 class="font-medium text-brand-ink">
               Configurar
             </h3>
-            <p class="text-sm text-gray-500 mt-1">
+            <p class="mt-1 text-sm text-brand-slate">
               Mi empresa
             </p>
           </router-link>

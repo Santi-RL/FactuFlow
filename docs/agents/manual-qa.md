@@ -96,6 +96,25 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - dashboard 2026-06-15
+
+- Alcance revisado: encabezado, alerta de certificados, cards de métricas,
+  accesos rápidos y comportamiento responsive en `DashboardView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-dashboard-desktop.png`
+  - `private/brand-lab/exports/corte-dashboard-mobile.png`
+- Controles visuales realizados:
+  - escritorio: grid completo de métricas, alerta de certificados y accesos
+    rápidos alineados con la identidad v01
+  - mobile: cards en una columna, bienvenida sin superposición, alerta legible
+    y botón de certificados en ancho completo
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `DashboardView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - setup inicial 2026-06-15
 
 - Alcance revisado: wordmark, subtítulo, tarjeta de configuración inicial,

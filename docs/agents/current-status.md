@@ -132,6 +132,20 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - dashboard 2026-06-15
+
+- Se aplicaron tokens de marca a `DashboardView`: encabezado, alerta de
+  certificados, métricas principales y accesos rápidos.
+- El cambio quedó acotado a presentación visual. No se modificaron cargas,
+  watchers, navegación, servicios, stores, backend ni lógica fiscal.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  dashboard escritorio/mobile, alertas, métricas y accesos rápidos. Las capturas
+  sanitizadas quedaron en `private/brand-lab/exports/corte-dashboard-*`; no se
+  usaron datos reales, backend productivo ni CAE.
+- Verificación frontend: `git diff --check` OK, test enfocado de
+  `DashboardView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - setup inicial 2026-06-15
 
 - Se aplicaron tokens de marca a `SetupView`: fondo, wordmark, subtítulo,
