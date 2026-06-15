@@ -6,6 +6,7 @@ import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
+import wordmarkUrl from "@/assets/brand/factuflow-wordmark.svg";
 
 const { login, loading } = useAuth();
 
@@ -75,19 +76,21 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+  <div class="flex min-h-screen items-center justify-center bg-surface-page p-4">
     <div class="w-full max-w-md">
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-primary-600 mb-2">
-          FactuFlow
-        </h1>
-        <p class="text-gray-600">
+      <div class="mb-8 text-center">
+        <img
+          :src="wordmarkUrl"
+          alt="FactuFlow"
+          class="mx-auto h-12 w-auto"
+        >
+        <p class="mt-3 text-brand-slate">
           Sistema de Facturación Electrónica ARCA
         </p>
       </div>
 
       <BaseCard>
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">
+        <h2 class="mb-6 text-2xl font-bold text-brand-ink">
           Iniciar Sesión
         </h2>
 
@@ -152,12 +155,12 @@ onMounted(async () => {
 
         <div
           v-if="setupRequired"
-          class="mt-4 text-center text-sm text-gray-600"
+          class="mt-4 text-center text-sm text-brand-slate"
         >
           ¿Primera instalación?
           <router-link
             to="/setup"
-            class="text-primary-600 hover:text-primary-700 font-medium"
+            class="font-medium text-brand-flow hover:text-brand-teal"
           >
             Configurar sistema
           </router-link>

@@ -96,6 +96,27 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - login 2026-06-15
+
+- Alcance revisado: wordmark, subtítulo, tarjeta de inicio de sesión, enlace de
+  primera instalación y aviso de servidor local no disponible en `LoginView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con respuestas API
+  simuladas. No se usaron datos reales, no se llamó a ARCA, no se emitieron
+  comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-login-desktop.png`
+  - `private/brand-lab/exports/corte-login-mobile-setup.png`
+  - `private/brand-lab/exports/corte-login-servidor-no-disponible.png`
+- Controles visuales realizados:
+  - escritorio: wordmark centrado, tarjeta legible, inputs y acción principal
+    alineados con la identidad v01
+  - mobile: enlace `Configurar sistema` visible sin desbordes ni superposición
+  - aviso operativo: mensaje de servidor no disponible y acción `Reintentar`
+    conservados y legibles
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `LoginView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - formulario de cliente 2026-06-15
 
 - Alcance revisado: título, subtítulo, secciones de información básica,

@@ -132,6 +132,22 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - login 2026-06-15
+
+- Se aplicaron tokens de marca a `LoginView`: fondo, wordmark, subtítulo,
+  título del formulario y enlace de configuración inicial.
+- El cambio quedó acotado a presentación visual. No se modificaron validaciones,
+  disponibilidad de servidor, login, setup inicial, servicios, stores, rutas,
+  backend ni lógica de autenticación.
+- QA visual local con respuestas API simuladas: login en escritorio, login
+  mobile con enlace de primera instalación y aviso de servidor local no
+  disponible. Las capturas quedaron en `private/brand-lab/exports/` con prefijo
+  `corte-login-*`. No se usaron datos reales, no se llamó al backend productivo
+  y no se solicitó CAE.
+- Verificación frontend: `git diff --check` OK, test enfocado de `LoginView`
+  OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - formulario de cliente 2026-06-15
 
 - Se aplicaron tokens de marca a `ClienteFormView`: título, subtítulo,
