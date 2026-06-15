@@ -132,6 +132,23 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - formulario de cliente 2026-06-15
+
+- Se aplicaron tokens de marca a `ClienteFormView`: título, subtítulo,
+  encabezados de sección, textarea de notas, separador inferior y disposición
+  responsive de acciones.
+- El cambio quedó acotado a clases visuales. No se modificaron `formData`,
+  validaciones, submit, payloads, carga de cliente, navegación, stores,
+  servicios ni backend.
+- QA visual local con sesión ficticia y respuestas API simuladas: alta de
+  cliente en escritorio, edición en escritorio y edición en mobile. Las
+  capturas quedaron en `private/brand-lab/exports/` con prefijo
+  `corte-cliente-form-*`. No se usaron datos reales, no se llamó al backend
+  productivo y no se solicitó CAE.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - detalle de cliente 2026-06-15
 
 - Se aplicaron tokens de marca a `ClienteDetailView`: título, acciones,

@@ -96,6 +96,28 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - formulario de cliente 2026-06-15
+
+- Alcance revisado: título, subtítulo, secciones de información básica,
+  domicilio, contacto, textarea `Notas` y acciones inferiores en
+  `ClienteFormView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-cliente-form-nuevo-desktop.png`
+  - `private/brand-lab/exports/corte-cliente-form-editar-desktop.png`
+  - `private/brand-lab/exports/corte-cliente-form-editar-mobile.png`
+- Controles visuales realizados:
+  - alta: campos vacíos, placeholders y acciones visibles en escritorio
+  - edición: datos ficticios precargados, textarea y selects legibles en
+    escritorio
+  - mobile: acción principal `Guardar Cambios` y `Cancelar` visibles en ancho
+    completo, sin superposición con campos
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - detalle de cliente 2026-06-15
 
 - Alcance revisado: título, acciones `Volver` y `Editar`, secciones de

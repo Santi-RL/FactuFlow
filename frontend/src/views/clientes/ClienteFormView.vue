@@ -117,10 +117,10 @@ const handleCancel = () => {
 <template>
   <div>
     <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-900">
+      <h1 class="text-3xl font-bold text-brand-ink">
         {{ isEdit ? "Editar Cliente" : "Nuevo Cliente" }}
       </h1>
-      <p class="mt-2 text-gray-600">
+      <p class="mt-2 text-brand-slate">
         {{
           isEdit
             ? "Actualizar información del cliente"
@@ -135,10 +135,10 @@ const handleCancel = () => {
         @submit.prevent="handleSubmit"
       >
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          <h3 class="mb-4 text-lg font-semibold text-brand-ink">
             Información Básica
           </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="md:col-span-2">
               <BaseInput
                 v-model="formData.razon_social"
@@ -172,10 +172,10 @@ const handleCancel = () => {
         </div>
 
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          <h3 class="mb-4 text-lg font-semibold text-brand-ink">
             Domicilio
           </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="md:col-span-2">
               <BaseInput
                 v-model="formData.domicilio"
@@ -205,10 +205,10 @@ const handleCancel = () => {
         </div>
 
         <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          <h3 class="mb-4 text-lg font-semibold text-brand-ink">
             Contacto
           </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <BaseInput
               v-model="formData.email"
               type="email"
@@ -224,21 +224,24 @@ const handleCancel = () => {
             />
 
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">
+              <label class="mb-1 block text-sm font-medium text-brand-ink">
                 Notas
               </label>
               <textarea
                 v-model="formData.notas"
                 rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                class="w-full rounded-control border border-border-subtle bg-surface-card px-3 py-2 text-brand-ink placeholder:text-brand-slate transition-colors focus:outline-none focus:ring-2 focus:ring-brand-flow"
                 placeholder="Información adicional sobre el cliente"
               />
             </div>
           </div>
         </div>
 
-        <div class="flex justify-end gap-3 pt-4 border-t">
+        <div
+          class="flex flex-col-reverse gap-3 border-t border-border-subtle pt-4 sm:flex-row sm:justify-end"
+        >
           <BaseButton
+            class="w-full sm:w-auto"
             type="button"
             variant="secondary"
             :disabled="loading"
@@ -247,6 +250,7 @@ const handleCancel = () => {
             Cancelar
           </BaseButton>
           <BaseButton
+            class="w-full sm:w-auto"
             type="submit"
             :loading="loading"
           >
