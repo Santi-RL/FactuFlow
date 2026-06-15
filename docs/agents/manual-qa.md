@@ -96,6 +96,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - Clientes 2026-06-15
+
+- Alcance revisado: encabezado de pantalla, botón `Nuevo Cliente`, buscador,
+  celdas principales, email e íconos de acción en `ClientesListView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-clientes-listado-desktop.png`
+  - `private/brand-lab/exports/corte-clientes-confirm-dialog.png`
+  - `private/brand-lab/exports/corte-clientes-listado-mobile.png`
+- Controles visuales realizados:
+  - escritorio: título, buscador, tabla e íconos de acción legibles y alineados
+    a tokens de marca
+  - diálogo: se abrió desde la acción `Eliminar` y conservó el componente común
+    `ConfirmDialog`
+  - mobile: botón `Nuevo Cliente` ocupa el ancho disponible y los controles de
+    paginación siguen visibles; la tabla mantiene desplazamiento horizontal por
+    densidad, comportamiento preexistente fuera de este corte
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - componentes comunes 2026-06-15
 
 - Alcance revisado: `ConfirmDialog` y `Pagination`, usados desde pantallas

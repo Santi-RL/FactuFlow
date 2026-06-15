@@ -112,19 +112,20 @@ const confirmDelete = async () => {
 
 <template>
   <div>
-    <div class="flex justify-between items-center mb-6">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1
-          class="text-3xl font-bold text-gray-900"
+          class="text-3xl font-bold text-brand-ink"
           data-testid="page-title"
         >
           Clientes
         </h1>
-        <p class="mt-2 text-gray-600">
+        <p class="mt-2 text-brand-slate">
           Gestión de clientes
         </p>
       </div>
       <BaseButton
+        class="w-full sm:w-auto"
         data-testid="clientes-nuevo"
         @click="handleNew"
       >
@@ -138,13 +139,13 @@ const confirmDelete = async () => {
       <div class="mb-6">
         <div class="relative">
           <MagnifyingGlassIcon
-            class="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400"
+            class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 transform text-brand-slate"
           />
           <input
             v-model="search"
             type="text"
             placeholder="Buscar por nombre o documento..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            class="w-full rounded-control border border-border-subtle bg-surface-card py-2 pl-10 pr-4 text-brand-ink placeholder:text-brand-slate transition-colors focus:outline-none focus:ring-2 focus:ring-brand-flow"
           >
         </div>
       </div>
@@ -158,10 +159,10 @@ const confirmDelete = async () => {
       >
         <template #cell-razon_social="{ row }">
           <div>
-            <div class="font-medium text-gray-900">
+            <div class="font-medium text-brand-ink">
               {{ row.razon_social }}
             </div>
-            <div class="text-sm text-gray-500">
+            <div class="text-sm text-brand-slate">
               {{ row.tipo_documento }}: {{ row.numero_documento }}
             </div>
           </div>
@@ -174,7 +175,7 @@ const confirmDelete = async () => {
         </template>
 
         <template #cell-email="{ value }">
-          <span class="text-gray-600">{{ value || "-" }}</span>
+          <span class="text-brand-slate">{{ value || "-" }}</span>
         </template>
 
         <template #cell-activo="{ value }">
@@ -186,21 +187,21 @@ const confirmDelete = async () => {
         <template #actions="{ row }">
           <div class="flex gap-2">
             <button
-              class="text-blue-600 hover:text-blue-800"
+              class="rounded-control p-1 text-brand-flow transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
               title="Ver"
               @click="handleView(row)"
             >
               <EyeIcon class="h-5 w-5" />
             </button>
             <button
-              class="text-green-600 hover:text-green-800"
+              class="rounded-control p-1 text-status-success transition-colors hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
               title="Editar"
               @click="handleEdit(row)"
             >
               <PencilIcon class="h-5 w-5" />
             </button>
             <button
-              class="text-red-600 hover:text-red-800"
+              class="rounded-control p-1 text-status-danger transition-colors hover:bg-[rgba(180,35,24,0.10)] focus:outline-none focus:ring-2 focus:ring-status-danger focus:ring-offset-2"
               title="Eliminar"
               @click="handleDeleteClick(row)"
             >

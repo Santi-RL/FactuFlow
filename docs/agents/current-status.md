@@ -132,6 +132,22 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - Clientes 2026-06-15
+
+- Se aplicaron tokens de marca a la pantalla general `Clientes`: encabezado,
+  subtítulo, buscador, textos de celdas e íconos de acciones.
+- El cambio quedó acotado a clases visuales de `ClientesListView`. No se
+  modificaron stores, servicios, rutas, carga de datos, paginación, acciones de
+  navegación, eliminación ni confirmaciones.
+- QA visual local con sesión ficticia y respuestas API simuladas: listado de
+  clientes en escritorio y mobile, buscador, paginación y diálogo de
+  eliminación. Las capturas sanitizadas quedaron en
+  `private/brand-lab/exports/` con prefijo `corte-clientes-*`. No se usaron
+  datos reales, no se llamó al backend productivo y no se solicitó CAE.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - componentes comunes 2026-06-15
 
 - Se aplicaron tokens de marca a componentes comunes que todavía no habían
