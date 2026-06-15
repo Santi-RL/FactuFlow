@@ -96,6 +96,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - componentes comunes 2026-06-15
+
+- Alcance revisado: `ConfirmDialog` y `Pagination`, usados desde pantallas
+  comunes como `Clientes` y desde flujos que abren confirmaciones reutilizables.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-2c-componentes-comunes-clientes-desktop.png`
+  - `private/brand-lab/exports/corte-2c-componentes-comunes-confirm-dialog.png`
+  - `private/brand-lab/exports/corte-2c-componentes-comunes-clientes-mobile.png`
+- Controles visuales realizados:
+  - escritorio: paginación visible con estado activo teal, borde sutil y texto
+    de totales legible
+  - diálogo: icono y énfasis visual alineados a tokens de estado y marca,
+    botones conservados mediante `BaseButton` y overlay existente
+  - mobile: botones `Anterior` y `Siguiente` visibles y usables; se observó
+    overflow horizontal propio de la tabla de `Clientes`, preexistente y fuera
+    de este corte
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK,
+  `npm run test:unit` OK (63 tests) y `autoreview` Codex `gpt-5.5 high` limpio.
+
 ### Integración visual controlada - shell común 2026-06-15
 
 - Alcance revisado: layout principal autenticado, header, selector de emisor,

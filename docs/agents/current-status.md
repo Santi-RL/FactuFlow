@@ -29,9 +29,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emisión masiva,
   reportes, certificados, puntos de venta, emisores y usuarios.
 - Integración visual controlada iniciada en frontend público: el corte 1 agregó
-  fundaciones de identidad sin cambios visibles y el corte 2A aplicó la marca
-  solo al shell común de la app (layout, header, sidebar, footer y estado móvil
-  del menú), sin tocar lógica fiscal, servicios, rutas ni pantallas de emisión.
+  fundaciones de identidad sin cambios visibles, el corte 2A aplicó la marca
+  solo al shell común de la app, el corte 2B tokenizó componentes `Base*` y el
+  corte 2C alcanzó componentes comunes (`ConfirmDialog` y `Pagination`), sin
+  tocar lógica fiscal, servicios, rutas ni pantallas de emisión completas.
 - Launcher local Windows manual agregado para desarrollo/QA: `FactuFlow
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
   PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
@@ -130,6 +131,26 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - componentes comunes 2026-06-15
+
+- Se aplicaron tokens de marca a componentes comunes que todavía no habían
+  pasado por la capa `Base*`: `ConfirmDialog` y `Pagination`.
+- El cambio quedó acotado a estilos visuales de componentes reutilizables. No
+  se modificaron props, emits, cálculo de paginación, rutas, servicios, stores,
+  backend, ARCA, CAE, fechas fiscales, lotes ni pantallas fiscales completas.
+- QA visual local con sesión ficticia y respuestas API simuladas sobre
+  `Clientes`: paginación visible en escritorio y mobile, y diálogo de
+  eliminación.
+  Las capturas sanitizadas quedaron en `private/brand-lab/exports/` con prefijo
+  `corte-2c-componentes-comunes-*`. No se usaron datos reales, no se llamó al
+  backend productivo y no se solicitó CAE.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests). `autoreview` con Codex `gpt-5.5` en `high` quedó limpio, sin
+  hallazgos aceptados ni accionables.
+- Commit publicado en `origin/main`: `2debd2b chore(frontend): style common
+  components with brand tokens`.
 
 ### Integración visual controlada - shell común 2026-06-15
 
