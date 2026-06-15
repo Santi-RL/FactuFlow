@@ -48,7 +48,7 @@ const handleOverlayClick = (event: MouseEvent) => {
     >
       <div
         v-if="show"
-        class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-40"
+        class="fixed inset-0 z-40 bg-[rgba(16,20,24,0.72)] transition-opacity"
         @click="handleOverlayClick"
       />
     </Transition>
@@ -69,7 +69,7 @@ const handleOverlayClick = (event: MouseEvent) => {
         <div class="flex min-h-full items-center justify-center p-3 sm:p-4">
           <div
             :class="[
-              'relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden bg-white rounded-lg shadow-xl',
+              'relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-modal bg-surface-card shadow-overlay',
               sizeClasses[size],
             ]"
             @click.stop
@@ -77,16 +77,16 @@ const handleOverlayClick = (event: MouseEvent) => {
             <!-- Header -->
             <div
               v-if="title || $slots.header"
-              class="flex items-center justify-between border-b border-gray-200 p-4 sm:p-6"
+              class="flex items-center justify-between border-b border-border-subtle p-4 sm:p-6"
             >
-              <h3 class="text-lg font-semibold text-gray-900">
+              <h3 class="text-lg font-semibold text-brand-ink">
                 <slot name="header">
                   {{ title }}
                 </slot>
               </h3>
               <button
                 type="button"
-                class="text-gray-400 hover:text-gray-500 transition-colors"
+                class="text-brand-slate transition-colors hover:text-brand-ink"
                 @click="handleClose"
               >
                 <XMarkIcon class="h-6 w-6" />
@@ -101,7 +101,7 @@ const handleOverlayClick = (event: MouseEvent) => {
             <!-- Footer -->
             <div
               v-if="$slots.footer"
-              class="flex items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 p-4 sm:p-6 rounded-b-lg"
+              class="flex items-center justify-end gap-3 rounded-b-modal border-t border-border-subtle bg-surface-page p-4 sm:p-6"
             >
               <slot name="footer" />
             </div>

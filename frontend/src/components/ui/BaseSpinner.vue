@@ -17,7 +17,7 @@ const sizeClasses = {
 <template>
   <div class="flex items-center justify-center">
     <svg
-      :class="['animate-spin text-primary-600', sizeClasses[size]]"
+      :class="['animate-spin text-brand-flow', sizeClasses[size]]"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"

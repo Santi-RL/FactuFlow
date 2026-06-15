@@ -38,10 +38,10 @@ const tieneOpcionVacia = computed(() =>
 
 const selectClasses = computed(() => {
   const baseClasses =
-    "w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors duration-200";
+    "w-full rounded-control border bg-surface-card px-3 py-2 text-brand-ink focus:outline-none focus:ring-2 transition-colors duration-200 disabled:cursor-not-allowed disabled:bg-surface-page disabled:text-brand-slate";
   const normalClasses =
-    "border-gray-300 focus:ring-primary-500 focus:border-transparent";
-  const errorClasses = "border-red-500 focus:ring-red-500";
+    "border-border-subtle focus:border-brand-flow focus:ring-brand-flow";
+  const errorClasses = "border-status-danger focus:border-status-danger focus:ring-status-danger";
 
   return `${baseClasses} ${props.error ? errorClasses : normalClasses}`;
 });
@@ -57,12 +57,12 @@ const handleChange = (event: Event) => {
     <label
       v-if="label"
       :for="selectId"
-      class="block text-sm font-medium text-gray-700 mb-1"
+      class="mb-1 block text-sm font-medium text-brand-ink"
     >
       {{ label }}
       <span
         v-if="required"
-        class="text-red-500"
+        class="text-status-danger"
       >*</span>
     </label>
 
@@ -93,7 +93,7 @@ const handleChange = (event: Event) => {
 
     <p
       v-if="error"
-      class="mt-1 text-sm text-red-600"
+      class="mt-1 text-sm text-status-danger"
     >
       {{ error }}
     </p>

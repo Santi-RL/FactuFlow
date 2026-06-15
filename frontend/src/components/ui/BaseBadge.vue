@@ -22,12 +22,12 @@ const classes = computed(() => {
   };
 
   const variantClasses = {
-    default: "bg-gray-100 text-gray-800",
-    primary: "bg-primary-100 text-primary-800",
-    success: "bg-green-100 text-green-800",
-    warning: "bg-yellow-100 text-yellow-800",
-    danger: "bg-red-100 text-red-800",
-    info: "bg-blue-100 text-blue-800",
+    default: "bg-surface-page text-brand-slate",
+    primary: "bg-brand-mint text-brand-teal",
+    success: "bg-emerald-100 text-status-success",
+    warning: "bg-amber-100 text-amber-900",
+    danger: "bg-red-100 text-status-danger",
+    info: "bg-blue-100 text-status-info",
   };
 
   return `${baseClasses} ${sizeClasses[props.size]} ${variantClasses[props.variant]}`;

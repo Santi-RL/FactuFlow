@@ -11,12 +11,12 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+  <div class="rounded-panel border border-border-subtle bg-surface-card shadow-panel">
     <div
       v-if="title || $slots.header"
-      class="px-6 py-4 border-b border-gray-200"
+      class="border-b border-border-subtle px-6 py-4"
     >
-      <h3 class="text-lg font-semibold text-gray-900">
+      <h3 class="text-lg font-semibold text-brand-ink">
         <slot name="header">
           {{ title }}
         </slot>
@@ -29,7 +29,7 @@ withDefaults(defineProps<Props>(), {
 
     <div
       v-if="$slots.footer"
-      class="px-6 py-4 border-t border-gray-200 bg-gray-50"
+      class="rounded-b-panel border-t border-border-subtle bg-surface-page px-6 py-4"
     >
       <slot name="footer" />
     </div>

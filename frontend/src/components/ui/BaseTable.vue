@@ -32,16 +32,16 @@ const handleSort = (column: Column) => {
 
 <template>
   <div class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
+    <table class="min-w-full divide-y divide-border-subtle">
+      <thead class="bg-surface-page">
         <tr>
           <th
             v-for="column in columns"
             :key="column.key"
             scope="col"
             :class="[
-              'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
-              column.sortable ? 'cursor-pointer hover:bg-gray-100' : '',
+              'px-6 py-3 text-left text-xs font-medium uppercase text-brand-slate',
+              column.sortable ? 'cursor-pointer hover:bg-brand-mint' : '',
             ]"
             @click="handleSort(column)"
           >
@@ -50,13 +50,13 @@ const handleSort = (column: Column) => {
           <th
             v-if="$slots.actions"
             scope="col"
-            class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-6 py-3 text-right text-xs font-medium uppercase text-brand-slate"
           >
             Acciones
           </th>
         </tr>
       </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
+      <tbody class="divide-y divide-border-subtle bg-surface-card">
         <tr v-if="loading">
           <td
             :colspan="columns.length + ($slots.actions ? 1 : 0)"
@@ -68,7 +68,7 @@ const handleSort = (column: Column) => {
         <tr v-else-if="data.length === 0">
           <td
             :colspan="columns.length + ($slots.actions ? 1 : 0)"
-            class="px-6 py-12 text-center text-gray-500"
+            class="px-6 py-12 text-center text-brand-slate"
           >
             {{ emptyText }}
           </td>
@@ -77,12 +77,12 @@ const handleSort = (column: Column) => {
           v-for="(row, index) in data"
           v-else
           :key="index"
-          class="hover:bg-gray-50"
+          class="hover:bg-surface-page"
         >
           <td
             v-for="column in columns"
             :key="column.key"
-            class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+            class="whitespace-nowrap px-6 py-4 text-sm text-brand-ink"
           >
             <slot
               :name="`cell-${column.key}`"

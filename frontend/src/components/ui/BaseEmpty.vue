@@ -18,12 +18,12 @@ withDefaults(defineProps<Props>(), {
   <div class="flex flex-col items-center justify-center py-12 text-center">
     <component
       :is="icon"
-      class="h-16 w-16 text-gray-400 mb-4"
+      class="mb-4 h-16 w-16 text-brand-slate"
     />
-    <h3 class="text-lg font-medium text-gray-900 mb-1">
+    <h3 class="mb-1 text-lg font-medium text-brand-ink">
       {{ title }}
     </h3>
-    <p class="text-gray-500">
+    <p class="text-brand-slate">
       {{ message }}
     </p>
     <div
