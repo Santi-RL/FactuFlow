@@ -11,6 +11,7 @@ import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
+import wordmarkUrl from "@/assets/brand/factuflow-wordmark.svg";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -131,13 +132,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-12 px-4">
-    <div class="max-w-2xl mx-auto">
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-bold text-primary-600 mb-2">
-          FactuFlow
+  <div class="min-h-screen bg-surface-page px-4 py-12">
+    <div class="mx-auto max-w-2xl">
+      <div class="mb-8 text-center">
+        <img
+          :src="wordmarkUrl"
+          alt="FactuFlow"
+          class="mx-auto h-12 w-auto"
+        >
+        <h1 class="sr-only">
+          Configuración Inicial del Sistema
         </h1>
-        <p class="text-gray-600">
+        <p class="mt-3 text-brand-slate">
           Configuración Inicial del Sistema
         </p>
       </div>
@@ -145,7 +151,7 @@ onMounted(async () => {
       <BaseCard>
         <div
           v-if="checkingSetup"
-          class="py-12 text-center text-sm text-gray-600"
+          class="py-12 text-center text-sm text-brand-slate"
         >
           Verificando estado de instalación...
         </div>
@@ -159,7 +165,7 @@ onMounted(async () => {
             <span
               :class="[
                 'text-sm font-medium',
-                step >= 1 ? 'text-primary-600' : 'text-gray-500',
+                step >= 1 ? 'text-brand-teal' : 'text-brand-slate',
               ]"
             >
               1. Usuario Admin
@@ -167,7 +173,7 @@ onMounted(async () => {
             <span
               :class="[
                 'text-sm font-medium',
-                step >= 2 ? 'text-primary-600' : 'text-gray-500',
+                step >= 2 ? 'text-brand-teal' : 'text-brand-slate',
               ]"
             >
               2. Datos de Empresa
@@ -177,13 +183,13 @@ onMounted(async () => {
             <div
               :class="[
                 'flex-1 h-2 rounded',
-                step >= 1 ? 'bg-primary-600' : 'bg-gray-200',
+                step >= 1 ? 'bg-brand-flow' : 'bg-border-subtle',
               ]"
             />
             <div
               :class="[
                 'flex-1 h-2 rounded',
-                step >= 2 ? 'bg-primary-600' : 'bg-gray-200',
+                step >= 2 ? 'bg-brand-flow' : 'bg-border-subtle',
               ]"
             />
           </div>
@@ -203,7 +209,7 @@ onMounted(async () => {
           v-if="!checkingSetup && step === 1"
           class="space-y-4"
         >
-          <h2 class="text-xl font-bold text-gray-900 mb-4">
+          <h2 class="mb-4 text-xl font-bold text-brand-ink">
             Crear Usuario Administrador
           </h2>
 
@@ -240,7 +246,10 @@ onMounted(async () => {
           />
 
           <div class="flex justify-end">
-            <BaseButton @click="nextStep">
+            <BaseButton
+              class="w-full sm:w-auto"
+              @click="nextStep"
+            >
               Continuar
             </BaseButton>
           </div>
@@ -251,7 +260,7 @@ onMounted(async () => {
           v-if="!checkingSetup && step === 2"
           class="space-y-4"
         >
-          <h2 class="text-xl font-bold text-gray-900 mb-4">
+          <h2 class="mb-4 text-xl font-bold text-brand-ink">
             Datos de la Empresa
           </h2>
 
@@ -291,7 +300,7 @@ onMounted(async () => {
             required
           />
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <BaseInput
               v-model="empresa.localidad"
               label="Localidad"
@@ -335,14 +344,16 @@ onMounted(async () => {
             required
           />
 
-          <div class="flex justify-between pt-4">
+          <div class="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-between">
             <BaseButton
+              class="w-full sm:w-auto"
               variant="secondary"
               @click="previousStep"
             >
               Volver
             </BaseButton>
             <BaseButton
+              class="w-full sm:w-auto"
               :loading="loading"
               @click="handleSubmit"
             >

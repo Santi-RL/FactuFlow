@@ -96,6 +96,30 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - setup inicial 2026-06-15
+
+- Alcance revisado: wordmark, subtítulo, tarjeta de configuración inicial,
+  indicador de progreso, paso de usuario administrador, paso de datos de empresa
+  y acciones inferiores en `SetupView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con respuesta API simulada
+  para `setup_required=true`. No se usaron datos reales, no se llamó a ARCA, no
+  se emitieron comprobantes, no se envió el formulario y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-setup-usuario-desktop.png`
+  - `private/brand-lab/exports/corte-setup-empresa-desktop.png`
+  - `private/brand-lab/exports/corte-setup-usuario-mobile.png`
+  - `private/brand-lab/exports/corte-setup-empresa-mobile.png`
+- Controles visuales realizados:
+  - escritorio: wordmark centrado, progreso activo en tokens de marca y tarjeta
+    legible
+  - paso empresa: formulario de datos fiscales sin envío, con grid desktop
+    conservado para localidad/provincia
+  - mobile: campos en una columna y acciones inferiores en ancho completo, sin
+    superposición
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - login 2026-06-15
 
 - Alcance revisado: wordmark, subtítulo, tarjeta de inicio de sesión, enlace de

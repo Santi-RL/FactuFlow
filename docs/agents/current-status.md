@@ -132,6 +132,22 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - setup inicial 2026-06-15
+
+- Se aplicaron tokens de marca a `SetupView`: fondo, wordmark, subtítulo,
+  estado de verificación, indicador de progreso, títulos de paso y acciones
+  responsive.
+- El cambio quedó acotado a presentación visual. No se modificaron validaciones
+  de usuario administrador, datos de empresa, submit, setup inicial, servicios,
+  stores, rutas, backend ni lógica de autenticación.
+- QA visual local con respuestas API simuladas: paso de usuario administrador y
+  paso de datos de empresa en escritorio y mobile. Las capturas quedaron en
+  `private/brand-lab/exports/` con prefijo `corte-setup-*`. No se usaron datos
+  reales, no se llamó al backend productivo y no se solicitó CAE.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - login 2026-06-15
 
 - Se aplicaron tokens de marca a `LoginView`: fondo, wordmark, subtítulo,
