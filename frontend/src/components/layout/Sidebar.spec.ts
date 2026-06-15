@@ -8,9 +8,11 @@ import { useEmpresaStore } from "@/stores/empresa";
 import type { Usuario } from "@/types/auth";
 import Sidebar from "./Sidebar.vue";
 
+let mockedRoutePath = "/";
+
 vi.mock("vue-router", () => ({
   useRoute: () => ({
-    path: "/",
+    path: mockedRoutePath,
   }),
 }));
 
@@ -55,6 +57,7 @@ const mountSidebar = () => {
 describe("Sidebar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedRoutePath = "/";
     mockedCertificadosService.obtenerAlertasVencimiento.mockResolvedValue([]);
   });
 
@@ -113,6 +116,38 @@ describe("Sidebar", () => {
 
     expect(wrapper.find('[data-testid="nav-usuarios"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="nav-sistema"]').exists()).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("activa solo emisión masiva en la ruta de lotes", async () => {
+    mockedRoutePath = "/comprobantes/lotes";
+
+    const wrapper = mountSidebar();
+    await flushPromises();
+
+    expect(
+      wrapper.find('[data-testid="nav-comprobantes"]').classes(),
+    ).not.toContain("bg-brand-mint");
+    expect(
+      wrapper.find('[data-testid="nav-lotes-comprobantes"]').classes(),
+    ).toContain("bg-brand-mint");
+
+    wrapper.unmount();
+  });
+
+  it("mantiene comprobantes activo en rutas hijas de comprobantes", async () => {
+    mockedRoutePath = "/comprobantes/nuevo";
+
+    const wrapper = mountSidebar();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="nav-comprobantes"]').classes()).toContain(
+      "bg-brand-mint",
+    );
+    expect(
+      wrapper.find('[data-testid="nav-lotes-comprobantes"]').classes(),
+    ).not.toContain("bg-brand-mint");
 
     wrapper.unmount();
   });

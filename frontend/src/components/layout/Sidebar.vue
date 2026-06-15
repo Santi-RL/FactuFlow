@@ -94,12 +94,24 @@ const menuItems = computed(() =>
   ].filter((item) => !item.requiresAdmin || authStore.user?.es_admin),
 );
 
-const isActive = (path: string) => {
-  if (path === "/") {
-    return route.path === "/";
+const matchesMenuPath = (currentPath: string, itemPath: string) => {
+  if (itemPath === "/") {
+    return currentPath === "/";
   }
-  return route.path.startsWith(path);
+
+  return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
 };
+
+const activeMenuPath = computed(() => {
+  const currentPath = route.path;
+  return (
+    menuItems.value
+      .filter((item) => matchesMenuPath(currentPath, item.path))
+      .sort((a, b) => b.path.length - a.path.length)[0]?.path || null
+  );
+});
+
+const isActive = (path: string) => activeMenuPath.value === path;
 
 const cargarAlertasVencimiento = async () => {
   const empresaIdSolicitada = empresaStore.empresaActivaId;
