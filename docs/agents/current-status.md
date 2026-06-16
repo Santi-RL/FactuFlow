@@ -132,6 +132,23 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - reporte IVA ventas 2026-06-16
+
+- Se aplicaron tokens de marca a `ReporteIvaView`: encabezado, acción de
+  volver, filtros de mes y año, período, resumen por alícuota, totales, tabla y
+  estados vacíos.
+- El cambio quedó acotado a presentación visual y textos de interfaz. No se
+  modificaron período por defecto, generación del reporte, watchers, scoping por
+  emisor, servicios, stores, backend ni lógica fiscal.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  estado inicial, resultados en escritorio y resultados en mobile. Las capturas
+  sanitizadas quedaron en
+  `private/brand-lab/exports/corte-reporte-iva-*`; no se usaron datos reales,
+  backend productivo, ARCA ni CAE.
+- Verificación frontend: `git diff --check` OK, test enfocado de
+  `ReporteIvaView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - reporte de ventas 2026-06-16
 
 - Se aplicaron tokens de marca a `ReporteVentasView`: encabezado, acción de

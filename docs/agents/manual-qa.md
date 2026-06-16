@@ -96,6 +96,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - reporte IVA ventas 2026-06-16
+
+- Alcance revisado: encabezado, botón `Volver`, filtros `Mes`/`Año`, acción
+  `Generar Reporte`, período, cards de alícuotas, totales, tabla de
+  comprobantes y estados vacíos en `ReporteIvaView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes, no se modificaron reportes ni se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-reporte-iva-inicial-desktop.png`
+  - `private/brand-lab/exports/corte-reporte-iva-resultados-desktop.png`
+  - `private/brand-lab/exports/corte-reporte-iva-resultados-mobile.png`
+- Controles visuales realizados:
+  - estado inicial: filtros, acción principal y mensaje vacío sin duplicación
+    de íconos ni texto en escritorio
+  - resultados desktop: período, alícuotas, totales y tabla alineados con la
+    identidad v01
+  - resultados mobile: filtros y cards en una columna; tabla contenida dentro
+    de la tarjeta, sin desborde de página del corte visual
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `ReporteIvaView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - reporte de ventas 2026-06-16
 
 - Alcance revisado: encabezado, botón `Volver`, filtros de fecha, acción

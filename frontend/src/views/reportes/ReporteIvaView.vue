@@ -150,8 +150,8 @@ const resumenIVA = computed(() => {
       label: "IVA 21%",
       gravado: formatearMoneda(reporte.value.resumen.gravado_21),
       iva: formatearMoneda(reporte.value.resumen.iva_21),
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-brand-flow",
+      bg: "bg-brand-mint",
     });
   }
 
@@ -163,8 +163,8 @@ const resumenIVA = computed(() => {
       label: "IVA 10.5%",
       gravado: formatearMoneda(reporte.value.resumen.gravado_10_5),
       iva: formatearMoneda(reporte.value.resumen.iva_10_5),
-      color: "text-green-600",
-      bg: "bg-green-50",
+      color: "text-status-success",
+      bg: "bg-emerald-50",
     });
   }
 
@@ -176,8 +176,8 @@ const resumenIVA = computed(() => {
       label: "IVA 27%",
       gravado: formatearMoneda(reporte.value.resumen.gravado_27),
       iva: formatearMoneda(reporte.value.resumen.iva_27),
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      color: "text-brand-teal",
+      bg: "bg-surface-page",
     });
   }
 
@@ -191,14 +191,14 @@ const resumenTotales = computed(() => {
     {
       label: "Total IVA",
       valor: formatearMoneda(reporte.value.resumen.total_iva),
-      color: "text-orange-600",
-      bg: "bg-orange-50",
+      color: "text-status-warning",
+      bg: "bg-amber-50",
     },
     {
       label: "Total Neto",
       valor: formatearMoneda(reporte.value.resumen.total_neto),
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
+      color: "text-brand-flow",
+      bg: "bg-brand-mint",
     },
   ];
 });
@@ -208,19 +208,21 @@ const resumenTotales = computed(() => {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <div class="flex items-center gap-4 mb-4">
+      <div class="mb-4 flex items-center gap-4">
         <button
-          class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          type="button"
+          class="rounded-control p-2 text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
+          aria-label="Volver a reportes"
           title="Volver"
           @click="volver"
         >
-          <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
+          <ArrowLeftIcon class="h-5 w-5" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">
+          <h1 class="text-3xl font-bold text-brand-ink">
             Subdiario de IVA Ventas
           </h1>
-          <p class="mt-1 text-gray-600">
+          <p class="mt-1 text-brand-slate">
             Detalle de comprobantes por alícuotas de IVA
           </p>
         </div>
@@ -229,7 +231,7 @@ const resumenTotales = computed(() => {
 
     <!-- Filtros -->
     <BaseCard class="mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
         <BaseSelect
           v-model="mesActual"
           :options="meses"
@@ -268,8 +270,8 @@ const resumenTotales = computed(() => {
       <!-- Período -->
       <div class="mb-4">
         <BaseCard :padding="false">
-          <div class="p-4 bg-gray-50 border-b">
-            <p class="text-lg font-semibold text-gray-900">
+          <div class="border-b border-border-subtle bg-surface-page p-4">
+            <p class="text-lg font-semibold text-brand-ink">
               {{ reporte.resumen.periodo.nombre }}
             </p>
           </div>
@@ -277,25 +279,25 @@ const resumenTotales = computed(() => {
       </div>
 
       <!-- Resumen por Alícuota -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <BaseCard
           v-for="item in resumenIVA"
           :key="item.label"
           :padding="false"
         >
           <div class="p-6">
-            <p class="text-sm font-medium text-gray-600 mb-4">
+            <p class="mb-4 text-sm font-medium text-brand-slate">
               {{ item.label }}
             </p>
             <div class="space-y-2">
               <div class="flex justify-between">
-                <span class="text-sm text-gray-600">Gravado:</span>
+                <span class="text-sm text-brand-slate">Gravado:</span>
                 <span :class="['font-semibold', item.color]">{{
                   item.gravado
                 }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-sm text-gray-600">IVA:</span>
+                <span class="text-sm text-brand-slate">IVA:</span>
                 <span :class="['font-semibold', item.color]">{{
                   item.iva
                 }}</span>
@@ -306,7 +308,7 @@ const resumenTotales = computed(() => {
       </div>
 
       <!-- Totales -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <BaseCard
           v-for="total in resumenTotales"
           :key="total.label"
@@ -315,14 +317,14 @@ const resumenTotales = computed(() => {
           <div class="p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-600">
+                <p class="text-sm font-medium text-brand-slate">
                   {{ total.label }}
                 </p>
                 <p :class="['mt-2 text-3xl font-bold', total.color]">
                   {{ total.valor }}
                 </p>
               </div>
-              <div :class="['p-3 rounded-lg', total.bg]">
+              <div :class="['rounded-panel p-3', total.bg]">
                 <DocumentChartBarIcon :class="['h-6 w-6', total.color]" />
               </div>
             </div>
@@ -332,7 +334,7 @@ const resumenTotales = computed(() => {
 
       <!-- Tabla de Comprobantes -->
       <BaseCard>
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+        <h2 class="mb-4 text-lg font-semibold text-brand-ink">
           Detalle de Comprobantes
         </h2>
 
@@ -344,14 +346,14 @@ const resumenTotales = computed(() => {
             :loading="false"
           >
             <template #cell-fecha_emision="{ value }">
-              <span class="text-gray-900 text-sm">{{
+              <span class="text-sm text-brand-ink">{{
                 formatearFecha(value)
               }}</span>
             </template>
 
             <template #cell-tipo="{ row }">
               <div class="text-sm">
-                <span class="text-gray-900">{{ row.tipo_nombre }}</span>
+                <span class="text-brand-ink">{{ row.tipo_nombre }}</span>
               </div>
             </template>
 
@@ -360,72 +362,73 @@ const resumenTotales = computed(() => {
             </template>
 
             <template #cell-cuit_receptor="{ value }">
-              <span class="font-mono text-xs text-gray-600">{{
+              <span class="font-mono text-xs text-brand-slate">{{
                 formatearCUIT(value)
               }}</span>
             </template>
 
             <template #cell-razon_social_receptor="{ value }">
-              <span class="text-gray-900 text-sm">{{ value }}</span>
+              <span class="text-sm text-brand-ink">{{ value }}</span>
             </template>
 
             <template #cell-gravado_21="{ value }">
-              <span class="text-gray-900 text-sm">{{
+              <span class="text-sm text-brand-ink">{{
                 value > 0 ? formatearMoneda(value) : "-"
               }}</span>
             </template>
 
             <template #cell-iva_21="{ value }">
-              <span class="text-gray-900 text-sm font-medium">
+              <span class="text-sm font-medium text-brand-ink">
                 {{ value > 0 ? formatearMoneda(value) : "-" }}
               </span>
             </template>
 
             <template #cell-gravado_10_5="{ value }">
-              <span class="text-gray-900 text-sm">{{
+              <span class="text-sm text-brand-ink">{{
                 value > 0 ? formatearMoneda(value) : "-"
               }}</span>
             </template>
 
             <template #cell-iva_10_5="{ value }">
-              <span class="text-gray-900 text-sm font-medium">
+              <span class="text-sm font-medium text-brand-ink">
                 {{ value > 0 ? formatearMoneda(value) : "-" }}
               </span>
             </template>
 
             <template #cell-gravado_27="{ value }">
-              <span class="text-gray-900 text-sm">{{
+              <span class="text-sm text-brand-ink">{{
                 value > 0 ? formatearMoneda(value) : "-"
               }}</span>
             </template>
 
             <template #cell-iva_27="{ value }">
-              <span class="text-gray-900 text-sm font-medium">
+              <span class="text-sm font-medium text-brand-ink">
                 {{ value > 0 ? formatearMoneda(value) : "-" }}
               </span>
             </template>
 
             <template #cell-total="{ value }">
-              <span class="font-semibold text-gray-900">{{
+              <span class="font-semibold text-brand-ink">{{
                 formatearMoneda(value)
               }}</span>
             </template>
           </BaseTable>
 
-          <BaseEmpty v-else>
-            No hay comprobantes en el período seleccionado
-          </BaseEmpty>
+          <BaseEmpty
+            v-else
+            title="Sin comprobantes"
+            message="No hay comprobantes en el período seleccionado"
+          />
         </div>
       </BaseCard>
     </template>
 
     <!-- Estado inicial -->
-    <BaseEmpty v-else>
-      <DocumentChartBarIcon class="h-12 w-12 mx-auto mb-4 text-gray-400" />
-      <p class="text-gray-600">
-        Seleccione mes y año y haga clic en "Generar Reporte" para ver los
-        resultados
-      </p>
-    </BaseEmpty>
+    <BaseEmpty
+      v-else
+      :icon="DocumentChartBarIcon"
+      title="No hay datos"
+      message="Seleccioná mes y año y hacé clic en &quot;Generar Reporte&quot; para ver los resultados"
+    />
   </div>
 </template>
