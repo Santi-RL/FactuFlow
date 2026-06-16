@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-15
+Última actualización: 2026-06-16
 
 ## Objetivo activo
 
@@ -131,6 +131,23 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - reporte de ventas 2026-06-16
+
+- Se aplicaron tokens de marca a `ReporteVentasView`: encabezado, acción de
+  volver, filtros, resumen de totales, período, aviso de consulta, tabla y
+  estado vacío.
+- El cambio quedó acotado a presentación visual y textos de interfaz. No se
+  modificaron fechas por defecto, generación del reporte, watchers, scoping por
+  emisor, servicios, stores, backend ni lógica fiscal.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  estado inicial, resultados en escritorio y resultados en mobile. Las capturas
+  sanitizadas quedaron en
+  `private/brand-lab/exports/corte-reporte-ventas-*`; no se usaron datos
+  reales, backend productivo, ARCA ni CAE.
+- Verificación frontend: `git diff --check` OK, test enfocado de
+  `ReporteVentasView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - índice de reportes 2026-06-15
 

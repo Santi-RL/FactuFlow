@@ -123,26 +123,26 @@ const resumenCards = computed(() => {
     {
       label: "Total Facturas",
       valor: formatearMoneda(reporte.value.resumen.total_facturas),
-      color: "text-green-600",
-      bg: "bg-green-50",
+      color: "text-status-success",
+      bg: "bg-emerald-50",
     },
     {
       label: "Total Notas de Crédito",
       valor: formatearMoneda(reporte.value.resumen.total_notas_credito),
-      color: "text-red-600",
-      bg: "bg-red-50",
+      color: "text-status-danger",
+      bg: "bg-surface-page",
     },
     {
       label: "Total Notas de Débito",
       valor: formatearMoneda(reporte.value.resumen.total_notas_debito),
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-brand-flow",
+      bg: "bg-brand-mint",
     },
     {
       label: "Total Neto",
       valor: formatearMoneda(reporte.value.resumen.total_neto),
-      color: "text-purple-600",
-      bg: "bg-purple-50",
+      color: "text-brand-teal",
+      bg: "bg-surface-page",
     },
   ];
 });
@@ -152,19 +152,21 @@ const resumenCards = computed(() => {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <div class="flex items-center gap-4 mb-4">
+      <div class="mb-4 flex items-center gap-4">
         <button
-          class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          type="button"
+          class="rounded-control p-2 text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
+          aria-label="Volver a reportes"
           title="Volver"
           @click="volver"
         >
-          <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
+          <ArrowLeftIcon class="h-5 w-5" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">
+          <h1 class="text-3xl font-bold text-brand-ink">
             Reporte de Ventas
           </h1>
-          <p class="mt-1 text-gray-600">
+          <p class="mt-1 text-brand-slate">
             Resumen de comprobantes emitidos por período
           </p>
         </div>
@@ -173,7 +175,7 @@ const resumenCards = computed(() => {
 
     <!-- Filtros -->
     <BaseCard class="mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <BaseInput
           v-model="desde"
           type="date"
@@ -210,7 +212,7 @@ const resumenCards = computed(() => {
     <!-- Reporte -->
     <template v-else-if="reporte">
       <!-- Resumen -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <BaseCard
           v-for="card in resumenCards"
           :key="card.label"
@@ -219,14 +221,14 @@ const resumenCards = computed(() => {
           <div class="p-6">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-medium text-gray-600">
+                <p class="text-sm font-medium text-brand-slate">
                   {{ card.label }}
                 </p>
                 <p :class="['mt-2 text-2xl font-bold', card.color]">
                   {{ card.valor }}
                 </p>
               </div>
-              <div :class="['p-3 rounded-lg', card.bg]">
+              <div :class="['rounded-panel p-3', card.bg]">
                 <DocumentChartBarIcon :class="['h-6 w-6', card.color]" />
               </div>
             </div>
@@ -235,7 +237,7 @@ const resumenCards = computed(() => {
       </div>
 
       <!-- Período -->
-      <div class="mb-4 text-sm text-gray-600">
+      <div class="mb-4 text-sm text-brand-slate">
         <p>
           <span class="font-medium">Período:</span>
           {{ formatearFecha(reporte.resumen.periodo.desde) }} -
@@ -252,11 +254,11 @@ const resumenCards = computed(() => {
         <div
           class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <h2 class="text-lg font-semibold text-gray-900">
+          <h2 class="text-lg font-semibold text-brand-ink">
             Detalle de Comprobantes
           </h2>
           <p
-            class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800"
+            class="rounded-panel border border-border-subtle bg-brand-mint px-3 py-2 text-sm text-brand-slate"
           >
             Este reporte es solo de consulta. Muestra comprobantes autorizados
             de la empresa activa.
@@ -270,12 +272,12 @@ const resumenCards = computed(() => {
           :loading="false"
         >
           <template #cell-fecha_emision="{ value }">
-            <span class="text-gray-900">{{ formatearFecha(value) }}</span>
+            <span class="text-brand-ink">{{ formatearFecha(value) }}</span>
           </template>
 
           <template #cell-tipo_nombre="{ row }">
             <div>
-              <span class="text-gray-900 text-sm">{{ row.tipo_nombre }}</span>
+              <span class="text-sm text-brand-ink">{{ row.tipo_nombre }}</span>
             </div>
           </template>
 
@@ -284,11 +286,11 @@ const resumenCards = computed(() => {
           </template>
 
           <template #cell-cliente_nombre="{ value }">
-            <span class="text-gray-900">{{ value }}</span>
+            <span class="text-brand-ink">{{ value }}</span>
           </template>
 
           <template #cell-total="{ value }">
-            <span class="font-semibold text-gray-900">{{
+            <span class="font-semibold text-brand-ink">{{
               formatearMoneda(value)
             }}</span>
           </template>
@@ -302,9 +304,9 @@ const resumenCards = computed(() => {
 
     <!-- Estado inicial -->
     <BaseEmpty v-else>
-      <DocumentChartBarIcon class="h-12 w-12 mx-auto mb-4 text-gray-400" />
-      <p class="text-gray-600">
-        Seleccione un rango de fechas y haga clic en "Generar Reporte" para ver
+      <DocumentChartBarIcon class="mx-auto mb-4 h-12 w-12 text-brand-slate" />
+      <p class="text-brand-slate">
+        Seleccioná un rango de fechas y hacé clic en "Generar Reporte" para ver
         los resultados
       </p>
     </BaseEmpty>

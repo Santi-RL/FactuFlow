@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-15
+Última actualización: 2026-06-16
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - reporte de ventas 2026-06-16
+
+- Alcance revisado: encabezado, botón `Volver`, filtros de fecha, acción
+  `Generar Reporte`, cards de resumen, período, aviso read-only, tabla de
+  comprobantes y estado vacío en `ReporteVentasView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes, no se modificaron reportes ni se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-reporte-ventas-inicial-desktop.png`
+  - `private/brand-lab/exports/corte-reporte-ventas-resultados-desktop.png`
+  - `private/brand-lab/exports/corte-reporte-ventas-resultados-mobile.png`
+- Controles visuales realizados:
+  - estado inicial: filtros, acción principal y mensaje vacío legibles en
+    escritorio
+  - resultados desktop: resumen de totales, período, aviso de consulta y tabla
+    alineados con la identidad v01
+  - resultados mobile: filtros y cards en una columna; tabla con scroll
+    horizontal interno, sin desborde de página
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `ReporteVentasView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - índice de reportes 2026-06-15
 
