@@ -96,6 +96,27 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - éxito de certificado 2026-06-18
+
+- Alcance revisado: icono de éxito, título, subtítulo, tarjeta de resumen,
+  aviso de vencimiento y acciones `Ir al Dashboard` / `Ver certificados` en
+  `CertificadoExitoView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuesta API simulada para el certificado. No se usaron datos reales, no se
+  llamó a ARCA, no se verificaron certificados reales, no se emitieron
+  comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificado-exito-desktop.png`
+  - `private/brand-lab/exports/corte-certificado-exito-mobile.png`
+- Controles visuales realizados:
+  - escritorio: tarjeta centrada, resumen, aviso y acciones inferiores
+    alineados con la identidad v01
+  - mobile: jerarquía legible, datos del certificado sin desbordes y acciones
+    apiladas en ancho completo
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - ranking de clientes 2026-06-18
 
 - Alcance revisado: encabezado, botón `Volver`, filtros `Desde`/`Hasta`,

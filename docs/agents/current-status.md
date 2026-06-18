@@ -132,6 +132,23 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - éxito de certificado 2026-06-18
+
+- Se aplicaron tokens de marca a `CertificadoExitoView`: iconografía, título,
+  subtítulo, tarjeta de resumen, aviso de vencimiento y acciones inferiores.
+- El cambio quedó acotado a presentación visual. No se modificaron carga del
+  certificado, navegación, servicios, stores, backend, ARCA ni gestión real de
+  certificados.
+- Se reemplazaron emojis decorativos por iconos de Heroicons y se usó
+  `BaseCard` para mantener consistencia con los componentes base tokenizados.
+- QA visual local ejecutada con sesión ficticia y respuesta API simulada para
+  certificado en escritorio y mobile. Las capturas sanitizadas quedaron en
+  `private/brand-lab/exports/corte-certificado-exito-*`; no se usaron datos
+  reales, backend productivo, ARCA ni certificados reales.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - ranking de clientes 2026-06-18
 
 - Se aplicaron tokens de marca a `RankingClientesView`: encabezado, acción de

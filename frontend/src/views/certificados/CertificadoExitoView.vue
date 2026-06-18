@@ -3,8 +3,14 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { Certificado } from "@/types/certificado";
 import certificadosService from "@/services/certificados.service";
+import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
+import {
+  CheckCircleIcon,
+  ClipboardDocumentCheckIcon,
+  LightBulbIcon,
+} from "@heroicons/vue/24/outline";
 
 const route = useRoute();
 const router = useRouter();
@@ -56,52 +62,53 @@ onMounted(async () => {
 
     <div
       v-else
-      class="max-w-2xl mx-auto"
+      class="mx-auto max-w-2xl"
     >
       <!-- Success Icon -->
-      <div class="text-center mb-8">
-        <div class="text-8xl mb-4">
-          🎉
+      <div class="mb-8 text-center">
+        <div
+          class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-panel bg-brand-mint"
+        >
+          <CheckCircleIcon class="h-12 w-12 text-status-success" />
         </div>
-        <h1 class="text-4xl font-bold text-gray-900 mb-2">
+        <h1 class="mb-2 text-4xl font-bold text-brand-ink">
           ¡Felicitaciones!
         </h1>
-        <p class="text-xl text-gray-600">
+        <p class="text-xl text-brand-slate">
           Tu certificado ARCA está configurado correctamente
         </p>
       </div>
 
       <!-- Info Card -->
-      <div
-        class="bg-white rounded-lg shadow-md border border-gray-200 p-8 mb-8"
-      >
-        <p class="text-gray-700 text-center mb-6">
+      <BaseCard class="mb-8">
+        <p class="mb-6 text-center text-brand-slate">
           Ya podés empezar a emitir facturas electrónicas.
         </p>
 
         <div
           v-if="certificado"
-          class="bg-gray-50 rounded-lg p-6 mb-6"
+          class="mb-6 rounded-panel bg-surface-page p-6"
         >
-          <h3 class="font-semibold text-gray-900 mb-4">
-            📋 Resumen:
+          <h3 class="mb-4 flex items-center gap-2 font-semibold text-brand-ink">
+            <ClipboardDocumentCheckIcon class="h-5 w-5 text-brand-flow" />
+            Resumen
           </h3>
 
           <dl class="space-y-3">
             <div class="flex justify-between">
-              <dt class="text-gray-600">
+              <dt class="text-brand-slate">
                 CUIT:
               </dt>
-              <dd class="font-medium text-gray-900">
+              <dd class="font-medium text-brand-ink">
                 {{ formatearCUIT(certificado.cuit) }}
               </dd>
             </div>
 
             <div class="flex justify-between">
-              <dt class="text-gray-600">
+              <dt class="text-brand-slate">
                 Ambiente:
               </dt>
-              <dd class="font-medium text-gray-900">
+              <dd class="font-medium text-brand-ink">
                 {{
                   certificado.ambiente === "produccion"
                     ? "Producción"
@@ -111,25 +118,26 @@ onMounted(async () => {
             </div>
 
             <div class="flex justify-between">
-              <dt class="text-gray-600">
+              <dt class="text-brand-slate">
                 Válido hasta:
               </dt>
-              <dd class="font-medium text-gray-900">
+              <dd class="font-medium text-brand-ink">
                 {{ formatearFecha(certificado.fecha_vencimiento) }}
               </dd>
             </div>
           </dl>
         </div>
 
-        <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
-          <p class="text-sm text-gray-700">
-            💡 Te avisaremos cuando el certificado esté por vencer.
+        <div class="border-l-4 border-brand-flow bg-brand-mint p-4">
+          <p class="flex gap-2 text-sm text-brand-slate">
+            <LightBulbIcon class="h-5 w-5 flex-shrink-0 text-brand-flow" />
+            <span>Te avisaremos cuando el certificado esté por vencer.</span>
           </p>
         </div>
-      </div>
+      </BaseCard>
 
       <!-- Actions -->
-      <div class="flex gap-4 justify-center">
+      <div class="flex flex-col justify-center gap-4 sm:flex-row">
         <BaseButton
           variant="primary"
           class="px-6"
