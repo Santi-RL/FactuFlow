@@ -132,6 +132,26 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - listado de certificados 2026-06-18
+
+- Se aplicaron tokens de marca a `CertificadosListView`: encabezado, acción de
+  agregar certificado, alerta de certificados por vencer, grilla y estado
+  vacío.
+- El cambio quedó acotado a presentación visual. No se modificaron carga,
+  verificación, renovación, eliminación, watchers, servicios, stores, backend,
+  ARCA ni gestión real de certificados.
+- Se reemplazó el símbolo decorativo del botón principal por Heroicons y se
+  mantuvo `CertificadoCard` como componente hijo sin tocar en este corte.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  listado en escritorio/mobile y estado vacío en escritorio. Las capturas
+  sanitizadas quedaron en
+  `private/brand-lab/exports/corte-certificados-*`; no se usaron datos reales,
+  backend productivo, ARCA ni certificados reales.
+- Verificación frontend: `git diff --check` OK, test enfocado de
+  `CertificadosListView` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - éxito de certificado 2026-06-18
 
 - Se aplicaron tokens de marca a `CertificadoExitoView`: iconografía, título,

@@ -96,6 +96,31 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - listado de certificados 2026-06-18
+
+- Alcance revisado: encabezado, botón `Agregar certificado`, alerta de
+  certificados por vencer, grilla/listado y estado vacío en
+  `CertificadosListView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas para empresa, alertas y certificados. No se usaron
+  datos reales, no se llamó a ARCA, no se verificaron certificados reales, no se
+  emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-listado-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-listado-mobile.png`
+  - `private/brand-lab/exports/corte-certificados-empty-desktop.png`
+- Controles visuales realizados:
+  - escritorio: encabezado, acción principal, alerta y grilla legibles con
+    tokens de marca, sin duplicación de íconos en la alerta
+  - mobile: encabezado y acción principal apilados, alerta contenida, cards en
+    una columna y sin superposición de textos
+  - estado vacío: mensaje y acción central alineados con `BaseEmpty` y
+    `BaseButton`
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `CertificadosListView` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
+
 ### Integración visual controlada - éxito de certificado 2026-06-18
 
 - Alcance revisado: icono de éxito, título, subtítulo, tarjeta de resumen,

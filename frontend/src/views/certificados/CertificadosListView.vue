@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PlusIcon } from "@heroicons/vue/24/outline";
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import type { Certificado, VerificacionResponse } from "@/types/certificado";
@@ -137,15 +138,17 @@ watch(
 <template>
   <div class="container mx-auto px-4 py-8">
     <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
+    <div
+      class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+    >
       <div>
         <h1
-          class="text-3xl font-bold text-gray-900 mb-2"
+          class="mb-2 text-3xl font-bold text-brand-ink"
           data-testid="page-title"
         >
           Certificados ARCA
         </h1>
-        <p class="text-gray-600">
+        <p class="text-brand-slate">
           Gestioná tus certificados digitales para facturación electrónica
         </p>
       </div>
@@ -156,7 +159,7 @@ watch(
         data-testid="certificados-agregar"
         @click="irAWizard"
       >
-        <span>+</span>
+        <PlusIcon class="h-5 w-5" />
         <span>Agregar certificado</span>
       </BaseButton>
     </div>
@@ -169,8 +172,8 @@ watch(
     >
       <div class="flex items-start justify-between">
         <div>
-          <p class="font-semibold mb-1">
-            ⚠️ {{ certificadosPorVencer.length }} certificado(s) necesita(n)
+          <p class="mb-1 font-semibold">
+            {{ certificadosPorVencer.length }} certificado(s) necesita(n)
             atención
           </p>
           <p class="text-sm">
@@ -217,7 +220,7 @@ watch(
     <!-- Grid de certificados -->
     <div
       v-else
-      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
     >
       <CertificadoCard
         v-for="certificado in certificadosActivos"
