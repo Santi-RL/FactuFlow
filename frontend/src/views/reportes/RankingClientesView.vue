@@ -9,6 +9,7 @@ import type { ReporteClientes } from "@/services/reportes.service";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseInput from "@/components/ui/BaseInput.vue";
+import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import BaseEmpty from "@/components/ui/BaseEmpty.vue";
 import BaseBadge from "@/components/ui/BaseBadge.vue";
@@ -124,19 +125,19 @@ watch(
 
 const obtenerMedalla = (posicion: number) => {
   if (posicion === 1)
-    return { emoji: "🥇", color: "text-yellow-500", label: "1° Puesto" };
+    return { color: "text-status-warning", label: "1° Puesto" };
   if (posicion === 2)
-    return { emoji: "🥈", color: "text-gray-400", label: "2° Puesto" };
+    return { color: "text-brand-flow", label: "2° Puesto" };
   if (posicion === 3)
-    return { emoji: "🥉", color: "text-amber-600", label: "3° Puesto" };
-  return { emoji: "", color: "text-gray-600", label: `${posicion}° Puesto` };
+    return { color: "text-brand-teal", label: "3° Puesto" };
+  return { color: "text-brand-slate", label: `${posicion}° Puesto` };
 };
 
 const obtenerColorCard = (posicion: number) => {
-  if (posicion === 1) return "border-yellow-400 bg-yellow-50";
-  if (posicion === 2) return "border-gray-300 bg-gray-50";
-  if (posicion === 3) return "border-amber-400 bg-amber-50";
-  return "border-gray-200 bg-white";
+  if (posicion === 1) return "border-status-warning bg-amber-50";
+  if (posicion === 2) return "border-brand-flow bg-brand-mint";
+  if (posicion === 3) return "border-brand-teal bg-surface-page";
+  return "border-border-subtle bg-surface-card";
 };
 
 const clientesConPosicion = computed(() => {
@@ -160,19 +161,21 @@ const totalGeneral = computed(() => {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <div class="flex items-center gap-4 mb-4">
+      <div class="mb-4 flex items-center gap-4">
         <button
-          class="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          type="button"
+          class="rounded-control p-2 text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
+          aria-label="Volver a reportes"
           title="Volver"
           @click="volver"
         >
-          <ArrowLeftIcon class="h-5 w-5 text-gray-600" />
+          <ArrowLeftIcon class="h-5 w-5" />
         </button>
         <div>
-          <h1 class="text-3xl font-bold text-gray-900">
+          <h1 class="text-3xl font-bold text-brand-ink">
             Ranking de Clientes
           </h1>
-          <p class="mt-1 text-gray-600">
+          <p class="mt-1 text-brand-slate">
             Clientes con mayor facturación en el período
           </p>
         </div>
@@ -181,7 +184,7 @@ const totalGeneral = computed(() => {
 
     <!-- Filtros -->
     <BaseCard class="mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
         <BaseInput
           v-model="desde"
           type="date"
@@ -194,23 +197,11 @@ const totalGeneral = computed(() => {
           label="Hasta"
           required
         />
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Límite
-          </label>
-          <select
-            v-model="limite"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <option
-              v-for="opt in limitesDisponibles"
-              :key="opt.value"
-              :value="opt.value"
-            >
-              {{ opt.label }}
-            </option>
-          </select>
-        </div>
+        <BaseSelect
+          v-model="limite"
+          :options="limitesDisponibles"
+          label="Límite"
+        />
         <div class="flex items-end">
           <BaseButton
             :disabled="loading"
@@ -237,18 +228,18 @@ const totalGeneral = computed(() => {
       <!-- Período -->
       <div class="mb-6">
         <BaseCard :padding="false">
-          <div class="p-4 bg-gray-50">
+          <div class="bg-surface-page p-4">
             <div
-              class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+              class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
             >
-              <p class="text-sm text-gray-600">
+              <p class="text-sm text-brand-slate">
                 <span class="font-medium">Período:</span>
                 {{ formatearFecha(reporte.periodo.desde) }} -
                 {{ formatearFecha(reporte.periodo.hasta) }}
               </p>
-              <p class="text-sm text-gray-600">
+              <p class="text-sm text-brand-slate">
                 <span class="font-medium">Total facturado:</span>
-                <span class="text-lg font-bold text-primary-600 ml-2">
+                <span class="ml-2 text-lg font-bold text-brand-flow">
                   {{ formatearMoneda(totalGeneral) }}
                 </span>
               </p>
@@ -258,7 +249,7 @@ const totalGeneral = computed(() => {
       </div>
 
       <!-- Top 3 destacado (móvil y desktop) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <BaseCard
           v-for="cliente in clientesConPosicion.slice(0, 3)"
           :key="cliente.cliente_id"
@@ -267,11 +258,8 @@ const totalGeneral = computed(() => {
         >
           <div class="p-6">
             <!-- Medalla y posición -->
-            <div class="flex items-center justify-between mb-4">
+            <div class="mb-4 flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <span class="text-3xl">{{
-                  obtenerMedalla(cliente.posicion).emoji
-                }}</span>
                 <TrophyIcon
                   :class="['h-6 w-6', obtenerMedalla(cliente.posicion).color]"
                 />
@@ -291,10 +279,10 @@ const totalGeneral = computed(() => {
 
             <!-- Info del cliente -->
             <div class="mb-4">
-              <h3 class="text-lg font-bold text-gray-900 mb-1 truncate">
+              <h3 class="mb-1 truncate text-lg font-bold text-brand-ink">
                 {{ cliente.razon_social }}
               </h3>
-              <p class="text-sm text-gray-600 font-mono">
+              <p class="font-mono text-sm text-brand-slate">
                 {{ formatearCUIT(cliente.numero_documento) }}
               </p>
             </div>
@@ -302,9 +290,9 @@ const totalGeneral = computed(() => {
             <!-- Estadísticas -->
             <div class="space-y-2">
               <div
-                class="flex items-center justify-between p-2 bg-white rounded"
+                class="flex items-center justify-between rounded-control bg-surface-card p-2"
               >
-                <span class="text-sm text-gray-600">Total facturado</span>
+                <span class="text-sm text-brand-slate">Total facturado</span>
                 <span
                   :class="[
                     'font-bold text-lg',
@@ -315,10 +303,10 @@ const totalGeneral = computed(() => {
                 </span>
               </div>
               <div
-                class="flex items-center justify-between p-2 bg-white rounded"
+                class="flex items-center justify-between rounded-control bg-surface-card p-2"
               >
-                <span class="text-sm text-gray-600">Comprobantes</span>
-                <span class="font-semibold text-gray-900">
+                <span class="text-sm text-brand-slate">Comprobantes</span>
+                <span class="font-semibold text-brand-ink">
                   {{ cliente.cantidad_comprobantes }}
                 </span>
               </div>
@@ -329,7 +317,7 @@ const totalGeneral = computed(() => {
 
       <!-- Resto del ranking (si hay más de 3) -->
       <BaseCard v-if="clientesConPosicion.length > 3">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">
+        <h2 class="mb-4 text-lg font-semibold text-brand-ink">
           Resto del Ranking
         </h2>
 
@@ -337,43 +325,43 @@ const totalGeneral = computed(() => {
           <div
             v-for="cliente in clientesConPosicion.slice(3)"
             :key="cliente.cliente_id"
-            class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            class="flex items-center justify-between rounded-panel border border-border-subtle p-4 transition-colors hover:bg-brand-mint"
           >
-            <div class="flex items-center gap-4 flex-1 min-w-0">
+            <div class="flex min-w-0 flex-1 items-center gap-4">
               <!-- Posición -->
               <div
-                class="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-gray-100 rounded-full"
+                class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-control bg-surface-page"
               >
-                <span class="text-lg font-bold text-gray-600">{{
+                <span class="text-lg font-bold text-brand-slate">{{
                   cliente.posicion
                 }}</span>
               </div>
 
               <!-- Info cliente -->
-              <div class="flex-1 min-w-0">
-                <h4 class="font-semibold text-gray-900 truncate">
+              <div class="min-w-0 flex-1">
+                <h4 class="truncate font-semibold text-brand-ink">
                   {{ cliente.razon_social }}
                 </h4>
-                <p class="text-sm text-gray-600 font-mono">
+                <p class="font-mono text-sm text-brand-slate">
                   {{ formatearCUIT(cliente.numero_documento) }}
                 </p>
               </div>
 
               <!-- Estadísticas (visible en desktop) -->
-              <div class="hidden md:flex items-center gap-6">
+              <div class="hidden items-center gap-6 md:flex">
                 <div class="text-right">
-                  <p class="text-sm text-gray-600">
+                  <p class="text-sm text-brand-slate">
                     Comprobantes
                   </p>
-                  <p class="font-semibold text-gray-900">
+                  <p class="font-semibold text-brand-ink">
                     {{ cliente.cantidad_comprobantes }}
                   </p>
                 </div>
                 <div class="text-right">
-                  <p class="text-sm text-gray-600">
+                  <p class="text-sm text-brand-slate">
                     Total
                   </p>
-                  <p class="font-bold text-primary-600 text-lg">
+                  <p class="text-lg font-bold text-brand-flow">
                     {{ formatearMoneda(cliente.total_facturado) }}
                   </p>
                 </div>
@@ -381,11 +369,11 @@ const totalGeneral = computed(() => {
             </div>
 
             <!-- Estadísticas (visible en móvil) -->
-            <div class="md:hidden flex flex-col items-end gap-1">
-              <p class="font-bold text-primary-600">
+            <div class="flex flex-col items-end gap-1 md:hidden">
+              <p class="font-bold text-brand-flow">
                 {{ formatearMoneda(cliente.total_facturado) }}
               </p>
-              <p class="text-sm text-gray-600">
+              <p class="text-sm text-brand-slate">
                 {{ cliente.cantidad_comprobantes }} docs
               </p>
             </div>
@@ -395,20 +383,19 @@ const totalGeneral = computed(() => {
     </template>
 
     <!-- Sin resultados -->
-    <BaseEmpty v-else-if="reporte && reporte.clientes.length === 0">
-      <UserIcon class="h-12 w-12 mx-auto mb-4 text-gray-400" />
-      <p class="text-gray-600">
-        No hay clientes con facturación en el período seleccionado
-      </p>
-    </BaseEmpty>
+    <BaseEmpty
+      v-else-if="reporte && reporte.clientes.length === 0"
+      :icon="UserIcon"
+      title="Sin clientes facturados"
+      message="No hay clientes con facturación en el período seleccionado"
+    />
 
     <!-- Estado inicial -->
-    <BaseEmpty v-else>
-      <DocumentChartBarIcon class="h-12 w-12 mx-auto mb-4 text-gray-400" />
-      <p class="text-gray-600">
-        Seleccione un rango de fechas y haga clic en "Generar Reporte" para ver
-        los resultados
-      </p>
-    </BaseEmpty>
+    <BaseEmpty
+      v-else
+      :icon="DocumentChartBarIcon"
+      title="No hay datos"
+      message="Seleccioná un rango de fechas y hacé clic en &quot;Generar Reporte&quot; para ver los resultados"
+    />
   </div>
 </template>

@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-12
+Última actualización: 2026-06-18
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -172,6 +172,9 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Selector de emisor activo visible para todos los usuarios activos
 - [x] Pantalla `Usuarios` reservada a administradores para alta, edición,
   desactivación/reactivación y reseteo de claves
+- [~] Integración visual controlada de identidad v01 en frontend público,
+  acumulada en cortes pequeños y auditables hasta un checkpoint instalable en
+  producción; no se despliegan microcortes estéticos por separado.
 - [ ] Cambio de contraseña propio para usuarios autenticados, sin intervención
   del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
@@ -441,6 +444,9 @@ Objetivo: reducir al minimo la necesidad de soporte tecnico para operar.
 - [ ] Checklists previos a la emision
 - [ ] Vistas vacias guiadas
 - [ ] Confirmaciones claras para acciones sensibles
+- [~] Checkpoint visual v01 instalable en producción: cerrar shell,
+  componentes base/comunes, auth/setup, dashboard, clientes, usuarios y reportes
+  antes de marcar una versión/tag apta para instalación productiva.
 - [ ] Pantalla o sección `Mi cuenta` para que cada usuario cambie su propia
   contraseña
 - [ ] Revision completa de accesibilidad y legibilidad

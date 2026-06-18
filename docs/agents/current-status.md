@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-16
+Última actualización: 2026-06-18
 
 ## Objetivo activo
 
@@ -131,6 +131,25 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - ranking de clientes 2026-06-18
+
+- Se aplicaron tokens de marca a `RankingClientesView`: encabezado, acción de
+  volver, filtros, selector de límite, período, total facturado, top 3, resto
+  del ranking y estados vacíos.
+- El cambio quedó acotado a presentación visual y textos de interfaz. No se
+  modificaron fechas por defecto, generación del ranking, watchers, scoping por
+  emisor, servicios, stores, backend ni lógica fiscal.
+- Se reemplazó el `select` hardcodeado de límite por `BaseSelect` para mantener
+  consistencia con los componentes base tokenizados.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  estado inicial, resultados en escritorio y resultados en mobile. Las capturas
+  sanitizadas quedaron en
+  `private/brand-lab/exports/corte-ranking-clientes-*`; no se usaron datos
+  reales, backend productivo, ARCA ni CAE.
+- Verificación frontend: `git diff --check` OK, test enfocado de
+  `RankingClientesView` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - reporte IVA ventas 2026-06-16
 

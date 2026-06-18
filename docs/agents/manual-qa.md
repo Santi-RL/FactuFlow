@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-16
+Última actualización: 2026-06-18
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,30 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - ranking de clientes 2026-06-18
+
+- Alcance revisado: encabezado, botón `Volver`, filtros `Desde`/`Hasta`,
+  selector `Límite`, acción `Generar Reporte`, período, total facturado, top 3,
+  resto del ranking y estados vacíos en `RankingClientesView`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas. No se usaron datos reales, no se llamó a ARCA, no se
+  emitieron comprobantes, no se modificaron reportes ni se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-ranking-clientes-inicial-desktop.png`
+  - `private/brand-lab/exports/corte-ranking-clientes-resultados-desktop.png`
+  - `private/brand-lab/exports/corte-ranking-clientes-resultados-mobile.png`
+- Controles visuales realizados:
+  - estado inicial: filtros, selector de límite, acción principal y mensaje
+    vacío legibles en escritorio
+  - resultados desktop: cards del top 3, período, total facturado y resto del
+    ranking alineados con la identidad v01
+  - resultados mobile: filtros y cards en una columna; resto del ranking
+    contenido dentro de la tarjeta, sin desborde de página del corte visual
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `RankingClientesView` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
 
 ### Integración visual controlada - reporte IVA ventas 2026-06-16
 
