@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import {
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  QuestionMarkCircleIcon,
+  XCircleIcon,
+} from "@heroicons/vue/24/outline";
 import type { EstadoCertificado } from "@/types/certificado";
+import BaseBadge from "@/components/ui/BaseBadge.vue";
 
 interface Props {
   estado: EstadoCertificado;
@@ -9,29 +16,29 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const badgeClasses = computed(() => {
+const badgeVariant = computed(() => {
   switch (props.estado) {
     case "valido":
-      return "bg-green-100 text-green-800 border-green-200";
+      return "success";
     case "por_vencer":
-      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      return "warning";
     case "vencido":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "danger";
     default:
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "default";
   }
 });
 
 const iconoEstado = computed(() => {
   switch (props.estado) {
     case "valido":
-      return "✅";
+      return CheckCircleIcon;
     case "por_vencer":
-      return "⚠️";
+      return ExclamationTriangleIcon;
     case "vencido":
-      return "❌";
+      return XCircleIcon;
     default:
-      return "•";
+      return QuestionMarkCircleIcon;
   }
 });
 
@@ -50,11 +57,15 @@ const textoEstado = computed(() => {
 </script>
 
 <template>
-  <span
-    class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border"
-    :class="badgeClasses"
+  <BaseBadge
+    :variant="badgeVariant"
+    size="sm"
+    class="gap-1"
   >
-    <span>{{ iconoEstado }}</span>
+    <component
+      :is="iconoEstado"
+      class="h-3.5 w-3.5"
+    />
     <span>{{ textoEstado }}</span>
-  </span>
+  </BaseBadge>
 </template>

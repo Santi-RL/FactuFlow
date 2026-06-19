@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-18
+Última actualización: 2026-06-19
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,33 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - cards de certificados 2026-06-19
+
+- Alcance revisado: tarjeta de certificado, icono principal, badge de estado,
+  icono de advertencia, datos de CUIT/ambiente/vencimiento, barra de vigencia,
+  acciones `Probar conexión` / `Renovar` / `Eliminar` y resultado de prueba de
+  conexión en `CertificadoCard` y `CertificadoEstado`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas para empresa, alertas, certificados y prueba de
+  conexión. No se usaron datos reales, no se llamó a ARCA, no se verificaron
+  certificados reales, no se emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-card-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-card-verificacion-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-card-mobile.png`
+- Controles realizados:
+  - Playwright verificó carga de listado, textos esperados, llamada mockeada a
+    `Probar conexión`, ausencia de errores de consola y ausencia de requests API
+    no mockeadas.
+  - Se verificó por script que las capturas existen, tienen dimensiones
+    esperadas y no están vacías. El visor local de imágenes quedó bloqueado por
+    ACL para `private/`, por lo que no se registra inspección visual manual de
+    esas capturas en este corte.
+- Verificación automatizada asociada: `git diff --check` OK, test enfocado de
+  `CertificadosListView` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
 
 ### Integración visual controlada - listado de certificados 2026-06-18
 

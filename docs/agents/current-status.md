@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-18
+Última actualización: 2026-06-19
 
 ## Objetivo activo
 
@@ -131,6 +131,30 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - cards de certificados 2026-06-19
+
+- Se aplicaron tokens de marca a `CertificadoCard` y `CertificadoEstado`:
+  superficie de tarjeta, iconografía, badges de estado, datos principales,
+  barra de vigencia, acciones y resultado de `Probar conexión`.
+- El cambio quedó acotado a presentación visual. No se modificaron props,
+  emits, cálculo de vigencia, verificación, renovación, eliminación, servicios,
+  stores, backend, ARCA ni gestión real de certificados.
+- Se reemplazaron emojis decorativos y botones hardcodeados por Heroicons,
+  `BaseCard`, `BaseButton` y `BaseBadge` para mantener consistencia con los
+  componentes base tokenizados.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  listado en escritorio/mobile y resultado exitoso de prueba de conexión. Las
+  capturas sanitizadas quedaron en
+  `private/brand-lab/exports/corte-certificados-card-*`; no se usaron datos
+  reales, backend productivo, ARCA ni certificados reales.
+- El visor local de imágenes quedó bloqueado por ACL para `private/`; se verificó
+  por script que las capturas existen, tienen dimensiones esperadas y no están
+  vacías.
+- Verificación frontend: `git diff --check` OK, test enfocado de
+  `CertificadosListView` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
 
 ### Integración visual controlada - listado de certificados 2026-06-18
 
