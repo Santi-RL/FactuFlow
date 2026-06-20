@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-19
+Última actualización: 2026-06-20
 
 ## Objetivo activo
 
@@ -132,6 +132,27 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - shell del wizard de certificados 2026-06-20
+
+- Se aplicaron tokens de marca a `CertificadoWizardView` y `WizardProgress`:
+  encabezado del wizard, subtítulo, stepper, línea de progreso, estados activo,
+  completado y pendiente.
+- El cambio quedó acotado a presentación visual del shell común. No se
+  modificaron pasos del wizard, generación de CSR, carga de certificados,
+  autorización WSFE, verificación, navegación, servicios, stores, backend, ARCA
+  ni gestión real de certificados.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para
+  el paso 1 en escritorio/mobile y el paso 2 en escritorio. Las capturas
+  sanitizadas quedaron en
+  `private/brand-lab/exports/corte-certificados-wizard-shell-*`; no se usaron
+  datos reales, backend productivo, ARCA ni certificados reales.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas
+  y no están vacías. El visor local de imágenes sigue bloqueado por ACL para
+  `private/`, por lo que no se registra inspección visual manual directa de
+  esas capturas en este corte.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (63 tests).
 ### Integración visual controlada - cards de certificados 2026-06-19
 
 - Se aplicaron tokens de marca a `CertificadoCard` y `CertificadoEstado`:

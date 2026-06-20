@@ -75,12 +75,12 @@ const goToNextStep = () => {
     <!-- Header -->
     <div class="mb-8">
       <h1
-        class="text-3xl font-bold text-gray-900 mb-2"
+        class="mb-2 text-3xl font-bold text-brand-ink"
         data-testid="page-title"
       >
         Wizard de Certificados ARCA
       </h1>
-      <p class="text-gray-600">
+      <p class="text-brand-slate">
         Configurá tu certificado digital paso a paso
       </p>
     </div>

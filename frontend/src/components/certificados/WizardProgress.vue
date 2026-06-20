@@ -47,10 +47,12 @@ const getStepClasses = (stepNumber: number) => {
   const isCompleted = stepNumber < props.currentStep;
 
   return {
-    "bg-blue-600 text-white border-blue-600 shadow-sm ring-4 ring-blue-100 scale-105":
+    "scale-105 border-brand-teal bg-brand-teal text-white shadow-sm ring-4 ring-brand-mint":
       isActive,
-    "bg-green-500 text-white border-green-500 shadow-sm": isCompleted,
-    "bg-white text-gray-500 border-gray-300": !isActive && !isCompleted,
+    "border-status-success bg-status-success text-white shadow-sm":
+      isCompleted,
+    "border-border-subtle bg-surface-card text-brand-slate":
+      !isActive && !isCompleted,
   };
 };
 
@@ -59,9 +61,9 @@ const getLabelClasses = (stepNumber: number) => {
   const isCompleted = stepNumber < props.currentStep;
 
   return {
-    "text-blue-700 font-semibold": isActive,
-    "text-green-700 font-medium": isCompleted,
-    "text-gray-500 font-medium": !isActive && !isCompleted,
+    "font-semibold text-brand-teal": isActive,
+    "font-medium text-status-success": isCompleted,
+    "font-medium text-brand-slate": !isActive && !isCompleted,
   };
 };
 </script>
@@ -70,11 +72,11 @@ const getLabelClasses = (stepNumber: number) => {
   <div class="w-full py-6">
     <div class="relative">
       <div
-        class="absolute top-5 h-1 rounded-full bg-gray-200"
+        class="absolute top-5 h-1 rounded-full bg-border-subtle"
         :style="lineStyle"
       >
         <div
-          class="h-full rounded-full bg-green-500 transition-all duration-500 ease-out"
+          class="h-full rounded-full bg-status-success transition-all duration-500 ease-out"
           :style="progressStyle"
         />
       </div>
@@ -111,7 +113,7 @@ const getLabelClasses = (stepNumber: number) => {
             </p>
             <p
               v-if="step.number === currentStep"
-              class="mt-1 hidden text-[11px] font-medium text-gray-500 sm:block"
+              class="mt-1 hidden text-[11px] font-medium text-brand-slate sm:block"
             >
               Paso actual
             </p>
