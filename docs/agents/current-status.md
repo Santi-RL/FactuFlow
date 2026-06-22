@@ -132,6 +132,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - portal ARCA del wizard de certificados 2026-06-22
+
+- Se aplicaron tokens de marca a `WizardStep3PortalArca`: encabezado, tarjeta de instrucciones, numeradores, acción `Ir al portal de ARCA`, ayuda, confirmación de certificado descargado y navegación inferior.
+- El cambio quedó acotado a presentación visual. No se modificaron URL del portal, `window.open`, estado del checkbox, emits, navegación, generación/subida de certificados, servicios, stores, backend, ARCA ni gestión real de certificados.
+- Se reemplazaron colores `blue/gray` hardcodeados, flechas de texto y emoji decorativo por Heroicons, `BaseCard`, `BaseButton` y tokens de marca.
+- QA visual local ejecutada con sesión ficticia, empresa ficticia y generación de CSR simulada solo para llegar al paso 3. No se abrió el portal externo, no se generó CSR real, no se usaron claves/certificados reales, no se llamó a ARCA ni backend real. Capturas en `private/brand-lab/exports/corte-certificados-wizard-portal-arca-*`.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías. El visor local de imágenes sigue bloqueado por ACL para `private/`, por lo que no se registra inspección visual manual directa.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - CSR generado del wizard de certificados 2026-06-22
 
 - Se aplicaron tokens de marca al estado de éxito `CSR generado` en `WizardStep2GenerarCSR`: alerta de éxito, aviso de clave privada, acción de descarga, panel de nombre de clave, acción de copia y textos auxiliares.

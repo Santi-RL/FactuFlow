@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowTopRightOnSquareIcon,
+  CheckCircleIcon,
+  QuestionMarkCircleIcon,
+} from "@heroicons/vue/24/outline";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
 
 interface Emits {
   (e: "next"): void;
@@ -17,163 +25,163 @@ const abrirPortalArca = () => {
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+  <div class="mx-auto max-w-3xl">
+    <h2 class="mb-6 text-2xl font-bold text-brand-ink">
       Obtené tu certificado en el portal de ARCA
     </h2>
 
-    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <p class="text-gray-700 mb-6">
+    <BaseCard class="mb-6 p-6">
+      <p class="mb-6 text-brand-slate">
         Ahora tenés que ir al portal de ARCA para obtener tu certificado. Seguí
         estos pasos:
       </p>
 
       <div class="space-y-6">
-        <!-- Paso 1 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             1
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Ingresá al portal de ARCA
             </h3>
-            <button
-              class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+            <BaseButton
+              variant="ghost"
+              size="sm"
               @click="abrirPortalArca"
             >
-              <span>🔗</span>
+              <ArrowTopRightOnSquareIcon class="mr-2 h-4 w-4" />
               <span>Ir al portal de ARCA</span>
-              <span>↗</span>
-            </button>
+            </BaseButton>
           </div>
         </div>
 
-        <!-- Paso 2 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             2
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Iniciá sesión con tu CUIT y clave fiscal
             </h3>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               Necesitás nivel 3 o superior en tu clave fiscal.
             </p>
           </div>
         </div>
 
-        <!-- Paso 3 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             3
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Buscá el servicio "Administración de Certificados Digitales"
             </h3>
           </div>
         </div>
 
-        <!-- Paso 4 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             4
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Seleccioná "Agregar Alias"
             </h3>
           </div>
         </div>
 
-        <!-- Paso 5 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             5
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Completá un nombre para identificar el certificado
             </h3>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               Ejemplo: "FactuFlow Producción"
             </p>
           </div>
         </div>
 
-        <!-- Paso 6 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             6
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Luego seleccioná "Agregar Alias" y subí el archivo .csr que
               descargaste en el paso anterior
             </h3>
           </div>
         </div>
 
-        <!-- Paso 7 -->
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             7
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Hacé click en "Ver" y descargá el certificado (.crt) que te genera
               ARCA
             </h3>
-            <p class="text-sm text-gray-600">
-              💡 El archivo descargado suele llamarse algo como
+            <p class="text-sm text-brand-slate">
+              El archivo descargado suele llamarse algo como
               "certificado_XXXXXXXX.crt" o similar.
             </p>
           </div>
         </div>
       </div>
 
-      <div class="mt-6 pt-6 border-t border-gray-200">
-        <button class="text-blue-600 hover:text-blue-700 font-medium text-sm">
-          ¿Tenés problemas? Ver guía detallada →
+      <div class="mt-6 border-t border-border-subtle pt-6">
+        <button
+          class="inline-flex items-center text-sm font-medium text-brand-flow transition-colors hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
+          type="button"
+        >
+          <QuestionMarkCircleIcon class="mr-2 h-4 w-4" />
+          <span>¿Tenés problemas? Ver guía detallada</span>
+          <ArrowRightIcon class="ml-2 h-4 w-4" />
         </button>
       </div>
-    </div>
+    </BaseCard>
 
-    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <label class="flex items-start gap-3 cursor-pointer">
+    <BaseCard class="mb-6 p-6">
+      <label class="flex cursor-pointer items-start gap-3">
         <input
           v-model="tengoElCertificado"
           type="checkbox"
-          class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          class="mt-1 h-5 w-5 rounded border-border-subtle text-brand-teal focus:ring-brand-flow"
         >
-        <span class="text-gray-700">
-          Ya tengo el certificado .crt descargado
+        <span class="flex items-center gap-2 text-brand-slate">
+          <CheckCircleIcon class="h-5 w-5 text-brand-teal" />
+          <span>Ya tengo el certificado .crt descargado</span>
         </span>
       </label>
-    </div>
+    </BaseCard>
 
-    <div class="flex justify-between">
+    <div class="flex justify-between gap-3">
       <BaseButton
         variant="secondary"
         @click="emit('prev')"
       >
-        ← Anterior
+        <ArrowLeftIcon class="mr-2 h-4 w-4" />
+        <span>Anterior</span>
       </BaseButton>
 
       <BaseButton
@@ -182,7 +190,8 @@ const abrirPortalArca = () => {
         data-testid="cert-wizard-step3-next"
         @click="emit('next')"
       >
-        Siguiente →
+        <span>Siguiente</span>
+        <ArrowRightIcon class="ml-2 h-4 w-4" />
       </BaseButton>
     </div>
   </div>
