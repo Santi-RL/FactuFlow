@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  DocumentTextIcon,
+  KeyIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/vue/24/outline";
 import { ref, computed, onMounted, watch } from "vue";
 import type {
   GenerarCSRRequest,
@@ -9,6 +16,7 @@ import { useEmpresaStore } from "@/stores/empresa";
 import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
 
 interface Emits {
@@ -235,24 +243,24 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+  <div class="mx-auto max-w-3xl">
+    <h2 class="mb-6 text-2xl font-bold text-brand-ink">
       Generación de clave privada y solicitud
     </h2>
 
-    <div class="bg-blue-50 border-l-4 border-blue-500 p-6 mb-6">
-      <p class="text-gray-700 mb-4">
+    <div class="mb-6 border-l-4 border-brand-teal bg-brand-mint p-6">
+      <p class="mb-4 text-brand-slate">
         Primero vamos a generar dos archivos importantes:
       </p>
 
       <div class="space-y-3">
         <div class="flex gap-3">
-          <span class="text-2xl">🔑</span>
+          <KeyIcon class="h-6 w-6 flex-shrink-0 text-brand-teal" />
           <div>
-            <p class="font-semibold text-gray-900">
+            <p class="font-semibold text-brand-ink">
               Clave Privada (.key)
             </p>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               Es tu "contraseña secreta". <strong>NUNCA</strong> la compartas
               con nadie.
             </p>
@@ -260,12 +268,12 @@ onMounted(async () => {
         </div>
 
         <div class="flex gap-3">
-          <span class="text-2xl">📄</span>
+          <DocumentTextIcon class="h-6 w-6 flex-shrink-0 text-brand-teal" />
           <div>
-            <p class="font-semibold text-gray-900">
+            <p class="font-semibold text-brand-ink">
               Solicitud de Certificado (.csr)
             </p>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               Es lo que vas a subir al portal de ARCA para obtener tu
               certificado.
             </p>
@@ -274,22 +282,22 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <label class="flex items-start gap-3 cursor-pointer">
+    <BaseCard class="mb-6">
+      <label class="flex cursor-pointer items-start gap-3">
         <input
           v-model="usarCSRExistente"
           type="checkbox"
-          class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          class="mt-1 h-5 w-5 rounded border-border-subtle text-brand-teal focus:ring-brand-flow"
         >
-        <span class="text-gray-700">
+        <span class="text-brand-slate">
           Ya tengo el CSR generado y quiero continuar sin volver a crearlo
         </span>
       </label>
-      <p class="text-sm text-gray-600 mt-2">
+      <p class="mt-2 text-sm text-brand-slate">
         Si ya generaste el CSR desde este sistema, podés usar la clave privada
         existente.
       </p>
-    </div>
+    </BaseCard>
 
     <BaseAlert
       v-if="emisorActivo"
@@ -305,7 +313,7 @@ onMounted(async () => {
 
     <div
       v-if="!usarCSRExistente && !csrGenerado"
-      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+      class="mb-6 rounded-panel border border-border-subtle bg-surface-card p-6 shadow-panel"
     >
       <BaseAlert
         v-if="error"
@@ -343,7 +351,7 @@ onMounted(async () => {
           required
         >
           <template #help>
-            <p class="text-sm text-gray-600 mt-1">
+            <p class="mt-1 text-sm text-brand-slate">
               <strong>Homologación:</strong> Para pruebas (recomendado para
               comenzar)<br>
               <strong>Producción:</strong> Para facturación real
@@ -360,8 +368,11 @@ onMounted(async () => {
             class="w-full"
             data-testid="cert-wizard-generar"
           >
-            <span v-if="!loading">🔐 Generar automáticamente</span>
-            <span v-else>Generando...</span>
+            <KeyIcon
+              v-if="!loading"
+              class="mr-2 h-5 w-5"
+            />
+            <span>{{ loading ? "Generando..." : "Generar automáticamente" }}</span>
           </BaseButton>
         </div>
       </form>
@@ -369,7 +380,7 @@ onMounted(async () => {
 
     <div
       v-else-if="usarCSRExistente"
-      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+      class="mb-6 rounded-panel border border-border-subtle bg-surface-card p-6 shadow-panel"
     >
       <BaseAlert
         v-if="errorClaves"
@@ -421,11 +432,12 @@ onMounted(async () => {
             :disabled="!formularioValido || loadingClaves"
             @click="cargarClaves"
           >
-            Buscar claves en servidor
+            <MagnifyingGlassIcon class="mr-2 h-4 w-4" />
+            <span>Buscar claves en servidor</span>
           </BaseButton>
           <span
             v-if="clavesDisponibles.length > 0"
-            class="text-sm text-gray-600"
+            class="text-sm text-brand-slate"
           >
             Se encontraron {{ clavesDisponibles.length }} clave(s)
           </span>
@@ -503,12 +515,13 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="flex justify-between">
+    <div class="flex justify-between gap-3">
       <BaseButton
         variant="secondary"
         @click="emit('prev')"
       >
-        ← Anterior
+        <ArrowLeftIcon class="mr-2 h-4 w-4" />
+        <span>Anterior</span>
       </BaseButton>
 
       <BaseButton
@@ -517,7 +530,8 @@ onMounted(async () => {
         data-testid="cert-wizard-step2-next"
         @click="continuar"
       >
-        Siguiente →
+        <span>Siguiente</span>
+        <ArrowRightIcon class="ml-2 h-4 w-4" />
       </BaseButton>
     </div>
   </div>

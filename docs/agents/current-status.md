@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-21
+Última actualización: 2026-06-22
 
 ## Objetivo activo
 
@@ -131,6 +131,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - CSR inicial del wizard de certificados 2026-06-22
+
+- Se aplicaron tokens de marca a la primera mitad operativa de `WizardStep2GenerarCSR`: encabezado, bloque explicativo, selector `Ya tengo el CSR`, formulario inicial/manual, ayuda de ambiente, búsqueda de claves y navegación inferior.
+- El cambio quedó acotado a presentación visual. No se modificaron generación de CSR, descarga, carga/listado real de claves, validaciones, watchers, emits, servicios, stores, backend, ARCA ni gestión real de certificados.
+- Se reemplazaron emojis decorativos y superficies/botones hardcodeados por Heroicons, `BaseCard`, `BaseButton` y tokens de marca. El estado posterior `CSR generado` quedó fuera de este corte para mantener el diff chico.
+- QA visual local ejecutada con sesión ficticia y respuestas API simuladas para estado inicial en escritorio/mobile y modo manual en escritorio. No se generó CSR, no se buscaron claves reales, no se llamó a ARCA ni backend real. Capturas en `private/brand-lab/exports/corte-certificados-wizard-csr-*`.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías. El visor local de imágenes sigue bloqueado por ACL para `private/`, por lo que no se registra inspección visual manual directa.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - intro del wizard de certificados 2026-06-21
 

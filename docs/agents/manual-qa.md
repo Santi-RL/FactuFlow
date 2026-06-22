@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-21
+Última actualización: 2026-06-22
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,17 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - CSR inicial del wizard de certificados 2026-06-22
+
+- Alcance revisado: encabezado del paso 2, bloque de archivos `.key`/`.csr`, selector `Ya tengo el CSR`, formularios inicial/manual, ayuda de ambiente, acción `Buscar claves en servidor` y navegación `Anterior`/`Siguiente` en `WizardStep2GenerarCSR`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y respuestas API simuladas para layout, empresa activa y alertas. No se usaron datos reales, no se llamó a ARCA, no se generó CSR, no se buscaron claves reales, no se cargaron certificados y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-wizard-csr-inicial-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-csr-manual-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-csr-inicial-mobile.png`
+- Controles realizados: Playwright verificó avance desde el intro al paso 2, carga de formulario inicial, activación de modo manual, ausencia de errores de consola y ausencia de requests API no mockeadas. Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías; no hubo inspección visual manual directa por ACL de `private/`.
+- Verificación automatizada asociada: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - intro del wizard de certificados 2026-06-21
 
