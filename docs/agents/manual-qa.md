@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-20
+Última actualización: 2026-06-21
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -96,6 +96,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - intro del wizard de certificados 2026-06-21
+
+- Alcance revisado: icono principal, título del paso, tarjeta de explicación,
+  bloque `Vas a necesitar`, checklist, tiempo estimado y acción `Comenzar` en
+  `WizardStep1Intro`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia y
+  respuestas API simuladas para layout, empresa activa y alertas. No se usaron
+  datos reales, no se llamó a ARCA, no se generó CSR, no se cargaron
+  certificados reales, no se emitieron comprobantes y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-wizard-intro-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-intro-mobile.png`
+- Controles realizados:
+  - Playwright verificó carga del wizard, textos del paso introductorio, acción
+    `Comenzar`, avance al paso 2, ausencia de errores de consola y ausencia de
+    requests API no mockeadas.
+  - Se verificó por script que las capturas existen, tienen dimensiones
+    esperadas y no están vacías. El visor local de imágenes sigue bloqueado por
+    ACL para `private/`, por lo que no se registra inspección visual manual
+    directa de esas capturas en este corte.
+- Verificación automatizada asociada: `git diff --check` OK,
+  `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y
+  `npm run test:unit` OK (63 tests).
 ### Integración visual controlada - shell del wizard de certificados 2026-06-20
 
 - Alcance revisado: encabezado de `CertificadoWizardView`, subtítulo, stepper de
