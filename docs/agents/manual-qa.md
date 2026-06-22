@@ -96,6 +96,16 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - CSR generado del wizard de certificados 2026-06-22
+
+- Alcance revisado: alerta `CSR generado exitosamente`, aviso de clave privada, acción `Descargar CSR nuevamente`, panel `Clave privada generada`, acción `Copiar nombre` y navegación `Siguiente` habilitada en `WizardStep2GenerarCSR`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia, empresa ficticia y respuestas API simuladas. El endpoint `POST /api/certificados/generar-csr` respondió un CSR ficticio y un nombre de clave ficticio. No se usaron datos reales, no se llamó a ARCA, no se generó CSR real, no se buscaron claves reales, no se cargaron certificados y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-wizard-csr-generado-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-csr-generado-mobile.png`
+- Controles realizados: Playwright verificó avance desde el intro al paso 2, respuesta mockeada de generación, aparición del estado de éxito, nombre de clave ficticio, botón `Siguiente` habilitado, ausencia de errores de consola y ausencia de requests API no mockeadas. Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías; no hubo inspección visual manual directa por ACL de `private/`.
+- Verificación automatizada asociada: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - CSR inicial del wizard de certificados 2026-06-22
 
 - Alcance revisado: encabezado del paso 2, bloque de archivos `.key`/`.csr`, selector `Ya tengo el CSR`, formularios inicial/manual, ayuda de ambiente, acción `Buscar claves en servidor` y navegación `Anterior`/`Siguiente` en `WizardStep2GenerarCSR`.

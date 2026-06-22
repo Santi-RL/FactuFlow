@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import {
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  ClipboardDocumentIcon,
   DocumentTextIcon,
+  ExclamationTriangleIcon,
   KeyIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/vue/24/outline";
@@ -455,29 +458,34 @@ onMounted(async () => {
 
     <div
       v-else
-      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+      class="mb-6 rounded-panel border border-border-subtle bg-surface-card p-6 shadow-panel"
     >
       <BaseAlert
         type="success"
+        title="CSR generado exitosamente"
         class="mb-4"
       >
-        <p class="font-semibold mb-2">
-          ✅ CSR generado exitosamente
-        </p>
-        <p class="text-sm">
+        <p>
           El archivo de solicitud (.csr) se descargó automáticamente. Guardá
           este archivo, lo vas a necesitar en el siguiente paso.
         </p>
       </BaseAlert>
 
-      <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-        <p class="font-semibold text-gray-900 mb-2">
-          ⚠️ IMPORTANTE
-        </p>
-        <p class="text-sm text-gray-700">
-          La clave privada (.key) se guardó de forma segura en el servidor. No
-          la pierdas, ya que la vas a necesitar para usar el certificado.
-        </p>
+      <div
+        class="flex gap-3 rounded-panel border border-border-subtle border-l-4 border-l-status-warning bg-surface-page p-4"
+      >
+        <ExclamationTriangleIcon
+          class="mt-0.5 h-5 w-5 flex-shrink-0 text-status-warning"
+        />
+        <div>
+          <p class="mb-2 font-semibold text-brand-ink">
+            Importante
+          </p>
+          <p class="text-sm text-brand-slate">
+            La clave privada (.key) se guardó de forma segura en el servidor. No
+            la pierdas, ya que la vas a necesitar para usar el certificado.
+          </p>
+        </div>
       </div>
 
       <div class="mt-4">
@@ -486,18 +494,21 @@ onMounted(async () => {
           class="w-full"
           @click="descargarCSRNuevamente"
         >
-          Descargar CSR nuevamente
+          <ArrowDownTrayIcon class="mr-2 h-4 w-4" />
+          <span>Descargar CSR nuevamente</span>
         </BaseButton>
       </div>
 
-      <div class="mt-4 bg-gray-50 rounded-lg p-4">
-        <p class="text-sm text-gray-700 mb-2">
+      <div
+        class="mt-4 rounded-panel border border-border-subtle bg-surface-page p-4"
+      >
+        <p class="mb-2 text-sm font-medium text-brand-slate">
           Clave privada generada:
         </p>
         <div
           class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
         >
-          <span class="font-mono text-sm text-gray-900 break-all">
+          <span class="break-all font-mono text-sm text-brand-ink">
             {{ csrData?.key_filename }}
           </span>
           <BaseButton
@@ -505,12 +516,19 @@ onMounted(async () => {
             size="sm"
             @click="copiarClave"
           >
-            {{ claveCopiada ? "Copiada" : "Copiar nombre" }}
+            <ClipboardDocumentIcon class="mr-2 h-4 w-4" />
+            <span>{{ claveCopiada ? "Copiada" : "Copiar nombre" }}</span>
           </BaseButton>
         </div>
-        <p class="text-xs text-gray-500 mt-2">
+        <p class="mt-2 text-xs text-brand-slate">
           Se guarda en el servidor en la carpeta configurada en
-          <code>CERTS_PATH</code> (por defecto <code>backend/certs/</code>).
+          <code
+            class="rounded-control bg-surface-card px-1 py-0.5 text-brand-ink"
+          >CERTS_PATH</code>
+          (por defecto
+          <code
+            class="rounded-control bg-surface-card px-1 py-0.5 text-brand-ink"
+          >backend/certs/</code>).
         </p>
       </div>
     </div>
