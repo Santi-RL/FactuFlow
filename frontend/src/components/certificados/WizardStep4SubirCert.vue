@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import {
+  ArrowLeftIcon,
+  DocumentArrowUpIcon,
+} from "@heroicons/vue/24/outline";
 import type { Certificado } from "@/types/certificado";
 import certificadosService from "@/services/certificados.service";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -123,8 +127,8 @@ const continuar = () => {
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+  <div class="mx-auto max-w-3xl">
+    <h2 class="mb-6 text-2xl font-bold text-brand-ink">
       Subí tu certificado
     </h2>
 
@@ -133,7 +137,7 @@ const continuar = () => {
       class="mb-6"
     >
       Usando clave privada:
-      <span class="font-mono">{{ props.keyFilename }}</span>
+      <span class="font-mono text-brand-ink">{{ props.keyFilename }}</span>
     </BaseAlert>
 
     <div
@@ -149,12 +153,12 @@ const continuar = () => {
       </BaseAlert>
 
       <div
-        class="bg-white rounded-lg shadow-md border-2 border-dashed p-12 text-center cursor-pointer transition-all"
+        class="cursor-pointer rounded-panel border-2 border-dashed p-12 text-center shadow-panel transition-all"
         :class="{
-          'border-blue-400 bg-blue-50': dragActive && !loading,
-          'border-gray-300 hover:border-gray-400 hover:bg-gray-50':
+          'border-brand-flow bg-brand-mint': dragActive && !loading,
+          'border-border-subtle bg-surface-card hover:border-brand-flow hover:bg-brand-mint':
             !dragActive && !loading,
-          'border-gray-200 bg-gray-50 cursor-not-allowed': loading,
+          'cursor-not-allowed border-border-subtle bg-surface-page': loading,
         }"
         @drop.prevent="onDrop"
         @dragover.prevent="onDragOver"
@@ -175,18 +179,20 @@ const continuar = () => {
           v-if="!loading"
           class="space-y-4"
         >
-          <div class="text-6xl">
-            📄
+          <div
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-panel bg-brand-mint text-brand-teal"
+          >
+            <DocumentArrowUpIcon class="h-9 w-9" />
           </div>
           <div>
-            <p class="text-lg font-semibold text-gray-900 mb-2">
+            <p class="mb-2 text-lg font-semibold text-brand-ink">
               Arrastrá el archivo .crt aquí
             </p>
-            <p class="text-gray-600">
+            <p class="text-brand-slate">
               o hacé clic para seleccionar
             </p>
           </div>
-          <p class="text-sm text-gray-500">
+          <p class="text-sm text-brand-slate">
             Formatos aceptados: .crt, .cer, .pem
           </p>
         </div>
@@ -196,9 +202,9 @@ const continuar = () => {
           class="space-y-4"
         >
           <div
-            class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"
+            class="inline-block h-12 w-12 animate-spin rounded-full border-b-2 border-brand-teal"
           />
-          <p class="text-lg font-semibold text-gray-900">
+          <p class="text-lg font-semibold text-brand-ink">
             Validando certificado...
           </p>
         </div>
@@ -270,7 +276,8 @@ const continuar = () => {
         :disabled="loading"
         @click="emit('prev')"
       >
-        ← Anterior
+        <ArrowLeftIcon class="mr-2 h-4 w-4" />
+        <span>Anterior</span>
       </BaseButton>
 
       <BaseButton

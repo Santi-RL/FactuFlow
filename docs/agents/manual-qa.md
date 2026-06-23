@@ -96,6 +96,17 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Integración visual controlada - carga inicial de certificado 2026-06-22
+
+- Alcance revisado: encabezado `Subí tu certificado`, alerta `Usando clave privada`, dropzone de archivos `.crt/.cer/.pem`, estado drag activo, spinner de validación y navegación `Anterior` en `WizardStep4SubirCert`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia, empresa ficticia y respuestas API simuladas. El endpoint `POST /api/certificados/generar-csr` respondió un CSR ficticio solo para avanzar hasta el paso 4. No se usaron datos reales, no se seleccionó archivo, no se subió certificado, no se llamó a ARCA, no se cargaron certificados y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-inicial-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-drag-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-inicial-mobile.png`
+- Controles realizados: Playwright verificó avance hasta el paso 4, presencia de clave privada ficticia, ausencia del botón `Siguiente` antes de subir certificado, estado drag activo, ausencia de errores de consola y ausencia de requests API no mockeadas. Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías; no hubo inspección visual manual directa por ACL de `private/`.
+- Verificación automatizada asociada: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - portal ARCA del wizard de certificados 2026-06-22
 
 - Alcance revisado: instrucciones del portal ARCA, acción `Ir al portal de ARCA`, ayuda `Ver guía detallada`, checkbox `Ya tengo el certificado .crt descargado` y navegación `Anterior`/`Siguiente` en `WizardStep3PortalArca`.

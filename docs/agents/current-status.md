@@ -132,6 +132,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - carga inicial de certificado 2026-06-22
+
+- Se aplicaron tokens de marca al estado inicial de `WizardStep4SubirCert`: encabezado, alerta de clave privada usada, dropzone, estado drag activo, textos auxiliares, spinner de validación y navegación `Anterior`.
+- El cambio quedó acotado a presentación visual del estado previo a subir archivo. No se modificaron validación de extensión, selección de archivo, subida de certificado, manejo de errores, props, emits, servicios, stores, backend, ARCA ni gestión real de certificados.
+- Se reemplazaron el emoji decorativo, azul/gris hardcodeado y flecha textual del botón anterior por Heroicons y tokens de marca. El estado posterior `Certificado cargado correctamente` quedó fuera de este corte para mantener el diff chico.
+- QA visual local ejecutada con sesión ficticia, empresa ficticia y generación de CSR simulada solo para llegar al paso 4. No se seleccionó archivo, no se subió certificado, no se usaron claves/certificados reales, no se llamó a ARCA ni backend real. Capturas en `private/brand-lab/exports/corte-certificados-wizard-subir-cert-*`.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías. El visor local de imágenes sigue bloqueado por ACL para `private/`, por lo que no se registra inspección visual manual directa.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - portal ARCA del wizard de certificados 2026-06-22
 
 - Se aplicaron tokens de marca a `WizardStep3PortalArca`: encabezado, tarjeta de instrucciones, numeradores, acción `Ir al portal de ARCA`, ayuda, confirmación de certificado descargado y navegación inferior.
