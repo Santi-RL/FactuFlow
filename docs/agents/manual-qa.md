@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-22
+Última actualización: 2026-06-23
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,16 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - certificado cargado del wizard 2026-06-23
+
+- Alcance revisado: estado `Certificado cargado correctamente`, panel `Información del certificado`, CUIT, fechas, días restantes y navegación `Siguiente` en `WizardStep4SubirCert`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia, empresa ficticia y respuestas API simuladas. El endpoint `POST /api/certificados/generar-csr` respondió un CSR ficticio para avanzar y `POST /api/certificados/subir-certificado` respondió un certificado ficticio. No se usaron datos reales, claves reales ni certificados reales; no se llamó a ARCA y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-cargado-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-cargado-mobile.png`
+- Controles realizados: Playwright verificó avance hasta el paso 4, carga de archivo `.crt` ficticio contra endpoint mockeado, aparición del estado de éxito, datos de certificado ficticio, botón `Siguiente` habilitado, ausencia de errores de consola y ausencia de requests API no mockeadas. Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías; no hubo inspección visual manual directa por ACL de `private/`.
+- Verificación automatizada asociada: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - carga inicial de certificado 2026-06-22
 

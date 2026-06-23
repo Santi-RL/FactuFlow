@@ -2,6 +2,8 @@
 import { ref, computed } from "vue";
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
+  ClipboardDocumentCheckIcon,
   DocumentArrowUpIcon,
 } from "@heroicons/vue/24/outline";
 import type { Certificado } from "@/types/certificado";
@@ -213,56 +215,55 @@ const continuar = () => {
 
     <div
       v-else
-      class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6"
+      class="mb-6 rounded-panel border border-border-subtle bg-surface-card p-6 shadow-panel"
     >
       <BaseAlert
         type="success"
+        title="Certificado cargado correctamente"
         class="mb-6"
-      >
-        <p class="font-semibold mb-1">
-          ✅ Certificado cargado correctamente
-        </p>
-      </BaseAlert>
+      />
 
-      <div class="bg-gray-50 rounded-lg p-6">
-        <h3 class="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <span>📋</span>
+      <div
+        class="rounded-panel border border-border-subtle bg-surface-page p-6"
+      >
+        <h3 class="mb-4 flex items-center gap-2 font-semibold text-brand-ink">
+          <ClipboardDocumentCheckIcon class="h-5 w-5 text-brand-teal" />
           <span>Información del certificado:</span>
         </h3>
 
         <dl class="space-y-3">
-          <div class="flex justify-between">
-            <dt class="text-gray-600">
+          <div class="flex justify-between gap-4">
+            <dt class="text-brand-slate">
               CUIT:
             </dt>
-            <dd class="font-medium text-gray-900">
+            <dd class="font-medium text-brand-ink">
               {{ certificadoInfo?.cuit }}
             </dd>
           </div>
 
-          <div class="flex justify-between">
-            <dt class="text-gray-600">
+          <div class="flex justify-between gap-4">
+            <dt class="text-brand-slate">
               Emitido:
             </dt>
-            <dd class="font-medium text-gray-900">
+            <dd class="font-medium text-brand-ink">
               {{ certificadoInfo?.fechaEmision }}
             </dd>
           </div>
 
-          <div class="flex justify-between">
-            <dt class="text-gray-600">
+          <div class="flex justify-between gap-4">
+            <dt class="text-brand-slate">
               Vence:
             </dt>
-            <dd class="font-medium text-gray-900">
+            <dd class="font-medium text-brand-ink">
               {{ certificadoInfo?.fechaVencimiento }}
             </dd>
           </div>
 
-          <div class="flex justify-between">
-            <dt class="text-gray-600">
+          <div class="flex justify-between gap-4">
+            <dt class="text-brand-slate">
               Días restantes:
             </dt>
-            <dd class="font-medium text-green-600">
+            <dd class="font-medium text-status-success">
               {{ certificadoInfo?.diasRestantes }} días
             </dd>
           </div>
@@ -270,7 +271,7 @@ const continuar = () => {
       </div>
     </div>
 
-    <div class="flex justify-between">
+    <div class="flex justify-between gap-3">
       <BaseButton
         variant="secondary"
         :disabled="loading"
@@ -286,7 +287,8 @@ const continuar = () => {
         data-testid="cert-wizard-step4-next"
         @click="continuar"
       >
-        Siguiente →
+        <span>Siguiente</span>
+        <ArrowRightIcon class="ml-2 h-4 w-4" />
       </BaseButton>
     </div>
   </div>

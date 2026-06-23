@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-22
+Última actualización: 2026-06-23
 
 ## Objetivo activo
 
@@ -131,6 +131,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - certificado cargado del wizard 2026-06-23
+
+- Se aplicaron tokens de marca al estado `Certificado cargado correctamente` de `WizardStep4SubirCert`: tarjeta de éxito, panel de información del certificado, CUIT, fechas, días restantes y navegación `Siguiente`.
+- El cambio quedó acotado a presentación visual del estado posterior a una subida exitosa. No se modificaron selección de archivo, validación de extensión, subida de certificado, respuesta del servicio, `certificadoInfo`, props, emits, stores, backend, ARCA ni gestión real de certificados.
+- Se reemplazaron emojis decorativos, superficies `white/gray`, texto `green` hardcodeado y flecha textual por Heroicons y tokens de marca/estado.
+- QA visual local ejecutada con sesión ficticia, empresa ficticia, CSR ficticio y `POST /api/certificados/subir-certificado` simulado. No se usaron claves/certificados reales, no se llamó a ARCA ni backend real. Capturas en `private/brand-lab/exports/corte-certificados-wizard-subir-cert-cargado-*`.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías. El visor local de imágenes sigue bloqueado por ACL para `private/`, por lo que no se registra inspección visual manual directa.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - carga inicial de certificado 2026-06-22
 
