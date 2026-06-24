@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-23
+Última actualización: 2026-06-24
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -95,6 +95,17 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Integración visual controlada - autorización WSFE del wizard de certificados 2026-06-24
+
+- Alcance revisado: instrucciones para autorizar WSFE, acción `Ir al portal de ARCA`, checkbox `Ya autoricé el servicio...` y navegación `Anterior`/`Siguiente` en `WizardStep5AutorizarServicio`.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia, empresa ficticia y respuestas API simuladas. `POST /api/certificados/generar-csr` y `POST /api/certificados/subir-certificado` respondieron datos ficticios solo para avanzar hasta el paso 5. No se usaron datos reales, no se abrió el portal externo, no se llamó a ARCA, no se autorizó WSFE real y no se tocó backend.
+- Capturas sanitizadas:
+  - `private/brand-lab/exports/corte-certificados-wizard-autorizar-wsfe-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-autorizar-wsfe-confirmado-desktop.png`
+  - `private/brand-lab/exports/corte-certificados-wizard-autorizar-wsfe-mobile.png`
+- Controles realizados: Playwright verificó avance hasta el paso 5, presencia de instrucciones y acción del portal, enlace ARCA con `target="_blank"` y `rel="noopener noreferrer"`, `Siguiente` deshabilitado antes de confirmar, habilitación después de marcar autorización, ausencia de errores de consola y ausencia de requests API no mockeadas. Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías; no hubo inspección visual manual directa por ACL de `private/`.
+- Verificación automatizada asociada: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - certificado cargado del wizard 2026-06-23
 

@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-23
+Última actualización: 2026-06-24
 
 ## Objetivo activo
 
@@ -131,6 +131,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Integración visual controlada - autorización WSFE del wizard de certificados 2026-06-24
+
+- Se aplicaron tokens de marca a `WizardStep5AutorizarServicio`: encabezado, tarjeta de instrucciones, numeradores, acción del portal ARCA, confirmación de autorización y navegación inferior.
+- El cambio quedó acotado a presentación visual. No se modificaron `portalArcaUrl`, `servicioAutorizado`, props, emits, navegación, certificados, servicios, stores, backend, ARCA ni autorización real de WSFE.
+- Se reemplazaron colores `blue/gray` hardcodeados y flechas textuales por Heroicons, `BaseCard`, `BaseButton` y tokens de marca.
+- QA visual local ejecutada con sesión ficticia, empresa ficticia, CSR ficticio, certificado ficticio y endpoints simulados solo para llegar al paso 5. No se abrió el portal externo, no se autorizó WSFE real, no se usaron claves/certificados reales, no se llamó a ARCA ni backend real. Capturas en `private/brand-lab/exports/corte-certificados-wizard-autorizar-wsfe-*`.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías. El visor local de imágenes sigue bloqueado por ACL para `private/`, por lo que no se registra inspección visual manual directa.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
 
 ### Integración visual controlada - certificado cargado del wizard 2026-06-23
 

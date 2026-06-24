@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowTopRightOnSquareIcon,
+  CheckCircleIcon,
+} from "@heroicons/vue/24/outline";
 import type { Certificado } from "@/types/certificado";
 import BaseButton from "@/components/ui/BaseButton.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
 
 interface Props {
   certificado: Certificado;
@@ -20,13 +27,13 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
+  <div class="mx-auto max-w-3xl">
+    <h2 class="mb-6 text-2xl font-bold text-brand-ink">
       Autorizá el servicio de facturación
     </h2>
 
-    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <p class="text-gray-700 mb-6">
+    <BaseCard class="mb-6 p-6">
+      <p class="mb-6 text-brand-slate">
         Hacé esta autorización en ARCA para el mismo CUIT y certificado que
         acabás de cargar.
       </p>
@@ -34,34 +41,34 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
       <div class="space-y-6">
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             1
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Entrá al portal de ARCA
             </h3>
             <a
               :href="portalArcaUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+              class="inline-flex items-center rounded-control px-3 py-1.5 text-sm font-medium text-brand-flow transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
             >
+              <ArrowTopRightOnSquareIcon class="mr-2 h-4 w-4" />
               <span>Ir al portal de ARCA</span>
-              <span>↗</span>
             </a>
           </div>
         </div>
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             2
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Abrí Administrador de Relaciones de Clave Fiscal
             </h3>
           </div>
@@ -69,15 +76,15 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             3
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Seleccioná "Adherir servicio"
             </h3>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               En la siguiente pantalla elegí "ARCA" y luego "Web Services".
             </p>
           </div>
@@ -85,12 +92,12 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             4
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Buscá el servicio "Factura Electrónica"
             </h3>
           </div>
@@ -98,12 +105,12 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             5
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               En la fila "Representante", hacé click en "Buscar"
             </h3>
           </div>
@@ -111,15 +118,15 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             6
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Elegí el computador fiscal
             </h3>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               En "Computador Fiscal", elegí "FactuFlow" o el alias que le hayas
               puesto al certificado y luego confirmá.
             </p>
@@ -128,15 +135,15 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             7
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Verificá los datos en pantalla
             </h3>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               Luego confirmá la nueva relación.
             </p>
           </div>
@@ -144,44 +151,48 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
 
         <div class="flex gap-4">
           <div
-            class="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold"
+            class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-brand-teal font-bold text-white"
           >
             8
           </div>
           <div>
-            <h3 class="font-semibold text-gray-900 mb-2">
+            <h3 class="mb-2 font-semibold text-brand-ink">
               Volvé a FactuFlow para continuar
             </h3>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-brand-slate">
               Si todo sale bien, deberías ver una pantalla de confirmación de
               ARCA.
             </p>
           </div>
         </div>
       </div>
-    </div>
+    </BaseCard>
 
-    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <label class="flex items-start gap-3 cursor-pointer">
+    <BaseCard class="mb-6 p-6">
+      <label class="flex cursor-pointer items-start gap-3">
         <input
           v-model="servicioAutorizado"
           type="checkbox"
-          class="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          class="mt-1 h-5 w-5 rounded border-border-subtle text-brand-teal focus:ring-brand-flow"
           data-testid="cert-wizard-wsfe-authorized"
         >
-        <span class="text-gray-700">
-          Ya autoricé el servicio "Factura Electrónica" para este certificado en
-          ARCA
+        <span class="flex items-start gap-2 text-brand-slate">
+          <CheckCircleIcon class="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-teal" />
+          <span>
+            Ya autoricé el servicio "Factura Electrónica" para este certificado
+            en ARCA
+          </span>
         </span>
       </label>
-    </div>
+    </BaseCard>
 
-    <div class="flex justify-between">
+    <div class="flex justify-between gap-3">
       <BaseButton
         variant="secondary"
         @click="emit('prev')"
       >
-        ← Anterior
+        <ArrowLeftIcon class="mr-2 h-4 w-4" />
+        <span>Anterior</span>
       </BaseButton>
 
       <BaseButton
@@ -190,7 +201,8 @@ const portalArcaUrl = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
         data-testid="cert-wizard-step5-next"
         @click="emit('next')"
       >
-        Siguiente →
+        <span>Siguiente</span>
+        <ArrowRightIcon class="ml-2 h-4 w-4" />
       </BaseButton>
     </div>
   </div>
