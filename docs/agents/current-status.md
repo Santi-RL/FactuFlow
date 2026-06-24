@@ -132,6 +132,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Integración visual controlada - verificación del wizard de certificados 2026-06-24
+
+- Se aplicaron tokens de marca a `WizardStep5Verificar`: estado inicial de prueba de conexión, resultado exitoso, panel de servidores ARCA, resultado fallido, posibles soluciones y navegación inferior.
+- El cambio quedó acotado a presentación visual. No se modificaron `verificarConexion`, `certificadosService.verificarConexion`, props, emits, endpoint, respuesta de verificación, navegación final, certificados, stores, backend, ARCA ni la prueba real de conexión.
+- Se reemplazaron emojis decorativos, superficies `white/gray/yellow`, textos `green` hardcodeados y flechas textuales por Heroicons, `BaseCard`, `BaseAlert`, `BaseButton` y tokens de marca/estado.
+- QA visual local ejecutada con sesión ficticia, empresa ficticia, CSR ficticio, certificado ficticio y endpoints simulados solo para llegar al paso 6. `POST /api/certificados/verificar-conexion/101` se simuló con respuesta exitosa y fallida. No se usaron datos reales, no se llamó a ARCA, no se probó ningún certificado real y no se tocó backend real. Capturas en `private/brand-lab/exports/corte-certificados-wizard-verificar-*`.
+- Se verificó por script que las capturas existen, tienen dimensiones esperadas y no están vacías. El visor local de imágenes sigue bloqueado por ACL para `private/`, por lo que no se registra inspección visual manual directa.
+- Verificación frontend: `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK (63 tests).
+
 ### Integración visual controlada - autorización WSFE del wizard de certificados 2026-06-24
 
 - Se aplicaron tokens de marca a `WizardStep5AutorizarServicio`: encabezado, tarjeta de instrucciones, numeradores, acción del portal ARCA, confirmación de autorización y navegación inferior.

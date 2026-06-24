@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import {
+  ArrowLeftIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  CloudArrowUpIcon,
+  QuestionMarkCircleIcon,
+  ServerStackIcon,
+  ShieldCheckIcon,
+} from "@heroicons/vue/24/outline";
 import type { Certificado, VerificacionResponse } from "@/types/certificado";
 import certificadosService from "@/services/certificados.service";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
+import BaseCard from "@/components/ui/BaseCard.vue";
 
 interface Props {
   certificado: Certificado;
@@ -45,163 +55,163 @@ const verificarConexion = async () => {
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">
-      ¡Último paso! Verifiquemos que todo funciona
+  <div class="mx-auto max-w-3xl">
+    <h2 class="mb-6 text-2xl font-bold text-brand-ink">
+      Último paso: verifiquemos que todo funciona
     </h2>
 
-    <div class="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
-      <p class="text-gray-700 mb-6">
+    <BaseCard class="mb-6 p-6">
+      <p class="mb-6 text-brand-slate">
         Vamos a hacer una prueba de conexión con ARCA para asegurarnos de que el
         certificado está bien configurado.
       </p>
 
       <div
         v-if="!verificado"
-        class="text-center"
+        class="rounded-panel border border-border-subtle bg-surface-page p-8 text-center"
       >
+        <div
+          class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-panel bg-brand-mint text-brand-teal"
+        >
+          <CloudArrowUpIcon class="h-9 w-9" />
+        </div>
+
+        <h3 class="mb-2 text-lg font-semibold text-brand-ink">
+          Probá la conexión antes de terminar
+        </h3>
+        <p class="mx-auto mb-6 max-w-xl text-sm text-brand-slate">
+          FactuFlow va a consultar ARCA con este certificado para confirmar que
+          la autenticación y los servidores responden correctamente.
+        </p>
+
         <BaseButton
           variant="primary"
           :loading="loading"
-          class="px-8 py-3 text-lg"
+          size="lg"
           data-testid="cert-wizard-verificar"
           @click="verificarConexion"
         >
-          <span v-if="!loading">🔌 Probar conexión</span>
-          <span v-else>Verificando...</span>
+          <span>{{ loading ? "Verificando..." : "Probar conexión" }}</span>
         </BaseButton>
       </div>
 
       <div v-else>
-        <!-- Éxito -->
         <div
           v-if="resultado?.exito"
           class="space-y-6"
         >
-          <BaseAlert type="success">
-            <div class="flex items-start gap-3">
-              <span class="text-3xl">✅</span>
-              <div>
-                <h3 class="font-bold text-lg mb-2">
-                  ¡Conexión exitosa!
-                </h3>
-                <p class="text-sm">
-                  Tu certificado está correctamente configurado y listo para
-                  usar.
-                </p>
-              </div>
-            </div>
+          <BaseAlert
+            type="success"
+            title="Conexión exitosa"
+            :dismissible="false"
+          >
+            Tu certificado está correctamente configurado y listo para usar.
           </BaseAlert>
 
-          <div class="bg-gray-50 rounded-lg p-6">
-            <h4 class="font-semibold text-gray-900 mb-4">
-              Estado de servidores ARCA:
+          <div
+            class="rounded-panel border border-border-subtle bg-surface-page p-6"
+          >
+            <h4 class="mb-4 flex items-center gap-2 font-semibold text-brand-ink">
+              <ServerStackIcon class="h-5 w-5 text-brand-teal" />
+              <span>Estado de servidores ARCA:</span>
             </h4>
 
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="text-gray-700">• Aplicación:</span>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-brand-slate">Aplicación:</span>
                 <span
-                  class="text-green-600 font-medium flex items-center gap-1"
+                  class="flex items-center gap-2 font-medium text-status-success"
                 >
-                  <span>✅</span>
-                  <span>{{
-                    resultado.estado_servidores?.aplicacion || "OK"
-                  }}</span>
+                  <CheckCircleIcon class="h-5 w-5" />
+                  <span>{{ resultado.estado_servidores?.aplicacion || "OK" }}</span>
                 </span>
               </div>
 
-              <div class="flex items-center justify-between">
-                <span class="text-gray-700">• Base de datos:</span>
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-brand-slate">Base de datos:</span>
                 <span
-                  class="text-green-600 font-medium flex items-center gap-1"
+                  class="flex items-center gap-2 font-medium text-status-success"
                 >
-                  <span>✅</span>
-                  <span>{{
-                    resultado.estado_servidores?.base_datos || "OK"
-                  }}</span>
+                  <CheckCircleIcon class="h-5 w-5" />
+                  <span>{{ resultado.estado_servidores?.base_datos || "OK" }}</span>
                 </span>
               </div>
 
-              <div class="flex items-center justify-between">
-                <span class="text-gray-700">• Autenticación:</span>
+              <div class="flex items-center justify-between gap-4">
+                <span class="text-brand-slate">Autenticación:</span>
                 <span
-                  class="text-green-600 font-medium flex items-center gap-1"
+                  class="flex items-center gap-2 font-medium text-status-success"
                 >
-                  <span>✅</span>
-                  <span>{{
-                    resultado.estado_servidores?.autenticacion || "OK"
-                  }}</span>
+                  <CheckCircleIcon class="h-5 w-5" />
+                  <span>{{ resultado.estado_servidores?.autenticacion || "OK" }}</span>
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Error -->
         <div
           v-else
           class="space-y-6"
         >
-          <BaseAlert type="error">
-            <div class="flex items-start gap-3">
-              <span class="text-3xl">❌</span>
-              <div>
-                <h3 class="font-bold text-lg mb-2">
-                  No se pudo conectar
-                </h3>
-                <p class="text-sm mb-3">
-                  {{ resultado?.error || resultado?.mensaje }}
-                </p>
-              </div>
-            </div>
+          <BaseAlert
+            type="error"
+            title="No se pudo conectar"
+            :dismissible="false"
+          >
+            {{ resultado?.error || resultado?.mensaje }}
           </BaseAlert>
 
-          <div class="bg-yellow-50 border-l-4 border-yellow-500 p-6">
-            <h4 class="font-semibold text-gray-900 mb-3">
-              Posibles soluciones:
+          <div class="rounded-panel border border-amber-200 bg-amber-50 p-6">
+            <h4 class="mb-3 flex items-center gap-2 font-semibold text-brand-ink">
+              <ShieldCheckIcon class="h-5 w-5 text-amber-700" />
+              <span>Posibles soluciones:</span>
             </h4>
 
-            <ul class="space-y-2 text-sm text-gray-700">
+            <ul class="space-y-2 text-sm text-brand-slate">
               <li class="flex gap-2">
-                <span>•</span>
+                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
                 <span>Verificá que el certificado sea correcto</span>
               </li>
               <li class="flex gap-2">
-                <span>•</span>
-                <span>Asegurate de haber autorizado el servicio en el portal de
-                  ARCA</span>
+                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
+                <span>
+                  Asegurate de haber autorizado el servicio en el portal de ARCA
+                </span>
               </li>
               <li class="flex gap-2">
-                <span>•</span>
+                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
                 <span>Intentá de nuevo en unos minutos</span>
               </li>
             </ul>
           </div>
 
-          <div class="flex gap-3 justify-center">
+          <div class="flex flex-wrap justify-center gap-3">
             <BaseButton
               variant="secondary"
               @click="verificarConexion"
             >
-              Reintentar
+              <ArrowPathIcon class="mr-2 h-4 w-4" />
+              <span>Reintentar</span>
             </BaseButton>
 
             <BaseButton variant="secondary">
-              Ver ayuda
+              <QuestionMarkCircleIcon class="mr-2 h-4 w-4" />
+              <span>Ver ayuda</span>
             </BaseButton>
           </div>
         </div>
       </div>
-    </div>
+    </BaseCard>
 
-    <div class="flex justify-between">
+    <div class="flex justify-between gap-3">
       <BaseButton
         variant="secondary"
         :disabled="loading"
         @click="emit('prev')"
       >
-        ← Anterior
+        <ArrowLeftIcon class="mr-2 h-4 w-4" />
+        <span>Anterior</span>
       </BaseButton>
 
       <BaseButton
@@ -210,7 +220,8 @@ const verificarConexion = async () => {
         data-testid="cert-wizard-finish"
         @click="emit('finish')"
       >
-        Finalizar ✓
+        <span>Finalizar</span>
+        <CheckCircleIcon class="ml-2 h-4 w-4" />
       </BaseButton>
     </div>
   </div>
