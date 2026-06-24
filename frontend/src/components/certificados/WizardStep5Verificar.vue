@@ -162,25 +162,25 @@ const verificarConexion = async () => {
             {{ resultado?.error || resultado?.mensaje }}
           </BaseAlert>
 
-          <div class="rounded-panel border border-amber-200 bg-amber-50 p-6">
+          <div class="rounded-panel border border-border-subtle border-l-4 border-l-status-warning bg-surface-page p-6">
             <h4 class="mb-3 flex items-center gap-2 font-semibold text-brand-ink">
-              <ShieldCheckIcon class="h-5 w-5 text-amber-700" />
+              <ShieldCheckIcon class="h-5 w-5 text-status-warning" />
               <span>Posibles soluciones:</span>
             </h4>
 
             <ul class="space-y-2 text-sm text-brand-slate">
               <li class="flex gap-2">
-                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
+                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-status-warning" />
                 <span>Verificá que el certificado sea correcto</span>
               </li>
               <li class="flex gap-2">
-                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
+                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-status-warning" />
                 <span>
                   Asegurate de haber autorizado el servicio en el portal de ARCA
                 </span>
               </li>
               <li class="flex gap-2">
-                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-700" />
+                <CheckCircleIcon class="mt-0.5 h-4 w-4 flex-shrink-0 text-status-warning" />
                 <span>Intentá de nuevo en unos minutos</span>
               </li>
             </ul>

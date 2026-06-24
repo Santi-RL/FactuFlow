@@ -61,8 +61,8 @@ const resultadoClasses = computed(() => {
   if (!props.resultadoVerificacion) return "";
 
   return props.resultadoVerificacion.exito
-    ? "border-status-success bg-emerald-50"
-    : "border-status-danger bg-rose-50";
+    ? "border-status-success bg-surface-page"
+    : "border-status-danger bg-surface-page";
 });
 
 const formatearFecha = (fecha: string) => {
