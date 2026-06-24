@@ -47,9 +47,9 @@ const getStepClasses = (stepNumber: number) => {
   const isCompleted = stepNumber < props.currentStep;
 
   return {
-    "scale-105 border-brand-teal bg-brand-teal text-white shadow-sm ring-4 ring-brand-mint":
+    "scale-105 border-brand-teal bg-brand-teal text-white shadow-panel ring-4 ring-brand-mint":
       isActive,
-    "border-status-success bg-status-success text-white shadow-sm":
+    "border-status-success bg-status-success text-white shadow-panel":
       isCompleted,
     "border-border-subtle bg-surface-card text-brand-slate":
       !isActive && !isCompleted,

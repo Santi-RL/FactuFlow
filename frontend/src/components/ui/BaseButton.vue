@@ -33,7 +33,7 @@ const classes = computed(() => {
     secondary:
       "border border-border-subtle bg-surface-card text-brand-ink hover:bg-brand-mint",
     danger:
-      "border border-transparent bg-status-danger text-white hover:bg-red-700 focus:ring-status-danger",
+      "border border-transparent bg-status-danger text-white hover:opacity-90 focus:ring-status-danger",
     ghost:
       "border border-transparent bg-transparent text-brand-slate hover:bg-brand-mint hover:text-brand-ink",
   };

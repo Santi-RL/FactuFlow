@@ -46,7 +46,7 @@
         class="group rounded-panel border border-border-subtle bg-surface-card p-6 text-left shadow-panel transition-all hover:-translate-y-0.5 hover:border-brand-flow hover:shadow-overlay focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
       >
         <div class="mb-4 flex items-start">
-          <div class="rounded-panel bg-emerald-50 p-3">
+          <div class="rounded-panel bg-status-success-soft p-3">
             <DocumentTextIcon class="h-8 w-8 text-status-success" />
           </div>
         </div>

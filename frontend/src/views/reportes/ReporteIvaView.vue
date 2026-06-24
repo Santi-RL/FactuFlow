@@ -164,7 +164,7 @@ const resumenIVA = computed(() => {
       gravado: formatearMoneda(reporte.value.resumen.gravado_10_5),
       iva: formatearMoneda(reporte.value.resumen.iva_10_5),
       color: "text-status-success",
-      bg: "bg-emerald-50",
+      bg: "bg-status-success-soft",
     });
   }
 
@@ -192,7 +192,7 @@ const resumenTotales = computed(() => {
       label: "Total IVA",
       valor: formatearMoneda(reporte.value.resumen.total_iva),
       color: "text-status-warning",
-      bg: "bg-amber-50",
+      bg: "bg-status-warning-soft",
     },
     {
       label: "Total Neto",

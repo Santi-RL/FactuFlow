@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
     <!-- Overlay for mobile -->
     <div
       v-if="uiStore.sidebarOpen"
-      class="lg:hidden fixed inset-0 z-40 bg-gray-900 bg-opacity-50"
+      class="lg:hidden fixed inset-0 z-40 bg-brand-carbon opacity-60"
       @click="uiStore.toggleSidebar"
     />
 
@@ -237,7 +237,7 @@ onBeforeUnmount(() => {
               'flex items-center rounded-control px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2',
               isActive(item.path)
                 ? 'bg-brand-mint text-brand-teal'
-                : 'text-brand-slate hover:bg-gray-50 hover:text-brand-ink',
+                : 'text-brand-slate hover:bg-brand-mint hover:text-brand-ink',
             ]"
             @click="uiStore.sidebarOpen = false"
           >

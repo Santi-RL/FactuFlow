@@ -96,6 +96,23 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Checkpoint visual v01 instalable en producción - cierre 2026-06-24
+
+- Alcance consolidado: shell común, componentes base/comunes, login/setup,
+  dashboard, clientes, usuarios, reportes y certificados/listado/wizard.
+- Controles de cierre: barrido estático sin hardcodes visuales bloqueantes en el
+  alcance, revisión por agentes sobre documentación y frontend, aplicación local
+  levantada en `http://localhost:8080` para inspección visual del usuario,
+  `git diff --check` OK, `npm run lint:check` OK, `npm run type-check` OK,
+  `npm run build` OK, `npm run test:unit` OK (63 tests) y
+  `npm run test:e2e -- --reporter=list` OK (31 tests en Chromium desktop).
+- El cierre usó datos ficticios, mocks locales o revisión visual segura. No se
+  usaron datos reales nuevos, no se llamó a ARCA, no se verificaron certificados
+  reales, no se solicitó CAE y no se tocó backend.
+- Las capturas privadas de microcortes permanecen en
+  `private/brand-lab/exports`, fuera de Git. Este cierre no copia evidencia
+  privada a documentación versionada.
+
 ### Integración visual controlada - verificación del wizard de certificados 2026-06-24
 
 - Alcance revisado: estado inicial `Probá la conexión`, acción `Probar conexión`, resultado `Conexión exitosa`, panel `Estado de servidores ARCA`, resultado `No se pudo conectar`, posibles soluciones y navegación `Anterior`/`Finalizar` en `WizardStep5Verificar`.

@@ -16,6 +16,24 @@ Reglas vigentes desde 2026-05-22:
 - No registrar CUITs, CAEs, nombres reales, Excels, PDFs, logs ni evidencia
   privada en este archivo.
 
+## [Unreleased]
+
+### Checkpoint visual v01
+
+- Se cerró el checkpoint visual v01 del frontend público para instalación
+  productiva controlada, con identidad aplicada en shell común, componentes
+  base/comunes, login/setup, dashboard, clientes, usuarios, reportes y
+  certificados/listado/wizard.
+- Se agregaron tokens suaves de estado y se eliminó deuda visual residual del
+  alcance, sin modificar backend, ARCA, emisión individual o masiva, lotes
+  fiscales, servicios, stores, rutas ni contratos.
+- Validaciones de cierre: `git diff --check`, `npm run lint:check`,
+  `npm run type-check`, `npm run build`, `npm run test:unit` (63 tests) y
+  `npm run test:e2e -- --reporter=list` (31 tests en Chromium desktop).
+- Este hito no implica despliegue automático ni distribución comercial; la
+  instalación productiva debe hacerse de forma explícita contra un commit o tag
+  identificable.
+
 ## [0.2.0-mvp] - 2026-05-22
 
 Linea base actual del proyecto. Este corte reemplaza las referencias antiguas a

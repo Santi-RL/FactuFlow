@@ -23,10 +23,22 @@ export default {
           subtle: 'var(--ff-color-border-subtle)',
         },
         status: {
-          success: 'var(--ff-color-status-success)',
-          warning: 'var(--ff-color-status-warning)',
-          danger: 'var(--ff-color-status-danger)',
-          info: 'var(--ff-color-status-info)',
+          success: {
+            DEFAULT: 'var(--ff-color-status-success)',
+            soft: 'var(--ff-color-status-success-soft)',
+          },
+          warning: {
+            DEFAULT: 'var(--ff-color-status-warning)',
+            soft: 'var(--ff-color-status-warning-soft)',
+          },
+          danger: {
+            DEFAULT: 'var(--ff-color-status-danger)',
+            soft: 'var(--ff-color-status-danger-soft)',
+          },
+          info: {
+            DEFAULT: 'var(--ff-color-status-info)',
+            soft: 'var(--ff-color-status-info-soft)',
+          },
         },
         primary: {
           50: '#eff6ff',

@@ -134,7 +134,7 @@ const obtenerMedalla = (posicion: number) => {
 };
 
 const obtenerColorCard = (posicion: number) => {
-  if (posicion === 1) return "border-status-warning bg-amber-50";
+  if (posicion === 1) return "border-status-warning bg-status-warning-soft";
   if (posicion === 2) return "border-brand-flow bg-brand-mint";
   if (posicion === 3) return "border-brand-teal bg-surface-page";
   return "border-border-subtle bg-surface-card";

@@ -124,7 +124,7 @@ const resumenCards = computed(() => {
       label: "Total Facturas",
       valor: formatearMoneda(reporte.value.resumen.total_facturas),
       color: "text-status-success",
-      bg: "bg-emerald-50",
+      bg: "bg-status-success-soft",
     },
     {
       label: "Total Notas de Crédito",

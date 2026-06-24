@@ -28,11 +28,12 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   `ruff check app tests` y `pytest tests -q` quedaron OK.
 - Frontend Vue operativo con dashboard, clientes, comprobantes, emisión masiva,
   reportes, certificados, puntos de venta, emisores y usuarios.
-- Integración visual controlada iniciada en frontend público: el corte 1 agregó
-  fundaciones de identidad sin cambios visibles, el corte 2A aplicó la marca
-  solo al shell común de la app, el corte 2B tokenizó componentes `Base*` y el
-  corte 2C alcanzó componentes comunes (`ConfirmDialog` y `Pagination`), sin
-  tocar lógica fiscal, servicios, rutas ni pantallas de emisión completas.
+- Checkpoint visual v01 cerrado en frontend público para instalación productiva
+  controlada: identidad aplicada en cortes auditables sobre shell común,
+  componentes base/comunes, login/setup, dashboard, clientes, usuarios,
+  reportes y certificados/listado/wizard. El alcance fue exclusivamente visual:
+  no se tocó backend, ARCA, emisión individual o masiva, lotes fiscales,
+  servicios, stores, rutas ni contratos.
 - Launcher local Windows manual agregado para desarrollo/QA: `FactuFlow
   Local.vbs` inicia backend/frontend en segundo plano sin ventana de
   PowerShell, muestra estado en el tray y abre `http://localhost:8080` cuando
@@ -131,6 +132,28 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Checkpoint visual v01 instalable en producción - cierre 2026-06-24
+
+- Se cerró la integración visual controlada v01 del frontend público sobre el
+  alcance definido: shell común, componentes `Base*`, componentes comunes,
+  login/setup, dashboard, clientes, usuarios, reportes y certificados.
+- Se agregaron tokens suaves de estado (`status-*-soft`) y se eliminó deuda
+  visual residual del alcance: fondos `amber/emerald/red/blue` directos en
+  componentes base y reportes, grises viejos del shell, `shadow-sm` residual del
+  stepper de certificados y emoji decorativo de alerta en dashboard.
+- El cierre no cambió comportamiento funcional. No se modificaron backend,
+  ARCA, emisión, lotes fiscales, servicios, stores, rutas, endpoints,
+  confirmaciones fiscales ni contratos de datos.
+- QA y revisión de cierre: barrido estático del alcance visual sin hardcodes
+  bloqueantes, `git diff --check` OK, `npm run lint:check` OK,
+  `npm run type-check` OK, `npm run build` OK, `npm run test:unit` OK
+  (63 tests) y `npm run test:e2e -- --reporter=list` OK (31 tests en Chromium
+  desktop). La aplicación local fue levantada en `http://localhost:8080` para
+  inspección visual del usuario.
+- Este hito deja un commit identificable apto para instalar en producción de
+  forma controlada y probar con operación real. No implica despliegue automático
+  ni cierre de la etapa de robustez operativa post-piloto.
 
 ### Integración visual controlada - verificación del wizard de certificados 2026-06-24
 
@@ -1571,7 +1594,7 @@ Quedo validado manualmente:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 61 tests
+  - `npm run test:unit` OK, 63 tests
   - `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium desktop,
     con servidor Vite dedicado en `127.0.0.1:18080`
 

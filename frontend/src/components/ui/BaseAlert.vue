@@ -37,10 +37,10 @@ const iconComponent = computed(() => {
 
 const colorClasses = computed(() => {
   const colors = {
-    success: "bg-emerald-50 border-emerald-200 text-status-success",
-    error: "bg-red-50 border-red-200 text-status-danger",
-    warning: "bg-amber-50 border-amber-200 text-amber-900",
-    info: "bg-brand-mint border-border-subtle text-brand-ink",
+    success: "border-status-success bg-status-success-soft text-brand-ink",
+    error: "border-status-danger bg-status-danger-soft text-brand-ink",
+    warning: "border-status-warning bg-status-warning-soft text-brand-ink",
+    info: "border-status-info bg-status-info-soft text-brand-ink",
   };
   return colors[props.type];
 });
@@ -49,7 +49,7 @@ const iconColorClasses = computed(() => {
   const colors = {
     success: "text-status-success",
     error: "text-status-danger",
-    warning: "text-amber-700",
+    warning: "text-status-warning",
     info: "text-brand-flow",
   };
   return colors[props.type];

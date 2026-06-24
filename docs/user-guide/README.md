@@ -1,8 +1,12 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-15
+Última actualización: 2026-06-24
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
+
+Nota 2026-06-24: se cerró el checkpoint visual v01 del frontend público. Los
+flujos y pasos de uso descritos en este manual no cambian por ese cierre; la
+actualización es de presentación visual e identidad.
 
 ## Contenido
 

@@ -199,7 +199,7 @@ const stats = computed(() => [
     value: totalComprobantesMes.value,
     icon: DocumentTextIcon,
     color: "text-status-success",
-    bg: "bg-emerald-50",
+    bg: "bg-status-success-soft",
   },
   {
     name: "Último Comprobante",
@@ -212,8 +212,8 @@ const stats = computed(() => [
     name: "Estado Certificado",
     value: estadoCertificado.value,
     icon: ExclamationTriangleIcon,
-    color: "text-amber-700",
-    bg: "bg-amber-50",
+    color: "text-status-warning",
+    bg: "bg-status-warning-soft",
   },
 ]);
 </script>
@@ -240,8 +240,9 @@ const stats = computed(() => [
       >
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex-1">
-            <p class="font-semibold mb-2">
-              ⚠️ Certificado(s) próximo(s) a vencer
+            <p class="mb-2 flex items-center gap-2 font-semibold">
+              <ExclamationTriangleIcon class="h-5 w-5 flex-shrink-0 text-status-warning" />
+              <span>Certificado(s) próximo(s) a vencer</span>
             </p>
             <div
               v-for="alerta in alertasCertificados.slice(0, 2)"
