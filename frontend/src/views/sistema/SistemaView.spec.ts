@@ -1,8 +1,10 @@
-import { flushPromises, mount } from "@vue/test-utils";
+﻿import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import almacenamientoService from "@/services/almacenamiento.service";
+import { arcaService } from "@/services/arca.service";
+import sistemaService from "@/services/sistema.service";
 import type {
   AlmacenamientoResumen,
   ExportacionAlmacenamiento,
@@ -22,6 +24,20 @@ vi.mock("@/services/almacenamiento.service", () => ({
     confirmarDescarga: vi.fn(),
     confirmarLiberacion: vi.fn(),
     limpiarCertificadosHuerfanos: vi.fn(),
+  },
+}));
+
+vi.mock("@/services/arca.service", () => ({
+  arcaService: {
+    getStatus: vi.fn(),
+    testConnection: vi.fn(),
+  },
+}));
+
+vi.mock("@/services/sistema.service", () => ({
+  default: {
+    health: vi.fn(),
+    databaseHealth: vi.fn(),
   },
 }));
 
@@ -103,6 +119,16 @@ const mockedService = almacenamientoService as unknown as {
   confirmarLiberacion: Mock;
 };
 
+const mockedArcaService = arcaService as unknown as {
+  getStatus: Mock;
+  testConnection: Mock;
+};
+
+const mockedSistemaService = sistemaService as unknown as {
+  health: Mock;
+  databaseHealth: Mock;
+};
+
 const mountView = () => {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -169,6 +195,25 @@ describe("SistemaView", () => {
       bytes_afectados: 2_048,
       items_afectados: 1,
     });
+    mockedSistemaService.health.mockResolvedValue({
+      status: "healthy",
+      message: "FactuFlow API funcionando correctamente",
+    });
+    mockedSistemaService.databaseHealth.mockResolvedValue({
+      status: "healthy",
+      message: "Conexión a la base de datos OK",
+    });
+    mockedArcaService.getStatus.mockResolvedValue({
+      ambiente: "produccion",
+      certificado_activo: true,
+      certificado_id: 3,
+      certificado_nombre: "Certificado productivo",
+      certificado_vencimiento: "2028-05-04T00:00:00",
+    });
+    mockedArcaService.testConnection.mockResolvedValue({
+      status: "ok",
+      message: "Conexión exitosa con ARCA",
+    });
     Object.defineProperty(window.URL, "createObjectURL", {
       value: vi.fn(() => "blob:factuflow"),
       configurable: true,
@@ -180,8 +225,29 @@ describe("SistemaView", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   });
 
+  it("muestra estado operativo sin probar ARCA automáticamente", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Estado operativo");
+    expect(wrapper.text()).toContain("API de FactuFlow");
+    expect(wrapper.text()).toContain("Conexión ARCA");
+    expect(wrapper.text()).toContain("Worker de lotes");
+    expect(mockedSistemaService.health).toHaveBeenCalled();
+    expect(mockedSistemaService.databaseHealth).toHaveBeenCalled();
+    expect(mockedArcaService.getStatus).toHaveBeenCalled();
+    expect(mockedService.resumen).toHaveBeenCalledTimes(1);
+    expect(mockedService.lotesCompactables).not.toHaveBeenCalled();
+    expect(mockedService.logs).not.toHaveBeenCalled();
+    expect(mockedService.temporales).not.toHaveBeenCalled();
+    expect(mockedService.certificadosHuerfanos).not.toHaveBeenCalled();
+    expect(mockedArcaService.testConnection).not.toHaveBeenCalled();
+  });
   it("prepara, descarga y libera un resguardo seleccionado", async () => {
     const wrapper = mountView();
+    await flushPromises();
+
+    await buttonByText(wrapper, "Almacenamiento").trigger("click");
     await flushPromises();
 
     expect(wrapper.text()).toContain("Lotes");

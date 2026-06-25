@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-24
+Última actualización: 2026-06-25
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -44,6 +44,23 @@ operativo.
 En el gestor de almacenamiento, la QA debe verificar que un administrador pueda
 ver uso total, desglose por emisor y desglose por tipo de dato sin exponer
 nombres de clientes, CUITs, CAEs, PDFs privados ni rutas internas sensibles.
+
+Estado del sistema implementado como primer corte:
+
+1. Iniciar sesión con un usuario administrador.
+2. Verificar que el menú `Sistema` aparece y que un usuario común no lo ve.
+3. Abrir `Sistema > Estado`.
+4. Confirmar que se muestran `Aplicación`, `Base de datos`, `Certificado del
+   emisor`, `Conexión ARCA`, `Almacenamiento`, `Worker de lotes`, `Logs de
+   soporte` y `Último backup`.
+5. Confirmar que la carga de la pantalla no dispara la prueba externa de ARCA.
+   La acción `Probar conexión` debe ejecutarse solo por decisión explícita del
+   usuario.
+6. Confirmar que las señales no instrumentadas todavía quedan explicadas como
+   pendientes: healthcheck de worker, evidencia automática de backup y acceso a
+   logs según entorno.
+7. Confirmar que los estados usan lenguaje simple: `Correcto`, `Necesita
+   atención` y `No disponible`.
 
 Gestor de almacenamiento implementado:
 
@@ -95,6 +112,23 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Estado del sistema - primer corte operativo 2026-06-25
+
+- Alcance revisado: pestaña `Sistema > Estado`, cards de estado general, última
+  actualización y ambiente ARCA, lista de señales operativas, acción manual
+  `Probar conexión` y pestaña `Almacenamiento` conservada.
+- Se usaron servicios existentes del frontend para consultar API, base,
+  certificado local del emisor activo y resumen de almacenamiento. No se agregó
+  ni modificó backend.
+- La prueba externa de ARCA no se ejecuta al cargar la pantalla; queda detrás
+  del botón manual `Probar conexión`.
+- Verificación automatizada asociada: test unitario de `SistemaView` cubre que
+  la pestaña de estado no llama a ARCA automáticamente y que el flujo de
+  resguardo de almacenamiento sigue funcionando al entrar en la pestaña
+  `Almacenamiento`. También quedaron OK `git diff --check`, `npm run
+  lint:check`, `npm run type-check`, `npm run build` y `npm run test:unit`
+  (64 tests). No se repitió E2E en este corte.
 
 ### Checkpoint visual v01 instalable en producción - cierre 2026-06-24
 
@@ -1266,11 +1300,12 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificación automatizada vigente 2026-06-13: frontend `npm run test:e2e
-  -- --reporter=list` OK (31 tests en Chromium desktop), `npm run test:unit`
-  OK (61 tests), `npm run build` OK, `npm run type-check` OK y
-  `npm run lint:check` OK. La matriz
-  multinavegador/mobile queda opt-in con `E2E_FULL_BROWSER_MATRIX=1`.
+- Verificación automatizada vigente 2026-06-25: frontend `npm run test:unit`
+  OK (64 tests), `npm run build` OK, `npm run type-check` OK y
+  `npm run lint:check` OK. La última evidencia E2E sigue siendo
+  `npm run test:e2e -- --reporter=list` OK (31 tests en Chromium desktop) del
+  cierre visual; la matriz multinavegador/mobile queda opt-in con
+  `E2E_FULL_BROWSER_MATRIX=1`.
 - QA local post-incidente 2026-06-12 sobre lote `requiere_reconciliacion`:
   navegador Playwright con base aislada en `.tmp`, sin llamadas reales a ARCA.
   La pantalla mostró `Requiere reconciliación`, `Listos para emitir 0`,
@@ -1279,8 +1314,8 @@ Reglas vigentes para cualquier nueva emision productiva:
   `Emitir comprobantes válidos`, `Reintentar fallidos`, `Descartar visibles` y
   `Reconciliar comprobante`. No hubo errores de consola.
 - Quedan pendientes tareas de robustez operativa post-piloto que no se resuelven
-  solo desde QA local: observabilidad operativa estándar, automatización futura
-  de backups, política de retención, trazabilidad visible y soporte de
+  solo desde QA local: completar observabilidad operativa estándar, automatización
+  futura de backups, política de retención, trazabilidad visible y soporte de
   despliegue.
 
 ## Punto de reanudacion
@@ -1312,9 +1347,10 @@ Retomar en consolidacion post-piloto:
 7. Validar visualmente el gestor de almacenamiento administrativo: uso total,
    desglose por emisor, desglose por tipo de dato, resguardo ZIP y limpieza
    segura de artefactos no vitales.
-8. Implementar la observabilidad operativa estándar definida en
-   `docs/agents/operational-observability.md`, con mensajes simples y próximos
-   pasos claros para usuarios no técnicos.
+8. Completar la observabilidad operativa estándar definida en
+   `docs/agents/operational-observability.md`: healthcheck dedicado de worker,
+   backup visible, trazabilidad histórica y próximos pasos claros para usuarios
+   no técnicos.
 9. Diseñar, pero no implementar todavía, la automatización de backups cifrados
    con validación periódica, retención y destino externo.
 10. Convertir los detalles detectados durante la emisión real en backlog

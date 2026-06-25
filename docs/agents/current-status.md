@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-24
+Última actualización: 2026-06-25
 
 ## Objetivo activo
 
@@ -62,6 +62,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   de la instalación y desglosarlo por emisor, base, lotes, temporales, caché,
   certificados y logs, con cálculo liviano, acceso solo para administradores y
   sin exponer datos privados innecesarios.
+- Primer corte de `Sistema > Estado` implementado en frontend: consolida señales
+  existentes de API, base de datos, certificado local del emisor activo,
+  almacenamiento y prueba ARCA manual. No llama a ARCA automáticamente; el
+  healthcheck dedicado de worker, backup y trazabilidad histórica sigue
+  pendiente.
 - La observabilidad operativa estándar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -132,6 +137,25 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Estado del sistema - primer corte operativo 2026-06-25
+
+- Se agregó la pestaña `Sistema > Estado`, visible dentro de la sección
+  administrativa existente, para reunir señales operativas simples con etiquetas
+  `Correcto`, `Necesita atención` y `No disponible`.
+- El corte usa solo contratos ya existentes: `/api/health`, `/api/health/db`,
+  `/api/arca/status` y `/api/almacenamiento/resumen`. La conexión externa con
+  ARCA queda como acción manual `Probar conexión`; no se ejecuta en la carga de
+  la pantalla.
+- La pantalla muestra explícitamente qué señales siguen incompletas: worker de
+  lotes sin healthcheck dedicado, acceso a logs según entorno y último backup
+  sin evidencia automática en la aplicación.
+- El cambio fue frontend-only: no se modificaron backend, ARCA, emisión,
+  lotes fiscales, servicios de emisión, stores, rutas ni contratos existentes.
+- Verificación frontend ejecutada: `git diff --check` OK, test enfocado de
+  `SistemaView` OK (2 tests), `npm run lint:check` OK sin errores ni warnings,
+  `npm run type-check` OK, `npm run build` OK y `npm run test:unit` OK
+  (64 tests). No se repitió E2E en este corte.
 
 ### Checkpoint visual v01 instalable en producción - cierre 2026-06-24
 
@@ -1594,9 +1618,10 @@ Quedo validado manualmente:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 63 tests
+  - `npm run test:unit` OK, 64 tests
   - `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium desktop,
-    con servidor Vite dedicado en `127.0.0.1:18080`
+    con servidor Vite dedicado en `127.0.0.1:18080` en la última corrida de
+    cierre visual; no se repitió en el corte `Sistema > Estado`
 
 ## Riesgos / pendientes inmediatos
 
@@ -1636,7 +1661,7 @@ Quedo validado manualmente:
   - validación de la política de almacenamiento mínimo y limpieza de artefactos
     descargables en VPS usando el gestor administrativo
   - trazabilidad visible de lotes productivos y reintentos
-  - pantalla `Estado del sistema` dentro del frontend con lenguaje simple
+  - completar `Sistema > Estado` con healthcheck dedicado de worker, backup y trazabilidad visible
 - Para nuevas instalaciones productivas usar `docker-compose.prod.yml`,
   PostgreSQL y `.env.production` basado en `.env.production.example`.
 
@@ -1670,9 +1695,9 @@ Para continuar desde el estado actual:
 5. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
    emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
    artefactos no vitales.
-6. Implementar observabilidad operativa estándar: pantalla de estado del
-   sistema, trazabilidad/reconciliación de lotes, logs útiles para soporte,
-   mensajes simples y runbook de diagnóstico.
+6. Completar observabilidad operativa estándar: healthcheck dedicado de worker,
+   backup visible, trazabilidad/reconciliación de lotes, logs útiles para
+   soporte, mensajes simples y runbook de diagnóstico.
 7. Diseñar la automatización futura de backups cifrados con validación y
    retención, pero no implementarla todavía hasta definir política operativa.
 8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin

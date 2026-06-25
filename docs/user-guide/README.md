@@ -1,12 +1,16 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-24
+Última actualización: 2026-06-25
 
 Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
 
 Nota 2026-06-24: se cerró el checkpoint visual v01 del frontend público. Los
 flujos y pasos de uso descritos en este manual no cambian por ese cierre; la
 actualización es de presentación visual e identidad.
+
+Nota 2026-06-25: `Sistema` incorpora una primera pestaña `Estado` para revisar
+señales operativas básicas sin ejecutar automáticamente pruebas externas de
+ARCA.
 
 ## Contenido
 
@@ -742,9 +746,21 @@ se quite su propio permiso de administrador desde la pantalla.
 
 ## 12. Sistema
 
-La sección `Sistema` solo aparece para usuarios administradores. Por ahora
-incluye la pestaña `Almacenamiento`, pensada para instalaciones locales o VPS
-pequeños donde cada MB cuenta.
+La sección `Sistema` solo aparece para usuarios administradores. Incluye las
+pestañas `Estado` y `Almacenamiento`.
+
+Desde `Sistema > Estado` puedes ver señales operativas básicas:
+- aplicación backend disponible
+- base de datos disponible
+- certificado local del emisor activo para el ambiente ARCA configurado
+- conexión ARCA como prueba manual explícita
+- resumen de almacenamiento
+- señales pendientes de instrumentar, como worker de lotes, último backup y
+  acceso a logs según entorno
+
+La pantalla usa estados simples: `Correcto`, `Necesita atención` y
+`No disponible`. La acción `Probar conexión` puede llamar a ARCA; no se ejecuta
+automáticamente al abrir la pantalla.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -799,7 +815,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 2026-06-03:
+Al 2026-06-25:
 
 - no existe todavia descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -818,9 +834,9 @@ Al 2026-06-03:
 - la produccion real ya fue operada; antes de cada nueva emision productiva hay
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripcion facturada, totales, backup/logs y confirmacion irreversible
-- todavia falta una pantalla interna de `Estado del sistema` dentro del
-  frontend; debe explicar con mensajes simples si la aplicacion, la base, ARCA,
-  certificados y lotes estan correctos o necesitan atencion
+- `Sistema > Estado` ya muestra un primer diagnóstico operativo con API, base,
+  certificado local, ARCA manual y almacenamiento; todavía faltan healthcheck
+  dedicado de worker, backup visible y trazabilidad histórica más completa
 - la gestión de lotes ya permite cerrar parciales, reconciliar externos,
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica

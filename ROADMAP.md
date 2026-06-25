@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-24
+Última actualización: 2026-06-25
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -438,7 +438,7 @@ Objetivo: reducir al minimo la necesidad de soporte tecnico para operar.
 - [~] Mensajes accionables en errores de negocio
 - [x] Mensaje claro en login cuando el backend local no responde
 - [~] Ayudas contextuales en pantallas sensibles
-- [ ] Pantalla de estado del sistema dentro del frontend
+- [~] Pantalla de estado del sistema dentro del frontend
 - [ ] Integracion formal entre launcher local y UI web
 - [ ] Tooltips y microcopy sistematizados en toda la app
 - [ ] Checklists previos a la emision
@@ -571,8 +571,11 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 ### Diagnostico operativo simple
 - [x] Decisión de observabilidad operativa estándar documentada en
   `docs/agents/operational-observability.md`
-- [ ] Pantalla `Estado del sistema` en la interfaz, con estados simples como
-  `Correcto`, `Necesita atencion` y `No disponible`
+- [~] Pantalla `Estado del sistema` en la interfaz, con estados simples como
+  `Correcto`, `Necesita atención` y `No disponible`: primer corte frontend
+  implementado con señales existentes de API, base, certificado local, ARCA
+  manual y almacenamiento; faltan healthcheck dedicado de worker, backup y
+  trazabilidad histórica más completa
 - [x] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
   sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y

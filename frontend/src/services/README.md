@@ -14,6 +14,7 @@ services/
 ├── puntos_venta.service.ts   # Puntos de venta
 ├── certificados.service.ts   # Certificados
 ├── arca.service.ts           # ARCA (tipos, puntos de venta, dummy, etc.)
+├── sistema.service.ts        # Health de aplicación y base para Estado del sistema
 ├── almacenamiento.service.ts # Gestor administrativo de almacenamiento
 ├── comprobantes.service.ts   # Comprobantes
 ├── formatos-importacion.service.ts # Plantillas/formato configurables de importacion
@@ -37,6 +38,8 @@ services/
   solo cuando no hay usuarios.
 - `usuarios.service.ts` habla con `/api/usuarios`; esas rutas son exclusivas de
   administradores.
+- `sistema.service.ts` consulta `/api/health` y `/api/health/db` para la pestaña
+  `Estado` dentro de `Sistema`, sin disparar llamadas externas a ARCA.
 - `almacenamiento.service.ts` habla con `/api/almacenamiento`; esas rutas son
   exclusivas de administradores y cubren resumen, selección de artefactos,
   resguardo ZIP, descarga y liberación posterior.

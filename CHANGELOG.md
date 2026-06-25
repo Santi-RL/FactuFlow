@@ -18,6 +18,16 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Observabilidad operativa
+
+- Se agregó el primer corte de `Sistema > Estado` para administradores, con
+  señales de API, base de datos, certificado local del emisor activo,
+  almacenamiento y prueba ARCA manual.
+- La pantalla no llama a ARCA automáticamente al cargar; la conexión externa
+  queda detrás de la acción explícita `Probar conexión`.
+- Quedan pendientes healthcheck dedicado de worker, evidencia automática de
+  backup y trazabilidad histórica más completa.
+
 ### Checkpoint visual v01
 
 - Se cerró el checkpoint visual v01 del frontend público para instalación
