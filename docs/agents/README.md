@@ -45,6 +45,10 @@
 - Para GitHub, seguir el enfoque del plugin local: resolver primero repo/rama
   con Git, usar la app de GitHub para PRs/issues/metadatos cuando aplique, y
   usar `git`/`gh` para gaps como estado de rama, commits, push y checks.
+- Para verificar CI, usar GitHub Actions/check-runs (`gh run list`,
+  `gh run view` o la API de check-runs). No consultar el endpoint legacy de
+  commit statuses (`/commits/{sha}/status`) salvo pedido explícito de auditar
+  una integración antigua que dependa de ese endpoint.
 - En Codex con sandbox activo, usar permisos elevados desde el inicio para
   comandos Git que escriben en `.git`, como `git add`, `git commit` y
   `git push`. Sin eso pueden fallar con

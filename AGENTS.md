@@ -130,6 +130,10 @@
 - Preferir PRs para cambios no triviales cuando el usuario lo pida. En el flujo
   habitual sobre `main`, minimizar commits de ruido (formato/lint) y agruparlos
   con el cambio funcional correspondiente.
+- Para verificar CI en GitHub, usar el mecanismo moderno de GitHub Actions:
+  `gh run list`, `gh run view` y check-runs. No consultar el endpoint legacy de
+  commit statuses (`/commits/{sha}/status`) salvo que el usuario pida auditar
+  una integración antigua que dependa específicamente de ese endpoint.
 - En Codex con sandbox activo, los comandos que escriben en `.git` pueden fallar
   con `Unable to create .git/index.lock: Permission denied` si se ejecutan sin
   permiso elevado. Para preparar commits o publicar, usar directamente permisos
