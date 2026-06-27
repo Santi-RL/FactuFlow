@@ -18,6 +18,17 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### UX de carga masiva
+
+- Se implementó el Corte 1 del rediseño de `/comprobantes/lotes`: guía rápida
+  compacta con detalle desplegable, checklist dinámico de requisitos y acción
+  `Validar lote` al cierre de la configuración fiscal.
+- El cambio es frontend-only y mantiene intactos backend, ARCA, emisión,
+  servicios, stores, rutas, payloads y contratos.
+- Validaciones: test unitario enfocado de `LotesComprobantesView`,
+  `npm run lint:check`, `npm run type-check`, `npm run build`,
+  `npm run test:unit` y smoke visual con API mockeada sin llamadas ARCA.
+
 ### Observabilidad operativa
 
 - Se agregó el primer corte de `Sistema > Estado` para administradores, con

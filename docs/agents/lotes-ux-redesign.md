@@ -1,12 +1,13 @@
 # Rediseño UX de carga masiva
 
-Última actualización: 2026-06-26
+Última actualización: 2026-06-27
 
 ## Alcance
 
-Este documento define el diagnóstico y las instrucciones de rediseño de
-`/comprobantes/lotes`, sin implementar todavía cambios de UI ni de
-comportamiento fiscal.
+Este documento define el diagnóstico, las instrucciones de rediseño y el avance
+secuencial de implementación de `/comprobantes/lotes`. El Corte 1 ya quedó
+implementado como cambio frontend-only; los cortes siguientes permanecen
+pendientes.
 
 La sección de carga masiva es central para FactuFlow y debe tratarse como flujo
 sensible. Cualquier cambio posterior que toque emisión, reintentos,
@@ -29,6 +30,33 @@ solicitudes de CAE debe pasar por `docs/agents/fiscal-change-checklist.md`.
 El visor local no pudo abrir imágenes bajo `private/` por ACLs del entorno, pero
 las capturas fueron verificadas por dimensiones, tamaño y prueba de no estar en
 blanco.
+
+## Estado de implementación
+
+### Corte 1 implementado - 2026-06-27
+
+Alcance cerrado en frontend sobre `LotesComprobantesView`:
+
+- guía rápida compacta con detalle desplegable para ayuda inicial
+- checklist dinámico de requisitos antes de validar
+- encabezado `Configuración fiscal del lote` para ordenar los controles
+  existentes
+- botón `Validar lote` duplicado al cierre de la configuración fiscal
+- test unitario enfocado para validar desde la acción final
+
+No se cambiaron payloads, validaciones, watchers, servicios, stores, rutas,
+backend, ARCA, emisión, reintentos, reconciliación, numeración ni contratos.
+
+Validación ejecutada:
+
+- `npm run test:unit -- LotesComprobantesView`
+- `npm run lint:check`
+- `npm run type-check`
+- `npm run build`
+- `npm run test:unit`
+- smoke visual con API mockeada, datos ficticios y sin llamadas ARCA; capturas
+  privadas en
+  `private/brand-lab/exports/lotes-ux-corte-1-2026-06-27/`
 
 ## Diagnóstico resumido
 
@@ -108,6 +136,8 @@ acciones excepcionales.
 ## Instrucciones de implementación por cortes
 
 ### Corte 1 - Reorganizar preparación y validación
+
+Estado: implementado el 2026-06-27.
 
 Objetivo: mejorar el flujo de carga sin tocar servicios ni contratos.
 

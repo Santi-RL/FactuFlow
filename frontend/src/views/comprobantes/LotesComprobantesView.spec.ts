@@ -165,6 +165,7 @@ const mockedFormatos = formatosImportacionService as unknown as {
 };
 const mockedLotesDetalle = lotesComprobantesService as unknown as {
   listar: Mock;
+  validar: Mock;
   obtener: Mock;
   obtenerResumen: Mock;
   obtenerGrupos: Mock;
@@ -272,6 +273,11 @@ const mountView = async (
 
   mockedFormatos.listar.mockResolvedValue([formatoMock()]);
   mockedLotesDetalle.listar.mockResolvedValue(lotesIniciales);
+  mockedLotesDetalle.validar.mockResolvedValue({
+    lote: resumen,
+    mensaje: "El lote se validó correctamente.",
+    requiere_background: false,
+  });
   mockedLotesDetalle.obtenerResumen.mockResolvedValue(resumen);
   mockedLotesDetalle.obtenerGrupos.mockResolvedValue(grupos);
   mockedPerfiles.listar.mockResolvedValue(perfiles);
@@ -335,6 +341,52 @@ describe("LotesComprobantesView", () => {
     expect(wrapper.text()).not.toContain("columna_a");
   });
 
+  it("permite validar desde el cierre de la configuración fiscal", async () => {
+    mockedFormatos.detectar.mockResolvedValue(
+      deteccionMock("Formato Base", 10, ["Fecha", "Importe"]),
+    );
+    const wrapper = await mountView();
+    const input = wrapper.find('input[type="file"]');
+    const archivo = new File(["demo"], "lote.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    Object.defineProperty(input.element, "files", {
+      value: [archivo],
+      configurable: true,
+    });
+    await input.trigger("change");
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      conceptoModo: string;
+      descripcionItemModo: string;
+      fechaEmisionModo: string;
+    };
+    vm.conceptoModo = "productos";
+    vm.descripcionItemModo = "archivo";
+    vm.fechaEmisionModo = "archivo";
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Requisitos completos para validar");
+    const botonFinal = wrapper.find('[data-testid="validar-lote-final"]');
+    expect(botonFinal.exists()).toBe(true);
+    expect(botonFinal.attributes("disabled")).toBeUndefined();
+
+    await botonFinal.trigger("click");
+
+    expect(mockedLotesDetalle.validar).toHaveBeenCalledWith(
+      archivo,
+      10,
+      expect.objectContaining({
+        punto_venta_modo: "archivo",
+        concepto_modo: "productos",
+        descripcion_item_modo: "archivo",
+        fecha_emision_modo: "archivo",
+      }),
+      null,
+    );
+  });
   it("autoaplica perfiles relativos sin materializar fecha fiscal implicita", async () => {
     const wrapper = await mountView([perfilRelativoMock()]);
     const vm = wrapper.vm as unknown as {

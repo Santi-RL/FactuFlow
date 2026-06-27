@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-26
+Última actualización: 2026-06-27
 
 ## Objetivo activo
 
@@ -70,8 +70,12 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Diagnóstico UX específico de `/comprobantes/lotes` cerrado el 2026-06-26 con
   Product Design y Creative Production. La evidencia privada sanitizada quedó en
   `private/brand-lab/exports/lotes-ux-audit-2026-06-26/` y la guía pública de
-  rediseño quedó en `docs/agents/lotes-ux-redesign.md`. No se modificó UI,
-  backend, ARCA, emisión, servicios, stores, rutas ni contratos.
+  rediseño quedó en `docs/agents/lotes-ux-redesign.md`.
+- Corte 1 del rediseño UX de carga masiva implementado el 2026-06-27 en
+  frontend: guía rápida compacta, checklist dinámico de requisitos, encabezado
+  de configuración fiscal y acción `Validar lote` al cierre de los datos
+  requeridos. No se tocó backend, ARCA, emisión, servicios, stores, rutas ni
+  contratos.
 - La observabilidad operativa estándar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -142,6 +146,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Rediseño UX de carga masiva - Corte 1 2026-06-27
+
+- Se reorganizó la preparación y validación de `/comprobantes/lotes` sin tocar
+  lógica fiscal: la ayuda inicial pasa a guía compacta, los requisitos quedan
+  visibles como checklist y `Validar lote` también aparece al final de la
+  configuración fiscal.
+- El cambio mantiene los controles existentes de punto de venta, concepto ARCA,
+  descripción facturada y fechas fiscales; no cambia payloads, watchers,
+  servicios, stores, rutas, backend, ARCA ni contratos.
+- Verificación ejecutada: `npm run test:unit -- LotesComprobantesView`,
+  `npm run lint:check`, `npm run type-check`, `npm run build`,
+  `npm run test:unit` y smoke visual con API mockeada, datos ficticios y sin
+  llamadas ARCA. Capturas privadas en
+  `private/brand-lab/exports/lotes-ux-corte-1-2026-06-27/`.
 
 ### Diagnóstico UX de carga masiva 2026-06-26
 
@@ -1710,9 +1729,9 @@ Para continuar desde el estado actual:
    priorizado, separando riesgos fiscales, UX, PDF, reportes y soporte. El
    primer diagnóstico UX formalizado es carga masiva en
    `docs/agents/lotes-ux-redesign.md`.
-4. Ejecutar el rediseño secuencial de `/comprobantes/lotes` empezando por
-   `Corte 1 - Reorganizar preparación y validación`, sin tocar contratos ni
-   lógica fiscal.
+4. Continuar el rediseño secuencial de `/comprobantes/lotes` con
+   `Corte 2 - Reducir ruido del lote activo`, después de cerrar el commit del
+   Corte 1 y sin tocar contratos ni lógica fiscal.
 5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.

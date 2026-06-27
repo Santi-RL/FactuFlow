@@ -1,8 +1,8 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-25
+Última actualización: 2026-06-27
 
-Este manual describe el uso actual del producto. Si una funcion no aparece aca, no debe asumirse como disponible para usuarios finales.
+Este manual describe el uso actual del producto. Si una función no aparece acá, no debe asumirse como disponible para usuarios finales.
 
 Nota 2026-06-24: se cerró el checkpoint visual v01 del frontend público. Los
 flujos y pasos de uso descritos en este manual no cambian por ese cierre; la
@@ -11,6 +11,11 @@ actualización es de presentación visual e identidad.
 Nota 2026-06-25: `Sistema` incorpora una primera pestaña `Estado` para revisar
 señales operativas básicas sin ejecutar automáticamente pruebas externas de
 ARCA.
+
+Nota 2026-06-27: `Emisión masiva` reorganiza la preparación y validación del
+lote. La ayuda inicial queda como guía compacta desplegable, los requisitos se
+muestran como checklist y `Validar lote` también aparece al cierre de la
+configuración fiscal.
 
 ## Contenido
 
@@ -227,15 +232,20 @@ Flujo general:
    texto fijo para todo el lote.
 9. Definir explícitamente la fecha de emisión y, si corresponde, el período de
    servicios y vencimiento de pago.
-10. Validar errores por fila o por comprobante.
+10. Revisar el checklist de validación y presionar `Validar lote` al cierre de
+    la configuración fiscal.
 11. Revisar comprobantes detectados, concepto fiscal ARCA, descripción del ítem,
    fechas, totales listos para emitir, receptor y punto de venta.
 12. Confirmar la emisión con `Emitir comprobantes válidos`.
 13. Revisar resultados del lote.
 14. Si lo necesitas, descargar el archivo observado del lote.
 
+La pantalla muestra un checklist de validación con emisor activo, archivo y
+plantilla/formato, punto de venta, concepto ARCA, descripción facturada y fechas
+fiscales. Usalo para ver qué falta antes de validar el lote.
+
 Validar un lote no emite comprobantes ni consume numeración fiscal. La emisión
-recién ocurre cuando confirmas el lote validado.
+recién ocurre cuando confirmás el lote validado.
 
 Al confirmar la emisión de un lote, FactuFlow también usa una clave interna de
 idempotencia. Esto evita que un doble click, un refresh o un retry de red vuelva

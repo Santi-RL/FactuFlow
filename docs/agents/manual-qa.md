@@ -1,8 +1,8 @@
 # QA manual
 
-Última actualización: 2026-06-26
+Última actualización: 2026-06-27
 
-Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
+Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
 ## Preparacion
 
@@ -112,6 +112,27 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Rediseño UX de carga masiva - Corte 1 2026-06-27
+
+- Alcance revisado: `/comprobantes/lotes`, guía rápida compacta, guía
+  desplegable, carga de archivo, configuración fiscal previa a validar,
+  checklist de requisitos y acción final `Validar lote`.
+- La prueba visual usó frontend local real en
+  `http://127.0.0.1:8080/comprobantes/lotes` con API mockeada, sesión ficticia,
+  emisor ficticio, punto de venta ficticio, formato ficticio y lote ficticio.
+  No se usaron credenciales reales, datos reales, Exceles privados, CAEs, CUITs
+  reales ni llamadas ARCA.
+- Capturas privadas:
+  `private/brand-lab/exports/lotes-ux-corte-1-2026-06-27/`. El smoke verificó
+  que las capturas existen, tienen tamaño suficiente y no quedaron vacías.
+- Resultado funcional: el botón final `Validar lote` queda habilitado cuando el
+  checklist está completo y dispara el mismo servicio de validación existente.
+  Después de validar, la vista carga el resumen ficticio del lote sin cambiar
+  contratos.
+- Verificación automatizada asociada: test unitario enfocado de
+  `LotesComprobantesView`, `npm run lint:check`, `npm run type-check`,
+  `npm run build` y `npm run test:unit` quedaron OK.
 
 ### Diagnóstico UX de carga masiva 2026-06-26
 

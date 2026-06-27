@@ -132,6 +132,7 @@ const timerHandle = ref<number | null>(null);
 const timerNow = ref(new Date());
 const inicioProcesamientoLocal = ref<Date | null>(null);
 let deteccionFormatoRequestId = 0;
+const guiaCargaMasivaExpandida = ref(false);
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
 const empresaActivaId = computed(() => empresaActiva.value?.id || null);
@@ -318,6 +319,80 @@ const puedeValidar = computed(
     descripcionItemCompleta.value &&
     opcionesFechasCompletas.value,
 );
+const requisitosValidacion = computed(() => [
+  {
+    label: "Emisor activo",
+    detalle:
+      empresaActiva.value?.razon_social || "Seleccioná el emisor antes de cargar.",
+    completo: !!empresaActivaId.value,
+  },
+  {
+    label: "Archivo y plantilla",
+    detalle: archivoSeleccionado.value
+      ? detectandoFormato.value
+        ? "Analizando encabezados del Excel."
+        : requiereElegirFormato.value
+          ? "Falta confirmar la plantilla/formato."
+          : "Archivo y plantilla/formato confirmados."
+      : "Subí un archivo .xlsx para empezar.",
+    completo:
+      !!archivoSeleccionado.value &&
+      !detectandoFormato.value &&
+      !requiereElegirFormato.value,
+  },
+  {
+    label: "Punto de venta",
+    detalle:
+      puntoVentaModo.value === "archivo"
+        ? "Se usará el punto definido en el archivo."
+        : puntoVentaNumero.value
+          ? `Se usará el punto ${String(puntoVentaNumero.value).padStart(4, "0")}.`
+          : "Falta elegir el punto fijo del emisor.",
+    completo: puntoVentaModo.value === "archivo" || !!puntoVentaNumero.value,
+  },
+  {
+    label: "Concepto fiscal ARCA",
+    detalle:
+      conceptoModo.value === "productos"
+        ? "Productos."
+        : conceptoModo.value === "servicios"
+          ? "Servicios."
+          : conceptoModo.value === "archivo"
+            ? "Definido por columna del archivo."
+            : "Falta definir productos, servicios o archivo.",
+    completo: !!conceptoModo.value,
+  },
+  {
+    label: "Descripción facturada",
+    detalle:
+      descripcionItemModo.value === "archivo"
+        ? "Se usará la descripción del archivo."
+        : descripcionItemModo.value === "fija"
+          ? descripcionItemFija.value.trim() || "Falta completar la descripción fija."
+          : "Falta definir origen o texto fijo.",
+    completo: descripcionItemCompleta.value,
+  },
+  {
+    label: "Fechas fiscales",
+    detalle: opcionesFechasCompletas.value
+      ? "Fechas requeridas completas."
+      : "Falta completar fecha de emisión y, si aplica, servicios.",
+    completo: opcionesFechasCompletas.value,
+  },
+]);
+const requisitosCompletosValidacion = computed(
+  () => requisitosValidacion.value.filter((requisito) => requisito.completo).length,
+);
+const totalRequisitosValidacion = computed(() => requisitosValidacion.value.length);
+const requisitosPendientesValidacion = computed(
+  () => totalRequisitosValidacion.value - requisitosCompletosValidacion.value,
+);
+const resumenRequisitosValidacion = computed(() => {
+  if (puedeValidar.value) return "Requisitos completos para validar";
+  return `${requisitosPendientesValidacion.value} requisito${
+    requisitosPendientesValidacion.value === 1 ? "" : "s"
+  } pendiente${requisitosPendientesValidacion.value === 1 ? "" : "s"}`;
+});
 const puedeProcesar = computed(() => {
   if (!loteActual.value) return false;
 
@@ -1639,17 +1714,24 @@ onBeforeUnmount(() => {
     </BaseCard>
 
     <BaseCard>
-      <div class="grid gap-4 lg:grid-cols-3">
-        <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
-          <p class="text-sm font-semibold text-blue-900">
-            1. Descarga la plantilla
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p class="text-sm font-semibold uppercase text-brand-teal">
+            Guía rápida
           </p>
-          <p class="mt-2 text-sm text-blue-800">
-            Puedes usar el archivo oficial o la plantilla configurada por el
-            perfil de carga masiva.
+          <h2 class="mt-1 text-lg font-semibold text-brand-ink">
+            Cargar, validar y recién después emitir
+          </h2>
+          <p class="mt-2 max-w-3xl text-sm text-brand-slate">
+            La ayuda queda disponible para primeras cargas sin ocupar el flujo
+            habitual. Las decisiones fiscales se completan más abajo antes de
+            validar.
           </p>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
           <BaseButton
-            class="mt-4 w-full"
+            variant="secondary"
             :loading="descargandoPlantilla"
             :disabled="!empresaActivaId"
             @click="descargarPlantilla"
@@ -1657,51 +1739,50 @@ onBeforeUnmount(() => {
             <ArrowDownTrayIcon class="mr-2 h-5 w-5" />
             Descargar plantilla
           </BaseButton>
+          <BaseButton
+            variant="ghost"
+            @click="guiaCargaMasivaExpandida = !guiaCargaMasivaExpandida"
+          >
+            {{ guiaCargaMasivaExpandida ? "Ocultar guía" : "Ver guía" }}
+          </BaseButton>
+        </div>
+      </div>
+
+      <div
+        v-if="guiaCargaMasivaExpandida"
+        class="mt-5 grid gap-3 lg:grid-cols-3"
+      >
+        <div class="rounded-lg border border-border-subtle bg-surface-page p-4">
+          <p class="text-sm font-semibold text-brand-ink">
+            1. Prepará el archivo
+          </p>
+          <p class="mt-2 text-sm text-brand-slate">
+            Usá la plantilla oficial o una plantilla del perfil de carga masiva.
+            Una fila representa un ítem.
+          </p>
         </div>
 
-        <div class="rounded-xl border border-amber-100 bg-amber-50 p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-sm font-semibold text-amber-900">
-                2. Completa el archivo
-              </p>
-              <p class="mt-2 text-sm text-amber-800">
-                Una fila por item. Repite los datos del comprobante en cada fila
-                del mismo comprobante_ref.
-              </p>
-            </div>
-            <InformationCircleIcon
-              class="h-5 w-5 flex-shrink-0 text-amber-700"
-              title="La plantilla admite varios tipos de comprobante y varios puntos de venta dentro del mismo lote."
-            />
-          </div>
-          <ul class="mt-4 space-y-2 text-sm text-amber-900">
-            <li>1 empresa por lote.</li>
-            <li>
-              El mismo lote puede incluir varios puntos de venta del emisor.
-            </li>
-            <li>Si una fila falla, el sistema te indica como corregirla.</li>
-          </ul>
+        <div class="rounded-lg border border-border-subtle bg-surface-page p-4">
+          <p class="text-sm font-semibold text-brand-ink">
+            2. Confirmá configuración fiscal
+          </p>
+          <p class="mt-2 text-sm text-brand-slate">
+            Punto de venta, concepto ARCA, descripción y fechas quedan visibles
+            antes de validar. No hay defaults fiscales ocultos.
+          </p>
         </div>
 
-        <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-          <p class="text-sm font-semibold text-emerald-900">
-            3. Valida y confirma
+        <div class="rounded-lg border border-border-subtle bg-surface-page p-4">
+          <p class="text-sm font-semibold text-brand-ink">
+            3. Revisá antes de emitir
           </p>
-          <p class="mt-2 text-sm text-emerald-800">
-            Primero se revisa todo el archivo. Despues puedes emitir solo los
-            comprobantes que quedaron listos.
-          </p>
-          <p class="mt-4 text-sm font-medium text-emerald-900">
-            Hasta 100 comprobantes: procesamiento inmediato.
-          </p>
-          <p class="text-sm text-emerald-900">
-            Mas de 100 comprobantes: seguimiento en segundo plano.
+          <p class="mt-2 text-sm text-brand-slate">
+            La validación solo prepara el lote. La emisión sigue separada y exige
+            confirmación fiscal irreversible.
           </p>
         </div>
       </div>
     </BaseCard>
-
     <BaseCard>
       <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div>
@@ -1866,6 +1947,22 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </BaseAlert>
+          </div>
+
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4"
+          >
+            <p class="text-sm font-semibold uppercase text-brand-teal">
+              Configuración fiscal del lote
+            </p>
+            <h3 class="mt-1 text-base font-semibold text-brand-ink">
+              Requisitos antes de validar
+            </h3>
+            <p class="mt-2 text-sm text-brand-slate">
+              Completá estos datos para que la validación use una configuración
+              explícita y revisable.
+            </p>
           </div>
 
           <div
@@ -2234,29 +2331,71 @@ onBeforeUnmount(() => {
               y deberas elegir una fecha permitida antes de emitir.
             </BaseAlert>
           </div>
+          <div
+            v-if="archivoSeleccionado"
+            class="mt-4 rounded-xl border border-border-subtle bg-surface-page p-4"
+          >
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-sm font-semibold text-brand-ink">
+                  {{ resumenRequisitosValidacion }}
+                </p>
+                <p class="mt-1 text-sm text-brand-slate">
+                  El lote se valida con el mismo control existente; esta acción
+                  solo queda al final de los datos requeridos.
+                </p>
+              </div>
+              <BaseButton
+                data-testid="validar-lote-final"
+                :loading="validandoArchivo"
+                :disabled="!puedeValidar"
+                @click="validarArchivo"
+              >
+                <CheckCircleIcon class="mr-2 h-5 w-5" />
+                Validar lote
+              </BaseButton>
+            </div>
+          </div>
         </div>
 
-        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <div class="flex items-center gap-2">
-            <ExclamationTriangleIcon class="h-5 w-5 text-amber-600" />
-            <h3 class="font-semibold text-gray-900">
-              Controles previos
-            </h3>
+        <div
+          data-testid="validacion-requisitos"
+          class="rounded-xl border border-border-subtle bg-surface-page p-4"
+        >
+          <div class="flex items-start gap-3">
+            <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 text-status-warning" />
+            <div>
+              <h3 class="font-semibold text-brand-ink">
+                Checklist de validación
+              </h3>
+              <p class="mt-1 text-sm text-brand-slate">
+                {{ requisitosCompletosValidacion }} de
+                {{ totalRequisitosValidacion }} requisitos completos.
+              </p>
+            </div>
           </div>
-          <ul class="mt-3 space-y-2 text-sm text-gray-700">
-            <li>Emisor activo correcto.</li>
-            <li>Certificado vigente para el ambiente actual.</li>
-            <li>Punto de venta habilitado FactuFlow.</li>
-            <li>Fecha de emisión confirmada antes de validar.</li>
-            <li>Tipo de concepto fiscal ARCA confirmado antes de validar.</li>
-            <li>Descripción facturada confirmada antes de validar.</li>
-            <li>Periodo de servicios confirmado cuando corresponda.</li>
-            <li>
-              Documento del receptor solo cuando corresponde por tipo o importe.
-            </li>
-            <li>
-              comprobante_ref repetido solo para las filas del mismo
-              comprobante.
+          <ul class="mt-4 space-y-3 text-sm">
+            <li
+              v-for="requisito in requisitosValidacion"
+              :key="requisito.label"
+              class="flex gap-3 rounded-lg border border-border-subtle bg-surface-card p-3"
+            >
+              <CheckCircleIcon
+                v-if="requisito.completo"
+                class="mt-0.5 h-5 w-5 flex-shrink-0 text-status-success"
+              />
+              <ExclamationTriangleIcon
+                v-else
+                class="mt-0.5 h-5 w-5 flex-shrink-0 text-status-warning"
+              />
+              <span>
+                <span class="block font-medium text-brand-ink">
+                  {{ requisito.label }}
+                </span>
+                <span class="mt-1 block text-brand-slate">
+                  {{ requisito.detalle }}
+                </span>
+              </span>
             </li>
           </ul>
         </div>

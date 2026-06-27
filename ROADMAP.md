@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-26
+Última actualización: 2026-06-27
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -178,8 +178,10 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   público, acumulada en cortes pequeños y auditables hasta un checkpoint
   instalable en producción; no se despliegan microcortes estéticos por separado.
 - [~] Diagnóstico UX específico de `/comprobantes/lotes` cerrado y rediseño
-  secuencial planificado en `docs/agents/lotes-ux-redesign.md`, sin cambios de
-  UI, backend, ARCA, emisión, servicios, stores, rutas ni contratos.
+  secuencial documentado en `docs/agents/lotes-ux-redesign.md`. Corte 1
+  implementado en frontend: guía compacta, checklist de requisitos y acción
+  `Validar lote` al cierre de configuración fiscal, sin tocar backend, ARCA,
+  emisión, servicios, stores, rutas ni contratos.
 - [ ] Cambio de contraseña propio para usuarios autenticados, sin intervención
   del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
@@ -378,11 +380,12 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 
 ### UX de lotes
 - [x] Wizard de emision masiva
-- [~] Rediseño UX secuencial de `/comprobantes/lotes` planificado en
+- [~] Rediseño UX secuencial de `/comprobantes/lotes` documentado en
   `docs/agents/lotes-ux-redesign.md`: reducir onboarding persistente, agrupar
   configuración fiscal, acercar `Validar lote` al cierre de requisitos y tratar
-  reconciliación como modo excepcional. El primer corte debe ser frontend-only,
-  sin tocar contratos ni lógica fiscal.
+  reconciliación como modo excepcional. Corte 1 implementado como cambio
+  frontend-only; quedan pendientes los cortes de lote activo, reconciliación
+  excepcional y navegación de lotes recientes.
 - [x] Preseleccion del formato sugerido con alta confianza antes de validar
   archivos externos
 - [x] Confirmacion de fecha de emision y fechas de servicio antes de validar
