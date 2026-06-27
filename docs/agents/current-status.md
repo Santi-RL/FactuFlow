@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-25
+Última actualización: 2026-06-26
 
 ## Objetivo activo
 
@@ -67,6 +67,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   almacenamiento y prueba ARCA manual. No llama a ARCA automáticamente; el
   healthcheck dedicado de worker, backup y trazabilidad histórica sigue
   pendiente.
+- Diagnóstico UX específico de `/comprobantes/lotes` cerrado el 2026-06-26 con
+  Product Design y Creative Production. La evidencia privada sanitizada quedó en
+  `private/brand-lab/exports/lotes-ux-audit-2026-06-26/` y la guía pública de
+  rediseño quedó en `docs/agents/lotes-ux-redesign.md`. No se modificó UI,
+  backend, ARCA, emisión, servicios, stores, rutas ni contratos.
 - La observabilidad operativa estándar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -137,6 +142,20 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Diagnóstico UX de carga masiva 2026-06-26
+
+- Se auditó `/comprobantes/lotes` con frontend local real, API mockeada, datos
+  ficticios y sin llamadas ARCA.
+- El diagnóstico identifica ruido visual acumulado, onboarding persistente,
+  acción `Validar lote` alejada de los requisitos fiscales, configuración
+  dispersa, reconciliación con peso visual de caso frecuente y lotes recientes
+  compitiendo con el flujo activo.
+- Se creó `docs/agents/lotes-ux-redesign.md` con principios, límites y cortes
+  de implementación: preparación/validación, lote activo, reconciliación
+  excepcional y navegación de lotes recientes.
+- Este cierre fue documental y de diagnóstico. No se tocaron backend, ARCA,
+  emisión, servicios, stores, rutas, contratos ni confirmaciones fiscales.
 
 ### Estado del sistema - primer corte operativo 2026-06-25
 
@@ -1688,21 +1707,26 @@ Para continuar desde el estado actual:
 2. Guardar la clave real del backup cifrado en un gestor de contraseñas seguro,
    porque la copia DPAPI local no es portable a otra PC o usuario.
 3. Convertir los detalles observados durante el uso real en un backlog
-   priorizado, separando riesgos fiscales, UX, PDF, reportes y soporte.
-4. Validar la política de almacenamiento mínimo para VPS usando el gestor
+   priorizado, separando riesgos fiscales, UX, PDF, reportes y soporte. El
+   primer diagnóstico UX formalizado es carga masiva en
+   `docs/agents/lotes-ux-redesign.md`.
+4. Ejecutar el rediseño secuencial de `/comprobantes/lotes` empezando por
+   `Corte 1 - Reorganizar preparación y validación`, sin tocar contratos ni
+   lógica fiscal.
+5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
-5. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
+6. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
    emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
    artefactos no vitales.
-6. Completar observabilidad operativa estándar: healthcheck dedicado de worker,
+7. Completar observabilidad operativa estándar: healthcheck dedicado de worker,
    backup visible, trazabilidad/reconciliación de lotes, logs útiles para
    soporte, mensajes simples y runbook de diagnóstico.
-7. Diseñar la automatización futura de backups cifrados con validación y
+8. Diseñar la automatización futura de backups cifrados con validación y
    retención, pero no implementarla todavía hasta definir política operativa.
-8. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
+9. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin
    persistencia permanente en el servidor y ampliar E2E donde aporte evidencia
    real de flujos críticos.
-9. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
+10. Para cada nuevo lote productivo, validar formato, punto de venta, concepto
    fiscal ARCA, descripción facturada, fechas fiscales permitidas, totales y
    confirmación final irreversible antes de emitir.

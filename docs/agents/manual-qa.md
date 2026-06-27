@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-25
+Última actualización: 2026-06-26
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesion queda a mitad de camino, se retoma desde aca.
 
@@ -112,6 +112,21 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Diagnóstico UX de carga masiva 2026-06-26
+
+- Alcance revisado: `/comprobantes/lotes`, incluyendo carga de archivo,
+  formato detectado, configuración fiscal previa a validar, lote validado,
+  acciones de emisión, reconciliación y lotes recientes.
+- Se usó frontend local real en `http://127.0.0.1:8080/comprobantes/lotes` con
+  API mockeada, sesión ficticia y datos sanitizados. No se usaron credenciales
+  reales, datos reales, Exceles privados, CAEs, CUITs reales ni llamadas ARCA.
+- Capturas privadas: `private/brand-lab/exports/lotes-ux-audit-2026-06-26/`.
+  Se verificó que existen, tienen dimensiones esperadas y no están vacías; el
+  visor local de imágenes siguió bloqueado por ACL para `private/`.
+- Resultado: diagnóstico documentado en
+  `docs/agents/lotes-ux-redesign.md`. No se implementaron cambios de UI ni se
+  tocó backend, ARCA, emisión, servicios, stores, rutas o contratos.
 
 ### Estado del sistema - primer corte operativo 2026-06-25
 
@@ -1354,4 +1369,6 @@ Retomar en consolidacion post-piloto:
 9. Diseñar, pero no implementar todavía, la automatización de backups cifrados
    con validación periódica, retención y destino externo.
 10. Convertir los detalles detectados durante la emisión real en backlog
-   priorizado antes de seguir ampliando uso.
+   priorizado antes de seguir ampliando uso. El diagnóstico UX de carga masiva
+   ya quedó formalizado en `docs/agents/lotes-ux-redesign.md`; el primer corte
+   recomendado es reorganizar preparación y validación sin tocar lógica fiscal.

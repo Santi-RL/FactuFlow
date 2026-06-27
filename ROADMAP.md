@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-25
+Última actualización: 2026-06-26
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -33,6 +33,8 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - visibilidad administrativa del uso de almacenamiento por instalación, emisor
   y tipo de dato
 - robustez operativa: backups, trazabilidad, observabilidad y soporte
+- rediseño secuencial de carga masiva para reducir ruido operativo sin tocar
+  garantías fiscales
 
 ## Decisiones de producto vigentes
 
@@ -175,6 +177,9 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Integración visual controlada de identidad v01 cerrada en frontend
   público, acumulada en cortes pequeños y auditables hasta un checkpoint
   instalable en producción; no se despliegan microcortes estéticos por separado.
+- [~] Diagnóstico UX específico de `/comprobantes/lotes` cerrado y rediseño
+  secuencial planificado en `docs/agents/lotes-ux-redesign.md`, sin cambios de
+  UI, backend, ARCA, emisión, servicios, stores, rutas ni contratos.
 - [ ] Cambio de contraseña propio para usuarios autenticados, sin intervención
   del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
@@ -373,6 +378,11 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 
 ### UX de lotes
 - [x] Wizard de emision masiva
+- [~] Rediseño UX secuencial de `/comprobantes/lotes` planificado en
+  `docs/agents/lotes-ux-redesign.md`: reducir onboarding persistente, agrupar
+  configuración fiscal, acercar `Validar lote` al cierre de requisitos y tratar
+  reconciliación como modo excepcional. El primer corte debe ser frontend-only,
+  sin tocar contratos ni lógica fiscal.
 - [x] Preseleccion del formato sugerido con alta confianza antes de validar
   archivos externos
 - [x] Confirmacion de fecha de emision y fechas de servicio antes de validar
@@ -628,7 +638,9 @@ Objetivo: ampliar valor mas alla del MVP.
 2. Mantener documentación viva alineada con el estado post-piloto productivo,
    separando evidencia privada de resúmenes versionables.
 3. Convertir los detalles observados durante el uso real en un backlog
-   priorizado: riesgos fiscales, UX, PDFs, reportes y soporte.
+   priorizado: riesgos fiscales, UX, PDFs, reportes y soporte. El primer
+   diagnóstico UX formalizado es carga masiva en
+   `docs/agents/lotes-ux-redesign.md`.
 4. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
    de estado del sistema integrada al launcher cuando exista un canal seguro,
    logs útiles para soporte y mensajes simples para usuarios no técnicos.

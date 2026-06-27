@@ -110,6 +110,7 @@
   `backend/app/services/README.md`, `frontend/src/services/README.md`
 - Perfiles de carga masiva por emisor: `docs/user-guide/README.md`,
   `docs/api/README.md`, `frontend/src/views/README.md`
+- Rediseño UX de carga masiva: `docs/agents/lotes-ux-redesign.md`
 - Certificados y wizard: `docs/certificates/README.md`, `docs/certificados-wizard.md`
 - Instalación y setup: `docs/setup/README.md`
 - Migración local a VPS: `docs/setup/vps-migration.md`
