@@ -177,12 +177,13 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Integración visual controlada de identidad v01 cerrada en frontend
   público, acumulada en cortes pequeños y auditables hasta un checkpoint
   instalable en producción; no se despliegan microcortes estéticos por separado.
-- [~] Diagnóstico UX específico de `/comprobantes/lotes` cerrado y rediseño
-  secuencial documentado en `docs/agents/lotes-ux-redesign.md`. Cortes 1, 2
-  y 3 implementados en frontend: preparación/validación más directa, lote
-  activo con resumen prioritario, detalles plegables, siguiente acción
-  visible y resolución de pendientes como modo excepcional, sin tocar
-  backend, ARCA, emisión, servicios, stores, rutas ni contratos.
+- [x] Diagnóstico UX específico de `/comprobantes/lotes` cerrado y rediseño
+  secuencial documentado en `docs/agents/lotes-ux-redesign.md`. Cortes 1, 2,
+  3 y 4 implementados en frontend: preparación/validación más directa, lote
+  activo con resumen prioritario, detalles plegables, siguiente acción visible,
+  resolución de pendientes como modo excepcional y navegación compacta de lotes
+  recientes, sin tocar backend, ARCA, emisión, servicios, stores, rutas ni
+  contratos.
 - [ ] Cambio de contraseña propio para usuarios autenticados, sin intervención
   del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
@@ -381,11 +382,11 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 
 ### UX de lotes
 - [x] Wizard de emision masiva
-- [~] Rediseño UX secuencial de `/comprobantes/lotes` documentado en
+- [x] Rediseño UX secuencial de `/comprobantes/lotes` documentado en
   `docs/agents/lotes-ux-redesign.md`: reducir onboarding persistente, agrupar
-  configuración fiscal, acercar `Validar lote` al cierre de requisitos y tratar
-  reconciliación como modo excepcional. Cortes 1, 2 y 3 implementados como
-  cambios frontend-only; queda pendiente navegación de lotes recientes.
+  configuración fiscal, acercar `Validar lote` al cierre de requisitos, tratar
+  reconciliación como modo excepcional y compactar `Lotes recientes`. Cortes 1,
+  2, 3 y 4 implementados como cambios frontend-only.
 - [x] Preseleccion del formato sugerido con alta confianza antes de validar
   archivos externos
 - [x] Confirmacion de fecha de emision y fechas de servicio antes de validar

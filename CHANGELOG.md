@@ -30,6 +30,9 @@ Reglas vigentes desde 2026-05-22:
 - Se implementó el Corte 3 del rediseño de `/comprobantes/lotes`: `Resolver
   pendientes` pasa a ser un modo desplegable que agrupa reintento de fallidos,
   descarte de visibles y reconciliación ARCA Web para casos excepcionales.
+- Se implementó el Corte 4 del rediseño de `/comprobantes/lotes`: `Lotes
+  recientes` queda como navegación compacta con estado, fecha, métrica principal
+  y lote activo resaltado.
 - Los cambios son frontend-only y mantienen intactos backend, ARCA, emisión,
   servicios, stores, rutas, payloads y contratos.
 - Validaciones: `git diff --check`, test unitario enfocado de

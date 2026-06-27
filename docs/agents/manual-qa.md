@@ -113,6 +113,28 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Rediseño UX de carga masiva - Corte 4 2026-06-27
+
+- Alcance revisado: navegación compacta de `Lotes recientes` en
+  `/comprobantes/lotes`, con estado, fecha, métrica principal y lote activo
+  resaltado.
+- La prueba visual usó frontend local real en
+  `http://127.0.0.1:8080/comprobantes/lotes` con API mockeada, sesión ficticia,
+  emisor ficticio, punto de venta ficticio y lotes ficticios en estados
+  `validado` y `con_errores`. No se usaron credenciales reales, datos reales,
+  Exceles privados, CAEs, CUITs reales ni llamadas ARCA.
+- Capturas privadas:
+  `private/brand-lab/exports/lotes-ux-corte-4-2026-06-27/`. El smoke verificó
+  lista compacta en desktop/mobile, ausencia de contadores densos y capturas con
+  dimensiones y variedad de píxeles suficientes para descartar una pantalla en
+  blanco.
+- Resultado funcional: la selección de un lote reciente conserva el mismo flujo
+  de carga de detalle y el refresco de lista sigue usando la acción existente.
+- Verificación automatizada asociada: `git diff --check`, `npm run lint:check`,
+  `npm run type-check`, `npm run build`, `npm run test:unit`,
+  `npm run test:e2e -- --project=chromium` y test unitario enfocado de
+  `LotesComprobantesView` quedaron OK.
+
 ### Rediseño UX de carga masiva - Corte 3 2026-06-27
 
 - Alcance revisado: modo `Resolver pendientes del lote` en

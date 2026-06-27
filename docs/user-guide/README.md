@@ -17,7 +17,8 @@ revisión del lote activo. La ayuda inicial queda como guía compacta desplegabl
 los requisitos se muestran como checklist, `Validar lote` también aparece al
 cierre de la configuración fiscal y, después de validar, la vista prioriza
 importes, avance y siguiente acción. Las acciones excepcionales de resolución
-de pendientes quedan agrupadas bajo `Resolver pendientes`.
+de pendientes quedan agrupadas bajo `Resolver pendientes`, y `Lotes recientes`
+queda como navegación compacta con estado, fecha y métrica principal.
 
 ## Contenido
 
@@ -254,6 +255,11 @@ excepcionales quedan agrupadas en `Resolver pendientes`; abrí ese modo solo
 cuando necesites reintentar, descartar o reconciliar. Si una acción aplica sobre
 comprobantes visibles, el detalle debe estar abierto para ver las filas
 alcanzadas.
+
+`Lotes recientes` funciona como navegación compacta para cambiar de lote. Cada
+item muestra nombre de archivo, fecha de carga, estado y una métrica principal
+según el estado del lote; el lote activo queda resaltado. El detalle completo de
+contadores se consulta en el resumen del lote activo, no en el historial.
 
 Validar un lote no emite comprobantes ni consume numeración fiscal. La emisión
 recién ocurre cuando confirmás el lote validado.

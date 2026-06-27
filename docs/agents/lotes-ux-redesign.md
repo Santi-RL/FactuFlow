@@ -5,9 +5,10 @@
 ## Alcance
 
 Este documento define el diagnóstico, las instrucciones de rediseño y el avance
-secuencial de implementación de `/comprobantes/lotes`. Los Cortes 1, 2 y 3
-ya quedaron implementados como cambios frontend-only; los cortes siguientes
-permanecen pendientes.
+secuencial de implementación de `/comprobantes/lotes`. Los Cortes 1, 2, 3 y 4
+ya quedaron implementados como cambios frontend-only. El rediseño secuencial
+formalizado en este documento queda cerrado para no acumular cortes pendientes
+sobre la pantalla sin un nuevo diagnóstico.
 
 La sección de carga masiva es central para FactuFlow y debe tratarse como flujo
 sensible. Cualquier cambio posterior que toque emisión, reintentos,
@@ -117,6 +118,31 @@ Validación ejecutada:
 - smoke visual con API mockeada, datos ficticios y sin llamadas ARCA para lote
   `requiere_reconciliacion`; capturas privadas en
   `private/brand-lab/exports/lotes-ux-corte-3-2026-06-27/`
+
+### Corte 4 implementado - 2026-06-27
+
+Alcance cerrado en frontend sobre `LotesComprobantesView`:
+
+- `Lotes recientes` pasa a una navegación compacta para cambiar de lote sin
+  competir con el lote activo
+- cada lote muestra nombre, fecha de carga, estado visible y una métrica
+  principal derivada del estado y sus contadores
+- el lote activo queda resaltado en la lista
+- se conserva el comportamiento de refresco y selección de lote
+- se eliminan de la navegación los seis contadores repetidos por lote para
+  reducir ruido visual
+
+No se cambiaron payloads, validaciones, watchers, servicios, stores, rutas,
+backend, ARCA, emisión, reintentos, reconciliación, numeración ni contratos.
+
+Validación ejecutada:
+
+- smoke visual con API mockeada, datos ficticios y sin llamadas ARCA para lotes
+  `validado` y `con_errores`; capturas privadas en
+  `private/brand-lab/exports/lotes-ux-corte-4-2026-06-27/`
+- test unitario enfocado de `LotesComprobantesView` para lista compacta,
+  selección y ausencia de contadores densos
+- validaciones completas de cierre documentadas en el commit del corte
 
 ## Diagnóstico resumido
 
@@ -252,16 +278,20 @@ Validación mínima cubierta:
 
 ### Corte 4 - Navegación de lotes recientes
 
+Estado: implementado el 2026-06-27.
+
 Objetivo: que la navegación histórica no compita con la tarea actual.
 
-- Convertir `Lotes recientes` en lista compacta, filtro lateral colapsable o
-  panel secundario.
+- Convertir `Lotes recientes` en una lista compacta dentro del panel secundario
+  existente.
 - Resumir cada lote con estado, fecha y métrica principal.
 - Evitar repetir seis contadores por lote si no aportan a la decisión inmediata.
+- Resaltar el lote activo y conservar refresco/selección existentes.
 
-Validación mínima:
+Validación mínima cubierta:
 - carga de lista, selección de lote y refresco
-- responsive desktop/mobile
+- test unitario enfocado de `LotesComprobantesView`
+- smoke visual responsive desktop/mobile con API mockeada y sin ARCA
 
 ## Límites explícitos
 

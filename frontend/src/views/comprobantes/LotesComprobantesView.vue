@@ -733,6 +733,74 @@ const formatMoney = (value: number) => {
   }).format(value || 0);
 };
 
+const pluralizar = (cantidad: number, singular: string, plural: string) => {
+  return `${cantidad} ${cantidad === 1 ? singular : plural}`;
+};
+
+const resumenPrincipalLote = (lote: LoteComprobante) => {
+  if (lote.estado === "requiere_reconciliacion") {
+    const pendientes =
+      lote.grupos_validos + lote.grupos_con_error + lote.grupos_fallidos;
+    return pluralizar(
+      pendientes || lote.total_grupos,
+      "pendiente",
+      "pendientes",
+    );
+  }
+  if (lote.estado === "con_errores" && lote.grupos_con_error > 0) {
+    return pluralizar(lote.grupos_con_error, "observado", "observados");
+  }
+  if (lote.estado === "fallido" && lote.grupos_fallidos > 0) {
+    return pluralizar(lote.grupos_fallidos, "fallido", "fallidos");
+  }
+  if (lote.estado === "autorizado_parcial") {
+    const pendientes =
+      lote.grupos_validos + lote.grupos_con_error + lote.grupos_fallidos;
+    if (pendientes > 0) {
+      return pluralizar(pendientes, "pendiente", "pendientes");
+    }
+  }
+  if (lote.estado === "cerrado_con_descartes" && lote.grupos_descartados > 0) {
+    return pluralizar(lote.grupos_descartados, "descartado", "descartados");
+  }
+  if (
+    lote.estado === "cerrado_reconciliado" &&
+    lote.grupos_reconciliados_externos > 0
+  ) {
+    return pluralizar(
+      lote.grupos_reconciliados_externos,
+      "externo",
+      "externos",
+    );
+  }
+  if (lote.estado === "completado" && lote.grupos_emitidos > 0) {
+    return pluralizar(lote.grupos_emitidos, "emitido", "emitidos");
+  }
+  if (lote.grupos_validos > 0) {
+    return pluralizar(lote.grupos_validos, "listo", "listos");
+  }
+  if (lote.grupos_con_error > 0) {
+    return pluralizar(lote.grupos_con_error, "observado", "observados");
+  }
+  if (lote.grupos_fallidos > 0) {
+    return pluralizar(lote.grupos_fallidos, "fallido", "fallidos");
+  }
+  if (lote.grupos_emitidos > 0) {
+    return pluralizar(lote.grupos_emitidos, "emitido", "emitidos");
+  }
+  if (lote.grupos_reconciliados_externos > 0) {
+    return pluralizar(
+      lote.grupos_reconciliados_externos,
+      "externo",
+      "externos",
+    );
+  }
+  if (lote.grupos_descartados > 0) {
+    return pluralizar(lote.grupos_descartados, "descartado", "descartados");
+  }
+  return pluralizar(lote.total_grupos, "comprobante", "comprobantes");
+};
+
 const formatConcepto = (value: number | null) => {
   if (value === 1) return "Productos";
   if (value === 2) return "Servicios";
@@ -3111,9 +3179,15 @@ onBeforeUnmount(() => {
 
       <BaseCard>
         <template #header>
-          <div class="flex items-center justify-between">
-            <span>Lotes recientes</span>
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <span>Lotes recientes</span>
+              <p class="mt-1 text-xs font-normal text-brand-slate">
+                Historial compacto para cambiar de lote sin distraer del activo.
+              </p>
+            </div>
             <button
+              data-testid="actualizar-lotes-recientes"
               class="text-sm font-medium text-primary-700 hover:text-primary-800"
               @click="cargarLotes()"
             >
@@ -3131,26 +3205,33 @@ onBeforeUnmount(() => {
 
         <div
           v-else-if="lotes.length > 0"
-          class="space-y-3"
+          data-testid="lotes-recientes-lista"
+          class="space-y-2"
         >
           <button
             v-for="lote in lotes"
             :key="lote.id"
-            class="w-full rounded-xl border border-gray-200 p-4 text-left transition-colors hover:border-primary-200 hover:bg-primary-50"
+            :data-testid="`lote-reciente-${lote.id}`"
+            :class="[
+              'w-full rounded-lg border p-3 text-left transition-colors hover:border-primary-200 hover:bg-primary-50',
+              loteActual?.id === lote.id
+                ? 'border-primary-300 bg-primary-50'
+                : 'border-border-subtle bg-surface-card',
+            ]"
             @click="cargarDetalleLote(lote.id)"
           >
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="font-medium text-gray-900">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-brand-ink">
                   {{ lote.nombre_archivo }}
                 </p>
-                <p class="mt-1 text-xs text-gray-500">
-                  {{ formatDateTime(lote.created_at) }}
+                <p class="mt-1 text-xs text-brand-slate">
+                  Cargado {{ formatDateTime(lote.created_at) }}
                 </p>
               </div>
               <span
                 :class="[
-                  'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
+                  'inline-flex flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold',
                   ESTADOS_LOTE_COLOR[lote.estado] ||
                     'bg-gray-100 text-gray-800',
                 ]"
@@ -3159,13 +3240,15 @@ onBeforeUnmount(() => {
               </span>
             </div>
 
-            <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
-              <p>Válidos: {{ lote.grupos_validos }}</p>
-              <p>Errores: {{ lote.grupos_con_error }}</p>
-              <p>Emitidos: {{ lote.grupos_emitidos }}</p>
-              <p>Fallidos: {{ lote.grupos_fallidos }}</p>
-              <p>Externos: {{ lote.grupos_reconciliados_externos }}</p>
-              <p>Descartados: {{ lote.grupos_descartados }}</p>
+            <div
+              class="mt-3 flex items-center justify-between gap-3 rounded-md bg-surface-page px-3 py-2"
+            >
+              <span class="text-xs font-medium uppercase text-brand-slate">
+                Métrica principal
+              </span>
+              <span class="text-sm font-semibold text-brand-ink">
+                {{ resumenPrincipalLote(lote) }}
+              </span>
             </div>
           </button>
         </div>

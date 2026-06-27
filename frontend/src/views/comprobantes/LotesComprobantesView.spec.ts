@@ -443,6 +443,40 @@ describe("LotesComprobantesView", () => {
     expect(wrapper.findAll("tbody tr")).toHaveLength(1);
   });
 
+  it("muestra lotes recientes como navegación compacta", async () => {
+    const lote = loteResumenMock();
+    const loteObservado = {
+      ...loteResumenMock(),
+      id: 13,
+      nombre_archivo: "lote-observado.xlsx",
+      estado: "con_errores",
+      total_grupos: 2,
+      grupos_validos: 0,
+      grupos_con_error: 2,
+      totales_listos_para_emitir: {
+        comprobantes: 0,
+        neto: 0,
+        iva21: 0,
+        iva105: 0,
+        total: 0,
+        valores_invalidos: 0,
+      },
+    };
+    const wrapper = await mountView([], [lote, loteObservado]);
+
+    const lista = wrapper.get('[data-testid="lotes-recientes-lista"]');
+    expect(lista.text()).toContain("1432 listos");
+    expect(lista.text()).toContain("2 observados");
+    expect(lista.text()).not.toContain("Válidos:");
+    expect(lista.text()).not.toContain("Externos:");
+
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    await wrapper.get('[data-testid="lote-reciente-13"]').trigger("click");
+    await flushPromises();
+
+    expect(mockedLotesDetalle.obtenerResumen).toHaveBeenCalledWith(13);
+  });
+
   it("muestra aviso cuando ARCA degrada el lote a emisión unitaria", async () => {
     const lote = loteResumenMock();
     const resumen = {
