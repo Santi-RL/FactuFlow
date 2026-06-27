@@ -113,6 +113,26 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Gestor de almacenamiento - QA visual local 2026-06-27
+
+- Alcance revisado: `Sistema > Almacenamiento`, incluyendo métricas de uso,
+  categorías, lotes compactables, archivos administrados, uso por emisor,
+  preparación de ZIP, descarga simulada y confirmación `Ya lo descargué`.
+- La prueba visual usó frontend local real con API mockeada, sesión ficticia,
+  emisores ficticios y artefactos ficticios. No se usaron credenciales reales,
+  datos reales, CUITs reales, CAEs, PDFs privados, Excels privados, logs reales
+  ni rutas internas sensibles.
+- El E2E permanente verifica que el contenido principal del gestor no exponga
+  CUIT completo ni rutas internas tipo `C:\` o `/var/`, y que el flujo de
+  resguardo permita preparar ZIP, descargar y habilitar la liberación recién
+  después de la descarga.
+- Capturas privadas:
+  `private/brand-lab/exports/almacenamiento-qa-2026-06-27/`. El smoke verificó
+  pantalla principal, resguardo preparado y vista mobile con dimensiones y
+  variedad de píxeles suficientes para descartar una pantalla en blanco.
+- Esta QA no reemplaza la validación pendiente sobre VPS con datos de prueba
+  controlados; solo cierra una prevalidación local segura de UI y flujo.
+
 ### Rediseño UX de carga masiva - Corte 4 2026-06-27
 
 - Alcance revisado: navegación compacta de `Lotes recientes` en
@@ -1447,9 +1467,10 @@ Retomar en consolidacion post-piloto:
 6. Para VPS, verificar política de almacenamiento mínimo: PDFs, ZIPs,
    observados y temporales descargables no deben quedar como ocupación
    permanente si no son vitales para operar, auditar o recuperar el sistema.
-7. Validar visualmente el gestor de almacenamiento administrativo: uso total,
-   desglose por emisor, desglose por tipo de dato, resguardo ZIP y limpieza
-   segura de artefactos no vitales.
+7. Repetir en VPS con datos de prueba controlados la QA visual del gestor de
+   almacenamiento. La prevalidación local con API mockeada ya cubrió uso total,
+   desglose por emisor, desglose por tipo de dato, resguardo ZIP y confirmación
+   de limpieza segura sin datos reales.
 8. Completar la observabilidad operativa estándar definida en
    `docs/agents/operational-observability.md`: healthcheck dedicado de worker,
    backup visible, trazabilidad histórica y próximos pasos claros para usuarios

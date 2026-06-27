@@ -42,6 +42,11 @@ Reglas vigentes desde 2026-05-22:
 
 ### Observabilidad operativa
 
+- Se agregó QA local del gestor de almacenamiento: E2E permanente con API
+  mockeada y datos ficticios, más smoke visual privado para métricas,
+  categorías, emisores, resguardo ZIP y confirmación `Ya lo descargué`, sin
+  datos reales ni llamadas ARCA. La validación VPS con datos de prueba
+  controlados sigue pendiente.
 - Se agregó el primer corte de `Sistema > Estado` para administradores, con
   señales de API, base de datos, certificado local del emisor activo,
   almacenamiento y prueba ARCA manual.

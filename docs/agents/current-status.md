@@ -61,7 +61,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Gestor de almacenamiento administrativo implementado para conocer el uso total
   de la instalación y desglosarlo por emisor, base, lotes, temporales, caché,
   certificados y logs, con cálculo liviano, acceso solo para administradores y
-  sin exponer datos privados innecesarios.
+  sin exponer datos privados innecesarios. Desde 2026-06-27 tiene prevalidación
+  local E2E y smoke visual con API mockeada, datos ficticios y sin artefactos
+  reales; queda pendiente repetirlo en VPS con datos de prueba controlados.
 - Primer corte de `Sistema > Estado` implementado en frontend: consolida señales
   existentes de API, base de datos, certificado local del emisor activo,
   almacenamiento y prueba ARCA manual. No llama a ARCA automáticamente; el
@@ -160,6 +162,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Gestor de almacenamiento - QA visual local 2026-06-27
+
+- Se agregó cobertura E2E para `Sistema > Almacenamiento` con API mockeada y
+  datos ficticios: métricas, categorías, lotes compactables, logs, temporales,
+  certificados huérfanos, preparación de ZIP, descarga simulada y confirmación
+  `Ya lo descargué`.
+- El test verifica que el contenido principal del gestor no exponga CUITs
+  completos ni rutas internas sensibles, y que la liberación quede atada al
+  resguardo descargado.
+- Se ejecutó smoke visual local con capturas privadas en
+  `private/brand-lab/exports/almacenamiento-qa-2026-06-27/`. No se usaron datos
+  reales, logs reales, PDFs privados, Excels privados ni llamadas ARCA.
+- Este cierre no valida todavía la política en VPS real; esa repetición con
+  datos de prueba controlados sigue como pendiente operativo.
 
 ### Rediseño UX de carga masiva - Corte 4 2026-06-27
 
@@ -1751,7 +1768,8 @@ Quedo validado manualmente:
   descargables debe diseñarse para VPS con almacenamiento mínimo: generación
   bajo demanda, descarga a la PC del usuario y limpieza posterior del servidor.
 - El gestor de almacenamiento administrativo ya existe para diagnóstico y
-  limpieza manual de artefactos no vitales. Queda pendiente validarlo
+  limpieza manual de artefactos no vitales. La prevalidación local con mocks y
+  datos ficticios quedó cubierta por E2E/smoke visual; queda pendiente validarlo
   visualmente sobre una instalación real de VPS con datos de prueba controlados.
 - Los emisores existentes deben completar `Ingresos Brutos` si quieren que ese
   dato figure informado en PDFs nuevos; mientras tanto el PDF lo muestra como
@@ -1803,9 +1821,9 @@ Para continuar desde el estado actual:
 5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
-6. Ejecutar QA visual del gestor de almacenamiento con uso total, desglose por
-   emisor y tipo de dato, alertas simples, resguardo ZIP y limpieza segura de
-   artefactos no vitales.
+6. Repetir QA visual del gestor de almacenamiento sobre VPS con datos de prueba
+   controlados. La prevalidación local con mocks ya cubrió uso total, desglose
+   por emisor y tipo de dato, resguardo ZIP y confirmación de limpieza segura.
 7. Completar observabilidad operativa estándar: healthcheck dedicado de worker,
    backup visible, trazabilidad/reconciliación de lotes, logs útiles para
    soporte, mensajes simples y runbook de diagnóstico.

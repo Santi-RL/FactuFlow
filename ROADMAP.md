@@ -223,6 +223,9 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [~] Observabilidad operativa estándar definida como requisito post-piloto
 - [x] Gestor de almacenamiento administrativo para ver uso total y desglose por
   emisor, lotes, base, temporales, artefactos descargables, certificados y logs
+- [x] QA visual local del gestor de almacenamiento con API mockeada, datos
+  ficticios, E2E permanente y capturas privadas; no reemplaza la validación VPS
+  con datos de prueba controlados
 - [~] Observabilidad, backups manuales y políticas operativas iniciales
   parcialmente probadas; falta automatización, retención y recuperación a VPS
   nuevo
@@ -656,9 +659,10 @@ Objetivo: ampliar valor mas alla del MVP.
 7. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
    descargables usando el gestor administrativo, especialmente PDFs, ZIPs y
    temporales de lotes.
-8. Ejecutar QA visual del gestor de almacenamiento con datos de prueba:
-   resguardo ZIP, confirmación `Ya lo descargué`, compactación y limpieza
-   segura de temporales/logs/certificados huérfanos.
+8. Repetir QA visual del gestor de almacenamiento en VPS con datos de prueba
+   controlados: resguardo ZIP, confirmación `Ya lo descargué`, compactación y
+   limpieza segura de temporales/logs/certificados huérfanos. La prevalidación
+   local con mocks ya quedó cubierta.
 9. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
    de comprobantes, sin persistencia permanente en el servidor.
 10. Definir la política de versiones posteriores al MVP.
