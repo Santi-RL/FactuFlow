@@ -98,6 +98,7 @@ const gruposLoteTotal = ref(0);
 const gruposLoteTotalPages = ref(0);
 const grupoEstadoFiltro = ref<string | number>("");
 const detalleComprobantesAbierto = ref(false);
+const resolucionPendientesAbierta = ref(false);
 const loadingLotes = ref(false);
 const loadingGruposLote = ref(false);
 const loadingPerfiles = ref(false);
@@ -450,11 +451,17 @@ const actualizarDetalleComprobantesAbierto = (event: Event) => {
     event.currentTarget as HTMLDetailsElement
   ).open;
 };
+const actualizarResolucionPendientesAbierta = (event: Event) => {
+  resolucionPendientesAbierta.value = (
+    event.currentTarget as HTMLDetailsElement
+  ).open;
+};
 
 watch(
   () => loteActual.value?.id,
   () => {
     detalleComprobantesAbierto.value = false;
+    resolucionPendientesAbierta.value = false;
   },
 );
 
@@ -2674,31 +2681,53 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </details>
-            <div
+            <details
               v-if="
                 totalPendientesResolucion > 0 ||
                   hayPendientesResolucionVisibles
               "
+              data-testid="resolucion-pendientes-lote"
+              :open="resolucionPendientesAbierta"
               class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4"
+              @toggle="actualizarResolucionPendientesAbierta"
             >
-              <div
-                class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between"
-              >
-                <div>
-                  <p class="text-sm font-semibold text-amber-950">
-                    Resolver pendientes del lote
-                  </p>
-                  <p class="mt-1 text-sm text-amber-900">
-                    Reintenta fallidos cuando quieras emitirlos desde
-                    FactuFlow. Reconcilia solo comprobantes que ya verificaste
-                    como autorizados en ARCA Web. Descarta únicamente los que no
-                    deben emitirse desde este lote.
-                  </p>
+              <summary class="cursor-pointer list-none">
+                <div
+                  class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+                >
+                  <div>
+                    <p class="text-sm font-semibold text-amber-950">
+                      Resolver pendientes del lote
+                    </p>
+                    <p class="mt-1 text-sm text-amber-900">
+                      Modo sensible para reintentar, descartar o reconciliar
+                      comprobantes con intervención explícita.
+                    </p>
+                  </div>
+                  <div
+                    class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end"
+                  >
+                    <p class="text-sm font-medium text-amber-900">
+                      {{ totalPendientesResolucion }} pendientes visibles
+                      contabilizados
+                    </p>
+                    <span
+                      class="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-950"
+                    >
+                      {{
+                        resolucionPendientesAbierta ? "Cerrar" : "Abrir"
+                      }} resolución
+                    </span>
+                  </div>
                 </div>
-                <p class="text-sm font-medium text-amber-900">
-                  {{ totalPendientesResolucion }} pendientes visibles contabilizados
-                </p>
-              </div>
+              </summary>
+
+              <p class="mt-4 text-sm text-amber-900">
+                Reintenta fallidos cuando quieras emitirlos desde FactuFlow.
+                Reconcilia solo comprobantes que ya verificaste como
+                autorizados en ARCA Web. Descarta únicamente los que no deben
+                emitirse desde este lote.
+              </p>
 
               <BaseAlert
                 v-if="hayPendientesResolucionVisibles && !detalleComprobantesAbierto"
@@ -2813,7 +2842,7 @@ onBeforeUnmount(() => {
                   </BaseButton>
                 </div>
               </div>
-            </div>
+            </details>
 
             <div
               v-if="puedeCompactarLote || puedeEliminarLote"

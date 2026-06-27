@@ -27,6 +27,9 @@ Reglas vigentes desde 2026-05-22:
   activo prioriza totales, avance y siguiente acción; el resumen operativo y el
   detalle de comprobantes pasan a secciones plegables. Las acciones sobre
   comprobantes visibles quedan habilitadas solo con el detalle abierto.
+- Se implementó el Corte 3 del rediseño de `/comprobantes/lotes`: `Resolver
+  pendientes` pasa a ser un modo desplegable que agrupa reintento de fallidos,
+  descarte de visibles y reconciliación ARCA Web para casos excepcionales.
 - Los cambios son frontend-only y mantienen intactos backend, ARCA, emisión,
   servicios, stores, rutas, payloads y contratos.
 - Validaciones: `git diff --check`, test unitario enfocado de

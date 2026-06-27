@@ -593,6 +593,47 @@ describe("LotesComprobantesView", () => {
     expect(mockedLotesDetalle.descartarGrupos).not.toHaveBeenCalled();
   });
 
+  it("mantiene la resolución de pendientes cerrada hasta intervención explícita", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      total_grupos: 1,
+      grupos_validos: 1,
+      totales_listos_para_emitir: {
+        comprobantes: 1,
+        neto: 1000,
+        iva21: 210,
+        iva105: 0,
+        total: 1210,
+        valores_invalidos: 0,
+      },
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      items: [grupoDetalleMock()],
+      page: 1,
+      per_page: 100,
+      total: 1,
+      total_pages: 1,
+      estado: null,
+    });
+
+    const resolucion = wrapper.get('[data-testid="resolucion-pendientes-lote"]');
+    expect((resolucion.element as HTMLDetailsElement).open).toBe(false);
+    expect(resolucion.text()).toContain("Abrir resolución");
+    expect(resolucion.text()).toContain(
+      "Modo sensible para reintentar, descartar o reconciliar",
+    );
+
+    (resolucion.element as HTMLDetailsElement).open = true;
+    await resolucion.trigger("toggle");
+    await flushPromises();
+
+    expect((resolucion.element as HTMLDetailsElement).open).toBe(true);
+    expect(resolucion.text()).toContain("Cerrar resolución");
+    expect(resolucion.text()).toContain(
+      "Reintenta fallidos cuando quieras emitirlos desde FactuFlow",
+    );
+  });
+
   it("bloquea acciones sobre visibles si el detalle está cerrado", async () => {
     const lote = {
       ...loteResumenMock(),

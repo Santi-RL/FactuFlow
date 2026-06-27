@@ -113,6 +113,29 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Rediseño UX de carga masiva - Corte 3 2026-06-27
+
+- Alcance revisado: modo `Resolver pendientes del lote` en
+  `/comprobantes/lotes`, con `Reintentar fallidos`, `Descartar visibles` y
+  `Reconciliar ARCA Web` agrupados en un panel desplegable.
+- La prueba visual usó frontend local real en
+  `http://127.0.0.1:8080/comprobantes/lotes` con API mockeada, sesión ficticia,
+  emisor ficticio, punto de venta ficticio y un lote ficticio en estado
+  `requiere_reconciliacion`. No se usaron credenciales reales, datos reales,
+  Exceles privados, CAEs, CUITs reales ni llamadas ARCA.
+- Capturas privadas:
+  `private/brand-lab/exports/lotes-ux-corte-3-2026-06-27/`. El smoke verificó
+  panel cerrado, panel abierto, acciones deshabilitadas para lote incierto y
+  capturas con dimensiones y variedad de píxeles suficientes para descartar una
+  pantalla en blanco.
+- Resultado funcional: las acciones sensibles conservan handlers,
+  confirmaciones y condiciones existentes. Las acciones sobre comprobantes
+  visibles siguen bloqueadas hasta abrir el detalle de comprobantes.
+- Verificación automatizada asociada: `git diff --check`, `npm run lint:check`,
+  `npm run type-check`, `npm run build`, `npm run test:unit`,
+  `npm run test:e2e -- --project=chromium` y test unitario enfocado de
+  `LotesComprobantesView` quedaron OK.
+
 ### Rediseño UX de carga masiva - Corte 2 2026-06-27
 
 - Alcance revisado: lote activo en `/comprobantes/lotes`, totales listos para

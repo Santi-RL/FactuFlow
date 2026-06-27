@@ -178,10 +178,11 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   público, acumulada en cortes pequeños y auditables hasta un checkpoint
   instalable en producción; no se despliegan microcortes estéticos por separado.
 - [~] Diagnóstico UX específico de `/comprobantes/lotes` cerrado y rediseño
-  secuencial documentado en `docs/agents/lotes-ux-redesign.md`. Cortes 1 y 2
-  implementados en frontend: preparación/validación más directa y lote activo
-  con resumen prioritario, detalles plegables y siguiente acción visible, sin
-  tocar backend, ARCA, emisión, servicios, stores, rutas ni contratos.
+  secuencial documentado en `docs/agents/lotes-ux-redesign.md`. Cortes 1, 2
+  y 3 implementados en frontend: preparación/validación más directa, lote
+  activo con resumen prioritario, detalles plegables, siguiente acción
+  visible y resolución de pendientes como modo excepcional, sin tocar
+  backend, ARCA, emisión, servicios, stores, rutas ni contratos.
 - [ ] Cambio de contraseña propio para usuarios autenticados, sin intervención
   del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
@@ -383,9 +384,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
 - [~] Rediseño UX secuencial de `/comprobantes/lotes` documentado en
   `docs/agents/lotes-ux-redesign.md`: reducir onboarding persistente, agrupar
   configuración fiscal, acercar `Validar lote` al cierre de requisitos y tratar
-  reconciliación como modo excepcional. Cortes 1 y 2 implementados como cambios
-  frontend-only; quedan pendientes reconciliación excepcional y navegación de
-  lotes recientes.
+  reconciliación como modo excepcional. Cortes 1, 2 y 3 implementados como
+  cambios frontend-only; queda pendiente navegación de lotes recientes.
 - [x] Preseleccion del formato sugerido con alta confianza antes de validar
   archivos externos
 - [x] Confirmacion de fecha de emision y fechas de servicio antes de validar
@@ -432,7 +432,8 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   informó `RegXReq`
 - [x] Panel de resolución en lotes para reintentar fallidos, reconciliar
   comprobantes emitidos en ARCA Web, descartar pendientes visibles, compactar
-  lotes cerrados o eliminar lotes sin emisión
+  lotes cerrados o eliminar lotes sin emisión, con resolución excepcional
+  agrupada visualmente bajo `Resolver pendientes`
 
 ### Operacion masiva posterior a la emision
 - [ ] Descarga masiva de PDFs en ZIP generado bajo demanda y sin persistencia

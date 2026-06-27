@@ -81,6 +81,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   siguiente acción; el resumen operativo completo y el detalle de comprobantes
   quedan como secciones plegables. No se tocaron backend, ARCA, emisión,
   servicios, stores, rutas ni contratos.
+- Corte 3 del rediseño UX de carga masiva implementado el 2026-06-27 en
+  frontend: `Resolver pendientes del lote` queda como modo desplegable para
+  reintentar, descartar o reconciliar casos excepcionales. Las acciones
+  sensibles mantienen handlers, confirmaciones y condiciones existentes; las
+  acciones sobre comprobantes visibles siguen exigiendo el detalle abierto.
 - La observabilidad operativa estándar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -151,6 +156,24 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Rediseño UX de carga masiva - Corte 3 2026-06-27
+
+- Se reorganizó la resolución de pendientes en `/comprobantes/lotes`: el panel
+  `Resolver pendientes del lote` queda cerrado por defecto y agrupa
+  `Reintentar fallidos`, `Descartar visibles` y `Reconciliar ARCA Web` como modo
+  excepcional.
+- El cambio reduce ruido visual para el caso frecuente sin eliminar advertencias
+  fiscales. Las acciones sensibles conservan los mismos handlers,
+  confirmaciones, condiciones de habilitación y bloqueo por detalle cerrado.
+- El alcance fue frontend-only: no cambia payloads, watchers, stores, rutas,
+  servicios, backend, ARCA, emisión, reintentos, reconciliación ni contratos.
+- Verificación ejecutada: `git diff --check`, `npm run lint:check`,
+  `npm run type-check`, `npm run build`, `npm run test:unit`,
+  `npm run test:e2e -- --project=chromium`, test unitario enfocado de
+  `LotesComprobantesView` y smoke visual con API mockeada, datos ficticios y sin
+  llamadas ARCA para lote `requiere_reconciliacion`. Capturas privadas en
+  `private/brand-lab/exports/lotes-ux-corte-3-2026-06-27/`.
 
 ### Rediseño UX de carga masiva - Corte 2 2026-06-27
 
@@ -1754,8 +1777,8 @@ Para continuar desde el estado actual:
    primer diagnóstico UX formalizado es carga masiva en
    `docs/agents/lotes-ux-redesign.md`.
 4. Continuar el rediseño secuencial de `/comprobantes/lotes` con
-   `Corte 3 - Tratar reconciliación como modo excepcional`, después de cerrar
-   el commit del Corte 2 y sin tocar contratos ni lógica fiscal.
+   `Corte 4 - Navegación de lotes recientes`, después de cerrar el commit del
+   Corte 3 y sin tocar contratos ni lógica fiscal.
 5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.

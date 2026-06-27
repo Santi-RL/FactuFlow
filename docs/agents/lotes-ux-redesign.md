@@ -5,8 +5,8 @@
 ## Alcance
 
 Este documento define el diagnóstico, las instrucciones de rediseño y el avance
-secuencial de implementación de `/comprobantes/lotes`. Los Cortes 1 y 2 ya
-quedaron implementados como cambios frontend-only; los cortes siguientes
+secuencial de implementación de `/comprobantes/lotes`. Los Cortes 1, 2 y 3
+ya quedaron implementados como cambios frontend-only; los cortes siguientes
 permanecen pendientes.
 
 La sección de carga masiva es central para FactuFlow y debe tratarse como flujo
@@ -86,6 +86,37 @@ Validación ejecutada:
 - smoke visual con API mockeada, datos ficticios y sin llamadas ARCA para lotes
   `validado`, `con_errores` y `procesando`; capturas privadas en
   `private/brand-lab/exports/lotes-ux-corte-2-2026-06-27/`
+
+### Corte 3 implementado - 2026-06-27
+
+Alcance cerrado en frontend sobre `LotesComprobantesView`:
+
+- el panel `Resolver pendientes del lote` queda como modo desplegable
+- `Reintentar fallidos`, `Descartar visibles` y `Reconciliar ARCA Web` quedan
+  agrupados dentro de ese modo excepcional
+- el control cambia entre `Abrir resolución` y `Cerrar resolución`
+- las advertencias fiscales y operativas se mantienen dentro del modo de
+  resolución
+- las acciones sensibles conservan los mismos handlers, confirmaciones fiscales
+  y condiciones de habilitación existentes
+- las acciones sobre comprobantes visibles siguen requiriendo que el detalle de
+  comprobantes esté abierto
+
+No se cambiaron payloads, validaciones, watchers, servicios, stores, rutas,
+backend, ARCA, emisión, reintentos, reconciliación, numeración ni contratos.
+
+Validación ejecutada:
+
+- `git diff --check`
+- `npm run test:unit -- LotesComprobantesView`
+- `npm run lint:check`
+- `npm run type-check`
+- `npm run build`
+- `npm run test:unit`
+- `npm run test:e2e -- --project=chromium`
+- smoke visual con API mockeada, datos ficticios y sin llamadas ARCA para lote
+  `requiere_reconciliacion`; capturas privadas en
+  `private/brand-lab/exports/lotes-ux-corte-3-2026-06-27/`
 
 ## Diagnóstico resumido
 
@@ -202,17 +233,22 @@ Validación mínima:
 
 ### Corte 3 - Tratar reconciliación como modo excepcional
 
+Estado: implementado el 2026-06-27.
+
 Objetivo: bajar el ruido de reconciliación sin esconder acciones críticas.
 
 - Mostrar un resumen claro de pendientes y una acción `Resolver pendientes`.
-- Llevar `Reintentar`, `Descartar` y `Reconciliar ARCA Web` a paneles
-  desplegables, tabs o un drawer específico.
+- Llevar `Reintentar`, `Descartar` y `Reconciliar ARCA Web` a un panel
+  desplegable específico para resolución excepcional.
 - Mantener textos de advertencia fiscal dentro del modo de resolución.
 - No habilitar reintentos ni reconciliaciones cuando el estado no lo permite.
+- Mantener el requisito de abrir `Detalle de comprobantes` antes de operar sobre
+  comprobantes visibles.
 
-Validación mínima:
+Validación mínima cubierta:
 - tests existentes de `requiere_reconciliacion`
-- smoke visual de lote incierto con acciones deshabilitadas cuando corresponda
+- test unitario del modo de resolución cerrado/abierto
+- smoke visual de lote incierto con acciones deshabilitadas cuando corresponde
 
 ### Corte 4 - Navegación de lotes recientes
 

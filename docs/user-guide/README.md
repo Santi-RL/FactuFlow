@@ -16,7 +16,8 @@ Nota 2026-06-27: `Emisión masiva` reorganiza la preparación, validación y
 revisión del lote activo. La ayuda inicial queda como guía compacta desplegable,
 los requisitos se muestran como checklist, `Validar lote` también aparece al
 cierre de la configuración fiscal y, después de validar, la vista prioriza
-importes, avance y siguiente acción.
+importes, avance y siguiente acción. Las acciones excepcionales de resolución
+de pendientes quedan agrupadas bajo `Resolver pendientes`.
 
 ## Contenido
 
@@ -248,7 +249,9 @@ fiscales. Usalo para ver qué falta antes de validar el lote.
 Después de validar, el lote activo muestra primero los totales listos para
 emitir, el avance y la siguiente acción recomendada según el estado. El resumen
 operativo completo y el detalle de comprobantes quedan disponibles en secciones
-plegables para auditoría, soporte o revisión puntual. Si una acción aplica sobre
+plegables para auditoría, soporte o revisión puntual. Las acciones
+excepcionales quedan agrupadas en `Resolver pendientes`; abrí ese modo solo
+cuando necesites reintentar, descartar o reconciliar. Si una acción aplica sobre
 comprobantes visibles, el detalle debe estar abierto para ver las filas
 alcanzadas.
 
@@ -308,7 +311,9 @@ fiscal.
 ### Gestión de lotes parciales y limpieza
 
 Cuando un lote queda con comprobantes emitidos y otros pendientes, FactuFlow
-puede mostrar acciones de resolución:
+puede mostrar acciones de resolución. Estas acciones aparecen agrupadas bajo
+`Resolver pendientes` y el panel arranca cerrado para no mezclar casos
+excepcionales con la revisión normal del lote:
 
 - `Reintentar fallidos`: vuelve a solicitar CAE para comprobantes fallidos. La
   pantalla muestra una confirmación de fecha fiscal y punto de venta; si esos
