@@ -16,7 +16,7 @@ test.describe("Emisión masiva", () => {
     await page.getByLabel(/emisor activo/i).selectOption("2");
     await expect(page.getByLabel(/emisor activo/i)).toHaveValue("2");
     await expect(
-      page.getByText("Sucursal Norte SRL", { exact: true }),
+      page.getByText("Sucursal Norte SRL", { exact: true }).first(),
     ).toBeVisible();
   });
 
@@ -37,10 +37,8 @@ test.describe("Emisión masiva", () => {
       .first()
       .check();
 
-    await expect(
-      page.getByRole("button", { name: /validar lote/i }),
-    ).toBeEnabled();
-    await page.getByRole("button", { name: /validar lote/i }).click();
+    await expect(page.getByTestId("validar-lote-final")).toBeEnabled();
+    await page.getByTestId("validar-lote-final").click();
 
     await expect(page.getByText(/archivo validado/i)).toBeVisible();
     await expect(
