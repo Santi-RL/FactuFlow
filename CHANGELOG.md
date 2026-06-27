@@ -23,11 +23,16 @@ Reglas vigentes desde 2026-05-22:
 - Se implementó el Corte 1 del rediseño de `/comprobantes/lotes`: guía rápida
   compacta con detalle desplegable, checklist dinámico de requisitos y acción
   `Validar lote` al cierre de la configuración fiscal.
-- El cambio es frontend-only y mantiene intactos backend, ARCA, emisión,
+- Se implementó el Corte 2 del rediseño de `/comprobantes/lotes`: el lote
+  activo prioriza totales, avance y siguiente acción; el resumen operativo y el
+  detalle de comprobantes pasan a secciones plegables. Las acciones sobre
+  comprobantes visibles quedan habilitadas solo con el detalle abierto.
+- Los cambios son frontend-only y mantienen intactos backend, ARCA, emisión,
   servicios, stores, rutas, payloads y contratos.
-- Validaciones: test unitario enfocado de `LotesComprobantesView`,
-  `npm run lint:check`, `npm run type-check`, `npm run build`,
-  `npm run test:unit` y smoke visual con API mockeada sin llamadas ARCA.
+- Validaciones: `git diff --check`, test unitario enfocado de
+  `LotesComprobantesView`, `npm run lint:check`, `npm run type-check`,
+  `npm run build`, `npm run test:unit`, E2E Chromium y smoke visual con API
+  mockeada sin llamadas ARCA.
 
 ### Observabilidad operativa
 

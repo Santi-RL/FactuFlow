@@ -97,6 +97,7 @@ const gruposLotePerPage = ref(GRUPOS_LOTE_PER_PAGE);
 const gruposLoteTotal = ref(0);
 const gruposLoteTotalPages = ref(0);
 const grupoEstadoFiltro = ref<string | number>("");
+const detalleComprobantesAbierto = ref(false);
 const loadingLotes = ref(false);
 const loadingGruposLote = ref(false);
 const loadingPerfiles = ref(false);
@@ -444,6 +445,19 @@ const hayPendientesResolucionVisibles = computed(
     gruposDescartablesVisibles.value.length > 0 ||
     gruposReconciliablesVisibles.value.length > 0,
 );
+const actualizarDetalleComprobantesAbierto = (event: Event) => {
+  detalleComprobantesAbierto.value = (
+    event.currentTarget as HTMLDetailsElement
+  ).open;
+};
+
+watch(
+  () => loteActual.value?.id,
+  () => {
+    detalleComprobantesAbierto.value = false;
+  },
+);
+
 const loteCerrado = computed(() =>
   ["completado", "cerrado_reconciliado", "cerrado_con_descartes"].includes(
     loteActual.value?.estado || "",
@@ -481,6 +495,7 @@ const grupoExternoOptions = computed(() => [
 ]);
 const puedeReconciliarExterno = computed(() => {
   return (
+    detalleComprobantesAbierto.value &&
     !!grupoExternoSeleccionado.value &&
     Number(externoNumero.value || 0) > 0 &&
     externoMotivo.value.trim().length >= 3
@@ -488,6 +503,7 @@ const puedeReconciliarExterno = computed(() => {
 });
 const puedeDescartarVisibles = computed(
   () =>
+    detalleComprobantesAbierto.value &&
     loteActual.value?.estado !== "requiere_reconciliacion" &&
     gruposDescartablesVisiblesIds.value.length > 0 &&
     motivoDescartar.value.trim().length >= 3,
@@ -590,6 +606,29 @@ const tiempoRestanteTexto = computed(() => {
 });
 const necesitaCorreccion = computed(() => {
   return !!loteActual.value && loteActual.value.grupos_con_error > 0;
+});
+
+const siguienteAccionLote = computed(() => {
+  if (!loteActual.value) return "";
+  if (progresoLote.value?.estaActivo) {
+    return "Seguir el avance sin recargar ni reintentar el lote.";
+  }
+  if (puedeProcesar.value) {
+    return "Revisar totales y emitir solo después de confirmar la advertencia fiscal.";
+  }
+  if (loteActual.value.estado === "requiere_reconciliacion") {
+    return "Resolver pendientes antes de cualquier reintento operativo.";
+  }
+  if (necesitaCorreccion.value) {
+    return "Corregir observaciones desde el archivo observado y volver a validar.";
+  }
+  if (hayFallidosParaReintentar.value) {
+    return "Revisar fallidos antes de decidir si corresponde reintentar.";
+  }
+  if (loteCerrado.value) {
+    return "Consultar el resultado o descargar resguardos disponibles.";
+  }
+  return "Revisar estado, detalle y acciones disponibles del lote.";
 });
 
 const fechasEmisionValidas = computed(() => {
@@ -2429,10 +2468,13 @@ onBeforeUnmount(() => {
                     {{ loteEstadoNombre }}
                   </span>
                 </div>
-                <p class="mt-2 text-sm text-gray-600">
+                <p class="mt-2 text-sm text-brand-slate">
                   {{ loteActual.mensaje_resumen || "Sin novedades por ahora." }}
                 </p>
-                <p class="mt-2 text-xs text-gray-500">
+                <p class="mt-2 text-sm font-medium text-brand-teal">
+                  Siguiente acción: {{ siguienteAccionLote }}
+                </p>
+                <p class="mt-2 text-xs text-brand-slate">
                   Cargado {{ formatDateTime(loteActual.created_at) }} | Inicio
                   {{ formatDateTime(loteActual.started_at) }} | Fin
                   {{ formatDateTime(loteActual.finished_at) }}
@@ -2484,27 +2526,154 @@ onBeforeUnmount(() => {
               disponible el detalle original por fila.
             </BaseAlert>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div
+              class="mt-6 rounded-xl border border-status-success bg-status-success-soft p-4"
+            >
               <div
-                v-for="item in resumenOperativo"
-                :key="item.label"
-                class="rounded-xl border border-gray-200 bg-gray-50 p-4"
+                class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
               >
-                <div class="flex items-start justify-between gap-2">
-                  <p class="text-sm font-medium text-gray-600">
-                    {{ item.label }}
+                <div>
+                  <p class="text-sm font-semibold text-brand-ink">
+                    Totales listos para emitir
                   </p>
-                  <InformationCircleIcon
-                    class="h-4 w-4 flex-shrink-0 text-gray-400"
-                    :title="item.hint"
-                  />
+                  <p class="mt-1 text-sm text-brand-slate">
+                    Revisá estos importes contra el Excel antes de solicitar
+                    CAE.
+                  </p>
                 </div>
-                <p class="mt-3 text-3xl font-bold text-gray-900">
-                  {{ item.value }}
+                <p class="text-sm font-medium text-brand-slate">
+                  {{ totalesListosParaEmitir.comprobantes }} comprobantes
                 </p>
               </div>
+
+              <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                  <p class="text-xs font-medium uppercase text-brand-slate">
+                    Neto
+                  </p>
+                  <p class="mt-1 text-lg font-semibold text-brand-ink">
+                    {{ formatMoney(totalesListosParaEmitir.neto) }}
+                  </p>
+                </div>
+                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                  <p class="text-xs font-medium uppercase text-brand-slate">
+                    IVA 21%
+                  </p>
+                  <p class="mt-1 text-lg font-semibold text-brand-ink">
+                    {{ formatMoney(totalesListosParaEmitir.iva21) }}
+                  </p>
+                </div>
+                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                  <p class="text-xs font-medium uppercase text-brand-slate">
+                    IVA 10,5%
+                  </p>
+                  <p class="mt-1 text-lg font-semibold text-brand-ink">
+                    {{ formatMoney(totalesListosParaEmitir.iva105) }}
+                  </p>
+                </div>
+                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                  <p class="text-xs font-medium uppercase text-brand-slate">
+                    Total
+                  </p>
+                  <p class="mt-1 text-lg font-semibold text-brand-ink">
+                    {{ formatMoney(totalesListosParaEmitir.total) }}
+                  </p>
+                </div>
+              </div>
+              <BaseAlert
+                v-if="totalesListosParaEmitir.valoresInvalidos > 0"
+                type="warning"
+                class="mt-4"
+              >
+                Hay importes con un formato ambiguo en
+                {{ totalesListosParaEmitir.valoresInvalidos }} fila(s)
+                validada(s). Revisá el Excel y volvé a validar antes de emitir.
+              </BaseAlert>
             </div>
 
+            <div class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4">
+              <div
+                class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <p class="text-sm font-medium text-brand-ink">
+                    Avance del lote
+                  </p>
+                  <p class="mt-1 text-sm text-brand-slate">
+                    {{ resumenAvanceLote }}
+                  </p>
+                </div>
+                <p class="text-sm font-semibold text-primary-700">
+                  {{ porcentajeProcesado }}% procesado
+                </p>
+              </div>
+              <div
+                class="mt-3 h-3 overflow-hidden rounded-full bg-border-subtle"
+                :class="{ relative: mostrarBarraIndeterminada }"
+              >
+                <div
+                  v-if="mostrarBarraIndeterminada"
+                  class="progress-indeterminate h-full rounded-full bg-primary-500/80"
+                />
+                <div
+                  v-else
+                  class="h-full rounded-full bg-primary-600 transition-all duration-500 ease-out"
+                  :style="{ width: `${porcentajeProcesado}%` }"
+                />
+              </div>
+              <div
+                class="mt-3 grid gap-2 text-sm text-brand-slate md:grid-cols-[1fr_auto_auto]"
+              >
+                <p>{{ detalleAvanceLote }}</p>
+                <p>
+                  <span class="font-medium text-brand-ink">Transcurrido:</span>
+                  {{ progresoLote?.transcurridoTexto || "00:00" }}
+                </p>
+                <p>
+                  <span class="font-medium text-brand-ink">
+                    Estimado restante:
+                  </span>
+                  {{ tiempoRestanteTexto }}
+                </p>
+              </div>
+              <p
+                v-if="loteActual.mensaje_resumen"
+                class="mt-2 text-xs text-brand-slate"
+              >
+                {{ loteActual.mensaje_resumen }}
+              </p>
+            </div>
+
+            <details
+              class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4"
+            >
+              <summary class="cursor-pointer text-sm font-semibold text-brand-ink">
+                Resumen operativo completo
+              </summary>
+              <p class="mt-2 text-sm text-brand-slate">
+                Métricas completas del lote para auditoría operativa y soporte.
+              </p>
+              <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div
+                  v-for="item in resumenOperativo"
+                  :key="item.label"
+                  class="rounded-lg border border-border-subtle bg-surface-card p-4"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <p class="text-sm font-medium text-brand-slate">
+                      {{ item.label }}
+                    </p>
+                    <InformationCircleIcon
+                      class="h-4 w-4 flex-shrink-0 text-brand-slate"
+                      :title="item.hint"
+                    />
+                  </div>
+                  <p class="mt-3 text-3xl font-bold text-brand-ink">
+                    {{ item.value }}
+                  </p>
+                </div>
+              </div>
+            </details>
             <div
               v-if="
                 totalPendientesResolucion > 0 ||
@@ -2530,6 +2699,15 @@ onBeforeUnmount(() => {
                   {{ totalPendientesResolucion }} pendientes visibles contabilizados
                 </p>
               </div>
+
+              <BaseAlert
+                v-if="hayPendientesResolucionVisibles && !detalleComprobantesAbierto"
+                type="warning"
+                class="mt-4"
+              >
+                Abrí el detalle de comprobantes para ver qué filas visibles
+                quedan alcanzadas antes de descartar o reconciliar.
+              </BaseAlert>
 
               <div class="mt-4 grid gap-4 xl:grid-cols-3">
                 <div class="rounded-lg border border-amber-100 bg-white p-4">
@@ -2567,6 +2745,7 @@ onBeforeUnmount(() => {
                     rows="3"
                     class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
                     placeholder="Motivo operativo"
+                    :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
                   />
                   <BaseButton
                     class="mt-3 w-full"
@@ -2596,7 +2775,7 @@ onBeforeUnmount(() => {
                       v-model="externoGrupoId"
                       label="Comprobante visible"
                       :options="grupoExternoOptions"
-                      :disabled="resolviendoLote !== null"
+                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
                     />
                     <BaseInput
                       v-model="externoNumero"
@@ -2604,20 +2783,20 @@ onBeforeUnmount(() => {
                       min="1"
                       label="Número autorizado"
                       placeholder="Ej. 1234"
-                      :disabled="resolviendoLote !== null"
+                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
                     />
                     <BaseInput
                       v-model="externoCae"
                       label="CAE informado"
                       placeholder="Opcional"
-                      :disabled="resolviendoLote !== null"
+                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
                     />
                     <textarea
                       v-model="externoMotivo"
                       rows="3"
                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
                       placeholder="Motivo operativo"
-                      :disabled="resolviendoLote !== null"
+                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
                     />
                   </div>
                   <BaseButton
@@ -2705,302 +2884,197 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div
-              class="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4"
-            >
-              <div
-                class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p class="text-sm font-semibold text-emerald-950">
-                    Totales listos para emitir
-                  </p>
-                  <p class="mt-1 text-sm text-emerald-900">
-                    Revisá estos importes contra el Excel antes de solicitar
-                    CAE.
-                  </p>
-                </div>
-                <p class="text-sm font-medium text-emerald-900">
-                  {{ totalesListosParaEmitir.comprobantes }} comprobantes
-                </p>
-              </div>
-
-              <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-lg border border-emerald-100 bg-white p-3">
-                  <p class="text-xs font-medium uppercase text-gray-500">
-                    Neto
-                  </p>
-                  <p class="mt-1 text-lg font-semibold text-gray-900">
-                    {{ formatMoney(totalesListosParaEmitir.neto) }}
-                  </p>
-                </div>
-                <div class="rounded-lg border border-emerald-100 bg-white p-3">
-                  <p class="text-xs font-medium uppercase text-gray-500">
-                    IVA 21%
-                  </p>
-                  <p class="mt-1 text-lg font-semibold text-gray-900">
-                    {{ formatMoney(totalesListosParaEmitir.iva21) }}
-                  </p>
-                </div>
-                <div class="rounded-lg border border-emerald-100 bg-white p-3">
-                  <p class="text-xs font-medium uppercase text-gray-500">
-                    IVA 10,5%
-                  </p>
-                  <p class="mt-1 text-lg font-semibold text-gray-900">
-                    {{ formatMoney(totalesListosParaEmitir.iva105) }}
-                  </p>
-                </div>
-                <div class="rounded-lg border border-emerald-100 bg-white p-3">
-                  <p class="text-xs font-medium uppercase text-gray-500">
-                    Total
-                  </p>
-                  <p class="mt-1 text-lg font-semibold text-gray-900">
-                    {{ formatMoney(totalesListosParaEmitir.total) }}
-                  </p>
-                </div>
-              </div>
-              <BaseAlert
-                v-if="totalesListosParaEmitir.valoresInvalidos > 0"
-                type="warning"
-                class="mt-4"
-              >
-                Hay importes con un formato ambiguo en
-                {{ totalesListosParaEmitir.valoresInvalidos }} fila(s)
-                validada(s). Revisa el Excel y vuelve a validar antes de emitir.
-              </BaseAlert>
-            </div>
-
-            <div class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div
-                class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <p class="text-sm font-medium text-gray-900">
-                    Avance del lote
-                  </p>
-                  <p class="mt-1 text-sm text-gray-600">
-                    {{ resumenAvanceLote }}
-                  </p>
-                </div>
-                <p class="text-sm font-semibold text-primary-700">
-                  {{ porcentajeProcesado }}% procesado
-                </p>
-              </div>
-              <div
-                class="mt-3 h-3 overflow-hidden rounded-full bg-gray-200"
-                :class="{ relative: mostrarBarraIndeterminada }"
-              >
-                <div
-                  v-if="mostrarBarraIndeterminada"
-                  class="progress-indeterminate h-full rounded-full bg-primary-500/80"
-                />
-                <div
-                  v-else
-                  class="h-full rounded-full bg-primary-600 transition-all duration-500 ease-out"
-                  :style="{ width: `${porcentajeProcesado}%` }"
-                />
-              </div>
-              <div
-                class="mt-3 grid gap-2 text-sm text-gray-600 md:grid-cols-[1fr_auto_auto]"
-              >
-                <p>{{ detalleAvanceLote }}</p>
-                <p>
-                  <span class="font-medium text-gray-700">Transcurrido:</span>
-                  {{ progresoLote?.transcurridoTexto || "00:00" }}
-                </p>
-                <p>
-                  <span class="font-medium text-gray-700">
-                    Estimado restante:
-                  </span>
-                  {{ tiempoRestanteTexto }}
-                </p>
-              </div>
-              <p
-                v-if="loteActual.mensaje_resumen"
-                class="mt-2 text-xs text-gray-500"
-              >
-                {{ loteActual.mensaje_resumen }}
-              </p>
-            </div>
-
             <BaseAlert
               v-if="necesitaCorreccion"
               type="warning"
               class="mt-6"
             >
-              Hay comprobantes observados. Descarga el archivo observado para
-              ver fila por fila que debes corregir antes de volver a subir el
+              Hay comprobantes observados. Descargá el archivo observado para
+              ver fila por fila qué debés corregir antes de volver a subir el
               Excel.
             </BaseAlert>
 
-            <div
-              class="mt-6 flex flex-col gap-3 border-t border-gray-200 pt-6 lg:flex-row lg:items-end lg:justify-between"
+            <details
+              data-testid="detalle-comprobantes-lote"
+              :open="detalleComprobantesAbierto"
+              class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4"
+              @toggle="actualizarDetalleComprobantesAbierto"
             >
-              <div>
-                <p class="text-sm font-semibold text-gray-900">
-                  Detalle de comprobantes
-                </p>
-                <p class="mt-1 text-sm text-gray-600">
-                  {{ resumenPaginacionGrupos }} El resumen fiscal considera el
-                  lote completo.
-                </p>
+              <summary class="cursor-pointer text-sm font-semibold text-brand-ink">
+                Detalle de comprobantes
+              </summary>
+              <p class="mt-2 text-sm text-brand-slate">
+                Abrí este detalle para revisar comprobantes, filtros y observaciones por comprobante.
+              </p>
+              <div
+                class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
+              >
+                <div>
+                  <p class="text-sm font-semibold text-gray-900">
+                    Listado paginado
+                  </p>
+                  <p class="mt-1 text-sm text-gray-600">
+                    {{ resumenPaginacionGrupos }} El resumen fiscal considera el
+                    lote completo.
+                  </p>
+                </div>
+                <BaseSelect
+                  v-model="grupoEstadoFiltro"
+                  class="w-full lg:max-w-xs"
+                  label="Filtrar por estado"
+                  :options="estadosGruposOptions"
+                  @update:model-value="cambiarFiltroGrupos"
+                />
               </div>
-              <BaseSelect
-                v-model="grupoEstadoFiltro"
-                class="w-full lg:max-w-xs"
-                label="Filtrar por estado"
-                :options="estadosGruposOptions"
-                @update:model-value="cambiarFiltroGrupos"
-              />
-            </div>
 
-            <div
-              v-if="loadingGruposLote"
-              class="mt-6 flex justify-center py-10"
-            >
-              <BaseSpinner />
-            </div>
+              <div
+                v-if="loadingGruposLote"
+                class="mt-6 flex justify-center py-10"
+              >
+                <BaseSpinner />
+              </div>
 
-            <div
-              v-else-if="gruposLote.length > 0"
-              class="mt-6 overflow-x-auto"
-            >
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Ref
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Receptor
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Tipo / PV
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Fecha fiscal
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Descripción facturada
-                    </th>
-                    <th
-                      class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Total estimado
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Estado
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
-                    >
-                      Observacion principal
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                  <tr
-                    v-for="grupo in gruposLote"
-                    :key="grupo.id"
-                    class="hover:bg-gray-50"
-                  >
-                    <td class="px-4 py-3 text-sm font-medium text-gray-900">
-                      {{ grupo.comprobante_ref }}
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-700">
-                      <p>
-                        {{ grupo.cliente_razon_social || "A consumidor final" }}
-                      </p>
-                      <p class="text-xs text-gray-500">
-                        {{ grupo.cliente_documento || "Sin documento" }}
-                      </p>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-700">
-                      <p>Tipo {{ grupo.tipo_comprobante || "-" }}</p>
-                      <p class="text-xs text-gray-500">
-                        {{ formatConcepto(grupo.concepto) }}
-                      </p>
-                      <p class="text-xs text-gray-500">
-                        Punto de venta {{ grupo.punto_venta_numero || "-" }}
-                      </p>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-700">
-                      <p>Emisión {{ formatDate(grupo.fecha_emision) }}</p>
-                      <p
-                        v-if="
-                          grupo.fecha_servicio_desde ||
-                            grupo.fecha_servicio_hasta
-                        "
-                        class="text-xs text-gray-500"
+              <div
+                v-else-if="gruposLote.length > 0"
+                class="mt-6 overflow-x-auto"
+              >
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
                       >
-                        Servicio {{ formatDate(grupo.fecha_servicio_desde) }} -
-                        {{ formatDate(grupo.fecha_servicio_hasta) }}
-                      </p>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-700">
-                      {{ descripcionFacturada(grupo) }}
-                    </td>
-                    <td
-                      class="px-4 py-3 text-right text-sm font-medium text-gray-900"
-                    >
-                      {{ formatMoney(grupo.total_estimado) }}
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                      <span
-                        :class="[
-                          'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
-                          ESTADOS_GRUPO_COLOR[grupo.estado] ||
-                            'bg-gray-50 text-gray-700',
-                        ]"
+                        Ref
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
                       >
-                        {{ ESTADOS_GRUPO_NOMBRES[grupo.estado] || grupo.estado }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-600">
-                      {{ grupo.mensajes_json[0] || "Sin observaciones" }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <Pagination
-                v-if="gruposLoteTotalPages > 1"
-                :current-page="gruposLotePage"
-                :total-pages="gruposLoteTotalPages"
-                :per-page="gruposLotePerPage"
-                :total="gruposLoteTotal"
-                @update:current-page="cambiarPaginaGrupos"
-              />
-            </div>
+                        Receptor
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                      >
+                        Tipo / PV
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                      >
+                        Fecha fiscal
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                      >
+                        Descripción facturada
+                      </th>
+                      <th
+                        class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-600"
+                      >
+                        Total estimado
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                      >
+                        Estado
+                      </th>
+                      <th
+                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-600"
+                      >
+                        Observación principal
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200 bg-white">
+                    <tr
+                      v-for="grupo in gruposLote"
+                      :key="grupo.id"
+                      class="hover:bg-gray-50"
+                    >
+                      <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                        {{ grupo.comprobante_ref }}
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-700">
+                        <p>
+                          {{ grupo.cliente_razon_social || "A consumidor final" }}
+                        </p>
+                        <p class="text-xs text-gray-500">
+                          {{ grupo.cliente_documento || "Sin documento" }}
+                        </p>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-700">
+                        <p>Tipo {{ grupo.tipo_comprobante || "-" }}</p>
+                        <p class="text-xs text-gray-500">
+                          {{ formatConcepto(grupo.concepto) }}
+                        </p>
+                        <p class="text-xs text-gray-500">
+                          Punto de venta {{ grupo.punto_venta_numero || "-" }}
+                        </p>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-700">
+                        <p>Emisión {{ formatDate(grupo.fecha_emision) }}</p>
+                        <p
+                          v-if="
+                            grupo.fecha_servicio_desde ||
+                              grupo.fecha_servicio_hasta
+                          "
+                          class="text-xs text-gray-500"
+                        >
+                          Servicio {{ formatDate(grupo.fecha_servicio_desde) }} -
+                          {{ formatDate(grupo.fecha_servicio_hasta) }}
+                        </p>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-700">
+                        {{ descripcionFacturada(grupo) }}
+                      </td>
+                      <td
+                        class="px-4 py-3 text-right text-sm font-medium text-gray-900"
+                      >
+                        {{ formatMoney(grupo.total_estimado) }}
+                      </td>
+                      <td class="px-4 py-3 text-sm">
+                        <span
+                          :class="[
+                            'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
+                            ESTADOS_GRUPO_COLOR[grupo.estado] ||
+                              'bg-gray-50 text-gray-700',
+                          ]"
+                        >
+                          {{ ESTADOS_GRUPO_NOMBRES[grupo.estado] || grupo.estado }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-sm text-gray-600">
+                        {{ grupo.mensajes_json[0] || "Sin observaciones" }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <Pagination
+                  v-if="gruposLoteTotalPages > 1"
+                  :current-page="gruposLotePage"
+                  :total-pages="gruposLoteTotalPages"
+                  :per-page="gruposLotePerPage"
+                  :total="gruposLoteTotal"
+                  @update:current-page="cambiarPaginaGrupos"
+                />
+              </div>
 
-            <div
-              v-else
-              class="mt-6"
-            >
-              <BaseEmpty
-                title="Sin comprobantes para mostrar"
-                message="Cambia el filtro de estado para revisar otros comprobantes del lote."
-                :icon="DocumentDuplicateIcon"
-              />
-            </div>
+              <div
+                v-else
+                class="mt-6"
+              >
+                <BaseEmpty
+                  title="Sin comprobantes para mostrar"
+                  message="Cambiá el filtro de estado para revisar otros comprobantes del lote."
+                  :icon="DocumentDuplicateIcon"
+                />
+              </div>
+            </details>
           </BaseCard>
         </template>
 
         <BaseCard v-else>
           <BaseEmpty
             title="Todavía no hay un lote seleccionado"
-            message="Descarga la plantilla, sube el Excel y valida el archivo para ver el resumen completo aca."
+            message="Descargá la plantilla, subí el Excel y validá el archivo para ver el resumen completo acá."
             :icon="DocumentDuplicateIcon"
           />
         </BaseCard>

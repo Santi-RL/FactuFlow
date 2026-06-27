@@ -593,6 +593,49 @@ describe("LotesComprobantesView", () => {
     expect(mockedLotesDetalle.descartarGrupos).not.toHaveBeenCalled();
   });
 
+  it("bloquea acciones sobre visibles si el detalle está cerrado", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      total_grupos: 1,
+      grupos_validos: 1,
+      totales_listos_para_emitir: {
+        comprobantes: 1,
+        neto: 1000,
+        iva21: 210,
+        iva105: 0,
+        total: 1210,
+        valores_invalidos: 0,
+      },
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      items: [grupoDetalleMock()],
+      page: 1,
+      per_page: 100,
+      total: 1,
+      total_pages: 1,
+      estado: null,
+    });
+
+    const detalle = wrapper.get('[data-testid="detalle-comprobantes-lote"]');
+    expect((detalle.element as HTMLDetailsElement).open).toBe(false);
+    expect(wrapper.text()).toContain("Abrí el detalle de comprobantes");
+
+    const buscarBotonDescartar = () =>
+      wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Descartar visibles"));
+    const botonDescartarCerrado = buscarBotonDescartar();
+
+    expect(botonDescartarCerrado).toBeTruthy();
+    expect(botonDescartarCerrado?.attributes("disabled")).toBeDefined();
+
+    (detalle.element as HTMLDetailsElement).open = true;
+    await detalle.trigger("toggle");
+    await flushPromises();
+    await wrapper.findAll("textarea")[0].setValue("No corresponde emitir");
+
+    expect(buscarBotonDescartar()?.attributes("disabled")).toBeUndefined();
+  });
   it("envia una clave de idempotencia al procesar un lote", async () => {
     const lote = loteResumenMock();
     mockedLotesDetalle.procesar.mockResolvedValue({

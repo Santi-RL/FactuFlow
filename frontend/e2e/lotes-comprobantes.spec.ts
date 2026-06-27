@@ -45,7 +45,11 @@ test.describe("Emisión masiva", () => {
       page.getByRole("heading", { name: /lote-e2e-1\.xlsx/i }),
     ).toBeVisible();
     await expect(
-      page.getByText("Listos para emitir", { exact: true }).first(),
+      page.getByText("Totales listos para emitir", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/Siguiente acción:/i)).toBeVisible();
+    await expect(
+      page.getByText("Resumen operativo completo", { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: /emitir comprobantes válidos/i }),

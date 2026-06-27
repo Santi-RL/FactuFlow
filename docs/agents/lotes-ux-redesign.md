@@ -5,9 +5,9 @@
 ## Alcance
 
 Este documento define el diagnóstico, las instrucciones de rediseño y el avance
-secuencial de implementación de `/comprobantes/lotes`. El Corte 1 ya quedó
-implementado como cambio frontend-only; los cortes siguientes permanecen
-pendientes.
+secuencial de implementación de `/comprobantes/lotes`. Los Cortes 1 y 2 ya
+quedaron implementados como cambios frontend-only; los cortes siguientes
+permanecen pendientes.
 
 La sección de carga masiva es central para FactuFlow y debe tratarse como flujo
 sensible. Cualquier cambio posterior que toque emisión, reintentos,
@@ -57,6 +57,35 @@ Validación ejecutada:
 - smoke visual con API mockeada, datos ficticios y sin llamadas ARCA; capturas
   privadas en
   `private/brand-lab/exports/lotes-ux-corte-1-2026-06-27/`
+
+### Corte 2 implementado - 2026-06-27
+
+Alcance cerrado en frontend sobre `LotesComprobantesView`:
+
+- el lote activo muestra primero totales listos para emitir y avance
+- el encabezado del lote muestra una `Siguiente acción` derivada del estado
+  existente
+- `Resumen operativo completo` queda plegable para auditoría y soporte
+- `Detalle de comprobantes` queda plegable para revisión por comprobante
+- las acciones sobre comprobantes visibles requieren que el detalle esté abierto
+- se conservan las mismas acciones, botones, handlers, confirmaciones fiscales
+  y condiciones de habilitación
+
+No se cambiaron payloads, validaciones, watchers, servicios, stores, rutas,
+backend, ARCA, emisión, reintentos, reconciliación, numeración ni contratos.
+
+Validación ejecutada:
+
+- `git diff --check`
+- `npm run test:unit -- LotesComprobantesView`
+- `npm run lint:check`
+- `npm run type-check`
+- `npm run build`
+- `npm run test:unit`
+- `npm run test:e2e -- --project=chromium`
+- smoke visual con API mockeada, datos ficticios y sin llamadas ARCA para lotes
+  `validado`, `con_errores` y `procesando`; capturas privadas en
+  `private/brand-lab/exports/lotes-ux-corte-2-2026-06-27/`
 
 ## Diagnóstico resumido
 
@@ -157,6 +186,8 @@ Validación mínima:
 - smoke visual con API mockeada y sin ARCA
 
 ### Corte 2 - Reducir ruido del lote activo
+
+Estado: implementado el 2026-06-27.
 
 Objetivo: que el resumen del lote sea la vista principal después de validar.
 

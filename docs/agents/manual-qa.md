@@ -113,6 +113,28 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Rediseño UX de carga masiva - Corte 2 2026-06-27
+
+- Alcance revisado: lote activo en `/comprobantes/lotes`, totales listos para
+  emitir, avance del lote, siguiente acción, resumen operativo plegable y
+  detalle de comprobantes plegable.
+- La prueba visual usó frontend local real en
+  `http://127.0.0.1:8080/comprobantes/lotes` con API mockeada, sesión ficticia,
+  emisor ficticio, punto de venta ficticio y lotes ficticios en estados
+  `validado`, `con_errores` y `procesando`. No se usaron credenciales reales,
+  datos reales, Exceles privados, CAEs, CUITs reales ni llamadas ARCA.
+- Capturas privadas:
+  `private/brand-lab/exports/lotes-ux-corte-2-2026-06-27/`. El smoke verificó
+  que existen tres capturas, tienen tamaño suficiente y no quedaron vacías.
+- Resultado funcional: las acciones sensibles del lote conservan los mismos
+  handlers y confirmaciones. Las acciones sobre comprobantes visibles quedan
+  disponibles solo con el detalle de comprobantes abierto; el cambio reduce ruido
+  visual y prioriza el resumen del lote activo.
+- Verificación automatizada asociada: `git diff --check`, `npm run lint:check`,
+  `npm run type-check`, `npm run build`, `npm run test:unit`,
+  `npm run test:e2e -- --project=chromium` y test unitario enfocado de
+  `LotesComprobantesView` quedaron OK.
+
 ### Rediseño UX de carga masiva - Corte 1 2026-06-27
 
 - Alcance revisado: `/comprobantes/lotes`, guía rápida compacta, guía

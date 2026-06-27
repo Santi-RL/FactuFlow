@@ -12,10 +12,11 @@ Nota 2026-06-25: `Sistema` incorpora una primera pestaña `Estado` para revisar
 señales operativas básicas sin ejecutar automáticamente pruebas externas de
 ARCA.
 
-Nota 2026-06-27: `Emisión masiva` reorganiza la preparación y validación del
-lote. La ayuda inicial queda como guía compacta desplegable, los requisitos se
-muestran como checklist y `Validar lote` también aparece al cierre de la
-configuración fiscal.
+Nota 2026-06-27: `Emisión masiva` reorganiza la preparación, validación y
+revisión del lote activo. La ayuda inicial queda como guía compacta desplegable,
+los requisitos se muestran como checklist, `Validar lote` también aparece al
+cierre de la configuración fiscal y, después de validar, la vista prioriza
+importes, avance y siguiente acción.
 
 ## Contenido
 
@@ -243,6 +244,13 @@ Flujo general:
 La pantalla muestra un checklist de validación con emisor activo, archivo y
 plantilla/formato, punto de venta, concepto ARCA, descripción facturada y fechas
 fiscales. Usalo para ver qué falta antes de validar el lote.
+
+Después de validar, el lote activo muestra primero los totales listos para
+emitir, el avance y la siguiente acción recomendada según el estado. El resumen
+operativo completo y el detalle de comprobantes quedan disponibles en secciones
+plegables para auditoría, soporte o revisión puntual. Si una acción aplica sobre
+comprobantes visibles, el detalle debe estar abierto para ver las filas
+alcanzadas.
 
 Validar un lote no emite comprobantes ni consume numeración fiscal. La emisión
 recién ocurre cuando confirmás el lote validado.

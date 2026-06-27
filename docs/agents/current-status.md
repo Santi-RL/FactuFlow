@@ -76,6 +76,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   de configuración fiscal y acción `Validar lote` al cierre de los datos
   requeridos. No se tocó backend, ARCA, emisión, servicios, stores, rutas ni
   contratos.
+- Corte 2 del rediseño UX de carga masiva implementado el 2026-06-27 en
+  frontend: después de validar, el lote activo prioriza totales, avance y
+  siguiente acción; el resumen operativo completo y el detalle de comprobantes
+  quedan como secciones plegables. No se tocaron backend, ARCA, emisión,
+  servicios, stores, rutas ni contratos.
 - La observabilidad operativa estándar queda definida como requisito antes de
   ampliar produccion: trazabilidad de lotes y comprobantes, estado del sistema,
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
@@ -146,6 +151,25 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Rediseño UX de carga masiva - Corte 2 2026-06-27
+
+- Se reorganizó el lote activo en `/comprobantes/lotes`: después de validar,
+  la pantalla muestra primero totales listos para emitir, avance del lote y una
+  siguiente acción derivada del estado actual.
+- Los bloques extensos `Resumen operativo completo` y `Detalle de comprobantes`
+  pasaron a secciones plegables para reducir ruido visual sin eliminar
+  información de auditoría ni soporte. Las acciones sobre comprobantes visibles
+  se bloquean mientras el detalle está cerrado.
+- El cambio mantiene las mismas acciones sensibles, confirmaciones fiscales,
+  condiciones de habilitación y servicios existentes; no cambia payloads,
+  watchers, stores, rutas, backend, ARCA ni contratos.
+- Verificación ejecutada: `git diff --check`, `npm run lint:check`,
+  `npm run type-check`, `npm run build`, `npm run test:unit`,
+  `npm run test:e2e -- --project=chromium`, test unitario enfocado de
+  `LotesComprobantesView` y smoke visual con API mockeada, datos ficticios y sin
+  llamadas ARCA para lotes `validado`, `con_errores` y `procesando`. Capturas
+  privadas en `private/brand-lab/exports/lotes-ux-corte-2-2026-06-27/`.
 
 ### Rediseño UX de carga masiva - Corte 1 2026-06-27
 
@@ -1730,8 +1754,8 @@ Para continuar desde el estado actual:
    primer diagnóstico UX formalizado es carga masiva en
    `docs/agents/lotes-ux-redesign.md`.
 4. Continuar el rediseño secuencial de `/comprobantes/lotes` con
-   `Corte 2 - Reducir ruido del lote activo`, después de cerrar el commit del
-   Corte 1 y sin tocar contratos ni lógica fiscal.
+   `Corte 3 - Tratar reconciliación como modo excepcional`, después de cerrar
+   el commit del Corte 2 y sin tocar contratos ni lógica fiscal.
 5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
