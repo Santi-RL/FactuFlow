@@ -125,6 +125,11 @@ Debe existir una guia de soporte con casos comunes:
 Cada caso debe indicar pasos concretos, en orden, y cuando detenerse para evitar
 acciones fiscales riesgosas.
 
+Primer corte visible: desde 2026-06-28, `Sistema > Estado` incluye una guía
+rápida de soporte con casos frecuentes, qué revisar, próximo paso seguro y
+cuándo detenerse. Esto no reemplaza todavía el runbook completo ni los
+healthchecks dedicados pendientes.
+
 ## Fuera de alcance por ahora
 
 Estas herramientas pueden venir despues, pero no son requisito de esta etapa:

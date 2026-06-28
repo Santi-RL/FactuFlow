@@ -233,6 +233,11 @@ describe("SistemaView", () => {
     expect(wrapper.text()).toContain("API de FactuFlow");
     expect(wrapper.text()).toContain("Conexión ARCA");
     expect(wrapper.text()).toContain("Worker de lotes");
+    expect(wrapper.text()).toContain("Guía rápida de soporte");
+    expect(wrapper.text()).toContain("Lote detenido, parcial o incierto");
+    expect(wrapper.text()).toContain(
+      "No reintentar automáticamente si pudo existir una respuesta de ARCA.",
+    );
     expect(mockedSistemaService.health).toHaveBeenCalled();
     expect(mockedSistemaService.databaseHealth).toHaveBeenCalled();
     expect(mockedArcaService.getStatus).toHaveBeenCalled();

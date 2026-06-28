@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-27
+Última actualización: 2026-06-28
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
@@ -61,6 +61,9 @@ Estado del sistema implementado como primer corte:
    logs según entorno.
 7. Confirmar que los estados usan lenguaje simple: `Correcto`, `Necesita
    atención` y `No disponible`.
+8. Confirmar que `Guía rápida de soporte` muestra casos de aplicación/base,
+   ARCA/certificado, lote detenido o incierto y almacenamiento/backup, con un
+   próximo paso seguro y una condición para detenerse.
 
 Gestor de almacenamiento implementado:
 
@@ -112,6 +115,17 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Sistema > Estado - guía rápida de soporte 2026-06-28
+
+- Alcance revisado: nueva sección `Guía rápida de soporte` dentro de
+  `Sistema > Estado`, con pasos seguros para aplicación/base no disponible,
+  ARCA o certificado con error, lote detenido o incierto, y almacenamiento o
+  backup pendiente.
+- El cambio es frontend-only: no agrega endpoints, no dispara llamadas ARCA
+  automáticas y no toca backend, emisión, servicios, stores, rutas ni contratos.
+- La verificación automatizada asociada cubre que la guía sea visible y que
+  `Sistema > Estado` siga sin ejecutar `Probar conexión` automáticamente.
 
 ### Gestor de almacenamiento - QA visual local 2026-06-27
 

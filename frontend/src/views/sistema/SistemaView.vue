@@ -53,6 +53,14 @@ interface EstadoSistemaItem {
   accion?: "probar-arca";
 }
 
+interface SoporteOperativoItem {
+  id: string;
+  caso: string;
+  revisar: string;
+  accion: string;
+  detenerse: string;
+}
+
 const activeTab = ref<SistemaTab>("estado");
 const resumen = ref<AlmacenamientoResumen | null>(null);
 const lotes = ref<LoteCompactable[]>([]);
@@ -262,6 +270,42 @@ const estadoSistemaItems = computed<EstadoSistemaItem[]>(() => [
     icon: ClockIcon,
   },
 ]);
+
+const soporteOperativoItems: SoporteOperativoItem[] = [
+  {
+    id: "app-caida",
+    caso: "La aplicación no responde",
+    revisar: "Estado general, Aplicación y Base de datos.",
+    accion:
+      "En local, reiniciar servicios desde el icono del tray. En VPS, usar el runbook privado del servidor.",
+    detenerse:
+      "No repetir una emisión si la pantalla quedó esperando una respuesta fiscal.",
+  },
+  {
+    id: "arca-certificado",
+    caso: "ARCA o certificado con error",
+    revisar: "Certificado del emisor, ambiente ARCA y prueba manual de conexión.",
+    accion:
+      "Verificar certificado activo, vencimiento y autorización WSFE antes de emitir.",
+    detenerse: "No solicitar CAE mientras ARCA o el certificado figuren no disponibles.",
+  },
+  {
+    id: "lote-detenido",
+    caso: "Lote detenido, parcial o incierto",
+    revisar: "Detalle del lote, estado visible y logs de soporte del entorno.",
+    accion:
+      "Si el lote requiere reconciliación, consultar evidencia segura antes de reintentar.",
+    detenerse: "No reintentar automáticamente si pudo existir una respuesta de ARCA.",
+  },
+  {
+    id: "almacenamiento-backup",
+    caso: "Almacenamiento o backup pendiente",
+    revisar: "Uso recuperable, resguardo ZIP y última evidencia privada de backup.",
+    accion:
+      "Descargar y verificar el resguardo antes de liberar espacio no vital.",
+    detenerse: "No limpiar temporales, logs o lotes sin resguardo descargado.",
+  },
+];
 
 const estadoGeneral = computed<EstadoOperativo>(() => {
   if (estadoSistemaItems.value.some((item) => item.estado === "no_disponible")) {
@@ -747,6 +791,53 @@ onMounted(() => {
             >
               Probar conexión
             </BaseButton>
+          </div>
+        </div>
+      </BaseCard>
+
+      <BaseCard title="Guía rápida de soporte">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div
+            v-for="item in soporteOperativoItems"
+            :key="item.id"
+            class="rounded-panel border border-border-subtle bg-surface-subtle p-4"
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-panel bg-brand-mint text-brand-teal">
+                <DocumentTextIcon class="h-5 w-5" />
+              </div>
+              <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-brand-ink">
+                  {{ item.caso }}
+                </h3>
+                <dl class="mt-3 space-y-2 text-sm">
+                  <div>
+                    <dt class="font-medium text-brand-ink">
+                      Revisar
+                    </dt>
+                    <dd class="mt-0.5 text-brand-slate">
+                      {{ item.revisar }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="font-medium text-brand-ink">
+                      Próximo paso seguro
+                    </dt>
+                    <dd class="mt-0.5 text-brand-slate">
+                      {{ item.accion }}
+                    </dd>
+                  </div>
+                  <div class="rounded-md bg-status-warning-soft px-3 py-2">
+                    <dt class="font-medium text-status-warning">
+                      Detenerse si
+                    </dt>
+                    <dd class="mt-0.5 text-brand-ink">
+                      {{ item.detenerse }}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
           </div>
         </div>
       </BaseCard>

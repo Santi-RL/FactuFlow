@@ -786,10 +786,14 @@ Desde `Sistema > Estado` puedes ver señales operativas básicas:
 - resumen de almacenamiento
 - señales pendientes de instrumentar, como worker de lotes, último backup y
   acceso a logs según entorno
+- guía rápida de soporte con qué revisar, próximo paso seguro y cuándo detenerse
+  ante fallas frecuentes
 
 La pantalla usa estados simples: `Correcto`, `Necesita atención` y
 `No disponible`. La acción `Probar conexión` puede llamar a ARCA; no se ejecuta
-automáticamente al abrir la pantalla.
+automáticamente al abrir la pantalla. La guía rápida no reemplaza el runbook
+privado del VPS ni autoriza reintentos fiscales automáticos cuando existe
+incertidumbre post-ARCA.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -844,7 +848,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 2026-06-25:
+Al 2026-06-28:
 
 - no existe todavia descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -864,8 +868,9 @@ Al 2026-06-25:
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripcion facturada, totales, backup/logs y confirmacion irreversible
 - `Sistema > Estado` ya muestra un primer diagnóstico operativo con API, base,
-  certificado local, ARCA manual y almacenamiento; todavía faltan healthcheck
-  dedicado de worker, backup visible y trazabilidad histórica más completa
+  certificado local, ARCA manual, almacenamiento y guía rápida de soporte;
+  todavía faltan healthcheck dedicado de worker, backup visible y trazabilidad
+  histórica más completa
 - la gestión de lotes ya permite cerrar parciales, reconciliar externos,
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica
