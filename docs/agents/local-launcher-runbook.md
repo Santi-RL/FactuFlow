@@ -32,23 +32,25 @@ QA manual:
 
 ## Etapa 2 - Estado del sistema dentro de la UI
 
-Estado: pendiente.
+Estado: primer corte implementado.
 
-Agregar una pantalla o panel de `Estado del sistema` dentro del frontend para
-mostrar, en lenguaje administrativo, el diagnostico minimo definido en
+La pantalla `Sistema > Estado` dentro del frontend ya muestra, en lenguaje
+administrativo, parte del diagnóstico mínimo definido en
 `docs/agents/operational-observability.md`:
 
 - servidor de FactuFlow
 - base de datos
-- worker de lotes
+- worker de lotes como señal pendiente de healthcheck dedicado
 - ambiente ARCA y conexion ARCA
 - certificado activo y vencimiento del emisor seleccionado
-- ultimo backup conocido o aviso de backup no verificado, cuando exista
+- aviso de backup no verificado mientras no exista señal automática
+- guía rápida de soporte con próximos pasos seguros
 
 La pantalla no debe exponer puertos, stack traces ni detalles tecnicos como
 primer mensaje. Debe usar estados simples como `Correcto`,
 `Necesita atencion` y `No disponible`, con una explicacion corta y un proximo
-paso seguro. Puede incluir una seccion secundaria para soporte.
+paso seguro. El runbook público sanitizado asociado está en
+`docs/agents/support-runbook.md`.
 
 ## Etapa 3 - Integracion launcher/UI
 

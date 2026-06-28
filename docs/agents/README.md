@@ -106,6 +106,7 @@
 - Launcher local Windows: `FactuFlow Local.vbs`, `FactuFlow Local.cmd`,
   `scripts/factuflow-local-tray.ps1`,
   `docs/agents/local-launcher-runbook.md`
+- Runbook de diagnóstico operativo: `docs/agents/support-runbook.md`
 - Formatos de importacion para emision masiva: `docs/api/README.md`,
   `backend/app/services/README.md`, `frontend/src/services/README.md`
 - Perfiles de carga masiva por emisor: `docs/user-guide/README.md`,

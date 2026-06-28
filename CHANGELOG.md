@@ -50,6 +50,9 @@ Reglas vigentes desde 2026-05-22:
 - Se agregó una guía rápida de soporte en `Sistema > Estado` con próximos pasos
   seguros para aplicación/base no disponible, ARCA/certificado con error, lotes
   detenidos o inciertos y almacenamiento/backup pendiente.
+- Se agregó `docs/agents/support-runbook.md` como primer runbook público y
+  sanitizado de diagnóstico operativo, sin datos privados ni comandos concretos
+  de VPS.
 - Se agregó el primer corte de `Sistema > Estado` para administradores, con
   señales de API, base de datos, certificado local del emisor activo,
   almacenamiento y prueba ARCA manual.

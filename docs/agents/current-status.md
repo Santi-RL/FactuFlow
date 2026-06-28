@@ -166,6 +166,19 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Runbook de diagnóstico operativo 2026-06-28
+
+- Se creó `docs/agents/support-runbook.md` como primer runbook público y
+  sanitizado para diagnosticar aplicación caída, login, ARCA, certificados,
+  lotes inciertos, incertidumbre post-ARCA, almacenamiento y backup.
+- El documento fija límites de seguridad: no copiar datos privados al repo, no
+  reintentar si pudo existir llamada a ARCA, usar consultas seguras de solo
+  lectura cuando corresponda y conservar evidencia real en documentación
+  privada.
+- Este corte no agrega endpoints ni healthchecks nuevos. Siguen pendientes el
+  healthcheck dedicado de worker, backup visible y trazabilidad histórica más
+  completa dentro de la interfaz.
+
 ### Sistema > Estado - guía rápida de soporte 2026-06-28
 
 - Se agregó en `Sistema > Estado` una guía rápida de soporte para casos comunes:
@@ -1842,7 +1855,9 @@ Para continuar desde el estado actual:
    por emisor y tipo de dato, resguardo ZIP y confirmación de limpieza segura.
 7. Completar observabilidad operativa estándar: healthcheck dedicado de worker,
    backup visible, trazabilidad/reconciliación de lotes, logs útiles para
-   soporte, mensajes simples y runbook de diagnóstico.
+   soporte y mensajes simples. El primer runbook público de diagnóstico quedó en
+   `docs/agents/support-runbook.md`; falta conectarlo con señales automáticas y
+   documentación privada por instalación.
 8. Diseñar la automatización futura de backups cifrados con validación y
    retención, pero no implementarla todavía hasta definir política operativa.
 9. Priorizar mejoras operativas visibles restantes: descarga masiva de PDFs sin

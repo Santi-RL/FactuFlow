@@ -125,10 +125,15 @@ Debe existir una guia de soporte con casos comunes:
 Cada caso debe indicar pasos concretos, en orden, y cuando detenerse para evitar
 acciones fiscales riesgosas.
 
-Primer corte visible: desde 2026-06-28, `Sistema > Estado` incluye una guía
-rápida de soporte con casos frecuentes, qué revisar, próximo paso seguro y
-cuándo detenerse. Esto no reemplaza todavía el runbook completo ni los
-healthchecks dedicados pendientes.
+Primeros cortes visibles:
+
+- Desde 2026-06-28, `Sistema > Estado` incluye una guía rápida de soporte con
+  casos frecuentes, qué revisar, próximo paso seguro y cuándo detenerse.
+- `docs/agents/support-runbook.md` contiene el primer runbook público y
+  sanitizado de diagnóstico operativo.
+
+Esto no reemplaza todavía los healthchecks dedicados pendientes ni la
+documentación privada de una instalación real.
 
 ## Fuera de alcance por ahora
 

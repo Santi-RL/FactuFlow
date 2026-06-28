@@ -600,8 +600,10 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
   reconciliaciones
 - [ ] Mensajes de error con explicacion simple, impacto y proximo paso seguro
-- [~] Runbook de diagnostico para soporte y usuarios administrativos: primer
-  corte visible en `Sistema > Estado`, runbook completo pendiente
+- [~] Runbook de diagnostico para soporte y usuarios administrativos: guía
+  visible en `Sistema > Estado` y primer runbook público sanitizado en
+  `docs/agents/support-runbook.md`; quedan pendientes healthchecks dedicados y
+  documentación privada por instalación
 - [ ] Metricas y alertas avanzadas, despues de estabilizar VPS
 
 ## Fase 8 - Distribucion, releases y adopcion
