@@ -129,6 +129,9 @@ Primeros cortes visibles:
 
 - Desde 2026-06-28, `Sistema > Estado` incluye una guía rápida de soporte con
   casos frecuentes, qué revisar, próximo paso seguro y cuándo detenerse.
+- Desde 2026-06-29, `Sistema > Estado` incluye una ficha para soporte con los
+  datos seguros mínimos para diagnosticar incidentes sin copiar CUIT completo ni
+  evidencia privada a documentación versionada.
 - `docs/agents/support-runbook.md` contiene el primer runbook público y
   sanitizado de diagnóstico operativo.
 

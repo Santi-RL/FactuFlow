@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-06-28
+Última actualización: 2026-06-29
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
@@ -64,6 +64,9 @@ Estado del sistema implementado como primer corte:
 8. Confirmar que `Guía rápida de soporte` muestra casos de aplicación/base,
    ARCA/certificado, lote detenido o incierto y almacenamiento/backup, con un
    próximo paso seguro y una condición para detenerse.
+9. Confirmar que `Ficha para soporte` muestra datos mínimos para diagnóstico:
+   entorno y versión, emisor activo, recurso afectado, estado visible, ARCA y
+   evidencia privada, sin pedir copiar CUIT completo en documentación pública.
 
 Gestor de almacenamiento implementado:
 
@@ -115,6 +118,18 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 `Usuarios` con un usuario administrador.
 
 ## Recorrido ejecutado y validado
+
+### Sistema > Estado - ficha para soporte 2026-06-29
+
+- Alcance revisado: nueva sección `Ficha para soporte` dentro de
+  `Sistema > Estado`, con datos mínimos para diagnosticar incidentes sin copiar
+  evidencia privada al repositorio: entorno y versión, emisor activo, recurso
+  afectado, estado visible, acción ARCA y evidencia privada.
+- El cambio es frontend-only: no agrega endpoints, no dispara llamadas ARCA
+  automáticas y no toca backend, emisión, lotes fiscales, servicios, stores,
+  rutas ni contratos.
+- La verificación automatizada asociada cubre que la ficha sea visible y que
+  `Sistema > Estado` siga sin ejecutar `Probar conexión` automáticamente.
 
 ### Sistema > Estado - guía rápida de soporte 2026-06-28
 

@@ -234,6 +234,11 @@ describe("SistemaView", () => {
     expect(wrapper.text()).toContain("Conexión ARCA");
     expect(wrapper.text()).toContain("Worker de lotes");
     expect(wrapper.text()).toContain("Guía rápida de soporte");
+    expect(wrapper.text()).toContain("Ficha para soporte");
+    expect(wrapper.text()).toContain("Emisor activo");
+    expect(wrapper.text()).toContain(
+      "No copiar CUIT completo en documentación pública.",
+    );
     expect(wrapper.text()).toContain("Lote detenido, parcial o incierto");
     expect(wrapper.text()).toContain(
       "No reintentar automáticamente si pudo existir una respuesta de ARCA.",

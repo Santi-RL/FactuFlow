@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-27
+Última actualización: 2026-06-29
 
 Este manual describe el uso actual del producto. Si una función no aparece acá, no debe asumirse como disponible para usuarios finales.
 
@@ -19,6 +19,10 @@ cierre de la configuración fiscal y, después de validar, la vista prioriza
 importes, avance y siguiente acción. Las acciones excepcionales de resolución
 de pendientes quedan agrupadas bajo `Resolver pendientes`, y `Lotes recientes`
 queda como navegación compacta con estado, fecha y métrica principal.
+
+Nota 2026-06-29: `Sistema > Estado` agrega `Ficha para soporte`, una lista de
+los datos mínimos que conviene reunir ante un incidente sin copiar CUIT completo
+ni evidencia privada en documentación pública.
 
 ## Contenido
 
@@ -788,12 +792,14 @@ Desde `Sistema > Estado` puedes ver señales operativas básicas:
   acceso a logs según entorno
 - guía rápida de soporte con qué revisar, próximo paso seguro y cuándo detenerse
   ante fallas frecuentes
+- ficha para soporte con datos mínimos: entorno, emisor activo, recurso afectado,
+  estado visible, acción ARCA si existió y evidencia privada fuera de Git
 
 La pantalla usa estados simples: `Correcto`, `Necesita atención` y
 `No disponible`. La acción `Probar conexión` puede llamar a ARCA; no se ejecuta
-automáticamente al abrir la pantalla. La guía rápida no reemplaza el runbook
-privado del VPS ni autoriza reintentos fiscales automáticos cuando existe
-incertidumbre post-ARCA.
+automáticamente al abrir la pantalla. La guía rápida y la ficha para soporte no
+reemplazan el runbook privado del VPS ni autorizan reintentos fiscales
+automáticos cuando existe incertidumbre post-ARCA.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -848,7 +854,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 2026-06-28:
+Al 2026-06-29:
 
 - no existe todavia descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -868,9 +874,9 @@ Al 2026-06-28:
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripcion facturada, totales, backup/logs y confirmacion irreversible
 - `Sistema > Estado` ya muestra un primer diagnóstico operativo con API, base,
-  certificado local, ARCA manual, almacenamiento y guía rápida de soporte;
-  todavía faltan healthcheck dedicado de worker, backup visible y trazabilidad
-  histórica más completa
+  certificado local, ARCA manual, almacenamiento, guía rápida y ficha para
+  soporte; todavía faltan healthcheck dedicado de worker, backup visible y
+  trazabilidad histórica más completa
 - la gestión de lotes ya permite cerrar parciales, reconciliar externos,
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica

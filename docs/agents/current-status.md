@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-28
+Última actualización: 2026-06-29
 
 ## Objetivo activo
 
@@ -69,9 +69,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   almacenamiento y prueba ARCA manual. No llama a ARCA automáticamente; el
   healthcheck dedicado de worker, backup y trazabilidad histórica sigue
   pendiente.
-- Desde 2026-06-28, `Sistema > Estado` incluye una guía rápida de soporte con
-  próximos pasos seguros y condiciones explícitas para detenerse antes de
-  repetir acciones fiscales riesgosas.
+- Desde 2026-06-29, `Sistema > Estado` incluye una guía rápida de soporte y una
+  ficha para soporte con datos seguros mínimos: entorno, emisor activo sin CUIT
+  completo público, recurso afectado, estado visible, posible acción ARCA y
+  evidencia privada fuera de Git.
 - Diagnóstico UX específico de `/comprobantes/lotes` cerrado el 2026-06-26 con
   Product Design y Creative Production. La evidencia privada sanitizada quedó en
   `private/brand-lab/exports/lotes-ux-audit-2026-06-26/` y la guía pública de
@@ -165,6 +166,19 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y produccion con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Sistema > Estado - ficha para soporte 2026-06-29
+
+- Se agregó en `Sistema > Estado` una ficha para soporte con los datos mínimos
+  que conviene reunir al diagnosticar un incidente: entorno y versión, emisor
+  activo, recurso afectado, estado visible, si hubo acción ARCA y evidencia
+  privada.
+- La ficha evita pedir datos reales sensibles en documentación pública: recuerda
+  no copiar CUIT completo y conservar logs, capturas o consultas seguras fuera
+  de Git.
+- Este corte es frontend-only: no agrega endpoints, no llama a ARCA
+  automáticamente y no toca backend, emisión, lotes fiscales, servicios, stores,
+  rutas ni contratos.
 
 ### Runbook de diagnóstico operativo 2026-06-28
 

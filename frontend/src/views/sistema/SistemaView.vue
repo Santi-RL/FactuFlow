@@ -61,6 +61,12 @@ interface SoporteOperativoItem {
   detenerse: string;
 }
 
+interface DatoSoporteItem {
+  id: string;
+  etiqueta: string;
+  detalle: string;
+}
+
 const activeTab = ref<SistemaTab>("estado");
 const resumen = ref<AlmacenamientoResumen | null>(null);
 const lotes = ref<LoteCompactable[]>([]);
@@ -304,6 +310,44 @@ const soporteOperativoItems: SoporteOperativoItem[] = [
     accion:
       "Descargar y verificar el resguardo antes de liberar espacio no vital.",
     detenerse: "No limpiar temporales, logs o lotes sin resguardo descargado.",
+  },
+];
+
+const datosSoporteItems: DatoSoporteItem[] = [
+  {
+    id: "entorno",
+    etiqueta: "Entorno y versión",
+    detalle:
+      "Local, VPS o copia de prueba; commit, tag o fecha de instalación si se conoce.",
+  },
+  {
+    id: "emisor",
+    etiqueta: "Emisor activo",
+    detalle:
+      "Razón social o referencia interna. No copiar CUIT completo en documentación pública.",
+  },
+  {
+    id: "recurso",
+    etiqueta: "Recurso afectado",
+    detalle: "Pantalla, lote, comprobante, certificado, backup o acción iniciada.",
+  },
+  {
+    id: "estado",
+    etiqueta: "Estado visible",
+    detalle:
+      "Etiqueta actual en pantalla: Correcto, Necesita atención, No disponible o estado del lote.",
+  },
+  {
+    id: "arca",
+    etiqueta: "ARCA",
+    detalle:
+      "Indicar si se presionó Emitir, Reintentar, Reconciliar, Sincronizar o Probar conexión.",
+  },
+  {
+    id: "evidencia",
+    etiqueta: "Evidencia privada",
+    detalle:
+      "Logs, captura o consulta segura guardada fuera de Git y fuera de documentación pública.",
   },
 ];
 
@@ -838,6 +882,23 @@ onMounted(() => {
                 </dl>
               </div>
             </div>
+          </div>
+        </div>
+      </BaseCard>
+
+      <BaseCard title="Ficha para soporte">
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            v-for="item in datosSoporteItems"
+            :key="item.id"
+            class="border-b border-border-subtle pb-3 last:border-b-0 md:border-b-0"
+          >
+            <p class="text-sm font-semibold text-brand-ink">
+              {{ item.etiqueta }}
+            </p>
+            <p class="mt-1 text-sm text-brand-slate">
+              {{ item.detalle }}
+            </p>
           </div>
         </div>
       </BaseCard>

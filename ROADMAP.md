@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-28
+Última actualización: 2026-06-29
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -592,16 +592,16 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
 - [~] Pantalla `Estado del sistema` en la interfaz, con estados simples como
   `Correcto`, `Necesita atención` y `No disponible`: primer corte frontend
   implementado con señales existentes de API, base, certificado local, ARCA
-  manual, almacenamiento y guía rápida de soporte con próximos pasos seguros;
-  faltan healthcheck dedicado de worker, backup y trazabilidad histórica más
-  completa
+  manual, almacenamiento, guía rápida de soporte y ficha para soporte con datos
+  seguros mínimos; faltan healthcheck dedicado de worker, backup y trazabilidad
+  histórica más completa
 - [x] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
   sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
   reconciliaciones
 - [ ] Mensajes de error con explicacion simple, impacto y proximo paso seguro
-- [~] Runbook de diagnostico para soporte y usuarios administrativos: guía
-  visible en `Sistema > Estado` y primer runbook público sanitizado en
+- [~] Runbook de diagnostico para soporte y usuarios administrativos: guía y
+  ficha visibles en `Sistema > Estado`, más primer runbook público sanitizado en
   `docs/agents/support-runbook.md`; quedan pendientes healthchecks dedicados y
   documentación privada por instalación
 - [ ] Metricas y alertas avanzadas, despues de estabilizar VPS
