@@ -245,3 +245,7 @@ documento la diferencia con `npm run lint`, que mantiene `--fix`. La guia de
 testing ahora distingue `lint:check`, `type-check`, `build`, `test:unit` y
 `test:e2e`, aclarando que E2E no es evidencia vigente hasta corregir el setup de
 Playwright.
+
+**Nota 2026-07-03:** la convención se reforzó después de la auditoría de
+Clawpatch: `npm run lint` quedó como check no destructivo y el autofix quedó
+reservado para `npm run lint:fix`.

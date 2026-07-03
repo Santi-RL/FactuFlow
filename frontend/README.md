@@ -299,7 +299,11 @@ npm run test:e2e
 npm run type-check
 
 # Lint no destructivo
+npm run lint
 npm run lint:check
+
+# Autocorrección de lint
+npm run lint:fix
 ```
 
 `npm run test:e2e` usa un servidor Vite dedicado en `127.0.0.1:18080` y lo

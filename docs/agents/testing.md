@@ -83,12 +83,12 @@ Nota 2026-06-10:
   administrativos de plantillas y emisión masiva están pensados para PC. En
   PowerShell usar `$env:E2E_FULL_BROWSER_MATRIX='1'; npm run test:e2e`; en bash
   usar `E2E_FULL_BROWSER_MATRIX=1 npm run test:e2e`.
-- `npm run lint:check` es el check no destructivo de ESLint.
+- `npm run lint` y `npm run lint:check` son checks no destructivos de ESLint.
 - En Windows, ejecutar `npm run lint:check` separado de `npm run build` o de
   procesos Vite activos. Si se corre en paralelo, ESLint puede intentar leer un
   archivo temporal `vite.config.ts.timestamp-*.mjs` que Vite ya eliminó y dar un
   falso `ENOENT`.
-- `npm run lint` ejecuta ESLint con `--fix`; usarlo solo cuando se quiere
+- `npm run lint:fix` ejecuta ESLint con `--fix`; usarlo solo cuando se quiere
   autocorregir y revisar el diff posterior.
 
 ## Arranque local
