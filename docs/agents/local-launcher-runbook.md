@@ -1,30 +1,31 @@
 # Runbook del launcher local
 
-Ultima actualizacion: 2026-05-22
+Última actualización: 2026-07-01
 
 Este runbook documenta la experiencia local Windows de FactuFlow. El objetivo es
-que una persona administrativa no tecnica pueda abrir el sistema, entender si
-esta listo y saber que hacer si una parte local no responde.
+que una persona administrativa no técnica pueda abrir el sistema, entender si
+está listo y saber qué hacer si una parte local no responde.
 
 ## Etapa 1 - Login con servidor local no disponible
 
 Estado: implementado.
 
 - La pantalla de login consulta `GET /api/health` antes de enviar credenciales.
-- Si el servidor local no responde, no intenta iniciar sesion y muestra:
+- Si el servidor local no responde, no intenta iniciar sesión y muestra:
   `FactuFlow no está listo para iniciar sesión`.
-- El mensaje guia al usuario con pasos concretos: click derecho en el icono de
-  FactuFlow junto al reloj, elegir `Reiniciar servicios`, esperar a que el icono
-  quede verde y presionar `Reintentar`. Si no ve el icono, debe abrir
-  nuevamente `FactuFlow Local.vbs`.
-- El boton `Reintentar` vuelve a chequear la conexion con el servidor local.
-- Los errores de credenciales quedan separados de los errores de conexion.
+- El mensaje guía al usuario con pasos concretos según el acceso usado. Si usó
+  el acceso directo del escritorio que ejecuta `scripts\restart-local-dev.ps1`,
+  debe relanzarlo y esperar `Backend OK` y `Frontend OK`; ese flujo no muestra
+  ícono de bandeja. Si usó `FactuFlow Local.vbs`, puede hacer clic derecho en el
+  ícono de FactuFlow junto al reloj y elegir `Reiniciar servicios`.
+- El botón `Reintentar` vuelve a chequear la conexión con el servidor local.
+- Los errores de credenciales quedan separados de los errores de conexión.
 
 QA manual:
 
 1. Levantar solo el frontend.
 2. Abrir `/login`.
-3. Completar correo y contrasena.
+3. Completar correo y contraseña.
 4. Presionar `Ingresar`.
 5. Confirmar que aparece el mensaje de servidor local no disponible.
 6. Levantar backend.

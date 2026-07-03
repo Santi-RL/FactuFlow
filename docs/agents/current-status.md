@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-06-29
+Última actualización: 2026-07-01
 
 ## Objetivo activo
 
@@ -101,9 +101,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   logs utiles para soporte, backup/restauracion y mensajes claros para usuarios
   no tecnicos.
 - El login ya distingue servidor local no disponible de errores de credenciales
-  y guia al usuario a usar click derecho en el icono del tray >
-  `Reiniciar servicios`, o relanzar `FactuFlow Local.vbs` si el icono no
-  aparece.
+  y guía al usuario según el acceso local usado: relanzar el acceso directo de
+  escritorio que ejecuta `scripts\restart-local-dev.ps1` y esperar `Backend OK`
+  / `Frontend OK`, o usar el ícono de bandeja de `FactuFlow Local.vbs` >
+  `Reiniciar servicios` cuando ese launcher esté activo.
 - El setup inicial queda cerrado cuando ya existe cualquier usuario. La pantalla
   `Configurar sistema` se muestra solo con `GET /api/auth/setup-status` en
   estado requerido; las altas posteriores se hacen desde el menú `Usuarios`.
@@ -1062,14 +1063,14 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ### Login con backend local no disponible 2026-05-18
 
-- Se agrego chequeo de `GET /api/health` antes del login.
+- Se agregó chequeo de `GET /api/health` antes del login.
 - Si el backend local no responde, la UI muestra
-  `FactuFlow no está listo para iniciar sesión` y no envia credenciales.
-- El mensaje indica hacer click derecho en el icono de FactuFlow junto al reloj,
-  elegir `Reiniciar servicios`, esperar a que quede verde y presionar
-  `Reintentar`. Si el icono no aparece, indica abrir nuevamente
-  `FactuFlow Local.vbs`.
-- Quedo documentado el runbook de etapas futuras en
+  `FactuFlow no está listo para iniciar sesión` y no envía credenciales.
+- El mensaje indica pasos según el acceso usado: relanzar el acceso directo de
+  escritorio que ejecuta `scripts\restart-local-dev.ps1` y esperar `Backend OK`
+  / `Frontend OK`, o usar el ícono de bandeja de `FactuFlow Local.vbs` >
+  `Reiniciar servicios` cuando ese launcher esté activo.
+- Quedó documentado el runbook de etapas futuras en
   `docs/agents/local-launcher-runbook.md`.
 
 ### Puesta a punto Clawpatch 2026-05-16

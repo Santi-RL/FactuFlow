@@ -1,10 +1,10 @@
 # QA manual
 
-Última actualización: 2026-06-29
+Última actualización: 2026-07-01
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
-## Preparacion
+## Preparación
 
 Levantar el proyecto con la UX local recomendada para Windows:
 
@@ -13,15 +13,19 @@ Levantar el proyecto con la UX local recomendada para Windows:
 ```
 
 El launcher queda en el tray de Windows sin dejar una ventana de PowerShell
-abierta y muestra estado verde, amarillo o rojo. Desde el menu del icono se
+abierta y muestra estado verde, amarillo o rojo. Desde el menú del ícono se
 puede abrir FactuFlow, consultar `Estado del sistema`, reiniciar servicios,
 detener servicios y abrir logs.
 
-Camino tecnico alternativo:
+Camino técnico alternativo:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\run-local.ps1
 ```
+
+También puede existir un acceso directo de escritorio que ejecute
+`scripts\restart-local-dev.ps1`. Ese flujo muestra `Backend OK` y `Frontend OK`
+en PowerShell, pero no muestra ícono de bandeja junto al reloj.
 
 Entornos esperados:
 - Frontend: `http://localhost:8080`

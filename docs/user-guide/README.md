@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-06-29
+Última actualización: 2026-07-01
 
 Este manual describe el uso actual del producto. Si una función no aparece acá, no debe asumirse como disponible para usuarios finales.
 
@@ -42,18 +42,18 @@ ni evidencia privada en documentación pública.
 
 ## 1. Acceso al sistema
 
-En una instalacion local de Windows para desarrollo o QA, usar el acceso
+En una instalación local de Windows para desarrollo o QA, usar el acceso
 `FactuFlow Local.vbs` ubicado en la carpeta del proyecto. Ese acceso inicia
 FactuFlow en segundo plano sin dejar una ventana de PowerShell abierta, muestra
-un icono junto al reloj de Windows y abre el navegador cuando la aplicacion esta
+un ícono junto al reloj de Windows y abre el navegador cuando la aplicación está
 lista. `FactuFlow Local.cmd` queda como acceso de compatibilidad.
 
-Estados del icono local:
-- verde: FactuFlow esta listo para usar
-- amarillo: FactuFlow se esta iniciando
-- rojo: FactuFlow requiere atencion
+Estados del ícono local:
+- verde: FactuFlow está listo para usar
+- amarillo: FactuFlow se está iniciando
+- rojo: FactuFlow requiere atención
 
-Desde el icono junto al reloj puedes:
+Desde el ícono junto al reloj podés:
 - abrir FactuFlow
 - consultar el estado del sistema
 - reiniciar servicios
@@ -61,15 +61,17 @@ Desde el icono junto al reloj puedes:
 - abrir logs
 - salir del launcher local
 
-Si el icono queda rojo, usa `Estado del sistema` o `Abrir logs`. Los mensajes
-estan pensados para indicar si el problema esta en el servidor local, la base de
-datos, el frontend o un puerto ocupado por otra aplicacion.
+Si el ícono queda rojo, usá `Estado del sistema` o `Abrir logs`. Los mensajes
+están pensados para indicar si el problema está en el servidor local, la base de
+datos, el frontend o un puerto ocupado por otra aplicación.
 
-Si la pantalla de inicio de sesion indica que `FactuFlow no está listo para
-iniciar sesión`, hace click derecho en el icono de FactuFlow junto al reloj de
-Windows y elegi `Reiniciar servicios`. Cuando el icono quede verde, presiona
-`Reintentar` en la pantalla. Si no ves el icono, abre nuevamente
-`FactuFlow Local.vbs`.
+Si la pantalla de inicio de sesión indica que `FactuFlow no está listo para
+iniciar sesión`, primero identificá qué acceso usaste. Si usaste el acceso
+directo del escritorio que ejecuta `scripts\restart-local-dev.ps1`, volvé a
+ejecutarlo y esperá que muestre `Backend OK` y `Frontend OK`; ese flujo no
+muestra ícono junto al reloj. Si usaste el launcher `FactuFlow Local.vbs`, hacé
+clic derecho en el ícono de FactuFlow junto al reloj de Windows y elegí
+`Reiniciar servicios`. Luego presioná `Reintentar` en la pantalla.
 
 En una instalación en VPS o servidor, no se usa el launcher local. En ese caso
 se entra desde la URL publicada de FactuFlow. FactuFlow está pensado para poder

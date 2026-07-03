@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useAuth } from "@/composables/useAuth";
+import { SERVER_UNAVAILABLE_MESSAGE } from "@/constants/auth";
 import { authService } from "@/services/auth.service";
 import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -16,9 +17,6 @@ const error = ref("");
 const serverUnavailable = ref(false);
 const checkingServer = ref(false);
 const setupRequired = ref(false);
-
-const serverUnavailableMessage =
-  'No se pudo conectar con el servidor local. Hacé click derecho en el ícono de FactuFlow junto al reloj de Windows y elegí "Reiniciar servicios". Cuando el ícono quede verde, presioná "Reintentar". Si no ves el ícono, abrí nuevamente FactuFlow Local.vbs.';
 
 const checkServerAvailability = async (): Promise<boolean> => {
   checkingServer.value = true;
@@ -58,7 +56,7 @@ const handleSubmit = async () => {
   try {
     await login(email.value, password.value);
   } catch (err: any) {
-    if (err.message === serverUnavailableMessage) {
+    if (err.message === SERVER_UNAVAILABLE_MESSAGE) {
       serverUnavailable.value = true;
       return;
     }
@@ -101,7 +99,7 @@ onMounted(async () => {
           class="mb-4"
           @dismiss="serverUnavailable = false"
         >
-          <p>{{ serverUnavailableMessage }}</p>
+          <p>{{ SERVER_UNAVAILABLE_MESSAGE }}</p>
           <BaseButton
             type="button"
             variant="secondary"

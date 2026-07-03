@@ -61,9 +61,9 @@ describe("LoginView", () => {
     expect(wrapper.text()).toContain(
       "No se pudo conectar con el servidor local",
     );
-    expect(wrapper.text()).toContain("click derecho");
+    expect(wrapper.text()).toContain("acceso directo del escritorio");
+    expect(wrapper.text()).toContain("Backend OK");
     expect(wrapper.text()).toContain("Reiniciar servicios");
-    expect(wrapper.text()).toContain("FactuFlow Local.vbs");
     expect(wrapper.text()).not.toContain("Error al iniciar sesión");
   });
 

@@ -16,15 +16,16 @@ if (!(Test-Path "data")) {{
   New-Item -ItemType Directory -Path "data" | Out-Null
 }}
 alembic upgrade head
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 '@ -f $root
 
 $frontendCmd = @'
 Set-Location "{0}\frontend"
+$env:VITE_API_URL = "http://127.0.0.1:8000"
 if (!(Test-Path "node_modules")) {{
   npm install
 }}
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 8080
 '@ -f $root
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd

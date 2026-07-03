@@ -2,6 +2,8 @@
 
 ## Alcance
 - Este archivo define cómo trabajar en el repo.
+- Este proyecto vive bajo `C:\Users\SANTI\Documents\Proyectos`. Para instrucciones generales compartidas, revisar también `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`.
+- En caso de conflicto, este `AGENTS.md` local prevalece para reglas específicas de FactuFlow.
 - La documentación operativa extendida está en `docs/agents/README.md`.
 - Antes de responder cualquier chat nuevo, leer `docs/agents/alignment-pending.md`. Si ese archivo tiene puntos sin completar, avisar que hay conflictos de alineación pendientes antes de continuar con el pedido.
 - Antes de retomar una sesión, leer `VISION.md`,
@@ -235,7 +237,7 @@ npm run type-check
 - En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app:
   `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
   Ese comando ya funcionó en FactuFlow con motor `codex`, herramientas de solo lectura y búsqueda web habilitada.
-- Usar `clawpatch` para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. En este repo ya existen estados separados; usar los state dirs existentes:
+- Usar la CLI global `clawpatch` (`C:\Users\SANTI\AppData\Roaming\npm\clawpatch.cmd`) para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. Seguir también la política compartida de `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`. En este repo ya existen estados separados; usar los state dirs existentes:
   - Repo completo: `clawpatch --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
   - Backend: `clawpatch --state-dir .clawpatch/backend --config .clawpatch/backend/config.json status`
   - Frontend: `clawpatch --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json status`

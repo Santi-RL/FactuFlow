@@ -1,9 +1,7 @@
 import { computed } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { SERVER_UNAVAILABLE_MESSAGE } from "@/constants/auth";
 import { useRouter } from "vue-router";
-
-const SERVER_UNAVAILABLE_MESSAGE =
-  'No se pudo conectar con el servidor local. Hacé click derecho en el ícono de FactuFlow junto al reloj de Windows y elegí "Reiniciar servicios". Cuando el ícono quede verde, presioná "Reintentar". Si no ves el ícono, abrí nuevamente FactuFlow Local.vbs.';
 
 const isNetworkError = (error: any): boolean =>
   !error.response &&
