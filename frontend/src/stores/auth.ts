@@ -41,13 +41,23 @@ export const useAuthStore = defineStore("auth", () => {
     }
   };
 
-  const logout = async () => {
-    await authService.logout();
-
+  const limpiarSesionLocal = () => {
     token.value = null;
     user.value = null;
     isAuthenticated.value = false;
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     clearEmpresaActivaIdStorage();
+  };
+
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // El cierre local debe completarse aunque falle una limpieza remota futura.
+    } finally {
+      limpiarSesionLocal();
+    }
   };
 
   const checkAuth = async () => {

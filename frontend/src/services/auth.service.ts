@@ -6,6 +6,7 @@ import type {
   Usuario,
   SetupData,
 } from "@/types/auth";
+import { clearEmpresaActivaIdStorage } from "@/utils/empresa-activa-storage";
 
 export const authService = {
   async checkBackendAvailable(): Promise<boolean> {
@@ -29,6 +30,7 @@ export const authService = {
     // Limpiar el storage local
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    clearEmpresaActivaIdStorage();
   },
 
   async me(): Promise<Usuario> {
