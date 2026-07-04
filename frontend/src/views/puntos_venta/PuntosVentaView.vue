@@ -6,6 +6,7 @@ import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
 import { arcaService } from "@/services/arca.service";
 import type { PuntoVenta, PuntoVentaUpdate } from "@/types/punto_venta";
+import { getEmpresaActivaIdForRequest } from "@/utils/empresa-activa-storage";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseInput from "@/components/ui/BaseInput.vue";
@@ -34,6 +35,11 @@ const editForm = ref<PuntoVentaUpdate>({});
 const mostrarSoloHabilitados = ref(false);
 let cargarDatosRequestId = 0;
 let cargarCertificadosRequestId = 0;
+
+const esSolicitudDelEmisorActual = (empresaIdSolicitada: number | null) =>
+  empresaIdSolicitada !== null &&
+  empresaStore.empresaActivaId === empresaIdSolicitada &&
+  getEmpresaActivaIdForRequest() === String(empresaIdSolicitada);
 
 const columns = [
   { key: "numero", label: "Numero", sortable: true },
@@ -151,13 +157,19 @@ const sincronizar = async () => {
     return;
   }
 
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
+
   try {
     const resultado = await puntosVentaStore.syncFromArca();
+    if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
+
     showSuccess(
       "Sincronizacion completa",
       `Total en ARCA: ${resultado.total_arca}. Nuevos: ${resultado.nuevos}. Existentes: ${resultado.existentes}.`,
     );
   } catch (err: any) {
+    if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
+
     const mensaje =
       err.response?.data?.detail || "No se pudo sincronizar con ARCA";
     showError("Error", mensaje);

@@ -9,6 +9,7 @@ import type {
 import { puntosVentaService } from "@/services/puntos_venta.service";
 import { arcaService } from "@/services/arca.service";
 import { useEmpresaStore } from "@/stores/empresa";
+import { getEmpresaActivaIdForRequest } from "@/utils/empresa-activa-storage";
 
 interface SyncResult {
   total_arca: number;
@@ -37,6 +38,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   const syncing = ref(false);
   const error = ref<string | null>(null);
   let fetchPuntosVentaRequestId = 0;
+  let syncFromArcaRequestId = 0;
 
   const fetchPuntosVenta = async () => {
     const requestId = ++fetchPuntosVentaRequestId;
@@ -137,6 +139,19 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   };
 
   const syncFromArca = async (): Promise<SyncResult> => {
+    const requestId = ++syncFromArcaRequestId;
+    const empresaStore = useEmpresaStore();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
+    const empresaIdConfirmadaSolicitada = empresaIdSolicitada
+      ? String(empresaIdSolicitada)
+      : null;
+    const isCurrentRequest = () =>
+      requestId === syncFromArcaRequestId &&
+      empresaStore.empresaActivaId === empresaIdSolicitada &&
+      empresaIdConfirmadaSolicitada !== null &&
+      getEmpresaActivaIdForRequest() === empresaIdConfirmadaSolicitada;
+    const emptyResult = { total_arca: 0, nuevos: 0, existentes: 0 };
+
     syncing.value = true;
     error.value = null;
     try {
@@ -144,6 +159,10 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
         arcaService.getPuntosVenta(),
         puntosVentaService.getAll(),
       ]);
+
+      if (!isCurrentRequest()) {
+        return emptyResult;
+      }
 
       const habilitados = puntosArca.filter((pv: PuntoVentaArca) => {
         const fechaBaja = pv.fecha_baja?.trim().toUpperCase();
@@ -154,6 +173,10 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
 
       const creados: PuntoVenta[] = [];
       for (const pv of nuevos) {
+        if (!isCurrentRequest()) {
+          return emptyResult;
+        }
+
         const creado = await puntosVentaService.create({
           numero: pv.numero,
           nombre: sistemaWebservice(pv),
@@ -163,11 +186,19 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
           fecha_baja: null,
           fuente: "arca_wsfe",
         });
+
+        if (!isCurrentRequest()) {
+          return emptyResult;
+        }
         creados.push(creado);
       }
 
       const actualizados: PuntoVenta[] = [];
       for (const pv of habilitados) {
+        if (!isCurrentRequest()) {
+          return emptyResult;
+        }
+
         const local = existentes.get(pv.numero);
         if (!local) continue;
 
@@ -194,7 +225,15 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
           fuente: local.fuente || "arca_wsfe",
           activo: true,
         });
+
+        if (!isCurrentRequest()) {
+          return emptyResult;
+        }
         actualizados.push(actualizado);
+      }
+
+      if (!isCurrentRequest()) {
+        return emptyResult;
       }
 
       const actualizadosPorNumero = new Map(
@@ -212,11 +251,17 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
         existentes: habilitados.length - creados.length,
       };
     } catch (err: any) {
+      if (!isCurrentRequest()) {
+        return emptyResult;
+      }
+
       error.value =
         err.response?.data?.detail || "Error al sincronizar puntos de venta";
       throw err;
     } finally {
-      syncing.value = false;
+      if (requestId === syncFromArcaRequestId) {
+        syncing.value = false;
+      }
     }
   };
 

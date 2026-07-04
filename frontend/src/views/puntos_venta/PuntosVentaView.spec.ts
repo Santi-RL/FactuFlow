@@ -6,6 +6,12 @@ import { arcaService, type ArcaStatus } from "@/services/arca.service";
 import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useEmpresaStore } from "@/stores/empresa";
 import type { Empresa } from "@/types/empresa";
+import type { PuntoVenta, PuntoVentaArca } from "@/types/punto_venta";
+import {
+  clearEmpresaActivaIdForRequest,
+  clearEmpresaActivaIdStorage,
+  setEmpresaActivaIdStorage,
+} from "@/utils/empresa-activa-storage";
 import PuntosVentaView from "./PuntosVentaView.vue";
 
 vi.mock("vue-router", () => ({
@@ -31,12 +37,14 @@ vi.mock("@/services/puntos_venta.service", () => ({
   },
 }));
 
+const notificationMocks = vi.hoisted(() => ({
+  showSuccess: vi.fn(),
+  showError: vi.fn(),
+  showWarning: vi.fn(),
+}));
+
 vi.mock("@/composables/useNotification", () => ({
-  useNotification: () => ({
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
-    showWarning: vi.fn(),
-  }),
+  useNotification: () => notificationMocks,
 }));
 
 const empresaMock = (id: number): Empresa => ({
@@ -78,15 +86,67 @@ const deferred = <T>() => {
 
 const mockedArcaService = arcaService as unknown as {
   getStatus: Mock;
+  getPuntosVenta: Mock;
 };
 const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
+  create: Mock;
+  update: Mock;
 };
 
 describe("PuntosVentaView", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    clearEmpresaActivaIdStorage();
+  });
+
+  it("no muestra éxito de una sincronización obsoleta si el cambio de emisor está en curso", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const puntosArca = deferred<PuntoVentaArca[]>();
+    const locales = deferred<PuntoVenta[]>();
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
+    mockedPuntosVentaService.getAll
+      .mockResolvedValueOnce([])
+      .mockReturnValueOnce(locales.promise);
+    mockedPuntosVentaService.create.mockResolvedValue({});
+    mockedPuntosVentaService.update.mockResolvedValue({});
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      sincronizar: () => Promise<void>;
+      tieneCertificadoActivo: boolean;
+    };
+    expect(vm.tieneCertificadoActivo).toBe(true);
+
+    const sincronizacion = vm.sincronizar();
+    clearEmpresaActivaIdForRequest();
+    puntosArca.resolve([
+      {
+        numero: 6,
+        emision_tipo: "CAE - Factura Electronica",
+        bloqueado: "N",
+        fecha_baja: null,
+      },
+    ]);
+    locales.resolve([]);
+    await sincronizacion;
+
+    expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
+    expect(notificationMocks.showError).not.toHaveBeenCalled();
   });
 
   it("ignora estados ARCA viejos despues de cambiar el emisor activo", async () => {

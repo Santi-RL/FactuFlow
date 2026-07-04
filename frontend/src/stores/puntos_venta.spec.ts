@@ -1,11 +1,17 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
+import { arcaService } from "@/services/arca.service";
 import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useEmpresaStore } from "@/stores/empresa";
 import { usePuntosVentaStore } from "@/stores/puntos_venta";
 import type { Empresa } from "@/types/empresa";
-import type { PuntoVenta } from "@/types/punto_venta";
+import type { PuntoVenta, PuntoVentaArca } from "@/types/punto_venta";
+import {
+  clearEmpresaActivaIdForRequest,
+  clearEmpresaActivaIdStorage,
+  setEmpresaActivaIdStorage,
+} from "@/utils/empresa-activa-storage";
 
 vi.mock("@/services/puntos_venta.service", () => ({
   puntosVentaService: {
@@ -57,23 +63,117 @@ const puntoVentaMock = (empresaId: number, numero: number): PuntoVenta => ({
   empresa_id: empresaId,
   created_at: "2024-01-01T00:00:00",
 });
+const puntoVentaArcaMock = (numero: number): PuntoVentaArca => ({
+  numero,
+  emision_tipo: "CAE - Factura Electronica",
+  bloqueado: "N",
+  fecha_baja: null,
+});
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolver) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolver, rejecter) => {
     resolve = resolver;
+    reject = rejecter;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 };
 
 const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
+  create: Mock;
+  update: Mock;
+};
+
+const mockedArcaService = arcaService as unknown as {
+  getPuntosVenta: Mock;
 };
 
 describe("puntos venta store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    clearEmpresaActivaIdStorage();
+  });
+
+  it("ignora sincronizaciones ARCA obsoletas cuando cambia el emisor activo", async () => {
+    const puntosArca = deferred<PuntoVentaArca[]>();
+    const locales = deferred<PuntoVenta[]>();
+    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
+    mockedPuntosVentaService.getAll.mockReturnValue(locales.promise);
+    mockedPuntosVentaService.create.mockResolvedValue(puntoVentaMock(1, 6));
+    mockedPuntosVentaService.update.mockResolvedValue(puntoVentaMock(1, 6));
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const store = usePuntosVentaStore();
+    store.puntosVenta = [puntoVentaMock(2, 2)];
+
+    const sincronizacion = store.syncFromArca();
+    empresaStore.empresa = empresaMock(2);
+    empresaStore.empresaActivaId = 2;
+    setEmpresaActivaIdStorage(2);
+    puntosArca.resolve([puntoVentaArcaMock(6)]);
+    locales.resolve([]);
+    const resultado = await sincronizacion;
+
+    expect(resultado).toEqual({ total_arca: 0, nuevos: 0, existentes: 0 });
+    expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.update).not.toHaveBeenCalled();
+    expect(store.puntosVenta.map((punto) => punto.empresa_id)).toEqual([2]);
+    expect(store.syncing).toBe(false);
+    expect(store.error).toBeNull();
+  });
+
+  it("corta la sincronización si el scope de request se limpia durante cambio de emisor", async () => {
+    const puntosArca = deferred<PuntoVentaArca[]>();
+    const locales = deferred<PuntoVenta[]>();
+    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
+    mockedPuntosVentaService.getAll.mockReturnValue(locales.promise);
+    mockedPuntosVentaService.create.mockResolvedValue(puntoVentaMock(1, 6));
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const store = usePuntosVentaStore();
+
+    const sincronizacion = store.syncFromArca();
+    clearEmpresaActivaIdForRequest();
+    puntosArca.resolve([puntoVentaArcaMock(6)]);
+    locales.resolve([]);
+    const resultado = await sincronizacion;
+
+    expect(resultado).toEqual({ total_arca: 0, nuevos: 0, existentes: 0 });
+    expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
+    expect(store.puntosVenta).toEqual([]);
+    expect(store.syncing).toBe(false);
+    expect(store.error).toBeNull();
+  });
+
+  it("ignora errores ARCA obsoletos si el scope de request se limpia durante cambio de emisor", async () => {
+    const puntosArca = deferred<PuntoVentaArca[]>();
+    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const store = usePuntosVentaStore();
+
+    const sincronizacion = store.syncFromArca();
+    clearEmpresaActivaIdForRequest();
+    puntosArca.reject({
+      response: { data: { detail: "ARCA no disponible" } },
+    });
+    const resultado = await sincronizacion;
+
+    expect(resultado).toEqual({ total_arca: 0, nuevos: 0, existentes: 0 });
+    expect(store.error).toBeNull();
+    expect(store.syncing).toBe(false);
   });
 
   it("ignora respuestas viejas cuando cambia el emisor activo", async () => {
