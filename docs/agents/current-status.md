@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-01
+Última actualización: 2026-07-05
 
 ## Objetivo activo
 
@@ -111,8 +111,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El rol `es_admin` queda definido como permiso para administrar usuarios. Los
   usuarios comunes activos pueden operar todos los emisores configurados; el
   emisor activo sigue resolviendo el alcance de datos por request.
-- Clawpatch backend/frontend/repo queda sin hallazgos abiertos despues del
-  ciclo de reparaciones 2026-05-16/17.
+- Clawpatch backend/frontend/repo queda sin hallazgos abiertos después del
+  ciclo 2026-07-05. El cierre sanitizado y las lecciones operativas quedaron en
+  `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`.
 - PDF de comprobantes actualizado con formato administrativo alineado a la
   ubicacion principal de la factura oficial ARCA, datos fiscales completos
   disponibles, QR ARCA testeable por payload y fechas de servicio/vencimiento
@@ -1078,7 +1079,8 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Se agrego estado local ignorado `.clawpatch/`, metadata minima
   `backend/pyproject.toml`, manifiesto operativo `backend/package.json` y
   scripts raiz para inicializar, mapear, consultar estado y revisar backend y
-  frontend con `clawpatch@0.1.0`.
+  frontend con la versión de Clawpatch instalada en ese momento. La regla
+  vigente desde 2026-07-05 es usar la CLI global `clawpatch` sin fijar versión.
 - La version actual de Clawpatch no trae mapper Python. Para que backend tenga
   entradas detectables sin tocar runtime, el manifiesto del backend expone los
   checks Python existentes contra `.venv`.
@@ -1785,16 +1787,26 @@ Quedo validado manualmente:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK
   - `npm run build` OK
-  - `npm run test:unit` OK, 64 tests
+  - `npm run test:unit` OK, 83 tests
   - `npm run test:e2e -- --reporter=list` OK, 31 tests en Chromium desktop,
     con servidor Vite dedicado en `127.0.0.1:18080` en la última corrida de
-    cierre visual; no se repitió en el corte `Sistema > Estado`
+    cierre visual; CI remoto también ejecutó E2E en Chromium para `ebc176d`
+- Auditoría Clawpatch 2026-07-05:
+  - repo completo: `openFindings=0`, `features=27`, `findings=50`
+  - backend: `openFindings=0`, `features=124`, `findings=19`
+  - frontend: `openFindings=0`, `features=21`, `findings=18`
+  - CI remoto GitHub Actions para `ebc176d` OK en `Frontend Build`,
+    `Backend Tests`, `Security Audit` y `E2E Tests`
+  - cierre documentado en
+    `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`
 
 ## Riesgos / pendientes inmediatos
 
-- Revision Clawpatch 2026-05-16/17: los hallazgos reparados quedan resumidos en
-  `docs/project/audits/clawpatch/2026-05-16-reparaciones.md`. Backend,
-  frontend y repo quedan con `openFindings=0`.
+- Revisión Clawpatch 2026-07-05: backend, frontend y repo completo quedan con
+  `openFindings=0`; el cierre y las lecciones quedan resumidos en
+  `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`. El ciclo
+  2026-05-16/17 queda como antecedente histórico en
+  `docs/project/audits/clawpatch/2026-05-16-reparaciones.md`.
 - La base local privada sigue siendo evidencia legacy
   ajustada manualmente; para nuevas instalaciones y operacion real, el camino
   canonico de schema es Alembic.

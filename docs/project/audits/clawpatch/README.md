@@ -36,6 +36,30 @@ normaliza esas comillas antes de llamar al Codex CLI real. No usar
 `npx clawpatch review` directo en Windows si se espera que invoque el proveedor
 `codex`; usar los scripts npm.
 
+## Cierres relevantes
+
+- 2026-05-16/17: primera reparación grande derivada de Clawpatch, documentada en
+  `2026-05-16-reparaciones.md`.
+- 2026-07-05: auditoría backend, frontend y repo completo cerrada con
+  `openFindings=0` en los tres state dirs. Cierre y lecciones en
+  `2026-07-05-cierre-auditoria.md`.
+
+## Lecciones 2026-07-05
+
+- No fijar versión de Clawpatch en scripts ni comandos. Usar `clawpatch` global
+  y conservar `--state-dir` / `--config` explícitos.
+- `revalidate --finding <id> --include-dirty` puede no seleccionar un hallazgo
+  duplicado en otro nivel de feature aunque `show` lo liste. Revalidar primero
+  el duplicado seleccionable y solo hacer `triage --status fixed` manual con
+  nota si ambos apuntan al mismo bloque corregido.
+- No usar `pagehide`/`unload` de una ventana recién abierta para limpiar blobs de
+  preview: pueden dispararse durante la navegación inicial de `about:blank` al
+  `blob:`. Preferir `load` y fallback largo.
+- Para fechas visibles en FactuFlow, `DD/MM/AAAA` es formato soportado y debe
+  validarse como tal. Los formatos ISO quedan para contratos técnicos.
+- Después de cambios aceptados por `autoreview`, repetir tests enfocados y
+  volver a correr `autoreview` sobre el commit final.
+
 ## Reglas De Seguridad
 
 - No ejecutar `clawpatch fix`.

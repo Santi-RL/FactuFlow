@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-01
+Última actualización: 2026-07-05
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
@@ -1456,12 +1456,16 @@ Reglas vigentes para cualquier nueva emision productiva:
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
   `openFindings=0`; la ultima revision repo no encontro features pendientes ni
   hallazgos nuevos.
-- Verificación automatizada vigente 2026-06-25: frontend `npm run test:unit`
-  OK (64 tests), `npm run build` OK, `npm run type-check` OK y
-  `npm run lint:check` OK. La última evidencia E2E sigue siendo
-  `npm run test:e2e -- --reporter=list` OK (31 tests en Chromium desktop) del
-  cierre visual; la matriz multinavegador/mobile queda opt-in con
-  `E2E_FULL_BROWSER_MATRIX=1`.
+- Verificación Clawpatch 2026-07-05: backend, frontend y repo completo vuelven
+  a quedar con `openFindings=0`. El ciclo fue técnico y sanitizado: no solicitó
+  CAE, no emitió comprobantes, no llamó ARCA real y no usó datos privados. El
+  cierre operativo quedó en
+  `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`.
+- Verificación automatizada vigente 2026-07-05: frontend `npm run test:unit`
+  OK (83 tests), `npm run type-check` OK y `npm run lint:check` OK. CI remoto
+  GitHub Actions para `ebc176d` quedó OK en `Frontend Build`, `Backend Tests`,
+  `Security Audit` y `E2E Tests`; la matriz multinavegador/mobile local queda
+  opt-in con `E2E_FULL_BROWSER_MATRIX=1`.
 - QA local post-incidente 2026-06-12 sobre lote `requiere_reconciliacion`:
   navegador Playwright con base aislada en `.tmp`, sin llamadas reales a ARCA.
   La pantalla mostró `Requiere reconciliación`, `Listos para emitir 0`,

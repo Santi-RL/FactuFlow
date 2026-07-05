@@ -8,7 +8,7 @@ fixes ni cambios de lógica.
 - Repo revisado: `FactuFlow`
 - Rama: `main`
 - Estado inicial: limpio y alineado con `origin/main`
-- Herramienta evaluada: `clawpatch@0.1.0`
+- Herramienta evaluada: Clawpatch, con la versión instalada en ese momento. No usar esa versión histórica como pin operativo actual.
 - Resultado práctico de `clawpatch`: la versión actual no mapea bien este
   monorepo. Desde la raíz detecta `0` features; desde `backend/` detecta `0`
   features porque el proyecto Python no tiene `pyproject.toml`; desde

@@ -2,8 +2,10 @@
 
 ## Objetivo
 
-Habilitar `clawpatch@0.1.0` para revisar backend y frontend sin modificar
+Habilitar Clawpatch, con la versión instalada en ese momento, para revisar backend y frontend sin modificar
 logica fiscal, frontend operativo ni flujos ARCA.
+
+Nota vigente desde 2026-07-05: no fijar versión de Clawpatch en comandos ni scripts; usar la CLI global clawpatch con --state-dir y --config explícitos.
 
 ## Cambios aplicados
 
@@ -11,7 +13,7 @@ logica fiscal, frontend operativo ni flujos ARCA.
   Git.
 - `backend/pyproject.toml`: metadata minima del backend Python, sin mover
   dependencias ni configurar `pytest`, `ruff` o `black`.
-- `backend/package.json`: manifiesto privado solo para que `clawpatch@0.1.0`
+- `backend/package.json`: manifiesto privado solo para que Clawpatch
   tenga scripts mapeables del backend. Los scripts usan `.venv`.
 - `package.json`: scripts raiz para `init`, `map`, `status` y `review` de
   backend y frontend con `--root` explicito.
@@ -38,7 +40,7 @@ Resultado:
 - `clawpatch fix`: no ejecutado.
 - Emision fiscal / CAE / ARCA real: no ejecutado.
 
-Nota tecnica: `clawpatch@0.1.0` no trae mapper Python. Por eso
+Nota histórica: la versión instalada en ese momento no traía mapper Python. Por eso
 `backend/package.json` funciona como adaptador operativo no invasivo para
 exponer scripts existentes.
 
@@ -113,11 +115,10 @@ Nota: el nivel `repo` no usa el mapper nativo de la raiz porque puede escanear
 carpetas locales ignoradas como `.tmp/`. Usa solo las features manuales, que son
 las que dan cobertura util para los flujos criticos.
 
-Tambien se agrego `tools/clawpatch/bin/codex.cmd` para corregir una limitacion
-de `clawpatch@0.1.0` en Windows: la CLI invoca `codex exec` con comillas
-simples POSIX y `cmd.exe` no las interpreta como quoting. Los scripts de
-`review` anteponen ese wrapper al `PATH`.
-
+Tambien se agrego `tools/clawpatch/bin/codex.cmd` para corregir una limitación
+observada en la versión instalada en ese momento en Windows: la CLI invocaba
+`codex exec` con comillas simples POSIX y `cmd.exe` no las interpretaba como
+quoting. Los scripts de `review` anteponen ese wrapper al `PATH`.
 Ejecucion posterior de review:
 
 - Primer intento completo con `repo` supero el timeout local de 20 minutos, pero

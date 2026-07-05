@@ -18,6 +18,26 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Auditoría y mantenimiento
+
+- Se cerró la auditoría Clawpatch de backend, frontend y repo completo del
+  2026-07-05 con `openFindings=0` en los tres state dirs existentes.
+- Se corrigió la puesta a punto del mapper repo para usar la CLI global
+  `clawpatch` sin fijar versión y conservar el mapeo nativo junto con las
+  features manuales versionadas.
+- Se corrigió la previsualización de PDFs para no revocar el `blob:` antes de
+  que la pestaña nueva cargue el visor; se evita usar `pagehide`/`unload` en la
+  navegación inicial de `about:blank` al `blob:`.
+- Se aclaró el workflow CI: los E2E corren en pushes a `main` y en PRs.
+- Se reforzó `formatearFecha` para soportar y validar `DD/MM/AAAA`, además de
+  formatos técnicos `YYYY-MM-DD` e ISO datetime, sin normalizar fechas inválidas
+  como `31/02/2026`.
+- Se documentaron reglas permanentes de fechas argentinas en `AGENTS.md`,
+  `docs/agents/testing.md` y `CONTRIBUTING.md`.
+- Cierre detallado y lecciones operativas:
+  `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`.
+- Validaciones: tests frontend enfocados y completos, Clawpatch revalidate,
+  `autoreview` Codex/GPT-5.5 alto por commit y GitHub Actions remoto aprobado.
 ### UX de carga masiva
 
 - Se implementó el Corte 1 del rediseño de `/comprobantes/lotes`: guía rápida

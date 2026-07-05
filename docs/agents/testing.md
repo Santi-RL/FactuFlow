@@ -93,6 +93,19 @@ npm run test:unit
 La puesta a punto no debe ejecutar `clawpatch fix`, no debe solicitar CAE ni
 modificar lógica de emisión fiscal.
 
+Nota 2026-07-05:
+
+- Usar siempre la CLI global `clawpatch` sin fijar versión. En FactuFlow no se
+  deben escribir scripts que llamen `clawpatch@<version>`.
+- Si `clawpatch revalidate --finding <id> --include-dirty` no selecciona un
+  finding que `show` todavía lista, revisar si es un duplicado de otro nivel de
+  feature. Se puede usar una revalidación acotada por abiertos y hacer triage
+  manual solo si el duplicado exacto ya fue revalidado como fixed, dejando nota.
+- Después de aceptar un finding de `autoreview` y cambiar código, repetir los
+  tests enfocados y volver a correr `autoreview` sobre el commit final.
+- Para verificar CI remoto, usar `gh run list` y `gh run view` sobre el SHA del
+  commit esperado; no usar el endpoint legacy de commit statuses.
+
 Nota 2026-06-10:
 
 - `npm run test:unit` incluye pruebas unitarias de perfiles de carga masiva y
@@ -162,6 +175,23 @@ El ultimo checkpoint manual no esta en este archivo sino en:
 Eso evita mezclar instrucciones permanentes con el estado puntual de una sesion.
 
 ## Ultima verificacion tecnica
+
+Fecha: 2026-07-05
+
+- Clawpatch repo completo: `openFindings=0`, `features=27`, `findings=50`.
+- Clawpatch backend: `openFindings=0`, `features=124`, `findings=19`.
+- Clawpatch frontend: `openFindings=0`, `features=21`, `findings=18`.
+- Frontend: `npm run lint:check` OK.
+- Frontend: `npm run type-check` OK.
+- Frontend: `npm run test:unit` OK, 83 tests.
+- Frontend enfocado: `npm run test:unit -- useFormatters.spec.ts` OK, 6 tests.
+- Frontend enfocado: `npm run test:unit -- pdf.service.spec.ts` OK, 2 tests.
+- Clawpatch revalidate OK para los hallazgos de PDF preview, workflow E2E y
+  `formatearFecha`.
+- `autoreview` Codex/GPT-5.5 alto OK sobre los commits finales del ciclo.
+- GitHub Actions CI remoto OK para `ebc176d`: `Frontend Build`, `Backend Tests`,
+  `Security Audit` y `E2E Tests` en success.
+- Cierre detallado: `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`.
 
 Fecha: 2026-06-13
 

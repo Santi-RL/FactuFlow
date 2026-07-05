@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-06-29
+Última actualización: 2026-07-05
 
 Este roadmap traduce la vision estable del producto en prioridades, fases y
 trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
@@ -497,6 +497,9 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   documentando la versión recomendada para desarrollo local.
 - [x] Reparaciones Clawpatch 2026-05-16/17 cerradas con
   backend/frontend/repo en `openFindings=0`
+- [x] Auditoría Clawpatch 2026-07-05 cerrada nuevamente con repo completo,
+  backend y frontend en `openFindings=0`, `autoreview` GPT-5.5 alto limpio y
+  CI remoto aprobado
 - [x] Reportes IVA calculan notas de credito con signo negativo y el detalle de
   subdiario incluye gravado e IVA 27%
 - [x] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
