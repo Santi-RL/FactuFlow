@@ -2,28 +2,71 @@
  * Composable para formateo de datos
  */
 
+const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/;
+const ARGENTINE_DATE_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+};
+
+const formatearFechaLocal = (fecha: Date): string => {
+  return fecha.toLocaleDateString("es-AR", DATE_FORMAT_OPTIONS);
+};
+
+const esFechaCalendarioValida = (
+  fecha: Date,
+  year: number,
+  month: number,
+  day: number,
+): boolean => {
+  return (
+    fecha.getFullYear() === year &&
+    fecha.getMonth() === month - 1 &&
+    fecha.getDate() === day
+  );
+};
+
 /**
- * Formatea una fecha en formato DD/MM/YYYY
- * Maneja correctamente fechas ISO sin conversión de zona horaria
+ * Formatea una fecha en formato DD/MM/AAAA.
+ * Maneja fechas ISO y argentinas DD/MM/AAAA sin conversión de zona horaria,
+ * validando fechas de calendario reales antes de formatear.
  */
 export const formatearFecha = (fecha: string | Date): string => {
   if (typeof fecha === "string") {
-    // Para fechas ISO (YYYY-MM-DD), parsear manualmente para evitar problemas de timezone
-    const [year, month, day] = fecha.split("T")[0].split("-").map(Number);
+    const valor = fecha.trim();
+
+    if (!valor) {
+      return "";
+    }
+
+    const isoMatch = valor.match(ISO_DATE_PATTERN);
+    const argentinaMatch = valor.match(ARGENTINE_DATE_PATTERN);
+
+    const match = isoMatch ?? argentinaMatch;
+    if (!match) {
+      return fecha;
+    }
+
+    const [, firstPart, secondPart, thirdPart] = match;
+    const year = Number(isoMatch ? firstPart : thirdPart);
+    const month = Number(secondPart);
+    const day = Number(isoMatch ? thirdPart : firstPart);
     const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+
+    if (!esFechaCalendarioValida(date, year, month, day)) {
+      return fecha;
+    }
+
+    return formatearFechaLocal(date);
   }
 
-  // Para objetos Date
-  return fecha.toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  if (Number.isNaN(fecha.getTime())) {
+    return "";
+  }
+
+  return formatearFechaLocal(fecha);
 };
 
 /**

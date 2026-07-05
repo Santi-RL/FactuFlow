@@ -381,6 +381,24 @@ from app.models import Cliente
 from app.services import FacturaService
 ```
 
+### Fechas
+
+FactuFlow es una aplicación argentina. En UI, documentación de usuario,
+confirmaciones, reportes y PDFs, las fechas visibles deben mostrarse en formato
+`DD/MM/AAAA`.
+
+Para código nuevo o modificado:
+- Soportar explícitamente `DD/MM/AAAA` cuando se acepten fechas como texto de
+  usuario o como texto ya formateado para usuarios argentinos.
+- Mantener `YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD` solo como formatos
+  técnicos de contratos internos, backend, base de datos o ARCA.
+- No usar `new Date(string)` ni `Date.parse` para strings ambiguos o de usuario.
+  Parsear por formato conocido y validar calendario real.
+- No normalizar silenciosamente fechas inválidas como `31/02/2026`: rechazarlas
+  o conservarlas sin inventar otra fecha, según el contrato del flujo.
+- Agregar tests para `DD/MM/AAAA`, `YYYY-MM-DD`, fechas inválidas, strings
+  vacíos y casos de timezone si se aceptan ISO datetime.
+
 ### Vue.js (Frontend)
 
 #### Estilo de Componentes

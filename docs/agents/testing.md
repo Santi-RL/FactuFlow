@@ -35,6 +35,28 @@ npm run test:unit
 npm run test:e2e
 ```
 
+## Pruebas de fechas
+
+FactuFlow es una aplicación argentina. Todo cambio que formatee, parsee,
+importe, exporte, valide o muestre fechas debe cubrir explícitamente el formato
+argentino `DD/MM/AAAA` además de los formatos técnicos que use el contrato
+interno (`YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD`).
+
+Cobertura mínima esperada cuando se toca lógica de fechas:
+
+- `DD/MM/AAAA` válido, por ejemplo `31/12/2026`.
+- `YYYY-MM-DD` válido recibido desde API/backend, por ejemplo `2026-12-31`.
+- ISO datetime con zona horaria si el código lo acepta, verificando que no haya
+  desplazamiento de día por timezone.
+- Fechas con forma válida pero calendario inválido, por ejemplo `31/02/2026` o
+  `2026-02-31`, sin normalizarlas silenciosamente.
+- String vacío o valor faltante.
+- Para flujos fiscales, confirmación irreversible visible en `DD/MM/AAAA` y
+  conversión técnica correcta antes de ARCA.
+
+No usar `new Date(string)` ni `Date.parse` como parser general de strings de
+usuario. Validar por formato soportado y por calendario real.
+
 ## Puesta a punto Clawpatch
 
 Para ejecutar `clawpatch`, usar los scripts raiz documentados en

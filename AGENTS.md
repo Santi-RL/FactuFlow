@@ -42,6 +42,24 @@
   que verificar esta regla en UI, API, servicios, tests y documentacion antes de
   darlo por terminado.
 
+## Formato de fechas argentino
+- En UI, mensajes, documentación para usuarios, confirmaciones fiscales y PDFs,
+  las fechas visibles deben mostrarse en formato argentino `DD/MM/AAAA`, salvo
+  que una integración externa exija explícitamente otro formato técnico.
+- Cuando el código acepte fechas como `string`, debe soportar y validar
+  explícitamente `DD/MM/AAAA` para entradas argentinas y `YYYY-MM-DD` / ISO
+  datetime para contratos técnicos de API/backend. No usar `new Date(string)` ni
+  `Date.parse` sobre strings de usuario o strings ambiguos.
+- Una fecha con forma válida pero calendario inválido, como `31/02/2026`, no
+  debe normalizarse ni convertirse silenciosamente a otra fecha. Debe rechazarse
+  o conservarse sin inventar una fecha, según el contrato del helper o flujo.
+- Para ARCA, base de datos, payloads API y archivos técnicos, mantener los
+  formatos requeridos por cada contrato (`YYYY-MM-DD`, ISO datetime o `CbteFch`
+  `YYYYMMDD`) y convertirlos en los bordes hacia/desde `DD/MM/AAAA`.
+- Los tests que toquen fechas deben cubrir al menos: `DD/MM/AAAA` válido,
+  `YYYY-MM-DD` válido, fecha calendario inválida, string vacío y el caso de zona
+  horaria si se parsean ISO datetime.
+
 ## Diseño fiscal crítico
 - FactuFlow debe priorizar solidez, seguridad y confiabilidad fiscal. Un error
   en emisión, numeración, CAE, fechas fiscales, puntos de venta, comprobantes
