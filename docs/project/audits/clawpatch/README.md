@@ -11,9 +11,10 @@ pedido explicito posterior.
 
 ## Estado Actual
 
-`clawpatch@0.1.0` es una CLI temprana. Su mapper nativo detecta scripts npm,
-configuracion, Next, Go, Rust y Swift, pero no entiende por si solo el backend
-FastAPI/Python ni las vistas/stores Vue de FactuFlow.
+`clawpatch` es una CLI en evolución. Usar siempre la CLI global disponible,
+sin fijar versión en scripts ni comandos operativos. Su mapper nativo detecta
+scripts npm, configuración, Next, Go, Rust y Swift, pero no entiende por sí
+solo el backend FastAPI/Python ni las vistas/stores Vue de FactuFlow.
 
 Por eso FactuFlow agrega una capa propia de features manuales en:
 
@@ -28,11 +29,12 @@ Git. Los reportes crudos de findings tambien quedan locales cuando detallan
 vulnerabilidades abiertas; versionar solo cierres operativos o resumenes
 sanitizados.
 
-En Windows, `clawpatch@0.1.0` invoca `codex exec` con comillas simples estilo
-POSIX. Los scripts de `review` anteponen `tools/clawpatch/bin` al `PATH` para
-usar un wrapper local de `codex.cmd` que normaliza esas comillas antes de llamar
-al Codex CLI real. No usar `npx clawpatch review` directo en Windows si se
-espera que invoque el proveedor `codex`; usar los scripts npm.
+En Windows, algunas versiones de `clawpatch` invocan `codex exec` con comillas
+simples estilo POSIX. Los scripts de `review` anteponen
+`tools/clawpatch/bin` al `PATH` para usar un wrapper local de `codex.cmd` que
+normaliza esas comillas antes de llamar al Codex CLI real. No usar
+`npx clawpatch review` directo en Windows si se espera que invoque el proveedor
+`codex`; usar los scripts npm.
 
 ## Reglas De Seguridad
 
@@ -66,10 +68,12 @@ npm run clawpatch:map-all
 
 Este comando ejecuta:
 
-- `repo`: solo features manuales end-to-end. No usa el mapper nativo de la raiz
-  porque puede intentar escanear carpetas locales ignoradas como `.tmp/`.
-- `backend`: mapper nativo de Clawpatch mas features manuales FastAPI/Python.
-- `frontend`: mapper nativo de Clawpatch mas features manuales Vue/TS.
+- `repo`: mapper nativo de Clawpatch sobre un snapshot temporal de archivos
+  versionables/no ignorados, más features manuales end-to-end. El snapshot evita
+  carpetas locales ignoradas, evidencia privada y errores de `realpath` sobre
+  `.tmp/`; el estado final se escribe en `.clawpatch/repo`.
+- `backend`: mapper nativo de Clawpatch más features manuales FastAPI/Python.
+- `frontend`: mapper nativo de Clawpatch más features manuales Vue/TS.
 
 Verificacion de estado:
 
@@ -81,9 +85,11 @@ npm run clawpatch:frontend:status
 
 Criterio esperado con la puesta a punto actual:
 
-- `repo`: 4 features end-to-end.
-- `backend`: 10 features, incluyendo 6 manuales de codigo real.
-- `frontend`: 10 features, incluyendo 4 manuales de codigo real.
+- Los tres `status` deben responder sin error y mostrar el estado local de cada
+  slice.
+- No fijar el cierre a una cantidad exacta de features: el mapper nativo puede
+  variar según la versión instalada de `clawpatch`. Registrar los conteos
+  observados al cerrar cada auditoría.
 
 ## Features Manuales
 
@@ -130,12 +136,12 @@ npm run clawpatch:backend:review
 npm run clawpatch:frontend:review
 ```
 
-No ejecutar `fix`. Si Clawpatch detecta findings, generar reportes locales:
+No ejecutar `fix`. Si Clawpatch detecta findings, generar reportes locales desde la raíz del repo:
 
 ```powershell
-npx -y clawpatch@0.1.0 --root . --state-dir .clawpatch/repo report -o docs/project/audits/clawpatch/repo-YYYY-MM-DD.md
-npx -y clawpatch@0.1.0 --root backend --state-dir ../.clawpatch/backend report -o ../docs/project/audits/clawpatch/backend-YYYY-MM-DD.md
-npx -y clawpatch@0.1.0 --root frontend --state-dir ../.clawpatch/frontend report -o ../docs/project/audits/clawpatch/frontend-YYYY-MM-DD.md
+clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json report --output docs/project/audits/clawpatch/repo-YYYY-MM-DD.md
+clawpatch --root . --state-dir .clawpatch/backend --config .clawpatch/backend/config.json report --output docs/project/audits/clawpatch/backend-YYYY-MM-DD.md
+clawpatch --root . --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json report --output docs/project/audits/clawpatch/frontend-YYYY-MM-DD.md
 ```
 
 Si se consolida manualmente, usar una version local ignorada o un resumen

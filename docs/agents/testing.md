@@ -48,9 +48,10 @@ npm run clawpatch:backend:status
 npm run clawpatch:frontend:status
 ```
 
-`clawpatch:map-all` agrega features manuales versionadas para que la auditoria
-revise flujos reales de FactuFlow. El nivel `repo` cubre slices end-to-end
-frontend/backend; `backend` y `frontend` agregan slices focalizados por area.
+`clawpatch:map-all` ejecuta el mapper nativo de cada slice y luego agrega
+features manuales versionadas para que la auditoría revise flujos reales de
+FactuFlow. El nivel `repo` cubre slices end-to-end frontend/backend;
+`backend` y `frontend` agregan slices focalizados por área.
 
 La regresion minima posterior es:
 
