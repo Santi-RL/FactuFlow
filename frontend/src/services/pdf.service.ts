@@ -4,6 +4,8 @@
 
 import api from "./api";
 
+const PDF_PREVIEW_URL_FALLBACK_REVOKE_MS = 5 * 60 * 1000;
+
 export interface PDFDownloadOptions {
   comprobanteId: number;
   preview?: boolean;
@@ -33,10 +35,48 @@ class PDFService {
 
     const blob = new Blob([response.data], { type: "application/pdf" });
     const url = window.URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    const previewWindow = window.open(url, "_blank");
 
-    // Liberar el objeto URL después de un tiempo
-    setTimeout(() => window.URL.revokeObjectURL(url), 100);
+    this.programarRevocacionPreview(url, previewWindow);
+  }
+
+  private programarRevocacionPreview(
+    url: string,
+    previewWindow: Window | null,
+  ): void {
+    let revocado = false;
+    const fallback: {
+      id?: ReturnType<typeof window.setTimeout>;
+    } = {};
+
+    const revocar = () => {
+      if (revocado) {
+        return;
+      }
+
+      revocado = true;
+      if (fallback.id !== undefined) {
+        window.clearTimeout(fallback.id);
+      }
+      window.URL.revokeObjectURL(url);
+    };
+
+    fallback.id = window.setTimeout(
+      revocar,
+      PDF_PREVIEW_URL_FALLBACK_REVOKE_MS,
+    );
+
+    if (!previewWindow) {
+      return;
+    }
+
+    try {
+      // Evitar pagehide/unload: pueden dispararse durante la navegación inicial
+      // de about:blank al blob y revocar el URL antes de que el visor lo lea.
+      previewWindow.addEventListener("load", revocar, { once: true });
+    } catch {
+      // Si el navegador no permite observar la ventana, queda el fallback.
+    }
   }
 
   /**
