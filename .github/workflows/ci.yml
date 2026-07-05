@@ -99,7 +99,7 @@ jobs:
         run: npm run test:unit
 
   # ====================================
-  # E2E Tests (on PR only)
+  # E2E Tests (main pushes and PRs)
   # ====================================
   e2e:
     name: E2E Tests
