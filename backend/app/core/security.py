@@ -6,7 +6,8 @@ from time import time
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -18,7 +19,7 @@ from app.core.database import get_db
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Security scheme para JWT
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 security_optional = HTTPBearer(auto_error=False)
 
 
@@ -90,7 +91,7 @@ def decode_access_token(token: str) -> Optional[dict]:
             token, settings.secret_key, algorithms=[settings.jwt_algorithm]
         )
         return payload
-    except JWTError:
+    except PyJWTError:
         return None
 
 
@@ -117,7 +118,7 @@ def _token_emitido_antes_de_password(
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -141,6 +142,12 @@ async def get_current_user(
         detail="No se pudo validar las credenciales",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authenticated",
+        )
 
     token = credentials.credentials
     payload = decode_access_token(token)

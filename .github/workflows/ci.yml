@@ -164,9 +164,10 @@ jobs:
       - name: Check Python dependencies
         working-directory: backend
         run: |
+          python -m pip install --upgrade pip setuptools wheel
           pip install pip-audit
           pip install -r requirements.txt
-          pip-audit || true
+          pip-audit
       
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -175,4 +176,4 @@ jobs:
       
       - name: Check npm dependencies
         working-directory: frontend
-        run: npm audit --audit-level=high || true
+        run: npm audit --omit=dev --audit-level=high
