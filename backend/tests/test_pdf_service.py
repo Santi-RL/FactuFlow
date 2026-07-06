@@ -125,6 +125,14 @@ class TestPDFService:
         assert pdf_service._get_tipo_documento_codigo("DNI") == 96
         assert pdf_service._get_tipo_documento_codigo("Otro") == 99
 
+    def test_template_escapa_html_por_defecto(self, pdf_service):
+        """Debe escapar datos libres antes de renderizarlos como HTML."""
+        template = pdf_service.env.from_string("{{ valor }}")
+
+        assert template.render(valor="<script>alert(1)</script>") == (
+            "&lt;script&gt;alert(1)&lt;/script&gt;"
+        )
+
     def test_generar_qr_arca(self, pdf_service, comprobante_mock):
         """Debe generar un código QR válido."""
         qr_base64 = pdf_service._generar_qr_arca(comprobante_mock)

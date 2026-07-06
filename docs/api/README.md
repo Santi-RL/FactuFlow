@@ -685,11 +685,13 @@ GET /api/pdf/comprobante/{comprobante_id}
 GET /api/pdf/comprobante/{comprobante_id}/preview
 ```
 
-El PDF se genera bajo demanda.
-Incluye QR ARCA con payload Base64 según la especificación oficial y muestra
-datos fiscales del emisor/receptor, operación, detalle, totales, CAE y
-vencimiento CAE. En comprobantes nuevos de servicios también muestra período
-facturado y vencimiento de pago.
+El PDF fiscal se genera bajo demanda solo para comprobantes `autorizado` con
+CAE y vencimiento de CAE persistidos; si faltan esos datos, la API responde
+`409` y no genera un documento rotulado como autorizado. Incluye QR ARCA con
+payload Base64 según la especificación oficial y muestra datos fiscales del
+emisor/receptor, operación, detalle, totales, CAE y vencimiento CAE. En
+comprobantes nuevos de servicios también muestra período facturado y vencimiento
+de pago. Los datos libres renderizados en la plantilla se escapan como HTML.
 
 ## Reportes
 

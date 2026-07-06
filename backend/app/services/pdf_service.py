@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import qrcode
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import HTML, CSS
 
 from app.models.comprobante import Comprobante
@@ -26,7 +26,10 @@ class PDFService:
     def __init__(self):
         """Inicializa el servicio de PDF con el entorno de templates."""
         template_path = Path(__file__).parent.parent / "templates" / "pdf"
-        self.env = Environment(loader=FileSystemLoader(str(template_path)))
+        self.env = Environment(
+            loader=FileSystemLoader(str(template_path)),
+            autoescape=select_autoescape(["html", "xml"]),
+        )
         self.env.filters["fecha_ar"] = self._format_fecha_ar
         self.env.filters["importe_ar"] = self._format_importe_ar
         self.env.filters["cantidad_ar"] = self._format_cantidad_ar

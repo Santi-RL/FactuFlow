@@ -1,6 +1,6 @@
 """API endpoints para generación de PDFs."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +11,22 @@ from app.models.comprobante import Comprobante
 from app.services.pdf_service import pdf_service
 
 router = APIRouter()
+
+
+def _validar_comprobante_autorizado_para_pdf(comprobante: Comprobante) -> None:
+    """Impide generar PDFs fiscales sin autorización ARCA persistida."""
+    if (
+        comprobante.estado != "autorizado"
+        or not comprobante.cae
+        or comprobante.cae_vencimiento is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Solo se puede generar PDF fiscal de comprobantes autorizados "
+                "con CAE y vencimiento de CAE persistidos."
+            ),
+        )
 
 
 @router.get("/comprobante/{comprobante_id}")
@@ -51,6 +67,7 @@ async def descargar_pdf_comprobante(
             status_code=403,
             detail="El comprobante no pertenece a la empresa activa seleccionada",
         )
+    _validar_comprobante_autorizado_para_pdf(comprobante)
 
     # Generar PDF
     try:
@@ -113,6 +130,7 @@ async def preview_pdf_comprobante(
             status_code=403,
             detail="El comprobante no pertenece a la empresa activa seleccionada",
         )
+    _validar_comprobante_autorizado_para_pdf(comprobante)
 
     # Generar PDF
     try:
