@@ -303,7 +303,7 @@ class FacturacionService:
             )
             await self._validar_punto_venta_habilitado(
                 wsfe_client,
-                punto_venta.numero,
+                punto_venta_numero,
             )
             try:
                 proximo = await self._obtener_proximo_numero(
@@ -311,13 +311,13 @@ class FacturacionService:
                     primer_request.punto_venta_id,
                     primer_request.tipo_comprobante,
                     wsfe_client,
-                    punto_venta.numero,
+                    punto_venta_numero,
                 )
             except ReconciliacionNumeracionError as exc:
                 return [
                     self._respuesta_numeracion_arca_adelantada(
                         request=request,
-                        punto_venta_numero=punto_venta.numero,
+                        punto_venta_numero=punto_venta_numero,
                         numero=exc.ultimo_arca,
                         totales=totales,
                         exc=exc,
@@ -350,7 +350,7 @@ class FacturacionService:
                         request,
                         proximo + index,
                         totales,
-                        punto_venta.numero,
+                        punto_venta_numero,
                     )
                     for index, (request, totales) in enumerate(
                         zip(requests, totales_por_request)
@@ -388,7 +388,7 @@ class FacturacionService:
                 respuestas_inciertas = [
                     self._respuesta_batch_sin_detalle_requiere_reconciliacion(
                         request=request,
-                        punto_venta_numero=punto_venta.numero,
+                        punto_venta_numero=punto_venta_numero,
                         numero=arca_request.cbte_desde,
                         totales=totales,
                         error=str(exc),
@@ -400,9 +400,11 @@ class FacturacionService:
                     )
                 ]
                 for intento, respuesta in zip(intentos, respuestas_inciertas):
-                    await idempotencia.actualizar_intento_desde_respuesta(
+                    await self._actualizar_intento_batch_preservando_respuesta(
+                        idempotencia,
                         intento,
                         respuesta,
+                        contexto="respuesta_incierta_arca",
                     )
                 return respuestas_inciertas
 
@@ -417,15 +419,17 @@ class FacturacionService:
             ):
                 respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
                     request=request,
-                    punto_venta_numero=punto_venta.numero,
+                    punto_venta_numero=punto_venta_numero,
                     numero=arca_request.cbte_desde,
                     totales=totales,
                     resultado_arca=resultado,
                 )
                 if respuesta_no_aprobada is not None:
-                    await idempotencia.actualizar_intento_desde_respuesta(
+                    await self._actualizar_intento_batch_preservando_respuesta(
+                        idempotencia,
                         intento,
                         respuesta_no_aprobada,
+                        contexto="arca_no_aprobado",
                     )
                     respuestas.append(respuesta_no_aprobada)
                     continue
@@ -433,7 +437,7 @@ class FacturacionService:
                 if persistencia_bloqueada:
                     respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                         request=request,
-                        punto_venta_numero=punto_venta.numero,
+                        punto_venta_numero=punto_venta_numero,
                         numero=arca_request.cbte_desde,
                         totales=totales,
                         resultado_arca=resultado,
@@ -446,9 +450,11 @@ class FacturacionService:
                             "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente."
                         ],
                     )
-                    await idempotencia.actualizar_intento_desde_respuesta(
+                    await self._actualizar_intento_batch_preservando_respuesta(
+                        idempotencia,
                         intento,
                         respuesta,
+                        contexto="persistencia_bloqueada",
                     )
                     respuestas.append(respuesta)
                     continue
@@ -468,13 +474,13 @@ class FacturacionService:
                         "Conflicto de numeración al guardar comprobante batch autorizado. "
                         "empresa=%s pv=%s tipo=%s numero=%s",
                         request.empresa_id,
-                        punto_venta.numero,
+                        punto_venta_numero,
                         request.tipo_comprobante,
                         arca_request.cbte_desde,
                     )
                     respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                         request=request,
-                        punto_venta_numero=punto_venta.numero,
+                        punto_venta_numero=punto_venta_numero,
                         numero=arca_request.cbte_desde,
                         totales=totales,
                         resultado_arca=resultado,
@@ -486,9 +492,11 @@ class FacturacionService:
                             str(exc.orig),
                         ],
                     )
-                    await idempotencia.actualizar_intento_desde_respuesta(
+                    await self._actualizar_intento_batch_preservando_respuesta(
+                        idempotencia,
                         intento,
                         respuesta,
+                        contexto="conflicto_numeracion_post_arca",
                     )
                     respuestas.append(respuesta)
                 except Exception as exc:
@@ -497,13 +505,13 @@ class FacturacionService:
                     logger.exception(
                         "Fallo posterior a CAE autorizado en sublote. empresa=%s pv=%s tipo=%s numero=%s",
                         request.empresa_id,
-                        punto_venta.numero,
+                        punto_venta_numero,
                         request.tipo_comprobante,
                         arca_request.cbte_desde,
                     )
                     respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                         request=request,
-                        punto_venta_numero=punto_venta.numero,
+                        punto_venta_numero=punto_venta_numero,
                         numero=arca_request.cbte_desde,
                         totales=totales,
                         resultado_arca=resultado,
@@ -515,9 +523,11 @@ class FacturacionService:
                             str(exc),
                         ],
                     )
-                    await idempotencia.actualizar_intento_desde_respuesta(
+                    await self._actualizar_intento_batch_preservando_respuesta(
+                        idempotencia,
                         intento,
                         respuesta,
+                        contexto="fallo_persistencia_post_arca",
                     )
                     respuestas.append(respuesta)
                 else:
@@ -525,7 +535,7 @@ class FacturacionService:
                         "Comprobante batch emitido: empresa=%s tipo=%s pv=%s numero=%s cae=%s total=%s",
                         request.empresa_id,
                         request.tipo_comprobante,
-                        punto_venta.numero,
+                        punto_venta_numero,
                         resultado.numero_comprobante,
                         resultado.cae,
                         totales["total"],
@@ -534,7 +544,7 @@ class FacturacionService:
                         exito=True,
                         comprobante_id=comprobante.id,
                         tipo_comprobante=request.tipo_comprobante,
-                        punto_venta=punto_venta.numero,
+                        punto_venta=punto_venta_numero,
                         numero=arca_request.cbte_desde,
                         fecha=comprobante.fecha_emision,
                         cae=resultado.cae,
@@ -544,10 +554,37 @@ class FacturacionService:
                         total=totales["total"],
                         mensaje="Comprobante emitido exitosamente",
                     )
-                    await idempotencia.actualizar_intento_desde_respuesta(
-                        intento,
-                        respuesta,
-                    )
+                    try:
+                        await idempotencia.actualizar_intento_desde_respuesta(
+                            intento,
+                            respuesta,
+                        )
+                    except Exception as exc:
+                        await self.db.rollback()
+                        persistencia_bloqueada = True
+                        logger.exception(
+                            "Fallo al cerrar intento fiscal batch autorizado. "
+                            "empresa=%s pv=%s tipo=%s numero=%s",
+                            request.empresa_id,
+                            punto_venta_numero,
+                            request.tipo_comprobante,
+                            arca_request.cbte_desde,
+                        )
+                        respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            resultado_arca=resultado,
+                            mensaje=(
+                                "ARCA autorizó el comprobante y FactuFlow lo guardó, "
+                                "pero no pudo cerrar el intento fiscal"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta reconciliar el intento fiscal y verificar el comprobante local.",
+                                str(exc),
+                            ],
+                        )
                     respuestas.append(respuesta)
 
             return respuestas
@@ -1822,6 +1859,24 @@ class FacturacionService:
             requiere_reconciliacion=True,
             categoria_error="post_arca_persistencia",
         )
+
+    async def _actualizar_intento_batch_preservando_respuesta(
+        self,
+        idempotencia: IdempotenciaFiscalService,
+        intento: IntentoEmisionFiscal | None,
+        respuesta: EmitirComprobanteResponse,
+        contexto: str,
+    ) -> None:
+        """Actualiza un intento batch sin ocultar una respuesta fiscal segura."""
+        try:
+            await idempotencia.actualizar_intento_desde_respuesta(intento, respuesta)
+        except Exception:
+            await self.db.rollback()
+            logger.exception(
+                "No se pudo actualizar intento fiscal batch en contexto %s; "
+                "se preserva la respuesta calculada",
+                contexto,
+            )
 
     async def _marcar_intentos_batch_pre_arca_fallidos(
         self,

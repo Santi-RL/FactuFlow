@@ -1061,6 +1061,157 @@ async def test_emitir_comprobantes_lote_cierra_intentos_si_falla_reserva_pre_arc
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_arca(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Si falla cerrar el intento tras guardar CAE, no devuelve éxito reintentable."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado para emisión batch autorizada."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Simula que ARCA no tiene comprobantes previos."""
+            return 0
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Devuelve CAE aprobados para todo el sublote."""
+            return [
+                CAEResponse(
+                    cae=f"1234567890123{arca_request.cbte_desde}",
+                    cae_vencimiento="20260610",
+                    numero_comprobante=arca_request.cbte_desde,
+                    tipo_cbte=arca_request.tipo_cbte,
+                    punto_venta=arca_request.punto_venta,
+                    resultado="A",
+                )
+                for arca_request in arca_requests
+            ]
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    original_actualizar = IdempotenciaFiscalService.actualizar_intento_desde_respuesta
+    fallos_cierre = 0
+
+    async def fallar_cierre_exitoso(self, intento, response, **kwargs):
+        nonlocal fallos_cierre
+        if response.exito:
+            fallos_cierre += 1
+            raise RuntimeError("cierre intento fallido")
+        return await original_actualizar(self, intento, response, **kwargs)
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "actualizar_intento_desde_respuesta",
+        fallar_cierre_exitoso,
+    )
+
+    def request_cliente(nombre: str) -> EmitirComprobanteRequest:
+        return EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=1,
+            fecha_emision=date(2026, 7, 6),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social=nombre,
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Producto",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000"),
+                    iva_porcentaje=Decimal("0"),
+                )
+            ],
+        )
+
+    service = FacturacionService(db_session)
+    resultados = await service.emitir_comprobantes_lote(
+        [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")],
+        max_registros=2,
+    )
+    comprobantes = (
+        (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
+        .scalars()
+        .all()
+    )
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).order_by(
+                    IntentoEmisionFiscal.numero_planificado
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    assert fallos_cierre == 1
+    assert [resultado.exito for resultado in resultados] == [False, False]
+    assert all(resultado.requiere_reconciliacion is True for resultado in resultados)
+    assert [resultado.cae for resultado in resultados] == [
+        "12345678901231",
+        "12345678901232",
+    ]
+    assert {resultado.categoria_error for resultado in resultados} == {
+        "post_arca_persistencia"
+    }
+    assert [comprobante.numero for comprobante in comprobantes] == [1]
+    assert comprobantes[0].cae == "12345678901231"
+    assert [intento.estado for intento in intentos] == [
+        "en_proceso",
+        "requiere_reconciliacion",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantada(
     db_session: AsyncSession,
     test_empresa,

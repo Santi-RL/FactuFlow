@@ -215,6 +215,9 @@ El proyecto tuvo que corregir estas estructuras:
 - Si un sublote enviado no devuelve detalle confiable, el lote queda en
   `requiere_reconciliacion`; no se reintenta automáticamente y ningún grupo
   remanente debe seguir mostrándose como listo para emitir.
+- Si el CAE fue autorizado y luego falla el cierre del intento fiscal local, el
+  resultado conserva CAE/número y queda `requiere_reconciliacion`. No se debe
+  devolver un error genérico que habilite reintento automático.
 
 ### 5.b Notas de crédito C por duplicados productivos
 

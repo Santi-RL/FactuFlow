@@ -397,6 +397,9 @@
   como `requiere_reconciliacion` para bloquear reintentos automáticos hasta
   consultar ARCA. Los grupos todavía `validado` no deben seguir apareciendo
   como listos para emisión dentro de ese lote incierto.
+- Si ARCA autorizó un CAE y luego falla el cierre del intento fiscal local, la
+  respuesta debe preservar el CAE y quedar en `requiere_reconciliacion`; nunca
+  debe degradarse a error genérico reintentable ni perder la evidencia fiscal.
 - En `FECompConsultar`, ARCA devuelve el número consultado como
   `CbteDesde`/`CbteHasta`; no asumir `CbteNro` en esa respuesta.
 - La numeración de comprobantes ahora se protege con:
