@@ -11,8 +11,16 @@ from app.core.security import (
     get_current_user,
     get_current_user_optional,
 )
-from app.models.usuario import Usuario
+from app.models.certificado import Certificado
+from app.models.cliente import Cliente
+from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
+from app.models.formato_importacion import FormatoImportacion
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
+from app.models.lote_comprobante import LoteComprobante
+from app.models.perfil_carga_masiva import PerfilCargaMasiva
+from app.models.punto_venta import PuntoVenta
+from app.models.usuario import Usuario
 from app.schemas.empresa import (
     ConstanciaArcaResponse,
     EmpresaCreate,
@@ -26,6 +34,31 @@ from app.services.constancia_arca_service import (
 )
 
 router = APIRouter()
+
+DEPENDENCIAS_BLOQUEANTES_EMPRESA = (
+    (Comprobante, "comprobantes fiscales"),
+    (IntentoEmisionFiscal, "intentos fiscales"),
+    (OperacionIdempotente, "operaciones idempotentes"),
+    (LoteComprobante, "lotes de comprobantes"),
+    (Certificado, "certificados ARCA"),
+    (PuntoVenta, "puntos de venta"),
+    (Cliente, "clientes"),
+    (PerfilCargaMasiva, "perfiles de carga masiva"),
+    (FormatoImportacion, "formatos de importación"),
+)
+
+
+async def _obtener_dependencia_bloqueante_empresa(
+    db: AsyncSession, empresa_id: int
+) -> str | None:
+    """Devuelve la primera dependencia que impide borrar físicamente un emisor."""
+    for modelo, descripcion in DEPENDENCIAS_BLOQUEANTES_EMPRESA:
+        result = await db.execute(
+            select(modelo.id).where(modelo.empresa_id == empresa_id).limit(1)
+        )
+        if result.scalar_one_or_none() is not None:
+            return descripcion
+    return None
 
 
 @router.get("", response_model=list[EmpresaResponse])
@@ -239,6 +272,16 @@ async def delete_empresa(
     if not empresa:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada"
+        )
+
+    dependencia = await _obtener_dependencia_bloqueante_empresa(db, empresa_id)
+    if dependencia is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "No se puede eliminar un emisor con datos operativos o fiscales "
+                f"asociados. Se detectaron {dependencia}."
+            ),
         )
 
     await db.execute(

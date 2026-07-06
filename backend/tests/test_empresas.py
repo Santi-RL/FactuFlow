@@ -1,11 +1,15 @@
 """Tests de endpoints de emisores."""
 
 from datetime import date
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from app.models.comprobante import Comprobante
+from app.models.empresa import Empresa
+from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
 
 
@@ -85,7 +89,7 @@ async def test_admin_elimina_emisor_sin_borrar_usuarios_preferidos(
     auth_headers: dict,
     db_session,
 ):
-    """Borrar un emisor debe limpiar preferencias, no borrar usuarios globales."""
+    """Borrar un emisor vacío debe limpiar preferencias sin borrar usuarios."""
     assert auth_headers
     list_response = await client.get("/api/empresas", headers=admin_auth_headers)
     empresa_id = list_response.json()[0]["id"]
@@ -102,3 +106,54 @@ async def test_admin_elimina_emisor_sin_borrar_usuarios_preferidos(
     )
     usuario = result.scalar_one()
     assert usuario.empresa_id is None
+
+
+@pytest.mark.asyncio
+async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+    db_session,
+    test_empresa: Empresa,
+):
+    """Borrar un emisor no debe destruir comprobantes fiscales asociados."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Punto fiscal",
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+
+    comprobante = Comprobante(
+        tipo_comprobante=6,
+        concepto=1,
+        numero=1,
+        fecha_emision=date(2026, 1, 15),
+        subtotal=Decimal("100.00"),
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("21.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=Decimal("121.00"),
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 1, 25),
+        estado="autorizado",
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+    )
+    db_session.add(comprobante)
+    await db_session.commit()
+
+    response = await client.delete(
+        f"/api/empresas/{test_empresa.id}",
+        headers=admin_auth_headers,
+    )
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "datos operativos o fiscales" in detail
+    assert "comprobantes fiscales" in detail
+    assert await db_session.get(Empresa, test_empresa.id) is not None
+    assert await db_session.get(Comprobante, comprobante.id) is not None

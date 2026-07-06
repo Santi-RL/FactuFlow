@@ -171,10 +171,13 @@ DELETE /api/empresas/{empresa_id}
 devuelve datos fiscales detectados para precompletar el alta de emisor.
 
 Todos los usuarios activos pueden listar, crear y editar emisores. El borrado
-físico `DELETE /api/empresas/{empresa_id}` queda reservado a administradores
-porque puede afectar historial fiscal y relaciones internas.
-Si un usuario tenía ese emisor como preferido, la API limpia esa preferencia
-antes de borrar el emisor; no borra la cuenta del usuario.
+físico `DELETE /api/empresas/{empresa_id}` queda reservado a administradores y
+solo se permite para emisores sin datos operativos o fiscales asociados. Si
+existen comprobantes, lotes, intentos fiscales, certificados, puntos de venta,
+clientes, perfiles o formatos de importación del emisor, la API responde `409`
+y conserva el historial. Si un usuario tenía ese emisor vacío como preferido,
+la API limpia esa preferencia antes de borrar el emisor; no borra la cuenta del
+usuario.
 
 Los emisores aceptan `ingresos_brutos` como campo opcional. Si esta cargado, se
 usa en el PDF de comprobantes.

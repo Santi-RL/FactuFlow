@@ -949,9 +949,12 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Todos los usuarios activos pueden seleccionar cualquier emisor configurado por
   `X-Empresa-Id` o `empresa_id`; `empresa_id` del usuario queda como preferencia
   inicial, no como restricción de acceso operativo. El borrado físico de
-  emisores queda reservado a administradores porque puede afectar historial
-  fiscal y relaciones internas; antes de borrar se limpia esa preferencia en
-  usuarios globales para no eliminar cuentas por cascade.
+  emisores queda reservado a administradores y solo se permite para emisores sin
+  datos operativos o fiscales asociados; si existen comprobantes, lotes,
+  intentos fiscales, certificados, puntos de venta, clientes, perfiles o
+  formatos de importación, la API responde `409` y conserva el historial. Antes
+  de borrar un emisor vacío se limpia esa preferencia en usuarios globales para
+  no eliminar cuentas por cascade.
 - El frontend muestra el selector `Emisor activo` para todos los usuarios y
   agrega la pantalla `Usuarios` solo para administradores, con guard de ruta.
 - Verificación focalizada:
