@@ -24,6 +24,27 @@ class TestArcaAPIEndpoints:
         # Sin autenticación debería retornar 403 Forbidden
         assert response.status_code == 403
 
+    async def test_solicitar_cae_legacy_sin_autenticacion(self, client: AsyncClient):
+        """Debe rechazar solicitudes CAE legacy sin autenticación."""
+        response = await client.post("/api/arca/solicitar-cae", json={})
+
+        assert response.status_code == 403
+
+    @patch("app.api.arca.get_wsfe_client")
+    async def test_solicitar_cae_legacy_deshabilitado_no_invoca_arca(
+        self, mock_get_client, client: AsyncClient, auth_headers: dict
+    ):
+        """Debe bloquear el CAE directo sin construir un cliente WSFE."""
+        response = await client.post(
+            "/api/arca/solicitar-cae", json={}, headers=auth_headers
+        )
+
+        assert response.status_code == 410
+        detail = response.json()["detail"]
+        assert "Endpoint legacy deshabilitado" in detail
+        assert "X-Idempotency-Key" in detail
+        mock_get_client.assert_not_called()
+
     @patch("app.api.arca.get_wsfe_client")
     async def test_test_conexion_exitoso(
         self, mock_get_client, client: AsyncClient, auth_headers: dict

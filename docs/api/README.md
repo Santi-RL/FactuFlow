@@ -251,7 +251,6 @@ GET /api/arca/tipos-monedas
 GET /api/arca/cotizacion/{moneda_id}
 GET /api/arca/puntos-venta
 GET /api/arca/ultimo-comprobante/{punto_venta}/{tipo_cbte}
-POST /api/arca/solicitar-cae
 GET /api/arca/consultar-comprobante/{punto_venta}/{tipo_cbte}/{numero}
 ```
 
@@ -262,8 +261,11 @@ Endpoints seguros para verificar producción sin emitir:
 - `GET /api/arca/puntos-venta`
 - `GET /api/arca/ultimo-comprobante/{punto_venta}/{tipo_cbte}`
 
-`POST /api/arca/solicitar-cae` solicita CAE real en el ambiente configurado y
-solo debe ejecutarse con autorización explícita.
+`POST /api/arca/solicitar-cae` es un endpoint legacy deshabilitado. Requiere
+autenticación, pero responde `410 Gone` y no llama a ARCA. Para emitir se debe
+usar `POST /api/comprobantes/emitir` o el flujo de lotes, que aplican
+idempotencia, persistencia de intento fiscal y confirmación irreversible antes
+de solicitar CAE.
 
 ## Comprobantes
 

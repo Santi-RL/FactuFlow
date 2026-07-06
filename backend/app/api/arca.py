@@ -18,8 +18,6 @@ from app.arca.config import ArcaAmbiente
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
 from app.arca.models import (
-    ComprobanteRequest,
-    CAEResponse,
     ComprobanteResponse,
     TipoComprobante,
     TipoDocumento,
@@ -33,7 +31,6 @@ from app.arca.exceptions import (
     ArcaError,
     ArcaAuthError,
     ArcaConnectionError,
-    ArcaValidationError,
     ArcaServiceError,
 )
 from app.services.certificados_service import resolve_cert_storage_path
@@ -473,40 +470,21 @@ async def get_ultimo_comprobante(
         )
 
 
-@router.post("/solicitar-cae", response_model=CAEResponse)
+@router.post("/solicitar-cae", status_code=status.HTTP_410_GONE)
 async def solicitar_cae(
-    comprobante: ComprobanteRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_empresa_user),
-    empresa_activa_id: int = Depends(get_current_empresa_id),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    _empresa_activa_id: int = Depends(get_current_empresa_id),
 ):
-    """
-    Solicita CAE (Código de Autorización Electrónica) para un comprobante.
-
-    Args:
-        comprobante: Datos del comprobante
-
-    Returns:
-        CAE y datos del comprobante autorizado
-    """
-    try:
-        wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
-        cae_response = await wsfe_client.fe_cae_solicitar(comprobante)
-
-        return cae_response
-
-    except HTTPException:
-        raise
-    except ArcaValidationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Error de validación: {e.mensaje}",
-        )
-    except ArcaServiceError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al solicitar CAE: {e.mensaje}",
-        )
+    """Rechaza el endpoint legacy de solicitud directa de CAE."""
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=(
+            "Endpoint legacy deshabilitado. Para emitir comprobantes use "
+            "POST /api/comprobantes/emitir o el flujo de lotes, que exigen "
+            "X-Idempotency-Key, persistencia del intento y confirmación fiscal "
+            "irreversible antes de llamar a ARCA."
+        ),
+    )
 
 
 @router.get(

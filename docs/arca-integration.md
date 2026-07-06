@@ -4,6 +4,11 @@
 > implementacion inicial. Para el contrato actual usar `docs/api/README.md`; para
 > estado operativo y reglas fiscales vigentes usar `docs/agents/arca.md`,
 > `docs/arca-ws/NOTAS.md` y `docs/agents/current-status.md`.
+>
+> Nota 2026-07-06: `POST /api/arca/solicitar-cae` quedó deshabilitado y
+> responde `410 Gone`. La emisión vigente debe pasar por `POST
+> /api/comprobantes/emitir` o por el flujo de lotes, con idempotencia,
+> persistencia de intento fiscal y confirmación irreversible antes de ARCA.
 
 ## Resumen
 
@@ -98,7 +103,7 @@ Se crearon 11 endpoints RESTful para exponer la funcionalidad de ARCA:
 - `GET /api/arca/ultimo-comprobante/{pv}/{tipo}`: Último número autorizado
 
 #### Endpoints de Operación
-- `POST /api/arca/solicitar-cae`: Solicita CAE para un comprobante
+- `POST /api/arca/solicitar-cae`: endpoint legacy deshabilitado; responde `410 Gone`
 - `GET /api/arca/consultar-comprobante/{pv}/{tipo}/{num}`: Consulta comprobante
 
 #### Autenticación y Seguridad
@@ -187,7 +192,7 @@ El sistema maneja automáticamente la autenticación:
 ### 2. Emisión de Comprobante
 
 ```python
-# POST /api/arca/solicitar-cae
+# POST /api/arca/solicitar-cae (legacy deshabilitado)
 {
   "punto_venta": 1,
   "tipo_cbte": 6,  # Factura B
