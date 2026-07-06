@@ -70,6 +70,12 @@ npm run clawpatch:backend:status
 npm run clawpatch:frontend:status
 ```
 
+No ejecutar comandos directos de slice sin `--root`. `--state-dir` define dónde
+se guarda el estado, no qué árbol de archivos se audita. Para backend, usar
+`npm run clawpatch:backend:*` o el equivalente directo con
+`--root backend --state-dir ../.clawpatch/backend --config
+../.clawpatch/backend/config.json`.
+
 `clawpatch:map-all` ejecuta el mapper nativo de cada slice y luego agrega
 features manuales versionadas para que la auditoría revise flujos reales de
 FactuFlow. El nivel `repo` cubre slices end-to-end frontend/backend;

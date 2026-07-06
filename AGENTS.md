@@ -255,11 +255,11 @@ npm run type-check
 - En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app:
   `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
   Ese comando ya funcionó en FactuFlow con motor `codex`, herramientas de solo lectura y búsqueda web habilitada.
-- Usar la CLI global `clawpatch` (`C:\Users\SANTI\AppData\Roaming\npm\clawpatch.cmd`) para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. Seguir también la política compartida de `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`. En este repo ya existen estados separados; usar los state dirs existentes:
-  - Repo completo: `clawpatch --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
-  - Backend: `clawpatch --state-dir .clawpatch/backend --config .clawpatch/backend/config.json status`
-  - Frontend: `clawpatch --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json status`
-- Para revisar con Clawpatch, mantener el mismo `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmación explícita y validaciones enfocadas.
+- Usar la CLI global `clawpatch` (`C:\Users\SANTI\AppData\Roaming\npm\clawpatch.cmd`) para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. Seguir también la política compartida de `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`. En este repo ya existen estados separados; preferir los scripts npm `clawpatch:<slice>:...` porque pasan `--root`, `--state-dir` y `--config` de forma coherente. Si se usa CLI directa, no alcanza con elegir `--state-dir`: pasar siempre el `--root` correspondiente.
+  - Repo completo: `npm run clawpatch:repo:status` o `clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
+  - Backend: `npm run clawpatch:backend:status` o `clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json status`
+  - Frontend: `npm run clawpatch:frontend:status` o `clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json status`
+- Para revisar con Clawpatch, mantener el mismo `--root`, `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmación explícita y validaciones enfocadas. Usarlo solo para findings aceptados, localizados y de bajo riesgo relativo; para ARCA/CAE, fechas fiscales, idempotencia, reconciliación, lotes, migraciones, borrados, certificados, PDFs fiscales, reportes impositivos o aislamiento multiemisor, reparar manualmente con diseño, tests y revalidación posterior.
 - No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decisión explícita; preservar el historial existente.
 
 ## Documentación operativa
