@@ -1,6 +1,6 @@
-# Views (Paginas)
+# Views (Páginas)
 
-Esta carpeta contiene las vistas/paginas de la app (rutas).
+Esta carpeta contiene las vistas/páginas de la app (rutas).
 
 ## Estructura actual
 
@@ -22,20 +22,20 @@ Las rutas se definen en `frontend/src/router/index.ts`.
 
 ## Vistas relevantes
 
-- `comprobantes/LotesComprobantesView.vue`: emision masiva. Descarga plantilla,
-  sube Excel, consulta perfiles de carga masiva y formatos de importacion,
+- `comprobantes/LotesComprobantesView.vue`: emisión masiva. Descarga plantilla,
+  sube Excel, consulta perfiles de carga masiva y formatos de importación,
   detecta encabezados, permite confirmar el formato, exige seleccionar concepto fiscal ARCA
-  (`Productos`/`Servicios`/archivo), descripcion/concepto facturado del item
-  (archivo o valor fijo), fecha de emision y fechas de servicio, valida el lote
-  y emite solo despues de la confirmacion del usuario. Antes de llamar a
+  (`Productos`/`Servicios`/archivo), descripción/concepto facturado del ítem
+  (archivo o valor fijo), fecha de emisión y fechas de servicio, valida el lote
+  y emite solo después de la confirmación del usuario. Antes de llamar a
   procesar, debe mostrar el modal `Confirmar fecha fiscal` con el mensaje:
   `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
-- `comprobantes/ComprobanteNuevoView.vue`: emision individual. La fecha de
-  emision debe completarse explicitamente; no se usa la fecha del dia como
-  default fiscal. Antes de emitir debe mostrar el mismo modal de confirmacion de
-  fecha fiscal. Los items deben tener `descripcion` propia; esa descripcion no
+- `comprobantes/ComprobanteNuevoView.vue`: emisión individual. La fecha de
+  emisión debe completarse explícitamente; no se usa la fecha del día como
+  default fiscal. Antes de emitir debe mostrar el mismo modal de confirmación de
+  fecha fiscal. Los ítems deben tener `descripcion` propia; esa descripción no
   se reemplaza por el concepto fiscal ARCA.
-- `empresa/EmpresaConfigView.vue`: configuracion del emisor activo. La pestaña
+- `empresa/EmpresaConfigView.vue`: configuración del emisor activo. La pestaña
   `Datos del emisor` edita datos fiscales y la pestaña `Carga masiva` administra
   perfiles y plantillas. Los perfiles solo precargan la pantalla de lotes; las
   plantillas generan/interpretan Exceles y muestran compatibilidad, pero no

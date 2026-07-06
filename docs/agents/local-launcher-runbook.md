@@ -42,27 +42,27 @@ administrativo, parte del diagnóstico mínimo definido en
 - servidor de FactuFlow
 - base de datos
 - worker de lotes como señal pendiente de healthcheck dedicado
-- ambiente ARCA y conexion ARCA
+- ambiente ARCA y conexión ARCA
 - certificado activo y vencimiento del emisor seleccionado
 - aviso de backup no verificado mientras no exista señal automática
 - guía rápida de soporte con próximos pasos seguros
 
-La pantalla no debe exponer puertos, stack traces ni detalles tecnicos como
+La pantalla no debe exponer puertos, stack traces ni detalles técnicos como
 primer mensaje. Debe usar estados simples como `Correcto`,
-`Necesita atencion` y `No disponible`, con una explicacion corta y un proximo
+`Necesita atencion` y `No disponible`, con una explicacion corta y un próximo
 paso seguro. El runbook público sanitizado asociado está en
 `docs/agents/support-runbook.md`.
 
-## Etapa 3 - Integracion launcher/UI
+## Etapa 3 - Integración launcher/UI
 
 Estado: pendiente.
 
-Definir una integracion mas formal entre el launcher local y la UI web. Opciones
+Definir una integración mas formal entre el launcher local y la UI web. Opciones
 a evaluar:
 
 - archivo local de estado generado por el launcher
 - endpoint local de estado del launcher
-- accion de reinicio de servicios desde una app empaquetada
+- acción de reinicio de servicios desde una app empaquetada
 
 Esta etapa no debe asumirse disponible hasta que exista packaging o un canal
 seguro para controlar servicios locales desde la UI.

@@ -1,11 +1,11 @@
-# Observabilidad operativa estandar
+# Observabilidad operativa estándar
 
-Estado: decision vigente desde 2026-05-22.
+Estado: decisión vigente desde 2026-05-22.
 
 ## Objetivo
 
-FactuFlow ya fue usado en produccion real. Antes de ampliar el uso productivo,
-el sistema debe poder explicar que paso en una operacion importante sin depender
+FactuFlow ya fue usado en producción real. Antes de ampliar el uso productivo,
+el sistema debe poder explicar que paso en una operación importante sin depender
 de memoria manual ni de revisar la base a ciegas.
 
 Esta etapa no busca monitoreo complejo. Busca diagnostico operativo claro,
@@ -13,33 +13,33 @@ simple y accionable para usuarios administrativos, soporte y desarrollo.
 
 ## Principio de producto
 
-- Los mensajes deben estar escritos para usuarios no tecnicos.
+- Los mensajes deben estar escritos para usuarios no técnicos.
 - Si algo falla, la pantalla debe explicar que paso, que impacto tiene y cual
-  es el proximo paso seguro.
-- No mostrar opciones tecnicas sin explicacion.
-- No usar terminos internos como unica respuesta. Si aparece un dato tecnico,
-  debe tener una descripcion simple.
+  es el próximo paso seguro.
+- No mostrar opciones técnicas sin explicacion.
+- No usar terminos internos como única respuesta. Si aparece un dato técnico,
+  debe tener una descripción simple.
 - No mezclar datos entre emisores. Todo diagnostico debe indicar o respetar el
   emisor activo correspondiente.
 - No copiar CUITs, CAEs, datos de clientes, Excels, PDFs ni logs privados en
-  documentacion versionada.
+  documentación versionada.
 
 ## Alcance obligatorio
 
-### 1. Registro claro de operaciones criticas
+### 1. Registro claro de operaciones críticas
 
-Cada operacion importante debe dejar una pista suficiente para reconstruir que
+Cada operación importante debe dejar una pista suficiente para reconstruir que
 ocurrio:
 
-- usuario que inicio la accion
+- usuario que inicio la acción
 - emisor activo usado
 - lote, comprobante o recurso afectado
 - punto de venta cuando aplique
 - fecha fiscal cuando aplique
 - estado inicial y estado final
-- si el error ocurrio antes de llamar a ARCA, durante la llamada o despues de
+- si el error ocurrio antes de llamar a ARCA, durante la llamada o después de
   una respuesta de ARCA
-- codigo o identificador de seguimiento para soporte
+- código o identificador de seguimiento para soporte
 
 ### 2. Trazabilidad visible de lotes
 
@@ -55,24 +55,24 @@ Los lotes deben mostrar estados entendibles:
 
 Cuando un lote quede en error, el usuario debe poder entender si puede corregir
 el archivo, reintentar, esperar al worker o pedir soporte. Si existe
-incertidumbre despues de ARCA, no debe sugerirse un reintento automatico sin
+incertidumbre después de ARCA, no debe sugerirse un reintento automático sin
 reconciliacion.
 
 ### 3. Estado del sistema en la interfaz
 
 Debe existir una pantalla o panel de `Estado del sistema` con lenguaje simple.
-Como minimo debe informar:
+Como mínimo debe informar:
 
 - aplicacion backend disponible
 - base de datos disponible
 - worker de lotes disponible
-- conexion ARCA segun ambiente
+- conexión ARCA segun ambiente
 - certificado activo del emisor seleccionado
 - vencimiento o problema visible del certificado
 - uso de almacenamiento de la instalación, con desglose por emisor y tipo de
   dato, cuando el usuario sea administrador
-- ubicacion o acceso a logs relevantes cuando sea seguro
-- ultimo backup conocido o aviso de backup no verificado, cuando esa evidencia
+- ubicación o acceso a logs relevantes cuando sea seguro
+- último backup conocido o aviso de backup no verificado, cuando esa evidencia
   exista
 
 Los estados visibles deben usar etiquetas simples como `Correcto`,
@@ -83,23 +83,23 @@ La primera vista administrativa de esta línea ya existe en
 configurado, espacio libre de disco, categorías y uso por emisor, y permite
 resguardar/descargar antes de liberar artefactos no vitales.
 
-### 4. Backups y restauracion probados
+### 4. Backups y restauración probados
 
 Antes de ampliar volumen productivo, debe existir un procedimiento probado para:
 
 - backup de PostgreSQL
 - backup de certificados y claves
-- backup de configuracion productiva
-- restauracion en entorno controlado
+- backup de configuración productiva
+- restauración en entorno controlado
 - verificacion posterior de que la aplicacion levanta y puede consultar datos
 
-La documentacion debe explicar el procedimiento paso a paso y con advertencias
+La documentación debe explicar el procedimiento paso a paso y con advertencias
 claras sobre datos privados.
 
-### 5. Logs utiles para soporte
+### 5. Logs útiles para soporte
 
 Los logs deben servir para diagnosticar sin exponer datos privados en el repo.
-Deben permitir correlacionar una operacion con:
+Deben permitir correlacionar una operación con:
 
 - emisor interno
 - usuario interno
@@ -107,7 +107,7 @@ Deben permitir correlacionar una operacion con:
 - job o worker involucrado
 - error local o error ARCA
 
-Los logs privados quedan fuera de Git. La documentacion versionada solo debe
+Los logs privados quedan fuera de Git. La documentación versionada solo debe
 describir donde se generan y como usarlos de forma segura.
 
 ### 6. Runbook de diagnostico
@@ -115,12 +115,12 @@ describir donde se generan y como usarlos de forma segura.
 Debe existir una guia de soporte con casos comunes:
 
 - la aplicacion no inicia
-- no se puede iniciar sesion
+- no se puede iniciar sesión
 - ARCA no responde
 - certificado vencido o no autorizado
 - lote trabado o parcial
 - comprobante con incertidumbre post-ARCA
-- backup o restauracion requerida
+- backup o restauración requerida
 
 Cada caso debe indicar pasos concretos, en orden, y cuando detenerse para evitar
 acciones fiscales riesgosas.
@@ -140,18 +140,18 @@ documentación privada de una instalación real.
 
 ## Fuera de alcance por ahora
 
-Estas herramientas pueden venir despues, pero no son requisito de esta etapa:
+Estas herramientas pueden venir después, pero no son requisito de esta etapa:
 
-- Grafana, Prometheus o dashboards tecnicos avanzados
-- alertas automaticas externas
+- Grafana, Prometheus o dashboards técnicos avanzados
+- alertas automáticas externas
 - monitoreo distribuido
 - trazas distribuidas
 - centralizacion completa de logs
 
 ## Criterio de completado
 
-La observabilidad operativa estandar queda lista cuando una persona de soporte o
-un usuario administrativo puede responder, desde la interfaz y la documentacion:
+La observabilidad operativa estándar queda lista cuando una persona de soporte o
+un usuario administrativo puede responder, desde la interfaz y la documentación:
 
 1. Que emisor estaba activo.
 2. Que lote o comprobante se intento operar.
@@ -159,4 +159,4 @@ un usuario administrativo puede responder, desde la interfaz y la documentacion:
 4. Si ARCA fue llamada o no.
 5. Si hay incertidumbre fiscal o no.
 6. Donde mirar el detalle seguro.
-7. Que accion corresponde hacer ahora.
+7. Que acción corresponde hacer ahora.

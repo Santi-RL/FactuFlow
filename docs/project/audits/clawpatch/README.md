@@ -4,10 +4,10 @@ Este documento define que debe hacer un agente cuando el usuario pida:
 
 > Hagamos los cambios necesarios para ejecutar clawpatch
 
-Objetivo: ejecutar `clawpatch` sobre slices utiles de FactuFlow, dejar reportes
-locales para auditoria y publicar solo cierres sanitizados. No modificar
+Objetivo: ejecutar `clawpatch` sobre slices útiles de FactuFlow, dejar reportes
+locales para auditoría y publicar solo cierres sanitizados. No modificar
 comportamiento fiscal. `review` es solo lectura; `fix` queda prohibido salvo
-pedido explicito posterior.
+pedido explícito posterior.
 
 ## Estado Actual
 
@@ -25,8 +25,8 @@ tools/clawpatch/seed-features.mjs
 
 Esa capa genera feature records en `.clawpatch/` con archivos reales de backend,
 frontend y flujos end-to-end. El estado `.clawpatch/` es local e ignorado por
-Git. Los reportes crudos de findings tambien quedan locales cuando detallan
-vulnerabilidades abiertas; versionar solo cierres operativos o resumenes
+Git. Los reportes crudos de findings también quedan locales cuando detallan
+vulnerabilidades abiertas; versionar solo cierres operativos o resúmenes
 sanitizados.
 
 En Windows, algunas versiones de `clawpatch` invocan `codex exec` con comillas
@@ -35,6 +35,8 @@ simples estilo POSIX. Los scripts de `review` anteponen
 normaliza esas comillas antes de llamar al Codex CLI real. No usar
 `npx clawpatch review` directo en Windows si se espera que invoque el proveedor
 `codex`; usar los scripts npm.
+
+Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia histórica o cierres sanitizados de auditorías puntuales. Para conocer el estado vigente de hallazgos abiertos, usar primero los comandos `clawpatch ... status`, `docs/agents/current-status.md` y el cierre más reciente documentado. No usar un reporte viejo como backlog actual sin revalidarlo. `VISION.md` sigue siendo la fuente superior para decisiones de producto.
 
 ## Cierres relevantes
 
@@ -73,7 +75,7 @@ normaliza esas comillas antes de llamar al Codex CLI real. No usar
 
 ## Scripts Disponibles
 
-Desde la raiz:
+Desde la raíz:
 
 ```powershell
 npm run clawpatch:repo:init
@@ -119,16 +121,16 @@ Criterio esperado con la puesta a punto actual:
 
 Las features manuales versionadas cubren:
 
-- emision individual, fecha fiscal, confirmacion final, numeracion y CAE;
+- emisión individual, fecha fiscal, confirmación final, numeración y CAE;
 - lotes por Excel, formatos, perfiles, progreso, concurrencia y worker;
 - certificados, WSAA/WSFE, cache, paths y puntos de venta ARCA;
 - PDF, QR ARCA y reportes;
 - auth, permisos y scoping por emisor activo;
-- UI de emision masiva e individual;
+- UI de emisión masiva e individual;
 - UI de certificados, puntos, dashboard y reportes;
 - flujos end-to-end que cruzan frontend y backend.
 
-Si se agregan modulos criticos nuevos, actualizar
+Si se agregan módulos críticos nuevos, actualizar
 `tools/clawpatch/factuflow-features.mjs` y correr:
 
 ```powershell
@@ -168,8 +170,8 @@ clawpatch --root . --state-dir .clawpatch/backend --config .clawpatch/backend/co
 clawpatch --root . --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json report --output docs/project/audits/clawpatch/frontend-YYYY-MM-DD.md
 ```
 
-Si se consolida manualmente, usar una version local ignorada o un resumen
-sanitizado publico:
+Si se consolida manualmente, usar una versión local ignorada o un resumen
+sanitizado público:
 
 ```text
 docs/project/audits/clawpatch/resumen-YYYY-MM-DD.md
@@ -187,7 +189,7 @@ npm run clawpatch:backend:status
 npm run clawpatch:frontend:status
 ```
 
-Regresion tecnica minima si solo se toca esta puesta a punto:
+Regresión técnica mínima si solo se toca esta puesta a punto:
 
 ```powershell
 cd backend
@@ -202,17 +204,17 @@ npm run build
 npm run test:unit
 ```
 
-Para cambios solo en `tools/clawpatch/` y documentacion, `npm run
-clawpatch:test-seeds` y `npm run clawpatch:map-all` son el check especifico.
-La regresion backend/frontend completa se corre si se toca codigo de producto o
-si algun reporte de Clawpatch obliga a revisar una zona funcional.
+Para cambios solo en `tools/clawpatch/` y documentación, `npm run
+clawpatch:test-seeds` y `npm run clawpatch:map-all` son el check específico.
+La regresion backend/frontend completa se corre si se toca código de producto o
+si algún reporte de Clawpatch obliga a revisar una zona funcional.
 
 ## Que No Hacer
 
 - No migrar dependencias Python desde `requirements.txt` a `pyproject.toml`.
 - No cambiar comandos de arranque, Docker ni Alembic.
-- No tocar servicios de emision, lotes, certificados, ARCA ni frontend durante
-  la puesta a punto salvo que un test falle por la propia configuracion.
+- No tocar servicios de emisión, lotes, certificados, ARCA ni frontend durante
+  la puesta a punto salvo que un test falle por la propia configuración.
 - No ejecutar `clawpatch fix`.
 - No commitear `.clawpatch/`.
 
@@ -223,5 +225,5 @@ Al terminar, informar:
 - comandos ejecutados;
 - resultado de tests;
 - cantidad de features detectadas por `repo`, `backend` y `frontend`;
-- ubicacion de reportes generados;
-- confirmacion de que no se ejecuto `clawpatch fix`.
+- ubicación de reportes generados;
+- confirmación de que no se ejecutó `clawpatch fix`.

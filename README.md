@@ -4,7 +4,7 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Estado actual
 
-Version actual: `0.2.0-mvp`
+Versión actual: `0.2.0-mvp`
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El
@@ -23,7 +23,7 @@ Capacidades actuales:
 - emisión individual de comprobantes con CAE
 - emisión masiva desde Excel con validación previa, seguimiento del lote y archivo observado
 - certificados por empresa y ambiente
-- PDF de comprobantes y reportes basicos de ventas, IVA y ranking de clientes
+- PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información
 - todos los usuarios activos pueden operar todos los emisores configurados; el
@@ -33,36 +33,38 @@ Capacidades actuales:
 
 ## Alcance de producto
 
-FactuFlow es una herramienta para facturar. No esta planificado incorporar
-manejo de cuentas corrientes, stock ni catalogos como modulos del producto.
+FactuFlow es una herramienta para facturar. No está planificado incorporar
+manejo de cuentas corrientes, stock ni catálogos como módulos del producto.
 
-Las integraciones externas quedan como evolucion futura, posterior a tener la
-facturacion madura y productiva estable. Su objetivo sera obtener datos desde
+Las integraciones externas quedan como evolución futura, posterior a tener la
+facturación madura y productiva estable. Su objetivo será obtener datos desde
 otras fuentes o aplicaciones, o enviar datos hacia ellas, aprovechando la API
 del sistema.
 
 El modelo multiemisor vigente es: un usuario puede administrar varios emisores,
-pero siempre opera con un emisor activo explicito por vez. No esta planificada
-por ahora una administracion central compleja con permisos finos, reportes
-globales y operacion simultanea entre multiples emisores.
+pero siempre opera con un emisor activo explícito por vez. No está planificada
+por ahora una administración central compleja con permisos finos, reportes
+globales y operación simultánea entre múltiples emisores.
 
-La observabilidad operativa estandar es parte del alcance post-piloto: el
-sistema debe explicar con lenguaje simple que paso, que impacto tiene y cual es
-el proximo paso seguro en emisiones, lotes, errores ARCA, reconciliaciones,
+La observabilidad operativa estándar es parte del alcance post-piloto: el
+sistema debe explicar con lenguaje simple qué pasó, qué impacto tiene y cuál es
+el próximo paso seguro en emisiones, lotes, errores ARCA, reconciliaciones,
 estado del sistema y backups. Las herramientas avanzadas de monitoreo quedan
 para una etapa posterior.
 
-## Lo mas importante del MVP
+## Lo más importante del MVP
 
 - la interfaz prioriza tareas guiadas, mensajes claros y contexto para personal administrativo
-- la emision masiva usa una plantilla Excel fija con `comprobante_ref` para agrupar varias filas en un mismo comprobante
+- la emisión masiva usa una plantilla Excel fija con `comprobante_ref` para agrupar varias filas en un mismo comprobante
 - cada lote pertenece a un solo emisor activo
 - clientes, certificados, puntos de venta, comprobantes, lotes, PDFs y reportes
   deben quedar siempre aislados por emisor activo
-- hasta `100` comprobantes se procesan en la misma sesion; lotes mas grandes quedan en cola persistente y se procesan en segundo plano
+- hasta `100` comprobantes se procesan en la misma sesión; lotes más grandes quedan en cola persistente y se procesan en segundo plano
 - los reportes solo consideran comprobantes autorizados
-- ninguna emision real debe usar la fecha del dia como default fiscal; la fecha
-  debe ser explicita y confirmada por el usuario antes de solicitar CAE
+- las fechas visibles para usuarios se muestran en formato argentino
+  `DD/MM/AAAA`; los formatos técnicos quedan limitados a contratos internos
+- ninguna emisión real debe usar la fecha del día como default fiscal; la fecha
+  debe ser explícita y confirmada por el usuario antes de solicitar CAE
 
 ## Puesta en marcha
 
@@ -81,7 +83,7 @@ abrir la app, consultar estado, reiniciar o detener servicios y abrir los logs
 locales en `.tmp/local-launcher/`. El acceso `FactuFlow Local.cmd` queda como
 compatibilidad y delega en el mismo launcher oculto.
 
-Esta opcion no es un instalador ni configura inicio automatico con Windows.
+Esta opción no es un instalador ni configura inicio automático con Windows.
 El uso local con launcher ya está implementado y testeado hasta nivel
 desarrollo/QA. La primera instalación privada en VPS con Docker producción,
 PostgreSQL y HTTPS quedó validada el 2026-06-09.
@@ -97,7 +99,7 @@ Backend: `http://localhost:8000`
 
 Frontend: `http://localhost:8080`
 
-El perfil local usa PostgreSQL, monta el codigo del backend y ejecuta `alembic upgrade head` antes de iniciar la API con reload.
+El perfil local usa PostgreSQL, monta el código del backend y ejecuta `alembic upgrade head` antes de iniciar la API con reload.
 
 ### Docker producción / VPS
 
@@ -117,7 +119,7 @@ otro reverse proxy HTTPS, manteniendo secretos y datos privados fuera de Git. La
 distribución comercial instalable queda para después de estabilizar el producto
 funcionando en VPS.
 
-### Desarrollo local tecnico
+### Desarrollo local técnico
 
 Backend:
 
@@ -166,16 +168,16 @@ resetear su contraseña.
 
 - `ARCA_ENV`: `homologacion` o `produccion`
 - `CERTS_PATH`: carpeta de certificados
-- `BATCH_SYNC_LIMIT`: maximo de comprobantes para procesamiento sincrono
-- `BATCH_MAX_ROWS`: limite de filas del Excel
-- `BATCH_MAX_GROUPS`: limite de comprobantes por lote
+- `BATCH_SYNC_LIMIT`: máximo de comprobantes para procesamiento síncrono
+- `BATCH_MAX_ROWS`: límite de filas del Excel
+- `BATCH_MAX_GROUPS`: límite de comprobantes por lote
 - `BATCH_WORKER_ENABLED`: habilita procesamiento en segundo plano de lotes grandes
-- `DATABASE_URL`: PostgreSQL recomendado para operacion real
+- `DATABASE_URL`: PostgreSQL recomendado para operación real
 - `CORS_ORIGINS`: orígenes permitidos
 
-Se mantiene compatibilidad con variables legacy `AFIP_*` cuando todavia existan integraciones viejas.
+Se mantiene compatibilidad con variables legacy `AFIP_*` cuando todavía existan integraciones viejas.
 
-## Documentacion
+## Documentación
 
 - [docs/README.md](docs/README.md)
 - [docs/agents/README.md](docs/agents/README.md)

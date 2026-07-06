@@ -1,4 +1,5 @@
 # 🔒 Security Update - Critical Vulnerabilities Fixed
+> Nota 2026-07-06: documento histórico de un parche de seguridad ya resuelto. Las versiones mencionadas corresponden al momento del parche; para dependencias vigentes revisar `backend/requirements.txt`, `frontend/package.json` y el CI actual.
 
 **Date**: February 4, 2026  
 **Status**: ✅ RESOLVED

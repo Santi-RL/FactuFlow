@@ -79,7 +79,7 @@ abre `http://localhost:8080` cuando el sistema queda listo. Los logs quedan en
 compatibilidad y delega en el launcher oculto.
 
 Esta opcion no instala dependencias del sistema, no empaqueta la aplicacion y no
-configura inicio automatico con Windows.
+configura inicio automático con Windows.
 
 ### Requisitos Previos
 - Python 3.11+
@@ -235,7 +235,7 @@ y sin solicitar CAE.
      python -m app.scripts.create_admin_user
    ```
 
-   En una instalacion manual, activar el entorno del backend y ejecutar:
+   En una instalación manual, activar el entorno del backend y ejecutar:
 
    ```bash
    cd backend

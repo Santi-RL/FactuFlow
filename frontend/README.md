@@ -265,6 +265,12 @@ showError('Error', 'No se pudo guardar el cliente')
 - Placeholders
 - Títulos y descripciones
 
+Fechas visibles:
+- Mostrar fechas para usuarios en formato argentino `DD/MM/AAAA`.
+- Aceptar `DD/MM/AAAA` cuando una fecha llegue como texto visible o importado por usuario.
+- Mantener `YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD` solo como formatos técnicos de API/backend/ARCA.
+- No usar `new Date(string)` ni `Date.parse` como parser general de strings de usuario; validar formato y calendario explícitamente.
+
 ## 📱 Responsive
 
 El diseño es responsive con breakpoints de Tailwind:

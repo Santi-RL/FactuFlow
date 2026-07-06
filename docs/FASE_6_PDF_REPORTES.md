@@ -1,4 +1,5 @@
 # Fase 6: Generación de PDF y Reportes - Documentación
+> Nota 2026-07-06: este documento es técnico e histórico de la fase de PDF/reportes. Para el comportamiento visible vigente, usar `docs/user-guide/README.md`; para estado operativo, usar `docs/agents/current-status.md`.
 
 ## Introducción
 
@@ -32,7 +33,7 @@ El PDF generado incluye:
    - Condición IVA
    - Domicilio
 
-3. **Detalle de Items**:
+3. **Detalle de Ítems**:
    - Código de producto (opcional)
    - Descripción
    - Cantidad y unidad
@@ -307,10 +308,10 @@ frontend/
 ### Backend (requirements.txt)
 
 ```txt
-weasyprint==60.1       # Generación de PDF desde HTML
+weasyprint==68.0       # Generación de PDF desde HTML
 jinja2==3.1.2          # Templates HTML
 qrcode[pil]==7.4.2     # Generación de códigos QR
-Pillow==10.2.0         # Procesamiento de imágenes
+Pillow==12.2.0         # Procesamiento de imágenes
 openpyxl==3.1.2        # Exportación a Excel (futuro)
 ```
 
@@ -384,13 +385,13 @@ npm run build
 
 ## Problemas Conocidos
 
-1. **WeasyPrint en CI**: Hay un problema de compatibilidad de versión en el test de generación de PDF completo. El test está marcado como skip pero el servicio funciona correctamente en producción.
+1. **Dependencias nativas de WeasyPrint**: el entorno debe tener Cairo/Pango/GObject disponibles. Docker las incluye; en instalaciones manuales hay que validarlo antes de diagnosticar errores del servicio.
 
 2. **Grillas CSS**: WeasyPrint no soporta CSS Grid completamente. Se usa flexbox como alternativa.
 
 ## Soporte
 
 Para más información, consultar:
-- [Documentación ARCA sobre Factura Electrónica](https://www.arca.gob.ar/factura-electronica)
+- [Documentación ARCA sobre Factura Electrónica](https://www.arca.gob.ar/factura-electrónica)
 - [Especificación de QR ARCA](https://www.afip.gob.ar/fe/qr/)
 - [WeasyPrint Documentation](https://weasyprint.readthedocs.io/)

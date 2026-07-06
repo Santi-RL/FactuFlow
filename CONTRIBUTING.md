@@ -129,7 +129,7 @@ Bajo / Medio / Alto (opcional)
 ## 🔧 Flujo interno de trabajo
 
 Para el trabajo diario del proyecto se usa `main` como rama activa. No crear
-branches nuevas salvo que el usuario lo pida explicitamente.
+branches nuevas salvo que el usuario lo pida explícitamente.
 
 Antes de empezar cualquier cambio:
 
@@ -139,21 +139,21 @@ git fetch origin
 git rev-list --left-right --count origin/main...HEAD
 ```
 
-Interpretacion minima:
+Interpretacion mínima:
 - Si hay commits locales adelante de `origin/main`, recomendar hacer push antes
   de seguir.
 - Si hay cambios modificados o sin trackear de una implementacion anterior,
   recomendar cerrarlos con commit y push antes de acumular trabajo nuevo.
 - Si hay cambios del usuario no relacionados, no revertirlos; trabajar alrededor
-  de ellos o pedir confirmacion si bloquean la tarea.
+  de ellos o pedir confirmación si bloquean la tarea.
 
-Despues de implementar:
+Después de implementar:
 - Ejecutar la verificacion proporcional al cambio.
-- Preparar un commit con unidad logica y mensaje Conventional Commit en espanol.
+- Preparar un commit con unidad lógica y mensaje Conventional Commit en espanol.
 - Recomendar push para mantener GitHub actualizado.
-- No ejecutar `git push` sin pedido explicito del usuario.
+- No ejecutar `git push` sin pedido explícito del usuario.
 
-Politica de commits:
+Política de commits:
 - Preferir una implementacion relevante por commit.
 - Agrupar cambios chicos o bugs relacionados si forman una misma correccion.
 - Evitar commits exclusivos de formato/lint si pueden integrarse al commit
@@ -328,8 +328,8 @@ Una vez aprobado, un mantenedor hará merge de tu PR. ¡Gracias por tu contribuc
 - Lint con **pylint** o **ruff**
 
 #### Type Hints
-Obligatorios en codigo nuevo o modificado para funciones, clases y helpers
-publicos. El codigo historico se normaliza cuando se toca o en tareas tecnicas
+Obligatorios en código nuevo o modificado para funciones, clases y helpers
+públicos. El código histórico se normaliza cuando se toca o en tareas técnicas
 dedicadas.
 
 ```python
@@ -346,8 +346,8 @@ def calcular_total(items, iva=21):
 ```
 
 #### Docstrings
-En codigo nuevo o modificado, usar docstrings en español para funciones,
-clases y helpers publicos. Preferir estilo Google o NumPy:
+En código nuevo o modificado, usar docstrings en español para funciones,
+clases y helpers públicos. Preferir estilo Google o NumPy:
 
 ```python
 def emitir_factura(cliente_id: int, items: list[dict]) -> Comprobante:
@@ -599,7 +599,7 @@ describe('FormCliente', () => {
 - Tokens o secrets
 - CUITs reales, nombres de clientes o emisores reales
 - CAEs reales o evidencia fiscal privada
-- Bases locales, backups, dumps, logs de produccion
+- Bases locales, backups, dumps, logs de producción
 - Excel/PDF de clientes, constancias ARCA reales, capturas privadas, trazas o
   videos de QA/debug
 

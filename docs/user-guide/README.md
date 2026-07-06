@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-07-01
+Última actualización: 2026-07-06
 
 Este manual describe el uso actual del producto. Si una función no aparece acá, no debe asumirse como disponible para usuarios finales.
 
@@ -24,6 +24,8 @@ Nota 2026-06-29: `Sistema > Estado` agrega `Ficha para soporte`, una lista de
 los datos mínimos que conviene reunir ante un incidente sin copiar CUIT completo
 ni evidencia privada en documentación pública.
 
+Nota 2026-07-06: auditoría documental. Se refuerza que las fechas visibles para usuarios se muestran en formato argentino `DD/MM/AAAA`; los formatos técnicos quedan internos para API, backend o ARCA.
+
 ## Contenido
 
 1. Acceso al sistema
@@ -31,7 +33,7 @@ ni evidencia privada en documentación pública.
 3. Dashboard
 4. Clientes
 5. Comprobantes
-6. Emision masiva
+6. Emisión masiva
 7. Reportes
 8. Certificados
 9. Puntos de venta
@@ -71,7 +73,7 @@ directo del escritorio que ejecuta `scripts\restart-local-dev.ps1`, volvé a
 ejecutarlo y esperá que muestre `Backend OK` y `Frontend OK`; ese flujo no
 muestra ícono junto al reloj. Si usaste el launcher `FactuFlow Local.vbs`, hacé
 clic derecho en el ícono de FactuFlow junto al reloj de Windows y elegí
-`Reiniciar servicios`. Luego presioná `Reintentar` en la pantalla.
+`Reiniciar servicios`. Luego presióná `Reintentar` en la pantalla.
 
 En una instalación en VPS o servidor, no se usa el launcher local. En ese caso
 se entra desde la URL publicada de FactuFlow. FactuFlow está pensado para poder
@@ -133,13 +135,13 @@ El dashboard muestra un resumen general y accesos rapidos.
 Hoy informa:
 - total de clientes
 - comprobantes emitidos en el mes actual
-- ultimo comprobante emitido
+- último comprobante emitido
 - estado del certificado activo
 
 Desde ahi puedes ir directo a:
 - nuevo cliente
 - emitir factura
-- emision masiva
+- emisión masiva
 - configurar empresa
 
 ## 4. Clientes
@@ -150,11 +152,11 @@ En `Clientes` puedes:
 - buscar por nombre o documento
 
 Datos habituales:
-- tipo y numero de documento
-- razon social o nombre
-- condicion frente al IVA
+- tipo y número de documento
+- razón social o nombre
+- condición frente al IVA
 - domicilio, localidad y provincia
-- email y telefono si corresponden
+- email y teléfono si corresponden
 
 ## 5. Comprobantes
 
@@ -184,39 +186,39 @@ CAE. Revisá especialmente receptor, fecha fiscal, punto de venta, total,
 ### Detalle de comprobante
 
 El detalle muestra:
-- tipo y numero
+- tipo y número
 - fecha
 - cliente
-- items
+- ítems
 - importes
 - CAE y vencimiento
 
-Si el comprobante esta autorizado, veras:
+Si el comprobante está autorizado, verás:
 - `Ver PDF`
 - `Descargar PDF`
 
-### Como funciona el PDF hoy
+### Cómo funciona el PDF hoy
 
-- El PDF no se genera automaticamente al emitir.
+- El PDF no se genera automáticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
 - Esto evita guardar archivos innecesarios.
 - En una instalación sobre VPS, los PDFs descargados deben quedar en la PC del
   usuario. FactuFlow no debe usarlos como almacenamiento permanente del
   servidor.
-- El PDF muestra `ORIGINAL`, letra y codigo de comprobante, emisor, receptor,
-  periodo facturado, detalle, totales, CAE, vencimiento CAE y QR ARCA en una
+- El PDF muestra `ORIGINAL`, letra y código de comprobante, emisor, receptor,
+  período facturado, detalle, totales, CAE, vencimiento CAE y QR ARCA en una
   hoja A4 con ubicaciones principales similares a la factura oficial ARCA.
 - Si el receptor es consumidor final sin documento, el PDF muestra `Doc.: -`,
-  y consigna `Condicion frente al IVA: Consumidor Final`; el numero `0` queda
-  como dato tecnico para ARCA/QR y no se muestra como documento visible. Si el
-  comprobante tiene una razon social real del receptor, el PDF la muestra; si
-  solo trae un texto generico como `A CONSUMIDOR FINAL`, el nombre queda vacio.
-- Si el emisor tiene `Ingresos Brutos` cargado en `Emisores`, tambien se muestra
-  en el PDF. Si no esta cargado, figura como `No informado`.
-- En comprobantes nuevos de servicios, el PDF muestra periodo facturado y
+  y consigna `Condición frente al IVA: Consumidor Final`; el número `0` queda
+  como dato técnico para ARCA/QR y no se muestra como documento visible. Si el
+  comprobante tiene una razón social real del receptor, el PDF la muestra; si
+  solo trae un texto genérico como `A CONSUMIDOR FINAL`, el nombre queda vacío.
+- Si el emisor tiene `Ingresos Brutos` cargado en `Emisores`, también se muestra
+  en el PDF. Si no está cargado, figura como `No informado`.
+- En comprobantes nuevos de servicios, el PDF muestra período facturado y
   vencimiento de pago cuando esos datos fueron informados al emitir.
-- En comprobantes historicos emitidos por lote, una migracion reconstruye el
-  periodo y vencimiento desde el payload guardado del lote cuando esos datos no
+- En comprobantes históricos emitidos por lote, una migración reconstruye el
+  período y vencimiento desde el payload guardado del lote cuando esos datos no
   estaban persistidos en el comprobante.
 
 ## 6. Emisión masiva
@@ -263,7 +265,7 @@ comprobantes visibles, el detalle debe estar abierto para ver las filas
 alcanzadas.
 
 `Lotes recientes` funciona como navegación compacta para cambiar de lote. Cada
-item muestra nombre de archivo, fecha de carga, estado y una métrica principal
+ítem muestra nombre de archivo, fecha de carga, estado y una métrica principal
 según el estado del lote; el lote activo queda resaltado. El detalle completo de
 contadores se consulta en el resumen del lote activo, no en el historial.
 
@@ -278,27 +280,27 @@ selección de grupos.
 
 Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
 con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos
-valores contra el Excel antes de presionar `Emitir comprobantes validos`.
+valores contra el Excel antes de presionar `Emitir comprobantes válidos`.
 
 En lotes grandes, la pantalla no muestra todos los comprobantes a la vez. El
-resumen, los totales y la confirmacion fiscal se calculan sobre el lote
-completo, pero la grilla de detalle carga una pagina de comprobantes por vez.
-Podes cambiar de pagina o filtrar por estado para revisar listos, observados,
-autorizados, fallidos o casos que requieren reconciliacion. Para revisar el
+resumen, los totales y la confirmación fiscal se calculan sobre el lote
+completo, pero la grilla de detalle carga una página de comprobantes por vez.
+Podés cambiar de página o filtrar por estado para revisar listos, observados,
+autorizados, fallidos o casos que requieren reconciliación. Para revisar el
 detalle completo por fila, usa `Descargar observado`.
 
 Cuando uses la plantilla oficial de FactuFlow, el sistema lee la hoja llamada
 `Comprobantes`. Las hojas adicionales, por ejemplo `Resumen` o `Control`, son
 solo informativas y no se usan para emitir. Si el archivo no tiene una hoja
 llamada `Comprobantes`, FactuFlow intenta leer la primera hoja del Excel.
-Si el XLSX esta malformado o supera el limite operativo configurado como
+Si el XLSX está malformado o supera el límite operativo configurado como
 `BATCH_MAX_UPLOAD_BYTES`, FactuFlow lo rechaza antes de validar el lote.
 
 Si un lote termina `fallido` o `con_errores` sin haber emitido comprobantes,
-podes volver a subir el mismo archivo para revalidarlo. FactuFlow conserva el
+podés volver a subir el mismo archivo para revalidarlo. FactuFlow conserva el
 historial del intento anterior y solo permite el reintento cuando no hubo CAE
-emitido. Si el lote ya quedo validado para emitir o emitio algun comprobante, el
-archivo duplicado se bloquea para evitar facturacion repetida.
+emitido. Si el lote ya quedó validado para emitir o emitió algún comprobante, el
+archivo duplicado se bloquea para evitar facturación repetida.
 
 Además del bloqueo por archivo ya cargado, FactuFlow calcula duplicados lógicos
 por comprobante. Si detecta comprobantes muy similares dentro del lote o contra
@@ -393,6 +395,11 @@ que ARCA permite para autorizar comprobantes, el lote queda observado antes de
 emitir. Para emitir, debes elegir una fecha permitida por el web service; el
 sistema no la reemplaza automáticamente.
 
+Las fechas visibles del flujo se muestran en `DD/MM/AAAA`. Si el archivo o el
+backend usan formatos técnicos, FactuFlow debe convertirlos en los bordes sin
+mostrar `YYYY-MM-DD`, ISO datetime o `CbteFch` como formato principal para el
+usuario.
+
 Antes de emitir, FactuFlow debe mostrar una confirmación final de fecha fiscal
 con este texto: `Está seguro que quiere emitir comprobantes con fecha
 XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior
@@ -446,7 +453,7 @@ Un perfil de carga masiva puede recordar:
   fecha personalizada cargada de forma explícita
 - período de servicios, por ejemplo mes anterior completo o mes actual completo
 - vencimiento de pago, por ejemplo mismo día de emisión o emisión más una
-  cantidad de dias
+  cantidad de días
 
 Si un emisor tiene un solo perfil de carga masiva, FactuFlow lo aplica al entrar
 en `Emisión masiva`. Si tiene varios, se aplica el marcado como predeterminado.
@@ -471,7 +478,7 @@ regla de fecha de emisión.
 
 Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
 `Puntos de venta` para ese emisor y estar habilitado para usar en FactuFlow. Si
-todavia no hay puntos cargados, completalos primero desde esa pantalla.
+todavía no hay puntos cargados, completalos primero desde esa pantalla.
 
 ### Plantillas de carga masiva
 
@@ -530,17 +537,17 @@ archivos con columnas como `Fecha`, `Tipo`, `Punto de Venta`,
 `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
 
 El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa `Imp. Neto Gravado`
-como precio neto del item y `Imp. Total` como total de referencia. Como la
-muestra disponible no trae numero de documento real del receptor, FactuFlow lo
-trata como consumidor final sin documento cuando el importe esta bajo el umbral
+como precio neto del ítem y `Imp. Total` como total de referencia. Como la
+muestra disponible no trae número de documento real del receptor, FactuFlow lo
+trata como consumidor final sin documento cuando el importe está bajo el umbral
 legal. Si un archivo futuro trae comprobantes que requieren identificar al
 receptor, se debe agregar una columna con documento real o ajustar el formato.
 
-Si por configuracion o por archivo el total calculado no coincide con
+Si por configuración o por archivo el total calculado no coincide con
 `Imp. Total`, el lote queda observado y no se puede emitir hasta corregir el
 mapeo.
 
-La fecha del archivo no se usa automaticamente para emitir. Antes de validar el
+La fecha del archivo no se usa automáticamente para emitir. Antes de validar el
 lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
 permitida por ARCA para todo el lote.
 
@@ -551,47 +558,47 @@ carga masiva con punto de venta fijo. Esta pensado para archivos con columnas
 `Fecha`, `Tipo`, `Punto de Venta`, `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
 
 El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa siempre
-`Imp. Neto Gravado` como precio neto del item. `Imp. Total` se usa solo como
+`Imp. Neto Gravado` como precio neto del ítem. `Imp. Total` se usa solo como
 control de consistencia: si el total calculado desde neto e IVA no coincide con
 el total informado por el Excel, el comprobante queda observado antes de emitir.
 
 En el archivo privado revisado para abril 2026, la columna `Punto de Venta`
-esta vacia. Por eso el perfil de carga masiva del emisor fija el punto de venta
-`5`; antes de validar o emitir se debe revisar que esa seleccion sea correcta
+está vacía. Por eso el perfil de carga masiva del emisor fija el punto de venta
+`5`; antes de validar o emitir se debe revisar que esa selección sea correcta
 para el lote.
 
 ### Extractos bancarios
 
-Hay un formato global para extractos bancarios de creditos con estas columnas:
+Hay un formato global para extractos bancarios de créditos con estas columnas:
 - `Fecha`: fecha de origen del movimiento, usada como fecha del archivo cuando
-  el usuario elige esa opcion. FactuFlow tambien interpreta fechas que Excel
-  entregue internamente como numero serial.
+  el usuario elige esa opción. FactuFlow también interpreta fechas que Excel
+  entregue internamente como número serial.
 - `Créditos`: importe acreditado, obligatorio
 - `Leyendas Adicionales1`: receptor o leyenda equivalente, opcional
 - `Leyendas Adicionales2`: documento del receptor, opcional
 - `Pto Vta`: punto de venta, obligatorio
 
-Cada fila del extracto genera un comprobante. El formato global esta pensado
+Cada fila del extracto genera un comprobante. El formato global está pensado
 para emisores Exento o Monotributo y usa Factura C e IVA `0`; no crea cliente
 persistente por defecto. No define por si solo si el lote es de productos o
-servicios, ni que descripcion del item se va a facturar: debes elegir el tipo de
-concepto fiscal ARCA y definir la descripcion facturada antes de validar. Si el
-documento o receptor vienen vacios, aplican las reglas vigentes de consumidor
+servicios, ni qué descripción del ítem se va a facturar: debes elegir el tipo de
+concepto fiscal ARCA y definir la descripción facturada antes de validar. Si el
+documento o receptor vienen vacíos, aplican las reglas vigentes de consumidor
 final. Para emisores Responsable Inscripto, el lote queda observado y se debe
-crear un formato particular con Factura A/B segun corresponda.
+crear un formato particular con Factura A/B según corresponda.
 
-En Factura C los items deben tener IVA 0. En nueva factura, FactuFlow limita el
-selector de IVA a 0 cuando elegis Factura C; en emision masiva, los lotes tipo C
+En Factura C los ítems deben tener IVA 0. En nueva factura, FactuFlow limita el
+selector de IVA a 0 cuando elegís Factura C; en emisión masiva, los lotes tipo C
 con IVA distinto de 0 quedan con error antes de emitir. FactuFlow no informa el
 bloque IVA a ARCA para ese tipo de comprobante, porque el web service lo rechaza
-aunque la alicuota sea cero.
+aunque la alícuota sea cero.
 
-### Notas de credito por lote
+### Notas de crédito por lote
 
-La plantilla oficial tambien puede usarse para notas de credito. Para Nota de
-Credito C se usa `tipo_comprobante = 13`.
+La plantilla oficial también puede usarse para notas de crédito. Para Nota de
+Crédito C se usa `tipo_comprobante = 13`.
 
-Cuando una nota de credito anula o ajusta una factura, el Excel debe incluir el
+Cuando una nota de crédito anula o ajusta una factura, el Excel debe incluir el
 comprobante asociado:
 - `asociado_tipo_comprobante`
 - `asociado_punto_venta`
@@ -599,50 +606,51 @@ comprobante asociado:
 - `asociado_fecha`
 - `asociado_cuit`
 
-FactuFlow valida que esos datos existan antes de dejar la nota de credito lista
+FactuFlow valida que esos datos existan antes de dejar la nota de crédito lista
 para emitir, y los informa a ARCA como `CbtesAsoc`. No cargues importes
 negativos: el importe se carga positivo y el tipo de comprobante define que se
-trata de un credito.
+trata de un crédito.
 
-Si elegis servicios, no se debe emitir sin revisar el periodo de servicios. La
-fecha del extracto puede usarse como fecha de emision o como base del periodo
+Si elegís servicios, no se debe emitir sin revisar el período de servicios. La
+fecha del extracto puede usarse como fecha de emisión o como base del período
 solo si el usuario lo confirma y ARCA la admite para la fecha en que se solicita
 el CAE.
 
-Si el archivo observado informa que un punto de venta no esta habilitado, primero
-contrasta `Puntos de venta > Sincronizar con ARCA`. Para el emisor real usado en
-la prueba productiva, ARCA informa como no bloqueados los puntos `6`, `8`, `10`,
-`12`, `13` y `14`; `7` y `9` estan bloqueados.
+Si el archivo observado informa que un punto de venta no está habilitado, primero
+contrastá `Puntos de venta > Sincronizar con ARCA` para el emisor activo. Usá
+solo puntos Web Services activos, no bloqueados y sin fecha de baja; si ARCA
+marca un punto como bloqueado o inexistente, no lo uses para emitir desde ese
+lote.
 
 Si el archivo externo trae una columna para distinguir productos y servicios,
 usa `Definido por archivo` solo cuando todas las filas esten completas con
 `Producto` o `Servicio`. No cargues el archivo esperando que FactuFlow decida el
 concepto por defecto.
 
-Si el archivo externo trae una columna con la descripcion a facturar, usala como
-descripcion del item. Si no la trae, define un texto fijo para todo el lote
-antes de validar. No confundas esa descripcion con `Productos` o `Servicios`:
+Si el archivo externo trae una columna con la descripción a facturar, usala como
+descripción del ítem. Si no la trae, define un texto fijo para todo el lote
+antes de validar. No confundas esa descripción con `Productos` o `Servicios`:
 son datos distintos.
 
 Reglas principales:
 - un lote pertenece a un solo emisor activo
 - un comprobante puede ocupar varias filas agrupadas por `comprobante_ref`
-- los clientes precargados son opcionales para emision masiva
+- los clientes precargados son opcionales para emisión masiva
 - para consumidor final en comprobantes B/C de importe menor a `$10.000.000`,
-  puedes dejar vacios tipo de documento, numero, nombre y domicilio; FactuFlow
+  puedes dejar vacíos tipo de documento, número, nombre y domicilio; FactuFlow
   lo normaliza como `A CONSUMIDOR FINAL`
 - si el importe de consumidor final es igual o superior a `$10.000.000`, debes
-  informar CUIT, CUIL, CDI, DNI, pasaporte u otro documento valido
+  informar CUIT, CUIL, CDI, DNI, pasaporte u otro documento válido
 - los comprobantes guardan una copia fiscal del receptor al emitir; editar un
-  cliente despues no cambia el receptor historico del comprobante
+  cliente después no cambia el receptor histórico del comprobante
 - los errores se muestran por fila o por comprobante
-- las alicuotas de IVA permitidas son `0`, `10.5`, `21` y `27`
+- las alícuotas de IVA permitidas son `0`, `10.5`, `21` y `27`
 - el concepto fiscal ARCA del lote siempre debe ser confirmado por el usuario:
   productos, servicios o definido por archivo
-- la descripcion/concepto facturado del item siempre debe venir del archivo o de
+- la descripción/concepto facturado del ítem siempre debe venir del archivo o de
   un valor fijo confirmado para el lote
-- los lotes chicos y grandes se procesan con seguimiento automatico desde la UI
-- la barra de progreso muestra avance, tiempo transcurrido y estimacion restante
+- los lotes chicos y grandes se procesan con seguimiento automático desde la UI
+- la barra de progreso muestra avance, tiempo transcurrido y estimación restante
 - los lotes grandes pueden quedar `En cola` antes de pasar a `Procesando`
 
 ## 7. Reportes
@@ -660,7 +668,7 @@ corresponde.
 
 ## 8. Certificados
 
-En `Certificados` gestionás los certificados de ARCA por ambiente.
+En `Certificados` gestiónás los certificados de ARCA por ambiente.
 
 Uso recomendado:
 - trabajar primero en homologación
@@ -713,7 +721,7 @@ Importante:
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
   completa de puntos, incluyendo sistema, domicilio y nombre de fantasía
 - FactuFlow marca como `Usable` solo los puntos Web Services activos, no
-  bloqueados y sin baja; los puntos Factuweb, Comprobantes en Linea o
+  bloqueados y sin baja; los puntos Factuweb, Comprobantes en Línea o
   Controlador Fiscal quedan visibles como referencia pero no se usan para emitir
 - los datos importados se pueden editar manualmente desde `Editar`
 
@@ -739,20 +747,20 @@ editándola; si necesitás otro alcance, cloná la plantilla y elegí el destino
 la copia.
 
 Al agregar un emisor, puedes subir una constancia de inscripción ARCA en PDF o
-una constancia de opcion de Monotributo. FactuFlow intenta completar
-automaticamente nombre fiscal, CUIT, condicion IVA, domicilio fiscal, localidad,
-provincia, codigo postal e inicio de actividades. Provincia se elige desde un
-catalogo cerrado de provincias argentinas; si la constancia no permite
-detectarla con seguridad, queda pendiente de revision manual.
+una constancia de opción de Monotributo. FactuFlow intenta completar
+automáticamente nombre fiscal, CUIT, condición IVA, domicilio fiscal, localidad,
+provincia, código postal e inicio de actividades. Provincia se elige desde un
+catálogo cerrado de provincias argentinas; si la constancia no permite
+detectarla con seguridad, queda pendiente de revisión manual.
 Antes de guardar, revisa y corrige cualquier dato detectado.
 
 Revisa especialmente:
 - CUIT
-- razon social
+- razón social
 - domicilio
-- condicion IVA
+- condición IVA
 - fecha de inicio de actividades
-- email y telefono de contacto
+- email y teléfono de contacto
 
 ## 11. Usuarios
 
@@ -858,7 +866,7 @@ limpiables.
 
 Al 2026-06-29:
 
-- no existe todavia descarga masiva de PDFs desde el listado
+- no existe todavía descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
   servidor cuando la instalación corre en VPS
 - los artefactos descargables no vitales, como PDFs, ZIPs, archivos observados
@@ -868,13 +876,13 @@ Al 2026-06-29:
   manual de lotes compactables, logs antiguos, temporales y certificados
   huérfanos; todavía no reemplaza una política completa de backup y
   restauración
-- los reportes son de consulta, no de exportacion
-- la validacion concluyente de homologacion se hace por webservice, no por QR
-- el launcher local de Windows es manual y esta orientado a desarrollo/QA; no
-  es todavia un instalador ni configura inicio automatico con Windows
-- la produccion real ya fue operada; antes de cada nueva emision productiva hay
+- los reportes son de consulta, no de exportación
+- la validación concluyente de homologación se hace por webservice, no por QR
+- el launcher local de Windows es manual y está orientado a desarrollo/QA; no
+  es todavía un instalador ni configura inicio automático con Windows
+- la producción real ya fue operada; antes de cada nueva emisión productiva hay
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
-  descripcion facturada, totales, backup/logs y confirmacion irreversible
+  descripción facturada, totales, backup/logs y confirmación irreversible
 - `Sistema > Estado` ya muestra un primer diagnóstico operativo con API, base,
   certificado local, ARCA manual, almacenamiento, guía rápida y ficha para
   soporte; todavía faltan healthcheck dedicado de worker, backup visible y

@@ -4,20 +4,20 @@
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
-## Homologacion - checklist operativo real
+## Homologación - checklist operativo real
 
 1. Adherir `WSASS - Autogestion Certificados Homologacion`
 2. Generar CSR con el CUIT del titular del certificado
 3. Crear DN y certificado en WSASS
-4. Crear autorizacion al servicio `wsfe` para el CUIT representado
+4. Crear autorización al servicio `wsfe` para el CUIT representado
 5. Verificar punto de venta habilitado
 6. Emitir y validar por `FECompConsultar`
 
 ## Lo que aprendimos hoy
 
-### 1. Verificacion de homologacion
+### 1. Verificacion de homologación
 
-- No confiar en QR como validacion de homologacion.
+- No confiar en QR como validación de homologación.
 - El QR de PDF debe codificar la URL oficial heredada
   `https://www.afip.gob.ar/fe/qr/?p={base64}` con JSON de comprobante en
   Base64. En tests se decodifica el payload y se verifican campos ARCA:
@@ -27,22 +27,22 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 
 ### 2. Puntos de venta
 
-- En el portal no se detecto una pantalla separada de "puntos de venta homologacion".
+- En el portal no se detectó una pantalla separada de "puntos de venta homologación".
 - Hay que mirar la pantalla habitual `A/B/M de puntos de venta / emision`.
-- Para webservices, el indicio util es la columna `Sistema`, por ejemplo `RECE para aplicativo y web services`.
+- Para webservices, el indicio útil es la columna `Sistema`, por ejemplo `RECE para aplicativo y web services`.
 
 ### 3. `FEParamGetPtosVenta`
 
-- En homologacion puede responder `602 - Sin Resultados`.
+- En homologación puede responder `602 - Sin Resultados`.
 - Eso no significa necesariamente que el punto de venta sea invalido.
-- En esta sesion `FECompUltimoAutorizado` y la emision real si funcionaron.
+- En esta sesión `FECompUltimoAutorizado` y la emisión real sí funcionaron.
 - El campo `Bloqueado` llega como `N`/`S`. `N` significa no bloqueado; no debe
-  evaluarse como booleano directo porque cualquier string no vacio es truthy en
+  evaluarse como booleano directo porque cualquier string no vacío es truthy en
   Python.
 
 ### 4. `CondicionIVAReceptorId`
 
-ARCA exigio este campo en homologacion.
+ARCA exigió este campo en homologación.
 
 Mapping aplicado en el proyecto:
 - `RI` -> `1`
@@ -52,69 +52,69 @@ Mapping aplicado en el proyecto:
 
 ### 4.b Consumidor final
 
-- Para consumidor final, ARCA publica que el comprobante debe llevar la leyenda
+- Para consumidor final, ARCA pública que el comprobante debe llevar la leyenda
   `A CONSUMIDOR FINAL`.
 - Si el importe es igual o superior a `$10.000.000`, corresponde informar
-  CUIT/CUIL/CDI/DNI, pasaporte u otro documento valido.
-- FactuFlow usa tipo documento `99` y numero `0` cuando el Excel no trae
+  CUIT/CUIL/CDI/DNI, pasaporte u otro documento válido.
+- FactuFlow usa tipo documento `99` y número `0` cuando el Excel no trae
   documento y el importe queda bajo ese umbral. No crea cliente persistente por
   defecto en ese caso; guarda snapshot del receptor en el comprobante.
 
-### 4.c Fecha de emision
+### 4.c Fecha de emisión
 
-- No asumir fecha del dia actual para `CbteFch`.
-- La prohibicion aplica a facturas, notas de credito y notas de debito. No usar
+- No asumir fecha del día actual para `CbteFch`.
+- La prohibicion aplica a facturas, notas de crédito y notas de débito. No usar
   `date.today()`, `datetime.today()`, `new Date()` ni equivalentes como default
   de fecha fiscal.
-- FactuFlow exige `fecha_emision` explicita en emision individual y en lotes.
+- FactuFlow exige `fecha_emision` explícita en emisión individual y en lotes.
 - Antes de solicitar CAE, la UI debe mostrar: `Está seguro que quiere emitir
   comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir
   comprobantes con fecha anterior para ese mismo punto de venta.`
-- La API debe bloquear el pedido si no llega la confirmacion fiscal explicita:
-  `confirmacion_fecha_fiscal=true` para emision individual o
+- La API debe bloquear el pedido si no llega la confirmación fiscal explícita:
+  `confirmacion_fecha_fiscal=true` para emisión individual o
   `X-Confirmacion-Fecha-Fiscal` con token exacto
-  `fechas=AAAA-MM-DD,...;puntos_venta=N,...` para lotes.
+  `fechas=YYYY-MM-DD,...;puntos_venta=N,...` para lotes. El token de confirmación de lotes usa fechas técnicas `YYYY-MM-DD`; el texto visible de confirmación debe mostrarlas en `DD/MM/AAAA`.
 - Si ARCA ya devolvio CAE y falla la persistencia local posterior, conservar
-  punto de venta, numero, fecha, total y CAE, marcar
+  punto de venta, número, fecha, total y CAE, marcar
   `requiere_reconciliacion` y bloquear reintentos. Primero consultar ARCA y
   reconciliar.
-- En lotes, el usuario debe elegir si la fecha de emision sale del archivo o si
+- En lotes, el usuario debe elegir si la fecha de emisión sale del archivo o si
   se fija una fecha para todos los comprobantes antes de validar.
-- Los perfiles de carga masiva pueden sugerir reglas relativas como ultimo dia
-  del mes anterior o emision mas dias, pero la UI no debe convertirlas usando la
+- Los perfiles de carga masiva pueden sugerir reglas relativas como último día
+  del mes anterior o emisión mas días, pero la UI no debe convertirlas usando la
   fecha del navegador al autoaplicar el perfil. El usuario debe elegir una fecha
-  exacta, tomarla del archivo o confirmar una base explicita antes de validar.
+  exacta, tomarla del archivo o confirmar una base explícita antes de validar.
   No son defaults fiscales silenciosos.
 - Los perfiles de carga masiva pueden sugerir un punto de venta fijo solo si el
-  punto esta cargado para el emisor activo, es Web Services, activo, no
+  punto está cargado para el emisor activo, es Web Services, activo, no
   bloqueado y no tiene fecha de baja. Si no, el lote debe usar el punto del
   archivo o completar primero `Puntos de venta`.
-- Para servicios tambien se deben resolver `FchServDesde`, `FchServHasta` y
+- Para servicios también se deben resolver `FchServDesde`, `FchServHasta` y
   `FchVtoPago`.
-- Validacion preventiva usada por el proyecto:
+- Validación preventiva usada por el proyecto:
   - productos: N-5 / N+5
   - servicios o productos y servicios: N-10 / N+10
-  - N es la fecha de solicitud de autorizacion
+  - N es la fecha de solicitud de autorización
 - Si una fecha de extracto queda fuera de ventana, el lote debe quedar observado
   antes de emitir para que el usuario/contador defina el criterio fiscal.
 
-### 4.d Concepto fiscal ARCA y descripcion facturada
+### 4.d Concepto fiscal ARCA y descripción facturada
 
 - No asumir productos ni servicios por defecto.
 - Antes de emitir, el usuario debe elegir `Productos`, `Servicios` o
   `Definido por archivo`.
-- Si se elige `Definido por archivo`, el Excel debe traer una columna valida con
+- Si se elige `Definido por archivo`, el Excel debe traer una columna válida con
   `Producto` o `Servicio` en todas las filas.
 - Si la columna falta o una fila trae un valor distinto, se debe informar al
-  usuario y bloquear la emision del lote observado.
+  usuario y bloquear la emisión del lote observado.
 - Esto define el concepto fiscal ARCA del comprobante; no define el texto del
-  item facturado. La descripcion/concepto facturado del item, por ejemplo
+  ítem facturado. La descripción/concepto facturado del ítem, por ejemplo
   `Honorarios`, `Zapatillas` o `Servicio mensual`, debe venir de una columna del
   archivo o de un valor fijo confirmado para todo el lote.
-- No usar defaults ocultos para la descripcion del item antes de validar o
+- No usar defaults ocultos para la descripción del ítem antes de validar o
   emitir.
 - Los perfiles de carga masiva pueden precargar punto de venta, concepto fiscal
-  ARCA y descripcion facturada solo como valores visibles/editables antes de
+  ARCA y descripción facturada solo como valores visibles/editables antes de
   validar.
 - Si la fecha del archivo queda fuera de la ventana ARCA aplicable al concepto,
   el usuario debe elegir por pantalla una fecha permitida por el web service
@@ -179,16 +179,16 @@ El proyecto tuvo que corregir estas estructuras:
   - `{ "AlicIva": [ ... ] }`
 - `Tributos` debe enviarse como:
   - `{ "Tributo": [ ... ] }`
-- Para notas de credito/debito con comprobante asociado, `CbtesAsoc` debe
+- Para notas de crédito/débito con comprobante asociado, `CbtesAsoc` debe
   enviarse como:
   - `{ "CbteAsoc": [ ... ] }`
 - Para comprobantes tipo C (`11`, `12`, `13`), no enviar el objeto `Iva`.
-  ARCA rechaza con `10071` aunque se informe alicuota 0.
-- FactuFlow debe bloquear localmente cualquier item tipo C con IVA distinto de
+  ARCA rechaza con `10071` aunque se informe alícuota 0.
+- FactuFlow debe bloquear localmente cualquier ítem tipo C con IVA distinto de
   0 antes de solicitar CAE.
 - Antes de habilitar acciones WSFE desde la UI, FactuFlow debe verificar que
-  haya certificado activo para el `ARCA_ENV` actual. Un certificado valido de
-  otro ambiente no sirve para esa operacion.
+  haya certificado activo para el `ARCA_ENV` actual. Un certificado válido de
+  otro ambiente no sirve para esa operación.
 
 ### 5.a Sublotes en `FECAESolicitar`
 
@@ -208,21 +208,21 @@ El proyecto tuvo que corregir estas estructuras:
   `requiere_reconciliacion`; no se reintenta automáticamente y ningún grupo
   remanente debe seguir mostrándose como listo para emitir.
 
-### 5.b Notas de credito C por duplicados productivos
+### 5.b Notas de crédito C por duplicados productivos
 
-- Para Nota de Credito C usar `tipo_comprobante = 13`.
+- Para Nota de Crédito C usar `tipo_comprobante = 13`.
 - Si anula una Factura C, informar como asociado `tipo = 11`, punto de venta,
-  numero, fecha y CUIT del emisor de la factura duplicada.
+  número, fecha y CUIT del emisor de la factura duplicada.
 - Los importes van positivos; el tipo de comprobante define que se trata de un
-  credito.
-- El 2026-05-08 se genero un Excel privado local con 19 notas de credito para
-  anular duplicados productivos. Se valido contra una copia de la base, sin
-  emision: 19 validas, 0 errores, 0 emitidas.
-- Luego el usuario emitio las 19 notas en produccion. Verificacion posterior
+  crédito.
+- El 2026-05-08 se generó un Excel privado local con 19 notas de crédito para
+  anular duplicados productivos. Se válido contra una copia de la base, sin
+  emisión: 19 válidas, 0 errores, 0 emitidas.
+- Luego el usuario emitió las 19 notas en producción. Verificación posterior
   solo lectura por `FECompConsultar`: 19 con `Resultado=A`, CAE coincidente e
   informacion de `CbtesAsoc` contra la factura duplicada esperada.
 - En la respuesta de `FECompConsultar`, usar `CbteDesde`/`CbteHasta` para el
-  numero; no depender de `CbteNro`.
+  número; no depender de `CbteNro`.
 
 ### 6. Cache de tickets WSAA
 
@@ -234,10 +234,10 @@ El proyecto tuvo que corregir estas estructuras:
 
 - Si el certificado pertenece a un titular y opera para una empresa representada, no mezclar ambos CUIT.
 - El helper de ARCA debe operar con el CUIT de la empresa activa representada.
-- Este punto fue clave para corregir la sincronizacion de puntos de venta desde UI.
+- Este punto fue clave para corregir la sincronización de puntos de venta desde UI.
 - Antes de solicitar CAE, el backend debe confirmar que el punto de venta y el
-  `cliente_id` opcional sean del emisor activo. Un ID valido pero de otro CUIT
-  se rechaza localmente para no mezclar comprobantes, clientes ni numeracion.
+  `cliente_id` opcional sean del emisor activo. Un ID válido pero de otro CUIT
+  se rechaza localmente para no mezclar comprobantes, clientes ni numeración.
 
 ### 8. Paths legacy de certificados
 
@@ -247,11 +247,11 @@ El proyecto tuvo que corregir estas estructuras:
 - El upload de certificados no acepta paths arbitrarios en `key_filename`: debe
   ser una clave generada por FactuFlow para el CUIT y ambiente activos.
 - Las claves privadas nuevas se cifran con `ARCA_PRIVATE_KEY_PASSWORD` o, si no
-  esta configurada, con `APP_SECRET_KEY`. Las claves legacy sin cifrar se pueden
+  está configurada, con `APP_SECRET_KEY`. Las claves legacy sin cifrar se pueden
   seguir leyendo para continuidad operativa.
-- Este ajuste destrabo la consulta de proximo numero y la emision individual desde UI.
+- Este ajuste destrabo la consulta de próximo número y la emisión individual desde UI.
 
-## Donde mirar en el codigo
+## Donde mirar en el código
 
 - `backend/app/arca/cache.py`
 - `backend/app/arca/models.py`
@@ -263,15 +263,15 @@ El proyecto tuvo que corregir estas estructuras:
 
 - Usar certificado productivo y autorización `wsfe` productiva; los certificados
   de homologación no sirven para producción.
-- Despues de crear el certificado productivo, asociar el alias del computador al
+- Después de crear el certificado productivo, asociar el alias del computador al
   servicio `wsfe` desde `Administrador de Relaciones de Clave Fiscal`. Si falta
   esa asociacion, WSAA devuelve `Computador no autorizado a acceder al servicio`.
-- Usar punto de venta productivo especifico para webservices y mantener numeracion correlativa.
+- Usar punto de venta productivo especifico para webservices y mantener numeración correlativa.
 - En el piloto productivo de la Fundacion, `FEParamGetPtosVenta` devolvio
   habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban bloqueados.
-- El 2026-05-08 se corrigio la validacion de emision para interpretar
+- El 2026-05-08 se corrigió la validación de emisión para interpretar
   `Bloqueado=N` como punto habilitado. Antes de ese ajuste, el lote observado
-  podia marcar como no habilitados puntos validos como `6`, `10` y `13`.
+  podía marcar como no habilitados puntos válidos como `6`, `10` y `13`.
 - La lista completa de puntos con sistema, domicilio y nombre fantasia no vino
   por WSFEv1; se importo desde la constancia PDF de puntos de venta.
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
@@ -285,18 +285,18 @@ El proyecto tuvo que corregir estas estructuras:
 - La contraseña usada en `ARCA_MIGRATION_TARGET_KEY_PASSWORD` durante el export
   debe coincidir con `ARCA_PRIVATE_KEY_PASSWORD` en `.env.production`.
 - La migración y el ensayo local no solicitan CAE ni emiten comprobantes.
-- Al 2026-05-22, FactuFlow ya fue usado en produccion real. No tratar la
-  produccion como pendiente de primer piloto; tratarla como operacion
-  post-piloto que requiere backup/restauracion, trazabilidad, observabilidad y
+- Al 2026-05-22, FactuFlow ya fue usado en producción real. No tratar la
+  producción como pendiente de primer piloto; tratarla como operación
+  post-piloto que requiere backup/restauración, trazabilidad, observabilidad y
   controles fiscales antes de cada nuevo lote.
 
-## Dato historico util
+## Dato histórico útil
 
-El smoke real de homologacion del 2026-03-09 emitio:
+El smoke real de homologación del 2026-03-09 emitió:
 - comprobante individual con CAE registrado en evidencia local privada
 - lote con CAEs registrados en evidencia local privada
 
-La QA real del 2026-04-10 agrego:
+La QA real del 2026-04-10 agregó:
 - comprobante individual `0005-00000004` con CAE registrado en evidencia local privada
 - lote `0005-00000005` con CAE registrado en evidencia local privada
 - lote `0005-00000006` con CAE registrado en evidencia local privada

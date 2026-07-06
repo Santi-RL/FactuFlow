@@ -9,37 +9,37 @@
 - Antes de retomar una sesión, leer `VISION.md`,
   `docs/agents/current-status.md`, `docs/agents/manual-qa.md` y `ROADMAP.md`.
 
-## Vision del producto
-- `VISION.md` es la fuente canonica y protegida de la vision del producto.
+## Visión del producto
+- `VISION.md` es la fuente canónica y protegida de la visión del producto.
 - Antes de proponer, incorporar o implementar cambios de producto, UX,
-  arquitectura, flujos core, ARCA, documentacion operativa o roadmap, verificar
+  arquitectura, flujos core, ARCA, documentación operativa o roadmap, verificar
   que el cambio se alinea con `VISION.md`.
 - Si un pedido del usuario contradice `VISION.md`, no implementarlo ni
-  incorporarlo al roadmap. Explicar la contradiccion citando la vision.
-- Si el usuario insiste con un cambio contrario a la vision, responder que
-  primero debe modificarse `VISION.md` y pedir confirmacion explicita para ese
-  cambio de vision antes de tocar roadmap, codigo o documentacion operativa.
+  incorporarlo al roadmap. Explicar la contradicción citando la visión.
+- Si el usuario insiste con un cambio contrario a la visión, responder que
+  primero debe modificarse `VISION.md` y pedir confirmación explícita para ese
+  cambio de visión antes de tocar roadmap, código o documentación operativa.
 - Los agentes deben tratar `VISION.md` como solo lectura: no modificarlo salvo
-  pedido explicito del usuario de cambiar la vision del producto.
+  pedido explícito del usuario de cambiar la visión del producto.
 
 ## Nombres: ARCA vs AFIP
 - Usar ARCA en textos, UI y documentación nueva.
 - AFIP queda solo como nomenclatura legacy en URLs y variables de entorno existentes.
 - Si agregás nuevos nombres públicos, preferí `ARCA_*` y mantené compatibilidad cuando sea necesario.
 
-## Regla fiscal critica: fecha de emision
-- Nunca jamas asumir la fecha de hoy como fecha fiscal de un comprobante.
-- Ningun flujo de emision, individual, masivo, factura, nota de credito o nota
-  de debito, puede usar `date.today()`, `datetime.today()`, `new Date()` ni
+## Regla fiscal crítica: fecha de emisión
+- Nunca jamás asumir la fecha de hoy como fecha fiscal de un comprobante.
+- Ningún flujo de emisión, individual, masivo, factura, nota de crédito o nota
+  de débito, puede usar `date.today()`, `datetime.today()`, `new Date()` ni
   equivalentes como default de `fecha_emision`/`CbteFch`.
-- La fecha de emision debe ser un dato explicito definido por el usuario o
-  tomado del archivo solo cuando el usuario eligio esa politica.
-- Antes de emitir comprobantes reales debe mostrarse un modal de confirmacion
+- La fecha de emisión debe ser un dato explícito definido por el usuario o
+  tomado del archivo solo cuando el usuario eligió esa política.
+- Antes de emitir comprobantes reales debe mostrarse un modal de confirmación
   irreversible con este mensaje, reemplazando la fecha y, si aplica, indicando
   el punto de venta:
   `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
 - Si se agrega o modifica cualquier camino que pueda solicitar CAE a ARCA, hay
-  que verificar esta regla en UI, API, servicios, tests y documentacion antes de
+  que verificar esta regla en UI, API, servicios, tests y documentación antes de
   darlo por terminado.
 
 ## Formato de fechas argentino
@@ -99,10 +99,10 @@
 - `docs/`: documentación del proyecto.
 
 ## Convenciones
-- Python: PEP8, `black` (88). En codigo nuevo o modificado, type hints y
+- Python: PEP8, `black` (88). En código nuevo o modificado, type hints y
   docstrings en español son obligatorios para funciones, clases y helpers
-  publicos. El codigo historico se normaliza cuando se toca o en tareas
-  tecnicas dedicadas.
+  públicos. El código histórico se normaliza cuando se toca o en tareas
+  técnicas dedicadas.
 - Los archivos Python se versionan con saltos de línea LF mediante
   `.gitattributes` (`*.py text eol=lf`, `*.pyi text eol=lf`). Si en Windows
   `black --check` vuelve a colgarse sin errores de formato, revisar/limpiar el
@@ -122,7 +122,7 @@
 - Si el usuario pregunta "cómo está el proyecto", "qué es lo primero que debemos solucionar" o una variante equivalente, ir directo al primer punto pendiente de `docs/agents/alignment-pending.md`.
 - Si el usuario dice "seguir donde quedamos", arrancar por `docs/agents/current-status.md` y `docs/agents/manual-qa.md`.
 - Después de cambios importantes en producto, UX, flujos core o ARCA, actualizar siempre:
-  - `VISION.md` solo si el usuario pidio explicitamente cambiar la vision
+  - `VISION.md` solo si el usuario pidió explícitamente cambiar la visión
   - `ROADMAP.md`
   - `docs/agents/current-status.md`
   - `docs/agents/manual-qa.md`
@@ -135,18 +135,18 @@
 
 ## Git / Colaboración
 - Rama de trabajo por defecto: `main`. No crear ramas nuevas salvo pedido
-  explicito del usuario.
+  explícito del usuario.
 - Antes de empezar un cambio, revisar `git status --short --branch` y, si hace
   falta, comparar con `origin/main`. Si hay commits locales sin publicar o
   cambios listos de una implementacion anterior, avisar y recomendar cerrar ese
   ciclo con commit/push antes de acumular trabajo nuevo.
 - Mantener cada implementacion relevante en su propio commit. Para ajustes
   chicos, bugs relacionados o correcciones de una misma verificacion, se puede
-  agrupar un commit unico si mantiene una unidad logica clara.
-- Despues de implementar y verificar un cambio, recomendar commit y push para
+  agrupar un commit único si mantiene una unidad lógica clara.
+- Después de implementar y verificar un cambio, recomendar commit y push para
   mantener `main` local y GitHub sincronizados.
-- No ejecutar `git push` sin pedido explicito del usuario. Si hay cambios listos
-  para publicar, preparar commit(s) y pedir confirmacion antes de pushear.
+- No ejecutar `git push` sin pedido explícito del usuario. Si hay cambios listos
+  para publicar, preparar commit(s) y pedir confirmación antes de pushear.
 - Preferir PRs para cambios no triviales cuando el usuario lo pida. En el flujo
   habitual sobre `main`, minimizar commits de ruido (formato/lint) y agruparlos
   con el cambio funcional correspondiente.
@@ -216,8 +216,8 @@ npm run type-check
 - No commitear datos privados: CUITs reales, nombres de clientes o emisores,
   credenciales, tokens, CAEs reales, capturas privadas, PDFs, Excel de clientes,
   bases locales, logs ni evidencia de debug.
-- Mantener separado el proyecto publico del entorno privado. Los archivos
-  locales de prueba, QA, produccion, debug o evidencia deben ir a carpetas
+- Mantener separado el proyecto público del entorno privado. Los archivos
+  locales de prueba, QA, producción, debug o evidencia deben ir a carpetas
   ignoradas como `.tmp/`, `private/`, `evidence/`, `output/`, `data/`,
   `backend/data/` o `certs/`.
 - Antes de commitear, revisar `git status --short --untracked-files=all` y el
@@ -263,7 +263,7 @@ npm run type-check
 - No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decisión explícita; preservar el historial existente.
 
 ## Documentación operativa
-- Vision canonica del producto: `VISION.md`
+- Visión canónica del producto: `VISION.md`
 - Índice: `docs/agents/README.md`
 - Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
 - Estado actual: `docs/agents/current-status.md`

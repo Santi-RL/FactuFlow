@@ -1,8 +1,8 @@
 # API REST de FactuFlow
 
-Última actualización: 2026-06-10
+Última actualización: 2026-07-06
 
-Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
+Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
 
 ## URLs
@@ -12,7 +12,7 @@ Esta documentacion resume el contrato real expuesto por `backend/app/main.py` y
 - ReDoc: `http://localhost:8000/api/redoc`
 - Todas las rutas funcionales usan prefijo `/api`. No hay versionado en la URL.
 
-## Autenticacion
+## Autenticación
 
 La API usa JWT Bearer.
 
@@ -191,8 +191,8 @@ DELETE /api/clientes/{cliente_id}
 
 Listado:
 
-- `page`: pagina, default `1`
-- `per_page`: filas por pagina
+- `page`: página, default `1`
+- `per_page`: filas por página
 - `search`: busqueda por razon social o documento
 - `activo`: filtro opcional
 
@@ -211,7 +211,7 @@ DELETE /api/puntos-venta/{punto_venta_id}
 
 `POST /api/puntos-venta/importar-constancia` recibe un PDF de constancia ARCA y
 actualiza sistema, domicilio, nombre fantasia, estado bloqueado y usabilidad
-FactuFlow. Un punto es usable cuando esta activo, es Web Services, no esta
+FactuFlow. Un punto es usable cuando está activo, es Web Services, no está
 bloqueado y no tiene fecha de baja.
 
 ## Certificados
@@ -236,7 +236,7 @@ Flujo real:
 5. `POST /api/certificados/verificar-conexion/{certificado_id}`
 
 `verificar-conexion` prueba WSAA/ARCA con el certificado y no emite
-comprobantes ni consume numeracion fiscal.
+comprobantes ni consume numeración fiscal.
 
 ## ARCA
 
@@ -255,7 +255,7 @@ POST /api/arca/solicitar-cae
 GET /api/arca/consultar-comprobante/{punto_venta}/{tipo_cbte}/{numero}
 ```
 
-Endpoints seguros para verificar produccion sin emitir:
+Endpoints seguros para verificar producción sin emitir:
 
 - `GET /api/arca/status`
 - `GET /api/arca/test-conexion`
@@ -263,7 +263,7 @@ Endpoints seguros para verificar produccion sin emitir:
 - `GET /api/arca/ultimo-comprobante/{punto_venta}/{tipo_cbte}`
 
 `POST /api/arca/solicitar-cae` solicita CAE real en el ambiente configurado y
-solo debe ejecutarse con autorizacion explicita.
+solo debe ejecutarse con autorización explícita.
 
 ## Comprobantes
 
@@ -274,8 +274,8 @@ POST /api/comprobantes/emitir
 GET /api/comprobantes/proximo-numero/{punto_venta_id}/{tipo_comprobante}
 ```
 
-`POST /api/comprobantes/emitir` emite a traves del servicio de facturacion y
-puede consumir numeracion fiscal si `ARCA_ENV=produccion`.
+`POST /api/comprobantes/emitir` emite a través del servicio de facturación y
+puede consumir numeración fiscal si `ARCA_ENV=produccion`.
 
 Este endpoint exige el header `X-Idempotency-Key`. El cliente debe generar una
 clave nueva por confirmación fiscal final y conservarla para retries de la
@@ -283,17 +283,19 @@ misma operación. Misma clave con mismo payload devuelve la respuesta persistida
 o el estado actual sin volver a llamar a ARCA; misma clave con datos distintos
 devuelve `409`; clave ausente devuelve `400`.
 
+Las fechas visibles que se muestran al usuario deben formatearse como `DD/MM/AAAA`. Los contratos técnicos de API pueden seguir usando `YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD` según corresponda, convirtiendo siempre en los bordes.
+
 El body debe incluir `fecha_emision`. FactuFlow no la completa con la fecha del
-dia. Para comprobantes de servicios o productos y servicios tambien deben
+día. Para comprobantes de servicios o productos y servicios también deben
 informarse `fecha_servicio_desde`, `fecha_servicio_hasta` y `fecha_vto_pago`.
-El backend valida preventivamente que `fecha_emision` este dentro de la ventana
+El backend valida preventivamente que `fecha_emision` esté dentro de la ventana
 ARCA aplicable antes de solicitar CAE.
 
-La UI debe mostrar una confirmacion final antes de invocar este endpoint en
-produccion: `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX?
+La UI debe mostrar una confirmación final antes de invocar este endpoint en
+producción: `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX?
 Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese
 mismo punto de venta.` El body debe enviar `confirmacion_fecha_fiscal=true`
-despues de ese modal; si no llega, la API rechaza la emision.
+después de ese modal; si no llega, la API rechaza la emisión.
 
 Si el backend detecta un duplicado lógico probable, responde `409` con
 `categoria_error=duplicado_logico`. El cliente puede volver a enviar el mismo
@@ -301,10 +303,10 @@ payload y la misma `X-Idempotency-Key` con `confirmacion_duplicado_logico=true`
 después de mostrar una advertencia adicional al usuario. Esa confirmación no
 forma parte del hash idempotente.
 
-El body tambien debe definir explicitamente el concepto fiscal ARCA. No se debe
+El body también debe definir explícitamente el concepto fiscal ARCA. No se debe
 asumir productos ni servicios por default. Los valores operativos esperados son
 productos, servicios o, en flujos masivos, definido por archivo. Este dato no es
-la descripcion del item: cada item debe traer su `descripcion` real, por ejemplo
+la descripción del ítem: cada ítem debe traer su `descripcion` real, por ejemplo
 `Honorarios` o `Zapatillas`, como texto facturado independiente del concepto
 fiscal ARCA.
 
@@ -358,7 +360,7 @@ metadatos para emitir.
 disponibles para el constructor visual, agrupados por emisor, comprobante,
 receptor, fechas, ítems, totales y comprobantes asociados.
 
-Ejemplo minimo de configuracion:
+Ejemplo mínimo de configuración:
 
 ```json
 {
@@ -435,8 +437,8 @@ notas de crédito/débito sin comprobante asociado.
 
 `POST /api/formatos-importacion/detectar` recibe `multipart/form-data` con
 `archivo` (`.xlsx`). El backend rechaza archivos que superen
-`BATCH_MAX_UPLOAD_BYTES` o que no puedan abrirse como XLSX valido antes de
-intentar detectar encabezados. Si el archivo es valido, devuelve:
+`BATCH_MAX_UPLOAD_BYTES` o que no puedan abrirse como XLSX válido antes de
+intentar detectar encabezados. Si el archivo es válido, devuelve:
 
 ```json
 {
@@ -473,7 +475,7 @@ intentar detectar encabezados. Si el archivo es valido, devuelve:
 ```
 
 El cliente debe confirmar el formato antes de validar cualquier archivo externo.
-La deteccion automatica es una sugerencia: no crea lotes ni consume numeracion.
+La deteccion automática es una sugerencia: no crea lotes ni consume numeración.
 
 Formato global inicial:
 
@@ -483,11 +485,11 @@ Formato global inicial:
 - Requeridas: `Créditos`/`Creditos` y `Pto Vta`
 - Cada fila genera un comprobante con Factura C (`tipo_comprobante=11`) e IVA
   `0`, y cliente no persistente. El formato no debe definir por defecto ni el
-  concepto fiscal ARCA ni la descripcion facturada del item: el usuario debe
+  concepto fiscal ARCA ni la descripción facturada del ítem: el usuario debe
   elegir productos, servicios o archivo para el dato fiscal, y archivo o valor
-  fijo para el texto del item antes de validar.
-- Este formato global esta pensado para emisores Exento o Monotributo. Si el
-  emisor activo es Responsable Inscripto, la validacion observa el lote para
+  fijo para el texto del ítem antes de validar.
+- Este formato global está pensado para emisores Exento o Monotributo. Si el
+  emisor activo es Responsable Inscripto, la validación observa el lote para
   evitar emitir Factura C incorrectamente.
 
 ## Lotes De Comprobantes
@@ -507,15 +509,15 @@ GET /api/lotes-comprobantes/{lote_id}/archivo-observado
 
 El flujo correcto es validar primero el Excel y procesar solo cuando el usuario
 confirma. Lotes grandes pueden quedar en cola y continuar por worker. La UI usa
-`POST /api/lotes-comprobantes/{lote_id}/procesar?background=true` tambien para
+`POST /api/lotes-comprobantes/{lote_id}/procesar?background=true` también para
 lotes chicos, para mostrar progreso real por polling.
 
 Para pantallas de usuario, preferir `GET /api/lotes-comprobantes/{lote_id}/resumen`
 y `GET /api/lotes-comprobantes/{lote_id}/grupos` en lugar de abrir el detalle
 completo con todas las filas. El endpoint de resumen devuelve los contadores,
 totales listos para emitir, fechas/puntos validados y el token exacto de
-confirmacion fiscal para el lote completo. El endpoint de grupos acepta
-`page`, `per_page` (maximo 200) y `estado` opcional, y devuelve la pagina con
+confirmación fiscal para el lote completo. El endpoint de grupos acepta
+`page`, `per_page` (máximo 200) y `estado` opcional, y devuelve la página con
 `items`, `total`, `total_pages`, `page` y `per_page`.
 
 `GET /api/lotes-comprobantes/{lote_id}` y `/resultados` conservan el contrato
@@ -526,23 +528,23 @@ lotes grandes en la UI porque pueden traer miles de registros.
 
 - `archivo`: Excel `.xlsx`.
   El backend rechaza archivos que superen `BATCH_MAX_UPLOAD_BYTES` o que no
-  puedan abrirse como XLSX valido.
-- `formato_version_id`: opcional. Si no se envia y el archivo coincide con la
+  puedan abrirse como XLSX válido.
+- `formato_version_id`: opcional. Si no se envía y el archivo coincide con la
   plantilla oficial, se usa la plantilla FactuFlow. Para archivos externos,
-  enviar la version confirmada por `POST /api/formatos-importacion/detectar`.
-- `perfil_carga_masiva_id`: opcional. Si se envia, la validacion guarda un
+  enviar la versión confirmada por `POST /api/formatos-importacion/detectar`.
+- `perfil_carga_masiva_id`: opcional. Si se envía, la validación guarda un
   snapshot del perfil de carga masiva aplicado. La UI debe omitirlo si el
-  usuario modifica la configuracion precargada antes de validar. El perfil no
-  reemplaza las politicas fiscales del form; esas politicas deben llegar ya
+  usuario modifica la configuración precargada antes de validar. El perfil no
+  reemplaza las políticas fiscales del form; esas políticas deben llegar ya
   resueltas y visibles para el usuario.
 - `punto_venta_modo`: opcional, default `archivo`. Valores: `archivo` o
   `fijo`. Si es `archivo`, se usa el punto de venta mapeado desde el Excel. Si
-  es `fijo`, la validacion sobrescribe el punto de venta de todas las filas con
+  es `fijo`, la validación sobrescribe el punto de venta de todas las filas con
   `punto_venta_numero`.
 - `punto_venta_numero`: requerido cuando `punto_venta_modo=fijo`. Debe existir
   para el emisor activo y estar activo, Web Services, no bloqueado y sin fecha
-  de baja. Si no esta cargado en `Puntos de venta`, la API rechaza la
-  validacion.
+  de baja. Si no está cargado en `Puntos de venta`, la API rechaza la
+  validación.
 - `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
 - `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
 - `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.
@@ -553,17 +555,17 @@ lotes grandes en la UI porque pueden traer miles de registros.
   externos. Valores esperados: `archivo` o `fija`.
 - `item_descripcion_fija`: requerido cuando `item_descripcion_modo=fija`.
 - Si `item_descripcion_modo=archivo`, el formato/plantilla debe mapear una
-  columna con la descripcion/concepto facturado del item. Este texto es
+  columna con la descripción/concepto facturado del ítem. Este texto es
   independiente de `concepto_modo`: `Productos` o `Servicios` no son una
-  descripcion facturable suficiente.
+  descripción facturable suficiente.
 - `fecha_servicio_desde_modo`, `fecha_servicio_hasta_modo` y
   `fecha_vto_pago_modo`: valores `archivo` o `fija` para comprobantes de
   servicios.
 - `fecha_servicio_desde_fija`, `fecha_servicio_hasta_fija` y
   `fecha_vto_pago_fija`: obligatorias cuando el modo correspondiente es `fija`.
 
-La validacion persiste el lote, encabezados detectados, mapeo usado y version de
-formato. No emite comprobantes. La emision ocurre solo con
+La validación persiste el lote, encabezados detectados, mapeo usado y versión de
+formato. No emite comprobantes. La emisión ocurre solo con
 `POST /api/lotes-comprobantes/{lote_id}/procesar`.
 
 `POST /api/lotes-comprobantes/{lote_id}/procesar` acepta query param opcional:
@@ -574,7 +576,7 @@ formato. No emite comprobantes. La emision ocurre solo con
   actualizar progreso, contadores, `started_at`, `finished_at` y
   `mensaje_resumen`.
 - sin `background=true`: conserva compatibilidad con clientes existentes; lotes
-  chicos se procesan en la misma request y lotes grandes se encolan segun
+  chicos se procesan en la misma request y lotes grandes se encolan según
   `BATCH_SYNC_LIMIT`.
 
 Este endpoint exige `X-Idempotency-Key`. La clave cubre lote, modo background y
@@ -593,38 +595,38 @@ acotar el reintento. Un grupo tomado para reintento que queda incierto debe
 tratarse como reconciliable, no como fallido reintentable.
 
 Durante el procesamiento, el backend actualiza `grupos_emitidos`,
-`grupos_fallidos`, `grupos_validos` y `mensaje_resumen` despues de cada grupo,
-para que la UI pueda mostrar avance real, tiempo transcurrido y estimacion
+`grupos_fallidos`, `grupos_validos` y `mensaje_resumen` después de cada grupo,
+para que la UI pueda mostrar avance real, tiempo transcurrido y estimación
 restante sin usar SSE/WebSocket.
 
-Regla fiscal critica: FactuFlow no asume fecha de emision del dia actual. La
+Regla fiscal crítica: FactuFlow no asume fecha de emisión del día actual. La
 fecha de comprobante debe venir del archivo o de una fecha fija confirmada por
-el usuario. La validacion observa los comprobantes cuya fecha queda fuera de la
+el usuario. La validación observa los comprobantes cuya fecha queda fuera de la
 ventana admitida por ARCA antes de permitir emitir. Si la fecha del archivo
 queda fuera de ventana, el usuario debe elegir una fecha permitida y revalidar.
-Antes de llamar a `procesar`, el cliente debe mostrar la confirmacion final de
-fecha fiscal con el mismo texto usado en emision individual y enviar el header
+Antes de llamar a `procesar`, el cliente debe mostrar la confirmación final de
+fecha fiscal con el mismo texto usado en emisión individual y enviar el header
 `X-Confirmacion-Fecha-Fiscal` con el token exacto derivado de los grupos
 validados:
 
 ```http
-X-Confirmacion-Fecha-Fiscal: fechas=AAAA-MM-DD,...;puntos_venta=N,...
+X-Confirmacion-Fecha-Fiscal: fechas=YYYY-MM-DD,...;puntos_venta=N,...
 ```
 
-La API recalcula ese token desde el lote validado y rechaza la emision si falta
-o no coincide. Esto evita confirmar un lote distinto al que el usuario reviso.
+La API recalcula ese token desde el lote validado y rechaza la emisión si falta
+o no coincide. Esto evita confirmar un lote distinto al que el usuario revisó.
 
-Regla fiscal critica: FactuFlow tampoco asume si el lote corresponde a productos
+Regla fiscal crítica: FactuFlow tampoco asume si el lote corresponde a productos
 o servicios. El usuario debe elegirlo antes de validar, o confirmar que el
-archivo trae esa definicion fila por fila. Si se usa `archivo`, la columna
+archivo trae esa definición fila por fila. Si se usa `archivo`, la columna
 configurada debe existir y todas las filas deben tener `Producto` o `Servicio`;
-si falta o hay valores invalidos, la API debe devolver errores de validacion
+si falta o hay valores inválidos, la API debe devolver errores de validación
 para informar al usuario y no dejar el lote listo para emitir.
 
-Regla de item critica: el concepto fiscal ARCA no es la descripcion/concepto
-facturado del item. El lote tambien debe definir la descripcion del item antes
+Regla de ítem crítica: el concepto fiscal ARCA no es la descripción/concepto
+facturado del ítem. El lote también debe definir la descripción del ítem antes
 de validar o emitir, desde archivo o como valor fijo para todo el lote. No debe
-haber defaults ocultos como descripcion facturada.
+haber defaults ocultos como descripción facturada.
 
 ## Perfiles De Carga Masiva
 
@@ -637,9 +639,9 @@ POST /api/perfiles-carga-masiva/{perfil_id}/predeterminado
 ```
 
 Los perfiles de carga masiva pertenecen al emisor activo resuelto por JWT y
-`X-Empresa-Id`. Permiten guardar una configuracion visible para precargar
+`X-Empresa-Id`. Permiten guardar una configuración visible para precargar
 `Emision masiva`: plantilla/formato opcional, punto de venta, concepto fiscal
-ARCA, descripcion facturada y reglas relativas de fechas.
+ARCA, descripción facturada y reglas relativas de fechas.
 
 El payload usa `configuracion_json` versionado. Valores principales:
 - `formato_importacion_version_id`: opcional; debe ser global o pertenecer al
@@ -648,9 +650,9 @@ El payload usa `configuracion_json` versionado. Valores principales:
   `fijo` para precargar un punto concreto del emisor.
 - `punto_venta.numero`: requerido cuando `punto_venta.modo=fijo`; debe estar
   cargado como punto usable por FactuFlow en `Puntos de venta`.
-- `concepto_modo`: `productos`, `servicios`, `archivo` o vacio para completar
+- `concepto_modo`: `productos`, `servicios`, `archivo` o vacío para completar
   en la carga.
-- `descripcion_item_modo`: `archivo`, `fija` o vacio.
+- `descripcion_item_modo`: `archivo`, `fija` o vacío.
 - `fecha_emision.modo`: `archivo`, `manual`, `ultimo_dia_mes_anterior` o
   `personalizada`.
 - `periodo_servicio.modo`: `archivo`, `manual`, `mes_anterior_completo`,
@@ -658,12 +660,12 @@ El payload usa `configuracion_json` versionado. Valores principales:
 - `fecha_vto_pago.modo`: `archivo`, `manual`, `mismo_dia_emision`,
   `emision_mas_dias` o `personalizada`.
 
-Regla critica: el perfil de carga masiva no valida ni emite. La UI debe resolver
-las reglas relativas solo cuando exista una base explicita del usuario o una
-politica del archivo; no debe convertirlas usando la fecha del navegador al
+Regla crítica: el perfil de carga masiva no valida ni emite. La UI debe resolver
+las reglas relativas solo cuando exista una base explícita del usuario o una
+política del archivo; no debe convertirlas usando la fecha del navegador al
 autoaplicar un perfil en `Emision masiva`. Todos los controles deben quedar
-visibles y editables antes de validar. `fecha_actual` no es un modo valido de
-fecha de emision para perfiles de carga masiva. Si se marca un perfil como
+visibles y editables antes de validar. `fecha_actual` no es un modo válido de
+fecha de emisión para perfiles de carga masiva. Si se marca un perfil como
 predeterminado, la API desmarca cualquier otro predeterminado del mismo emisor.
 
 ## PDF
@@ -674,9 +676,9 @@ GET /api/pdf/comprobante/{comprobante_id}/preview
 ```
 
 El PDF se genera bajo demanda.
-Incluye QR ARCA con payload Base64 segun la especificacion oficial y muestra
-datos fiscales del emisor/receptor, operacion, detalle, totales, CAE y
-vencimiento CAE. En comprobantes nuevos de servicios tambien muestra periodo
+Incluye QR ARCA con payload Base64 según la especificación oficial y muestra
+datos fiscales del emisor/receptor, operación, detalle, totales, CAE y
+vencimiento CAE. En comprobantes nuevos de servicios también muestra período
 facturado y vencimiento de pago.
 
 ## Reportes
@@ -688,27 +690,27 @@ GET /api/reportes/clientes
 ```
 
 Los reportes se calculan para el emisor activo.
-`GET /api/reportes/iva-ventas` calcula notas de credito/debito con signo
-fiscal correspondiente y el detalle discrimina alicuotas 10,5%, 21% y 27%.
+`GET /api/reportes/iva-ventas` calcula notas de crédito/débito con signo
+fiscal correspondiente y el detalle discrimina alícuotas 10,5%, 21% y 27%.
 
 ## Codigos De Error
 
-| Codigo | Descripcion |
+| Código | Descripción |
 | --- | --- |
 | 200 | OK |
 | 201 | Recurso creado |
 | 204 | Sin contenido |
-| 400 | Datos invalidos |
+| 400 | Datos inválidos |
 | 401 | No autenticado |
 | 403 | Sin permisos |
 | 404 | Recurso no encontrado |
-| 422 | Error de validacion |
+| 422 | Error de validación |
 | 500 | Error interno |
 | 503 | Servicio externo no disponible |
 
 ## Notas
 
 - No hay rate limiting implementado en el backend actual.
-- La version visible de la API sale de `APP_VERSION`; el contrato HTTP no esta
+- La versión visible de la API sale de `APP_VERSION`; el contrato HTTP no está
   versionado en la URL.
 - Para el estado operativo actual, usar `docs/agents/current-status.md`.

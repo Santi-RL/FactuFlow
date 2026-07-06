@@ -1,47 +1,47 @@
 # Docs para agentes
 
-## Leer primero en cada sesion
+## Leer primero en cada sesión
 
-- Pendientes temporales de alineacion: `docs/agents/alignment-pending.md`
-- Vision canonica y protegida del producto: `VISION.md`
-- Estado operativo canonico y punto de reanudacion: `docs/agents/current-status.md`
-- QA manual y ultimo checkpoint: `docs/agents/manual-qa.md`
+- Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
+- Visión canónica y protegida del producto: `VISION.md`
+- Estado operativo canónico y punto de reanudación: `docs/agents/current-status.md`
+- QA manual y último checkpoint: `docs/agents/manual-qa.md`
 - Roadmap de prioridades y fases: `ROADMAP.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 
 ## Fuente de verdad operativa
 
-- `VISION.md` es la fuente canonica de la vision del producto. Bloquea cambios
-  que la contradigan, salvo pedido explicito del usuario para modificar la
-  vision primero.
-- `docs/agents/current-status.md` es la fuente canonica para saber donde esta parado el proyecto hoy.
+- `VISION.md` es la fuente canónica de la visión del producto. Bloquea cambios
+  que la contradigan, salvo pedido explícito del usuario para modificar la
+  visión primero.
+- `docs/agents/current-status.md` es la fuente canónica para saber dónde está parado el proyecto hoy.
 - `ROADMAP.md` solo debe resumir prioridades y avance macro alineado con
-  `VISION.md`; no debe redefinir la vision ni repetir evidencia operativa
+  `VISION.md`; no debe redefinir la visión ni repetir evidencia operativa
   detallada.
-- `docs/agents/manual-qa.md` registra recorridos de QA y hallazgos manuales, no reemplaza el estado canonico.
-- `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitacora tecnica.
-- `docs/agents/arca.md` conserva detalles tecnicos ARCA y procedimientos seguros.
+- `docs/agents/manual-qa.md` registra recorridos de QA y hallazgos manuales, no reemplaza el estado canónico.
+- `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitácora técnica.
+- `docs/agents/arca.md` conserva detalles técnicos ARCA y procedimientos seguros.
 - `docs/agents/production-workflow.md` define el flujo público y sanitizado de
   desarrollo local, versionado, despliegue manual al VPS y auditoría productiva.
-- `CHANGELOG.md` resume el avance historico y los cortes de version. No crear
+- `CHANGELOG.md` resume el avance histórico y los cortes de versión. No crear
   snapshots largos si el cambio puede quedar cubierto por changelog, roadmap y
   documentos vivos.
-- `docs/project/**` conserva auditorias y notas historicas puntuales. No es
-  fuente canonica de estado actual salvo que un documento vivo lo cite
-  explicitamente.
+- `docs/project/**` conserva auditorías y notas históricas puntuales. No es
+  fuente canónica de estado actual salvo que un documento vivo lo cite
+  explícitamente.
 
 ## Git y GitHub
 
 - El flujo interno por defecto trabaja sobre `main`; no crear ramas nuevas salvo
-  pedido explicito del usuario.
-- Antes de empezar una implementacion, revisar estado local y remoto con Git.
-  Si hay commits locales sin push o cambios de una implementacion anterior, hay
+  pedido explícito del usuario.
+- Antes de empezar una implementación, revisar estado local y remoto con Git.
+  Si hay commits locales sin push o cambios de una implementación anterior, hay
   que avisar y recomendar publicar/cerrar ese trabajo antes de seguir.
-- Despues de cada implementacion verificada, recomendar commit y push. No hacer
-  `git push` sin aprobacion explicita del usuario.
-- Usar commits chicos y con unidad logica: una implementacion por commit cuando
+- Después de cada implementación verificada, recomendar commit y push. No hacer
+  `git push` sin aprobación explícita del usuario.
+- Usar commits chicos y con unidad lógica: una implementación por commit cuando
   sea posible; bugs chicos relacionados pueden agruparse si forman una misma
-  correccion.
+  corrección.
 - Para GitHub, seguir el enfoque del plugin local: resolver primero repo/rama
   con Git, usar la app de GitHub para PRs/issues/metadatos cuando aplique, y
   usar `git`/`gh` para gaps como estado de rama, commits, push y checks.
@@ -55,7 +55,7 @@
   `Unable to create .git/index.lock: Permission denied`. Los comandos de lectura
   como `git status`, `git diff` y `git log` pueden ejecutarse normalmente salvo
   bloqueo puntual del entorno.
-- Antes de preparar un commit, aplicar la politica de seguridad:
+- Antes de preparar un commit, aplicar la política de seguridad:
   no subir datos privados, CUITs reales, nombres reales de clientes/emisores,
   credenciales, CAEs reales, capturas privadas, Excel/PDF de clientes, bases,
   logs ni evidencia local. Ver `docs/agents/security.md`.
@@ -91,23 +91,23 @@
   o diferido antes de modificar código. Corregir solo hallazgos que reduzcan un
   riesgo real o cubran un contrato roto dentro del alcance.
 
-## Indice rapido por tema
+## Índice rápido por tema
 
-- Vision del producto: `VISION.md`
+- Visión del producto: `VISION.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
-- Pendientes temporales de alineacion: `docs/agents/alignment-pending.md`
-- Estructura del repo y ubicacion de archivos: `docs/agents/structure.md`
-- Integracion ARCA y hallazgos de homologacion: `docs/agents/arca.md`
+- Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
+- Estructura del repo y ubicación de archivos: `docs/agents/structure.md`
+- Integración ARCA y hallazgos de homologación: `docs/agents/arca.md`
 - Checklist de diseño fiscal crítico:
   `docs/agents/fiscal-change-checklist.md`
-- Documentacion oficial ARCA WS curada: `docs/arca-ws/README.md`
-- Notas practicas ARCA: `docs/arca-ws/NOTAS.md`
+- Documentación oficial ARCA WS curada: `docs/arca-ws/README.md`
+- Notas prácticas ARCA: `docs/arca-ws/NOTAS.md`
 - API REST: `docs/api/README.md`
 - Launcher local Windows: `FactuFlow Local.vbs`, `FactuFlow Local.cmd`,
   `scripts/factuflow-local-tray.ps1`,
   `docs/agents/local-launcher-runbook.md`
 - Runbook de diagnóstico operativo: `docs/agents/support-runbook.md`
-- Formatos de importacion para emision masiva: `docs/api/README.md`,
+- Formatos de importación para emisión masiva: `docs/api/README.md`,
   `backend/app/services/README.md`, `frontend/src/services/README.md`
 - Perfiles de carga masiva por emisor: `docs/user-guide/README.md`,
   `docs/api/README.md`, `frontend/src/views/README.md`
@@ -119,12 +119,12 @@
   `docs/agents/production-workflow.md`
 - Manual de usuario: `docs/user-guide/README.md`
 - Seguridad y certificados: `docs/agents/security.md`
-- Observabilidad operativa estandar: `docs/agents/operational-observability.md`
-- Guia de testing: `docs/agents/testing.md`
-- Changelog y linea base actual: `CHANGELOG.md`
+- Observabilidad operativa estándar: `docs/agents/operational-observability.md`
+- Guía de testing: `docs/agents/testing.md`
+- Changelog y línea base actual: `CHANGELOG.md`
 - Puesta a punto y reportes Clawpatch:
   `docs/project/audits/clawpatch/README.md`
-- Bitacora tecnica de la ultima sesion: `docs/project/notes/SESSION_2026-03-09.md`
+- Bitácora técnica de la última sesión: `docs/project/notes/SESSION_2026-03-09.md`
 
 ## Regla de continuidad
 
@@ -136,29 +136,29 @@ Si el usuario dice algo como "quiero seguir donde quedamos", la secuencia correc
 4. Leer `docs/agents/current-status.md`
 5. Leer `docs/agents/manual-qa.md`
 6. Confirmar el siguiente paso en `ROADMAP.md`
-7. Si hay contradicciones entre docs vivas y evidencia local/codigo, separar
+7. Si hay contradicciones entre docs vivas y evidencia local/código, separar
    hechos verificables de decisiones de producto abiertas. Corregir los hechos
    comprobables en documentos vivos y resumir el cambio en `CHANGELOG.md`
    cuando corresponda.
 
-Si el usuario pregunta "como esta el proyecto" o "que es lo primero que debemos
+Si el usuario pregunta "cómo está el proyecto" o "qué es lo primero que debemos
 solucionar", ir directo al primer punto pendiente de
 `docs/agents/alignment-pending.md`.
 
 No rearmar el contexto desde cero si esos archivos ya lo documentan.
 
-Si una contradiccion es verificable por codigo, tests o evidencia local segura,
-corregir la documentacion y marcar el estado como completado/historico. Si la
-contradiccion depende de una decision de producto futura, no resolverla por
-cuenta propia: dejarla expuesta como decision pendiente para el usuario.
+Si una contradicción es verificable por código, tests o evidencia local segura,
+corregir la documentación y marcar el estado como completado/histórico. Si la
+contradicción depende de una decisión de producto futura, no resolverla por
+cuenta propia: dejarla expuesta como decisión pendiente para el usuario.
 
 ## Como resolver dudas y errores
 
-1. Buscar primero en esta documentacion local con `rg`.
+1. Buscar primero en esta documentación local con `rg`.
 2. Si el tema es ARCA, revisar `docs/agents/arca.md` y `docs/arca-ws/NOTAS.md`.
-3. Si el tema es emision masiva o Excel externo, revisar tambien
+3. Si el tema es emisión masiva o Excel externo, revisar también
    `docs/user-guide/README.md`, `docs/api/README.md` y los README de
    `backend/app/services/` y `frontend/src/services/`.
-4. Si falta contexto historico de trabajo, revisar `docs/project/notes/SESSION_2026-03-09.md`.
-5. Si no alcanza con la documentacion local, buscar en internet agregando `ARCA`.
+4. Si falta contexto histórico de trabajo, revisar `docs/project/notes/SESSION_2026-03-09.md`.
+5. Si no alcanza con la documentación local, buscar en internet agregando `ARCA`.
 6. Si con `ARCA` no aparece, repetir usando `AFIP` por compatibilidad legacy.

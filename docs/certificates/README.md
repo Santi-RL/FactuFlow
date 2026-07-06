@@ -23,13 +23,16 @@ Un certificado digital es como un **DNI electrónico** para tu empresa. Te permi
 
 ## Paso 1: Generar CSR (Certificate Signing Request)
 
-### Opción A: Desde FactuFlow (Próximamente)
+### Opción A: Desde FactuFlow
 
-En el Wizard de Certificados de FactuFlow:
-1. Completar datos de tu empresa (CUIT, razón social)
-2. Click en "Generar CSR"
-3. Descargar CSR y clave privada
-4. **IMPORTANTE**: Guardar la clave privada en lugar seguro
+En el wizard de certificados de FactuFlow:
+1. Ir a `Certificados` y elegir `Nuevo certificado`.
+2. Confirmar emisor activo, ambiente, CUIT y nombre del certificado.
+3. Presionar `Generar CSR`.
+4. Descargar el CSR para cargarlo en el portal de ARCA.
+5. Conservar la clave privada generada por FactuFlow. El sistema la guarda en la carpeta configurada de certificados y la necesitará para validar el `.crt` que devuelva ARCA.
+
+Si ya generaste un CSR desde este sistema, el wizard permite continuar sin volver a crearlo y seleccionar la clave privada existente para ese CUIT y ambiente.
 
 ### Opción B: Manualmente con OpenSSL
 
@@ -75,7 +78,7 @@ openssl req -new -newkey rsa:2048 -nodes \
    - O buscar "Certificados Digitales"
 
 3. **Crear Nueva Relación**
-   - Click en "Nueva Relación"
+   - Clic en "Nueva Relación"
    - Seleccionar: "Certificado Digital"
 
 4. **Seleccionar Servicio**
@@ -85,11 +88,11 @@ openssl req -new -newkey rsa:2048 -nodes \
 5. **Cargar CSR**
    - Copiar el contenido del archivo `.csr`
    - Pegarlo en el campo de texto
-   - Click en "Crear"
+   - Clic en "Crear"
 
 6. **Descargar Certificado**
    - Se generará inmediatamente
-   - Click en "Descargar"
+   - Clic en "Descargar"
    - Guardar como `certificado_homologacion.crt`
 
 **Nota**: El portal puede mostrar "AFIP" en algunas referencias, pero el certificado es válido para ARCA.
@@ -113,9 +116,9 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
 
 1. **Ir a "Certificados"** en el menú de FactuFlow
 
-2. **Click en "Nuevo Certificado"**
+2. **Clic en "Nuevo Certificado"**
 
-3. **Completar Wizard:**
+3. **Completar wizard:**
 
    **Paso 1: Seleccionar Ambiente**
    - ○ Homologación (para pruebas)
@@ -135,8 +138,8 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
    **Paso 4: Alias (opcional)**
    - Ej: "Certificado Producción 2024"
 
-   **Paso 5: Test de Conexión**
-   - FactuFlow probará conectarse a ARCA
+   **Paso 5: Prueba de conexión**
+   - FactuFlow probará la conexión con ARCA
    - ✅ Si es exitoso, el certificado está listo
    - ❌ Si hay error, revisar:
      - ¿El certificado corresponde a la clave privada?
@@ -173,7 +176,7 @@ FactuFlow te alertará automáticamente:
 
 3. **Reemplazar en FactuFlow**
    - Ir a "Certificados"
-   - Click en "Renovar" en el certificado actual
+   - Clic en "Renovar" en el certificado actual
    - Subir nuevo certificado y clave
    - FactuFlow mantendrá historial del antiguo
 
@@ -294,7 +297,7 @@ El proceso es idéntico, pero:
 
 Podés tener múltiples certificados en FactuFlow:
 - Uno para homologación, otro para producción
-- Diferentes CUITs (si gestionás múltiples empresas)
+- Diferentes CUITs (si gestiónás múltiples empresas)
 
 FactuFlow seleccionará automáticamente el certificado correcto según:
 - El CUIT de la empresa

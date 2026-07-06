@@ -56,12 +56,12 @@ Líneas de detalle de un comprobante:
 - Subtotal
 
 ### LoteComprobante, LoteComprobanteGrupo y LoteComprobanteFila
-Emision masiva por Excel:
+Emisión masiva por Excel:
 - Archivo, hash, estado y modo de procesamiento
-- Formato de importacion usado, encabezados detectados y mapeo aplicado
+- Formato de importación usado, encabezados detectados y mapeo aplicado
 - Grupos por `comprobante_ref`
-- Filas originales del Excel con mensajes de validacion
-- Contadores de grupos validos, emitidos y fallidos
+- Filas originales del Excel con mensajes de validación
+- Contadores de grupos válidos, emitidos y fallidos
 - Datos para reanudar lotes grandes desde el worker
 
 ### OperacionIdempotente e IntentoEmisionFiscal
@@ -75,25 +75,25 @@ Control fiscal durable para caminos que pueden solicitar CAE:
   estados inciertos
 
 ### FormatoImportacion, FormatoImportacionVersion, FormatoImportacionCampo y FormatoImportacionRegla
-Plantillas/formato reutilizables para interpretar archivos externos de emision
+Plantillas/formato reutilizables para interpretar archivos externos de emisión
 masiva:
 - Alcance `global` o particular de una Empresa
-- Version vigente con `configuracion_json`
+- Versión vigente con `configuracion_json`
 - Configuración visual opcional dentro de `configuracion_json.plantilla` para
   columnas, etiquetas, orden, ejemplos y reglas de generación `.xlsx`
 - Campos destino con origen por encabezado, columna, constante o dato del emisor
 - Alias de encabezados, letras/indices de columna, transformaciones y valores
   default
 - Reglas declarativas como agrupacion por fila
-- Trazabilidad desde `LoteComprobante` hacia el formato y version usados
+- Trazabilidad desde `LoteComprobante` hacia el formato y versión usados
 - Las plantillas internas del sistema se protegen por metadatos de
   configuración; se clonan para editar, no se modifican directamente
 
 ### PerfilCargaMasiva
 Perfiles de carga masiva por emisor:
-- Nombre unico dentro de cada Empresa
-- Configuracion JSON versionada con formato opcional, concepto fiscal ARCA,
-  descripcion facturada y reglas de fechas relativas
+- Nombre único dentro de cada Empresa
+- Configuración JSON versionada con formato opcional, concepto fiscal ARCA,
+  descripción facturada y reglas de fechas relativas
 - Marca de predeterminado para precargar `Emision masiva`
 - Trazabilidad desde `LoteComprobante.metadata_json` cuando un lote se valida
   con un perfil aplicado

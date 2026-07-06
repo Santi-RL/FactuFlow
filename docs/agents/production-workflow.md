@@ -16,7 +16,7 @@ El flujo recomendado es:
 1. Desarrollar y probar en local.
 2. Versionar en Git.
 3. Publicar en GitHub.
-4. Decidir explícitamente si ese cambio se despliega.
+4. Decidir explícitamente si ese cambió se despliega.
 5. Actualizar el VPS a un commit o tag concreto.
 6. Ejecutar QA post-deploy y documentar el resultado.
 

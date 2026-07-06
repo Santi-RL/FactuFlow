@@ -339,7 +339,7 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 ### Integración visual controlada - carga inicial de certificado 2026-06-22
 
 - Alcance revisado: encabezado `Subí tu certificado`, alerta `Usando clave privada`, dropzone de archivos `.crt/.cer/.pem`, estado drag activo, spinner de validación y navegación `Anterior` en `WizardStep4SubirCert`.
-- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia, empresa ficticia y respuestas API simuladas. El endpoint `POST /api/certificados/generar-csr` respondió un CSR ficticio solo para avanzar hasta el paso 4. No se usaron datos reales, no se seleccionó archivo, no se subió certificado, no se llamó a ARCA, no se cargaron certificados y no se tocó backend.
+- Se usó frontend local en `http://127.0.0.1:5173` con sesión ficticia, empresa ficticia y respuestas API simuladas. El endpoint `POST /api/certificados/generar-csr` respondió un CSR ficticio solo para avanzar hasta el paso 4. No se usaron datos reales, no se selecciónó archivo, no se subió certificado, no se llamó a ARCA, no se cargaron certificados y no se tocó backend.
 - Capturas sanitizadas:
   - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-inicial-desktop.png`
   - `private/brand-lab/exports/corte-certificados-wizard-subir-cert-drag-desktop.png`
@@ -793,7 +793,7 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 - Entorno: backend `http://localhost:8000`, frontend `http://localhost:8080`,
   navegador Playwright Chromium headless en viewport de escritorio.
-- Se inició sesión con un usuario administrador local de QA y se seleccionó un
+- Se inició sesión con un usuario administrador local de QA y se selecciónó un
   emisor activo de prueba compatible con comprobantes C.
 - Se abrió `Emisores > Carga masiva > Plantillas` y se confirmó que la pantalla
   lista plantillas del emisor, globales y del sistema.
@@ -1018,36 +1018,36 @@ compatibilidad, notas de crédito/débito y contratos de importación.
 - La grilla inicial carga 100 comprobantes y muestra
   `Mostrando 1 a 100 de 1432 comprobantes`. Al avanzar, muestra
   `Mostrando 101 a 200 de 1432 comprobantes`.
-- La medicion visual quedo acotada: 100 filas renderizadas, `nodeCount`
-  aproximado 2026 y `scrollHeight` aproximado 15371. La version anterior
-  renderizaba todo el ultimo lote, con aproximadamente 24629 nodos y
+- La medición visual quedó acotada: 100 filas renderizadas, `nodeCount`
+  aproximado 2026 y `scrollHeight` aproximado 15371. La versión anterior
+  renderizaba todo el último lote, con aproximadamente 24629 nodos y
   `scrollHeight` 165654.
-- No se presiono `Emitir comprobantes validos` ni se solicitaron CAE durante
+- No se presionó `Emitir comprobantes validos` ni se solicitaron CAE durante
   esta QA.
 
-### PDF profesional y QR ARCA - verificacion tecnica 2026-05-14
+### PDF profesional y QR ARCA - verificacion técnica 2026-05-14
 
-- Se actualizo el PDF de comprobante para presentacion administrativa
+- Se actualizó el PDF de comprobante para presentación administrativa
   profesional, alineando las ubicaciones principales con la factura oficial ARCA
   sin copiar identidad visual ni formato editable oficial.
-- El PDF muestra `ORIGINAL`, caja de letra/codigo, emisor, receptor, periodo,
+- El PDF muestra `ORIGINAL`, caja de letra/código, emisor, receptor, periodo,
   detalle, totales, CAE, vencimiento CAE, leyenda ARCA y QR en una hoja A4.
 - Para consumidor final sin documento, el PDF muestra `Doc.: -` y
-  `Condicion frente al IVA: Consumidor Final`, evitando exponer el `0` tecnico
+  `Condicion frente al IVA: Consumidor Final`, evitando exponer el `0` técnico
   usado por WSFE/QR. Si el receptor tiene una razon social real, se muestra; si
-  solo dice `A CONSUMIDOR FINAL`/`Consumidor Final`, el nombre queda vacio.
+  solo dice `A CONSUMIDOR FINAL`/`Consumidor Final`, el nombre queda vacío.
 - `Emisores` y el setup inicial permiten cargar `Ingresos Brutos`; el PDF lo
-  muestra si esta informado y, para emisores anteriores, indica `No informado`.
+  muestra si está informado y, para emisores anteriores, indica `No informado`.
 - Los comprobantes nuevos guardan fechas de servicio y vencimiento de pago para
   mostrarlas en el PDF cuando corresponda.
-- Se aplico migracion local para reconstruir fechas de servicio/vencimiento de
-  comprobantes historicos emitidos por lote desde el `payload_json` del grupo.
-- El QR se verifico por test decodificando el Base64 de la URL y comparando el
+- Se aplicó migración local para reconstruir fechas de servicio/vencimiento de
+  comprobantes históricos emitidos por lote desde el `payload_json` del grupo.
+- El QR se verificó por test decodificando el Base64 de la URL y comparando el
   payload con los campos requeridos por ARCA.
-- Verificacion visual tecnica local: se renderizo un PDF de muestra a PNG desde
-  la plantilla real y quedo en una pagina con QR, CAE y totales visibles.
-- Verificacion tecnica sobre un comprobante autorizado local: el PDF queda en
-  una pagina y el texto extraido incluye periodo `01/04/2026 - 30/04/2026`,
+- Verificacion visual técnica local: se renderizo un PDF de muestra a PNG desde
+  la plantilla real y quedó en una página con QR, CAE y totales visibles.
+- Verificacion técnica sobre un comprobante autorizado local: el PDF queda en
+  una página y el texto extraido incluye periodo `01/04/2026 - 30/04/2026`,
   vencimiento `30/04/2026`, CAE y razon social del receptor.
 - Pendiente de QA visual final: abrir un PDF real desde la UI y revisar
   legibilidad en preview/descarga con un comprobante autorizado.
@@ -1056,33 +1056,33 @@ compatibilidad, notas de crédito/débito y contratos de importación.
 
 - Se creo un formato particular de Factura B IVA 21% para un emisor privado y
   se vinculo al perfil predeterminado de ese emisor.
-- El formato toma `Imp. Neto Gravado` como neto del item y usa `Imp. Total`
+- El formato toma `Imp. Neto Gravado` como neto del ítem y usa `Imp. Total`
   solo como control de consistencia.
-- El Excel privado revisado trae 1432 filas utiles, todas `Factura B`, fecha de
+- El Excel privado revisado trae 1432 filas útiles, todas `Factura B`, fecha de
   origen `28/02/2026`, receptor sin identificacion y columna `Punto de Venta`
-  vacia. Para la QA se uso el punto fijo `5` del perfil del emisor.
-- Validacion segura en copia de la base local, sin presionar ni ejecutar
-  procesamiento de emision: 1432 grupos validos, 0 observados, 0 emitidos.
-- La prueba negativa con `Imp. Total` usado como neto quedo bloqueada por la
-  validacion de consistencia: 1432 grupos con error y 0 emitidos.
+  vacía. Para la QA se usó el punto fijo `5` del perfil del emisor.
+- Validación segura en copia de la base local, sin presionar ni ejecutar
+  procesamiento de emisión: 1432 grupos válidos, 0 observados, 0 emitidos.
+- La prueba negativa con `Imp. Total` usado como neto quedó bloqueada por la
+  validación de consistencia: 1432 grupos con error y 0 emitidos.
 - El detalle del lote validado ahora muestra `Totales listos para emitir` antes
-  del avance y antes de confirmar emision: neto, IVA 21%, IVA 10,5% y total.
+  del avance y antes de confirmar emisión: neto, IVA 21%, IVA 10,5% y total.
   Verificacion automatizada frontend: el helper suma solo grupos validados y
   reproduce el redondeo por comprobante.
 
 ### Progreso de lotes con timer - verificacion controlada 2026-05-10
 
-- Se implemento seguimiento real de emision para lotes chicos y grandes: la UI
+- Se implemento seguimiento real de emisión para lotes chicos y grandes: la UI
   inicia el procesamiento con `background=true` y consulta el lote por polling.
 - La barra de avance muestra comprobantes procesados sobre emitibles, emitidos,
   fallidos, pendientes, tiempo transcurrido y estimado restante.
-- Mientras el lote esta `En cola` o sin primer comprobante procesado, la barra
+- Mientras el lote está `En cola` o sin primer comprobante procesado, la barra
   usa animacion indeterminada y muestra `Estimando...`.
-- Verificacion sin emision real: los tests backend mockean
+- Verificacion sin emisión real: los tests backend mockean
   `FacturacionService.emitir_comprobante`, por lo que no solicitan CAE ni
-  consumen numeracion fiscal real.
-- Se verifico por test que la API sigue bloqueando procesamiento sin
-  `X-Confirmacion-Fecha-Fiscal` valido.
+  consumen numeración fiscal real.
+- Se verificó por test que la API sigue bloqueando procesamiento sin
+  `X-Confirmacion-Fecha-Fiscal` válido.
 - Actualización técnica 2026-06-12: si un lote ya está `Procesando`, la API no
   lo vuelve a bajar a `En cola` al pedir procesamiento background. Si el worker
   encuentra un lote `Procesando` vencido por
@@ -1092,62 +1092,62 @@ compatibilidad, notas de crédito/débito y contratos de importación.
   `requiere_reconciliacion` y registra `bloqueo_operativo_no_reemitir`. Los
   grupos que seguían `validado` también pasan a `requiere_reconciliacion` para
   que la pantalla no los presente como listos para emitir.
-- Verificacion tecnica 2026-05-16: si ARCA devuelve CAE pero FactuFlow no logra
-  persistir el comprobante, la emision queda marcada como
+- Verificacion técnica 2026-05-16: si ARCA devuelve CAE pero FactuFlow no logra
+  persistir el comprobante, la emisión queda marcada como
   `requiere_reconciliacion` y no como `fallido`. En ese estado no debe
   reintentarse el lote; corresponde consultar ARCA y reconciliar antes de
   continuar.
-- Verificacion tecnica 2026-05-16: Factura C no permite items con IVA distinto
-  de 0. La emision individual fuerza el selector de IVA a 0 para Factura C y la
-  validacion de lotes rechaza archivos tipo C con IVA informado.
-- Verificacion tecnica 2026-05-16: el emisor activo queda aislado por pestaña
+- Verificacion técnica 2026-05-16: Factura C no permite ítems con IVA distinto
+  de 0. La emisión individual fuerza el selector de IVA a 0 para Factura C y la
+  validación de lotes rechaza archivos tipo C con IVA informado.
+- Verificacion técnica 2026-05-16: el emisor activo queda aislado por pestaña
   para que otra pestaña no cambie silenciosamente `X-Empresa-Id`; si header y
   query legacy `empresa_id` no coinciden, la API rechaza el pedido.
-- Verificacion tecnica 2026-05-16: la vista previa de nueva factura muestra el
+- Verificacion técnica 2026-05-16: la vista previa de nueva factura muestra el
   punto de venta elegido y el Excel observado de lotes escapa valores con forma
-  de formula.
-- Verificacion tecnica 2026-05-16: `Puntos de venta` solo habilita
+  de fórmula.
+- Verificacion técnica 2026-05-16: `Puntos de venta` solo habilita
   `Sincronizar con ARCA` si hay certificado activo para el ambiente backend
   actual, no por un certificado activo de otro ambiente.
-- Verificacion tecnica 2026-05-17: lotes rechazan XLSX malformados y uploads
+- Verificacion técnica 2026-05-17: lotes rechazan XLSX malformados y uploads
   mayores que `BATCH_MAX_UPLOAD_BYTES`; el procesamiento exige un header
   `X-Confirmacion-Fecha-Fiscal` con token exacto
-  `fechas=AAAA-MM-DD,...;puntos_venta=N,...` calculado desde los grupos
+  `fechas=YYYY-MM-DD,...;puntos_venta=N,...` calculado desde los grupos
   validados; los mensajes de rechazo muestran fecha y punto concretos.
-- Verificacion tecnica 2026-05-17: perfiles con reglas relativas de fecha ya
+- Verificacion técnica 2026-05-17: perfiles con reglas relativas de fecha ya
   no completan una fecha fiscal por contexto temporal al autoaplicarse en
   `Emision masiva`; el usuario debe elegir fecha exacta o archivo antes de
   validar.
-- Verificacion tecnica 2026-05-17: los totales previos de lotes interpretan
+- Verificacion técnica 2026-05-17: los totales previos de lotes interpretan
   importes argentinos como `1.234,56` y avisan si queda algun valor ambiguo.
 - Pendiente de QA visual opcional: levantar entorno local y confirmar en
   navegador que el modal de fecha fiscal puede cancelarse con `Volver a revisar`
-  y que la barra avanza durante un lote mockeado o de homologacion controlada.
+  y que la barra avanza durante un lote mockeado o de homologación controlada.
 
 ### Perfiles de carga masiva - QA 2026-05-09
 
 Validado visualmente en `http://127.0.0.1:8080` con usuario local privado:
 - En `Emisores > Carga masiva`, se creo un perfil de carga masiva con formato
-  global, concepto `Servicios`, descripcion fija `Ajuste QA` y reglas relativas
+  global, concepto `Servicios`, descripción fija `Ajuste QA` y reglas relativas
   `ultimo_dia_mes_anterior`, `mes_anterior_completo` y `emision_mas_dias`.
-- La UI ya no ofrece `Fecha actual` como regla persistible de fecha de emision
+- La UI ya no ofrece `Fecha actual` como regla persistible de fecha de emisión
   del perfil de carga masiva.
 - Se creo un segundo perfil de carga masiva, se marco como predeterminado, se
-  edito desde modal y se elimino con confirmacion visual.
-- En `Emision masiva`, el perfil de carga masiva predeterminado se aplico
-  automaticamente al cambiar de emisor y al entrar a la pantalla.
-- Formato, concepto fiscal ARCA, descripcion facturada y fechas quedaron
+  edito desde modal y se elimino con confirmación visual.
+- En `Emision masiva`, el perfil de carga masiva predeterminado se aplicó
+  automáticamente al cambiar de emisor y al entrar a la pantalla.
+- Formato, concepto fiscal ARCA, descripción facturada y fechas quedaron
   visibles y editables antes de validar.
-- Al modificar manualmente una fecha calculada, la pantalla mostro que la carga
+- Al modificar manualmente una fecha calculada, la pantalla mostró que la carga
   se validaria sin snapshot de perfil de carga masiva.
-- Se valido un Excel privado local para un emisor monotributo local con
-  puntos de venta QA `6`, `8`, `10`, `12` y `13`: 20 comprobantes validos,
+- Se válido un Excel privado local para un emisor monotributo local con
+  puntos de venta QA `6`, `8`, `10`, `12` y `13`: 20 comprobantes válidos,
   fecha fiscal resuelta `30/04/2026`, periodo `01/04/2026 - 30/04/2026` y
-  descripcion `Ajuste QA`.
+  descripción `Ajuste QA`.
 - Antes de emitir aparecio el modal `Confirmar fecha fiscal` con fecha concreta
   y puntos de venta concretos:
   `Está seguro que quiere emitir comprobantes con fecha 30/04/2026 para los puntos de venta 0006, 0008, 0010, 0012, 0013? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
-  Se cancelo con `Volver a revisar`; no se solicito CAE.
+  Se cancelo con `Volver a revisar`; no se solicitó CAE.
 - El cambio de emisor activo recargo perfiles, lotes y formatos sin mezclar
   CUITs.
 
@@ -1157,28 +1157,28 @@ Actualizacion 2026-05-10:
 - Si el emisor no tiene puntos usables cargados, el modal de perfil indica que
   primero deben completarse en `Puntos de venta`.
 - En `Emision masiva`, el punto de venta aplicado por perfil queda visible y
-  editable antes de validar; si se elige un punto fijo, la validacion usa ese
+  editable antes de validar; si se elige un punto fijo, la validación usa ese
   punto para todos los comprobantes.
-- Verificacion automatizada sin emision: backend cubre perfil con punto
+- Verificacion automatizada sin emisión: backend cubre perfil con punto
   habilitado, rechazo de punto no usable, sobrescritura del punto del archivo al
-  validar lote y bloqueo de punto fijo no cargado. Frontend cubre resolucion de
+  validar lote y bloqueo de punto fijo no cargado. Frontend cubre resolución de
   punto fijo desde perfil.
 
 ### Selector de emisor activo - QA 2026-05-09
 
 - Usuario usado: cuenta QA local privada.
-- Se valido en `http://127.0.0.1:18082` que al cambiar el selector de emisor
+- Se válido en `http://127.0.0.1:18082` que al cambiar el selector de emisor
   activo las secciones vuelven a pedir datos con el `X-Empresa-Id` correcto:
-  Dashboard, Clientes, Comprobantes, Emision masiva, Certificados, Puntos de
+  Dashboard, Clientes, Comprobantes, Emisión masiva, Certificados, Puntos de
   venta, Nueva factura, Reporte de ventas, Subdiario IVA y Ranking de clientes.
-- En Reportes, si ya habia un resultado visible, el cambio de emisor regenera
+- En Reportes, si ya había un resultado visible, el cambio de emisor regenera
   el reporte con el mismo filtro para el nuevo emisor.
-- En Nueva factura, el cambio de emisor recarga puntos de venta/proximo numero
+- En Nueva factura, el cambio de emisor recarga puntos de venta/próximo número
   y limpia el cliente seleccionado para evitar mezclar datos entre CUITs.
-- Verificacion tecnica 2026-05-16: el backend tambien bloquea la emision si el
+- Verificacion técnica 2026-05-16: el backend también bloquea la emisión si el
   request intenta usar un punto de venta o `cliente_id` de otro emisor. La
-  validacion ocurre en el servicio de facturacion antes de solicitar CAE y cubre
-  tanto emision individual como emision por lotes.
+  validación ocurre en el servicio de facturación antes de solicitar CAE y cubre
+  tanto emisión individual como emisión por lotes.
 
 ### 1. Dashboard
 
@@ -1193,18 +1193,18 @@ Actualizacion 2026-05-10:
 
 ### 2. Comprobantes
 
-- El listado mostro correctamente 6 comprobantes autorizados.
-- Se verificaron columnas tipo, numero, fecha, cliente, total, estado y acciones.
+- El listado mostró correctamente 6 comprobantes autorizados.
+- Se verificaron columnas tipo, número, fecha, cliente, total, estado y acciones.
 
 ### 3. Detalle de comprobante
 
 - El detalle carga correctamente.
-- Se verificaron CAE, vencimiento, cliente, items y totales.
+- Se verificaron CAE, vencimiento, cliente, ítems y totales.
 
 ### 4. PDF
 
 - `Ver PDF` abre correctamente.
-- Se visualizo CAE y QR.
+- Se visualizó CAE y QR.
 - `Descargar PDF` descarga correctamente el archivo.
 - Desde 2026-05-14 el PDF tiene nuevo diseño y requiere revalidacion visual en
   navegador antes de tomarlo como evidencia manual vigente.
@@ -1212,8 +1212,8 @@ Actualizacion 2026-05-10:
 ### 5. Nueva factura
 
 - Se completo el flujo real desde UI.
-- Se detecto y corrigio un fallo en `proximo-numero` causado por resolucion incorrecta del path de certificados legacy.
-- Verificacion tecnica 2026-05-17: `Nueva factura` solo ofrece puntos de venta
+- Se detectó y corrigió un fallo en `proximo-numero` causado por resolución incorrecta del path de certificados legacy.
+- Verificacion técnica 2026-05-17: `Nueva factura` solo ofrece puntos de venta
   usables por FactuFlow para emitir. Si se consulta directo
   `proximo-numero` con un punto no Web Services, la API responde 400 de negocio
   y no un 500.
@@ -1222,140 +1222,140 @@ Actualizacion 2026-05-10:
   - `0005-00000004`
   - CAE registrado en evidencia local privada
 
-### 6. Emision masiva
+### 6. Emisión masiva
 
 - `Descargar plantilla` funciona.
-- La validacion del lote funciona.
+- La validación del lote funciona.
 - El flujo mantiene la separacion entre validar y emitir: no se consume
-  numeracion fiscal hasta presionar `Emitir comprobantes validos`.
-- La emision del lote funciona desde UI.
+  numeración fiscal hasta presionar `Emitir comprobantes validos`.
+- La emisión del lote funciona desde UI.
 - `Descargar observado` funciona sobre el lote completado.
-- Se valido desde UI un lote productivo preparatorio privado con consumidor
+- Se válido desde UI un lote productivo preparatorio privado con consumidor
   final sin documento para el emisor real privado. Resultado:
   `Validado`, `Listos para emitir = 1`, receptor `A CONSUMIDOR FINAL`,
-  documento `0`, punto de venta `6`, total estimado `$1.210,00`. No se presiono
+  documento `0`, punto de venta `6`, total estimado `$1.210,00`. No se presionó
   `Emitir comprobantes validos`.
 - Resultado real:
   - `0005-00000005` -> CAE registrado en evidencia local privada
   - `0005-00000006` -> CAE registrado en evidencia local privada
 
 Validado localmente el 2026-05-08:
-- autodeteccion asistida de formato al subir Excel externo
-- preseleccion automatica del formato sugerido cuando la coincidencia es alta;
-  el usuario puede cambiarlo si no esta de acuerdo
-- si al subir un archivo todavia no hay encabezados analizados, la pantalla
+- autodetección asistida de formato al subir Excel externo
+- preseleccion automática del formato sugerido cuando la coincidencia es alta;
+  el usuario puede cambiarlo si no está de acuerdo
+- si al subir un archivo todavía no hay encabezados analizados, la pantalla
   bloquea `Validar lote` y ofrece `Analizar encabezados` como reintento manual
 - formato global `Extracto bancario - creditos IVA exento`
 - mapeo de columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`,
   `Leyendas Adicionales2` y `Pto Vta`
-- validacion de un extracto chico con puntos de venta `6`, `10` y `13`
-- la validacion quedo sin emision: `Ya emitidos = 0`
+- validación de un extracto chico con puntos de venta `6`, `10` y `13`
+- la validación quedó sin emisión: `Ya emitidos = 0`
 - formato particular local `Factura B IVA 21%` para un emisor Responsable
   Inscripto privado
 - la muestra privada local detecta ese formato con
   confianza alta, 7 filas y punto de venta `2`; mapea `Imp. Neto Gravado` como
-  precio neto del item e IVA constante `21`
-- la muestra no trae numero de documento real del receptor: la columna
-  `Nro. Doc. Receptor` contiene nombres y `Denominación Receptor` viene vacia,
+  precio neto del ítem e IVA constante `21`
+- la muestra no trae número de documento real del receptor: la columna
+  `Nro. Doc. Receptor` contiene nombres y `Denominación Receptor` viene vacía,
   por lo que la prueba debe tratar esos comprobantes como consumidor final sin
   documento mientras el importe este bajo el umbral legal
 - la fecha de la muestra es `30/04/2026`; al probarla el usuario debe elegir
-  una politica de fecha permitida por ARCA antes de validar o emitir
-- se agrego validacion anti-mapeo incorrecto: si un formato externo trae
-  `Imp. Total`, el total calculado desde item e IVA debe coincidir con ese total
-  antes de habilitar emision. Un formato de prueba que usa `Imp. Total` como
+  una política de fecha permitida por ARCA antes de validar o emitir
+- se agregó validación anti-mapeo incorrecto: si un formato externo trae
+  `Imp. Total`, el total calculado desde ítem e IVA debe coincidir con ese total
+  antes de habilitar emisión. Un formato de prueba que usa `Imp. Total` como
   neto queda observado con error de diferencia de total.
-- se genero un Excel privado local con 1113 Nota de Credito B para corregir el
-  exceso de Factura B de un emisor Responsable Inscripto privado. Validacion
+- se generó un Excel privado local con 1113 Nota de Crédito B para corregir el
+  exceso de Factura B de un emisor Responsable Inscripto privado. Validación
   contra copia de base local:
-  1113 grupos validos, 0 errores, 0 emitidos, total `$7.288.804,44`.
+  1113 grupos válidos, 0 errores, 0 emitidos, total `$7.288.804,44`.
 - queda documentado para usuario final que, en la plantilla oficial, FactuFlow
   procesa la hoja `Comprobantes`; hojas como `Resumen` o `Control` son solo
   informativas.
 
-Cambio critico posterior el 2026-05-08:
-- la emision individual y masiva ya no debe asumir fecha del dia actual
-- el lote exige definir fecha de emision antes de validar: desde archivo o fecha
+Cambio crítico posterior el 2026-05-08:
+- la emisión individual y masiva ya no debe asumir fecha del día actual
+- el lote exige definir fecha de emisión antes de validar: desde archivo o fecha
   fija
 - el lote no debe asumir productos ni servicios por defecto; antes de validar y
   emitir el usuario debe elegir `Productos`, `Servicios` o `Definido por archivo`
-- si se elige `Definido por archivo`, el Excel debe tener una columna valida con
+- si se elige `Definido por archivo`, el Excel debe tener una columna válida con
   `Producto` o `Servicio` en todas las filas; si falta o hay valores invalidos,
-  se informa al usuario y no se habilita la emision
+  se informa al usuario y no se habilita la emisión
 - el selector anterior define el tipo de concepto fiscal ARCA; no es la
-  descripcion/concepto facturado del item. La descripcion del item debe
+  descripción/concepto facturado del ítem. La descripción del ítem debe
   definirse aparte, por columna del archivo o como texto fijo para todo el lote
   antes de validar, por ejemplo `Honorarios`, `Zapatillas` o `Servicio mensual`
-- para servicios, el lote exige definir tambien fecha desde, fecha hasta y
+- para servicios, el lote exige definir también fecha desde, fecha hasta y
   vencimiento de pago: desde archivo o fechas fijas
-- la validacion observa fechas de emision fuera de ventana ARCA antes de emitir
+- la validación observa fechas de emisión fuera de ventana ARCA antes de emitir
 - si la fecha del archivo queda fuera de ventana ARCA, el usuario debe elegir
   una fecha permitida por el web service antes de emitir
 - se probo un Excel privado local: el archivo trae fecha `06/04/2026` como
   serial numerico de Excel; el sistema la interpreta correctamente, lo clasifica
   como servicios con el formato global vigente y bloquea los 20 comprobantes por
-  estar fuera de ventana ARCA. No se emitio nada.
-- se revalido ese Excel privado despues de separar descripcion facturada:
-  si se elige descripcion desde archivo, el backend rechaza porque el Excel no
-  trae columna de descripcion; con descripcion fija de prueba `Honorarios`, el
-  lote `id=8` queda `con_errores`, 0 validos, 20 observados por fecha fuera de
+  estar fuera de ventana ARCA. No se emitió nada.
+- se revalido ese Excel privado después de separar descripción facturada:
+  si se elige descripción desde archivo, el backend rechaza porque el Excel no
+  trae columna de descripción; con descripción fija de prueba `Honorarios`, el
+  lote `id=8` queda `con_errores`, 0 válidos, 20 observados por fecha fuera de
   ventana ARCA y 0 emitidos.
-- se reviso el archivo observado privado: el fallo de emision no era por
+- se reviso el archivo observado privado: el fallo de emisión no era por
   puntos de venta inexistentes en el Excel, sino por una normalizacion incorrecta
-  de `Bloqueado=N` devuelto por ARCA. Se corrigio la validacion para que puntos
+  de `Bloqueado=N` devuelto por ARCA. Se corrigió la validación para que puntos
   como `6`, `10` y `13` no se rechacen cuando ARCA los informa no bloqueados.
 - se reviso el segundo fallo productivo observado: ARCA rechazo Factura C con
-  codigo `10071` porque el request informaba el objeto `Iva` con alicuota 0.
-  Se corrigio para no enviar `Iva` en tipos `11`, `12` y `13`, y para bloquear
-  localmente Factura C con items de IVA distinto de 0.
-- se corrigio el reintento de lotes: si el archivo ya fue cargado pero el lote
-  termino `fallido` o `con_errores` sin ningun comprobante emitido, ahora puede
+  código `10071` porque el request informaba el objeto `Iva` con alícuota 0.
+  Se corrigió para no enviar `Iva` en tipos `11`, `12` y `13`, y para bloquear
+  localmente Factura C con ítems de IVA distinto de 0.
+- se corrigió el reintento de lotes: si el archivo ya fue cargado pero el lote
+  termino `fallido` o `con_errores` sin ningún comprobante emitido, ahora puede
   volver a validarse el mismo archivo. El historial se conserva; solo se libera
   la clave de idempotencia del intento anterior.
-- la primera prueba productiva real autorizo comprobantes con CAE. Se detecto
-  procesamiento concurrente por procesos backend viejos y se corrigio la toma
+- la primera prueba productiva real autorizo comprobantes con CAE. Se detectó
+  procesamiento concurrente por procesos backend viejos y se corrigió la toma
   atómica del lote para impedir que una segunda ejecución procese el mismo lote.
 - se preparo un Excel privado local para anular los 19 comprobantes duplicados
-  mediante Nota de Credito C. El archivo se valido contra una copia de la base
+  mediante Nota de Crédito C. El archivo se válido contra una copia de la base
   local, sin emitir y sin registrar el lote en la base operativa: 19 grupos
-  validos, 0 observados, 0 emitidos. Cada grupo incluye el comprobante asociado
+  válidos, 0 observados, 0 emitidos. Cada grupo incluye el comprobante asociado
   que debe enviarse a ARCA como `CbtesAsoc`.
-- el usuario proceso ese Excel privado en produccion. Verificacion posterior
-  sin operaciones de emision: lote `12` completado, 19 grupos autorizados,
+- el usuario procesó ese Excel privado en producción. Verificacion posterior
+  sin operaciones de emisión: lote `12` completado, 19 grupos autorizados,
   0 fallidos, 0 con error. `FECompConsultar` contra ARCA confirmo las 19 Nota de
-  Credito C con `Resultado=A`, CAE coincidente y `CbtesAsoc` contra las facturas
+  Crédito C con `Resultado=A`, CAE coincidente y `CbtesAsoc` contra las facturas
   duplicadas esperadas.
-- incidente critico detectado despues: las 19 Nota de Credito C quedaron
+- incidente crítico detectado después: las 19 Nota de Crédito C quedaron
   emitidas con fecha fiscal `08/05/2026`. Desde ahora la QA manual de cualquier
-  emision debe verificar que aparece el modal `Confirmar fecha fiscal` con el
+  emisión debe verificar que aparece el modal `Confirmar fecha fiscal` con el
   texto `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde
   que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto
   de venta.` antes de solicitar CAE.
-- verificacion tecnica asociada: la API tambien bloquea emision directa si falta
-  la confirmacion fiscal explicita (`confirmacion_fecha_fiscal=true` en emision
+- verificacion técnica asociada: la API también bloquea emisión directa si falta
+  la confirmación fiscal explícita (`confirmacion_fecha_fiscal=true` en emisión
   individual o `X-Confirmacion-Fecha-Fiscal` con fechas y puntos concretos en
   procesamiento de lotes).
 - QA visual local: al subir el Excel privado, la pantalla muestra el
   selector `Tipo de concepto fiscal ARCA obligatorio`, el selector
-  `Descripcion facturada obligatoria`, las opciones de descripcion desde archivo
+  `Descripcion facturada obligatoria`, las opciones de descripción desde archivo
   o fija, y la columna `Descripcion facturada` antes de emitir.
 
-Reglas vigentes para cualquier nueva emision productiva:
-- definir con el usuario/contador la fecha de emision permitida por ARCA
-- antes de emitir facturas, notas de credito o notas de debito de emisores
-  privados, confirmar explicitamente la fecha fiscal fija o la politica de
+Reglas vigentes para cualquier nueva emisión productiva:
+- definir con el usuario/contador la fecha de emisión permitida por ARCA
+- antes de emitir facturas, notas de crédito o notas de débito de emisores
+  privados, confirmar explícitamente la fecha fiscal fija o la política de
   fecha tomada del archivo
-- definir con el usuario/contador la descripcion facturada real si no viene del
+- definir con el usuario/contador la descripción facturada real si no viene del
   archivo
 - revisar totales, puntos de venta y formato confirmado
-- emitir solo con confirmacion explicita e irreversible
+- emitir solo con confirmación explícita e irreversible
 
 ### 7. Clientes
 
 - El listado carga correctamente.
-- Desde 2026-05-09, el listado respeta el emisor activo tambien para usuarios
+- Desde 2026-05-09, el listado respeta el emisor activo también para usuarios
   admin y recarga al cambiar el selector.
-- En el flujo legacy de homologacion se verifico que los clientes creados automaticamente por emision masiva quedaron visibles:
+- En el flujo legacy de homologación se verificó que los clientes creados automáticamente por emisión masiva quedaron visibles:
   - `Consumidor Final Lote Uno`
   - `Consumidor Final Lote Dos`
 - Desde 2026-05-05, los lotes masivos no crean clientes persistentes por defecto
@@ -1368,47 +1368,47 @@ Reglas vigentes para cualquier nueva emision productiva:
 - `IVA ventas` carga y refleja bases e IVA de abril.
 - `Ranking de clientes` carga y ordena correctamente los clientes facturados.
 - Desde 2026-05-09, los tres reportes usan el emisor activo y se regeneran al
-  cambiarlo si habia un resultado visible.
-- Verificacion tecnica 2026-05-17: los reportes descartan respuestas viejas si
+  cambiarlo si había un resultado visible.
+- Verificacion técnica 2026-05-17: los reportes descartan respuestas viejas si
   el usuario cambia de emisor activo mientras hay pedidos en curso.
-- Verificacion tecnica 2026-05-17: el detalle del subdiario IVA incluye
+- Verificacion técnica 2026-05-17: el detalle del subdiario IVA incluye
   columnas para gravado e IVA 27%.
 
 ### 9. Certificados
 
 - La vista carga correctamente.
-- Se visualizo certificado homologacion valido, ambiente y vencimiento.
-- Se agrego accion `Probar conexion` en cada certificado para validar WSAA/ARCA
+- Se visualizó certificado homologación válido, ambiente y vencimiento.
+- Se agregó acción `Probar conexion` en cada certificado para validar WSAA/ARCA
   antes de emitir, reutilizando el endpoint scopiado por emisor activo.
-- Se agrego al wizard el paso previo de autorizar `wsfe` en ARCA antes de
+- Se agregó al wizard el paso previo de autorizar `wsfe` en ARCA antes de
   ejecutar `Probar conexion`.
-- Verificacion tecnica 2026-05-16: la carga de certificados solo acepta claves
+- Verificacion técnica 2026-05-16: la carga de certificados solo acepta claves
   privadas generadas por FactuFlow para el CUIT y ambiente del emisor activo, y
   ubicadas dentro de `CERTS_PATH`. Una renovacion deja activo solo el
   certificado nuevo del mismo emisor/ambiente. No se hicieron llamadas ARCA
-  reales en esta verificacion.
-- Verificacion tecnica 2026-05-17: el enlace al portal ARCA del wizard abre con
+  reales en esta verificación.
+- Verificacion técnica 2026-05-17: el enlace al portal ARCA del wizard abre con
   `target="_blank"` y `rel="noopener noreferrer"`; la lista de certificados
   descarta respuestas viejas si cambia el emisor activo durante la carga.
 
 ### 10. Puntos de venta
 
 - La vista carga correctamente.
-- Se verifico el punto de venta `0005` activo.
-- Durante la QA se detecto y corrigio un fallo real en `Sincronizar con ARCA`.
-- Estado final: sincronizacion ejecutada con respuesta OK desde UI.
-- Verificacion puntual 2026-05-10: para un emisor privado, ARCA produccion
+- Se verificó el punto de venta `0005` activo.
+- Durante la QA se detectó y corrigió un fallo real en `Sincronizar con ARCA`.
+- Estado final: sincronización ejecutada con respuesta OK desde UI.
+- Verificacion puntual 2026-05-10: para un emisor privado, ARCA producción
   devolvio puntos con `Bloqueado=N` y sin fecha de baja. La UI los mostraba como
-  `Otro sistema` porque habian sido sincronizados solo con numero. Se corrigio
+  `Otro sistema` porque habían sido sincronizados solo con número. Se corrigió
   `Sincronizar con ARCA` para crear o actualizar puntos WSFE como Web Services
   usables.
 - En preparacion productiva se sincronizaron para el emisor real los puntos
   habilitados `6`, `8`, `10`, `12`, `13` y `14`; ARCA devolvio `7` y `9`
   bloqueados.
-- Se importo la constancia PDF de puntos de venta del CUIT real y se valido que
+- Se importo la constancia PDF de puntos de venta del CUIT real y se válido que
   quedan visibles sistema, domicilio, nombre fantasia, usabilidad FactuFlow y
   estado bloqueado/no bloqueado.
-- Verificacion tecnica 2026-05-17: `Puntos de venta` y el store descartan
+- Verificacion técnica 2026-05-17: `Puntos de venta` y el store descartan
   respuestas viejas al cambiar el emisor activo; la habilitacion de
   `Sincronizar con ARCA` sigue dependiendo del certificado activo del ambiente
   backend actual.
@@ -1423,38 +1423,38 @@ Reglas vigentes para cualquier nueva emision productiva:
 
 - Detalle de comprobante: faltaba `result.unique()`.
 - Preview de PDF: el frontend llamaba mal la ruta.
-- Proximo numero para nueva factura: path legacy de certificado mal resuelto.
-- Sincronizacion de puntos de venta ARCA: helper usaba el CUIT incorrecto.
+- Próximo número para nueva factura: path legacy de certificado mal resuelto.
+- Sincronización de puntos de venta ARCA: helper usaba el CUIT incorrecto.
 - Dashboard: KPIs hardcodeados.
 - Mi Empresa: placeholder sin funcionalidad.
 
 ## Resultado
 
-- QA manual funcional cerrada para el alcance actual del MVP en homologacion.
-- Produccion real ya fue operada y verificada con evidencia privada local; este
+- QA manual funcional cerrada para el alcance actual del MVP en homologación.
+- Producción real ya fue operada y verificada con evidencia privada local; este
   documento conserva los hitos y reglas de QA sin copiar datos privados.
-- El flujo de emision masiva ahora inicia desde la UI lotes chicos y grandes en
+- El flujo de emisión masiva ahora inicia desde la UI lotes chicos y grandes en
   segundo plano para poder mostrar avance real.
 - La pantalla muestra estado `En cola` / `Procesando`, barra de progreso,
   emitidos, fallidos, pendientes, tiempo transcurrido y estimado restante.
-- La pantalla de emision masiva permite revisar el formato detectado, confirmar
-  el formato de importacion y validar antes de emitir.
+- La pantalla de emisión masiva permite revisar el formato detectado, confirmar
+  el formato de importación y validar antes de emitir.
 - La pantalla `Emisores` permite agregar un nuevo emisor desde un modal y
   seleccionarlo como activo al crearlo.
-- En el modal `Agregar emisor`, la accion `Subir constancia` procesa un PDF de
+- En el modal `Agregar emisor`, la acción `Subir constancia` procesa un PDF de
   constancia ARCA y precompleta los datos detectados sin guardar automaticamente.
-- Se valido el parser con una constancia de opcion de Monotributo: detecta CUIT,
-  razon social, condicion Monotributo, domicilio, localidad, provincia, codigo
+- Se válido el parser con una constancia de opcion de Monotributo: detecta CUIT,
+  razon social, condicion Monotributo, domicilio, localidad, provincia, código
   postal e inicio de actividades.
 - Se validó el parser con una constancia de inscripción de persona física:
   corrige cortes de texto del PDF en nombre, domicilio y localidad, detecta
-  codigo postal/provincia y no completa provincia con lineas tecnicas.
-- En `Emisores`, provincia se selecciona desde un catalogo cerrado de provincias
-  argentinas tanto en alta como en edicion.
+  código postal/provincia y no completa provincia con líneas técnicas.
+- En `Emisores`, provincia se selecciona desde un catálogo cerrado de provincias
+  argentinas tanto en alta como en edición.
 - Puntos de venta respeta el emisor activo: al seleccionar un emisor nuevo sin
   puntos cargados, no muestra puntos de otros emisores.
 - Verificacion Clawpatch 2026-05-17: backend, frontend y repo quedaron con
-  `openFindings=0`; la ultima revision repo no encontro features pendientes ni
+  `openFindings=0`; la última revision repo no encontro features pendientes ni
   hallazgos nuevos.
 - Verificación Clawpatch 2026-07-05: backend, frontend y repo completo vuelven
   a quedar con `openFindings=0`. El ciclo fue técnico y sanitizado: no solicitó
@@ -1480,21 +1480,21 @@ Reglas vigentes para cualquier nueva emision productiva:
 
 ## Punto de reanudacion
 
-El estado operativo canonico esta en `docs/agents/current-status.md`.
+El estado operativo canónico está en `docs/agents/current-status.md`.
 
 Desde la QA manual, no queda pendiente volver a configurar desde cero
-certificado productivo, autorizacion `wsfe` ni puntos de venta productivos para
+certificado productivo, autorización `wsfe` ni puntos de venta productivos para
 el emisor real: esos puntos fueron verificados en la preparacion productiva y
-la produccion real ya fue utilizada.
+la producción real ya fue utilizada.
 
 Retomar en consolidacion post-piloto:
 
 1. Usar `docs/agents/current-status.md` como estado operativo canonico.
-2. Mantener documentacion viva alineada con evidencia local segura, sin copiar
+2. Mantener documentación viva alineada con evidencia local segura, sin copiar
    CUITs, CAEs, Excels, PDFs ni logs privados.
-3. Para nuevos lotes productivos, repetir siempre la validacion fiscal completa:
-   formato, concepto fiscal ARCA, descripcion facturada, fechas fiscales,
-   totales, puntos de venta y confirmacion irreversible.
+3. Para nuevos lotes productivos, repetir siempre la validación fiscal completa:
+   formato, concepto fiscal ARCA, descripción facturada, fechas fiscales,
+   totales, puntos de venta y confirmación irreversible.
 4. La instalación VPS privada ya quedó publicada por HTTPS, fue usada con login
    real y tiene auditoría post-emisión sanitizada sin desfases fiscales
    bloqueantes.

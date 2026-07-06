@@ -23,19 +23,19 @@ El Wizard de Certificados ARCA es una funcionalidad completa que guía al usuari
    - Genera clave privada y CSR
    - Guarda la clave de forma segura en el servidor
    - Devuelve CSR para subir al portal de ARCA
-   - Valida formato de CUIT (11 dígitos)
+   - Válida formato de CUIT (11 dígitos)
 
 2. **POST `/api/certificados/subir-certificado`**
    - Upload multipart/form-data
-   - Valida formato del certificado (.crt, .cer, .pem)
+   - Válida formato del certificado (.crt, .cer, .pem)
    - Verifica coincidencia con clave privada
-   - Valida que el CUIT coincida
+   - Válida que el CUIT coincida
    - Verifica que no esté vencido
    - Crea registro en BD con metadata
 
 3. **POST `/api/certificados/verificar-conexion/{id}`**
    - Prueba conexión con WSAA de ARCA
-   - Valida que el certificado funcione
+   - Válida que el certificado funcione
    - Devuelve estado de servidores ARCA
 
 4. **GET `/api/certificados/alertas-vencimiento`**
@@ -165,7 +165,7 @@ El Wizard de Certificados ARCA es una funcionalidad completa que guía al usuari
    - `/certificados/:id/exito` - Página de éxito
 
 2. **Sidebar (`Sidebar.vue`)**
-   - Item "Certificados" con icono de llave (KeyIcon)
+   - Ítem "Certificados" con icono de llave (KeyIcon)
    - Badge rojo con número de certificados por vencer
    - Recarga automática cada 5 minutos
 
@@ -281,8 +281,9 @@ frontend/
 5. **Paso 2**: Completa formulario y genera CSR
 6. **Paso 3**: Sigue instrucciones para portal ARCA
 7. **Paso 4**: Sube certificado descargado de ARCA
-8. **Paso 5**: Verifica conexión con ARCA
-9. **Éxito**: Ve página de felicitaciones
+8. **Paso 5**: Autoriza el servicio `WSFE` en ARCA para ese certificado
+9. **Paso 6**: Verifica conexión con ARCA
+10. **Éxito**: Ve página de cierre
 
 ### Alertas de Vencimiento
 
@@ -373,9 +374,9 @@ ARCA_ENV=homologacion                # Ambiente ARCA
 
 - [ ] Screenshots de la UI
 - [ ] Video demo del wizard completo
-- [ ] Tests E2E con Playwright/Cypress
-- [ ] Documentación de usuario final
-- [ ] Guía detallada del portal ARCA con capturas
+- [ ] Ampliar E2E con Playwright cuando el flujo de certificados necesite cobertura navegada completa
+- [x] Documentación de usuario final en `docs/user-guide/README.md` y `docs/certificates/README.md`
+- [ ] Guía detallada del portal ARCA con capturas sanitizadas, sin CUIT ni datos privados
 - [ ] Soporte para renovación automática
 - [ ] Notificaciones por email de vencimiento
 
@@ -383,4 +384,4 @@ ARCA_ENV=homologacion                # Ambiente ARCA
 
 - [ARCA - Web Services](https://www.afip.gob.ar/ws/)
 - [WSAA Especificaciones](https://www.afip.gob.ar/ws/WSAA/Especificacion_Tecnica_WSAA_1.2.0.pdf)
-- [Certificados ARCA](https://www.afip.gob.ar/ws/documentacion/certificados.asp)
+- [Certificados ARCA](https://www.afip.gob.ar/ws/documentación/certificados.asp)

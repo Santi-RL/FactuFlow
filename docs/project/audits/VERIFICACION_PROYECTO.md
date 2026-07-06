@@ -1,4 +1,5 @@
 # 🔍 Verificación Total del Proyecto FactuFlow
+> Nota 2026-07-06: documento histórico. Refleja una verificación de una etapa anterior (`0.1.0`) y conserva valor como antecedente, pero no describe el estado vigente del producto. Para estado actual, usar `README.md`, `CHANGELOG.md`, `ROADMAP.md`, `docs/agents/current-status.md` y `docs/user-guide/README.md`.
 
 **Fecha**: 4 de Febrero de 2026  
 **Versión Analizada**: 0.1.0  

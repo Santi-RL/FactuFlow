@@ -1,16 +1,16 @@
-# Documentacion ARCA WS dentro del proyecto
+# Documentación ARCA WS dentro del proyecto
 
-Ultima actualizacion: 2026-03-09
+Última actualizacion: 2026-03-09
 
-Esta carpeta guarda la documentacion local necesaria para trabajar con ARCA sin depender siempre de internet. La fuente oficial sigue siendo `https://www.arca.gob.ar/ws/`.
+Esta carpeta guarda la documentación local necesaria para trabajar con ARCA sin depender siempre de internet. La fuente oficial sigue siendo `https://www.arca.gob.ar/ws/`.
 
 ## Como usar esta carpeta
 
 Empezar por aca:
 - `docs/arca-ws/NOTAS.md` para hallazgos practicos
-- `docs/agents/arca.md` para el estado de integracion del proyecto
+- `docs/agents/arca.md` para el estado de integración del proyecto
 
-Ir despues a los documentos originales segun el tema.
+Ir después a los documentos originales segun el tema.
 
 ## Documentos prioritarios
 
@@ -29,7 +29,7 @@ Ir despues a los documentos originales segun el tema.
 - `docs/arca-ws/wsass/introduccion-servicios.md`
 - `docs/arca-ws/certificados/`
 
-### Facturacion y servicios relacionados
+### Facturación y servicios relacionados
 
 - `docs/arca-ws/wsfe/manual-desarrollador-ARCA-COMPG-v4-1.pdf`
 - `docs/arca-ws/wsfe/Web-Service-MTXCA-v25.pdf`
@@ -37,12 +37,12 @@ Ir despues a los documentos originales segun el tema.
 - `docs/arca-ws/wsfe/WSFEX-Manualparaeldesarrollador_V3.1.1_ARCA.pdf`
 - `docs/arca-ws/wsfe/WSSEG-ManualParaElDesarrollador_ARCA.pdf`
 
-## Hallazgos de esta sesion que conviene recordar
+## Hallazgos de esta sesión que conviene recordar
 
-- Para homologacion se uso WSASS para emitir el certificado y autorizar `wsfe`.
-- La validacion confiable de comprobantes homologacion es `FECompConsultar`.
-- En homologacion, `FEParamGetPtosVenta` puede responder `602 - Sin Resultados`.
-- `CondicionIVAReceptorId` fue obligatoria para emitir en homologacion.
+- Para homologación se usó WSASS para emitir el certificado y autorizar `wsfe`.
+- La validación confiable de comprobantes homologación es `FECompConsultar`.
+- En homologación, `FEParamGetPtosVenta` puede responder `602 - Sin Resultados`.
+- `CondicionIVAReceptorId` fue obligatoria para emitir en homologación.
 
 Estos puntos estan desarrollados en:
 - `docs/arca-ws/NOTAS.md`
@@ -57,4 +57,4 @@ Estos puntos estan desarrollados en:
 
 Cuando se descubra un comportamiento nuevo de ARCA:
 - resumirlo primero en `docs/arca-ws/NOTAS.md`
-- si impacta al producto, reflejarlo tambien en `docs/agents/arca.md`
+- si impacta al producto, reflejarlo también en `docs/agents/arca.md`

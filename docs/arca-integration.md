@@ -1,6 +1,6 @@
 # Integración con ARCA - Documentación
 
-> Nota 2026-05-22: este documento es un resumen tecnico historico de la
+> Nota 2026-05-22: este documento es un resumen técnico histórico de la
 > implementacion inicial. Para el contrato actual usar `docs/api/README.md`; para
 > estado operativo y reglas fiscales vigentes usar `docs/agents/arca.md`,
 > `docs/arca-ws/NOTAS.md` y `docs/agents/current-status.md`.
@@ -29,7 +29,7 @@ Se implementó la integración completa con los webservices de ARCA (Agencia de 
 #### `utils.py`
 - Funciones de utilidad:
   - `format_cuit()`: Formatea CUIT al formato XX-XXXXXXXX-X
-  - `validate_cuit()`: Valida CUIT con dígito verificador
+  - `validate_cuit()`: Válida CUIT con dígito verificador
   - `clean_cuit()`: Limpia CUIT removiendo caracteres no numéricos
   - `format_date_arca()`: Formatea fechas a YYYYMMDD
   - `parse_date_arca()`: Parsea fechas desde YYYYMMDD
@@ -41,7 +41,7 @@ Se implementó la integración completa con los webservices de ARCA (Agencia de 
   - `ComprobanteRequest`: Datos para solicitar CAE
   - `CAEResponse`: Respuesta con CAE autorizado
   - `TipoComprobante`, `TipoDocumento`, `TipoIva`, etc.: Parámetros de ARCA
-  - `IvaItem`, `TributoItem`: Items de comprobantes
+  - `IvaItem`, `TributoItem`: Ítems de comprobantes
 
 #### `crypto.py`
 - Funciones de criptografía para certificados X.509:
@@ -146,7 +146,7 @@ Dependencias ya existentes:
 
 ### Variables de Entorno
 
-La nomenclatura publica actual usa `ARCA_*`. Se mantienen aliases `AFIP_*` por
+La nomenclatura pública actual usa `ARCA_*`. Se mantienen aliases `AFIP_*` por
 compatibilidad legacy.
 
 Las siguientes variables legacy pueden aparecer en instalaciones antiguas:
@@ -236,7 +236,7 @@ El sistema maneja automáticamente la autenticación:
 - WSAA: `https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl`
 - WSFEv1: `https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL`
 - CUIT de prueba: usar el valor provisto por ARCA para el entorno de
-  homologacion, sin versionar CUITs reales ni datos de clientes.
+  homologación, sin versionar CUITs reales ni datos de clientes.
 
 ### Producción
 - WSAA: `https://wsaa.afip.gov.ar/ws/services/LoginCms?wsdl`
@@ -279,19 +279,19 @@ Los logs incluyen:
 
 ## Estado posterior
 
-Varios puntos que en la implementacion inicial figuraban como proximos pasos ya
+Varios puntos que en la implementacion inicial figuraban como próximos pasos ya
 fueron completados:
 
 1. Wizard de certificados en frontend.
 2. Persistencia de CAE en `Comprobante`.
-3. Validacion de punto de venta, emisor activo y cliente opcional antes de
+3. Validación de punto de venta, emisor activo y cliente opcional antes de
    solicitar CAE.
 4. Manejo de fallos post-CAE como `requiere_reconciliacion`, sin reintentos
-   automaticos cuando existe incertidumbre fiscal.
+   automáticos cuando existe incertidumbre fiscal.
 
 Pendientes actuales relacionados:
 - mejorar observabilidad y trazabilidad de operaciones productivas
-- formalizar backup/restauracion
+- formalizar backup/restauración
 - evaluar soporte para otros webservices solo si entra en el alcance de producto
 
 ## Documentación Adicional

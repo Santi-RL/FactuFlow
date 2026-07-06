@@ -27,7 +27,7 @@ services/
 ## Convenciones
 
 - Endpoints del backend usan prefijo `/api/...` (ver `backend/app/main.py`).
-- Evitar duplicar logica de negocio: el frontend arma requests, el backend valida.
+- Evitar duplicar lógica de negocio: el frontend arma requests, el backend valida.
 - Los tipos de lotes viven en `frontend/src/types/lote-comprobante.ts`.
 - Los tipos de almacenamiento viven en `frontend/src/types/almacenamiento.ts`.
 - Los tipos de formatos viven en `frontend/src/types/formato-importacion.ts`.

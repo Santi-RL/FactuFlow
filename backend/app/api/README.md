@@ -12,24 +12,24 @@ Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 - `clientes.py`: CRUD de clientes.
 - `puntos_venta.py`: CRUD de puntos de venta.
 - `certificados.py`: gestión de certificados (CSR, upload, verificación, alertas).
-- `arca.py`: integracion ARCA (WSAA/WSFEv1 via `app/arca/`).
-- `comprobantes.py`: emision y consulta de comprobantes.
-- `lotes_comprobantes.py`: plantilla, validacion, procesamiento y resultados de lotes Excel.
+- `arca.py`: integración ARCA (WSAA/WSFEv1 via `app/arca/`).
+- `comprobantes.py`: emisión y consulta de comprobantes.
+- `lotes_comprobantes.py`: plantilla, validación, procesamiento y resultados de lotes Excel.
 - `almacenamiento.py`: gestor administrativo de almacenamiento, resguardos ZIP
   y limpieza segura de artefactos no vitales.
 - `formatos_importacion.py`: administración de plantillas/formato de Excel,
   catálogo de campos, análisis de Excel de ejemplo, compatibilidad,
   versionado, clonado, descarga y autodetección.
 - `perfiles_carga_masiva.py`: perfiles de carga masiva por emisor para precargar
-  configuracion visible de lotes.
-- `pdf.py`: generacion/descarga de PDFs.
+  configuración visible de lotes.
+- `pdf.py`: generación/descarga de PDFs.
 - `reportes.py`: reportes (ventas, IVA, ranking, etc.).
 
 ## Registro de routers
 
 Los routers se registran en `backend/app/main.py` con `app.include_router(...)`.
 
-Routers relacionados con emision masiva:
+Routers relacionados con emisión masiva:
 
 - `/api/formatos-importacion`: plantillas/formato globales y por emisor,
   administración versionada, protección de plantillas del sistema, descarga
@@ -37,18 +37,18 @@ Routers relacionados con emision masiva:
   encabezados. Las mutaciones con alcance global quedan reservadas a
   administradores.
 - `/api/perfiles-carga-masiva`: perfiles de carga masiva del emisor activo.
-  Permiten guardar formato sugerido, concepto fiscal ARCA, descripcion
+  Permiten guardar formato sugerido, concepto fiscal ARCA, descripción
   facturada y reglas de fechas relativas como prellenado visible y editable.
-- `/api/lotes-comprobantes`: validacion de Excel, procesamiento con confirmacion
+- `/api/lotes-comprobantes`: validación de Excel, procesamiento con confirmación
   y descarga de archivo observado. `POST /validar` puede recibir
-  `formato_version_id` para aplicar el mapeo confirmado y exige politicas
-  fiscales explicitas: `concepto_modo`, `fecha_emision_modo` y fechas fijas
-  cuando corresponda. Tambien puede recibir `perfil_carga_masiva_id` para
-  guardar snapshot del perfil usado; el perfil no reemplaza esas politicas.
+  `formato_version_id` para aplicar el mapeo confirmado y exige políticas
+  fiscales explícitas: `concepto_modo`, `fecha_emision_modo` y fechas fijas
+  cuando corresponda. También puede recibir `perfil_carga_masiva_id` para
+  guardar snapshot del perfil usado; el perfil no reemplaza esas políticas.
 
-Regla critica: ningun endpoint de emision debe asumir fecha del dia actual como
-fecha fiscal. `fecha_emision` debe llegar explicita desde el usuario o desde una
-politica de lote confirmada antes de validar.
+Regla crítica: ningún endpoint de emisión debe asumir fecha del día actual como
+fecha fiscal. `fecha_emision` debe llegar explícita desde el usuario o desde una
+política de lote confirmada antes de validar.
 
 Regla de usuarios: `es_admin` significa administrar usuarios, no operar emisores.
 Todos los usuarios activos pueden operar el emisor activo seleccionado. Solo las
@@ -63,15 +63,15 @@ preparar un ZIP de resguardo, descargarlo, confirmar explícitamente la descarga
 con checksum y el token emitido por el endpoint de descarga, y confirmar luego
 `Ya lo descargué` antes de borrar o compactar.
 
-Regla critica adicional: antes de llamar a un endpoint que pueda solicitar CAE
-real, la UI debe mostrar una confirmacion final de fecha fiscal:
+Regla crítica adicional: antes de llamar a un endpoint que pueda solicitar CAE
+real, la UI debe mostrar una confirmación final de fecha fiscal:
 `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
-No agregar rutas, workers o acciones administrativas que eviten esa confirmacion
-sin reemplazarla por una validacion equivalente y visible para el usuario.
-Los endpoints actuales tienen una barrera explicita: emision individual exige
+No agregar rutas, workers o acciones administrativas que eviten esa confirmación
+sin reemplazarla por una validación equivalente y visible para el usuario.
+Los endpoints actuales tienen una barrera explícita: emisión individual exige
 `confirmacion_fecha_fiscal=true` en el body y procesamiento de lotes exige
 `X-Confirmacion-Fecha-Fiscal` con el token exacto
-`fechas=AAAA-MM-DD,...;puntos_venta=N,...`, recalculado desde los grupos
+`fechas=YYYY-MM-DD,...;puntos_venta=N,...`, recalculado desde los grupos
 validados.
 
 Regla crítica de idempotencia fiscal: los endpoints que pueden solicitar CAE
@@ -83,21 +83,21 @@ mismo payload devuelve la respuesta o estado persistido sin reemitir; misma
 clave con payload distinto devuelve conflicto. La confirmación de duplicado
 lógico no forma parte del hash idempotente.
 
-Regla critica: ningun endpoint de emision debe asumir productos o servicios por
-default. `concepto` o `concepto_modo` deben llegar explicitamente antes de
+Regla crítica: ningún endpoint de emisión debe asumir productos o servicios por
+default. `concepto` o `concepto_modo` deben llegar explícitamente antes de
 emitir o validar lotes. Esto define el tipo de concepto fiscal ARCA, no el texto
 facturado.
 
-Regla critica: la descripcion/concepto facturado del item tambien debe llegar de
-forma explicita. En emision individual via `items[].descripcion`; en lotes,
+Regla crítica: la descripción/concepto facturado del ítem también debe llegar de
+forma explícita. En emisión individual vía `items[].descripcion`; en lotes,
 desde una columna del archivo o desde un valor fijo confirmado para todo el
 lote. No usar defaults ocultos del formato ni reutilizar `Productos`/`Servicios`
-como descripcion facturable.
+como descripción facturable.
 
 ## Convenciones
 
 - Imports absolutos desde `app/`.
-- Docstrings en espanol.
+- Docstrings en español.
 - Usar schemas Pydantic para request/response.
 - Validar permisos con dependencies.
 - Manejar errores con `HTTPException`.

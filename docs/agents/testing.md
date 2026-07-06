@@ -1,4 +1,4 @@
-# Guia de testing
+# Guía de testing
 
 ## Backend
 
@@ -59,8 +59,8 @@ usuario. Validar por formato soportado y por calendario real.
 
 ## Puesta a punto Clawpatch
 
-Para ejecutar `clawpatch`, usar los scripts raiz documentados en
-`docs/project/audits/clawpatch/README.md`. El smoke minimo es:
+Para ejecutar `clawpatch`, usar los scripts raíz documentados en
+`docs/project/audits/clawpatch/README.md`. El smoke mínimo es:
 
 ```bash
 npm run clawpatch:test-seeds
@@ -75,7 +75,7 @@ features manuales versionadas para que la auditoría revise flujos reales de
 FactuFlow. El nivel `repo` cubre slices end-to-end frontend/backend;
 `backend` y `frontend` agregan slices focalizados por área.
 
-La regresion minima posterior es:
+La regresión mínima posterior es:
 
 ```bash
 cd backend
@@ -138,7 +138,7 @@ La forma recomendada para QA manual local en Windows es:
 El launcher muestra estado en el tray sin dejar una ventana de PowerShell
 abierta y deja logs en `.tmp/local-launcher/`.
 
-El camino tecnico alternativo es:
+El camino técnico alternativo es:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\run-local.ps1
@@ -168,13 +168,13 @@ queda limitada a tests.
 
 ## QA manual actual
 
-El ultimo checkpoint manual no esta en este archivo sino en:
+El último checkpoint manual no está en este archivo sino en:
 
 - `docs/agents/manual-qa.md`
 
-Eso evita mezclar instrucciones permanentes con el estado puntual de una sesion.
+Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión.
 
-## Ultima verificacion tecnica
+## Última verificacion técnica
 
 Fecha: 2026-07-05
 
@@ -218,8 +218,8 @@ Fecha: 2026-05-22
 Fecha: 2026-05-10
 
 - Backend focalizado: `python -m pytest tests/test_lotes_comprobantes.py -q`
-  OK, 30 tests. Cubre progreso real con emision mockeada, sin solicitar CAE
-  real, confirmacion fiscal obligatoria y concurrencia de procesamiento.
+  OK, 30 tests. Cubre progreso real con emisión mockeada, sin solicitar CAE
+  real, confirmación fiscal obligatoria y concurrencia de procesamiento.
 - Backend: `ruff check app/api/lotes_comprobantes.py app/services/lote_comprobantes_service.py tests/test_lotes_comprobantes.py`
   OK.
 - Backend: `black --check app/api/lotes_comprobantes.py app/services/lote_comprobantes_service.py tests/test_lotes_comprobantes.py`
@@ -242,33 +242,33 @@ Fecha: 2026-05-09
   aceptar `Producto`/`Servicio` desde archivo y rechazar `Definido por archivo`
   cuando el Excel no mapea columna de concepto.
 - Backend: `tests/test_perfiles_carga_masiva.py` cubre CRUD scopiado por
-  emisor, predeterminado unico, nombres por emisor, formatos accesibles,
+  emisor, predeterminado único, nombres por emisor, formatos accesibles,
   rechazo de `fecha_actual` como fecha fiscal y reglas incompletas.
 - Frontend: `src/utils/perfiles-carga-masiva.spec.ts` cubre reglas relativas de
-  fechas y seleccion automatica de perfil de carga masiva.
+  fechas y selección automática de perfil de carga masiva.
 - Frontend: `npm run test:unit` OK.
 - Frontend: `npm run build` OK.
 - Frontend: `npm run type-check` OK.
 - Frontend: `npm run lint:check` OK sin errores; mantiene warnings de estilo
   Vue existentes.
 - Browser: QA visual de perfiles de carga masiva en `http://127.0.0.1:8080`
-  OK. Se verifico crear, editar, eliminar, predeterminar, autoaplicar, modificar
+  OK. Se verificó crear, editar, eliminar, predeterminar, autoaplicar, modificar
   antes de validar, validar Excel y abrir/cancelar el modal final de fecha
   fiscal sin emitir.
 - API local: Excel privado local detectado como
   `Extracto bancario - creditos IVA exento`; al elegir servicios y
-  `fecha_emision_modo=archivo` el lote `id=7` quedo con 20/20 grupos
+  `fecha_emision_modo=archivo` el lote `id=7` quedó con 20/20 grupos
   observados por fecha
-  `06/04/2026` fuera de ventana ARCA. No se emitio ningun comprobante.
+  `06/04/2026` fuera de ventana ARCA. No se emitió ningún comprobante.
 
 ## Smoke real ARCA
 
-El smoke real completado el 2026-03-09 quedo documentado en:
+El smoke real completado el 2026-03-09 quedó documentado en:
 
 - `docs/project/notes/SESSION_2026-03-09.md`
 
 Ese documento incluye:
 - problemas encontrados
 - como se resolvieron
-- referencias privadas a CAEs emitidos; no copiarlas a documentacion nueva
+- referencias privadas a CAEs emitidos; no copiarlas a documentación nueva
 - pendientes operativos

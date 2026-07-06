@@ -38,11 +38,11 @@ backend/app/scripts/vps_migration.py
 
 Subcomandos disponibles:
 
-- `preflight`: valida SQLite local, Alembic head, tablas esperadas y
+- `preflight`: válida SQLite local, Alembic head, tablas esperadas y
   certificados activos.
 - `export`: genera un paquete privado en `.tmp/vps-migration/<timestamp>/`.
 - `import`: restaura el paquete sobre PostgreSQL limpio ya migrado con Alembic.
-- `validate`: compara datos restaurados y valida disponibilidad básica.
+- `validate`: compara datos restaurados y válida disponibilidad básica.
 
 ## Preflight local
 

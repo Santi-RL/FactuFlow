@@ -1,9 +1,9 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-05
+Última actualización: 2026-07-06
 
-Este roadmap traduce la vision estable del producto en prioridades, fases y
-trabajo planificado. La vision canonica vive en `VISION.md` y no debe cambiarse
+Este roadmap traduce la visión estable del producto en prioridades, fases y
+trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
 desde este archivo.
 
 ## Como leer este archivo
@@ -12,22 +12,22 @@ desde este archivo.
 - `[~]` En curso
 - `[ ]` Pendiente
 
-## Vision del producto
+## Visión del producto
 
-La vision canonica del producto esta definida en `VISION.md`.
+La visión canónica del producto está definida en `VISION.md`.
 
-Todo item de este roadmap debe alinearse con esa vision. Si una prioridad,
+Todo ítem de este roadmap debe alinearse con esa visión. Si una prioridad,
 fase, implementacion o cambio deseado contradice `VISION.md`, primero debe
-modificarse explicitamente la vision y recien despues incorporarse al roadmap.
+modificarse explícitamente la visión y recién después incorporarse al roadmap.
 
 ## Objetivo actual
 
-Consolidar el MVP despues del uso productivo real controlado, centrado en:
-- emision individual y masiva por Excel
-- formatos de importacion configurables para archivos externos
-- uso administrativo no tecnico
-- homologacion real y operacion productiva inicial con ARCA
-- multiemisor con un emisor activo explicito por vez
+Consolidar el MVP después del uso productivo real controlado, centrado en:
+- emisión individual y masiva por Excel
+- formatos de importación configurables para archivos externos
+- uso administrativo no técnico
+- homologación real y operación productiva inicial con ARCA
+- multiemisor con un emisor activo explícito por vez
 - instalación local o en VPS pequeño, con consumo eficiente de procesamiento,
   RAM y almacenamiento
 - visibilidad administrativa del uso de almacenamiento por instalación, emisor
@@ -39,27 +39,27 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 ## Decisiones de producto vigentes
 
 - FactuFlow es una herramienta para facturar. El alcance central es
-  facturacion electronica ARCA, emision individual, emision masiva, PDFs,
-  reportes operativos y soporte administrativo del flujo de facturacion.
-- No esta planificado incorporar manejo de cuentas corrientes, stock ni
-  catalogos como modulos del producto.
+  facturación electrónica ARCA, emisión individual, emisión masiva, PDFs,
+  reportes operativos y soporte administrativo del flujo de facturación.
+- No está planificado incorporar manejo de cuentas corrientes, stock ni
+  catálogos como módulos del producto.
 - Las integraciones externas quedan para una etapa posterior, cuando la
-  facturacion este madura y productiva estable. Esas integraciones deben estar
+  facturación este madura y productiva estable. Esas integraciones deben estar
   enfocadas en obtener datos desde otras fuentes o aplicaciones, o enviar datos
   hacia ellas, usando la API existente o su evolucion.
 - El modelo multiemisor vigente es el de una empresa/emisor activo por vez. Un
   contador independiente o estudio chico puede administrar varios CUITs, pero
-  toda operacion debe quedar scopiada al emisor activo seleccionado.
+  toda operación debe quedar scopiada al emisor activo seleccionado.
 - El modelo inicial de usuarios es simple: el primer usuario de una instalación
   es administrador propietario; luego solo administradores crean, desactivan,
   reactivan o resetean usuarios. Todos los usuarios activos pueden operar todos
   los emisores configurados; `es_admin` significa administrar usuarios.
 - No se avanza por ahora hacia una plataforma multiempresa compleja con
-  administracion central completa, permisos finos por organizacion, reportes
-  globales consolidados u operacion simultanea entre emisores.
+  administración central completa, permisos finos por organización, reportes
+  globales consolidados u operación simultanea entre emisores.
 - La seguridad multiemisor es prioritaria: clientes, certificados, puntos de
   venta, comprobantes, lotes, PDFs, reportes, perfiles de carga y formatos de
-  importacion no deben mezclarse entre emisores.
+  importación no deben mezclarse entre emisores.
 - Las operaciones que pueden solicitar CAE deben ser idempotentes desde backend,
   no solo desde UI. Emisión individual, procesamiento de lotes y reintento de
   fallidos exigen `X-Idempotency-Key`, persisten una operación durable antes de
@@ -85,58 +85,58 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   conocidas, y no expone datos privados innecesarios. Las acciones de limpieza
   sobre lotes, logs y temporales exigen resguardo ZIP descargado antes de liberar
   espacio.
-- La distribucion comercial instalable queda para una etapa posterior, cuando
+- La distribución comercial instalable queda para una etapa posterior, cuando
   el producto sea estable y repetible funcionando en VPS.
 - La observabilidad operativa estándar es obligatoria antes de ampliar el uso
   productivo. Debe permitir diagnosticar emisiones, lotes, errores ARCA,
   reconciliaciones, estado del sistema y backups con lenguaje simple para
-  usuarios no tecnicos. No requiere todavia monitoreo complejo con herramientas
+  usuarios no técnicos. No requiere todavía monitoreo complejo con herramientas
   externas.
 
 ## Foto actual del proyecto
 
 ### Producto y negocio
-- [x] Objetivo principal redefinido: emision masiva y UX administrativa simple
+- [x] Objetivo principal redefinido: emisión masiva y UX administrativa simple
 - [x] Modelo multiemisor definido: varios CUITs por usuario, un emisor activo
-  explicito por vez
-- [~] Criterios UX no tecnicos parcialmente implementados
-- [x] Login informa claramente cuando el servidor local no esta disponible
+  explícito por vez
+- [~] Criterios UX no técnicos parcialmente implementados
+- [x] Login informa claramente cuando el servidor local no está disponible
 - [x] Setup inicial cerrado cuando ya existe cualquier usuario y administración
   de usuarios disponible dentro de la aplicación
-- [x] Produccion real inicial utilizada con comprobantes autorizados
+- [x] Producción real inicial utilizada con comprobantes autorizados
 - [ ] Refuerzo continuo de aislamiento entre emisores antes de ampliar volumen
   o uso productivo
 
 ### Backend
 - [x] FastAPI operativo con auth, clientes, empresa, puntos de venta, certificados, comprobantes, PDF, lotes y reportes
-- [x] Integracion WSAA + WSFEv1 operativa en homologacion y produccion inicial
-- [x] Emision individual real validada con CAE
-- [x] Emision masiva por Excel implementada
-- [x] Formatos de importacion configurables para emision masiva con alcance global y por emisor
+- [x] Integración WSAA + WSFEv1 operativa en homologación y producción inicial
+- [x] Emisión individual real validada con CAE
+- [x] Emisión masiva por Excel implementada
+- [x] Formatos de importación configurables para emisión masiva con alcance global y por emisor
 - [x] Administrador visual de plantillas de carga masiva sobre
   `formatos_importacion`, con plantillas globales o por emisor, clonado de
   plantillas protegidas, versionado, compatibilidad con perfiles y descarga
   `.xlsx` generada bajo demanda.
 - [x] Perfiles de carga masiva por emisor para precargar formato, punto de
-  venta, concepto, descripcion y fechas visibles antes de validar
+  venta, concepto, descripción y fechas visibles antes de validar
 - [x] Perfiles de carga masiva no permiten guardar fecha actual como regla de
-  emision fiscal
-- [x] Emision masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
-- [x] Fecha de emision explicita; no se asume fecha del dia actual al emitir
-- [x] Confirmacion final obligatoria de fecha fiscal antes de solicitar CAE
-- [x] Procesamiento de lotes exige token exacto de confirmacion fiscal con
-  fechas y puntos de venta validados, no un boolean generico
-- [x] Emision valida que punto de venta y cliente opcional pertenezcan al
+  emisión fiscal
+- [x] Emisión masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
+- [x] Fecha de emisión explícita; no se asume fecha del día actual al emitir
+- [x] Confirmación final obligatoria de fecha fiscal antes de solicitar CAE
+- [x] Procesamiento de lotes exige token exacto de confirmación fiscal con
+  fechas y puntos de venta validados, no un boolean genérico
+- [x] La emisión valida que el punto de venta y el cliente opcional pertenezcan al
   emisor activo antes de solicitar CAE
 - [x] Nueva factura ofrece solo puntos de venta usables por FactuFlow y la API
-  rechaza numeracion para puntos no Web Services con error de negocio
+  rechaza numeración para puntos no Web Services con error de negocio
 - [x] Uploads de lotes limitados por `BATCH_MAX_UPLOAD_BYTES` y XLSX
   malformados rechazados antes de validar
-- [x] Concepto fiscal ARCA explicito; no se asume productos o servicios por defecto
-- [~] Descripcion/concepto facturado del item documentado como dato separado
+- [x] Concepto fiscal ARCA explícito; no se asume productos o servicios por defecto
+- [~] Descripción/concepto facturado del ítem documentado como dato separado
   del concepto fiscal ARCA; debe venir del archivo o de un valor fijo confirmado
   para todo el lote, sin defaults ocultos
-- [x] Numeracion ARCA adelantada y fallos post-CAE quedan como
+- [x] Numeración ARCA adelantada y fallos post-CAE quedan como
   `requiere_reconciliacion`, sin persistir respuestas no aprobadas como
   comprobantes emitidos
 - [x] Idempotencia fiscal obligatoria para emisión individual, procesamiento de
@@ -148,11 +148,11 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [x] Intentos fiscales `en_proceso` vencidos se verifican con
   `FECompConsultar` antes de liberar numeración o vincular un comprobante
   autorizado.
-- [x] Sincronizacion manual de puntos de venta ARCA validada desde UI; los
+- [x] Sincronización manual de puntos de venta ARCA validada desde UI; los
   puntos devueltos por WSFE se crean o actualizan como Web Services usables
-- [x] Validacion de puntos de venta en emision normaliza `Bloqueado=N`/`S` de ARCA
-- [x] Factura C no informa objeto `Iva` en WSFE y bloquea items con IVA distinto de 0
-- [x] UI de puntos de venta valida certificado activo del ambiente ARCA actual
+- [x] Validación de puntos de venta en emisión normaliza `Bloqueado=N`/`S` de ARCA
+- [x] Factura C no informa objeto `Iva` en WSFE y bloquea ítems con IVA distinto de 0
+- [x] UI de puntos de venta valida el certificado activo del ambiente ARCA actual
   antes de sincronizar WSFE
 - [x] Emisor activo consistente por pestaña y API con rechazo de conflictos
   entre `X-Empresa-Id` y query legacy `empresa_id`
@@ -161,15 +161,15 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
 - [~] Endurecimiento de seguridad multiemisor para evitar mezcla de clientes,
   certificados, puntos de venta, comprobantes, lotes, PDFs, reportes, perfiles
   y formatos entre emisores
-- [x] Excel observado de lotes escapa valores con forma de formula
-- [x] Notas de credito/debito informan comprobantes asociados en WSFE
+- [x] Excel observado de lotes escapa valores con forma de fórmula
+- [x] Notas de crédito/débito informan comprobantes asociados en WSFE
   (`CbtesAsoc`) cuando corresponde
 - [~] Alineacion limpia entre base legacy y Alembic
 - [ ] Arquitectura de jobs robusta para procesos largos
 
 ### Frontend
 - [x] Vue + Pinia + Router operativos
-- [x] Dashboard, clientes, comprobantes, emision masiva, reportes, certificados, puntos de venta y empresa operativos
+- [x] Dashboard, clientes, comprobantes, emisión masiva, reportes, certificados, puntos de venta y empresa operativos
 - [x] Selector de emisor activo para operar varios CUITs desde un usuario
 - [x] Selector de emisor activo visible para todos los usuarios activos
 - [x] Pantalla `Usuarios` reservada a administradores para alta, edición,
@@ -188,23 +188,23 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   del administrador, validando contraseña actual y nueva contraseña
 - [x] Secciones principales scopiadas por emisor activo y verificadas al
   cambiar el selector
-- [x] Vistas sensibles descartan respuestas asincronicas viejas al cambiar el
+- [x] Vistas sensibles descartan respuestas asincrónicas viejas al cambiar el
   emisor activo, incluyendo reportes, certificados, puntos de venta y
-  numeracion de nueva factura
-- [x] Autodeteccion asistida de formato al subir Excel externo para emision masiva
+  numeración de nueva factura
+- [x] Autodetección asistida de formato al subir Excel externo para emisión masiva
 - [x] `Emisores > Carga masiva` incorpora subvista de `Plantillas` para crear,
   editar, clonar, desactivar, revisar compatibilidad y descargar Exceles
-  visuales para usuarios no tecnicos.
+  visuales para usuarios no técnicos.
 - [x] Nueva factura exige CUIT para Factura A y Notas A, y el refresco de lista
   posterior a CAE es no bloqueante
 - [x] QA manual guiada de flujos reales
 - [ ] Operaciones masivas de PDF desde listado
 
-### Operacion y plataforma
+### Operación y plataforma
 - [x] Arranque local simple con `run-local.ps1`
 - [x] Launcher local Windows manual con icono en tray para desarrollo/QA
-- [x] Perfiles Docker separados para local y produccion
-- [x] PostgreSQL definido como base recomendada para operacion real
+- [x] Perfiles Docker separados para local y producción
+- [x] PostgreSQL definido como base recomendada para operación real
 - [x] Comando administrativo para crear/promover usuario propietario
 - [x] Alta inicial por UI solo cuando la instalación no tiene usuarios; altas
   posteriores desde menú `Usuarios`
@@ -230,7 +230,7 @@ Consolidar el MVP despues del uso productivo real controlado, centrado en:
   parcialmente probadas; falta automatización, retención y recuperación a VPS
   nuevo
 
-## Fase 0 - Fundacion y base tecnica
+## Fase 0 - Fundacion y base técnica
 
 Objetivo: tener un repo mantenible, ejecutable y documentado.
 
@@ -238,10 +238,10 @@ Objetivo: tener un repo mantenible, ejecutable y documentado.
 - [x] Backend y frontend levantables en local
 - [x] Acceso local manual `FactuFlow Local.vbs` sin consola visible, con estado
   de backend, frontend y base de datos en tray
-- [x] `.env.example` y configuracion base
-- [x] Documentacion tecnica inicial
+- [x] `.env.example` y configuración base
+- [x] Documentación técnica inicial
 - [~] Docker y compose alineados al estado real
-- [ ] Pipeline CI basico confiable para backend y frontend
+- [ ] Pipeline CI básico confiable para backend y frontend
 - [x] Corte versionado `0.2.0-mvp` y changelog como historial principal
 
 ## Fase 1 - Core funcional de negocio
@@ -254,16 +254,16 @@ Objetivo: poder operar una empresa y emitir comprobantes reales.
 - [x] Clientes
 - [x] Puntos de venta
 - [x] Certificados
-- [x] Comprobantes e items
+- [x] Comprobantes e ítems
 
 ### API y backend
 - [x] Endpoints base para auth, clientes, empresa y comprobantes
-- [x] Seguridad basica por empresa
+- [x] Seguridad básica por empresa
 - [x] Generacion de PDF bajo demanda
-- [x] PDF de comprobante con formato administrativo profesional, ubicacion de
+- [x] PDF de comprobante con formato administrativo profesional, ubicación de
   elementos principales alineada a la factura oficial ARCA y QR ARCA testeado
   por payload decodificable
-- [x] Reportes basicos de consulta
+- [x] Reportes básicos de consulta
 - [~] Consistencia documental completa de endpoints y contratos
 
 ### UX
@@ -271,81 +271,81 @@ Objetivo: poder operar una empresa y emitir comprobantes reales.
 - [x] Dashboard
 - [x] Formularios principales
 - [~] Refinamiento de mensajes y ayudas contextuales
-- [ ] Estados vacios y recuperacion de errores totalmente pulidos
+- [ ] Estados vacíos y recuperacion de errores totalmente pulidos
 
-## Fase 2 - Integracion ARCA real
+## Fase 2 - Integración ARCA real
 
-Objetivo: dejar la emision validada contra servicios reales.
+Objetivo: dejar la emisión validada contra servicios reales.
 
 ### WSAA
 - [x] Generacion de TRA
 - [x] Firma y login CMS
 - [x] Obtencion de Token y Sign
 - [x] Cache persistente de tickets
-- [ ] Politica de invalidacion/rotacion mas robusta
+- [ ] Política de invalidacion/rotacion mas robusta
 
 ### WSFEv1
 - [x] `FECAESolicitar`
 - [x] `FECAESolicitar` por sublotes usando `FECompTotXRequest.RegXReq`
 - [x] `FECompUltimoAutorizado`
-- [x] `FECompConsultar` util para verificacion
+- [x] `FECompConsultar` útil para verificacion
 - [x] `FECompConsultar` usado para resolver intentos fiscales vencidos antes de
   liberar numeración o registrar una autorización pendiente.
-- [x] Validacion de numeracion y punto de venta en emision
+- [x] Validación de numeración y punto de venta en emisión
 - [x] Mapeo de `CondicionIVAReceptorId`
-- [x] Validacion local de ventana ARCA para fecha de emision antes de emitir
-- [~] Manejo fino de edge cases homologacion vs produccion
+- [x] Validación local de ventana ARCA para fecha de emisión antes de emitir
+- [~] Manejo fino de edge cases homologación vs producción
 
-### Homologacion
-- [x] Certificado homologacion emitido por WSASS
-- [x] Autorizacion `wsfe` creada para CUIT representado
+### Homologación
+- [x] Certificado homologación emitido por WSASS
+- [x] Autorización `wsfe` creada para CUIT representado
 - [x] Smoke real individual
 - [x] Smoke real masivo
 - [x] QA manual completa desde UI
 - [ ] Smoke repetible documentado como procedimiento de soporte
 
-### Produccion
+### Producción
 - [x] Piloto productivo real ejecutado con comprobantes autorizados
 - [x] Certificado productivo cargado y prueba WSAA/ARCA exitosa
-- [~] Certificados y proceso de produccion
+- [~] Certificados y proceso de producción
 - [x] Certificados ARCA con paths gestionados dentro de `CERTS_PATH`, claves
-  nuevas cifradas y un unico certificado activo por emisor/ambiente
+  nuevas cifradas y un único certificado activo por emisor/ambiente
 - [~] Checklist operativo post-piloto: fecha fiscal, punto de venta, backup,
-  logs, restauracion y evidencia sanitaria
-- [ ] Validacion sistematica de diferencias operativas entre homologacion y produccion
+  logs, restauración y evidencia sanitaria
+- [ ] Validación sistemática de diferencias operativas entre homologación y producción
 
-## Fase 3 - Emision masiva como nucleo del producto
+## Fase 3 - Emisión masiva como nucleo del producto
 
-Objetivo: que FactuFlow sea realmente util para operaciones administrativas de volumen.
+Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de volumen.
 
 ### Lotes
 - [x] Entidades de lote, grupo y filas
 - [x] Plantilla Excel fija
-- [x] Formatos de importacion configurables por encabezado, columna o constante
+- [x] Formatos de importación configurables por encabezado, columna o constante
 - [x] Formato global para extractos bancarios con columnas `Fecha`, `Créditos`, `Leyendas Adicionales1`, `Leyendas Adicionales2` y `Pto Vta`
 - [x] Formato particular local para emisor Responsable Inscripto privado
   (`Factura B IVA 21%`) con neto
-  gravado como precio del item, total como referencia y consumidor final sin
+  gravado como precio del ítem, total como referencia y consumidor final sin
   documento cuando corresponde
 - [x] Formato particular local para emisor privado con Factura B IVA 21%,
   vinculado al perfil predeterminado del emisor, con `Imp. Neto Gravado` como
-  neto del item e `Imp. Total` solo como control de consistencia
-- [x] Validacion de consistencia entre total informado por archivo externo y
-  total calculado desde items e IVA antes de permitir emision
-- [x] Politica explicita de fecha de emision por lote: desde archivo o fecha fija confirmada
-- [x] Politica explicita de concepto fiscal ARCA por lote: productos, servicios
+  neto del ítem e `Imp. Total` solo como control de consistencia
+- [x] Validación de consistencia entre total informado por archivo externo y
+  total calculado desde ítems e IVA antes de permitir emisión
+- [x] Política explícita de fecha de emisión por lote: desde archivo o fecha fija confirmada
+- [x] Política explícita de concepto fiscal ARCA por lote: productos, servicios
   o definido por archivo
-- [x] Politica explicita de descripcion facturada del item por lote: desde
+- [x] Política explícita de descripción facturada del ítem por lote: desde
   archivo o valor fijo para todo el lote, independiente del concepto fiscal ARCA
 - [x] Perfiles de carga masiva por emisor, con predeterminado, punto de venta y
-  reglas relativas de fechas visibles, sin materializar fecha fiscal en emision
-  masiva sin una base explicita del usuario
+  reglas relativas de fechas visibles, sin materializar fecha fiscal en emisión
+  masiva sin una base explícita del usuario
 - [x] Agrupacion por `comprobante_ref`
 - [x] Prevalidacion por fila y por comprobante
-- [x] Reintento seguro del mismo archivo cuando el lote previo no emitio CAE
-- [x] Toma atomica del lote antes de emitir para evitar procesamiento concurrente
+- [x] Reintento seguro del mismo archivo cuando el lote previo no emitió CAE
+- [x] Toma atómica del lote antes de emitir para evitar procesamiento concurrente
 - [x] Fallos post-CAE quedan como `requiere_reconciliacion` y no habilitan
-  reintentos automaticos
+  reintentos automáticos
 - [x] Cada grupo emitible de lote o reintento crea un intento fiscal durable
   asociado a la operación idempotente de usuario.
 - [x] Duplicados lógicos de comprobantes se informan como advertencia con
@@ -363,17 +363,17 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   originales del Excel y conserva resumen, grupos, comprobantes y auditoría
 - [x] Eliminación física permitida solo para lotes sin comprobantes emitidos ni
   incertidumbre fiscal; los eventos operativos quedan preservados
-- [x] Confirmacion fiscal final de lotes usa token exacto derivado de los grupos
+- [x] Confirmación fiscal final de lotes usa token exacto derivado de los grupos
   validados: fechas y puntos de venta concretos
 - [x] Archivos XLSX malformados o por encima de `BATCH_MAX_UPLOAD_BYTES` quedan
   rechazados antes de crear o validar lotes
 - [x] Snapshot fiscal del receptor en comprobantes
 - [x] Persistencia de fechas de servicio y vencimiento de pago en comprobantes
-  nuevos y backfill desde payloads historicos de lotes para reflejarlas en el
+  nuevos y backfill desde payloads históricos de lotes para reflejarlas en el
   PDF
 - [x] Clientes precargados opcionales para lotes masivos
-- [x] Emision de lotes chicos desde UI observable por background/polling
-- [x] Ejecucion asincronica para lotes grandes
+- [x] Emisión de lotes chicos desde UI observable por background/polling
+- [x] Ejecución asincrónica para lotes grandes
 - [x] Worker evita reencolar lotes activos y ya no reemite lotes `procesando`
   stale: los bloquea como `requiere_reconciliacion` salvo reconciliación local
   respaldada por un intento fiscal autorizado del mismo lote/grupo con
@@ -384,7 +384,7 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   tipo, con fallback unitario explícito si `RegXReq` no está disponible
 
 ### UX de lotes
-- [x] Wizard de emision masiva
+- [x] Wizard de emisión masiva
 - [x] Rediseño UX secuencial de `/comprobantes/lotes` documentado en
   `docs/agents/lotes-ux-redesign.md`: reducir onboarding persistente, agrupar
   configuración fiscal, acercar `Validar lote` al cierre de requisitos, tratar
@@ -392,25 +392,25 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   2, 3 y 4 implementados como cambios frontend-only.
 - [x] Preseleccion del formato sugerido con alta confianza antes de validar
   archivos externos
-- [x] Confirmacion de fecha de emision y fechas de servicio antes de validar
+- [x] Confirmación de fecha de emisión y fechas de servicio antes de validar
 - [x] Modal final de advertencia antes de emitir: confirma fecha fiscal y avisa
   que luego no se podran emitir comprobantes con fecha anterior para ese mismo
   punto de venta
-- [x] Confirmacion de concepto fiscal ARCA antes de validar; si viene del archivo, todas las filas deben indicar `Producto` o `Servicio`
-- [x] Confirmacion de descripcion/concepto facturado del item antes de validar:
+- [x] Confirmación de concepto fiscal ARCA antes de validar; si viene del archivo, todas las filas deben indicar `Producto` o `Servicio`
+- [x] Confirmación de descripción/concepto facturado del ítem antes de validar:
   desde archivo o texto fijo para todo el lote
-- [x] Selector de perfil de carga masiva en emision masiva, con aplicacion
-  automatica cuando el emisor tiene uno solo o uno predeterminado
-- [x] Selector de punto de venta en perfiles y emision masiva: usar el punto del
+- [x] Selector de perfil de carga masiva en emisión masiva, con aplicacion
+  automática cuando el emisor tiene uno solo o uno predeterminado
+- [x] Selector de punto de venta en perfiles y emisión masiva: usar el punto del
   archivo o fijar uno usable del emisor activo
-- [x] Si el usuario modifica una configuracion precargada por perfil de carga
+- [x] Si el usuario modifica una configuración precargada por perfil de carga
   masiva, el lote se valida sin snapshot de perfil aplicado
-- [x] Separacion clara entre validar lote y emitir comprobantes validos
-- [x] Resumen previo a emision con neto, IVA 21%, IVA 10,5% y total de
+- [x] Separacion clara entre validar lote y emitir comprobantes válidos
+- [x] Resumen previo a emisión con neto, IVA 21%, IVA 10,5% y total de
   comprobantes listos para emitir
 - [x] Detalle de lotes grandes con resumen completo y grupos paginados desde
   backend para evitar renderizar miles de comprobantes en una sola pantalla
-- [x] Mensajes basicos de validacion
+- [x] Mensajes básicos de validación
 - [~] Pulido de ayudas, tooltips y lenguaje administrativo
 - [x] Descarga de archivo observado validada manualmente
 - [x] PDF de comprobante rediseñado con ubicaciones principales similares a la
@@ -418,16 +418,16 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   fiscales, CAE, QR, detalle y totales organizados profesionalmente
 - [x] QA manual local del formato global de extracto bancario sin emitir
 - [x] QA visual local del selector obligatorio de fechas fiscales en lotes
-- [x] QA visual local de descripcion/concepto facturado del item independiente
+- [x] QA visual local de descripción/concepto facturado del ítem independiente
   del concepto fiscal ARCA, sin defaults ocultos
 - [x] QA visual local de perfiles de carga masiva: crear, editar, eliminar,
   predeterminar, autoaplicar, modificar antes de validar y verificar modal final
   de fecha fiscal sin emitir
-- [x] Preparacion y validacion segura sin emision de lote de Nota de Credito C
+- [x] Preparacion y validación segura sin emisión de lote de Nota de Crédito C
   para anular duplicados productivos
-- [x] Emision y verificacion por consulta ARCA de 19 Nota de Credito C para
+- [x] Emisión y verificacion por consulta ARCA de 19 Nota de Crédito C para
   anular duplicados productivos
-- [x] Preparacion y validacion segura sin emision de 1113 Nota de Credito B
+- [x] Preparacion y validación segura sin emisión de 1113 Nota de Crédito B
   para corregir Factura B de un emisor privado emitidas con total usado como neto
 - [~] QA manual especifica de formatos particulares por emisor
 - [ ] Descarga de archivo observado con errores mas amigable
@@ -439,17 +439,17 @@ Objetivo: que FactuFlow sea realmente util para operaciones administrativas de v
   lotes cerrados o eliminar lotes sin emisión, con resolución excepcional
   agrupada visualmente bajo `Resolver pendientes`
 
-### Operacion masiva posterior a la emision
+### Operación masiva posterior a la emisión
 - [ ] Descarga masiva de PDFs en ZIP generado bajo demanda y sin persistencia
   permanente en VPS
-- [ ] Seleccion multiple en listado de comprobantes
+- [ ] Selección multiple en listado de comprobantes
 - [ ] Preparación asincrónica de PDFs para lotes grandes con limpieza de
   temporales después de la descarga o vencimiento operativo
 - [ ] Trazabilidad de tareas masivas iniciadas por usuario
 
-## Fase 4 - UX administrativa no tecnica
+## Fase 4 - UX administrativa no técnica
 
-Objetivo: reducir al minimo la necesidad de soporte tecnico para operar.
+Objetivo: reducir al mínimo la necesidad de soporte técnico para operar.
 
 - [x] Uso de espanol claro en pantallas core
 - [x] Eliminacion de `alert()` y `confirm()` nativos en flujos principales
@@ -457,10 +457,10 @@ Objetivo: reducir al minimo la necesidad de soporte tecnico para operar.
 - [x] Mensaje claro en login cuando el backend local no responde
 - [~] Ayudas contextuales en pantallas sensibles
 - [~] Pantalla de estado del sistema dentro del frontend
-- [ ] Integracion formal entre launcher local y UI web
+- [ ] Integración formal entre launcher local y UI web
 - [ ] Tooltips y microcopy sistematizados en toda la app
-- [ ] Checklists previos a la emision
-- [ ] Vistas vacias guiadas
+- [ ] Checklists previos a la emisión
+- [ ] Vistas vacías guiadas
 - [ ] Confirmaciones claras para acciones sensibles
 - [x] Checkpoint visual v01 instalable en producción cerrado: shell,
   componentes base/comunes, auth/setup, dashboard, clientes, usuarios, reportes
@@ -477,19 +477,19 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 
 ### Base de datos
 - [x] Modelos principales definidos
-- [x] Migracion inicial de esquema creada
-- [x] Modelos versionados de formatos de importacion y trazabilidad del mapeo usado por lote
+- [x] Migración inicial de esquema creada
+- [x] Modelos versionados de formatos de importación y trazabilidad del mapeo usado por lote
 - [~] Estrategia de convivencia con DB local legacy
 - [~] Stamping/migración limpia de instalaciones existentes
 - [x] Export/import privado desde SQLite local a PostgreSQL limpio, preservando
   configuración operativa, certificados, formatos, perfiles, comprobantes e
   ítems, y excluyendo lotes/artefactos no vitales
-- [ ] Politica clara de seeds y datos de desarrollo
+- [ ] Política clara de seeds y datos de desarrollo
 
 ### Calidad y testing
 - [x] Suite backend activa
 - [x] E2E frontend con Playwright confiable para Chromium desktop local
-- [x] Smoke real de homologacion ejecutado manualmente
+- [x] Smoke real de homologación ejecutado manualmente
 - [x] QA manual funcional cerrada
 - [x] Script de lint frontend no destructivo `npm run lint:check`
 - [ ] Migrar el entorno de build/test del frontend y CI a Node.js 24 LTS,
@@ -500,7 +500,7 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Auditoría Clawpatch 2026-07-05 cerrada nuevamente con repo completo,
   backend y frontend en `openFindings=0`, `autoreview` GPT-5.5 alto limpio y
   CI remoto aprobado
-- [x] Reportes IVA calculan notas de credito con signo negativo y el detalle de
+- [x] Reportes IVA calculan notas de crédito con signo negativo y el detalle de
   subdiario incluye gravado e IVA 27%
 - [x] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
   confiable en auditorías locales de escritorio
@@ -516,45 +516,45 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Idempotencia fiscal obligatoria y visible para usuario final en caminos de
   CAE: misma clave y mismo payload no reemiten; misma clave con otros datos
   devuelve conflicto; clave ausente se rechaza.
-- [ ] Auditoria de eventos operativos criticos
+- [ ] Auditoria de eventos operativos críticos
 
 ## Fase 6 - Multiemisor con emisor activo
 
 Objetivo: permitir que contadores independientes o estudios chicos administren
-varios emisores desde una misma instalacion, operando siempre un emisor activo
-explicito por vez. No incluye, por ahora, administracion central compleja,
-permisos finos por organizacion, reportes globales consolidados ni operacion
+varios emisores desde una misma instalación, operando siempre un emisor activo
+explícito por vez. No incluye, por ahora, administración central compleja,
+permisos finos por organización, reportes globales consolidados ni operación
 simultanea entre emisores.
 
 - [x] Header `X-Empresa-Id` para usuarios autenticados activos
 - [x] Selector de emisor activo en frontend
 - [x] Usuarios operativos con acceso a todos los emisores configurados
-- [x] Alta basica de nuevos emisores desde UI admin
-- [x] Configuracion de perfiles de carga masiva desde `Emisores > Carga masiva`,
+- [x] Alta básica de nuevos emisores desde UI admin
+- [x] Configuración de perfiles de carga masiva desde `Emisores > Carga masiva`,
   incluyendo punto de venta por archivo o punto fijo usable del emisor
 - [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF,
   constancia de inscripción de persona física y constancia de opción de
-  Monotributo, con provincia validada contra catalogo argentino
-- [x] Importacion de constancia ARCA de puntos de venta con domicilio y nombre fantasia
-- [x] Re-scopeo de dashboard, clientes, comprobantes, emision masiva,
+  Monotributo, con provincia validada contra catálogo argentino
+- [x] Importación de constancia ARCA de puntos de venta con domicilio y nombre fantasia
+- [x] Re-scopeo de dashboard, clientes, comprobantes, emisión masiva,
   reportes, certificados, puntos de venta y nueva factura por emisor activo
-- [x] Scoping backend de emision contra punto de venta y cliente del emisor
+- [x] Scoping backend de emisión contra punto de venta y cliente del emisor
   activo
 - [~] Modelo multiemisor validado con mas de un emisor real de prueba
 - [ ] Auditoria de aislamiento entre emisores en certificados, puntos de venta,
   clientes, comprobantes, lotes, PDFs, reportes, perfiles y formatos
-- [ ] Tests de regresion multiemisor para operaciones criticas antes de ampliar
+- [ ] Tests de regresion multiemisor para operaciones críticas antes de ampliar
   volumen productivo
 - [ ] Onboarding multiemisor mas claro para contadores y estudios chicos
 
 ## Fase 7 - Plataforma lista para despliegue serio
 
-Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
+Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
 
 ### Contenedores y despliegue
 - [x] Dockerfiles y compose existentes
 - [x] `docker-compose.yml` para local/desarrollo
-- [x] `docker-compose.prod.yml` para VPS/produccion con PostgreSQL
+- [x] `docker-compose.prod.yml` para VPS/producción con PostgreSQL
 - [x] Instalación real en VPS con `docker-compose.prod.yml`
 - [~] Variables de entorno cerradas por ambiente
 - [~] Guía de despliegue local y servidor
@@ -564,7 +564,7 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   productiva documentado en `docs/agents/production-workflow.md`
 - [x] Reverse proxy y TLS validados en una instalación privada
 
-### Operacion
+### Operación
 - [ ] Logs operativos con identificador de seguimiento por emisor, usuario,
   lote/comprobante, job y error local o ARCA
 - [ ] Retencion de logs privados definida por entorno
@@ -602,49 +602,49 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo tecnico.
   sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
   reconciliaciones
-- [ ] Mensajes de error con explicacion simple, impacto y proximo paso seguro
+- [ ] Mensajes de error con explicacion simple, impacto y próximo paso seguro
 - [~] Runbook de diagnostico para soporte y usuarios administrativos: guía y
   ficha visibles en `Sistema > Estado`, más primer runbook público sanitizado en
   `docs/agents/support-runbook.md`; quedan pendientes healthchecks dedicados y
   documentación privada por instalación
-- [ ] Metricas y alertas avanzadas, despues de estabilizar VPS
+- [ ] Metricas y alertas avanzadas, después de estabilizar VPS
 
-## Fase 8 - Distribucion, releases y adopcion
+## Fase 8 - Distribución, releases y adopcion
 
 Objetivo: profesionalizar la entrega del producto.
 
 ### Releases
 - [x] Changelog operativo consistente como fuente principal de historial
-- [x] Corte actual `0.2.0-mvp` definido como linea base
+- [x] Corte actual `0.2.0-mvp` definido como línea base
 - [x] Resumenes de fases antiguas consolidados en changelog para evitar
   snapshots obsoletos
-- [~] Politica de versiones posteriores al MVP
+- [~] Política de versiones posteriores al MVP
 - [ ] Paquetes o imagenes publicables
-- [~] Notas de release por version desde el corte actual
+- [~] Notas de release por versión desde el corte actual
 
-### Distribucion
-- [ ] Instalacion simplificada para terceros, posterior a estabilizar VPS
-- [ ] Plantillas de configuracion por ambiente
+### Distribución
+- [ ] Instalación simplificada para terceros, posterior a estabilizar VPS
+- [ ] Plantillas de configuración por ambiente
 - [ ] Demo controlada o entorno de evaluación
 - [ ] Procedimiento de upgrade entre versiones
 
 ### Soporte y adopcion
 - [ ] Runbooks de soporte
 - [ ] Manuales de troubleshooting para usuarios administrativos
-- [ ] Manuales tecnicos para deploy y mantenimiento
-- [ ] Politica de compatibilidad y migraciones
+- [ ] Manuales técnicos para deploy y mantenimiento
+- [ ] Política de compatibilidad y migraciones
 
 ## Fase 9 - Evolucion del producto
 
 Objetivo: ampliar valor mas alla del MVP.
 
-- [x] Produccion ARCA inicial
-- [~] Operacion productiva robusta y repetible
+- [x] Producción ARCA inicial
+- [~] Operación productiva robusta y repetible
 - [ ] Exportaciones de reportes
 - [ ] Envio de comprobantes por email
 - [ ] Integraciones externas de entrada/salida de datos via API, posteriores a
-  la madurez productiva de facturacion
-- [ ] Dashboard de operacion mas rico
+  la madurez productiva de facturación
+- [ ] Dashboard de operación mas rico
 
 ## Prioridades inmediatas
 
@@ -678,19 +678,19 @@ Objetivo: ampliar valor mas alla del MVP.
 
 El MVP se considera cerrado cuando:
 
-- una persona administrativa no tecnica puede emitir un comprobante individual sin ayuda tecnica
-- una persona administrativa no tecnica puede emitir un lote por Excel sin soporte tecnico constante
-- una persona administrativa no tecnica puede revisar el formato detectado y confirmar antes de emitir
-- los comprobantes quedan autorizados con CAE en homologacion y la operacion
-  productiva inicial esta documentada sin exponer datos privados
-- el usuario puede consultar comprobantes, ver PDF y operar reportes basicos
-- la documentacion permite retomar el proyecto y operarlo sin reconstruir contexto desde cero
+- una persona administrativa no técnica puede emitir un comprobante individual sin ayuda técnica
+- una persona administrativa no técnica puede emitir un lote por Excel sin soporte técnico constante
+- una persona administrativa no técnica puede revisar el formato detectado y confirmar antes de emitir
+- los comprobantes quedan autorizados con CAE en homologación y la operación
+  productiva inicial está documentada sin exponer datos privados
+- el usuario puede consultar comprobantes, ver PDF y operar reportes básicos
+- la documentación permite retomar el proyecto y operarlo sin reconstruir contexto desde cero
 
 ## Criterio de exito de largo plazo
 
-FactuFlow deja de ser "solo un MVP" cuando ademas:
+FactuFlow deja de ser "solo un MVP" cuando además:
 
 - soporta despliegues reproducibles
-- soporta varios emisores con aislamiento fuerte y emisor activo explicito
+- soporta varios emisores con aislamiento fuerte y emisor activo explícito
 - tiene estrategia clara de migraciones, observabilidad, soporte y releases
-- puede ser usado por muchos usuarios sin depender del conocimiento historico de una sola persona
+- puede ser usado por muchos usuarios sin depender del conocimiento histórico de una sola persona

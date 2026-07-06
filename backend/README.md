@@ -26,6 +26,7 @@ source .venv/bin/activate  # Linux/Mac
 
 ```bash
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Para tests, lint y formato
 ```
 
 ### 3. Configurar variables de entorno
@@ -76,6 +77,13 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 - `POST /api/auth/login` - Login
 - `GET /api/auth/me` - Obtener usuario actual
 
+### Usuarios
+
+- `GET /api/usuarios` - Listar usuarios (solo administradores)
+- `POST /api/usuarios` - Crear usuario (solo administradores)
+- `PUT /api/usuarios/{id}` - Actualizar usuario (solo administradores)
+- `POST /api/usuarios/{id}/reset-password` - Restablecer contraseña
+
 ### Empresas
 
 - `GET /api/empresas` - Listar empresas
@@ -120,6 +128,20 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 - `GET /api/lotes-comprobantes/{id}` - Ver estado y detalle del lote
 - `GET /api/lotes-comprobantes/{id}/archivo-observado` - Descargar archivo observado con mensajes por fila
 
+### Plantillas y perfiles de carga masiva
+
+- `GET /api/formatos-importacion` - Listar plantillas/formato de importación
+- `POST /api/formatos-importacion/analizar-excel` - Analizar encabezados de un Excel
+- `POST /api/formatos-importacion/detectar` - Detectar candidatos de plantilla
+- `GET /api/perfiles-carga-masiva` - Listar perfiles del emisor activo
+- `POST /api/perfiles-carga-masiva` - Crear perfil de carga masiva
+
+### Sistema y almacenamiento
+
+- `GET /api/almacenamiento/uso` - Diagnóstico resumido de uso
+- `POST /api/almacenamiento/resguardos` - Preparar ZIP de resguardo
+- `POST /api/almacenamiento/liberar` - Liberar espacio con confirmación
+
 ## Testing
 
 ### Ejecutar todos los tests
@@ -154,59 +176,30 @@ Solución:
 
 ```bash
 pip install -r requirements.txt --force-reinstall
+pip install -r requirements-dev.txt --force-reinstall
 ```
 
 ## Estructura del Proyecto
 
-```
+Mapa resumido. Para el detalle vigente de módulos y ownership, usar `docs/agents/structure.md`.
+
+```text
 backend/
-├── app/
-│   ├── main.py              # Aplicación FastAPI
-│   ├── core/                # Configuración core
-│   │   ├── config.py        # Settings
-│   │   ├── database.py      # SQLAlchemy setup
-│   │   └── security.py      # JWT, bcrypt
-│   ├── models/              # Modelos SQLAlchemy
-│   │   ├── usuario.py
-│   │   ├── empresa.py
-│   │   ├── cliente.py
-│   │   ├── punto_venta.py
-│   │   ├── certificado.py
-│   │   ├── comprobante.py
-│   │   └── comprobante_item.py
-│   ├── schemas/             # Schemas Pydantic
-│   │   ├── usuario.py
-│   │   ├── empresa.py
-│   │   ├── cliente.py
-│   │   ├── punto_venta.py
-│   │   └── certificado.py
-│   ├── api/                 # Endpoints de API
-│   │   ├── auth.py
-│   │   ├── empresas.py
-│   │   ├── clientes.py
-│   │   ├── puntos_venta.py
-│   │   ├── certificados.py
-│   │   ├── arca.py
-│   │   ├── comprobantes.py
-│   │   ├── pdf.py
-│   │   ├── reportes.py
-│   │   └── health.py
-│   ├── services/            # Lógica de negocio
-│   ├── arca/                # Integración ARCA (WSAA/WSFEv1, crypto, cache, utils)
-│   └── afip/                # Legacy (nomenclatura, sin codigo)
-├── tests/                   # Tests
-│   ├── conftest.py
-│   ├── test_auth.py
-│   ├── test_clientes.py
-│   └── test_health.py
+├── app/main.py              # Entrada FastAPI y registro de routers
+├── app/api/                 # Endpoints REST por dominio
+├── app/arca/                # Integración ARCA: WSAA, WSFEv1, SOAP, cache y crypto
+├── app/core/                # Configuración, base de datos y seguridad
+├── app/models/              # Modelos SQLAlchemy
+├── app/schemas/             # Schemas Pydantic
+├── app/services/            # Lógica de negocio
+├── app/scripts/             # Scripts operativos internos
+├── app/templates/           # Plantillas HTML/PDF
+├── app/afip/                # Carpeta legacy de nomenclatura, sin código operativo
+├── tests/                   # Tests pytest
 ├── alembic/                 # Migraciones
 ├── data/                    # Datos locales/cache ARCA (gitignored)
-├── certs/                   # Certificados ARCA (gitignored)
-├── requirements.txt
-├── requirements-dev.txt
-└── pytest.ini
+└── certs/                   # Certificados ARCA (gitignored)
 ```
-
 ## Primeros Pasos
 
 ### 1. Setup Inicial
@@ -255,9 +248,9 @@ Principales:
 
 - `APP_SECRET_KEY` - Clave secreta para JWT (⚠️ cambiar en producción)
 - `DATABASE_URL` - URL de conexión a la base de datos
-- `ARCA_ENV` - Ambiente de ARCA (homologacion/produccion)
+- `ARCA_ENV` - Ambiente de ARCA (`homologacion`/`produccion`)
 - `CERTS_PATH` - Carpeta donde se guardan certificados
-- `BATCH_SYNC_LIMIT` - Corte entre procesamiento sincrono y background
+- `BATCH_SYNC_LIMIT` - Corte entre procesamiento síncrono y background
 - `BATCH_WORKER_ENABLED` - Worker para lotes grandes en segundo plano
 - `CORS_ORIGINS` - Orígenes permitidos para CORS
 
