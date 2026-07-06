@@ -385,6 +385,10 @@
 - Si `FECompTotXRequest` falla o no devuelve `RegXReq`, FactuFlow no hace prueba
   y error: degrada al flujo unitario existente y muestra un aviso persistente
   en el lote.
+- Las respuestas de un sublote se ordenan y validan por `CbteDesde`, no por la
+  posición del detalle devuelto por ARCA. La cantidad y el conjunto de números
+  deben coincidir exactamente con lo solicitado; cualquier diferencia vuelve el
+  sublote no confiable.
 - Si un sublote ya enviado a ARCA queda sin detalle confiable, el lote se marca
   como `requiere_reconciliacion` para bloquear reintentos automáticos hasta
   consultar ARCA. Los grupos todavía `validado` no deben seguir apareciendo

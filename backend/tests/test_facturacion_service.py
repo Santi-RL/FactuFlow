@@ -851,19 +851,20 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
             return 0
 
         async def fe_cae_solicitar_lote(self, arca_requests):
-            """Captura el sublote y devuelve CAE aprobados."""
+            """Captura el sublote y devuelve CAE aprobados fuera de orden."""
             FakeWSFEClient.arca_requests.append(arca_requests)
-            return [
+            respuestas = [
                 CAEResponse(
-                    cae=f"1234567890123{index}",
+                    cae=f"1234567890123{arca_request.cbte_desde}",
                     cae_vencimiento="20260610",
                     numero_comprobante=arca_request.cbte_desde,
                     tipo_cbte=arca_request.tipo_cbte,
                     punto_venta=arca_request.punto_venta,
                     resultado="A",
                 )
-                for index, arca_request in enumerate(arca_requests, start=1)
+                for arca_request in arca_requests
             ]
+            return list(reversed(respuestas))
 
     async def fake_ticket(self, empresa, certificado):
         return SimpleNamespace(token="token", sign="sign")
@@ -917,6 +918,14 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
 
     assert [resultado.exito for resultado in resultados] == [True, True]
     assert [resultado.numero for resultado in resultados] == [1, 2]
+    assert [resultado.cae for resultado in resultados] == [
+        "12345678901231",
+        "12345678901232",
+    ]
+    assert [comprobante.cae for comprobante in comprobantes] == [
+        "12345678901231",
+        "12345678901232",
+    ]
     assert len(FakeWSFEClient.arca_requests) == 1
     assert [request.cbte_desde for request in FakeWSFEClient.arca_requests[0]] == [
         1,

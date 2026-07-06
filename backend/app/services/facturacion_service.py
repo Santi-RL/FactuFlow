@@ -355,7 +355,10 @@ class FacturacionService:
             ]
 
             try:
-                resultados_arca = await wsfe_client.fe_cae_solicitar_lote(arca_requests)
+                resultados_arca = self._ordenar_resultados_arca_batch_por_numero(
+                    arca_requests,
+                    await wsfe_client.fe_cae_solicitar_lote(arca_requests),
+                )
             except (ArcaServiceError, ArcaValidationError) as exc:
                 logger.error("Error al solicitar CAE por sublote: %s", str(exc))
                 respuestas_inciertas = [
@@ -1795,6 +1798,54 @@ class FacturacionService:
             requiere_reconciliacion=True,
             categoria_error="post_arca_persistencia",
         )
+
+    def _ordenar_resultados_arca_batch_por_numero(
+        self,
+        arca_requests: list[ComprobanteRequest],
+        resultados_arca: list,
+    ) -> list:
+        """Valida y ordena respuestas batch de ARCA por número solicitado."""
+        if len(resultados_arca) != len(arca_requests):
+            raise ArcaServiceError(
+                "ARCA devolvió una cantidad de resultados distinta a la solicitada"
+            )
+
+        resultados_por_numero = {}
+        for resultado in resultados_arca:
+            numero_raw = getattr(resultado, "numero_comprobante", None)
+            if numero_raw is None:
+                raise ArcaServiceError(
+                    "ARCA devolvió un resultado de batch sin número de comprobante"
+                )
+            try:
+                numero = int(numero_raw)
+            except (TypeError, ValueError) as exc:
+                raise ArcaServiceError(
+                    f"ARCA devolvió un número de comprobante inválido: {numero_raw}"
+                ) from exc
+            if numero in resultados_por_numero:
+                raise ArcaServiceError(
+                    f"ARCA devolvió un número de comprobante duplicado: {numero}"
+                )
+            resultados_por_numero[numero] = resultado
+
+        numeros_solicitados = [int(request.cbte_desde) for request in arca_requests]
+        solicitados_set = set(numeros_solicitados)
+        recibidos_set = set(resultados_por_numero)
+        if solicitados_set != recibidos_set:
+            partes = []
+            faltantes = sorted(solicitados_set - recibidos_set)
+            extras = sorted(recibidos_set - solicitados_set)
+            if faltantes:
+                partes.append(f"faltantes: {faltantes}")
+            if extras:
+                partes.append(f"no solicitados: {extras}")
+            raise ArcaServiceError(
+                "ARCA devolvió resultados para números distintos a los solicitados "
+                f"({'; '.join(partes)})"
+            )
+
+        return [resultados_por_numero[numero] for numero in numeros_solicitados]
 
     def _respuesta_si_arca_no_autorizo(
         self,

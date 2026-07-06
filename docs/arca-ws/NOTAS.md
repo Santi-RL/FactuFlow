@@ -204,6 +204,10 @@ El proyecto tuvo que corregir estas estructuras:
   explícito en el lote para el usuario.
 - Los tipos FCE/MiPyME documentados por ARCA se fuerzan a modo unitario aunque
   `RegXReq` permita más registros.
+- La respuesta de un sublote se correlaciona por `CbteDesde`, no por posición
+  en la lista. La cantidad de detalles debe coincidir, no puede haber números
+  duplicados y el conjunto de `CbteDesde` devuelto debe ser exactamente el de
+  los comprobantes solicitados.
 - Si un sublote enviado no devuelve detalle confiable, el lote queda en
   `requiere_reconciliacion`; no se reintenta automáticamente y ningún grupo
   remanente debe seguir mostrándose como listo para emitir.

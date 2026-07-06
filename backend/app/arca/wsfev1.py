@@ -378,9 +378,13 @@ class WSFEv1Client:
                 "ARCA devolvió una cantidad de detalles distinta a la solicitada"
             )
 
+        detalles_ordenados = self._ordenar_detalles_cae_por_comprobante(
+            detalles,
+            comprobantes,
+        )
         resultados = [
             self._parse_cae_det_response(detalle, comprobante, errores)
-            for detalle, comprobante in zip(detalles, comprobantes)
+            for detalle, comprobante in zip(detalles_ordenados, comprobantes)
         ]
 
         if rechazar_detalles_no_aprobados:
@@ -394,6 +398,51 @@ class WSFEv1Client:
                     )
 
         return resultados
+
+    def _ordenar_detalles_cae_por_comprobante(
+        self,
+        detalles,
+        comprobantes: list[ComprobanteRequest],
+    ):
+        """Ordena detalles ARCA por `CbteDesde` y valida correspondencia exacta."""
+        detalles_por_numero = {}
+        for detalle in detalles:
+            numero_raw = getattr(detalle, "CbteDesde", None)
+            if numero_raw is None:
+                raise ArcaServiceError(
+                    "ARCA devolvió un detalle de comprobante sin CbteDesde"
+                )
+            try:
+                numero = int(numero_raw)
+            except (TypeError, ValueError) as exc:
+                raise ArcaServiceError(
+                    f"ARCA devolvió CbteDesde inválido en un detalle: {numero_raw}"
+                ) from exc
+            if numero in detalles_por_numero:
+                raise ArcaServiceError(
+                    f"ARCA devolvió CbteDesde duplicado en la respuesta: {numero}"
+                )
+            detalles_por_numero[numero] = detalle
+
+        numeros_solicitados = [
+            int(comprobante.cbte_desde) for comprobante in comprobantes
+        ]
+        solicitados_set = set(numeros_solicitados)
+        recibidos_set = set(detalles_por_numero)
+        if solicitados_set != recibidos_set:
+            partes = []
+            faltantes = sorted(solicitados_set - recibidos_set)
+            extras = sorted(recibidos_set - solicitados_set)
+            if faltantes:
+                partes.append(f"faltantes: {faltantes}")
+            if extras:
+                partes.append(f"no solicitados: {extras}")
+            raise ArcaServiceError(
+                "ARCA devolvió detalles para números distintos a los solicitados "
+                f"({'; '.join(partes)})"
+            )
+
+        return [detalles_por_numero[numero] for numero in numeros_solicitados]
 
     def _parse_cae_det_response(
         self,

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.arca.exceptions import ArcaValidationError
+from app.arca.exceptions import ArcaServiceError, ArcaValidationError
 from app.arca.models import ComprobanteRequest, TicketAcceso
 from app.arca.wsfev1 import WSFEv1Client
 
@@ -105,6 +105,73 @@ async def test_fe_cae_solicitar_lote_envia_cant_reg_y_detalles():
         "12345678901231",
         "12345678901232",
     ]
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_ordena_detalles_por_numero():
+    """Debe asociar respuestas batch por CbteDesde, no por posición."""
+
+    class FakeService:
+        """Servicio SOAP simulado que devuelve detalles fuera de orden."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve CAE en orden inverso al solicitado."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901232",
+                    CAEFchVto="20260610",
+                    CbteDesde=2,
+                    Resultado="A",
+                ),
+                SimpleNamespace(
+                    CAE="12345678901231",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    Resultado="A",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    resultados = await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
+
+    assert [resultado.numero_comprobante for resultado in resultados] == [1, 2]
+    assert [resultado.cae for resultado in resultados] == [
+        "12345678901231",
+        "12345678901232",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_numeros_no_solicitados():
+    """Debe rechazar detalles ARCA que no coinciden con los números pedidos."""
+
+    class FakeService:
+        """Servicio SOAP simulado con un CbteDesde inesperado."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle para un número no solicitado."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901232",
+                    CAEFchVto="20260610",
+                    CbteDesde=2,
+                    Resultado="A",
+                ),
+                SimpleNamespace(
+                    CAE="12345678901233",
+                    CAEFchVto="20260610",
+                    CbteDesde=3,
+                    Resultado="A",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="números distintos"):
+        await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
 
 
 @pytest.mark.asyncio
