@@ -293,6 +293,7 @@ class FacturacionService:
             certificado = await self._obtener_certificado_activo(
                 primer_request.empresa_id
             )
+            punto_venta_numero = punto_venta.numero
 
             ticket = await self._obtener_ticket_acceso(empresa, certificado)
             wsfe_client = WSFEv1Client(
@@ -326,11 +327,12 @@ class FacturacionService:
 
             idempotencia = IdempotenciaFiscalService(self.db)
             intentos: list[IntentoEmisionFiscal | None] = []
-            for index, (request, totales, contexto) in enumerate(
-                zip(requests, totales_por_request, contextos)
-            ):
-                intentos.append(
-                    await idempotencia.crear_intento_emision(
+            intento_ids: list[int] = []
+            try:
+                for index, (request, totales, contexto) in enumerate(
+                    zip(requests, totales_por_request, contextos)
+                ):
+                    intento = await idempotencia.crear_intento_emision(
                         request=request,
                         punto_venta=punto_venta,
                         numero_planificado=proximo + index,
@@ -340,19 +342,41 @@ class FacturacionService:
                         lote_id=contexto.get("lote_id"),
                         grupo_id=contexto.get("grupo_id"),
                     )
+                    intentos.append(intento)
+                    if intento.id is not None:
+                        intento_ids.append(intento.id)
+                arca_requests = [
+                    self._armar_request_arca(
+                        request,
+                        proximo + index,
+                        totales,
+                        punto_venta.numero,
+                    )
+                    for index, (request, totales) in enumerate(
+                        zip(requests, totales_por_request)
+                    )
+                ]
+            except Exception as exc:
+                logger.exception(
+                    "Fallo preparando reservas fiscales del sublote antes de ARCA"
                 )
-
-            arca_requests = [
-                self._armar_request_arca(
-                    request,
-                    proximo + index,
-                    totales,
-                    punto_venta.numero,
+                await self.db.rollback()
+                await self._marcar_intentos_batch_pre_arca_fallidos(
+                    intento_ids,
+                    str(exc),
                 )
-                for index, (request, totales) in enumerate(
-                    zip(requests, totales_por_request)
-                )
-            ]
+                return [
+                    self._respuesta_batch_reserva_pre_arca_fallida(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        numero=proximo + index,
+                        totales=totales,
+                        error=str(exc),
+                    )
+                    for index, (request, totales) in enumerate(
+                        zip(requests, totales_por_request)
+                    )
+                ]
 
             try:
                 resultados_arca = self._ordenar_resultados_arca_batch_por_numero(
@@ -1797,6 +1821,57 @@ class FacturacionService:
             errores=errores,
             requiere_reconciliacion=True,
             categoria_error="post_arca_persistencia",
+        )
+
+    async def _marcar_intentos_batch_pre_arca_fallidos(
+        self,
+        intento_ids: list[int],
+        error: str,
+    ) -> None:
+        """Cierra intentos batch que nunca llegaron a enviarse a ARCA."""
+        if not intento_ids:
+            return
+
+        mensaje = (
+            "FactuFlow no llegó a enviar el sublote a ARCA porque falló la "
+            f"preparación local. Detalle: {error}"
+        )
+        await self.db.execute(
+            update(IntentoEmisionFiscal)
+            .where(
+                IntentoEmisionFiscal.id.in_(intento_ids),
+                IntentoEmisionFiscal.estado == "en_proceso",
+            )
+            .values(
+                estado="fallido_verificado",
+                categoria_error="pre_arca_reserva_fallida",
+                mensaje=mensaje,
+            )
+        )
+        await self.db.commit()
+
+    def _respuesta_batch_reserva_pre_arca_fallida(
+        self,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+        error: str,
+    ) -> EmitirComprobanteResponse:
+        """Arma una respuesta fallida cuando el sublote no llegó a ARCA."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje="FactuFlow no pudo preparar el sublote antes de contactar ARCA",
+            errores=[
+                "No se envió esta solicitud a ARCA; la reserva local quedó cerrada como fallida verificada.",
+                error,
+            ],
+            categoria_error="pre_arca_reserva_fallida",
         )
 
     def _ordenar_resultados_arca_batch_por_numero(

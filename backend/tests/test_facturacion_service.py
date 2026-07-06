@@ -935,6 +935,132 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobantes_lote_cierra_intentos_si_falla_reserva_pre_arca(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Si falla una reserva local pre-ARCA, no deja intentos en proceso."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
+    class FakeWSFEClient:
+        """Cliente WSFE que no debe recibir el sublote si falla la reserva."""
+
+        llamadas_lote = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Simula que ARCA no tiene comprobantes previos."""
+            return 0
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Falla la prueba si el código contacta ARCA."""
+            FakeWSFEClient.llamadas_lote += 1
+            raise AssertionError("No debe contactar ARCA si falló la reserva local")
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    original_crear = IdempotenciaFiscalService.crear_intento_emision
+    llamadas_reserva = 0
+
+    async def crear_una_reserva_y_fallar(self, **kwargs):
+        nonlocal llamadas_reserva
+        llamadas_reserva += 1
+        if llamadas_reserva == 1:
+            return await original_crear(self, **kwargs)
+        raise RuntimeError("reserva local fallida")
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "crear_intento_emision",
+        crear_una_reserva_y_fallar,
+    )
+
+    def request_cliente(nombre: str) -> EmitirComprobanteRequest:
+        return EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=1,
+            fecha_emision=date(2026, 7, 6),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social=nombre,
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Producto",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000"),
+                    iva_porcentaje=Decimal("0"),
+                )
+            ],
+        )
+
+    service = FacturacionService(db_session)
+    resultados = await service.emitir_comprobantes_lote(
+        [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")],
+        max_registros=2,
+    )
+    intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
+
+    assert FakeWSFEClient.llamadas_lote == 0
+    assert llamadas_reserva == 2
+    assert [resultado.exito for resultado in resultados] == [False, False]
+    assert [resultado.numero for resultado in resultados] == [1, 2]
+    assert all(resultado.requiere_reconciliacion is False for resultado in resultados)
+    assert {resultado.categoria_error for resultado in resultados} == {
+        "pre_arca_reserva_fallida"
+    }
+    assert len(intentos) == 1
+    assert intentos[0].estado == "fallido_verificado"
+    assert intentos[0].numero_planificado == 1
+    assert intentos[0].categoria_error == "pre_arca_reserva_fallida"
+    assert "no llegó a enviar" in intentos[0].mensaje
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantada(
     db_session: AsyncSession,
     test_empresa,

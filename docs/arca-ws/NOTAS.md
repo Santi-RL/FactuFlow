@@ -208,6 +208,10 @@ El proyecto tuvo que corregir estas estructuras:
   en la lista. La cantidad de detalles debe coincidir, no puede haber números
   duplicados y el conjunto de `CbteDesde` devuelto debe ser exactamente el de
   los comprobantes solicitados.
+- Si falla la preparación local antes de contactar ARCA, los intentos batch ya
+  creados se marcan `fallido_verificado` con categoría
+  `pre_arca_reserva_fallida`. Ese caso no requiere reconciliación porque el
+  sublote no fue enviado.
 - Si un sublote enviado no devuelve detalle confiable, el lote queda en
   `requiere_reconciliacion`; no se reintenta automáticamente y ningún grupo
   remanente debe seguir mostrándose como listo para emitir.

@@ -389,6 +389,10 @@
   posición del detalle devuelto por ARCA. La cantidad y el conjunto de números
   deben coincidir exactamente con lo solicitado; cualquier diferencia vuelve el
   sublote no confiable.
+- Si falla la preparación local antes de enviar el sublote a ARCA, los intentos
+  ya reservados se cierran como `fallido_verificado` con categoría
+  `pre_arca_reserva_fallida`; no deben quedar `en_proceso` ni forzar
+  reconciliación porque ARCA no fue contactada.
 - Si un sublote ya enviado a ARCA queda sin detalle confiable, el lote se marca
   como `requiere_reconciliacion` para bloquear reintentos automáticos hasta
   consultar ARCA. Los grupos todavía `validado` no deben seguir apareciendo
