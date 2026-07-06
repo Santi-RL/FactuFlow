@@ -954,7 +954,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   intentos fiscales, certificados, puntos de venta, clientes, perfiles o
   formatos de importación, la API responde `409` y conserva el historial. Antes
   de borrar un emisor vacío se limpia esa preferencia en usuarios globales para
-  no eliminar cuentas por cascade.
+  no eliminar cuentas por cascade. Con datos operativos o fiscales asociados,
+  `PUT /api/empresas/{empresa_id}` también bloquea cambios de identidad fiscal
+  del emisor y permite solo datos no fiscales como email, teléfono y logo.
 - El frontend muestra el selector `Emisor activo` para todos los usuarios y
   agrega la pantalla `Usuarios` solo para administradores, con guard de ruta.
 - Verificación focalizada:

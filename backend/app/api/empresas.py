@@ -47,6 +47,20 @@ DEPENDENCIAS_BLOQUEANTES_EMPRESA = (
     (FormatoImportacion, "formatos de importación"),
 )
 
+CAMPOS_IDENTIDAD_FISCAL_EMPRESA = frozenset(
+    {
+        "razon_social",
+        "cuit",
+        "condicion_iva",
+        "ingresos_brutos",
+        "domicilio",
+        "localidad",
+        "provincia",
+        "codigo_postal",
+        "inicio_actividades",
+    }
+)
+
 
 async def _obtener_dependencia_bloqueante_empresa(
     db: AsyncSession, empresa_id: int
@@ -59,6 +73,17 @@ async def _obtener_dependencia_bloqueante_empresa(
         if result.scalar_one_or_none() is not None:
             return descripcion
     return None
+
+
+def _campos_identidad_fiscal_modificados(
+    empresa: Empresa, update_data: dict[str, object]
+) -> list[str]:
+    """Lista campos fiscales cuyo valor cambia respecto del emisor persistido."""
+    return sorted(
+        campo
+        for campo in CAMPOS_IDENTIDAD_FISCAL_EMPRESA.intersection(update_data)
+        if getattr(empresa, campo) != update_data[campo]
+    )
 
 
 @router.get("", response_model=list[EmpresaResponse])
@@ -240,6 +265,22 @@ async def update_empresa(
 
     # Actualizar campos
     update_data = empresa_data.model_dump(exclude_unset=True)
+    campos_fiscales_modificados = _campos_identidad_fiscal_modificados(
+        empresa, update_data
+    )
+    if campos_fiscales_modificados:
+        dependencia = await _obtener_dependencia_bloqueante_empresa(db, empresa_id)
+        if dependencia is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "No se puede modificar la identidad fiscal de un emisor con "
+                    "datos operativos o fiscales asociados. Campos bloqueados: "
+                    f"{', '.join(campos_fiscales_modificados)}. "
+                    f"Se detectaron {dependencia}."
+                ),
+            )
+
     for field, value in update_data.items():
         setattr(empresa, field, value)
 

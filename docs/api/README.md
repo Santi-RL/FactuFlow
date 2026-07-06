@@ -179,8 +179,13 @@ y conserva el historial. Si un usuario tenía ese emisor vacío como preferido,
 la API limpia esa preferencia antes de borrar el emisor; no borra la cuenta del
 usuario.
 
-Los emisores aceptan `ingresos_brutos` como campo opcional. Si esta cargado, se
-usa en el PDF de comprobantes.
+Los emisores aceptan `ingresos_brutos` como campo opcional. Si está cargado, se
+usa en el PDF de comprobantes. Cuando un emisor ya tiene datos operativos o
+fiscales asociados, `PUT /api/empresas/{empresa_id}` rechaza con `409` cambios
+en identidad fiscal (`razon_social`, `cuit`, `condicion_iva`,
+`ingresos_brutos`, domicilio, localidad, provincia, código postal e inicio de
+actividades). Los datos no fiscales, como email, teléfono y logo, pueden seguir
+actualizándose.
 
 ## Clientes
 

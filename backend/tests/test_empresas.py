@@ -13,6 +13,40 @@ from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
 
 
+async def _crear_comprobante_autorizado(db_session, empresa_id: int) -> Comprobante:
+    """Crea un comprobante fiscal autorizado para el emisor indicado."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Punto fiscal",
+        es_webservice=True,
+        empresa_id=empresa_id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+
+    comprobante = Comprobante(
+        tipo_comprobante=6,
+        concepto=1,
+        numero=1,
+        fecha_emision=date(2026, 1, 15),
+        subtotal=Decimal("100.00"),
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("21.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=Decimal("121.00"),
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 1, 25),
+        estado="autorizado",
+        empresa_id=empresa_id,
+        punto_venta_id=punto_venta.id,
+    )
+    db_session.add(comprobante)
+    await db_session.commit()
+    return comprobante
+
+
 @pytest.mark.asyncio
 async def test_usuario_comun_puede_listar_y_crear_emisores(
     client: AsyncClient,
@@ -116,35 +150,7 @@ async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
     test_empresa: Empresa,
 ):
     """Borrar un emisor no debe destruir comprobantes fiscales asociados."""
-    punto_venta = PuntoVenta(
-        numero=1,
-        nombre="Punto fiscal",
-        es_webservice=True,
-        empresa_id=test_empresa.id,
-    )
-    db_session.add(punto_venta)
-    await db_session.flush()
-
-    comprobante = Comprobante(
-        tipo_comprobante=6,
-        concepto=1,
-        numero=1,
-        fecha_emision=date(2026, 1, 15),
-        subtotal=Decimal("100.00"),
-        descuento=Decimal("0.00"),
-        iva_21=Decimal("21.00"),
-        iva_10_5=Decimal("0.00"),
-        iva_27=Decimal("0.00"),
-        otros_impuestos=Decimal("0.00"),
-        total=Decimal("121.00"),
-        cae="12345678901234",
-        cae_vencimiento=date(2026, 1, 25),
-        estado="autorizado",
-        empresa_id=test_empresa.id,
-        punto_venta_id=punto_venta.id,
-    )
-    db_session.add(comprobante)
-    await db_session.commit()
+    comprobante = await _crear_comprobante_autorizado(db_session, test_empresa.id)
 
     response = await client.delete(
         f"/api/empresas/{test_empresa.id}",
@@ -157,3 +163,55 @@ async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
     assert "comprobantes fiscales" in detail
     assert await db_session.get(Empresa, test_empresa.id) is not None
     assert await db_session.get(Comprobante, comprobante.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_no_puede_modificar_identidad_fiscal_con_historial(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session,
+    test_empresa: Empresa,
+):
+    """Un emisor con historial fiscal no debe permitir cambiar su CUIT."""
+    await _crear_comprobante_autorizado(db_session, test_empresa.id)
+
+    response = await client.put(
+        f"/api/empresas/{test_empresa.id}",
+        headers=auth_headers,
+        json={"cuit": "30999999995"},
+    )
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "identidad fiscal" in detail
+    assert "cuit" in detail
+    assert "comprobantes fiscales" in detail
+    await db_session.refresh(test_empresa)
+    assert test_empresa.cuit == "20123456789"
+
+
+@pytest.mark.asyncio
+async def test_puede_modificar_contacto_con_historial_fiscal(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session,
+    test_empresa: Empresa,
+):
+    """Un emisor con historial fiscal puede actualizar datos no fiscales."""
+    await _crear_comprobante_autorizado(db_session, test_empresa.id)
+
+    response = await client.put(
+        f"/api/empresas/{test_empresa.id}",
+        headers=auth_headers,
+        json={
+            "email": "nuevo@example.com",
+            "telefono": "11112222",
+            "logo": "logos/nuevo.png",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "nuevo@example.com"
+    assert data["telefono"] == "11112222"
+    assert data["logo"] == "logos/nuevo.png"
