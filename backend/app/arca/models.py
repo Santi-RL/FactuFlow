@@ -1,6 +1,7 @@
 """Modelos Pydantic para requests y responses de ARCA."""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 
@@ -35,8 +36,8 @@ class IvaItem(BaseModel):
     id: int = Field(
         ..., description="ID de alícuota IVA (5=21%, 4=10.5%, 6=27%, 3=0%, 8=5%)"
     )
-    base_imp: float = Field(..., description="Base imponible", alias="BaseImp")
-    importe: float = Field(..., description="Importe de IVA", alias="Importe")
+    base_imp: Decimal = Field(..., description="Base imponible", alias="BaseImp")
+    importe: Decimal = Field(..., description="Importe de IVA", alias="Importe")
 
     class Config:
         populate_by_name = True
@@ -48,9 +49,9 @@ class TributoItem(BaseModel):
 
     id: int = Field(..., description="ID del tributo")
     descripcion: str = Field(..., description="Descripción del tributo", alias="Desc")
-    base_imp: float = Field(..., description="Base imponible", alias="BaseImp")
-    alic: float = Field(..., description="Alícuota", alias="Alic")
-    importe: float = Field(..., description="Importe del tributo", alias="Importe")
+    base_imp: Decimal = Field(..., description="Base imponible", alias="BaseImp")
+    alic: Decimal = Field(..., description="Alícuota", alias="Alic")
+    importe: Decimal = Field(..., description="Importe del tributo", alias="Importe")
 
     class Config:
         populate_by_name = True
@@ -104,20 +105,24 @@ class ComprobanteRequest(BaseModel):
     )
 
     # Importes
-    imp_total: float = Field(..., description="Importe total")
-    imp_neto: float = Field(..., description="Importe neto gravado")
-    imp_iva: float = Field(default=0, description="Importe IVA")
-    imp_op_ex: float = Field(default=0, description="Importe operaciones exentas")
-    imp_tot_conc: float = Field(
-        default=0, description="Importe total de conceptos no gravados"
+    imp_total: Decimal = Field(..., description="Importe total")
+    imp_neto: Decimal = Field(..., description="Importe neto gravado")
+    imp_iva: Decimal = Field(default=Decimal("0"), description="Importe IVA")
+    imp_op_ex: Decimal = Field(
+        default=Decimal("0"), description="Importe operaciones exentas"
     )
-    imp_trib: float = Field(default=0, description="Importe tributos")
+    imp_tot_conc: Decimal = Field(
+        default=Decimal("0"), description="Importe total de conceptos no gravados"
+    )
+    imp_trib: Decimal = Field(default=Decimal("0"), description="Importe tributos")
 
     # Moneda
     moneda_id: str = Field(
         default="PES", description="ID de moneda (PES=Pesos, DOL=Dólares)"
     )
-    moneda_cotiz: float = Field(default=1, description="Cotización de moneda")
+    moneda_cotiz: Decimal = Field(
+        default=Decimal("1"), description="Cotización de moneda"
+    )
     condicion_iva_receptor_id: Optional[int] = Field(
         None, description="ID de condición frente al IVA del receptor"
     )

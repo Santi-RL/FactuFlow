@@ -372,7 +372,9 @@
 - Los importes del request `FECAESolicitar` deben cuantizarse con
   `Decimal("0.01")` y redondeo `ROUND_HALF_UP` antes del payload SOAP. No usar
   `float` ni `round()` para `ImpTotal`, `ImpNeto`, `ImpIVA`, `ImpTrib`, bases ni
-  importes de IVA/tributos.
+  importes de IVA/tributos. Los modelos internos de request ARCA (`ComprobanteRequest`,
+  `IvaItem` y `TributoItem`) deben conservar `Decimal`; no degradar a `float`
+  antes de `_build_fe_det_request`.
 - `FECAESolicitar` debia enviar:
   - `FeDetReq: { FECAEDetRequest: [...] }`
   - `Iva: { AlicIva: [...] }`

@@ -46,6 +46,51 @@ def _comprobante(numero: int = 1, punto_venta: int = 1, tipo: int = 6):
     )
 
 
+def test_comprobante_request_preserva_importes_decimal():
+    """Debe conservar Decimal en los modelos internos que llegan a WSFE."""
+    comprobante = ComprobanteRequest(
+        punto_venta=1,
+        tipo_cbte=6,
+        concepto=1,
+        tipo_doc=99,
+        nro_doc=0,
+        cbte_desde=1,
+        cbte_hasta=1,
+        fecha_cbte="20260601",
+        imp_total=Decimal("2.675"),
+        imp_tot_conc=Decimal("1.005"),
+        imp_neto=Decimal("2.675"),
+        imp_op_ex=Decimal("1.005"),
+        imp_iva=Decimal("1.005"),
+        imp_trib=Decimal("2.675"),
+        moneda_id="PES",
+        moneda_cotiz=Decimal("1.2345"),
+        iva=[IvaItem(id=5, base_imp=Decimal("2.675"), importe=Decimal("1.005"))],
+        tributos=[
+            TributoItem(
+                id=99,
+                descripcion="Prueba",
+                base_imp=Decimal("2.675"),
+                alic=Decimal("1.5"),
+                importe=Decimal("1.005"),
+            )
+        ],
+    )
+
+    assert comprobante.imp_total == Decimal("2.675")
+    assert comprobante.imp_tot_conc == Decimal("1.005")
+    assert comprobante.imp_neto == Decimal("2.675")
+    assert comprobante.imp_op_ex == Decimal("1.005")
+    assert comprobante.imp_iva == Decimal("1.005")
+    assert comprobante.imp_trib == Decimal("2.675")
+    assert comprobante.moneda_cotiz == Decimal("1.2345")
+    assert comprobante.iva[0].base_imp == Decimal("2.675")
+    assert comprobante.iva[0].importe == Decimal("1.005")
+    assert comprobante.tributos[0].base_imp == Decimal("2.675")
+    assert comprobante.tributos[0].alic == Decimal("1.5")
+    assert comprobante.tributos[0].importe == Decimal("1.005")
+
+
 @pytest.mark.asyncio
 async def test_fe_comp_tot_x_request_parsea_reg_x_req():
     """FECompTotXRequest devuelve el máximo RegXReq informado por ARCA."""

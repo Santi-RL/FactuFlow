@@ -1809,7 +1809,7 @@ class FacturacionService:
             imp_iva=totales["iva_21"] + totales["iva_10_5"] + totales["iva_27"],
             imp_trib=Decimal("0"),  # No implementado aún
             moneda_id=request.moneda,
-            moneda_cotiz=float(request.cotizacion),
+            moneda_cotiz=request.cotizacion,
             condicion_iva_receptor_id=self._obtener_condicion_iva_receptor_id(
                 request.condicion_iva
             ),

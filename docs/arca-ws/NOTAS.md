@@ -194,7 +194,8 @@ El proyecto tuvo que corregir estas estructuras:
   decimales y redondeo `ROUND_HALF_UP` antes de enviar el SOAP. Esto aplica a
   `ImpTotal`, `ImpTotConc`, `ImpNeto`, `ImpOpEx`, `ImpIVA`, `ImpTrib`, bases e
   importes de IVA y tributos. No usar `round(float(...), 2)`: casos como
-  `2.675` pueden terminar en `2.67` por representación binaria.
+  `2.675` pueden terminar en `2.67` por representación binaria. Los modelos
+  internos de request ARCA deben conservar `Decimal` hasta el armado del payload.
 - Antes de habilitar acciones WSFE desde la UI, FactuFlow debe verificar que
   haya certificado activo para el `ARCA_ENV` actual. Un certificado válido de
   otro ambiente no sirve para esa operación.
