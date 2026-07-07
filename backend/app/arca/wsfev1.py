@@ -404,31 +404,41 @@ class WSFEv1Client:
         detalles,
         comprobantes: list[ComprobanteRequest],
     ):
-        """Ordena detalles ARCA por `CbteDesde` y valida correspondencia exacta."""
-        detalles_por_numero = {}
+        """Ordena detalles ARCA por rango fiscal y valida correspondencia exacta."""
+        detalles_por_rango = {}
         for detalle in detalles:
-            numero_raw = getattr(detalle, "CbteDesde", None)
-            if numero_raw is None:
+            cbte_desde_raw = getattr(detalle, "CbteDesde", None)
+            cbte_hasta_raw = getattr(detalle, "CbteHasta", None)
+            if cbte_desde_raw is None:
                 raise ArcaServiceError(
                     "ARCA devolvió un detalle de comprobante sin CbteDesde"
                 )
+            if cbte_hasta_raw is None:
+                raise ArcaServiceError(
+                    "ARCA devolvió un detalle de comprobante sin CbteHasta"
+                )
             try:
-                numero = int(numero_raw)
+                cbte_desde = int(cbte_desde_raw)
+                cbte_hasta = int(cbte_hasta_raw)
             except (TypeError, ValueError) as exc:
                 raise ArcaServiceError(
-                    f"ARCA devolvió CbteDesde inválido en un detalle: {numero_raw}"
+                    "ARCA devolvió un rango de comprobante inválido en un detalle: "
+                    f"CbteDesde={cbte_desde_raw}, CbteHasta={cbte_hasta_raw}"
                 ) from exc
-            if numero in detalles_por_numero:
+            rango = (cbte_desde, cbte_hasta)
+            if rango in detalles_por_rango:
                 raise ArcaServiceError(
-                    f"ARCA devolvió CbteDesde duplicado en la respuesta: {numero}"
+                    "ARCA devolvió un rango de comprobante duplicado en la "
+                    f"respuesta: {cbte_desde}-{cbte_hasta}"
                 )
-            detalles_por_numero[numero] = detalle
+            detalles_por_rango[rango] = detalle
 
-        numeros_solicitados = [
-            int(comprobante.cbte_desde) for comprobante in comprobantes
+        rangos_solicitados = [
+            (int(comprobante.cbte_desde), int(comprobante.cbte_hasta))
+            for comprobante in comprobantes
         ]
-        solicitados_set = set(numeros_solicitados)
-        recibidos_set = set(detalles_por_numero)
+        solicitados_set = set(rangos_solicitados)
+        recibidos_set = set(detalles_por_rango)
         if solicitados_set != recibidos_set:
             partes = []
             faltantes = sorted(solicitados_set - recibidos_set)
@@ -438,11 +448,12 @@ class WSFEv1Client:
             if extras:
                 partes.append(f"no solicitados: {extras}")
             raise ArcaServiceError(
-                "ARCA devolvió detalles para números distintos a los solicitados "
+                "ARCA devolvió detalles para números distintos o rangos distintos "
+                "a los solicitados "
                 f"({'; '.join(partes)})"
             )
 
-        return [detalles_por_numero[numero] for numero in numeros_solicitados]
+        return [detalles_por_rango[rango] for rango in rangos_solicitados]
 
     def _parse_cae_det_response(
         self,

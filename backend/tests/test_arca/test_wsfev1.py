@@ -80,12 +80,14 @@ async def test_fe_cae_solicitar_lote_envia_cant_reg_y_detalles():
                     CAE="12345678901231",
                     CAEFchVto="20260610",
                     CbteDesde=1,
+                    CbteHasta=1,
                     Resultado="A",
                 ),
                 SimpleNamespace(
                     CAE="12345678901232",
                     CAEFchVto="20260610",
                     CbteDesde=2,
+                    CbteHasta=2,
                     Resultado="A",
                 ),
             ]
@@ -121,12 +123,14 @@ async def test_fe_cae_solicitar_lote_ordena_detalles_por_numero():
                     CAE="12345678901232",
                     CAEFchVto="20260610",
                     CbteDesde=2,
+                    CbteHasta=2,
                     Resultado="A",
                 ),
                 SimpleNamespace(
                     CAE="12345678901231",
                     CAEFchVto="20260610",
                     CbteDesde=1,
+                    CbteHasta=1,
                     Resultado="A",
                 ),
             ]
@@ -157,12 +161,14 @@ async def test_fe_cae_solicitar_lote_rechaza_numeros_no_solicitados():
                     CAE="12345678901232",
                     CAEFchVto="20260610",
                     CbteDesde=2,
+                    CbteHasta=2,
                     Resultado="A",
                 ),
                 SimpleNamespace(
                     CAE="12345678901233",
                     CAEFchVto="20260610",
                     CbteDesde=3,
+                    CbteHasta=3,
                     Resultado="A",
                 ),
             ]
@@ -172,6 +178,57 @@ async def test_fe_cae_solicitar_lote_rechaza_numeros_no_solicitados():
 
     with pytest.raises(ArcaServiceError, match="números distintos"):
         await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_detalle_sin_cbte_hasta():
+    """Debe rechazar respuestas batch sin extremo final de rango fiscal."""
+
+    class FakeService:
+        """Servicio SOAP simulado sin CbteHasta en el detalle."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle incompleto."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901231",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    Resultado="A",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="sin CbteHasta"):
+        await client.fe_cae_solicitar_lote([_comprobante(1)])
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_cbte_hasta_distinto():
+    """Debe rechazar CAE si ARCA responde un rango fiscal distinto."""
+
+    class FakeService:
+        """Servicio SOAP simulado con CbteHasta inesperado."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle con extremo final no solicitado."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901231",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    CbteHasta=999,
+                    Resultado="A",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="rangos distintos"):
+        await client.fe_cae_solicitar_lote([_comprobante(1)])
 
 
 @pytest.mark.asyncio
