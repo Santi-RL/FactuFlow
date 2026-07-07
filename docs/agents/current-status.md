@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-06
+Última actualización: 2026-07-07
 
 ## Objetivo activo
 
@@ -12,6 +12,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 - Backend FastAPI operativo con auth, usuarios, empresas, clientes, puntos de
   venta, certificados, comprobantes, PDF, lotes y reportes.
+- Auditoría backend Clawpatch 2026-07-07 en curso: ya quedaron cerrados y
+  revalidados los cortes de aislamiento multiemisor, rangos CAE batch,
+  borrado de certificados post-commit e importación de puntos de venta sin
+  estado ARCA disponible.
 - Backend ya registra formatos configurables de importación para lotes masivos,
   con formatos globales y particulares por emisor. La capa pública ahora los
   presenta como `Plantillas`: se pueden crear, editar con nueva versión,

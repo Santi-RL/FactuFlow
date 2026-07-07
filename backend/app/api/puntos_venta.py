@@ -146,6 +146,14 @@ async def importar_constancia_puntos_venta(
         )
 
     estado_arca = await _obtener_estado_puntos_arca(db, current_user, empresa_id)
+    estado_arca_disponible = estado_arca is not None
+    if not estado_arca_disponible:
+        estado_arca = {}
+        warnings.append(
+            "No se pudo consultar el estado técnico de puntos de venta en ARCA. "
+            "Se conservaron los estados existentes y los puntos nuevos quedaron "
+            "inactivos hasta sincronizar con ARCA."
+        )
 
     result = await db.execute(
         select(PuntoVenta).where(PuntoVenta.empresa_id == empresa_id)
@@ -157,10 +165,20 @@ async def importar_constancia_puntos_venta(
     omitidos = 0
 
     for punto in datos.puntos_venta:
-        arca_status = estado_arca.get(punto.numero, {})
-        bloqueado = bool(arca_status.get("bloqueado", False))
-        fecha_baja = arca_status.get("fecha_baja")
-        activo = not bloqueado and not fecha_baja
+        pv = existentes.get(punto.numero)
+        arca_status = estado_arca.get(punto.numero)
+        if arca_status is not None:
+            bloqueado = bool(arca_status.get("bloqueado", False))
+            fecha_baja = arca_status.get("fecha_baja")
+            activo = not bloqueado and not fecha_baja
+        elif pv:
+            bloqueado = pv.bloqueado
+            fecha_baja = pv.fecha_baja
+            activo = pv.activo
+        else:
+            bloqueado = False
+            fecha_baja = None
+            activo = estado_arca_disponible
         nombre = punto.nombre_fantasia or punto.sistema
 
         payload = {
@@ -175,8 +193,7 @@ async def importar_constancia_puntos_venta(
             "activo": activo,
         }
 
-        if punto.numero in existentes:
-            pv = existentes[punto.numero]
+        if pv:
             for field, value in payload.items():
                 setattr(pv, field, value)
             actualizados += 1
@@ -200,14 +217,14 @@ async def _obtener_estado_puntos_arca(
     db: AsyncSession,
     current_user: Usuario,
     empresa_id: int,
-) -> dict[int, dict[str, str | bool | None]]:
+) -> dict[int, dict[str, str | bool | None]] | None:
     """Obtener estado tecnico ARCA de puntos webservice si esta disponible."""
 
     try:
         wsfe_client = await get_wsfe_client(db, current_user, empresa_id)
         puntos = await wsfe_client.fe_param_get_ptos_venta()
     except Exception:
-        return {}
+        return None
 
     return {
         punto.numero: {

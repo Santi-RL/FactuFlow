@@ -720,6 +720,9 @@ Importante:
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
   completa de puntos, incluyendo sistema, domicilio y nombre de fantasía
+- si `Importar constancia` no puede consultar el estado técnico en ARCA,
+  conserva el estado local de los puntos existentes y deja inactivos los puntos
+  nuevos hasta sincronizar con ARCA o revisarlos manualmente
 - FactuFlow marca como `Usable` solo los puntos Web Services activos, no
   bloqueados y sin baja; los puntos Factuweb, Comprobantes en Línea o
   Controlador Fiscal quedan visibles como referencia pero no se usan para emitir

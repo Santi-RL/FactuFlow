@@ -39,6 +39,10 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 - El campo `Bloqueado` llega como `N`/`S`. `N` significa no bloqueado; no debe
   evaluarse como booleano directo porque cualquier string no vacío es truthy en
   Python.
+- Si `FEParamGetPtosVenta` falla durante una importación de constancia, no usar
+  `{}` como si todos los puntos estuvieran activos: preservar el estado local de
+  puntos existentes y dejar inactivos los puntos nuevos hasta sincronizar o
+  revisar manualmente.
 
 ### 4. `CondicionIVAReceptorId`
 

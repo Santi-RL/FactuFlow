@@ -142,6 +142,10 @@
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.
+- Si al importar una constancia falla la consulta técnica `FEParamGetPtosVenta`,
+  no se debe inventar estado ARCA activo: los puntos existentes conservan
+  `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
+  sincronizar con ARCA o revisarlos manualmente.
 
 ### Constancias de emisores
 

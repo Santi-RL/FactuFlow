@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-05
+Última actualización: 2026-07-07
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
@@ -1414,6 +1414,10 @@ Reglas vigentes para cualquier nueva emisión productiva:
   respuestas viejas al cambiar el emisor activo; la habilitacion de
   `Sincronizar con ARCA` sigue dependiendo del certificado activo del ambiente
   backend actual.
+- Verificación técnica 2026-07-07: si `Importar constancia` no puede consultar
+  `FEParamGetPtosVenta`, el backend devuelve una advertencia, conserva
+  `bloqueado`, `fecha_baja` y `activo` en puntos existentes, y deja inactivos
+  los puntos nuevos hasta sincronizar con ARCA o revisarlos manualmente.
 
 ### 11. Mi Empresa
 
