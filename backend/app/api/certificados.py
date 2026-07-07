@@ -17,6 +17,7 @@ from fastapi import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import get_current_empresa_id
 from app.core.database import get_db
@@ -249,15 +250,25 @@ async def delete_certificado(
             detail="No tienes permiso para eliminar este certificado",
         )
 
-    await _eliminar_archivos_certificado_no_referenciados(db, certificado)
+    rutas_propias = _resolver_rutas_certificado_gestionadas(certificado)
     await db.delete(certificado)
     await db.commit()
+    try:
+        await _eliminar_archivos_certificado_no_referenciados(
+            db,
+            certificado_id=certificado_id,
+            rutas_propias=rutas_propias,
+        )
+    except SQLAlchemyError:
+        await db.rollback()
+        logger.exception(
+            "No se pudo verificar referencias para limpiar archivos del certificado %s",
+            certificado_id,
+        )
 
 
-async def _eliminar_archivos_certificado_no_referenciados(
-    db: AsyncSession, certificado: Certificado
-) -> None:
-    """Elimina archivos gestionados si no están referenciados por otro registro."""
+def _resolver_rutas_certificado_gestionadas(certificado: Certificado) -> set[Path]:
+    """Resuelve rutas administradas asociadas a un certificado."""
     rutas_propias: set[Path] = set()
     for path_value in (certificado.archivo_crt, certificado.archivo_key):
         try:
@@ -268,8 +279,18 @@ async def _eliminar_archivos_certificado_no_referenciados(
                 path_value,
             )
 
+    return rutas_propias
+
+
+async def _eliminar_archivos_certificado_no_referenciados(
+    db: AsyncSession, certificado_id: int, rutas_propias: set[Path]
+) -> None:
+    """Elimina archivos gestionados si no están referenciados por otro registro."""
+    if not rutas_propias:
+        return
+
     otros = await db.execute(
-        select(Certificado).where(Certificado.id != certificado.id)
+        select(Certificado).where(Certificado.id != certificado_id)
     )
     rutas_referenciadas: set[Path] = set()
     for otro in otros.scalars().all():
@@ -284,7 +305,14 @@ async def _eliminar_archivos_certificado_no_referenciados(
 
     for ruta in rutas_propias - rutas_referenciadas:
         if ruta.exists():
-            ruta.unlink()
+            try:
+                ruta.unlink()
+            except OSError:
+                logger.warning(
+                    "No se pudo eliminar archivo de certificado sin referencia: %s",
+                    ruta,
+                    exc_info=True,
+                )
 
 
 @router.post("/generar-csr", response_model=GenerarCSRResponse)

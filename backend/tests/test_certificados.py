@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -435,6 +436,114 @@ class TestCertificadosAPI:
         assert response.status_code == 204
         assert not cert_path.exists()
         assert not key_path.exists()
+
+    async def test_delete_certificado_no_elimina_archivos_si_commit_falla(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_empresa,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        """Si el commit falla, los archivos del certificado deben conservarse."""
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+        cert_path = tmp_path / "certificado.crt"
+        key_path = tmp_path / "certificado.key"
+        cert_path.write_bytes(b"cert")
+        key_path.write_bytes(b"key")
+
+        certificado = Certificado(
+            nombre="Certificado con commit fallido",
+            cuit=test_empresa.cuit,
+            fecha_emision=date(2026, 1, 1),
+            fecha_vencimiento=date(2026, 12, 31),
+            archivo_crt=cert_path.name,
+            archivo_key=key_path.name,
+            activo=True,
+            ambiente="homologacion",
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(certificado)
+        await db_session.commit()
+        await db_session.refresh(certificado)
+        certificado_id = certificado.id
+
+        async def fail_commit():
+            raise RuntimeError("commit fallido simulado")
+
+        monkeypatch.setattr(db_session, "commit", fail_commit)
+
+        with pytest.raises(RuntimeError, match="commit fallido simulado"):
+            await client.delete(
+                f"/api/certificados/{certificado_id}", headers=auth_headers
+            )
+
+        assert cert_path.exists()
+        assert key_path.exists()
+        await db_session.rollback()
+        certificado_persistido = await db_session.get(Certificado, certificado_id)
+        assert certificado_persistido is not None
+
+    async def test_delete_certificado_rollback_si_limpieza_post_commit_falla(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_empresa,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        """Un fallo de limpieza post-commit no debe dejar la sesión abortada."""
+        from app.api import certificados as certificados_api
+
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+        cert_path = tmp_path / "certificado.crt"
+        key_path = tmp_path / "certificado.key"
+        cert_path.write_bytes(b"cert")
+        key_path.write_bytes(b"key")
+
+        certificado = Certificado(
+            nombre="Certificado con limpieza fallida",
+            cuit=test_empresa.cuit,
+            fecha_emision=date(2026, 1, 1),
+            fecha_vencimiento=date(2026, 12, 31),
+            archivo_crt=cert_path.name,
+            archivo_key=key_path.name,
+            activo=True,
+            ambiente="homologacion",
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(certificado)
+        await db_session.commit()
+        await db_session.refresh(certificado)
+        certificado_id = certificado.id
+        rollback_called = False
+        original_rollback = db_session.rollback
+
+        async def fail_cleanup(*_args, **_kwargs):
+            raise SQLAlchemyError("limpieza fallida simulada")
+
+        async def spy_rollback():
+            nonlocal rollback_called
+            rollback_called = True
+            await original_rollback()
+
+        monkeypatch.setattr(
+            certificados_api,
+            "_eliminar_archivos_certificado_no_referenciados",
+            fail_cleanup,
+        )
+        monkeypatch.setattr(db_session, "rollback", spy_rollback)
+
+        response = await client.delete(
+            f"/api/certificados/{certificado_id}", headers=auth_headers
+        )
+
+        assert response.status_code == 204
+        assert rollback_called is True
+        assert cert_path.exists()
+        assert key_path.exists()
 
 
 @pytest.mark.asyncio
