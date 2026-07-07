@@ -167,15 +167,7 @@ class ReportesService:
             iva_21_firmado = comp.iva_21 * signo
             iva_10_5_firmado = comp.iva_10_5 * signo
             iva_27_firmado = comp.iva_27 * signo
-            no_gravado = Decimal(0)
-            exento = Decimal(0)
-            if (
-                comp.tipo_comprobante in TIPOS_COMPROBANTE_C
-                and comp.iva_21 == 0
-                and comp.iva_10_5 == 0
-                and comp.iva_27 == 0
-            ):
-                exento = comp.subtotal
+            no_gravado, exento = self._calcular_importes_sin_iva(comp)
             no_gravado_firmado = no_gravado * signo
             exento_firmado = exento * signo
 
@@ -306,6 +298,30 @@ class ReportesService:
             item["total_facturado"] = float(item["total_facturado"])
 
         return ranking
+
+    def _calcular_importes_sin_iva(
+        self, comprobante: Comprobante
+    ) -> tuple[Decimal, Decimal]:
+        """Clasifica bases sin débito fiscal para el subdiario IVA."""
+        total_iva = comprobante.iva_21 + comprobante.iva_10_5 + comprobante.iva_27
+        items = list(comprobante.items or [])
+        if items:
+            importe_iva_cero = sum(
+                (
+                    item.subtotal
+                    for item in items
+                    if item.iva_porcentaje == Decimal("0")
+                ),
+                Decimal(0),
+            )
+        elif total_iva == 0:
+            importe_iva_cero = comprobante.subtotal
+        else:
+            importe_iva_cero = Decimal(0)
+
+        if comprobante.tipo_comprobante in TIPOS_COMPROBANTE_C:
+            return Decimal(0), importe_iva_cero
+        return importe_iva_cero, Decimal(0)
 
     def _get_receptor_nombre(self, comprobante: Comprobante) -> str:
         """Nombre fiscal del receptor guardado en el comprobante."""

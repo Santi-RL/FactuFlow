@@ -1376,8 +1376,8 @@ Reglas vigentes para cualquier nueva emisión productiva:
 - Verificacion técnica 2026-05-17: el detalle del subdiario IVA incluye
   columnas para gravado e IVA 27%.
 - Verificación técnica 2026-07-07: el subdiario IVA incluye comprobantes C
-  autorizados con IVA 0 como importes exentos y aplica signo negativo para notas
-  de crédito C.
+  autorizados con IVA 0 como importes exentos, ítems A/B con IVA 0 como no
+  gravados y aplica signo negativo para notas de crédito.
 
 ### 9. Certificados
 

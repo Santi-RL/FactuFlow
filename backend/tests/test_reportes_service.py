@@ -5,6 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.models.comprobante import Comprobante
+from app.models.comprobante_item import ComprobanteItem
 from app.models.punto_venta import PuntoVenta
 from app.services.reportes_service import ReportesService
 
@@ -264,6 +265,117 @@ class TestReportesService:
         assert reporte["comprobantes"][0]["total"] == 1500.0
         assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
         assert reporte["comprobantes"][1]["exento"] == -200.0
+        assert reporte["comprobantes"][1]["total"] == -200.0
+
+    @pytest.mark.asyncio
+    async def test_generar_reporte_iva_incluye_items_iva_cero_no_gravados(
+        self, reportes_service, db_session, test_empresa
+    ):
+        """El subdiario IVA debe incluir ítems A/B con IVA cero como no gravados."""
+        punto_venta = PuntoVenta(
+            numero=3,
+            nombre="Punto B",
+            activo=True,
+            es_webservice=True,
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(punto_venta)
+        await db_session.flush()
+        factura = Comprobante(
+            tipo_comprobante=6,
+            concepto=1,
+            numero=20,
+            fecha_emision=date(2026, 5, 14),
+            subtotal=Decimal("1000.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("0.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("1000.00"),
+            cae="32345678901234",
+            cae_vencimiento=date(2026, 5, 24),
+            estado="autorizado",
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            receptor_tipo_documento=80,
+            receptor_numero_documento="20409378472",
+            receptor_razon_social="Cliente No Gravado SA",
+            receptor_condicion_iva="RI",
+        )
+        nota_credito = Comprobante(
+            tipo_comprobante=8,
+            concepto=1,
+            numero=21,
+            fecha_emision=date(2026, 5, 15),
+            subtotal=Decimal("200.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("0.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("200.00"),
+            cae="32345678901235",
+            cae_vencimiento=date(2026, 5, 24),
+            estado="autorizado",
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            receptor_tipo_documento=80,
+            receptor_numero_documento="20409378472",
+            receptor_razon_social="Cliente No Gravado SA",
+            receptor_condicion_iva="RI",
+        )
+        db_session.add_all([factura, nota_credito])
+        await db_session.flush()
+        db_session.add_all(
+            [
+                ComprobanteItem(
+                    descripcion="Operación sin IVA",
+                    cantidad=Decimal("1.0000"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000.0000"),
+                    descuento_porcentaje=Decimal("0.00"),
+                    iva_porcentaje=Decimal("0.00"),
+                    subtotal=Decimal("1000.00"),
+                    orden=1,
+                    comprobante_id=factura.id,
+                ),
+                ComprobanteItem(
+                    descripcion="Anulación sin IVA",
+                    cantidad=Decimal("1.0000"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("200.0000"),
+                    descuento_porcentaje=Decimal("0.00"),
+                    iva_porcentaje=Decimal("0.00"),
+                    subtotal=Decimal("200.00"),
+                    orden=1,
+                    comprobante_id=nota_credito.id,
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        reporte = await reportes_service.generar_reporte_iva(
+            db_session,
+            empresa_id=test_empresa.id,
+            periodo_mes=5,
+            periodo_anio=2026,
+        )
+
+        assert reporte["resumen"]["no_gravado"] == 800.0
+        assert reporte["resumen"]["exento"] == 0.0
+        assert reporte["resumen"]["total_neto"] == 800.0
+        assert reporte["resumen"]["total_iva"] == 0.0
+        assert reporte["comprobantes"][0]["tipo_letra"] == "B"
+        assert reporte["comprobantes"][0]["tipo_nombre"] == "FB"
+        assert reporte["comprobantes"][0]["no_gravado"] == 1000.0
+        assert reporte["comprobantes"][0]["exento"] == 0.0
+        assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
+        assert reporte["comprobantes"][1]["no_gravado"] == -200.0
         assert reporte["comprobantes"][1]["total"] == -200.0
 
     @pytest.mark.asyncio
