@@ -1,7 +1,9 @@
 """Tests para funciones de utilidad de ARCA."""
 
-import pytest
 from datetime import datetime
+from decimal import Decimal
+
+import pytest
 
 from app.arca.utils import (
     format_cuit,
@@ -123,13 +125,19 @@ class TestFormatImporte:
 
     def test_format_importe_float(self):
         """Debe formatear float con 2 decimales."""
-        assert format_importe(123.456) == 123.46
+        assert format_importe(123.456) == Decimal("123.46")
 
     def test_format_importe_integer(self):
         """Debe formatear entero."""
-        assert format_importe(100) == 100.0
+        assert format_importe(100) == Decimal("100.00")
 
     def test_format_importe_rounding(self):
         """Debe redondear correctamente."""
-        assert format_importe(99.999) == 100.0
-        assert format_importe(99.994) == 99.99
+        assert format_importe(99.999) == Decimal("100.00")
+        assert format_importe(99.994) == Decimal("99.99")
+
+    def test_format_importe_rounding_decimal_half_up(self):
+        """Debe redondear mitades decimales sin errores de float binario."""
+        assert format_importe(Decimal("2.675")) == Decimal("2.68")
+        assert format_importe(Decimal("1.005")) == Decimal("1.01")
+        assert format_importe(2.675) == Decimal("2.68")

@@ -153,6 +153,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   puntos devueltos por WSFE se crean o actualizan como Web Services usables
 - [x] Validación de puntos de venta en emisión normaliza `Bloqueado=N`/`S` de ARCA
 - [x] Factura C no informa objeto `Iva` en WSFE y bloquea ítems con IVA distinto de 0
+- [x] Importes WSFE cuantizados con Decimal antes de solicitar CAE, evitando
+  redondeo binario con float en totales, IVA, tributos y bases
 - [x] UI de puntos de venta valida el certificado activo del ambiente ARCA actual
   antes de sincronizar WSFE
 - [x] Emisor activo consistente por pestaña y API con rechazo de conflictos

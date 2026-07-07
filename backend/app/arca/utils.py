@@ -1,6 +1,10 @@
 """Funciones de utilidad para ARCA."""
 
 from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+
+CENTAVO_ARCA = Decimal("0.01")
 
 
 def format_cuit(cuit: str | int) -> str:
@@ -135,7 +139,7 @@ def parse_date_arca(fecha: str) -> datetime:
     return datetime.strptime(fecha, "%Y%m%d")
 
 
-def format_importe(importe: float | int) -> float:
+def format_importe(importe: Decimal | float | int | str) -> Decimal:
     """
     Formatea un importe para ARCA con 2 decimales.
 
@@ -147,8 +151,15 @@ def format_importe(importe: float | int) -> float:
 
     Examples:
         >>> format_importe(123.456)
-        123.46
+        Decimal("123.46")
         >>> format_importe(100)
-        100.0
+        Decimal("100.00")
     """
-    return round(float(importe), 2)
+    try:
+        decimal_importe = (
+            importe if isinstance(importe, Decimal) else Decimal(str(importe))
+        )
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError(f"Importe ARCA inválido: {importe}") from exc
+
+    return decimal_importe.quantize(CENTAVO_ARCA, rounding=ROUND_HALF_UP)

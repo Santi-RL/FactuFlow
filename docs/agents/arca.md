@@ -369,6 +369,10 @@
 ## Hallazgos técnicos de integración solucionados
 
 - Cache WSAA antes solo en memoria; ahora persiste en `backend/data/arca_token_cache.json`.
+- Los importes del request `FECAESolicitar` deben cuantizarse con
+  `Decimal("0.01")` y redondeo `ROUND_HALF_UP` antes del payload SOAP. No usar
+  `float` ni `round()` para `ImpTotal`, `ImpNeto`, `ImpIVA`, `ImpTrib`, bases ni
+  importes de IVA/tributos.
 - `FECAESolicitar` debia enviar:
   - `FeDetReq: { FECAEDetRequest: [...] }`
   - `Iva: { AlicIva: [...] }`

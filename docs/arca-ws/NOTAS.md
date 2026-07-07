@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 2026-06-12
+Última actualización: 2026-07-07
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -190,6 +190,11 @@ El proyecto tuvo que corregir estas estructuras:
   ARCA rechaza con `10071` aunque se informe alícuota 0.
 - FactuFlow debe bloquear localmente cualquier ítem tipo C con IVA distinto de
   0 antes de solicitar CAE.
+- Los importes fiscales del request deben cuantizarse con Decimal a dos
+  decimales y redondeo `ROUND_HALF_UP` antes de enviar el SOAP. Esto aplica a
+  `ImpTotal`, `ImpTotConc`, `ImpNeto`, `ImpOpEx`, `ImpIVA`, `ImpTrib`, bases e
+  importes de IVA y tributos. No usar `round(float(...), 2)`: casos como
+  `2.675` pueden terminar en `2.67` por representación binaria.
 - Antes de habilitar acciones WSFE desde la UI, FactuFlow debe verificar que
   haya certificado activo para el `ARCA_ENV` actual. Un certificado válido de
   otro ambiente no sirve para esa operación.

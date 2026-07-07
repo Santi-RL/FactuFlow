@@ -1,12 +1,13 @@
 """Tests del cliente WSFEv1."""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 
 from app.arca.exceptions import ArcaServiceError, ArcaValidationError
-from app.arca.models import ComprobanteRequest, TicketAcceso
+from app.arca.models import ComprobanteRequest, IvaItem, TicketAcceso, TributoItem
 from app.arca.wsfev1 import WSFEv1Client
 
 
@@ -107,6 +108,67 @@ async def test_fe_cae_solicitar_lote_envia_cant_reg_y_detalles():
         "12345678901231",
         "12345678901232",
     ]
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_cuantiza_importes_decimales():
+    """Debe cuantizar importes fiscales con Decimal antes del request ARCA."""
+
+    class FakeService:
+        """Servicio SOAP simulado que captura importes del request."""
+
+        def __init__(self) -> None:
+            """Inicializa el registro de llamadas."""
+            self.detalle = None
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Captura el detalle y devuelve un CAE simulado."""
+            self.detalle = FeCAEReq["FeDetReq"]["FECAEDetRequest"][0]
+            detalle = SimpleNamespace(
+                CAE="12345678901231",
+                CAEFchVto="20260610",
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="A",
+            )
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle])
+            )
+
+    service = FakeService()
+    client = _crear_cliente_wsfe(service)
+    comprobante = _comprobante()
+    comprobante.imp_total = Decimal("2.675")
+    comprobante.imp_tot_conc = Decimal("1.005")
+    comprobante.imp_neto = Decimal("2.675")
+    comprobante.imp_op_ex = Decimal("1.005")
+    comprobante.imp_iva = Decimal("1.005")
+    comprobante.imp_trib = Decimal("2.675")
+    comprobante.iva = [
+        IvaItem(id=5, base_imp=Decimal("2.675"), importe=Decimal("1.005"))
+    ]
+    comprobante.tributos = [
+        TributoItem(
+            id=99,
+            descripcion="Prueba",
+            base_imp=Decimal("2.675"),
+            alic=Decimal("1.5"),
+            importe=Decimal("1.005"),
+        )
+    ]
+
+    await client.fe_cae_solicitar_lote([comprobante])
+
+    assert service.detalle["ImpTotal"] == Decimal("2.68")
+    assert service.detalle["ImpTotConc"] == Decimal("1.01")
+    assert service.detalle["ImpNeto"] == Decimal("2.68")
+    assert service.detalle["ImpOpEx"] == Decimal("1.01")
+    assert service.detalle["ImpIVA"] == Decimal("1.01")
+    assert service.detalle["ImpTrib"] == Decimal("2.68")
+    assert service.detalle["Iva"]["AlicIva"][0]["BaseImp"] == Decimal("2.68")
+    assert service.detalle["Iva"]["AlicIva"][0]["Importe"] == Decimal("1.01")
+    assert service.detalle["Tributos"]["Tributo"][0]["BaseImp"] == Decimal("2.68")
+    assert service.detalle["Tributos"]["Tributo"][0]["Importe"] == Decimal("1.01")
 
 
 @pytest.mark.asyncio

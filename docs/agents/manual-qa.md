@@ -123,6 +123,18 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### ARCA WSFE - importes fiscales 2026-07-07
+
+- Alcance revisado: helper de importes ARCA y armado de request WSFEv1 para
+  `ImpTotal`, no gravado, neto, exento, IVA, tributos, bases e importes de
+  IVA/tributos.
+- Verificación automatizada: primero se reprodujo que `Decimal("2.675")`
+  terminaba como `2.67`; luego quedó en `Decimal("2.68")` y pasó
+  `pytest tests/test_arca -q` con 57 tests.
+- También quedaron OK `ruff check` y `black --check` sobre los archivos backend
+  modificados. No se solicitaron CAE, no se llamó ARCA real y no se usaron datos
+  privados.
+
 ### Sistema > Estado - ficha para soporte 2026-06-29
 
 - Alcance revisado: nueva sección `Ficha para soporte` dentro de

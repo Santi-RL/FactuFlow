@@ -14,10 +14,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   venta, certificados, comprobantes, PDF, lotes y reportes.
 - Auditoría backend Clawpatch 2026-07-07 en curso: ya quedaron cerrados y
   revalidados los cortes de aislamiento multiemisor, rangos CAE batch,
-  borrado de certificados post-commit e importación de puntos de venta sin
-  estado ARCA disponible. El corte actual corrige el subdiario IVA para que
-  comprobantes C autorizados con IVA cero aporten su subtotal como exento y
-  comprobantes A/B con ítems IVA cero aporten esos ítems como no gravados.
+  borrado de certificados post-commit, importación de puntos de venta sin
+  estado ARCA disponible, subdiario IVA para comprobantes C/A/B con IVA cero e
+  importes WSFE cuantizados con Decimal antes de solicitar CAE.
 - Producción ya rechaza `APP_SECRET_KEY` vacío, corto o igual a los placeholders
   públicos de configuración para evitar firmar JWT con secretos conocidos.
 - Backend ya registra formatos configurables de importación para lotes masivos,
