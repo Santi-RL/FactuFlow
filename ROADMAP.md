@@ -52,8 +52,9 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   toda operación debe quedar scopiada al emisor activo seleccionado.
 - El modelo inicial de usuarios es simple: el primer usuario de una instalación
   es administrador propietario; luego solo administradores crean, desactivan,
-  reactivan o resetean usuarios. Todos los usuarios activos pueden operar todos
-  los emisores configurados; `es_admin` significa administrar usuarios.
+  reactivan o resetean usuarios. Los administradores pueden operar todos los
+  emisores configurados; los usuarios comunes solo pueden operar el emisor
+  asignado en su cuenta.
 - No se avanza por ahora hacia una plataforma multiempresa compleja con
   administración central completa, permisos finos por organización, reportes
   globales consolidados u operación simultanea entre emisores.
@@ -171,7 +172,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Vue + Pinia + Router operativos
 - [x] Dashboard, clientes, comprobantes, emisión masiva, reportes, certificados, puntos de venta y empresa operativos
 - [x] Selector de emisor activo para operar varios CUITs desde un usuario
-- [x] Selector de emisor activo visible para todos los usuarios activos
+- [x] Selector de emisor activo visible con las opciones autorizadas para cada usuario activo
 - [x] Pantalla `Usuarios` reservada a administradores para alta, edición,
   desactivación/reactivación y reseteo de claves
 - [x] Integración visual controlada de identidad v01 cerrada en frontend
@@ -528,7 +529,8 @@ simultanea entre emisores.
 
 - [x] Header `X-Empresa-Id` para usuarios autenticados activos
 - [x] Selector de emisor activo en frontend
-- [x] Usuarios operativos con acceso a todos los emisores configurados
+- [x] Administradores operativos con acceso a todos los emisores configurados
+- [x] Usuarios comunes restringidos al emisor asignado
 - [x] Alta básica de nuevos emisores desde UI admin
 - [x] Configuración de perfiles de carga masiva desde `Emisores > Carga masiva`,
   incluyendo punto de venta por archivo o punto fijo usable del emisor

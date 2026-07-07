@@ -261,12 +261,12 @@ async def test_admin_rechaza_header_empresa_cero(
 
 
 @pytest.mark.asyncio
-async def test_usuario_comun_puede_resolver_empresa_por_query_legacy(
+async def test_usuario_comun_no_resuelve_emisor_ajeno_por_query_legacy(
     client: AsyncClient,
     auth_headers: dict,
     db_session: AsyncSession,
 ):
-    """Un usuario común puede operar cualquier emisor configurado."""
+    """Un usuario común no debe operar un emisor distinto del asignado."""
     segunda = Empresa(
         razon_social="Empresa Ajena S.A.",
         cuit="30333333330",
@@ -296,7 +296,37 @@ async def test_usuario_comun_puede_resolver_empresa_por_query_legacy(
         headers=auth_headers,
     )
 
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "No tenés permiso para operar el emisor seleccionado"
+    )
+
+
+@pytest.mark.asyncio
+async def test_usuario_comun_puede_resolver_su_emisor_asignado_por_header(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """Un usuario común puede seleccionar explícitamente su emisor asignado."""
+    db_session.add(
+        Cliente(
+            empresa_id=test_empresa.id,
+            razon_social="Cliente Emisor Asignado",
+            tipo_documento="CUIT",
+            numero_documento="30999999992",
+            condicion_iva="RI",
+        )
+    )
+    await db_session.commit()
+
+    response = await client.get(
+        "/api/clientes",
+        headers={**auth_headers, "X-Empresa-Id": str(test_empresa.id)},
+    )
+
     assert response.status_code == 200
     data = response.json()
     assert data["total"] == 1
-    assert data["items"][0]["razon_social"] == "Cliente Segundo Emisor"
+    assert data["items"][0]["razon_social"] == "Cliente Emisor Asignado"

@@ -174,6 +174,65 @@ async def test_emitir_comprobante_exige_idempotency_key(
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobante_rechaza_emisor_ajeno_antes_de_servicio(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Un usuario común no debe solicitar CAE bajo un emisor ajeno."""
+    segunda = test_empresa.__class__(
+        razon_social="Empresa Ajena Emision S.A.",
+        cuit="30444444446",
+        condicion_iva="RI",
+        domicilio="Av. Ajena 456",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(segunda)
+    await db_session.commit()
+    await db_session.refresh(segunda)
+    llamadas = 0
+
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=999,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=6,
+            numero=1,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={
+            **auth_headers,
+            **_idempotency_header("idem-emisor-ajeno"),
+            "X-Empresa-Id": str(segunda.id),
+        },
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "No tenés permiso para operar el emisor seleccionado"
+    )
+    assert llamadas == 0
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     client: AsyncClient,
     auth_headers: dict,

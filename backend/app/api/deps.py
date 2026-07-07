@@ -54,10 +54,12 @@ async def get_current_empresa_id(
     Resuelve la empresa activa del request.
 
     Reglas:
-    - Cualquier usuario activo con header `X-Empresa-Id`: usa esa empresa si existe.
-    - Cualquier usuario activo con query legacy `empresa_id`: usa esa empresa si existe.
-    - Sin selección explícita y con empresa asignada: usa esa empresa preferida.
-    - Sin selección explícita ni empresa asignada:
+    - Un administrador puede operar cualquier empresa existente seleccionada por
+      `X-Empresa-Id` o por el query legacy `empresa_id`.
+    - Un usuario común solo puede operar la empresa asignada en su cuenta.
+    - Sin selección explícita y con empresa asignada: usa esa empresa.
+    - Un usuario común sin empresa asignada no puede operar emisores.
+    - Un administrador sin selección explícita ni empresa asignada:
       - si existe una sola empresa en el sistema, la usa.
       - si hay más de una, exige seleccionar empresa.
     """
@@ -82,6 +84,21 @@ async def get_current_empresa_id(
         empresa_header_id if empresa_header_id is not None else empresa_query_id
     )
 
+    if not current_user.es_admin:
+        if current_user.empresa_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El usuario no tiene un emisor asignado para operar",
+            )
+        if (
+            empresa_solicitada_id is not None
+            and empresa_solicitada_id != current_user.empresa_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tenés permiso para operar el emisor seleccionado",
+            )
+
     if empresa_solicitada_id is not None:
         result = await db.execute(
             select(Empresa.id).where(Empresa.id == empresa_solicitada_id)
@@ -100,6 +117,11 @@ async def get_current_empresa_id(
         )
         if result.scalar_one_or_none() is not None:
             return current_user.empresa_id
+        if not current_user.es_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El emisor asignado al usuario no está disponible",
+            )
 
     result = await db.execute(select(func.count(Empresa.id)))
     total_empresas = result.scalar_one()

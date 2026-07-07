@@ -48,11 +48,11 @@ async def _crear_comprobante_autorizado(db_session, empresa_id: int) -> Comproba
 
 
 @pytest.mark.asyncio
-async def test_usuario_comun_puede_listar_y_crear_emisores(
+async def test_usuario_comun_lista_solo_su_emisor_y_no_crea_emisores(
     client: AsyncClient,
     auth_headers: dict,
 ):
-    """Los usuarios activos pueden administrar emisores configurados."""
+    """Un usuario común solo ve su emisor y no puede crear otros emisores."""
     list_response = await client.get("/api/empresas", headers=auth_headers)
 
     assert list_response.status_code == 200
@@ -73,8 +73,35 @@ async def test_usuario_comun_puede_listar_y_crear_emisores(
         },
     )
 
-    assert create_response.status_code == 201
-    assert create_response.json()["razon_social"] == "Nuevo Emisor S.A."
+    assert create_response.status_code == 403
+    assert (
+        create_response.json()["detail"] == "Solo un administrador puede crear emisores"
+    )
+
+
+@pytest.mark.asyncio
+async def test_admin_crea_emisor(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+):
+    """Un administrador puede agregar otro emisor para operar."""
+    response = await client.post(
+        "/api/empresas",
+        headers=admin_auth_headers,
+        json={
+            "razon_social": "Nuevo Emisor S.A.",
+            "cuit": "30999999995",
+            "condicion_iva": "RI",
+            "domicilio": "Av. Nueva 123",
+            "localidad": "CABA",
+            "provincia": "Buenos Aires",
+            "codigo_postal": "1000",
+            "inicio_actividades": date(2024, 1, 1).isoformat(),
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["razon_social"] == "Nuevo Emisor S.A."
 
 
 @pytest.mark.asyncio
@@ -100,6 +127,43 @@ async def test_no_puede_crear_emisor_sin_auth_si_ya_hay_usuarios(
     )
 
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_usuario_comun_no_lee_ni_modifica_emisor_ajeno(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session,
+):
+    """Un usuario común no debe acceder por ID directo a otro emisor."""
+    ajena = Empresa(
+        razon_social="Empresa Ajena S.A.",
+        cuit="30777777778",
+        condicion_iva="RI",
+        domicilio="Av. Ajena 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2024, 1, 1),
+    )
+    db_session.add(ajena)
+    await db_session.commit()
+    await db_session.refresh(ajena)
+
+    get_response = await client.get(
+        f"/api/empresas/{ajena.id}",
+        headers=auth_headers,
+    )
+    update_response = await client.put(
+        f"/api/empresas/{ajena.id}",
+        headers=auth_headers,
+        json={"email": "intruso@example.com"},
+    )
+
+    assert get_response.status_code == 403
+    assert update_response.status_code == 403
+    await db_session.refresh(ajena)
+    assert ajena.email is None
 
 
 @pytest.mark.asyncio

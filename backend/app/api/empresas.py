@@ -86,22 +86,45 @@ def _campos_identidad_fiscal_modificados(
     )
 
 
+def _validar_usuario_puede_operar_empresa(
+    current_user: Usuario, empresa_id: int
+) -> None:
+    """Bloquea acceso directo a emisores no asignados al usuario común."""
+    if current_user.es_admin:
+        return
+    if current_user.empresa_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El usuario no tiene un emisor asignado para operar",
+        )
+    if current_user.empresa_id != empresa_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tenés permiso para operar el emisor seleccionado",
+        )
+
+
 @router.get("", response_model=list[EmpresaResponse])
 async def list_empresas(
     db: AsyncSession = Depends(get_db),
-    _current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """
-    Listar todas las empresas configuradas.
+    Listar los emisores visibles para el usuario autenticado.
 
     Args:
         db: Sesión de base de datos
         current_user: Usuario autenticado
 
     Returns:
-        Lista de empresas
+        Lista de empresas autorizadas
     """
-    result = await db.execute(select(Empresa))
+    stmt = select(Empresa)
+    if not current_user.es_admin:
+        if current_user.empresa_id is None:
+            return []
+        stmt = stmt.where(Empresa.id == current_user.empresa_id)
+    result = await db.execute(stmt)
     empresas = result.scalars().all()
     return empresas
 
@@ -139,6 +162,11 @@ async def create_empresa(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="No se pudo validar las credenciales",
                     headers={"WWW-Authenticate": "Bearer"},
+                )
+            if not current_user.es_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Solo un administrador puede crear emisores",
                 )
 
         # Verificar que el CUIT no exista
@@ -206,7 +234,7 @@ async def extraer_constancia_arca(
 async def get_empresa(
     empresa_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """
     Obtener una empresa por ID.
@@ -222,6 +250,7 @@ async def get_empresa(
     Raises:
         HTTPException: Si la empresa no existe
     """
+    _validar_usuario_puede_operar_empresa(current_user, empresa_id)
     result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     empresa = result.scalar_one_or_none()
 
@@ -238,7 +267,7 @@ async def update_empresa(
     empresa_id: int,
     empresa_data: EmpresaUpdate,
     db: AsyncSession = Depends(get_db),
-    _current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """
     Actualizar una empresa.
@@ -255,6 +284,7 @@ async def update_empresa(
     Raises:
         HTTPException: Si la empresa no existe
     """
+    _validar_usuario_puede_operar_empresa(current_user, empresa_id)
     result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     empresa = result.scalar_one_or_none()
 

@@ -155,9 +155,15 @@ async def test_plantilla_global_visible_y_plantilla_emisor_aislada(
     )
     assert local_response.status_code == 201, local_response.text
 
-    otra_lista = await client.get(
+    usuario_otra_empresa = await client.get(
         "/api/formatos-importacion",
         headers={**auth_headers, "X-Empresa-Id": str(otra_empresa.id)},
+    )
+    assert usuario_otra_empresa.status_code == 403
+
+    otra_lista = await client.get(
+        "/api/formatos-importacion",
+        headers={**admin_auth_headers, "X-Empresa-Id": str(otra_empresa.id)},
     )
     assert otra_lista.status_code == 200
     nombres = {item["nombre"] for item in otra_lista.json()}

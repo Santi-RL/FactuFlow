@@ -108,9 +108,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El setup inicial queda cerrado cuando ya existe cualquier usuario. La pantalla
   `Configurar sistema` se muestra solo con `GET /api/auth/setup-status` en
   estado requerido; las altas posteriores se hacen desde el menú `Usuarios`.
-- El rol `es_admin` queda definido como permiso para administrar usuarios. Los
-  usuarios comunes activos pueden operar todos los emisores configurados; el
-  emisor activo sigue resolviendo el alcance de datos por request.
+- El rol `es_admin` queda definido como permiso para administrar usuarios y
+  operar cualquier emisor configurado. Los usuarios comunes activos solo pueden
+  operar el emisor asignado en su cuenta; el emisor activo sigue resolviendo el
+  alcance de datos por request dentro de ese permiso.
 - Clawpatch backend/frontend/repo queda sin hallazgos abiertos después del
   ciclo 2026-07-05. El cierre sanitizado y las lecciones operativas quedaron en
   `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`.
@@ -946,9 +947,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   usuarios.
 - El backend impide que un administrador desactive, degrade o cambie el email de
   su propia cuenta desde la sesión activa, preservando acceso administrativo.
-- Todos los usuarios activos pueden seleccionar cualquier emisor configurado por
-  `X-Empresa-Id` o `empresa_id`; `empresa_id` del usuario queda como preferencia
-  inicial, no como restricción de acceso operativo. El borrado físico de
+- Desde 2026-07-07, los administradores pueden seleccionar cualquier emisor
+  configurado por `X-Empresa-Id` o `empresa_id`, pero los usuarios comunes solo
+  pueden seleccionar el emisor asignado en su cuenta; `empresa_id` dejó de ser
+  una preferencia inicial y pasó a ser una restricción de acceso operativo para
+  usuarios no administradores. El borrado físico de
   emisores queda reservado a administradores y solo se permite para emisores sin
   datos operativos o fiscales asociados; si existen comprobantes, lotes,
   intentos fiscales, certificados, puntos de venta, clientes, perfiles o
@@ -1587,7 +1590,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Se agregó el comando `python -m app.scripts.create_admin_user` para crear o
   promover un usuario propietario/administrador en la base configurada.
 - Se ajusto la UI para hablar de `Emisor activo` / `Emisores` y se agregó
-  alta de nuevos emisores desde la pantalla fiscal.
+  alta de nuevos emisores desde la pantalla fiscal para administradores.
 - El alta de emisores permite subir una constancia de inscripcion ARCA en PDF
   para precompletar los campos fiscales antes de guardar. Desde 2026-05-10
   también acepta constancias de opcion de Monotributo y constancias de

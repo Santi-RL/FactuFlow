@@ -42,7 +42,7 @@ async def _get_usuario_or_404(db: AsyncSession, usuario_id: int) -> Usuario:
 async def _validar_empresa_opcional(
     db: AsyncSession, empresa_id: int | None
 ) -> int | None:
-    """Verifica que el emisor preferido exista cuando se informa."""
+    """Verifica que el emisor asignado exista cuando se informa."""
     if empresa_id is None:
         return None
 
@@ -117,8 +117,8 @@ async def create_usuario(
     """
     Crear un usuario desde el menú de administración.
 
-    Los usuarios comunes quedan habilitados para operar todos los emisores. El
-    campo `empresa_id`, cuando existe, solo funciona como emisor preferido.
+    Los administradores pueden operar cualquier emisor configurado. Los usuarios
+    comunes solo pueden operar el emisor asignado en `empresa_id`.
     """
     async with USER_ADMIN_LOCK:
         await tomar_lock_admin_usuarios(db)

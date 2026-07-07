@@ -940,8 +940,9 @@ compatibilidad, notas de crédito/débito y contratos de importación.
   instalaciones ya configuradas.
 - La pantalla `Usuarios` queda visible solo para administradores y permite alta,
   edición, desactivación/reactivación y reseteo de contraseña.
-- Los usuarios comunes no ven el menú `Usuarios`, pero pueden seleccionar y
-  operar cualquier emisor configurado desde `Emisor activo`.
+- Los usuarios comunes no ven el menú `Usuarios` y solo pueden seleccionar y
+  operar el emisor asignado en su cuenta desde `Emisor activo`; si intentan usar
+  otro emisor, la API debe responder `403`.
 - El backend bloquea login de usuarios inactivos y evita que un administrador
   desactive, degrade o cambie el email de su propia cuenta desde la sesión
   activa.
@@ -951,8 +952,9 @@ compatibilidad, notas de crédito/débito y contratos de importación.
   `npm run test:unit -- --run src/views/auth/LoginView.spec.ts src/stores/empresa.spec.ts src/components/layout/Sidebar.spec.ts`
   OK; `npm run type-check` OK.
 - Pendiente de QA visual local: iniciar con un administrador real, abrir
-  `Usuarios`, crear un usuario común de prueba, verificar que puede ingresar,
-  cambiar de emisor activo y no ver el menú `Usuarios`; luego desactivarlo y
+  `Usuarios`, crear un usuario común de prueba con emisor asignado, verificar
+  que puede ingresar, operar ese emisor y no ver el menú `Usuarios`; luego
+  intentar cambiar a otro emisor y confirmar bloqueo `403`, desactivarlo y
   confirmar que ya no puede iniciar sesión.
 
 ### Emisión masiva por sublotes ARCA - verificación técnica 2026-06-03
