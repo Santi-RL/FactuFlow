@@ -15,7 +15,8 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Auditoría backend Clawpatch 2026-07-07 en curso: ya quedaron cerrados y
   revalidados los cortes de aislamiento multiemisor, rangos CAE batch,
   borrado de certificados post-commit e importación de puntos de venta sin
-  estado ARCA disponible.
+  estado ARCA disponible. El corte actual corrige el subdiario IVA para que
+  comprobantes C autorizados con IVA cero aporten su subtotal como exento.
 - Backend ya registra formatos configurables de importación para lotes masivos,
   con formatos globales y particulares por emisor. La capa pública ahora los
   presenta como `Plantillas`: se pueden crear, editar con nueva versión,
@@ -1802,7 +1803,7 @@ Quedó validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 303 tests
+  - `pytest tests -q` OK, 341 passed, 1 skipped
   - `ruff check app tests` OK
   - `black --check app tests` OK
   - `alembic heads` OK, head `e2f3a4b5c6d7`

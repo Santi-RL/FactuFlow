@@ -15,6 +15,7 @@ from app.models.comprobante import Comprobante
 IVA_21 = Decimal("0.21")
 IVA_10_5 = Decimal("0.105")
 IVA_27 = Decimal("0.27")
+TIPOS_COMPROBANTE_C = {11, 12, 13}
 
 
 class ReportesService:
@@ -166,6 +167,17 @@ class ReportesService:
             iva_21_firmado = comp.iva_21 * signo
             iva_10_5_firmado = comp.iva_10_5 * signo
             iva_27_firmado = comp.iva_27 * signo
+            no_gravado = Decimal(0)
+            exento = Decimal(0)
+            if (
+                comp.tipo_comprobante in TIPOS_COMPROBANTE_C
+                and comp.iva_21 == 0
+                and comp.iva_10_5 == 0
+                and comp.iva_27 == 0
+            ):
+                exento = comp.subtotal
+            no_gravado_firmado = no_gravado * signo
+            exento_firmado = exento * signo
 
             comp_dict = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
@@ -184,8 +196,8 @@ class ReportesService:
                 "iva_10_5": float(iva_10_5_firmado),
                 "gravado_27": float(gravado_27_firmado),
                 "iva_27": float(iva_27_firmado),
-                "no_gravado": 0,  # TODO: implementar si hay items no gravados
-                "exento": 0,  # TODO: implementar si hay items exentos
+                "no_gravado": float(no_gravado_firmado),
+                "exento": float(exento_firmado),
                 "total": float(comp.total * signo),
             }
             comprobantes_list.append(comp_dict)
@@ -197,6 +209,8 @@ class ReportesService:
             total_iva_10_5 += iva_10_5_firmado
             total_gravado_27 += gravado_27_firmado
             total_iva_27 += iva_27_firmado
+            total_no_gravado += no_gravado_firmado
+            total_exento += exento_firmado
 
         total_neto = (
             total_gravado_21

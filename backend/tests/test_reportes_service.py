@@ -179,6 +179,94 @@ class TestReportesService:
         assert reporte["comprobantes"][1]["iva_21"] == -42.0
 
     @pytest.mark.asyncio
+    async def test_generar_reporte_iva_incluye_tipo_c_sin_iva_como_exento(
+        self, reportes_service, db_session, test_empresa
+    ):
+        """El subdiario IVA debe sumar comprobantes C con IVA cero como exentos."""
+        punto_venta = PuntoVenta(
+            numero=2,
+            nombre="Punto C",
+            activo=True,
+            es_webservice=True,
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(punto_venta)
+        await db_session.flush()
+        db_session.add_all(
+            [
+                Comprobante(
+                    tipo_comprobante=11,
+                    concepto=1,
+                    numero=10,
+                    fecha_emision=date(2026, 5, 12),
+                    subtotal=Decimal("1500.00"),
+                    descuento=Decimal("0.00"),
+                    iva_21=Decimal("0.00"),
+                    iva_10_5=Decimal("0.00"),
+                    iva_27=Decimal("0.00"),
+                    otros_impuestos=Decimal("0.00"),
+                    total=Decimal("1500.00"),
+                    cae="22345678901234",
+                    cae_vencimiento=date(2026, 5, 22),
+                    estado="autorizado",
+                    moneda="PES",
+                    cotizacion=Decimal("1"),
+                    empresa_id=test_empresa.id,
+                    punto_venta_id=punto_venta.id,
+                    receptor_tipo_documento=99,
+                    receptor_numero_documento="0",
+                    receptor_razon_social="A CONSUMIDOR FINAL",
+                    receptor_condicion_iva="CF",
+                ),
+                Comprobante(
+                    tipo_comprobante=13,
+                    concepto=1,
+                    numero=11,
+                    fecha_emision=date(2026, 5, 13),
+                    subtotal=Decimal("200.00"),
+                    descuento=Decimal("0.00"),
+                    iva_21=Decimal("0.00"),
+                    iva_10_5=Decimal("0.00"),
+                    iva_27=Decimal("0.00"),
+                    otros_impuestos=Decimal("0.00"),
+                    total=Decimal("200.00"),
+                    cae="22345678901235",
+                    cae_vencimiento=date(2026, 5, 22),
+                    estado="autorizado",
+                    moneda="PES",
+                    cotizacion=Decimal("1"),
+                    empresa_id=test_empresa.id,
+                    punto_venta_id=punto_venta.id,
+                    receptor_tipo_documento=99,
+                    receptor_numero_documento="0",
+                    receptor_razon_social="A CONSUMIDOR FINAL",
+                    receptor_condicion_iva="CF",
+                ),
+            ]
+        )
+        await db_session.commit()
+
+        reporte = await reportes_service.generar_reporte_iva(
+            db_session,
+            empresa_id=test_empresa.id,
+            periodo_mes=5,
+            periodo_anio=2026,
+        )
+
+        assert reporte["resumen"]["exento"] == 1300.0
+        assert reporte["resumen"]["no_gravado"] == 0.0
+        assert reporte["resumen"]["total_neto"] == 1300.0
+        assert reporte["resumen"]["total_iva"] == 0.0
+        assert reporte["comprobantes"][0]["tipo_letra"] == "C"
+        assert reporte["comprobantes"][0]["tipo_nombre"] == "FC"
+        assert reporte["comprobantes"][0]["exento"] == 1500.0
+        assert reporte["comprobantes"][0]["no_gravado"] == 0.0
+        assert reporte["comprobantes"][0]["total"] == 1500.0
+        assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
+        assert reporte["comprobantes"][1]["exento"] == -200.0
+        assert reporte["comprobantes"][1]["total"] == -200.0
+
+    @pytest.mark.asyncio
     async def test_obtener_ranking_clientes_empty(self, reportes_service, db_session):
         """Debe retornar una lista vacía cuando no hay comprobantes."""
         desde = date(2026, 1, 1)

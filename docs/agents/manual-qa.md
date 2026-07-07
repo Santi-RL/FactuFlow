@@ -1375,6 +1375,9 @@ Reglas vigentes para cualquier nueva emisión productiva:
   el usuario cambia de emisor activo mientras hay pedidos en curso.
 - Verificacion técnica 2026-05-17: el detalle del subdiario IVA incluye
   columnas para gravado e IVA 27%.
+- Verificación técnica 2026-07-07: el subdiario IVA incluye comprobantes C
+  autorizados con IVA 0 como importes exentos y aplica signo negativo para notas
+  de crédito C.
 
 ### 9. Certificados
 

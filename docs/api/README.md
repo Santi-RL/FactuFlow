@@ -704,6 +704,8 @@ GET /api/reportes/clientes
 Los reportes se calculan para el emisor activo.
 `GET /api/reportes/iva-ventas` calcula notas de crédito/débito con signo
 fiscal correspondiente y el detalle discrimina alícuotas 10,5%, 21% y 27%.
+Los comprobantes C autorizados con IVA cero se informan como importe exento en
+el subdiario, también con signo fiscal para notas de crédito.
 
 ## Codigos De Error
 

@@ -664,7 +664,8 @@ Los reportes usan el emisor activo seleccionado.
 Si cambias el emisor activo mientras un reporte está cargando, FactuFlow
 descarta la respuesta anterior para no mostrar datos de otro CUIT. El subdiario
 IVA muestra detalle por alícuota, incluyendo gravado e IVA 27% cuando
-corresponde.
+corresponde. Los comprobantes C autorizados con IVA 0 se incluyen como importes
+exentos, con signo negativo cuando son notas de crédito.
 
 ## 8. Certificados
 

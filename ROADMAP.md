@@ -503,9 +503,11 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   CI remoto aprobado
 - [~] Auditoría backend Clawpatch 2026-07-07 en curso: cerrados cortes de
   aislamiento multiemisor, validación de rangos CAE batch, borrado de
-  certificados post-commit e importación de puntos de venta sin estado ARCA.
-- [x] Reportes IVA calculan notas de crédito con signo negativo y el detalle de
-  subdiario incluye gravado e IVA 27%
+  certificados post-commit, importación de puntos de venta sin estado ARCA y
+  corrección del subdiario IVA para comprobantes C autorizados sin IVA.
+- [x] Reportes IVA calculan notas de crédito con signo negativo, incluyen
+  comprobantes C con IVA cero como exentos y el detalle de subdiario incluye
+  gravado e IVA 27%
 - [x] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
   confiable en auditorías locales de escritorio
 - [ ] Cobertura mas profunda sobre detalles de comprobantes, PDF y reportes
