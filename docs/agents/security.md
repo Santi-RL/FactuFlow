@@ -85,7 +85,9 @@ Si el cambio incluye evidencia local o datos reales, moverla a una carpeta
 ignorada y dejar solo una descripción redactada en la documentación.
 
 ## Variables de entorno relevantes
-- `APP_SECRET_KEY`
+- `APP_SECRET_KEY`: en producción debe ser una clave larga generada con
+  `secrets.token_urlsafe(32)`; el backend rechaza valores vacíos, cortos o
+  placeholders públicos.
 - `DATABASE_URL`
 - `CERTS_PATH`
 - `FACTUFLOW_CERTS_DIR`

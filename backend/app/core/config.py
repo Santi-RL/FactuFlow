@@ -3,8 +3,17 @@
 import os
 from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_SECRET_KEY = "cambiar-esto-en-produccion-usar-secrets-token_urlsafe"
+INSECURE_PRODUCTION_SECRET_KEYS = {
+    DEFAULT_SECRET_KEY,
+    "generar-con-python-secrets-token_urlsafe-32",
+}
+MIN_PRODUCTION_SECRET_LENGTH = 32
+PRODUCTION_ENV_NAMES = {"production", "prod", "produccion"}
 
 
 class Settings(BaseSettings):
@@ -25,7 +34,7 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str = Field(
-        default="cambiar-esto-en-produccion-usar-secrets-token_urlsafe",
+        default=DEFAULT_SECRET_KEY,
         alias="APP_SECRET_KEY",
     )
     jwt_algorithm: str = "HS256"
@@ -81,6 +90,25 @@ class Settings(BaseSettings):
         default=30, alias="STORAGE_LOG_RETENTION_DAYS"
     )
     storage_enable_cleanup: bool = Field(default=True, alias="STORAGE_ENABLE_CLEANUP")
+
+    @model_validator(mode="after")
+    def validate_production_secret_key(self) -> "Settings":
+        """Rechaza secretos JWT inseguros en entornos productivos."""
+        if self.app_env.strip().lower() not in PRODUCTION_ENV_NAMES:
+            return self
+
+        secret = self.secret_key.strip()
+        if (
+            not secret
+            or secret in INSECURE_PRODUCTION_SECRET_KEYS
+            or len(secret) < MIN_PRODUCTION_SECRET_LENGTH
+            or len(set(secret)) < 8
+        ):
+            raise ValueError(
+                "APP_SECRET_KEY debe configurarse en producción con una clave "
+                "secreta segura generada con secrets.token_urlsafe(32)"
+            )
+        return self
 
     @field_validator("certs_path", mode="before")
     @classmethod

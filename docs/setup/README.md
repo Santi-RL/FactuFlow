@@ -222,6 +222,10 @@ y sin solicitar CAE.
    # También acepta AFIP_ENV por compatibilidad
    ```
 
+   En `APP_ENV=production`, el backend no inicia si `APP_SECRET_KEY` queda
+   vacío, usa un placeholder público o tiene menos de 32 caracteres. Generarlo
+   con `secrets.token_urlsafe(32)` y conservarlo fuera de Git.
+
 6. **Crear usuario propietario**
 
    Si el frontend ya está publicado y la base no tiene usuarios, entrar a la
