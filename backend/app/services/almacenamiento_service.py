@@ -454,52 +454,88 @@ class AlmacenamientoService:
         if exportacion.released_at is not None:
             return {"bytes": 0, "items": 0, "mensaje": "La exportación ya fue liberada"}
 
+        liberacion_en_curso = exportacion.estado == "liberando"
+        manifest = dict(exportacion.manifest_json or {})
         seleccion = exportacion.seleccion_json or {}
-        bytes_afectados = 0
-        items_afectados = 0
+        bytes_afectados = int(manifest.get("release_expected_bytes") or 0)
+        items_afectados = int(manifest.get("release_expected_items") or 0)
         lote_ids = self._unique_ints(seleccion.get("lote_ids") or [])
         log_candidates = self._candidates_by_id(
             self.listar_logs_antiguos(),
             seleccion.get("log_ids") or [],
             "logs",
             exportacion.manifest_json,
+            allow_missing=liberacion_en_curso,
         )
         temporal_candidates = self._candidates_by_id(
             self.listar_temporales(),
             seleccion.get("temporal_ids") or [],
             "temporales",
             exportacion.manifest_json,
+            allow_missing=liberacion_en_curso,
         )
-        lotes = await self._validar_lotes_liberables(lote_ids)
-        lote_service = LoteComprobantesService(self.db)
-        for lote in lotes:
-            lote_id = lote.id
-            filas = await self._contar_filas_lote(lote_id)
-            try:
-                await lote_service.compactar_lote(
-                    lote_id,
-                    lote.empresa_id,
-                    usuario_id,
-                    commit=False,
-                )
-            except LoteComprobanteError as exc:
-                await self.db.rollback()
-                raise AlmacenamientoError(
-                    f"No se pudo compactar el lote #{lote_id}: {exc}"
-                ) from exc
-            bytes_afectados += filas * self.BYTES_ESTIMADOS_POR_FILA
-            items_afectados += 1
+        export_path = self.exportacion_path(exportacion)
+
+        if not liberacion_en_curso:
+            lote_bytes = 0
+            lote_items = 0
+            lotes = await self._validar_lotes_liberables(lote_ids)
+            lote_service = LoteComprobantesService(self.db)
+            for lote in lotes:
+                lote_id = lote.id
+                filas = await self._contar_filas_lote(lote_id)
+                try:
+                    await lote_service.compactar_lote(
+                        lote_id,
+                        lote.empresa_id,
+                        usuario_id,
+                        commit=False,
+                    )
+                except LoteComprobanteError as exc:
+                    await self.db.rollback()
+                    raise AlmacenamientoError(
+                        f"No se pudo compactar el lote #{lote_id}: {exc}"
+                    ) from exc
+                lote_bytes += filas * self.BYTES_ESTIMADOS_POR_FILA
+                lote_items += 1
+
+            file_bytes = sum(candidate.bytes_usados for candidate in log_candidates)
+            file_bytes += sum(
+                candidate.bytes_usados for candidate in temporal_candidates
+            )
+            if export_path.exists():
+                file_bytes += self._safe_file_size(export_path)
+
+            bytes_afectados = lote_bytes + file_bytes
+            items_afectados = (
+                lote_items + len(log_candidates) + len(temporal_candidates)
+            )
+            manifest["release_started_at"] = datetime.utcnow().isoformat() + "Z"
+            manifest["release_expected_bytes"] = bytes_afectados
+            manifest["release_expected_items"] = items_afectados
+            exportacion.manifest_json = manifest
+            exportacion.estado = "liberando"
+            await self.db.commit()
+            await self.db.refresh(exportacion)
+            log_candidates = self._candidates_by_id(
+                self.listar_logs_antiguos(),
+                seleccion.get("log_ids") or [],
+                "logs",
+                exportacion.manifest_json,
+            )
+            temporal_candidates = self._candidates_by_id(
+                self.listar_temporales(),
+                seleccion.get("temporal_ids") or [],
+                "temporales",
+                exportacion.manifest_json,
+            )
 
         for candidate in log_candidates:
-            bytes_afectados += self._unlink_candidate(candidate)
-            items_afectados += 1
+            self._unlink_candidate(candidate)
         for candidate in temporal_candidates:
-            bytes_afectados += self._unlink_candidate(candidate)
-            items_afectados += 1
+            self._unlink_candidate(candidate)
 
-        export_path = self.exportacion_path(exportacion)
         if export_path.exists():
-            bytes_afectados += self._safe_file_size(export_path)
             export_path.unlink()
 
         exportacion.released_at = datetime.utcnow()
@@ -826,16 +862,17 @@ class AlmacenamientoService:
         ids: list[str],
         categoria: str,
         manifest: dict[str, Any] | None = None,
+        allow_missing: bool = False,
     ) -> list[StorageFileCandidate]:
         """Resuelve IDs contra candidatos calculados por el servidor."""
         unique_ids = self._unique_strings(ids)
         by_id = {item.id: item for item in candidates}
         missing = [item_id for item_id in unique_ids if item_id not in by_id]
-        if missing:
+        if missing and not allow_missing:
             raise AlmacenamientoError(
                 f"Uno o más elementos de {categoria} ya no están disponibles"
             )
-        resolved = [by_id[item_id] for item_id in unique_ids]
+        resolved = [by_id[item_id] for item_id in unique_ids if item_id in by_id]
         if manifest is not None:
             self._validar_identidad_manifest(resolved, categoria, manifest)
         return resolved

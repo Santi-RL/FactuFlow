@@ -18,6 +18,10 @@ from app.models.lote_comprobante import (
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
+from app.services.almacenamiento_service import (
+    AlmacenamientoError,
+    AlmacenamientoService,
+)
 
 
 async def _crear_lote_cerrado_con_filas(
@@ -390,6 +394,159 @@ async def test_liberacion_fallida_no_marca_exportacion_como_liberada(
     assert (
         Path(settings.storage_tmp_path) / "exportaciones" / exportacion.archivo_nombre
     ).exists()
+
+
+@pytest.mark.asyncio
+async def test_liberacion_revalida_temporal_despues_de_estado_intermedio(
+    db_session: AsyncSession,
+    test_admin,
+    tmp_path: Path,
+    monkeypatch,
+):
+    """Un temporal cambiado después de marcar liberando no debe eliminarse."""
+    storage_tmp = tmp_path / "tmp"
+    storage_tmp.mkdir()
+    temporal = storage_tmp / "observado.xlsx"
+    temporal.write_bytes(b"version-original")
+    monkeypatch.setattr(settings, "storage_tmp_path", str(storage_tmp))
+    service = AlmacenamientoService(db_session)
+    admin_id = test_admin.id
+
+    exportacion = await service.crear_exportacion(
+        {"temporal_ids": ["observado.xlsx"]}, usuario_id=admin_id
+    )
+    exportacion, download_token = await service.preparar_descarga_exportacion(
+        exportacion.token
+    )
+    await service.confirmar_descarga_exportacion(
+        exportacion.token,
+        exportacion.checksum_sha256,
+        download_token,
+        usuario_id=admin_id,
+    )
+    token = exportacion.token
+    export_path = service.exportacion_path(exportacion)
+
+    original_commit = db_session.commit
+    commit_calls = 0
+
+    async def modificar_temporal_despues_del_commit_intermedio():
+        nonlocal commit_calls
+        await original_commit()
+        commit_calls += 1
+        if commit_calls == 1:
+            temporal.write_bytes(b"version-cambiada")
+
+    monkeypatch.setattr(
+        db_session, "commit", modificar_temporal_despues_del_commit_intermedio
+    )
+
+    with pytest.raises(AlmacenamientoError, match="cambió después de crear el ZIP"):
+        await service.confirmar_liberacion(
+            token,
+            "YA_LO_DESCARGUE",
+            usuario_id=admin_id,
+        )
+
+    monkeypatch.setattr(db_session, "commit", original_commit)
+    await db_session.rollback()
+    db_session.expire_all()
+
+    assert temporal.exists()
+    assert temporal.read_bytes() == b"version-cambiada"
+    assert export_path.exists()
+    stored = await db_session.scalar(
+        select(ExportacionAlmacenamiento).where(
+            ExportacionAlmacenamiento.token == token
+        )
+    )
+    assert stored is not None
+    assert stored.estado == "liberando"
+    assert stored.released_at is None
+
+
+@pytest.mark.asyncio
+async def test_liberacion_con_commit_final_fallido_deja_estado_intermedio(
+    db_session: AsyncSession,
+    test_admin,
+    tmp_path: Path,
+    monkeypatch,
+):
+    """Un fallo posterior al unlink no debe dejar la exportación como descargada."""
+    storage_tmp = tmp_path / "tmp"
+    storage_tmp.mkdir()
+    temporal = storage_tmp / "observado.xlsx"
+    temporal.write_bytes(b"version-original")
+    monkeypatch.setattr(settings, "storage_tmp_path", str(storage_tmp))
+    service = AlmacenamientoService(db_session)
+    admin_id = test_admin.id
+
+    exportacion = await service.crear_exportacion(
+        {"temporal_ids": ["observado.xlsx"]}, usuario_id=admin_id
+    )
+    exportacion, download_token = await service.preparar_descarga_exportacion(
+        exportacion.token
+    )
+    await service.confirmar_descarga_exportacion(
+        exportacion.token,
+        exportacion.checksum_sha256,
+        download_token,
+        usuario_id=admin_id,
+    )
+    token = exportacion.token
+    export_path = service.exportacion_path(exportacion)
+    assert export_path.exists()
+
+    original_commit = db_session.commit
+    commit_calls = 0
+
+    async def fail_final_commit():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            raise RuntimeError("commit final fallido")
+        await original_commit()
+
+    monkeypatch.setattr(db_session, "commit", fail_final_commit)
+
+    with pytest.raises(RuntimeError, match="commit final fallido"):
+        await service.confirmar_liberacion(
+            token,
+            "YA_LO_DESCARGUE",
+            usuario_id=admin_id,
+        )
+
+    monkeypatch.setattr(db_session, "commit", original_commit)
+    await db_session.rollback()
+    db_session.expire_all()
+
+    stored = await db_session.scalar(
+        select(ExportacionAlmacenamiento).where(
+            ExportacionAlmacenamiento.token == token
+        )
+    )
+    assert stored is not None
+    assert stored.estado == "liberando"
+    assert stored.released_at is None
+    assert not temporal.exists()
+    assert not export_path.exists()
+
+    result = await service.confirmar_liberacion(
+        token,
+        "YA_LO_DESCARGUE",
+        usuario_id=admin_id,
+    )
+
+    assert result["mensaje"] == "Espacio liberado correctamente."
+    db_session.expire_all()
+    stored = await db_session.scalar(
+        select(ExportacionAlmacenamiento).where(
+            ExportacionAlmacenamiento.token == token
+        )
+    )
+    assert stored is not None
+    assert stored.estado == "liberada"
+    assert stored.released_at is not None
 
 
 @pytest.mark.asyncio
