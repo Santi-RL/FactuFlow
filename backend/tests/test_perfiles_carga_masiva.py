@@ -205,6 +205,124 @@ async def test_acepta_fecha_emision_personalizada_valida(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("periodo", "mensaje"),
+    [
+        (
+            {"modo": "personalizado", "desde": "31/02/2026", "hasta": "05/03/2026"},
+            "fecha desde",
+        ),
+        (
+            {"modo": "personalizado", "desde": "01/02/2026", "hasta": "no-es-fecha"},
+            "fecha hasta",
+        ),
+        (
+            {"modo": "personalizado", "desde": "15/02/2026", "hasta": "14/02/2026"},
+            "no puede ser anterior",
+        ),
+    ],
+)
+async def test_rechaza_periodo_servicio_personalizado_invalido(
+    client: AsyncClient,
+    auth_headers: dict,
+    periodo: dict,
+    mensaje: str,
+):
+    """Rechaza períodos personalizados incompletos o calendario inválido."""
+    payload = _perfil_payload("Periodo inválido")
+    payload["configuracion_json"]["periodo_servicio"] = periodo
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert mensaje in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_acepta_periodo_servicio_personalizado_valido(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """Normaliza fechas explícitas válidas del período personalizado."""
+    payload = _perfil_payload("Periodo válido")
+    payload["configuracion_json"]["periodo_servicio"] = {
+        "modo": "personalizado",
+        "desde": "01/02/2026",
+        "hasta": "2026-02-28T10:15:00-03:00",
+    }
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 201, response.text
+    periodo = response.json()["configuracion_json"]["periodo_servicio"]
+    assert periodo["desde"] == "2026-02-01"
+    assert periodo["hasta"] == "2026-02-28"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("fecha_vto", "mensaje"),
+    [
+        ("", "obligatoria"),
+        ("31/02/2026", "fecha válida"),
+        ("no-es-fecha", "fecha válida"),
+    ],
+)
+async def test_rechaza_vencimiento_personalizado_invalido(
+    client: AsyncClient,
+    auth_headers: dict,
+    fecha_vto: str,
+    mensaje: str,
+):
+    """Rechaza vencimientos personalizados vacíos o calendario inválido."""
+    payload = _perfil_payload("Vencimiento inválido")
+    payload["configuracion_json"]["fecha_vto_pago"] = {
+        "modo": "personalizada",
+        "fecha": fecha_vto,
+    }
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert mensaje in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_acepta_vencimiento_personalizado_valido(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """Normaliza fechas explícitas válidas del vencimiento personalizado."""
+    payload = _perfil_payload("Vencimiento válido")
+    payload["configuracion_json"]["fecha_vto_pago"] = {
+        "modo": "personalizada",
+        "fecha": "05/03/2026",
+    }
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 201, response.text
+    vencimiento = response.json()["configuracion_json"]["fecha_vto_pago"]
+    assert vencimiento["fecha"] == "2026-03-05"
+
+
+@pytest.mark.asyncio
 async def test_snapshot_rechaza_perfil_legacy_con_fecha_emision_relativa(
     db_session: AsyncSession,
     test_empresa: Empresa,
@@ -244,7 +362,7 @@ async def test_rechaza_reglas_incompletas_de_fechas(
     )
 
     assert response.status_code == 400
-    assert "fecha válida" in response.json()["detail"]
+    assert "obligatoria" in response.json()["detail"]
 
     payload = _perfil_payload("Vencimiento sin emisión concreta")
     payload["configuracion_json"]["fecha_emision"] = {"modo": "archivo"}

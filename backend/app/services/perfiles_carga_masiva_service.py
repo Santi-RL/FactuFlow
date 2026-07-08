@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.date_parsing import parse_fecha_input
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
 from app.services.formatos_importacion_service import FormatosImportacionService
@@ -239,17 +240,29 @@ class PerfilesCargaMasivaService:
             )
             fecha_emision["fecha"] = fecha.isoformat()
 
-        if periodo.get("modo") == "personalizado" and (
-            not periodo.get("desde") or not periodo.get("hasta")
-        ):
-            raise PerfilCargaMasivaError(
-                "El periodo personalizado requiere fecha desde y fecha hasta"
+        if periodo.get("modo") == "personalizado":
+            desde = self._validar_fecha_explicita(
+                periodo.get("desde"),
+                "La fecha desde del periodo personalizado",
             )
+            hasta = self._validar_fecha_explicita(
+                periodo.get("hasta"),
+                "La fecha hasta del periodo personalizado",
+            )
+            if hasta < desde:
+                raise PerfilCargaMasivaError(
+                    "La fecha hasta del periodo personalizado no puede ser "
+                    "anterior a la fecha desde"
+                )
+            periodo["desde"] = desde.isoformat()
+            periodo["hasta"] = hasta.isoformat()
 
-        if vencimiento.get("modo") == "personalizada" and not vencimiento.get("fecha"):
-            raise PerfilCargaMasivaError(
-                "El vencimiento personalizado requiere una fecha explícita"
+        if vencimiento.get("modo") == "personalizada":
+            fecha = self._validar_fecha_explicita(
+                vencimiento.get("fecha"),
+                "La fecha de vencimiento personalizada",
             )
+            vencimiento["fecha"] = fecha.isoformat()
 
         if vencimiento.get("modo") in {"mismo_dia_emision", "emision_mas_dias"}:
             if fecha_emision.get("modo") != "personalizada":
@@ -272,42 +285,10 @@ class PerfilesCargaMasivaService:
 
     def _validar_fecha_explicita(self, value: Any, nombre: str) -> date:
         """Valida fechas explícitas sin normalizar calendarios inválidos."""
-        fecha = self._parse_fecha_explicita(value)
-        if fecha is None:
-            raise PerfilCargaMasivaError(
-                f"{nombre} debe ser una fecha válida en formato DD/MM/AAAA o YYYY-MM-DD"
-            )
-        return fecha
-
-    @staticmethod
-    def _parse_fecha_explicita(value: Any) -> date | None:
-        """Parsea fechas explícitas argentinas o ISO técnicas."""
-        if value in (None, ""):
-            return None
-        if isinstance(value, datetime):
-            return value.date()
-        if isinstance(value, date):
-            return value
-        text = str(value).strip()
-        if not text:
-            return None
-        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(text, fmt).date()
-            except ValueError:
-                continue
-        if (
-            len(text) > 10
-            and text[4:5] == "-"
-            and text[7:8] == "-"
-            and text[10:11] in {"T", " "}
-        ):
-            normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
-            try:
-                return datetime.fromisoformat(normalized).date()
-            except ValueError:
-                return None
-        return None
+        try:
+            return parse_fecha_input(value, field_name=nombre)
+        except ValueError as exc:
+            raise PerfilCargaMasivaError(str(exc)) from exc
 
     def _validar_modo_anidado(
         self,

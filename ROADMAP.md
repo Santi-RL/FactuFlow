@@ -122,6 +122,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   venta, concepto, descripción y fechas visibles antes de validar
 - [x] Perfiles de carga masiva no permiten guardar fecha actual como regla de
   emisión fiscal
+- [x] Perfiles de carga masiva validan calendario real en fechas personalizadas
+  de emisión, período y vencimiento
 - [x] Emisión masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
 - [x] Fecha de emisión explícita; no se asume fecha del día actual al emitir
 - [x] Entradas de fechas fiscales validan calendario real y aceptan `DD/MM/AAAA`

@@ -1349,6 +1349,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Por regla fiscal crítica, el perfil de carga masiva no permite guardar
   `fecha_actual` ni `ultimo_dia_mes_anterior` como fecha de emisión: no debe
   convertir fechas relativas o la fecha del navegador en fecha fiscal.
+- Las fechas personalizadas de emisión, período de servicios y vencimiento se
+  validan contra calendario real y se normalizan antes de persistir; valores
+  vacíos o imposibles como `31/02/2026` se rechazan.
 - Las reglas relativas se reservan para período de servicios o vencimiento
   cuando corresponda. El usuario debe elegir fecha de emisión exacta, tomarla
   del archivo o dejarla para completar antes de validar. El backend de lotes

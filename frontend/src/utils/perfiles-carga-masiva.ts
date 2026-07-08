@@ -175,13 +175,17 @@ const resolverPeriodoServicio = (
       hasta: formatLocalDate(lastDayOfMonth(baseDate)),
     };
   }
-  if (regla.modo === "personalizado" && regla.desde && regla.hasta) {
-    return {
-      desdeModo: "fija",
-      hastaModo: "fija",
-      desde: regla.desde,
-      hasta: regla.hasta,
-    };
+  if (regla.modo === "personalizado") {
+    const desde = normalizeLocalDate(regla.desde);
+    const hasta = normalizeLocalDate(regla.hasta);
+    if (desde && hasta && hasta >= desde) {
+      return {
+        desdeModo: "fija",
+        hastaModo: "fija",
+        desde,
+        hasta,
+      };
+    }
   }
   return { desdeModo: "", hastaModo: "" };
 };

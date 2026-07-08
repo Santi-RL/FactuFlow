@@ -51,6 +51,46 @@ describe("resolverPerfilCargaMasiva", () => {
     expect(result.opciones.fecha_vto_pago_fija).toBe("2026-05-10");
   });
 
+  it("normaliza el periodo personalizado antes de aplicarlo al lote", () => {
+    const result = resolverPerfilCargaMasiva(
+      crearPerfil({
+        periodo_servicio: {
+          modo: "personalizado",
+          desde: "01/04/2026",
+          hasta: "2026-04-30T12:00:00-03:00",
+        },
+      }),
+      new Date(2026, 4, 9),
+    );
+
+    expect(result.opciones.fecha_servicio_desde_modo).toBe("fija");
+    expect(result.opciones.fecha_servicio_hasta_modo).toBe("fija");
+    expect(result.opciones.fecha_servicio_desde_fija).toBe("2026-04-01");
+    expect(result.opciones.fecha_servicio_hasta_fija).toBe("2026-04-30");
+  });
+
+  it("no propaga fechas personalizadas con calendario invalido", () => {
+    const result = resolverPerfilCargaMasiva(
+      crearPerfil({
+        fecha_emision: { modo: "personalizada", fecha: "31/02/2026" },
+        periodo_servicio: {
+          modo: "personalizado",
+          desde: "31/04/2026",
+          hasta: "2026-04-30",
+        },
+        fecha_vto_pago: { modo: "personalizada", fecha: "2026-02-31" },
+      }),
+      new Date(2026, 4, 9),
+    );
+
+    expect(result.opciones.fecha_emision_modo).toBe("");
+    expect(result.opciones.fecha_emision_fija).toBeUndefined();
+    expect(result.opciones.fecha_servicio_desde_modo).toBe("");
+    expect(result.opciones.fecha_servicio_hasta_modo).toBe("");
+    expect(result.opciones.fecha_vto_pago_modo).toBe("");
+    expect(result.opciones.fecha_vto_pago_fija).toBeUndefined();
+  });
+
   it("no resuelve fechas relativas sin una fecha base explicita", () => {
     const result = resolverPerfilCargaMasiva(crearPerfil());
 

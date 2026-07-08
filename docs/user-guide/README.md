@@ -473,6 +473,11 @@ configuración manual y no como snapshot del perfil de carga masiva.
 Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
 regla de fecha de emisión.
 
+Las fechas personalizadas de emisión, período de servicios y vencimiento deben
+ser fechas reales en `DD/MM/AAAA` o en un formato técnico aceptado por la API.
+FactuFlow rechaza valores vacíos o calendarios inválidos como `31/02/2026` y
+guarda internamente la fecha normalizada.
+
 Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
 `Puntos de venta` para ese emisor y estar habilitado para usar en FactuFlow. Si
 todavía no hay puntos cargados, completalos primero desde esa pantalla.

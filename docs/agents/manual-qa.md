@@ -1165,6 +1165,10 @@ compatibilidad, notas de crédito/débito y contratos de importación.
 - Verificación técnica 2026-07-08: perfiles de carga masiva ya no permiten
   fecha de emisión relativa; el usuario debe elegir fecha exacta, dejarla
   manual o tomarla del archivo antes de validar.
+- Verificación técnica 2026-07-08: perfiles de carga masiva rechazan fechas
+  personalizadas vacías o con calendario inválido en emisión, período de
+  servicios y vencimiento; las fechas válidas se normalizan a `YYYY-MM-DD`
+  antes de persistir.
 - Verificacion técnica 2026-05-17: los totales previos de lotes interpretan
   importes argentinos como `1.234,56` y avisan si queda algun valor ambiguo.
 - Pendiente de QA visual opcional: levantar entorno local y confirmar en
