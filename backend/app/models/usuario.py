@@ -21,7 +21,7 @@ class Usuario(Base):
 
     # Relación con empresa (nullable para superadmin)
     empresa_id = Column(
-        Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=True
+        Integer, ForeignKey("empresas.id", ondelete="SET NULL"), nullable=True
     )
     empresa = relationship("Empresa", back_populates="usuarios")
     lotes_comprobantes = relationship("LoteComprobante", back_populates="usuario")

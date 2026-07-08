@@ -1,6 +1,7 @@
 """Configuración de SQLAlchemy async para la base de datos."""
 
 from typing import AsyncGenerator
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
@@ -14,12 +15,24 @@ elif database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 
+def _habilitar_foreign_keys_sqlite(dbapi_connection, _connection_record) -> None:
+    """Activa la aplicación de claves foráneas en cada conexión SQLite."""
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
+
+
 # Crear engine async
 engine = create_async_engine(
     database_url,
     echo=settings.app_debug,
     future=True,
 )
+
+if database_url.startswith("sqlite+aiosqlite:"):
+    event.listen(engine.sync_engine, "connect", _habilitar_foreign_keys_sqlite)
 
 # Crear session factory
 AsyncSessionLocal = async_sessionmaker(

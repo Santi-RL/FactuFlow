@@ -123,6 +123,21 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Emisores - preservación de historial fiscal 2026-07-07
+
+- Alcance revisado: modelos, migración Alembic y endpoints de emisores para
+  impedir que un borrado físico de emisor arrastre usuarios, comprobantes,
+  certificados, puntos de venta, lotes, formatos, perfiles o intentos fiscales.
+- Política validada: un emisor vacío puede borrarse sin eliminar usuarios; los
+  usuarios quedan sin emisor asignado. Un emisor con historial fiscal u
+  operativo queda bloqueado por API y por claves foráneas `RESTRICT`. SQLite
+  activa `PRAGMA foreign_keys` por conexión en la app y en los tests.
+- Verificación automatizada: `pytest tests/test_empresas.py
+  tests/test_usuarios_api.py -q`, migración Alembic `upgrade head` y
+  `downgrade e2f3a4b5c6d7` sobre SQLite temporal, y `pytest tests -q` con 355
+  tests aprobados y 1 omitido. No se llamó ARCA, no se solicitó CAE y no se
+  usaron datos privados.
+
 ### ARCA WSFE - importes fiscales 2026-07-07
 
 - Alcance revisado: helper de importes ARCA y armado de request WSFEv1 para

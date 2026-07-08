@@ -513,7 +513,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
 
     async def fake_obtener_punto_venta(self, punto_venta_id, empresa_id=None):
-        return SimpleNamespace(id=punto_venta_id, numero=1)
+        return SimpleNamespace(id=punto_venta.id, numero=punto_venta.numero)
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
@@ -556,10 +556,21 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
     )
     monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
 
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
     service = FacturacionService(db_session)
     request = EmitirComprobanteRequest(
         empresa_id=test_empresa.id,
-        punto_venta_id=1,
+        punto_venta_id=punto_venta.id,
         tipo_comprobante=6,
         concepto=1,
         fecha_emision=date.today(),
@@ -731,7 +742,7 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
         return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
 
     async def fake_obtener_punto_venta(self, punto_venta_id, empresa_id=None):
-        return SimpleNamespace(id=punto_venta_id, numero=1)
+        return SimpleNamespace(id=punto_venta.id, numero=punto_venta.numero)
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
@@ -774,10 +785,21 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
     )
     monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
 
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
     service = FacturacionService(db_session)
     request = EmitirComprobanteRequest(
         empresa_id=test_empresa.id,
-        punto_venta_id=1,
+        punto_venta_id=punto_venta.id,
         tipo_comprobante=6,
         concepto=1,
         fecha_emision=date.today(),

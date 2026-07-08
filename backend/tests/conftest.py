@@ -4,10 +4,11 @@ import asyncio
 import pytest
 from typing import AsyncGenerator
 from httpx import AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from app.main import app
-from app.core.database import get_db, Base
+from app.core.database import Base, _habilitar_foreign_keys_sqlite, get_db
 from app.core.security import get_password_hash
 from app.models.usuario import Usuario
 from app.models.empresa import Empresa
@@ -21,6 +22,7 @@ test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
 )
+event.listen(test_engine.sync_engine, "connect", _habilitar_foreign_keys_sqlite)
 
 # Create test session factory
 TestSessionLocal = async_sessionmaker(

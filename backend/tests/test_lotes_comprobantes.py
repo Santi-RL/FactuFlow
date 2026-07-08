@@ -533,6 +533,46 @@ async def test_certificado(db_session: AsyncSession, test_empresa) -> Certificad
     return certificado
 
 
+async def _persistir_comprobante_autorizado(
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta: PuntoVenta,
+    *,
+    tipo_comprobante: int,
+    numero: int,
+    fecha_emision: date,
+    cae: str,
+    cae_vencimiento: date,
+    total: Decimal,
+) -> int:
+    """Crea un comprobante sintético para fakes que simulan CAE autorizado."""
+    comprobante = Comprobante(
+        tipo_comprobante=tipo_comprobante,
+        concepto=1,
+        numero=numero,
+        fecha_emision=fecha_emision,
+        subtotal=total,
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("0.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=total,
+        cae=cae,
+        cae_vencimiento=cae_vencimiento,
+        estado="autorizado",
+        empresa_id=test_empresa.id,
+        punto_venta_id=test_punto_venta.id,
+        receptor_tipo_documento=99,
+        receptor_numero_documento="0",
+        receptor_razon_social="A CONSUMIDOR FINAL",
+        receptor_condicion_iva="Consumidor Final",
+    )
+    db_session.add(comprobante)
+    await db_session.flush()
+    return comprobante.id
+
+
 async def _crear_lote_validado_por_api(
     client: AsyncClient,
     auth_headers: dict,
@@ -2207,6 +2247,7 @@ async def test_procesar_lote_sync_actualiza_resultados(
     client: AsyncClient,
     auth_headers: dict,
     monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
     test_certificado,
@@ -2217,9 +2258,20 @@ async def test_procesar_lote_sync_actualiza_resultados(
     async def fake_emitir(self, request, **kwargs):
         nonlocal llamadas
         llamadas += 1
+        comprobante_id = await _persistir_comprobante_autorizado(
+            db_session,
+            test_empresa,
+            test_punto_venta,
+            tipo_comprobante=request.tipo_comprobante,
+            numero=456,
+            fecha_emision=request.fecha_emision,
+            cae=CAE_TEST_NO_REAL,
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+        )
         return EmitirComprobanteResponse(
             exito=True,
-            comprobante_id=123,
+            comprobante_id=comprobante_id,
             tipo_comprobante=request.tipo_comprobante,
             punto_venta=1,
             numero=456,
@@ -2307,12 +2359,24 @@ async def test_procesar_lote_background_encola_lote_chico(
     async def fake_emitir(self, request, **kwargs):
         nonlocal llamadas
         llamadas += 1
+        numero = 500 + llamadas
+        comprobante_id = await _persistir_comprobante_autorizado(
+            db_session,
+            test_empresa,
+            test_punto_venta,
+            tipo_comprobante=request.tipo_comprobante,
+            numero=numero,
+            fecha_emision=request.fecha_emision,
+            cae=CAE_TEST_NO_REAL,
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+        )
         return EmitirComprobanteResponse(
             exito=True,
-            comprobante_id=200 + llamadas,
+            comprobante_id=comprobante_id,
             tipo_comprobante=request.tipo_comprobante,
             punto_venta=1,
-            numero=500 + llamadas,
+            numero=numero,
             fecha=request.fecha_emision,
             cae=CAE_TEST_NO_REAL,
             cae_vencimiento=date(2026, 3, 31),
@@ -2419,14 +2483,27 @@ async def test_procesar_lote_actualiza_contadores_parciales(
                 lote.grupos_validos,
                 lote.mensaje_resumen,
             )
+        numero = 200 + llamadas
+        cae = f"{CAE_TEST_NO_REAL_PREFIX}{llamadas}"
+        comprobante_id = await _persistir_comprobante_autorizado(
+            db_session,
+            test_empresa,
+            test_punto_venta,
+            tipo_comprobante=request.tipo_comprobante,
+            numero=numero,
+            fecha_emision=request.fecha_emision,
+            cae=cae,
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+        )
         return EmitirComprobanteResponse(
             exito=True,
-            comprobante_id=100 + llamadas,
+            comprobante_id=comprobante_id,
             tipo_comprobante=request.tipo_comprobante,
             punto_venta=1,
-            numero=200 + llamadas,
+            numero=numero,
             fecha=request.fecha_emision,
-            cae=f"{CAE_TEST_NO_REAL_PREFIX}{llamadas}",
+            cae=cae,
             cae_vencimiento=date(2026, 3, 31),
             total=Decimal("1210.00"),
             mensaje="Comprobante autorizado",
@@ -2460,6 +2537,7 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
     client: AsyncClient,
     auth_headers: dict,
     monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
     test_certificado,
@@ -2479,15 +2557,27 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
         respuestas = []
         for request in requests:
             numero += 1
+            cae = f"{CAE_TEST_NO_REAL_PREFIX}{numero}"
+            comprobante_id = await _persistir_comprobante_autorizado(
+                db_session,
+                test_empresa,
+                test_punto_venta,
+                tipo_comprobante=request.tipo_comprobante,
+                numero=numero,
+                fecha_emision=request.fecha_emision,
+                cae=cae,
+                cae_vencimiento=date(2026, 3, 31),
+                total=Decimal("1210.00"),
+            )
             respuestas.append(
                 EmitirComprobanteResponse(
                     exito=True,
-                    comprobante_id=100 + numero,
+                    comprobante_id=comprobante_id,
                     tipo_comprobante=request.tipo_comprobante,
                     punto_venta=1,
                     numero=numero,
                     fecha=request.fecha_emision,
-                    cae=f"{CAE_TEST_NO_REAL_PREFIX}{numero}",
+                    cae=cae,
                     cae_vencimiento=date(2026, 3, 31),
                     total=Decimal("1210.00"),
                     mensaje="Comprobante autorizado",
@@ -2546,6 +2636,7 @@ async def test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso(
     client: AsyncClient,
     auth_headers: dict,
     monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
     test_certificado,
@@ -2558,9 +2649,20 @@ async def test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso(
         raise RuntimeError("RegXReq no disponible")
 
     async def fake_emitir(self, request, **kwargs):
+        comprobante_id = await _persistir_comprobante_autorizado(
+            db_session,
+            test_empresa,
+            test_punto_venta,
+            tipo_comprobante=request.tipo_comprobante,
+            numero=456,
+            fecha_emision=request.fecha_emision,
+            cae=CAE_TEST_NO_REAL,
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+        )
         return EmitirComprobanteResponse(
             exito=True,
-            comprobante_id=123,
+            comprobante_id=comprobante_id,
             tipo_comprobante=request.tipo_comprobante,
             punto_venta=1,
             numero=456,
@@ -5737,9 +5839,20 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
     monkeypatch.setattr(settings, "batch_sync_limit", 0)
 
     async def fake_emitir(self, request, **kwargs):
+        comprobante_id = await _persistir_comprobante_autorizado(
+            db_session,
+            test_empresa,
+            test_punto_venta,
+            tipo_comprobante=request.tipo_comprobante,
+            numero=654,
+            fecha_emision=request.fecha_emision,
+            cae=CAE_TEST_NO_REAL_ALT,
+            cae_vencimiento=date(2026, 3, 31),
+            total=Decimal("1210.00"),
+        )
         return EmitirComprobanteResponse(
             exito=True,
-            comprobante_id=321,
+            comprobante_id=comprobante_id,
             tipo_comprobante=request.tipo_comprobante,
             punto_venta=1,
             numero=654,

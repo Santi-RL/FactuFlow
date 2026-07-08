@@ -16,7 +16,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   revalidados los cortes de aislamiento multiemisor, rangos CAE batch,
   borrado de certificados post-commit, importación de puntos de venta sin
   estado ARCA disponible, subdiario IVA para comprobantes C/A/B con IVA cero e
-  importes WSFE cuantizados con Decimal antes de solicitar CAE.
+  importes WSFE cuantizados con Decimal antes de solicitar CAE. También quedó
+  implementado el corte de preservación de historial fiscal y operativo ante
+  borrado físico de emisores. SQLite ahora activa la aplicación de claves
+  foráneas por conexión para aplicar esas garantías también en instalaciones
+  locales.
 - Producción ya rechaza `APP_SECRET_KEY` vacío, corto o igual a los placeholders
   públicos de configuración para evitar firmar JWT con secretos conocidos.
 - Backend ya registra formatos configurables de importación para lotes masivos,
@@ -1805,10 +1809,10 @@ Quedó validado manualmente:
 ## Verificacion automatizada vigente
 
 - Backend:
-  - `pytest tests -q` OK, 350 passed, 1 skipped
+  - `pytest tests -q` OK, 355 passed, 1 skipped
   - `ruff check app tests` OK
   - `black --check app tests` OK
-  - `alembic heads` OK, head `e2f3a4b5c6d7`
+  - `alembic heads` OK, head `f7a8b9c0d1e2`
 - Frontend:
   - `npm run lint:check` OK sin errores ni warnings
   - `npm run type-check` OK

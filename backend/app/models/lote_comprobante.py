@@ -62,7 +62,7 @@ class LoteComprobante(Base):
     )
 
     empresa_id = Column(
-        Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=False
     )
     usuario_id = Column(
         Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True

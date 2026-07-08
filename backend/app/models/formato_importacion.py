@@ -39,7 +39,7 @@ class FormatoImportacion(Base):
     )
 
     empresa_id = Column(
-        Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=True
+        Integer, ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=True
     )
 
     empresa = relationship("Empresa")

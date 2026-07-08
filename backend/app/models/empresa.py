@@ -33,26 +33,22 @@ class Empresa(Base):
     )
 
     # Relaciones
-    usuarios = relationship(
-        "Usuario", back_populates="empresa", cascade="all, delete-orphan"
-    )
-    clientes = relationship(
-        "Cliente", back_populates="empresa", cascade="all, delete-orphan"
-    )
+    usuarios = relationship("Usuario", back_populates="empresa", passive_deletes=True)
+    clientes = relationship("Cliente", back_populates="empresa", passive_deletes=True)
     puntos_venta = relationship(
-        "PuntoVenta", back_populates="empresa", cascade="all, delete-orphan"
+        "PuntoVenta", back_populates="empresa", passive_deletes=True
     )
     certificados = relationship(
-        "Certificado", back_populates="empresa", cascade="all, delete-orphan"
+        "Certificado", back_populates="empresa", passive_deletes=True
     )
     comprobantes = relationship(
-        "Comprobante", back_populates="empresa", cascade="all, delete-orphan"
+        "Comprobante", back_populates="empresa", passive_deletes=True
     )
     lotes_comprobantes = relationship(
-        "LoteComprobante", back_populates="empresa", cascade="all, delete-orphan"
+        "LoteComprobante", back_populates="empresa", passive_deletes=True
     )
     perfiles_carga_masiva = relationship(
-        "PerfilCargaMasiva", back_populates="empresa", cascade="all, delete-orphan"
+        "PerfilCargaMasiva", back_populates="empresa", passive_deletes=True
     )
 
     def __repr__(self) -> str:

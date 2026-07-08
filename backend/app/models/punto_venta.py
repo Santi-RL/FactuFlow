@@ -36,7 +36,7 @@ class PuntoVenta(Base):
 
     # Relación con empresa
     empresa_id = Column(
-        Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False
+        Integer, ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=False
     )
     empresa = relationship("Empresa", back_populates="puntos_venta")
 

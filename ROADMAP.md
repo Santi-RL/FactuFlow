@@ -155,6 +155,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Factura C no informa objeto `Iva` en WSFE y bloquea ítems con IVA distinto de 0
 - [x] Importes WSFE cuantizados con Decimal antes de solicitar CAE, evitando
   redondeo binario con float en totales, IVA, tributos y bases
+- [x] Borrado físico de emisores restringido para preservar historial fiscal y
+  operativo: usuarios quedan con `empresa_id` en `NULL`, y certificados,
+  clientes, puntos de venta, comprobantes, lotes, formatos, perfiles e intentos
+  fiscales quedan protegidos con claves foráneas `RESTRICT`, también en SQLite
+  mediante `PRAGMA foreign_keys` por conexión
 - [x] UI de puntos de venta valida el certificado activo del ambiente ARCA actual
   antes de sincronizar WSFE
 - [x] Emisor activo consistente por pestaña y API con rechazo de conflictos
@@ -506,8 +511,9 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [~] Auditoría backend Clawpatch 2026-07-07 en curso: cerrados cortes de
   aislamiento multiemisor, validación de rangos CAE batch, borrado de
   certificados post-commit, importación de puntos de venta sin estado ARCA,
-  corrección del subdiario IVA para comprobantes autorizados con IVA cero y
-  rechazo de secretos JWT productivos inseguros.
+  corrección del subdiario IVA para comprobantes autorizados con IVA cero,
+  rechazo de secretos JWT productivos inseguros, cuantización Decimal de
+  importes WSFE y preservación de historial ante borrado físico de emisores.
 - [x] Reportes IVA calculan notas de crédito con signo negativo, incluyen
   comprobantes C con IVA cero como exentos, ítems A/B con IVA cero como no
   gravados y el detalle de subdiario incluye gravado e IVA 27%

@@ -6,9 +6,16 @@ from decimal import Decimal
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
+from app.models.certificado import Certificado
+from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
+from app.models.formato_importacion import FormatoImportacion
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
+from app.models.lote_comprobante import LoteComprobante
+from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
 
@@ -206,6 +213,69 @@ async def test_admin_elimina_emisor_sin_borrar_usuarios_preferidos(
     assert usuario.empresa_id is None
 
 
+def _empresa_fk_ondelete(model) -> str:
+    """Devuelve la política ondelete del FK empresa_id del modelo."""
+    for foreign_key in model.__table__.foreign_keys:
+        if (
+            foreign_key.parent.name == "empresa_id"
+            and foreign_key.column.table.name == "empresas"
+        ):
+            return foreign_key.ondelete
+    raise AssertionError(f"{model.__name__} no tiene FK empresa_id a empresas")
+
+
+def test_modelos_empresa_no_declaran_cascadas_destructivas():
+    """Los modelos no deben borrar historial al eliminar un emisor por ORM/FK."""
+    assert _empresa_fk_ondelete(Usuario) == "SET NULL"
+
+    modelos_restringidos = (
+        Certificado,
+        Cliente,
+        PuntoVenta,
+        Comprobante,
+        LoteComprobante,
+        FormatoImportacion,
+        PerfilCargaMasiva,
+        OperacionIdempotente,
+        IntentoEmisionFiscal,
+    )
+    for modelo in modelos_restringidos:
+        assert _empresa_fk_ondelete(modelo) == "RESTRICT"
+
+    relaciones_empresa = {
+        "usuarios",
+        "clientes",
+        "puntos_venta",
+        "certificados",
+        "comprobantes",
+        "lotes_comprobantes",
+        "perfiles_carga_masiva",
+    }
+    for relacion in Empresa.__mapper__.relationships:
+        if relacion.key in relaciones_empresa:
+            assert "delete" not in relacion.cascade
+            assert relacion.passive_deletes is True
+
+
+@pytest.mark.asyncio
+async def test_borrado_directo_emisor_con_historial_fiscal_falla_por_fk(
+    db_session,
+    test_empresa: Empresa,
+):
+    """La base debe restringir borrados directos con comprobantes fiscales."""
+    empresa_id = test_empresa.id
+    comprobante = await _crear_comprobante_autorizado(db_session, empresa_id)
+    comprobante_id = comprobante.id
+
+    await db_session.delete(test_empresa)
+    with pytest.raises(IntegrityError):
+        await db_session.commit()
+
+    await db_session.rollback()
+    assert await db_session.get(Empresa, empresa_id) is not None
+    assert await db_session.get(Comprobante, comprobante_id) is not None
+
+
 @pytest.mark.asyncio
 async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
     client: AsyncClient,
@@ -214,10 +284,12 @@ async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
     test_empresa: Empresa,
 ):
     """Borrar un emisor no debe destruir comprobantes fiscales asociados."""
-    comprobante = await _crear_comprobante_autorizado(db_session, test_empresa.id)
+    empresa_id = test_empresa.id
+    comprobante = await _crear_comprobante_autorizado(db_session, empresa_id)
+    comprobante_id = comprobante.id
 
     response = await client.delete(
-        f"/api/empresas/{test_empresa.id}",
+        f"/api/empresas/{empresa_id}",
         headers=admin_auth_headers,
     )
 
@@ -225,8 +297,8 @@ async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
     detail = response.json()["detail"]
     assert "datos operativos o fiscales" in detail
     assert "comprobantes fiscales" in detail
-    assert await db_session.get(Empresa, test_empresa.id) is not None
-    assert await db_session.get(Comprobante, comprobante.id) is not None
+    assert await db_session.get(Empresa, empresa_id) is not None
+    assert await db_session.get(Comprobante, comprobante_id) is not None
 
 
 @pytest.mark.asyncio
