@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
+from app.models.comprobante_item import ComprobanteItem
 from app.models.empresa import Empresa
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
@@ -1485,6 +1486,139 @@ async def test_intento_stale_no_libera_numero_con_error_arca_ambiguo(
     await db_session.refresh(intento)
     assert intento.estado == "requiere_reconciliacion"
     assert intento.categoria_error == "arca_consulta_incierta"
+
+
+@pytest.mark.asyncio
+async def test_duplicado_logico_nota_usa_huella_autorizada_con_asociado(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """Una nota ya emitida con asociado debe detectarse antes de llamar a ARCA."""
+    punto_venta = PuntoVenta(
+        numero=13,
+        nombre="Notas C",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    fecha_emision = date(2026, 6, 1)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=13,
+        concepto=2,
+        fecha_emision=fecha_emision,
+        fecha_servicio_desde=fecha_emision,
+        fecha_servicio_hasta=fecha_emision,
+        fecha_vto_pago=date(2026, 6, 10),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        comprobantes_asociados=[
+            ComprobanteAsociadoCreate(
+                tipo_comprobante=11,
+                punto_venta=13,
+                numero=1645,
+                fecha=date(2026, 4, 30),
+                cuit=test_empresa.cuit,
+            )
+        ],
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Anulación por duplicado",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("59500"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+    total = Decimal("59500.00")
+    huella = IdempotenciaFiscalService.calcular_huella_logica(
+        request=request,
+        punto_venta_numero=punto_venta.numero,
+        total=total,
+    )
+    comprobante = Comprobante(
+        tipo_comprobante=request.tipo_comprobante,
+        concepto=request.concepto,
+        numero=27,
+        fecha_emision=request.fecha_emision,
+        fecha_servicio_desde=request.fecha_servicio_desde,
+        fecha_servicio_hasta=request.fecha_servicio_hasta,
+        fecha_vto_pago=request.fecha_vto_pago,
+        fecha_vencimiento=request.fecha_vto_pago,
+        subtotal=total,
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("0.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=total,
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 6, 11),
+        estado="autorizado",
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        receptor_tipo_documento=request.tipo_documento,
+        receptor_numero_documento=request.numero_documento,
+        receptor_razon_social=request.razon_social,
+        receptor_condicion_iva="CF",
+    )
+    db_session.add(comprobante)
+    await db_session.flush()
+    db_session.add(
+        ComprobanteItem(
+            descripcion="Anulación por duplicado",
+            cantidad=Decimal("1"),
+            unidad="unidad",
+            precio_unitario=Decimal("59500"),
+            descuento_porcentaje=Decimal("0"),
+            iva_porcentaje=Decimal("0"),
+            subtotal=total,
+            orden=0,
+            comprobante_id=comprobante.id,
+        )
+    )
+    db_session.add(
+        IntentoEmisionFiscal(
+            empresa_id=test_empresa.id,
+            usuario_id=None,
+            punto_venta_id=punto_venta.id,
+            punto_venta_numero=punto_venta.numero,
+            tipo_comprobante=request.tipo_comprobante,
+            numero_planificado=comprobante.numero,
+            fecha_emision=request.fecha_emision,
+            total=total,
+            receptor_tipo_documento=request.tipo_documento,
+            receptor_numero_documento=request.numero_documento,
+            receptor_razon_social=request.razon_social,
+            payload_hash="payload-nota-asociada",
+            huella_logica=huella,
+            estado="autorizado",
+            cae=comprobante.cae,
+            cae_vencimiento=comprobante.cae_vencimiento,
+            comprobante_id=comprobante.id,
+        )
+    )
+    await db_session.commit()
+
+    duplicado = await IdempotenciaFiscalService(db_session).buscar_duplicado_logico(
+        request=request,
+        punto_venta=punto_venta,
+        total=total,
+    )
+
+    assert duplicado is not None
+    assert duplicado.id == comprobante.id
 
 
 @pytest.mark.asyncio

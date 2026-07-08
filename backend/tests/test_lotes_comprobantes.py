@@ -4855,6 +4855,128 @@ async def test_reconciliacion_local_rechaza_payload_drift(
 
 
 @pytest.mark.asyncio
+async def test_reconciliacion_local_nota_usa_huella_del_intento_con_asociado(
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+) -> None:
+    """La huella autorizada del intento conserva el asociado fiscal de la nota."""
+    request = EmitirComprobanteRequest.model_validate(
+        {
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": test_punto_venta.id,
+            "tipo_comprobante": 13,
+            "concepto": 2,
+            "fecha_emision": "2026-06-01",
+            "fecha_servicio_desde": "2026-06-01",
+            "fecha_servicio_hasta": "2026-06-01",
+            "fecha_vto_pago": "2026-06-10",
+            "confirmacion_fecha_fiscal": True,
+            "tipo_documento": 99,
+            "numero_documento": "0",
+            "razon_social": "A CONSUMIDOR FINAL",
+            "condicion_iva": "CF",
+            "moneda": "PES",
+            "cotizacion": "1",
+            "guardar_cliente": False,
+            "comprobantes_asociados": [
+                {
+                    "tipo_comprobante": 11,
+                    "punto_venta": test_punto_venta.numero,
+                    "numero": 1645,
+                    "fecha": "2026-04-30",
+                    "cuit": test_empresa.cuit,
+                }
+            ],
+            "items": [
+                {
+                    "descripcion": "Anulación por duplicado",
+                    "cantidad": "1",
+                    "unidad": "unidad",
+                    "precio_unitario": "59500",
+                    "iva_porcentaje": "0",
+                }
+            ],
+        }
+    )
+    total = Decimal("59500.00")
+    payload_hash, huella = _hashes_fiscales_request(
+        request,
+        test_punto_venta.numero,
+        total,
+    )
+    intento = IntentoEmisionFiscal(
+        tipo_comprobante=request.tipo_comprobante,
+        punto_venta_numero=test_punto_venta.numero,
+        numero_planificado=27,
+        fecha_emision=request.fecha_emision,
+        total=total,
+        receptor_tipo_documento=request.tipo_documento,
+        receptor_numero_documento=request.numero_documento,
+        receptor_razon_social=request.razon_social,
+        payload_hash=payload_hash,
+        huella_logica=huella,
+        cae=CAE_TEST_NO_REAL,
+        cae_vencimiento=date(2026, 6, 11),
+        estado="autorizado",
+        empresa_id=test_empresa.id,
+        punto_venta_id=test_punto_venta.id,
+        comprobante_id=123,
+        lote_id=456,
+        grupo_id=789,
+    )
+    comprobante = Comprobante(
+        id=123,
+        tipo_comprobante=request.tipo_comprobante,
+        concepto=request.concepto,
+        numero=27,
+        fecha_emision=request.fecha_emision,
+        fecha_servicio_desde=request.fecha_servicio_desde,
+        fecha_servicio_hasta=request.fecha_servicio_hasta,
+        fecha_vto_pago=request.fecha_vto_pago,
+        fecha_vencimiento=request.fecha_vto_pago,
+        subtotal=total,
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("0.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=total,
+        cae=intento.cae,
+        cae_vencimiento=intento.cae_vencimiento,
+        estado="autorizado",
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        empresa_id=test_empresa.id,
+        punto_venta_id=test_punto_venta.id,
+        receptor_tipo_documento=request.tipo_documento,
+        receptor_numero_documento=request.numero_documento,
+        receptor_razon_social=request.razon_social,
+        receptor_condicion_iva="CF",
+    )
+    comprobante.punto_venta = test_punto_venta
+    comprobante.items = [
+        ComprobanteItem(
+            descripcion="Anulación por duplicado",
+            cantidad=Decimal("1"),
+            unidad="unidad",
+            precio_unitario=Decimal("59500"),
+            descuento_porcentaje=Decimal("0"),
+            iva_porcentaje=Decimal("0"),
+            subtotal=total,
+            orden=0,
+        )
+    ]
+
+    assert LoteComprobantesService(db_session)._intento_local_coincide_con_grupo(
+        intento=intento,
+        comprobante=comprobante,
+        request=request,
+        total=total,
+    )
+
+
+@pytest.mark.asyncio
 async def test_reconciliacion_local_rechaza_snapshot_comprobante_distinto(
     db_session: AsyncSession,
     test_empresa,

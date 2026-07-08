@@ -3556,14 +3556,10 @@ class LoteComprobantesService:
             punto_venta_numero=intento.punto_venta_numero,
             total=total,
         )
-        huella_comprobante = idempotencia.calcular_huella_logica_comprobante(
-            comprobante
-        )
         return all(
             [
                 intento.payload_hash == payload_hash,
                 intento.huella_logica == huella_request,
-                huella_comprobante == huella_request,
                 self._comprobante_snapshot_coincide_con_request(comprobante, request),
                 intento.empresa_id == request.empresa_id,
                 intento.punto_venta_id == request.punto_venta_id,

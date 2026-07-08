@@ -326,10 +326,43 @@ class IdempotenciaFiscalService:
             punto_venta_numero=punto_venta.numero,
             total=total,
         )
-        for comprobante in result.scalars().all():
-            if self.calcular_huella_logica_comprobante(comprobante) == huella_request:
+        comprobantes = result.scalars().all()
+        huellas_intentos = await self._huellas_autorizadas_por_comprobante(
+            [comprobante.id for comprobante in comprobantes]
+        )
+        for comprobante in comprobantes:
+            huella_comprobante = huellas_intentos.get(comprobante.id)
+            if huella_comprobante is None:
+                huella_comprobante = self.calcular_huella_logica_comprobante(
+                    comprobante
+                )
+            if huella_comprobante == huella_request:
                 return comprobante
         return None
+
+    async def _huellas_autorizadas_por_comprobante(
+        self, comprobante_ids: list[int]
+    ) -> dict[int, str]:
+        """Obtiene snapshots lógicos autorizados por comprobante persistido."""
+        if not comprobante_ids:
+            return {}
+        result = await self.db.execute(
+            select(
+                IntentoEmisionFiscal.comprobante_id,
+                IntentoEmisionFiscal.huella_logica,
+            )
+            .where(
+                IntentoEmisionFiscal.comprobante_id.in_(comprobante_ids),
+                IntentoEmisionFiscal.estado == "autorizado",
+                IntentoEmisionFiscal.huella_logica.is_not(None),
+            )
+            .order_by(IntentoEmisionFiscal.created_at.desc())
+        )
+        huellas: dict[int, str] = {}
+        for comprobante_id, huella_logica in result.all():
+            if comprobante_id is not None and comprobante_id not in huellas:
+                huellas[comprobante_id] = huella_logica
+        return huellas
 
     @classmethod
     def calcular_huella_logica(
