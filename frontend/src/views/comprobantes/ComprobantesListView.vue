@@ -2,6 +2,7 @@
 import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
+import { formatearFecha as formatFecha } from "@/composables/useFormatters";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
   DocumentTextIcon,
@@ -104,10 +105,6 @@ const formatMonto = (monto: number) => {
     style: "currency",
     currency: "ARS",
   }).format(monto);
-};
-
-const formatFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString("es-AR");
 };
 
 const getTipoNombre = (tipo: number) => {

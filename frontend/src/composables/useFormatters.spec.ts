@@ -6,6 +6,7 @@ describe("formatearFecha", () => {
   it("formatea strings ISO YYYY-MM-DD sin desplazar la fecha", () => {
     expect(formatearFecha("2026-12-31")).toBe("31/12/2026");
     expect(formatearFecha("2026-01-05")).toBe("05/01/2026");
+    expect(formatearFecha("2026-05-15")).toBe("15/05/2026");
   });
 
   it("formatea strings ISO con hora usando solo la fecha local declarada", () => {
