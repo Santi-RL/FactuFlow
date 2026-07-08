@@ -47,8 +47,7 @@ Para endpoints protegidos:
 Authorization: Bearer {token}
 ```
 
-Para operar un emisor activo explícito, cualquier usuario autenticado puede
-agregar:
+Para operar un emisor activo explícito, un administrador puede agregar:
 
 ```http
 X-Empresa-Id: 2
@@ -56,8 +55,9 @@ X-Empresa-Id: 2
 
 También se conserva el query legacy `empresa_id` para compatibilidad. Si se
 envían `X-Empresa-Id` y `empresa_id` con valores distintos, la API rechaza el
-pedido. El campo `user.es_admin` significa que el usuario puede administrar
-usuarios; no limita el acceso operativo a emisores.
+pedido. El campo `user.es_admin` permite administrar usuarios y operar cualquier
+emisor configurado; los usuarios comunes solo pueden operar el emisor asignado
+en su cuenta.
 
 ## Health
 

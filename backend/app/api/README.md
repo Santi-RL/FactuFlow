@@ -50,10 +50,10 @@ Regla crítica: ningún endpoint de emisión debe asumir fecha del día actual c
 fecha fiscal. `fecha_emision` debe llegar explícita desde el usuario o desde una
 política de lote confirmada antes de validar.
 
-Regla de usuarios: `es_admin` significa administrar usuarios, no operar emisores.
-Todos los usuarios activos pueden operar el emisor activo seleccionado. Solo las
-rutas `/api/usuarios` y `/api/almacenamiento` quedan reservadas a
-administradores.
+Regla de usuarios: `es_admin` significa administrar usuarios y operar cualquier
+emisor configurado. Los usuarios comunes activos solo pueden operar el emisor
+asignado en su cuenta. Solo las rutas `/api/usuarios` y `/api/almacenamiento`
+quedan reservadas a administradores.
 
 Regla de almacenamiento: las rutas `/api/almacenamiento` solo pueden escanear
 rutas administradas por FactuFlow y tablas conocidas. No deben devolver rutas
