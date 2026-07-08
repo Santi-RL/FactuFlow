@@ -65,6 +65,16 @@ const mockedEmpresaService = empresaService as unknown as {
   getById: Mock;
 };
 
+const crearDiferido = <T>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolver, rechazador) => {
+    resolve = resolver;
+    reject = rechazador;
+  });
+
+  return { promise, resolve, reject };
+};
 describe("empresa store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -151,5 +161,67 @@ describe("empresa store", () => {
     expect(window.localStorage.getItem("empresa_activa_id")).toBeNull();
     expect(window.sessionStorage.getItem("empresa_activa_id")).toBeNull();
     expect(getEmpresaActivaIdForRequest()).toBeNull();
+  });
+  it("mantiene el ultimo emisor solicitado si las cargas resuelven fuera de orden", async () => {
+    const empresaUno = empresaMock(1, "Emisor Uno");
+    const empresaDos = empresaMock(2, "Emisor Dos");
+    const primeraCarga = crearDiferido<Empresa>();
+    const segundaCarga = crearDiferido<Empresa>();
+    mockedEmpresaService.getById
+      .mockReturnValueOnce(primeraCarga.promise)
+      .mockReturnValueOnce(segundaCarga.promise);
+
+    const empresaStore = useEmpresaStore();
+
+    const seleccionarUno = empresaStore.setEmpresaActiva(1);
+    const seleccionarDos = empresaStore.setEmpresaActiva(2);
+
+    segundaCarga.resolve(empresaDos);
+    await seleccionarDos;
+
+    expect(empresaStore.empresaActivaId).toBe(2);
+    expect(empresaStore.empresa?.id).toBe(2);
+    expect(window.localStorage.getItem("empresa_activa_id")).toBe("2");
+    expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("2");
+    expect(getEmpresaActivaIdForRequest()).toBe("2");
+
+    primeraCarga.resolve(empresaUno);
+    await seleccionarUno;
+
+    expect(empresaStore.empresaActivaId).toBe(2);
+    expect(empresaStore.empresa?.id).toBe(2);
+    expect(window.localStorage.getItem("empresa_activa_id")).toBe("2");
+    expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("2");
+    expect(getEmpresaActivaIdForRequest()).toBe("2");
+  });
+
+  it("ignora fallas tardias de una seleccion obsoleta", async () => {
+    const empresaDos = empresaMock(2, "Emisor Dos");
+    const primeraCarga = crearDiferido<Empresa>();
+    const segundaCarga = crearDiferido<Empresa>();
+    const errorObsoleto = {
+      response: { data: { detail: "Empresa no encontrada" } },
+    };
+    mockedEmpresaService.getById
+      .mockReturnValueOnce(primeraCarga.promise)
+      .mockReturnValueOnce(segundaCarga.promise);
+
+    const empresaStore = useEmpresaStore();
+
+    const seleccionarUno = empresaStore.setEmpresaActiva(1);
+    const seleccionarDos = empresaStore.setEmpresaActiva(2);
+
+    segundaCarga.resolve(empresaDos);
+    await seleccionarDos;
+
+    primeraCarga.reject(errorObsoleto);
+    await expect(seleccionarUno).resolves.toBeUndefined();
+
+    expect(empresaStore.empresaActivaId).toBe(2);
+    expect(empresaStore.empresa?.id).toBe(2);
+    expect(empresaStore.error).toBeNull();
+    expect(window.localStorage.getItem("empresa_activa_id")).toBe("2");
+    expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("2");
+    expect(getEmpresaActivaIdForRequest()).toBe("2");
   });
 });

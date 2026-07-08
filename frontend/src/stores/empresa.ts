@@ -16,6 +16,7 @@ export const useEmpresaStore = defineStore("empresa", () => {
   const empresaActivaId = ref<number | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  let solicitudEmpresaActivaId = 0;
 
   const empresaActiva = computed(() => {
     if (!empresaActivaId.value) {
@@ -31,14 +32,24 @@ export const useEmpresaStore = defineStore("empresa", () => {
     );
   });
 
-  const fetchEmpresa = async (id: number) => {
+  const esSolicitudEmpresaActivaActual = (solicitudId: number) =>
+    solicitudId === solicitudEmpresaActivaId;
+
+  const cargarEmpresaPorId = async (id: number, solicitudId: number) => {
     loading.value = true;
     error.value = null;
     try {
-      empresa.value = await empresaService.getById(id);
-      empresaActivaId.value = empresa.value.id;
-      setEmpresaActivaIdStorage(empresa.value.id);
+      const empresaCargada = await empresaService.getById(id);
+      if (!esSolicitudEmpresaActivaActual(solicitudId)) {
+        return;
+      }
+      empresa.value = empresaCargada;
+      empresaActivaId.value = empresaCargada.id;
+      setEmpresaActivaIdStorage(empresaCargada.id);
     } catch (err: any) {
+      if (!esSolicitudEmpresaActivaActual(solicitudId)) {
+        return;
+      }
       if (empresaActivaId.value === id) {
         empresaActivaId.value = null;
         empresa.value = null;
@@ -47,8 +58,15 @@ export const useEmpresaStore = defineStore("empresa", () => {
       error.value = err.response?.data?.detail || "Error al cargar la empresa";
       throw err;
     } finally {
-      loading.value = false;
+      if (esSolicitudEmpresaActivaActual(solicitudId)) {
+        loading.value = false;
+      }
     }
+  };
+
+  const fetchEmpresa = async (id: number) => {
+    const solicitudId = ++solicitudEmpresaActivaId;
+    await cargarEmpresaPorId(id, solicitudId);
   };
 
   const createEmpresa = async (data: EmpresaCreate) => {
@@ -112,10 +130,14 @@ export const useEmpresaStore = defineStore("empresa", () => {
   };
 
   const setEmpresaActiva = async (id: number) => {
+    const solicitudId = ++solicitudEmpresaActivaId;
     clearEmpresaActivaIdForRequest();
     try {
-      await fetchEmpresa(id);
+      await cargarEmpresaPorId(id, solicitudId);
     } catch (err) {
+      if (!esSolicitudEmpresaActivaActual(solicitudId)) {
+        return;
+      }
       empresa.value = null;
       empresaActivaId.value = null;
       clearEmpresaActivaIdStorage();
