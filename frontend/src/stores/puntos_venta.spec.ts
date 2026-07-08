@@ -99,6 +99,18 @@ describe("puntos venta store", () => {
     clearEmpresaActivaIdStorage();
   });
 
+  it("rechaza sincronizar ARCA sin emisor activo confirmado", async () => {
+    const store = usePuntosVentaStore();
+    const mensaje =
+      "Seleccioná un emisor activo antes de sincronizar puntos de venta con ARCA";
+
+    await expect(store.syncFromArca()).rejects.toThrow(mensaje);
+
+    expect(mockedArcaService.getPuntosVenta).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
+    expect(store.error).toBe(mensaje);
+    expect(store.syncing).toBe(false);
+  });
   it("ignora sincronizaciones ARCA obsoletas cuando cambia el emisor activo", async () => {
     const puntosArca = deferred<PuntoVentaArca[]>();
     const locales = deferred<PuntoVenta[]>();

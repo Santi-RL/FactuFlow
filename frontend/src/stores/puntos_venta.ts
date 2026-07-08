@@ -32,6 +32,9 @@ const sistemaWebservice = (punto: PuntoVentaArca): string => {
 const textoIndicaWebservice = (value: string | null): boolean =>
   /web\s*services?/i.test(value || "");
 
+const EMISOR_ACTIVO_REQUERIDO =
+  "Seleccioná un emisor activo antes de sincronizar puntos de venta con ARCA";
+
 export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   const puntosVenta = ref<PuntoVenta[]>([]);
   const loading = ref(false);
@@ -154,6 +157,14 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
 
     syncing.value = true;
     error.value = null;
+    if (
+      !empresaIdConfirmadaSolicitada ||
+      getEmpresaActivaIdForRequest() !== empresaIdConfirmadaSolicitada
+    ) {
+      error.value = EMISOR_ACTIVO_REQUERIDO;
+      syncing.value = false;
+      throw new Error(EMISOR_ACTIVO_REQUERIDO);
+    }
     try {
       const [puntosArca, locales] = await Promise.all([
         arcaService.getPuntosVenta(),
