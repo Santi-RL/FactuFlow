@@ -1,9 +1,11 @@
 """Modelos Pydantic para requests y responses de ARCA."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from app.arca.utils import format_date_arca
 
 # ==================== WSAA Models ====================
 
@@ -68,6 +70,14 @@ class CbteAsocItem(BaseModel):
     fecha_cbte: Optional[str] = Field(
         None, description="Fecha del comprobante asociado (YYYYMMDD)"
     )
+
+    @field_validator("fecha_cbte", mode="before")
+    @classmethod
+    def validate_fecha_cbte(cls, v: date | datetime | str | None) -> str | None:
+        """Valida y normaliza la fecha del comprobante asociado."""
+        if v in (None, ""):
+            return None
+        return format_date_arca(v)
 
 
 class ComprobanteRequest(BaseModel):
@@ -141,19 +151,43 @@ class ComprobanteRequest(BaseModel):
         default_factory=list, description="Comprobantes asociados"
     )
 
+    @field_validator("fecha_cbte", mode="before")
+    @classmethod
+    def validate_fecha_cbte(cls, v: date | datetime | str) -> str:
+        """Valida y normaliza la fecha fiscal del comprobante."""
+        return format_date_arca(v)
+
     @field_validator(
-        "fecha_cbte", "fecha_vto_pago", "fecha_serv_desde", "fecha_serv_hasta"
+        "fecha_vto_pago", "fecha_serv_desde", "fecha_serv_hasta", mode="before"
     )
     @classmethod
-    def validate_date_format(cls, v: str | None) -> str | None:
-        """Valida que las fechas estén en formato YYYYMMDD."""
-        if v is None:
-            return v
+    def validate_optional_date_format(
+        cls, v: date | datetime | str | None
+    ) -> str | None:
+        """Valida y normaliza fechas fiscales opcionales."""
+        if v in (None, ""):
+            return None
+        return format_date_arca(v)
 
-        if len(v) != 8 or not v.isdigit():
-            raise ValueError(f"Fecha debe estar en formato YYYYMMDD, recibido: {v}")
-
-        return v
+    @model_validator(mode="after")
+    def validate_fechas_servicio(self) -> "ComprobanteRequest":
+        """Exige fechas de servicio para comprobantes de servicios o mixtos."""
+        if self.concepto in {2, 3}:
+            faltantes = [
+                nombre
+                for nombre in (
+                    "fecha_serv_desde",
+                    "fecha_serv_hasta",
+                    "fecha_vto_pago",
+                )
+                if not getattr(self, nombre)
+            ]
+            if faltantes:
+                raise ValueError(
+                    "Los comprobantes de servicios o mixtos requieren fechas "
+                    f"de servicio y vencimiento: {', '.join(faltantes)}"
+                )
+        return self
 
 
 class Observacion(BaseModel):

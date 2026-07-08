@@ -546,7 +546,9 @@ mapeo.
 
 La fecha del archivo no se usa automáticamente para emitir. Antes de validar el
 lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
-permitida por ARCA para todo el lote.
+permitida por ARCA para todo el lote. Las fechas ingresadas manualmente pueden
+cargarse como `DD/MM/AAAA` o `YYYY-MM-DD`; FactuFlow rechaza fechas calendario
+inválidas, como `31/02/2026`, sin convertirlas a otra fecha.
 
 ### Formato privado con punto fijo
 

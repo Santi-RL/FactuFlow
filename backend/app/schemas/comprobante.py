@@ -2,8 +2,10 @@
 
 from datetime import date
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field, field_validator
+
+from app.core.date_parsing import parse_fecha_input
 
 # ==================== Items ====================
 
@@ -35,6 +37,12 @@ class ComprobanteAsociadoCreate(BaseModel):
     numero: int = Field(..., ge=1)
     fecha: Optional[date] = None
     cuit: Optional[str] = Field(None, max_length=11)
+
+    @field_validator("fecha", mode="before")
+    @classmethod
+    def validate_fecha(cls, v: Any) -> date | None:
+        """Acepta fecha argentina o técnica para comprobantes asociados."""
+        return parse_fecha_input(v, field_name="fecha", allow_empty=True)
 
 
 class ItemComprobanteResponse(ItemComprobanteBase):
@@ -106,6 +114,26 @@ class EmitirComprobanteRequest(ComprobanteBase):
     comprobantes_asociados: List[ComprobanteAsociadoCreate] = Field(
         default_factory=list
     )
+
+    @field_validator("fecha_emision", mode="before")
+    @classmethod
+    def validate_fecha_emision(cls, v: Any) -> date:
+        """Acepta fecha fiscal argentina o técnica sin normalización silenciosa."""
+        parsed = parse_fecha_input(v, field_name="fecha_emision")
+        if parsed is None:
+            raise ValueError("fecha_emision es obligatoria")
+        return parsed
+
+    @field_validator(
+        "fecha_servicio_desde",
+        "fecha_servicio_hasta",
+        "fecha_vto_pago",
+        mode="before",
+    )
+    @classmethod
+    def validate_fechas_servicio_input(cls, v: Any) -> date | None:
+        """Acepta fechas argentinas o técnicas para períodos de servicio."""
+        return parse_fecha_input(v, field_name="fecha de servicio", allow_empty=True)
 
     @field_validator("items")
     @classmethod

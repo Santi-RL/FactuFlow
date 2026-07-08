@@ -124,6 +124,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   emisión fiscal
 - [x] Emisión masiva permite consumidor final desde Excel sin cliente precargado cuando la normativa no exige identificar receptor
 - [x] Fecha de emisión explícita; no se asume fecha del día actual al emitir
+- [x] Entradas de fechas fiscales validan calendario real y aceptan `DD/MM/AAAA`
+  en bordes de usuario, además de formatos técnicos ISO/ARCA donde corresponde
 - [x] Confirmación final obligatoria de fecha fiscal antes de solicitar CAE
 - [x] Procesamiento de lotes exige token exacto de confirmación fiscal con
   fechas y puntos de venta validados, no un boolean genérico
@@ -341,6 +343,8 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
 - [x] Validación de consistencia entre total informado por archivo externo y
   total calculado desde ítems e IVA antes de permitir emisión
 - [x] Política explícita de fecha de emisión por lote: desde archivo o fecha fija confirmada
+- [x] Fechas fijas de lote y reconciliación externa aceptan `DD/MM/AAAA` y
+  rechazan calendarios inválidos antes de llegar a ARCA
 - [x] Política explícita de concepto fiscal ARCA por lote: productos, servicios
   o definido por archivo
 - [x] Política explícita de descripción facturada del ítem por lote: desde

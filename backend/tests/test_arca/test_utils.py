@@ -93,10 +93,24 @@ class TestFormatDateArca:
         """Debe manejar fecha ya formateada."""
         assert format_date_arca("20241231") == "20241231"
 
-    def test_format_date_invalid(self):
+    def test_format_date_from_string_argentina(self):
+        """Debe formatear fecha desde string argentino."""
+        assert format_date_arca("31/12/2024") == "20241231"
+
+    def test_format_date_invalid_format(self):
         """Debe lanzar error con formato inválido."""
         with pytest.raises(ValueError):
-            format_date_arca("31/12/2024")
+            format_date_arca("2024/12/31")
+
+    def test_format_date_invalid_calendar(self):
+        """Debe rechazar fechas ARCA con calendario imposible."""
+        with pytest.raises(ValueError):
+            format_date_arca("20240231")
+
+    def test_format_date_rejects_short_compact_date(self):
+        """Debe rechazar compactas sin ocho dígitos exactos."""
+        with pytest.raises(ValueError):
+            format_date_arca("2024011")
 
 
 class TestParseDateArca:

@@ -26,6 +26,7 @@ from app.models.lote_comprobante import (
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteRequest, EmitirComprobanteResponse
+from app.schemas.lote_comprobante import LoteReconciliacionExternaItem
 from app.services.lote_comprobantes_service import (
     LoteComprobanteError,
     LoteComprobantesService,
@@ -453,6 +454,27 @@ def _config_formato_cano_factura_b() -> dict:
     }
 
 
+def _fecha_argentina(value: date | str) -> str:
+    """Formatea una fecha de test en DD/MM/AAAA."""
+    if isinstance(value, date):
+        return value.strftime("%d/%m/%Y")
+    return datetime.strptime(str(value), "%Y-%m-%d").strftime("%d/%m/%Y")
+
+
+def test_reconciliacion_externa_item_rechaza_fecha_calendario_invalida():
+    """El schema no debe aceptar fechas externas imposibles."""
+    with pytest.raises(ValueError):
+        LoteReconciliacionExternaItem(
+            grupo_id=1,
+            tipo_comprobante=6,
+            punto_venta_numero=1,
+            numero=123,
+            fecha_emision="31/02/2026",
+            total=Decimal("1210.00"),
+            motivo="Emitido manualmente por ARCA Web",
+        )
+
+
 def _hashes_fiscales_request(
     request: EmitirComprobanteRequest,
     punto_venta_numero: int,
@@ -473,12 +495,15 @@ def _hashes_fiscales_request(
 
 def _opciones_fechas(
     fecha_emision_modo: str = "archivo",
-    fecha_emision_fija: date | None = None,
+    fecha_emision_fija: date | str | None = None,
     concepto_modo: str = "productos",
     descripcion_item_modo: str = "archivo",
     descripcion_item_fija: str | None = None,
     punto_venta_modo: str = "archivo",
     punto_venta_numero: int | None = None,
+    fecha_servicio_desde_fija: date | str | None = None,
+    fecha_servicio_hasta_fija: date | str | None = None,
+    fecha_vto_pago_fija: date | str | None = None,
 ) -> dict[str, str]:
     """Devuelve opciones explícitas para validar lotes."""
     data = {
@@ -490,8 +515,14 @@ def _opciones_fechas(
         "fecha_servicio_hasta_modo": "archivo",
         "fecha_vto_pago_modo": "archivo",
     }
-    if fecha_emision_fija:
-        data["fecha_emision_fija"] = fecha_emision_fija.isoformat()
+    for key, value in {
+        "fecha_emision_fija": fecha_emision_fija,
+        "fecha_servicio_desde_fija": fecha_servicio_desde_fija,
+        "fecha_servicio_hasta_fija": fecha_servicio_hasta_fija,
+        "fecha_vto_pago_fija": fecha_vto_pago_fija,
+    }.items():
+        if value:
+            data[key] = value.isoformat() if isinstance(value, date) else value
     if descripcion_item_fija:
         data["descripcion_item_fija"] = descripcion_item_fija
     if punto_venta_numero:
@@ -950,6 +981,68 @@ async def test_validar_lote_punto_venta_fijo_sobrescribe_archivo(
         detalle_data["metadata_json"]["opciones_punto_venta"]["punto_venta_numero"]
         == 13
     )
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_acepta_fecha_fija_argentina(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Debe aceptar DD/MM/AAAA en fechas fijas del formulario."""
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(
+            fecha_emision_modo="fija",
+            fecha_emision_fija="20/05/2026",
+        ),
+        files={
+            "archivo": (
+                "lote-fecha-fija-argentina.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}",
+        headers=auth_headers,
+    )
+    assert detalle.json()["grupos"][0]["fecha_emision"] == "2026-05-20"
+
+
+@pytest.mark.asyncio
+async def test_validar_lote_rechaza_fecha_fija_argentina_invalida(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Debe rechazar fechas fijas con calendario imposible."""
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(
+            fecha_emision_modo="fija",
+            fecha_emision_fija="31/02/2026",
+        ),
+        files={
+            "archivo": (
+                "lote-fecha-fija-invalida.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert "fecha_emision_fija debe ser una fecha válida" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -2985,7 +3078,7 @@ async def test_reconciliar_externo_verifica_arca_y_crea_comprobante(
                     "tipo_comprobante": grupo.tipo_comprobante,
                     "punto_venta_numero": grupo.punto_venta_numero,
                     "numero": 456,
-                    "fecha_emision": str(grupo.fecha_emision),
+                    "fecha_emision": _fecha_argentina(grupo.fecha_emision),
                     "total": 1210.0,
                     "cae": CAE_TEST_NO_REAL_ALT,
                     "motivo": "Emitido manualmente por ARCA Web",
@@ -3075,7 +3168,7 @@ async def test_reconciliar_externo_rechaza_receptor_distinto_en_arca(
                     "tipo_comprobante": grupo.tipo_comprobante,
                     "punto_venta_numero": grupo.punto_venta_numero,
                     "numero": 456,
-                    "fecha_emision": str(grupo.fecha_emision),
+                    "fecha_emision": _fecha_argentina(grupo.fecha_emision),
                     "total": 1210.0,
                     "cae": CAE_TEST_NO_REAL_38,
                     "motivo": "Emitido manualmente por ARCA Web",
@@ -3248,7 +3341,7 @@ async def test_reconciliar_externo_resuelve_lote_con_reconciliacion_tecnica(
                     "tipo_comprobante": grupo.tipo_comprobante,
                     "punto_venta_numero": grupo.punto_venta_numero,
                     "numero": 789,
-                    "fecha_emision": str(grupo.fecha_emision),
+                    "fecha_emision": _fecha_argentina(grupo.fecha_emision),
                     "total": 1210.0,
                     "motivo": "Recuperación luego de corte post-ARCA",
                 }
@@ -3327,7 +3420,7 @@ async def test_reconciliar_externo_resuelve_reintento_interrumpido(
                     "tipo_comprobante": grupo.tipo_comprobante,
                     "punto_venta_numero": grupo.punto_venta_numero,
                     "numero": 790,
-                    "fecha_emision": str(grupo.fecha_emision),
+                    "fecha_emision": _fecha_argentina(grupo.fecha_emision),
                     "total": 1210.0,
                     "motivo": "Recuperación de reintento interrumpido",
                 }
@@ -3381,7 +3474,7 @@ async def test_reconciliar_externo_error_arca_responde_400_controlado(
                     "tipo_comprobante": grupo.tipo_comprobante,
                     "punto_venta_numero": grupo.punto_venta_numero,
                     "numero": 456,
-                    "fecha_emision": str(grupo.fecha_emision),
+                    "fecha_emision": _fecha_argentina(grupo.fecha_emision),
                     "total": 1210.0,
                     "motivo": "Emitido manualmente por ARCA Web",
                 }
@@ -3463,7 +3556,7 @@ async def test_reconciliar_externo_rechaza_arca_sin_cae(
                     "tipo_comprobante": grupo.tipo_comprobante,
                     "punto_venta_numero": grupo.punto_venta_numero,
                     "numero": 456,
-                    "fecha_emision": str(grupo.fecha_emision),
+                    "fecha_emision": _fecha_argentina(grupo.fecha_emision),
                     "total": 1210.0,
                     "motivo": "Emitido manualmente por ARCA Web",
                 }

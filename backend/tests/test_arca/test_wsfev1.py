@@ -24,17 +24,24 @@ def _crear_cliente_wsfe(service) -> WSFEv1Client:
     return client
 
 
-def _comprobante(numero: int = 1, punto_venta: int = 1, tipo: int = 6):
+def _comprobante(
+    numero: int = 1,
+    punto_venta: int = 1,
+    tipo: int = 6,
+    concepto: int = 1,
+    fecha_cbte: str = "20260601",
+    **extra,
+):
     """Construye un request ARCA mínimo para pruebas."""
     return ComprobanteRequest(
         punto_venta=punto_venta,
         tipo_cbte=tipo,
-        concepto=1,
+        concepto=concepto,
         tipo_doc=99,
         nro_doc=0,
         cbte_desde=numero,
         cbte_hasta=numero,
-        fecha_cbte="20260601",
+        fecha_cbte=fecha_cbte,
         imp_total=1000,
         imp_tot_conc=0,
         imp_neto=1000,
@@ -43,6 +50,7 @@ def _comprobante(numero: int = 1, punto_venta: int = 1, tipo: int = 6):
         imp_trib=0,
         moneda_id="PES",
         moneda_cotiz=1,
+        **extra,
     )
 
 
@@ -89,6 +97,32 @@ def test_comprobante_request_preserva_importes_decimal():
     assert comprobante.tributos[0].base_imp == Decimal("2.675")
     assert comprobante.tributos[0].alic == Decimal("1.5")
     assert comprobante.tributos[0].importe == Decimal("1.005")
+
+
+def test_comprobante_request_rechaza_fecha_calendario_invalida():
+    """No debe aceptar CbteFch con día o mes imposible."""
+    with pytest.raises(ValueError):
+        _comprobante(fecha_cbte="20260231")
+
+
+def test_comprobante_request_exige_fechas_servicio_para_servicios():
+    """Los conceptos de servicio requieren período y vencimiento."""
+    with pytest.raises(ValueError, match="fechas de servicio"):
+        _comprobante(concepto=2)
+
+
+def test_comprobante_request_normaliza_fechas_servicio_argentinas():
+    """Debe convertir fechas argentinas a YYYYMMDD antes de WSFE."""
+    comprobante = _comprobante(
+        concepto=2,
+        fecha_serv_desde="01/06/2026",
+        fecha_serv_hasta="30/06/2026",
+        fecha_vto_pago="10/07/2026",
+    )
+
+    assert comprobante.fecha_serv_desde == "20260601"
+    assert comprobante.fecha_serv_hasta == "20260630"
+    assert comprobante.fecha_vto_pago == "20260710"
 
 
 @pytest.mark.asyncio

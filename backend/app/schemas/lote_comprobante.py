@@ -4,7 +4,9 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.core.date_parsing import parse_fecha_input
 
 
 class LoteComprobanteFilaResponse(BaseModel):
@@ -189,6 +191,15 @@ class LoteReconciliacionExternaItem(BaseModel):
     total: Decimal = Field(..., ge=0)
     cae: Optional[str] = Field(None, min_length=1, max_length=20)
     motivo: str = Field(..., min_length=3, max_length=500)
+
+    @field_validator("fecha_emision", mode="before")
+    @classmethod
+    def validate_fecha_emision(cls, v: date | datetime | str) -> date:
+        """Acepta fechas argentinas o técnicas y rechaza calendarios inválidos."""
+        parsed = parse_fecha_input(v, field_name="fecha_emision")
+        if parsed is None:
+            raise ValueError("fecha_emision es obligatoria")
+        return parsed
 
 
 class LoteReconciliacionExternaRequest(BaseModel):

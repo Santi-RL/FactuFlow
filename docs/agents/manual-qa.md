@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-07
+Última actualización: 2026-07-08
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
@@ -149,6 +149,25 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - También quedaron OK `ruff check` y `black --check` sobre los archivos backend
   modificados. No se solicitaron CAE, no se llamó ARCA real y no se usaron datos
   privados.
+
+### Fechas fiscales ARCA y lotes 2026-07-08
+
+- Alcance revisado: helpers de fecha ARCA, `ComprobanteRequest`, fechas fijas de
+  validación de lotes, schema de reconciliación externa y schema de emisión
+  directa.
+- Política validada: `YYYYMMDD` compacto debe tener ocho dígitos exactos y
+  calendario real; conceptos ARCA 2 y 3 requieren fecha desde, fecha hasta y
+  vencimiento de pago; los bordes de lote aceptan `DD/MM/AAAA` y rechazan
+  fechas imposibles como `31/02/2026` sin normalizarlas.
+- Verificación automatizada: `pytest tests/test_arca/test_utils.py
+  tests/test_arca/test_wsfev1.py -q`, `pytest tests/test_facturacion_service.py
+  -q`, `pytest tests/test_lotes_comprobantes.py -q`, `ruff check` y
+  `black --check` sobre los archivos modificados. No se llamó ARCA real ni se
+  solicitó CAE.
+- QA manual sugerida antes de una nueva emisión productiva por lote: cargar una
+  fecha fija como `20/05/2026`, confirmar que queda como `20/05/2026` en la UI
+  y que el lote persiste `2026-05-20`; luego probar `31/02/2026` y confirmar
+  rechazo controlado antes de validar el lote.
 
 ### Sistema > Estado - ficha para soporte 2026-06-29
 

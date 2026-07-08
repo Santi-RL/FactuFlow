@@ -27,6 +27,7 @@ from app.api.deps import get_current_empresa_id, get_current_empresa_user
 from app.api.arca import get_wsfe_client
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.date_parsing import parse_fecha_input
 from app.models.empresa import Empresa
 from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.usuario import Usuario
@@ -64,6 +65,16 @@ from app.services.perfiles_carga_masiva_service import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _parse_fecha_form(value: str | None, field_name: str) -> date | None:
+    """Parsea fechas opcionales recibidas por multipart/form-data."""
+    try:
+        return parse_fecha_input(value, field_name=field_name, allow_empty=True)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
 
 
 def _estado_operacion_lote_desde_respuesta(response_json: dict) -> str:
@@ -233,13 +244,13 @@ async def validar_archivo_lote(
     descripcion_item_modo: str = Form(...),
     descripcion_item_fija: str | None = Form(None),
     fecha_emision_modo: str = Form(...),
-    fecha_emision_fija: date | None = Form(None),
+    fecha_emision_fija: str | None = Form(None),
     fecha_servicio_desde_modo: str = Form(...),
-    fecha_servicio_desde_fija: date | None = Form(None),
+    fecha_servicio_desde_fija: str | None = Form(None),
     fecha_servicio_hasta_modo: str = Form(...),
-    fecha_servicio_hasta_fija: date | None = Form(None),
+    fecha_servicio_hasta_fija: str | None = Form(None),
     fecha_vto_pago_modo: str = Form(...),
-    fecha_vto_pago_fija: date | None = Form(None),
+    fecha_vto_pago_fija: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
     empresa_activa_id: int = Depends(get_current_empresa_id),
@@ -273,13 +284,19 @@ async def validar_archivo_lote(
     )
     opciones_fechas = OpcionesFechasLote(
         fecha_emision_modo=fecha_emision_modo,
-        fecha_emision_fija=fecha_emision_fija,
+        fecha_emision_fija=_parse_fecha_form(fecha_emision_fija, "fecha_emision_fija"),
         fecha_servicio_desde_modo=fecha_servicio_desde_modo,
-        fecha_servicio_desde_fija=fecha_servicio_desde_fija,
+        fecha_servicio_desde_fija=_parse_fecha_form(
+            fecha_servicio_desde_fija, "fecha_servicio_desde_fija"
+        ),
         fecha_servicio_hasta_modo=fecha_servicio_hasta_modo,
-        fecha_servicio_hasta_fija=fecha_servicio_hasta_fija,
+        fecha_servicio_hasta_fija=_parse_fecha_form(
+            fecha_servicio_hasta_fija, "fecha_servicio_hasta_fija"
+        ),
         fecha_vto_pago_modo=fecha_vto_pago_modo,
-        fecha_vto_pago_fija=fecha_vto_pago_fija,
+        fecha_vto_pago_fija=_parse_fecha_form(
+            fecha_vto_pago_fija, "fecha_vto_pago_fija"
+        ),
     )
     perfil_snapshot = None
     if perfil_carga_masiva_id:

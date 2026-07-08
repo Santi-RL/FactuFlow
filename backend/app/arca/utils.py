@@ -1,7 +1,9 @@
 """Funciones de utilidad para ARCA."""
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+from app.core.date_parsing import parse_fecha_input
 
 
 CENTAVO_ARCA = Decimal("0.01")
@@ -91,12 +93,12 @@ def clean_cuit(cuit: str | int) -> str:
     return "".join(c for c in str(cuit) if c.isdigit())
 
 
-def format_date_arca(fecha: datetime | str) -> str:
+def format_date_arca(fecha: date | datetime | str) -> str:
     """
     Formatea una fecha al formato esperado por ARCA (YYYYMMDD).
 
     Args:
-        fecha: Fecha a formatear (datetime o string YYYY-MM-DD)
+        fecha: Fecha a formatear (date, datetime o string de fecha válido)
 
     Returns:
         Fecha en formato YYYYMMDD
@@ -107,16 +109,10 @@ def format_date_arca(fecha: datetime | str) -> str:
         >>> format_date_arca("2024-12-31")
         "20241231"
     """
-    if isinstance(fecha, str):
-        # Intentar parsear string
-        if "-" in fecha:
-            fecha = datetime.strptime(fecha, "%Y-%m-%d")
-        elif len(fecha) == 8 and fecha.isdigit():
-            return fecha  # Ya está en formato correcto
-        else:
-            raise ValueError(f"Formato de fecha inválido: {fecha}")
-
-    return fecha.strftime("%Y%m%d")
+    parsed = parse_fecha_input(fecha, field_name="fecha")
+    if parsed is None:
+        raise ValueError("fecha es obligatoria")
+    return parsed.strftime("%Y%m%d")
 
 
 def parse_date_arca(fecha: str) -> datetime:
