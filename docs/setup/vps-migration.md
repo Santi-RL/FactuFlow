@@ -120,11 +120,13 @@ POSTGRES_PASSWORD=<password-de-prueba>
 ARCA_ENV=produccion
 CORS_ORIGINS=http://localhost:8080
 VITE_API_URL=http://localhost:8000
-FACTUFLOW_CERTS_DIR=<ruta-absoluta-a-certs-restaurados>
+CERTS_PATH=<ruta-absoluta-a-certs-restaurados>
 ```
 
-La carpeta indicada por `FACTUFLOW_CERTS_DIR` puede no existir todavía; el
-importador la crea al restaurar los certificados.
+La carpeta indicada por `CERTS_PATH` puede no existir todavía; el
+importador la crea al restaurar los certificados. En Docker Compose, ese valor
+se usa como ruta host del volumen y el backend recibe `/app/certs` como ruta
+interna del contenedor.
 
 Ejecutar Alembic sobre la base limpia:
 

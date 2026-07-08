@@ -87,7 +87,7 @@ REQUIRED_ENV_KEYS = [
     "ARCA_ENV",
     "CORS_ORIGINS",
     "VITE_API_URL",
-    "FACTUFLOW_CERTS_DIR",
+    "CERTS_PATH",
 ]
 
 
@@ -290,12 +290,10 @@ def import_package(
         raise MigrationError(
             "El importador requiere ARCA_PRIVATE_KEY_PASSWORD en .env.production"
         )
-    certs_dir = (
-        target_certs_dir or Path(env_values.get("FACTUFLOW_CERTS_DIR", ""))
-    ).resolve()
+    certs_dir = (target_certs_dir or Path(env_values.get("CERTS_PATH", ""))).resolve()
     if not str(certs_dir):
         raise MigrationError(
-            "Indicá FACTUFLOW_CERTS_DIR en .env.production o --target-certs-dir"
+            "Indicá CERTS_PATH en .env.production o --target-certs-dir"
         )
 
     verify_package_certificates(package, manifest, target_password)
@@ -331,12 +329,10 @@ def validate_import(
     )
     if not target_password:
         raise MigrationError("Falta ARCA_PRIVATE_KEY_PASSWORD para validar claves")
-    certs_dir = (
-        target_certs_dir or Path(env_values.get("FACTUFLOW_CERTS_DIR", ""))
-    ).resolve()
+    certs_dir = (target_certs_dir or Path(env_values.get("CERTS_PATH", ""))).resolve()
     if not str(certs_dir):
         raise MigrationError(
-            "Indicá FACTUFLOW_CERTS_DIR en .env.production o --target-certs-dir"
+            "Indicá CERTS_PATH en .env.production o --target-certs-dir"
         )
 
     engine = create_postgres_engine(database_url)
@@ -541,7 +537,7 @@ def write_env_template(path: Path) -> None:
         "ARCA_ENV=produccion",
         "CORS_ORIGINS=https://factuflow.tu-dominio.com",
         "VITE_API_URL=https://factuflow.tu-dominio.com",
-        "FACTUFLOW_CERTS_DIR=./certs",
+        "CERTS_PATH=./certs",
         "",
     ]
     path.write_text("\n".join(lines), encoding="utf-8")

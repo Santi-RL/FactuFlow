@@ -466,11 +466,22 @@ def _write_production_env(path: Path) -> None:
                 "ARCA_ENV=produccion",
                 "CORS_ORIGINS=http://localhost:8080",
                 "VITE_API_URL=http://localhost:8000",
-                f"FACTUFLOW_CERTS_DIR={path.parent / 'target-certs'}",
+                f"CERTS_PATH={path.parent / 'target-certs'}",
             ]
         ),
         encoding="utf-8",
     )
+
+
+def test_plantilla_env_usa_certs_path_runtime(tmp_path: Path) -> None:
+    """La plantilla de VPS debe usar la variable de certificados del runtime."""
+    env_path = tmp_path / ".env.production.example"
+
+    vps_migration.write_env_template(env_path)
+
+    content = env_path.read_text(encoding="utf-8")
+    assert "CERTS_PATH=./certs" in content
+    assert "FACTUFLOW_CERTS_DIR" not in content
 
 
 def test_parsea_env_con_bom_de_powershell(tmp_path: Path) -> None:
