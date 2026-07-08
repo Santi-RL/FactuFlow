@@ -120,7 +120,7 @@ const perfilRelativoMock = (): PerfilCargaMasiva => ({
     concepto_modo: "servicios",
     descripcion_item_modo: "fija",
     descripcion_item_fija: "Abono",
-    fecha_emision: { modo: "ultimo_dia_mes_anterior" },
+    fecha_emision: { modo: "ultimo_dia_mes_anterior" as never },
     periodo_servicio: { modo: "mes_anterior_completo" },
     fecha_vto_pago: { modo: "emision_mas_dias", dias: 10 },
   },
@@ -650,7 +650,9 @@ describe("LotesComprobantesView", () => {
       estado: null,
     });
 
-    const resolucion = wrapper.get('[data-testid="resolucion-pendientes-lote"]');
+    const resolucion = wrapper.get(
+      '[data-testid="resolucion-pendientes-lote"]',
+    );
     expect((resolucion.element as HTMLDetailsElement).open).toBe(false);
     expect(resolucion.text()).toContain("Abrir resolución");
     expect(resolucion.text()).toContain(

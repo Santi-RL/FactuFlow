@@ -1339,18 +1339,18 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - `Emisores` ahora tiene pestaña `Carga masiva` para crear, editar, eliminar y
   marcar perfiles como predeterminados.
 - Un perfil de carga masiva puede recordar formato de importación opcional,
-  punto de venta, concepto fiscal ARCA, descripción facturada y reglas relativas
-  de fechas como `ultimo_dia_mes_anterior`, `mes_anterior_completo`,
-  `mismo_dia_emision` o `emision_mas_dias`.
+  punto de venta, concepto fiscal ARCA, descripción facturada, fecha de emisión
+  desde archivo/manual/personalizada explícita, período de servicios y
+  vencimiento.
 - Por regla fiscal crítica, el perfil de carga masiva no permite guardar
-  `fecha_actual` como fecha de emisión: no debe convertir la fecha del navegador
-  en fecha fiscal.
-- Las reglas relativas no se convierten usando la fecha del navegador al
-  autoaplicar un perfil en `Emision masiva`. El usuario debe elegir una fecha
-  exacta, tomarla del archivo o confirmar una base explícita antes de validar.
-  El backend de lotes sigue recibiendo `archivo` o `fija` con fecha concreta, y
-  guarda snapshot del perfil aplicado en `metadata_json` solo si el usuario no
-  modifico la configuración precargada antes de validar.
+  `fecha_actual` ni `ultimo_dia_mes_anterior` como fecha de emisión: no debe
+  convertir fechas relativas o la fecha del navegador en fecha fiscal.
+- Las reglas relativas se reservan para período de servicios o vencimiento
+  cuando corresponda. El usuario debe elegir fecha de emisión exacta, tomarla
+  del archivo o dejarla para completar antes de validar. El backend de lotes
+  sigue recibiendo `archivo` o `fija` con fecha concreta, y guarda snapshot del
+  perfil aplicado en `metadata_json` solo si el usuario no modificó la
+  configuración precargada antes de validar.
 - No se modifico la barrera fiscal: el perfil no valida ni emite
   automaticamente, y el procesamiento de lote sigue exigiendo el modal final de
   fecha fiscal y el token exacto de `X-Confirmacion-Fecha-Fiscal`.

@@ -1118,6 +1118,37 @@ async def test_compatibilidad_sin_perfil_no_exige_punto_desde_archivo(
 
 
 @pytest.mark.asyncio
+async def test_compatibilidad_no_resuelve_fecha_emision_relativa_legacy(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """Un modo relativo legacy no puede cubrir la fecha fiscal del formato."""
+    config_sin_fecha = _config_plantilla_basica()
+    config_sin_fecha["plantilla"]["columnas"] = [
+        columna
+        for columna in config_sin_fecha["plantilla"]["columnas"]
+        if columna["campo_destino"] != "fecha_emision"
+    ]
+
+    response = await client.post(
+        "/api/formatos-importacion/compatibilidad",
+        headers=auth_headers,
+        json={
+            "configuracion_json": config_sin_fecha,
+            "perfil_configuracion_json": {
+                "fecha_emision": {"modo": "ultimo_dia_mes_anterior"},
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert any(
+        mensaje["codigo"] == "fecha_emision_manual" for mensaje in data["advertencias"]
+    )
+
+
+@pytest.mark.asyncio
 async def test_origen_empresa_solo_se_permite_en_campos_resueltos(
     client: AsyncClient,
     auth_headers: dict,

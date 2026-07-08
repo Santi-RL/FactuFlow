@@ -449,8 +449,7 @@ Un perfil de carga masiva puede recordar:
   emisor
 - concepto fiscal ARCA
 - descripción facturada desde archivo o fija
-- fecha de emisión relativa, por ejemplo último día del mes anterior, o una
-  fecha personalizada cargada de forma explícita
+- fecha de emisión desde archivo, a completar en carga masiva o personalizada de forma explícita
 - período de servicios, por ejemplo mes anterior completo o mes actual completo
 - vencimiento de pago, por ejemplo mismo día de emisión o emisión más una
   cantidad de días
@@ -466,12 +465,10 @@ obsoletos.
 
 El perfil de carga masiva no valida ni emite automáticamente. Solo completa la
 pantalla con valores visibles. Antes de validar podés cambiar cualquier selector
-o fecha. Si el perfil trae reglas relativas, FactuFlow no usa la fecha del
-navegador para convertirlas automáticamente en fecha fiscal al entrar a
-`Emisión masiva`: antes de validar debes elegir una fecha exacta, tomarla del
-archivo o confirmar explícitamente la política fiscal de esa carga. Si cambias
-un dato precargado, esa carga queda como configuración manual y no como snapshot
-del perfil de carga masiva.
+o fecha. La fecha de emisión del perfil no puede ser relativa: debe venir del
+archivo, quedar para completar en la carga o ser una fecha personalizada cargada
+de forma explícita. Si cambiás un dato precargado, esa carga queda como
+configuración manual y no como snapshot del perfil de carga masiva.
 
 Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
 regla de fecha de emisión.

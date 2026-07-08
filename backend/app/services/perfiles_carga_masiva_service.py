@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -26,7 +27,6 @@ class PerfilesCargaMasivaService:
     MODOS_FECHA_EMISION = {
         "archivo",
         "manual",
-        "ultimo_dia_mes_anterior",
         "personalizada",
     }
     MODOS_PERIODO = {
@@ -164,6 +164,7 @@ class PerfilesCargaMasivaService:
     async def snapshot(self, perfil_id: int, empresa_id: int) -> dict[str, Any]:
         """Devuelve una copia persistible del perfil usado en un lote."""
         perfil = await self.obtener(perfil_id, empresa_id)
+        await self._validar_configuracion(perfil.configuracion_json, empresa_id)
         return {
             "id": perfil.id,
             "nombre": perfil.nombre,
@@ -231,12 +232,12 @@ class PerfilesCargaMasivaService:
         periodo = configuracion.get("periodo_servicio") or {}
         vencimiento = configuracion.get("fecha_vto_pago") or {}
 
-        if fecha_emision.get("modo") == "personalizada" and not fecha_emision.get(
-            "fecha"
-        ):
-            raise PerfilCargaMasivaError(
-                "La fecha de emisión personalizada requiere una fecha explícita"
+        if fecha_emision.get("modo") == "personalizada":
+            fecha = self._validar_fecha_explicita(
+                fecha_emision.get("fecha"),
+                "La fecha de emisión personalizada",
             )
+            fecha_emision["fecha"] = fecha.isoformat()
 
         if periodo.get("modo") == "personalizado" and (
             not periodo.get("desde") or not periodo.get("hasta")
@@ -251,13 +252,10 @@ class PerfilesCargaMasivaService:
             )
 
         if vencimiento.get("modo") in {"mismo_dia_emision", "emision_mas_dias"}:
-            if fecha_emision.get("modo") not in {
-                "ultimo_dia_mes_anterior",
-                "personalizada",
-            }:
+            if fecha_emision.get("modo") != "personalizada":
                 raise PerfilCargaMasivaError(
-                    "El vencimiento relativo requiere una fecha de emisión fija "
-                    "o relativa concreta"
+                    "El vencimiento relativo requiere una fecha de emisión "
+                    "personalizada concreta"
                 )
 
         if vencimiento.get("modo") == "emision_mas_dias":
@@ -271,6 +269,45 @@ class PerfilesCargaMasivaService:
                 raise PerfilCargaMasivaError(
                     "Los días de vencimiento no pueden ser negativos"
                 )
+
+    def _validar_fecha_explicita(self, value: Any, nombre: str) -> date:
+        """Valida fechas explícitas sin normalizar calendarios inválidos."""
+        fecha = self._parse_fecha_explicita(value)
+        if fecha is None:
+            raise PerfilCargaMasivaError(
+                f"{nombre} debe ser una fecha válida en formato DD/MM/AAAA o YYYY-MM-DD"
+            )
+        return fecha
+
+    @staticmethod
+    def _parse_fecha_explicita(value: Any) -> date | None:
+        """Parsea fechas explícitas argentinas o ISO técnicas."""
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(text, fmt).date()
+            except ValueError:
+                continue
+        if (
+            len(text) > 10
+            and text[4:5] == "-"
+            and text[7:8] == "-"
+            and text[10:11] in {"T", " "}
+        ):
+            normalized = text[:-1] + "+00:00" if text.endswith("Z") else text
+            try:
+                return datetime.fromisoformat(normalized).date()
+            except ValueError:
+                return None
+        return None
 
     def _validar_modo_anidado(
         self,

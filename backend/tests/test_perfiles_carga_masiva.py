@@ -7,7 +7,12 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.empresa import Empresa
+from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
+from app.services.perfiles_carga_masiva_service import (
+    PerfilCargaMasivaError,
+    PerfilesCargaMasivaService,
+)
 
 
 def _perfil_payload(nombre: str = "Servicios mensuales") -> dict:
@@ -24,9 +29,9 @@ def _perfil_payload(nombre: str = "Servicios mensuales") -> dict:
             "concepto_modo": "servicios",
             "descripcion_item_modo": "fija",
             "descripcion_item_fija": "Ajuste",
-            "fecha_emision": {"modo": "ultimo_dia_mes_anterior"},
+            "fecha_emision": {"modo": "manual"},
             "periodo_servicio": {"modo": "mes_anterior_completo"},
-            "fecha_vto_pago": {"modo": "emision_mas_dias", "dias": 0},
+            "fecha_vto_pago": {"modo": "manual"},
         },
     }
 
@@ -130,6 +135,100 @@ async def test_rechaza_fecha_actual_en_fecha_emision(
 
 
 @pytest.mark.asyncio
+async def test_rechaza_modo_relativo_en_fecha_emision(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """No permite perfiles que calculen implícitamente la fecha fiscal."""
+    payload = _perfil_payload("Fecha relativa")
+    payload["configuracion_json"]["fecha_emision"] = {"modo": "ultimo_dia_mes_anterior"}
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert "fecha de emisión" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_rechaza_fecha_emision_personalizada_invalida(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """No normaliza fechas calendario inválidas en perfiles fiscales."""
+    payload = _perfil_payload("Fecha inválida")
+    payload["configuracion_json"]["fecha_emision"] = {
+        "modo": "personalizada",
+        "fecha": "31/02/2026",
+    }
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert "fecha válida" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "fecha_explicita",
+    ["03/02/2026", "2026-02-03", "2026-02-03T10:15:00-03:00"],
+)
+async def test_acepta_fecha_emision_personalizada_valida(
+    client: AsyncClient,
+    auth_headers: dict,
+    fecha_explicita: str,
+):
+    """Acepta formatos explícitos permitidos para fecha fiscal personalizada."""
+    payload = _perfil_payload(f"Fecha válida {fecha_explicita}")
+    payload["configuracion_json"]["fecha_emision"] = {
+        "modo": "personalizada",
+        "fecha": fecha_explicita,
+    }
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 201, response.text
+    assert (
+        response.json()["configuracion_json"]["fecha_emision"]["fecha"] == "2026-02-03"
+    )
+
+
+@pytest.mark.asyncio
+async def test_snapshot_rechaza_perfil_legacy_con_fecha_emision_relativa(
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """No permite usar perfiles legacy con fecha fiscal relativa en lotes."""
+    config = _perfil_payload("Legacy")["configuracion_json"]
+    config["fecha_emision"] = {"modo": "ultimo_dia_mes_anterior"}
+    perfil = PerfilCargaMasiva(
+        empresa_id=test_empresa.id,
+        nombre="Legacy relativo",
+        descripcion=None,
+        configuracion_json=config,
+        activo=True,
+    )
+    db_session.add(perfil)
+    await db_session.commit()
+    await db_session.refresh(perfil)
+
+    service = PerfilesCargaMasivaService(db_session)
+    with pytest.raises(PerfilCargaMasivaError, match="fecha de emisión"):
+        await service.snapshot(perfil.id, test_empresa.id)
+
+
+@pytest.mark.asyncio
 async def test_rechaza_reglas_incompletas_de_fechas(
     client: AsyncClient,
     auth_headers: dict,
@@ -145,7 +244,7 @@ async def test_rechaza_reglas_incompletas_de_fechas(
     )
 
     assert response.status_code == 400
-    assert "requiere una fecha explícita" in response.json()["detail"]
+    assert "fecha válida" in response.json()["detail"]
 
     payload = _perfil_payload("Vencimiento sin emisión concreta")
     payload["configuracion_json"]["fecha_emision"] = {"modo": "archivo"}

@@ -17,11 +17,44 @@ export const formatLocalDate = (date: Date): string => {
   )}`;
 };
 
-const parseLocalDate = (value?: string): Date | null => {
-  if (!value) return null;
-  const [year, month, day] = value.split("-").map(Number);
+const buildLocalDate = (
+  year: number,
+  month: number,
+  day: number,
+): Date | null => {
   if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
+  const parsed = new Date(year, month - 1, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+};
+
+const parseLocalDate = (value?: string): Date | null => {
+  const text = value?.trim();
+  if (!text) return null;
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/);
+  if (iso) {
+    return buildLocalDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  }
+  const argentina = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (argentina) {
+    return buildLocalDate(
+      Number(argentina[3]),
+      Number(argentina[2]),
+      Number(argentina[1]),
+    );
+  }
+  return null;
+};
+
+const normalizeLocalDate = (value?: string): string | undefined => {
+  const parsed = parseLocalDate(value);
+  return parsed ? formatLocalDate(parsed) : undefined;
 };
 
 const addDays = (date: Date, days: number): Date => {
@@ -70,7 +103,7 @@ export const resolverPerfilCargaMasiva = (
   baseDate?: Date,
 ): PerfilAplicadoLote => {
   const config = perfil.configuracion_json || configuracionPerfilVacia();
-  const fechaEmision = resolverFechaEmision(config, baseDate);
+  const fechaEmision = resolverFechaEmision(config);
   const periodo = resolverPeriodoServicio(config, baseDate);
   const vencimiento = resolverVencimiento(config, fechaEmision);
 
@@ -100,19 +133,13 @@ export const resolverPerfilCargaMasiva = (
 
 const resolverFechaEmision = (
   config: PerfilCargaMasivaConfiguracion,
-  baseDate?: Date,
 ): { modo: "archivo" | "fija" | ""; fecha?: string } => {
   const regla = config.fecha_emision || { modo: "manual" };
   if (regla.modo === "archivo") return { modo: "archivo" };
-  if (regla.modo === "ultimo_dia_mes_anterior") {
-    if (!baseDate) return { modo: "", fecha: undefined };
-    return {
-      modo: "fija",
-      fecha: formatLocalDate(lastDayOfPreviousMonth(baseDate)),
-    };
-  }
-  if (regla.modo === "personalizada" && regla.fecha) {
-    return { modo: "fija", fecha: regla.fecha };
+
+  if (regla.modo === "personalizada") {
+    const fecha = normalizeLocalDate(regla.fecha);
+    if (fecha) return { modo: "fija", fecha };
   }
   return { modo: "", fecha: undefined };
 };
@@ -165,8 +192,9 @@ const resolverVencimiento = (
 ): { modo: "archivo" | "fija" | ""; fecha?: string } => {
   const regla = config.fecha_vto_pago || { modo: "manual" };
   if (regla.modo === "archivo") return { modo: "archivo" };
-  if (regla.modo === "personalizada" && regla.fecha) {
-    return { modo: "fija", fecha: regla.fecha };
+  if (regla.modo === "personalizada") {
+    const fecha = normalizeLocalDate(regla.fecha);
+    if (fecha) return { modo: "fija", fecha };
   }
   if (regla.modo === "mismo_dia_emision" && fechaEmision.fecha) {
     return { modo: "fija", fecha: fechaEmision.fecha };

@@ -24,17 +24,20 @@ const crearPerfil = (
     concepto_modo: "servicios",
     descripcion_item_modo: "fija",
     descripcion_item_fija: "Ajuste",
-    fecha_emision: { modo: "ultimo_dia_mes_anterior" },
+    fecha_emision: { modo: "manual" },
     periodo_servicio: { modo: "mes_anterior_completo" },
-    fecha_vto_pago: { modo: "emision_mas_dias", dias: 10 },
+    fecha_vto_pago: { modo: "manual" },
     ...overrides,
   },
 });
 
 describe("resolverPerfilCargaMasiva", () => {
-  it("resuelve ultimo dia del mes anterior y vencimiento relativo", () => {
+  it("resuelve fecha personalizada y vencimiento relativo", () => {
     const result = resolverPerfilCargaMasiva(
-      crearPerfil(),
+      crearPerfil({
+        fecha_emision: { modo: "personalizada", fecha: "30/04/2026" },
+        fecha_vto_pago: { modo: "emision_mas_dias", dias: 10 },
+      }),
       new Date(2026, 4, 9),
     );
 
@@ -59,6 +62,17 @@ describe("resolverPerfilCargaMasiva", () => {
     expect(result.opciones.fecha_vto_pago_modo).toBe("");
   });
 
+  it("no convierte el modo legacy de fecha fiscal relativa", () => {
+    const result = resolverPerfilCargaMasiva(
+      crearPerfil({
+        fecha_emision: { modo: "ultimo_dia_mes_anterior" as never },
+      }),
+      new Date(2026, 4, 9),
+    );
+
+    expect(result.opciones.fecha_emision_modo).toBe("");
+    expect(result.opciones.fecha_emision_fija).toBeUndefined();
+  });
   it("resuelve fecha personalizada, mes actual completo y mismo dia de emision", () => {
     const result = resolverPerfilCargaMasiva(
       crearPerfil({

@@ -120,7 +120,6 @@ const descripcionPerfilOptions = [
 const fechaEmisionPerfilOptions = [
   { value: "manual", label: "Completar en carga masiva" },
   { value: "archivo", label: "Utilizar fecha del archivo" },
-  { value: "ultimo_dia_mes_anterior", label: "Último día del mes anterior" },
   { value: "personalizada", label: "Fecha personalizada" },
 ];
 const periodoPerfilOptions = [

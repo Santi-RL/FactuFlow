@@ -1,12 +1,12 @@
-export type ConceptoPerfilCargaMasiva = "productos" | "servicios" | "archivo" | "";
+export type ConceptoPerfilCargaMasiva =
+  | "productos"
+  | "servicios"
+  | "archivo"
+  | "";
 export type DescripcionPerfilCargaMasiva = "archivo" | "fija" | "";
 export type PuntoVentaPerfilModo = "archivo" | "fijo" | "";
 
-export type FechaEmisionPerfilModo =
-  | "archivo"
-  | "manual"
-  | "ultimo_dia_mes_anterior"
-  | "personalizada";
+export type FechaEmisionPerfilModo = "archivo" | "manual" | "personalizada";
 
 export type PeriodoServicioPerfilModo =
   | "archivo"

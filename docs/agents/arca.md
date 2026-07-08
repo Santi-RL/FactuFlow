@@ -293,12 +293,11 @@
   venta, número, fecha, total y CAE. No debe tratarse como error reintentable.
 - En emisión masiva, antes de validar se debe elegir si la fecha de emisión sale
   del archivo o si se usa una fecha fija para todos los comprobantes.
-- Un perfil de carga masiva puede precargar reglas relativas de fecha, pero la
-  UI no debe convertirlas usando la fecha del navegador al autoaplicar el
-  perfil. Deben quedar visibles para que el usuario elija una fecha exacta,
-  tome la fecha del archivo o confirme una base explícita antes de validar. El
-  backend de lotes sigue recibiendo `archivo` o `fija`; el perfil no puede
-  emitir ni validar de forma silenciosa.
+- Un perfil de carga masiva puede precargar la fecha de emisión solo como
+  archivo, manual o personalizada explícita. Las reglas relativas quedan para
+  período de servicios o vencimiento cuando dependan de una fecha de emisión ya
+  explícita. El backend de lotes sigue recibiendo `archivo` o `fija`; el perfil
+  no puede emitir ni validar de forma silenciosa.
 - Un perfil de carga masiva también puede precargar punto de venta. Las opciones
   válidas son usar el punto definido en el archivo o fijar un punto Web Services
   activo, no bloqueado y sin baja del emisor activo. Si no está cargado en

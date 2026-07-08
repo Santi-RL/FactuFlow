@@ -1532,10 +1532,7 @@ class FormatosImportacionService:
             )
         if campo == "fecha_emision":
             fecha_emision = perfil_configuracion.get("fecha_emision") or {}
-            return fecha_emision.get("modo") in {
-                "ultimo_dia_mes_anterior",
-                "personalizada",
-            }
+            return fecha_emision.get("modo") == "personalizada"
         if campo in {"fecha_servicio_desde", "fecha_servicio_hasta"}:
             periodo = perfil_configuracion.get("periodo_servicio") or {}
             return periodo.get("modo") in {

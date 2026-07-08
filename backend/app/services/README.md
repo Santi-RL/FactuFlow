@@ -62,7 +62,7 @@ services/
 - Perfiles de carga masiva: ver `perfiles_carga_masiva_service.py`. Administra
   configuraciones reutilizables por emisor activo para precargar la pantalla de
   lotes. El perfil puede recordar formato, concepto fiscal ARCA, descripción
-  facturada y reglas relativas de fechas, pero no valida ni emite por sí mismo:
+  facturada, fecha de emisión explícita y reglas de período/vencimiento, pero no valida ni emite por sí mismo:
   la UI resuelve y muestra los valores antes de llamar a lotes.
 - Almacenamiento: ver `almacenamiento_service.py`. Calcula uso de base, lotes,
   certificados, logs, temporales y caché con operaciones acotadas; prepara ZIPs

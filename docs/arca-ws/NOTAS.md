@@ -84,11 +84,11 @@ Mapping aplicado en el proyecto:
   reconciliar.
 - En lotes, el usuario debe elegir si la fecha de emisión sale del archivo o si
   se fija una fecha para todos los comprobantes antes de validar.
-- Los perfiles de carga masiva pueden sugerir reglas relativas como último día
-  del mes anterior o emisión mas días, pero la UI no debe convertirlas usando la
-  fecha del navegador al autoaplicar el perfil. El usuario debe elegir una fecha
-  exacta, tomarla del archivo o confirmar una base explícita antes de validar.
-  No son defaults fiscales silenciosos.
+- Los perfiles de carga masiva no pueden definir la fecha de emisión con reglas
+  relativas como último día del mes anterior. La fecha fiscal debe quedar para
+  completar manualmente, venir del archivo o ser una fecha personalizada
+  explícita válida. Las reglas relativas se reservan para período de servicios o
+  vencimiento cuando dependen de una fecha de emisión ya explícita.
 - Los perfiles de carga masiva pueden sugerir un punto de venta fijo solo si el
   punto está cargado para el emisor activo, es Web Services, activo, no
   bloqueado y no tiene fecha de baja. Si no, el lote debe usar el punto del

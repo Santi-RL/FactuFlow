@@ -651,7 +651,7 @@ POST /api/perfiles-carga-masiva/{perfil_id}/predeterminado
 Los perfiles de carga masiva pertenecen al emisor activo resuelto por JWT y
 `X-Empresa-Id`. Permiten guardar una configuración visible para precargar
 `Emision masiva`: plantilla/formato opcional, punto de venta, concepto fiscal
-ARCA, descripción facturada y reglas relativas de fechas.
+ARCA, descripción facturada y reglas de fechas.
 
 El payload usa `configuracion_json` versionado. Valores principales:
 - `formato_importacion_version_id`: opcional; debe ser global o pertenecer al
@@ -663,20 +663,20 @@ El payload usa `configuracion_json` versionado. Valores principales:
 - `concepto_modo`: `productos`, `servicios`, `archivo` o vacío para completar
   en la carga.
 - `descripcion_item_modo`: `archivo`, `fija` o vacío.
-- `fecha_emision.modo`: `archivo`, `manual`, `ultimo_dia_mes_anterior` o
-  `personalizada`.
+- `fecha_emision.modo`: `archivo`, `manual` o `personalizada`.
 - `periodo_servicio.modo`: `archivo`, `manual`, `mes_anterior_completo`,
   `mes_actual_completo` o `personalizado`.
 - `fecha_vto_pago.modo`: `archivo`, `manual`, `mismo_dia_emision`,
   `emision_mas_dias` o `personalizada`.
 
-Regla crítica: el perfil de carga masiva no valida ni emite. La UI debe resolver
-las reglas relativas solo cuando exista una base explícita del usuario o una
-política del archivo; no debe convertirlas usando la fecha del navegador al
-autoaplicar un perfil en `Emision masiva`. Todos los controles deben quedar
-visibles y editables antes de validar. `fecha_actual` no es un modo válido de
-fecha de emisión para perfiles de carga masiva. Si se marca un perfil como
-predeterminado, la API desmarca cualquier otro predeterminado del mismo emisor.
+Regla crítica: el perfil de carga masiva no valida ni emite. La fecha de emisión
+del perfil debe quedar para completar manualmente, venir del archivo o ser una
+fecha personalizada explícita válida (`DD/MM/AAAA`, `YYYY-MM-DD` o ISO técnico,
+normalizada por la API a `YYYY-MM-DD`). No son válidos `fecha_actual` ni modos
+relativos como último día del mes anterior para fecha de emisión. Todos los
+controles deben quedar visibles y editables antes de validar. Si se marca un
+perfil como predeterminado, la API desmarca cualquier otro predeterminado del
+mismo emisor.
 
 ## PDF
 

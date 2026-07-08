@@ -1143,10 +1143,9 @@ compatibilidad, notas de crédito/débito y contratos de importación.
   `X-Confirmacion-Fecha-Fiscal` con token exacto
   `fechas=YYYY-MM-DD,...;puntos_venta=N,...` calculado desde los grupos
   validados; los mensajes de rechazo muestran fecha y punto concretos.
-- Verificacion técnica 2026-05-17: perfiles con reglas relativas de fecha ya
-  no completan una fecha fiscal por contexto temporal al autoaplicarse en
-  `Emision masiva`; el usuario debe elegir fecha exacta o archivo antes de
-  validar.
+- Verificación técnica 2026-07-08: perfiles de carga masiva ya no permiten
+  fecha de emisión relativa; el usuario debe elegir fecha exacta, dejarla
+  manual o tomarla del archivo antes de validar.
 - Verificacion técnica 2026-05-17: los totales previos de lotes interpretan
   importes argentinos como `1.234,56` y avisan si queda algun valor ambiguo.
 - Pendiente de QA visual opcional: levantar entorno local y confirmar en
@@ -1156,11 +1155,12 @@ compatibilidad, notas de crédito/débito y contratos de importación.
 ### Perfiles de carga masiva - QA 2026-05-09
 
 Validado visualmente en `http://127.0.0.1:8080` con usuario local privado:
-- En `Emisores > Carga masiva`, se creo un perfil de carga masiva con formato
-  global, concepto `Servicios`, descripción fija `Ajuste QA` y reglas relativas
-  `ultimo_dia_mes_anterior`, `mes_anterior_completo` y `emision_mas_dias`.
-- La UI ya no ofrece `Fecha actual` como regla persistible de fecha de emisión
-  del perfil de carga masiva.
+- En `Emisores > Carga masiva`, se creó un perfil de carga masiva con formato
+  global, concepto `Servicios`, descripción fija `Ajuste QA`, fecha de emisión
+  personalizada explícita, período `mes_anterior_completo` y vencimiento
+  `emision_mas_dias`.
+- La UI ya no ofrece `Fecha actual` ni `ultimo_dia_mes_anterior` como regla
+  persistible de fecha de emisión del perfil de carga masiva.
 - Se creo un segundo perfil de carga masiva, se marco como predeterminado, se
   edito desde modal y se elimino con confirmación visual.
 - En `Emision masiva`, el perfil de carga masiva predeterminado se aplicó
