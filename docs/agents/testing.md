@@ -1,5 +1,18 @@
 # Guía de testing
 
+## Raíz
+
+```bash
+npm run lint
+npm run test
+npm run backend:format:check
+```
+
+Los scripts raíz `lint` y `test` agregan backend y frontend. El check de
+formato backend queda explícito como `backend:format:check`. El comando
+frontend `npm run format` escribe cambios y no se usa como verificación global
+raíz mientras exista deuda histórica de Prettier en archivos no tocados.
+
 ## Backend
 
 ```bash

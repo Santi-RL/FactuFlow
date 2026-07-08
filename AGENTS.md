@@ -183,6 +183,18 @@
   quedar en documentación privada del VPS, no en este repositorio público.
 
 ## Comandos
+### Raíz
+```bash
+npm run lint
+npm run test
+npm run backend:format:check
+```
+
+Los scripts raíz `lint` y `test` son agregadores backend + frontend. El check de
+formato backend queda scopiado como `backend:format:check`; en frontend,
+`npm run format` es un comando de escritura y debe ejecutarse desde
+`frontend/` solo cuando se quiere aplicar formato.
+
 ### Backend
 ```bash
 cd backend
