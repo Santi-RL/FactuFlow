@@ -15,18 +15,29 @@ import type {
   PaginatedComprobantesResponse,
 } from "@/types/comprobante";
 
+interface ListarComprobantesOptions {
+  conservarResultadosEnError?: boolean;
+}
+
 export const useComprobantesStore = defineStore("comprobantes", () => {
+  const crearPaginacionVacia = (
+    params: Partial<ListarComprobantesParams> = {},
+  ) => ({
+    total: 0,
+    page: params.page ?? 1,
+    per_page: params.per_page ?? 20,
+    pages: 0,
+  });
   // State
   const comprobantes = ref<ComprobanteListItem[]>([]);
   const comprobanteActual = ref<ComprobanteDetalle | null>(null);
-  const paginacion = ref({
-    total: 0,
-    page: 1,
-    per_page: 20,
-    pages: 0,
-  });
+  const paginacion = ref(crearPaginacionVacia());
   const loading = ref(false);
   const error = ref<string | null>(null);
+  let solicitudListarComprobantesId = 0;
+
+  const esSolicitudListarActual = (solicitudId: number) =>
+    solicitudId === solicitudListarComprobantesId;
 
   // Filtros actuales
   const filtros = ref<Partial<ListarComprobantesParams>>({});
@@ -38,14 +49,31 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   const totalPaginas = computed(() => paginacion.value.pages);
 
   // Actions
-  async function listarComprobantes(params: ListarComprobantesParams) {
+  async function listarComprobantes(
+    params: ListarComprobantesParams,
+    options: ListarComprobantesOptions = {},
+  ) {
+    const solicitudId = ++solicitudListarComprobantesId;
+    const comprobantesPrevios = [...comprobantes.value];
+    const paginacionPrevia = { ...paginacion.value };
+    const filtrosPrevios = { ...filtros.value };
+    const paginacionVacia = crearPaginacionVacia(params);
     loading.value = true;
     error.value = null;
     filtros.value = params;
 
+    if (!options.conservarResultadosEnError) {
+      comprobantes.value = [];
+      paginacion.value = paginacionVacia;
+    }
+
     try {
       const response: PaginatedComprobantesResponse =
         await comprobantesService.listar(params);
+
+      if (!esSolicitudListarActual(solicitudId)) {
+        return response;
+      }
 
       comprobantes.value = response.items;
       paginacion.value = {
@@ -57,16 +85,31 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
 
       return response;
     } catch (e: any) {
+      if (!esSolicitudListarActual(solicitudId)) {
+        return undefined;
+      }
+
+      if (options.conservarResultadosEnError) {
+        comprobantes.value = comprobantesPrevios;
+        paginacion.value = paginacionPrevia;
+        filtros.value = filtrosPrevios;
+      } else {
+        comprobantes.value = [];
+        paginacion.value = paginacionVacia;
+      }
       error.value = e.response?.data?.detail || "Error al listar comprobantes";
       throw e;
     } finally {
-      loading.value = false;
+      if (esSolicitudListarActual(solicitudId)) {
+        loading.value = false;
+      }
     }
   }
 
   async function obtenerComprobante(id: number) {
     loading.value = true;
     error.value = null;
+    comprobanteActual.value = null;
 
     try {
       const comprobante = await comprobantesService.obtener(id);
@@ -88,7 +131,10 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
     error.value = null;
 
     try {
-      const response = await comprobantesService.emitir(request, idempotencyKey);
+      const response = await comprobantesService.emitir(
+        request,
+        idempotencyKey,
+      );
 
       if (!response.exito) {
         error.value = response.mensaje;
@@ -98,7 +144,9 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
       // Recargar listado si hay filtros activos
       if (Object.keys(filtros.value).length > 0) {
         try {
-          await listarComprobantes(filtros.value as ListarComprobantesParams);
+          await listarComprobantes(filtros.value as ListarComprobantesParams, {
+            conservarResultadosEnError: true,
+          });
         } catch (refreshError) {
           console.warn(
             "No se pudo refrescar el listado despues de emitir",
@@ -146,12 +194,19 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
     error.value = null;
   }
 
-  function cambiarPagina(pagina: number) {
-    if (Object.keys(filtros.value).length > 0) {
-      listarComprobantes({
-        ...filtros.value,
-        page: pagina,
-      } as ListarComprobantesParams);
+  async function cambiarPagina(pagina: number) {
+    if (Object.keys(filtros.value).length === 0) return;
+
+    try {
+      await listarComprobantes(
+        {
+          ...filtros.value,
+          page: pagina,
+        } as ListarComprobantesParams,
+        { conservarResultadosEnError: true },
+      );
+    } catch {
+      // El error queda en el store; se conserva la página visible anterior.
     }
   }
 
