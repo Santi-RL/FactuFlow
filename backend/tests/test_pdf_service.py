@@ -133,6 +133,58 @@ class TestPDFService:
             "&lt;script&gt;alert(1)&lt;/script&gt;"
         )
 
+    @pytest.mark.asyncio
+    async def test_factura_html_escapa_datos_fiscales_controlados(
+        self, monkeypatch, pdf_service, comprobante_mock, empresa_mock, cliente_mock
+    ):
+        """Debe impedir que datos libres inyecten HTML/CSS activo en el PDF."""
+        rendered = {}
+
+        class CapturingHTML:
+            def __init__(self, **kwargs):
+                rendered.update(kwargs)
+
+            def write_pdf(self, stylesheets=None):
+                rendered["stylesheets"] = stylesheets
+                return b"%PDF-test"
+
+        monkeypatch.setattr("app.services.pdf_service.HTML", CapturingHTML)
+        empresa_mock.razon_social = "<b>Empresa falsa</b>"
+        cliente_mock.razon_social = "<b>Cliente falso</b>"
+        comprobante_mock.items = [
+            SimpleNamespace(
+                codigo="<b>SKU</b>",
+                descripcion="<style>.cae{display:none}</style><h1>Texto falso</h1>",
+                cantidad=1,
+                unidad='<img src="https://attacker.test/recurso.png">',
+                precio_unitario=100,
+                descuento_porcentaje=0,
+                subtotal=100,
+            )
+        ]
+
+        pdf_bytes = await pdf_service.generar_pdf_comprobante(
+            comprobante_mock, empresa_mock
+        )
+
+        html = rendered["string"]
+        assert pdf_bytes == b"%PDF-test"
+        assert "&lt;b&gt;Empresa falsa&lt;/b&gt;" in html
+        assert "&lt;b&gt;Cliente falso&lt;/b&gt;" in html
+        assert "&lt;style&gt;.cae{display:none}&lt;/style&gt;" in html
+        assert "&lt;h1&gt;Texto falso&lt;/h1&gt;" in html
+        assert "&lt;img src=&#34;https://attacker.test/recurso.png&#34;&gt;" in html
+        assert "<b>Empresa falsa</b>" not in html
+        assert "<b>Cliente falso</b>" not in html
+        assert "<style>.cae{display:none}</style>" not in html
+        assert "<h1>Texto falso</h1>" not in html
+        assert '<img src="https://attacker.test/recurso.png">' not in html
+
+    def test_fetch_recurso_pdf_rechaza_urls_externas(self, pdf_service):
+        """Debe bloquear fetches externos durante el render de PDFs fiscales."""
+        with pytest.raises(ValueError, match="Recurso externo no permitido"):
+            pdf_service._fetch_recurso_pdf("https://attacker.test/recurso.png")
+
     def test_generar_qr_arca(self, pdf_service, comprobante_mock):
         """Debe generar un código QR válido."""
         qr_base64 = pdf_service._generar_qr_arca(comprobante_mock)

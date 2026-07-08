@@ -8,10 +8,12 @@ from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import qrcode
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import HTML, CSS
+from weasyprint import CSS, HTML, default_url_fetcher
 
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
@@ -26,8 +28,9 @@ class PDFService:
     def __init__(self):
         """Inicializa el servicio de PDF con el entorno de templates."""
         template_path = Path(__file__).parent.parent / "templates" / "pdf"
+        self.template_path = template_path.resolve()
         self.env = Environment(
-            loader=FileSystemLoader(str(template_path)),
+            loader=FileSystemLoader(str(self.template_path)),
             autoescape=select_autoescape(["html", "xml"]),
         )
         self.env.filters["fecha_ar"] = self._format_fecha_ar
@@ -82,14 +85,43 @@ class PDFService:
         html_content = template.render(**datos)
 
         # 4. Convertir a PDF
-        css_path = Path(__file__).parent.parent / "templates" / "pdf" / "styles.css"
+        css_path = self.template_path / "styles.css"
         stylesheets = []
         if css_path.exists():
-            stylesheets.append(CSS(filename=str(css_path)))
+            stylesheets.append(
+                CSS(filename=str(css_path), url_fetcher=self._fetch_recurso_pdf)
+            )
 
-        pdf = HTML(string=html_content).write_pdf(stylesheets=stylesheets)
+        pdf = HTML(string=html_content, url_fetcher=self._fetch_recurso_pdf).write_pdf(
+            stylesheets=stylesheets
+        )
 
         return pdf
+
+    def _fetch_recurso_pdf(self, url: str, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Limita recursos de WeasyPrint a datos embebidos o assets del PDF."""
+        parsed = urlparse(url)
+        if parsed.scheme == "data":
+            return default_url_fetcher(url, *args, **kwargs)
+        if parsed.scheme == "file":
+            resource_path = Path(url2pathname(parsed.path)).resolve()
+            try:
+                resource_path.relative_to(self.template_path)
+            except ValueError as exc:
+                raise ValueError(
+                    "Recurso local fuera de templates PDF no permitido"
+                ) from exc
+            return default_url_fetcher(url, *args, **kwargs)
+        if parsed.scheme == "":
+            resource_path = (self.template_path / url).resolve()
+            try:
+                resource_path.relative_to(self.template_path)
+            except ValueError as exc:
+                raise ValueError(
+                    "Recurso local fuera de templates PDF no permitido"
+                ) from exc
+            return default_url_fetcher(resource_path.as_uri(), *args, **kwargs)
+        raise ValueError("Recurso externo no permitido en PDF fiscal")
 
     def _preparar_items_pdf(self, items: list[Any]) -> list[SimpleNamespace]:
         """Prepara filas de detalle con datos calculados para el PDF."""
