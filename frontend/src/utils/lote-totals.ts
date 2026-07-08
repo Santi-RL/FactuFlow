@@ -48,21 +48,29 @@ const parseNumericString = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const toNumber = (value: string | number | null | undefined): number | null => {
+type NumericValue = string | number | null | undefined;
+
+const toNumber = (value: NumericValue): number | null => {
   if (value === null || value === undefined || value === "") return 0;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   const parsed = parseNumericString(value);
   return parsed === null ? null : parsed;
 };
 
-const toNumberOrZero = (value: string | number | null | undefined): number => {
+const toNumberOrZero = (value: NumericValue): number => {
   const parsed = toNumber(value);
   return parsed === null ? 0 : parsed;
 };
 
-const hasInvalidNumber = (
-  ...values: Array<string | number | null | undefined>
-): boolean => values.some((value) => toNumber(value) === null);
+const isMissingNumber = (value: NumericValue): boolean =>
+  value === null ||
+  value === undefined ||
+  (typeof value === "string" && value.trim() === "");
+
+const toRequiredNumber = (value: NumericValue): number | null => {
+  if (isMissingNumber(value)) return null;
+  return toNumber(value);
+};
 
 export const parseImporteLote = (
   value: string | number | null | undefined,
@@ -71,22 +79,22 @@ export const parseImporteLote = (
 const roundMoney = (value: number): number => Math.round(value * 100) / 100;
 
 const calcularFila = (fila: LoteComprobanteFila) => {
-  const datos = fila.datos_json || {};
+  const datos = fila.datos_json;
+  if (!datos) return null;
+
+  const cantidad = toRequiredNumber(datos.item_cantidad);
+  const precioUnitario = toRequiredNumber(datos.item_precio_unitario);
+  const ivaPorcentaje = toRequiredNumber(datos.item_iva_porcentaje);
+  const descuentoPorcentaje = toNumber(datos.item_descuento_porcentaje);
   if (
-    hasInvalidNumber(
-      datos.item_cantidad,
-      datos.item_precio_unitario,
-      datos.item_descuento_porcentaje,
-      datos.item_iva_porcentaje,
-    )
+    cantidad === null ||
+    precioUnitario === null ||
+    ivaPorcentaje === null ||
+    descuentoPorcentaje === null
   ) {
     return null;
   }
 
-  const cantidad = toNumberOrZero(datos.item_cantidad);
-  const precioUnitario = toNumberOrZero(datos.item_precio_unitario);
-  const descuentoPorcentaje = toNumberOrZero(datos.item_descuento_porcentaje);
-  const ivaPorcentaje = toNumberOrZero(datos.item_iva_porcentaje);
   const bruto = cantidad * precioUnitario;
   const neto = bruto - bruto * (descuentoPorcentaje / 100);
 

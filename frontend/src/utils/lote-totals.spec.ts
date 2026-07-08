@@ -146,6 +146,35 @@ describe("calcularTotalesListosParaEmitir", () => {
     expect(parseImporteLote("1234,56")).toBe(1234.56);
   });
 
+  it("marca datos_json nulo como valor invalido", () => {
+    const filaSinDatos = fila("FILA-00002", 100, 21);
+    filaSinDatos.datos_json = null;
+
+    const totales = calcularTotalesListosParaEmitir(
+      lote([grupo("FILA-00002", 0)], [filaSinDatos]),
+    );
+
+    expect(totales.neto).toBe(0);
+    expect(totales.total).toBe(0);
+    expect(totales.valoresInvalidos).toBe(1);
+  });
+
+  it("marca campos numericos requeridos faltantes como invalidos", () => {
+    const filaSinPrecio = fila("FILA-00002", 100, 21);
+    filaSinPrecio.datos_json = {
+      item_cantidad: 1,
+      item_descuento_porcentaje: 0,
+      item_iva_porcentaje: 21,
+    };
+
+    const totales = calcularTotalesListosParaEmitir(
+      lote([grupo("FILA-00002", 0)], [filaSinPrecio]),
+    );
+
+    expect(totales.neto).toBe(0);
+    expect(totales.total).toBe(0);
+    expect(totales.valoresInvalidos).toBe(1);
+  });
   it("marca formatos numericos ambiguos en lugar de convertirlos a cero", () => {
     const totales = calcularTotalesListosParaEmitir(
       lote([grupo("FILA-00002", 0)], [fila("FILA-00002", "1.234", 21)]),
