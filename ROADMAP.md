@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-07
+Última actualización: 2026-07-09
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -349,6 +349,9 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
   rechazan calendarios inválidos antes de llegar a ARCA
 - [x] Política explícita de concepto fiscal ARCA por lote: productos, servicios
   o definido por archivo
+- [x] Lotes de productos no requieren fechas de servicio en el contrato
+  multipart; servicios y conceptos definidos por archivo mantienen fechas
+  explícitas cuando corresponde
 - [x] Política explícita de descripción facturada del ítem por lote: desde
   archivo o valor fijo para todo el lote, independiente del concepto fiscal ARCA
 - [x] Perfiles de carga masiva por emisor, con predeterminado, punto de venta y

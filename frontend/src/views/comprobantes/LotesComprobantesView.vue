@@ -294,24 +294,37 @@ const descripcionItemCompleta = computed(() => {
     (descripcionItemModo.value !== "fija" || !!descripcionItemFija.value.trim())
   );
 });
-const opcionesFechas = computed<LoteOpcionesFechas>(() => ({
-  punto_venta_modo: puntoVentaModo.value,
-  punto_venta_numero:
-    puntoVentaModo.value === "fijo"
-      ? Number(puntoVentaNumero.value)
+const opcionesFechas = computed<LoteOpcionesFechas>(() => {
+  const requiereFechasServicio = conceptoModo.value !== "productos";
+  return {
+    punto_venta_modo: puntoVentaModo.value,
+    punto_venta_numero:
+      puntoVentaModo.value === "fijo"
+        ? Number(puntoVentaNumero.value)
+        : undefined,
+    concepto_modo: conceptoModo.value,
+    descripcion_item_modo: descripcionItemModo.value,
+    descripcion_item_fija: descripcionItemFija.value.trim() || undefined,
+    fecha_emision_modo: fechaEmisionModo.value,
+    fecha_emision_fija: fechaEmisionFija.value || undefined,
+    fecha_servicio_desde_modo: requiereFechasServicio
+      ? fechaServicioDesdeModo.value
+      : "",
+    fecha_servicio_desde_fija: requiereFechasServicio
+      ? fechaServicioDesdeFija.value || undefined
       : undefined,
-  concepto_modo: conceptoModo.value,
-  descripcion_item_modo: descripcionItemModo.value,
-  descripcion_item_fija: descripcionItemFija.value.trim() || undefined,
-  fecha_emision_modo: fechaEmisionModo.value,
-  fecha_emision_fija: fechaEmisionFija.value || undefined,
-  fecha_servicio_desde_modo: fechaServicioDesdeModo.value,
-  fecha_servicio_desde_fija: fechaServicioDesdeFija.value || undefined,
-  fecha_servicio_hasta_modo: fechaServicioHastaModo.value,
-  fecha_servicio_hasta_fija: fechaServicioHastaFija.value || undefined,
-  fecha_vto_pago_modo: fechaVtoPagoModo.value,
-  fecha_vto_pago_fija: fechaVtoPagoFija.value || undefined,
-}));
+    fecha_servicio_hasta_modo: requiereFechasServicio
+      ? fechaServicioHastaModo.value
+      : "",
+    fecha_servicio_hasta_fija: requiereFechasServicio
+      ? fechaServicioHastaFija.value || undefined
+      : undefined,
+    fecha_vto_pago_modo: requiereFechasServicio ? fechaVtoPagoModo.value : "",
+    fecha_vto_pago_fija: requiereFechasServicio
+      ? fechaVtoPagoFija.value || undefined
+      : undefined,
+  };
+});
 const puedeValidar = computed(
   () =>
     !!archivoSeleccionado.value &&

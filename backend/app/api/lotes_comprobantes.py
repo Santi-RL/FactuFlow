@@ -245,11 +245,11 @@ async def validar_archivo_lote(
     descripcion_item_fija: str | None = Form(None),
     fecha_emision_modo: str = Form(...),
     fecha_emision_fija: str | None = Form(None),
-    fecha_servicio_desde_modo: str = Form(...),
+    fecha_servicio_desde_modo: str | None = Form(None),
     fecha_servicio_desde_fija: str | None = Form(None),
-    fecha_servicio_hasta_modo: str = Form(...),
+    fecha_servicio_hasta_modo: str | None = Form(None),
     fecha_servicio_hasta_fija: str | None = Form(None),
-    fecha_vto_pago_modo: str = Form(...),
+    fecha_vto_pago_modo: str | None = Form(None),
     fecha_vto_pago_fija: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
@@ -285,15 +285,15 @@ async def validar_archivo_lote(
     opciones_fechas = OpcionesFechasLote(
         fecha_emision_modo=fecha_emision_modo,
         fecha_emision_fija=_parse_fecha_form(fecha_emision_fija, "fecha_emision_fija"),
-        fecha_servicio_desde_modo=fecha_servicio_desde_modo,
+        fecha_servicio_desde_modo=fecha_servicio_desde_modo or "",
         fecha_servicio_desde_fija=_parse_fecha_form(
             fecha_servicio_desde_fija, "fecha_servicio_desde_fija"
         ),
-        fecha_servicio_hasta_modo=fecha_servicio_hasta_modo,
+        fecha_servicio_hasta_modo=fecha_servicio_hasta_modo or "",
         fecha_servicio_hasta_fija=_parse_fecha_form(
             fecha_servicio_hasta_fija, "fecha_servicio_hasta_fija"
         ),
-        fecha_vto_pago_modo=fecha_vto_pago_modo,
+        fecha_vto_pago_modo=fecha_vto_pago_modo or "",
         fecha_vto_pago_fija=_parse_fecha_form(
             fecha_vto_pago_fija, "fecha_vto_pago_fija"
         ),

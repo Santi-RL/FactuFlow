@@ -389,6 +389,59 @@ describe("LotesComprobantesView", () => {
       null,
     );
   });
+  it("omite fechas de servicio al validar un lote de productos", async () => {
+    mockedFormatos.detectar.mockResolvedValue(
+      deteccionMock("Formato Base", 10, ["Fecha", "Importe"]),
+    );
+    const wrapper = await mountView();
+    const input = wrapper.find('input[type="file"]');
+    const archivo = new File(["demo"], "lote.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    Object.defineProperty(input.element, "files", {
+      value: [archivo],
+      configurable: true,
+    });
+    await input.trigger("change");
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      conceptoModo: string;
+      descripcionItemModo: string;
+      fechaEmisionModo: string;
+      fechaServicioDesdeModo: string;
+      fechaServicioDesdeFija: string;
+      fechaServicioHastaModo: string;
+      fechaServicioHastaFija: string;
+      fechaVtoPagoModo: string;
+      fechaVtoPagoFija: string;
+    };
+    vm.conceptoModo = "servicios";
+    vm.fechaServicioDesdeModo = "fija";
+    vm.fechaServicioDesdeFija = "2026-04-01";
+    vm.fechaServicioHastaModo = "fija";
+    vm.fechaServicioHastaFija = "2026-04-30";
+    vm.fechaVtoPagoModo = "fija";
+    vm.fechaVtoPagoFija = "2026-05-10";
+    vm.conceptoModo = "productos";
+    vm.descripcionItemModo = "archivo";
+    vm.fechaEmisionModo = "archivo";
+    await flushPromises();
+
+    await wrapper.find('[data-testid="validar-lote-final"]').trigger("click");
+
+    const opciones = mockedLotesDetalle.validar.mock.calls[0][2];
+    expect(opciones).toMatchObject({
+      concepto_modo: "productos",
+      fecha_servicio_desde_modo: "",
+      fecha_servicio_hasta_modo: "",
+      fecha_vto_pago_modo: "",
+    });
+    expect(opciones.fecha_servicio_desde_fija).toBeUndefined();
+    expect(opciones.fecha_servicio_hasta_fija).toBeUndefined();
+    expect(opciones.fecha_vto_pago_fija).toBeUndefined();
+  });
   it("autoaplica perfiles relativos sin materializar fecha fiscal implicita", async () => {
     const wrapper = await mountView([perfilRelativoMock()]);
     const vm = wrapper.vm as unknown as {

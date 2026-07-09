@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-08
+Última actualización: 2026-07-09
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
 
@@ -168,6 +168,18 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   fecha fija como `20/05/2026`, confirmar que queda como `20/05/2026` en la UI
   y que el lote persiste `2026-05-20`; luego probar `31/02/2026` y confirmar
   rechazo controlado antes de validar el lote.
+
+### Contrato de lotes de productos 2026-07-09
+
+- Alcance revisado: validación multipart de `/api/lotes-comprobantes/validar`,
+  resolución interna de fechas de lote y armado frontend de opciones fiscales.
+- Política validada: un lote con `concepto_modo=productos` no exige ni envía
+  fechas de servicio o vencimiento de pago; servicios y conceptos definidos por
+  archivo siguen requiriendo la política explícita correspondiente.
+- Verificación automatizada: `pytest tests/test_lotes_comprobantes.py -q`,
+  test unitario enfocado de `LotesComprobantesView.spec.ts`, `ruff check`,
+  `black --check` y `npm run type-check`. No se llamó ARCA real ni se solicitó
+  CAE.
 
 ### Seguimiento de lotes grandes - contención post-incidente 2026-07-08
 

@@ -848,6 +848,49 @@ async def test_validar_lote_registra_grupos_y_filas(
 
 
 @pytest.mark.asyncio
+async def test_validar_lote_productos_acepta_fechas_servicio_omitidas(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un lote de productos no debe exigir campos de servicio en multipart."""
+    data = _opciones_fechas(concepto_modo="productos")
+    for key in [
+        "fecha_servicio_desde_modo",
+        "fecha_servicio_hasta_modo",
+        "fecha_vto_pago_modo",
+    ]:
+        data.pop(key)
+
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=data,
+        files={
+            "archivo": (
+                "lote-productos-sin-servicio.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}",
+        headers=auth_headers,
+    )
+    assert detalle.status_code == 200, detalle.text
+    grupo = detalle.json()["grupos"][0]
+    assert grupo["concepto"] == 1
+    assert grupo["fecha_servicio_desde"] is None
+    assert grupo["fecha_servicio_hasta"] is None
+    assert grupo["fecha_vto_pago"] is None
+
+
+@pytest.mark.asyncio
 async def test_validar_lote_mixto_no_anuncia_emision_si_estado_no_procesable(
     client: AsyncClient,
     auth_headers: dict,

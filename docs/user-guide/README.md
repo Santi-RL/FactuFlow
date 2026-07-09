@@ -242,7 +242,9 @@ Flujo general:
 8. Definir la descripción/concepto facturado del ítem: desde el archivo o como
    texto fijo para todo el lote.
 9. Definir explícitamente la fecha de emisión y, si corresponde, el período de
-   servicios y vencimiento de pago.
+   servicios y vencimiento de pago. Para lotes de `Productos`, esas fechas de
+   servicio no aplican; para `Servicios` o `Definido por archivo`, FactuFlow
+   exige la política correspondiente antes de validar.
 10. Revisar el checklist de validación y presionar `Validar lote` al cierre de
     la configuración fiscal.
 11. Revisar comprobantes detectados, concepto fiscal ARCA, descripción del ítem,

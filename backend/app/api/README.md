@@ -43,7 +43,10 @@ Routers relacionados con emisión masiva:
   y descarga de archivo observado. `POST /validar` puede recibir
   `formato_version_id` para aplicar el mapeo confirmado y exige políticas
   fiscales explícitas: `concepto_modo`, `fecha_emision_modo` y fechas fijas
-  cuando corresponda. También puede recibir `perfil_carga_masiva_id` para
+  cuando corresponda. Para `concepto_modo=productos`, los campos de servicio y
+  vencimiento no son obligatorios en el multipart; para servicios o concepto
+  definido por archivo se validan condicionalmente. También puede recibir
+  `perfil_carga_masiva_id` para
   guardar snapshot del perfil usado; el perfil no reemplaza esas políticas.
 
 Regla crítica: ningún endpoint de emisión debe asumir fecha del día actual como

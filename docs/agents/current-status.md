@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-08
+Última actualización: 2026-07-09
 
 ## Objetivo activo
 
@@ -21,8 +21,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   borrado físico de emisores. SQLite ahora activa la aplicación de claves
   foráneas por conexión para aplicar esas garantías también en instalaciones
   locales. El corte de fechas fiscales ARCA/lotes ya valida calendario real,
-  exige fechas de servicio para conceptos 2/3 y acepta `DD/MM/AAAA` en los
-  bordes de lote y reconciliación externa.
+  exige fechas de servicio para conceptos 2/3, acepta `DD/MM/AAAA` en los
+  bordes de lote y reconciliación externa, y alinea el contrato multipart para
+  que los lotes de productos no fallen por campos de servicio que no aplican.
 - Producción ya rechaza `APP_SECRET_KEY` vacío, corto o igual a los placeholders
   públicos de configuración para evitar firmar JWT con secretos conocidos.
 - Backend ya registra formatos configurables de importación para lotes masivos,
@@ -1039,8 +1040,10 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   fiscal sin verificar ARCA.
 - La reconciliación externa consulta `FECompConsultar` antes de tocar datos
   locales. El corte de fechas fiscales ARCA/lotes ya valida calendario real,
-  exige fechas de servicio para conceptos 2/3 y acepta `DD/MM/AAAA` en los
-  bordes de lote y reconciliación externa. Solo se registra el comprobante como `origen_emision = arca_web` si
+  exige fechas de servicio para conceptos 2/3, acepta `DD/MM/AAAA` en los
+  bordes de lote y reconciliación externa, y alinea el contrato multipart para
+  que los lotes de productos no fallen por campos de servicio que no aplican.
+  Solo se registra el comprobante como `origen_emision = arca_web` si
   ARCA confirma emisor, receptor, tipo, punto de venta, número, fecha fiscal,
   total y CAE.
 - Los cierres quedan diferenciados:

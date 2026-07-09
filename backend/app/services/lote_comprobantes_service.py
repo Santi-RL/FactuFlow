@@ -848,6 +848,8 @@ class LoteComprobantesService:
         self, modo: str, fecha_fija: date | None, valor_archivo: Any
     ) -> str:
         """Resuelve una fecha de lote y la deja en formato ISO o vacía."""
+        if not modo:
+            return ""
         if modo == "fija":
             return fecha_fija.isoformat() if fecha_fija else ""
         fecha = self._parse_date(valor_archivo)
