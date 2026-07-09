@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-07-06
+Última actualización: 2026-07-09
 
 Este manual describe el uso actual del producto. Si una función no aparece acá, no debe asumirse como disponible para usuarios finales.
 
@@ -25,6 +25,12 @@ los datos mínimos que conviene reunir ante un incidente sin copiar CUIT complet
 ni evidencia privada en documentación pública.
 
 Nota 2026-07-06: auditoría documental. Se refuerza que las fechas visibles para usuarios se muestran en formato argentino `DD/MM/AAAA`; los formatos técnicos quedan internos para API, backend o ARCA.
+
+Nota 2026-07-09: si un lote masivo queda trabado, FactuFlow solo vuelve a
+ponerlo en cola cuando puede demostrar que los comprobantes pendientes no
+tuvieron intento fiscal ni evidencia local y que la numeración ARCA/local sigue
+alineada. Si no puede probarlo, el lote queda para auditoría/reconciliación
+antes de continuar.
 
 ## Contenido
 
@@ -374,9 +380,11 @@ de volver a intentar. El sistema bloquea una segunda ejecución del mismo lote s
 ya está procesando o si ya fue procesado. Si un proceso queda trabado y supera
 la ventana operativa configurada como `BATCH_PROCESSING_STALE_MINUTES`,
 FactuFlow no vuelve a pedir CAE automáticamente. Primero vincula comprobantes
-locales ya autorizados si puede hacerlo sin consultar ARCA; si queda cualquier
-pendiente o duda fiscal, el lote pasa a `Requiere reconciliación` y debe
-auditarse antes de continuar.
+locales ya autorizados si puede hacerlo sin consultar ARCA. Si quedan
+comprobantes pendientes, solo vuelve a poner el lote en cola cuando puede probar
+que esos pendientes no tuvieron intento fiscal, CAE, número ni comprobante local
+candidato y que la numeración ARCA/local sigue alineada. Si no puede probarlo,
+el lote pasa a `Requiere reconciliación` y debe auditarse antes de continuar.
 
 Si la pantalla no puede refrescar el seguimiento por timeout o error del
 servidor, eso no significa por sí mismo que el lote haya desaparecido. No vuelvas

@@ -198,6 +198,98 @@ async def test_validar_punto_venta_habilitado_rechaza_bloqueado_s(
         await service._validar_punto_venta_habilitado(wsfe_client, 13)
 
 
+@pytest.mark.asyncio
+async def test_verificar_numeracion_alineada_para_emision_consulta_arca(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """El preflight confirma punto habilitado y numeración local/ARCA alineada."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    comprobante = Comprobante(
+        tipo_comprobante=6,
+        concepto=1,
+        numero=76,
+        fecha_emision=date(2026, 7, 1),
+        subtotal=Decimal("1000.00"),
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("0.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=Decimal("1000.00"),
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 7, 10),
+        estado="autorizado",
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        empresa_id=test_empresa.id,
+        punto_venta=punto_venta,
+    )
+    db_session.add_all([punto_venta, certificado, comprobante])
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
+    class FakePreflightWSFEClient:
+        """Cliente WSFE simulado para el preflight de numeración."""
+
+        consultas_ultimo: list[tuple[int, int]] = []
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_param_get_ptos_venta(self):
+            """Devuelve el punto de venta como habilitado en ARCA."""
+            return [SimpleNamespace(numero=1, bloqueado="N")]
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Simula que ARCA está alineada con el último local."""
+            self.consultas_ultimo.append((punto_venta_numero, tipo))
+            return 76
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakePreflightWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+
+    service = FacturacionService(db_session)
+    resultado = await service.verificar_numeracion_alineada_para_emision(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+    )
+
+    assert resultado == {
+        "empresa_id": test_empresa.id,
+        "punto_venta_id": punto_venta.id,
+        "punto_venta_numero": 1,
+        "tipo_comprobante": 6,
+        "proximo_numero": 77,
+    }
+    assert FakePreflightWSFEClient.consultas_ultimo == [(1, 6)]
+
+
 def test_armar_request_arca_factura_c_no_informa_objeto_iva(
     db_session: AsyncSession,
 ):

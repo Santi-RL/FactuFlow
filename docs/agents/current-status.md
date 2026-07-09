@@ -803,13 +803,21 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   coherentes. Si esa reconciliación local fuerte cierra el lote, queda en el
   estado cerrado que corresponda: `completado`, `cerrado_reconciliado` o
   `cerrado_con_descartes`.
-- Si después de esa reconciliación quedan comprobantes pendientes o el estado
-  sigue incierto, el lote pasa a `requiere_reconciliacion`, queda registrado un
-  evento `bloqueo_operativo_no_reemitir` y la operación idempotente observable
-  queda en estado de reconciliación.
-- Los grupos que seguían `validado` dentro de un lote stale bloqueado también
-  pasan a `requiere_reconciliacion`, con mensaje de no reintento, para que la UI
-  no los muestre como comprobantes listos para emitir.
+- Si después de esa reconciliación quedan comprobantes pendientes, FactuFlow
+  clasifica los grupos `validado` antes de decidir: un pendiente es intacto solo
+  si no tiene intento fiscal, CAE, número, comprobante vinculado ni comprobante
+  local autorizado candidato con la misma identidad fiscal.
+- Solo si todos los pendientes son intactos, no hay intentos inciertos, la
+  evidencia local autorizada es coherente y `FECompUltimoAutorizado` confirma
+  numeración ARCA/local alineada por emisor, punto de venta y tipo, el lote
+  vuelve a `en_cola` con evento `reanudacion_segura_stale` y sin pedir CAE en el
+  handler stale.
+- Si no puede probarse esa reanudación segura, o existe cualquier intento o
+  evidencia fiscal previa sobre los pendientes, el lote pasa a
+  `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir`. Solo los
+  grupos con evidencia fiscal se marcan `requiere_reconciliacion`; los grupos
+  intactos se preservan como `validado`, pero el lote bloqueado exige auditoría
+  antes de continuar.
 - El worker ahora procesa automáticamente solo lotes `en_cola`; los lotes
   `procesando` vencidos se convierten en tarea de auditoría/reconciliación, no
   en reemisión. Si falla el bloqueo de cualquier lote vencido, el worker
@@ -1193,15 +1201,16 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Verificacion focalizada sin llamadas ARCA reales:
   `pytest tests/test_certificados.py tests/test_certificados_scope.py tests/test_arca/test_arca_api.py -q`,
   `ruff check` y `black --check` sobre módulos de certificados/ARCA tocados.
-- Tercer ciclo actualizado el 2026-06-12: lotes en `procesando` ya no pueden
-  volver a reencolarse por API ni reanudarse automáticamente por stale. El
-  worker procesa lotes `en_cola`; si detecta un lote `procesando` vencido,
-  primero vincula comprobantes locales ya autorizados cuando puede hacerlo sin
-  pedir CAE y, si queda cualquier incertidumbre o pendiente, marca el lote como
-  `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir`. Los
-  grupos `validado` remanentes pasan a `requiere_reconciliacion`.
-- Verificacion focalizada sin llamadas ARCA reales:
-  `pytest tests/test_lotes_comprobantes.py::test_procesar_lote_background_encola_lote_chico tests/test_lotes_comprobantes.py::test_tomar_lote_para_procesamiento_es_atomico tests/test_lotes_comprobantes.py::test_procesar_background_no_reencola_lote_en_proceso tests/test_lotes_comprobantes.py::test_tomar_lote_no_reanuda_procesando_stale tests/test_lotes_comprobantes.py::test_procesar_lote_procesando_stale_bloquea_sin_emitir tests/test_lotes_comprobantes.py::test_procesar_lote_grande_encola_y_se_reanuda -q`,
+- Tercer ciclo actualizado el 2026-06-12 y reforzado el 2026-07-09: lotes en
+  `procesando` ya no pueden volver a reencolarse por API ni reanudarse
+  automáticamente por stale. El worker procesa lotes `en_cola`; si detecta un
+  lote `procesando` vencido, primero vincula comprobantes locales ya autorizados
+  cuando puede hacerlo sin pedir CAE. Si quedan pendientes, solo reencola el
+  lote cuando todos están intactos y la numeración ARCA/local está alineada; si
+  hay evidencia fiscal, intento previo o preflight no concluyente, bloquea con
+  `bloqueo_operativo_no_reemitir` y exige auditoría.
+- Verificación focalizada sin llamadas ARCA reales 2026-07-09:
+  `pytest tests/test_lotes_comprobantes.py tests/test_facturacion_service.py -q`,
   `ruff check` y `black --check` sobre lotes/worker.
 - Cuarto ciclo cerrado: fallos posteriores a una respuesta ARCA con CAE ya no
   quedan ocultos como errores genéricos ni como fallos reintentables. La

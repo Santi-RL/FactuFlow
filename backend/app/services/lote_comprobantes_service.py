@@ -121,6 +121,15 @@ class ConfiguracionBatchArca:
 
 
 @dataclass(frozen=True)
+class ClasificacionGruposStale:
+    """Clasifica grupos válidos de un lote interrumpido según evidencia fiscal."""
+
+    intactos: tuple[LoteComprobanteGrupo, ...]
+    con_evidencia_fiscal: tuple[LoteComprobanteGrupo, ...]
+    total_validos: int
+
+
+@dataclass(frozen=True)
 class ResultadoArcaExterno:
     """Datos mínimos de ARCA para guardar un comprobante reconciliado."""
 
@@ -953,22 +962,98 @@ class LoteComprobantesService:
                 await self.db.flush()
             return lote
 
+        clasificacion_stale = await self._clasificar_grupos_validos_stale(lote)
+        preflight_checks: list[dict[str, Any]] = []
+        preflight_error: str | None = None
+        if (
+            clasificacion_stale.total_validos
+            and not clasificacion_stale.con_evidencia_fiscal
+            and not await self._lote_tiene_intentos_fiscales_inciertos(lote.id)
+            and await self._lote_tiene_evidencia_fiscal_local_coherente(lote.id)
+        ):
+            (
+                preflight_ok,
+                preflight_checks,
+                preflight_error,
+            ) = await self._preflight_reanudar_grupos_intactos_stale(
+                lote,
+                clasificacion_stale.intactos,
+            )
+            if preflight_ok:
+                await self._actualizar_contadores_lote(lote)
+                lote.estado = "en_cola"
+                lote.finished_at = None
+                lote.procesamiento_async = True
+                lote.modo_procesamiento = "background"
+                lote.mensaje_resumen = (
+                    "El lote se recuperó de una interrupción sin evidencia fiscal "
+                    "en los comprobantes pendientes y quedó en cola para continuar."
+                )
+                metadata = dict(lote.metadata_json or {})
+                metadata["recuperacion_stale_intacta"] = {
+                    "motivo": "pendientes_sin_intento_fiscal_y_numeracion_alineada",
+                    "stale_minutes": settings.batch_processing_stale_minutes,
+                    "requeued_at": datetime.utcnow().isoformat(),
+                    "grupos_reconciliados_localmente": grupos_reconciliados,
+                    "grupos_intactos": len(clasificacion_stale.intactos),
+                    "preflight_arca": preflight_checks,
+                }
+                lote.metadata_json = metadata
+                self._registrar_evento_lote(
+                    lote_id=lote.id,
+                    accion="reanudacion_segura_stale",
+                    usuario_id=None,
+                    motivo=(
+                        "El worker verificó que los comprobantes pendientes no "
+                        "tenían intento fiscal ni numeración asignada y reencoló "
+                        "el lote tras validar la numeración contra ARCA."
+                    ),
+                    metadata_json={
+                        "estado_anterior": "procesando",
+                        "estado_nuevo": "en_cola",
+                        "stale_minutes": settings.batch_processing_stale_minutes,
+                        "grupos_reconciliados_localmente": grupos_reconciliados,
+                        "grupos_intactos": len(clasificacion_stale.intactos),
+                        "preflight_arca": preflight_checks,
+                    },
+                )
+                operacion_id = metadata.get("operacion_idempotente_id")
+                if operacion_id is not None:
+                    await self._guardar_respuesta_operacion_background(
+                        lote, operacion_id
+                    )
+                if commit:
+                    await self.db.commit()
+                    await self.db.refresh(lote)
+                else:
+                    await self.db.flush()
+                return lote
+
         grupos_marcados_reconciliacion = (
-            await self._marcar_grupos_validos_stale_para_reconciliacion(lote)
+            await self._marcar_grupos_validos_stale_para_reconciliacion(
+                lote,
+                grupos=clasificacion_stale.con_evidencia_fiscal,
+            )
         )
         await self._actualizar_contadores_lote(lote)
         lote.estado = "requiere_reconciliacion"
         lote.finished_at = datetime.utcnow()
         lote.mensaje_resumen = (
-            "El procesamiento quedó en estado incierto. No reintentes este lote: "
-            "primero hay que reconciliar contra ARCA para confirmar qué "
-            "comprobantes fueron autorizados."
+            "El procesamiento quedó detenido y no se pudo demostrar una "
+            "reanudación automática segura. No reintentes este lote: primero "
+            "hay que reconciliar contra ARCA para confirmar qué comprobantes "
+            "fueron autorizados."
         )
         metadata = dict(lote.metadata_json or {})
         metadata["bloqueo_operativo"] = {
             "motivo": "procesamiento_stale_requiere_reconciliacion",
             "stale_minutes": settings.batch_processing_stale_minutes,
             "blocked_at": lote.finished_at.isoformat(),
+            "grupos_intactos_preservados": len(clasificacion_stale.intactos),
+            "grupos_con_evidencia_fiscal": len(
+                clasificacion_stale.con_evidencia_fiscal
+            ),
+            "preflight_error": preflight_error,
         }
         lote.metadata_json = metadata
         self._registrar_evento_lote(
@@ -986,6 +1071,12 @@ class LoteComprobantesService:
                 "stale_minutes": settings.batch_processing_stale_minutes,
                 "grupos_reconciliados_localmente": grupos_reconciliados,
                 "grupos_marcados_reconciliacion": grupos_marcados_reconciliacion,
+                "grupos_intactos_preservados": len(clasificacion_stale.intactos),
+                "grupos_con_evidencia_fiscal": len(
+                    clasificacion_stale.con_evidencia_fiscal
+                ),
+                "preflight_arca": preflight_checks,
+                "preflight_error": preflight_error,
             },
         )
         operacion_id = metadata.get("operacion_idempotente_id")
@@ -3223,8 +3314,212 @@ class LoteComprobantesService:
             encontrado = True
         return total if encontrado else None
 
+    async def _clasificar_grupos_validos_stale(
+        self,
+        lote: LoteComprobante,
+    ) -> ClasificacionGruposStale:
+        """Separa grupos pendientes intactos de grupos con evidencia fiscal."""
+        grupos = await self._obtener_grupos_emitibles(lote.id)
+        if not grupos:
+            return ClasificacionGruposStale(
+                intactos=(),
+                con_evidencia_fiscal=(),
+                total_validos=0,
+            )
+
+        grupo_ids = [grupo.id for grupo in grupos]
+        intentos_por_grupo = dict(
+            (
+                await self.db.execute(
+                    select(IntentoEmisionFiscal.grupo_id, func.count())
+                    .where(
+                        IntentoEmisionFiscal.lote_id == lote.id,
+                        IntentoEmisionFiscal.grupo_id.in_(grupo_ids),
+                    )
+                    .group_by(IntentoEmisionFiscal.grupo_id)
+                )
+            ).all()
+        )
+        claves_comprobantes_locales = (
+            await self._obtener_claves_comprobantes_locales_candidatos(grupos)
+        )
+        intactos: list[LoteComprobanteGrupo] = []
+        con_evidencia_fiscal: list[LoteComprobanteGrupo] = []
+        for grupo in grupos:
+            cantidad_intentos = int(intentos_por_grupo.get(grupo.id, 0) or 0)
+            clave_local = self._clave_evidencia_local_grupo(grupo)
+            tiene_comprobante_local = (
+                clave_local is not None and clave_local in claves_comprobantes_locales
+            )
+            if (
+                self._grupo_validado_stale_intacto(grupo, cantidad_intentos)
+                and not tiene_comprobante_local
+            ):
+                intactos.append(grupo)
+            else:
+                con_evidencia_fiscal.append(grupo)
+
+        return ClasificacionGruposStale(
+            intactos=tuple(intactos),
+            con_evidencia_fiscal=tuple(con_evidencia_fiscal),
+            total_validos=len(grupos),
+        )
+
+    @staticmethod
+    def _grupo_validado_stale_intacto(
+        grupo: LoteComprobanteGrupo,
+        cantidad_intentos: int,
+    ) -> bool:
+        """Indica si un grupo validado no tiene señales de haber pedido CAE."""
+        return (
+            cantidad_intentos == 0
+            and not grupo.cae
+            and grupo.numero_asignado is None
+            and grupo.comprobante_id is None
+        )
+
+    async def _obtener_claves_comprobantes_locales_candidatos(
+        self,
+        grupos: list[LoteComprobanteGrupo],
+    ) -> set[tuple[int, int, int, date, Decimal, int, str, str]]:
+        """Busca comprobantes locales que impiden tratar un grupo como intacto."""
+        claves_grupos = {
+            clave
+            for grupo in grupos
+            if (clave := self._clave_evidencia_local_grupo(grupo)) is not None
+        }
+        if not claves_grupos:
+            return set()
+
+        empresa_ids = {clave[0] for clave in claves_grupos}
+        punto_venta_ids = {clave[1] for clave in claves_grupos}
+        tipos = {clave[2] for clave in claves_grupos}
+        fechas = {clave[3] for clave in claves_grupos}
+        comprobantes = list(
+            (
+                await self.db.execute(
+                    select(Comprobante).where(
+                        Comprobante.empresa_id.in_(empresa_ids),
+                        Comprobante.punto_venta_id.in_(punto_venta_ids),
+                        Comprobante.tipo_comprobante.in_(tipos),
+                        Comprobante.fecha_emision.in_(fechas),
+                        Comprobante.estado == "autorizado",
+                        Comprobante.cae.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return {
+            clave
+            for comprobante in comprobantes
+            if (clave := self._clave_evidencia_local_comprobante(comprobante))
+            in claves_grupos
+        }
+
+    def _clave_evidencia_local_grupo(
+        self,
+        grupo: LoteComprobanteGrupo,
+    ) -> tuple[int, int, int, date, Decimal, int, str, str] | None:
+        """Construye una clave fiscal del grupo para detectar evidencia local."""
+        try:
+            request = EmitirComprobanteRequest.model_validate(grupo.payload_json or {})
+        except Exception:
+            return None
+        total = self.facturacion_service._calcular_totales(request.items)["total"]
+        return (
+            request.empresa_id,
+            request.punto_venta_id,
+            request.tipo_comprobante,
+            request.fecha_emision,
+            self._round_money(Decimal(str(total))),
+            int(request.tipo_documento or 0),
+            str(request.numero_documento or ""),
+            self._normalizar_texto_snapshot(request.razon_social),
+        )
+
+    def _clave_evidencia_local_comprobante(
+        self,
+        comprobante: Comprobante,
+    ) -> tuple[int, int, int, date, Decimal, int, str, str] | None:
+        """Construye una clave fiscal de un comprobante local autorizado."""
+        if comprobante.fecha_emision is None:
+            return None
+        return (
+            comprobante.empresa_id,
+            comprobante.punto_venta_id,
+            comprobante.tipo_comprobante,
+            comprobante.fecha_emision,
+            self._round_money(Decimal(str(comprobante.total))),
+            int(comprobante.receptor_tipo_documento or 0),
+            str(comprobante.receptor_numero_documento or ""),
+            self._normalizar_texto_snapshot(comprobante.receptor_razon_social),
+        )
+
+    async def _preflight_reanudar_grupos_intactos_stale(
+        self,
+        lote: LoteComprobante,
+        grupos: tuple[LoteComprobanteGrupo, ...],
+    ) -> tuple[bool, list[dict[str, Any]], str | None]:
+        """Valida que los grupos intactos puedan volver a cola sin riesgo fiscal."""
+        combos: dict[tuple[int, int, int], EmitirComprobanteRequest] = {}
+        for grupo in grupos:
+            if not grupo.payload_json:
+                return (
+                    False,
+                    [],
+                    f"El grupo {grupo.comprobante_ref} no conserva payload fiscal.",
+                )
+            try:
+                request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
+            except Exception as exc:
+                logger.warning(
+                    "No se pudo validar payload fiscal del grupo stale %s",
+                    grupo.comprobante_ref,
+                    exc_info=True,
+                )
+                return False, [], str(exc)
+            if request.empresa_id != lote.empresa_id:
+                return (
+                    False,
+                    [],
+                    f"El grupo {grupo.comprobante_ref} pertenece a otra empresa.",
+                )
+            combos[
+                (
+                    request.empresa_id,
+                    request.punto_venta_id,
+                    request.tipo_comprobante,
+                )
+            ] = request
+
+        checks: list[dict[str, Any]] = []
+        for empresa_id, punto_venta_id, tipo_comprobante in sorted(combos):
+            try:
+                checks.append(
+                    await self.facturacion_service.verificar_numeracion_alineada_para_emision(
+                        empresa_id=empresa_id,
+                        punto_venta_id=punto_venta_id,
+                        tipo_comprobante=tipo_comprobante,
+                    )
+                )
+            except Exception as exc:
+                logger.warning(
+                    "No se pudo verificar numeración ARCA/local para lote stale %s",
+                    lote.id,
+                    exc_info=True,
+                )
+                return False, checks, str(exc)
+
+        return True, checks, None
+
     async def _marcar_grupos_validos_stale_para_reconciliacion(
-        self, lote: LoteComprobante
+        self,
+        lote: LoteComprobante,
+        grupos: tuple[LoteComprobanteGrupo, ...]
+        | list[LoteComprobanteGrupo]
+        | None = None,
     ) -> int:
         """Marca grupos válidos de un lote stale como fiscalmente inciertos."""
         mensaje = (
@@ -3232,18 +3527,20 @@ class LoteComprobantesService:
             "No reintentes este comprobante: primero hay que reconciliar "
             "contra ARCA para confirmar si fue autorizado."
         )
-        grupos = (
-            (
-                await self.db.execute(
-                    select(LoteComprobanteGrupo).where(
-                        LoteComprobanteGrupo.lote_id == lote.id,
-                        LoteComprobanteGrupo.estado == "validado",
+        if grupos is None:
+            grupos = (
+                (
+                    await self.db.execute(
+                        select(LoteComprobanteGrupo).where(
+                            LoteComprobanteGrupo.lote_id == lote.id,
+                            LoteComprobanteGrupo.estado == "validado",
+                        )
                     )
                 )
+                .scalars()
+                .all()
             )
-            .scalars()
-            .all()
-        )
+        grupos = list(grupos)
         for grupo in grupos:
             grupo.estado = "requiere_reconciliacion"
             grupo.mensajes_json = [mensaje]

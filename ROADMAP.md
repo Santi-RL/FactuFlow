@@ -398,11 +398,13 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
 - [x] Emisión de lotes chicos desde UI observable por background/polling
 - [x] Ejecución asincrónica para lotes grandes
 - [x] Worker evita reencolar lotes activos y ya no reemite lotes `procesando`
-  stale: los bloquea como `requiere_reconciliacion` salvo reconciliación local
-  respaldada por un intento fiscal autorizado del mismo lote/grupo con
-  comprobante, número, CAE y datos fiscales coherentes. Si el bloqueo de un
-  stale falla, no avanza con lotes `en_cola` en ese ciclo. Los grupos
-  `validado` remanentes quedan como `requiere_reconciliacion`.
+  stale: primero intenta reconciliación local respaldada por un intento fiscal
+  autorizado del mismo lote/grupo con comprobante, número, CAE y datos fiscales
+  coherentes; luego solo reencola pendientes intactos si la numeración
+  ARCA/local está alineada por emisor, punto de venta y tipo. Si hay evidencia
+  fiscal, intento previo o preflight no concluyente, bloquea como
+  `requiere_reconciliacion`. Si el bloqueo de un stale falla, no avanza con
+  lotes `en_cola` en ese ciclo.
 - [x] Emisión masiva por sublotes ARCA para grupos con mismo punto de venta y
   tipo, con fallback unitario explícito si `RegXReq` no está disponible
 - [x] Contención frontend post-incidente productivo de lote grande: el

@@ -174,6 +174,45 @@ class FacturacionService:
         )
         return await wsfe_client.fe_comp_tot_x_request()
 
+    async def verificar_numeracion_alineada_para_emision(
+        self,
+        *,
+        empresa_id: int,
+        punto_venta_id: int,
+        tipo_comprobante: int,
+    ) -> dict[str, int]:
+        """Verifica contra ARCA que la próxima numeración local sea segura."""
+        empresa = await self._obtener_empresa(empresa_id)
+        if not empresa:
+            raise ValidationError("Empresa no encontrada")
+
+        punto_venta = await self._obtener_punto_venta(punto_venta_id, empresa_id)
+        if punto_venta is None:
+            raise ValidationError("Punto de venta no encontrado para la empresa activa")
+
+        certificado = await self._obtener_certificado_activo(empresa_id)
+        ticket = await self._obtener_ticket_acceso(empresa, certificado)
+        wsfe_client = WSFEv1Client(
+            ambiente=self._get_arca_ambiente(),
+            ticket=ticket,
+            cuit=empresa.cuit,
+        )
+        await self._validar_punto_venta_habilitado(wsfe_client, punto_venta.numero)
+        proximo_numero = await self._obtener_proximo_numero(
+            empresa_id,
+            punto_venta_id,
+            tipo_comprobante,
+            wsfe_client=wsfe_client,
+            punto_venta_numero=punto_venta.numero,
+        )
+        return {
+            "empresa_id": empresa_id,
+            "punto_venta_id": punto_venta_id,
+            "punto_venta_numero": punto_venta.numero,
+            "tipo_comprobante": tipo_comprobante,
+            "proximo_numero": proximo_numero,
+        }
+
     async def resolver_operacion_idempotente_incompleta(
         self,
         operacion_id: int,

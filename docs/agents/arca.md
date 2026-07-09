@@ -226,11 +226,14 @@
   autorizados sin llamar a ARCA si existe un intento fiscal `autorizado` del
   mismo lote y grupo, con `comprobante_id`, número planificado, CAE, fecha,
   receptor y total coherentes. Un comprobante local parecido pero sin ese
-  intento fuerte no cierra automáticamente el grupo. Si queda cualquier
-  pendiente o incertidumbre, debe marcar el lote `requiere_reconciliacion`,
-  registrar `bloqueo_operativo_no_reemitir`, marcar los grupos `validado`
-  remanentes como `requiere_reconciliacion` y exigir auditoría antes de
-  continuar.
+  intento fuerte no cierra automáticamente el grupo. Si quedan pendientes, solo
+  puede reencolarlos si están intactos, sin intento fiscal, CAE, número,
+  comprobante vinculado ni comprobante local autorizado candidato, y si
+  `FECompUltimoAutorizado` confirma numeración ARCA/local alineada por emisor,
+  punto de venta y tipo. Si queda cualquier incertidumbre, debe marcar el lote
+  `requiere_reconciliacion`, registrar `bloqueo_operativo_no_reemitir`, marcar
+  solo los grupos con evidencia fiscal como `requiere_reconciliacion` y exigir
+  auditoría antes de continuar.
 
 ### Reconciliación externa de lotes
 

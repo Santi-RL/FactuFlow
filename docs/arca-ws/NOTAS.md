@@ -142,9 +142,12 @@ Mapping aplicado en el proyecto:
   sin pedir CAE si están respaldados por un intento fiscal `autorizado` del
   mismo lote/grupo, con comprobante, número planificado, CAE, fecha, receptor y
   total coherentes. Un comprobante local parecido pero sin ese intento no debe
-  cerrar el grupo. Si queda cualquier pendiente o duda, debe pasar a
-  `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir` y marcar
-  los grupos `validado` remanentes como `requiere_reconciliacion`.
+  cerrar el grupo. Si quedan pendientes intactos, solo se reencolan cuando no
+  tienen intento fiscal, CAE, número, comprobante vinculado ni comprobante local
+  autorizado candidato, y `FECompUltimoAutorizado` confirma numeración
+  ARCA/local alineada. Si queda cualquier duda, el lote pasa a
+  `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir`; solo los
+  grupos con evidencia fiscal se marcan `requiere_reconciliacion`.
 - `Completado` queda reservado para comprobantes emitidos por FactuFlow.
   Cuando hubo emisión externa verificada, el cierre correcto es
   `cerrado_reconciliado`.

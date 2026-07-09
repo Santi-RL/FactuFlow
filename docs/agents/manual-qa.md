@@ -1200,16 +1200,18 @@ compatibilidad, notas de crédito/débito y contratos de importación.
   consumen numeración fiscal real.
 - Se verificó por test que la API sigue bloqueando procesamiento sin
   `X-Confirmacion-Fecha-Fiscal` válido.
-- Actualización técnica 2026-06-12: si un lote ya está `Procesando`, la API no
-  lo vuelve a bajar a `En cola` al pedir procesamiento background. Si el worker
-  encuentra un lote `Procesando` vencido por
+- Actualización técnica 2026-06-12, reforzada el 2026-07-09: si un lote ya está
+  `Procesando`, la API no lo vuelve a bajar a `En cola` al pedir procesamiento
+  background. Si el worker encuentra un lote `Procesando` vencido por
   `BATCH_PROCESSING_STALE_MINUTES`, ya no lo reanuda para pedir CAE. Primero
   vincula comprobantes locales ya autorizados si puede hacerlo sin llamar a
-  ARCA; si queda cualquier comprobante pendiente o incertidumbre, lo marca como
-  `requiere_reconciliacion` y registra `bloqueo_operativo_no_reemitir`. Los
-  grupos que seguían `validado` también pasan a `requiere_reconciliacion` para
-  que la pantalla no los presente como listos para emitir.
-- Verificacion técnica 2026-05-16: si ARCA devuelve CAE pero FactuFlow no logra
+  ARCA. Si quedan pendientes, solo reencola cuando todos están intactos y la
+  numeración ARCA/local está alineada; si hay intento fiscal previo, comprobante
+  local candidato, CAE/número asignado o preflight no concluyente, bloquea con
+  `bloqueo_operativo_no_reemitir`. En el bloqueo, solo los grupos con evidencia
+  fiscal pasan a `requiere_reconciliacion`; los intactos se preservan como
+  `validado` y requieren auditoría antes de continuar.
+- Verificación técnica 2026-05-16: si ARCA devuelve CAE pero FactuFlow no logra
   persistir el comprobante, la emisión queda marcada como
   `requiere_reconciliacion` y no como `fallido`. En ese estado no debe
   reintentarse el lote; corresponde consultar ARCA y reconciliar antes de
