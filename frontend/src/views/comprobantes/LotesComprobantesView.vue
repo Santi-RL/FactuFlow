@@ -55,6 +55,7 @@ import {
 const empresaStore = useEmpresaStore();
 const { showError, showInfo, showSuccess, showWarning } = useNotification();
 const GRUPOS_LOTE_PER_PAGE = 100;
+const POLLING_SEGUIMIENTO_LOTE_MS = 3000;
 
 interface ArcaBatchMetadata {
   fallback_unitario?: boolean;
@@ -130,6 +131,7 @@ const externoNumero = ref<number | "">("");
 const externoCae = ref("");
 const externoMotivo = ref("");
 const pollingHandle = ref<number | null>(null);
+const pollingSeguimientoEnCurso = ref(false);
 const timerHandle = ref<number | null>(null);
 const timerNow = ref(new Date());
 const inicioProcesamientoLocal = ref<Date | null>(null);
@@ -1090,6 +1092,55 @@ const detectarFormatoArchivo = async (archivo: File) => {
   }
 };
 
+const extraerDetalleError = (error: any): string | null => {
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+
+  if (detail && typeof detail === "object") {
+    const mensaje = detail.mensaje || detail.message || detail.detail;
+    if (typeof mensaje === "string" && mensaje.trim()) {
+      return mensaje;
+    }
+  }
+
+  return null;
+};
+
+const esErrorSeguimientoTemporal = (error: any): boolean => {
+  const status = Number(error?.response?.status ?? 0);
+  if (status >= 500 || status === 408 || status === 429) {
+    return true;
+  }
+
+  if (!error?.response) {
+    return true;
+  }
+
+  const code =
+    typeof error?.code === "string" ? error.code.toUpperCase() : "";
+  const message =
+    typeof error?.message === "string" ? error.message.toLowerCase() : "";
+  return (
+    ["ECONNABORTED", "ETIMEDOUT", "ERR_NETWORK"].includes(code) ||
+    message.includes("timeout") ||
+    message.includes("network")
+  );
+};
+
+const mensajeErrorDetalleLote = (error: any): string =>
+  extraerDetalleError(error) ||
+  (esErrorSeguimientoTemporal(error)
+    ? "No pudimos actualizar el detalle del lote. El lote puede seguir procesándose; intentá refrescar el estado antes de volver a operar."
+    : "Intentá cambiar de página o abrir el lote nuevamente.");
+
+const mensajeErrorSeguimientoLote = (error: any): string =>
+  extraerDetalleError(error) ||
+  (esErrorSeguimientoTemporal(error)
+    ? "No pudimos actualizar el seguimiento. El lote puede seguir existiendo o procesándose; no vuelvas a emitirlo hasta refrescar el estado o reconciliarlo."
+    : "No se encontró el lote para el emisor activo. Verificá el emisor seleccionado antes de volver a abrirlo.");
+
 const cargarGruposLote = async (
   loteId: number,
   page = gruposLotePage.value,
@@ -1116,8 +1167,7 @@ const cargarGruposLote = async (
   } catch (error: any) {
     showError(
       "No se pudo cargar el detalle",
-      error.response?.data?.detail ||
-        "Intenta cambiar de pagina o abrir el lote nuevamente.",
+      mensajeErrorDetalleLote(error),
     );
   } finally {
     if (!silent) {
@@ -1146,9 +1196,8 @@ const cargarDetalleLote = async (loteId: number, silent = false) => {
     await cargarGruposLote(loteId, esNuevoLote ? 1 : gruposLotePage.value, true);
   } catch (error: any) {
     showError(
-      "No se pudo abrir el lote",
-      error.response?.data?.detail ||
-        "El lote ya no está disponible para esta empresa.",
+      "No se pudo actualizar el seguimiento del lote",
+      mensajeErrorSeguimientoLote(error),
     );
   } finally {
     if (!silent) {
@@ -1606,11 +1655,18 @@ const iniciarPolling = () => {
   }
 
   pollingHandle.value = window.setInterval(async () => {
-    await cargarLotes(true);
-    if (loteActual.value) {
-      await cargarDetalleLote(loteActual.value.id, true);
+    if (pollingSeguimientoEnCurso.value) return;
+
+    pollingSeguimientoEnCurso.value = true;
+    try {
+      await cargarLotes(true);
+      if (loteActual.value) {
+        await cargarDetalleLote(loteActual.value.id, true);
+      }
+    } finally {
+      pollingSeguimientoEnCurso.value = false;
     }
-  }, 1500);
+  }, POLLING_SEGUIMIENTO_LOTE_MS);
 };
 
 const detenerPolling = () => {
@@ -1618,6 +1674,7 @@ const detenerPolling = () => {
 
   window.clearInterval(pollingHandle.value);
   pollingHandle.value = null;
+  pollingSeguimientoEnCurso.value = false;
   inicioProcesamientoLocal.value = null;
 };
 

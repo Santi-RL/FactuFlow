@@ -55,13 +55,15 @@ vi.mock("@/services/puntos_venta.service", () => ({
   },
 }));
 
+const notificationMock = vi.hoisted(() => ({
+  showError: vi.fn(),
+  showInfo: vi.fn(),
+  showSuccess: vi.fn(),
+  showWarning: vi.fn(),
+}));
+
 vi.mock("@/composables/useNotification", () => ({
-  useNotification: () => ({
-    showError: vi.fn(),
-    showInfo: vi.fn(),
-    showSuccess: vi.fn(),
-    showWarning: vi.fn(),
-  }),
+  useNotification: () => notificationMock,
 }));
 
 const CUIT_EMISOR_TEST_NO_REAL = ["30", "70000000", "1"].join("");
@@ -475,6 +477,28 @@ describe("LotesComprobantesView", () => {
     await flushPromises();
 
     expect(mockedLotesDetalle.obtenerResumen).toHaveBeenCalledWith(13);
+  });
+
+  it("advierte que un fallo temporal de seguimiento no implica lote inexistente", async () => {
+    const lote = loteResumenMock();
+    const wrapper = await mountView([], [lote]);
+
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    notificationMock.showError.mockClear();
+    mockedLotesDetalle.obtenerResumen.mockRejectedValueOnce({
+      response: { status: 500, data: {} },
+    });
+
+    await wrapper.get(`[data-testid="lote-reciente-${lote.id}"]`).trigger("click");
+    await flushPromises();
+
+    expect(notificationMock.showError).toHaveBeenCalledWith(
+      "No se pudo actualizar el seguimiento del lote",
+      expect.stringContaining("El lote puede seguir existiendo o procesándose"),
+    );
+    const llamadas = notificationMock.showError.mock.calls;
+    const ultimaLlamada = llamadas[llamadas.length - 1];
+    expect(ultimaLlamada[1]).not.toContain("ya no está disponible");
   });
 
   it("muestra aviso cuando ARCA degrada el lote a emisión unitaria", async () => {

@@ -169,6 +169,25 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   y que el lote persiste `2026-05-20`; luego probar `31/02/2026` y confirmar
   rechazo controlado antes de validar el lote.
 
+### Seguimiento de lotes grandes - contención post-incidente 2026-07-08
+
+- Alcance revisado: `/comprobantes/lotes` cuando falla temporalmente la carga de
+  resumen o detalle durante el seguimiento de un lote grande.
+- QA manual sugerida con API mockeada o entorno controlado, sin datos reales ni
+  llamadas ARCA: forzar un `500` o timeout en
+  `GET /api/lotes-comprobantes/{id}/resumen`, abrir el lote desde `Lotes
+  recientes` y confirmar que el aviso dice `No se pudo actualizar el seguimiento
+  del lote`.
+- Verificar que el texto no diga `El lote ya no está disponible` ante un error
+  temporal y que indique el paso seguro: no volver a emitir hasta refrescar el
+  estado o reconciliar.
+- Mientras el lote esté `En cola` o `Procesando`, revisar en DevTools que el
+  polling no dispare ciclos solapados y que la frecuencia aproximada sea de 3
+  segundos.
+- Esta QA no reemplaza el P1 estructural pendiente: instrumentar pool/worker,
+  probar carga de lotes grandes y completar runbook privado de recuperación en
+  VPS o staging controlado.
+
 ### Sistema > Estado - ficha para soporte 2026-06-29
 
 - Alcance revisado: nueva sección `Ficha para soporte` dentro de

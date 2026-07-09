@@ -396,6 +396,13 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
   `validado` remanentes quedan como `requiere_reconciliacion`.
 - [x] Emisión masiva por sublotes ARCA para grupos con mismo punto de venta y
   tipo, con fallback unitario explícito si `RegXReq` no está disponible
+- [x] Contención frontend post-incidente productivo de lote grande: el
+  seguimiento ya no presenta fallas temporales de resumen/detalle como lote
+  inexistente, el polling evita ciclos solapados y baja frecuencia. No cambia
+  emisión, ARCA, CAE, numeración, worker ni backend.
+- [ ] Robustez estructural post-incidente de lote grande: separar o limitar la
+  presión de seguimiento UI contra el pool de base, instrumentar worker/pool,
+  probar carga de lotes grandes y completar runbook privado de recuperación.
 
 ### UX de lotes
 - [x] Wizard de emisión masiva
@@ -677,7 +684,8 @@ Objetivo: ampliar valor mas alla del MVP.
 3. Convertir los detalles observados durante el uso real en un backlog
    priorizado: riesgos fiscales, UX, PDFs, reportes y soporte. El primer
    diagnóstico UX formalizado es carga masiva en
-   `docs/agents/lotes-ux-redesign.md`.
+   `docs/agents/lotes-ux-redesign.md`; el hallazgo productivo de seguimiento de
+   un lote grande queda separado como deuda operativa P1 de pool/worker.
 4. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
    de estado del sistema integrada al launcher cuando exista un canal seguro,
    logs útiles para soporte y mensajes simples para usuarios no técnicos.

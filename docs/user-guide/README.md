@@ -376,6 +376,12 @@ locales ya autorizados si puede hacerlo sin consultar ARCA; si queda cualquier
 pendiente o duda fiscal, el lote pasa a `Requiere reconciliación` y debe
 auditarse antes de continuar.
 
+Si la pantalla no puede refrescar el seguimiento por timeout o error del
+servidor, eso no significa por sí mismo que el lote haya desaparecido. No vuelvas
+a cargar ni emitir el mismo archivo hasta refrescar el estado, revisar la
+pantalla `Sistema > Estado` o pedir soporte para auditar/reconciliar antes de
+continuar.
+
 Para acelerar lotes grandes, FactuFlow consulta a ARCA cuántos comprobantes
 pueden enviarse por request (`RegXReq`) y divide la emisión en sublotes por
 punto de venta y tipo de comprobante. Esto no cambia la confirmación fiscal: el

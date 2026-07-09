@@ -148,6 +148,12 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   `Emisión masiva`, sin validar lotes, emitir ni llamar a ARCA.
 - Emisión masiva muestra progreso real de emisión para lotes chicos y grandes,
   con timer de tiempo transcurrido y estimacion restante.
+- Contención frontend post-incidente productivo de lote grande aplicada el
+  2026-07-08: ante fallas temporales de resumen/detalle, la UI ya no informa que
+  el lote desapareció; advierte que puede seguir existiendo o procesándose y
+  que no debe reemitirse hasta refrescar/reconciliar. El polling de seguimiento
+  baja frecuencia y evita ciclos solapados. No se tocó backend, ARCA, CAE,
+  numeración ni worker.
 - Selector de emisor activo implementado para que contadores independientes o
   estudios chicos operen varios emisores con un emisor activo explícito por vez.
 - La decisión de producto vigente evita una plataforma multiempresa compleja
@@ -182,6 +188,24 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   - perfiles Docker separados para desarrollo y producción con PostgreSQL
 
 ## Lo más importante que quedó hecho hoy
+
+### Contención de seguimiento de lotes grandes 2026-07-08
+
+- Se revisó el handoff privado del incidente productivo de un lote grande y se
+  documentó solo el resumen operativo sanitizado en el repo público.
+- El reporte backend más reciente de Clawpatch no contiene el hallazgo exacto de
+  saturación de pool por seguimiento UI durante emisión, aunque sí mantiene
+  findings relacionados de worker, concurrencia y performance para triage.
+- Corte aplicado en repo actual: mensajes de seguimiento más seguros, polling de
+  `/comprobantes/lotes` sin ciclos solapados y menor frecuencia de refresco.
+- Alcance fiscal: no solicita CAE, no cambia payloads ARCA, numeración,
+  idempotencia, reintentos, reconciliación, worker ni contratos backend.
+- Verificación ejecutada: test unitario enfocado de
+  `LotesComprobantesView.spec.ts`, `npm run type-check`, `npm run lint:check`
+  y `git diff --check`.
+- Pendiente P1: resolver la causa raíz estructural de presión sobre pool/worker,
+  sumar observabilidad dedicada y probar carga de lotes grandes en entorno
+  controlado antes de ampliar volumen productivo.
 
 ### Auditoría documental 2026-07-06
 
@@ -1856,6 +1880,11 @@ Quedó validado manualmente:
 - La evidencia privada de lotes productivos, CAEs, comprobantes, Excels y logs
   no debe versionarse. La documentación pública debe registrar solo resúmenes
   operativos sanitizados.
+- Hallazgo productivo nuevo 2026-07-08: el seguimiento UI de un lote grande pudo
+  competir con emisión por el pool de base y mostrar un mensaje engañoso de lote
+  no disponible. La contención frontend ya evita el mensaje inseguro y reduce la
+  presión de polling, pero la solución estructural de pool/worker/observabilidad
+  sigue pendiente como P1.
 - No existe todavía descarga masiva de PDFs en ZIP.
 - La descarga masiva de PDFs, archivos observados, ZIPs y otros artefactos
   descargables debe diseñarse para VPS con almacenamiento mínimo: generación
@@ -1910,7 +1939,8 @@ Para continuar desde el estado actual:
    `docs/agents/lotes-ux-redesign.md`.
 4. Mantener cerrado el rediseño secuencial documentado de `/comprobantes/lotes`
    y volver a priorizar robustez operativa post-piloto sin tocar contratos ni
-   lógica fiscal salvo pedido explícito.
+   lógica fiscal salvo pedido explícito. El primer P1 operativo nuevo es cerrar
+   la causa raíz de presión pool/worker detectada en seguimiento de lote grande.
 5. Validar la política de almacenamiento mínimo para VPS usando el gestor
    administrativo: qué queda persistido, qué se genera bajo demanda y cómo se
    limpian PDFs, ZIPs, observados y temporales no vitales.
