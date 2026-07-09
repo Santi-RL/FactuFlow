@@ -160,6 +160,21 @@
   elevados en comandos de escritura Git (`git add`, `git commit`, `git push`) con
   justificacion breve. Los comandos de lectura (`git status`, `git diff`,
   `git log`) pueden ejecutarse normalmente salvo que el entorno los bloquee.
+- En este workspace de Windows, el sandbox de Codex falla de forma recurrente
+  incluso en comandos de lectura con `helper_unknown_error` y errores de ACL.
+  Para comandos cuyo `workdir` esté dentro de
+  `C:\Users\SANTI\Documents\Proyectos\FactuFlow` y que solo lean, modifiquen o
+  validen archivos del repositorio, usar `require_escalated` desde el primer
+  intento cuando sea previsible ese mismo fallo. Esto incluye búsquedas,
+  lecturas, tests, lint, formato, builds, Clawpatch, `autoreview` y operaciones
+  Git permitidas por el flujo vigente. No hacer primero un intento dentro del
+  sandbox si ya se confirmó esa limitación en la sesión.
+- Esta autorización queda limitada al workspace de FactuFlow. No habilita
+  borrados destructivos, `git reset --hard`, reversión de trabajo ajeno, acceso
+  o escritura fuera del proyecto, exposición de secretos o datos privados,
+  despliegues ni `git push` sin el pedido correspondiente. `apply_patch` no
+  admite elevación: si falla por la ACL conocida, no repetirlo y usar de
+  inmediato un reemplazo exacto y verificado con permisos elevados.
 
 ## Producción, despliegue y auditoría
 - El flujo productivo recomendado está documentado en
