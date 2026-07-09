@@ -347,6 +347,7 @@ frontend/
 ```bash
 # Backend
 CERTS_PATH=./certs                    # Path de certificados
+CERTIFICATE_MAX_UPLOAD_BYTES=65536    # Límite de upload de .crt/.cer/.pem
 AFIP_CERTS_PATH=./certs              # Alias compatible
 ARCA_ENV=homologacion                # Ambiente ARCA
 ```

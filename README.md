@@ -168,6 +168,7 @@ resetear su contraseña.
 
 - `ARCA_ENV`: `homologacion` o `produccion`
 - `CERTS_PATH`: carpeta de certificados
+- `CERTIFICATE_MAX_UPLOAD_BYTES`: tamaño máximo para subir certificados ARCA
 - `BATCH_SYNC_LIMIT`: máximo de comprobantes para procesamiento síncrono
 - `BATCH_MAX_ROWS`: límite de filas del Excel
 - `BATCH_MAX_GROUPS`: límite de comprobantes por lote

@@ -300,6 +300,101 @@ class TestCertificadosAPI:
         assert response.status_code == 400
         assert not saved_path.exists()
 
+    async def test_subir_certificado_rechaza_archivo_sobredimensionado(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        test_empresa,
+        tmp_path: Path,
+        monkeypatch,
+    ):
+        """Un upload de certificado mayor al límite se rechaza sin guardarse."""
+        from app.services.certificados_service import CertificadosService
+
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+        monkeypatch.setattr(settings, "certificate_max_upload_bytes", 8)
+        key_filename = (
+            f"{test_empresa.cuit}_homologacion_20260516_120000_"
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.key"
+        )
+        (tmp_path / key_filename).write_bytes(b"clave")
+
+        async def fail_guardar_certificado(*_args, **_kwargs):
+            raise AssertionError("No debe persistir certificados sobredimensionados")
+
+        monkeypatch.setattr(
+            CertificadosService, "guardar_certificado", fail_guardar_certificado
+        )
+
+        response = await client.post(
+            "/api/certificados/subir-certificado",
+            headers=auth_headers,
+            files={
+                "file": (
+                    "certificado.crt",
+                    b"123456789",
+                    "application/pkix-cert",
+                )
+            },
+            data={
+                "cuit": test_empresa.cuit,
+                "nombre": "Certificado sobredimensionado",
+                "ambiente": "homologacion",
+                "key_filename": key_filename,
+            },
+        )
+
+        assert response.status_code == 413
+        assert "tamaño máximo" in response.json()["detail"]
+        assert not list(tmp_path.glob("*.crt"))
+
+    async def test_subir_certificado_rechaza_body_chunked_sin_parsear_endpoint(
+        self, monkeypatch
+    ):
+        """El límite HTTP debe cortar también uploads sin Content-Length."""
+        from app import main as main_module
+
+        endpoint_invocado = False
+        monkeypatch.setattr(settings, "certificate_max_upload_bytes", 4)
+        monkeypatch.setattr(
+            main_module, "CERTIFICATE_UPLOAD_MULTIPART_OVERHEAD_BYTES", 0
+        )
+
+        async def downstream_app(scope, receive, send):
+            nonlocal endpoint_invocado
+            endpoint_invocado = True
+
+        middleware = main_module.CertificateUploadSizeLimitMiddleware(downstream_app)
+        mensajes = [
+            {"type": "http.request", "body": b"123", "more_body": True},
+            {"type": "http.request", "body": b"45", "more_body": False},
+        ]
+        enviados = []
+
+        async def receive():
+            return mensajes.pop(0)
+
+        async def send(message):
+            enviados.append(message)
+
+        await middleware(
+            {
+                "type": "http",
+                "asgi": {"version": "3.0"},
+                "method": "POST",
+                "path": "/api/certificados/subir-certificado",
+                "raw_path": b"/api/certificados/subir-certificado",
+                "query_string": b"",
+                "headers": [],
+            },
+            receive,
+            send,
+        )
+
+        assert endpoint_invocado is False
+        assert enviados[0]["type"] == "http.response.start"
+        assert enviados[0]["status"] == 413
+
     async def test_subir_certificado_desactiva_activo_previo(
         self,
         client: AsyncClient,
@@ -598,6 +693,26 @@ class TestCertificadosService:
         assert first_filename != second_filename
         assert Path(first_key_path).exists()
         assert Path(second_key_path).exists()
+
+    async def test_guardar_certificado_rechaza_contenido_sobredimensionado(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """El servicio también bloquea contenido mayor al límite configurado."""
+        from app.arca.exceptions import ArcaCertificateError
+        from app.services.certificados_service import CertificadosService
+
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+        monkeypatch.setattr(settings, "certificate_max_upload_bytes", 4)
+        service = CertificadosService()
+
+        with pytest.raises(ArcaCertificateError, match="tamaño máximo"):
+            await service.guardar_certificado(
+                b"12345",
+                cuit="20123456789",
+                ambiente="homologacion",
+            )
+
+        assert not list(tmp_path.glob("*.crt"))
 
     async def test_calcular_estado_service(self):
         """Test estado calculation."""

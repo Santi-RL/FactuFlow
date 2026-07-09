@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     arca_token_cache_path: str = Field(
         default="./data/arca_token_cache.json", alias="ARCA_TOKEN_CACHE_PATH"
     )
+    certificate_max_upload_bytes: int = Field(
+        default=64 * 1024, alias="CERTIFICATE_MAX_UPLOAD_BYTES"
+    )
     batch_sync_limit: int = Field(default=100, alias="BATCH_SYNC_LIMIT")
     batch_max_upload_bytes: int = Field(
         default=10 * 1024 * 1024, alias="BATCH_MAX_UPLOAD_BYTES"

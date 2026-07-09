@@ -46,6 +46,41 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+CERTIFICATE_UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+def _formatear_limite_upload(max_bytes: int) -> str:
+    """Formatea un límite de bytes para mensajes de error de upload."""
+    if max_bytes >= 1024 * 1024 and max_bytes % (1024 * 1024) == 0:
+        return f"{max_bytes // (1024 * 1024)} MB"
+    if max_bytes >= 1024 and max_bytes % 1024 == 0:
+        return f"{max_bytes // 1024} KB"
+    return f"{max_bytes} bytes"
+
+
+async def _leer_certificado_con_limite(file: UploadFile) -> bytes:
+    """Lee un upload de certificado sin superar el máximo configurado."""
+    chunks: list[bytes] = []
+    total = 0
+    max_bytes = settings.certificate_max_upload_bytes
+
+    while True:
+        chunk = await file.read(CERTIFICATE_UPLOAD_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(
+                    "El certificado supera el tamaño máximo permitido "
+                    f"de {_formatear_limite_upload(max_bytes)}"
+                ),
+            )
+        chunks.append(chunk)
+
+    return b"".join(chunks)
+
 
 def _eliminar_archivo_guardado(ruta: str | Path | None) -> None:
     """Elimina un archivo recién guardado si la operación no llega a persistirse."""
@@ -455,8 +490,8 @@ async def subir_certificado(
                 detail="Clave privada no encontrada. Por favor generá el CSR nuevamente.",
             )
 
-        # Leer contenido del archivo
-        contenido = await file.read()
+        # Leer contenido del archivo con límite para no cargar entradas abusivas.
+        contenido = await _leer_certificado_con_limite(file)
 
         # Guardar certificado temporalmente
         cert_path = await service.guardar_certificado(contenido, cuit, ambiente)

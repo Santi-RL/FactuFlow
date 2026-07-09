@@ -90,6 +90,7 @@ ignorada y dejar solo una descripción redactada en la documentación.
   placeholders públicos.
 - `DATABASE_URL`
 - `CERTS_PATH`
+- `CERTIFICATE_MAX_UPLOAD_BYTES`
 - `ARCA_PRIVATE_KEY_PASSWORD`
 - `ARCA_MIGRATION_TARGET_KEY_PASSWORD` solo para exportación local privada
 - `ARCA_MIGRATION_SOURCE_KEY_PASSWORD` solo si las claves fuente ya están

@@ -246,6 +246,11 @@ Flujo real:
 `verificar-conexion` prueba WSAA/ARCA con el certificado y no emite
 comprobantes ni consume numeración fiscal.
 
+`subir-certificado` acepta `.crt`, `.cer` o `.pem` y rechaza archivos que
+superen `CERTIFICATE_MAX_UPLOAD_BYTES` antes del parseo multipart y de la
+persistencia. `key_filename` debe ser una clave privada administrada por
+FactuFlow para el CUIT y ambiente del emisor activo.
+
 ## ARCA
 
 ```http

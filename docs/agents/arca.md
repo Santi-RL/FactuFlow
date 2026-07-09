@@ -26,6 +26,8 @@
 
 - `ARCA_ENV`: `homologacion` o `produccion`
 - `CERTS_PATH`: base path de certificados
+- `CERTIFICATE_MAX_UPLOAD_BYTES`: tamaño máximo para subir certificados antes
+  de persistirlos
 - `ARCA_PRIVATE_KEY_PASSWORD`: contraseña local para cifrar claves privadas
   nuevas. Si no se define, se usa `APP_SECRET_KEY`.
 - `ARCA_TOKEN_CACHE_PATH`: cache persistente de tickets WSAA
@@ -114,6 +116,8 @@
 - Los paths que resuelven fuera de `CERTS_PATH` se rechazan. El upload de
   certificados solo acepta nombres de clave generados por FactuFlow para el
   CUIT y ambiente del emisor activo.
+- El archivo público del certificado se lee con límite y se rechaza si supera
+  `CERTIFICATE_MAX_UPLOAD_BYTES`, antes de persistir un `.crt` nuevo.
 - Las claves privadas nuevas se guardan cifradas. Las claves legacy sin cifrar
   siguen pudiendo leerse para no romper certificados existentes, pero no se
   generan claves nuevas sin cifrado salvo que no exista ninguna contraseña de

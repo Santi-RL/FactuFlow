@@ -26,6 +26,8 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   que los lotes de productos no fallen por campos de servicio que no aplican.
   El cache WSAA ahora queda scopiado por huella de certificado para evitar
   reutilizar Token/Sign entre certificados distintos del mismo CUIT y ambiente.
+  El upload de certificados ARCA ahora rechaza archivos que superen
+  `CERTIFICATE_MAX_UPLOAD_BYTES` antes del parseo multipart y la persistencia.
 - Producción ya rechaza `APP_SECRET_KEY` vacío, corto o igual a los placeholders
   públicos de configuración para evitar firmar JWT con secretos conocidos.
 - Backend ya registra formatos configurables de importación para lotes masivos,

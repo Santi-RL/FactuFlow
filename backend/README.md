@@ -250,6 +250,7 @@ Principales:
 - `DATABASE_URL` - URL de conexión a la base de datos
 - `ARCA_ENV` - Ambiente de ARCA (`homologacion`/`produccion`)
 - `CERTS_PATH` - Carpeta donde se guardan certificados
+- `CERTIFICATE_MAX_UPLOAD_BYTES` - Tamaño máximo para subir certificados ARCA
 - `BATCH_SYNC_LIMIT` - Corte entre procesamiento síncrono y background
 - `BATCH_WORKER_ENABLED` - Worker para lotes grandes en segundo plano
 - `CORS_ORIGINS` - Orígenes permitidos para CORS

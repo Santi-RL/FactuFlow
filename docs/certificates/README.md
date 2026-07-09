@@ -127,6 +127,8 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
    **Paso 2: Subir Archivos**
    - Subir certificado `.crt` descargado de ARCA
    - Subir clave privada `.key` generada en Paso 1
+   - El archivo de certificado debe ser pequeño; si supera
+     `CERTIFICATE_MAX_UPLOAD_BYTES`, FactuFlow lo rechaza antes de guardarlo
 
    **Paso 3: Verificar Datos**
    - FactuFlow extraerá automáticamente:

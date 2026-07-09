@@ -695,6 +695,10 @@ directorio de certificados configurado y cifradas por la aplicación. Si subís
 una renovación para el mismo emisor y ambiente, FactuFlow deja activo el
 certificado nuevo y conserva el anterior como histórico inactivo.
 
+Los archivos de certificado de ARCA son pequeños. Si el `.crt`, `.cer` o `.pem`
+supera el límite técnico `CERTIFICATE_MAX_UPLOAD_BYTES`, FactuFlow lo rechaza
+antes de guardarlo para proteger memoria y almacenamiento del servidor.
+
 En la pantalla actual puedes:
 - ver nombre, CUIT, ambiente y vencimiento
 - agregar un certificado

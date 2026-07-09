@@ -270,6 +270,8 @@ El proyecto tuvo que corregir estas estructuras:
   y valor legacy con prefijo `certs/`.
 - El upload de certificados no acepta paths arbitrarios en `key_filename`: debe
   ser una clave generada por FactuFlow para el CUIT y ambiente activos.
+- El upload de certificados rechaza archivos mayores que
+  `CERTIFICATE_MAX_UPLOAD_BYTES` antes de guardar un `.crt` nuevo.
 - Las claves privadas nuevas se cifran con `ARCA_PRIVATE_KEY_PASSWORD` o, si no
   está configurada, con `APP_SECRET_KEY`. Las claves legacy sin cifrar se pueden
   seguir leyendo para continuidad operativa.

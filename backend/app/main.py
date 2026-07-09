@@ -5,6 +5,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import app.models  # noqa: F401
 from app.core.config import settings
@@ -27,6 +29,83 @@ from app.api import (
     reportes,
     usuarios,
 )
+
+CERTIFICATE_UPLOAD_PATH = "/api/certificados/subir-certificado"
+CERTIFICATE_UPLOAD_MULTIPART_OVERHEAD_BYTES = 16 * 1024
+
+
+class CertificateUploadSizeLimitMiddleware:
+    """Rechaza uploads de certificados antes del parseo multipart."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Inicializa el middleware ASGI."""
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Limita el cuerpo HTTP del endpoint de certificados."""
+        if not self._debe_limitar(scope):
+            await self.app(scope, receive, send)
+            return
+
+        max_body_bytes = (
+            settings.certificate_max_upload_bytes
+            + CERTIFICATE_UPLOAD_MULTIPART_OVERHEAD_BYTES
+        )
+        if self._content_length_supera_limite(scope, max_body_bytes):
+            await self._rechazar(scope, receive, send)
+            return
+
+        mensajes: list[Message] = []
+        total = 0
+        while True:
+            message = await receive()
+            mensajes.append(message)
+            if message["type"] != "http.request":
+                break
+
+            total += len(message.get("body", b""))
+            if total > max_body_bytes:
+                await self._rechazar(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        async def replay_receive() -> Message:
+            if mensajes:
+                return mensajes.pop(0)
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        await self.app(scope, replay_receive, send)
+
+    def _debe_limitar(self, scope: Scope) -> bool:
+        """Indica si el request corresponde al upload de certificados."""
+        return (
+            scope["type"] == "http"
+            and scope.get("method") == "POST"
+            and scope.get("path") == CERTIFICATE_UPLOAD_PATH
+        )
+
+    def _content_length_supera_limite(self, scope: Scope, max_body_bytes: int) -> bool:
+        """Evalúa Content-Length antes de recibir el cuerpo del request."""
+        headers = dict(scope.get("headers") or [])
+        raw_content_length = headers.get(b"content-length")
+        if raw_content_length is None:
+            return False
+        try:
+            content_length = int(raw_content_length.decode("ascii"))
+        except ValueError:
+            return False
+        return content_length > max_body_bytes
+
+    async def _rechazar(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Devuelve una respuesta 413 uniforme para certificados grandes."""
+        response = JSONResponse(
+            status_code=413,
+            content={
+                "detail": "El certificado supera el tamaño máximo permitido",
+            },
+        )
+        await response(scope, receive, send)
 
 
 def configure_logging() -> None:
@@ -53,6 +132,8 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
+
+app.add_middleware(CertificateUploadSizeLimitMiddleware)
 
 # CORS
 app.add_middleware(

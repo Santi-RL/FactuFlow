@@ -192,6 +192,19 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   `test_arca/test_wsaa.py`, camino `get_wsfe_client` y verificación de
   certificado sin cache. No se llamó ARCA real ni se solicitó CAE.
 
+### Upload de certificados con límite de tamaño 2026-07-09
+
+- Alcance revisado: `POST /api/certificados/subir-certificado`, persistencia de
+  `.crt` en `CertificadosService` y configuración `CERTIFICATE_MAX_UPLOAD_BYTES`.
+- Política validada: el backend limita el cuerpo HTTP del upload antes del
+  parseo multipart, responde `413` si supera el máximo configurado y no guarda
+  archivos nuevos. El endpoint y el servicio mantienen guardas secundarias si
+  se invocan desde otro camino interno.
+- Verificación automatizada: `pytest tests/test_certificados.py`,
+  `tests/test_certificados_scope.py` y `tests/test_puntos_venta.py -q`:
+  33 tests aprobados. No se llamó ARCA real, no se solicitó CAE y no
+  se usaron certificados privados.
+
 ### Seguimiento de lotes grandes - contención post-incidente 2026-07-08
 
 - Alcance revisado: `/comprobantes/lotes` cuando falla temporalmente la carga de

@@ -137,6 +137,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   rechaza numeración para puntos no Web Services con error de negocio
 - [x] Uploads de lotes limitados por `BATCH_MAX_UPLOAD_BYTES` y XLSX
   malformados rechazados antes de validar
+- [x] Uploads de certificados ARCA limitados por
+  `CERTIFICATE_MAX_UPLOAD_BYTES` antes de persistir archivos nuevos
 - [x] Concepto fiscal ARCA explícito; no se asume productos o servicios por defecto
 - [~] Descripción/concepto facturado del ítem documentado como dato separado
   del concepto fiscal ARCA; debe venir del archivo o de un valor fijo confirmado
@@ -531,7 +533,8 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   certificados post-commit, importación de puntos de venta sin estado ARCA,
   corrección del subdiario IVA para comprobantes autorizados con IVA cero,
   rechazo de secretos JWT productivos inseguros, cuantización Decimal de
-  importes WSFE y preservación de historial ante borrado físico de emisores.
+  importes WSFE, preservación de historial ante borrado físico de emisores,
+  cache WSAA scopiado por certificado y límite de upload de certificados.
 - [x] Reportes IVA calculan notas de crédito con signo negativo, incluyen
   comprobantes C con IVA cero como exentos, ítems A/B con IVA cero como no
   gravados y el detalle de subdiario incluye gravado e IVA 27%

@@ -36,6 +36,15 @@ MANAGED_CERT_FILENAME_RE = re.compile(
 )
 
 
+def _formatear_limite_upload(max_bytes: int) -> str:
+    """Formatea un límite de bytes para mensajes de error de upload."""
+    if max_bytes >= 1024 * 1024 and max_bytes % (1024 * 1024) == 0:
+        return f"{max_bytes // (1024 * 1024)} MB"
+    if max_bytes >= 1024 and max_bytes % 1024 == 0:
+        return f"{max_bytes // 1024} KB"
+    return f"{max_bytes} bytes"
+
+
 def _certs_base_path() -> Path:
     """Resuelve el directorio administrado de certificados."""
     return Path(settings.certs_path).resolve()
@@ -360,6 +369,13 @@ class CertificadosService:
         Raises:
             ArcaCertificateError: Si hay error al guardar
         """
+        max_bytes = settings.certificate_max_upload_bytes
+        if len(contenido) > max_bytes:
+            raise ArcaCertificateError(
+                "El certificado supera el tamaño máximo permitido "
+                f"de {_formatear_limite_upload(max_bytes)}"
+            )
+
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             cert_filename = f"{cuit}_{ambiente}_{timestamp}_{uuid4().hex}.crt"
