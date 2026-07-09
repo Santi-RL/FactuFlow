@@ -1,7 +1,9 @@
 """Cliente para el Web Service de Autenticación y Autorización (WSAA) de ARCA."""
 
+import hashlib
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 from xml.etree import ElementTree as ET
 
@@ -78,12 +80,13 @@ class WSAAClient:
             ArcaConnectionError: Si hay error de conexión
         """
         cuit_clean = clean_cuit(cuit)
+        cert_fingerprint = self._certificate_fingerprint(cert_path)
+        cache_key = self.cache.get_cache_key(
+            servicio, cuit_clean, self.config.ambiente.value, cert_fingerprint
+        )
 
         # Verificar cache si no se fuerza nuevo ticket
         if not force_new:
-            cache_key = self.cache.get_cache_key(
-                servicio, cuit_clean, self.config.ambiente.value
-            )
             cached_ticket = await self.cache.get(cache_key)
 
             if cached_ticket:
@@ -110,10 +113,7 @@ class WSAAClient:
             # Parsear respuesta
             ticket = self._parse_response(response, servicio)
 
-            # Guardar en cache
-            cache_key = self.cache.get_cache_key(
-                servicio, cuit_clean, self.config.ambiente.value
-            )
+            # Guardar en cache bajo la identidad del certificado usado.
             await self.cache.set(cache_key, ticket)
 
             logger.info(f"Ticket obtenido exitosamente. Expira: {ticket.expiracion}")
@@ -192,17 +192,40 @@ class WSAAClient:
         except Exception as e:
             raise ArcaAuthError(f"Error al procesar respuesta del WSAA: {str(e)}")
 
-    async def invalidate_cache(self, cuit: str, servicio: str = "wsfe") -> None:
+    def _certificate_fingerprint(self, cert_path: str) -> str:
+        """Calcula la huella SHA-256 del certificado usado para WSAA."""
+        try:
+            return hashlib.sha256(Path(cert_path).read_bytes()).hexdigest()
+        except OSError as exc:
+            raise ArcaAuthError(
+                "No se pudo leer el certificado para autenticar con ARCA"
+            ) from exc
+
+    async def invalidate_cache(
+        self, cuit: str, servicio: str = "wsfe", cert_path: str | None = None
+    ) -> None:
         """
-        Invalida el ticket en cache para un servicio y CUIT específico.
+        Invalida tickets en cache para un servicio, CUIT y certificado.
 
         Args:
             cuit: CUIT de la empresa
             servicio: Servicio (default: "wsfe")
+            cert_path: Certificado concreto a invalidar. Si se omite, elimina
+                todos los tickets versionados para el CUIT, ambiente y servicio.
         """
         cuit_clean = clean_cuit(cuit)
-        cache_key = self.cache.get_cache_key(
-            servicio, cuit_clean, self.config.ambiente.value
-        )
-        await self.cache.delete(cache_key)
+        ambiente = self.config.ambiente.value
+        if cert_path:
+            cache_key = self.cache.get_cache_key(
+                servicio,
+                cuit_clean,
+                ambiente,
+                self._certificate_fingerprint(cert_path),
+            )
+            await self.cache.delete(cache_key)
+        else:
+            await self.cache.delete_prefix(
+                self.cache.get_cache_prefix(servicio, cuit_clean, ambiente)
+            )
+            await self.cache.delete(f"{servicio}_{cuit_clean}_{ambiente}")
         logger.info(f"Cache invalidado para {servicio} - CUIT: {cuit_clean}")

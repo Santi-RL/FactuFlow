@@ -294,6 +294,8 @@ Objetivo: dejar la emisión validada contra servicios reales.
 - [x] Firma y login CMS
 - [x] Obtencion de Token y Sign
 - [x] Cache persistente de tickets
+- [x] Cache WSAA scopiado por certificado para que Token/Sign no se reutilicen
+  entre certificados distintos del mismo CUIT y ambiente
 - [ ] Política de invalidacion/rotacion mas robusta
 
 ### WSFEv1

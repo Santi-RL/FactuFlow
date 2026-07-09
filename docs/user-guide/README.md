@@ -714,7 +714,9 @@ fallar si no está asociado a ese servicio.
 Antes de emitir comprobantes reales en producción, usa `Probar conexión` sobre
 el certificado productivo del emisor activo. La prueba valida la comunicación
 con ARCA usando ese certificado, sin generar comprobantes ni consumir
-numeración fiscal.
+numeración fiscal. Los tickets técnicos de ARCA quedan asociados al certificado
+que los generó, por lo que una renovación no reutiliza credenciales cacheadas de
+otro certificado del mismo emisor.
 
 En `Puntos de venta`, la sincronización con ARCA se habilita solo cuando existe
 un certificado activo del emisor para el ambiente backend actual

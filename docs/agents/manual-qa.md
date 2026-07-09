@@ -181,6 +181,17 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   `black --check` y `npm run type-check`. No se llamó ARCA real ni se solicitó
   CAE.
 
+### Cache WSAA por certificado 2026-07-09
+
+- Alcance revisado: cache persistente de tickets WSAA, cliente WSAA y caminos
+  de verificación de certificados / creación de cliente WSFE.
+- Política validada: un Token/Sign obtenido con un certificado no se reutiliza
+  con otro certificado del mismo CUIT y ambiente. La clave del cache incluye la
+  huella SHA-256 del certificado público usado para autenticar.
+- Verificación automatizada: tests enfocados de `test_arca/test_cache.py`,
+  `test_arca/test_wsaa.py`, camino `get_wsfe_client` y verificación de
+  certificado sin cache. No se llamó ARCA real ni se solicitó CAE.
+
 ### Seguimiento de lotes grandes - contención post-incidente 2026-07-08
 
 - Alcance revisado: `/comprobantes/lotes` cuando falla temporalmente la carga de

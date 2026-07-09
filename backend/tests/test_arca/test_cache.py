@@ -95,6 +95,27 @@ class TestTokenCache:
 
         assert result is None
 
+    async def test_delete_prefix(self, tmp_path):
+        """Debe eliminar tickets por prefijo versionado."""
+        cache = self.build_cache(tmp_path)
+        ticket = TicketAcceso(
+            token="test_token",
+            sign="test_sign",
+            expiracion=datetime.now(timezone.utc) + timedelta(hours=12),
+            servicio="wsfe",
+        )
+
+        await cache.set("v2_wsfe_20123456789_homologacion_cert-a", ticket)
+        await cache.set("v2_wsfe_20123456789_homologacion_cert-b", ticket)
+        await cache.set("v2_wsfe_20987654321_homologacion_cert-c", ticket)
+
+        deleted = await cache.delete_prefix("v2_wsfe_20123456789_homologacion_")
+
+        assert deleted == 2
+        assert await cache.get("v2_wsfe_20123456789_homologacion_cert-a") is None
+        assert await cache.get("v2_wsfe_20123456789_homologacion_cert-b") is None
+        assert await cache.get("v2_wsfe_20987654321_homologacion_cert-c") is not None
+
     async def test_clear_cache(self, tmp_path):
         """Debe limpiar todo el cache."""
         cache = self.build_cache(tmp_path)
@@ -186,9 +207,16 @@ class TestTokenCache:
             assert file_mode == stat.S_IRUSR | stat.S_IWUSR
 
     def test_get_cache_key(self, tmp_path):
-        """Debe generar clave de cache correcta."""
+        """Debe generar clave de cache scopiada por certificado."""
         cache = self.build_cache(tmp_path)
 
-        key = cache.get_cache_key("wsfe", "20123456789", "homologacion")
+        key = cache.get_cache_key("wsfe", "20123456789", "homologacion", "ABC123")
 
-        assert key == "wsfe_20123456789_homologacion"
+        assert key == "v2_wsfe_20123456789_homologacion_abc123"
+
+    def test_get_cache_key_requiere_certificado(self, tmp_path):
+        """Debe rechazar claves que no identifiquen el certificado."""
+        cache = self.build_cache(tmp_path)
+
+        with pytest.raises(ValueError):
+            cache.get_cache_key("wsfe", "20123456789", "homologacion", "")

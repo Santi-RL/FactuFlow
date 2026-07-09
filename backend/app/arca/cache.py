@@ -74,6 +74,16 @@ class TokenCache:
             self._cache.pop(key, None)
             self._save_to_disk()
 
+    async def delete_prefix(self, prefix: str) -> int:
+        """Elimina todos los tickets cuya clave coincide con el prefijo."""
+        async with self._lock:
+            matching_keys = [key for key in self._cache if key.startswith(prefix)]
+            for key in matching_keys:
+                del self._cache[key]
+            if matching_keys:
+                self._save_to_disk()
+            return len(matching_keys)
+
     async def clear(self) -> None:
         """Limpia todo el cache."""
         async with self._lock:
@@ -121,7 +131,9 @@ class TokenCache:
         expiration_threshold = expiration - timedelta(minutes=margin_minutes)
         return now >= expiration_threshold
 
-    def get_cache_key(self, servicio: str, cuit: str, ambiente: str) -> str:
+    def get_cache_key(
+        self, servicio: str, cuit: str, ambiente: str, cert_fingerprint: str
+    ) -> str:
         """
         Genera una clave de cache.
 
@@ -129,11 +141,19 @@ class TokenCache:
             servicio: Servicio (ej: "wsfe")
             cuit: CUIT de la empresa
             ambiente: Ambiente (homologacion/produccion)
+            cert_fingerprint: Huella SHA-256 del certificado usado
 
         Returns:
             Clave de cache
         """
-        return f"{servicio}_{cuit}_{ambiente}"
+        cert_identity = cert_fingerprint.strip().lower()
+        if not cert_identity:
+            raise ValueError("La identidad del certificado es obligatoria")
+        return f"v2_{servicio}_{cuit}_{ambiente}_{cert_identity}"
+
+    def get_cache_prefix(self, servicio: str, cuit: str, ambiente: str) -> str:
+        """Genera el prefijo versionado para invalidar tickets relacionados."""
+        return f"v2_{servicio}_{cuit}_{ambiente}_"
 
     def _load_from_disk(self) -> None:
         """Carga tickets persistidos desde disco si existen."""

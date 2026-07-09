@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 2026-07-07
+Última actualización: 2026-07-09
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -249,7 +249,10 @@ El proyecto tuvo que corregir estas estructuras:
 
 - Antes el cache era solo en memoria.
 - Ahora persiste en disco para evitar depender del proceso actual.
-- Archivo actual: `backend/data/arca_token_cache.json`
+- Archivo actual: `backend/data/arca_token_cache.json`.
+- La clave del cache incluye servicio, CUIT, ambiente y huella SHA-256 del
+  certificado público. Un ticket obtenido con un certificado no debe
+  reutilizarse con otro certificado del mismo CUIT y ambiente.
 
 ### 7. CUIT correcto para WSFE
 

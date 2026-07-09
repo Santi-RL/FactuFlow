@@ -92,6 +92,18 @@
   venta y el `cliente_id` opcional pertenezcan a la empresa activa. Si no
   coinciden, la emisión se rechaza localmente y no se llama a WSFE.
 
+### Cache WSAA y rotación de certificados
+
+- El cache persistente de tickets WSAA se guarda en `ARCA_TOKEN_CACHE_PATH`, pero
+  cada entrada queda scopiada por servicio, CUIT representado, ambiente y huella
+  SHA-256 del certificado público que generó el Token/Sign.
+- `Probar conexión` puede forzar un login WSAA para el certificado seleccionado;
+  ese ticket no debe ser reutilizable por el certificado activo si el material
+  del certificado es distinto.
+- Al renovar certificados para el mismo emisor y ambiente, el certificado nuevo
+  obtiene o reutiliza solo tickets asociados a su propia huella. Esto evita
+  operar WSFE con credenciales cacheadas de un certificado anterior o no activo.
+
 ### Paths legacy de certificados
 
 - La base local puede contener valores legacy como `certs/archivo.crt`.
