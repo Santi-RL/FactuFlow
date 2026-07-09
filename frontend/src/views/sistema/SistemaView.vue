@@ -153,6 +153,7 @@ const certificadoDiasRestantes = computed(() => {
 const certificadoEstado = computed<EstadoOperativo>(() => {
   if (!arcaStatus.value) return "no_disponible";
   if (!arcaStatus.value.certificado_activo) return "no_disponible";
+  if (!arcaStatus.value.certificado_disponible) return "no_disponible";
   const dias = certificadoDiasRestantes.value;
   if (dias !== null && dias <= 0) return "no_disponible";
   if (dias !== null && dias <= 30) return "necesita_atencion";
@@ -169,6 +170,9 @@ const certificadoDetalle = computed(() => {
   if (!arcaStatus.value) return "Sin datos de certificado.";
   if (!arcaStatus.value.certificado_activo) {
     return "No hay certificado activo para el ambiente configurado.";
+  }
+  if (!arcaStatus.value.certificado_disponible) {
+    return "El certificado activo no tiene disponibles sus archivos locales.";
   }
   const vencimiento = formatDateTime(arcaStatus.value.certificado_vencimiento);
   const dias = certificadoDiasRestantes.value;

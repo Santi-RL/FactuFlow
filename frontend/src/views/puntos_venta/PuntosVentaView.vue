@@ -25,7 +25,7 @@ const puntosVentaStore = usePuntosVentaStore();
 const empresaStore = useEmpresaStore();
 const { showSuccess, showError, showWarning } = useNotification();
 
-const tieneCertificadoActivo = ref(false);
+const tieneCertificadoDisponible = ref(false);
 const ambienteArcaActual = ref<"homologacion" | "produccion" | null>(null);
 const cargandoCertificados = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -110,14 +110,14 @@ const cargarCertificados = async (
       empresaStore.empresaActivaId === empresaIdSolicitada
     ) {
       ambienteArcaActual.value = status.ambiente;
-      tieneCertificadoActivo.value = status.certificado_activo;
+      tieneCertificadoDisponible.value = status.certificado_disponible;
     }
   } catch (err: any) {
     if (
       requestId === cargarCertificadosRequestId &&
       empresaStore.empresaActivaId === empresaIdSolicitada
     ) {
-      tieneCertificadoActivo.value = false;
+      tieneCertificadoDisponible.value = false;
     }
   } finally {
     if (requestId === cargarCertificadosRequestId) {
@@ -149,10 +149,10 @@ const irACertificados = () => {
 };
 
 const sincronizar = async () => {
-  if (!tieneCertificadoActivo.value) {
+  if (!tieneCertificadoDisponible.value) {
     showWarning(
-      "Certificado requerido",
-      `Carga un certificado activo para el ambiente ${ambienteArcaActual.value || "actual"} antes de sincronizar`,
+      "Certificado no disponible",
+      `Cargá un certificado o restaurá sus archivos para el ambiente ${ambienteArcaActual.value || "actual"} antes de sincronizar`,
     );
     return;
   }
@@ -282,7 +282,7 @@ watch(
         </BaseButton>
         <BaseButton
           :disabled="
-            !tieneCertificadoActivo ||
+            !tieneCertificadoDisponible ||
               puntosVentaStore.syncing ||
               cargandoCertificados
           "
@@ -310,9 +310,9 @@ watch(
     </div>
 
     <BaseAlert
-      v-if="!cargandoCertificados && !tieneCertificadoActivo"
+      v-if="!cargandoCertificados && !tieneCertificadoDisponible"
       type="warning"
-      title="Certificado requerido"
+      title="Certificado no disponible"
       :dismissible="false"
       class="mb-6"
     >
@@ -320,9 +320,9 @@ watch(
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <span>
-          No se pueden sincronizar los puntos de venta si no hay un certificado
-          activo cargado para el ambiente
-          {{ ambienteArcaActual || "actual" }}.
+          Para sincronizar, el certificado activo del ambiente
+          {{ ambienteArcaActual || "actual" }} debe conservar sus archivos
+          locales.
         </span>
         <BaseButton
           variant="secondary"

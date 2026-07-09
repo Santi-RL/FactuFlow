@@ -206,6 +206,7 @@ describe("SistemaView", () => {
     mockedArcaService.getStatus.mockResolvedValue({
       ambiente: "produccion",
       certificado_activo: true,
+      certificado_disponible: true,
       certificado_id: 3,
       certificado_nombre: "Certificado productivo",
       certificado_vencimiento: "2028-05-04T00:00:00",
@@ -253,6 +254,25 @@ describe("SistemaView", () => {
     expect(mockedService.certificadosHuerfanos).not.toHaveBeenCalled();
     expect(mockedArcaService.testConnection).not.toHaveBeenCalled();
   });
+
+  it("marca el certificado como no disponible si faltan sus archivos locales", async () => {
+    mockedArcaService.getStatus.mockResolvedValueOnce({
+      ambiente: "produccion",
+      certificado_activo: true,
+      certificado_disponible: false,
+      certificado_id: 3,
+      certificado_nombre: "Certificado productivo",
+      certificado_vencimiento: "2028-05-04T00:00:00",
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(
+      "El certificado activo no tiene disponibles sus archivos locales.",
+    );
+  });
+
   it("prepara, descarga y libera un resguardo seleccionado", async () => {
     const wrapper = mountView();
     await flushPromises();

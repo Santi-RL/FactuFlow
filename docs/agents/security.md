@@ -18,6 +18,10 @@
 - Crear claves privadas nuevas con permisos restrictivos desde la apertura del
   archivo y cifrarlas antes de persistirlas.
 - Persistir en DB solo metadatos del certificado.
+- No asumir que un registro activo implica material utilizable: comprobar `.crt`
+  y `.key` como archivos dentro de `CERTS_PATH` antes de habilitar ARCA.
+- Registrar rutas faltantes solo en logs privados; las respuestas HTTP deben
+  usar mensajes genéricos sin revelar rutas internas.
 - Mantener separados:
   - proyecto público: código, migraciones, tests con fixtures sinteticos,
     documentación general y ejemplos sin datos reales

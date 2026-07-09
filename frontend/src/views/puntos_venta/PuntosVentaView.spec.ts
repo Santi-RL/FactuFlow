@@ -68,9 +68,11 @@ const empresaMock = (id: number): Empresa => ({
 const statusMock = (
   ambiente: "homologacion" | "produccion",
   certificadoActivo: boolean,
+  certificadoDisponible = certificadoActivo,
 ): ArcaStatus => ({
   ambiente,
   certificado_activo: certificadoActivo,
+  certificado_disponible: certificadoDisponible,
   certificado_id: certificadoActivo ? 1 : null,
   certificado_nombre: certificadoActivo ? "Certificado" : null,
   certificado_vencimiento: certificadoActivo ? "2027-01-01" : null,
@@ -128,9 +130,9 @@ describe("PuntosVentaView", () => {
 
     const vm = wrapper.vm as unknown as {
       sincronizar: () => Promise<void>;
-      tieneCertificadoActivo: boolean;
+      tieneCertificadoDisponible: boolean;
     };
-    expect(vm.tieneCertificadoActivo).toBe(true);
+    expect(vm.tieneCertificadoDisponible).toBe(true);
 
     const sincronizacion = vm.sincronizar();
     clearEmpresaActivaIdForRequest();
@@ -173,15 +175,51 @@ describe("PuntosVentaView", () => {
     segundaCarga.resolve(statusMock("produccion", true));
     await flushPromises();
     const vm = wrapper.vm as unknown as {
-      tieneCertificadoActivo: boolean;
+      tieneCertificadoDisponible: boolean;
       ambienteArcaActual: "homologacion" | "produccion" | null;
     };
-    expect(vm.tieneCertificadoActivo).toBe(true);
+    expect(vm.tieneCertificadoDisponible).toBe(true);
     expect(vm.ambienteArcaActual).toBe("produccion");
 
     primeraCarga.resolve(statusMock("homologacion", false));
     await flushPromises();
-    expect(vm.tieneCertificadoActivo).toBe(true);
+    expect(vm.tieneCertificadoDisponible).toBe(true);
     expect(vm.ambienteArcaActual).toBe("produccion");
+  });
+
+  it("deshabilita sincronizar si el certificado activo no tiene archivos locales", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true, false),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    const sincronizarButton = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Sincronizar con ARCA"));
+    expect(sincronizarButton).toBeDefined();
+    expect(sincronizarButton?.attributes("disabled")).toBeDefined();
+    const vm = wrapper.vm as unknown as {
+      sincronizar: () => Promise<void>;
+      tieneCertificadoDisponible: boolean;
+    };
+    expect(vm.tieneCertificadoDisponible).toBe(false);
+
+    await vm.sincronizar();
+
+    expect(mockedArcaService.getPuntosVenta).not.toHaveBeenCalled();
+    expect(notificationMocks.showWarning).toHaveBeenCalledWith(
+      "Certificado no disponible",
+      expect.stringContaining("Cargá un certificado o restaurá sus archivos"),
+    );
   });
 });

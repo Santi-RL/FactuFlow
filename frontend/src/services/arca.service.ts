@@ -4,6 +4,7 @@ import type { PuntoVentaArca } from "@/types/punto_venta";
 export interface ArcaStatus {
   ambiente: "homologacion" | "produccion";
   certificado_activo: boolean;
+  certificado_disponible: boolean;
   certificado_id: number | null;
   certificado_nombre: string | null;
   certificado_vencimiento: string | null;

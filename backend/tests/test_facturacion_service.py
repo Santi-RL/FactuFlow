@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.arca.exceptions import ArcaServiceError
+from app.arca.exceptions import ArcaCertificateError, ArcaServiceError
 from app.arca.models import CAEResponse
 from app.core.config import settings
 from app.models.certificado import Certificado
@@ -37,6 +37,39 @@ class FakeWSFEClient:
     async def fe_param_get_ptos_venta(self) -> list[SimpleNamespace]:
         """Devuelve puntos de venta simulados como lo haría ARCA."""
         return self._puntos
+
+
+@pytest.mark.asyncio
+async def test_obtener_ticket_rechaza_material_incompleto_antes_de_wsaa(
+    db_session: AsyncSession,
+    tmp_path,
+    monkeypatch,
+):
+    """La emisión debe fallar sin llamar WSAA ni exponer rutas locales."""
+    monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+    (tmp_path / "presente.crt").write_text("CRT", encoding="ascii")
+
+    def fail_wsaa_constructor(*args, **kwargs):
+        raise AssertionError("WSAAClient no debe construirse sin clave privada")
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSAAClient",
+        fail_wsaa_constructor,
+    )
+    service = FacturacionService(db_session)
+    empresa = SimpleNamespace(cuit="30700000001")
+    certificado = SimpleNamespace(
+        archivo_crt="presente.crt",
+        archivo_key="faltante.key",
+    )
+
+    with pytest.raises(ArcaCertificateError) as exc_info:
+        await service._obtener_ticket_acceso(empresa, certificado)
+
+    detail = str(exc_info.value)
+    assert "archivos locales" in detail
+    assert str(tmp_path) not in detail
+    assert "faltante.key" not in detail
 
 
 @pytest.mark.asyncio

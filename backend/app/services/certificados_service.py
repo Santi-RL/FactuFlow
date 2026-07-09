@@ -35,6 +35,11 @@ MANAGED_CERT_FILENAME_RE = re.compile(
     r"\.(?P<extension>key|crt|cer|pem)$"
 )
 
+MATERIAL_CERTIFICADO_NO_DISPONIBLE = (
+    "El certificado activo no tiene disponibles sus archivos locales. "
+    "Revisá la configuración de certificados."
+)
+
 
 def _formatear_limite_upload(max_bytes: int) -> str:
     """Formatea un límite de bytes para mensajes de error de upload."""
@@ -102,6 +107,74 @@ def resolve_cert_storage_path(path_value: str) -> str:
         path = Path(*normalized_parts[1:])
 
     return str(_ensure_path_inside_certs_base(certs_base / path))
+
+
+def resolver_material_certificado(
+    archivo_crt: str, archivo_key: str
+) -> tuple[Path, Path]:
+    """Resuelve las rutas administradas del certificado público y su clave."""
+    return (
+        Path(resolve_cert_storage_path(archivo_crt)),
+        Path(resolve_cert_storage_path(archivo_key)),
+    )
+
+
+def material_certificado_disponible(archivo_crt: str, archivo_key: str) -> bool:
+    """Indica si el certificado público y la clave existen como archivos."""
+    try:
+        cert_path, key_path = resolver_material_certificado(archivo_crt, archivo_key)
+    except ArcaCertificateError as exc:
+        logger.warning(
+            "No se pudo resolver material de certificado crt=%s key=%s: %s",
+            archivo_crt,
+            archivo_key,
+            exc.mensaje,
+        )
+        return False
+
+    cert_disponible = cert_path.is_file()
+    key_disponible = key_path.is_file()
+    if not cert_disponible or not key_disponible:
+        logger.warning(
+            "Material local de certificado incompleto crt=%s crt_disponible=%s "
+            "key=%s key_disponible=%s",
+            cert_path,
+            cert_disponible,
+            key_path,
+            key_disponible,
+        )
+    return cert_disponible and key_disponible
+
+
+def requerir_material_certificado(
+    archivo_crt: str, archivo_key: str
+) -> tuple[Path, Path]:
+    """Devuelve material utilizable o falla sin exponer rutas en la excepción."""
+    try:
+        cert_path, key_path = resolver_material_certificado(archivo_crt, archivo_key)
+    except ArcaCertificateError as exc:
+        logger.error(
+            "No se pudo resolver material de certificado crt=%s key=%s: %s",
+            archivo_crt,
+            archivo_key,
+            exc.mensaje,
+        )
+        raise ArcaCertificateError(MATERIAL_CERTIFICADO_NO_DISPONIBLE) from exc
+
+    cert_disponible = cert_path.is_file()
+    key_disponible = key_path.is_file()
+    if not cert_disponible or not key_disponible:
+        logger.error(
+            "Material local de certificado incompleto crt=%s crt_disponible=%s "
+            "key=%s key_disponible=%s",
+            cert_path,
+            cert_disponible,
+            key_path,
+            key_disponible,
+        )
+        raise ArcaCertificateError(MATERIAL_CERTIFICADO_NO_DISPONIBLE)
+
+    return cert_path, key_path
 
 
 def resolve_managed_cert_filename(

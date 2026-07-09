@@ -148,10 +148,14 @@
 - `FEParamGetPtosVenta` no devuelve domicilio ni nombre fantasia. Esos datos se
   importan desde la constancia PDF de `Administración de Puntos de Venta y
   Domicilios`.
-- `GET /api/arca/status` informa el ambiente ARCA actual y si existe
-  certificado activo local para ese ambiente, sin llamar a ARCA ni consumir
-  numeración. La UI de puntos de venta usa ese estado antes de permitir
-  sincronización WSFE.
+- `GET /api/arca/status` informa el ambiente ARCA actual, conserva
+  `certificado_activo` para indicar que existe el registro del ambiente y
+  expone `certificado_disponible` solo cuando el `.crt` y la `.key` resuelven
+  dentro de `CERTS_PATH` y existen como archivos. No llama a ARCA ni consume
+  numeración. Puntos de venta y Estado del sistema usan la disponibilidad real;
+  cualquier operación WSFE repite la comprobación antes de WSAA.
+- Si falta material local, el backend registra las rutas solo en logs privados
+  y devuelve un mensaje genérico al cliente.
 - Los puntos devueltos por `FEParamGetPtosVenta` pertenecen al servicio WSFE:
   al sincronizarlos en FactuFlow deben quedar marcados como Web Services,
   activos y no bloqueados cuando `Bloqueado=N` y no tienen fecha de baja. Si se

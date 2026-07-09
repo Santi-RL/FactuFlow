@@ -732,8 +732,11 @@ otro certificado del mismo emisor.
 
 En `Puntos de venta`, la sincronización con ARCA se habilita solo cuando existe
 un certificado activo del emisor para el ambiente backend actual
-(`homologación` o `producción`). Un certificado activo de otro ambiente no
-habilita esa acción.
+(`homologación` o `producción`) y siguen disponibles tanto el certificado
+público como su clave privada. Un certificado activo de otro ambiente o con
+archivos locales faltantes no habilita esa acción. En ese caso, revisá
+`Certificados` y restaurá o cargá nuevamente el material correspondiente antes
+de sincronizar.
 
 ## 9. Puntos de venta
 

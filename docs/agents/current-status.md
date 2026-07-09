@@ -30,7 +30,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   `CERTIFICATE_MAX_UPLOAD_BYTES` antes del parseo multipart y la persistencia.
   Las claves privadas nuevas generadas por CSR se crean con permisos
   restrictivos desde la apertura del archivo y conservan `chmod(0o400)` como
-  verificación posterior.
+  verificación posterior. El estado ARCA ahora distingue un registro activo de
+  material local utilizable: solo informa `certificado_disponible=true` cuando
+  existen tanto el certificado público como la clave privada.
 - Producción ya rechaza `APP_SECRET_KEY` vacío, corto o igual a los placeholders
   públicos de configuración para evitar firmar JWT con secretos conocidos.
 - Backend ya registra formatos configurables de importación para lotes masivos,
@@ -1238,9 +1240,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Octavo ciclo cerrado: el Excel observado de lotes escapa textos que Excel
   podría interpretar como fórmulas, tanto desde datos originales como desde
   mensajes de resultado.
-- Noveno ciclo cerrado: `Puntos de venta` consulta `GET /api/arca/status` y
-  habilita `Sincronizar con ARCA` solo si existe certificado activo para el
-  ambiente real configurado en backend (`ARCA_ENV`).
+- Noveno ciclo reforzado: `Puntos de venta` consulta `GET /api/arca/status` y
+  habilita `Sincronizar con ARCA` solo si existe un registro activo para el
+  ambiente real configurado en backend (`ARCA_ENV`) y sus archivos `.crt` y
+  `.key` siguen disponibles dentro de `CERTS_PATH`. La operación WSFE vuelve a
+  comprobar ambos archivos antes de WSAA y no expone rutas internas al cliente.
 - Verificacion focalizada sin llamadas ARCA reales:
   `pytest tests/test_clientes.py::test_admin_puede_resolver_empresa_por_query_legacy tests/test_clientes.py::test_admin_rechaza_conflicto_header_y_query_empresa tests/test_clientes.py::test_usuario_no_admin_rechaza_empresa_query_ajena tests/test_comprobantes_api.py -q`,
   `pytest tests/test_lotes_comprobantes.py::test_archivo_observado_escapa_textos_con_formulas -q`,

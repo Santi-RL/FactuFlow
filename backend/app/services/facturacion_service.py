@@ -29,7 +29,7 @@ from app.models.lote_comprobante import (
     LoteComprobanteGrupo,
 )
 from app.models.punto_venta import PuntoVenta
-from app.services.certificados_service import resolve_cert_storage_path
+from app.services.certificados_service import requerir_material_certificado
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
@@ -1717,16 +1717,16 @@ class FacturacionService:
             return ArcaAmbiente.PRODUCCION
         return ArcaAmbiente.HOMOLOGACION
 
-    def _resolve_cert_path(self, stored_path: str) -> str:
-        """Resuelve paths absolutos o relativos de certificados."""
-        return resolve_cert_storage_path(stored_path)
-
     async def _obtener_ticket_acceso(self, empresa: Empresa, certificado: Certificado):
-        """Obtiene ticket WSAA para la empresa."""
+        """Obtiene ticket WSAA para la empresa con material local utilizable."""
+        cert_path, key_path = requerir_material_certificado(
+            certificado.archivo_crt,
+            certificado.archivo_key,
+        )
         wsaa_client = WSAAClient(self._get_arca_ambiente())
         return await wsaa_client.login(
-            cert_path=self._resolve_cert_path(certificado.archivo_crt),
-            key_path=self._resolve_cert_path(certificado.archivo_key),
+            cert_path=str(cert_path),
+            key_path=str(key_path),
             cuit=clean_cuit(empresa.cuit),
             servicio="wsfe",
         )

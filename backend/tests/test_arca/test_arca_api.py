@@ -72,10 +72,12 @@ class TestArcaAPIEndpoints:
         auth_headers: dict,
         db_session,
         test_empresa,
+        tmp_path,
         monkeypatch,
     ):
         """El estado ARCA debe mirar certificados del ambiente configurado."""
         monkeypatch.setattr(settings, "arca_env", ArcaAmbiente.PRODUCCION.value)
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
         certificado_homologacion = Certificado(
             nombre="Certificado homologacion",
             cuit=test_empresa.cuit,
@@ -96,7 +98,10 @@ class TestArcaAPIEndpoints:
         data = response.json()
         assert data["ambiente"] == "produccion"
         assert data["certificado_activo"] is False
+        assert data["certificado_disponible"] is False
 
+        (tmp_path / "prod.crt").write_text("CRT", encoding="ascii")
+        (tmp_path / "prod.key").write_text("KEY", encoding="ascii")
         certificado_produccion = Certificado(
             nombre="Certificado produccion",
             cuit=test_empresa.cuit,
@@ -117,7 +122,57 @@ class TestArcaAPIEndpoints:
         data = response.json()
         assert data["ambiente"] == "produccion"
         assert data["certificado_activo"] is True
+        assert data["certificado_disponible"] is True
         assert data["certificado_nombre"] == "Certificado produccion"
+
+    async def test_certificado_activo_sin_clave_no_habilita_arca_ni_expone_paths(
+        self,
+        client: AsyncClient,
+        auth_headers: dict,
+        db_session,
+        test_empresa,
+        tmp_path,
+        monkeypatch,
+    ):
+        """Debe fallar antes de WSAA sin exponer la ubicación de la clave."""
+        monkeypatch.setattr(settings, "arca_env", ArcaAmbiente.PRODUCCION.value)
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+        (tmp_path / "presente.crt").write_text("CRT", encoding="ascii")
+        certificado = Certificado(
+            nombre="Certificado incompleto",
+            cuit=test_empresa.cuit,
+            fecha_emision=date(2026, 1, 1),
+            fecha_vencimiento=date(2028, 1, 1),
+            archivo_crt="presente.crt",
+            archivo_key="faltante.key",
+            activo=True,
+            ambiente=ArcaAmbiente.PRODUCCION.value,
+            empresa_id=test_empresa.id,
+        )
+        db_session.add(certificado)
+        await db_session.commit()
+
+        status_response = await client.get("/api/arca/status", headers=auth_headers)
+
+        assert status_response.status_code == 200
+        status_data = status_response.json()
+        assert status_data["certificado_activo"] is True
+        assert status_data["certificado_disponible"] is False
+
+        with patch("app.api.arca.WSAAClient") as mock_wsaa_class:
+            connection_response = await client.get(
+                "/api/arca/test-conexion", headers=auth_headers
+            )
+
+        assert connection_response.status_code == 500
+        detail = connection_response.json()["detail"]
+        assert detail == (
+            "El certificado activo no tiene disponibles sus archivos locales. "
+            "Revisá la configuración de certificados."
+        )
+        assert str(tmp_path) not in detail
+        assert "faltante.key" not in detail
+        mock_wsaa_class.assert_not_called()
 
     @patch("app.api.arca.get_wsfe_client")
     async def test_get_tipos_comprobante(

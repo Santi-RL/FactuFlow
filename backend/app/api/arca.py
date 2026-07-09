@@ -1,7 +1,6 @@
 """Endpoints de API para integración con ARCA."""
 
 import logging
-from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,10 +29,15 @@ from app.arca.models import (
 from app.arca.exceptions import (
     ArcaError,
     ArcaAuthError,
+    ArcaCertificateError,
     ArcaConnectionError,
     ArcaServiceError,
 )
-from app.services.certificados_service import resolve_cert_storage_path
+from app.services.certificados_service import (
+    MATERIAL_CERTIFICADO_NO_DISPONIBLE,
+    material_certificado_disponible,
+    requerir_material_certificado,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -91,11 +95,6 @@ async def get_certificado_activo(db: AsyncSession, empresa_id: int) -> Certifica
     return certificado
 
 
-def resolve_cert_file(path_value: str) -> str:
-    """Resuelve un path de certificado absoluto o relativo."""
-    return resolve_cert_storage_path(path_value)
-
-
 async def get_wsfe_client(
     db: AsyncSession, current_user: Usuario, empresa_id: int
 ) -> WSFEv1Client:
@@ -123,22 +122,16 @@ async def get_wsfe_client(
         # Obtener certificado activo
         certificado = await get_certificado_activo(db, empresa_id)
 
-        # Construir paths de certificado
-        cert_path = Path(resolve_cert_file(certificado.archivo_crt))
-        key_path = Path(resolve_cert_file(certificado.archivo_key))
-
-        # Validar que existan los archivos
-        if not cert_path.exists():
+        try:
+            cert_path, key_path = requerir_material_certificado(
+                certificado.archivo_crt,
+                certificado.archivo_key,
+            )
+        except ArcaCertificateError as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Archivo de certificado no encontrado: {cert_path}",
-            )
-
-        if not key_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Archivo de clave privada no encontrado: {key_path}",
-            )
+                detail=MATERIAL_CERTIFICADO_NO_DISPONIBLE,
+            ) from exc
 
         # Obtener ambiente
         ambiente = get_ambiente()
@@ -196,10 +189,18 @@ async def get_arca_status(
         .limit(1)
     )
     certificado = result.scalar_one_or_none()
+    certificado_disponible = bool(
+        certificado
+        and material_certificado_disponible(
+            certificado.archivo_crt,
+            certificado.archivo_key,
+        )
+    )
 
     return {
         "ambiente": ambiente.value,
         "certificado_activo": certificado is not None,
+        "certificado_disponible": certificado_disponible,
         "certificado_id": certificado.id if certificado else None,
         "certificado_nombre": certificado.nombre if certificado else None,
         "certificado_vencimiento": (
@@ -238,12 +239,12 @@ async def test_conexion_arca(
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error en test de conexión: {str(e)}")
+    except Exception:
+        logger.exception("Error inesperado en test de conexión ARCA")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al probar conexión: {str(e)}",
-        )
+            detail="No se pudo probar la conexión con ARCA.",
+        ) from None
 
 
 @router.get("/tipos-comprobante", response_model=List[TipoComprobante])

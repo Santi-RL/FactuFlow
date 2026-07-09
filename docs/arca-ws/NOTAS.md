@@ -200,8 +200,12 @@ El proyecto tuvo que corregir estas estructuras:
   `2.675` pueden terminar en `2.67` por representación binaria. Los modelos
   internos de request ARCA deben conservar `Decimal` hasta el armado del payload.
 - Antes de habilitar acciones WSFE desde la UI, FactuFlow debe verificar que
-  haya certificado activo para el `ARCA_ENV` actual. Un certificado válido de
-  otro ambiente no sirve para esa operación.
+  haya certificado activo para el `ARCA_ENV` actual y que tanto el `.crt` como
+  la `.key` sigan disponibles dentro de `CERTS_PATH`. Un registro de otro
+  ambiente o con material local incompleto no sirve para esa operación.
+- El cliente WSFE debe repetir esa comprobación inmediatamente antes de WSAA.
+  Los rutas faltantes se registran solo en logs privados y no se incluyen en la
+  respuesta HTTP.
 
 ### 5.a Sublotes en `FECAESolicitar`
 

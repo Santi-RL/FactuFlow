@@ -168,8 +168,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   clientes, puntos de venta, comprobantes, lotes, formatos, perfiles e intentos
   fiscales quedan protegidos con claves foráneas `RESTRICT`, también en SQLite
   mediante `PRAGMA foreign_keys` por conexión
-- [x] UI de puntos de venta valida el certificado activo del ambiente ARCA actual
-  antes de sincronizar WSFE
+- [x] UI de puntos de venta valida el certificado activo del ambiente ARCA
+  actual y la presencia de sus archivos locales antes de sincronizar WSFE
 - [x] Emisor activo consistente por pestaña y API con rechazo de conflictos
   entre `X-Empresa-Id` y query legacy `empresa_id`
 - [x] API `/api/usuarios` para administradores y `GET /api/auth/setup-status`
@@ -538,7 +538,8 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   corrección del subdiario IVA para comprobantes autorizados con IVA cero,
   rechazo de secretos JWT productivos inseguros, cuantización Decimal de
   importes WSFE, preservación de historial ante borrado físico de emisores,
-  cache WSAA scopiado por certificado y límite de upload de certificados.
+  cache WSAA scopiado por certificado, límite de upload de certificados y
+  disponibilidad real de los archivos antes de habilitar operaciones ARCA.
 - [x] Reportes IVA calculan notas de crédito con signo negativo, incluyen
   comprobantes C con IVA cero como exentos, ítems A/B con IVA cero como no
   gravados y el detalle de subdiario incluye gravado e IVA 27%

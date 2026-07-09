@@ -1225,9 +1225,10 @@ compatibilidad, notas de crédito/débito y contratos de importación.
 - Verificacion técnica 2026-05-16: la vista previa de nueva factura muestra el
   punto de venta elegido y el Excel observado de lotes escapa valores con forma
   de fórmula.
-- Verificacion técnica 2026-05-16: `Puntos de venta` solo habilita
-  `Sincronizar con ARCA` si hay certificado activo para el ambiente backend
-  actual, no por un certificado activo de otro ambiente.
+- Verificación técnica 2026-05-16, reforzada el 2026-07-09: `Puntos de venta`
+  solo habilita `Sincronizar con ARCA` si hay certificado activo para el
+  ambiente backend actual y ambos archivos locales están disponibles; no lo
+  habilita por un certificado de otro ambiente ni por un registro incompleto.
 - Verificacion técnica 2026-05-17: lotes rechazan XLSX malformados y uploads
   mayores que `BATCH_MAX_UPLOAD_BYTES`; el procesamiento exige un header
   `X-Confirmacion-Fecha-Fiscal` con token exacto
@@ -1534,10 +1535,14 @@ Reglas vigentes para cualquier nueva emisión productiva:
 - Se importo la constancia PDF de puntos de venta del CUIT real y se válido que
   quedan visibles sistema, domicilio, nombre fantasia, usabilidad FactuFlow y
   estado bloqueado/no bloqueado.
-- Verificacion técnica 2026-05-17: `Puntos de venta` y el store descartan
-  respuestas viejas al cambiar el emisor activo; la habilitacion de
-  `Sincronizar con ARCA` sigue dependiendo del certificado activo del ambiente
-  backend actual.
+- Verificación técnica 2026-05-17, reforzada el 2026-07-09: `Puntos de venta` y
+  el store descartan respuestas viejas al cambiar el emisor activo; la
+  habilitación de `Sincronizar con ARCA` depende del certificado activo del
+  ambiente backend actual y de que su `.crt` y `.key` existan como archivos.
+- Verificación automatizada 2026-07-09: un registro activo sin clave mantiene
+  `certificado_activo=true`, informa `certificado_disponible=false`, no
+  construye `WSAAClient`, no habilita sincronización ni Estado del sistema como
+  correcto y no expone la ruta faltante en la respuesta HTTP.
 - Verificación técnica 2026-07-07: si `Importar constancia` no puede consultar
   `FEParamGetPtosVenta`, el backend devuelve una advertencia, conserva
   `bloqueado`, `fecha_baja` y `activo` en puntos existentes, y deja inactivos
