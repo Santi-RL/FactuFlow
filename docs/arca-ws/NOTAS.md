@@ -273,8 +273,9 @@ El proyecto tuvo que corregir estas estructuras:
 - El upload de certificados rechaza archivos mayores que
   `CERTIFICATE_MAX_UPLOAD_BYTES` antes de guardar un `.crt` nuevo.
 - Las claves privadas nuevas se cifran con `ARCA_PRIVATE_KEY_PASSWORD` o, si no
-  está configurada, con `APP_SECRET_KEY`. Las claves legacy sin cifrar se pueden
-  seguir leyendo para continuidad operativa.
+  está configurada, con `APP_SECRET_KEY`, y se crean con permisos restrictivos
+  desde la apertura del archivo. Las claves legacy sin cifrar se pueden seguir
+  leyendo para continuidad operativa.
 - Este ajuste destrabo la consulta de próximo número y la emisión individual desde UI.
 
 ## Donde mirar en el código

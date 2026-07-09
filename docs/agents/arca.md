@@ -118,10 +118,11 @@
   CUIT y ambiente del emisor activo.
 - El archivo público del certificado se lee con límite y se rechaza si supera
   `CERTIFICATE_MAX_UPLOAD_BYTES`, antes de persistir un `.crt` nuevo.
-- Las claves privadas nuevas se guardan cifradas. Las claves legacy sin cifrar
+- Las claves privadas nuevas se guardan cifradas y se crean con permisos
+  restrictivos desde la apertura del archivo. Las claves legacy sin cifrar
   siguen pudiendo leerse para no romper certificados existentes, pero no se
   generan claves nuevas sin cifrado salvo que no exista ninguna contraseña de
-  aplicacion configurada.
+  aplicación configurada.
 - Este fix fue necesario para que `Nueva factura` volviera a obtener el próximo número desde homologación.
 
 ### Puntos de venta

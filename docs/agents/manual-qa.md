@@ -205,6 +205,20 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   33 tests aprobados. No se llamó ARCA real, no se solicitó CAE y no
   se usaron certificados privados.
 
+### Claves privadas de certificados ARCA con permisos restrictivos 2026-07-09
+
+- Alcance revisado: generación de CSR en `CertificadosService` y escritura del
+  archivo `.key` administrado dentro de `CERTS_PATH`.
+- Política validada: la clave privada se crea con `os.open` usando
+  `O_CREAT | O_EXCL | O_WRONLY` y modo `0o400` desde la apertura del archivo;
+  el `chmod(0o400)` posterior queda como defensa en profundidad, no como primer
+  control de permisos.
+- Verificación automatizada: `pytest tests/test_certificados.py -q`,
+  `ruff check app/services/certificados_service.py tests/test_certificados.py`,
+  `black --check app/services/certificados_service.py tests/test_certificados.py`
+  y `git diff --check`. No se llamó ARCA real, no se solicitó CAE y no se
+  usaron certificados privados.
+
 ### Seguimiento de lotes grandes - contención post-incidente 2026-07-08
 
 - Alcance revisado: `/comprobantes/lotes` cuando falla temporalmente la carga de

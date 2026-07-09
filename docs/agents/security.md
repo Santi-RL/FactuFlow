@@ -15,6 +15,8 @@
 
 ## Almacenamiento recomendado
 - Guardar en el filesystem el certificado y la clave.
+- Crear claves privadas nuevas con permisos restrictivos desde la apertura del
+  archivo y cifrarlas antes de persistirlas.
 - Persistir en DB solo metadatos del certificado.
 - Mantener separados:
   - proyecto público: código, migraciones, tests con fixtures sinteticos,

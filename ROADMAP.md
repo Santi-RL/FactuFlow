@@ -139,6 +139,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   malformados rechazados antes de validar
 - [x] Uploads de certificados ARCA limitados por
   `CERTIFICATE_MAX_UPLOAD_BYTES` antes de persistir archivos nuevos
+- [x] Claves privadas ARCA generadas por CSR creadas con permisos restrictivos
+  desde la apertura del archivo y cifradas antes de persistirse
 - [x] Concepto fiscal ARCA explícito; no se asume productos o servicios por defecto
 - [~] Descripción/concepto facturado del ítem documentado como dato separado
   del concepto fiscal ARCA; debe venir del archivo o de un valor fijo confirmado

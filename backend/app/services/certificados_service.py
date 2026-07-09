@@ -50,6 +50,33 @@ def _certs_base_path() -> Path:
     return Path(settings.certs_path).resolve()
 
 
+def _write_private_key_file(path: Path, contenido: bytes) -> None:
+    """Crea una clave privada con permisos restrictivos desde la apertura."""
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+
+    fd = os.open(path, flags, 0o400)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(contenido)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+    # Defensa en profundidad para plataformas que no honren el modo inicial.
+    os.chmod(path, 0o400)
+
+
 def _ensure_path_inside_certs_base(path: Path) -> Path:
     """Verifica que un path resuelto pertenezca al directorio de certificados."""
     base = _certs_base_path()
@@ -202,11 +229,7 @@ class CertificadosService:
                 ),
             )
 
-            with open(key_path, "xb") as f:
-                f.write(key_pem)
-
-            # Establecer permisos restrictivos (solo lectura para owner)
-            os.chmod(key_path, 0o400)
+            _write_private_key_file(key_path, key_pem)
 
             # Convertir CSR a PEM string
             csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode("utf-8")

@@ -28,6 +28,9 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   reutilizar Token/Sign entre certificados distintos del mismo CUIT y ambiente.
   El upload de certificados ARCA ahora rechaza archivos que superen
   `CERTIFICATE_MAX_UPLOAD_BYTES` antes del parseo multipart y la persistencia.
+  Las claves privadas nuevas generadas por CSR se crean con permisos
+  restrictivos desde la apertura del archivo y conservan `chmod(0o400)` como
+  verificación posterior.
 - Producción ya rechaza `APP_SECRET_KEY` vacío, corto o igual a los placeholders
   públicos de configuración para evitar firmar JWT con secretos conocidos.
 - Backend ya registra formatos configurables de importación para lotes masivos,

@@ -694,6 +694,40 @@ class TestCertificadosService:
         assert Path(first_key_path).exists()
         assert Path(second_key_path).exists()
 
+    async def test_generar_clave_y_csr_crea_clave_con_permisos_restrictivos(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """La clave privada debe crearse con modo owner-only desde os.open."""
+        from app.services import certificados_service as certificados_module
+        from app.services.certificados_service import CertificadosService
+
+        monkeypatch.setattr(settings, "certs_path", str(tmp_path))
+        open_calls = []
+        real_open = certificados_module.os.open
+
+        def spy_open(path, flags, mode=0o777, *args, **kwargs):
+            if Path(path).suffix == ".key":
+                open_calls.append((Path(path), flags, mode))
+            return real_open(path, flags, mode, *args, **kwargs)
+
+        monkeypatch.setattr(certificados_module.os, "open", spy_open)
+
+        service = CertificadosService()
+        key_path, _, _ = await service.generar_clave_y_csr(
+            cuit="20123456789",
+            nombre_empresa="Test Empresa",
+            ambiente="homologacion",
+        )
+
+        assert len(open_calls) == 1
+        created_path, flags, mode = open_calls[0]
+        assert created_path == Path(key_path)
+        assert mode == 0o400
+        assert flags & certificados_module.os.O_WRONLY
+        assert flags & certificados_module.os.O_CREAT
+        assert flags & certificados_module.os.O_EXCL
+        assert Path(key_path).exists()
+
     async def test_guardar_certificado_rechaza_contenido_sobredimensionado(
         self, tmp_path: Path, monkeypatch
     ):
