@@ -23,8 +23,10 @@ Sin cambios todavía.
 ## [0.2.1] - 2026-07-10
 
 Primera release formal de GitHub. Consolida el endurecimiento fiscal,
-multiemisor y operativo posterior al piloto productivo, sin migraciones de base
-ni cambios de dependencias.
+multiemisor y operativo posterior al piloto productivo. El contenido técnico de
+la actualización depende del commit de origen: el despliegue realizado desde una
+instalación anterior incluyó la migración `f7a8b9c0d1e2`, cambios de dependencias
+y ajustes del compose productivo.
 
 ### Seguridad y confiabilidad fiscal
 
@@ -55,8 +57,28 @@ ni cambios de dependencias.
 - Frontend: 111 tests aprobados; ESLint, type-check y build limpios.
 - `autoreview` acumulado con GPT-5.5 en `high` sin hallazgos accionables.
 - Clawpatch revalidó como `fixed` los 3 findings backend y 9 frontend objetivo.
-- GitHub Actions aprobado sobre el corte funcional previo a esta actualización
-  exclusiva de versión y documentación.
+- GitHub Actions aprobó el commit de release `8099b22` con los jobs de seguridad,
+  frontend, backend y E2E completos.
+
+### Despliegue productivo
+
+- Producción se actualizó al tag `v0.2.1`, commit
+  `8099b223f3be7342dbb29367d24c6209dee93a58`.
+- El backup previo quedó validado mediante una restauración aislada antes de
+  reabrir el servicio.
+- Alembic aplicó y verificó la migración `f7a8b9c0d1e2`: la relación de usuarios
+  usa `SET NULL` y las entidades con historial fiscal u operativo usan
+  `RESTRICT` ante el borrado de un emisor.
+- La comprobación posterior confirmó `current` y `heads` alineados, conteos
+  coincidentes en 40 tablas públicas, base y logs sanos, un único proceso
+  Uvicorn, worker de lotes activo y ausencia de operaciones fiscales en curso.
+- Los smoke checks públicos e internos, login, PDF sintético y servicios vecinos
+  quedaron sanos.
+- La validación manual autenticada se completó con emisión fiscal real
+  satisfactoria. La evidencia y los datos fiscales permanecen en el entorno
+  operativo privado.
+- Con estas verificaciones, `v0.2.1` queda aceptada como despliegue productivo
+  satisfactorio.
 
 ### Auditoría y mantenimiento
 

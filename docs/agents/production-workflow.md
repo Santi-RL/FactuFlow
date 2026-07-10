@@ -104,10 +104,17 @@ Antes de actualizar producción:
 6. Si el cambio toca base, emisión, certificados, Docker o configuración,
    verificar que existe un backup recuperable reciente o generar uno manual.
 7. Decidir el commit o tag exacto a desplegar.
-8. Confirmar que producción usa un único proceso Uvicorn mientras el worker de
+8. Registrar el commit o tag que efectivamente corre en producción y comparar
+   el rango completo con el objetivo, por ejemplo con
+   `git diff --name-status <commit_desplegado>..<objetivo>`. Enumerar
+   explícitamente migraciones Alembic, dependencias y lockfiles, Docker/compose,
+   configuración y cambios de schema desde ese origen real; no inferirlos desde
+   otro candidato local reciente. Revisar además `alembic current`, `heads` y la
+   ruta pendiente de migraciones de la base productiva.
+9. Confirmar que producción usa un único proceso Uvicorn mientras el worker de
    lotes siga embebido en el backend.
-9. Confirmar `BATCH_WORKER_ENABLED=true` si la instalación permite procesar
-   lotes en segundo plano.
+10. Confirmar `BATCH_WORKER_ENABLED=true` si la instalación permite procesar
+    lotes en segundo plano.
 
 Si el cambio toca ARCA, WSFE, CAE, numeración, emisión individual, emisión
 masiva, reintentos, reconciliación, certificados, puntos de venta, fechas
@@ -143,6 +150,9 @@ La QA post-deploy mínima debe incluir:
 - logs del backend sin errores nuevos y señal `Worker de lotes iniciado`
 - `BATCH_WORKER_ENABLED=true` y un único proceso backend si se usa background
 - servicios vecinos del host sin afectación, cuando comparten reverse proxy
+- si se aplicaron migraciones, `alembic current` y `heads` alineados, invariantes
+  de schema y constraints verificadas, datos básicos reconciliados y evidencia
+  de restauración aislada del backup
 
 Si se hacen validaciones ARCA, deben ser consultas seguras y explícitas, por
 ejemplo `FECompUltimoAutorizado` o `FECompConsultar`. No se solicita CAE durante

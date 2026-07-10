@@ -12,6 +12,11 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 - Backend FastAPI operativo con auth, usuarios, empresas, clientes, puntos de
   venta, certificados, comprobantes, PDF, lotes y reportes.
+- `v0.2.1` quedó desplegada y aceptada en producción el 2026-07-10. Se validaron
+  backup y restauración aislada, migración Alembic y reglas de claves foráneas,
+  conteos coincidentes en 40 tablas públicas, runtime y worker sanos, smoke
+  post-deploy, QA manual autenticada y emisión fiscal real satisfactoria. La
+  evidencia detallada permanece en la documentación operativa privada.
 - Auditoría backend Clawpatch 2026-07-07 en curso: ya quedaron cerrados y
   revalidados los cortes de aislamiento multiemisor, rangos CAE batch,
   borrado de certificados post-commit, importación de puntos de venta sin

@@ -1,8 +1,20 @@
 # QA manual
 
-Última actualización: 2026-07-09
+Última actualización: 2026-07-10
 
 Este archivo registra el avance real de la prueba manual de la interfaz. Si una sesión queda a mitad de camino, se retoma desde acá.
+
+## Validación productiva v0.2.1 - 2026-07-10
+
+- El despliegue automatizado verificó backup y restauración aislada, migraciones,
+  integridad básica de datos, runtime, worker, healthchecks, login y generación
+  sintética de PDF.
+- La validación manual autenticada confirmó el acceso y la operación de la
+  aplicación.
+- Se emitieron comprobantes fiscales reales correctamente y `v0.2.1` quedó
+  aceptada para operación productiva.
+- Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
+  privado y no se reproducen en este repositorio.
 
 ## Preparación
 

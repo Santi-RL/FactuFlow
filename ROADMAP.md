@@ -681,6 +681,9 @@ Objetivo: profesionalizar la entrega del producto.
 ### Releases
 - [x] Changelog operativo consistente como fuente principal de historial
 - [x] Release estable `v0.2.1` definida como corte productivo vigente
+- [x] Despliegue productivo de `v0.2.1` cerrado el 2026-07-10 con backup y
+  restauración aislada, migración verificada, CI y smoke sanos, QA manual
+  autenticada y emisión fiscal real satisfactoria
 - [x] Resumenes de fases antiguas consolidados en changelog para evitar
   snapshots obsoletos
 - [x] Primera release formal posterior al MVP preparada como `v0.2.1`
