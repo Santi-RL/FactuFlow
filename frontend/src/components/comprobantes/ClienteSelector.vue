@@ -104,8 +104,15 @@ const activarModoManual = () => {
 
 // Actualizar campo
 const updateField = (field: keyof ClienteData, value: any) => {
+  const editaClienteSeleccionado =
+    props.modelValue.cliente_id !== undefined && field !== "cliente_id";
+  if (editaClienteSeleccionado) {
+    modoManual.value = true;
+  }
+
   emit("update:modelValue", {
     ...props.modelValue,
+    ...(editaClienteSeleccionado ? { cliente_id: undefined } : {}),
     [field]: value,
   });
 };

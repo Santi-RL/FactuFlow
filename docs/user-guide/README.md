@@ -123,7 +123,11 @@ Todo lo que hagas en estas secciones queda asociado a ese emisor:
 Antes de emitir o consultar información, verifica siempre que el emisor activo sea el correcto.
 Si cambias el emisor activo, las pantallas principales recargan la información
 para mostrar solo datos de ese CUIT. En `Nueva Factura`, cambiar el emisor
-recarga puntos de venta y limpia el cliente seleccionado.
+recarga puntos de venta y limpia el cliente seleccionado. La vista previa se
+habilita solo cuando FactuFlow pudo confirmar el próximo número. Si eliges
+Productos después de haber completado un período de Servicios, esas fechas se
+limpian y no se envían a ARCA. Si modificas los datos de un cliente guardado, el
+receptor pasa a carga manual para no conservar una vinculación incorrecta.
 
 El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
 cambias de emisor, esa nueva selección no cambia silenciosamente una factura o

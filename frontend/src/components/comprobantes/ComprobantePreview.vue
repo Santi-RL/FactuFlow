@@ -39,8 +39,12 @@ const tipoComprobanteNombre = computed(() => {
 });
 
 const numeroCompleto = computed(() => {
-  const puntoVenta = String(props.puntoVentaNumero || 0).padStart(4, "0");
-  const numero = String(props.proximoNumero || 0).padStart(8, "0");
+  if (props.puntoVentaNumero === null || props.proximoNumero === null) {
+    return "No disponible";
+  }
+
+  const puntoVenta = String(props.puntoVentaNumero).padStart(4, "0");
+  const numero = String(props.proximoNumero).padStart(8, "0");
   return `${puntoVenta}-${numero}`;
 });
 
@@ -272,7 +276,8 @@ const fechaEmision = computed(() => {
         <button
           type="button"
           data-testid="comprobante-confirmar-emitir"
-          class="inline-flex items-center gap-2 px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          :disabled="proximoNumero === null || puntoVentaNumero === null"
+          class="inline-flex items-center gap-2 px-6 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"
           @click="emit('confirm')"
         >
           <CheckIcon class="h-5 w-5" />

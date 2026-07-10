@@ -123,6 +123,20 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Emisión individual - consistencia previa a CAE 2026-07-09
+
+- Cambiar `Concepto fiscal ARCA` de Servicios a Productos después de completar
+  el período debe limpiar y ocultar las tres fechas de servicio.
+- Si falla o queda pendiente la consulta del próximo número, `Vista previa` debe
+  permanecer bloqueada y mostrar un estado de numeración no disponible; nunca
+  debe aparecer `0000-00000000` como si fuera un comprobante real.
+- Al modificar razón social, documento, condición IVA o domicilio de un cliente
+  guardado, la emisión debe continuar como receptor manual sin conservar el
+  `cliente_id` anterior.
+- Cobertura automatizada: 8 tests frontend y 25 tests del servicio de
+  facturación. La validación backend ocurre antes de ARCA y no invalida payloads
+  históricos usados para reconciliación. No se solicitó CAE.
+
 ### Emisores - preservación de historial fiscal 2026-07-07
 
 - Alcance revisado: modelos, migración Alembic y endpoints de emisores para

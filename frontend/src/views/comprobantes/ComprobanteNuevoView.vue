@@ -73,6 +73,8 @@ const mensajeConfirmacionDuplicadoLogico = ref("");
 const idempotencyKeyEmision = ref<string | null>(null);
 const confirmacionDuplicadoLogico = ref(false);
 const proximoNumero = ref<number | null>(null);
+const consultandoProximoNumero = ref(false);
+const errorProximoNumero = ref("");
 let proximoNumeroRequestId = 0;
 const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
 const puntosVentaUsables = computed(() =>
@@ -222,6 +224,14 @@ const mostrarFechasServicios = computed(() => {
   );
 });
 
+watch(mostrarFechasServicios, (requiereFechas) => {
+  if (requiereFechas) return;
+
+  formData.value.fecha_servicio_desde = "";
+  formData.value.fecha_servicio_hasta = "";
+  formData.value.fecha_vto_pago = "";
+});
+
 const totales = computed(() => {
   let subtotal = 0;
   let iva21 = 0;
@@ -257,6 +267,8 @@ const totales = computed(() => {
 
 const formularioValido = computed(() => {
   return (
+    proximoNumero.value !== null &&
+    !consultandoProximoNumero.value &&
     formData.value.punto_venta_id > 0 &&
     formData.value.concepto !== "" &&
     formData.value.fecha_emision.length > 0 &&
@@ -305,12 +317,20 @@ const actualizarProximoNumero = async () => {
   const puntoVentaId = formData.value.punto_venta_id;
   const tipoComprobante = formData.value.tipo_comprobante;
   proximoNumero.value = null;
+  consultandoProximoNumero.value = false;
+  errorProximoNumero.value = "";
 
   if (!puntoVentaId || !empresaId.value) return;
 
+  consultandoProximoNumero.value = true;
+
   try {
     const puntoVenta = puntosVenta.value.find((pv) => pv.id === puntoVentaId);
-    if (!puntoVenta?.usable_factuflow) return;
+    if (!puntoVenta?.usable_factuflow) {
+      errorProximoNumero.value =
+        "El punto de venta seleccionado no está disponible para emitir.";
+      return;
+    }
 
     const numero = await comprobantesStore.obtenerProximoNumero(
       puntoVenta.numero,
@@ -325,12 +345,35 @@ const actualizarProximoNumero = async () => {
     }
   } catch (error) {
     if (requestId === proximoNumeroRequestId) {
+      errorProximoNumero.value =
+        "No se pudo confirmar la numeración fiscal con ARCA.";
       console.error("Error al obtener próximo número:", error);
+    }
+  } finally {
+    if (requestId === proximoNumeroRequestId) {
+      consultandoProximoNumero.value = false;
     }
   }
 };
 
 const abrirVistaPrevia = () => {
+  if (consultandoProximoNumero.value) {
+    showWarning(
+      "Numeración en proceso",
+      "Espera a que FactuFlow confirme el próximo número antes de continuar.",
+    );
+    return;
+  }
+
+  if (proximoNumero.value === null) {
+    showWarning(
+      "Numeración no disponible",
+      errorProximoNumero.value ||
+        "No se pudo confirmar el próximo número. Revisa el punto de venta e inténtalo nuevamente.",
+    );
+    return;
+  }
+
   if (!formularioValido.value) {
     showWarning(
       "Faltan datos para continuar",
@@ -582,13 +625,25 @@ const confirmarCancelacion = () => {
 
         <!-- Próximo número -->
         <div
-          v-if="proximoNumero !== null"
+          v-if="consultandoProximoNumero"
+          class="mt-4 text-sm text-gray-600"
+        >
+          Consultando próximo número...
+        </div>
+        <div
+          v-else-if="proximoNumero !== null"
           class="mt-4 text-sm text-gray-600"
         >
           El próximo número será:
           <span class="font-mono font-semibold">{{
             String(proximoNumero).padStart(8, "0")
           }}</span>
+        </div>
+        <div
+          v-else-if="errorProximoNumero"
+          class="mt-4 text-sm text-red-700"
+        >
+          {{ errorProximoNumero }}
         </div>
 
         <!-- Fechas de servicios -->

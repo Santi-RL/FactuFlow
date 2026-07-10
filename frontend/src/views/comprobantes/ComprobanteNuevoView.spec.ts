@@ -249,6 +249,63 @@ describe("ComprobanteNuevoView", () => {
     expect(vm.formularioValido).toBe(true);
   });
 
+  it("limpia fechas de servicio al volver a productos", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    const wrapper = await mountView();
+    const vm = wrapper.vm as unknown as {
+      formData: {
+        concepto: number | "";
+        fecha_servicio_desde: string;
+        fecha_servicio_hasta: string;
+        fecha_vto_pago: string;
+      };
+    };
+
+    vm.formData.concepto = TIPOS_CONCEPTO.SERVICIOS;
+    vm.formData.fecha_servicio_desde = "2026-05-01";
+    vm.formData.fecha_servicio_hasta = "2026-05-31";
+    vm.formData.fecha_vto_pago = "2026-06-10";
+    await flushPromises();
+
+    vm.formData.concepto = TIPOS_CONCEPTO.PRODUCTOS;
+    await flushPromises();
+
+    expect(vm.formData.fecha_servicio_desde).toBe("");
+    expect(vm.formData.fecha_servicio_hasta).toBe("");
+    expect(vm.formData.fecha_vto_pago).toBe("");
+  });
+
+  it("bloquea la vista previa si no puede confirmar la numeracion", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockRejectedValue(
+      new Error("ARCA no disponible"),
+    );
+
+    try {
+      const wrapper = await mountView();
+      const vm = wrapper.vm as unknown as {
+        abrirVistaPrevia: () => void;
+        errorProximoNumero: string;
+        mostrarPreview: boolean;
+        proximoNumero: number | null;
+      };
+
+      vm.abrirVistaPrevia();
+
+      expect(vm.proximoNumero).toBeNull();
+      expect(vm.errorProximoNumero).toBe(
+        "No se pudo confirmar la numeración fiscal con ARCA.",
+      );
+      expect(vm.mostrarPreview).toBe(false);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("envia una clave de idempotencia al confirmar la emision", async () => {
     mockedComprobantesService.proximoNumero.mockResolvedValue({
       proximo_numero: 100,

@@ -95,6 +95,8 @@ Mapping aplicado en el proyecto:
   archivo o completar primero `Puntos de venta`.
 - Para servicios también se deben resolver `FchServDesde`, `FchServHasta` y
   `FchVtoPago`.
+- Para `Concepto=1` (Productos), no informar `FchServDesde`, `FchServHasta` ni
+  `FchVtoPago`; FactuFlow bloquea esa combinación antes de `FECAESolicitar`.
 - Validación preventiva usada por el proyecto:
   - productos: N-5 / N+5
   - servicios o productos y servicios: N-10 / N+10

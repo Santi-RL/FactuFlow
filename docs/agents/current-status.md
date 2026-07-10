@@ -199,6 +199,20 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Emisión individual - consistencia previa a CAE 2026-07-09
+
+- `Nueva factura` bloquea la vista previa mientras el próximo número no esté
+  confirmado y nunca representa numeración ausente como `0000-00000000`.
+- Al cambiar el concepto fiscal de Servicios a Productos, la UI limpia las
+  fechas de servicio. El servicio backend también rechaza esa combinación antes
+  de cualquier llamada ARCA, preservando la lectura de payloads legacy para
+  reconciliación.
+- Si se editan los datos de un cliente guardado, la UI elimina su `cliente_id`
+  para no vincular el comprobante con un maestro distinto del receptor visible.
+- Verificación enfocada: 8 tests frontend y 25 tests de facturación backend,
+  más type-check, lint, Ruff y Black sobre el alcance modificado. No se llamó
+  ARCA real ni se solicitó CAE.
+
 ### Contención de seguimiento de lotes grandes 2026-07-08
 
 - Se revisó el handoff privado del incidente productivo de un lote grande y se

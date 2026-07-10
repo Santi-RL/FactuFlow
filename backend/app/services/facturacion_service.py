@@ -1183,6 +1183,17 @@ class FacturacionService:
                         "Para comprobantes tipo C, los ítems deben tener IVA 0"
                     )
 
+        if request.concepto == 1 and any(
+            (
+                request.fecha_servicio_desde,
+                request.fecha_servicio_hasta,
+                request.fecha_vto_pago,
+            )
+        ):
+            raise ValidationError(
+                "Las fechas de servicio no corresponden a un comprobante de productos"
+            )
+
         # Servicios requieren fechas
         if request.concepto in [2, 3]:
             if not request.fecha_servicio_desde:

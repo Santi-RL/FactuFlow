@@ -27,6 +27,40 @@ from app.services.facturacion_service import FacturacionService, ValidationError
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
 
+@pytest.mark.asyncio
+async def test_validar_datos_productos_rechaza_fechas_servicio(
+    db_session: AsyncSession,
+) -> None:
+    """Productos no admite fechas de servicio que puedan llegar a WSFE."""
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=1,
+        punto_venta_id=1,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 5, 20),
+        fecha_servicio_desde=date(2026, 5, 1),
+        tipo_documento=96,
+        numero_documento="12345678",
+        razon_social="Cliente Demo",
+        condicion_iva="Consumidor Final",
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("100"),
+                iva_porcentaje=Decimal("21"),
+            )
+        ],
+    )
+
+    with pytest.raises(
+        ValidationError,
+        match="Las fechas de servicio no corresponden",
+    ):
+        await service._validar_datos(request)
+
+
 class FakeWSFEClient:
     """Cliente WSFE mínimo para probar validaciones internas."""
 

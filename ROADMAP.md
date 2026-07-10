@@ -135,6 +135,9 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   emisor activo antes de solicitar CAE
 - [x] Nueva factura ofrece solo puntos de venta usables por FactuFlow y la API
   rechaza numeración para puntos no Web Services con error de negocio
+- [x] Emisión individual bloquea la vista previa hasta confirmar el próximo
+  número, desacopla el cliente guardado si se editan sus datos y no informa
+  fechas de servicio cuando el concepto fiscal es solo Productos
 - [x] Uploads de lotes limitados por `BATCH_MAX_UPLOAD_BYTES` y XLSX
   malformados rechazados antes de validar
 - [x] Uploads de certificados ARCA limitados por

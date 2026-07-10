@@ -305,6 +305,9 @@
 - En comprobantes nuevos, `fecha_servicio_desde`, `fecha_servicio_hasta` y
   `fecha_vto_pago` se persisten junto al comprobante para poder reflejar en PDF
   el período facturado y el vencimiento usados al solicitar CAE.
+- Cuando `concepto=1` (Productos), la emisión nueva no debe informar fechas de
+  servicio. La UI las limpia al cambiar de concepto y el servicio backend
+  rechaza una combinación inconsistente antes de llamar a ARCA.
 - Antes de solicitar CAE debe existir una confirmación visible para el usuario:
   `Está seguro que quiere emitir comprobantes con fecha XX/XX/XX? Recuerde que luego no podrá emitir comprobantes con fecha anterior para ese mismo punto de venta.`
 - La API debe rechazar emisiones sin confirmación fiscal explícita. En el
