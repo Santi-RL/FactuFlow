@@ -215,6 +215,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Vistas sensibles descartan respuestas asincrónicas viejas al cambiar el
   emisor activo, incluyendo reportes, certificados, puntos de venta y
   numeración de nueva factura
+- [x] El store de puntos de venta valida el emisor antes de mutar la lista tras
+  un guardado tardío, incluso con ids locales coincidentes entre emisores
 - [x] Certificados y puntos de venta no llaman endpoints scopiados sin emisor
   confirmado y cierran borrados/editores pendientes al cambiar de CUIT
 - [x] Importación de constancias descarta notificaciones obsoletas al cambiar de

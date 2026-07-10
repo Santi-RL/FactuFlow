@@ -89,21 +89,35 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   };
 
   const updatePuntoVenta = async (id: number, data: PuntoVentaUpdate) => {
+    const empresaStore = useEmpresaStore();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
+    const empresaIdConfirmadaSolicitada = empresaIdSolicitada
+      ? String(empresaIdSolicitada)
+      : null;
+    const isCurrentRequest = () =>
+      empresaIdConfirmadaSolicitada !== null &&
+      empresaStore.empresaActivaId === empresaIdSolicitada &&
+      getEmpresaActivaIdForRequest() === empresaIdConfirmadaSolicitada;
+
     loading.value = true;
     error.value = null;
     try {
       const actualizado = await puntosVentaService.update(id, data);
-      const index = puntosVenta.value.findIndex((pv) => pv.id === id);
-      if (index !== -1) {
-        puntosVenta.value[index] = actualizado;
+      if (isCurrentRequest()) {
+        const index = puntosVenta.value.findIndex((pv) => pv.id === id);
+        if (index !== -1) {
+          puntosVenta.value[index] = actualizado;
+        }
+        puntosVenta.value = [...puntosVenta.value].sort(
+          (a, b) => a.numero - b.numero,
+        );
       }
-      puntosVenta.value = [...puntosVenta.value].sort(
-        (a, b) => a.numero - b.numero,
-      );
       return actualizado;
     } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || "Error al actualizar el punto de venta";
+      if (isCurrentRequest()) {
+        error.value =
+          err.response?.data?.detail || "Error al actualizar el punto de venta";
+      }
       throw err;
     } finally {
       loading.value = false;

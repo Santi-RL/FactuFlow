@@ -166,8 +166,9 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 - Abrir la confirmación de borrado de un certificado, cambiar el emisor activo y
   comprobar que el diálogo se cierra sin ejecutar el borrado anterior.
-- Abrir `Editar` sobre un punto de venta, cambiar el emisor y comprobar que el
-  editor se cierra y no permite guardar sobre el nuevo contexto.
+- Abrir `Editar` sobre un punto de venta, iniciar el guardado y cambiar el emisor
+  antes de que responda. Aunque ambos emisores tengan un registro con el mismo
+  `id`, la respuesta anterior no debe reemplazar la lista del emisor nuevo.
 - Montar ambas pantallas sin emisor activo debe dejar las listas vacías y no
   llamar certificados, puntos de venta ni estado ARCA hasta completar la
   selección.
@@ -177,7 +178,7 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
   `Reintentar` durante una respuesta pendiente y confirmar una sola request.
 - En Nueva factura, mostrar resultados de clientes y reducir la búsqueda a un
   carácter: el desplegable debe cerrarse.
-- Cobertura automatizada acumulada: 4 tests de certificados, 6 de puntos de
+- Cobertura automatizada acumulada: 4 tests de certificados, 12 de puntos de
   venta y 2 del selector de clientes, más type-check. Las pruebas usan datos
   ficticios y no llaman ARCA real.
 

@@ -254,13 +254,17 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Cada mutación conserva el emisor capturado al abrir la acción y vuelve a
   verificar el contexto antes de actualizar la UI. La importación de constancia
   también descarta éxito/error si el usuario cambió de emisor durante la carga.
+- El store de puntos de venta valida otra vez el emisor antes de reemplazar la
+  lista compartida, incluso si dos emisores tienen registros con el mismo `id`.
   El backend mantiene su validación autoritativa por `empresa_id`.
 - El paso de verificación de certificado ignora reintentos mientras una consulta
   ARCA sigue pendiente, y el selector de clientes cierra resultados anteriores
   cuando la búsqueda baja de dos caracteres o cambia antes de responder.
-- Verificación enfocada acumulada: 11 tests frontend y type-check. No se llamó
+- Verificación enfocada acumulada: 18 tests frontend y type-check. No se llamó
   ARCA real, no se modificaron certificados ni puntos reales y no se solicitó
   CAE.
+- Cierre frontend completo: 111 tests, ESLint, type-check y build de producción
+  limpios.
 
 ### Emisión individual - consistencia previa a CAE 2026-07-09
 

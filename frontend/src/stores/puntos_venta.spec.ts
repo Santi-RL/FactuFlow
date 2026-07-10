@@ -188,6 +188,36 @@ describe("puntos venta store", () => {
     expect(store.syncing).toBe(false);
   });
 
+  it("ignora una actualización obsoleta con ids superpuestos", async () => {
+    const actualizacionPendiente = deferred<PuntoVenta>();
+    mockedPuntosVentaService.update.mockReturnValue(
+      actualizacionPendiente.promise,
+    );
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const store = usePuntosVentaStore();
+    const puntoEmisorA = { ...puntoVentaMock(1, 6), id: 42 };
+    const puntoEmisorB = { ...puntoVentaMock(2, 8), id: 42 };
+    store.puntosVenta = [puntoEmisorA];
+
+    const actualizacion = store.updatePuntoVenta(puntoEmisorA.id, {
+      nombre: "PV actualizado emisor A",
+    });
+    empresaStore.empresa = empresaMock(2);
+    empresaStore.empresaActivaId = 2;
+    setEmpresaActivaIdStorage(2);
+    store.puntosVenta = [puntoEmisorB];
+    actualizacionPendiente.resolve({
+      ...puntoEmisorA,
+      nombre: "PV actualizado emisor A",
+    });
+    await actualizacion;
+
+    expect(store.puntosVenta).toEqual([puntoEmisorB]);
+    expect(store.error).toBeNull();
+  });
   it("ignora respuestas viejas cuando cambia el emisor activo", async () => {
     const primeraCarga = deferred<PuntoVenta[]>();
     const segundaCarga = deferred<PuntoVenta[]>();

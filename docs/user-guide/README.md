@@ -129,7 +129,9 @@ Productos después de haber completado un período de Servicios, esas fechas se
 limpian y no se envían a ARCA. Si modificas los datos de un cliente guardado, el
 receptor pasa a carga manual para no conservar una vinculación incorrecta. Al
 reducir la búsqueda de clientes a menos de dos caracteres, FactuFlow cierra los
-resultados anteriores para evitar una selección obsoleta.
+resultados anteriores para evitar una selección obsoleta. Si cambia el emisor
+mientras se guarda un punto de venta, la respuesta anterior no reemplaza la
+lista visible del nuevo emisor.
 
 El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
 cambias de emisor, esa nueva selección no cambia silenciosamente una factura o
