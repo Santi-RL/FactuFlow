@@ -265,6 +265,14 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
   CAE.
 - Cierre frontend completo: 111 tests, ESLint, type-check y build de producción
   limpios.
+- Revalidación Clawpatch 2026-07-10: los 3 findings backend y 9 frontend
+  asociados a este ciclo quedaron en estado `fixed`. Los contadores globales
+  (`backend=85`, `frontend=6`) conservan backlog histórico, duplicados y
+  hallazgos rechazados o diferidos; no representan defectos nuevos aceptados.
+- No queda un finding crítico/alto aceptado de esta candidata. Los recientes
+  abiertos son defensas ya autoritativas en backend, mejoras de UX/validación
+  previa, el alcance global intencional de administradores o dos riesgos `low`
+  de `uniqueId` WSAA diferidos hasta confirmar el contrato oficial.
 
 ### Emisión individual - consistencia previa a CAE 2026-07-09
 
