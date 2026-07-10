@@ -156,6 +156,9 @@
   cualquier operación WSFE repite la comprobación antes de WSAA.
 - Si falta material local, el backend registra las rutas solo en logs privados
   y devuelve un mensaje genérico al cliente.
+- Certificados y puntos de venta solo consultan estado ARCA cuando existe un
+  emisor confirmado para la pestaña. Un cambio de emisor cierra acciones
+  pendientes e invalida resultados tardíos antes de actualizar la UI.
 - Los puntos devueltos por `FEParamGetPtosVenta` pertenecen al servicio WSFE:
   al sincronizarlos en FactuFlow deben quedar marcados como Web Services,
   activos y no bloqueados cuando `Bloqueado=N` y no tienen fecha de baja. Si se

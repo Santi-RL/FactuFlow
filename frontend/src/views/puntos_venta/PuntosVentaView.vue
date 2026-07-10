@@ -30,6 +30,7 @@ const ambienteArcaActual = ref<"homologacion" | "produccion" | null>(null);
 const cargandoCertificados = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const puntoEditando = ref<PuntoVenta | null>(null);
+const puntoEditandoEmpresaId = ref<number | null>(null);
 const guardandoEdicion = ref(false);
 const editForm = ref<PuntoVentaUpdate>({});
 const mostrarSoloHabilitados = ref(false);
@@ -103,6 +104,13 @@ const cargarCertificados = async (
 ) => {
   const requestId = ++cargarCertificadosRequestId;
   cargandoCertificados.value = true;
+  if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) {
+    tieneCertificadoDisponible.value = false;
+    ambienteArcaActual.value = null;
+    cargandoCertificados.value = false;
+    return;
+  }
+
   try {
     const status = await arcaService.getStatus();
     if (
@@ -126,19 +134,30 @@ const cargarCertificados = async (
   }
 };
 
+const limpiarDatosContexto = () => {
+  puntosVentaStore.puntosVenta = [];
+  tieneCertificadoDisponible.value = false;
+  ambienteArcaActual.value = null;
+};
+
 const cargarDatos = async () => {
   const requestId = ++cargarDatosRequestId;
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
+  if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) {
+    limpiarDatosContexto();
+    return;
+  }
+
   try {
-    if (!empresaStore.empresaActivaId) {
-      await empresaStore.inicializarEmpresaActiva();
-    }
-    const empresaIdSolicitada = empresaStore.empresaActivaId;
     await Promise.all([
       puntosVentaStore.fetchPuntosVenta(),
       cargarCertificados(empresaIdSolicitada),
     ]);
   } catch (err: any) {
-    if (requestId === cargarDatosRequestId) {
+    if (
+      requestId === cargarDatosRequestId &&
+      esSolicitudDelEmisorActual(empresaIdSolicitada)
+    ) {
       showError("Error", "No se pudieron cargar los puntos de venta");
     }
   }
@@ -201,7 +220,20 @@ const importarConstancia = async (event: Event) => {
 };
 
 const editarPunto = (punto: PuntoVenta) => {
+  const empresaId = empresaStore.empresaActivaId;
+  if (
+    !esSolicitudDelEmisorActual(empresaId) ||
+    punto.empresa_id !== empresaId
+  ) {
+    showWarning(
+      "Emisor desactualizado",
+      "Volvé a abrir el punto de venta desde el emisor activo.",
+    );
+    return;
+  }
+
   puntoEditando.value = punto;
+  puntoEditandoEmpresaId.value = empresaId;
   editForm.value = {
     numero: punto.numero,
     nombre: punto.nombre,
@@ -218,41 +250,70 @@ const editarPunto = (punto: PuntoVenta) => {
 
 const cerrarEditor = () => {
   puntoEditando.value = null;
+  puntoEditandoEmpresaId.value = null;
   editForm.value = {};
 };
 
 const guardarEdicion = async () => {
-  if (!puntoEditando.value) return;
+  const punto = puntoEditando.value;
+  const empresaId = puntoEditandoEmpresaId.value;
+  if (
+    !punto ||
+    !esSolicitudDelEmisorActual(empresaId) ||
+    punto.empresa_id !== empresaId
+  ) {
+    cerrarEditor();
+    return;
+  }
+
   guardandoEdicion.value = true;
   try {
     const payload = {
       ...editForm.value,
       numero: editForm.value.numero ? Number(editForm.value.numero) : undefined,
     };
-    await puntosVentaStore.updatePuntoVenta(puntoEditando.value.id, payload);
+    await puntosVentaStore.updatePuntoVenta(punto.id, payload);
+    if (!esSolicitudDelEmisorActual(empresaId)) return;
     showSuccess(
       "Punto actualizado",
       "Los datos del punto de venta fueron guardados",
     );
     cerrarEditor();
   } catch (err: any) {
+    if (!esSolicitudDelEmisorActual(empresaId)) return;
     const mensaje =
       err.response?.data?.detail || "No se pudo guardar el punto de venta";
     showError("Error", mensaje);
   } finally {
-    guardandoEdicion.value = false;
+    if (esSolicitudDelEmisorActual(empresaId)) {
+      guardandoEdicion.value = false;
+    }
   }
 };
 
-onMounted(() => {
-  cargarDatos();
+onMounted(async () => {
+  if (!empresaStore.empresaActivaId) {
+    await empresaStore.inicializarEmpresaActiva();
+    return;
+  }
+
+  await cargarDatos();
 });
 
 watch(
   () => empresaStore.empresaActivaId,
   (empresaId, previousEmpresaId) => {
-    if (empresaId && previousEmpresaId && empresaId !== previousEmpresaId) {
+    if (empresaId === previousEmpresaId) return;
+
+    cerrarEditor();
+    guardandoEdicion.value = false;
+    limpiarDatosContexto();
+    if (empresaId && esSolicitudDelEmisorActual(empresaId)) {
       cargarDatos();
+    } else {
+      ++cargarDatosRequestId;
+      ++cargarCertificadosRequestId;
+      cargandoCertificados.value = false;
     }
   },
 );

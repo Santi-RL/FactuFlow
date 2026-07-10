@@ -718,7 +718,9 @@ En la pantalla actual puedes:
 - eliminar un certificado
 
 Si cambias el emisor activo mientras la lista está cargando, FactuFlow descarta
-la respuesta anterior para evitar mezclar certificados entre CUITs.
+la respuesta anterior para evitar mezclar certificados entre CUITs. También
+cierra una confirmación de borrado que haya quedado abierta: vuelve a seleccionar
+el certificado desde el nuevo emisor antes de ejecutar cualquier acción.
 
 Al cargar un certificado nuevo, el wizard muestra una barra de pasos con avance
 visual y estados de completado. Incluye un paso obligatorio para autorizar el
@@ -753,7 +755,8 @@ Importante:
 - la sincronización importa o actualiza puntos no bloqueados y sin fecha de
   baja como puntos Web Services usables
 - si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
-  descarta la respuesta anterior para no mezclar puntos de venta entre CUITs
+  descarta la respuesta anterior para no mezclar puntos de venta entre CUITs y
+  cierra cualquier editor pendiente del emisor anterior
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
   completa de puntos, incluyendo sistema, domicilio y nombre de fantasía
 - si `Importar constancia` no puede consultar el estado técnico en ARCA,

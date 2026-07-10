@@ -123,6 +123,18 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Certificados y puntos de venta - contexto multiemisor 2026-07-09
+
+- Abrir la confirmación de borrado de un certificado, cambiar el emisor activo y
+  comprobar que el diálogo se cierra sin ejecutar el borrado anterior.
+- Abrir `Editar` sobre un punto de venta, cambiar el emisor y comprobar que el
+  editor se cierra y no permite guardar sobre el nuevo contexto.
+- Montar ambas pantallas sin emisor activo debe dejar las listas vacías y no
+  llamar certificados, puntos de venta ni estado ARCA hasta completar la
+  selección.
+- Cobertura automatizada: 3 tests de certificados y 5 de puntos de venta, más
+  type-check. Las pruebas usan datos ficticios y no llaman ARCA real.
+
 ### Emisión individual - consistencia previa a CAE 2026-07-09
 
 - Cambiar `Concepto fiscal ARCA` de Servicios a Productos después de completar

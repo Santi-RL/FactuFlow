@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import type { Certificado, VerificacionResponse } from "@/types/certificado";
 import certificadosService from "@/services/certificados.service";
 import { useEmpresaStore } from "@/stores/empresa";
+import { getEmpresaActivaIdForRequest } from "@/utils/empresa-activa-storage";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
 import BaseEmpty from "@/components/ui/BaseEmpty.vue";
@@ -20,9 +21,15 @@ const loading = ref(true);
 const error = ref("");
 const showConfirmDelete = ref(false);
 const certificadoToDelete = ref<number | null>(null);
+const certificadoToDeleteEmpresaId = ref<number | null>(null);
 const verificandoId = ref<number | null>(null);
 const resultadosVerificacion = ref<Record<number, VerificacionResponse>>({});
 let cargarCertificadosRequestId = 0;
+
+const esContextoEmisorActual = (empresaId: number | null) =>
+  empresaId !== null &&
+  empresaStore.empresaActivaId === empresaId &&
+  getEmpresaActivaIdForRequest() === String(empresaId);
 
 const certificadosActivos = computed(() =>
   certificados.value.filter((c) => c.activo),
@@ -36,23 +43,29 @@ const certificadosPorVencer = computed(() =>
 
 const cargarCertificados = async () => {
   const requestId = ++cargarCertificadosRequestId;
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
   loading.value = true;
   error.value = "";
 
+  if (!esContextoEmisorActual(empresaIdSolicitada)) {
+    certificados.value = [];
+    loading.value = false;
+    return;
+  }
+
   try {
-    if (!empresaStore.empresaActivaId) {
-      await empresaStore.inicializarEmpresaActiva();
-    }
-    const empresaIdSolicitada = empresaStore.empresaActivaId;
     const resultado = await certificadosService.listar();
     if (
       requestId === cargarCertificadosRequestId &&
-      empresaStore.empresaActivaId === empresaIdSolicitada
+      esContextoEmisorActual(empresaIdSolicitada)
     ) {
       certificados.value = resultado;
     }
   } catch (err: any) {
-    if (requestId === cargarCertificadosRequestId) {
+    if (
+      requestId === cargarCertificadosRequestId &&
+      esContextoEmisorActual(empresaIdSolicitada)
+    ) {
       error.value = "Error al cargar certificados";
       console.error(err);
     }
@@ -74,22 +87,37 @@ const renovarCertificado = (id: number) => {
   });
 };
 
+const cerrarConfirmacionEliminar = () => {
+  showConfirmDelete.value = false;
+  certificadoToDelete.value = null;
+  certificadoToDeleteEmpresaId.value = null;
+};
+
 const confirmarEliminar = (id: number) => {
+  const empresaId = empresaStore.empresaActivaId;
+  if (!esContextoEmisorActual(empresaId)) return;
+
   certificadoToDelete.value = id;
+  certificadoToDeleteEmpresaId.value = empresaId;
   showConfirmDelete.value = true;
 };
 
 const verificarCertificado = async (id: number) => {
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
+  if (!esContextoEmisorActual(empresaIdSolicitada)) return;
+
   verificandoId.value = id;
   error.value = "";
 
   try {
     const resultado = await certificadosService.verificarConexion(id);
+    if (!esContextoEmisorActual(empresaIdSolicitada)) return;
     resultadosVerificacion.value = {
       ...resultadosVerificacion.value,
       [id]: resultado,
     };
   } catch (err: any) {
+    if (!esContextoEmisorActual(empresaIdSolicitada)) return;
     resultadosVerificacion.value = {
       ...resultadosVerificacion.value,
       [id]: {
@@ -101,35 +129,58 @@ const verificarCertificado = async (id: number) => {
     };
     console.error(err);
   } finally {
-    verificandoId.value = null;
+    if (esContextoEmisorActual(empresaIdSolicitada)) {
+      verificandoId.value = null;
+    }
   }
 };
 
 const eliminarCertificado = async () => {
-  if (!certificadoToDelete.value) return;
+  const certificadoId = certificadoToDelete.value;
+  const empresaId = certificadoToDeleteEmpresaId.value;
+  if (!certificadoId || !esContextoEmisorActual(empresaId)) {
+    cerrarConfirmacionEliminar();
+    return;
+  }
 
   try {
-    await certificadosService.eliminar(certificadoToDelete.value);
-    certificados.value = certificados.value.filter(
-      (c) => c.id !== certificadoToDelete.value,
-    );
-    showConfirmDelete.value = false;
-    certificadoToDelete.value = null;
+    await certificadosService.eliminar(certificadoId);
+    if (!esContextoEmisorActual(empresaId)) return;
+    certificados.value = certificados.value.filter((c) => c.id !== certificadoId);
+    cerrarConfirmacionEliminar();
   } catch (err: any) {
+    if (!esContextoEmisorActual(empresaId)) return;
     error.value = "Error al eliminar certificado";
     console.error(err);
   }
 };
 
-onMounted(() => {
-  cargarCertificados();
+onMounted(async () => {
+  if (!empresaStore.empresaActivaId) {
+    await empresaStore.inicializarEmpresaActiva();
+    if (!empresaStore.empresaActivaId) {
+      loading.value = false;
+    }
+    return;
+  }
+
+  await cargarCertificados();
 });
 
 watch(
   () => empresaStore.empresaActivaId,
   (empresaId, previousEmpresaId) => {
-    if (empresaId && previousEmpresaId && empresaId !== previousEmpresaId) {
+    if (empresaId === previousEmpresaId) return;
+
+    cerrarConfirmacionEliminar();
+    verificandoId.value = null;
+    resultadosVerificacion.value = {};
+    certificados.value = [];
+    if (empresaId && esContextoEmisorActual(empresaId)) {
       cargarCertificados();
+    } else {
+      ++cargarCertificadosRequestId;
+      loading.value = false;
     }
   },
 );

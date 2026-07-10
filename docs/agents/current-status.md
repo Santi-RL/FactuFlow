@@ -199,6 +199,18 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Certificados y puntos de venta - contexto multiemisor 2026-07-09
+
+- Las vistas no llaman endpoints scopiados si todavía no existe un emisor activo
+  confirmado para la pestaña.
+- Cambiar de emisor cierra cualquier borrado de certificado o editor de punto de
+  venta pendiente, limpia resultados anteriores e invalida respuestas tardías.
+- Cada mutación conserva el emisor capturado al abrir la acción y vuelve a
+  verificar el contexto antes de actualizar la UI. El backend mantiene su
+  validación autoritativa por `empresa_id`.
+- Verificación enfocada: 8 tests frontend y type-check. No se llamó ARCA real,
+  no se modificaron certificados ni puntos reales y no se solicitó CAE.
+
 ### Emisión individual - consistencia previa a CAE 2026-07-09
 
 - `Nueva factura` bloquea la vista previa mientras el próximo número no esté

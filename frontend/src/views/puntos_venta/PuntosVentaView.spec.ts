@@ -65,6 +65,23 @@ const empresaMock = (id: number): Empresa => ({
   updated_at: "2024-01-01T00:00:00",
 });
 
+const puntoVentaMock = (empresaId: number): PuntoVenta => ({
+  id: empresaId,
+  numero: empresaId,
+  nombre: `Punto ${empresaId}`,
+  sistema: "Factura Electronica - Web Services",
+  domicilio: null,
+  nombre_fantasia: null,
+  es_webservice: true,
+  bloqueado: false,
+  fecha_baja: null,
+  fuente: "arca_wsfe",
+  activo: true,
+  usable_factuflow: true,
+  empresa_id: empresaId,
+  created_at: "2026-01-01T00:00:00",
+});
+
 const statusMock = (
   ambiente: "homologacion" | "produccion",
   certificadoActivo: boolean,
@@ -163,6 +180,7 @@ describe("PuntosVentaView", () => {
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
     const wrapper = mount(PuntosVentaView, {
       global: { plugins: [pinia] },
     });
@@ -170,6 +188,7 @@ describe("PuntosVentaView", () => {
 
     empresaStore.empresa = empresaMock(2);
     empresaStore.empresaActivaId = 2;
+    setEmpresaActivaIdStorage(2);
     await flushPromises();
 
     segundaCarga.resolve(statusMock("produccion", true));
@@ -197,6 +216,7 @@ describe("PuntosVentaView", () => {
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
 
     const wrapper = mount(PuntosVentaView, {
       global: { plugins: [pinia] },
@@ -221,5 +241,70 @@ describe("PuntosVentaView", () => {
       "Certificado no disponible",
       expect.stringContaining("Cargá un certificado o restaurá sus archivos"),
     );
+  });
+
+  it("cierra el editor pendiente al cambiar de emisor", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const punto = puntoVentaMock(1);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([punto]);
+    mockedPuntosVentaService.update.mockResolvedValue(punto);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+    const vm = wrapper.vm as unknown as {
+      editarPunto: (punto: PuntoVenta) => void;
+      guardarEdicion: () => Promise<void>;
+      puntoEditando: PuntoVenta | null;
+    };
+
+    vm.editarPunto(punto);
+    expect(vm.puntoEditando?.id).toBe(punto.id);
+
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    empresaStore.empresa = empresaMock(2);
+    empresaStore.empresaActivaId = 2;
+    setEmpresaActivaIdStorage(2);
+    await flushPromises();
+
+    expect(vm.puntoEditando).toBeNull();
+    await vm.guardarEdicion();
+    expect(mockedPuntosVentaService.update).not.toHaveBeenCalled();
+  });
+
+  it("no consulta puntos ni ARCA sin emisor activo", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const empresaStore = useEmpresaStore();
+    empresaStore.inicializarEmpresaActiva = vi.fn().mockResolvedValue(undefined);
+
+    mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
+    expect(mockedArcaService.getStatus).not.toHaveBeenCalled();
+
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", false),
+    );
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    await flushPromises();
+
+    expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
+    expect(mockedArcaService.getStatus).toHaveBeenCalledTimes(1);
   });
 });

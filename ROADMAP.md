@@ -210,6 +210,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Vistas sensibles descartan respuestas asincrónicas viejas al cambiar el
   emisor activo, incluyendo reportes, certificados, puntos de venta y
   numeración de nueva factura
+- [x] Certificados y puntos de venta no llaman endpoints scopiados sin emisor
+  confirmado y cierran borrados/editores pendientes al cambiar de CUIT
 - [x] Autodetección asistida de formato al subir Excel externo para emisión masiva
 - [x] `Emisores > Carga masiva` incorpora subvista de `Plantillas` para crear,
   editar, clonar, desactivar, revisar compatibilidad y descargar Exceles

@@ -271,6 +271,9 @@ El proyecto tuvo que corregir estas estructuras:
 - Antes de solicitar CAE, el backend debe confirmar que el punto de venta y el
   `cliente_id` opcional sean del emisor activo. Un ID válido pero de otro CUIT
   se rechaza localmente para no mezclar comprobantes, clientes ni numeración.
+- Las vistas de certificados y puntos de venta no deben iniciar consultas WSFE
+  sin un emisor confirmado por pestaña ni conservar acciones pendientes cuando
+  cambia el emisor activo.
 
 ### 8. Paths legacy de certificados
 
