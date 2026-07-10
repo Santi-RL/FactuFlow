@@ -39,6 +39,11 @@ from app.schemas.comprobante import (
 
 logger = logging.getLogger(__name__)
 
+ERROR_INTERNO_EMISION_PUBLICO = (
+    "No se pudo completar la operación. "
+    "El detalle técnico quedó registrado en logs privados."
+)
+
 
 class ValidationError(Exception):
     """Error de validación de datos."""
@@ -395,14 +400,14 @@ class FacturacionService:
                         zip(requests, totales_por_request)
                     )
                 ]
-            except Exception as exc:
+            except Exception:
                 logger.exception(
                     "Fallo preparando reservas fiscales del sublote antes de ARCA"
                 )
                 await self.db.rollback()
                 await self._marcar_intentos_batch_pre_arca_fallidos(
                     intento_ids,
-                    str(exc),
+                    ERROR_INTERNO_EMISION_PUBLICO,
                 )
                 return [
                     self._respuesta_batch_reserva_pre_arca_fallida(
@@ -410,7 +415,7 @@ class FacturacionService:
                         punto_venta_numero=punto_venta_numero,
                         numero=proximo + index,
                         totales=totales,
-                        error=str(exc),
+                        error=ERROR_INTERNO_EMISION_PUBLICO,
                     )
                     for index, (request, totales) in enumerate(
                         zip(requests, totales_por_request)
@@ -538,7 +543,7 @@ class FacturacionService:
                         contexto="conflicto_numeracion_post_arca",
                     )
                     respuestas.append(respuesta)
-                except Exception as exc:
+                except Exception:
                     await self.db.rollback()
                     persistencia_bloqueada = True
                     logger.exception(
@@ -559,7 +564,7 @@ class FacturacionService:
                         ),
                         errores=[
                             "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
-                            str(exc),
+                            ERROR_INTERNO_EMISION_PUBLICO,
                         ],
                     )
                     await self._actualizar_intento_batch_preservando_respuesta(
@@ -598,7 +603,7 @@ class FacturacionService:
                             intento,
                             respuesta,
                         )
-                    except Exception as exc:
+                    except Exception:
                         await self.db.rollback()
                         persistencia_bloqueada = True
                         logger.exception(
@@ -621,7 +626,7 @@ class FacturacionService:
                             ),
                             errores=[
                                 "No reintentes esta emisión hasta reconciliar el intento fiscal y verificar el comprobante local.",
-                                str(exc),
+                                ERROR_INTERNO_EMISION_PUBLICO,
                             ],
                         )
                     respuestas.append(respuesta)
@@ -643,8 +648,8 @@ class FacturacionService:
                 )
                 for request in requests
             ]
-        except Exception as e:
-            logger.error("Error inesperado al emitir sublote: %s", str(e))
+        except Exception:
+            logger.exception("Error inesperado al emitir sublote")
             return [
                 EmitirComprobanteResponse(
                     exito=False,
@@ -654,7 +659,7 @@ class FacturacionService:
                     fecha=request.fecha_emision,
                     total=Decimal("0"),
                     mensaje="Error inesperado",
-                    errores=[f"Error interno: {str(e)}"],
+                    errores=[ERROR_INTERNO_EMISION_PUBLICO],
                 )
                 for request in requests
             ]
@@ -848,7 +853,7 @@ class FacturacionService:
                     commit=commit,
                 )
                 return respuesta
-            except Exception as exc:
+            except Exception:
                 await self.db.rollback()
                 logger.exception(
                     "Fallo posterior a CAE autorizado. empresa=%s pv=%s tipo=%s numero=%s",
@@ -866,7 +871,7 @@ class FacturacionService:
                     mensaje="ARCA autorizó el comprobante, pero FactuFlow no pudo guardarlo",
                     errores=[
                         "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
-                        str(exc),
+                        ERROR_INTERNO_EMISION_PUBLICO,
                     ],
                 )
                 await idempotencia.actualizar_intento_desde_respuesta(
@@ -917,8 +922,8 @@ class FacturacionService:
                 mensaje="Error de validación",
                 errores=[str(e)],
             )
-        except Exception as e:
-            logger.error(f"Error inesperado al emitir comprobante: {str(e)}")
+        except Exception:
+            logger.exception("Error inesperado al emitir comprobante")
             return EmitirComprobanteResponse(
                 exito=False,
                 tipo_comprobante=request.tipo_comprobante,
@@ -927,7 +932,7 @@ class FacturacionService:
                 fecha=request.fecha_emision,
                 total=Decimal("0"),
                 mensaje="Error inesperado",
-                errores=[f"Error interno: {str(e)}"],
+                errores=[ERROR_INTERNO_EMISION_PUBLICO],
             )
 
     @classmethod

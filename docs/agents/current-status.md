@@ -227,12 +227,14 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El alta ya estaba restringida a administradores después del bootstrap y el
   borrado físico continúa reservado a administradores, con preservación de
   historial operativo y fiscal.
-- Los errores inesperados del endpoint de emisión ya no devuelven el texto de
-  la excepción. El backend registra traceback en logs privados y responde un
-  mensaje genérico, evitando filtrar credenciales, URLs de base de datos o
-  rutas de certificados.
+- Los errores inesperados del endpoint y de `FacturacionService` ya no
+  devuelven el texto de la excepción. La regla cubre emisión individual,
+  sublotes, reservas pre-ARCA y fallos de persistencia/cierre post-CAE. El
+  backend registra traceback en logs privados y responde un mensaje genérico,
+  evitando filtrar credenciales, URLs de base de datos o rutas de certificados.
 - Cobertura enfocada: usuario común rechazado al editar su propio emisor y
-  excepción de emisión con datos ficticios sensibles no expuestos por HTTP.
+  excepciones individuales, batch y post-CAE con datos ficticios sensibles no
+  expuestos por HTTP ni por respuestas de servicio.
 
 ### Certificados y puntos de venta - contexto multiemisor 2026-07-09
 

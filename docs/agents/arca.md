@@ -86,8 +86,9 @@
 
 - El endpoint de emisión no debe devolver el texto de excepciones inesperadas:
   puede contener credenciales, URLs internas o rutas de certificados.
-- El detalle y el traceback quedan en logs privados. La respuesta HTTP usa un
-  mensaje genérico y no habilita un reintento automático.
+- El detalle y el traceback quedan en logs privados. El endpoint y las
+  respuestas de servicio individuales, batch, pre-ARCA y post-CAE usan un
+  mensaje genérico y no habilitan un reintento automático.
 - Antes de reintentar, revisar la operación idempotente y los intentos fiscales
   para determinar si ARCA pudo haber autorizado el comprobante.
 

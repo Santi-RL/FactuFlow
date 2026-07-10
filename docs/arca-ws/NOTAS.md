@@ -131,7 +131,8 @@ Mapping aplicado en el proyecto:
 - No devolver por HTTP el texto de una excepción inesperada durante emisión.
   Puede incluir credenciales, URLs internas o rutas de certificados.
 - Registrar traceback y detalle solo en logs privados; responder un mensaje
-  genérico y revisar idempotencia e intentos fiscales antes de reintentar.
+  genérico también desde `FacturacionService`, incluidos sublotes y fallos
+  post-CAE, y revisar idempotencia e intentos fiscales antes de reintentar.
 
 ### 4.f Reconciliación externa de lotes
 

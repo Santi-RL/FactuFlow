@@ -149,10 +149,13 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - Ingresar como administrador y confirmar que puede editar datos de contacto.
   Si el emisor tiene historial, los cambios de identidad fiscal deben seguir
   rechazándose con `409`.
-- Ante una excepción inesperada simulada en emisión, confirmar que la respuesta
-  `500` es genérica y no incluye rutas, credenciales ni el texto interno. El
-  traceback debe quedar disponible solo en logs privados.
-- Estas comprobaciones usan errores y emisores ficticios; no solicitan CAE.
+- Ante una excepción inesperada simulada en emisión, confirmar que tanto la
+  respuesta `500` como las respuestas fallidas de `FacturacionService` son
+  genéricas y no incluyen rutas, credenciales ni el texto interno.
+- Simular también fallos de persistencia/cierre post-CAE y comprobar que
+  preservan `requiere_reconciliacion` sin exponer la excepción. El traceback
+  debe quedar disponible solo en logs privados.
+- Estas comprobaciones usan errores y emisores ficticios; no solicitan CAE real.
 
 ### Certificados y puntos de venta - contexto multiemisor 2026-07-09
 

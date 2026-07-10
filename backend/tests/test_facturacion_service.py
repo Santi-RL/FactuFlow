@@ -691,7 +691,9 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         return 77
 
     async def fail_guardar(self, *args, **kwargs):
-        raise RuntimeError("base no disponible")
+        raise RuntimeError(
+            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
+        )
 
     monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
     monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
@@ -761,6 +763,55 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
     assert resultado.numero == 77
     assert resultado.punto_venta == 1
     assert resultado.total == Decimal("1000.00")
+    respuesta_json = resultado.model_dump_json()
+    assert "secreto" not in respuesta_json
+    assert "privada.key" not in respuesta_json
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_sanea_error_interno_del_servicio(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Los catches internos no deben devolver excepciones arbitrarias."""
+
+    async def fail_validar(self, request):
+        raise RuntimeError(
+            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
+        )
+
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fail_validar)
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=1,
+        punto_venta_id=1,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 7, 9),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    individual = await service.emitir_comprobante(request)
+    batch = (await service.emitir_comprobantes_lote([request]))[0]
+
+    for resultado in (individual, batch):
+        respuesta_json = resultado.model_dump_json()
+        assert resultado.exito is False
+        assert "secreto" not in respuesta_json
+        assert "privada.key" not in respuesta_json
+        assert "logs privados" in respuesta_json
 
 
 @pytest.mark.asyncio
@@ -1311,7 +1362,9 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
         nonlocal fallos_cierre
         if response.exito:
             fallos_cierre += 1
-            raise RuntimeError("cierre intento fallido")
+            raise RuntimeError(
+                "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
+            )
         return await original_actualizar(self, intento, response, **kwargs)
 
     monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
@@ -1385,6 +1438,9 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
     assert {resultado.categoria_error for resultado in resultados} == {
         "post_arca_persistencia"
     }
+    respuestas_json = " ".join(resultado.model_dump_json() for resultado in resultados)
+    assert "secreto" not in respuestas_json
+    assert "privada.key" not in respuestas_json
     assert [comprobante.numero for comprobante in comprobantes] == [1]
     assert comprobantes[0].cae == "12345678901231"
     assert [intento.estado for intento in intentos] == [
