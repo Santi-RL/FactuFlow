@@ -198,6 +198,12 @@
   `DH_KEY_TOO_SMALL`.
 - El cliente SOAP usa un transporte propio con `DEFAULT:@SECLEVEL=1`, limitado
   a llamadas ARCA, para mantener compatibilidad con esos endpoints.
+- El timeout de transporte cubre tanto la carga del WSDL como cada operación
+  SOAP. Las operaciones Zeep de WSAA y WSFEv1 se ejecutan fuera del event loop
+  para no bloquear otras requests de FastAPI.
+- El thread no se abandona si se cancela la espera. Un timeout o corte durante
+  `FECAESolicitar` sigue siendo un resultado potencialmente incierto: no se
+  reintenta automáticamente y se revisan intento fiscal, idempotencia y ARCA.
 
 ### Verificacion de comprobantes
 

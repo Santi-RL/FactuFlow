@@ -113,6 +113,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 ### Backend
 - [x] FastAPI operativo con auth, clientes, empresa, puntos de venta, certificados, comprobantes, PDF, lotes y reportes
 - [x] Integración WSAA + WSFEv1 operativa en homologación y producción inicial
+- [x] Transporte SOAP con timeout efectivo para carga de WSDL y operaciones, y
+  llamadas Zeep ejecutadas fuera del event loop
 - [x] Emisión individual real validada con CAE
 - [x] Emisión masiva por Excel implementada
 - [x] Formatos de importación configurables para emisión masiva con alcance global y por emisor
@@ -412,6 +414,9 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
   fiscal, intento previo o preflight no concluyente, bloquea como
   `requiere_reconciliacion`. Si el bloqueo de un stale falla, no avanza con
   lotes `en_cola` en ese ciclo.
+- [x] La API comprueba que el worker embebido esté disponible antes de crear
+  idempotencia o mover un lote a `en_cola`; si no lo está responde `503` sin
+  solicitar CAE
 - [x] Emisión masiva por sublotes ARCA para grupos con mismo punto de venta y
   tipo, con fallback unitario explícito si `RegXReq` no está disponible
 - [x] Contención frontend post-incidente productivo de lote grande: el

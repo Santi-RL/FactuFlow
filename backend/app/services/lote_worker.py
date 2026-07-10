@@ -119,18 +119,19 @@ class LoteWorker:
                     logger.exception("No se pudo procesar lote %s", lote_id)
 
 
-def ensure_lote_worker_running(app: FastAPI) -> None:
-    """Inicia el worker si no existe o si terminó."""
+def ensure_lote_worker_running(app: FastAPI) -> bool:
+    """Inicia el worker si corresponde e informa si quedó disponible."""
     if not settings.batch_worker_enabled:
-        return
+        return False
 
     task = getattr(app.state, "lote_worker_task", None)
     if task is not None and not task.done():
-        return
+        return True
 
     worker = LoteWorker()
     app.state.lote_worker = worker
     app.state.lote_worker_task = asyncio.create_task(worker.run())
+    return True
 
 
 async def stop_lote_worker(app: FastAPI) -> None:

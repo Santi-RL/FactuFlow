@@ -59,8 +59,12 @@ uvicorn app.main:app --reload --port 8000
 ### Producción
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
+
+Mientras el procesamiento de lotes siga embebido en el backend, producción debe
+usar un único proceso Uvicorn y `BATCH_WORKER_ENABLED=true`. No aumentar
+`--workers` sin separar antes el worker de lotes en un servicio dedicado.
 
 ## Documentación API
 

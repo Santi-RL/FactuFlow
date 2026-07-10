@@ -390,6 +390,11 @@ que esos pendientes no tuvieron intento fiscal, CAE, número ni comprobante loca
 candidato y que la numeración ARCA/local sigue alineada. Si no puede probarlo,
 el lote pasa a `Requiere reconciliación` y debe auditarse antes de continuar.
 
+Si FactuFlow informa que el worker de lotes no está disponible, el lote no fue
+puesto en cola y no se solicitó CAE desde ese intento. Conserva el lote y vuelve
+a intentar cuando el servicio esté habilitado; no vuelvas a cargar el Excel como
+un lote nuevo.
+
 Si la pantalla no puede refrescar el seguimiento por timeout o error del
 servidor, eso no significa por sí mismo que el lote haya desaparecido. No vuelvas
 a cargar ni emitir el mismo archivo hasta refrescar el estado, revisar la

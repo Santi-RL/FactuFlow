@@ -26,7 +26,7 @@ from app.arca.exceptions import (
     ArcaValidationError,
     ArcaConnectionError,
 )
-from app.arca.soap import create_soap_client
+from app.arca.soap import create_soap_client, run_soap_call
 from app.arca.utils import clean_cuit, format_importe
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,12 @@ class WSFEv1Client:
         """
         return {"Token": self.ticket.token, "Sign": self.ticket.sign, "Cuit": self.cuit}
 
+    async def _call_soap(self, method_name: str, **kwargs: object) -> object:
+        """Ejecuta un método Zeep sin bloquear el event loop."""
+
+        method = getattr(self.client.service, method_name)
+        return await run_soap_call(method, **kwargs)
+
     async def fe_dummy(self) -> dict:
         """
         Test de disponibilidad del servicio (FEDummy).
@@ -86,7 +92,7 @@ class WSFEv1Client:
             ArcaServiceError: Si hay error del servicio
         """
         try:
-            response = self.client.service.FEDummy()
+            response = await self._call_soap("FEDummy")
 
             return {
                 "app_server": response.AppServer,
@@ -116,8 +122,11 @@ class WSFEv1Client:
         try:
             auth = self._get_auth_dict()
 
-            response = self.client.service.FECompUltimoAutorizado(
-                Auth=auth, PtoVta=punto_venta, CbteTipo=tipo_cbte
+            response = await self._call_soap(
+                "FECompUltimoAutorizado",
+                Auth=auth,
+                PtoVta=punto_venta,
+                CbteTipo=tipo_cbte,
             )
 
             # Verificar errores
@@ -196,7 +205,8 @@ class WSFEv1Client:
 
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FECAESolicitar(
+            response = await self._call_soap(
+                "FECAESolicitar",
                 Auth=auth,
                 FeCAEReq={
                     "FeCabReq": {
@@ -233,7 +243,10 @@ class WSFEv1Client:
             Valor `RegXReq` informado por ARCA para FECAESolicitar.
         """
         try:
-            response = self.client.service.FECompTotXRequest(Auth=self._get_auth_dict())
+            response = await self._call_soap(
+                "FECompTotXRequest",
+                Auth=self._get_auth_dict(),
+            )
 
             if hasattr(response, "Errors") and response.Errors:
                 error = (
@@ -525,7 +538,8 @@ class WSFEv1Client:
         try:
             auth = self._get_auth_dict()
 
-            response = self.client.service.FECompConsultar(
+            response = await self._call_soap(
+                "FECompConsultar",
                 Auth=auth,
                 FeCompConsReq={
                     "CbteTipo": tipo_cbte,
@@ -593,7 +607,7 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetTiposCbte(Auth=auth)
+            response = await self._call_soap("FEParamGetTiposCbte", Auth=auth)
 
             tipos = response.ResultGet.CbteTipo
             if not isinstance(tipos, list):
@@ -621,7 +635,7 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetTiposDoc(Auth=auth)
+            response = await self._call_soap("FEParamGetTiposDoc", Auth=auth)
 
             tipos = response.ResultGet.DocTipo
             if not isinstance(tipos, list):
@@ -649,7 +663,7 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetTiposIva(Auth=auth)
+            response = await self._call_soap("FEParamGetTiposIva", Auth=auth)
 
             tipos = response.ResultGet.IvaTipo
             if not isinstance(tipos, list):
@@ -677,7 +691,7 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetTiposConcepto(Auth=auth)
+            response = await self._call_soap("FEParamGetTiposConcepto", Auth=auth)
 
             tipos = response.ResultGet.ConceptoTipo
             if not isinstance(tipos, list):
@@ -705,7 +719,7 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetTiposMonedas(Auth=auth)
+            response = await self._call_soap("FEParamGetTiposMonedas", Auth=auth)
 
             tipos = response.ResultGet.Moneda
             if not isinstance(tipos, list):
@@ -736,8 +750,10 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetCotizacion(
-                Auth=auth, MonId=moneda_id
+            response = await self._call_soap(
+                "FEParamGetCotizacion",
+                Auth=auth,
+                MonId=moneda_id,
             )
 
             result = response.ResultGet
@@ -760,7 +776,7 @@ class WSFEv1Client:
         """
         try:
             auth = self._get_auth_dict()
-            response = self.client.service.FEParamGetPtosVenta(Auth=auth)
+            response = await self._call_soap("FEParamGetPtosVenta", Auth=auth)
 
             if hasattr(response, "Errors") and response.Errors:
                 err_list = response.Errors.Err

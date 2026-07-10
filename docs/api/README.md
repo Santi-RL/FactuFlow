@@ -596,6 +596,13 @@ formato. No emite comprobantes. La emisión ocurre solo con
   chicos se procesan en la misma request y lotes grandes se encolan según
   `BATCH_SYNC_LIMIT`.
 
+Si el pedido requiere procesamiento en segundo plano y el worker no está
+disponible, la API responde `503` con
+`categoria_error=worker_lotes_no_disponible`. Esa comprobación ocurre antes
+de crear la operación idempotente o cambiar el lote a `en_cola`; no se
+solicita CAE y el cliente puede volver a intentar con la misma clave cuando el
+servicio esté disponible.
+
 Este endpoint exige `X-Idempotency-Key`. La clave cubre lote, modo background y
 confirmación fiscal; debe mantenerse para retries de la misma operación. Si el
 lote tiene duplicados lógicos probables, la API responde `409` con

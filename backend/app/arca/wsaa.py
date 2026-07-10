@@ -14,7 +14,7 @@ from app.arca.crypto import create_signed_tra
 from app.arca.cache import get_token_cache
 from app.arca.models import TicketAcceso
 from app.arca.exceptions import ArcaAuthError, ArcaConnectionError
-from app.arca.soap import create_soap_client
+from app.arca.soap import create_soap_client, run_soap_call
 from app.arca.utils import clean_cuit
 
 logger = logging.getLogger(__name__)
@@ -107,8 +107,8 @@ class WSAAClient:
                 key_password=key_password,
             )
 
-            # Llamar al webservice
-            response = self.client.service.loginCms(cms)
+            # Llamar al webservice sin bloquear el event loop.
+            response = await run_soap_call(self.client.service.loginCms, cms)
 
             # Parsear respuesta
             ticket = self._parse_response(response, servicio)

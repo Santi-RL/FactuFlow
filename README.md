@@ -59,7 +59,9 @@ para una etapa posterior.
 - cada lote pertenece a un solo emisor activo
 - clientes, certificados, puntos de venta, comprobantes, lotes, PDFs y reportes
   deben quedar siempre aislados por emisor activo
-- hasta `100` comprobantes se procesan en la misma sesión; lotes más grandes quedan en cola persistente y se procesan en segundo plano
+- hasta `100` comprobantes se procesan en la misma sesión; lotes más grandes
+  quedan en cola persistente y se procesan en segundo plano. Si el worker no
+  está disponible, la API rechaza el encolado sin alterar el lote
 - los reportes solo consideran comprobantes autorizados
 - las fechas visibles para usuarios se muestran en formato argentino
   `DD/MM/AAAA`; los formatos técnicos quedan limitados a contratos internos
@@ -172,7 +174,8 @@ resetear su contraseña.
 - `BATCH_SYNC_LIMIT`: máximo de comprobantes para procesamiento síncrono
 - `BATCH_MAX_ROWS`: límite de filas del Excel
 - `BATCH_MAX_GROUPS`: límite de comprobantes por lote
-- `BATCH_WORKER_ENABLED`: habilita procesamiento en segundo plano de lotes grandes
+- `BATCH_WORKER_ENABLED`: habilita procesamiento en segundo plano de lotes
+  grandes; debe estar activo en producción mientras el worker sea embebido
 - `DATABASE_URL`: PostgreSQL recomendado para operación real
 - `CORS_ORIGINS`: orígenes permitidos
 

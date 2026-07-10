@@ -123,6 +123,22 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Transporte SOAP y worker de lotes 2026-07-09
+
+- Ejecutar un procesamiento con `background=true` y worker simulado como no
+  disponible: debe responder `503` con
+  `categoria_error=worker_lotes_no_disponible`.
+- Confirmar en base que el lote conserva estado `validado`, no queda marcado
+  como asíncrono y no existe una operación idempotente nueva para ese pedido.
+- Con worker disponible, un lote chico solicitado en background debe pasar a
+  `en_cola`, guardar la operación como `en_proceso` y cerrarla al finalizar.
+- En producción, verificar un único proceso backend,
+  `BATCH_WORKER_ENABLED=true` y el log `Worker de lotes iniciado` después
+  del arranque.
+- Las pruebas automatizadas simulan transporte y worker, verifican que una
+  llamada SOAP lenta no bloquee otra coroutine y controlan la topología
+  documentada; no solicitan CAE ni usan certificados reales.
+
 ### Administración de emisores y errores privados 2026-07-09
 
 - Ingresar como usuario común, abrir `Emisores` y confirmar que la ficha del

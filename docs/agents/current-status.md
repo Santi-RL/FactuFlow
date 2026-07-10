@@ -199,6 +199,25 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Transporte SOAP y disponibilidad del worker 2026-07-09
+
+- El transporte Zeep aplica el mismo timeout a la carga del WSDL y a cada
+  operación SOAP. Las operaciones WSAA y WSFEv1 se ejecutan en un thread de
+  trabajo para no bloquear el event loop de FastAPI.
+- El offload no abandona una operación SOAP por cancelación del request. Un
+  timeout de emisión sigue siendo fiscalmente incierto y no habilita reintento
+  automático: se conserva el flujo de intentos e idempotencia existente.
+- Antes de crear una operación idempotente o mover un lote a `en_cola`, la API
+  comprueba que el worker embebido esté disponible. Si está deshabilitado,
+  responde `503`, deja el lote en `validado` y no solicita CAE.
+- Producción debe mantener un único proceso Uvicorn y
+  `BATCH_WORKER_ENABLED=true` mientras el worker siga embebido.
+- Cobertura enfocada: 16 tests de transporte/WSAA/WSFEv1, 3 tests de estados
+  background y una regresión estática del runbook productivo. Todos usan dobles
+  locales y no llaman ARCA real.
+- Cierre backend completo: 407 tests pasaron, 1 quedó omitido según su marca
+  preexistente, y Ruff/Black quedaron limpios.
+
 ### Administración de emisores y errores de emisión 2026-07-09
 
 - La actualización de la ficha de un emisor requiere usuario administrador en

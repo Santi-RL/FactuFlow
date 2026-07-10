@@ -355,6 +355,26 @@ async def procesar_lote(
     except LoteComprobanteError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    requiere_background = background or lote.total_grupos > settings.batch_sync_limit
+    if (
+        requiere_background
+        and lote.estado in service.ESTADOS_PROCESABLES
+        and not ensure_lote_worker_running(request.app)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "mensaje": (
+                    "El procesamiento en segundo plano no está disponible. "
+                    "No se encoló el lote ni se solicitó CAE."
+                ),
+                "errores": [
+                    "Habilita el worker de lotes y vuelve a intentar con la misma clave."
+                ],
+                "categoria_error": "worker_lotes_no_disponible",
+            },
+        )
+
     material_grupos = await service.calcular_material_idempotente_grupos(
         lote_id=lote_id,
         empresa_id=empresa_activa_id,
@@ -476,7 +496,7 @@ async def procesar_lote(
             )
             raise HTTPException(status_code=409, detail=detail)
 
-    if background or lote.total_grupos > settings.batch_sync_limit:
+    if requiere_background:
         lote = await service.encolar_lote(
             lote_id,
             empresa_activa_id,
@@ -484,7 +504,6 @@ async def procesar_lote(
             confirmacion_duplicado_logico=confirmacion_duplicado_ok,
         )
         if lote.estado != "procesando":
-            ensure_lote_worker_running(request.app)
             mensaje = "El lote quedó en cola y se está procesando en segundo plano."
         else:
             mensaje = "El lote ya está siendo procesado."

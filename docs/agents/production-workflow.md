@@ -104,6 +104,10 @@ Antes de actualizar producción:
 6. Si el cambio toca base, emisión, certificados, Docker o configuración,
    verificar que existe un backup recuperable reciente o generar uno manual.
 7. Decidir el commit o tag exacto a desplegar.
+8. Confirmar que producción usa un único proceso Uvicorn mientras el worker de
+   lotes siga embebido en el backend.
+9. Confirmar `BATCH_WORKER_ENABLED=true` si la instalación permite procesar
+   lotes en segundo plano.
 
 Si el cambio toca ARCA, WSFE, CAE, numeración, emisión individual, emisión
 masiva, reintentos, reconciliación, certificados, puntos de venta, fechas
@@ -136,7 +140,8 @@ La QA post-deploy mínima debe incluir:
 - certificados y puntos de venta visibles
 - reportes básicos si el cambio los toca
 - PDF si el cambio toca generación o dependencias nativas
-- logs del backend sin errores nuevos
+- logs del backend sin errores nuevos y señal `Worker de lotes iniciado`
+- `BATCH_WORKER_ENABLED=true` y un único proceso backend si se usa background
 - servicios vecinos del host sin afectación, cuando comparten reverse proxy
 
 Si se hacen validaciones ARCA, deben ser consultas seguras y explícitas, por

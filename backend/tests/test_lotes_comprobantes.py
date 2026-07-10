@@ -2522,7 +2522,7 @@ async def test_procesar_lote_background_encola_lote_chico(
     test_certificado.ambiente = settings.arca_env
     monkeypatch.setattr(
         "app.api.lotes_comprobantes.ensure_lote_worker_running",
-        lambda app: None,
+        lambda app: True,
     )
     llamadas = 0
 
@@ -2608,6 +2608,59 @@ async def test_procesar_lote_background_encola_lote_chico(
     assert operacion.estado == "finalizado"
     assert operacion.response_json["en_progreso"] is False
     assert operacion.response_json["lote"]["estado"] == "completado"
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_background_sin_worker_no_encola(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Sin worker disponible no debe mutar el lote ni crear idempotencia."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "batch_worker_enabled", False)
+
+    validar = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "lote-worker-no-disponible.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validar.status_code == 200, validar.text
+    lote_id = validar.json()["lote"]["id"]
+
+    procesar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar?background=true",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert procesar.status_code == 503, procesar.text
+    detail = procesar.json()["detail"]
+    assert detail["categoria_error"] == "worker_lotes_no_disponible"
+    assert "No se encoló el lote" in detail["mensaje"]
+
+    lote = await db_session.get(LoteComprobante, lote_id)
+    await db_session.refresh(lote)
+    assert lote.estado == "validado"
+    assert lote.procesamiento_async is False
+    operacion = (
+        await db_session.execute(
+            select(OperacionIdempotente).where(
+                OperacionIdempotente.idempotency_key == "idem-lote-test"
+            )
+        )
+    ).scalar_one_or_none()
+    assert operacion is None
 
 
 @pytest.mark.asyncio

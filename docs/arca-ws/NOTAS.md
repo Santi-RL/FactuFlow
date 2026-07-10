@@ -322,7 +322,14 @@ El proyecto tuvo que corregir estas estructuras:
   por WSFEv1; se importo desde la constancia PDF de puntos de venta.
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
   compatibilidad con el handshake del endpoint.
-- El perfil productivo del repo es `docker-compose.prod.yml` con PostgreSQL.
+- El transporte debe configurar timeout para carga del WSDL y
+  `operation_timeout` para cada operación. Las llamadas síncronas de Zeep se
+  ejecutan en threads de trabajo para no bloquear el event loop.
+- Un timeout de `FECAESolicitar` no demuestra rechazo: conservar el intento
+  fiscal y reconciliar antes de cualquier reintento.
+- El perfil productivo del repo es `docker-compose.prod.yml` con PostgreSQL,
+  un único proceso Uvicorn y `BATCH_WORKER_ENABLED=true` mientras el worker de
+  lotes siga embebido.
 - Antes de mover la operación a VPS, preparar el paquete con
   `python -m app.scripts.vps_migration`: `preflight` debe bloquear cualquier
   certificado activo sin `.crt` y `.key` resolubles, `export` re-cifra claves
