@@ -216,6 +216,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   numeración de nueva factura
 - [x] Certificados y puntos de venta no llaman endpoints scopiados sin emisor
   confirmado y cierran borrados/editores pendientes al cambiar de CUIT
+- [x] Importación de constancias descarta notificaciones obsoletas al cambiar de
+  emisor; la verificación de certificado bloquea reintentos concurrentes
+- [x] El selector de clientes cierra resultados anteriores cuando la búsqueda
+  queda por debajo del mínimo o cambia mientras una request está en curso
 - [x] Autodetección asistida de formato al subir Excel externo para emisión masiva
 - [x] `Emisores > Carga masiva` incorpora subvista de `Plantillas` para crear,
   editar, clonar, desactivar, revisar compatibilidad y descargar Exceles

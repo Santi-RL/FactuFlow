@@ -204,13 +204,23 @@ const importarConstancia = async (event: Event) => {
   const file = input.files?.[0];
   if (!file) return;
 
+  const empresaIdSolicitada = empresaStore.empresaActivaId;
+  if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) {
+    input.value = "";
+    return;
+  }
+
   try {
     const resultado = await puntosVentaStore.importarConstancia(file);
+    if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
+
     showSuccess(
       "Constancia importada",
       `Detectados: ${resultado.total_constancia}. Creados: ${resultado.creados}. Actualizados: ${resultado.actualizados}.`,
     );
   } catch (err: any) {
+    if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
+
     const mensaje =
       err.response?.data?.detail || "No se pudo importar la constancia";
     showError("Error", mensaje);

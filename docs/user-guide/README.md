@@ -127,7 +127,9 @@ recarga puntos de venta y limpia el cliente seleccionado. La vista previa se
 habilita solo cuando FactuFlow pudo confirmar el próximo número. Si eliges
 Productos después de haber completado un período de Servicios, esas fechas se
 limpian y no se envían a ARCA. Si modificas los datos de un cliente guardado, el
-receptor pasa a carga manual para no conservar una vinculación incorrecta.
+receptor pasa a carga manual para no conservar una vinculación incorrecta. Al
+reducir la búsqueda de clientes a menos de dos caracteres, FactuFlow cierra los
+resultados anteriores para evitar una selección obsoleta.
 
 El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
 cambias de emisor, esa nueva selección no cambia silenciosamente una factura o
@@ -738,7 +740,8 @@ fallar si no está asociado a ese servicio.
 Antes de emitir comprobantes reales en producción, usa `Probar conexión` sobre
 el certificado productivo del emisor activo. La prueba valida la comunicación
 con ARCA usando ese certificado, sin generar comprobantes ni consumir
-numeración fiscal. Los tickets técnicos de ARCA quedan asociados al certificado
+numeración fiscal. Mientras la consulta está en curso, `Reintentar` permanece
+bloqueado para no enviar verificaciones concurrentes. Los tickets técnicos de ARCA quedan asociados al certificado
 que los generó, por lo que una renovación no reutiliza credenciales cacheadas de
 otro certificado del mismo emisor.
 
@@ -764,7 +767,9 @@ Importante:
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs y
   cierra cualquier editor pendiente del emisor anterior
 - puedes usar `Importar constancia` para cargar el PDF de ARCA con la lista
-  completa de puntos, incluyendo sistema, domicilio y nombre de fantasía
+  completa de puntos, incluyendo sistema, domicilio y nombre de fantasía; si
+  cambias de emisor durante la carga, FactuFlow descarta la notificación del
+  contexto anterior
 - si `Importar constancia` no puede consultar el estado técnico en ARCA,
   conserva el estado local de los puntos existentes y deja inactivos los puntos
   nuevos hasta sincronizar con ARCA o revisarlos manualmente

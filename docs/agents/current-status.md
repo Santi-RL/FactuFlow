@@ -250,10 +250,15 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Cambiar de emisor cierra cualquier borrado de certificado o editor de punto de
   venta pendiente, limpia resultados anteriores e invalida respuestas tardías.
 - Cada mutación conserva el emisor capturado al abrir la acción y vuelve a
-  verificar el contexto antes de actualizar la UI. El backend mantiene su
-  validación autoritativa por `empresa_id`.
-- Verificación enfocada: 8 tests frontend y type-check. No se llamó ARCA real,
-  no se modificaron certificados ni puntos reales y no se solicitó CAE.
+  verificar el contexto antes de actualizar la UI. La importación de constancia
+  también descarta éxito/error si el usuario cambió de emisor durante la carga.
+  El backend mantiene su validación autoritativa por `empresa_id`.
+- El paso de verificación de certificado ignora reintentos mientras una consulta
+  ARCA sigue pendiente, y el selector de clientes cierra resultados anteriores
+  cuando la búsqueda baja de dos caracteres o cambia antes de responder.
+- Verificación enfocada acumulada: 11 tests frontend y type-check. No se llamó
+  ARCA real, no se modificaron certificados ni puntos reales y no se solicitó
+  CAE.
 
 ### Emisión individual - consistencia previa a CAE 2026-07-09
 

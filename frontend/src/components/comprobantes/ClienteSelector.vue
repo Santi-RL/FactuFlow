@@ -67,14 +67,19 @@ const clientesElegibles = computed(() =>
 
 // Buscar clientes
 const buscarClientes = async () => {
-  if (busqueda.value.length < 2) return;
+  const consulta = busqueda.value.trim();
+  if (consulta.length < 2) {
+    mostrarResultados.value = false;
+    return;
+  }
 
   await clientesStore.fetchClientes({
-    search: busqueda.value,
+    search: consulta,
     page: 1,
     per_page: 10,
   });
 
+  if (busqueda.value.trim() !== consulta) return;
   mostrarResultados.value = true;
 };
 

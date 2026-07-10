@@ -32,6 +32,8 @@ const verificado = ref(false);
 const resultado = ref<VerificacionResponse | null>(null);
 
 const verificarConexion = async () => {
+  if (loading.value) return;
+
   loading.value = true;
   verificado.value = false;
 
@@ -189,6 +191,7 @@ const verificarConexion = async () => {
           <div class="flex flex-wrap justify-center gap-3">
             <BaseButton
               variant="secondary"
+              :loading="loading"
               @click="verificarConexion"
             >
               <ArrowPathIcon class="mr-2 h-4 w-4" />

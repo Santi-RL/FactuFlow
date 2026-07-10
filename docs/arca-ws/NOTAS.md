@@ -43,6 +43,8 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
   `{}` como si todos los puntos estuvieran activos: preservar el estado local de
   puntos existentes y dejar inactivos los puntos nuevos hasta sincronizar o
   revisar manualmente.
+- Si el usuario cambia de emisor mientras se importa una constancia, la UI no
+  debe mostrar el resultado bajo el nuevo contexto.
 
 ### 4. `CondicionIVAReceptorId`
 

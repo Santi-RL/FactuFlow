@@ -111,7 +111,9 @@
   SHA-256 del certificado público que generó el Token/Sign.
 - `Probar conexión` puede forzar un login WSAA para el certificado seleccionado;
   ese ticket no debe ser reutilizable por el certificado activo si el material
-  del certificado es distinto.
+  del certificado es distinto. La UI bloquea reintentos mientras una
+  verificación sigue pendiente para evitar llamadas concurrentes y respuestas
+  fuera de orden.
 - Al renovar certificados para el mismo emisor y ambiente, el certificado nuevo
   obtiene o reutiliza solo tickets asociados a su propia huella. Esto evita
   operar WSFE con credenciales cacheadas de un certificado anterior o no activo.

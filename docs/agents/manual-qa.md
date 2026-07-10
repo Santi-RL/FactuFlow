@@ -170,8 +170,15 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - Montar ambas pantallas sin emisor activo debe dejar las listas vacías y no
   llamar certificados, puntos de venta ni estado ARCA hasta completar la
   selección.
-- Cobertura automatizada: 3 tests de certificados y 5 de puntos de venta, más
-  type-check. Las pruebas usan datos ficticios y no llaman ARCA real.
+- Iniciar `Importar constancia`, cambiar el emisor antes de completar y
+  confirmar que no aparece éxito/error asociado al contexto anterior.
+- En el último paso del wizard de certificado, hacer doble click en
+  `Reintentar` durante una respuesta pendiente y confirmar una sola request.
+- En Nueva factura, mostrar resultados de clientes y reducir la búsqueda a un
+  carácter: el desplegable debe cerrarse.
+- Cobertura automatizada acumulada: 4 tests de certificados, 6 de puntos de
+  venta y 2 del selector de clientes, más type-check. Las pruebas usan datos
+  ficticios y no llaman ARCA real.
 
 ### Emisión individual - consistencia previa a CAE 2026-07-09
 

@@ -111,6 +111,7 @@ const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
   create: Mock;
   update: Mock;
+  importarConstancia: Mock;
 };
 
 describe("PuntosVentaView", () => {
@@ -166,6 +167,54 @@ describe("PuntosVentaView", () => {
 
     expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
     expect(notificationMocks.showError).not.toHaveBeenCalled();
+  });
+
+  it("no muestra una importación obsoleta después de cambiar el emisor", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const importacionPendiente = deferred<{
+      total_constancia: number;
+      creados: number;
+      actualizados: number;
+    }>();
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    mockedPuntosVentaService.importarConstancia.mockReturnValue(
+      importacionPendiente.promise,
+    );
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    const input = document.createElement("input");
+    Object.defineProperty(input, "files", {
+      value: [new File(["PDF"], "constancia.pdf", { type: "application/pdf" })],
+    });
+    const vm = wrapper.vm as unknown as {
+      importarConstancia: (event: Event) => Promise<void>;
+    };
+    const importacion = vm.importarConstancia({ target: input } as unknown as Event);
+
+    empresaStore.empresa = empresaMock(2);
+    empresaStore.empresaActivaId = 2;
+    setEmpresaActivaIdStorage(2);
+    importacionPendiente.resolve({
+      total_constancia: 1,
+      creados: 1,
+      actualizados: 0,
+    });
+    await importacion;
+
+    expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
+    expect(notificationMocks.showError).not.toHaveBeenCalled();
+    expect(input.value).toBe("");
   });
 
   it("ignora estados ARCA viejos despues de cambiar el emisor activo", async () => {
