@@ -267,7 +267,7 @@ async def update_empresa(
     empresa_id: int,
     empresa_data: EmpresaUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_admin_user),
 ):
     """
     Actualizar una empresa.

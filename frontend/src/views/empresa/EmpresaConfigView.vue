@@ -101,6 +101,9 @@ const evaluandoCompatibilidad = ref(false);
 let compatibilidadPlantillaTimer: ReturnType<typeof setTimeout> | undefined;
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
+const puedeAdministrarEmisor = computed(() =>
+  Boolean(authStore.user?.es_admin),
+);
 const condicionIvaOptions = [
   { value: "RI", label: "Responsable Inscripto" },
   { value: "Monotributo", label: "Monotributo" },
@@ -895,7 +898,7 @@ const cargarConfiguracionCargaMasiva = async () => {
 };
 
 const guardarEmpresa = async () => {
-  if (!empresaActiva.value) return;
+  if (!empresaActiva.value || !puedeAdministrarEmisor.value) return;
 
   saving.value = true;
 
@@ -918,6 +921,7 @@ const guardarEmpresa = async () => {
 };
 
 const abrirCrearEmisor = () => {
+  if (!puedeAdministrarEmisor.value) return;
   resetCreateForm();
   extractionWarnings.value = [];
   showCreateModal.value = true;
@@ -1134,7 +1138,10 @@ onMounted(async () => {
         </p>
       </div>
 
-      <div class="flex flex-wrap gap-3">
+      <div
+        v-if="puedeAdministrarEmisor"
+        class="flex flex-wrap gap-3"
+      >
         <BaseButton
           variant="secondary"
           class="gap-2"
@@ -1153,9 +1160,19 @@ onMounted(async () => {
       </div>
     </div>
 
-    <BaseAlert type="info">
+    <BaseAlert
+      v-if="puedeAdministrarEmisor"
+      type="info"
+    >
       Los cambios impactan en el emisor activo seleccionado y se reflejan en la
       operatoria diaria.
+    </BaseAlert>
+    <BaseAlert
+      v-else
+      type="info"
+    >
+      Puedes consultar los datos del emisor activo. Solo un administrador puede
+      modificarlos o agregar otro emisor.
     </BaseAlert>
 
     <div class="border-b border-gray-200">
@@ -1206,28 +1223,33 @@ onMounted(async () => {
           <div class="grid gap-4 md:grid-cols-2">
             <BaseInput
               v-model="form.razon_social"
+              :disabled="!puedeAdministrarEmisor"
               label="Razón social"
               required
             />
             <BaseInput
               v-model="form.cuit"
+              :disabled="!puedeAdministrarEmisor"
               label="CUIT"
               hint="Ingresalo sin guiones."
               required
             />
             <BaseSelect
               v-model="form.condicion_iva"
+              :disabled="!puedeAdministrarEmisor"
               :options="condicionIvaOptions"
               label="Condición IVA"
               required
             />
             <BaseInput
               v-model="form.ingresos_brutos"
+              :disabled="!puedeAdministrarEmisor"
               label="Ingresos Brutos"
               placeholder="Ej.: CM 12345678 o Exento"
             />
             <BaseInput
               v-model="form.inicio_actividades"
+              :disabled="!puedeAdministrarEmisor"
               type="date"
               label="Inicio de actividades"
               required
@@ -1235,34 +1257,40 @@ onMounted(async () => {
             <div class="md:col-span-2">
               <BaseInput
                 v-model="form.domicilio"
+                :disabled="!puedeAdministrarEmisor"
                 label="Domicilio fiscal"
                 required
               />
             </div>
             <BaseInput
               v-model="form.localidad"
+              :disabled="!puedeAdministrarEmisor"
               label="Localidad"
               required
             />
             <BaseSelect
               v-model="form.provincia"
+              :disabled="!puedeAdministrarEmisor"
               label="Provincia"
               :options="provinciasOptions"
               required
             />
             <BaseInput
               v-model="form.codigo_postal"
+              :disabled="!puedeAdministrarEmisor"
               label="Código postal"
               required
             />
             <BaseInput
               v-model="form.telefono"
+              :disabled="!puedeAdministrarEmisor"
               label="Teléfono"
               type="tel"
             />
             <div class="md:col-span-2">
               <BaseInput
                 v-model="form.email"
+                :disabled="!puedeAdministrarEmisor"
                 label="Email de contacto"
                 type="email"
               />

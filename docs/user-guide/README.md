@@ -769,8 +769,10 @@ Importante:
 
 ## 10. Emisores
 
-En `Emisores` puedes editar y guardar los datos fiscales y generales del emisor activo asignado. Solo los administradores pueden agregar otro CUIT para operar.
-Completa `Ingresos Brutos` para que ese dato salga informado en los PDFs.
+En `Emisores` puedes consultar los datos fiscales y generales del emisor
+activo asignado. Solo los administradores pueden editar y guardar esa ficha o
+agregar otro CUIT para operar. Si eres administrador, completa `Ingresos
+Brutos` para que ese dato salga informado en los PDFs.
 
 La pantalla tiene dos secciones:
 - `Datos del emisor`: datos fiscales y de contacto.
@@ -817,13 +819,14 @@ Desde esa pantalla puedes:
 
 Un usuario común puede operar únicamente el emisor asignado en su cuenta:
 emitir comprobantes, administrar certificados, sincronizar puntos de venta, usar
-emisión masiva y consultar reportes dentro de ese emisor. Si necesita operar
-otro emisor, un administrador debe cambiarle el emisor asignado o promoverlo a
-administrador.
+emisión masiva y consultar reportes dentro de ese emisor. Puede consultar la
+ficha del emisor, pero no modificarla. Si necesita operar otro emisor o cambiar
+sus datos, un administrador debe actualizar la asignación o realizar el cambio.
 
-El rol `Administrador` significa que puede administrar usuarios y operar todos
-los emisores configurados. El borrado físico de un emisor queda reservado a
-administradores porque puede afectar historial fiscal y relaciones internas.
+El rol `Administrador` significa que puede administrar usuarios, crear y
+editar emisores, y operar todos los emisores configurados. El borrado físico de
+un emisor queda reservado a administradores porque puede afectar historial
+fiscal y relaciones internas.
 
 Desactivar un usuario impide que vuelva a iniciar sesión, pero no borra su
 historial. FactuFlow no permite que un administrador se desactive a sí mismo ni

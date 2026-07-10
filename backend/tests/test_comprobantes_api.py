@@ -233,6 +233,35 @@ async def test_emitir_comprobante_rechaza_emisor_ajeno_antes_de_servicio(
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobante_sanitiza_errores_inesperados(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Un error inesperado se registra sin exponer detalles internos por HTTP."""
+
+    async def fake_emitir(self, request, **kwargs):
+        raise RuntimeError(
+            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("idem-error-sanitizado")},
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 500
+    detail = response.json()["detail"]
+    assert detail["mensaje"] == "Error interno al emitir comprobante"
+    assert "secreto" not in response.text
+    assert "privada.key" not in response.text
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     client: AsyncClient,
     auth_headers: dict,

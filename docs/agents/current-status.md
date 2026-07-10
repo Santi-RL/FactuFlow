@@ -199,6 +199,22 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 
 ## Lo más importante que quedó hecho hoy
 
+### Administración de emisores y errores de emisión 2026-07-09
+
+- La actualización de la ficha de un emisor requiere usuario administrador en
+  backend. Los usuarios comunes conservan acceso de lectura y operación sobre
+  su emisor asignado, pero la pantalla muestra los datos en modo consulta y no
+  ofrece acciones de alta o guardado.
+- El alta ya estaba restringida a administradores después del bootstrap y el
+  borrado físico continúa reservado a administradores, con preservación de
+  historial operativo y fiscal.
+- Los errores inesperados del endpoint de emisión ya no devuelven el texto de
+  la excepción. El backend registra traceback en logs privados y responde un
+  mensaje genérico, evitando filtrar credenciales, URLs de base de datos o
+  rutas de certificados.
+- Cobertura enfocada: usuario común rechazado al editar su propio emisor y
+  excepción de emisión con datos ficticios sensibles no expuestos por HTTP.
+
 ### Certificados y puntos de venta - contexto multiemisor 2026-07-09
 
 - Las vistas no llaman endpoints scopiados si todavía no existe un emisor activo

@@ -82,6 +82,15 @@
   nueva emisión productiva con punto de venta, fecha fiscal, concepto fiscal
   ARCA, descripción facturada, totales, backup/logs y confirmación irreversible.
 
+### Errores inesperados de emisión
+
+- El endpoint de emisión no debe devolver el texto de excepciones inesperadas:
+  puede contener credenciales, URLs internas o rutas de certificados.
+- El detalle y el traceback quedan en logs privados. La respuesta HTTP usa un
+  mensaje genérico y no habilita un reintento automático.
+- Antes de reintentar, revisar la operación idempotente y los intentos fiscales
+  para determinar si ARCA pudo haber autorizado el comprobante.
+
 ### CUIT operativo para WSFE
 
 - En el runtime del proyecto no debe reutilizarse automáticamente el `cuit` del certificado para operar WSFE.

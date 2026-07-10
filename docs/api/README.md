@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 2026-07-06
+Última actualización: 2026-07-09
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -55,9 +55,9 @@ X-Empresa-Id: 2
 
 También se conserva el query legacy `empresa_id` para compatibilidad. Si se
 envían `X-Empresa-Id` y `empresa_id` con valores distintos, la API rechaza el
-pedido. El campo `user.es_admin` permite administrar usuarios y operar cualquier
-emisor configurado; los usuarios comunes solo pueden operar el emisor asignado
-en su cuenta.
+pedido. El campo `user.es_admin` permite administrar usuarios y emisores, y operar
+cualquier emisor configurado. Los usuarios comunes solo pueden consultar y
+operar el emisor asignado en su cuenta; no pueden modificar su ficha.
 
 ## Health
 
@@ -170,14 +170,16 @@ DELETE /api/empresas/{empresa_id}
 `POST /api/empresas/extraer-constancia` recibe una constancia ARCA en PDF y
 devuelve datos fiscales detectados para precompletar el alta de emisor.
 
-Todos los usuarios activos pueden listar, crear y editar emisores. El borrado
-físico `DELETE /api/empresas/{empresa_id}` queda reservado a administradores y
-solo se permite para emisores sin datos operativos o fiscales asociados. Si
-existen comprobantes, lotes, intentos fiscales, certificados, puntos de venta,
-clientes, perfiles o formatos de importación del emisor, la API responde `409`
-y conserva el historial. Si un usuario tenía ese emisor vacío como preferido,
-la API limpia esa preferencia antes de borrar el emisor; no borra la cuenta del
-usuario.
+Los usuarios activos pueden listar y consultar los emisores que tienen
+autorizados. Crear un emisor cuando ya existe una instalación configurada,
+editarlo y borrarlo requiere `es_admin=true`; la creación anónima solo se
+admite durante el bootstrap, cuando todavía no hay usuarios. El borrado físico
+`DELETE /api/empresas/{empresa_id}` solo se permite para emisores sin datos
+operativos o fiscales asociados. Si existen comprobantes, lotes, intentos
+fiscales, certificados, puntos de venta, clientes, perfiles o formatos de
+importación del emisor, la API responde `409` y conserva el historial. Si un
+usuario tenía ese emisor vacío como preferido, la API limpia esa preferencia
+antes de borrar el emisor; no borra la cuenta del usuario.
 
 Los emisores aceptan `ingresos_brutos` como campo opcional. Si está cargado, se
 usa en el PDF de comprobantes. Cuando un emisor ya tiene datos operativos o

@@ -411,15 +411,17 @@ async def emitir_comprobante(
         return resultado
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error al emitir comprobante: {str(e)}")
+    except Exception as exc:
+        logger.exception("Error inesperado al emitir comprobante")
         raise HTTPException(
             status_code=500,
             detail={
                 "mensaje": "Error interno al emitir comprobante",
-                "errores": [str(e)],
+                "errores": [
+                    "No se pudo completar la operación. Revisa los logs antes de reintentar."
+                ],
             },
-        )
+        ) from exc
 
 
 @router.get(

@@ -65,6 +65,27 @@
 - Los cambios que toquen emisión, lotes, certificados, puntos de venta,
   clientes, reportes o PDFs deben considerar pruebas de regresion multiemisor.
 
+## Administración de emisores
+
+- Los usuarios activos pueden consultar y operar el emisor que tienen
+  autorizado, pero solo los administradores pueden crear, editar o eliminar
+  emisores una vez completado el setup inicial.
+- La creación sin autenticación existe únicamente para el bootstrap, cuando no
+  hay usuarios. Después de ese punto, el backend debe exigir
+  `es_admin=true`; ocultar controles en frontend no reemplaza esa autorización.
+- La edición de identidad fiscal sigue bloqueada cuando existe historial
+  operativo o fiscal, incluso para administradores.
+
+## Errores HTTP y logs
+
+- Los errores inesperados de emisión deben registrar el detalle y el traceback
+  en logs privados, pero responder por HTTP con un mensaje genérico.
+- Nunca devolver por API textos de excepción que puedan contener credenciales,
+  URLs de base de datos, rutas de certificados, claves o detalles internos.
+- Un error inesperado no habilita un reintento automático: primero se revisan
+  logs, intento fiscal e idempotencia para determinar si ARCA pudo haber
+  autorizado el comprobante.
+
 ## Cambios fiscales críticos
 
 - Antes de modificar emisión fiscal, ARCA/WSFE, CAE, numeración, fechas

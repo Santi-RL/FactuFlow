@@ -123,6 +123,21 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 
 ## Recorrido ejecutado y validado
 
+### Administración de emisores y errores privados 2026-07-09
+
+- Ingresar como usuario común, abrir `Emisores` y confirmar que la ficha del
+  emisor asignado se muestra en modo consulta, sin botones para agregar o
+  guardar y con los campos deshabilitados.
+- Intentar por API `PUT /api/empresas/{empresa_id}` con ese usuario y
+  confirmar `403`, incluso si el emisor es el asignado a su cuenta.
+- Ingresar como administrador y confirmar que puede editar datos de contacto.
+  Si el emisor tiene historial, los cambios de identidad fiscal deben seguir
+  rechazándose con `409`.
+- Ante una excepción inesperada simulada en emisión, confirmar que la respuesta
+  `500` es genérica y no incluye rutas, credenciales ni el texto interno. El
+  traceback debe quedar disponible solo en logs privados.
+- Estas comprobaciones usan errores y emisores ficticios; no solicitan CAE.
+
 ### Certificados y puntos de venta - contexto multiemisor 2026-07-09
 
 - Abrir la confirmación de borrado de un certificado, cambiar el emisor activo y

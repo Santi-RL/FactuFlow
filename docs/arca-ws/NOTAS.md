@@ -126,7 +126,14 @@ Mapping aplicado en el proyecto:
   el usuario debe elegir por pantalla una fecha permitida por el web service
   antes de emitir.
 
-### 4.e Reconciliación externa de lotes
+### 4.e Errores inesperados de emisión
+
+- No devolver por HTTP el texto de una excepción inesperada durante emisión.
+  Puede incluir credenciales, URLs internas o rutas de certificados.
+- Registrar traceback y detalle solo en logs privados; responder un mensaje
+  genérico y revisar idempotencia e intentos fiscales antes de reintentar.
+
+### 4.f Reconciliación externa de lotes
 
 - Para comprobantes emitidos manualmente en ARCA Web, FactuFlow debe usar
   `FECompConsultar` antes de registrarlos localmente.
@@ -154,7 +161,7 @@ Mapping aplicado en el proyecto:
   Cuando hubo emisión externa verificada, el cierre correcto es
   `cerrado_reconciliado`.
 
-### 4.f Idempotencia fiscal y CAE
+### 4.g Idempotencia fiscal y CAE
 
 - La llave de idempotencia de una emisión no es el CAE. La llave operativa es
   `X-Idempotency-Key` junto con emisor, tipo de operación y hash del payload

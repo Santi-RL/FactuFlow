@@ -174,6 +174,24 @@ async def test_usuario_comun_no_lee_ni_modifica_emisor_ajeno(
 
 
 @pytest.mark.asyncio
+async def test_usuario_comun_no_puede_actualizar_su_emisor(
+    client: AsyncClient,
+    auth_headers: dict,
+):
+    """La administración del emisor queda reservada a administradores."""
+    list_response = await client.get("/api/empresas", headers=auth_headers)
+    empresa_id = list_response.json()[0]["id"]
+
+    response = await client.put(
+        f"/api/empresas/{empresa_id}",
+        headers=auth_headers,
+        json={"email": "cambio-no-autorizado@example.com"},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_usuario_comun_no_puede_eliminar_emisor(
     client: AsyncClient,
     auth_headers: dict,
@@ -304,7 +322,7 @@ async def test_admin_no_puede_eliminar_emisor_con_historial_fiscal(
 @pytest.mark.asyncio
 async def test_no_puede_modificar_identidad_fiscal_con_historial(
     client: AsyncClient,
-    auth_headers: dict,
+    admin_auth_headers: dict,
     db_session,
     test_empresa: Empresa,
 ):
@@ -313,7 +331,7 @@ async def test_no_puede_modificar_identidad_fiscal_con_historial(
 
     response = await client.put(
         f"/api/empresas/{test_empresa.id}",
-        headers=auth_headers,
+        headers=admin_auth_headers,
         json={"cuit": "30999999995"},
     )
 
@@ -329,7 +347,7 @@ async def test_no_puede_modificar_identidad_fiscal_con_historial(
 @pytest.mark.asyncio
 async def test_puede_modificar_contacto_con_historial_fiscal(
     client: AsyncClient,
-    auth_headers: dict,
+    admin_auth_headers: dict,
     db_session,
     test_empresa: Empresa,
 ):
@@ -338,7 +356,7 @@ async def test_puede_modificar_contacto_con_historial_fiscal(
 
     response = await client.put(
         f"/api/empresas/{test_empresa.id}",
-        headers=auth_headers,
+        headers=admin_auth_headers,
         json={
             "email": "nuevo@example.com",
             "telefono": "11112222",

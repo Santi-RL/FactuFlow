@@ -52,9 +52,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   toda operación debe quedar scopiada al emisor activo seleccionado.
 - El modelo inicial de usuarios es simple: el primer usuario de una instalación
   es administrador propietario; luego solo administradores crean, desactivan,
-  reactivan o resetean usuarios. Los administradores pueden operar todos los
-  emisores configurados; los usuarios comunes solo pueden operar el emisor
-  asignado en su cuenta.
+  reactivan o resetean usuarios. Los administradores pueden crear, editar y
+  eliminar emisores cuando las reglas de preservación lo permiten, además de
+  operar todos los emisores configurados. Los usuarios comunes pueden consultar
+  y operar únicamente el emisor asignado en su cuenta, pero no modificar su
+  ficha.
 - No se avanza por ahora hacia una plataforma multiempresa compleja con
   administración central completa, permisos finos por organización, reportes
   globales consolidados u operación simultanea entre emisores.
