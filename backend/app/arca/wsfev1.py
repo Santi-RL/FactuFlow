@@ -402,12 +402,13 @@ class WSFEv1Client:
 
         if rechazar_detalles_no_aprobados:
             for resultado in resultados:
-                if resultado.is_rechazado:
+                if not resultado.is_aprobado:
                     error_msgs = [f"[{e.code}] {e.msg}" for e in resultado.errores]
                     obs_msgs = [f"[{o.code}] {o.msg}" for o in resultado.observaciones]
-                    all_msgs = error_msgs + obs_msgs
+                    detalle = "; ".join(error_msgs + obs_msgs) or "sin detalle"
                     raise ArcaValidationError(
-                        f"Comprobante rechazado: {'; '.join(all_msgs)}"
+                        "Comprobante no aprobado "
+                        f"(resultado {resultado.resultado}): {detalle}"
                     )
 
         return resultados
@@ -562,11 +563,18 @@ class WSFEv1Client:
 
             # Parsear resultado
             result = response.ResultGet
+            numero_resultado = getattr(result, "CbteNro", None)
+            if numero_resultado is None:
+                numero_resultado = getattr(result, "CbteDesde", None)
+            if numero_resultado is None:
+                raise ArcaServiceError(
+                    "ARCA devolvió un comprobante sin número identificable"
+                )
 
             return ComprobanteResponse(
                 punto_venta=result.PtoVta,
                 tipo_cbte=result.CbteTipo,
-                numero=getattr(result, "CbteNro", result.CbteDesde),
+                numero=numero_resultado,
                 cuit_emisor=(
                     str(result.CuitEmisor)
                     if hasattr(result, "CuitEmisor")

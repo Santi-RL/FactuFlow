@@ -207,6 +207,13 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - El offload no abandona una operación SOAP por cancelación del request. Un
   timeout de emisión sigue siendo fiscalmente incierto y no habilita reintento
   automático: se conserva el flujo de intentos e idempotencia existente.
+- `FECompConsultar` prioriza `CbteNro` y solo consulta `CbteDesde` si el
+  número canónico no existe; una respuesta sin ambos campos falla de forma
+  explícita para no romper reconciliación por un fallback evaluado antes de
+  tiempo.
+- La variante individual de `FECAESolicitar` solo retorna ante resultado `A`.
+  Un resultado parcial `P` o cualquier otro estado no aprobado se rechaza y no
+  puede interpretarse como autorización.
 - Antes de crear una operación idempotente o mover un lote a `en_cola`, la API
   comprueba que el worker embebido esté disponible. Si está deshabilitado,
   responde `503`, deja el lote en `validado` y no solicita CAE.

@@ -209,6 +209,9 @@
 ### Verificacion de comprobantes
 
 - La forma confiable de verificar comprobantes de homologación es `FECompConsultar`.
+- La consulta usa `CbteNro` cuando ARCA lo devuelve y solo recurre a
+  `CbteDesde` si el primero está ausente. Si faltan ambos, debe fallar
+  explícitamente en vez de inventar o perder el número.
 - El QR sirve para comprobantes reales, pero no se tomó como mecanismo de validación de homologación.
 - El QR del PDF se arma segun la especificacion ARCA con una URL
   `https://www.afip.gob.ar/fe/qr/?p={base64}`. El payload testeado incluye
@@ -228,6 +231,9 @@
 - Antes de llamar a `FECAESolicitar`, FactuFlow debe persistir una
   `operaciones_idempotentes` y uno o más `intentos_emision_fiscal`, con número
   planificado, punto de venta, tipo, fecha fiscal, total y receptor normalizado.
+- La variante individual de `FECAESolicitar` solo puede continuar cuando el
+  detalle tiene `Resultado=A`. Estados parciales `P`, rechazados `R` o
+  cualquier valor no aprobado deben generar error y no tratarse como CAE válido.
 - Si ARCA devuelve CAE y el comprobante se guarda correctamente, el intento
   queda `autorizado` y vinculado al comprobante local.
 - Si ARCA devuelve CAE pero falla la persistencia local, el intento, grupo o

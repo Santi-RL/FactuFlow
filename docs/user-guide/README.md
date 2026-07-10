@@ -324,7 +324,8 @@ de venta.
 Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
 pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
-datos locales. Si un lote que estaba `Procesando` queda vencido, los grupos que
+datos locales. FactuFlow solo considera aprobado un resultado ARCA explícito
+`A`; una respuesta parcial no se presenta como comprobante autorizado. Si un lote que estaba `Procesando` queda vencido, los grupos que
 todavía figuraban como validados pasan a reconciliación para no mostrarse como
 listos para emitir, y la pantalla muestra pendientes visibles porque el detalle
 del lote se consulta por páginas. En ese estado `Reintentar fallidos` queda

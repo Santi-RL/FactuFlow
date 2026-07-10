@@ -203,6 +203,11 @@ El proyecto tuvo que corregir estas estructuras:
   ARCA rechaza con `10071` aunque se informe alícuota 0.
 - FactuFlow debe bloquear localmente cualquier ítem tipo C con IVA distinto de
   0 antes de solicitar CAE.
+- En emisión individual, solo `Resultado=A` habilita continuar. Un detalle
+  parcial `P` o cualquier estado no aprobado debe rechazarse aunque el método
+  SOAP haya respondido sin fault.
+- En `FECompConsultar`, usar `CbteNro` si existe y evaluar `CbteDesde` solo
+  como fallback real; no acceder al fallback anticipadamente.
 - Los importes fiscales del request deben cuantizarse con Decimal a dos
   decimales y redondeo `ROUND_HALF_UP` antes de enviar el SOAP. Esto aplica a
   `ImpTotal`, `ImpTotConc`, `ImpNeto`, `ImpOpEx`, `ImpIVA`, `ImpTrib`, bases e

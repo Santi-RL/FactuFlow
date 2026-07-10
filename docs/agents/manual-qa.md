@@ -135,6 +135,10 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - En producción, verificar un único proceso backend,
   `BATCH_WORKER_ENABLED=true` y el log `Worker de lotes iniciado` después
   del arranque.
+- Simular `FECompConsultar` con `CbteNro` y sin `CbteDesde`: debe devolver
+  el número canónico sin error. Sin ambos campos debe fallar explícitamente.
+- Simular una respuesta individual `FECAESolicitar` con `Resultado=P`: debe
+  rechazarse como no aprobada y no retornar un CAE utilizable.
 - Las pruebas automatizadas simulan transporte y worker, verifican que una
   llamada SOAP lenta no bloquee otra coroutine y controlan la topología
   documentada; no solicitan CAE ni usan certificados reales.

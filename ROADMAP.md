@@ -316,8 +316,12 @@ Objetivo: dejar la emisión validada contra servicios reales.
 - [x] `FECAESolicitar` por sublotes usando `FECompTotXRequest.RegXReq`
 - [x] `FECompUltimoAutorizado`
 - [x] `FECompConsultar` útil para verificacion
+- [x] `FECompConsultar` acepta el número canónico `CbteNro` sin evaluar un
+  fallback ausente y falla explícitamente si ARCA no devuelve ningún número
 - [x] `FECompConsultar` usado para resolver intentos fiscales vencidos antes de
   liberar numeración o registrar una autorización pendiente.
+- [x] La emisión CAE individual solo retorna normalmente para resultado
+  aprobado; rechaza resultados parciales o cualquier estado distinto de `A`
 - [x] Validación de numeración y punto de venta en emisión
 - [x] Mapeo de `CondicionIVAReceptorId`
 - [x] Validación local de ventana ARCA para fecha de emisión antes de emitir

@@ -126,6 +126,45 @@ def test_comprobante_request_normaliza_fechas_servicio_argentinas():
 
 
 @pytest.mark.asyncio
+async def test_fe_comp_consultar_acepta_cbte_nro_sin_cbte_desde():
+    """FECompConsultar no debe evaluar un fallback ausente si existe CbteNro."""
+
+    class FakeService:
+        """Servicio SOAP simulado con el número canónico de consulta."""
+
+        def FECompConsultar(self, Auth, FeCompConsReq):
+            """Devuelve un comprobante sin el atributo alternativo CbteDesde."""
+            result = SimpleNamespace(
+                PtoVta=1,
+                CbteTipo=6,
+                CbteNro=42,
+                CuitEmisor="20123456789",
+                CodAutorizacion="12345678901234",
+                FchVto="20260610",
+                CbteFch="20260601",
+                FchProceso="20260601120000",
+                ImpTotal=Decimal("1000.00"),
+                ImpNeto=Decimal("1000.00"),
+                ImpIVA=Decimal("0.00"),
+                ImpOpEx=Decimal("0.00"),
+                ImpTotConc=Decimal("0.00"),
+                ImpTrib=Decimal("0.00"),
+                MonId="PES",
+                MonCotiz=Decimal("1.00"),
+                DocTipo=99,
+                DocNro=0,
+                Resultado="A",
+            )
+            return SimpleNamespace(ResultGet=result, Errors=None)
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    resultado = await client.fe_comp_consultar(1, 6, 42)
+
+    assert resultado.numero == 42
+
+
+@pytest.mark.asyncio
 async def test_fe_comp_tot_x_request_parsea_reg_x_req():
     """FECompTotXRequest devuelve el máximo RegXReq informado por ARCA."""
 
@@ -139,6 +178,33 @@ async def test_fe_comp_tot_x_request_parsea_reg_x_req():
     client = _crear_cliente_wsfe(FakeService())
 
     assert await client.fe_comp_tot_x_request() == 250
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_rechaza_resultado_parcial():
+    """La variante individual solo retorna cuando el detalle está aprobado."""
+
+    class FakeService:
+        """Servicio SOAP simulado con resultado parcial sin CAE utilizable."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle parcial para el comprobante solicitado."""
+            detalle = SimpleNamespace(
+                CAE=None,
+                CAEFchVto=None,
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="P",
+            )
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
+                Errors=None,
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaValidationError, match="resultado P"):
+        await client.fe_cae_solicitar(_comprobante())
 
 
 @pytest.mark.asyncio
