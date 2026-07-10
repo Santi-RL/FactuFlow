@@ -18,6 +18,46 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+Sin cambios todavía.
+
+## [0.2.1] - 2026-07-10
+
+Primera release formal de GitHub. Consolida el endurecimiento fiscal,
+multiemisor y operativo posterior al piloto productivo, sin migraciones de base
+ni cambios de dependencias.
+
+### Seguridad y confiabilidad fiscal
+
+- La emisión individual bloquea confirmaciones sin numeración ARCA disponible,
+  descarta fechas de servicio que no aplican y evita conservar un `cliente_id`
+  después de editar manualmente el receptor.
+- WSFE rechaza respuestas parciales o ambiguas y consulta el número de
+  comprobante sin evaluar fallbacks ausentes.
+- Los errores inesperados de emisión ya no exponen detalles internos; los
+  fallos post-CAE preservan el estado de reconciliación.
+- El transporte SOAP aplica timeout por operación, ejecuta Zeep fuera del event
+  loop y conserva compatibilidad con el rango AnyIO admitido por Starlette.
+- La API no encola lotes si el worker embebido no está disponible; producción
+  mantiene un único proceso Uvicorn mientras ese worker siga embebido.
+
+### Aislamiento multiemisor
+
+- Certificados y puntos de venta cancelan acciones o respuestas obsoletas al
+  cambiar el emisor activo.
+- El store de puntos de venta no permite que una respuesta tardía reemplace la
+  lista del nuevo emisor, incluso con identificadores coincidentes.
+- La edición de emisores queda reservada a administradores y la interfaz de
+  usuarios comunes permanece en modo lectura.
+
+### Validación del corte
+
+- Backend: 411 tests aprobados y 1 omitido según su marca preexistente.
+- Frontend: 111 tests aprobados; ESLint, type-check y build limpios.
+- `autoreview` acumulado con GPT-5.5 en `high` sin hallazgos accionables.
+- Clawpatch revalidó como `fixed` los 3 findings backend y 9 frontend objetivo.
+- GitHub Actions aprobado sobre el corte funcional previo a esta actualización
+  exclusiva de versión y documentación.
+
 ### Auditoría y mantenimiento
 
 - Se realizó una auditoría documental de los Markdown versionados: README, manual de usuario, referencia API, guías de certificados, notas ARCA y documentos históricos quedaron alineados con las reglas vigentes sin modificar `VISION.md`.

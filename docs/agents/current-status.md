@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-09
+Última actualización: 2026-07-10
 
 ## Objetivo activo
 
@@ -1934,9 +1934,9 @@ Quedó validado manualmente:
     variables legacy `AFIP_*` o carpeta legacy `backend/app/afip/`
 - Versionado:
   - la versión de producto visible queda en `APP_VERSION` /
-    `settings.app_version`: `0.2.0-mvp`
-  - el frontend npm queda sincronizado a versión técnica semver `0.2.0`
-  - la UI mantiene `FactuFlow v0.2.0-mvp` como versión de producto
+    `settings.app_version`: `0.2.1`
+  - backend y frontend quedan sincronizados a versión técnica semver `0.2.1`
+  - la UI muestra `FactuFlow v0.2.1` como versión de producto
 - Dashboard:
   - `Comprobantes del Mes`, `Ultimo Comprobante` y `Estado Certificado` estaban hardcodeados
   - estado: corregido

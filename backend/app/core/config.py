@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "FactuFlow"
-    app_version: str = "0.2.0-mvp"
+    app_version: str = "0.2.1"
     app_env: str = Field(default="development", alias="APP_ENV")
     app_debug: bool = Field(default=True, alias="APP_DEBUG")
 

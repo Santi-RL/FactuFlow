@@ -680,10 +680,10 @@ Objetivo: profesionalizar la entrega del producto.
 
 ### Releases
 - [x] Changelog operativo consistente como fuente principal de historial
-- [x] Corte actual `0.2.0-mvp` definido como línea base
+- [x] Release estable `v0.2.1` definida como corte productivo vigente
 - [x] Resumenes de fases antiguas consolidados en changelog para evitar
   snapshots obsoletos
-- [~] Política de versiones posteriores al MVP
+- [x] Primera release formal posterior al MVP preparada como `v0.2.1`
 - [ ] Paquetes o imagenes publicables
 - [~] Notas de release por versión desde el corte actual
 

@@ -4,16 +4,16 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Estado actual
 
-Versión actual: `0.2.0-mvp`
+Versión actual: `0.2.1`
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El
 trabajo actual se concentra en consolidar operación, documentación, despliegue y
 robustez sin perder las reglas fiscales críticas.
 
-El corte `0.2.0-mvp` del 2026-05-22 es la línea base actual. El historial
-anterior queda resumido en `CHANGELOG.md`; no debe confundirse con el estado
-operativo vigente.
+La release `v0.2.1` del 2026-07-10 es el corte productivo vigente. El corte
+`0.2.0-mvp` del 2026-05-22 queda como línea base histórica. El detalle de ambos
+cortes se conserva en `CHANGELOG.md`.
 
 Capacidades actuales:
 
