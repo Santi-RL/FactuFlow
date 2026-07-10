@@ -140,7 +140,8 @@ Con la aplicación ya configurada, las altas habituales se hacen desde
 - Simular una respuesta individual `FECAESolicitar` con `Resultado=P`: debe
   rechazarse como no aprobada y no retornar un CAE utilizable.
 - Las pruebas automatizadas simulan transporte y worker, verifican que una
-  llamada SOAP lenta no bloquee otra coroutine y controlan la topología
+  llamada SOAP lenta no bloquee otra coroutine, cubren compatibilidad con la
+  firma de AnyIO 3 y controlan la topología
   documentada; no solicitan CAE ni usan certificados reales.
 
 ### Administración de emisores y errores privados 2026-07-09

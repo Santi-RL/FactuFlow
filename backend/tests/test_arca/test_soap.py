@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from collections.abc import Callable
 import time
 
 import pytest
@@ -59,6 +60,20 @@ async def test_run_soap_call_ejecuta_fuera_del_event_loop() -> None:
 
     assert worker_thread != event_loop_thread
     assert result == "ARCA-OK"
+
+
+@pytest.mark.asyncio
+async def test_run_soap_call_no_depende_de_keywords_nuevos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La llamada debe funcionar con la firma mínima disponible en AnyIO 3."""
+
+    async def fake_run_sync(func: Callable[[], str]) -> str:
+        return func()
+
+    monkeypatch.setattr(soap_module.to_thread, "run_sync", fake_run_sync)
+
+    assert await run_soap_call(lambda: "OK") == "OK"
 
 
 @pytest.mark.asyncio

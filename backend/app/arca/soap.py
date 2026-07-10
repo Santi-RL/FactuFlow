@@ -54,4 +54,4 @@ async def run_soap_call(
     """Ejecuta una operación SOAP síncrona fuera del event loop."""
 
     call = partial(func, *args, **kwargs)
-    return await to_thread.run_sync(call, abandon_on_cancel=False)
+    return await to_thread.run_sync(call)

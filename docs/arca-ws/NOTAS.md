@@ -332,7 +332,9 @@ El proyecto tuvo que corregir estas estructuras:
   compatibilidad con el handshake del endpoint.
 - El transporte debe configurar timeout para carga del WSDL y
   `operation_timeout` para cada operación. Las llamadas síncronas de Zeep se
-  ejecutan en threads de trabajo para no bloquear el event loop.
+  ejecutan en threads de trabajo para no bloquear el event loop. El offload no
+  debe depender de keywords posteriores a AnyIO 3.6.2 mientras Starlette admita
+  `anyio>=3.6.2,<5`.
 - Un timeout de `FECAESolicitar` no demuestra rechazo: conservar el intento
   fiscal y reconciliar antes de cualquier reintento.
 - El perfil productivo del repo es `docker-compose.prod.yml` con PostgreSQL,

@@ -204,6 +204,8 @@
 - El timeout de transporte cubre tanto la carga del WSDL como cada operación
   SOAP. Las operaciones Zeep de WSAA y WSFEv1 se ejecutan fuera del event loop
   para no bloquear otras requests de FastAPI.
+- El offload usa la firma básica de `to_thread.run_sync`, compatible con el rango
+  `anyio>=3.6.2,<5` permitido por Starlette.
 - El thread no se abandona si se cancela la espera. Un timeout o corte durante
   `FECAESolicitar` sigue siendo un resultado potencialmente incierto: no se
   reintenta automáticamente y se revisan intento fiscal, idempotencia y ARCA.

@@ -114,7 +114,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] FastAPI operativo con auth, clientes, empresa, puntos de venta, certificados, comprobantes, PDF, lotes y reportes
 - [x] Integración WSAA + WSFEv1 operativa en homologación y producción inicial
 - [x] Transporte SOAP con timeout efectivo para carga de WSDL y operaciones, y
-  llamadas Zeep ejecutadas fuera del event loop
+  llamadas Zeep ejecutadas fuera del event loop con una firma compatible con
+  todo el rango AnyIO admitido por Starlette
 - [x] Emisión individual real validada con CAE
 - [x] Emisión masiva por Excel implementada
 - [x] Formatos de importación configurables para emisión masiva con alcance global y por emisor
