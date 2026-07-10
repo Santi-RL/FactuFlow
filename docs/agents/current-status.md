@@ -222,7 +222,7 @@ backups/restauración y robustez de soporte antes de ampliar el uso.
 - Cobertura enfocada: 16 tests de transporte/WSAA/WSFEv1, 3 tests de estados
   background y una regresión estática del runbook productivo. Todos usan dobles
   locales y no llaman ARCA real.
-- Cierre backend completo: 407 tests pasaron, 1 quedó omitido según su marca
+- Cierre backend completo: 410 tests pasaron, 1 quedó omitido según su marca
   preexistente, y Ruff/Black quedaron limpios.
 
 ### Administración de emisores y errores de emisión 2026-07-09
