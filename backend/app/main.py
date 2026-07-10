@@ -3,14 +3,16 @@
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 import app.models  # noqa: F401
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import Base, dispose_database_engines, engine
 from app.services.lote_worker import ensure_lote_worker_running, stop_lote_worker
 from app.api import (
     almacenamiento,
@@ -29,6 +31,8 @@ from app.api import (
     reportes,
     usuarios,
 )
+
+logger = logging.getLogger(__name__)
 
 CERTIFICATE_UPLOAD_PATH = "/api/certificados/subir-certificado"
 CERTIFICATE_UPLOAD_MULTIPART_OVERHEAD_BYTES = 16 * 1024
@@ -133,6 +137,36 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
+
+async def database_temporarily_unavailable_handler(
+    _request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Devuelve un 503 sanitizado ante saturación o desconexión de base."""
+    logger.warning(
+        "event=database_temporarily_unavailable type_error=%s",
+        type(exc).__name__,
+    )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "La base de datos está temporalmente no disponible. "
+                "Intentá nuevamente en unos segundos."
+            )
+        },
+        headers={"Retry-After": "2"},
+    )
+
+
+app.add_exception_handler(
+    SQLAlchemyTimeoutError,
+    database_temporarily_unavailable_handler,
+)
+app.add_exception_handler(
+    OperationalError,
+    database_temporarily_unavailable_handler,
+)
 app.add_middleware(CertificateUploadSizeLimitMiddleware)
 
 # CORS
@@ -198,6 +232,7 @@ async def startup():
 async def shutdown():
     """Detiene tareas de background de forma ordenada."""
     await stop_lote_worker(app)
+    await dispose_database_engines()
 
 
 @app.get("/")

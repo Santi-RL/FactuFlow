@@ -18,6 +18,31 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Robustez de lotes y base de datos
+
+- El seguimiento de lotes usa un endpoint allowlist de estado y polling
+  adaptativo `3/5/10 s`, sin ciclos solapados, con backoff y guards ante cambios
+  de emisor o respuestas tardías.
+- PostgreSQL separa el pool API, limitado a un máximo de cuatro conexiones sin
+  overflow, de una conexión dedicada al worker secuencial. SQLite conserva un
+  engine compartido como topología esperada.
+- Las sesiones API ya no adquieren conexión antes del primer SQL; la falta de
+  credenciales no ocupa el pool. Saturación y desconexión responden `503` con
+  mensajes sanitizados.
+- `Sistema > Estado` incorpora salud administrativa del worker y métricas
+  allowlist de pools, sin DSN, credenciales, SQL ni errores crudos.
+- Una prueba PostgreSQL efímera confirmó capacidad `4 + 1`, máximos y timeouts a
+  cinco segundos sin crear datos fiscales ni llamar ARCA.
+- Los lotes pequeños pedidos en background conservan ese modo al ser tomados por
+  el worker. No cambiaron CAE, numeración, idempotencia ni reconciliación.
+- Este corte permanece local hasta que se publique y despliegue de forma
+  explícita contra un commit identificable.
+
+### Seguridad
+
+- `/api/health/db` deja de exponer excepciones internas y los timeouts o fallos
+  de conexión no controlados reciben una respuesta genérica reintentable.
+
 ### Documentación y continuidad
 
 - Se normalizaron el estado operativo y el QA manual para dejar un handoff breve

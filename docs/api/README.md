@@ -64,8 +64,27 @@ operar el emisor asignado en su cuenta; no pueden modificar su ficha.
 ```http
 GET /api/health
 GET /api/health/db
+GET /api/health/worker
 GET /
 ```
+
+`GET /api/health/worker` requiere un usuario administrador y devuelve una
+allowlist sanitizada con el estado del worker y métricas de los pools `api` y
+`worker`. El contrato incluye `separation_required` y `separated`, pero no
+expone el DSN, credenciales, SQL, rutas privadas ni errores internos crudos.
+
+Con PostgreSQL, `separation_required=true`: el pool API usa por defecto y como
+máximo `4` conexiones, sin overflow, y el worker usa un pool dedicado de `1`.
+`DATABASE_API_POOL_SIZE` puede reducir la capacidad API dentro del rango
+`1..4`; el timeout de adquisición predeterminado es `5 s` y una retención de
+conexión de `10 s` genera un warning sanitizado. Con SQLite,
+`separation_required=false` y ambos roles comparten el mismo engine por diseño;
+`separated=false` no representa degradación en ese caso.
+
+Las sesiones de la API adquieren conexión de forma lazy, recién al ejecutar el
+primer SQL necesario —incluida la autenticación—, y no por el solo hecho de
+crear la dependencia. Los timeouts del pool y las desconexiones de base se
+traducen a `503` con un mensaje sanitizado y `Retry-After: 2`.
 
 ## Auth
 
@@ -517,6 +536,7 @@ GET /api/lotes-comprobantes/plantilla
 POST /api/lotes-comprobantes/validar
 POST /api/lotes-comprobantes/{lote_id}/procesar
 POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos
+GET /api/lotes-comprobantes/{lote_id}/seguimiento
 GET /api/lotes-comprobantes/{lote_id}/resumen
 GET /api/lotes-comprobantes/{lote_id}/grupos
 GET /api/lotes-comprobantes/{lote_id}
@@ -529,13 +549,25 @@ confirma. Lotes grandes pueden quedar en cola y continuar por worker. La UI usa
 `POST /api/lotes-comprobantes/{lote_id}/procesar?background=true` también para
 lotes chicos, para mostrar progreso real por polling.
 
-Para pantallas de usuario, preferir `GET /api/lotes-comprobantes/{lote_id}/resumen`
-y `GET /api/lotes-comprobantes/{lote_id}/grupos` en lugar de abrir el detalle
-completo con todas las filas. El endpoint de resumen devuelve los contadores,
+Para el ciclo de polling de un lote activo, usar
+`GET /api/lotes-comprobantes/{lote_id}/seguimiento`. Es una allowlist mínima:
+devuelve identidad y estado operativo, modo de procesamiento, contadores,
+mensaje resumido y timestamps; no incluye filas, grupos, datos fiscales del
+receptor ni el contrato de confirmación. Respeta el emisor activo igual que el
+resto de los endpoints de lotes.
+
+La UI mantiene una sola solicitud de seguimiento en vuelo. Consulta cada `3 s`
+durante los primeros `30 s`, cada `5 s` hasta los `2 min` y cada `10 s` desde
+entonces. Ante errores temporales aplica backoff exponencial hasta un máximo de
+`15 s` y vuelve al intervalo base después de una respuesta satisfactoria.
+
+Para abrir el lote o hacer el refresco final, usar
+`GET /api/lotes-comprobantes/{lote_id}/resumen`; para el detalle paginado, usar
+`GET /api/lotes-comprobantes/{lote_id}/grupos`. El resumen devuelve contadores,
 totales listos para emitir, fechas/puntos validados y el token exacto de
-confirmación fiscal para el lote completo. El endpoint de grupos acepta
-`page`, `per_page` (máximo 200) y `estado` opcional, y devuelve la página con
-`items`, `total`, `total_pages`, `page` y `per_page`.
+confirmación fiscal para el lote completo. El endpoint de grupos acepta `page`,
+`per_page` (máximo 200) y `estado` opcional, y devuelve la página con `items`,
+`total`, `total_pages`, `page` y `per_page`.
 
 `GET /api/lotes-comprobantes/{lote_id}` y `/resultados` conservan el contrato
 legacy de detalle completo con `grupos` y `filas`. No deben usarse para abrir
@@ -589,9 +621,10 @@ formato. No emite comprobantes. La emisión ocurre solo con
 
 - `background=true`: deja el lote en cola para procesamiento por worker aunque
   sea un lote chico. La respuesta devuelve `en_progreso=true`, estado `en_cola`
-  y el cliente debe consultar `GET /api/lotes-comprobantes/{lote_id}` para
-  actualizar progreso, contadores, `started_at`, `finished_at` y
-  `mensaje_resumen`.
+  y el cliente debe consultar
+  `GET /api/lotes-comprobantes/{lote_id}/seguimiento` para actualizar progreso,
+  contadores, `started_at`, `finished_at` y `mensaje_resumen` sin cargar el
+  detalle completo.
 - sin `background=true`: conserva compatibilidad con clientes existentes; lotes
   chicos se procesan en la misma request y lotes grandes se encolan según
   `BATCH_SYNC_LIMIT`.

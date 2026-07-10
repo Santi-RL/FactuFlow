@@ -23,6 +23,34 @@ ruff check app/ tests/
 black --check app/ tests/
 ```
 
+### Integración con PostgreSQL desechable
+
+El marker `integration` está registrado en `backend/pytest.ini`. Las pruebas
+que requieren infraestructura real deben llevar ese marker y omitir su
+ejecución cuando no exista una configuración explícita.
+
+`backend/tests/integration/test_pool_capacity_postgresql.py` requiere la
+variable de proceso `FACTUFLOW_TEST_POSTGRES_URL`, que debe apuntar a una
+instancia PostgreSQL desechable. La URL y sus credenciales son privadas: no
+deben escribirse en comandos versionados, documentación pública, logs ni Git.
+Una vez configurada de forma segura en el entorno, ejecutar:
+
+```bash
+cd backend
+pytest -m integration tests/integration/test_pool_capacity_postgresql.py -q
+```
+
+La prueba ocupa las cuatro conexiones del pool API, confirma que el worker
+conserva su conexión dedicada y verifica los timeouts de una quinta conexión
+API y una segunda conexión de worker. Solo ejecuta consultas técnicas `SELECT
+1`: no crea lotes, no usa datos fiscales y no llama a ARCA. Debe correrse
+contra una base efímera que pueda descartarse al terminar, nunca contra una
+instalación operativa.
+
+El corte `4+1` fue aprobado contra PostgreSQL efímero el 10/07/2026. Esa
+evidencia valida el contrato de capacidad local, pero no demuestra ni declara
+un despliegue.
+
 Los archivos Python deben mantenerse con saltos de línea LF. El repo fija esta
 política en `.gitattributes` para `*.py` y `*.pyi`, evitando que `core.autocrlf`
 de Windows deje el working tree en CRLF o mixto. Para verificarlo:
@@ -197,8 +225,15 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 Fecha: 2026-07-10
 
-- Release `v0.2.1` / `8099b22`: backend 411 tests aprobados y 1 omitido.
-- Frontend: 111 tests aprobados; lint, type-check y build limpios.
+- Evidencia histórica de la release `v0.2.1` / `8099b22`: backend `411` tests
+  aprobados y `1` omitido; frontend `111` tests aprobados.
+- Corte local P1 pool/worker: backend `443` tests aprobados y `2` omitidos.
+- Integración PostgreSQL ejecutada aparte: aprobada con capacidad API `4`,
+  overflow `0` y worker dedicado `1`; no creó lotes ni llamó a ARCA y no
+  constituye evidencia de despliegue.
+- Frontend del corte local: `121` tests aprobados; los `29` tests enfocados son
+  un subconjunto y evidencia adicional, no una sumatoria. Lint, type-check y
+  build limpios.
 - Scripts raíz: 3 tests aprobados.
 - GitHub Actions: Security Audit, Frontend Build, Backend Tests y E2E Tests
   aprobados para el tag y para el cierre documental `ece2bdf`.

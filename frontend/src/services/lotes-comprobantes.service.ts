@@ -2,6 +2,7 @@ import apiClient from "./api";
 import type {
   LoteComprobante,
   LoteComprobanteDetalle,
+  LoteComprobanteSeguimiento,
   LoteComprobanteGruposPage,
   LoteComprobanteResumen,
   LoteAccionResponse,
@@ -35,6 +36,13 @@ class LotesComprobantesService {
   async obtenerResumen(id: number): Promise<LoteComprobanteResumen> {
     const response = await apiClient.get<LoteComprobanteResumen>(
       `/api/lotes-comprobantes/${id}/resumen`,
+    );
+    return response.data;
+  }
+
+  async obtenerSeguimiento(id: number): Promise<LoteComprobanteSeguimiento> {
+    const response = await apiClient.get<LoteComprobanteSeguimiento>(
+      `/api/lotes-comprobantes/${id}/seguimiento`,
     );
     return response.data;
   }

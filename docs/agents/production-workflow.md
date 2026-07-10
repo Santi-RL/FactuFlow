@@ -120,6 +120,12 @@ Antes de actualizar producción:
    lotes siga embebido en el backend.
 10. Confirmar `BATCH_WORKER_ENABLED=true` si la instalación permite procesar
     lotes en segundo plano.
+11. Para PostgreSQL, revisar que el pool API esté dentro de `1..4`, con default y
+    máximo `4`, overflow `0`, y que el worker tenga su pool dedicado de `1`.
+    Confirmar también timeout de adquisición `5 s` y warning de retención `10 s`.
+12. Ejecutar la prueba `integration` de capacidad contra PostgreSQL desechable,
+    según `docs/agents/testing.md`. La prueba `4+1` no crea lotes ni llama a ARCA;
+    su aprobación local no sustituye la verificación del commit/tag desplegado.
 
 Si el cambio toca ARCA, WSFE, CAE, numeración, emisión individual, emisión
 masiva, reintentos, reconciliación, certificados, puntos de venta, fechas
@@ -169,6 +175,10 @@ incierto, restaurar el backup puede ser más seguro.
 La QA post-deploy mínima debe incluir:
 
 - health público de frontend/backend
+- `GET /api/health/worker` con un administrador: worker disponible y pools
+  interpretados sin copiar DSN, credenciales, rutas privadas ni errores crudos
+- en PostgreSQL, `separation_required=true` y `separated=true`; en SQLite,
+  `separation_required=false` y engine compartido sin degradación
 - login
 - emisor activo
 - listado básico de comprobantes
@@ -177,6 +187,10 @@ La QA post-deploy mínima debe incluir:
 - PDF si el cambio toca generación o dependencias nativas
 - logs del backend sin errores nuevos y señal `Worker de lotes iniciado`
 - `BATCH_WORKER_ENABLED=true` y un único proceso backend si se usa background
+- sesiones API lazy y ausencia de warnings nuevos por timeout o retención; si la
+  base devuelve `503`, respetar `Retry-After` y no exponer el error interno
+- seguimiento de lotes con una sola solicitud en vuelo, intervalos `3/5/10 s` y
+  backoff máximo de `15 s` ante fallos temporales
 - servicios vecinos del host sin afectación, cuando comparten reverse proxy
 - si se aplicaron migraciones, `alembic current` y `heads` alineados, invariantes
   de schema y constraints verificadas, datos básicos reconciliados y evidencia
@@ -185,6 +199,11 @@ La QA post-deploy mínima debe incluir:
 Si se hacen validaciones ARCA, deben ser consultas seguras y explícitas, por
 ejemplo `FECompUltimoAutorizado` o `FECompConsultar`. No se solicita CAE durante
 QA salvo decisión fiscal explícita.
+
+Una prueba PostgreSQL efímera aprobada, un build local o un health local no
+demuestran despliegue. La evidencia post-deploy debe registrar el commit o tag
+real y los resultados sanitizados del entorno, sin incluir credenciales ni
+rutas privadas.
 
 ## Auditoría de errores productivos
 

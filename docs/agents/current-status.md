@@ -6,6 +6,48 @@ Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
 lecciones de herramientas viven en `docs/project/**`.
 
+## Cierre local — P1 UI, pool y worker
+
+El P1 estructural quedó implementado y validado localmente el 2026-07-10. No
+está publicado ni desplegado; `v0.2.1` continúa como versión productiva.
+
+Decisiones cerradas:
+
+- PostgreSQL usa un pool API configurable entre `1` y `4`, sin overflow, y un
+  pool dedicado de una conexión para el worker; el timeout es `5 s` y la
+  advertencia de retención comienza en `10 s`;
+- las sesiones API son lazy: una petición sin credenciales o sin SQL no ocupa
+  conexiones. Los timeouts o desconexiones no controlados responden `503` con
+  mensajes sanitizados;
+- SQLite conserva un único engine compartido por diseño y esa topología no se
+  presenta como degradada;
+- el worker permanece estrictamente secuencial y expone a administradores salud
+  y métricas allowlist, sin DSN, credenciales, SQL ni errores crudos;
+- el polling usa una proyección mínima de estado, una sola solicitud en vuelo,
+  intervalos de `3/5/10 s`, backoff de hasta `15 s` y guards ante cambios de
+  emisor, ruta o componente; los lotes pequeños encolados conservan modo
+  background real;
+- el corte no cambia CAE, numeración, fecha fiscal, confirmación irreversible,
+  idempotencia ni reconciliación.
+
+Validación del corte:
+
+- backend completo: `443` tests aprobados y `2` omitidos; uno requiere permiso
+  de symlink en Windows y el otro es el harness PostgreSQL cuando no se entrega
+  una URL desechable;
+- harness PostgreSQL ejecutado por separado: aprobado con cuatro conexiones API
+  retenidas, una conexión worker independiente y timeouts correctos para la
+  quinta API y segunda worker, sin tablas, lotes, certificados ni llamadas ARCA;
+- frontend: `121` tests completos y `29` tests enfocados aprobados después del
+  ajuste contractual; ESLint, type-check y build limpios;
+- Ruff, Black y `git diff --check` aprobados sobre el estado final.
+  Browserslist solo informó datos desactualizados.
+
+No se ejecutaron Clawpatch fix, push ni despliegue. Por autorización del usuario,
+`autoreview` se realiza únicamente sobre el commit; los findings aceptados se
+aislarán en otro commit y la revisión no implica publicación. Push y despliegue
+siguen requiriendo autorización explícita.
+
 ## Snapshot vigente
 
 - Versión productiva: `v0.2.1`.
@@ -85,24 +127,25 @@ La guía canónica es
 
 ## Riesgos y pendientes priorizados
 
-### P1 técnico
+### P1 fiscal siguiente
 
-Resolver la causa raíz de presión entre seguimiento UI, pool de base y worker
-durante lotes grandes antes de ampliar volumen productivo. La contención
-frontend ya evita polling solapado y mensajes engañosos, pero falta:
+El P1 fiscal es la siguiente tarea planificada, pero no debe iniciarse hasta que
+el usuario lo indique expresamente. Cuando lo indique, se deberá diseñar e
+implementar numeración compatible con emisores que tienen historia previa o
+comparten punto de venta con otros sistemas. ARCA debe ser la fuente de verdad de
+la secuencia global y FactuFlow la fuente de sus propios intentos, idempotencia y
+resultados inciertos.
 
-- instrumentar pool y worker;
-- definir límites o separación de carga;
-- probar lotes grandes en un entorno controlado;
-- completar el runbook privado de recuperación;
-- demostrar que el cambio no altera CAE, numeración, idempotencia ni
-  reconciliación.
-
-Este trabajo es sensible y debe tener diseño, tests y commit propios.
+Antes de tocar código se deben completar el checklist fiscal, estados, orden de
+operaciones y matriz de tests para emisión individual y lotes. No se puede
+eliminar el guardarraíl ante intentos propios inciertos, numeración local
+adelantada ni autorizaciones sin comprobante local coherente. Este P1 debe tener
+diseño y commits separados del cierre pool/worker.
 
 ### Backlog Clawpatch no bloqueante
 
-Después del P1, continuar el triage de findings `medium`/`low` en lotes pequeños.
+Después del P1 fiscal, continuar el triage de findings `medium`/`low` en lotes
+pequeños.
 No hay un crítico/alto aceptado que obligue a una reparación inmediata. Si un
 finding requiere política fiscal, migración, estado nuevo o cambio de contrato,
 debe diferirse hasta diseñar el alcance.
@@ -117,7 +160,7 @@ Siguen pendientes:
 
 - automatización de backups cifrados, retención y alertas;
 - recuperación ensayada hacia un VPS nuevo;
-- healthcheck dedicado de worker y backup visible;
+- señal visible del último backup;
 - trazabilidad operativa más completa;
 - QA del gestor de almacenamiento en VPS con datos de prueba controlados;
 - descarga masiva de PDFs sin persistencia permanente en el servidor.
@@ -131,8 +174,10 @@ Siguen pendientes:
    editar.
 4. No repetir el despliegue, la configuración de certificados productivos ni
    los cuatro cortes UX de carga masiva: están cerrados.
-5. Primera tarea técnica recomendada: diseñar el P1 pool/worker con
-   `docs/agents/fiscal-change-checklist.md` y tests de regresión antes del código.
+5. Si el usuario lo indica, la siguiente tarea técnica es diseñar el P1 fiscal de
+   historia previa y emisión multicanal. Completar
+   `docs/agents/fiscal-change-checklist.md`, estados, orden de operaciones y
+   matriz de tests antes de tocar código.
 6. Si el usuario decide continuar primero con Clawpatch, leer el finding exacto,
    verificar el código y los tests vecinos y triarlo manualmente. No usar el
    contador global como backlog confirmado.

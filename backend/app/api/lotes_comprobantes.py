@@ -38,6 +38,7 @@ from app.schemas.lote_comprobante import (
     LoteComprobanteGruposPageResponse,
     LoteComprobanteResponse,
     LoteComprobanteResumenResponse,
+    LoteComprobanteSeguimientoResponse,
     LoteDescartarGruposRequest,
     LoteEliminarCompactarRequest,
     LoteGrupoIdsRequest,
@@ -860,6 +861,24 @@ async def obtener_resumen_lote(
     except LoteComprobanteError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return _serialize_lote_resumen(lote, resumen_operativo)
+
+
+@router.get(
+    "/{lote_id}/seguimiento",
+    response_model=LoteComprobanteSeguimientoResponse,
+)
+async def obtener_seguimiento_lote(
+    lote_id: int,
+    db: AsyncSession = Depends(get_db),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+) -> LoteComprobanteSeguimientoResponse:
+    """Obtiene solo el estado persistido necesario para seguir un lote."""
+    service = LoteComprobantesService(db)
+    try:
+        return await service.obtener_seguimiento_lote(lote_id, empresa_activa_id)
+    except LoteComprobanteError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/{lote_id}/grupos", response_model=LoteComprobanteGruposPageResponse)

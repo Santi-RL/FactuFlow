@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, ref, type Component } from "vue";
 import {
   ArchiveBoxIcon,
@@ -25,6 +25,7 @@ import { useNotification } from "@/composables/useNotification";
 import almacenamientoService from "@/services/almacenamiento.service";
 import { arcaService, type ArcaStatus } from "@/services/arca.service";
 import sistemaService, {
+  type LoteWorkerHealthResponse,
   type SistemaHealthResponse,
 } from "@/services/sistema.service";
 import type {
@@ -89,6 +90,8 @@ const backendHealth = ref<SistemaHealthResponse | null>(null);
 const backendHealthError = ref("");
 const databaseHealth = ref<SistemaHealthResponse | null>(null);
 const databaseHealthError = ref("");
+const workerHealth = ref<LoteWorkerHealthResponse | null>(null);
+const workerHealthError = ref("");
 const arcaStatus = ref<ArcaStatus | null>(null);
 const arcaStatusError = ref("");
 const arcaProbe = ref<any | null>(null);
@@ -210,6 +213,49 @@ const almacenamientoDetalle = computed(() => {
   return "Sin resumen de almacenamiento disponible.";
 });
 
+const workerEstado = computed<EstadoOperativo>(() => {
+  if (workerHealthError.value || !workerHealth.value) {
+    return "no_disponible";
+  }
+  return workerHealth.value.status === "healthy"
+    ? "correcto"
+    : "necesita_atencion";
+});
+
+const workerDetalle = computed(() => {
+  if (workerHealthError.value) return workerHealthError.value;
+  if (!workerHealth.value) return "Sin datos del worker de lotes.";
+
+  const { status, worker, pools } = workerHealth.value;
+  const estadoTexto = {
+    deshabilitado: "deshabilitado",
+    detenido: "detenido",
+    esperando: "en espera",
+    ocupado: "ocupado",
+  }[worker.estado];
+  const disponibilidad =
+    status === "disabled"
+      ? "El worker está deshabilitado."
+      : status === "degraded"
+        ? "El worker necesita atención."
+        : worker.ocupado
+          ? "El worker está procesando lotes."
+          : "El worker está disponible.";
+  const ultimoCiclo =
+    worker.ultimo_resultado === "error"
+      ? "El último ciclo terminó con error."
+      : worker.ultimo_resultado === "exitoso"
+        ? "El último ciclo terminó correctamente."
+        : "Todavía no hay un resultado de ciclo informado.";
+  const poolsDetalle = pools.separated
+    ? "Los pools de API y worker están separados."
+    : pools.separation_required
+      ? "La API y el worker comparten un pool que debería estar separado."
+      : "La base local usa el pool compartido esperado.";
+
+  return `${disponibilidad} Estado: ${estadoTexto}. ${ultimoCiclo} ${poolsDetalle}`;
+});
+
 const estadoSistemaItems = computed<EstadoSistemaItem[]>(() => [
   {
     id: "backend",
@@ -256,9 +302,8 @@ const estadoSistemaItems = computed<EstadoSistemaItem[]>(() => [
     id: "worker-lotes",
     titulo: "Worker de lotes",
     descripcion: "Procesamiento en segundo plano",
-    detalle:
-      "Falta un healthcheck dedicado. Si un lote no avanza, revisar el detalle del lote y los logs de soporte.",
-    estado: "necesita_atencion",
+    detalle: workerDetalle.value,
+    estado: workerEstado.value,
     icon: CpuChipIcon,
   },
   {
@@ -408,16 +453,23 @@ const cargarEstadoSistema = async () => {
   estadoLoading.value = true;
   backendHealthError.value = "";
   databaseHealthError.value = "";
+  workerHealthError.value = "";
   arcaStatusError.value = "";
   almacenamientoResumenError.value = "";
 
-  const [backendResult, databaseResult, arcaResult, resumenResult] =
-    await Promise.allSettled([
-      sistemaService.health(),
-      sistemaService.databaseHealth(),
-      arcaService.getStatus(),
-      almacenamientoService.resumen(),
-    ]);
+  const [
+    backendResult,
+    databaseResult,
+    workerResult,
+    arcaResult,
+    resumenResult,
+  ] = await Promise.allSettled([
+    sistemaService.health(),
+    sistemaService.databaseHealth(),
+    sistemaService.workerHealth(),
+    arcaService.getStatus(),
+    almacenamientoService.resumen(),
+  ]);
 
   if (backendResult.status === "fulfilled") {
     backendHealth.value = backendResult.value;
@@ -436,6 +488,16 @@ const cargarEstadoSistema = async () => {
     databaseHealthError.value = getErrorMessage(
       databaseResult.reason,
       "No se pudo consultar la base de datos.",
+    );
+  }
+
+  if (workerResult.status === "fulfilled") {
+    workerHealth.value = workerResult.value;
+  } else {
+    workerHealth.value = null;
+    workerHealthError.value = getErrorMessage(
+      workerResult.reason,
+      "No se pudo consultar el worker de lotes.",
     );
   }
 
@@ -801,6 +863,7 @@ onMounted(() => {
           <div
             v-for="item in estadoSistemaItems"
             :key="item.id"
+            :data-testid="`estado-sistema-${item.id}`"
             class="flex flex-col gap-4 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-start lg:justify-between"
           >
             <div class="flex gap-3">

@@ -27,7 +27,10 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 ## Backend
 - `backend/app/main.py`: entrada de FastAPI y registro de routers.
 - `backend/app/api/`: endpoints REST por dominio.
-- `backend/app/api/lotes_comprobantes.py`: endpoints de emisión masiva por Excel.
+- `backend/app/api/health.py`: health público, health de base y health
+  administrativo sanitizado de worker/pools.
+- `backend/app/api/lotes_comprobantes.py`: emisión masiva y seguimiento allowlist
+  para polling de lotes.
 - `backend/app/api/almacenamiento.py`: endpoints administrativos de uso,
   resguardo y limpieza segura de almacenamiento.
 - `backend/app/api/formatos_importacion.py`: endpoints de formatos configurables para importar Excel externos.
@@ -36,8 +39,13 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/arca/`: integración ARCA (WSAA, WSFEv1, SOAP, crypto, cache, utils).
 - `backend/app/afip/`: legacy (mantener solo compatibilidad).
 - `backend/app/core/`: configuración, seguridad y utilidades base.
+- `backend/app/core/database.py`: engines PostgreSQL separados por rol, sesiones
+  API lazy, métricas sanitizadas y engine SQLite compartido por diseño.
 - `backend/app/models/`: modelos ORM.
 - `backend/app/schemas/`: esquemas Pydantic.
+- `backend/app/schemas/health.py`: allowlist pública del worker y los pools.
+- `backend/app/schemas/lote_comprobante.py`: contratos de resumen, detalle y
+  seguimiento liviano de lotes.
 - `backend/app/services/`: servicios de negocio.
 - `backend/app/models/formato_importacion.py`: modelos versionados de formatos, campos y reglas de importación.
 - `backend/app/models/perfil_carga_masiva.py`: perfiles de carga masiva por emisor.
@@ -45,11 +53,11 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   exportaciones de almacenamiento.
 - `backend/app/models/idempotencia_fiscal.py`: operaciones idempotentes e
   intentos fiscales durables para emisión ARCA segura.
-- `backend/app/schemas/formato_importacion.py`: contratos de formatos, deteccion y candidatos.
+- `backend/app/schemas/formato_importacion.py`: contratos de formatos, detección y candidatos.
 - `backend/app/schemas/perfil_carga_masiva.py`: contratos de perfiles de carga masiva.
 - `backend/app/schemas/almacenamiento.py`: contratos del gestor de
   almacenamiento.
-- `backend/app/services/formatos_importacion_service.py`: deteccion, resolución de mapeos y normalizacion de archivos externos.
+- `backend/app/services/formatos_importacion_service.py`: detección, resolución de mapeos y normalización de archivos externos.
 - `backend/app/services/idempotencia_fiscal_service.py`: idempotencia fiscal,
   reserva de numeración activa, deduplicación lógica y reconciliación de
   intentos.
@@ -57,9 +65,11 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/services/almacenamiento_service.py`: cálculo acotado de uso,
   ZIPs de resguardo y limpieza confirmada.
 - `backend/app/services/lote_worker.py`: worker reanudable de lotes grandes.
-- `backend/app/scripts/create_admin_user.py`: alta/promocion de usuario administrador.
+- `backend/app/scripts/create_admin_user.py`: alta/promoción de usuario administrador.
 - `backend/app/templates/`: plantillas (PDF/HTML).
 - `backend/tests/`: tests del backend.
+- `backend/tests/integration/`: pruebas opt-in contra infraestructura desechable;
+  la capacidad PostgreSQL usa el marker `integration`.
 - `backend/tests/test_arca/`: tests específicos de ARCA.
 
 ## Frontend
@@ -70,7 +80,10 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `frontend/src/components/ui/`: componentes base `Base*`.
 - `frontend/src/composables/`: hooks de Composition API.
 - `frontend/src/services/`: acceso a API.
-- `frontend/src/services/lotes-comprobantes.service.ts`: cliente HTTP de lotes.
+- `frontend/src/services/lotes-comprobantes.service.ts`: cliente HTTP de lotes,
+  incluido el seguimiento allowlist.
+- `frontend/src/services/sistema.service.ts`: health de aplicación, base, worker
+  y pools para la vista administrativa.
 - `frontend/src/services/almacenamiento.service.ts`: cliente HTTP del gestor
   administrativo de almacenamiento.
 - `frontend/src/services/formatos-importacion.service.ts`: cliente HTTP para listar y detectar formatos de importación.

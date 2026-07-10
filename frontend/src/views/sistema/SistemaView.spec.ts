@@ -1,10 +1,12 @@
-﻿import { flushPromises, mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import almacenamientoService from "@/services/almacenamiento.service";
 import { arcaService } from "@/services/arca.service";
-import sistemaService from "@/services/sistema.service";
+import sistemaService, {
+  type LoteWorkerHealthResponse,
+} from "@/services/sistema.service";
 import type {
   AlmacenamientoResumen,
   ExportacionAlmacenamiento,
@@ -38,6 +40,7 @@ vi.mock("@/services/sistema.service", () => ({
   default: {
     health: vi.fn(),
     databaseHealth: vi.fn(),
+    workerHealth: vi.fn(),
   },
 }));
 
@@ -127,6 +130,54 @@ const mockedArcaService = arcaService as unknown as {
 const mockedSistemaService = sistemaService as unknown as {
   health: Mock;
   databaseHealth: Mock;
+  workerHealth: Mock;
+};
+
+const apiPoolHealthMock = {
+  pool_size: 4,
+  max_overflow: 0,
+  capacity: 4,
+  checked_out: 1,
+  checked_in: 3,
+  overflow: 0,
+  high_water_mark: 2,
+  acquisition_count: 10,
+  timeout_count: 0,
+  last_wait_ms: 0,
+  max_wait_ms: 2,
+};
+
+const workerPoolHealthMock = {
+  ...apiPoolHealthMock,
+  pool_size: 1,
+  capacity: 1,
+  checked_in: 0,
+  high_water_mark: 1,
+};
+
+const workerHealthMock: LoteWorkerHealthResponse = {
+  status: "healthy",
+  worker: {
+    estado: "esperando",
+    habilitado: true,
+    ejecutando: true,
+    ocupado: false,
+    ciclo_iniciado_at: null,
+    ciclo_finalizado_at: "2026-07-10T12:00:00Z",
+    ultima_duracion_ms: 125,
+    ultimo_resultado: "exitoso",
+    ultimo_exito_at: "2026-07-10T12:00:00Z",
+    ultimo_error_at: null,
+    stale_detectados_ultimo_ciclo: 0,
+    lotes_en_cola_ultimo_ciclo: 0,
+    lotes_procesados_ultimo_ciclo: 1,
+  },
+  pools: {
+    separation_required: true,
+    separated: true,
+    api: apiPoolHealthMock,
+    worker: workerPoolHealthMock,
+  },
 };
 
 const mountView = () => {
@@ -203,6 +254,7 @@ describe("SistemaView", () => {
       status: "healthy",
       message: "Conexión a la base de datos OK",
     });
+    mockedSistemaService.workerHealth.mockResolvedValue(workerHealthMock);
     mockedArcaService.getStatus.mockResolvedValue({
       ambiente: "produccion",
       certificado_activo: true,
@@ -246,6 +298,7 @@ describe("SistemaView", () => {
     );
     expect(mockedSistemaService.health).toHaveBeenCalled();
     expect(mockedSistemaService.databaseHealth).toHaveBeenCalled();
+    expect(mockedSistemaService.workerHealth).toHaveBeenCalled();
     expect(mockedArcaService.getStatus).toHaveBeenCalled();
     expect(mockedService.resumen).toHaveBeenCalledTimes(1);
     expect(mockedService.lotesCompactables).not.toHaveBeenCalled();
@@ -253,6 +306,25 @@ describe("SistemaView", () => {
     expect(mockedService.temporales).not.toHaveBeenCalled();
     expect(mockedService.certificadosHuerfanos).not.toHaveBeenCalled();
     expect(mockedArcaService.testConnection).not.toHaveBeenCalled();
+
+    const worker = wrapper.get('[data-testid="estado-sistema-worker-lotes"]');
+    expect(worker.text()).toContain("Correcto");
+    expect(worker.text()).toContain("El worker está disponible.");
+    expect(worker.text()).toContain(
+      "Los pools de API y worker están separados.",
+    );
+  });
+
+  it("muestra el worker como no disponible si falla el healthcheck", async () => {
+    mockedSistemaService.workerHealth.mockRejectedValueOnce({});
+    const wrapper = mountView();
+    await flushPromises();
+
+    const worker = wrapper.get('[data-testid="estado-sistema-worker-lotes"]');
+    expect(worker.text()).toContain("No disponible");
+    expect(worker.text()).toContain(
+      "No se pudo consultar el worker de lotes.",
+    );
   });
 
   it("marca el certificado como no disponible si faltan sus archivos locales", async () => {

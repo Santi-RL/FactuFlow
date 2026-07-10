@@ -62,6 +62,25 @@ export interface LoteComprobante {
   formato_importacion_version_id: number | null;
 }
 
+export interface LoteComprobanteSeguimiento {
+  id: number;
+  estado: string;
+  modo_procesamiento: string;
+  procesamiento_async: boolean;
+  total_filas: number;
+  total_grupos: number;
+  grupos_validos: number;
+  grupos_con_error: number;
+  grupos_emitidos: number;
+  grupos_fallidos: number;
+  grupos_reconciliados_externos: number;
+  grupos_descartados: number;
+  mensaje_resumen: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string;
+}
+
 export interface LoteComprobanteDetalle extends LoteComprobante {
   grupos: LoteComprobanteGrupo[];
   filas: LoteComprobanteFila[];

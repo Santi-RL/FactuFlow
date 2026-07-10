@@ -363,7 +363,14 @@ procesados, emitidos, fallidos, pendientes, tiempo transcurrido y tiempo
 estimado restante. Si el lote todavía está `En cola`, el avance se muestra como
 estimación hasta que el worker empieza a procesar. Revisa el resumen final antes
 de volver a intentar. El sistema bloquea una segunda ejecución del mismo lote si
-ya está procesando o si ya fue procesado. Si un proceso queda trabado y supera
+ya está procesando o si ya fue procesado.
+
+El seguimiento consulta solo el estado y los contadores necesarios: no vuelve a
+cargar todas las filas ni los grupos en cada ciclo. La pantalla consulta cada
+`3 s` durante los primeros `30 s`, cada `5 s` hasta los `2 min` y cada `10 s`
+desde entonces, siempre con una sola solicitud en vuelo. Si hay un error
+temporal, aumenta la espera hasta un máximo de `15 s` y vuelve al ritmo normal
+después de una respuesta satisfactoria. Si un proceso queda trabado y supera
 la ventana operativa configurada como `BATCH_PROCESSING_STALE_MINUTES`,
 FactuFlow no vuelve a pedir CAE automáticamente. Primero vincula comprobantes
 locales ya autorizados si puede hacerlo sin consultar ARCA. Si quedan
@@ -802,21 +809,33 @@ pestañas `Estado` y `Almacenamiento`.
 Desde `Sistema > Estado` puedes ver señales operativas básicas:
 - aplicación backend disponible
 - base de datos disponible
+- worker de lotes y separación de capacidad entre API y worker
 - certificado local del emisor activo para el ambiente ARCA configurado
 - conexión ARCA como prueba manual explícita
 - resumen de almacenamiento
-- señales pendientes de instrumentar, como worker de lotes, último backup y
-  acceso a logs según entorno
+- señales todavía pendientes, como último backup y acceso a logs según entorno
 - guía rápida de soporte con qué revisar, próximo paso seguro y cuándo detenerse
   ante fallas frecuentes
 - ficha para soporte con datos mínimos: entorno, emisor activo, recurso afectado,
   estado visible, acción ARCA si existió y evidencia privada fuera de Git
 
 La pantalla usa estados simples: `Correcto`, `Necesita atención` y
-`No disponible`. La acción `Probar conexión` puede llamar a ARCA; no se ejecuta
-automáticamente al abrir la pantalla. La guía rápida y la ficha para soporte no
-reemplazan el runbook privado del VPS ni autorizan reintentos fiscales
-automáticos cuando existe incertidumbre post-ARCA.
+`No disponible`. En PostgreSQL, la configuración esperada reserva hasta `4`
+conexiones para la API, sin overflow, y `1` conexión dedicada al worker. En
+SQLite, que API y worker compartan un único engine es el comportamiento esperado
+y no se muestra como degradación. El diagnóstico no expone DSN, credenciales,
+rutas privadas ni errores internos crudos.
+
+Si la base responde `503`, espera unos segundos y vuelve a consultar el estado.
+Si había una emisión en curso o no sabes si ARCA fue llamada, no repitas la
+emisión: sigue el runbook de soporte antes de actuar. La acción `Probar conexión`
+puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La guía
+rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
+autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.
+
+La separación `4+1` fue verificada con una prueba PostgreSQL efímera que no creó
+lotes ni llamó a ARCA. Esa prueba no demuestra que el corte esté desplegado: para
+una instalación concreta, soporte debe confirmar primero el commit o tag activo.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -890,15 +909,17 @@ Al 2026-07-10:
 - la producción real ya fue operada; antes de cada nueva emisión productiva hay
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripción facturada, totales, backup/logs y confirmación irreversible
-- `Sistema > Estado` ya muestra un primer diagnóstico operativo con API, base,
-  certificado local, ARCA manual, almacenamiento, guía rápida y ficha para
-  soporte; todavía faltan healthcheck dedicado de worker, backup visible y
-  trazabilidad histórica más completa
+- `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
+  separación de pools, certificado local, ARCA manual, almacenamiento, guía
+  rápida y ficha para soporte; todavía faltan backup visible y trazabilidad
+  histórica más completa
 - la gestión de lotes ya permite cerrar parciales, reconciliar externos,
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica
   para soporte
-- en lotes grandes, la contención actual evita polling solapado y mensajes
-  engañosos, pero sigue pendiente robustecer la relación entre seguimiento UI,
-  pool de base y worker; no ejecutes varios lotes grandes en paralelo ni
-  reintentes uno demorado sin revisar antes su estado
+- en el corte local, el seguimiento liviano evita polling solapado y usa
+  intervalos adaptativos; PostgreSQL separa el pool API del worker y el contrato
+  `4+1` fue probado en una instancia efímera, pero aún debe confirmarse el
+  despliegue y la prueba controlada del entorno operativo antes de ampliar
+  volumen; no ejecutes varios lotes grandes en paralelo ni reintentes uno
+  demorado sin revisar antes su estado

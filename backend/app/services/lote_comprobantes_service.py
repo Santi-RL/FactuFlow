@@ -47,6 +47,7 @@ from app.schemas.comprobante import (
 )
 from app.schemas.lote_comprobante import (
     LoteComprobanteResponse,
+    LoteComprobanteSeguimientoResponse,
     LoteProcesamientoResponse,
 )
 from app.services.facturacion_service import FacturacionService, ValidationError
@@ -1167,6 +1168,40 @@ class LoteComprobantesService:
         if lote is None:
             raise LoteComprobanteError("No se encontró el lote solicitado")
         return lote
+
+    async def obtener_seguimiento_lote(
+        self,
+        lote_id: int,
+        empresa_id: int,
+    ) -> LoteComprobanteSeguimientoResponse:
+        """Proyecta el estado mínimo de un lote aislado por emisor."""
+        result = await self.db.execute(
+            select(
+                LoteComprobante.id,
+                LoteComprobante.estado,
+                LoteComprobante.modo_procesamiento,
+                LoteComprobante.procesamiento_async,
+                LoteComprobante.total_filas,
+                LoteComprobante.total_grupos,
+                LoteComprobante.grupos_validos,
+                LoteComprobante.grupos_con_error,
+                LoteComprobante.grupos_emitidos,
+                LoteComprobante.grupos_fallidos,
+                LoteComprobante.grupos_reconciliados_externos,
+                LoteComprobante.grupos_descartados,
+                LoteComprobante.mensaje_resumen,
+                LoteComprobante.started_at,
+                LoteComprobante.finished_at,
+                LoteComprobante.updated_at,
+            ).where(
+                LoteComprobante.id == lote_id,
+                LoteComprobante.empresa_id == empresa_id,
+            )
+        )
+        seguimiento = result.mappings().one_or_none()
+        if seguimiento is None:
+            raise LoteComprobanteError("No se encontró el lote solicitado")
+        return LoteComprobanteSeguimientoResponse.model_validate(dict(seguimiento))
 
     async def obtener_lote_resumen(
         self, lote_id: int, empresa_id: int
@@ -2349,7 +2384,11 @@ class LoteComprobantesService:
                 "Este lote fue validado antes de confirmar la descripción facturada. Revalidá el archivo eligiendo descripción desde archivo o una descripción fija antes de emitir."
             )
 
-        procesamiento_async = lote.total_grupos > settings.batch_sync_limit
+        procesamiento_async = (
+            lote.procesamiento_async
+            or lote.modo_procesamiento == "background"
+            or lote.total_grupos > settings.batch_sync_limit
+        )
         modo_procesamiento = "background" if procesamiento_async else "sincronico"
         await self._tomar_lote_para_procesamiento(
             lote_id=lote_id,

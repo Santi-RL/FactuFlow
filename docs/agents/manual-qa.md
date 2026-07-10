@@ -99,15 +99,20 @@ Los cambios solo documentales no requieren `autoreview` salvo pedido explícito.
 
 ## QA pendiente
 
-### P1 pool/worker
+### P1 pool/worker — cierre local
 
-Antes de ampliar volumen productivo:
+La implementación y la capacidad estructural quedaron validadas localmente:
 
-1. instrumentar saturación y espera de pool/worker;
-2. ejecutar una prueba controlada de lote grande;
-3. observar polling, procesamiento y tiempos sin emitir duplicados;
-4. verificar que no se alteren CAE, numeración, idempotencia ni reconciliación;
-5. documentar recuperación privada y mensajes seguros para soporte.
+1. pool API PostgreSQL máximo `4`, overflow `0` y pool worker dedicado `1`;
+2. sesiones API lazy, instrumentación sanitizada y timeouts HTTP `503`;
+3. polling allowlist adaptativo, no solapado y protegido por emisor;
+4. prueba PostgreSQL efímera con saturación `4 + 1`, sin datos ni ARCA;
+5. suites backend/frontend y regresiones fiscales vecinas aprobadas.
+
+Después de un despliegue explícitamente autorizado todavía corresponde verificar
+en el entorno privado `Sistema > Estado`, logs sanitizados y tiempos de un lote
+de prueba controlado. El runbook privado de la instalación debe registrar el
+commit desplegado y sus comandos concretos sin llevar esos datos al repo.
 
 ### Operación VPS
 
@@ -116,7 +121,7 @@ Queda pendiente, con datos de prueba controlados:
 - QA visual del gestor de almacenamiento;
 - resguardo ZIP y confirmación `Ya lo descargué`;
 - compactación y limpieza segura;
-- healthcheck dedicado de worker;
+- healthcheck de worker visible y coherente con el runtime desplegado;
 - señal de último backup;
 - trazabilidad histórica más completa;
 - ensayo de recuperación hacia un VPS nuevo.
@@ -141,9 +146,10 @@ básicos y restauración aislada. Seguir
 
 ## Punto de reanudación de QA
 
-La primera QA nueva corresponde al P1 pool/worker. No volver a ejecutar como
-pendiente el setup productivo inicial, el rediseño UX de lotes ni la validación
-de `v0.2.1`.
+La próxima matriz de QA debe diseñarse para el P1 fiscal de historia previa y
+emisión multicanal. La validación productiva del P1 pool/worker solo se ejecuta
+cuando exista autorización explícita de despliegue. No repetir como pendiente el
+setup productivo inicial, el rediseño UX de lotes ni la validación de `v0.2.1`.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

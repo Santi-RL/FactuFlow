@@ -1,6 +1,14 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
 
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import lotesComprobantesService from "@/services/lotes-comprobantes.service";
@@ -36,6 +44,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     procesar: vi.fn(),
     obtener: vi.fn(),
     obtenerResumen: vi.fn(),
+    obtenerSeguimiento: vi.fn(),
     obtenerGrupos: vi.fn(),
     reintentarFallidos: vi.fn(),
     descartarGrupos: vi.fn(),
@@ -170,6 +179,7 @@ const mockedLotesDetalle = lotesComprobantesService as unknown as {
   validar: Mock;
   obtener: Mock;
   obtenerResumen: Mock;
+  obtenerSeguimiento: Mock;
   obtenerGrupos: Mock;
   procesar: Mock;
   reintentarFallidos: Mock;
@@ -230,6 +240,17 @@ const loteResumenMock = (): LoteComprobanteResumen => ({
   },
 });
 
+const loteActivoMock = (
+  overrides: Partial<LoteComprobanteResumen> = {},
+): LoteComprobanteResumen => ({
+  ...loteResumenMock(),
+  estado: "procesando",
+  grupos_validos: 1431,
+  grupos_emitidos: 1,
+  started_at: "2026-05-01T00:00:00",
+  ...overrides,
+});
+
 const grupoDetalleMock = (): LoteComprobanteGrupoDetalle => ({
   id: 21,
   comprobante_ref: "LOTE-001",
@@ -281,6 +302,7 @@ const mountView = async (
     requiere_background: false,
   });
   mockedLotesDetalle.obtenerResumen.mockResolvedValue(resumen);
+  mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(resumen);
   mockedLotesDetalle.obtenerGrupos.mockResolvedValue(grupos);
   mockedPerfiles.listar.mockResolvedValue(perfiles);
   mockedPuntosVenta.getAll.mockResolvedValue([]);
@@ -300,6 +322,10 @@ const mountView = async (
 describe("LotesComprobantesView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("ignora detecciones de formato resueltas fuera de orden", async () => {
@@ -554,6 +580,262 @@ describe("LotesComprobantesView", () => {
     expect(ultimaLlamada[1]).not.toContain("ya no está disponible");
   });
 
+  it("usa un solo request liviano por ciclo activo aunque el detalle esté abierto", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const seguimiento = loteActivoMock({
+      grupos_validos: 1430,
+      grupos_emitidos: 2,
+    });
+    const wrapper = await mountView([], [activo], activo);
+    const detalle = wrapper.get('[data-testid="detalle-comprobantes-lote"]');
+    (detalle.element as HTMLDetailsElement).open = true;
+    await detalle.trigger("toggle");
+
+    mockedLotesDetalle.listar.mockClear();
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    mockedLotesDetalle.obtenerGrupos.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(seguimiento);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    await flushPromises();
+
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledWith(activo.id);
+    expect(mockedLotesDetalle.listar).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerResumen).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerGrupos).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("no solapa callbacks mientras el seguimiento anterior está pendiente", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const pendiente = deferred<LoteComprobante>();
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento
+      .mockReturnValueOnce(pendiente.promise)
+      .mockResolvedValue(activo);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+
+    pendiente.resolve(activo);
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(2);
+    wrapper.unmount();
+  });
+
+  it("refresca una vez el lote terminal y detiene el seguimiento", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const terminal = loteActivoMock({
+      estado: "completado",
+      grupos_validos: 0,
+      grupos_emitidos: 1432,
+      finished_at: "2026-05-01T00:10:00",
+    });
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.listar.mockClear();
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    mockedLotesDetalle.obtenerGrupos.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(terminal);
+    mockedLotesDetalle.listar.mockResolvedValue([terminal]);
+    mockedLotesDetalle.obtenerResumen.mockResolvedValue(terminal);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    await flushPromises();
+
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.listar).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.obtenerResumen).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.obtenerGrupos).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("adapta el intervalo a cinco y diez segundos según la duración", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const primero = deferred<LoteComprobante>();
+    const segundo = deferred<LoteComprobante>();
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento
+      .mockReturnValueOnce(primero.promise)
+      .mockReturnValueOnce(segundo.promise)
+      .mockResolvedValue(activo);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(28000);
+    primero.resolve(activo);
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(85000);
+    segundo.resolve(activo);
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(3);
+    wrapper.unmount();
+  });
+
+  it("aplica backoff temporal y vuelve al intervalo base después de un éxito", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    notificationMock.showError.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento
+      .mockRejectedValueOnce({ response: { status: 500, data: {} } })
+      .mockRejectedValueOnce({ response: { status: 503, data: {} } })
+      .mockResolvedValue(activo);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(5999);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(11999);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(4);
+    expect(notificationMock.showError).toHaveBeenCalledWith(
+      "No se pudo actualizar el seguimiento del lote",
+      expect.stringContaining("El lote puede seguir existiendo o procesándose"),
+    );
+    wrapper.unmount();
+  });
+
+  it("sigue el primer lote activo si el seleccionado ya está terminal", async () => {
+    vi.useFakeTimers();
+    const seleccionado = loteResumenMock();
+    const activo = loteActivoMock({ id: 13, nombre_archivo: "activo.xlsx" });
+    const wrapper = await mountView([], [seleccionado, activo], seleccionado);
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(activo);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    await flushPromises();
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledWith(activo.id);
+    wrapper.unmount();
+  });
+
+  it("ignora una respuesta tardía después de cambiar de emisor", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const tardia = deferred<LoteComprobante>();
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    mockedLotesDetalle.obtenerGrupos.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockReturnValueOnce(tardia.promise);
+    await vi.advanceTimersByTimeAsync(3000);
+
+    const empresaStore = useEmpresaStore();
+    mockedLotesDetalle.listar.mockResolvedValue([]);
+    empresaStore.empresa = {
+      ...empresaMock(),
+      id: 2,
+      razon_social: "Segundo emisor",
+    };
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+
+    tardia.resolve(loteActivoMock({ grupos_emitidos: 99 }));
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(30000);
+
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.obtenerResumen).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerGrupos).not.toHaveBeenCalled();
+    expect(
+      wrapper.find(`[data-testid="lote-reciente-${activo.id}"]`).exists(),
+    ).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("ignora el refresco terminal tardío si cambia el emisor", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const terminal = loteActivoMock({
+      estado: "completado",
+      grupos_validos: 0,
+      grupos_emitidos: 1432,
+    });
+    const listadoAnterior = deferred<LoteComprobante[]>();
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.listar.mockClear();
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    mockedLotesDetalle.obtenerGrupos.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(terminal);
+    mockedLotesDetalle.listar
+      .mockReturnValueOnce(listadoAnterior.promise)
+      .mockResolvedValue([]);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(mockedLotesDetalle.listar).toHaveBeenCalledTimes(1);
+
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = {
+      ...empresaMock(),
+      id: 2,
+      razon_social: "Segundo emisor",
+    };
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+
+    listadoAnterior.resolve([terminal]);
+    await flushPromises();
+
+    expect(mockedLotesDetalle.listar).toHaveBeenCalledTimes(2);
+    expect(mockedLotesDetalle.obtenerResumen).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerGrupos).not.toHaveBeenCalled();
+    expect(
+      wrapper.find(`[data-testid="lote-reciente-${activo.id}"]`).exists(),
+    ).toBe(false);
+    wrapper.unmount();
+  });
+  it("no reprograma el seguimiento después de desmontar", async () => {
+    vi.useFakeTimers();
+    const activo = loteActivoMock();
+    const tardia = deferred<LoteComprobante>();
+    const wrapper = await mountView([], [activo], activo);
+    mockedLotesDetalle.obtenerSeguimiento.mockClear();
+    mockedLotesDetalle.listar.mockClear();
+    mockedLotesDetalle.obtenerResumen.mockClear();
+    mockedLotesDetalle.obtenerGrupos.mockClear();
+    mockedLotesDetalle.obtenerSeguimiento.mockReturnValueOnce(tardia.promise);
+
+    await vi.advanceTimersByTimeAsync(3000);
+    wrapper.unmount();
+    tardia.resolve(activo);
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(30000);
+
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.listar).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerResumen).not.toHaveBeenCalled();
+    expect(mockedLotesDetalle.obtenerGrupos).not.toHaveBeenCalled();
+  });
   it("muestra aviso cuando ARCA degrada el lote a emisión unitaria", async () => {
     const lote = loteResumenMock();
     const resumen = {

@@ -66,6 +66,14 @@ Mientras el procesamiento de lotes siga embebido en el backend, producción debe
 usar un único proceso Uvicorn y `BATCH_WORKER_ENABLED=true`. No aumentar
 `--workers` sin separar antes el worker de lotes en un servicio dedicado.
 
+Con PostgreSQL, la configuración predeterminada y máxima reserva `4` conexiones
+para la API, sin overflow, y `1` conexión dedicada para el worker. El pool API
+puede reducirse dentro de `1..4`; el timeout de adquisición es `5 s` y una
+retención de conexión de `10 s` genera un warning sanitizado. Las sesiones API
+son lazy: no ocupan una conexión hasta el primer SQL necesario, incluida la
+autenticación. SQLite comparte un único engine entre API y worker por diseño;
+esa condición no es una degradación.
+
 ## Documentación API
 
 Una vez iniciado el servidor, la documentación interactiva está disponible en:
@@ -121,12 +129,19 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 
 - `GET /api/health` - Health check básico
 - `GET /api/health/db` - Health check de base de datos
+- `GET /api/health/worker` - Estado administrativo sanitizado del worker y pools
+
+El health del worker requiere un administrador. Expone `separation_required`,
+`separated` y métricas allowlist, sin DSN, credenciales ni errores internos
+crudos. Los timeouts y las desconexiones de base responden `503` con mensaje
+sanitizado y `Retry-After: 2`.
 
 ### Emisión masiva
 
 - `GET /api/lotes-comprobantes/plantilla` - Descargar plantilla oficial de Excel
 - `POST /api/lotes-comprobantes/validar` - Validar y registrar un lote
 - `POST /api/lotes-comprobantes/{id}/procesar` - Emitir los comprobantes válidos del lote
+- `GET /api/lotes-comprobantes/{id}/seguimiento` - Polling allowlist de estado y contadores
 - `GET /api/lotes-comprobantes/{id}/resumen` - Ver resumen fiscal liviano del lote
 - `GET /api/lotes-comprobantes/{id}/grupos` - Ver grupos del lote con paginación
 - `GET /api/lotes-comprobantes/{id}` - Ver estado y detalle del lote
@@ -166,6 +181,22 @@ pytest --cov=app --cov-report=html
 pytest tests/test_auth.py -v
 pytest tests/test_clientes.py::test_create_cliente -v
 ```
+
+### Integración PostgreSQL desechable
+
+El marker `integration` está registrado en `pytest.ini`. La prueba de capacidad
+`tests/integration/test_pool_capacity_postgresql.py` requiere que
+`FACTUFLOW_TEST_POSTGRES_URL` apunte a una instancia PostgreSQL desechable
+configurada fuera del repositorio:
+
+```bash
+pytest -m integration tests/integration/test_pool_capacity_postgresql.py -q
+```
+
+La prueba verifica cuatro conexiones API más una conexión dedicada del worker,
+sin crear lotes ni llamar a ARCA. El corte `4+1` ya fue aprobado contra una
+instancia efímera; esa evidencia local no declara ningún despliegue. No guardar
+la URL ni sus credenciales en Git. Ver `docs/agents/testing.md`.
 
 ## Troubleshooting
 
@@ -252,6 +283,11 @@ Principales:
 
 - `APP_SECRET_KEY` - Clave secreta para JWT (⚠️ cambiar en producción)
 - `DATABASE_URL` - URL de conexión a la base de datos
+- `DATABASE_API_POOL_SIZE` - Pool API PostgreSQL, rango `1..4`, default `4`
+- `DATABASE_API_MAX_OVERFLOW` - Overflow API, fijo en `0`
+- `DATABASE_WORKER_POOL_SIZE` - Pool dedicado del worker, fijo en `1`
+- `DATABASE_POOL_TIMEOUT_SECONDS` - Timeout de adquisición, default `5`
+- `DATABASE_POOL_HOLD_WARNING_SECONDS` - Warning de retención, default `10`
 - `ARCA_ENV` - Ambiente de ARCA (`homologacion`/`produccion`)
 - `CERTS_PATH` - Carpeta donde se guardan certificados
 - `CERTIFICATE_MAX_UPLOAD_BYTES` - Tamaño máximo para subir certificados ARCA

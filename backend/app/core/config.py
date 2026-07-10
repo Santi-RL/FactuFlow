@@ -46,6 +46,36 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite+aiosqlite:///./data/factuflow.db", alias="DATABASE_URL"
     )
+    database_api_pool_size: int = Field(
+        default=4,
+        ge=1,
+        le=4,
+        alias="DATABASE_API_POOL_SIZE",
+    )
+    database_api_max_overflow: int = Field(
+        default=0,
+        ge=0,
+        le=0,
+        alias="DATABASE_API_MAX_OVERFLOW",
+    )
+    database_worker_pool_size: int = Field(
+        default=1,
+        ge=1,
+        le=1,
+        alias="DATABASE_WORKER_POOL_SIZE",
+    )
+    database_pool_timeout_seconds: float = Field(
+        default=5.0,
+        gt=0,
+        le=60,
+        alias="DATABASE_POOL_TIMEOUT_SECONDS",
+    )
+    database_pool_hold_warning_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        le=3600,
+        alias="DATABASE_POOL_HOLD_WARNING_SECONDS",
+    )
 
     # CORS - can be string or list
     cors_origins: str | List[str] = Field(

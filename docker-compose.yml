@@ -35,6 +35,11 @@ services:
       APP_SECRET_KEY: ${APP_SECRET_KEY:-cambiar-esto-en-produccion}
       APP_DEBUG: ${APP_DEBUG:-true}
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://factuflow:factuflow@postgres:5432/factuflow}
+      DATABASE_API_POOL_SIZE: ${DATABASE_API_POOL_SIZE:-4}
+      DATABASE_API_MAX_OVERFLOW: ${DATABASE_API_MAX_OVERFLOW:-0}
+      DATABASE_WORKER_POOL_SIZE: ${DATABASE_WORKER_POOL_SIZE:-1}
+      DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-5}
+      DATABASE_POOL_HOLD_WARNING_SECONDS: ${DATABASE_POOL_HOLD_WARNING_SECONDS:-10}
       ARCA_ENV: ${ARCA_ENV:-homologacion}
       CERTS_PATH: /app/certs
       ARCA_TOKEN_CACHE_PATH: /app/data/arca_token_cache.json

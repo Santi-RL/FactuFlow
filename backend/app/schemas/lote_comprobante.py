@@ -90,6 +90,29 @@ class LoteComprobanteResponse(BaseModel):
         from_attributes = True
 
 
+class LoteComprobanteSeguimientoResponse(BaseModel):
+    """Expone solo el estado operativo necesario para polling de un lote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    estado: str
+    modo_procesamiento: str
+    procesamiento_async: bool
+    total_filas: int
+    total_grupos: int
+    grupos_validos: int
+    grupos_con_error: int
+    grupos_emitidos: int
+    grupos_fallidos: int
+    grupos_reconciliados_externos: int = 0
+    grupos_descartados: int = 0
+    mensaje_resumen: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    updated_at: datetime
+
+
 class LoteComprobanteDetalleResponse(LoteComprobanteResponse):
     """Incluye el detalle de grupos y filas del lote."""
 

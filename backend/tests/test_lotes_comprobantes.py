@@ -3,6 +3,7 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
+from types import SimpleNamespace
 
 import pytest
 from httpx import AsyncClient
@@ -17,6 +18,7 @@ from app.core.config import settings
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
+from app.models.empresa import Empresa
 from app.models.lote_comprobante import (
     LoteComprobante,
     LoteComprobanteEvento,
@@ -26,13 +28,16 @@ from app.models.lote_comprobante import (
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteRequest, EmitirComprobanteResponse
-from app.schemas.lote_comprobante import LoteReconciliacionExternaItem
+from app.schemas.lote_comprobante import (
+    LoteComprobanteSeguimientoResponse,
+    LoteReconciliacionExternaItem,
+)
 from app.services.lote_comprobantes_service import (
     LoteComprobanteError,
     LoteComprobantesService,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
-from app.services.lote_worker import LoteWorker
+from app.services.lote_worker import LoteWorker, get_lote_worker_status
 
 
 # Identificadores sintéticos de fixtures. Se construyen en partes para evitar
@@ -840,6 +845,133 @@ async def test_obtener_resumen_y_grupos_paginados_lote(
     filtrada_data = filtrada.json()
     assert filtrada_data["total"] == 2
     assert {item["estado"] for item in filtrada_data["items"]} == {"validado"}
+
+
+@pytest.mark.asyncio
+async def test_seguimiento_lote_es_liviano_y_no_muta_updated_at(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El polling consulta una vez el resumen persistido y no refresca el lote."""
+    lote = LoteComprobante(
+        nombre_archivo="lote-seguimiento.xlsx",
+        archivo_hash="hash-lote-seguimiento-liviano",
+        estado="en_cola",
+        modo_procesamiento="background",
+        procesamiento_async=True,
+        total_filas=200,
+        total_grupos=100,
+        grupos_validos=100,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(lote)
+    await db_session.commit()
+    await db_session.refresh(lote)
+    updated_at_antes = lote.updated_at
+
+    original = LoteComprobantesService.obtener_seguimiento_lote
+    consultas = 0
+
+    async def contar_consulta(
+        self: LoteComprobantesService,
+        lote_id: int,
+        empresa_id: int,
+    ) -> LoteComprobanteSeguimientoResponse:
+        nonlocal consultas
+        consultas += 1
+        return await original(self, lote_id, empresa_id)
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "obtener_seguimiento_lote",
+        contar_consulta,
+    )
+
+    response = await client.get(
+        f"/api/lotes-comprobantes/{lote.id}/seguimiento",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert consultas == 1
+    assert data["id"] == lote.id
+    assert data["estado"] == "en_cola"
+    assert data["modo_procesamiento"] == "background"
+    assert set(data) == {
+        "id",
+        "estado",
+        "modo_procesamiento",
+        "procesamiento_async",
+        "total_filas",
+        "total_grupos",
+        "grupos_validos",
+        "grupos_con_error",
+        "grupos_emitidos",
+        "grupos_fallidos",
+        "grupos_reconciliados_externos",
+        "grupos_descartados",
+        "mensaje_resumen",
+        "started_at",
+        "finished_at",
+        "updated_at",
+    }
+    for forbidden in (
+        "archivo_hash",
+        "metadata_json",
+        "mapeo_usado_json",
+        "headers_detectados_json",
+        "empresa_id",
+        "usuario_id",
+        "formato_importacion_id",
+    ):
+        assert forbidden not in data
+    await db_session.refresh(lote)
+    assert lote.updated_at == updated_at_antes
+
+
+@pytest.mark.asyncio
+async def test_seguimiento_lote_respeta_scope_del_emisor(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """Un usuario común no puede seguir lotes de otro emisor."""
+    otra_empresa = Empresa(
+        razon_social="Otra Empresa Test S.A.",
+        cuit="20999999991",
+        condicion_iva="RI",
+        domicilio="Av. Prueba 456",
+        localidad="Buenos Aires",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(otra_empresa)
+    await db_session.flush()
+    lote_ajeno = LoteComprobante(
+        nombre_archivo="lote-ajeno-seguimiento.xlsx",
+        archivo_hash="hash-lote-ajeno-seguimiento",
+        estado="en_cola",
+        total_filas=1,
+        total_grupos=1,
+        grupos_validos=1,
+        empresa_id=otra_empresa.id,
+    )
+    db_session.add(lote_ajeno)
+    await db_session.commit()
+
+    response = await client.get(
+        f"/api/lotes-comprobantes/{lote_ajeno.id}/seguimiento",
+        headers={**auth_headers, "X-Empresa-Id": str(otra_empresa.id)},
+    )
+
+    assert response.status_code == 403
+    assert "permiso" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -2604,6 +2736,8 @@ async def test_procesar_lote_background_encola_lote_chico(
     await db_session.refresh(operacion)
 
     assert lote.estado == "completado"
+    assert lote.procesamiento_async is True
+    assert lote.modo_procesamiento == "background"
     assert llamadas == 1
     assert operacion.estado == "finalizado"
     assert operacion.response_json["en_progreso"] is False
@@ -6217,6 +6351,101 @@ async def test_procesar_lote_procesando_stale_bloquea_y_preserva_intactos_sin_em
 
 
 @pytest.mark.asyncio
+async def test_worker_usa_factory_dedicada_e_instrumenta_sin_mutar_lote(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """El ciclo usa conexiones worker y guarda métricas solo en memoria."""
+    monkeypatch.setattr(settings, "batch_worker_enabled", True)
+    lote = LoteComprobante(
+        nombre_archivo="lote-worker-instrumentado.xlsx",
+        archivo_hash="hash-lote-worker-instrumentado",
+        estado="en_cola",
+        modo_procesamiento="background",
+        procesamiento_async=True,
+        total_filas=1,
+        total_grupos=1,
+        grupos_validos=1,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(lote)
+    await db_session.commit()
+    await db_session.refresh(lote)
+    updated_at_antes = lote.updated_at
+
+    class SessionFactory:
+        aperturas = 0
+
+        async def __aenter__(self):
+            SessionFactory.aperturas += 1
+            return db_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    roles: list[str] = []
+    reanudar_recibido: list[bool] = []
+
+    async def fake_acquire(session: AsyncSession, role: str) -> None:
+        assert session is db_session
+        roles.append(role)
+
+    async def fake_procesar(
+        self: LoteComprobantesService,
+        lote_id: int,
+        empresa_id: int,
+        **kwargs,
+    ) -> LoteComprobante:
+        reanudar_recibido.append(bool(kwargs.get("reanudar")))
+        return await self.obtener_lote_resumen(lote_id, empresa_id)
+
+    monkeypatch.setattr(
+        "app.services.lote_worker.WorkerSessionLocal",
+        SessionFactory,
+    )
+    monkeypatch.setattr(
+        "app.services.lote_worker.acquire_database_connection",
+        fake_acquire,
+    )
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "procesar_lote",
+        fake_procesar,
+    )
+
+    worker = LoteWorker()
+    resultado = await worker.procesar_pendientes()
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            lote_worker=worker,
+            lote_worker_task=SimpleNamespace(done=lambda: False),
+        )
+    )
+    runtime = get_lote_worker_status(app)
+
+    assert SessionFactory.aperturas == 3
+    assert roles == ["worker", "worker", "worker"]
+    assert reanudar_recibido == [True]
+    assert resultado.stale_detectados == 0
+    assert resultado.lotes_en_cola_detectados == 1
+    assert resultado.lotes_procesados == 1
+    assert resultado.tuvo_error is False
+    assert runtime["estado"] == "esperando"
+    assert runtime["ocupado"] is False
+    assert runtime["ultimo_resultado"] == "exitoso"
+    assert runtime["ciclo_iniciado_at"] is not None
+    assert runtime["ciclo_finalizado_at"] is not None
+    assert runtime["ultima_duracion_ms"] is not None
+    assert runtime["stale_detectados_ultimo_ciclo"] == 0
+    assert runtime["lotes_en_cola_ultimo_ciclo"] == 1
+    assert runtime["lotes_procesados_ultimo_ciclo"] == 1
+    assert not any("mensaje" in key for key in runtime)
+    await db_session.refresh(lote)
+    assert lote.updated_at == updated_at_antes
+
+
+@pytest.mark.asyncio
 async def test_worker_no_procesa_en_cola_si_falla_bloqueo_stale(
     monkeypatch: pytest.MonkeyPatch,
     db_session: AsyncSession,
@@ -6265,7 +6494,7 @@ async def test_worker_no_procesa_en_cola_si_falla_bloqueo_stale(
         procesados.append(lote_id)
         return await self.obtener_lote_resumen(lote_id, empresa_id)
 
-    monkeypatch.setattr("app.services.lote_worker.AsyncSessionLocal", SessionFactory)
+    monkeypatch.setattr("app.services.lote_worker.WorkerSessionLocal", SessionFactory)
     monkeypatch.setattr(
         LoteComprobantesService,
         "bloquear_lote_procesando_stale",
@@ -6344,7 +6573,7 @@ async def test_worker_no_procesa_en_cola_si_quedan_stale_fuera_del_batch(
         procesados.append(lote_id)
         return await self.obtener_lote_resumen(lote_id, empresa_id)
 
-    monkeypatch.setattr("app.services.lote_worker.AsyncSessionLocal", SessionFactory)
+    monkeypatch.setattr("app.services.lote_worker.WorkerSessionLocal", SessionFactory)
     monkeypatch.setattr(
         LoteComprobantesService,
         "bloquear_lote_procesando_stale",

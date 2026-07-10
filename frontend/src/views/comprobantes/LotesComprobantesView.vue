@@ -30,6 +30,7 @@ import {
   ESTADOS_LOTE_NOMBRES,
   type LoteComprobante,
   type LoteComprobanteGrupoDetalle,
+  type LoteComprobanteSeguimiento,
   type LoteComprobanteResumen,
   type LoteOpcionesFechas,
   type ReconciliacionExternaItem,
@@ -55,7 +56,12 @@ import {
 const empresaStore = useEmpresaStore();
 const { showError, showInfo, showSuccess, showWarning } = useNotification();
 const GRUPOS_LOTE_PER_PAGE = 100;
-const POLLING_SEGUIMIENTO_LOTE_MS = 3000;
+const POLLING_SEGUIMIENTO_INICIAL_MS = 3000;
+const POLLING_SEGUIMIENTO_INTERMEDIO_MS = 5000;
+const POLLING_SEGUIMIENTO_LARGO_MS = 10000;
+const POLLING_SEGUIMIENTO_UMBRAL_INTERMEDIO_MS = 30000;
+const POLLING_SEGUIMIENTO_UMBRAL_LARGO_MS = 120000;
+const POLLING_SEGUIMIENTO_BACKOFF_MAX_MS = 15000;
 
 interface ArcaBatchMetadata {
   fallback_unitario?: boolean;
@@ -136,6 +142,13 @@ const timerHandle = ref<number | null>(null);
 const timerNow = ref(new Date());
 const inicioProcesamientoLocal = ref<Date | null>(null);
 let deteccionFormatoRequestId = 0;
+let detalleLoteRequestId = 0;
+let gruposLoteRequestId = 0;
+let pollingGeneration = 0;
+let pollingInicioMs: number | null = null;
+let pollingLoteId: number | null = null;
+let pollingErroresTemporales = 0;
+let componenteDesmontado = false;
 const guiaCargaMasivaExpandida = ref(false);
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
@@ -165,13 +178,19 @@ const motivoFallbackArca = computed(() => {
   const motivo = arcaBatchMetadata.value?.fallback_motivo;
   return typeof motivo === "string" && motivo.trim() ? motivo.trim() : "";
 });
-const hayProcesamientoEnCurso = computed(() => {
-  return (
-    loteActual.value?.estado === "procesando" ||
-    loteActual.value?.estado === "en_cola" ||
-    lotes.value.some((lote) => ["en_cola", "procesando"].includes(lote.estado))
-  );
-});
+const esEstadoLoteActivo = (estado?: string | null): boolean =>
+  estado === "en_cola" || estado === "procesando";
+
+const seleccionarLoteParaSeguimiento = (): LoteComprobante | null => {
+  if (loteActual.value && esEstadoLoteActivo(loteActual.value.estado)) {
+    return loteActual.value;
+  }
+  return lotes.value.find((lote) => esEstadoLoteActivo(lote.estado)) || null;
+};
+
+const hayProcesamientoEnCurso = computed(
+  () => seleccionarLoteParaSeguimiento() !== null,
+);
 const formatosOptions = computed(() => {
   return formatosImportacion.value
     .filter((formato) => !!formato.version_vigente)
@@ -989,27 +1008,39 @@ const downloadBlob = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
-const cargarLotes = async (silent = false) => {
-  if (!empresaActivaId.value) return;
-
+const cargarLotes = async (silent = false): Promise<boolean> => {
+  const empresaId = empresaActivaId.value;
+  if (!empresaId || componenteDesmontado) return false;
   if (!silent) {
     loadingLotes.value = true;
   }
 
   try {
-    lotes.value = await lotesComprobantesService.listar();
+    const nuevosLotes = await lotesComprobantesService.listar();
+    if (componenteDesmontado || empresaActivaId.value !== empresaId) {
+      return false;
+    }
+    lotes.value = nuevosLotes;
+    return true;
   } catch (error: any) {
+    if (componenteDesmontado || empresaActivaId.value !== empresaId) {
+      return false;
+    }
     showError(
       "No se pudieron cargar los lotes",
       error.response?.data?.detail || "Revisa tu sesion o intenta nuevamente.",
     );
+    return false;
   } finally {
-    if (!silent) {
+    if (
+      !silent &&
+      !componenteDesmontado &&
+      empresaActivaId.value === empresaId
+    ) {
       loadingLotes.value = false;
     }
   }
 };
-
 const cargarFormatosImportacion = async () => {
   if (!empresaActivaId.value) return;
 
@@ -1158,7 +1189,16 @@ const cargarGruposLote = async (
   loteId: number,
   page = gruposLotePage.value,
   silent = false,
-) => {
+): Promise<boolean> => {
+  const empresaId = empresaActivaId.value;
+  const requestId = ++gruposLoteRequestId;
+  const sigueVigente = () =>
+    !componenteDesmontado &&
+    empresaActivaId.value === empresaId &&
+    loteActual.value?.id === loteId &&
+    requestId === gruposLoteRequestId;
+
+  if (!empresaId || componenteDesmontado) return false;
   try {
     if (!silent) {
       loadingGruposLote.value = true;
@@ -1172,24 +1212,36 @@ const cargarGruposLote = async (
       perPage: gruposLotePerPage.value,
       estado,
     });
+    if (!sigueVigente()) return false;
     gruposLote.value = pagina.items;
     gruposLotePage.value = pagina.page;
     gruposLotePerPage.value = pagina.per_page;
     gruposLoteTotal.value = pagina.total;
     gruposLoteTotalPages.value = pagina.total_pages;
+    return true;
   } catch (error: any) {
-    showError(
-      "No se pudo cargar el detalle",
-      mensajeErrorDetalleLote(error),
-    );
+    if (!sigueVigente()) return false;
+    showError("No se pudo cargar el detalle", mensajeErrorDetalleLote(error));
+    return false;
   } finally {
-    if (!silent) {
+    if (!silent && sigueVigente()) {
       loadingGruposLote.value = false;
     }
   }
 };
+const cargarDetalleLote = async (
+  loteId: number,
+  silent = false,
+): Promise<boolean> => {
+  const empresaId = empresaActivaId.value;
+  const requestId = ++detalleLoteRequestId;
+  gruposLoteRequestId += 1;
+  const sigueVigente = () =>
+    !componenteDesmontado &&
+    empresaActivaId.value === empresaId &&
+    requestId === detalleLoteRequestId;
 
-const cargarDetalleLote = async (loteId: number, silent = false) => {
+  if (!empresaId || componenteDesmontado) return false;
   try {
     if (!silent) {
       loadingLotes.value = true;
@@ -1205,20 +1257,24 @@ const cargarDetalleLote = async (loteId: number, silent = false) => {
       resetearIdempotencyKeyReintentar();
       resetearConfirmacionDuplicadoPendiente();
     }
-    loteActual.value = await lotesComprobantesService.obtenerResumen(loteId);
+    const resumen = await lotesComprobantesService.obtenerResumen(loteId);
+    if (!sigueVigente()) return false;
+    loteActual.value = resumen;
     await cargarGruposLote(loteId, esNuevoLote ? 1 : gruposLotePage.value, true);
+    return sigueVigente();
   } catch (error: any) {
+    if (!sigueVigente()) return false;
     showError(
       "No se pudo actualizar el seguimiento del lote",
       mensajeErrorSeguimientoLote(error),
     );
+    return false;
   } finally {
-    if (!silent) {
+    if (!silent && sigueVigente()) {
       loadingLotes.value = false;
     }
   }
 };
-
 const cambiarPaginaGrupos = async (page: number) => {
   if (!loteActual.value || page === gruposLotePage.value) return;
   await cargarGruposLote(loteActual.value.id, page);
@@ -1661,36 +1717,147 @@ const descargarObservado = async () => {
   }
 };
 
-const iniciarPolling = () => {
-  if (pollingHandle.value !== null) return;
-  if (!inicioProcesamientoLocal.value) {
-    inicioProcesamientoLocal.value = new Date();
-  }
+const contextoPollingVigente = (generation: number, empresaId: number): boolean =>
+  !componenteDesmontado &&
+  pollingGeneration === generation &&
+  empresaActivaId.value === empresaId;
 
-  pollingHandle.value = window.setInterval(async () => {
-    if (pollingSeguimientoEnCurso.value) return;
-
-    pollingSeguimientoEnCurso.value = true;
-    try {
-      await cargarLotes(true);
-      if (loteActual.value) {
-        await cargarDetalleLote(loteActual.value.id, true);
-      }
-    } finally {
-      pollingSeguimientoEnCurso.value = false;
-    }
-  }, POLLING_SEGUIMIENTO_LOTE_MS);
+const prepararContextoPolling = (loteId: number) => {
+  if (pollingLoteId === loteId) return;
+  pollingLoteId = loteId;
+  pollingInicioMs = Date.now();
+  pollingErroresTemporales = 0;
 };
 
-const detenerPolling = () => {
-  if (pollingHandle.value === null) return;
+const intervaloBasePolling = (): number => {
+  const transcurridoMs = Math.max(
+    Date.now() - (pollingInicioMs ?? Date.now()),
+    0,
+  );
+  if (transcurridoMs < POLLING_SEGUIMIENTO_UMBRAL_INTERMEDIO_MS) {
+    return POLLING_SEGUIMIENTO_INICIAL_MS;
+  }
+  if (transcurridoMs < POLLING_SEGUIMIENTO_UMBRAL_LARGO_MS) {
+    return POLLING_SEGUIMIENTO_INTERMEDIO_MS;
+  }
+  return POLLING_SEGUIMIENTO_LARGO_MS;
+};
 
-  window.clearInterval(pollingHandle.value);
-  pollingHandle.value = null;
-  pollingSeguimientoEnCurso.value = false;
+const intervaloSiguientePolling = (): number => {
+  const base = intervaloBasePolling();
+  if (pollingErroresTemporales === 0) return base;
+  return Math.min(
+    base * 2 ** pollingErroresTemporales,
+    POLLING_SEGUIMIENTO_BACKOFF_MAX_MS,
+  );
+};
+
+const aplicarSeguimientoLote = (seguimiento: LoteComprobanteSeguimiento) => {
+  const index = lotes.value.findIndex((lote) => lote.id === seguimiento.id);
+  if (index >= 0) {
+    lotes.value[index] = { ...lotes.value[index], ...seguimiento };
+  }
+  if (loteActual.value?.id === seguimiento.id) {
+    loteActual.value = { ...loteActual.value, ...seguimiento };
+  }
+};
+
+const detenerPolling = (invalidar = false) => {
+  if (invalidar) pollingGeneration += 1;
+  if (pollingHandle.value !== null) {
+    window.clearTimeout(pollingHandle.value);
+    pollingHandle.value = null;
+  }
+  pollingInicioMs = null;
+  pollingLoteId = null;
+  pollingErroresTemporales = 0;
   inicioProcesamientoLocal.value = null;
 };
 
+const programarSiguientePolling = (generation: number, empresaId: number) => {
+  if (!contextoPollingVigente(generation, empresaId)) return;
+  const lote = seleccionarLoteParaSeguimiento();
+  if (!lote) {
+    detenerPolling();
+    return;
+  }
+  prepararContextoPolling(lote.id);
+  pollingHandle.value = window.setTimeout(() => {
+    pollingHandle.value = null;
+    void ejecutarCicloPolling(generation, empresaId);
+  }, intervaloSiguientePolling());
+};
+
+const ejecutarCicloPolling = async (generation: number, empresaId: number) => {
+  if (
+    !contextoPollingVigente(generation, empresaId) ||
+    pollingSeguimientoEnCurso.value
+  ) {
+    return;
+  }
+  const lote = seleccionarLoteParaSeguimiento();
+  if (!lote) {
+    detenerPolling();
+    return;
+  }
+  prepararContextoPolling(lote.id);
+  pollingSeguimientoEnCurso.value = true;
+  try {
+    const seguimiento =
+      await lotesComprobantesService.obtenerSeguimiento(lote.id);
+    if (!contextoPollingVigente(generation, empresaId)) return;
+    pollingErroresTemporales = 0;
+    aplicarSeguimientoLote(seguimiento);
+    if (!esEstadoLoteActivo(seguimiento.estado)) {
+      await cargarLotes(true);
+      if (!contextoPollingVigente(generation, empresaId)) return;
+      if (loteActual.value?.id === seguimiento.id) {
+        await cargarDetalleLote(seguimiento.id, true);
+      }
+    }
+  } catch (error: any) {
+    if (!contextoPollingVigente(generation, empresaId)) return;
+    pollingErroresTemporales = esErrorSeguimientoTemporal(error)
+      ? pollingErroresTemporales + 1
+      : 0;
+    showError(
+      "No se pudo actualizar el seguimiento del lote",
+      mensajeErrorSeguimientoLote(error),
+    );
+  } finally {
+    pollingSeguimientoEnCurso.value = false;
+    if (!contextoPollingVigente(generation, empresaId)) {
+      if (!componenteDesmontado && hayProcesamientoEnCurso.value) {
+        iniciarPolling();
+      }
+    } else if (seleccionarLoteParaSeguimiento()) {
+      programarSiguientePolling(generation, empresaId);
+    } else {
+      detenerPolling();
+    }
+  }
+};
+
+const iniciarPolling = () => {
+  if (
+    pollingHandle.value !== null ||
+    pollingSeguimientoEnCurso.value ||
+    componenteDesmontado
+  ) {
+    return;
+  }
+  const empresaId = empresaActivaId.value;
+  const lote = seleccionarLoteParaSeguimiento();
+  if (!empresaId || !lote) return;
+  if (!inicioProcesamientoLocal.value) {
+    inicioProcesamientoLocal.value = new Date();
+  }
+  pollingInicioMs = Date.now();
+  pollingLoteId = lote.id;
+  pollingErroresTemporales = 0;
+  const generation = ++pollingGeneration;
+  programarSiguientePolling(generation, empresaId);
+};
 const iniciarTimer = () => {
   if (timerHandle.value !== null) return;
   timerNow.value = new Date();
@@ -1751,8 +1918,14 @@ watch(
 watch(
   empresaActivaId,
   async (empresaId) => {
+    detenerPolling(true);
+    detalleLoteRequestId += 1;
+    gruposLoteRequestId += 1;
+    loadingLotes.value = false;
+    loadingGruposLote.value = false;
     archivoSeleccionado.value = null;
     loteActual.value = null;
+    lotes.value = [];
     gruposLote.value = [];
     gruposLotePage.value = 1;
     gruposLoteTotal.value = 0;
@@ -1778,6 +1951,7 @@ watch(
 );
 
 onMounted(async () => {
+  componenteDesmontado = false;
   if (!empresaActivaId.value) {
     await empresaStore.inicializarEmpresaActiva();
   }
@@ -1792,7 +1966,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  detenerPolling();
+  componenteDesmontado = true;
+  detalleLoteRequestId += 1;
+  gruposLoteRequestId += 1;
+  detenerPolling(true);
   detenerTimer();
 });
 </script>

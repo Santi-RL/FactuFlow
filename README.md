@@ -12,8 +12,9 @@ trabajo actual se concentra en robustecer operación, recuperación,
 observabilidad y mantenimiento sin perder las reglas fiscales críticas.
 
 La release `v0.2.1` del 2026-07-10 es el corte productivo vigente. El corte
-`0.2.0-mvp` del 2026-05-22 queda como línea base histórica. El detalle de ambos
-cortes se conserva en `CHANGELOG.md`.
+`0.2.0-mvp` del 2026-05-22 queda como línea base histórica. El P1 local de
+polling, pools y worker ya está validado, pero todavía no fue publicado ni
+desplegado. El detalle se conserva en `CHANGELOG.md`.
 
 Capacidades actuales:
 
@@ -21,7 +22,9 @@ Capacidades actuales:
 - gestión de usuarios desde la aplicación: solo administradores pueden crear,
   desactivar, reactivar o resetear usuarios
 - emisión individual de comprobantes con CAE
-- emisión masiva desde Excel con validación previa, seguimiento del lote y archivo observado
+- emisión masiva desde Excel con validación previa, seguimiento adaptativo del
+  lote y archivo observado
+- diagnóstico administrativo sanitizado de worker y pools en `Sistema > Estado`
 - certificados por empresa y ambiente
 - PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
@@ -62,7 +65,8 @@ para una etapa posterior.
   deben quedar siempre aislados por emisor activo
 - hasta `100` comprobantes se procesan en la misma sesión; lotes más grandes
   quedan en cola persistente y se procesan en segundo plano. Si el worker no
-  está disponible, la API rechaza el encolado sin alterar el lote
+  está disponible, la API rechaza el encolado sin alterar el lote; el polling
+  usa una única consulta allowlist con frecuencia adaptativa
 - los reportes solo consideran comprobantes autorizados
 - las fechas visibles para usuarios se muestran en formato argentino
   `DD/MM/AAAA`; los formatos técnicos quedan limitados a contratos internos
@@ -103,7 +107,11 @@ Backend: `http://localhost:8000`
 
 Frontend: `http://localhost:8080`
 
-El perfil local usa PostgreSQL, monta el código del backend y ejecuta `alembic upgrade head` antes de iniciar la API con reload.
+El perfil local usa PostgreSQL, monta el código del backend y ejecuta
+`alembic upgrade head` antes de iniciar la API con reload. El runtime mantiene
+un único Uvicorn: el pool API admite de una a cuatro conexiones, no usa overflow
+y el worker embebido tiene una conexión dedicada. Los valores seguros están en
+`.env.example`.
 
 ### Docker producción / VPS
 

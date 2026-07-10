@@ -1,6 +1,6 @@
 # Runbook de diagnóstico operativo
 
-Última actualización: 2026-06-28
+Última actualización: 2026-07-10
 
 Estado: primer corte público y sanitizado.
 
@@ -8,6 +8,11 @@ Este runbook guía diagnósticos operativos de FactuFlow sin exponer datos
 privados. Los datos concretos de una instalación real, como dominio, IP, usuario
 SSH, rutas del servidor, comandos exactos, backups, certificados, CUITs, CAEs,
 logs y comprobantes, deben quedar en documentación privada del entorno.
+
+El contrato administrativo de worker/pools y la prueba PostgreSQL `4+1` fueron
+validados en un corte local con una instancia efímera, sin crear lotes ni llamar
+a ARCA. Antes de usarlos como evidencia operativa, confirmar que la instalación
+ejecuta el commit o tag que los contiene; este documento no declara despliegue.
 
 ## Principios
 
@@ -32,7 +37,8 @@ logs y comprobantes, deben quedar en documentación privada del entorno.
 3. Identificar el emisor activo sin copiar CUIT completo.
 4. Identificar el recurso afectado: login, certificado, lote, comprobante,
    PDF, almacenamiento, backup o despliegue.
-5. Revisar `Sistema > Estado` si la UI responde.
+5. Revisar `Sistema > Estado` si la UI responde: aplicación, base, worker y
+   separación de pools.
 6. Revisar logs privados solo desde el entorno correspondiente.
 7. Clasificar el riesgo:
    - sin riesgo fiscal: login, pantalla caída antes de operar, almacenamiento.
@@ -45,13 +51,18 @@ logs y comprobantes, deben quedar en documentación privada del entorno.
 Qué revisar:
 
 - En local, el icono del launcher junto al reloj y la pantalla de login.
-- En la UI, `Sistema > Estado`: `Aplicación` y `Base de datos`.
+- En la UI, `Sistema > Estado`: `Aplicación`, `Base de datos` y `Worker de
+  lotes`.
+- Si la base devolvió `503`, esperar unos segundos antes de repetir una consulta
+  de estado; el mensaje público no debe incluir DSN, credenciales ni error crudo.
 - En VPS, la documentación privada del servidor y sus healthchecks.
 
 Próximo paso seguro:
 
 - En local, usar `Reiniciar servicios` desde el launcher si está disponible.
 - Si el launcher no aparece, volver a abrir `FactuFlow Local.vbs`.
+- Ante un `503` de base sin operación fiscal en curso, respetar la espera
+  indicada y volver a consultar una sola vez.
 - En VPS, usar el runbook privado del servidor y registrar el commit desplegado.
 
 Detenerse si:
@@ -135,17 +146,28 @@ Qué revisar:
 - Estado visible del lote en `/comprobantes/lotes`.
 - Si está `en_cola`, `procesando`, `completado parcial`, `fallido` o
   `requiere reconciliación`.
+- `Sistema > Estado`: disponibilidad del worker y estado de los pools.
 - Detalle de grupos, emitidos, fallidos, pendientes y mensajes visibles.
+- Si el seguimiento tuvo un error temporal: la UI mantiene un request en vuelo
+  y aplica backoff hasta `15 s`; ese error no demuestra que el lote no exista.
 - Logs privados del backend o worker alrededor del horario del lote.
 
 Próximo paso seguro:
 
-- Si el lote está en espera normal, no intervenir hasta confirmar si el worker
-  sigue activo.
+- Si el lote está en espera normal, el worker figura disponible u ocupado y el
+  progreso cambia, no intervenir.
+- Si PostgreSQL informa `separation_required=true` y `separated=false`, tratarlo
+  como `Necesita atención` y revisar configuración/despliegue antes de ampliar
+  carga. En SQLite, `separation_required=false` y `separated=false` es normal.
+- Si el worker está deshabilitado, detenido o su último ciclo falló, no volver a
+  encolar hasta resolver la disponibilidad.
 - Si hay errores de archivo o validación, corregir datos y validar de nuevo
   solo cuando no exista incertidumbre fiscal.
 - Si requiere reconciliación, usar el flujo de reconciliación y consultas ARCA
   seguras antes de reintentar.
+
+Las señales públicas admitidas son estados, contadores y duraciones sanitizadas.
+No copiar al ticket DSN, credenciales, rutas privadas, SQL ni errores internos.
 
 Detenerse si:
 

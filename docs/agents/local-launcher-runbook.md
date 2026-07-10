@@ -1,6 +1,6 @@
 # Runbook del launcher local
 
-Última actualización: 2026-07-01
+Última actualización: 2026-07-10
 
 Este runbook documenta la experiencia local Windows de FactuFlow. El objetivo es
 que una persona administrativa no técnica pueda abrir el sistema, entender si
@@ -41,17 +41,23 @@ administrativo, parte del diagnóstico mínimo definido en
 
 - servidor de FactuFlow
 - base de datos
-- worker de lotes como señal pendiente de healthcheck dedicado
+- worker de lotes mediante `GET /api/health/worker` para administradores
+- estado sanitizado de los pools API y worker
 - ambiente ARCA y conexión ARCA
 - certificado activo y vencimiento del emisor seleccionado
 - aviso de backup no verificado mientras no exista señal automática
 - guía rápida de soporte con próximos pasos seguros
 
-La pantalla no debe exponer puertos, stack traces ni detalles técnicos como
-primer mensaje. Debe usar estados simples como `Correcto`,
-`Necesita atencion` y `No disponible`, con una explicacion corta y un próximo
-paso seguro. El runbook público sanitizado asociado está en
-`docs/agents/support-runbook.md`.
+La pantalla no debe exponer puertos, stack traces, DSN, credenciales, rutas
+privadas ni errores internos crudos. Debe usar estados simples como `Correcto`,
+`Necesita atención` y `No disponible`, con una explicación corta y un próximo
+paso seguro.
+
+En el entorno local SQLite, API y worker comparten un único engine por diseño;
+`separated=false` con `separation_required=false` no es degradación. Si la base
+devuelve `503`, esperar unos segundos y reintentar el estado; si había una
+emisión en curso, detenerse y seguir el runbook antes de repetirla. El runbook
+público sanitizado asociado está en `docs/agents/support-runbook.md`.
 
 ## Etapa 3 - Integración launcher/UI
 

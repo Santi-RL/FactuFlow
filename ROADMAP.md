@@ -156,6 +156,72 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Numeración ARCA adelantada y fallos post-CAE quedan como
   `requiere_reconciliacion`, sin persistir respuestas no aprobadas como
   comprobantes emitidos
+- [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
+  actividad de otros sistemas.** El control actual presupone que la base local
+  de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
+  `FECompUltimoAutorizado` informa un número diferente del último comprobante
+  local. Esa diferencia puede ser normal: un emisor nuevo puede tener historia
+  anterior y un emisor activo puede continuar facturando por otros sistemas.
+  - La diferencia ARCA/FactuFlow debe mostrarse como información clara antes de
+    emitir, con emisor, punto de venta, tipo, último local y último ARCA, pero no
+    debe impedir la emisión por sí sola.
+  - ARCA es la fuente de verdad para la numeración fiscal global; FactuFlow es
+    la fuente de verdad de sus propios intentos, comprobantes, idempotencia y
+    resultados inciertos. Si no existe una operación propia incierta, el próximo
+    candidato debe calcularse desde `ultimo_arca + 1` en emisión individual y
+    masiva.
+  - Conservar el guardarraíl para causas reales: intentos propios `en_proceso` o
+    `requiere_reconciliacion`, autorización propia sin persistencia local
+    coherente, numeración local adelantada respecto de ARCA, replay conflictivo
+    o respuesta ARCA ambigua.
+  - La advertencia debe ofrecer la reconstrucción histórica opcional definida en
+    el P2, sin convertirla en requisito para continuar.
+  - No copiar el último número observado en ARCA a `numero_asignado` de un grupo
+    sin reserva, intento fiscal ni CAE; exponerlo como dato diagnóstico separado.
+  - Repetir el preflight inmediatamente antes de solicitar CAE. Como un sistema
+    externo no comparte los locks de FactuFlow, tratar un rechazo explícito de
+    consecutividad sin asumir éxito y nunca reintentar automáticamente una
+    respuesta ambigua.
+  - Criterios mínimos de aceptación: emisor nuevo con local `0` y ARCA `N`;
+    emisión externa entre dos emisiones de FactuFlow; diferencia informada y no
+    bloqueante; intento propio incierto; local adelantado; carrera con otro
+    sistema; replay idempotente; flujo individual y lote; confirmación fiscal
+    explícita; aislamiento por ambiente/emisor/punto/tipo; y garantía de que un
+    bloqueo pre-ARCA no crea CAE ni comprobantes.
+  - Antes de implementar, completar `docs/agents/fiscal-change-checklist.md`,
+    documentar estados y orden de operaciones, definir la matriz de tests y
+    revisar los caminos vecinos de idempotencia y reconciliación.
+- [ ] **P2 - Reconstrucción histórica opcional desde ARCA para informes con
+  cobertura verificable.** Permitir consultar con `FECompConsultar` e importar
+  snapshots fiscales de comprobantes emitidos fuera de FactuFlow. Esta función
+  no solicita CAE, no emite y nunca es requisito para una nueva emisión.
+  - No sincronizar automáticamente toda la historia al incorporar un emisor. El
+    usuario debe elegir un alcance: último mes, desde el inicio del año, desde
+    una fecha explícita, últimos `N` comprobantes o rango de números.
+  - Aplicar un máximo configurable de consultas/importaciones por operación y
+    mostrar una previsualización con rango candidato, cantidad máxima, campos
+    disponibles, costo operativo aproximado y limitaciones de detalle. Si se
+    alcanza el límite, guardar progreso y permitir continuar por tramos.
+  - Las selecciones por fecha requieren una estrategia de exploración hacia
+    atrás con límites; no asumir que consultar desde el número `1` es aceptable
+    ni descargar miles de comprobantes sin confirmación explícita.
+  - Persistir un journal durable e idempotente por ambiente, emisor, punto de
+    venta, tipo y número, con estados de consulta/importación, concurrencia
+    configurable, reanudación y bloqueo ante respuestas inconsistentes.
+  - Guardar solo el snapshot fiscal devuelto por ARCA, con origen
+    `arca_importado`, fecha fiscal original y
+    `detalle_comercial_disponible=false`; no inventar ítems, descripciones,
+    cantidades, precios ni PDFs.
+  - Incluir los snapshots importados en informes fiscales y permitir filtrarlos
+    por origen. Mostrar siempre la cobertura sincronizada por período y
+    combinación fiscal, indicando si el informe es completo, parcial o tiene
+    pendientes; nunca presentar como completa una historia que no fue consultada.
+  - Criterios mínimos de aceptación: alcance temporal y por números; límite por
+    operación; previsualización; cancelación y reanudación; importación repetida
+    sin duplicados; comprobante existente igual o distinto; respuestas no
+    encontradas o ambiguas; consumidor final sin documento; reportes sin ítems;
+    cobertura parcial visible; y prueba controlada con rangos grandes sin
+    crecimiento ilimitado de memoria o almacenamiento.
 - [x] Idempotencia fiscal obligatoria para emisión individual, procesamiento de
   lotes y reintento de fallidos mediante `X-Idempotency-Key`, hash estable de
   payload y respuesta persistida.
@@ -435,9 +501,12 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
   seguimiento ya no presenta fallas temporales de resumen/detalle como lote
   inexistente, el polling evita ciclos solapados y baja frecuencia. No cambia
   emisión, ARCA, CAE, numeración, worker ni backend.
-- [ ] Robustez estructural post-incidente de lote grande: separar o limitar la
-  presión de seguimiento UI contra el pool de base, instrumentar worker/pool,
-  probar carga de lotes grandes y completar runbook privado de recuperación.
+- [x] Robustez estructural post-incidente de lote grande: polling allowlist
+  adaptativo y no solapado, sesiones API lazy, pool PostgreSQL API máximo `4`
+  sin overflow, pool worker dedicado `1`, health administrativo sanitizado y
+  prueba real de saturación PostgreSQL `4 + 1` sin datos fiscales ni ARCA. El
+  despliegue y el registro concreto en el runbook privado siguen siendo acciones
+  operativas explícitas, no parte de este cierre local.
 
 ### UX de lotes
 - [x] Wizard de emisión masiva
@@ -560,7 +629,7 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   y 9 frontend objetivo revalidados como `fixed`, sin críticos/altos aceptados
   pendientes. El registro acumulativo local conserva repo 0, backend 85 y frontend 6 abiertos
   `medium`/`low`, con históricos, duplicados y contaminación de alcance; el
-  triage manual continúa después del P1 pool/worker.
+  triage manual continúa después del P1 fiscal vigente.
 - [x] Reportes IVA calculan notas de crédito con signo negativo, incluyen
   comprobantes C con IVA cero como exentos, ítems A/B con IVA cero como no
   gravados y el detalle de subdiario incluye gravado e IVA 27%
@@ -638,8 +707,9 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
 - [x] Gestor de almacenamiento para administradores, con uso total de la
   instalación, desglose por emisor y tipo de dato, alertas simples de consumo y
   acciones seguras de limpieza sobre artefactos no vitales
-- [ ] Healthchecks claros para backend, base, worker, ARCA y certificado del
-  emisor activo
+- [~] Healthchecks claros para backend, base, worker, ARCA y certificado del
+  emisor activo: worker y pools ya tienen diagnóstico administrativo sanitizado;
+  faltan backup y consolidación de las señales restantes
 - [~] Backup y restauración de base y certificados: prueba manual validada,
   automatización y retención pendientes
 - [ ] Automatización de backups cifrados con validación periódica, política de
@@ -656,11 +726,9 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
 - [x] Decisión de observabilidad operativa estándar documentada en
   `docs/agents/operational-observability.md`
 - [~] Pantalla `Estado del sistema` en la interfaz, con estados simples como
-  `Correcto`, `Necesita atención` y `No disponible`: primer corte frontend
-  implementado con señales existentes de API, base, certificado local, ARCA
-  manual, almacenamiento, guía rápida de soporte y ficha para soporte con datos
-  seguros mínimos; faltan healthcheck dedicado de worker, backup y trazabilidad
-  histórica más completa
+  `Correcto`, `Necesita atención` y `No disponible`: integra API, base, worker y
+  pools, certificado local, ARCA manual, almacenamiento, guía rápida de soporte
+  y ficha sanitizada; faltan backup y trazabilidad histórica más completa
 - [x] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
   sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
@@ -668,7 +736,7 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
 - [ ] Mensajes de error con explicacion simple, impacto y próximo paso seguro
 - [~] Runbook de diagnostico para soporte y usuarios administrativos: guía y
   ficha visibles en `Sistema > Estado`, más primer runbook público sanitizado en
-  `docs/agents/support-runbook.md`; quedan pendientes healthchecks dedicados y
+  `docs/agents/support-runbook.md`; quedan pendientes la señal de backup y la
   documentación privada por instalación
 - [ ] Metricas y alertas avanzadas, después de estabilizar VPS
 
@@ -718,22 +786,25 @@ Objetivo: ampliar valor mas alla del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Primera tarea técnica: resolver el P1 estructural de presión entre
-   seguimiento UI, pool de base y worker en lotes grandes, con instrumentación,
-   prueba controlada y runbook privado antes de ampliar volumen.
+2. Primera tarea fiscal: implementar el P1 para que una diferencia legítima
+   entre ARCA y FactuFlow sea informativa y no bloquee la emisión, sin debilitar
+   idempotencia ni reconciliación de intentos propios inciertos.
 3. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños: triar
    manualmente, aislar cambios sensibles y no tratar los contadores acumulativos
    como bugs confirmados.
-4. Completar observabilidad operativa: healthcheck de worker, backup visible,
-   trazabilidad, logs útiles y mensajes simples para soporte.
-5. Definir y luego automatizar backups cifrados con validación, retención,
+4. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+   comenzando por selección de alcance, límites, journal y cobertura visible en
+   informes; no acoplarlo como requisito del P1.
+5. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+   y mensajes simples para soporte.
+6. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-6. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-7. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+7. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+8. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
    resguardo ZIP, compactación y limpieza segura.
-8. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-9. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-10. Mantener notas de release y procedimiento de upgrade para cada versión
+9. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+10. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+11. Mantener notas de release y procedimiento de upgrade para cada versión
     posterior a `v0.2.1`.
 
 ## Criterio de exito del MVP
