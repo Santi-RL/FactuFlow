@@ -1,36 +1,12 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-07-09
+Última actualización: 2026-07-10
 
-Este manual describe el uso actual del producto. Si una función no aparece acá, no debe asumirse como disponible para usuarios finales.
+Este manual describe `v0.2.1`, el producto actualmente desplegado. Si una
+función no aparece acá, no debe asumirse como disponible para usuarios finales.
 
-Nota 2026-06-24: se cerró el checkpoint visual v01 del frontend público. Los
-flujos y pasos de uso descritos en este manual no cambian por ese cierre; la
-actualización es de presentación visual e identidad.
-
-Nota 2026-06-25: `Sistema` incorpora una primera pestaña `Estado` para revisar
-señales operativas básicas sin ejecutar automáticamente pruebas externas de
-ARCA.
-
-Nota 2026-06-27: `Emisión masiva` reorganiza la preparación, validación y
-revisión del lote activo. La ayuda inicial queda como guía compacta desplegable,
-los requisitos se muestran como checklist, `Validar lote` también aparece al
-cierre de la configuración fiscal y, después de validar, la vista prioriza
-importes, avance y siguiente acción. Las acciones excepcionales de resolución
-de pendientes quedan agrupadas bajo `Resolver pendientes`, y `Lotes recientes`
-queda como navegación compacta con estado, fecha y métrica principal.
-
-Nota 2026-06-29: `Sistema > Estado` agrega `Ficha para soporte`, una lista de
-los datos mínimos que conviene reunir ante un incidente sin copiar CUIT completo
-ni evidencia privada en documentación pública.
-
-Nota 2026-07-06: auditoría documental. Se refuerza que las fechas visibles para usuarios se muestran en formato argentino `DD/MM/AAAA`; los formatos técnicos quedan internos para API, backend o ARCA.
-
-Nota 2026-07-09: si un lote masivo queda trabado, FactuFlow solo vuelve a
-ponerlo en cola cuando puede demostrar que los comprobantes pendientes no
-tuvieron intento fiscal ni evidencia local y que la numeración ARCA/local sigue
-alineada. Si no puede probarlo, el lote queda para auditoría/reconciliación
-antes de continuar.
+Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
+`DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
 
 ## Contenido
 
@@ -329,15 +305,16 @@ Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
 pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
 datos locales. FactuFlow solo considera aprobado un resultado ARCA explícito
-`A`; una respuesta parcial no se presenta como comprobante autorizado. Si un lote que estaba `Procesando` queda vencido, los grupos que
-todavía figuraban como validados pasan a reconciliación para no mostrarse como
-listos para emitir, y la pantalla muestra pendientes visibles porque el detalle
-del lote se consulta por páginas. En ese estado `Reintentar fallidos` queda
-deshabilitado aunque existan grupos fallidos: la acción segura es auditar y
-reconciliar. Si un reintento de fallidos se interrumpe justo después de tomar el
-comprobante para emisión, el grupo también queda para reconciliación: no vuelve
-automáticamente a `Fallido`, porque reemitirlo podría duplicar una autorización
-fiscal.
+`A`; una respuesta parcial no se presenta como comprobante autorizado. Si un lote que estaba
+`Procesando` queda vencido, FactuFlow separa los grupos intactos de aquellos con
+evidencia fiscal. Solo reencola pendientes intactos cuando puede demostrar que
+no tuvieron intento fiscal y que la numeración ARCA/local sigue alineada. Los
+grupos con evidencia o incertidumbre pasan a reconciliación; si esa comprobación
+no puede completarse, el lote queda bloqueado y los grupos intactos conservan su
+estado sin emitirse. En ese caso no reintentes manualmente: primero audita el
+lote. Si un reintento se interrumpe después de tomar un comprobante para
+emisión, ese grupo también queda para reconciliación porque reemitirlo podría
+duplicar una autorización fiscal.
 
 ### Gestión de lotes parciales y limpieza
 
@@ -504,9 +481,9 @@ Por seguridad fiscal, un perfil de carga masiva no ofrece `Fecha actual` como
 regla de fecha de emisión.
 
 Las fechas personalizadas de emisión, período de servicios y vencimiento deben
-ser fechas reales en `DD/MM/AAAA` o en un formato técnico aceptado por la API.
-FactuFlow rechaza valores vacíos o calendarios inválidos como `31/02/2026` y
-guarda internamente la fecha normalizada.
+ser fechas reales en `DD/MM/AAAA`. FactuFlow rechaza valores vacíos o
+calendarios inválidos como `31/02/2026` y guarda internamente la fecha
+normalizada.
 
 Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
 `Puntos de venta` para ese emisor y estar habilitado para usar en FactuFlow. Si
@@ -562,44 +539,16 @@ del Excel solo ayudan a sugerir la plantilla al subirlo; FactuFlow no confía en
 esos metadatos para emitir. Siempre vuelve a validar archivo, perfil, emisor,
 fechas, tipo de comprobante, punto de venta y comprobantes asociados.
 
-### Formato privado Responsable Inscripto
+### Plantillas privadas de una instalación
 
-Existe un formato local privado para Factura B IVA 21%. Esta pensado para
-archivos con columnas como `Fecha`, `Tipo`, `Punto de Venta`,
-`Imp. Neto Gravado`, `IVA` e `Imp. Total`.
+Una instalación puede tener plantillas y perfiles particulares creados por usuarios
+autorizados. Su mapeo, punto de venta y ejemplos pertenecen a la
+configuración privada y no forman parte de este manual público.
 
-El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa `Imp. Neto Gravado`
-como precio neto del ítem y `Imp. Total` como total de referencia. Como la
-muestra disponible no trae número de documento real del receptor, FactuFlow lo
-trata como consumidor final sin documento cuando el importe está bajo el umbral
-legal. Si un archivo futuro trae comprobantes que requieren identificar al
-receptor, se debe agregar una columna con documento real o ajustar el formato.
-
-Si por configuración o por archivo el total calculado no coincide con
-`Imp. Total`, el lote queda observado y no se puede emitir hasta corregir el
-mapeo.
-
-La fecha del archivo no se usa automáticamente para emitir. Antes de validar el
-lote hay que elegir si se toma la fecha desde el Excel o si se fija una fecha
-permitida por ARCA para todo el lote. Las fechas ingresadas manualmente pueden
-cargarse como `DD/MM/AAAA` o `YYYY-MM-DD`; FactuFlow rechaza fechas calendario
-inválidas, como `31/02/2026`, sin convertirlas a otra fecha.
-
-### Formato privado con punto fijo
-
-Existe otro formato local privado de Factura B IVA 21% vinculado a un perfil de
-carga masiva con punto de venta fijo. Esta pensado para archivos con columnas
-`Fecha`, `Tipo`, `Punto de Venta`, `Imp. Neto Gravado`, `IVA` e `Imp. Total`.
-
-El formato emite como Factura B (`tipo 6`) con IVA 21%. Usa siempre
-`Imp. Neto Gravado` como precio neto del ítem. `Imp. Total` se usa solo como
-control de consistencia: si el total calculado desde neto e IVA no coincide con
-el total informado por el Excel, el comprobante queda observado antes de emitir.
-
-En el archivo privado revisado para abril 2026, la columna `Punto de Venta`
-está vacía. Por eso el perfil de carga masiva del emisor fija el punto de venta
-`5`; antes de validar o emitir se debe revisar que esa selección sea correcta
-para el lote.
+Antes de usar una plantilla particular, revisa en la interfaz sus campos,
+constantes, emisor, punto de venta, fechas y total de referencia. Las fechas
+ingresadas manualmente se cargan en `DD/MM/AAAA` y una discrepancia de totales
+deja el comprobante observado.
 
 ### Extractos bancarios
 
@@ -922,7 +871,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 2026-06-29:
+Al 2026-07-10:
 
 - no existe todavía descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -949,3 +898,7 @@ Al 2026-06-29:
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica
   para soporte
+- en lotes grandes, la contención actual evita polling solapado y mensajes
+  engañosos, pero sigue pendiente robustecer la relación entre seguimiento UI,
+  pool de base y worker; no ejecutes varios lotes grandes en paralelo ni
+  reintentes uno demorado sin revisar antes su estado

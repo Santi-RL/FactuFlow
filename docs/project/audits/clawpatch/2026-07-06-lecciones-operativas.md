@@ -106,9 +106,9 @@ clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatc
 
 - Un finding puede ser falso positivo si contradice una decisión explícita de
   `VISION.md`, `ROADMAP.md` o documentación viva.
-- En FactuFlow, por ejemplo, que todos los usuarios activos puedan operar todos
-  los emisores configurados es una decisión de producto vigente; no equivale por
-  sí misma a un bug de permisos finos.
+- En FactuFlow, los administradores pueden operar todos los emisores, pero los
+  usuarios comunes solo el emisor asignado. Un finding que ignore esa diferencia
+  debe contrastarse con el contrato de autorización vigente.
 - Un finding sigue siendo importante si expone un camino no usado por la UI pero
   alcanzable por API, como endpoints legacy que solicitan CAE directo.
 - Que producción haya funcionado no invalida findings sobre bordes: carreras,
@@ -166,11 +166,17 @@ La corrida directa sin `--root backend` dejó `.clawpatch/backend` con features
 de frontend/repo además de backend. Por eso, los conteos de esa corrida no deben
 interpretarse como auditoría backend pura sin filtrar.
 
+Estado al cierre `v0.2.1`: el ledger backend todavía conserva registros
+históricos ajenos al slice. `map` agregó features correctas, pero no purgó todos
+los findings anteriores. Por eso sus contadores globales no representan un
+backend limpio ni una lista de bugs aceptados.
+
 Para continuar desde ese estado:
 
-- usar `npm run clawpatch:backend:map` para resembrar el backend correcto;
-- usar `report --json` y filtrar evidencia o feature title de `backend/*` antes
-  de priorizar reparaciones backend;
+- usar `report --status open --json` y filtrar evidencia o feature title de
+  `backend/*` antes de priorizar;
+- comprobar si el mismo bloque ya fue corregido o revalidado bajo otro ID;
+- triar manualmente cada finding;
 - si se necesita estado limpio, archivar o eliminar `.clawpatch/backend` solo
   con decisión explícita del usuario y luego reconstruirlo con
   `npm run clawpatch:backend:init` y `npm run clawpatch:backend:map`.

@@ -158,7 +158,9 @@ configura inicio automático con Windows.
 ## Instalación en VPS (Producción)
 
 La primera instalación privada en VPS quedó publicada el 2026-06-09 con Docker
-producción, PostgreSQL y reverse proxy HTTPS.
+producción, PostgreSQL y reverse proxy HTTPS. El tag `v0.2.1` quedó desplegado y
+aceptado el 2026-07-10; las instalaciones nuevas deben aplicar todas las
+migraciones hasta el head vigente.
 
 Para una instalación nueva o una reinstalación, seguir este mismo criterio: base
 PostgreSQL limpia, Alembic en `head`, paquete privado validado, certificados en

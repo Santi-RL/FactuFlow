@@ -83,9 +83,14 @@ La práctica recomendada es que producción corra un commit o tag identificable.
 
 - `main` puede contener el último trabajo aceptado del proyecto.
 - Un tag, por ejemplo `v0.2.1`, marca un punto desplegable o ya desplegado.
+- Un tag publicado o desplegado es inmutable. No moverlo para incorporar fixes;
+  cualquier cambio de código requiere una versión nueva.
+- Una corrección exclusivamente documental posterior puede avanzar en `main` y
+  en las notas de GitHub sin redesplegar ni mover el tag.
 - El VPS debe registrar qué commit o tag está corriendo.
 - La documentación privada del VPS debe registrar fecha de deploy, operador,
-  commit/tag, comandos ejecutados, resultado de healthchecks y observaciones.
+  commit/tag, commit de origen, comandos ejecutados, resultado de healthchecks y
+  observaciones.
 
 Para cambios chicos de documentación, puede no tener sentido desplegar al VPS.
 Para cambios de backend, frontend, migraciones, Docker o configuración de
@@ -135,6 +140,29 @@ Reglas generales:
   ruta.
 - Si hay migraciones, ejecutarlas una sola vez y registrar el resultado.
 - Si algo falla, detenerse, conservar logs y diagnosticar antes de reintentar.
+
+### Migración inesperada o discrepancia de preflight
+
+Si aparece una migración que el preflight no había anunciado:
+
+1. Mantener el sitio en mantenimiento y no reabrir hasta decidir.
+2. Determinar si la migración ya fue aplicada y registrar `alembic current`,
+   `heads` y el rango pendiente.
+3. Comparar el commit realmente desplegado antes del cambio con el target.
+4. Leer `upgrade`, `downgrade`, `down_revision`, cambios de constraints y
+   cualquier transformación o borrado de datos.
+5. Verificar el backup mediante una restauración aislada cuando la migración
+   toque schema o historial fiscal.
+6. Continuar solo si la migración pertenece al rango aprobado, el target sigue
+   siendo el deseado, schema/datos cumplen las invariantes y el runtime queda
+   sano.
+7. Elegir rollback si la migración está fuera del rango aprobado, rompe
+   invariantes, deja datos inconsistentes o el target ya no es aceptable.
+
+Nunca ejecutar un downgrade automático solo porque el prompt o preflight previo
+fue incorrecto. Si la migración ya quedó aplicada, el rollback debe incluir una
+estrategia explícita para schema y datos; cuando el downgrade sea destructivo o
+incierto, restaurar el backup puede ser más seguro.
 
 ## Después del despliegue
 

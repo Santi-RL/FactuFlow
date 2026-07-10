@@ -5,9 +5,14 @@
 - Este proyecto vive bajo `C:\Users\SANTI\Documents\Proyectos`. Para instrucciones generales compartidas, revisar también `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`.
 - En caso de conflicto, este `AGENTS.md` local prevalece para reglas específicas de FactuFlow.
 - La documentación operativa extendida está en `docs/agents/README.md`.
-- Antes de responder cualquier chat nuevo, leer `docs/agents/alignment-pending.md`. Si ese archivo tiene puntos sin completar, avisar que hay conflictos de alineación pendientes antes de continuar con el pedido.
+- Antes de responder cualquier chat nuevo, leer `docs/agents/alignment-pending.md`.
+  Si tiene puntos sin completar, avisar que hay conflictos de alineación antes
+  de continuar. Si su estado es `COMPLETADO`, seguir con el handoff vigente sin
+  inventar un pendiente.
 - Antes de retomar una sesión, leer `VISION.md`,
-  `docs/agents/current-status.md`, `docs/agents/manual-qa.md` y `ROADMAP.md`.
+  `docs/agents/current-status.md` y `ROADMAP.md`. Consultar
+  `docs/agents/manual-qa.md` cuando el trabajo implique QA, UI, un despliegue o
+  un flujo funcional.
 
 ## Visión del producto
 - `VISION.md` es la fuente canónica y protegida de la visión del producto.
@@ -119,8 +124,13 @@
   test o helper para expresar la intención real, no forzar el formato local.
 
 ## Continuidad y documentación viva
-- Si el usuario pregunta "cómo está el proyecto", "qué es lo primero que debemos solucionar" o una variante equivalente, ir directo al primer punto pendiente de `docs/agents/alignment-pending.md`.
-- Si el usuario dice "seguir donde quedamos", arrancar por `docs/agents/current-status.md` y `docs/agents/manual-qa.md`.
+- Si el usuario pregunta "cómo está el proyecto" o "qué es lo primero que
+  debemos solucionar", revisar primero `docs/agents/alignment-pending.md`. Si
+  no tiene pendientes, responder desde `docs/agents/current-status.md > Punto
+  exacto para retomar` y contrastar `ROADMAP.md > Prioridades inmediatas`.
+- Si el usuario dice "seguir donde quedamos", arrancar por
+  `docs/agents/current-status.md` y `ROADMAP.md`. Consultar
+  `docs/agents/manual-qa.md` solo si el siguiente trabajo necesita QA.
 - Después de cambios importantes en producto, UX, flujos core o ARCA, actualizar siempre:
   - `VISION.md` solo si el usuario pidió explícitamente cambiar la visión
   - `ROADMAP.md`
@@ -154,6 +164,10 @@
   `gh run list`, `gh run view` y check-runs. No consultar el endpoint legacy de
   commit statuses (`/commits/{sha}/status`) salvo que el usuario pida auditar
   una integración antigua que dependa específicamente de ese endpoint.
+- Si `gh release` devuelve `403` aunque `gh auth status` muestre una sesión
+  válida en el keyring, comprobar si un `GITHUB_TOKEN` de proceso está
+  reemplazando esa sesión. No imprimir el token: quitarlo solo del proceso
+  actual y reintentar con la credencial ya autenticada.
 - En Codex con sandbox activo, los comandos que escriben en `.git` pueden fallar
   con `Unable to create .git/index.lock: Permission denied` si se ejecutan sin
   permiso elevado. Para preparar commits o publicar, usar directamente permisos
@@ -262,16 +276,15 @@ npm run type-check
   - Si el diff empieza a mezclar temas independientes, sugerir cortar en commits o revisiones separadas para optimizar tiempo, tokens y calidad de hallazgos.
   - Antes de commit/PR de cambios no triviales, recordar la opción de `autoreview` si todavía no se ejecutó en ese ciclo.
 - Antes de correr `autoreview`, ejecutar tests/lint/formato relevantes siempre que sea razonable. Después, revisar el diff real y verificar manualmente cada finding antes de aplicar fixes. Si se aceptan fixes que cambian código, repetir las pruebas enfocadas y volver a correr `autoreview` hasta que no queden hallazgos aceptados/accionables o hasta que el usuario decida detener el ciclo.
-- Para cambios fiscales críticos, usar `autoreview` de forma escalonada cuando
-  el usuario lo pida o confirme:
-  1. Primera pasada con `gpt-5.5` y `low` para detectar errores evidentes de
-     diseño, contratos rotos o casos omitidos con bajo costo.
-  2. Cuando `low` quede limpio, pasar a `medium` para buscar problemas menos
-     obvios.
-  3. Cuando `medium` quede limpio, pasar a `high` antes de cerrar el cambio.
-  4. Si una pasada encuentra hallazgos aceptados y se cambia código, repetir
-     tests enfocados y volver al nivel mínimo que pueda validar el arreglo; no
-     saltar directo a `high` salvo que el riesgo lo justifique.
+- Para cambios sensibles confirmados por el usuario, la revisión final preferida
+  es Codex con `gpt-5.6-sol` y `high`. Si ese modelo no puede ejecutarse después
+  de un reintento razonable, usar `gpt-5.5` con `high` y registrar el modelo
+  realmente utilizado.
+- No ejecutar automáticamente una escalera `low -> medium -> high` para un fix
+  pequeño ya cubierto por tests. Reservar una revisión temprana adicional para
+  diseños amplios, inciertos o que cambien contratos. Si una pasada encuentra
+  hallazgos aceptados y se cambia código, repetir tests enfocados y volver a
+  correr la revisión final.
 - Los hallazgos de `autoreview` son asesoramiento, no órdenes. Para cada
   finding, clasificar explícitamente si se acepta, se rechaza o se difiere. Solo
   corregirlo si representa un riesgo real, una regresión, un contrato roto, un
@@ -282,12 +295,20 @@ npm run type-check
 - En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app:
   `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
   Ese comando ya funcionó en FactuFlow con motor `codex`, herramientas de solo lectura y búsqueda web habilitada.
+- Elegir el modo de `autoreview` según el estado real: `--mode local` para diff
+  sin commit, `--mode commit --commit HEAD` para un commit ya creado y
+  `--mode branch --base <base>` para varios commits. Un `main` limpio después
+  del push no se revisa con `--mode local` porque ese modo no tendría diff.
 - Usar la CLI global `clawpatch` (`C:\Users\SANTI\AppData\Roaming\npm\clawpatch.cmd`) para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. Seguir también la política compartida de `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`. En este repo ya existen estados separados; preferir los scripts npm `clawpatch:<slice>:...` porque pasan `--root`, `--state-dir` y `--config` de forma coherente. Si se usa CLI directa, no alcanza con elegir `--state-dir`: pasar siempre el `--root` correspondiente.
   - Repo completo: `npm run clawpatch:repo:status` o `clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
   - Backend: `npm run clawpatch:backend:status` o `clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json status`
   - Frontend: `npm run clawpatch:frontend:status` o `clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json status`
 - Para revisar con Clawpatch, mantener el mismo `--root`, `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmación explícita y validaciones enfocadas. Usarlo solo para findings aceptados, localizados y de bajo riesgo relativo; para ARCA/CAE, fechas fiscales, idempotencia, reconciliación, lotes, migraciones, borrados, certificados, PDFs fiscales, reportes impositivos o aislamiento multiemisor, reparar manualmente con diseño, tests y revalidación posterior.
 - No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decisión explícita; preservar el historial existente.
+- La cadencia de reparación, interpretación de reportes acumulativos y cierre
+  2026-07-10 están documentados en
+  `docs/project/audits/clawpatch/README.md` y
+  `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`.
 
 ## Documentación operativa
 - Visión canónica del producto: `VISION.md`
@@ -306,5 +327,7 @@ npm run type-check
 - Testing: `docs/agents/testing.md`
 - Seguridad: `docs/agents/security.md`
 - Manual de usuario: `docs/user-guide/README.md`
-- Bitácora técnica reciente: `docs/project/notes/SESSION_2026-03-09.md`
+- Bitácora técnica histórica: `docs/project/notes/SESSION_2026-03-09.md`
+- Cierre Clawpatch/v0.2.1:
+  `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`
 - Contribución y commits: `CONTRIBUTING.md`

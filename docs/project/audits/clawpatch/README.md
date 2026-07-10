@@ -61,6 +61,9 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
   entre state dir y alcance real, consulta de documentación upstream y manejo de
   un temporal inaccesible en `.tmp/`, documentadas en
   `2026-07-06-lecciones-operativas.md`.
+- 2026-07-10: ciclo de endurecimiento cerrado en `v0.2.1`, con metodología,
+  interpretación del registro acumulativo y punto de reanudación en
+  `2026-07-10-cierre-ciclo-v0.2.1.md`.
 
 ## Lecciones 2026-07-05
 
@@ -80,7 +83,8 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
 
 ## Reglas De Seguridad
 
-- No ejecutar `clawpatch fix`.
+- Durante `review`, reporte y triage no ejecutar `clawpatch fix`. Solo puede
+  considerarse después, con pedido explícito y bajo la política de esta guía.
 - No emitir comprobantes, no pedir CAE y no llamar endpoints reales de ARCA.
 - No commitear `.clawpatch/`, bases locales, certificados, Excel privados,
   PDFs, logs ni evidencia local.
@@ -124,6 +128,11 @@ npm run clawpatch:repo:status
 npm run clawpatch:backend:status
 npm run clawpatch:frontend:status
 ```
+
+En algunas sesiones de Codex sobre Windows, el wrapper puede terminar con
+código 0 pero su stdout heredado no aparecer en la captura. Salida vacía no
+significa `openFindings=0`. Repetir con el comando directo equivalente o leer
+los JSON de findings y agrupar `status`; registrar siempre la evidencia usada.
 
 Comandos directos equivalentes, solo si no se usa npm:
 
@@ -201,17 +210,35 @@ proveedor de ese alcance y se pase `--root` correcto. En auditorías normales de
 FactuFlow usar `npm run clawpatch:<slice>:map`, porque combina el mapper nativo
 con las features manuales versionadas.
 
-No ejecutar `fix`. Si Clawpatch detecta findings, generar reportes locales desde la raíz del repo:
+No ejecutar `fix` durante esta fase. Si Clawpatch detecta findings, generar
+reportes crudos en una carpeta ignorada, nunca directamente como documentación
+pública:
 
 ```powershell
-clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json report --output docs/project/audits/clawpatch/repo-YYYY-MM-DD.md
-clawpatch --root . --state-dir .clawpatch/backend --config .clawpatch/backend/config.json report --output docs/project/audits/clawpatch/backend-YYYY-MM-DD.md
-clawpatch --root . --state-dir .clawpatch/frontend --config .clawpatch/frontend/config.json report --output docs/project/audits/clawpatch/frontend-YYYY-MM-DD.md
+clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json report --status open --output .tmp/clawpatch/repo-YYYY-MM-DD.md
+clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json report --status open --output ../.tmp/clawpatch/backend-YYYY-MM-DD.md
+clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json report --status open --output ../.tmp/clawpatch/frontend-YYYY-MM-DD.md
 ```
 
-Para consumo automático, preferir `report --json` y leer `items`; en la salida
-JSON la clave `findings` es un contador de compatibilidad, no el arreglo de
-findings.
+Para consumo automático, preferir `report --status open --json` y leer `items`;
+en la salida JSON la clave `findings` es un contador de compatibilidad, no el
+arreglo de findings.
+
+### Interpretación de reportes grandes
+
+`.clawpatch/` es un registro acumulativo persistente. Un reporte puede crecer por findings
+históricos, duplicados entre niveles de feature, IDs ya corregidos bajo otra
+feature y registros de una corrida con alcance incorrecto. `map` actualiza el
+mapeo, pero no garantiza purgar todo el historial previo.
+
+Por eso:
+
+- usar `--status open`;
+- filtrar por evidencia y propiedad reales del código;
+- comparar cada finding con el código actual;
+- no sumar el contador como cantidad de bugs aceptados;
+- no borrar ni reinicializar el state dir sin decisión explícita;
+- publicar solo un resumen sanitizado después del triage.
 
 Los findings deben triagearse antes de reparar. Estados útiles:
 
@@ -220,6 +247,25 @@ clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatc
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json triage --finding <id> --status false-positive --note "motivo"
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json revalidate --finding <id>
 ```
+
+## Cadencia de reparación eficiente
+
+1. Congelar un lote coherente de findings ya triados.
+2. Aislar cada cambio fiscal, de seguridad, migración, borrado, lote,
+   idempotencia, reconciliación o multiemisor en su propio commit.
+3. Agrupar cambios chicos únicamente cuando comparten causa, propiedad del código y
+   validación.
+4. Ejecutar tests enfocados y checks del área por cambio.
+5. Ejecutar suites completas en checkpoints lógicos o antes de una candidata,
+   no después de cada microfix.
+6. Correr un `autoreview` por commit sensible o lote coherente ya probado.
+7. Verificar manualmente sus findings y repetir tests/review si se cambia código.
+8. Hacer push solo con autorización, verificar CI por SHA y revalidar Clawpatch
+   después de varios cortes relacionados.
+
+Modelo preferido para nuevas revisiones: `gpt-5.6-sol high`; alternativa
+`gpt-5.5 high` si el modelo preferido no puede ejecutarse. El cierre histórico
+de `v0.2.1` fue revisado con GPT-5.5 alto.
 
 ## Política Para Usar `clawpatch fix`
 
@@ -305,7 +351,8 @@ si algún reporte de Clawpatch obliga a revisar una zona funcional.
 - No cambiar comandos de arranque, Docker ni Alembic.
 - No tocar servicios de emisión, lotes, certificados, ARCA ni frontend durante
   la puesta a punto salvo que un test falle por la propia configuración.
-- No ejecutar `clawpatch fix`.
+- No ejecutar `clawpatch fix` como parte automática de la puesta a punto o del
+  review. Fuera de esa fase, solo usarlo bajo la política explícita anterior.
 - No commitear `.clawpatch/`.
 
 ## Cierre Esperado
@@ -316,4 +363,6 @@ Al terminar, informar:
 - resultado de tests;
 - cantidad de features detectadas por `repo`, `backend` y `frontend`;
 - ubicación de reportes generados;
-- confirmación de que no se ejecutó `clawpatch fix`.
+- confirmación de que no se ejecutó `clawpatch fix` durante la auditoría o,
+  si el usuario autorizó un fix posterior, finding exacto, diff revisado y
+  validaciones ejecutadas.

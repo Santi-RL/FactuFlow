@@ -18,7 +18,17 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-Sin cambios todavía.
+### Documentación y continuidad
+
+- Se normalizaron el estado operativo y el QA manual para dejar un handoff breve
+  de `v0.2.1` y un único punto técnico de reanudación.
+- Se corrigieron permisos multiemisor, fechas visibles, recuperación de lotes
+  vencidos y referencias de despliegue obsoletas.
+- La metodología vigente conserva fixes sensibles aislados, agrupa cambios
+  chicos relacionados, usa tests enfocados y revisa con `gpt-5.6-sol high`,
+  con `gpt-5.5 high` como alternativa.
+- Se documentaron el registro acumulativo de Clawpatch, la decisión ante
+  migraciones inesperadas y la inmutabilidad de tags publicados.
 
 ## [0.2.1] - 2026-07-10
 
@@ -82,7 +92,9 @@ y ajustes del compose productivo.
 
 ### Auditoría y mantenimiento
 
-- Se realizó una auditoría documental de los Markdown versionados: README, manual de usuario, referencia API, guías de certificados, notas ARCA y documentos históricos quedaron alineados con las reglas vigentes sin modificar `VISION.md`.
+- La auditoría documental del 2026-07-06 alineó README, manual de usuario,
+  referencia API, guías de certificados, notas ARCA y documentos históricos con
+  las reglas vigentes de ese corte, sin modificar `VISION.md`.
 - Se cerró la auditoría Clawpatch de backend, frontend y repo completo del
   2026-07-05 con `openFindings=0` en los tres state dirs existentes.
 - Se corrigió la puesta a punto del mapper repo para usar la CLI global
@@ -165,8 +177,8 @@ y ajustes del compose productivo.
 
 ## [0.2.0-mvp] - 2026-05-22
 
-Línea base actual del proyecto. Este corte reemplaza las referencias antiguas a
-versiones previas como fuente de estado operativo.
+Línea base histórica al 2026-05-22. Este corte reemplaza las referencias
+antiguas a versiones previas como fuente de estado operativo.
 
 ### Estado del corte
 

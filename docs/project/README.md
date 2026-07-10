@@ -29,9 +29,15 @@ Regla de lectura:
   - Los resúmenes de fases antiguas quedaron consolidados en `CHANGELOG.md`.
     No mantener nuevos archivos de fase salvo que haya una razón operativa
     concreta.
-- Auditorias:
+- Auditorías:
   - Verificación del proyecto: `docs/project/audits/VERIFICACION_PROYECTO.md`
+  - Clawpatch: `docs/project/audits/clawpatch/README.md`
+  - Cierre del ciclo `v0.2.1`:
+    `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`
 - Seguridad:
   - Update de dependencias (security patch): `docs/project/security/SECURITY_UPDATE.md`
 - Notas:
-  - Sesión 2026-03-09 (smoke real ARCA, fixes y punto de continuidad): `docs/project/notes/SESSION_2026-03-09.md`
+  - Sesión histórica 2026-03-09:
+    `docs/project/notes/SESSION_2026-03-09.md`
+  - Las bitácoras extensas de estado/QA previas a la normalización del
+    2026-07-10 se consultan, solo como historia, en el commit `ece2bdf`.

@@ -16,7 +16,9 @@ Este directorio agrupa la documentación del proyecto.
 - PDFs y reportes (documento técnico histórico de fase): `docs/FASE_6_PDF_REPORTES.md`
 - Documentación para agentes (operativa del repo): `docs/agents/README.md`
 - Estado actual y continuidad: `docs/agents/current-status.md`
-- QA manual y checkpoints: `docs/agents/manual-qa.md`
+- QA manual vigente y pendientes accionables: `docs/agents/manual-qa.md`
+- Cierre metodológico Clawpatch/v0.2.1:
+  `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`
 - Observabilidad operativa estándar: `docs/agents/operational-observability.md`
 - Documentación interna del proyecto (auditorías y notas históricas puntuales): `docs/project/README.md`
 

@@ -8,8 +8,8 @@ Versión actual: `0.2.1`
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El
-trabajo actual se concentra en consolidar operación, documentación, despliegue y
-robustez sin perder las reglas fiscales críticas.
+trabajo actual se concentra en robustecer operación, recuperación,
+observabilidad y mantenimiento sin perder las reglas fiscales críticas.
 
 La release `v0.2.1` del 2026-07-10 es el corte productivo vigente. El corte
 `0.2.0-mvp` del 2026-05-22 queda como línea base histórica. El detalle de ambos
@@ -26,8 +26,8 @@ Capacidades actuales:
 - PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información
-- todos los usuarios activos pueden operar todos los emisores configurados; el
-  rol administrador se reserva para administrar usuarios
+- administradores con acceso operativo a todos los emisores y gestión de
+  usuarios, emisores y `Sistema`; usuarios comunes limitados al emisor asignado
 - uso productivo real controlado con evidencia privada local; no se versionan
   CUITs, CAEs, comprobantes, Excels ni logs privados
 
@@ -41,10 +41,11 @@ facturación madura y productiva estable. Su objetivo será obtener datos desde
 otras fuentes o aplicaciones, o enviar datos hacia ellas, aprovechando la API
 del sistema.
 
-El modelo multiemisor vigente es: un usuario puede administrar varios emisores,
-pero siempre opera con un emisor activo explícito por vez. No está planificada
-por ahora una administración central compleja con permisos finos, reportes
-globales y operación simultánea entre múltiples emisores.
+El modelo multiemisor vigente permite que una instalación administre varios
+emisores, siempre con uno activo explícito por vez. Los administradores pueden
+operarlos todos; los usuarios comunes solo el emisor asignado. No está
+planificada por ahora una administración central compleja con permisos finos,
+reportes globales y operación simultánea entre múltiples emisores.
 
 La observabilidad operativa estándar es parte del alcance post-piloto: el
 sistema debe explicar con lenguaje simple qué pasó, qué impacto tiene y cuál es
@@ -88,7 +89,8 @@ compatibilidad y delega en el mismo launcher oculto.
 Esta opción no es un instalador ni configura inicio automático con Windows.
 El uso local con launcher ya está implementado y testeado hasta nivel
 desarrollo/QA. La primera instalación privada en VPS con Docker producción,
-PostgreSQL y HTTPS quedó validada el 2026-06-09.
+PostgreSQL y HTTPS quedó validada el 2026-06-09. La actualización a `v0.2.1` quedó
+desplegada y aceptada el 2026-07-10.
 
 ### Docker
 

@@ -193,9 +193,23 @@ El último checkpoint manual no está en este archivo sino en:
 
 Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión.
 
-## Última verificacion técnica
+## Última verificación técnica
 
-Fecha: 2026-07-05
+Fecha: 2026-07-10
+
+- Release `v0.2.1` / `8099b22`: backend 411 tests aprobados y 1 omitido.
+- Frontend: 111 tests aprobados; lint, type-check y build limpios.
+- Scripts raíz: 3 tests aprobados.
+- GitHub Actions: Security Audit, Frontend Build, Backend Tests y E2E Tests
+  aprobados para el tag y para el cierre documental `ece2bdf`.
+- Clawpatch objetivo: 3 findings backend y 9 frontend revalidados como `fixed`.
+- Estado local acumulativo: repo 0 abiertos, backend 85 y frontend 6. Los state
+  dirs conservan históricos y duplicados; no interpretar esos contadores como
+  bugs aceptados.
+- QA manual productiva: login y emisión fiscal real satisfactoria.
+- Cierre: `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`.
+
+Fecha histórica: 2026-07-05
 
 - Clawpatch repo completo: `openFindings=0`, `features=27`, `findings=50`.
 - Clawpatch backend: `openFindings=0`, `features=124`, `findings=19`.

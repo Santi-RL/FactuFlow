@@ -1,9 +1,11 @@
 # Migración local a VPS
 
-Última actualización: 2026-06-04
+Última actualización: 2026-07-10
 
-Este runbook prepara una migración privada y repetible desde la instalación
-local SQLite hacia PostgreSQL, sin desplegar todavía en el VPS real.
+Este runbook prepara una migración privada y repetible desde una instalación
+local SQLite hacia PostgreSQL. No despliega por sí mismo. La primera instalación
+productiva y la actualización `v0.2.1` ya fueron completadas; usar este
+procedimiento para nuevas instalaciones, reinstalaciones o ensayos controlados.
 
 La primera restauración debe ensayarse en PostgreSQL local o en un entorno de
 prueba descartable. No se solicita CAE, no se emite ningún comprobante y no se

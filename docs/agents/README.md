@@ -5,8 +5,8 @@
 - Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
 - Visión canónica y protegida del producto: `VISION.md`
 - Estado operativo canónico y punto de reanudación: `docs/agents/current-status.md`
-- QA manual y último checkpoint: `docs/agents/manual-qa.md`
 - Roadmap de prioridades y fases: `ROADMAP.md`
+- QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 
 ## Fuente de verdad operativa
@@ -18,7 +18,7 @@
 - `ROADMAP.md` solo debe resumir prioridades y avance macro alineado con
   `VISION.md`; no debe redefinir la visión ni repetir evidencia operativa
   detallada.
-- `docs/agents/manual-qa.md` registra recorridos de QA y hallazgos manuales, no reemplaza el estado canónico.
+- `docs/agents/manual-qa.md` conserva el checkpoint aceptado y la QA todavía accionable; no reemplaza el estado canónico.
 - `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitácora técnica.
 - `docs/agents/arca.md` conserva detalles técnicos ARCA y procedimientos seguros.
 - `docs/agents/production-workflow.md` define el flujo público y sanitizado de
@@ -83,10 +83,9 @@
   que el usuario decida detener el ciclo.
 - Para cambios fiscales críticos, aplicar primero el checklist
   `docs/agents/fiscal-change-checklist.md`. Si el usuario confirma
-  `autoreview`, usar corridas escalonadas con `gpt-5.5`: primero `low`, luego
-  `medium` cuando `low` quede limpio, y recién después `high`. No usar una
-  revisión de alto razonamiento para encontrar errores básicos que debieron
-  detectarse en diseño, tests o revisión temprana.
+  `autoreview`, usar `gpt-5.6-sol high` como revisión final preferida y
+  `gpt-5.5 high` solo como fallback de disponibilidad. No ejecutar una escalera
+  automática de tres modelos/niveles para un fix pequeño ya cubierto por tests.
 - Los hallazgos son asesoramiento. Clasificar cada uno como aceptado, rechazado
   o diferido antes de modificar código. Corregir solo hallazgos que reduzcan un
   riesgo real o cubran un contrato roto dentro del alcance.
@@ -124,26 +123,32 @@
 - Changelog y línea base actual: `CHANGELOG.md`
 - Puesta a punto y reportes Clawpatch:
   `docs/project/audits/clawpatch/README.md`
-- Bitácora técnica de la última sesión: `docs/project/notes/SESSION_2026-03-09.md`
+- Bitácora histórica de 2026-03-09:
+  `docs/project/notes/SESSION_2026-03-09.md`
+- Cierre del ciclo Clawpatch y release `v0.2.1`:
+  `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`
 
 ## Regla de continuidad
 
 Si el usuario dice algo como "quiero seguir donde quedamos", la secuencia correcta es:
 
-1. Leer `docs/agents/alignment-pending.md`
-2. Si hay puntos pendientes, avisarlo brevemente antes de continuar
-3. Leer `VISION.md`
-4. Leer `docs/agents/current-status.md`
-5. Leer `docs/agents/manual-qa.md`
-6. Confirmar el siguiente paso en `ROADMAP.md`
+1. Leer `docs/agents/alignment-pending.md`.
+2. Si hay puntos pendientes, avisarlo brevemente. Si el estado es `COMPLETADO`,
+   continuar sin inventar un conflicto.
+3. Leer `VISION.md`.
+4. Leer `docs/agents/current-status.md`, que contiene el handoff breve y el
+   punto exacto para retomar.
+5. Confirmar la prioridad en `ROADMAP.md`.
+6. Consultar `docs/agents/manual-qa.md` si la tarea requiere QA, UI o deploy.
 7. Si hay contradicciones entre docs vivas y evidencia local/código, separar
    hechos verificables de decisiones de producto abiertas. Corregir los hechos
    comprobables en documentos vivos y resumir el cambio en `CHANGELOG.md`
    cuando corresponda.
 
 Si el usuario pregunta "cómo está el proyecto" o "qué es lo primero que debemos
-solucionar", ir directo al primer punto pendiente de
-`docs/agents/alignment-pending.md`.
+solucionar", revisar `alignment-pending.md`. Si no hay pendientes, ir a
+`current-status.md > Punto exacto para retomar` y a la primera prioridad del
+roadmap.
 
 No rearmar el contexto desde cero si esos archivos ya lo documentan.
 

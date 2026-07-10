@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-09
+Última actualización: 2026-07-10
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -251,7 +251,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Backup manual inicial validado: dump PostgreSQL, certificados,
   configuración privada, copia cifrada fuera del VPS y restauración de prueba
   desde la copia cifrada
-- [ ] CI/CD completo y alineado al estado real del repo
+- [~] CI completo y confiable; despliegue productivo manual y explícito, sin
+  CD automático
 - [~] Observabilidad operativa estándar definida como requisito post-piloto
 - [x] Gestor de almacenamiento administrativo para ver uso total y desglose por
   emisor, lotes, base, temporales, artefactos descargables, certificados y logs
@@ -273,7 +274,7 @@ Objetivo: tener un repo mantenible, ejecutable y documentado.
 - [x] `.env.example` y configuración base
 - [x] Documentación técnica inicial
 - [~] Docker y compose alineados al estado real
-- [ ] Pipeline CI básico confiable para backend y frontend
+- [x] Pipeline CI confiable para seguridad, backend, frontend y E2E
 - [x] Corte versionado `0.2.0-mvp` y changelog como historial principal
 
 ## Fase 1 - Core funcional de negocio
@@ -555,14 +556,11 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Auditoría Clawpatch 2026-07-05 cerrada nuevamente con repo completo,
   backend y frontend en `openFindings=0`, `autoreview` GPT-5.5 alto limpio y
   CI remoto aprobado
-- [~] Auditoría backend Clawpatch 2026-07-07 en curso: cerrados cortes de
-  aislamiento multiemisor, validación de rangos CAE batch, borrado de
-  certificados post-commit, importación de puntos de venta sin estado ARCA,
-  corrección del subdiario IVA para comprobantes autorizados con IVA cero,
-  rechazo de secretos JWT productivos inseguros, cuantización Decimal de
-  importes WSFE, preservación de historial ante borrado físico de emisores,
-  cache WSAA scopiado por certificado, límite de upload de certificados y
-  disponibilidad real de los archivos antes de habilitar operaciones ARCA.
+- [~] Ciclo Clawpatch 2026-07-07/10 cerrado para `v0.2.1`: 3 findings backend
+  y 9 frontend objetivo revalidados como `fixed`, sin críticos/altos aceptados
+  pendientes. El registro acumulativo local conserva repo 0, backend 85 y frontend 6 abiertos
+  `medium`/`low`, con históricos, duplicados y contaminación de alcance; el
+  triage manual continúa después del P1 pool/worker.
 - [x] Reportes IVA calculan notas de crédito con signo negativo, incluyen
   comprobantes C con IVA cero como exentos, ítems A/B con IVA cero como no
   gravados y el detalle de subdiario incluye gravado e IVA 27%
@@ -686,9 +684,10 @@ Objetivo: profesionalizar la entrega del producto.
   autenticada y emisión fiscal real satisfactoria
 - [x] Resumenes de fases antiguas consolidados en changelog para evitar
   snapshots obsoletos
-- [x] Primera release formal posterior al MVP preparada como `v0.2.1`
+- [x] Primera release formal posterior al MVP publicada como `v0.2.1`
 - [ ] Paquetes o imagenes publicables
-- [~] Notas de release por versión desde el corte actual
+- [x] Notas de release inauguradas con `v0.2.1`; mantenerlas en cada versión
+  futura
 
 ### Distribución
 - [ ] Instalación simplificada para terceros, posterior a estabilizar VPS
@@ -716,32 +715,26 @@ Objetivo: ampliar valor mas alla del MVP.
 
 ## Prioridades inmediatas
 
-1. Guardar la clave real del backup cifrado en un gestor de contraseñas seguro,
-   fuera de Git y fuera del VPS.
-2. Mantener documentación viva alineada con el estado post-piloto productivo,
-   separando evidencia privada de resúmenes versionables.
-3. Convertir los detalles observados durante el uso real en un backlog
-   priorizado: riesgos fiscales, UX, PDFs, reportes y soporte. El primer
-   diagnóstico UX formalizado es carga masiva en
-   `docs/agents/lotes-ux-redesign.md`; el hallazgo productivo de seguimiento de
-   un lote grande queda separado como deuda operativa P1 de pool/worker.
-4. Implementar observabilidad operativa estándar: trazabilidad clara, pantalla
-   de estado del sistema integrada al launcher cuando exista un canal seguro,
-   logs útiles para soporte y mensajes simples para usuarios no técnicos.
-5. Diseñar la automatización futura de backups cifrados con validación,
-   retención y destino externo, pero no implementarla todavía hasta cerrar la
-   política operativa.
-6. Documentar y ensayar el runbook completo de recuperación a un VPS nuevo.
-7. Validar en VPS la política de almacenamiento mínimo y limpieza de artefactos
-   descargables usando el gestor administrativo, especialmente PDFs, ZIPs y
-   temporales de lotes.
-8. Repetir QA visual del gestor de almacenamiento en VPS con datos de prueba
-   controlados: resguardo ZIP, confirmación `Ya lo descargué`, compactación y
-   limpieza segura de temporales/logs/certificados huérfanos. La prevalidación
-   local con mocks ya quedó cubierta.
-9. Agregar descarga masiva de PDFs en ZIP y selección múltiple desde el listado
-   de comprobantes, sin persistencia permanente en el servidor.
-10. Definir la política de versiones posteriores al MVP.
+1. Confirmar en la documentación privada si la clave portable del backup
+   cifrado ya está guardada en un gestor seguro. El repo público no puede
+   resolver ni afirmar ese estado.
+2. Primera tarea técnica: resolver el P1 estructural de presión entre
+   seguimiento UI, pool de base y worker en lotes grandes, con instrumentación,
+   prueba controlada y runbook privado antes de ampliar volumen.
+3. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños: triar
+   manualmente, aislar cambios sensibles y no tratar los contadores acumulativos
+   como bugs confirmados.
+4. Completar observabilidad operativa: healthcheck de worker, backup visible,
+   trazabilidad, logs útiles y mensajes simples para soporte.
+5. Definir y luego automatizar backups cifrados con validación, retención,
+   destino externo y alertas.
+6. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+7. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+   resguardo ZIP, compactación y limpieza segura.
+8. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+9. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+10. Mantener notas de release y procedimiento de upgrade para cada versión
+    posterior a `v0.2.1`.
 
 ## Criterio de exito del MVP
 

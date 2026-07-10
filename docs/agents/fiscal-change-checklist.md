@@ -147,37 +147,39 @@ fiscales críticos, cubrir al menos:
 
 Si un invariante no se testea, dejar una justificación explícita.
 
-## 9. Uso escalonado de autoreview
+## 9. Uso de autoreview
 
 `autoreview` no reemplaza el diseño ni el criterio del agente. Se usa para
 encontrar contratos rotos, casos omitidos y riesgos que el autor no vio.
 
 Antes de escribir código, aplicar esta misma rúbrica al diseño y a la matriz de
-tests. Si el diseño quedó como diff documental o como prompt verificable, se
-puede pedir revisión temprana sobre ese material; si no hay diff todavía, hacer
-una revisión adversarial manual en el chat antes de implementar. El punto
-importante es no esperar al diff final para descubrir invariantes faltantes.
+tests. Para un diseño amplio o incierto puede pedirse una revisión temprana,
+pero un fix pequeño ya cubierto por regresiones no necesita una escalera
+automática de niveles.
 
 Para cambios fiscales críticos confirmados por el usuario:
 
-1. Hacer una primera revisión temprana con `gpt-5.5` y `low`.
+1. Diseñar invariantes y tests antes o junto al código.
 2. Corregir solo hallazgos aceptados después de verificarlos en el código real.
-3. Repetir pruebas enfocadas.
-4. Cuando `low` quede limpio, pasar a `medium`.
-5. Cuando `medium` quede limpio, pasar a `high`.
-6. Si `high` queda limpio, no correr otra revisión solo para obtener otra
-   opinión.
+3. Ejecutar pruebas enfocadas y controles del área.
+4. Hacer la revisión final con `gpt-5.6-sol` y `high`.
+5. Si `gpt-5.6-sol` no puede ejecutarse después de un reintento razonable, usar
+   `gpt-5.5` con `high` y registrar el fallback.
+6. Si la revisión provoca cambios, repetir pruebas enfocadas y la revisión.
+7. Cuando quede limpia, detenerse; no correr otra opinión redundante.
 
-Comando Windows habitual:
+Comando Windows habitual para un diff sin commit:
 
 ```powershell
 $env:PYTHONUTF8='1'
 $env:PYTHONIOENCODING='utf-8'
-python %USERPROFILE%\.codex\skills\autoreview\scripts\autoreview --mode local --engine codex --model gpt-5.5 --thinking low --codex-bin "%LOCALAPPDATA%\OpenAI\Codex\bin\codex.exe"
+$autoreview = Join-Path $env:USERPROFILE '.codex\skills\autoreview\scripts\autoreview'
+$codexBin = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin\codex.exe'
+python $autoreview --mode local --engine codex --model gpt-5.6-sol --thinking high --codex-bin $codexBin
 ```
 
-Cambiar `--thinking low` por `medium` o `high` solo cuando el nivel anterior no
-deje hallazgos aceptados.
+Para un commit ya creado, reemplazar `--mode local` por
+`--mode commit --commit HEAD`.
 
 ## 10. Manejo de hallazgos
 
