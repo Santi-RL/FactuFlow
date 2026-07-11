@@ -10,6 +10,7 @@ from time import perf_counter
 from typing import Any, AsyncGenerator, Literal, TypedDict
 
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -23,6 +24,11 @@ from sqlalchemy.pool import Pool
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS = (
+    SQLAlchemyTimeoutError,
+    OperationalError,
+)
 
 PoolRole = Literal["api", "worker"]
 _CHECKOUT_STARTED_KEY = "factuflow_checkout_started"
@@ -438,25 +444,53 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Entrega una sesión API lazy con commit o rollback al finalizar."""
     context = _CheckoutContext(role="api", started_at=perf_counter())
     token = _checkout_context.set(context)
+    session = AsyncSessionLocal()
+    primary_error: Exception | None = None
     try:
-        async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except SQLAlchemyTimeoutError as exc:
+            primary_error = exc
+            wait_ms = (
+                settings.database_pool_timeout_seconds * 1000
+                if context.acquisition_recorded
+                else max(0.0, (perf_counter() - context.started_at) * 1000)
+            )
+            _record_pool_timeout("api", wait_ms)
             try:
-                yield session
-                await session.commit()
-            except SQLAlchemyTimeoutError:
-                wait_ms = (
-                    settings.database_pool_timeout_seconds * 1000
-                    if context.acquisition_recorded
-                    else max(0.0, (perf_counter() - context.started_at) * 1000)
+                await session.rollback()
+            except Exception as rollback_exc:
+                logger.error(
+                    "event=database_session_rollback_failed "
+                    "primary_type=TimeoutError rollback_type=%s",
+                    type(rollback_exc).__name__,
                 )
-                _record_pool_timeout("api", wait_ms)
+            raise
+        except Exception as primary_exc:
+            primary_error = primary_exc
+            try:
                 await session.rollback()
-                raise
-            except Exception:
-                await session.rollback()
-                raise
-            finally:
+            except Exception as rollback_exc:
+                logger.error(
+                    "event=database_session_rollback_failed "
+                    "primary_type=%s rollback_type=%s",
+                    type(primary_exc).__name__,
+                    type(rollback_exc).__name__,
+                )
+            raise
+        finally:
+            try:
                 await session.close()
+            except Exception as close_exc:
+                if primary_error is None:
+                    raise
+                logger.error(
+                    "event=database_session_close_failed "
+                    "primary_type=%s close_type=%s",
+                    type(primary_error).__name__,
+                    type(close_exc).__name__,
+                )
     finally:
         _checkout_context.reset(token)
 

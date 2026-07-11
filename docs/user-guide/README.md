@@ -384,6 +384,16 @@ puesto en cola y no se solicitó CAE desde ese intento. Conserva el lote y vuelv
 a intentar cuando el servicio esté habilitado; no vuelvas a cargar el Excel como
 un lote nuevo.
 
+Si una emisión responde `503`, FactuFlow confirmó que ARCA no fue llamada, que no
+hay intentos fiscales y que la operación quedó guardada para reanudarse. Espera
+y reintenta con la misma clave; no crees otra carga. Ante
+`409 pre_arca_estado_bloqueado`, conserva también esa clave, no abras otra
+operación y espera o pide revisión. Ese bloqueo no requiere reconciliar ARCA
+porque la solicitud fiscal no comenzó. Si el `409` es posterior al inicio de la
+solicitud o indica `Requiere reconciliación`, no reintentes: pide revisión y
+reconciliación. En lotes, el worker detiene el ciclo y solo vuelve a poner el
+lote en cola pre-ARCA cuando comprobó que no hay intentos fiscales.
+
 Si la pantalla no puede refrescar el seguimiento por timeout o error del
 servidor, eso no significa por sí mismo que el lote haya desaparecido. No vuelvas
 a cargar ni emitir el mismo archivo hasta refrescar el estado, revisar la
@@ -826,9 +836,13 @@ SQLite, que API y worker compartan un único engine es el comportamiento esperad
 y no se muestra como degradación. El diagnóstico no expone DSN, credenciales,
 rutas privadas ni errores internos crudos.
 
-Si la base responde `503`, espera unos segundos y vuelve a consultar el estado.
-Si había una emisión en curso o no sabes si ARCA fue llamada, no repitas la
-emisión: sigue el runbook de soporte antes de actuar. La acción `Probar conexión`
+Si la base responde `503` antes de iniciar la solicitud fiscal, FactuFlow confirmó
+una recuperación durable sin intentos: reintenta la misma operación con la misma
+clave. Ante `409 pre_arca_estado_bloqueado`, conserva la clave y pide revisión o
+espera, sin abrir otra operación ni reconciliar ARCA si FECAE no comenzó. Si el
+`409` es posterior a esa frontera, indica `Requiere reconciliación` o no sabes si
+ARCA fue llamada, no repitas la emisión: sigue el runbook y pide revisión. La
+acción `Probar conexión`
 puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La guía
 rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
 autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.

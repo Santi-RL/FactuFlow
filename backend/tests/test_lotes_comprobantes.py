@@ -10,6 +10,8 @@ from httpx import AsyncClient
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import to_excel
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.exceptions import ArcaServiceError
@@ -32,12 +34,26 @@ from app.schemas.lote_comprobante import (
     LoteComprobanteSeguimientoResponse,
     LoteReconciliacionExternaItem,
 )
+from app.services.facturacion_service import FacturacionService
 from app.services.lote_comprobantes_service import (
     LoteComprobanteError,
     LoteComprobantesService,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 from app.services.lote_worker import LoteWorker, get_lote_worker_status
+
+
+def _crear_error_db_temporal(
+    error_type: type[Exception],
+) -> SQLAlchemyTimeoutError | OperationalError:
+    """Construye errores transitorios de SQLAlchemy sin una base externa."""
+    if error_type is SQLAlchemyTimeoutError:
+        return SQLAlchemyTimeoutError()
+    return OperationalError(
+        "UPDATE lotes_comprobantes SET estado = :estado",
+        {"estado": "procesando"},
+        RuntimeError("base temporalmente no disponible"),
+    )
 
 
 # Identificadores sintéticos de fixtures. Se construyen en partes para evitar
@@ -2745,6 +2761,66 @@ async def test_procesar_lote_background_encola_lote_chico(
 
 
 @pytest.mark.asyncio
+async def test_procesar_background_encolado_durable_no_reabre_operacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Una falla tras encolar conserva el ownership durable del worker."""
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.ensure_lote_worker_running",
+        lambda app: True,
+    )
+
+    async def fail_guardar_respuesta(self, operacion, **kwargs):
+        raise SQLAlchemyTimeoutError()
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "guardar_respuesta_operacion",
+        fail_guardar_respuesta,
+    )
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-background-respuesta-db.xlsx",
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar?background=true",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert response.status_code == 409, response.text
+    assert "Retry-After" not in response.headers
+    assert response.json()["detail"]["categoria_error"] == ("pre_arca_estado_bloqueado")
+    db_session.expire_all()
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    assert lote.estado == "en_cola"
+    assert lote.procesamiento_async is True
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-lote-test"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+    intentos = await db_session.scalars(
+        select(IntentoEmisionFiscal).where(
+            IntentoEmisionFiscal.operacion_id == operacion.id
+        )
+    )
+    assert intentos.all() == []
+
+
+@pytest.mark.asyncio
 async def test_procesar_lote_background_sin_worker_no_encola(
     client: AsyncClient,
     auth_headers: dict,
@@ -2908,8 +2984,15 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
     async def fake_regxreq(self, empresa_id):
         return 2
 
-    async def fake_emitir_lote(self, requests, max_registros=None, contextos=None):
+    async def fake_emitir_lote(
+        self,
+        requests,
+        max_registros=None,
+        contextos=None,
+        fase_solicitud_arca=None,
+    ):
         nonlocal numero
+        assert fase_solicitud_arca.iniciada is False
         llamadas_batch.append(len(requests))
         respuestas = []
         for request in requests:
@@ -3067,6 +3150,123 @@ async def test_procesar_lote_fallback_regxreq_degrada_a_unitario_con_aviso(
     assert arca_batch["fallback_unitario"] is True
     assert "RegXReq no disponible" in arca_batch["fallback_motivo"]
     assert "modo unitario" in data["lote"]["mensaje_resumen"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+async def test_procesar_lote_db_temporal_pre_arca_devuelve_503_sin_fallar_grupo(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    error_type: type[Exception],
+) -> None:
+    """Un lote pre-ARCA queda intacto y la API delega el 503 sanitizado."""
+    test_certificado.ambiente = settings.arca_env
+
+    async def fail_emitir(self, request, **kwargs):
+        raise _crear_error_db_temporal(error_type)
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService.emitir_comprobante",
+        fail_emitir,
+    )
+
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-db-temporal-pre-arca.xlsx",
+    )
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "2"
+    assert "UPDATE lotes_comprobantes" not in response.text
+    assert "base temporalmente no disponible" not in response.text
+    grupo = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == lote_id)
+    )
+    assert grupo is not None
+    assert grupo.estado == "validado"
+    assert not any(
+        "UPDATE lotes_comprobantes" in mensaje
+        for mensaje in (grupo.mensajes_json or [])
+    )
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    assert lote.estado == "validado"
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-lote-test"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "interrumpida_pre_arca"
+    assert operacion.response_json is None
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.operacion_id == operacion.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert intentos == []
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_post_arca_db_temporal_devuelve_409_sanitizado(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Una caída DB con FECAE iniciado nunca se presenta como reintentable."""
+    test_certificado.ambiente = settings.arca_env
+
+    async def fail_post_arca(self, lote_id, empresa_id, **kwargs):
+        kwargs["fase_solicitud_arca"].marcar_iniciada()
+        raise _crear_error_db_temporal(OperationalError)
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "procesar_lote",
+        fail_post_arca,
+    )
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-db-temporal-post-arca.xlsx",
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert response.status_code == 409
+    assert "Retry-After" not in response.headers
+    detail = response.json()["detail"]
+    assert detail["requiere_reconciliacion"] is True
+    assert "UPDATE lotes_comprobantes" not in response.text
+    assert "base temporalmente no disponible" not in response.text
 
 
 @pytest.mark.asyncio
@@ -3273,6 +3473,248 @@ async def test_reintentar_fallidos_reclama_grupo_antes_de_emitir(
     assert estados_vistos == ["reintentando"]
     await db_session.refresh(grupo)
     assert grupo.estado == "fallido"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+async def test_reintentar_lote_db_temporal_pre_arca_restaura_grupo_exacto(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    error_type: type[Exception],
+) -> None:
+    """La caída DB pre-ARCA restaura solo el grupo reclamado y abre replay."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-db-temporal.xlsx",
+        total_grupos=2,
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido", "fallido"])
+    grupo = grupos[0]
+    otro_grupo = grupos[1]
+    grupo_id = grupo.id
+    otro_grupo_id = otro_grupo.id
+    mensajes_previos = list(grupo.mensajes_json or [])
+
+    async def fail_emitir_locked(self, request, **kwargs):
+        assert kwargs["fase_solicitud_arca"].iniciada is False
+        raise _crear_error_db_temporal(error_type)
+
+    monkeypatch.setattr(
+        FacturacionService,
+        "_emitir_comprobante_locked",
+        fail_emitir_locked,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+        json={"grupo_ids": [grupo_id]},
+    )
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "2"
+    assert "UPDATE lotes_comprobantes" not in response.text
+    db_session.expire_all()
+    grupo_actual = await db_session.get(LoteComprobanteGrupo, grupo_id)
+    assert grupo_actual is not None
+    assert grupo_actual.estado == "fallido"
+    assert grupo_actual.mensajes_json == mensajes_previos
+    otro_actual = await db_session.get(LoteComprobanteGrupo, otro_grupo_id)
+    assert otro_actual is not None
+    assert otro_actual.estado == "fallido"
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-lote-test"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "interrumpida_pre_arca"
+    intentos_actuales = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.operacion_id == operacion.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert intentos_actuales == []
+    assert not any(
+        "UPDATE lotes_comprobantes" in mensaje
+        for mensaje in (grupo_actual.mensajes_json or [])
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "metodo_fallido",
+    [
+        "obtener_resumen_operativo_lote",
+        "obtener_confirmacion_duplicado_logico_grupos",
+    ],
+)
+async def test_procesar_lote_recupera_consultas_db_post_operacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    metodo_fallido: str,
+) -> None:
+    """Resumen y duplicados quedan dentro de la recuperación atómica pre-ARCA."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo=f"lote-fallo-{metodo_fallido}.xlsx",
+    )
+
+    async def fail_db(self, *args, **kwargs):
+        raise SQLAlchemyTimeoutError()
+
+    monkeypatch.setattr(LoteComprobantesService, metodo_fallido, fail_db)
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+    )
+
+    assert response.status_code == 503, response.text
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    assert lote.estado == "validado"
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-lote-test"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "interrumpida_pre_arca"
+    intentos = await db_session.scalars(
+        select(IntentoEmisionFiscal).where(
+            IntentoEmisionFiscal.operacion_id == operacion.id
+        )
+    )
+    assert intentos.all() == []
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallo_db_antes_de_operacion_devuelve_503_sin_unboundlocal(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Una caída antes del resolver se propaga sin leer variables inexistentes."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-fallo-temprano.xlsx",
+    )
+
+    async def fail_lookup(self, *args, **kwargs):
+        raise OperationalError("SELECT lote", {}, RuntimeError("db caída"))
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "obtener_lote_resumen",
+        fail_lookup,
+    )
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+        json={"grupo_ids": []},
+    )
+
+    assert response.status_code == 503
+    assert "UnboundLocalError" not in response.text
+    assert response.headers["Retry-After"] == "2"
+
+
+@pytest.mark.asyncio
+async def test_reintentar_commit_ambiguo_confirmado_habilita_replay(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """El reintento recupera un commit ambiguo y la misma clave puede reclamarlo."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-commit-ambiguo.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    original_commit = db_session.commit
+    fallo_inyectado = False
+
+    async def commit_ambiguo():
+        nonlocal fallo_inyectado
+        await original_commit()
+        if not fallo_inyectado:
+            fallo_inyectado = True
+            raise SQLAlchemyTimeoutError()
+
+    monkeypatch.setattr(db_session, "commit", commit_ambiguo)
+
+    async def fake_reintentar(self, lote_id, empresa_id, **kwargs):
+        return await self.obtener_lote(lote_id, empresa_id)
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "reintentar_grupos_fallidos",
+        fake_reintentar,
+    )
+    headers = {
+        **auth_headers,
+        **_confirmacion_fecha_fiscal_header(
+            idempotency_key="idem-reintento-create-ambiguo"
+        ),
+    }
+    body = {"grupo_ids": [grupos[0].id]}
+
+    primera = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+    segunda = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+
+    assert primera.status_code == 503, primera.text
+    assert segunda.status_code == 200, segunda.text
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-reintento-create-ambiguo"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "finalizado"
+    assert fallo_inyectado is True
 
 
 @pytest.mark.asyncio
@@ -6443,6 +6885,101 @@ async def test_worker_usa_factory_dedicada_e_instrumenta_sin_mutar_lote(
     assert not any("mensaje" in key for key in runtime)
     await db_session.refresh(lote)
     assert lote.updated_at == updated_at_antes
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+async def test_worker_corta_ciclo_tras_db_temporal_del_primer_lote(
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    error_type: type[Exception],
+) -> None:
+    """El worker no avanza al segundo lote si la base falla en el primero."""
+
+    class SessionFactory:
+        """Reutiliza la sesión aislada de pruebas como sesión worker."""
+
+        async def __aenter__(self):
+            return db_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    lotes = [
+        LoteComprobante(
+            nombre_archivo=f"lote-worker-db-{indice}.xlsx",
+            archivo_hash=f"hash-lote-worker-db-{indice}",
+            estado="en_cola",
+            modo_procesamiento="background",
+            procesamiento_async=True,
+            total_filas=1,
+            total_grupos=1,
+            grupos_validos=1,
+            empresa_id=test_empresa.id,
+        )
+        for indice in (1, 2)
+    ]
+    db_session.add_all(lotes)
+    await db_session.flush()
+    operacion_worker = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        lote_id=lotes[0].id,
+        idempotency_key="idem-worker-pre-arca",
+        tipo_operacion="procesar_lote",
+        payload_hash="payload-worker-pre-arca",
+        estado="en_proceso",
+    )
+    db_session.add(operacion_worker)
+    await db_session.commit()
+    lote_ids = [lote.id for lote in lotes]
+    operacion_worker_id = operacion_worker.id
+
+    procesados: list[int] = []
+
+    async def fake_acquire(session: AsyncSession, role: str) -> None:
+        assert session is db_session
+        assert role == "worker"
+
+    async def fail_primer_lote(self, lote_id, empresa_id, **kwargs):
+        procesados.append(lote_id)
+        raise _crear_error_db_temporal(error_type)
+
+    monkeypatch.setattr("app.services.lote_worker.WorkerSessionLocal", SessionFactory)
+    monkeypatch.setattr(
+        "app.services.lote_worker.acquire_database_connection",
+        fake_acquire,
+    )
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "procesar_lote",
+        fail_primer_lote,
+    )
+
+    resultado = await LoteWorker().procesar_pendientes()
+
+    assert procesados == [lote_ids[0]]
+    assert resultado.lotes_en_cola_detectados == 1
+    assert resultado.lotes_procesados == 0
+    assert resultado.tuvo_error is True
+    db_session.expire_all()
+    primer_lote = await db_session.get(LoteComprobante, lote_ids[0])
+    segundo_lote = await db_session.get(LoteComprobante, lote_ids[1])
+    operacion_actual = await db_session.get(
+        OperacionIdempotente,
+        operacion_worker_id,
+    )
+    assert primer_lote is not None
+    assert segundo_lote is not None
+    assert operacion_actual is not None
+    assert primer_lote.estado == "en_cola"
+    assert segundo_lote.estado == "en_cola"
+    assert operacion_actual.estado == "en_proceso"
 
 
 @pytest.mark.asyncio

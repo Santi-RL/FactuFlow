@@ -180,6 +180,19 @@ Mapping aplicado en el proyecto:
 - Antes de `FECAESolicitar`, FactuFlow debe crear intento fiscal durable con
   tipo, punto de venta, número planificado, fecha, total y receptor. Esa reserva
   bloquea reintentos inciertos.
+- Pre-ARCA solo se responde `503` con `Retry-After: 2` cuando FactuFlow confirmó
+  durablemente recuperación segura y cero intentos. La operación pasa
+  `en_proceso -> interrumpida_pre_arca`; un replay con la misma clave hace CAS a
+  `en_proceso`, con un único ganador.
+- Individual, lote síncrono y reintento sin intentos restauran el lote a
+  `validado` o el grupo exacto a `fallido`. Con intento existente o recuperación
+  no persistible se responde `409 pre_arca_estado_bloqueado`, conservando la
+  clave y sin afirmar reconciliación ARCA porque FECAE no comenzó.
+- El worker pre-ARCA solo devuelve el lote a `en_cola` sin intentos, conserva la
+  operación `en_proceso` e impide replay HTTP paralelo. Post-ARCA conserva `409`,
+  reconciliación y ausencia de retry. `IntegrityError` no cambia.
+- `get_db` preserva la excepción primaria aunque fallen `rollback` o `close`; un
+  `409` post-ARCA no se degrada a `503` por cleanup.
 - Si un intento queda `en_proceso` vencido, consultar `FECompConsultar` por
   tipo, punto y número planificado. Solo liberar numeración si ARCA confirma que
   el comprobante no existe. Si ARCA confirma CAE, vincular o reconstruir cuando

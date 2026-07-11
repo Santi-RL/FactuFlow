@@ -57,6 +57,13 @@ Verificar al menos:
 - confirmación irreversible antes de CAE;
 - idempotencia, replay con mismo payload y conflicto con payload distinto;
 - falla pre-ARCA, respuesta ambigua, falla post-CAE y reconciliación;
+- caída pre-ARCA: `503` con `Retry-After: 2` solo tras recuperación durable sin
+  intentos fiscales;
+- intento existente o recuperación no persistible: `409
+  pre_arca_estado_bloqueado`, misma clave, sin operación nueva ni reconciliación
+  ARCA;
+- caída desde la frontera irreversible: `409`, sin retry, con evidencia conocida
+  preservada y reconciliación obligatoria;
 - aislamiento entre emisores.
 
 No solicitar CAE real durante QA salvo decisión fiscal explícita del usuario.
@@ -73,7 +80,11 @@ Verificar:
 - preservación como `validado` de grupos intactos cuando el lote se bloquea;
 - reconciliación solo para grupos con evidencia fiscal o incertidumbre;
 - polling sin ciclos solapados y sin mensajes falsos de lote inexistente;
-- ausencia de reintentos automáticos cuando ARCA pudo haber autorizado.
+- ausencia de reintentos automáticos cuando ARCA pudo haber autorizado;
+- worker pre-ARCA: solo reencola sin intentos, conserva la operación
+  `en_proceso`, impide replay HTTP paralelo y corta el ciclo;
+- corte del ciclo del worker post-frontera, sin tomar ni procesar lotes
+  posteriores.
 
 ### Multiemisor
 
@@ -98,6 +109,28 @@ Para cambios visuales o de texto:
 Los cambios solo documentales no requieren `autoreview` salvo pedido explícito.
 
 ## QA pendiente
+
+### Regresión DB/FECAE — QA manual pendiente
+
+La implementación tiene validación automatizada local. En una próxima QA
+controlada, sin solicitar CAE real, simular:
+
+1. pre-ARCA sin intentos: confirmar recuperación durable, `503`, transición
+   `en_proceso -> interrumpida_pre_arca` y un único replay ganador por CAS;
+2. individual/lote/reintento sin intentos: lote `validado` o grupo exacto
+   `fallido`, con reanudación mediante la misma clave;
+3. intento existente o recuperación no persistible: confirmar
+   `409 pre_arca_estado_bloqueado`, misma clave, sin nueva operación ni
+   reconciliación ARCA;
+4. post-frontera: confirmar `409`, ausencia de retry y reconciliación;
+5. cleanup: fallos de `rollback`/`close` no reemplazan la excepción primaria ni
+   degradan un `409` post-ARCA a `503`;
+6. worker pre-ARCA sin intentos: lote `en_cola`, operación `en_proceso`, replay
+   HTTP paralelo impedido y corte del ciclo; post-ARCA conserva el bloqueo.
+
+Estos casos tienen pruebas automatizadas enfocadas aprobadas, pero no registran
+QA manual ni evidencia productiva. La publicación exige el cierre final limpio de
+`autoreview`.
 
 ### P1 pool/worker — cierre local
 

@@ -7,13 +7,37 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, StaticPool
 
 from app.core import database
 from app.core.config import settings
+
+
+def _crear_error_db_temporal(
+    error_type: type[SQLAlchemyTimeoutError] | type[OperationalError],
+) -> SQLAlchemyTimeoutError | OperationalError:
+    """Construye errores temporales reales sin depender de un motor activo."""
+    if error_type is SQLAlchemyTimeoutError:
+        return SQLAlchemyTimeoutError()
+    return OperationalError(
+        "ROLLBACK",
+        {},
+        RuntimeError("base temporalmente no disponible"),
+    )
+
+
+def test_errores_db_temporales_excluyen_integrity_error() -> None:
+    """La clasificación transitoria debe preservar conflictos de integridad."""
+    assert set(database.DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS) == {
+        SQLAlchemyTimeoutError,
+        OperationalError,
+    }
+    assert IntegrityError not in database.DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 
 
 @pytest.mark.asyncio
@@ -132,6 +156,170 @@ async def test_get_db_adquiere_lazy_en_el_primer_uso_real(
     finally:
         await dependency.aclose()
         await api_engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rollback_error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+)
+async def test_get_db_preserva_http_exception_si_falla_rollback(
+    monkeypatch: pytest.MonkeyPatch,
+    rollback_error_type: type[SQLAlchemyTimeoutError] | type[OperationalError],
+) -> None:
+    """El rollback secundario no debe ocultar un conflicto HTTP primario."""
+    eventos: list[str] = []
+
+    class FakeSession:
+        """Sesión mínima cuyo rollback reproduce una caída secundaria."""
+
+        async def rollback(self) -> None:
+            """Registra el intento y falla con el error parametrizado."""
+            eventos.append("rollback")
+            raise _crear_error_db_temporal(rollback_error_type)
+
+        async def close(self) -> None:
+            """Registra la liberación explícita de la sesión."""
+            eventos.append("close")
+
+    class FakeSessionFactory:
+        """Factory mínima compatible con AsyncSessionLocal."""
+
+        def __new__(cls) -> FakeSession:
+            """Entrega la sesión falsa."""
+            return FakeSession()
+
+    monkeypatch.setattr(database, "AsyncSessionLocal", FakeSessionFactory)
+    monkeypatch.setitem(database._role_metrics, "api", database._RoleMetrics())
+    dependency = database.get_db()
+    await anext(dependency)
+    primary = HTTPException(status_code=409, detail={"categoria_error": "conflicto"})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await dependency.athrow(primary)
+
+    assert exc_info.value is primary
+    assert eventos == ["rollback", "close"]
+    assert database._role_metrics["api"].timeout_count == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rollback_error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+)
+async def test_get_db_preserva_timeout_primario_si_falla_rollback(
+    monkeypatch: pytest.MonkeyPatch,
+    rollback_error_type: type[SQLAlchemyTimeoutError] | type[OperationalError],
+) -> None:
+    """El timeout primario se contabiliza una vez aunque falle el rollback."""
+    eventos: list[str] = []
+
+    class FakeSession:
+        """Sesión mínima cuyo rollback reproduce una caída secundaria."""
+
+        async def rollback(self) -> None:
+            """Registra el intento y falla con el error parametrizado."""
+            eventos.append("rollback")
+            raise _crear_error_db_temporal(rollback_error_type)
+
+        async def close(self) -> None:
+            """Registra la liberación explícita de la sesión."""
+            eventos.append("close")
+
+    class FakeSessionFactory:
+        """Factory mínima compatible con AsyncSessionLocal."""
+
+        def __new__(cls) -> FakeSession:
+            """Entrega la sesión falsa."""
+            return FakeSession()
+
+    monkeypatch.setattr(database, "AsyncSessionLocal", FakeSessionFactory)
+    monkeypatch.setitem(database._role_metrics, "api", database._RoleMetrics())
+    dependency = database.get_db()
+    await anext(dependency)
+    primary = SQLAlchemyTimeoutError()
+
+    with pytest.raises(SQLAlchemyTimeoutError) as exc_info:
+        await dependency.athrow(primary)
+
+    assert exc_info.value is primary
+    assert eventos == ["rollback", "close"]
+    assert database._role_metrics["api"].timeout_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "primary",
+    [
+        HTTPException(status_code=409, detail="conflicto primario"),
+        SQLAlchemyTimeoutError(),
+    ],
+    ids=["http-409", "timeout"],
+)
+async def test_get_db_preserva_excepcion_primaria_si_falla_close(
+    monkeypatch: pytest.MonkeyPatch,
+    primary: Exception,
+) -> None:
+    """Una falla secundaria de close no debe reemplazar la excepción primaria."""
+    eventos: list[str] = []
+
+    class FakeSession:
+        """Sesión mínima con rollback exitoso y cierre fallido."""
+
+        async def rollback(self) -> None:
+            """Registra el rollback exitoso."""
+            eventos.append("rollback")
+
+        async def close(self) -> None:
+            """Registra el cierre y reproduce una falla secundaria."""
+            eventos.append("close")
+            raise OperationalError("CLOSE", {}, RuntimeError("falla secundaria"))
+
+    monkeypatch.setattr(database, "AsyncSessionLocal", FakeSession)
+    monkeypatch.setitem(database._role_metrics, "api", database._RoleMetrics())
+    dependency = database.get_db()
+    await anext(dependency)
+
+    with pytest.raises(type(primary)) as exc_info:
+        await dependency.athrow(primary)
+
+    assert exc_info.value is primary
+    assert eventos == ["rollback", "close"]
+    assert database._role_metrics["api"].timeout_count == (
+        1 if isinstance(primary, SQLAlchemyTimeoutError) else 0
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_db_propaga_falla_close_sin_excepcion_primaria(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un cierre fallido en camino exitoso debe seguir siendo observable."""
+    close_error = OperationalError(
+        "CLOSE",
+        {},
+        RuntimeError("falla de cierre observable"),
+    )
+
+    class FakeSession:
+        """Sesión mínima con commit exitoso y cierre fallido."""
+
+        async def commit(self) -> None:
+            """Completa el camino principal sin errores."""
+
+        async def close(self) -> None:
+            """Propaga el error de cierre configurado."""
+            raise close_error
+
+    monkeypatch.setattr(database, "AsyncSessionLocal", FakeSession)
+    dependency = database.get_db()
+    await anext(dependency)
+
+    with pytest.raises(OperationalError) as exc_info:
+        await dependency.aclose()
+
+    assert exc_info.value is close_error
 
 
 @pytest.mark.asyncio

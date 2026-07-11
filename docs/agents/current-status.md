@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-10
+Última actualización: 2026-07-11
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -43,10 +43,37 @@ Validación del corte:
 - Ruff, Black y `git diff --check` aprobados sobre el estado final.
   Browserslist solo informó datos desactualizados.
 
-No se ejecutaron Clawpatch fix, push ni despliegue. Por autorización del usuario,
-`autoreview` se realiza únicamente sobre el commit; los findings aceptados se
-aislarán en otro commit y la revisión no implica publicación. Push y despliegue
-siguen requiriendo autorización explícita.
+No se ejecutaron Clawpatch fix, push ni despliegue. La primera pasada de
+`autoreview` sobre el commit local `fc6bdbb` encontró tres P1 aceptados y ya
+corregidos. Las pruebas automatizadas enfocadas están aprobadas y la QA manual continúa
+pendiente. Los cambios se integran por amend al mismo commit local; la publicación
+queda condicionada a una pasada final limpia de `autoreview`. El commit no está publicado
+ni desplegado; push y despliegue requieren autorización explícita.
+
+### Corrección local posterior — frontera DB/FECAE
+
+Quedó implementada y validada localmente una corrección puntual de manejo de
+indisponibilidad temporal de base:
+
+- pre-ARCA solo se responde `503` con `Retry-After: 2` tras confirmar
+  durablemente recuperación segura y cero intentos. La operación pasa
+  `en_proceso -> interrumpida_pre_arca`; el replay con la misma clave hace CAS a
+  `en_proceso` y solo uno gana;
+- en individual, lote síncrono y reintento sin intentos, el lote vuelve a
+  `validado` o el grupo exacto a `fallido`. Con intento existente o recuperación
+  no persistible responde `409 pre_arca_estado_bloqueado`, conserva la clave y
+  exige revisar/esperar, sin reconciliación ARCA porque FECAE no comenzó;
+- el worker pre-ARCA solo devuelve el lote a `en_cola` sin intentos, conserva la
+  operación `en_proceso` para impedir replay HTTP paralelo y corta el ciclo.
+  Post-ARCA conserva `409`, reconciliación y ausencia de retry;
+- `get_db` preserva la excepción primaria aunque fallen `rollback` o `close`; un
+  `409` post-ARCA no se degrada a `503` por cleanup;
+- `IntegrityError` conserva el comportamiento anterior. No cambian fecha,
+  numeración, payload, UI, migraciones ni aislamiento multiemisor.
+
+Los tres P1 corregidos se integran por amend al mismo commit local. `main`
+conserva además el commit local previo; ninguno está publicado ni desplegado y
+la publicación exige el cierre final de `autoreview`.
 
 ## Snapshot vigente
 
@@ -174,19 +201,21 @@ Siguen pendientes:
    editar.
 4. No repetir el despliegue, la configuración de certificados productivos ni
    los cuatro cortes UX de carga masiva: están cerrados.
-5. Si el usuario lo indica, la siguiente tarea técnica es diseñar el P1 fiscal de
-   historia previa y emisión multicanal. Completar
-   `docs/agents/fiscal-change-checklist.md`, estados, orden de operaciones y
-   matriz de tests antes de tocar código.
-6. Si el usuario decide continuar primero con Clawpatch, leer el finding exacto,
+5. Ejecutar `autoreview` sobre el commit aislado del fix DB/FECAE y decidir luego
+   su publicación; un push no implica despliegue.
+6. Si el usuario lo indica después de cerrar ese ciclo, la siguiente tarea
+   técnica es diseñar el P1 fiscal de historia previa y emisión multicanal.
+   Completar `docs/agents/fiscal-change-checklist.md`, estados, orden de
+   operaciones y matriz de tests antes de tocar código.
+7. Si el usuario decide continuar primero con Clawpatch, leer el finding exacto,
    verificar el código y los tests vecinos y triarlo manualmente. No usar el
    contador global como backlog confirmado.
-7. Aplicar la metodología de
+8. Aplicar la metodología de
    `docs/project/audits/clawpatch/README.md`: cambio sensible aislado; cambios
    chicos relacionados agrupables; tests enfocados; `autoreview` sobre el commit
    o lote coherente; push solo con autorización; CI por SHA; revalidación
    Clawpatch después de varios cortes.
-8. Para próximas revisiones, usar `gpt-5.6-sol` con `high`. Si ese modelo no
+9. Para próximas revisiones, usar `gpt-5.6-sol` con `high`. Si ese modelo no
    puede ejecutarse después de un reintento razonable, usar `gpt-5.5` con
    `high` y registrar cuál se utilizó.
 

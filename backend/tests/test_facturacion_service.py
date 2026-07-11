@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.exceptions import ArcaCertificateError, ArcaServiceError
@@ -25,6 +27,19 @@ from app.schemas.comprobante import (
 )
 from app.services.facturacion_service import FacturacionService, ValidationError
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
+
+
+def _crear_error_db_temporal(
+    error_type: type[Exception],
+) -> SQLAlchemyTimeoutError | OperationalError:
+    """Construye errores transitorios de SQLAlchemy sin datos sensibles reales."""
+    if error_type is SQLAlchemyTimeoutError:
+        return SQLAlchemyTimeoutError()
+    return OperationalError(
+        "SELECT dato_fiscal FROM comprobantes",
+        {"empresa_id": 1},
+        RuntimeError("base temporalmente no disponible"),
+    )
 
 
 @pytest.mark.asyncio
@@ -643,10 +658,81 @@ async def test_validar_datos_rechaza_cliente_de_otro_emisor(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+async def test_emitir_comprobante_propaga_db_temporal_antes_de_arca(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+) -> None:
+    """Una indisponibilidad local pre-ARCA propaga sin solicitar CAE."""
+    llamadas_fecae = 0
+
+    class FakeWSFEClient:
+        """Cliente que registra cualquier solicitud fiscal inesperada."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_cae_solicitar(self, _arca_request):
+            """Registra una llamada que nunca debería ocurrir."""
+            nonlocal llamadas_fecae
+            llamadas_fecae += 1
+            raise AssertionError("No debe solicitar CAE con la base indisponible")
+
+    async def fail_validar(self, request):
+        raise _crear_error_db_temporal(error_type)
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fail_validar)
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=1,
+        punto_venta_id=1,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 7, 11),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    with pytest.raises(error_type):
+        await service.emitir_comprobante(request)
+
+    assert llamadas_fecae == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+@pytest.mark.parametrize(
+    "rollback_falla",
+    [False, True],
+    ids=["rollback-ok", "rollback-db-falla"],
+)
 async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+    rollback_falla: bool,
 ):
     """Si falla la persistencia posterior a CAE, la respuesta no es reintentable."""
 
@@ -672,9 +758,6 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
     async def fake_obtener_empresa(self, empresa_id):
         return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
 
-    async def fake_obtener_punto_venta(self, punto_venta_id, empresa_id=None):
-        return SimpleNamespace(id=punto_venta.id, numero=punto_venta.numero)
-
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
             archivo_crt="empresa-test.crt",
@@ -691,17 +774,13 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         return 77
 
     async def fail_guardar(self, *args, **kwargs):
-        raise RuntimeError(
-            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
-        )
+        raise _crear_error_db_temporal(error_type)
 
     monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
     monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
     monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
     monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
-    monkeypatch.setattr(
-        FacturacionService, "_obtener_punto_venta", fake_obtener_punto_venta
-    )
+
     monkeypatch.setattr(
         FacturacionService,
         "_obtener_certificado_activo",
@@ -717,6 +796,15 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         FacturacionService, "_obtener_proximo_numero", fake_obtener_proximo
     )
     monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
+    if rollback_falla:
+        original_rollback = AsyncSession.rollback
+
+        async def fail_rollback(session):
+            if session is db_session:
+                raise _crear_error_db_temporal(error_type)
+            return await original_rollback(session)
+
+        monkeypatch.setattr(AsyncSession, "rollback", fail_rollback)
 
     punto_venta = PuntoVenta(
         numero=1,
@@ -919,12 +1007,16 @@ async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
 
 
 @pytest.mark.asyncio
-async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
+@pytest.mark.parametrize("modo", ["individual", "batch"])
+@pytest.mark.parametrize("fallar_cierre", [False, True])
+async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
+    modo: str,
+    fallar_cierre: bool,
 ):
-    """Una respuesta WSFE no aprobada no debe persistirse como autorizada."""
+    """Un rechazo ARCA solo es definitivo si el intento pudo cerrarse."""
 
     class FakeWSFEClient:
         """Cliente WSFE simulado con resultado parcial sin CAE."""
@@ -934,6 +1026,19 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
 
         async def fe_cae_solicitar(self, _arca_request):
             """Devuelve una respuesta no aprobada."""
+            return self._respuesta_no_aprobada()
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Simula que ARCA no tiene comprobantes previos."""
+            return 76
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Devuelve un rechazo por cada solicitud batch."""
+            return [self._respuesta_no_aprobada() for _ in arca_requests]
+
+        @staticmethod
+        def _respuesta_no_aprobada():
+            """Construye un rechazo fiscal sin CAE."""
             return CAEResponse(
                 cae=None,
                 cae_vencimiento=None,
@@ -951,9 +1056,6 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
 
     async def fake_obtener_empresa(self, empresa_id):
         return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
-
-    async def fake_obtener_punto_venta(self, punto_venta_id, empresa_id=None):
-        return SimpleNamespace(id=punto_venta.id, numero=punto_venta.numero)
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
@@ -973,13 +1075,14 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
     async def fail_guardar(self, *args, **kwargs):
         raise AssertionError("No debe guardar una respuesta sin aprobación")
 
+    async def fallar_actualizacion_intento(self, intento, response, **kwargs):
+        raise RuntimeError("secreto privada.key")
+
     monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
     monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
     monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
     monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
-    monkeypatch.setattr(
-        FacturacionService, "_obtener_punto_venta", fake_obtener_punto_venta
-    )
+
     monkeypatch.setattr(
         FacturacionService,
         "_obtener_certificado_activo",
@@ -995,6 +1098,12 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
         FacturacionService, "_obtener_proximo_numero", fake_obtener_proximo
     )
     monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
+    if fallar_cierre:
+        monkeypatch.setattr(
+            IdempotenciaFiscalService,
+            "actualizar_intento_desde_respuesta",
+            fallar_actualizacion_intento,
+        )
 
     punto_venta = PuntoVenta(
         numero=1,
@@ -1032,14 +1141,27 @@ async def test_emitir_comprobante_no_persiste_respuesta_arca_no_aprobada(
         ],
     )
 
-    resultado = await service.emitir_comprobante(request)
+    if modo == "individual":
+        resultado = await service.emitir_comprobante(request)
+    else:
+        resultado = (
+            await service.emitir_comprobantes_lote([request], max_registros=1)
+        )[0]
     comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
+    intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
 
     assert resultado.exito is False
-    assert resultado.requiere_reconciliacion is False
-    assert resultado.categoria_error == "arca_no_aprobado"
+    assert resultado.requiere_reconciliacion is fallar_cierre
+    assert resultado.categoria_error == (
+        "post_arca_persistencia" if fallar_cierre else "arca_no_aprobado"
+    )
     assert resultado.cae is None
     assert comprobantes == []
+    assert len(intentos) == 1
+    assert intentos[0].estado == ("en_proceso" if fallar_cierre else "rechazado_arca")
+    respuesta_json = resultado.model_dump_json()
+    assert "secreto" not in respuesta_json
+    assert "privada.key" not in respuesta_json
 
 
 @pytest.mark.asyncio
@@ -1168,12 +1290,18 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
 
 
 @pytest.mark.asyncio
-async def test_emitir_comprobantes_lote_cierra_intentos_si_falla_reserva_pre_arca(
+@pytest.mark.parametrize(
+    "error_type",
+    [RuntimeError, SQLAlchemyTimeoutError, OperationalError],
+    ids=["runtime", "timeout", "operational"],
+)
+async def test_emitir_comprobantes_lote_distingue_db_temporal_en_reserva_pre_arca(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
 ):
-    """Si falla una reserva local pre-ARCA, no deja intentos en proceso."""
+    """Solo una falla no transitoria cierra reservas pre-ARCA como fallidas."""
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -1230,7 +1358,9 @@ async def test_emitir_comprobantes_lote_cierra_intentos_si_falla_reserva_pre_arc
         llamadas_reserva += 1
         if llamadas_reserva == 1:
             return await original_crear(self, **kwargs)
-        raise RuntimeError("reserva local fallida")
+        if error_type is RuntimeError:
+            raise RuntimeError("reserva local fallida")
+        raise _crear_error_db_temporal(error_type)
 
     monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
     monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
@@ -1272,32 +1402,57 @@ async def test_emitir_comprobantes_lote_cierra_intentos_si_falla_reserva_pre_arc
         )
 
     service = FacturacionService(db_session)
-    resultados = await service.emitir_comprobantes_lote(
-        [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")],
-        max_registros=2,
-    )
+    requests = [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")]
+    if error_type is RuntimeError:
+        resultados = await service.emitir_comprobantes_lote(
+            requests,
+            max_registros=2,
+        )
+    else:
+        with pytest.raises(error_type):
+            await service.emitir_comprobantes_lote(
+                requests,
+                max_registros=2,
+            )
+        resultados = []
     intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
 
     assert FakeWSFEClient.llamadas_lote == 0
     assert llamadas_reserva == 2
-    assert [resultado.exito for resultado in resultados] == [False, False]
-    assert [resultado.numero for resultado in resultados] == [1, 2]
-    assert all(resultado.requiere_reconciliacion is False for resultado in resultados)
-    assert {resultado.categoria_error for resultado in resultados} == {
-        "pre_arca_reserva_fallida"
-    }
-    assert len(intentos) == 1
-    assert intentos[0].estado == "fallido_verificado"
-    assert intentos[0].numero_planificado == 1
-    assert intentos[0].categoria_error == "pre_arca_reserva_fallida"
-    assert "no llegó a enviar" in intentos[0].mensaje
+    if error_type is RuntimeError:
+        assert [resultado.exito for resultado in resultados] == [False, False]
+        assert [resultado.numero for resultado in resultados] == [1, 2]
+        assert all(
+            resultado.requiere_reconciliacion is False for resultado in resultados
+        )
+        assert {resultado.categoria_error for resultado in resultados} == {
+            "pre_arca_reserva_fallida"
+        }
+        assert len(intentos) == 1
+        assert intentos[0].estado == "fallido_verificado"
+        assert intentos[0].numero_planificado == 1
+        assert intentos[0].categoria_error == "pre_arca_reserva_fallida"
+        assert "no llegó a enviar" in intentos[0].mensaje
+    else:
+        assert resultados == []
+        assert all(intento.estado != "fallido_verificado" for intento in intentos)
+        assert all(
+            intento.categoria_error != "pre_arca_reserva_fallida"
+            for intento in intentos
+        )
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
 async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_arca(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
 ):
     """Si falla cerrar el intento tras guardar CAE, no devuelve éxito reintentable."""
     punto_venta = PuntoVenta(
@@ -1362,9 +1517,7 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
         nonlocal fallos_cierre
         if response.exito:
             fallos_cierre += 1
-            raise RuntimeError(
-                "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
-            )
+            raise _crear_error_db_temporal(error_type)
         return await original_actualizar(self, intento, response, **kwargs)
 
     monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
@@ -1868,6 +2021,124 @@ async def test_confirmacion_duplicado_toma_operacion_solo_una_vez(
     assert tomada is False
     assert operacion.estado == "en_proceso"
     assert operacion.response_json is None
+
+
+@pytest.mark.asyncio
+async def test_operacion_interrumpida_pre_arca_se_reclama_por_cas_una_sola_vez(
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """Solo un replay puede reclamar una interrupción demostrablemente pre-ARCA."""
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-interrumpida-pre-arca-cas",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-interrumpida-pre-arca-cas",
+        estado="en_proceso",
+    )
+    db_session.add(operacion)
+    await db_session.commit()
+    await db_session.refresh(operacion)
+
+    service = IdempotenciaFiscalService(db_session)
+    interrumpida = await service.marcar_operacion_interrumpida_pre_arca(operacion.id)
+    await db_session.refresh(operacion)
+
+    assert interrumpida is True
+    assert operacion.estado == "interrumpida_pre_arca"
+    assert operacion.response_json is None
+
+    operacion, primer_claim = await service.reclamar_operacion_interrumpida_pre_arca(
+        operacion
+    )
+    operacion, segundo_claim = await service.reclamar_operacion_interrumpida_pre_arca(
+        operacion
+    )
+
+    assert primer_claim is True
+    assert segundo_claim is False
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+
+
+@pytest.mark.asyncio
+async def test_operacion_pre_arca_no_se_interrumpe_con_respuesta_estado_o_intento(
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """La liberación exige estado activo, respuesta nula y cero intentos propios."""
+    punto_venta = PuntoVenta(
+        numero=987,
+        nombre="PV intento pre-ARCA",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    con_respuesta = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-pre-arca-con-respuesta",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-pre-arca-con-respuesta",
+        estado="en_proceso",
+        response_json={"mensaje": "respuesta durable"},
+    )
+    estado_invalido = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-pre-arca-finalizada",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-pre-arca-finalizada",
+        estado="finalizado",
+    )
+    con_intento = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-pre-arca-con-intento",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-pre-arca-con-intento",
+        estado="en_proceso",
+    )
+    db_session.add_all([con_respuesta, estado_invalido, con_intento])
+    await db_session.flush()
+    db_session.add(
+        IntentoEmisionFiscal(
+            operacion_id=con_intento.id,
+            empresa_id=test_empresa.id,
+            usuario_id=None,
+            punto_venta_id=punto_venta.id,
+            punto_venta_numero=punto_venta.numero,
+            tipo_comprobante=6,
+            numero_planificado=1,
+            fecha_emision=date(2026, 7, 11),
+            total=Decimal("1000.00"),
+            receptor_tipo_documento=99,
+            receptor_numero_documento="0",
+            receptor_razon_social="A CONSUMIDOR FINAL",
+            payload_hash="payload-intento-pre-arca",
+            huella_logica="huella-intento-pre-arca",
+            estado="en_proceso",
+        )
+    )
+    await db_session.commit()
+
+    service = IdempotenciaFiscalService(db_session)
+    resultados = [
+        await service.marcar_operacion_interrumpida_pre_arca(operacion.id)
+        for operacion in (con_respuesta, estado_invalido, con_intento)
+    ]
+    ids = [con_respuesta.id, estado_invalido.id, con_intento.id]
+    db_session.expire_all()
+
+    assert resultados == [False, False, False]
+    estados = [
+        (await db_session.get(OperacionIdempotente, operacion_id)).estado
+        for operacion_id in ids
+    ]
+    assert estados == ["en_proceso", "finalizado", "en_proceso"]
 
 
 @pytest.mark.asyncio

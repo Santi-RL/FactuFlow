@@ -18,7 +18,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,6 +27,7 @@ from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import ArcaServiceError, ArcaValidationError
 from app.arca.utils import clean_cuit, validate_cuit
 from app.core.config import settings
+from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
@@ -50,7 +51,11 @@ from app.schemas.lote_comprobante import (
     LoteComprobanteSeguimientoResponse,
     LoteProcesamientoResponse,
 )
-from app.services.facturacion_service import FacturacionService, ValidationError
+from app.services.facturacion_service import (
+    FacturacionService,
+    FaseSolicitudArca,
+    ValidationError,
+)
 from app.services.formatos_importacion_service import (
     FormatoImportacionError,
     FormatosImportacionService,
@@ -1417,6 +1422,8 @@ class LoteComprobantesService:
                     total=totales["total"],
                 ):
                     duplicados_ids.add(int(grupo_id))
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                raise
             except Exception:  # pragma: no cover - defensivo, no bloquea validación
                 continue
 
@@ -1500,6 +1507,194 @@ class LoteComprobantesService:
         )
         return fechas, puntos_venta, token
 
+    async def recuperar_lote_interrumpido_pre_arca(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+        operacion_id: int,
+        estado_reanudable: str,
+        estados_claim: set[str],
+        mensaje_seguro: str,
+    ) -> bool:
+        """Revierte lote y operación en una transacción solo antes de ARCA."""
+        try:
+            await self.db.rollback()
+            idempotencia = IdempotenciaFiscalService(self.db)
+            operacion_marcada = (
+                await idempotencia.marcar_operacion_interrumpida_pre_arca(
+                    operacion_id,
+                    commit=False,
+                )
+            )
+            if not operacion_marcada:
+                await self.db.rollback()
+                return False
+            result = await self.db.execute(
+                update(LoteComprobante)
+                .where(
+                    LoteComprobante.id == lote_id,
+                    LoteComprobante.empresa_id == empresa_id,
+                    LoteComprobante.estado.in_(estados_claim),
+                )
+                .values(
+                    estado=estado_reanudable,
+                    started_at=None,
+                    finished_at=None,
+                    mensaje_resumen=mensaje_seguro,
+                )
+            )
+            if result.rowcount != 1:
+                await self.db.rollback()
+                return False
+            await self.db.commit()
+            return True
+        except Exception as recovery_exc:
+            logger.error(
+                "event=pre_arca_lote_recovery_failed tipo_error=%s",
+                type(recovery_exc).__name__,
+            )
+            try:
+                await self.db.rollback()
+            except Exception as rollback_exc:
+                logger.error(
+                    "event=pre_arca_lote_recovery_rollback_failed tipo_error=%s",
+                    type(rollback_exc).__name__,
+                )
+            return False
+
+    async def recuperar_lote_worker_interrumpido_pre_arca(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+    ) -> bool:
+        """Devuelve a cola un lote del worker solo si su operación es reanudable."""
+        try:
+            await self.db.rollback()
+            metadata = (
+                await self.db.execute(
+                    select(LoteComprobante.metadata_json).where(
+                        LoteComprobante.id == lote_id,
+                        LoteComprobante.empresa_id == empresa_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            operacion_id = (metadata or {}).get("operacion_idempotente_id")
+            if not isinstance(operacion_id, int):
+                await self.db.rollback()
+                return False
+        except Exception as recovery_exc:
+            logger.error(
+                "event=pre_arca_worker_lookup_failed tipo_error=%s",
+                type(recovery_exc).__name__,
+            )
+            try:
+                await self.db.rollback()
+            except Exception as rollback_exc:
+                logger.error(
+                    "event=pre_arca_worker_lookup_rollback_failed tipo_error=%s",
+                    type(rollback_exc).__name__,
+                )
+            return False
+
+        try:
+            sin_intentos = ~exists(
+                select(IntentoEmisionFiscal.id).where(
+                    IntentoEmisionFiscal.operacion_id == operacion_id
+                )
+            )
+            result = await self.db.execute(
+                update(LoteComprobante)
+                .where(
+                    LoteComprobante.id == lote_id,
+                    LoteComprobante.empresa_id == empresa_id,
+                    LoteComprobante.estado.in_({"procesando", "en_cola"}),
+                    sin_intentos,
+                )
+                .values(
+                    estado="en_cola",
+                    started_at=None,
+                    finished_at=None,
+                    mensaje_resumen=(
+                        "El lote volvió a la cola para un reintento seguro."
+                    ),
+                )
+            )
+            if result.rowcount != 1:
+                await self.db.rollback()
+                return False
+            await self.db.commit()
+            return True
+        except Exception as recovery_exc:
+            logger.error(
+                "event=pre_arca_worker_recovery_failed tipo_error=%s",
+                type(recovery_exc).__name__,
+            )
+            try:
+                await self.db.rollback()
+            except Exception as rollback_exc:
+                logger.error(
+                    "event=pre_arca_worker_recovery_rollback_failed tipo_error=%s",
+                    type(rollback_exc).__name__,
+                )
+            return False
+
+    async def recuperar_reintento_interrumpido_pre_arca(
+        self,
+        *,
+        lote_id: int,
+        grupo_id: int,
+        operacion_id: int,
+        mensajes_previos: list[str] | None,
+    ) -> bool:
+        """Restaura únicamente el grupo reclamado y su operación antes de ARCA."""
+        try:
+            await self.db.rollback()
+            idempotencia = IdempotenciaFiscalService(self.db)
+            operacion_marcada = (
+                await idempotencia.marcar_operacion_interrumpida_pre_arca(
+                    operacion_id,
+                    commit=False,
+                )
+            )
+            if not operacion_marcada:
+                await self.db.rollback()
+                return False
+            result = await self.db.execute(
+                update(LoteComprobanteGrupo)
+                .where(
+                    LoteComprobanteGrupo.id == grupo_id,
+                    LoteComprobanteGrupo.lote_id == lote_id,
+                    LoteComprobanteGrupo.estado.in_({"reintentando", "fallido"}),
+                )
+                .values(
+                    estado="fallido",
+                    mensajes_json=(
+                        mensajes_previos
+                        or ["El reintento se interrumpió antes de solicitar CAE."]
+                    ),
+                )
+            )
+            if result.rowcount != 1:
+                await self.db.rollback()
+                return False
+            await self.db.commit()
+            return True
+        except Exception as recovery_exc:
+            logger.error(
+                "event=pre_arca_retry_recovery_failed tipo_error=%s",
+                type(recovery_exc).__name__,
+            )
+            try:
+                await self.db.rollback()
+            except Exception as rollback_exc:
+                logger.error(
+                    "event=pre_arca_retry_recovery_rollback_failed tipo_error=%s",
+                    type(rollback_exc).__name__,
+                )
+            return False
+
     async def reintentar_grupos_fallidos(
         self,
         lote_id: int,
@@ -1508,8 +1703,10 @@ class LoteComprobantesService:
         grupo_ids: list[int] | None = None,
         operacion_id: int | None = None,
         confirmacion_duplicado_logico: bool = False,
+        fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> LoteComprobante:
         """Reemite grupos fallidos ya seleccionados y confirmados."""
+        fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         self._validar_lote_resoluble(lote)
         grupos = await self._obtener_grupos_para_resolver(
@@ -1523,10 +1720,23 @@ class LoteComprobantesService:
             )
 
         for grupo in grupos:
-            grupo_reclamado = await self._reclamar_grupo_para_reintento(
-                lote_id=lote_id,
-                grupo_id=grupo.id,
-            )
+            mensajes_previos = list(grupo.mensajes_json or [])
+            try:
+                grupo_reclamado = await self._reclamar_grupo_para_reintento(
+                    lote_id=lote_id,
+                    grupo_id=grupo.id,
+                )
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                recuperada = False
+                if operacion_id is not None and not fase_solicitud_arca.iniciada:
+                    recuperada = await self.recuperar_reintento_interrumpido_pre_arca(
+                        lote_id=lote_id,
+                        grupo_id=grupo.id,
+                        operacion_id=operacion_id,
+                        mensajes_previos=mensajes_previos,
+                    )
+                fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                raise
             if grupo_reclamado is None:
                 continue
 
@@ -1540,13 +1750,27 @@ class LoteComprobantesService:
                     }
                 )
             except Exception as exc:  # pragma: no cover - defensa operacional
-                await self._marcar_reintento_fallido(
-                    lote_id=lote_id,
-                    empresa_id=empresa_id,
-                    usuario_id=usuario_id,
-                    grupo=grupo_reclamado,
-                    exc=exc,
-                )
+                try:
+                    await self._marcar_reintento_fallido(
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        usuario_id=usuario_id,
+                        grupo=grupo_reclamado,
+                        exc=exc,
+                    )
+                except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                    recuperada = False
+                    if operacion_id is not None and not fase_solicitud_arca.iniciada:
+                        recuperada = (
+                            await self.recuperar_reintento_interrumpido_pre_arca(
+                                lote_id=lote_id,
+                                grupo_id=grupo_reclamado.id,
+                                operacion_id=operacion_id,
+                                mensajes_previos=mensajes_previos,
+                            )
+                        )
+                    fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                    raise
                 continue
 
             lock = await self.facturacion_service._get_number_lock(
@@ -1564,6 +1788,7 @@ class LoteComprobantesService:
                             usuario_id=usuario_id,
                             lote_id=lote_id,
                             grupo_id=grupo_reclamado.id,
+                            fase_solicitud_arca=fase_solicitud_arca,
                         )
                     )
                     await self._aplicar_resultado_emision_grupo(
@@ -1587,14 +1812,44 @@ class LoteComprobantesService:
                     lote = await self.obtener_lote_resumen(lote_id, empresa_id)
                     await self._actualizar_estado_lote(lote)
                     await self.db.commit()
+                except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                    recuperada = False
+                    if operacion_id is not None and not fase_solicitud_arca.iniciada:
+                        recuperada = (
+                            await self.recuperar_reintento_interrumpido_pre_arca(
+                                lote_id=lote_id,
+                                grupo_id=grupo_reclamado.id,
+                                operacion_id=operacion_id,
+                                mensajes_previos=mensajes_previos,
+                            )
+                        )
+                    fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                    raise
                 except Exception as exc:  # pragma: no cover - defensa operacional
-                    await self._marcar_reintento_fallido(
-                        lote_id=lote_id,
-                        empresa_id=empresa_id,
-                        usuario_id=usuario_id,
-                        grupo=grupo_reclamado,
-                        exc=exc,
-                    )
+                    try:
+                        await self._marcar_reintento_fallido(
+                            lote_id=lote_id,
+                            empresa_id=empresa_id,
+                            usuario_id=usuario_id,
+                            grupo=grupo_reclamado,
+                            exc=exc,
+                        )
+                    except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                        recuperada = False
+                        if (
+                            operacion_id is not None
+                            and not fase_solicitud_arca.iniciada
+                        ):
+                            recuperada = (
+                                await self.recuperar_reintento_interrumpido_pre_arca(
+                                    lote_id=lote_id,
+                                    grupo_id=grupo_reclamado.id,
+                                    operacion_id=operacion_id,
+                                    mensajes_previos=mensajes_previos,
+                                )
+                            )
+                        fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                        raise
 
         return await self.obtener_lote_resumen(lote_id, empresa_id)
 
@@ -2327,8 +2582,10 @@ class LoteComprobantesService:
         operacion_id: int | None = None,
         usuario_id: int | None = None,
         confirmacion_duplicado_logico: bool = False,
+        fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> LoteComprobante:
         """Procesa un lote válido, en forma sincrónica o desde background."""
+        fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         if operacion_id is None:
             operacion_id = (lote.metadata_json or {}).get("operacion_idempotente_id")
@@ -2430,6 +2687,8 @@ class LoteComprobantesService:
                     continue
 
                 pendientes.append(GrupoPendienteEmision(grupo=grupo, request=request))
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                raise
             except Exception as exc:  # pragma: no cover - fallback defensivo
                 logger.exception("Error procesando grupo %s", grupo.comprobante_ref)
                 grupo.estado = "fallido"
@@ -2449,11 +2708,14 @@ class LoteComprobantesService:
                             usuario_id=usuario_id,
                             lote_id=lote_id,
                             grupo_id=pendiente.grupo.id,
+                            fase_solicitud_arca=fase_solicitud_arca,
                         )
                         await self._aplicar_resultado_emision_grupo(
                             pendiente.grupo,
                             resultado,
                         )
+                    except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                        raise
                     except Exception as exc:  # pragma: no cover - fallback defensivo
                         logger.exception(
                             "Error procesando grupo %s",
@@ -2485,7 +2747,10 @@ class LoteComprobantesService:
                         }
                         for pendiente in sublote
                     ],
+                    fase_solicitud_arca=fase_solicitud_arca,
                 )
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                raise
             except Exception as exc:  # pragma: no cover - fallback defensivo
                 logger.exception("Error procesando sublote ARCA")
                 resultados = [
@@ -2658,6 +2923,8 @@ class LoteComprobantesService:
                 reg_x_req=reg_x_req,
                 chunk_size=max(1, chunk_size),
             )
+        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+            raise
         except Exception as exc:
             logger.warning(
                 "No se pudo consultar RegXReq para lote %s; se degrada a modo unitario. error=%s",
@@ -3543,6 +3810,8 @@ class LoteComprobantesService:
                         tipo_comprobante=tipo_comprobante,
                     )
                 )
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                raise
             except Exception as exc:
                 logger.warning(
                     "No se pudo verificar numeración ARCA/local para lote stale %s",
@@ -3740,6 +4009,8 @@ class LoteComprobantesService:
                 request = EmitirComprobanteRequest.model_validate(payload)
                 if await self._reconciliar_grupo_autorizado_existente(grupo, request):
                     reconciliados += 1
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                raise
             except Exception:  # pragma: no cover - fallback defensivo
                 logger.exception(
                     "No se pudo reconciliar localmente el grupo %s",

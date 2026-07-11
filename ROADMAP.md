@@ -156,6 +156,17 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Numeración ARCA adelantada y fallos post-CAE quedan como
   `requiere_reconciliacion`, sin persistir respuestas no aprobadas como
   comprobantes emitidos
+- [x] Cierre estructural de indisponibilidad de base alrededor de
+  `FECAESolicitar`: pre-ARCA solo devuelve `503` cuando confirmó durablemente
+  recuperación segura y cero intentos. La operación queda
+  `interrumpida_pre_arca` y la misma clave reanuda por CAS con un único ganador;
+  individual y lotes restauran el lote o grupo exacto. Con intento existente o
+  recuperación no persistible responde `409 pre_arca_estado_bloqueado`, conserva
+  la clave y exige revisar/esperar, sin reconciliación ARCA. El worker solo
+  reencola sin intentos, conserva la operación `en_proceso` y corta el ciclo.
+  Post-ARCA mantiene `409`, reconciliación y ausencia de retry. El cleanup no
+  reemplaza la excepción primaria ni degrada un `409` a `503`; `IntegrityError`
+  no cambia.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando

@@ -9,12 +9,13 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select, update
+from sqlalchemy import exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.arca.utils import clean_cuit
+from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.comprobante import Comprobante
 from app.models.idempotencia_fiscal import (
     IntentoEmisionFiscal,
@@ -22,6 +23,15 @@ from app.models.idempotencia_fiscal import (
 )
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteRequest, EmitirComprobanteResponse
+
+
+class CreacionOperacionAmbiguaError(Exception):
+    """Indica que esta request pudo crear una operación sin confirmarlo."""
+
+    def __init__(self, error_original: Exception) -> None:
+        """Conserva el error DB temporal que volvió ambigua la creación."""
+        self.error_original = error_original
+        super().__init__(str(error_original))
 
 
 class IdempotenciaFiscalError(Exception):
@@ -146,8 +156,13 @@ class IdempotenciaFiscalService:
                     },
                 )
             return operacion, False
+        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS as exc:
+            raise CreacionOperacionAmbiguaError(exc) from exc
 
-        await self.db.refresh(operacion)
+        try:
+            await self.db.refresh(operacion)
+        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS as exc:
+            raise CreacionOperacionAmbiguaError(exc) from exc
         return operacion, True
 
     async def guardar_respuesta_operacion(
@@ -180,6 +195,100 @@ class IdempotenciaFiscalService:
                 estado="en_proceso",
                 response_json=None,
             )
+        )
+        await self.db.commit()
+        await self.db.refresh(operacion)
+        return operacion, result.rowcount == 1
+
+    async def marcar_operacion_interrumpida_pre_arca(
+        self,
+        operacion_id: int,
+        *,
+        commit: bool = True,
+    ) -> bool:
+        """Marca una operación reanudable solo si nunca creó un intento fiscal."""
+        sin_intentos = ~exists(
+            select(IntentoEmisionFiscal.id).where(
+                IntentoEmisionFiscal.operacion_id == operacion_id
+            )
+        )
+        result = await self.db.execute(
+            update(OperacionIdempotente)
+            .where(
+                OperacionIdempotente.id == operacion_id,
+                OperacionIdempotente.estado == "en_proceso",
+                OperacionIdempotente.response_json.is_(None),
+                sin_intentos,
+            )
+            .values(estado="interrumpida_pre_arca")
+        )
+        if commit:
+            await self.db.commit()
+        else:
+            await self.db.flush()
+        return result.rowcount == 1
+
+    async def recuperar_creacion_ambigua_pre_arca(
+        self,
+        *,
+        empresa_id: int,
+        idempotency_key: str | None,
+        payload_hash: str,
+        tipo_operacion: str,
+        lote_id: int | None,
+    ) -> bool:
+        """Confirma y abre un replay tras un commit ambiguo de creación."""
+        key = self.validar_idempotency_key(idempotency_key)
+        sin_intentos = ~exists(
+            select(IntentoEmisionFiscal.id).where(
+                IntentoEmisionFiscal.operacion_id == OperacionIdempotente.id
+            )
+        )
+        identidad = (
+            OperacionIdempotente.empresa_id == empresa_id,
+            OperacionIdempotente.idempotency_key == key,
+            OperacionIdempotente.payload_hash == payload_hash,
+            OperacionIdempotente.tipo_operacion == tipo_operacion,
+            OperacionIdempotente.lote_id == lote_id,
+            OperacionIdempotente.response_json.is_(None),
+            sin_intentos,
+        )
+
+        await self.db.rollback()
+        try:
+            await self.db.execute(
+                update(OperacionIdempotente)
+                .where(
+                    *identidad,
+                    OperacionIdempotente.estado == "en_proceso",
+                )
+                .values(estado="interrumpida_pre_arca")
+            )
+            await self.db.commit()
+        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+            await self.db.rollback()
+
+        result = await self.db.execute(
+            select(OperacionIdempotente.id).where(
+                *identidad,
+                OperacionIdempotente.estado == "interrumpida_pre_arca",
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def reclamar_operacion_interrumpida_pre_arca(
+        self,
+        operacion: OperacionIdempotente,
+    ) -> tuple[OperacionIdempotente, bool]:
+        """Reclama por CAS una operación interrumpida para un único replay."""
+        result = await self.db.execute(
+            update(OperacionIdempotente)
+            .where(
+                OperacionIdempotente.id == operacion.id,
+                OperacionIdempotente.estado == "interrumpida_pre_arca",
+                OperacionIdempotente.response_json.is_(None),
+            )
+            .values(estado="en_proceso")
         )
         await self.db.commit()
         await self.db.refresh(operacion)

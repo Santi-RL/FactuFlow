@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user, get_db
+from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.idempotencia_fiscal import OperacionIdempotente
@@ -26,16 +27,109 @@ from app.schemas.comprobante import (
 )
 from app.services.facturacion_service import (
     FacturacionService,
+    FaseSolicitudArca,
     ReconciliacionNumeracionError,
     ValidationError,
 )
 from app.services.idempotencia_fiscal_service import (
+    CreacionOperacionAmbiguaError,
     IdempotenciaFiscalError,
     IdempotenciaFiscalService,
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _error_db_post_arca(
+    resultado: EmitirComprobanteResponse | None = None,
+) -> HTTPException:
+    """Devuelve un conflicto sanitizado cuando la DB cae después de FECAE."""
+    detail = {
+        "mensaje": (
+            "La solicitud fiscal pudo haber sido procesada por ARCA, pero "
+            "FactuFlow no pudo cerrar la persistencia local."
+        ),
+        "errores": [
+            "No reintentes la emisión. Reconciliá el comprobante antes de continuar."
+        ],
+        "requiere_reconciliacion": True,
+        "categoria_error": "post_arca_persistencia",
+    }
+    if resultado is not None:
+        detail.update(
+            {
+                "tipo_comprobante": resultado.tipo_comprobante,
+                "punto_venta": resultado.punto_venta,
+                "numero": resultado.numero,
+                "fecha": resultado.fecha.isoformat(),
+                "total": str(resultado.total),
+                "cae": resultado.cae,
+                "cae_vencimiento": (
+                    resultado.cae_vencimiento.isoformat()
+                    if resultado.cae_vencimiento
+                    else None
+                ),
+            }
+        )
+    return HTTPException(status_code=409, detail=detail)
+
+
+def _error_db_pre_arca_bloqueado() -> HTTPException:
+    """Devuelve un conflicto seguro si no pudo abrirse un replay pre-ARCA."""
+    return HTTPException(
+        status_code=409,
+        detail={
+            "mensaje": "No se pudo dejar la operación lista para reintento seguro.",
+            "errores": [
+                "Conservá la misma clave de idempotencia y revisá el estado antes de continuar."
+            ],
+            "categoria_error": "pre_arca_estado_bloqueado",
+        },
+    )
+
+
+async def _reclamar_operacion_pre_arca_segura(
+    db: AsyncSession,
+    idempotencia: IdempotenciaFiscalService,
+    operacion: OperacionIdempotente,
+) -> tuple[OperacionIdempotente, bool]:
+    """Ejecuta el CAS de replay sin abrir un estado optimista ambiguo."""
+    try:
+        return await idempotencia.reclamar_operacion_interrumpida_pre_arca(operacion)
+    except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+        try:
+            await db.rollback()
+        except Exception as rollback_exc:
+            logger.error(
+                "event=pre_arca_replay_rollback_failed tipo_error=%s",
+                type(rollback_exc).__name__,
+            )
+        raise _error_db_pre_arca_bloqueado()
+
+
+async def _recuperar_operacion_pre_arca(
+    db: AsyncSession,
+    idempotencia: IdempotenciaFiscalService,
+    operacion_id: int,
+) -> bool:
+    """Intenta abrir un replay durable sin reemplazar el error primario."""
+    try:
+        await db.rollback()
+        return await idempotencia.marcar_operacion_interrumpida_pre_arca(operacion_id)
+    except Exception as recovery_exc:
+        logger.error(
+            "event=pre_arca_operation_recovery_failed tipo_error=%s",
+            type(recovery_exc).__name__,
+        )
+        try:
+            await db.rollback()
+        except Exception as rollback_exc:
+            logger.error(
+                "event=pre_arca_operation_recovery_rollback_failed tipo_error=%s",
+                type(rollback_exc).__name__,
+            )
+        return False
 
 
 def _estado_operacion_desde_resultado(resultado: EmitirComprobanteResponse) -> str:
@@ -87,6 +181,24 @@ async def _resolver_operacion_emitir(
         )
     except IdempotenciaFiscalError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except CreacionOperacionAmbiguaError as exc:
+        try:
+            recuperada = await idempotencia.recuperar_creacion_ambigua_pre_arca(
+                empresa_id=empresa_id,
+                idempotency_key=idempotency_key,
+                payload_hash=payload_hash,
+                tipo_operacion="emitir_comprobante",
+                lote_id=None,
+            )
+        except Exception as recovery_exc:
+            logger.error(
+                "event=pre_arca_ambiguous_create_recovery_failed tipo_error=%s",
+                type(recovery_exc).__name__,
+            )
+            recuperada = False
+        if not recuperada:
+            raise _error_db_pre_arca_bloqueado()
+        raise exc.error_original
     return idempotencia, operacion, creada
 
 
@@ -324,6 +436,7 @@ async def emitir_comprobante(
         )
 
     service = FacturacionService(db)
+    fase_solicitud_arca = FaseSolicitudArca()
     request = request.model_copy(update={"empresa_id": empresa_activa_id})
     idempotencia, operacion, creada = await _resolver_operacion_emitir(
         db=db,
@@ -334,7 +447,14 @@ async def emitir_comprobante(
     )
 
     confirmacion_duplicado_autorizada = False
-    if not creada:
+    continuar_operacion = creada
+    if not creada and operacion.estado == "interrumpida_pre_arca":
+        operacion, continuar_operacion = await _reclamar_operacion_pre_arca_segura(
+            db,
+            idempotencia,
+            operacion,
+        )
+    if not continuar_operacion:
         if operacion.response_json is not None:
             if (
                 IdempotenciaFiscalService.requiere_confirmacion_duplicado(
@@ -393,11 +513,13 @@ async def emitir_comprobante(
             }
         )
 
+    resultado: EmitirComprobanteResponse | None = None
     try:
         resultado = await service.emitir_comprobante(
             request,
             operacion_id=operacion.id,
             usuario_id=current_user.id,
+            fase_solicitud_arca=fase_solicitud_arca,
         )
         await idempotencia.guardar_respuesta_operacion(
             operacion,
@@ -411,6 +533,18 @@ async def emitir_comprobante(
         return resultado
     except HTTPException:
         raise
+    except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+        if not fase_solicitud_arca.iniciada:
+            recuperada = await _recuperar_operacion_pre_arca(
+                db,
+                idempotencia,
+                operacion.id,
+            )
+            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+            if recuperada:
+                raise
+            raise _error_db_pre_arca_bloqueado()
+        raise _error_db_post_arca(resultado)
     except Exception as exc:
         logger.exception("Error inesperado al emitir comprobante")
         raise HTTPException(

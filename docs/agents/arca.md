@@ -235,6 +235,19 @@
 - Antes de llamar a `FECAESolicitar`, FactuFlow debe persistir una
   `operaciones_idempotentes` y uno o más `intentos_emision_fiscal`, con número
   planificado, punto de venta, tipo, fecha fiscal, total y receptor normalizado.
+- Pre-ARCA solo se responde `503` con `Retry-After: 2` cuando FactuFlow confirmó
+  durablemente recuperación segura y cero intentos. La operación pasa
+  `en_proceso -> interrumpida_pre_arca`; un replay con la misma clave hace CAS a
+  `en_proceso`, con un único ganador.
+- Individual, lote síncrono y reintento sin intentos restauran el lote a
+  `validado` o el grupo exacto a `fallido`. Con intento existente o recuperación
+  no persistible se responde `409 pre_arca_estado_bloqueado`, conservando la
+  clave y sin afirmar reconciliación ARCA porque FECAE no comenzó.
+- El worker pre-ARCA solo devuelve el lote a `en_cola` sin intentos, conserva la
+  operación `en_proceso` e impide replay HTTP paralelo. Post-ARCA conserva `409`,
+  reconciliación y ausencia de retry. `IntegrityError` no cambia.
+- `get_db` preserva la excepción primaria aunque fallen `rollback` o `close`; un
+  `409` post-ARCA no se degrada a `503` por cleanup.
 - La variante individual de `FECAESolicitar` solo puede continuar cuando el
   detalle tiene `Resultado=A`. Estados parciales `P`, rechazados `R` o
   cualquier valor no aprobado deben generar error y no tratarse como CAE válido.

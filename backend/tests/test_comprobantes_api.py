@@ -5,14 +5,38 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
-from app.schemas.comprobante import EmitirComprobanteResponse
+from app.schemas.comprobante import (
+    EmitirComprobanteRequest,
+    EmitirComprobanteResponse,
+)
 from app.services.facturacion_service import FacturacionService
+from app.services.idempotencia_fiscal_service import (
+    CreacionOperacionAmbiguaError,
+    IdempotenciaFiscalService,
+)
+
+
+def _crear_error_db_temporal(
+    error_type: type[Exception],
+) -> SQLAlchemyTimeoutError | OperationalError:
+    """Construye un error transitorio sin depender de una base real."""
+    if error_type is SQLAlchemyTimeoutError:
+        return SQLAlchemyTimeoutError()
+    return OperationalError(
+        "SELECT dato_fiscal FROM comprobantes",
+        {"empresa_id": 1},
+        RuntimeError("base temporalmente no disponible"),
+    )
 
 
 def _idempotency_header(key: str = "idem-test-emitir") -> dict[str, str]:
@@ -230,6 +254,385 @@ async def test_emitir_comprobante_rechaza_emisor_ajeno_antes_de_servicio(
         "No tenés permiso para operar el emisor seleccionado"
     )
     assert llamadas == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+async def test_emitir_comprobante_db_temporal_devuelve_503_sanitizado(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    error_type: type[Exception],
+) -> None:
+    """La API indica reintento sin filtrar statement, parámetros ni causa DB."""
+
+    async def fake_emitir(self, request, **kwargs):
+        raise _crear_error_db_temporal(error_type)
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("idem-db-temporal")},
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "2"
+    assert response.json() == {
+        "detail": (
+            "La base de datos está temporalmente no disponible. "
+            "Intentá nuevamente en unos segundos."
+        )
+    }
+    assert "SELECT dato_fiscal" not in response.text
+    assert "empresa_id" not in response.text
+    assert "base temporalmente no disponible" not in response.text
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-db-temporal"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "interrumpida_pre_arca"
+    assert operacion.response_json is None
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.operacion_id == operacion.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert intentos == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error_type",
+    [SQLAlchemyTimeoutError, OperationalError],
+    ids=["timeout", "operational"],
+)
+async def test_replay_individual_pre_arca_reclama_y_continua_una_sola_vez(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[Exception],
+) -> None:
+    """La misma clave reanuda de inmediato tras una caída DB inequívoca pre-ARCA."""
+    llamadas = 0
+
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
+        if llamadas == 1:
+            assert kwargs["fase_solicitud_arca"].iniciada is False
+            raise _crear_error_db_temporal(error_type)
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=700,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=70,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 7, 21),
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    headers = {**auth_headers, **_idempotency_header("idem-replay-pre-arca")}
+    payload = _request_emitir_base(test_empresa)
+
+    primera = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+    segunda = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+
+    assert primera.status_code == 503, primera.text
+    assert segunda.status_code == 200, segunda.text
+    assert llamadas == 2
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-replay-pre-arca"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "finalizado"
+    assert operacion.response_json["comprobante_id"] == 700
+
+
+@pytest.mark.asyncio
+async def test_replay_individual_pre_arca_cas_db_ambiguo_devuelve_409_sanitizado(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un CAS ambiguo conserva el bloqueo y nunca se presenta como 503 reintentable."""
+    llamadas = 0
+
+    async def fail_primera(self, request, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
+        raise SQLAlchemyTimeoutError()
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fail_primera)
+    headers = {**auth_headers, **_idempotency_header("idem-replay-cas-ambiguo")}
+    payload = _request_emitir_base(test_empresa)
+    primera = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+    assert primera.status_code == 503, primera.text
+
+    async def fail_claim(self, operacion):
+        raise OperationalError("COMMIT", {}, RuntimeError("resultado ambiguo"))
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "reclamar_operacion_interrumpida_pre_arca",
+        fail_claim,
+    )
+    replay = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+
+    assert replay.status_code == 409
+    assert "Retry-After" not in replay.headers
+    assert replay.json()["detail"]["categoria_error"] == ("pre_arca_estado_bloqueado")
+    assert "COMMIT" not in replay.text
+    assert "resultado ambiguo" not in replay.text
+    assert llamadas == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage_ambiguo", ["commit", "refresh"])
+async def test_emitir_resuelve_creacion_ambigua_y_replay_reclama_misma_operacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    stage_ambiguo: str,
+) -> None:
+    """Commit o refresh ambiguo propio abre replay con la misma clave."""
+    fallo_inyectado = False
+    if stage_ambiguo == "commit":
+        original_commit = db_session.commit
+
+        async def commit_ambiguo():
+            nonlocal fallo_inyectado
+            await original_commit()
+            if not fallo_inyectado:
+                fallo_inyectado = True
+                raise SQLAlchemyTimeoutError()
+
+        monkeypatch.setattr(db_session, "commit", commit_ambiguo)
+    else:
+        original_refresh = db_session.refresh
+
+        async def refresh_ambiguo(instance, *args, **kwargs):
+            nonlocal fallo_inyectado
+            await original_refresh(instance, *args, **kwargs)
+            if isinstance(instance, OperacionIdempotente) and not fallo_inyectado:
+                fallo_inyectado = True
+                raise SQLAlchemyTimeoutError()
+
+        monkeypatch.setattr(db_session, "refresh", refresh_ambiguo)
+
+    async def fake_emitir(self, request, **kwargs):
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=701,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=71,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 7, 21),
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    headers = {**auth_headers, **_idempotency_header("idem-create-ambiguo")}
+    payload = _request_emitir_base(test_empresa)
+
+    primera = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+    segunda = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+
+    assert primera.status_code == 503, primera.text
+    assert segunda.status_code == 200, segunda.text
+    assert fallo_inyectado is True
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-create-ambiguo"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "finalizado"
+
+
+@pytest.mark.asyncio
+async def test_emitir_lookup_temporal_no_interrumpe_operacion_viva(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Una caída del lookup no reclama una operación viva de otra request."""
+    payload = _request_emitir_base(test_empresa)
+    request = EmitirComprobanteRequest.model_validate(payload)
+    idempotencia = IdempotenciaFiscalService(db_session)
+    payload_hash = idempotencia.calcular_payload_hash(
+        idempotencia.payload_sin_confirmacion_duplicado(request.model_dump(mode="json"))
+    )
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=None,
+        idempotency_key="idem-lookup-vivo",
+        tipo_operacion="emitir_comprobante",
+        payload_hash=payload_hash,
+        lote_id=None,
+        estado="en_proceso",
+    )
+    db_session.add(operacion)
+    await db_session.commit()
+    await db_session.refresh(operacion)
+    original_lookup = IdempotenciaFiscalService._obtener_operacion
+    llamadas_arca = 0
+
+    async def fail_lookup(self, empresa_id, idempotency_key):
+        raise SQLAlchemyTimeoutError()
+
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas_arca
+        llamadas_arca += 1
+        raise AssertionError("No debe emitir desde una operación viva")
+
+    monkeypatch.setattr(IdempotenciaFiscalService, "_obtener_operacion", fail_lookup)
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    headers = {**auth_headers, **_idempotency_header("idem-lookup-vivo")}
+
+    primera = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "_obtener_operacion",
+        original_lookup,
+    )
+    segunda = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=payload
+    )
+
+    assert primera.status_code == 503, primera.text
+    assert segunda.status_code == 409, segunda.text
+    assert segunda.json()["detail"]["categoria_error"] == "idempotencia_en_proceso"
+    await db_session.refresh(operacion)
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+    assert llamadas_arca == 0
+
+
+@pytest.mark.asyncio
+async def test_emitir_creacion_ambigua_mismatch_no_muta_operacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La recuperación ambigua rechaza otro payload y no muta su operación."""
+
+    async def crear_otro_payload(self, **kwargs):
+        operacion = OperacionIdempotente(
+            empresa_id=kwargs["empresa_id"],
+            usuario_id=kwargs["usuario_id"],
+            idempotency_key=kwargs["idempotency_key"],
+            tipo_operacion=kwargs["tipo_operacion"],
+            payload_hash="hash-de-otro-payload",
+            lote_id=None,
+            estado="en_proceso",
+        )
+        self.db.add(operacion)
+        await self.db.commit()
+        raise CreacionOperacionAmbiguaError(SQLAlchemyTimeoutError())
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "obtener_o_crear_operacion",
+        crear_otro_payload,
+    )
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("idem-create-mismatch")},
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["categoria_error"] == ("pre_arca_estado_bloqueado")
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-create-mismatch"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "en_proceso"
+    assert operacion.payload_hash == "hash-de-otro-payload"
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_integrity_error_conserva_500(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un conflicto de integridad no se clasifica como indisponibilidad temporal."""
+
+    async def fake_emitir(self, request, **kwargs):
+        raise IntegrityError(
+            "INSERT INTO comprobantes",
+            {"cae": "dato-interno"},
+            RuntimeError("conflicto interno"),
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("idem-integrity")},
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 500
+    assert "Retry-After" not in response.headers
+    assert response.json()["detail"]["mensaje"] == (
+        "Error interno al emitir comprobante"
+    )
+    assert "INSERT INTO" not in response.text
+    assert "dato-interno" not in response.text
+    assert "conflicto interno" not in response.text
 
 
 @pytest.mark.asyncio

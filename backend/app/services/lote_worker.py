@@ -13,8 +13,13 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 from app.core.config import settings
-from app.core.database import WorkerSessionLocal, acquire_database_connection
+from app.core.database import (
+    DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS,
+    WorkerSessionLocal,
+    acquire_database_connection,
+)
 from app.models.lote_comprobante import LoteComprobante
+from app.services.facturacion_service import FaseSolicitudArca
 from app.services.lote_comprobantes_service import LoteComprobantesService
 
 logger = logging.getLogger(__name__)
@@ -142,6 +147,8 @@ class LoteWorker:
                         lote_id,
                     )
                     await service.bloquear_lote_procesando_stale(lote_id, empresa_id)
+                except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                    raise
                 except Exception as exc:
                     logger.error(
                         "No se pudo bloquear lote stale lote_id=%s tipo_error=%s",
@@ -193,10 +200,39 @@ class LoteWorker:
             async with WorkerSessionLocal() as db:
                 await acquire_database_connection(db, "worker")
                 service = LoteComprobantesService(db)
+                fase_solicitud_arca = FaseSolicitudArca()
                 try:
                     logger.info("Worker procesando lote_id=%s", lote_id)
-                    await service.procesar_lote(lote_id, empresa_id, reanudar=True)
+                    await service.procesar_lote(
+                        lote_id,
+                        empresa_id,
+                        reanudar=True,
+                        fase_solicitud_arca=fase_solicitud_arca,
+                    )
                     lotes_procesados += 1
+                except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                    recuperada = False
+                    if not fase_solicitud_arca.iniciada:
+                        recuperada = (
+                            await service.recuperar_lote_worker_interrumpido_pre_arca(
+                                lote_id=lote_id,
+                                empresa_id=empresa_id,
+                            )
+                        )
+                        fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                    logger.warning(
+                        "Worker corta el ciclo por indisponibilidad temporal "
+                        "lote_id=%s fase_arca_iniciada=%s recuperacion_pre_arca=%s",
+                        lote_id,
+                        fase_solicitud_arca.iniciada,
+                        fase_solicitud_arca.recuperacion_pre_arca_exitosa,
+                    )
+                    return ResultadoCicloLoteWorker(
+                        stale_detectados=stale_detectados,
+                        lotes_en_cola_detectados=len(pendientes),
+                        lotes_procesados=lotes_procesados,
+                        tuvo_error=True,
+                    )
                 except Exception as exc:
                     tuvo_error = True
                     logger.error(

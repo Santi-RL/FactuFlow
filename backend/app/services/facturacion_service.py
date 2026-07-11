@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Optional
@@ -17,6 +18,7 @@ from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
 from app.core.config import settings
+from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
@@ -43,6 +45,22 @@ ERROR_INTERNO_EMISION_PUBLICO = (
     "No se pudo completar la operación. "
     "El detalle técnico quedó registrado en logs privados."
 )
+
+
+@dataclass
+class FaseSolicitudArca:
+    """Registra de forma monotónica si la operación ya invocó FECAESolicitar."""
+
+    iniciada: bool = False
+    recuperacion_pre_arca_exitosa: bool | None = None
+
+    def marcar_iniciada(self) -> None:
+        """Marca el cruce irreversible hacia la solicitud fiscal."""
+        self.iniciada = True
+
+    def registrar_recuperacion_pre_arca(self, exitosa: bool) -> None:
+        """Registra el resultado interno de una recuperación anterior a ARCA."""
+        self.recuperacion_pre_arca_exitosa = exitosa
 
 
 class ValidationError(Exception):
@@ -127,6 +145,7 @@ class FacturacionService:
         usuario_id: int | None = None,
         lote_id: int | None = None,
         grupo_id: int | None = None,
+        fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> EmitirComprobanteResponse:
         """Serializa la emisión por empresa, punto de venta y tipo."""
         lock = await self._get_number_lock(
@@ -140,6 +159,7 @@ class FacturacionService:
                 usuario_id=usuario_id,
                 lote_id=lote_id,
                 grupo_id=grupo_id,
+                fase_solicitud_arca=fase_solicitud_arca,
             )
 
     async def emitir_comprobantes_lote(
@@ -147,6 +167,7 @@ class FacturacionService:
         requests: list[EmitirComprobanteRequest],
         max_registros: int | None = None,
         contextos: list[dict[str, int | None]] | None = None,
+        fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> list[EmitirComprobanteResponse]:
         """Emite un sublote homogéneo de comprobantes en un request ARCA."""
         if not requests:
@@ -162,6 +183,7 @@ class FacturacionService:
                 requests,
                 max_registros=max_registros,
                 contextos=contextos,
+                fase_solicitud_arca=fase_solicitud_arca,
             )
 
     async def obtener_registros_maximos_por_request(self, empresa_id: int) -> int:
@@ -307,8 +329,10 @@ class FacturacionService:
         requests: list[EmitirComprobanteRequest],
         max_registros: int | None = None,
         contextos: list[dict[str, int | None]] | None = None,
+        fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> list[EmitirComprobanteResponse]:
         """Ejecuta la emisión batch asumiendo que el lock local ya fue tomado."""
+        fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
         try:
             requests = [self.normalizar_receptor(request) for request in requests]
             self._validar_lote_homogeneo(requests, max_registros=max_registros)
@@ -400,11 +424,14 @@ class FacturacionService:
                         zip(requests, totales_por_request)
                     )
                 ]
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                await self._rollback_seguro("reservas_batch_pre_arca")
+                raise
             except Exception:
                 logger.exception(
                     "Fallo preparando reservas fiscales del sublote antes de ARCA"
                 )
-                await self.db.rollback()
+                await self._rollback_seguro("reservas_batch_pre_arca_fallidas")
                 await self._marcar_intentos_batch_pre_arca_fallidos(
                     intento_ids,
                     ERROR_INTERNO_EMISION_PUBLICO,
@@ -423,9 +450,13 @@ class FacturacionService:
                 ]
 
             try:
+                fase_solicitud_arca.marcar_iniciada()
+                resultados_arca_sin_ordenar = await wsfe_client.fe_cae_solicitar_lote(
+                    arca_requests
+                )
                 resultados_arca = self._ordenar_resultados_arca_batch_por_numero(
                     arca_requests,
-                    await wsfe_client.fe_cae_solicitar_lote(arca_requests),
+                    resultados_arca_sin_ordenar,
                 )
             except (ArcaServiceError, ArcaValidationError) as exc:
                 logger.error("Error al solicitar CAE por sublote: %s", str(exc))
@@ -469,12 +500,29 @@ class FacturacionService:
                     resultado_arca=resultado,
                 )
                 if respuesta_no_aprobada is not None:
-                    await self._actualizar_intento_batch_preservando_respuesta(
-                        idempotencia,
-                        intento,
-                        respuesta_no_aprobada,
-                        contexto="arca_no_aprobado",
+                    intento_actualizado = (
+                        await self._actualizar_intento_batch_preservando_respuesta(
+                            idempotencia,
+                            intento,
+                            respuesta_no_aprobada,
+                            contexto="arca_no_aprobado",
+                        )
                     )
+                    if not intento_actualizado:
+                        respuesta_no_aprobada = self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            resultado_arca=resultado,
+                            mensaje=(
+                                "ARCA rechazó el comprobante, pero FactuFlow "
+                                "no pudo cerrar el intento fiscal"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta reconciliar el intento fiscal."
+                            ],
+                        )
                     respuestas.append(respuesta_no_aprobada)
                     continue
 
@@ -512,7 +560,7 @@ class FacturacionService:
                         punto_venta,
                     )
                 except IntegrityError as exc:
-                    await self.db.rollback()
+                    await self._rollback_seguro("integrity_batch_post_arca")
                     persistencia_bloqueada = True
                     logger.exception(
                         "Conflicto de numeración al guardar comprobante batch autorizado. "
@@ -544,7 +592,7 @@ class FacturacionService:
                     )
                     respuestas.append(respuesta)
                 except Exception:
-                    await self.db.rollback()
+                    await self._rollback_seguro("persistencia_batch_post_arca")
                     persistencia_bloqueada = True
                     logger.exception(
                         "Fallo posterior a CAE autorizado en sublote. empresa=%s pv=%s tipo=%s numero=%s",
@@ -604,7 +652,7 @@ class FacturacionService:
                             respuesta,
                         )
                     except Exception:
-                        await self.db.rollback()
+                        await self._rollback_seguro("cierre_intento_batch_post_arca")
                         persistencia_bloqueada = True
                         logger.exception(
                             "Fallo al cerrar intento fiscal batch autorizado. "
@@ -633,6 +681,8 @@ class FacturacionService:
 
             return respuestas
 
+        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+            raise
         except ValidationError as e:
             logger.warning("Error de validación en sublote: %s", str(e))
             return [
@@ -672,6 +722,7 @@ class FacturacionService:
         usuario_id: int | None = None,
         lote_id: int | None = None,
         grupo_id: int | None = None,
+        fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> EmitirComprobanteResponse:
         """
         Flujo completo de emisión de comprobante.
@@ -685,6 +736,7 @@ class FacturacionService:
         6. Guardar en BD
         7. Retornar resultado
         """
+        fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
         try:
             request = self.normalizar_receptor(request)
             # 1. Validar datos
@@ -703,6 +755,7 @@ class FacturacionService:
             punto_venta = await self._obtener_punto_venta(
                 request.punto_venta_id, request.empresa_id
             )
+            punto_venta_numero = punto_venta.numero
             certificado = await self._obtener_certificado_activo(request.empresa_id)
             idempotencia = IdempotenciaFiscalService(self.db)
 
@@ -715,7 +768,7 @@ class FacturacionService:
                 if duplicado is not None:
                     return self._respuesta_duplicado_logico(
                         request=request,
-                        punto_venta_numero=punto_venta.numero,
+                        punto_venta_numero=punto_venta_numero,
                         numero=duplicado.numero,
                         totales=totales,
                         comprobante_id=duplicado.id,
@@ -728,20 +781,20 @@ class FacturacionService:
                 ticket=ticket,
                 cuit=empresa.cuit,
             )
-            await self._validar_punto_venta_habilitado(wsfe_client, punto_venta.numero)
+            await self._validar_punto_venta_habilitado(wsfe_client, punto_venta_numero)
             try:
                 proximo = await self._obtener_proximo_numero(
                     request.empresa_id,
                     request.punto_venta_id,
                     request.tipo_comprobante,
                     wsfe_client,
-                    punto_venta.numero,
+                    punto_venta_numero,
                 )
             except ReconciliacionNumeracionError as exc:
                 return EmitirComprobanteResponse(
                     exito=False,
                     tipo_comprobante=request.tipo_comprobante,
-                    punto_venta=punto_venta.numero,
+                    punto_venta=punto_venta_numero,
                     numero=exc.ultimo_arca,
                     fecha=request.fecha_emision,
                     total=totales["total"],
@@ -769,11 +822,12 @@ class FacturacionService:
                 grupo_id=grupo_id,
             )
             arca_request = self._armar_request_arca(
-                request, proximo, totales, punto_venta.numero
+                request, proximo, totales, punto_venta_numero
             )
 
             # 6. Solicitar CAE
             try:
+                fase_solicitud_arca.marcar_iniciada()
                 resultado = await wsfe_client.fe_cae_solicitar(arca_request)
 
             except (ArcaServiceError, ArcaValidationError) as e:
@@ -781,7 +835,7 @@ class FacturacionService:
                 respuesta = EmitirComprobanteResponse(
                     exito=False,
                     tipo_comprobante=request.tipo_comprobante,
-                    punto_venta=punto_venta.numero,
+                    punto_venta=punto_venta_numero,
                     numero=proximo,
                     fecha=request.fecha_emision,
                     total=totales["total"],
@@ -793,26 +847,47 @@ class FacturacionService:
                     requiere_reconciliacion=True,
                     categoria_error="arca_respuesta_incierta",
                 )
-                await idempotencia.actualizar_intento_desde_respuesta(
+                await self._actualizar_intento_preservando_respuesta(
+                    idempotencia,
                     intento,
                     respuesta,
                     commit=commit,
+                    contexto="respuesta_incierta_arca",
                 )
                 return respuesta
 
             respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
                 request=request,
-                punto_venta_numero=punto_venta.numero,
+                punto_venta_numero=punto_venta_numero,
                 numero=proximo,
                 totales=totales,
                 resultado_arca=resultado,
             )
             if respuesta_no_aprobada is not None:
-                await idempotencia.actualizar_intento_desde_respuesta(
-                    intento,
-                    respuesta_no_aprobada,
-                    commit=commit,
+                intento_actualizado = (
+                    await self._actualizar_intento_preservando_respuesta(
+                        idempotencia,
+                        intento,
+                        respuesta_no_aprobada,
+                        commit=commit,
+                        contexto="arca_no_aprobado",
+                    )
                 )
+                if not intento_actualizado:
+                    return self._respuesta_post_arca_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        numero=proximo,
+                        totales=totales,
+                        resultado_arca=resultado,
+                        mensaje=(
+                            "ARCA rechazó el comprobante, pero FactuFlow no pudo "
+                            "cerrar el intento fiscal"
+                        ),
+                        errores=[
+                            "No reintentes esta emisión hasta reconciliar el intento fiscal."
+                        ],
+                    )
                 return respuesta_no_aprobada
 
             # 7. Guardar en BD
@@ -826,18 +901,18 @@ class FacturacionService:
                     commit=commit,
                 )
             except IntegrityError as exc:
-                await self.db.rollback()
+                await self._rollback_seguro("integrity_individual_post_arca")
                 logger.exception(
                     "Conflicto de numeración al guardar comprobante autorizado. "
                     "empresa=%s pv=%s tipo=%s numero=%s",
                     request.empresa_id,
-                    punto_venta.numero,
+                    punto_venta_numero,
                     request.tipo_comprobante,
                     proximo,
                 )
                 respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                     request=request,
-                    punto_venta_numero=punto_venta.numero,
+                    punto_venta_numero=punto_venta_numero,
                     numero=proximo,
                     totales=totales,
                     resultado_arca=resultado,
@@ -847,24 +922,26 @@ class FacturacionService:
                         str(exc.orig),
                     ],
                 )
-                await idempotencia.actualizar_intento_desde_respuesta(
+                await self._actualizar_intento_preservando_respuesta(
+                    idempotencia,
                     intento,
                     respuesta,
                     commit=commit,
+                    contexto="conflicto_numeracion_post_arca",
                 )
                 return respuesta
             except Exception:
-                await self.db.rollback()
+                await self._rollback_seguro("persistencia_individual_post_arca")
                 logger.exception(
                     "Fallo posterior a CAE autorizado. empresa=%s pv=%s tipo=%s numero=%s",
                     request.empresa_id,
-                    punto_venta.numero,
+                    punto_venta_numero,
                     request.tipo_comprobante,
                     proximo,
                 )
                 respuesta = self._respuesta_post_arca_requiere_reconciliacion(
                     request=request,
-                    punto_venta_numero=punto_venta.numero,
+                    punto_venta_numero=punto_venta_numero,
                     numero=proximo,
                     totales=totales,
                     resultado_arca=resultado,
@@ -874,10 +951,12 @@ class FacturacionService:
                         ERROR_INTERNO_EMISION_PUBLICO,
                     ],
                 )
-                await idempotencia.actualizar_intento_desde_respuesta(
+                await self._actualizar_intento_preservando_respuesta(
+                    idempotencia,
                     intento,
                     respuesta,
                     commit=commit,
+                    contexto="fallo_persistencia_post_arca",
                 )
                 return respuesta
 
@@ -886,7 +965,7 @@ class FacturacionService:
                 "Comprobante emitido: empresa=%s tipo=%s pv=%s numero=%s cae=%s total=%s",
                 request.empresa_id,
                 request.tipo_comprobante,
-                punto_venta.numero,
+                punto_venta_numero,
                 proximo,
                 resultado.cae,
                 totales["total"],
@@ -895,7 +974,7 @@ class FacturacionService:
                 exito=True,
                 comprobante_id=comprobante.id,
                 tipo_comprobante=request.tipo_comprobante,
-                punto_venta=punto_venta.numero,
+                punto_venta=punto_venta_numero,
                 numero=proximo,
                 fecha=comprobante.fecha_emision,
                 cae=resultado.cae,
@@ -903,13 +982,32 @@ class FacturacionService:
                 total=totales["total"],
                 mensaje="Comprobante emitido exitosamente",
             )
-            await idempotencia.actualizar_intento_desde_respuesta(
+            intento_actualizado = await self._actualizar_intento_preservando_respuesta(
+                idempotencia,
                 intento,
                 respuesta,
                 commit=commit,
+                contexto="cierre_exitoso_post_arca",
             )
+            if not intento_actualizado:
+                return self._respuesta_post_arca_requiere_reconciliacion(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    numero=proximo,
+                    totales=totales,
+                    resultado_arca=resultado,
+                    mensaje=(
+                        "ARCA autorizó el comprobante y FactuFlow lo guardó, "
+                        "pero no pudo cerrar el intento fiscal"
+                    ),
+                    errores=[
+                        "No reintentes esta emisión hasta reconciliar el intento fiscal y verificar el comprobante local."
+                    ],
+                )
             return respuesta
 
+        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+            raise
         except ValidationError as e:
             logger.warning(f"Error de validación: {str(e)}")
             return EmitirComprobanteResponse(
@@ -1921,16 +2019,50 @@ class FacturacionService:
         intento: IntentoEmisionFiscal | None,
         respuesta: EmitirComprobanteResponse,
         contexto: str,
-    ) -> None:
+    ) -> bool:
         """Actualiza un intento batch sin ocultar una respuesta fiscal segura."""
+        return await self._actualizar_intento_preservando_respuesta(
+            idempotencia,
+            intento,
+            respuesta,
+            contexto=contexto,
+        )
+
+    async def _actualizar_intento_preservando_respuesta(
+        self,
+        idempotencia: IdempotenciaFiscalService,
+        intento: IntentoEmisionFiscal | None,
+        respuesta: EmitirComprobanteResponse,
+        *,
+        contexto: str,
+        commit: bool = True,
+    ) -> bool:
+        """Actualiza un intento sin ocultar una respuesta fiscal ya obtenida."""
         try:
-            await idempotencia.actualizar_intento_desde_respuesta(intento, respuesta)
-        except Exception:
-            await self.db.rollback()
-            logger.exception(
-                "No se pudo actualizar intento fiscal batch en contexto %s; "
-                "se preserva la respuesta calculada",
+            await idempotencia.actualizar_intento_desde_respuesta(
+                intento,
+                respuesta,
+                commit=commit,
+            )
+        except Exception as exc:
+            await self._rollback_seguro(f"actualizar_intento:{contexto}")
+            logger.error(
+                "No se pudo actualizar intento fiscal contexto=%s tipo_error=%s",
                 contexto,
+                type(exc).__name__,
+            )
+            return False
+        return True
+
+    async def _rollback_seguro(self, contexto: str) -> None:
+        """Intenta rollback sin tapar el resultado fiscal ni registrar detalles."""
+        try:
+            await self.db.rollback()
+        except Exception as exc:
+            logger.error(
+                "Falló rollback fiscal contexto=%s tipo_error=%s",
+                contexto,
+                type(exc).__name__,
             )
 
     async def _marcar_intentos_batch_pre_arca_fallidos(

@@ -29,14 +29,31 @@ Reglas vigentes desde 2026-05-22:
 - Las sesiones API ya no adquieren conexión antes del primer SQL; la falta de
   credenciales no ocupa el pool. Saturación y desconexión responden `503` con
   mensajes sanitizados.
+- Antes de `FECAESolicitar`, solo se devuelve `503` con `Retry-After: 2` cuando
+  FactuFlow confirmó durablemente recuperación segura y cero intentos fiscales.
+  La operación pasa `en_proceso -> interrumpida_pre_arca`; un replay con la misma
+  clave hace CAS a `en_proceso`, con un único ganador. Individual y lotes
+  restauran el lote o grupo exacto. Si existe un intento o no puede persistirse
+  la recuperación, responde `409 pre_arca_estado_bloqueado`, conserva la clave y
+  exige revisar o esperar, sin afirmar reconciliación ARCA.
+- El worker pre-ARCA solo devuelve el lote a `en_cola` sin intentos, conserva la
+  operación `en_proceso` para impedir replay HTTP paralelo y corta el ciclo.
+  Desde la frontera irreversible mantiene `409`, reconciliación y ausencia de
+  retry. `IntegrityError` no cambia.
+- `get_db` preserva la excepción primaria aunque fallen `rollback` o `close`; un
+  `409` post-ARCA no se degrada a `503` por cleanup.
 - `Sistema > Estado` incorpora salud administrativa del worker y métricas
   allowlist de pools, sin DSN, credenciales, SQL ni errores crudos.
 - Una prueba PostgreSQL efímera confirmó capacidad `4 + 1`, máximos y timeouts a
   cinco segundos sin crear datos fiscales ni llamar ARCA.
 - Los lotes pequeños pedidos en background conservan ese modo al ser tomados por
   el worker. No cambiaron CAE, numeración, idempotencia ni reconciliación.
-- Este corte permanece local hasta que se publique y despliegue de forma
-  explícita contra un commit identificable.
+- Este corte, incluida la corrección fiscal de indisponibilidad de base,
+  permanece local hasta que se publique y despliegue de forma explícita contra
+  un commit identificable.
+- La primera pasada de `autoreview` sobre `fc6bdbb` encontró tres P1 aceptados y
+  corregidos dentro del mismo commit local. La publicación exige una pasada final
+  limpia.
 
 ### Seguridad
 
