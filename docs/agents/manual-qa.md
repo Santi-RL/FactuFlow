@@ -128,9 +128,15 @@ controlada, sin solicitar CAE real, simular:
 6. worker pre-ARCA sin intentos: lote `en_cola`, operación `en_proceso`, replay
    HTTP paralelo impedido y corte del ciclo; post-ARCA conserva el bloqueo.
 
-Estos casos tienen pruebas automatizadas enfocadas aprobadas, pero no registran
-QA manual ni evidencia productiva. La publicación exige el cierre final limpio de
-`autoreview`.
+Estos casos quedaron cubiertos por el cierre automatizado local: `487` tests
+backend aprobados y `2` omitidos, `120` pruebas de API aprobadas, Ruff, Black y
+`git diff --check` limpios. El `autoreview` final con `gpt-5.6-sol` en `high`
+quedó limpio, sin findings accionables, con probabilidad `0,87` de patch
+correcto. La QA manual y la evidencia productiva continúan pendientes.
+
+El commit local `e175b77` está listo para push junto con `8b311b5`, pero ninguno
+de los dos commits locales fue publicado. No hubo push, release ni despliegue;
+`v0.2.1` continúa como versión productiva.
 
 ### P1 pool/worker — cierre local
 
@@ -179,10 +185,12 @@ básicos y restauración aislada. Seguir
 
 ## Punto de reanudación de QA
 
-La próxima matriz de QA debe diseñarse para el P1 fiscal de historia previa y
-emisión multicanal. La validación productiva del P1 pool/worker solo se ejecuta
-cuando exista autorización explícita de despliegue. No repetir como pendiente el
-setup productivo inicial, el rediseño UX de lotes ni la validación de `v0.2.1`.
+Antes de iniciar otra corrección o una nueva matriz de QA, esperar autorización
+explícita para publicar `e175b77`. La QA manual/productiva del corte DB/FECAE y
+la validación productiva del P1 pool/worker solo se ejecutan con autorización
+explícita de publicación o despliegue, según corresponda. No repetir como
+pendiente el setup productivo inicial, el rediseño UX de lotes ni la validación
+de `v0.2.1`.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

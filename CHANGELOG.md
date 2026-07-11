@@ -48,12 +48,18 @@ Reglas vigentes desde 2026-05-22:
   cinco segundos sin crear datos fiscales ni llamar ARCA.
 - Los lotes pequeños pedidos en background conservan ese modo al ser tomados por
   el worker. No cambiaron CAE, numeración, idempotencia ni reconciliación.
-- Este corte, incluida la corrección fiscal de indisponibilidad de base,
-  permanece local hasta que se publique y despliegue de forma explícita contra
-  un commit identificable.
-- La primera pasada de `autoreview` sobre `fc6bdbb` encontró tres P1 aceptados y
-  corregidos dentro del mismo commit local. La publicación exige una pasada final
-  limpia.
+- La corrección fiscal quedó cerrada en el commit local `e175b77`
+  (`fix: preserve fiscal state on database outages`). Las pasadas intermedias de
+  `autoreview` detectaron P1 válidos sobre persistencia de rechazos, estado ORM
+  posterior a rollback, fronteras pre-ARCA y ownership de creaciones ambiguas;
+  todos fueron aceptados y corregidos dentro del mismo corte.
+- La validación final aprobó `487` tests backend con `2` omitidos, las `120`
+  pruebas de API, Ruff, Black y `git diff --check`. El `autoreview` final se
+  ejecutó con `gpt-5.6-sol` en `high` y quedó limpio, sin findings accionables;
+  calificó el patch como correcto con probabilidad `0,87`.
+- `main` está dos commits por delante de `origin/main`: `8b311b5` y `e175b77`.
+  El corte está listo para push, pero continúa local: no hubo push, release ni
+  despliegue, y `v0.2.1` sigue siendo la versión productiva.
 
 ### Seguridad
 

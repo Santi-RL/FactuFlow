@@ -43,12 +43,10 @@ Validación del corte:
 - Ruff, Black y `git diff --check` aprobados sobre el estado final.
   Browserslist solo informó datos desactualizados.
 
-No se ejecutaron Clawpatch fix, push ni despliegue. La primera pasada de
-`autoreview` sobre el commit local `fc6bdbb` encontró tres P1 aceptados y ya
-corregidos. Las pruebas automatizadas enfocadas están aprobadas y la QA manual continúa
-pendiente. Los cambios se integran por amend al mismo commit local; la publicación
-queda condicionada a una pasada final limpia de `autoreview`. El commit no está publicado
-ni desplegado; push y despliegue requieren autorización explícita.
+No se ejecutaron Clawpatch fix, push ni despliegue. El cierre fiscal posterior
+quedó integrado y validado en el commit local `e175b77`; la QA manual y
+productiva continúa pendiente. Push, publicación y despliegue requieren
+autorización explícita.
 
 ### Corrección local posterior — frontera DB/FECAE
 
@@ -71,9 +69,23 @@ indisponibilidad temporal de base:
 - `IntegrityError` conserva el comportamiento anterior. No cambian fecha,
   numeración, payload, UI, migraciones ni aislamiento multiemisor.
 
-Los tres P1 corregidos se integran por amend al mismo commit local. `main`
-conserva además el commit local previo; ninguno está publicado ni desplegado y
-la publicación exige el cierre final de `autoreview`.
+Las pasadas intermedias de `autoreview` detectaron P1 válidos sobre persistencia
+de rechazos, estado ORM posterior a rollback, fronteras pre-ARCA y ownership de
+creaciones ambiguas. Todos fueron aceptados y corregidos dentro del mismo corte.
+
+El cierre final quedó así:
+
+- commit local `e175b77` (`fix: preserve fiscal state on database outages`);
+- backend completo: `487` tests aprobados y `2` omitidos;
+- suites de API: `120` tests aprobados;
+- Ruff, Black y `git diff --check`: limpios;
+- `autoreview` final con `gpt-5.6-sol`, thinking `high`: limpio, sin findings
+  accionables, con probabilidad `0,87` de patch correcto.
+
+`main` está dos commits por delante de `origin/main`, con `8b311b5` y `e175b77`.
+El commit está listo para push, pero no fue publicado: no hubo push, release ni
+despliegue. `v0.2.1` continúa como versión productiva y la QA manual/productiva
+de este corte sigue pendiente.
 
 ## Snapshot vigente
 
@@ -201,9 +213,9 @@ Siguen pendientes:
    editar.
 4. No repetir el despliegue, la configuración de certificados productivos ni
    los cuatro cortes UX de carga masiva: están cerrados.
-5. Ejecutar `autoreview` sobre el commit aislado del fix DB/FECAE y decidir luego
-   su publicación; un push no implica despliegue.
-6. Si el usuario lo indica después de cerrar ese ciclo, la siguiente tarea
+5. No empezar otro fix. Esperar autorización explícita para hacer push y
+   publicar `e175b77`; un push no implica release ni despliegue.
+6. Si el usuario lo indica después de publicar ese ciclo, la siguiente tarea
    técnica es diseñar el P1 fiscal de historia previa y emisión multicanal.
    Completar `docs/agents/fiscal-change-checklist.md`, estados, orden de
    operaciones y matriz de tests antes de tocar código.
