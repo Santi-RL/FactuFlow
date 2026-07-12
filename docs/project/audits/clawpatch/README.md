@@ -68,6 +68,9 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
 - 2026-07-10: ciclo de endurecimiento cerrado en `v0.2.1`, con metodología,
   interpretación del registro acumulativo y punto de reanudación en
   `2026-07-10-cierre-ciclo-v0.2.1.md`.
+- 2026-07-12: auditoría completa ordenada con Clawpatch `0.7.0`, reconstrucción
+  autorizada del ledger backend, evaluación controlada de `jobs` y backlog
+  sanitizado en `2026-07-12-cierre-auditoria-ordenada.md`.
 
 ## Lecciones 2026-07-05
 
@@ -84,6 +87,28 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
   validarse como tal. Los formatos ISO quedan para contratos técnicos.
 - Después de cambios aceptados por `autoreview`, repetir tests enfocados y
   volver a correr `autoreview` sobre el commit final.
+
+## Lecciones 2026-07-12
+
+- En FactuFlow sobre Windows, comenzar `repo` y el primer lote grande de
+  `backend` con `--jobs 1`. Solo probar `--jobs 2` en el lote siguiente si la
+  pasada anterior terminó sin timeouts, errores de proveedor ni locks. Mantener
+  `2` únicamente si el lote controlado también cierra limpio; no escalar más
+  durante el mismo ciclo sin una nueva evaluación explícita.
+- Con Clawpatch `0.7.0`, Codex CLI `0.144.0`, `gpt-5.6-sol` y `high`, los lotes
+  controlados de FactuFlow cerraron correctamente con `jobs=2`. Esto es una
+  observación del entorno, no un valor universal ni una garantía para versiones
+  futuras.
+- Los scripts npm de review fijan `--jobs 1`. Para una pasada aprobada con
+  `jobs=2`, usar la CLI global directa y repetir siempre el mismo `--root`,
+  `--state-dir`, `--config`, proveedor, modelo y razonamiento.
+- Ejecutados desde la raíz del repo, los reportes backend y frontend deben usar
+  `.tmp/...`, no `../.tmp/...`; esa segunda ruta apunta fuera de FactuFlow.
+- En Clawpatch `0.7.0`, `report --json` entrega el JSON por stdout. Si además se
+  pasa `--output`, no asumir que ese archivo será JSON: para automatización,
+  capturar stdout y leer `items`.
+- Para `triage --note` con espacios en Windows, usar la CLI global directa. El
+  wrapper local de review puede fragmentar la nota al atravesar `cmd.exe`.
 
 ## Reglas De Seguridad
 
@@ -164,9 +189,11 @@ de avanzar:
 6. reporte, triage y consolidación final.
 
 No ejecutar reviews de distintos slices en paralelo. Los scripts usan
-`--jobs 1`; conservar ese valor en Windows. Si quedan features pendientes
-después de un lote, revisar el estado y repetir el mismo slice antes de pasar al
-siguiente.
+`--jobs 1`; conservarlo para `repo` y el primer lote grande de `backend`. Si ese
+lote termina sin timeouts, errores de proveedor ni locks, evaluar `--jobs 2` en
+un único lote controlado y conservarlo solo si vuelve a cerrar limpio. No subir
+automáticamente a `3` o más. Si quedan features pendientes después de un lote,
+revisar el estado y repetir el mismo slice antes de pasar al siguiente.
 
 ### 5. Archivo O Reconstrucción De Estado
 
@@ -298,9 +325,10 @@ Ejecutar primero el nivel end-to-end:
 npm run clawpatch:repo:review -- --model gpt-5.6-sol --reasoning-effort high
 ```
 
-Los scripts usan `--jobs 1`. Es más lento, pero evita fallos de proveedor en
-Windows y deja cada feature en estado recuperable si una corrida se corta. Si
-queda un lock por timeout:
+Los scripts usan `--jobs 1` como punto de partida conservador y dejan cada
+feature en estado recuperable si una corrida se corta. Después de validar un
+lote estable puede usarse la CLI directa con `--jobs 2`, siguiendo el criterio
+de la sección **Orden De Revisión**. Si queda un lock por timeout:
 
 ```powershell
 npm run clawpatch:repo:clean-locks
@@ -330,13 +358,14 @@ pública:
 
 ```powershell
 clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json report --status open --output .tmp/clawpatch/repo-YYYY-MM-DD.md
-clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json report --status open --output ../.tmp/clawpatch/backend-YYYY-MM-DD.md
-clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json report --status open --output ../.tmp/clawpatch/frontend-YYYY-MM-DD.md
+clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json report --status open --output .tmp/clawpatch/backend-YYYY-MM-DD.md
+clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json report --status open --output .tmp/clawpatch/frontend-YYYY-MM-DD.md
 ```
 
 Para consumo automático, preferir `report --status open --json` y leer `items`;
 en la salida JSON la clave `findings` es un contador de compatibilidad, no el
-arreglo de findings.
+arreglo de findings. En Clawpatch `0.7.0`, capturar el JSON desde stdout: no
+presuponer que `--json --output archivo.json` escribirá JSON en el archivo.
 
 ### Interpretación de reportes grandes
 
@@ -361,6 +390,9 @@ clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatc
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json triage --finding <id> --status false-positive --note "motivo"
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json revalidate --finding <id> --model gpt-5.6-sol --reasoning-effort high
 ```
+
+En Windows, ejecutar `triage` con la CLI global directa. No pasar notas con
+espacios por el wrapper local de review, porque `cmd.exe` puede fragmentarlas.
 
 ## Cadencia de reparación eficiente
 

@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-10
+Última actualización: 2026-07-12
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -167,6 +167,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   Post-ARCA mantiene `409`, reconciliación y ausencia de retry. El cleanup no
   reemplaza la excepción primaria ni degrada un `409` a `503`; `IntegrityError`
   no cambia.
+- [~] Auditoría Clawpatch 2026-07-12 completada sobre `repo`, `backend` y
+  `frontend`, sin fixes ni llamadas ARCA. Antes de implementar el P1 fiscal,
+  agrupar los findings `high` por causa raíz entre slices y decidir con el
+  usuario si el primer corte corresponde al P1 existente o a una precondición
+  fiscal, de aislamiento, certificados, PDFs/reportes o almacenamiento.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando

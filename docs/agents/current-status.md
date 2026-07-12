@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-11
+Última actualización: 2026-07-12
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -138,21 +138,22 @@ CAE sin confirmación explícita y los datos de emisores distintos no se mezclan
 
 ## Estado Clawpatch
 
-El ciclo de endurecimiento 2026-07-07/10 quedó cerrado para formar `v0.2.1`.
-Los 3 findings backend y 9 frontend elegidos para ese corte fueron revalidados
-como `fixed`. No quedó un finding crítico o alto aceptado pendiente antes del
-despliegue.
+El ciclo 2026-07-07/10 que formó `v0.2.1` continúa cerrado y desplegado. El
+2026-07-12 se ejecutó una auditoría nueva, completa y ordenada sobre el código
+actual con Clawpatch `0.7.0`, Codex `gpt-5.6-sol`, razonamiento `high` y sin
+aplicar fixes.
 
-El estado local ignorado conserva un backlog acumulativo:
+El estado local ignorado quedó así después del triaje manual:
 
-- repo: 0 abiertos;
-- backend: 85 abiertos, 57 `medium` y 28 `low`;
-- frontend: 6 abiertos, todos `medium`.
+- repo: 16 abiertos, 5 `high`, 4 `medium` y 7 `low`;
+- backend: 101 abiertos, 25 `high`, 52 `medium` y 24 `low`;
+- frontend: 30 abiertos, 6 `high`, 20 `medium` y 4 `low`.
 
-Estos números no equivalen a 91 bugs confirmados. El state dir backend conserva
-features históricas, duplicadas y algunas ajenas al slice debido a la corrida
-del 2026-07-06 ejecutada con un `--root` incorrecto. También hay findings
-abiertos cuyo bloque ya fue corregido y revalidado bajo otro feature ID. Por eso:
+Los tres slices terminaron sin locks y con cero features pendientes de review.
+Estos números no equivalen a 147 bugs independientes: todavía hay duplicados
+entre slices, además de gaps de pruebas y contratos que deben agruparse por
+causa raíz. Dentro de cada slice ya se retiraron duplicados exactos y alertas
+refutadas por código, tests, migraciones o decisiones explícitas. Por eso:
 
 1. no reparar en masa;
 2. filtrar por evidencia y propiedad reales del código;
@@ -160,9 +161,9 @@ abiertos cuyo bloque ya fue corregido y revalidado bajo otro feature ID. Por eso
 4. revalidar duplicados antes de tratarlos como deuda;
 5. no borrar ni reinicializar `.clawpatch/` sin decisión explícita.
 
-La guía canónica es
-`docs/project/audits/clawpatch/README.md`. El cierre del ciclo está en
-`docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`.
+La guía canónica es `docs/project/audits/clawpatch/README.md`. El cierre
+sanitizado de esta auditoría está en
+`docs/project/audits/clawpatch/2026-07-12-cierre-auditoria-ordenada.md`.
 
 ## Riesgos y pendientes priorizados
 
@@ -181,13 +182,18 @@ eliminar el guardarraíl ante intentos propios inciertos, numeración local
 adelantada ni autorizaciones sin comprobante local coherente. Este P1 debe tener
 diseño y commits separados del cierre pool/worker.
 
-### Backlog Clawpatch no bloqueante
+### Backlog Clawpatch priorizado
 
-Después del P1 fiscal, continuar el triage de findings `medium`/`low` en lotes
-pequeños.
-No hay un crítico/alto aceptado que obligue a una reparación inmediata. Si un
-finding requiere política fiscal, migración, estado nuevo o cambio de contrato,
-debe diferirse hasta diseñar el alcance.
+La auditoría nueva detectó familias `high` que requieren decisión explícita
+antes de seguir acumulando cambios: invariantes ARCA/CAE y reconciliación,
+preservación histórica de PDFs/reportes, concurrencia de certificados y
+archivos, aislamiento al cambiar emisor, almacenamiento/backup y autorización
+administrativa.
+
+No reparar en masa ni por severidad automática. Antes de empezar el P1 fiscal o
+un fix de Clawpatch, comparar ambas prioridades y elegir un único corte vertical
+pequeño. Los cambios fiscales, migraciones y contratos nuevos exigen diseño y
+matriz de tests antes de editar.
 
 ### Operación privada
 
@@ -213,15 +219,16 @@ Siguen pendientes:
    editar.
 4. No repetir el despliegue, la configuración de certificados productivos ni
    los cuatro cortes UX de carga masiva: están cerrados.
-5. No empezar otro fix. Esperar autorización explícita para hacer push y
-   publicar `e175b77`; un push no implica release ni despliegue.
-6. Si el usuario lo indica después de publicar ese ciclo, la siguiente tarea
-   técnica es diseñar el P1 fiscal de historia previa y emisión multicanal.
-   Completar `docs/agents/fiscal-change-checklist.md`, estados, orden de
-   operaciones y matriz de tests antes de tocar código.
-7. Si el usuario decide continuar primero con Clawpatch, leer el finding exacto,
-   verificar el código y los tests vecinos y triarlo manualmente. No usar el
-   contador global como backlog confirmado.
+5. No empezar otro fix ni usar `clawpatch fix`. La auditoría terminó y el
+   siguiente paso requiere que el usuario elija la primera familia a diseñar.
+6. Comparar los findings `high` sanitizados con el P1 fiscal de historia previa
+   y emisión multicanal antes de decidir el primer corte. Completar
+   `docs/agents/fiscal-change-checklist.md`, estados, orden de operaciones y
+   matriz de tests antes de tocar código.
+7. Si el usuario decide continuar con Clawpatch, leer el finding exacto,
+   reagrupar duplicados entre slices, verificar código y tests vecinos y recién
+   entonces convertirlo en una tarea. No usar el contador global como backlog
+   ejecutable.
 8. Aplicar la metodología de
    `docs/project/audits/clawpatch/README.md`: cambio sensible aislado; cambios
    chicos relacionados agrupables; tests enfocados; `autoreview` sobre el commit
