@@ -171,7 +171,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   `frontend`, sin fixes ni llamadas ARCA. Antes de implementar el P1 fiscal,
   agrupar los findings `high` por causa raíz entre slices y decidir con el
   usuario si el primer corte corresponde al P1 existente o a una precondición
-  fiscal, de aislamiento, certificados, PDFs/reportes o almacenamiento.
+  fiscal, de aislamiento, certificados, PDFs/reportes o almacenamiento. El
+  portafolio consolidado vive en `docs/agents/development-portfolio.md`.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
@@ -802,25 +803,27 @@ Objetivo: ampliar valor mas alla del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Primera tarea fiscal: implementar el P1 para que una diferencia legítima
-   entre ARCA y FactuFlow sea informativa y no bloquee la emisión, sin debilitar
-   idempotencia ni reconciliación de intentos propios inciertos.
-3. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños: triar
-   manualmente, aislar cambios sensibles y no tratar los contadores acumulativos
-   como bugs confirmados.
-4. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+2. Adjudicar manualmente los 36 findings `high` de Clawpatch, asignarlos a
+   `docs/agents/development-portfolio.md`, retirar duplicados entre slices y
+   proponer P0/P1/P2/P3 para decisión del usuario, sin implementar todavía.
+3. Elegir el primer corte integrado: contener cualquier P0 confirmado o, si no
+   aparece uno, cerrar las precondiciones PF-01 y diseñar el P1 fiscal para que
+   una diferencia legítima entre ARCA y FactuFlow no bloquee la emisión.
+4. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+   causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
+5. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-5. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+6. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-6. Definir y luego automatizar backups cifrados con validación, retención,
+7. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-7. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-8. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+8. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+9. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
    resguardo ZIP, compactación y limpieza segura.
-9. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-10. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-11. Mantener notas de release y procedimiento de upgrade para cada versión
+10. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+11. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+12. Mantener notas de release y procedimiento de upgrade para cada versión
     posterior a `v0.2.1`.
 
 ## Criterio de exito del MVP

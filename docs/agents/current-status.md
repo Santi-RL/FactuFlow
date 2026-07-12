@@ -8,8 +8,9 @@ lecciones de herramientas viven en `docs/project/**`.
 
 ## Cierre local — P1 UI, pool y worker
 
-El P1 estructural quedó implementado y validado localmente el 2026-07-10. No
-está publicado ni desplegado; `v0.2.1` continúa como versión productiva.
+El P1 estructural quedó implementado y validado localmente el 2026-07-10. Sus
+commits ya están publicados en `main`, pero no desplegados; `v0.2.1` continúa
+como versión productiva.
 
 Decisiones cerradas:
 
@@ -43,10 +44,10 @@ Validación del corte:
 - Ruff, Black y `git diff --check` aprobados sobre el estado final.
   Browserslist solo informó datos desactualizados.
 
-No se ejecutaron Clawpatch fix, push ni despliegue. El cierre fiscal posterior
-quedó integrado y validado en el commit local `e175b77`; la QA manual y
-productiva continúa pendiente. Push, publicación y despliegue requieren
-autorización explícita.
+Durante la validación original no se ejecutaron Clawpatch fix, push ni
+despliegue. El cierre fiscal posterior quedó integrado en `e175b77` y luego fue
+publicado en `main`; no se desplegó como una nueva release y su QA
+manual/productiva continúa pendiente.
 
 ### Corrección local posterior — frontera DB/FECAE
 
@@ -75,17 +76,17 @@ creaciones ambiguas. Todos fueron aceptados y corregidos dentro del mismo corte.
 
 El cierre final quedó así:
 
-- commit local `e175b77` (`fix: preserve fiscal state on database outages`);
+- commit `e175b77` (`fix: preserve fiscal state on database outages`);
 - backend completo: `487` tests aprobados y `2` omitidos;
 - suites de API: `120` tests aprobados;
 - Ruff, Black y `git diff --check`: limpios;
 - `autoreview` final con `gpt-5.6-sol`, thinking `high`: limpio, sin findings
   accionables, con probabilidad `0,87` de patch correcto.
 
-`main` está dos commits por delante de `origin/main`, con `8b311b5` y `e175b77`.
-El commit está listo para push, pero no fue publicado: no hubo push, release ni
-despliegue. `v0.2.1` continúa como versión productiva y la QA manual/productiva
-de este corte sigue pendiente.
+`8b311b5` y `e175b77` ya son ancestros de `origin/main`; `main` local y remoto
+están sincronizados en `9420dcb`. Esos cambios posteriores al tag no forman una
+nueva release ni fueron desplegados. `v0.2.1` continúa como versión productiva y
+la QA manual/productiva de ese corte sigue pendiente.
 
 ## Snapshot vigente
 
@@ -164,6 +165,8 @@ refutadas por código, tests, migraciones o decisiones explícitas. Por eso:
 La guía canónica es `docs/project/audits/clawpatch/README.md`. El cierre
 sanitizado de esta auditoría está en
 `docs/project/audits/clawpatch/2026-07-12-cierre-auditoria-ordenada.md`.
+El portafolio que integra estos hallazgos con el roadmap está en
+`docs/agents/development-portfolio.md`.
 
 ## Riesgos y pendientes priorizados
 
@@ -219,12 +222,13 @@ Siguen pendientes:
    editar.
 4. No repetir el despliegue, la configuración de certificados productivos ni
    los cuatro cortes UX de carga masiva: están cerrados.
-5. No empezar otro fix ni usar `clawpatch fix`. La auditoría terminó y el
-   siguiente paso requiere que el usuario elija la primera familia a diseñar.
-6. Comparar los findings `high` sanitizados con el P1 fiscal de historia previa
-   y emisión multicanal antes de decidir el primer corte. Completar
-   `docs/agents/fiscal-change-checklist.md`, estados, orden de operaciones y
-   matriz de tests antes de tocar código.
+5. No empezar otro fix ni usar `clawpatch fix`. El portafolio integrado ya está
+   consolidado; el siguiente paso es adjudicar manualmente los 36 findings
+   `high` y proponer su prioridad para decisión del usuario.
+6. Usar `docs/agents/development-portfolio.md` para comparar esos findings con
+   el P1 fiscal de historia previa y emisión multicanal. Antes de implementar,
+   completar `docs/agents/fiscal-change-checklist.md`, estados, orden de
+   operaciones y matriz de tests.
 7. Si el usuario decide continuar con Clawpatch, leer el finding exacto,
    reagrupar duplicados entre slices, verificar código y tests vecinos y recién
    entonces convertirlo en una tarea. No usar el contador global como backlog
@@ -242,6 +246,7 @@ Siguen pendientes:
 
 - Visión protegida: `VISION.md`
 - Prioridades: `ROADMAP.md`
+- Portafolio integrado: `docs/agents/development-portfolio.md`
 - QA manual vigente: `docs/agents/manual-qa.md`
 - Historial: `CHANGELOG.md`
 - Flujo productivo: `docs/agents/production-workflow.md`
