@@ -144,23 +144,22 @@ El ciclo 2026-07-07/10 que formó `v0.2.1` continúa cerrado y desplegado. El
 actual con Clawpatch `0.7.0`, Codex `gpt-5.6-sol`, razonamiento `high` y sin
 aplicar fixes.
 
-El estado local ignorado quedó así después del triaje manual:
+El estado local ignorado quedó así después de adjudicar los 36 `high`:
 
 - repo: 16 abiertos, 5 `high`, 4 `medium` y 7 `low`;
 - backend: 101 abiertos, 25 `high`, 52 `medium` y 24 `low`;
-- frontend: 30 abiertos, 6 `high`, 20 `medium` y 4 `low`.
+- frontend: 29 abiertos, 5 `high`, 20 `medium` y 4 `low`.
 
-Los tres slices terminaron sin locks y con cero features pendientes de review.
-Estos números no equivalen a 147 bugs independientes: todavía hay duplicados
-entre slices, además de gaps de pruebas y contratos que deben agruparse por
-causa raíz. Dentro de cada slice ya se retiraron duplicados exactos y alertas
-refutadas por código, tests, migraciones o decisiones explícitas. Por eso:
+Los tres slices están sin locks y con cero features pendientes de review. La
+adjudicación confirmó 33 problemas únicos: 20 P1, 12 P2 y un finding rechazado;
+además identificó tres registros duplicados entre slices. No se confirmó ningún
+P0 ni P3 entre los `high`. Los riesgos reales continúan abiertos con una nota de
+PF y prioridad; solo se marcó `false-positive` el finding cuya premisa de
+ausencia total de tests de vista quedó refutada por la suite existente.
 
-1. no reparar en masa;
-2. filtrar por evidencia y propiedad reales del código;
-3. clasificar cada finding como aceptado, rechazado o diferido;
-4. revalidar duplicados antes de tratarlos como deuda;
-5. no borrar ni reinicializar `.clawpatch/` sin decisión explícita.
+La evidencia detallada permanece en `.tmp/clawpatch/2026-07-12/`, ignorada por
+Git. No reparar en masa, no usar el contador global como backlog ejecutable y no
+borrar ni reinicializar `.clawpatch/` sin decisión explícita.
 
 La guía canónica es `docs/project/audits/clawpatch/README.md`. El cierre
 sanitizado de esta auditoría está en
@@ -172,31 +171,31 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ### P1 fiscal siguiente
 
-El P1 fiscal es la siguiente tarea planificada, pero no debe iniciarse hasta que
-el usuario lo indique expresamente. Cuando lo indique, se deberá diseñar e
-implementar numeración compatible con emisores que tienen historia previa o
-comparten punto de venta con otros sistemas. ARCA debe ser la fuente de verdad de
-la secuencia global y FactuFlow la fuente de sus propios intentos, idempotencia y
-resultados inciertos.
+No apareció un P0. El primer corte elegido es PF-01A: validar que una aprobación
+ARCA tenga CAE utilizable, convertir toda ambigüedad post-ARCA en reconciliación
+estructurada, conservar clave y payload en la UI y completar la matriz negativa
+batch. El checklist fiscal, los invariantes, estados, orden de operaciones,
+fallos y tests quedaron definidos en
+`docs/agents/pf-01-authorization-integrity-design.md`.
 
-Antes de tocar código se deben completar el checklist fiscal, estados, orden de
-operaciones y matriz de tests para emisión individual y lotes. No se puede
-eliminar el guardarraíl ante intentos propios inciertos, numeración local
-adelantada ni autorizaciones sin comprobante local coherente. Este P1 debe tener
-diseño y commits separados del cierre pool/worker.
+PF-01B será un corte posterior y separado para auditar datos heredados, agregar
+constraints de estados/CAE/reservas y ejecutar su migración. Solo después se
+debe implementar PF-02: numeración compatible con historia previa o sistemas
+externos, manteniendo ARCA como fuente global y FactuFlow como fuente de sus
+intentos propios e incertidumbres. No iniciar código sin confirmación del
+usuario.
 
 ### Backlog Clawpatch priorizado
 
-La auditoría nueva detectó familias `high` que requieren decisión explícita
-antes de seguir acumulando cambios: invariantes ARCA/CAE y reconciliación,
-preservación histórica de PDFs/reportes, concurrencia de certificados y
-archivos, aislamiento al cambiar emisor, almacenamiento/backup y autorización
-administrativa.
+Los 20 P1 únicos se ordenaron así: PF-01A, PF-01B, PF-03, PF-06/PF-07,
+PF-08 y PF-09. Los 12 P2 quedan agrupados en PF-04, PF-09, PF-10, PF-11,
+PF-13 y PF-16. El detalle público se mantiene sanitizado en
+`docs/agents/development-portfolio.md`; los IDs y la evidencia permanecen en el
+reporte local ignorado.
 
-No reparar en masa ni por severidad automática. Antes de empezar el P1 fiscal o
-un fix de Clawpatch, comparar ambas prioridades y elegir un único corte vertical
-pequeño. Los cambios fiscales, migraciones y contratos nuevos exigen diseño y
-matriz de tests antes de editar.
+No reparar en masa ni por severidad automática. Cada corte conserva su diseño,
+pruebas, documentación y revisión separados; no se ejecutará `clawpatch fix`
+para trabajo fiscal, migraciones, certificados, aislamiento o borrados.
 
 ### Operación privada
 
@@ -222,31 +221,28 @@ Siguen pendientes:
    editar.
 4. No repetir el despliegue, la configuración de certificados productivos ni
    los cuatro cortes UX de carga masiva: están cerrados.
-5. No empezar otro fix ni usar `clawpatch fix`. El portafolio integrado ya está
-   consolidado; el siguiente paso es adjudicar manualmente los 36 findings
-   `high` y proponer su prioridad para decisión del usuario.
-6. Usar `docs/agents/development-portfolio.md` para comparar esos findings con
-   el P1 fiscal de historia previa y emisión multicanal. Antes de implementar,
-   completar `docs/agents/fiscal-change-checklist.md`, estados, orden de
-   operaciones y matriz de tests.
-7. Si el usuario decide continuar con Clawpatch, leer el finding exacto,
-   reagrupar duplicados entre slices, verificar código y tests vecinos y recién
-   entonces convertirlo en una tarea. No usar el contador global como backlog
-   ejecutable.
-8. Aplicar la metodología de
-   `docs/project/audits/clawpatch/README.md`: cambio sensible aislado; cambios
-   chicos relacionados agrupables; tests enfocados; `autoreview` sobre el commit
-   o lote coherente; push solo con autorización; CI por SHA; revalidación
-   Clawpatch después de varios cortes.
-9. Para próximas revisiones, usar `gpt-5.6-sol` con `high`. Si ese modelo no
-   puede ejecutarse después de un reintento razonable, usar `gpt-5.5` con
-   `high` y registrar cuál se utilizó.
+5. La adjudicación de los 36 `high` está completada. No repetirla ni usar
+   `clawpatch fix`; consultar el portafolio y el reporte local si hace falta
+   rastrear una decisión.
+6. Revisar con el usuario el diseño
+   `docs/agents/pf-01-authorization-integrity-design.md`. El siguiente cambio de
+   código autorizado debe ser únicamente el primer subcorte PF-01A.
+7. Implementar PF-01A en cortes revisables: validador y tests WSFE; clasificación
+   post-ARCA; UI de reconciliación; verificación integrada y documentación.
+8. Mantener PF-01B separado porque exige auditoría legacy, migración y
+   constraints. No comenzar PF-02 hasta cerrar PF-01.
+9. Aplicar `docs/project/audits/clawpatch/README.md`: tests enfocados,
+   `autoreview` solo con confirmación, push solo con autorización, CI por SHA y
+   revalidación Clawpatch después de cortes relacionados.
+10. Para próximas revisiones, usar `gpt-5.6-sol` con `high`; `gpt-5.5 high`
+    queda como fallback documentado.
 
 ## Referencias de continuidad
 
 - Visión protegida: `VISION.md`
 - Prioridades: `ROADMAP.md`
 - Portafolio integrado: `docs/agents/development-portfolio.md`
+- Diseño PF-01A: `docs/agents/pf-01-authorization-integrity-design.md`
 - QA manual vigente: `docs/agents/manual-qa.md`
 - Historial: `CHANGELOG.md`
 - Flujo productivo: `docs/agents/production-workflow.md`

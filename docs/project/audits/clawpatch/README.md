@@ -109,6 +109,15 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
   capturar stdout y leer `items`.
 - Para `triage --note` con espacios en Windows, usar la CLI global directa. El
   wrapper local de review puede fragmentar la nota al atravesar `cmd.exe`.
+- Antes de aceptar un finding `test-gap` que afirme que una vista o flujo carece
+  de pruebas, buscar suites hermanas en todo el slice con `rg --files` y
+  contrastar su contenido. El contexto seleccionado por una feature puede omitir
+  un `*.spec.ts` existente; si la premisa principal es falsa, triagear el finding
+  como `false-positive` y registrar los gaps residuales por separado.
+- Clawpatch `0.7.0` no ofrece un estado `deferred`: para un riesgo real P2/P3,
+  conservar `status=open` y usar una nota de triage con PF y prioridad. Reservar
+  `wont-fix` para una decisión permanente y `false-positive` para una premisa
+  refutada.
 
 ## Reglas De Seguridad
 

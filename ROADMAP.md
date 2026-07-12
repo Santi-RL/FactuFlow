@@ -803,27 +803,30 @@ Objetivo: ampliar valor mas alla del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Adjudicar manualmente los 36 findings `high` de Clawpatch, asignarlos a
-   `docs/agents/development-portfolio.md`, retirar duplicados entre slices y
-   proponer P0/P1/P2/P3 para decisión del usuario, sin implementar todavía.
-3. Elegir el primer corte integrado: contener cualquier P0 confirmado o, si no
-   aparece uno, cerrar las precondiciones PF-01 y diseñar el P1 fiscal para que
-   una diferencia legítima entre ARCA y FactuFlow no bloquee la emisión.
-4. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+2. Revisar y, con confirmación del usuario, implementar PF-01A según
+   `docs/agents/pf-01-authorization-integrity-design.md`: CAE válido, errores
+   post-ARCA reconciliables, replay seguro, UI bloqueante y matriz batch.
+3. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
+   migración y constraints de estados, CAE y reservas activas.
+4. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
+   bloquee la emisión sin debilitar intentos propios inciertos.
+5. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
+   PF-08 y PF-09.
+6. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
-5. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+7. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-6. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+8. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-7. Definir y luego automatizar backups cifrados con validación, retención,
+9. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-8. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-9. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
-   resguardo ZIP, compactación y limpieza segura.
-10. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-11. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-12. Mantener notas de release y procedimiento de upgrade para cada versión
+10. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+11. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+    resguardo ZIP, compactación y limpieza segura.
+12. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+13. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+14. Mantener notas de release y procedimiento de upgrade para cada versión
     posterior a `v0.2.1`.
 
 ## Criterio de exito del MVP

@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-12
 
-Estado: CONSOLIDADO; ADJUDICACIÓN DE PRIORIDAD PENDIENTE.
+Estado: PRIORIZADO; PRIMER CORTE PF-01A DISEÑADO.
 
 ## Propósito y autoridad
 
@@ -18,8 +18,9 @@ La autoridad se mantiene así:
 4. `docs/agents/current-status.md` indica el punto exacto para retomar.
 5. Los ledgers y reportes locales de Clawpatch conservan la evidencia técnica.
 
-Este portafolio no declara todavía ningún P0. La severidad de una herramienta
-no reemplaza la validación manual ni una decisión de prioridad.
+La adjudicación manual de los 36 findings `high` no confirmó ningún P0. La
+severidad de una herramienta no reemplaza la validación manual ni una decisión
+de prioridad.
 
 ## Filtro obligatorio de visión
 
@@ -43,16 +44,51 @@ emisores y una plataforma multiempresa compleja.
 |---|---:|---|
 | Clawpatch `repo` | 16 abiertos: 5 `high`, 4 `medium`, 7 `low` | Riesgos end-to-end y contratos entre capas |
 | Clawpatch `backend` | 101 abiertos: 25 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
-| Clawpatch `frontend` | 30 abiertos: 6 `high`, 20 `medium`, 4 `low` | Estado de UI, contratos, concurrencia y UX |
+| Clawpatch `frontend` | 29 abiertos: 5 `high`, 20 `medium`, 4 `low` | Estado de UI, contratos, concurrencia y UX |
 | `ROADMAP.md` | 83 ítems no cerrados: 53 pendientes, 30 en curso | Producto, plataforma, operación y evolución |
 
-Los 147 hallazgos y los 83 ítems no representan 230 tareas independientes.
+Los 146 hallazgos abiertos actuales y los 83 ítems no representan 229 tareas independientes.
 Existen duplicados entre slices, repeticiones del mismo objetivo en distintas
 fases del roadmap y hallazgos que son síntomas de una misma causa raíz.
 
-## Bandas provisionales
+## Adjudicación de findings `high`
 
-Estas bandas ordenan la investigación; no son todavía P0/P1/P2/P3 definitivos.
+La revisión manual contra código, tests, configuración productiva y contratos
+externos dejó este resultado:
+
+- 36 registros revisados;
+- 33 problemas únicos después de deduplicar entre slices;
+- 20 problemas únicos aceptados como P1;
+- 12 riesgos reales diferidos como P2;
+- 3 registros duplicados que conservan evidencia en su slice;
+- 1 finding rechazado porque ya existe la suite de componente que su premisa
+  declaraba ausente;
+- 0 P0 y 0 P3 dentro de los `high`.
+
+La distribución principal es:
+
+| Línea | P1 | P2 | Resultado |
+|---|---:|---:|---|
+| PF-01 | 6 | 0 | Primer corte PF-01A diseñado; PF-01B requiere migración separada. |
+| PF-03 | 2 | 0 | Contratos fiscales estrictos e importes válidos. |
+| PF-04 | 0 | 4 | Evidencia histórica, moneda, redondeo y tests PDF. |
+| PF-06 | 2 | 0 | Invariantes multiemisor backend. |
+| PF-07 | 4 | 0 | Cambio de emisor y respuestas tardías frontend. |
+| PF-08 | 3 | 0 | Bootstrap, sesión y revalidación administrativa. |
+| PF-09 | 3 | 2 | Certificados, ambientes, WSAA y constancias. |
+| PF-10 | 0 | 2 | Posesión de exportaciones y liberación concurrente. |
+| PF-11 | 0 | 2 | Instantánea y rollback de recuperación. |
+| PF-13 | 0 | 1 | Replay corregible pre-ARCA en lotes. |
+| PF-16 | 0 | 1 | Default productivo seguro; además queda un gap residual de tests no contado como finding aceptado. |
+
+El detalle con IDs y evidencia queda solo en `.tmp/clawpatch/2026-07-12/`,
+ignorado por Git. El diseño sanitizado del primer corte está en
+`docs/agents/pf-01-authorization-integrity-design.md`.
+
+## Bandas de investigación del backlog restante
+
+Estas bandas siguen ordenando los `medium`/`low` y las líneas todavía no
+desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 
 - **A — adjudicación inmediata:** puede contener un P0 o una precondición del
   P1. Requiere verificar alcanzabilidad, impacto actual y guardas existentes.
@@ -132,11 +168,14 @@ Antes de editar código, cada corte debe tener:
 
 ## Criterio de cierre de este paso
 
-- Las 147 entradas abiertas de Clawpatch quedaron cubiertas por líneas
+- Las 147 entradas originales de Clawpatch quedaron cubiertas por líneas
   temáticas sin tratarlas como tareas independientes.
 - Los 83 ítems abiertos o en curso del roadmap quedaron enrutados a una o más
   líneas del portafolio.
 - P1 y P2 conservan su intención original.
-- No se declaró ningún P0 ni se modificó código de producto.
-- El siguiente paso es adjudicar manualmente los 36 hallazgos `high`, asignarles
-  un PF-ID y proponer la clasificación P0/P1/P2/P3 para decisión del usuario.
+- Los 36 hallazgos `high` fueron adjudicados, deduplicados y asignados a PF.
+- No se confirmó ningún P0 ni se modificó código de producto.
+- PF-01A tiene alcance, invariantes, estados, orden de operaciones, fallos y
+  matriz de tests definidos.
+- El siguiente paso es revisar este diseño con el usuario y, solo con su
+  confirmación, comenzar el primer corte de implementación.

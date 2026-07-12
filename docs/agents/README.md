@@ -7,6 +7,7 @@
 - Estado operativo canónico y punto de reanudación: `docs/agents/current-status.md`
 - Roadmap de prioridades y fases: `ROADMAP.md`
 - Portafolio integrado y dependencias: `docs/agents/development-portfolio.md`
+- Primer corte fiscal diseñado: `docs/agents/pf-01-authorization-integrity-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 
@@ -20,8 +21,8 @@
   `VISION.md`; no debe redefinir la visión ni repetir evidencia operativa
   detallada.
 - `docs/agents/development-portfolio.md` integra roadmap y auditorías por causa
-  raíz. No reemplaza la visión ni asigna prioridades definitivas sin
-  adjudicación manual.
+  raíz. La adjudicación manual vigente asigna P1/P2 a los findings `high`, sin
+  reemplazar la visión ni convertir severidad automática en prioridad.
 - `docs/agents/manual-qa.md` conserva el checkpoint aceptado y la QA todavía accionable; no reemplaza el estado canónico.
 - `docs/user-guide/README.md` describe lo que ve y puede hacer un usuario final; no debe contener bitácora técnica.
 - `docs/agents/arca.md` conserva detalles técnicos ARCA y procedimientos seguros.
@@ -98,6 +99,8 @@
 
 - Visión del producto: `VISION.md`
 - Portafolio integrado de desarrollo: `docs/agents/development-portfolio.md`
+- Diseño del primer corte PF-01A:
+  `docs/agents/pf-01-authorization-integrity-design.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
 - Estructura del repo y ubicación de archivos: `docs/agents/structure.md`

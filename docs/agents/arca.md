@@ -224,6 +224,12 @@
 
 ### CAE, idempotencia e intentos fiscales
 
+Estado de diseño 2026-07-12: PF-01A está listo para implementación, pero todavía
+no modifica el runtime. El alcance, las transiciones y la matriz de tests están
+en `docs/agents/pf-01-authorization-integrity-design.md`. Hasta cerrar ese corte,
+no asumir que toda excepción inesperada post-ARCA ni toda aprobación sin CAE
+utilizable ya quedan clasificadas de forma segura.
+
 - El CAE es la prueba de autorización fiscal devuelta por ARCA. No es la llave
   primaria de idempotencia: FactuFlow no puede esperar a tener CAE para decidir
   si una operación se repite, porque el riesgo crítico ocurre precisamente
