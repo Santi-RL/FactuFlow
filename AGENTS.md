@@ -299,15 +299,46 @@ npm run type-check
   sin commit, `--mode commit --commit HEAD` para un commit ya creado y
   `--mode branch --base <base>` para varios commits. Un `main` limpio después
   del push no se revisa con `--mode local` porque ese modo no tendría diff.
+- Antes de ejecutar cualquier comando de Clawpatch, leer completo y seguir
+  `docs/project/audits/clawpatch/README.md`. Esa guía es el runbook operativo
+  vigente; los documentos fechados son evidencia histórica y no reemplazan el
+  estado actual ni el triage contra el código presente.
 - Usar la CLI global `clawpatch` (`C:\Users\SANTI\AppData\Roaming\npm\clawpatch.cmd`) para auditorías/backlog de mantenimiento de FactuFlow, no para fixes rápidos ni cambios solo documentales. Seguir también la política compartida de `C:\Users\SANTI\Documents\Proyectos\AGENTS.md`. En este repo ya existen estados separados; preferir los scripts npm `clawpatch:<slice>:...` porque pasan `--root`, `--state-dir` y `--config` de forma coherente. Si se usa CLI directa, no alcanza con elegir `--state-dir`: pasar siempre el `--root` correspondiente.
   - Repo completo: `npm run clawpatch:repo:status` o `clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status`
   - Backend: `npm run clawpatch:backend:status` o `clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json status`
   - Frontend: `npm run clawpatch:frontend:status` o `clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json status`
-- Para revisar con Clawpatch, mantener el mismo `--root`, `--state-dir` y `--config` elegido y empezar con `status`, `map`, `review --limit <n>` y `report`. `clawpatch fix --finding <id>` requiere worktree limpio, confirmación explícita y validaciones enfocadas. Usarlo solo para findings aceptados, localizados y de bajo riesgo relativo; para ARCA/CAE, fechas fiscales, idempotencia, reconciliación, lotes, migraciones, borrados, certificados, PDFs fiscales, reportes impositivos o aislamiento multiemisor, reparar manualmente con diseño, tests y revalidación posterior.
-- No crear otro `.clawpatch/` default ni ejecutar `clawpatch init` en FactuFlow sin decisión explícita; preservar el historial existente.
+- Mantener el mismo `--root`, `--state-dir` y `--config` durante cada ciclo.
+  Ejecutar en etapas: preflight y `doctor`; tests de seeds; `map-all`; `status`;
+  `dry-run`; review de `repo`; reporte y triage; backend en lotes; frontend; y
+  consolidación final. No lanzar reviews de distintos slices en paralelo. En
+  Windows usar `--jobs 1` y checkpoints entre lotes de hasta 50 features.
+- Para reviews y revalidaciones nuevas, pasar explícitamente el modelo
+  `gpt-5.6-sol` con `--reasoning-effort high` y registrar el modelo real. Si el modelo
+  preferido no puede ejecutarse después de un reintento razonable, usar
+  `gpt-5.5` con `high`. No depender silenciosamente del modelo predeterminado de
+  Codex.
+- Guardar reportes crudos y evidencia detallada solo en `.tmp/clawpatch/` u otra
+  ruta ignorada. Para automatización usar `report --json` y leer `items`; el
+  contador acumulado no representa bugs aceptados hasta verificar y triar cada
+  finding contra el código actual.
+- No crear otro `.clawpatch/` default, ejecutar `clawpatch init` ni limpiar o
+  reconstruir un state dir sin decisión explícita. Antes de reconstruir,
+  archivar el ledger en una ruta ignorada, generar inventario y SHA-256, y
+  verificar el archivo antes de retirar el estado activo.
+- `clawpatch fix --finding <id>` requiere worktree limpio, confirmación
+  explícita y validaciones enfocadas. Usarlo solo para findings aceptados,
+  localizados y de bajo riesgo relativo; para ARCA/CAE, fechas fiscales,
+  idempotencia, reconciliación, lotes, migraciones, borrados, certificados, PDFs
+  fiscales, reportes impositivos o aislamiento multiemisor, reparar manualmente
+  con diseño, tests y revalidación posterior.
+- Durante cada ciclo, incorporar en el runbook los aprendizajes operativos
+  confirmados que mejoren seguridad, reproducibilidad, costo o interpretación.
+  Actualizar `AGENTS.md` solo cuando el aprendizaje sea una regla obligatoria o
+  una frontera de autorización; dejar procedimientos, comandos y workarounds en
+  el runbook. No documentar como regla un workaround no verificado y nunca
+  versionar secretos, evidencia privada ni findings crudos.
 - La cadencia de reparación, interpretación de reportes acumulativos y cierre
-  2026-07-10 están documentados en
-  `docs/project/audits/clawpatch/README.md` y
+  2026-07-10 están documentados en el runbook y en
   `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`.
 
 ## Documentación operativa

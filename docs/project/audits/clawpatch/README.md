@@ -9,6 +9,10 @@ locales para auditoría y publicar solo cierres sanitizados. No modificar
 comportamiento fiscal. `review` es solo lectura; `fix` queda prohibido salvo
 pedido explícito posterior.
 
+Este archivo es el runbook operativo obligatorio y debe leerse completo antes
+de ejecutar Clawpatch. Debe mantenerse actualizado durante cada ciclo con los
+aprendizajes confirmados de la herramienta y del entorno de FactuFlow.
+
 ## Estado Actual
 
 `clawpatch` es una CLI en evolución. Usar siempre la CLI global disponible,
@@ -93,6 +97,112 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
 - Mantener ARCA en textos nuevos; AFIP solo queda como legacy en URLs o
   variables existentes.
 
+## Runbook Obligatorio Para Auditorías
+
+### 1. Preflight
+
+Desde la raíz, confirmar primero que el alcance y el worktree sean los
+esperados:
+
+```powershell
+git status --short --branch
+clawpatch --version
+clawpatch doctor
+```
+
+Si hay cambios de una implementación anterior, commits locales pendientes o un
+proveedor no disponible, detener la auditoría y resolver ese estado antes de
+acumular una corrida nueva. `doctor` comprueba el proveedor; no reemplaza los
+tests ni el control de Git.
+
+### 2. Modelo Y Reproducibilidad
+
+Para reviews y revalidaciones usar explícitamente Codex con `gpt-5.6-sol` y
+razonamiento `high`. No depender del modelo predeterminado de la CLI local:
+
+```powershell
+npm run clawpatch:repo:review -- --model gpt-5.6-sol --reasoning-effort high
+```
+
+Si `gpt-5.6-sol` no puede ejecutarse después de un reintento razonable, usar
+`gpt-5.5` con `high`. Registrar siempre proveedor, modelo y razonamiento reales
+en el cierre. No hacer automáticamente una escalera de niveles de razonamiento.
+
+### 3. Preparación Del Mapa
+
+Validar primero las features manuales, regenerar los tres mapas y comprobar el
+estado antes de consumir proveedor:
+
+```powershell
+npm run clawpatch:test-seeds
+npm run clawpatch:map-all
+npm run clawpatch:repo:status
+npm run clawpatch:backend:status
+npm run clawpatch:frontend:status
+```
+
+Después ejecutar un `dry-run --json` del slice que se va a revisar. En Windows,
+utilizar el wrapper local para conservar el manejo correcto de Codex:
+
+```powershell
+node tools/clawpatch/run-clawpatch.mjs --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json review --limit 50 --jobs 1 --dry-run --json --model gpt-5.6-sol --reasoning-effort high
+```
+
+El dry-run debe usarse para registrar cantidad y orden de features, no para
+inferir que no existen bugs.
+
+### 4. Orden De Revisión
+
+Ejecutar una etapa por vez y generar un checkpoint de `status` y reporte antes
+de avanzar:
+
+1. `repo`, para riesgos end-to-end y contratos entre capas;
+2. reporte y triage de `repo`;
+3. `backend`, en lotes de hasta 50 features;
+4. reporte y triage de cada lote backend;
+5. `frontend`;
+6. reporte, triage y consolidación final.
+
+No ejecutar reviews de distintos slices en paralelo. Los scripts usan
+`--jobs 1`; conservar ese valor en Windows. Si quedan features pendientes
+después de un lote, revisar el estado y repetir el mismo slice antes de pasar al
+siguiente.
+
+### 5. Archivo O Reconstrucción De Estado
+
+Un state dir solo puede limpiarse o reconstruirse con decisión explícita del
+usuario. Antes de retirar el estado activo:
+
+1. archivar el ledger completo bajo
+   `.tmp/clawpatch/archive/<slice>-ledger-AAAA-MM-DD.zip`;
+2. generar un inventario con features, findings por estado, reports y runs;
+3. calcular y registrar SHA-256;
+4. comprobar que el ZIP contiene `config.json` y `project.json`;
+5. verificar nuevamente el hash;
+6. recién entonces limpiar o reconstruir el slice autorizado.
+
+El archivo preserva trazabilidad; no convierte sus findings en backlog vigente.
+No borrar ni reinicializar estados para ocultar contadores grandes.
+
+### 6. Aprendizaje Continuo
+
+Durante el uso de Clawpatch, registrar fricciones, fallos, workarounds y mejoras
+de interpretación. Incorporar en este runbook, dentro del mismo ciclo, todo
+aprendizaje que sea confirmado, reproducible y útil para futuras auditorías.
+
+- Actualizar `AGENTS.md` solo si aparece una regla obligatoria de seguridad,
+  autorización o alcance.
+- Mantener aquí comandos, orden de ejecución, recuperación, rendimiento,
+  compatibilidad de Windows y criterios de interpretación.
+- Usar documentos fechados para evidencia y cierres históricos, no como runbook
+  vigente.
+- Distinguir comportamiento observado de hipótesis. Un workaround no verificado
+  debe quedar marcado como pendiente y no convertirse en regla.
+- Si cambia el comportamiento upstream, registrar versión y fecha observadas,
+  ajustar wrappers o tests si corresponde y verificar el nuevo procedimiento.
+- Sanitizar siempre la documentación: no incluir secretos, datos fiscales,
+  evidencia privada ni detalles explotables de findings abiertos.
+
 ## Scripts Disponibles
 
 Desde la raíz:
@@ -139,7 +249,7 @@ Comandos directos equivalentes, solo si no se usa npm:
 ```powershell
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json status
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json map
-clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json review --limit 50 --jobs 1
+clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json review --limit 50 --jobs 1 --model gpt-5.6-sol --reasoning-effort high
 
 clawpatch --root frontend --state-dir ../.clawpatch/frontend --config ../.clawpatch/frontend/config.json status
 clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.json status
@@ -148,7 +258,7 @@ clawpatch --root . --state-dir .clawpatch/repo --config .clawpatch/repo/config.j
 Para ver qué se revisaría sin gastar proveedor:
 
 ```powershell
-clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json review --limit 50 --jobs 1 --dry-run --json
+clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json review --limit 50 --jobs 1 --model gpt-5.6-sol --reasoning-effort high --dry-run --json
 ```
 
 Criterio esperado con la puesta a punto actual:
@@ -185,10 +295,10 @@ npm run clawpatch:map-all
 Ejecutar primero el nivel end-to-end:
 
 ```powershell
-npm run clawpatch:repo:review
+npm run clawpatch:repo:review -- --model gpt-5.6-sol --reasoning-effort high
 ```
 
-Los scripts usan `--jobs 1`. Es mas lento, pero evita fallos de proveedor en
+Los scripts usan `--jobs 1`. Es más lento, pero evita fallos de proveedor en
 Windows y deja cada feature en estado recuperable si una corrida se corta. Si
 queda un lock por timeout:
 
@@ -197,12 +307,16 @@ npm run clawpatch:repo:clean-locks
 npm run clawpatch:repo:map
 ```
 
-Luego, si hace falta profundizar:
+Después de generar el reporte y triar `repo`, profundizar por separado:
 
 ```powershell
-npm run clawpatch:backend:review
-npm run clawpatch:frontend:review
+npm run clawpatch:backend:review -- --model gpt-5.6-sol --reasoning-effort high
+npm run clawpatch:frontend:review -- --model gpt-5.6-sol --reasoning-effort high
 ```
+
+No lanzar ambos comandos juntos. Cada script procesa hasta 50 features; si el
+slice conserva pendientes, repetirlo después de revisar `status` y el reporte
+del lote anterior.
 
 No ejecutar `map --source agent` ni `review` directo desde la raíz contra un
 state dir de slice salvo que se quiera deliberadamente una revisión asistida por
@@ -245,7 +359,7 @@ Los findings deben triagearse antes de reparar. Estados útiles:
 ```powershell
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json show --finding <id>
 clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json triage --finding <id> --status false-positive --note "motivo"
-clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json revalidate --finding <id>
+clawpatch --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json revalidate --finding <id> --model gpt-5.6-sol --reasoning-effort high
 ```
 
 ## Cadencia de reparación eficiente
@@ -360,9 +474,13 @@ si algún reporte de Clawpatch obliga a revisar una zona funcional.
 Al terminar, informar:
 
 - comandos ejecutados;
+- proveedor, modelo y razonamiento realmente utilizados;
 - resultado de tests;
 - cantidad de features detectadas por `repo`, `backend` y `frontend`;
+- lotes ejecutados y features que hayan quedado pendientes;
 - ubicación de reportes generados;
+- triage resumido de findings aceptados, rechazados, inciertos y diferidos;
+- aprendizajes operativos incorporados al runbook o pendientes de confirmar;
 - confirmación de que no se ejecutó `clawpatch fix` durante la auditoría o,
   si el usuario autorizó un fix posterior, finding exacto, diff revisado y
   validaciones ejecutadas.
