@@ -288,9 +288,11 @@ Siguen pendientes:
 6. PF-01A está cerrado: los tres cortes, el parche de Pillow, la CI final y las
    revalidaciones R02/B03/B04/B24 están completos. No repetir ni ampliar ese
    checkpoint.
-7. El siguiente corte de código es PF-01B. Antes de editar, auditar datos legacy
-   y completar su diseño de migración, constraints, rollback y matriz de tests
-   mediante `docs/agents/fiscal-change-checklist.md`.
+7. PF-01B.1 está cerrado como diseño documental, con auditoría local
+   sanitizada y `autoreview` limpio en `gpt-5.5 high`. El siguiente corte es
+   PF-01B.2: modelo, migración bloqueante, downgrade y regresiones SQLite según
+   `docs/agents/pf-01b-persistence-integrity-design.md`; PostgreSQL desechable
+   queda como checkpoint obligatorio antes del cierre.
 8. Mantener PF-01B separado de PF-02. No modificar numeración global ni historia
    externa hasta cerrar las invariantes persistentes de PF-01B.
 9. Después de PF-01B, continuar PF-02 y luego los P1 PF-03, PF-06/PF-07,

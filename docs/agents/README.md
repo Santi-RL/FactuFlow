@@ -7,7 +7,8 @@
 - Estado operativo canónico y punto de reanudación: `docs/agents/current-status.md`
 - Roadmap de prioridades y fases: `ROADMAP.md`
 - Portafolio integrado y dependencias: `docs/agents/development-portfolio.md`
-- Primer corte fiscal diseñado: `docs/agents/pf-01-authorization-integrity-design.md`
+- Primer corte fiscal cerrado: `docs/agents/pf-01-authorization-integrity-design.md`
+- Diseño de integridad persistente PF-01B: `docs/agents/pf-01b-persistence-integrity-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 
@@ -101,6 +102,8 @@
 - Portafolio integrado de desarrollo: `docs/agents/development-portfolio.md`
 - Diseño del primer corte PF-01A:
   `docs/agents/pf-01-authorization-integrity-design.md`
+- Diseño del corte PF-01B:
+  `docs/agents/pf-01b-persistence-integrity-design.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
 - Estructura del repo y ubicación de archivos: `docs/agents/structure.md`
