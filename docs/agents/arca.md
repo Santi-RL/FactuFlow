@@ -230,8 +230,11 @@ válido `YYYYMMDD`. Rechaza `P`, resultados desconocidos, errores globales y
 cardinalidades o rangos ambiguos; un `R` completo se conserva como rechazo
 verificable. PF-01A.2 transforma toda excepción inesperada post-ARCA en una
 respuesta sanitizada `requiere_reconciliacion`, individual o batch, actualiza los
-intentos y persiste el `409` idempotente cuando la base lo permite. PF-01A.3,
-correspondiente a la UI dedicada, sigue pendiente. Diseño:
+intentos y persiste el `409` idempotente cuando la base lo permite. PF-01A.3
+agrega en emisión individual el estado visual bloqueante: snapshot y clave quedan
+congelados en memoria, `Verificar estado` repite la operación exacta y solo una
+autorización o rechazo final desbloquea. No persiste payload fiscal en storage
+web; una recarga forzada exige revisar el backend, no crear otra emisión. Diseño:
 `docs/agents/pf-01-authorization-integrity-design.md`.
 
 - El CAE es la prueba de autorización fiscal devuelta por ARCA. No es la llave

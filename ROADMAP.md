@@ -168,11 +168,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   reemplaza la excepción primaria ni degrada un `409` a `503`; `IntegrityError`
   no cambia.
 - [~] Auditoría Clawpatch 2026-07-12 completada sobre `repo`, `backend` y
-  `frontend`, sin fixes ni llamadas ARCA. Antes de implementar el P1 fiscal,
-  agrupar los findings `high` por causa raíz entre slices y decidir con el
-  usuario si el primer corte corresponde al P1 existente o a una precondición
-  fiscal, de aislamiento, certificados, PDFs/reportes o almacenamiento. El
-  portafolio consolidado vive en `docs/agents/development-portfolio.md`.
+  `frontend`, sin fixes ni llamadas ARCA. Los findings `high` ya fueron
+  deduplicados, adjudicados por causa raíz y enrutados al portafolio. PF-01A.1 y
+  PF-01A.2 están publicados y PF-01A.3 quedó implementado localmente; corresponde
+  revalidar Clawpatch en el checkpoint integrado, no reparar hallazgos aislados.
+  El portafolio consolidado vive en `docs/agents/development-portfolio.md`.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
@@ -312,6 +312,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   visuales para usuarios no técnicos.
 - [x] Nueva factura exige CUIT para Factura A y Notas A, y el refresco de lista
   posterior a CAE es no bloqueante
+- [x] La emisión individual muestra un estado dedicado ante un `409` fiscal
+  incierto, congela en memoria la clave y el payload, bloquea edición,
+  cancelación, navegación y doble envío, conserva el pendiente ante un cambio de
+  emisor y verifica exactamente la misma operación hasta un resultado final.
 - [x] QA manual guiada de flujos reales
 - [ ] Operaciones masivas de PDF desde listado
 
@@ -812,9 +816,11 @@ Objetivo: ampliar valor mas alla del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Continuar PF-01A según
+2. Cerrar el checkpoint integrado de PF-01A según
    `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1 y PF-01A.2
-   están cerrados localmente; siguen UI bloqueante y verificación integrada.
+   están publicados, y PF-01A.3 quedó implementado localmente con UI bloqueante,
+   replay exacto y pruebas frontend. Falta publicar ese corte, revalidar el
+   conjunto relacionado con Clawpatch y registrar el cierre antes de PF-01B.
 3. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
    migración y constraints de estados, CAE y reservas activas.
 4. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no

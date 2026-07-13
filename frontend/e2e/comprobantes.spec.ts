@@ -196,4 +196,89 @@ test.describe("Emisión de Comprobantes", () => {
     await expect(page).toHaveURL(/comprobantes$/);
     await expect(page.getByText(/comprobante emitido/i)).toBeVisible();
   });
+  test("debe conservar clave y payload al verificar una emisión incierta", async ({
+    page,
+  }) => {
+    const solicitudes: Array<{ clave: string; payload: unknown }> = [];
+
+    await page.route("**/api/comprobantes/emitir", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+
+      solicitudes.push({
+        clave: route.request().headers()["x-idempotency-key"] || "",
+        payload: route.request().postDataJSON(),
+      });
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        headers: {
+          "access-control-allow-origin": "*",
+        },
+        body: JSON.stringify({
+          detail: {
+            exito: false,
+            tipo_comprobante: 6,
+            punto_venta: 1,
+            numero: 1,
+            fecha: "2026-03-09",
+            cae: null,
+            cae_vencimiento: null,
+            total: 1210,
+            mensaje: "Respuesta incierta",
+            errores: ["No reintentar con otra clave"],
+            requiere_reconciliacion: true,
+            categoria_error: "arca_respuesta_incierta",
+          },
+        }),
+      });
+    });
+
+    await Promise.all([
+      page.waitForURL(/comprobantes\/nuevo/),
+      page.getByTestId("comprobantes-nueva-factura").click(),
+    ]);
+
+    await page.getByLabel(/tipo de comprobante/i).selectOption("6");
+    await page.getByLabel(/punto de venta/i).selectOption({ index: 0 });
+    await page.getByLabel(/concepto/i).selectOption("1");
+    await page.locator('input[type="date"]').first().fill("2026-03-09");
+    await page.getByTestId("cliente-nuevo-manual").click();
+    await page.getByLabel(/número/i).fill("20123456789");
+    await page
+      .getByLabel(/condición iva/i)
+      .selectOption({ label: "Responsable Inscripto" });
+    await page.getByLabel(/razón social/i).fill("Cliente Incierto");
+    await page
+      .getByLabel(/descripción/i)
+      .first()
+      .fill("Servicio de prueba");
+    await page
+      .getByLabel(/cantidad/i)
+      .first()
+      .fill("1");
+    await page
+      .getByLabel(/precio unitario/i)
+      .first()
+      .fill("1000");
+
+    await page.getByTestId("comprobante-vista-previa").click();
+    await page.getByTestId("comprobante-confirmar-emitir").click();
+    await page.getByRole("button", { name: /emitir con esta fecha/i }).click();
+
+    await expect(page.getByTestId("operacion-incierta")).toBeVisible();
+    await expect(page.getByTestId("formulario-emision")).toHaveAttribute(
+      "inert",
+      "",
+    );
+    await expect(page.getByTestId("comprobante-emitir")).toBeDisabled();
+    await page.getByTestId("verificar-operacion-incierta").click();
+    await expect.poll(() => solicitudes.length).toBe(2);
+
+    expect(solicitudes[1].clave).toBe(solicitudes[0].clave);
+    expect(solicitudes[1].payload).toEqual(solicitudes[0].payload);
+    await expect(page.getByTestId("operacion-incierta")).toBeVisible();
+  });
 });

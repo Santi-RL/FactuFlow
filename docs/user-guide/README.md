@@ -1,9 +1,11 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-07-10
+Última actualización: 2026-07-13
 
-Este manual describe `v0.2.1`, el producto actualmente desplegado. Si una
-función no aparece acá, no debe asumirse como disponible para usuarios finales.
+Este manual describe `v0.2.1`, el producto actualmente desplegado, y señala de
+forma explícita los cambios del código vigente que todavía no fueron publicados
+o desplegados. No debe asumirse que una función pendiente de despliegue está
+disponible en producción.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -107,7 +109,10 @@ receptor pasa a carga manual para no conservar una vinculación incorrecta. Al
 reducir la búsqueda de clientes a menos de dos caracteres, FactuFlow cierra los
 resultados anteriores para evitar una selección obsoleta. Si cambia el emisor
 mientras se guarda un punto de venta, la respuesta anterior no reemplaza la
-lista visible del nuevo emisor.
+lista visible del nuevo emisor. Si una emisión individual está pendiente de
+verificación fiscal, cambiar el selector no descarta esa operación: la pantalla
+conserva el emisor original y deshabilita la verificación hasta volver a
+seleccionarlo.
 
 El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
 cambias de emisor, esa nueva selección no cambia silenciosamente una factura o
@@ -160,12 +165,34 @@ Al crear un comprobante puntual, el selector de punto de venta muestra solo los
 puntos habilitados para emitir por FactuFlow: Web Services activos, no
 bloqueados y sin fecha de baja.
 
-Cuando confirmas la emisión final, FactuFlow genera una clave interna de
+Cuando confirmás la emisión final, FactuFlow genera una clave interna de
 idempotencia para esa operación. Si la conexión se corta o repetís el intento
 con los mismos datos, la aplicación reutiliza esa clave y el backend no vuelve
 a pedir CAE para el mismo comprobante. Si cambiás datos fiscales como fecha,
 punto de venta, receptor, ítems o comprobantes asociados, la operación exige una
 nueva confirmación.
+
+> Disponibilidad: el siguiente estado visual está implementado en PF-01A.3 y
+> permanece pendiente de publicación y despliegue; no forma parte de
+> `v0.2.1` productiva.
+
+Si FactuFlow no puede confirmar todavía si ARCA autorizó la operación, muestra
+`Emisión pendiente de verificación` con emisor, tipo, fecha, punto de venta,
+número planificado, total y CAE solo cuando sea válido. Mientras ese panel está
+activo no permite editar, cancelar, navegar fuera de la pantalla ni volver a
+emitir. `Verificar estado` reutiliza exactamente la misma clave y los mismos
+datos; no crea otra solicitud fiscal.
+
+Una autorización final abre el comprobante y un rechazo final permite corregir
+los datos. Un nuevo `409`, un problema de red o un error no concluyente conserva
+el bloqueo. Si seleccionás otro emisor, la operación no se borra y solo puede
+verificarse después de volver al emisor original.
+
+La operación pendiente se conserva únicamente en memoria de esa pestaña para no
+guardar payloads fiscales o datos privados en el almacenamiento web. FactuFlow
+advierte antes de cerrar o recargar. Si forzás la recarga y desaparece el panel,
+no inicies otra emisión: el backend sigue siendo la autoridad durable y
+corresponde pedir revisión o soporte con el emisor original.
 
 Si FactuFlow detecta que el comprobante se parece mucho a otro ya autorizado,
 muestra una advertencia de duplicado probable. Esa advertencia no bloquea por
@@ -839,14 +866,14 @@ y no se muestra como degradación. El diagnóstico no expone DSN, credenciales,
 rutas privadas ni errores internos crudos.
 
 Si la base responde `503` antes de iniciar la solicitud fiscal, FactuFlow confirmó
-una recuperación durable sin intentos: reintenta la misma operación con la misma
-clave. Ante `409 pre_arca_estado_bloqueado`, conserva la clave y pide revisión o
-espera, sin abrir otra operación ni reconciliar ARCA si FECAE no comenzó. Si el
-`409` es posterior a esa frontera, indica `Requiere reconciliación` o no sabes si
-ARCA fue llamada, no generes otra clave ni cambies los datos: conserva la
-operación y pide revisión. La pantalla dedicada para verificar y congelar este
-estado forma parte del siguiente corte; hasta entonces, un mensaje genérico no
-habilita a reemitir. La acción `Probar conexión`
+una recuperación durable sin intentos: reintentá la misma operación con la misma
+clave. Ante `409 pre_arca_estado_bloqueado`, conservá la clave y pedí revisión o
+esperá, sin abrir otra operación ni reconciliar ARCA si FECAE no comenzó. Si el
+`409` es posterior a esa frontera, indica `Requiere reconciliación` o no sabés si
+ARCA fue llamada, no generes otra clave ni cambies los datos: conservá la
+operación y pedí revisión. PF-01A.3 agrega en desarrollo la pantalla dedicada de
+emisión individual que congela y verifica esa misma operación; todavía no está
+desplegada en `v0.2.1`. La acción `Probar conexión`
 puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La guía
 rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
 autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.

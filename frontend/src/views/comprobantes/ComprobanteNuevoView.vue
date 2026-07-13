@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
-import { useRouter } from "vue-router";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useComprobantesStore } from "@/stores/comprobantes";
 import { usePuntosVentaStore } from "@/stores/puntos_venta";
 import {
+  ArrowPathIcon,
   DocumentTextIcon,
+  ExclamationTriangleIcon,
   EyeIcon,
   PaperAirplaneIcon,
 } from "@heroicons/vue/24/outline";
@@ -19,6 +21,7 @@ import ComprobantePreview from "@/components/comprobantes/ComprobantePreview.vue
 import type {
   ItemComprobante,
   EmitirComprobanteRequest,
+  EmitirComprobanteResponse,
 } from "@/types/comprobante";
 import {
   TIPOS_COMPROBANTE,
@@ -27,6 +30,17 @@ import {
   TIPOS_CONCEPTO_NOMBRES,
   TIPOS_DOCUMENTO,
 } from "@/types/comprobante";
+
+interface OperacionInciertaEmision {
+  readonly idempotencyKey: string;
+  readonly empresaId: number;
+  readonly empresaNombre: string;
+  readonly request: EmitirComprobanteRequest;
+  readonly respuesta: EmitirComprobanteResponse;
+  readonly puntoVentaNumero: number;
+  readonly numeroPlanificado: number | null;
+  readonly totalPlanificado: number;
+}
 
 const router = useRouter();
 const empresaStore = useEmpresaStore();
@@ -71,6 +85,7 @@ const mostrarConfirmacionFechaFiscal = ref(false);
 const mostrarConfirmacionDuplicadoLogico = ref(false);
 const mensajeConfirmacionDuplicadoLogico = ref("");
 const idempotencyKeyEmision = ref<string | null>(null);
+const operacionIncierta = ref<OperacionInciertaEmision | null>(null);
 const confirmacionDuplicadoLogico = ref(false);
 const proximoNumero = ref<number | null>(null);
 const consultandoProximoNumero = ref(false);
@@ -124,11 +139,171 @@ const obtenerIdempotencyKeyEmision = (): string => {
   return idempotencyKeyEmision.value;
 };
 
-const resetearIdempotencyKeyEmision = () => {
+const esRegistroDesconocido = (
+  value: unknown,
+): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const obtenerDetalleError = (error: unknown): unknown => {
+  if (!esRegistroDesconocido(error)) return null;
+  const response = error.response;
+  if (!esRegistroDesconocido(response)) return null;
+  const data = response.data;
+  if (!esRegistroDesconocido(data)) return null;
+  return data.detail;
+};
+
+const obtenerStatusHttpError = (error: unknown): number | null => {
+  if (!esRegistroDesconocido(error)) return null;
+  const response = error.response;
+  if (!esRegistroDesconocido(response)) return null;
+  return typeof response.status === "number" &&
+    Number.isInteger(response.status)
+    ? response.status
+    : null;
+};
+
+const obtenerMensajeRechazoFinal = (detail: unknown): string | null => {
+  if (
+    !esRegistroDesconocido(detail) ||
+    typeof detail.mensaje !== "string" ||
+    !Array.isArray(detail.errores)
+  ) {
+    return null;
+  }
+
+  const errores = detail.errores.filter(
+    (item): item is string => typeof item === "string",
+  );
+  return [detail.mensaje, ...errores].filter(Boolean).join(" | ");
+};
+
+const crearSnapshotInmutable = (
+  request: EmitirComprobanteRequest,
+): EmitirComprobanteRequest => {
+  const items = request.items.map((item) => Object.freeze({ ...item }));
+  return Object.freeze({
+    ...request,
+    items: Object.freeze(items),
+  }) as unknown as EmitirComprobanteRequest;
+};
+
+const resetearIdempotencyKeyEmision = (forzar = false) => {
+  if (operacionIncierta.value && !forzar) return;
+
   idempotencyKeyEmision.value = null;
   confirmacionDuplicadoLogico.value = false;
   mostrarConfirmacionDuplicadoLogico.value = false;
   mensajeConfirmacionDuplicadoLogico.value = "";
+};
+
+const finalizarOperacionIncierta = () => {
+  operacionIncierta.value = null;
+  resetearIdempotencyKeyEmision(true);
+};
+
+const normalizarRespuestaReconciliacion = (
+  detail: unknown,
+  request: EmitirComprobanteRequest,
+  puntoVentaNumero: number,
+  numeroPlanificado: number | null,
+  totalPlanificado: number,
+): EmitirComprobanteResponse | null => {
+  if (
+    !esRegistroDesconocido(detail) ||
+    detail.requiere_reconciliacion !== true
+  ) {
+    return null;
+  }
+
+  const numeroSeguro = (value: unknown, fallback: number): number =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? value
+      : fallback;
+  const cae =
+    typeof detail.cae === "string" && /^\d{14}$/.test(detail.cae)
+      ? detail.cae
+      : undefined;
+  const caeVencimiento =
+    cae && typeof detail.cae_vencimiento === "string"
+      ? detail.cae_vencimiento
+      : undefined;
+  const categoriaError =
+    detail.categoria_error === "post_arca_persistencia" ||
+    detail.categoria_error === "arca_respuesta_incierta"
+      ? detail.categoria_error
+      : "arca_respuesta_incierta";
+  const comprobanteId =
+    typeof detail.comprobante_id === "number" &&
+    Number.isInteger(detail.comprobante_id) &&
+    detail.comprobante_id > 0
+      ? detail.comprobante_id
+      : undefined;
+
+  return {
+    exito: false,
+    comprobante_id: comprobanteId,
+    tipo_comprobante: numeroSeguro(
+      detail.tipo_comprobante,
+      request.tipo_comprobante,
+    ),
+    punto_venta: numeroSeguro(detail.punto_venta, puntoVentaNumero),
+    numero: numeroSeguro(detail.numero, numeroPlanificado ?? 0),
+    fecha:
+      typeof detail.fecha === "string" && detail.fecha.length > 0
+        ? detail.fecha
+        : request.fecha_emision,
+    cae,
+    cae_vencimiento: caeVencimiento,
+    total: numeroSeguro(detail.total, totalPlanificado),
+    mensaje:
+      "FactuFlow no puede confirmar todavía el resultado fiscal de esta operación.",
+    errores: [
+      "No cambies los datos ni generes otra operación. Verificá el estado con esta misma clave.",
+    ],
+    requiere_reconciliacion: true,
+    categoria_error: categoriaError,
+  };
+};
+
+const registrarOperacionIncierta = (
+  request: EmitirComprobanteRequest,
+  idempotencyKey: string,
+  respuesta: EmitirComprobanteResponse,
+) => {
+  const operacionPrevia = operacionIncierta.value;
+  const puntoVentaNumero =
+    operacionPrevia?.puntoVentaNumero ??
+    puntoVentaSeleccionado.value?.numero ??
+    respuesta.punto_venta;
+  const numeroPlanificado =
+    operacionPrevia?.numeroPlanificado ??
+    (respuesta.numero > 0 ? respuesta.numero : proximoNumero.value);
+  const totalPlanificado =
+    operacionPrevia?.totalPlanificado ??
+    (respuesta.total > 0 ? respuesta.total : totales.value.total);
+
+  operacionIncierta.value = Object.freeze({
+    idempotencyKey: operacionPrevia?.idempotencyKey ?? idempotencyKey,
+    empresaId: operacionPrevia?.empresaId ?? request.empresa_id,
+    empresaNombre:
+      operacionPrevia?.empresaNombre ??
+      empresaActiva.value?.razon_social ??
+      `Emisor ${request.empresa_id}`,
+    request: operacionPrevia?.request ?? crearSnapshotInmutable(request),
+    respuesta: Object.freeze({
+      ...respuesta,
+      errores: Object.freeze([...respuesta.errores]),
+    }) as unknown as EmitirComprobanteResponse,
+    puntoVentaNumero,
+    numeroPlanificado,
+    totalPlanificado,
+  });
+
+  mostrarPreview.value = false;
+  mostrarCancelacion.value = false;
+  mostrarConfirmacionFechaFiscal.value = false;
+  mostrarConfirmacionDuplicadoLogico.value = false;
 };
 
 const normalizarClienteParaTipoComprobante = () => {
@@ -180,13 +355,45 @@ watch(
   async (empresaIdActual, empresaIdAnterior) => {
     if (!empresaIdActual || empresaIdActual === empresaIdAnterior) return;
 
+    if (operacionIncierta.value) {
+      mostrarPreview.value = false;
+      mostrarCancelacion.value = false;
+      mostrarConfirmacionFechaFiscal.value = false;
+      mostrarConfirmacionDuplicadoLogico.value = false;
+      return;
+    }
+
     resetearIdempotencyKeyEmision();
     limpiarClienteSeleccionado();
     await cargarDatosEmisorActivo();
   },
 );
 
-watch(formData, resetearIdempotencyKeyEmision, { deep: true });
+watch(formData, () => resetearIdempotencyKeyEmision(), { deep: true });
+
+const manejarBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (!operacionIncierta.value) return;
+  event.preventDefault();
+  event.returnValue = "";
+};
+
+onMounted(() => {
+  window.addEventListener("beforeunload", manejarBeforeUnload);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("beforeunload", manejarBeforeUnload);
+});
+
+onBeforeRouteLeave(() => {
+  if (!operacionIncierta.value) return true;
+
+  showWarning(
+    "Verificación fiscal pendiente",
+    "No salgas de esta pantalla hasta verificar el resultado con la misma operación.",
+  );
+  return false;
+});
 
 const tiposComprobanteDisponibles = computed(() => {
   // TODO: Filtrar según configuración de empresa
@@ -304,6 +511,52 @@ const puntoVentaSeleccionado = computed(() => {
   );
 });
 
+const formularioBloqueado = computed(() => operacionIncierta.value !== null);
+const emisorOperacionCoincide = computed(
+  () =>
+    operacionIncierta.value !== null &&
+    operacionIncierta.value.empresaId === empresaId.value,
+);
+const respuestaOperacionIncierta = computed(
+  () => operacionIncierta.value?.respuesta ?? null,
+);
+const fechaOperacionIncierta = computed(() => {
+  const fecha =
+    respuestaOperacionIncierta.value?.fecha ??
+    operacionIncierta.value?.request.fecha_emision ??
+    "";
+  const coincidencia = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha);
+  return coincidencia
+    ? `${coincidencia[3]}/${coincidencia[2]}/${coincidencia[1]}`
+    : fecha || "No disponible";
+});
+const tipoOperacionIncierta = computed(() => {
+  const tipo =
+    respuestaOperacionIncierta.value?.tipo_comprobante ??
+    operacionIncierta.value?.request.tipo_comprobante;
+  return tipo
+    ? TIPOS_COMPROBANTE_NOMBRES[tipo] || `Tipo ${tipo}`
+    : "No disponible";
+});
+const puntoVentaOperacionIncierta = computed(
+  () =>
+    respuestaOperacionIncierta.value?.punto_venta ||
+    operacionIncierta.value?.puntoVentaNumero ||
+    0,
+);
+const numeroOperacionIncierta = computed(
+  () =>
+    respuestaOperacionIncierta.value?.numero ||
+    operacionIncierta.value?.numeroPlanificado ||
+    0,
+);
+const totalOperacionIncierta = computed(
+  () =>
+    respuestaOperacionIncierta.value?.total ||
+    operacionIncierta.value?.totalPlanificado ||
+    0,
+);
+
 const mensajeConfirmacionFechaFiscal = computed(() => {
   const puntoVenta = puntoVentaSeleccionado.value?.numero
     ? ` para el punto de venta ${String(puntoVentaSeleccionado.value.numero).padStart(4, "0")}`
@@ -389,97 +642,193 @@ const solicitarConfirmacionFechaFiscal = () => {
   mostrarConfirmacionFechaFiscal.value = true;
 };
 
-const confirmarEmision = async () => {
+const construirRequestEmision = (): EmitirComprobanteRequest => ({
+  empresa_id: empresaId.value,
+  punto_venta_id: formData.value.punto_venta_id,
+  tipo_comprobante: formData.value.tipo_comprobante,
+  concepto: Number(formData.value.concepto),
+  fecha_emision: formData.value.fecha_emision,
+  confirmacion_fecha_fiscal: true,
+  confirmacion_duplicado_logico: confirmacionDuplicadoLogico.value,
+  cliente_id: formData.value.cliente.cliente_id,
+  tipo_documento: formData.value.cliente.tipo_documento,
+  numero_documento: formData.value.cliente.numero_documento,
+  razon_social: formData.value.cliente.razon_social,
+  condicion_iva: formData.value.cliente.condicion_iva,
+  domicilio: formData.value.cliente.domicilio,
+  guardar_cliente: true,
+  items: normalizarOrdenItems(formData.value.items),
+  fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
+  fecha_servicio_hasta: formData.value.fecha_servicio_hasta || undefined,
+  fecha_vto_pago: formData.value.fecha_vto_pago || undefined,
+  observaciones: formData.value.observaciones || undefined,
+  moneda: "PES",
+  cotizacion: 1,
+});
+
+const ejecutarEmision = async (
+  request: EmitirComprobanteRequest,
+  idempotencyKey: string,
+  esVerificacion: boolean,
+) => {
+  if (loading.value) return;
+
   loading.value = true;
-  mostrarPreview.value = false;
-  mostrarConfirmacionFechaFiscal.value = false;
+  if (!esVerificacion) {
+    mostrarPreview.value = false;
+    mostrarConfirmacionFechaFiscal.value = false;
+  }
+
+  const puntoVentaNumero =
+    operacionIncierta.value?.puntoVentaNumero ??
+    puntoVentaSeleccionado.value?.numero ??
+    0;
+  const numeroPlanificado =
+    operacionIncierta.value?.numeroPlanificado ?? proximoNumero.value;
+  const totalPlanificado =
+    operacionIncierta.value?.totalPlanificado ?? totales.value.total;
 
   try {
-    const request: EmitirComprobanteRequest = {
-      empresa_id: empresaId.value,
-      punto_venta_id: formData.value.punto_venta_id,
-      tipo_comprobante: formData.value.tipo_comprobante,
-      concepto: Number(formData.value.concepto),
-      fecha_emision: formData.value.fecha_emision,
-      confirmacion_fecha_fiscal: true,
-      confirmacion_duplicado_logico: confirmacionDuplicadoLogico.value,
-
-      // Cliente
-      cliente_id: formData.value.cliente.cliente_id,
-      tipo_documento: formData.value.cliente.tipo_documento,
-      numero_documento: formData.value.cliente.numero_documento,
-      razon_social: formData.value.cliente.razon_social,
-      condicion_iva: formData.value.cliente.condicion_iva,
-      domicilio: formData.value.cliente.domicilio,
-      guardar_cliente: true,
-
-      // Items
-      items: normalizarOrdenItems(formData.value.items),
-
-      // Servicios
-      fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
-      fecha_servicio_hasta: formData.value.fecha_servicio_hasta || undefined,
-      fecha_vto_pago: formData.value.fecha_vto_pago || undefined,
-
-      // Observaciones
-      observaciones: formData.value.observaciones || undefined,
-
-      // Moneda
-      moneda: "PES",
-      cotizacion: 1,
-    };
-
     const resultado = await comprobantesStore.emitirComprobante(
       request,
-      obtenerIdempotencyKeyEmision(),
+      idempotencyKey,
+    );
+    const respuestaIncierta = normalizarRespuestaReconciliacion(
+      resultado,
+      request,
+      puntoVentaNumero,
+      numeroPlanificado,
+      totalPlanificado,
     );
 
+    if (respuestaIncierta) {
+      registrarOperacionIncierta(request, idempotencyKey, respuestaIncierta);
+      return;
+    }
+
     if (resultado.exito) {
+      finalizarOperacionIncierta();
       showSuccess(
         "Comprobante emitido",
         `CAE ${resultado.cae || "sin informar"} | Total $${Number(resultado.total).toFixed(2)}`,
       );
 
-      // Redirigir al detalle
       if (resultado.comprobante_id) {
-        resetearIdempotencyKeyEmision();
-        router.push({
+        await router.push({
           name: "comprobante-detalle",
           params: { id: resultado.comprobante_id },
         });
       } else {
-        resetearIdempotencyKeyEmision();
-        router.push({ name: "comprobantes" });
+        await router.push({ name: "comprobantes" });
       }
-    } else {
-      showError(
-        "No se pudo emitir el comprobante",
-        [resultado.mensaje, ...resultado.errores].filter(Boolean).join(" | "),
-      );
+      return;
     }
-  } catch (error: any) {
-    console.error("Error al emitir:", error);
-    const detail = error.response?.data?.detail;
-    if (detail?.categoria_error === "duplicado_logico") {
+
+    finalizarOperacionIncierta();
+    showError(
+      esVerificacion
+        ? "ARCA confirmó que el comprobante no fue autorizado"
+        : "No se pudo emitir el comprobante",
+      [resultado.mensaje, ...resultado.errores].filter(Boolean).join(" | "),
+    );
+  } catch (error: unknown) {
+    console.error(
+      esVerificacion
+        ? "Error al verificar la operación fiscal"
+        : "Error al emitir comprobante",
+    );
+    const detail = obtenerDetalleError(error);
+    const respuestaIncierta = normalizarRespuestaReconciliacion(
+      detail,
+      request,
+      puntoVentaNumero,
+      numeroPlanificado,
+      totalPlanificado,
+    );
+
+    if (respuestaIncierta) {
+      registrarOperacionIncierta(request, idempotencyKey, respuestaIncierta);
+      return;
+    }
+
+    if (
+      !esVerificacion &&
+      esRegistroDesconocido(detail) &&
+      detail.categoria_error === "duplicado_logico"
+    ) {
+      const errores = Array.isArray(detail.errores)
+        ? detail.errores.filter(
+            (item): item is string => typeof item === "string",
+          )
+        : [];
       mensajeConfirmacionDuplicadoLogico.value =
-        [detail.mensaje, ...(detail.errores || [])]
+        [
+          typeof detail.mensaje === "string" ? detail.mensaje : "",
+          ...errores,
+        ]
           .filter(Boolean)
           .join(" ") ||
         "Existe un comprobante local muy similar ya autorizado. Confirmá si corresponde emitirlo igualmente.";
       mostrarConfirmacionDuplicadoLogico.value = true;
       return;
     }
-    showError(
-      "Error al emitir comprobante",
-      detail?.mensaje ||
-        error.message ||
-        "Ocurrió un error inesperado. Revisa los datos e intenta nuevamente.",
-    );
+
+    const mensajeRechazoFinal = obtenerMensajeRechazoFinal(detail);
+    if (
+      esVerificacion &&
+      obtenerStatusHttpError(error) === 400 &&
+      mensajeRechazoFinal
+    ) {
+      finalizarOperacionIncierta();
+      showError(
+        "ARCA confirmó que el comprobante no fue autorizado",
+        mensajeRechazoFinal,
+      );
+      return;
+    }
+
+    if (esVerificacion) {
+      showWarning(
+        "No se pudo verificar el estado",
+        "La operación continúa bloqueada. Conservá esta pantalla y volvé a verificar con la misma clave.",
+      );
+      return;
+    }
+
+    const mensaje =
+      esRegistroDesconocido(detail) && typeof detail.mensaje === "string"
+        ? detail.mensaje
+        : "Ocurrió un error inesperado. Revisá los datos e intentá nuevamente.";
+    showError("Error al emitir comprobante", mensaje);
   } finally {
     loading.value = false;
   }
 };
 
+const confirmarEmision = async () => {
+  if (loading.value || formularioBloqueado.value) return;
+  const request = construirRequestEmision();
+  await ejecutarEmision(request, obtenerIdempotencyKeyEmision(), false);
+};
+
+const verificarEstado = async () => {
+  const operacion = operacionIncierta.value;
+  if (!operacion || loading.value) return;
+
+  if (!emisorOperacionCoincide.value) {
+    showWarning(
+      "Emisor distinto",
+      `Volvé a seleccionar ${operacion.empresaNombre} para verificar esta operación sin cambiar su alcance.`,
+    );
+    return;
+  }
+
+  await ejecutarEmision(
+    operacion.request,
+    operacion.idempotencyKey,
+    true,
+  );
+};
 const confirmarDuplicadoLogico = async () => {
   confirmacionDuplicadoLogico.value = true;
   mostrarConfirmacionDuplicadoLogico.value = false;
@@ -487,6 +836,13 @@ const confirmarDuplicadoLogico = async () => {
 };
 
 const cancelar = () => {
+  if (operacionIncierta.value) {
+    showWarning(
+      "Verificación fiscal pendiente",
+      "No podés cancelar esta operación hasta obtener un resultado final.",
+    );
+    return;
+  }
   mostrarCancelacion.value = true;
 };
 
@@ -513,7 +869,119 @@ const confirmarCancelacion = () => {
       </p>
     </div>
 
+    <section
+      v-if="operacionIncierta"
+      data-testid="operacion-incierta"
+      role="status"
+      aria-live="polite"
+      class="mb-6 rounded-xl border border-orange-300 bg-orange-50 p-5 text-orange-950"
+    >
+      <div
+        class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
+      >
+        <div>
+          <div class="flex items-center gap-2">
+            <ExclamationTriangleIcon class="h-6 w-6 text-orange-700" />
+            <h2 class="text-lg font-semibold">
+              Emisión pendiente de verificación
+            </h2>
+          </div>
+          <p class="mt-2 max-w-3xl text-sm">
+            ARCA pudo haber procesado esta solicitud. Los datos y la clave
+            quedaron congelados: no generes otra factura ni cambies la operación.
+          </p>
+        </div>
+        <button
+          type="button"
+          data-testid="verificar-operacion-incierta"
+          :disabled="loading || !emisorOperacionCoincide"
+          class="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="verificarEstado"
+        >
+          <ArrowPathIcon
+            class="h-5 w-5"
+            :class="{ 'animate-spin': loading }"
+          />
+          {{ loading ? "Verificando..." : "Verificar estado" }}
+        </button>
+      </div>
+
+      <div
+        class="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5"
+      >
+        <div>
+          <span
+            class="block text-xs font-semibold uppercase text-orange-700"
+          >
+            Emisor
+          </span>
+          <span>{{ operacionIncierta.empresaNombre }}</span>
+        </div>
+        <div>
+          <span
+            class="block text-xs font-semibold uppercase text-orange-700"
+          >
+            Comprobante
+          </span>
+          <span>{{ tipoOperacionIncierta }}</span>
+        </div>
+        <div>
+          <span
+            class="block text-xs font-semibold uppercase text-orange-700"
+          >
+            Fecha fiscal
+          </span>
+          <span>{{ fechaOperacionIncierta }}</span>
+        </div>
+        <div>
+          <span
+            class="block text-xs font-semibold uppercase text-orange-700"
+          >
+            Punto y número
+          </span>
+          <span>
+            {{ String(puntoVentaOperacionIncierta).padStart(4, "0") }}-
+            {{
+              numeroOperacionIncierta > 0
+                ? String(numeroOperacionIncierta).padStart(8, "0")
+                : "pendiente"
+            }}
+          </span>
+        </div>
+        <div>
+          <span
+            class="block text-xs font-semibold uppercase text-orange-700"
+          >
+            Total
+          </span>
+          <span>ARS {{ Number(totalOperacionIncierta).toFixed(2) }}</span>
+        </div>
+      </div>
+
+      <p
+        v-if="respuestaOperacionIncierta?.cae"
+        class="mt-4 rounded-lg bg-white/70 px-3 py-2 text-sm"
+      >
+        FactuFlow recibió el CAE
+        <span class="font-mono font-semibold">
+          {{ respuestaOperacionIncierta.cae }}
+        </span>
+        , pero todavía no pudo confirmar el cierre local.
+      </p>
+      <p
+        v-if="!emisorOperacionCoincide"
+        data-testid="operacion-incierta-emisor-distinto"
+        class="mt-4 font-medium text-red-800"
+      >
+        Volvé a seleccionar {{ operacionIncierta.empresaNombre }} para verificar.
+        La operación permanece bloqueada.
+      </p>
+    </section>
+
     <form
+      data-testid="formulario-emision"
+      v-bind="formularioBloqueado ? { inert: true } : {}"
+      :aria-disabled="formularioBloqueado"
       class="space-y-6"
       @submit.prevent="abrirVistaPrevia"
     >
@@ -728,7 +1196,8 @@ const confirmarCancelacion = () => {
         <button
           type="button"
           data-testid="comprobante-cancelar"
-          class="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          :disabled="formularioBloqueado"
+          class="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="cancelar"
         >
           Cancelar
@@ -737,7 +1206,7 @@ const confirmarCancelacion = () => {
         <button
           type="button"
           data-testid="comprobante-vista-previa"
-          :disabled="!formularioValido"
+          :disabled="!formularioValido || formularioBloqueado"
           class="inline-flex items-center gap-2 px-6 py-2 text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="abrirVistaPrevia"
         >
@@ -748,7 +1217,7 @@ const confirmarCancelacion = () => {
         <button
           type="submit"
           data-testid="comprobante-emitir"
-          :disabled="!formularioValido || loading"
+          :disabled="!formularioValido || loading || formularioBloqueado"
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <PaperAirplaneIcon class="h-5 w-5" />

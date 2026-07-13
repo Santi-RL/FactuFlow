@@ -1,4 +1,4 @@
-import { flushPromises, mount } from "@vue/test-utils";
+import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
@@ -10,6 +10,10 @@ import {
   TIPOS_CONCEPTO,
   TIPOS_DOCUMENTO,
 } from "@/types/comprobante";
+import type {
+  EmitirComprobanteRequest,
+  EmitirComprobanteResponse,
+} from "@/types/comprobante";
 import type { Empresa } from "@/types/empresa";
 import type { PuntoVenta } from "@/types/punto_venta";
 import ComprobanteNuevoView from "./ComprobanteNuevoView.vue";
@@ -18,6 +22,7 @@ vi.mock("vue-router", () => ({
   useRouter: () => ({
     push: vi.fn(),
   }),
+  onBeforeRouteLeave: vi.fn(),
 }));
 
 vi.mock("@/services/comprobantes.service", () => ({
@@ -98,6 +103,98 @@ const mockedComprobantesService = comprobantesService as unknown as {
 const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
 };
+
+interface ComprobanteNuevoViewModel {
+  formData: {
+    punto_venta_id: number;
+    concepto: number | "";
+    fecha_emision: string;
+    cliente: {
+      tipo_documento: number;
+      numero_documento: string;
+      razon_social: string;
+      condicion_iva: string;
+    };
+    items: EmitirComprobanteRequest["items"];
+  };
+  confirmarEmision: () => Promise<void>;
+  verificarEstado: () => Promise<void>;
+  loading: boolean;
+  idempotencyKeyEmision: string | null;
+  operacionIncierta: {
+    idempotencyKey: string;
+    empresaId: number;
+    request: EmitirComprobanteRequest;
+    respuesta: EmitirComprobanteResponse;
+  } | null;
+}
+
+const errorReconciliacion = (
+  overrides: Partial<EmitirComprobanteResponse> = {},
+) => ({
+  response: {
+    data: {
+      detail: {
+        exito: false,
+        tipo_comprobante: 6,
+        punto_venta: 1,
+        numero: 100,
+        fecha: "2026-05-20",
+        total: 121,
+        mensaje: "<img src=x onerror=alert(1)>",
+        errores: ["backend no confiable"],
+        requiere_reconciliacion: true,
+        categoria_error: "arca_respuesta_incierta",
+        ...overrides,
+      },
+    },
+  },
+});
+
+const completarFormulario = async (
+  wrapper: VueWrapper,
+): Promise<ComprobanteNuevoViewModel> => {
+  const vm = wrapper.vm as unknown as ComprobanteNuevoViewModel;
+  vm.formData.punto_venta_id = 1;
+  vm.formData.concepto = TIPOS_CONCEPTO.PRODUCTOS;
+  vm.formData.fecha_emision = "2026-05-20";
+  vm.formData.cliente = {
+    tipo_documento: TIPOS_DOCUMENTO.DNI,
+    numero_documento: "12345678",
+    razon_social: "Cliente Demo",
+    condicion_iva: "Consumidor Final",
+  };
+  vm.formData.items = [
+    {
+      descripcion: "Servicio",
+      cantidad: 1,
+      unidad: "unidad",
+      precio_unitario: 100,
+      descuento_porcentaje: 0,
+      iva_porcentaje: 21,
+      orden: 0,
+    },
+  ];
+  await flushPromises();
+  return vm;
+};
+
+const respuestaFinal = (
+  overrides: Partial<EmitirComprobanteResponse> = {},
+): EmitirComprobanteResponse => ({
+  exito: true,
+  comprobante_id: 55,
+  tipo_comprobante: 6,
+  punto_venta: 1,
+  numero: 100,
+  fecha: "2026-05-20",
+  cae: "12345678901234",
+  cae_vencimiento: "2026-05-30",
+  total: 121,
+  mensaje: "Autorizado",
+  errores: [],
+  ...overrides,
+});
 
 const mountView = async () => {
   const pinia = createPinia();
@@ -377,5 +474,201 @@ describe("ComprobanteNuevoView", () => {
       }),
       expect.any(String),
     );
+  });
+  it("muestra un estado dedicado y congela la operación ante un 409 incierto", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    mockedComprobantesService.emitir.mockRejectedValue(errorReconciliacion());
+
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+
+      await vm.confirmarEmision();
+      await flushPromises();
+
+      expect(
+        wrapper.get('[data-testid="operacion-incierta"]').text(),
+      ).toContain("Emisión pendiente de verificación");
+      expect(
+        wrapper.get('[data-testid="formulario-emision"]').attributes(),
+      ).toHaveProperty("inert");
+      expect(wrapper.text()).not.toContain("<img src=x");
+      expect(vm.operacionIncierta).not.toBeNull();
+      expect(Object.isFrozen(vm.operacionIncierta?.request)).toBe(true);
+      expect(Object.isFrozen(vm.operacionIncierta?.request.items)).toBe(true);
+      expect(vm.operacionIncierta?.respuesta.mensaje).toContain(
+        "no puede confirmar todavía",
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("verifica con la misma clave y el mismo payload hasta obtener autorización", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    mockedComprobantesService.emitir
+      .mockRejectedValueOnce(errorReconciliacion())
+      .mockResolvedValueOnce(respuestaFinal());
+
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+
+      await vm.confirmarEmision();
+      const [requestInicial, claveInicial] =
+        mockedComprobantesService.emitir.mock.calls[0];
+
+      await vm.verificarEstado();
+
+      const [requestReplay, claveReplay] =
+        mockedComprobantesService.emitir.mock.calls[1];
+      expect(claveReplay).toBe(claveInicial);
+      expect(requestReplay).toEqual(requestInicial);
+      expect(vm.operacionIncierta).toBeNull();
+      expect(vm.idempotencyKeyEmision).toBeNull();
+      expect(wrapper.find('[data-testid="operacion-incierta"]').exists()).toBe(
+        false,
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("conserva el snapshot y bloquea la verificación si cambia el emisor", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    mockedComprobantesService.emitir.mockRejectedValue(errorReconciliacion());
+
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      await vm.confirmarEmision();
+
+      const claveOriginal = vm.operacionIncierta?.idempotencyKey;
+      const fechaOriginal = vm.operacionIncierta?.request.fecha_emision;
+      const empresaStore = useEmpresaStore();
+      empresaStore.empresaActivaId = 2;
+      vm.formData.fecha_emision = "2026-05-21";
+      await flushPromises();
+
+      expect(vm.operacionIncierta?.idempotencyKey).toBe(claveOriginal);
+      expect(vm.operacionIncierta?.request.fecha_emision).toBe(fechaOriginal);
+      expect(
+        wrapper
+          .get('[data-testid="verificar-operacion-incierta"]')
+          .attributes(),
+      ).toHaveProperty("disabled");
+      expect(
+        wrapper
+          .get('[data-testid="operacion-incierta-emisor-distinto"]')
+          .text(),
+      ).toContain("operación permanece bloqueada");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("evita dos solicitudes efectivas ante una interacción duplicada", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    const emisionDiferida = deferred<EmitirComprobanteResponse>();
+    mockedComprobantesService.emitir.mockReturnValue(emisionDiferida.promise);
+    const wrapper = await mountView();
+    const vm = await completarFormulario(wrapper);
+
+    const primera = vm.confirmarEmision();
+    const segunda = vm.confirmarEmision();
+
+    expect(mockedComprobantesService.emitir).toHaveBeenCalledTimes(1);
+    emisionDiferida.resolve(respuestaFinal());
+    await Promise.all([primera, segunda]);
+  });
+
+  it("desbloquea el formulario cuando la verificación devuelve un rechazo final", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    mockedComprobantesService.emitir
+      .mockRejectedValueOnce(errorReconciliacion())
+      .mockRejectedValueOnce({
+        response: {
+          status: 400,
+          data: {
+            detail: {
+              mensaje: "Rechazado por ARCA",
+              errores: ["Dato fiscal inválido"],
+            },
+          },
+        },
+      });
+
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      await vm.confirmarEmision();
+      await vm.verificarEstado();
+      await flushPromises();
+
+      expect(vm.operacionIncierta).toBeNull();
+      expect(vm.idempotencyKeyEmision).toBeNull();
+      expect(
+        wrapper.get('[data-testid="formulario-emision"]').attributes(),
+      ).not.toHaveProperty("inert");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("no presenta un error genérico pre-ARCA como reconciliación", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue({
+      proximo_numero: 100,
+    });
+    mockedComprobantesService.emitir.mockRejectedValue({
+      response: {
+        data: {
+          detail: {
+            mensaje: "No se pudo iniciar la solicitud fiscal",
+          },
+        },
+      },
+    });
+
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      await vm.confirmarEmision();
+      await flushPromises();
+
+      expect(vm.operacionIncierta).toBeNull();
+      expect(wrapper.find('[data-testid="operacion-incierta"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.get('[data-testid="formulario-emision"]').attributes(),
+      ).not.toHaveProperty("inert");
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

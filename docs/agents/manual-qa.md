@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-10
+Última actualización: 2026-07-13
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -140,11 +140,11 @@ correcto. La QA manual y la evidencia productiva continúan pendientes.
 Los commits `8b311b5` y `e175b77` ya fueron publicados en `main`. No formaron una
 nueva release ni fueron desplegados; `v0.2.1` continúa como versión productiva.
 
-### PF-01A.2 — QA manual pendiente
+### PF-01A — QA manual pendiente
 
-La cobertura automatizada usa dobles y no solicita CAE real. En una QA
-controlada, provocar sin red una excepción inesperada después de marcar la
-frontera fiscal y verificar:
+La cobertura automatizada usa dobles y no solicita CAE real. Para PF-01A.2, una
+QA controlada debe provocar sin red una excepción inesperada después de marcar
+la frontera fiscal y verificar:
 
 1. respuesta `409` sanitizada con `requiere_reconciliacion`;
 2. conservación de CAE, vencimiento, número y total cuando ya se conocían;
@@ -153,18 +153,35 @@ frontera fiscal y verificar:
 5. rechazo `R` explícito como fallo verificado;
 6. comportamiento equivalente en individual y batch.
 
-El cierre automatizado aprobó `503` tests backend, con `2` omitidos por marcas
-preexistentes, y una regresión enfocada final de `189` tests sobre WSFE,
-facturación, API y lotes. Ruff, Black y `git diff --check` quedaron limpios. Dos
-findings P2 intermedios de `autoreview` se aceptaron, corrigieron y cubrieron con
-regresiones; la revisión final efectiva con `gpt-5.5 high` quedó limpia, sin
-findings accionables y con confianza `0,82`. `gpt-5.6-sol` no llegó a revisar
-porque el motor exigió una versión más nueva del binario local de Codex.
+PF-01A.3 agrega la matriz visual de emisión individual. Sin llamar a ARCA real,
+simular desde el borde HTTP:
 
-PF-01A.3 debe agregar la validación visual de estado dedicado, payload congelado
-y acción segura de verificación. Hasta entonces, no hacer QA con CAE real para
-forzar este escenario.
+1. un `409` estructurado y confirmar el panel `Emisión pendiente de
+   verificación`, el resumen fiscal visible y el formulario inerte;
+2. presionar `Verificar estado` y comprobar que request y
+   `X-Idempotency-Key` sean exactamente los mismos;
+3. hacer doble interacción y comprobar una sola solicitud efectiva;
+4. cambiar el emisor activo: el estado debe conservarse y la verificación quedar
+   deshabilitada hasta volver al emisor original;
+5. devolver red, `409` o `5xx`: el bloqueo debe continuar; devolver autorización
+   final: debe navegar al comprobante; devolver rechazo final HTTP `400` con
+   `{mensaje, errores}`: debe desbloquear para corregir datos;
+6. intentar cancelar o navegar mientras está pendiente: la vista debe impedirlo;
+7. intentar cerrar o recargar: debe aparecer la advertencia del navegador. Si se
+   fuerza la recarga, el estado visual en memoria puede perderse, pero no se debe
+   iniciar otra emisión; corresponde revisar el backend o pedir soporte con el
+   emisor original.
 
+El cierre automatizado de PF-01A.2 aprobó `503` tests backend, con `2` omitidos,
+y una regresión enfocada de `189` tests. PF-01A.3 aprobó `17` pruebas unitarias
+enfocadas, `127` unitarias completas, un E2E enfocado y `33` E2E completos;
+ESLint, type-check y build quedaron limpios. `autoreview` con `gpt-5.5 high`
+detectó un P1 válido sobre el rechazo final HTTP `400`; se aceptó, corrigió y
+cubrió, y la segunda pasada quedó limpia con confianza `0,80`. `gpt-5.6-sol` no
+llegó a revisar porque exige una versión más nueva del binario local.
+
+No forzar este escenario con CAE real hasta autorizar explícitamente una QA
+fiscal controlada. PF-01A.3 sigue local y no está desplegado.
 
 ### P1 pool/worker — cierre local
 
@@ -213,12 +230,13 @@ básicos y restauración aislada. Seguir
 
 ## Punto de reanudación de QA
 
-Antes de iniciar otra corrección o una nueva matriz de QA, esperar autorización
-explícita para publicar `e175b77`. La QA manual/productiva del corte DB/FECAE y
-la validación productiva del P1 pool/worker solo se ejecutan con autorización
-explícita de publicación o despliegue, según corresponda. No repetir como
-pendiente el setup productivo inicial, el rediseño UX de lotes ni la validación
-de `v0.2.1`.
+PF-01A.3 está implementado y validado localmente. El próximo checkpoint de QA es
+publicar ese commit solo con autorización, verificar CI por SHA y luego cerrar la
+revalidación integrada de PF-01A, incluida Clawpatch según su runbook. La QA
+manual/productiva de DB/FECAE, PF-01A y pool/worker solo se ejecuta con
+autorización explícita de despliegue y sin forzar CAE real para fabricar fallos.
+No repetir como pendiente el setup productivo inicial, el rediseño UX de lotes
+ni la validación de `v0.2.1`.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

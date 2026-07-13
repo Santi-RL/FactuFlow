@@ -95,8 +95,9 @@ manual/productiva de ese corte sigue pendiente.
 - Tag desplegado e inmutable:
   `8099b223f3be7342dbb29367d24c6209dee93a58`.
 - La release quedó desplegada y aceptada el 2026-07-10.
-- `main` contiene el cierre documental posterior a la release. Un commit solo
-  documental posterior al tag no implica un nuevo despliegue.
+- `origin/main` incluye PF-01A.1 (`bd0d817`) y PF-01A.2 (`ae18856`); PF-01A.3
+  permanece en `main` local hasta una nueva autorización de push.
+  Ninguno de estos cortes posteriores al tag implica un nuevo despliegue.
 - Producción quedó sana después de backup, restauración aislada, migración,
   smoke checks y QA manual autenticada con emisión fiscal real satisfactoria.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
@@ -172,23 +173,19 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ### P1 fiscal siguiente
 
-No apareció un P0. PF-01A.1 quedó implementado y validado localmente: el cliente
-WSFE exige CAE ASCII de 14 dígitos y vencimiento calendario `YYYYMMDD` para
-`Resultado=A`; rechaza `P`, resultados desconocidos, errores globales y
-respuestas batch ambiguas, y conserva `R` completo como rechazo verificable. La
-matriz negativa cubre individual y batch con dobles locales, sin llamadas ARCA.
+No apareció un P0. PF-01A.1 y PF-01A.2 ya están publicados en `origin/main`;
+PF-01A.3 quedó implementado y validado localmente. La UI de emisión individual
+detecta el `409` fiscal estructurado, conserva en memoria una copia inmutable del
+payload y la misma clave idempotente, bloquea edición, cancelación, navegación,
+doble envío y verificación bajo otro emisor, y ofrece `Verificar estado` con la
+operación exacta. Solo una autorización o un rechazo final HTTP `400` desbloquean
+la pantalla; `409`, red y fallos no concluyentes mantienen el bloqueo.
 
-PF-01A.2 quedó implementado localmente. Un rechazo `R` completo se cierra como
-`rechazado_arca`; toda excepción inesperada después de iniciar `FECAESolicitar`
-se transforma en respuesta sanitizada `requiere_reconciliacion` para individual
-y batch. La API intenta persistir el `409` como replay idempotente y conserva la
-evidencia fiscal conocida; la misma clave no vuelve a emitir. Los fallos
-inequívocamente pre-ARCA mantienen el comportamiento anterior.
-
-PF-01A continúa en curso. El próximo corte es PF-01A.3: UI de reconciliación con
-clave y payload inmutables. No se modificaron todavía frontend, esquema ni
-migraciones. El diseño completo está en
-`docs/agents/pf-01-authorization-integrity-design.md`.
+La operación pendiente no se guarda en `localStorage` ni `sessionStorage` para no
+persistir datos fiscales o privados en el navegador. Se advierte antes de cerrar
+o recargar; una recarga forzada puede perder el estado visual, pero no la
+autoridad durable del backend. En ese caso no debe crearse otra emisión: hay que
+pedir revisión o soporte con el emisor original.
 
 Validación de PF-01A.1:
 
@@ -201,27 +198,39 @@ Validación de PF-01A.1:
 - Ruff y Black: limpios sobre `app` y `tests`; `git diff --check`: limpio;
 - `autoreview` efectivo con `gpt-5.5`, thinking `high`: patch correcto, confianza
   `0,86` y sin findings accionables. `gpt-5.6-sol` se intentó dos veces, pero el
-  motor exigió una versión más nueva del binario local de Codex y no llegó a
-  revisar;
-- no se ejecutó Clawpatch en este microcorte. Su revalidación corresponde al
-  checkpoint de cortes relacionados o al cierre de PF-01A, no después de cada
-  cambio aislado.
+  motor exigió una versión más nueva del binario local de Codex y no revisó.
 
 Validación de PF-01A.2:
 
+- commit `ae18856` publicado en `origin/main`; ejecución de GitHub Actions
+  `29226385118` aprobada en Frontend Build, Backend Tests, Security Audit y E2E
+  Tests;
 - backend completo: `503` tests aprobados y `2` omitidos por marcas
   preexistentes; regresión enfocada final de WSFE, servicio, API y lotes: `189`
   tests aprobados;
 - Ruff y Black: limpios sobre `app` y `tests`; `git diff --check`: limpio;
-- dos pasadas intermedias de `autoreview` detectaron findings P2 válidos: cierre
-  durable de rechazos `R` en el fallback batch y separación entre la fase
-  monotónica compartida y la invocación ARCA iniciada por cada llamada. Ambos se
-  aceptaron, corrigieron y cubrieron con regresiones;
-- revisión final efectiva con `gpt-5.5`, thinking `high`: limpia, sin findings
-  accionables y con confianza `0,82`. `gpt-5.6-sol` se intentó dos veces, pero
-  el motor exigió una versión más nueva del binario local de Codex y no llegó a
-  revisar;
-- no hubo llamadas reales a ARCA ni se ejecutó Clawpatch en este microcorte.
+- dos findings P2 intermedios de `autoreview` se aceptaron, corrigieron y
+  cubrieron; la revisión final efectiva con `gpt-5.5 high` quedó limpia, sin
+  findings accionables y con confianza `0,82`;
+- no hubo llamadas reales a ARCA ni se ejecutó Clawpatch en el microcorte.
+
+Validación local de PF-01A.3:
+
+- pruebas unitarias enfocadas: `17` aprobadas; suite frontend completa: `127`
+  aprobadas;
+- E2E enfocado del replay exacto: aprobado; suite E2E completa: `33` aprobadas;
+- ESLint, type-check y build: limpios; Browserslist solo informó datos
+  desactualizados;
+- `autoreview` efectivo con `gpt-5.5 high` detectó un P1 válido: el rechazo final
+  real llega como HTTP `400`, no como promesa resuelta. Se aceptó, corrigió y
+  cubrió con el contrato real; la segunda pasada quedó limpia, sin findings
+  accionables y con confianza `0,80`;
+- `gpt-5.6-sol` se intentó dos veces, pero el binario local requiere una versión
+  más nueva y no llegó a revisar;
+- se aplicó la revisión de seguridad de Vue/FastAPI: sin HTML crudo ni storage
+  web para el snapshot fiscal, y con respuestas inciertas allowlist/sanitizadas;
+- no hubo llamadas reales a ARCA ni se ejecutó Clawpatch. La revalidación
+  corresponde al checkpoint integrado de PF-01A.
 
 PF-01B será un corte posterior y separado para auditar datos heredados, agregar
 constraints de estados/CAE/reservas y ejecutar su migración. Solo después se
@@ -269,16 +278,15 @@ Siguen pendientes:
 5. La adjudicación de los 36 `high` está completada. No repetirla ni usar
    `clawpatch fix`; consultar el portafolio y el reporte local si hace falta
    rastrear una decisión.
-6. PF-01A.1 y PF-01A.2 ya están cerrados localmente. Con confirmación del usuario,
-   el siguiente cambio de código debe ser únicamente PF-01A.3: UI de
-   reconciliación con clave y payload inmutables.
-7. Continuar PF-01A en cortes revisables: PF-01A.3; verificación integrada y
-   documentación visible.
-8. Mantener PF-01B separado porque exige auditoría legacy, migración y
+6. PF-01A.1 y PF-01A.2 están publicados; PF-01A.3 está implementado y validado
+   localmente. No volver a diseñar ni ampliar esos cortes.
+7. El siguiente paso es publicar el commit de PF-01A.3 solo con autorización y
+   verificar su CI por SHA.
+8. Después, ejecutar el checkpoint integrado de PF-01A: revisar la evidencia
+   individual/batch relacionada, revalidar Clawpatch según su runbook y registrar
+   el cierre antes de iniciar PF-01B.
+9. Mantener PF-01B separado porque exige auditoría legacy, migración y
    constraints. No comenzar PF-02 hasta cerrar PF-01.
-9. Aplicar `docs/project/audits/clawpatch/README.md`: tests enfocados,
-   `autoreview` solo con confirmación, push solo con autorización, CI por SHA y
-   revalidación Clawpatch después de cortes relacionados.
 10. Para próximas revisiones, usar `gpt-5.6-sol` con `high`; `gpt-5.5 high`
     queda como fallback documentado.
 
