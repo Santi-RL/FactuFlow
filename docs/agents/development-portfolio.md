@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: PRIORIZADO; PF-01A.1 Y PF-01A.2 PUBLICADOS, PF-01A.3 COMPLETADO LOCALMENTE; CHECKPOINT INTEGRADO PENDIENTE.
+Estado: PRIORIZADO; PF-01A.1, PF-01A.2 Y PF-01A.3 PUBLICADOS; CHECKPOINT INTEGRADO PENDIENTE.
 
 ## Propósito y autoridad
 
@@ -69,7 +69,7 @@ La distribución principal es:
 
 | Línea | P1 | P2 | Resultado |
 |---|---:|---:|---|
-| PF-01 | 6 | 0 | PF-01A.1/.2 publicados y PF-01A.3 local; checkpoint integrado pendiente. PF-01B requiere migración separada. |
+| PF-01 | 6 | 0 | PF-01A.1/.2/.3 publicados; checkpoint integrado pendiente. PF-01B requiere migración separada. |
 | PF-03 | 2 | 0 | Contratos fiscales estrictos e importes válidos. |
 | PF-04 | 0 | 4 | Evidencia histórica, moneda, redondeo y tests PDF. |
 | PF-06 | 2 | 0 | Invariantes multiemisor backend. |
@@ -176,9 +176,8 @@ Antes de editar código, cada corte debe tener:
 - Los 36 hallazgos `high` fueron adjudicados, deduplicados y asignados a PF.
 - No se confirmó ningún P0.
 - PF-01A tiene alcance, invariantes, estados, orden de operaciones, fallos y
-  matriz de tests definidos. PF-01A.1 y PF-01A.2 están publicados; PF-01A.3
-  quedó implementado y validado localmente con estado visual bloqueante y replay
-  exacto de clave/payload.
-- El siguiente paso es publicar PF-01A.3 solo con autorización, verificar CI por
-  SHA y cerrar el checkpoint integrado con revalidación Clawpatch antes de
-  iniciar PF-01B.
+  matriz de tests definidos. PF-01A.1, PF-01A.2 y PF-01A.3 están publicados;
+  el último conserva estado visual bloqueante y replay exacto de clave/payload.
+- El siguiente paso es publicar el parche de seguridad de Pillow solo con
+  autorización, verificar CI por SHA y cerrar el checkpoint integrado con
+  revalidación Clawpatch antes de iniciar PF-01B.

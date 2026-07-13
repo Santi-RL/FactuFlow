@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: EN IMPLEMENTACIÓN. PF-01A.1 Y PF-01A.2 PUBLICADOS; PF-01A.3 COMPLETADO LOCALMENTE; CHECKPOINT INTEGRADO PENDIENTE.
+Estado: EN IMPLEMENTACIÓN. PF-01A.1, PF-01A.2 Y PF-01A.3 PUBLICADOS; CHECKPOINT INTEGRADO PENDIENTE.
 
 ## Objetivo
 
@@ -271,7 +271,7 @@ Después de implementar:
 - tests de la vista de emisión;
 - lint, formato, type-check y build de las áreas tocadas;
 - suites completas en el checkpoint lógico;
-- `autoreview` con `gpt-5.6-sol high` solo con confirmación explícita del
+- `autoreview` con `gpt-5.5 high` solo con confirmación explícita del
   usuario;
 - revalidación de los findings aceptados con Clawpatch;
 - actualización de roadmap, estado, QA, ARCA y manual de usuario cuando cambie
@@ -325,8 +325,10 @@ confianza `0,80`. `gpt-5.6-sol` se intentó dos veces, pero no llegó a revisar 
 la incompatibilidad del binario local. No hubo llamadas reales a ARCA ni se
 ejecutó Clawpatch.
 
-PF-01A.3 permanece en `main` local hasta recibir autorización de push. El
-próximo paso es el corte 4: publicación y CI por SHA, revisión integrada de la
-evidencia individual/batch, revalidación Clawpatch según su runbook y cierre
-documental de PF-01A. PF-01B continúa separado por su auditoría legacy,
-migración y constraints.
+PF-01A.3 se publicó como `578a15a`. GitHub Actions `29244681533` aprobó
+backend, frontend y E2E; la auditoría de seguridad detectó cinco avisos nuevos
+de Pillow `12.2.0`, todos corregidos por el commit local `82d4245` con la
+actualización a `12.3.0`. El próximo paso es publicar ese parche, verificar su
+CI por SHA, revisar la evidencia individual/batch, revalidar Clawpatch según
+su runbook y cerrar documentalmente PF-01A. PF-01B continúa separado por su
+auditoría legacy, migración y constraints.

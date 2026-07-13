@@ -95,8 +95,8 @@ manual/productiva de ese corte sigue pendiente.
 - Tag desplegado e inmutable:
   `8099b223f3be7342dbb29367d24c6209dee93a58`.
 - La release quedó desplegada y aceptada el 2026-07-10.
-- `origin/main` incluye PF-01A.1 (`bd0d817`) y PF-01A.2 (`ae18856`); PF-01A.3
-  permanece en `main` local hasta una nueva autorización de push.
+- `origin/main` incluye PF-01A.1 (`bd0d817`), PF-01A.2 (`ae18856`) y
+  PF-01A.3 (`578a15a`).
   Ninguno de estos cortes posteriores al tag implica un nuevo despliegue.
 - Producción quedó sana después de backup, restauración aislada, migración,
   smoke checks y QA manual autenticada con emisión fiscal real satisfactoria.
@@ -173,8 +173,8 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ### P1 fiscal siguiente
 
-No apareció un P0. PF-01A.1 y PF-01A.2 ya están publicados en `origin/main`;
-PF-01A.3 quedó implementado y validado localmente. La UI de emisión individual
+No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
+`origin/main`. La UI de emisión individual
 detecta el `409` fiscal estructurado, conserva en memoria una copia inmutable del
 payload y la misma clave idempotente, bloquea edición, cancelación, navegación,
 doble envío y verificación bajo otro emisor, y ofrece `Verificar estado` con la
@@ -278,17 +278,20 @@ Siguen pendientes:
 5. La adjudicación de los 36 `high` está completada. No repetirla ni usar
    `clawpatch fix`; consultar el portafolio y el reporte local si hace falta
    rastrear una decisión.
-6. PF-01A.1 y PF-01A.2 están publicados; PF-01A.3 está implementado y validado
-   localmente. No volver a diseñar ni ampliar esos cortes.
-7. El siguiente paso es publicar el commit de PF-01A.3 solo con autorización y
-   verificar su CI por SHA.
-8. Después, ejecutar el checkpoint integrado de PF-01A: revisar la evidencia
-   individual/batch relacionada, revalidar Clawpatch según su runbook y registrar
-   el cierre antes de iniciar PF-01B.
+6. PF-01A.1, PF-01A.2 y PF-01A.3 están publicados. No volver a diseñar ni
+   ampliar esos cortes.
+7. La CI por SHA de PF-01A.3 aprobó backend, frontend y E2E, pero la auditoría
+   detectó cinco avisos nuevos de Pillow `12.2.0`, corregidos en `12.3.0`.
+   El commit local `82d4245` actualiza solo esa dependencia; tiene 503 tests
+   backend aprobados, 2 omitidos y `pip-audit` limpio.
+8. El siguiente paso es publicar `82d4245` solo con autorización y verificar su
+   CI por SHA. Después, ejecutar el checkpoint integrado de PF-01: revisar la
+   evidencia individual/batch relacionada, revalidar Clawpatch según su runbook
+   y registrar el cierre antes de iniciar PF-01B.
 9. Mantener PF-01B separado porque exige auditoría legacy, migración y
    constraints. No comenzar PF-02 hasta cerrar PF-01.
-10. Para próximas revisiones, usar `gpt-5.6-sol` con `high`; `gpt-5.5 high`
-    queda como fallback documentado.
+10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
+    `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
 
 ## Referencias de continuidad
 

@@ -276,10 +276,10 @@ npm run type-check
   - Si el diff empieza a mezclar temas independientes, sugerir cortar en commits o revisiones separadas para optimizar tiempo, tokens y calidad de hallazgos.
   - Antes de commit/PR de cambios no triviales, recordar la opción de `autoreview` si todavía no se ejecutó en ese ciclo.
 - Antes de correr `autoreview`, ejecutar tests/lint/formato relevantes siempre que sea razonable. Después, revisar el diff real y verificar manualmente cada finding antes de aplicar fixes. Si se aceptan fixes que cambian código, repetir las pruebas enfocadas y volver a correr `autoreview` hasta que no queden hallazgos aceptados/accionables o hasta que el usuario decida detener el ciclo.
-- Para cambios sensibles confirmados por el usuario, la revisión final preferida
-  es Codex con `gpt-5.6-sol` y `high`. Si ese modelo no puede ejecutarse después
-  de un reintento razonable, usar `gpt-5.5` con `high` y registrar el modelo
-  realmente utilizado.
+- Para cambios sensibles confirmados por el usuario, ejecutar directamente la
+  revisión final con Codex `gpt-5.5` y `high`, y registrar el modelo realmente
+  utilizado. No intentar previamente `gpt-5.6-sol` salvo que el usuario cambie
+  explícitamente esta preferencia.
 - No ejecutar automáticamente una escalera `low -> medium -> high` para un fix
   pequeño ya cubierto por tests. Reservar una revisión temprana adicional para
   diseños amplios, inciertos o que cambien contratos. Si una pasada encuentra

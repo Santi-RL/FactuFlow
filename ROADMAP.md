@@ -169,8 +169,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   no cambia.
 - [~] Auditoría Clawpatch 2026-07-12 completada sobre `repo`, `backend` y
   `frontend`, sin fixes ni llamadas ARCA. Los findings `high` ya fueron
-  deduplicados, adjudicados por causa raíz y enrutados al portafolio. PF-01A.1 y
-  PF-01A.2 están publicados y PF-01A.3 quedó implementado localmente; corresponde
+  deduplicados, adjudicados por causa raíz y enrutados al portafolio. PF-01A.1,
+  PF-01A.2 y PF-01A.3 están publicados; corresponde
   revalidar Clawpatch en el checkpoint integrado, no reparar hallazgos aislados.
   El portafolio consolidado vive en `docs/agents/development-portfolio.md`.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
@@ -817,10 +817,10 @@ Objetivo: ampliar valor mas alla del MVP.
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
 2. Cerrar el checkpoint integrado de PF-01A según
-   `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1 y PF-01A.2
-   están publicados, y PF-01A.3 quedó implementado localmente con UI bloqueante,
-   replay exacto y pruebas frontend. Falta publicar ese corte, revalidar el
-   conjunto relacionado con Clawpatch y registrar el cierre antes de PF-01B.
+   `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1, PF-01A.2 y
+   PF-01A.3 están publicados. Falta publicar el parche de seguridad de Pillow,
+   verificar su CI, revalidar el conjunto relacionado con Clawpatch y registrar
+   el cierre antes de PF-01B.
 3. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
    migración y constraints de estados, CAE y reservas activas.
 4. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no

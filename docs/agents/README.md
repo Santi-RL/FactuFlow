@@ -88,8 +88,8 @@
   que el usuario decida detener el ciclo.
 - Para cambios fiscales críticos, aplicar primero el checklist
   `docs/agents/fiscal-change-checklist.md`. Si el usuario confirma
-  `autoreview`, usar `gpt-5.6-sol high` como revisión final preferida y
-  `gpt-5.5 high` solo como fallback de disponibilidad. No ejecutar una escalera
+  `autoreview`, usar directamente `gpt-5.5 high` como revisión final. No intentar
+  antes `gpt-5.6-sol` salvo nueva indicación explícita. No ejecutar una escalera
   automática de tres modelos/niveles para un fix pequeño ya cubierto por tests.
 - Los hallazgos son asesoramiento. Clasificar cada uno como aceptado, rechazado
   o diferido antes de modificar código. Corregir solo hallazgos que reduzcan un

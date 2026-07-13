@@ -181,7 +181,7 @@ cubrió, y la segunda pasada quedó limpia con confianza `0,80`. `gpt-5.6-sol` n
 llegó a revisar porque exige una versión más nueva del binario local.
 
 No forzar este escenario con CAE real hasta autorizar explícitamente una QA
-fiscal controlada. PF-01A.3 sigue local y no está desplegado.
+fiscal controlada. PF-01A.3 está publicado, pero no está desplegado.
 
 ### P1 pool/worker — cierre local
 
@@ -230,9 +230,9 @@ básicos y restauración aislada. Seguir
 
 ## Punto de reanudación de QA
 
-PF-01A.3 está implementado y validado localmente. El próximo checkpoint de QA es
-publicar ese commit solo con autorización, verificar CI por SHA y luego cerrar la
-revalidación integrada de PF-01A, incluida Clawpatch según su runbook. La QA
+PF-01A.3 está publicado. El próximo checkpoint de QA es publicar el parche de
+seguridad de Pillow solo con autorización, verificar CI por SHA y luego cerrar
+la revalidación integrada de PF-01A, incluida Clawpatch según su runbook. La QA
 manual/productiva de DB/FECAE, PF-01A y pool/worker solo se ejecuta con
 autorización explícita de despliegue y sin forzar CAE real para fabricar fallos.
 No repetir como pendiente el setup productivo inicial, el rediseño UX de lotes

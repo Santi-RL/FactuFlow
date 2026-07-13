@@ -162,11 +162,9 @@ Para cambios fiscales críticos confirmados por el usuario:
 1. Diseñar invariantes y tests antes o junto al código.
 2. Corregir solo hallazgos aceptados después de verificarlos en el código real.
 3. Ejecutar pruebas enfocadas y controles del área.
-4. Hacer la revisión final con `gpt-5.6-sol` y `high`.
-5. Si `gpt-5.6-sol` no puede ejecutarse después de un reintento razonable, usar
-   `gpt-5.5` con `high` y registrar el fallback.
-6. Si la revisión provoca cambios, repetir pruebas enfocadas y la revisión.
-7. Cuando quede limpia, detenerse; no correr otra opinión redundante.
+4. Hacer la revisión final directamente con `gpt-5.5` y `high`.
+5. Si la revisión provoca cambios, repetir pruebas enfocadas y la revisión.
+6. Cuando quede limpia, detenerse; no correr otra opinión redundante.
 
 Comando Windows habitual para un diff sin commit:
 
@@ -175,7 +173,7 @@ $env:PYTHONUTF8='1'
 $env:PYTHONIOENCODING='utf-8'
 $autoreview = Join-Path $env:USERPROFILE '.codex\skills\autoreview\scripts\autoreview'
 $codexBin = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin\codex.exe'
-python $autoreview --mode local --engine codex --model gpt-5.6-sol --thinking high --codex-bin $codexBin
+python $autoreview --mode local --engine codex --model gpt-5.5 --thinking high --codex-bin $codexBin
 ```
 
 Para un commit ya creado, reemplazar `--mode local` por
