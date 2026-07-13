@@ -95,12 +95,33 @@ manual/productiva de ese corte sigue pendiente.
 - Tag desplegado e inmutable:
   `8099b223f3be7342dbb29367d24c6209dee93a58`.
 - La release quedó desplegada y aceptada el 2026-07-10.
-- `origin/main` incluye PF-01A.1 (`bd0d817`), PF-01A.2 (`ae18856`) y
-  PF-01A.3 (`578a15a`).
-  Ninguno de estos cortes posteriores al tag implica un nuevo despliegue.
+- `origin/main` avanzó hasta `f9d170a`: incluye PF-01A/PF-01B, el
+  endurecimiento de pools/worker, la frontera DB/FECAE y su cierre documental.
+  Su CI `29275715128` aprobó seguridad, backend, frontend y E2E. Ninguno de
+  estos cortes posteriores al tag implica un nuevo despliegue.
 - Producción quedó sana después de backup, restauración aislada, migración,
   smoke checks y QA manual autenticada con emisión fiscal real satisfactoria.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
+
+### Candidato v0.2.2
+
+`main` prepara el candidato `0.2.2` con alcance funcional congelado después
+de PF-01 y antes de PF-02. El baseline publicado es `f9d170a`; el versionado,
+changelog y dossier de upgrade están en preparación local. Producción continúa
+en `v0.2.1`: no existe tag, release ni despliegue `v0.2.2`.
+
+El rango incorpora una migración fiscal (`a8b9c0d1e2f3`), Pillow `12.3.0` y
+variables nuevas de pool. El versionado local aprobó lint, type-check, Black,
+`531` pruebas backend, `127` frontend, `3` de scripts y build. La primera
+pasada de `autoreview gpt-5.5 high` detectó un P2 válido: dos manifiestos
+backend conservaban `0.2.1`. El hallazgo se aceptó y corrigió; la segunda
+pasada quedó limpia, sin findings, con confianza `0,82`.
+
+Antes de etiquetar faltan publicar el commit candidato y obtener CI verde,
+confirmar en privado el backup portable, restaurar una copia,
+ejecutar el preflight de las cinco categorías legacy y decidir explícitamente
+el tag. El despliegue requiere una autorización posterior separada. El dossier
+vigente es `docs/project/releases/v0.2.2-candidate.md`.
 
 ## Estado del producto
 
@@ -146,18 +167,18 @@ El ciclo 2026-07-07/10 que formó `v0.2.1` continúa cerrado y desplegado. El
 actual con Clawpatch `0.7.0`, Codex `gpt-5.6-sol`, razonamiento `high` y sin
 aplicar fixes.
 
-El checkpoint integrado PF-01A del 2026-07-13 dejó el estado local ignorado
-así:
+Los checkpoints integrados PF-01A/PF-01B del 2026-07-13 dejaron el estado local
+ignorado así:
 
 - repo: 15 abiertos, 4 `high`, 4 `medium` y 7 `low`;
-- backend: 98 abiertos, 22 `high`, 52 `medium` y 24 `low`;
+- backend: 96 abiertos, 20 `high`, 52 `medium` y 24 `low`;
 - frontend: 29 abiertos, 5 `high`, 20 `medium` y 4 `low`.
 
-R02, B03, B04 y B24 se revalidaron secuencialmente como `fixed` con
+R02, B03, B04, B24, B10 y B17 se revalidaron secuencialmente como `fixed` con
 Clawpatch `0.7.0`, Codex `gpt-5.6-sol` y razonamiento `high`. No hubo
-resultados inciertos, falsos positivos nuevos, locks, `clawpatch fix` ni llamadas
-reales a ARCA. Los contadores restantes siguen siendo un ledger acumulativo,
-no una lista de bugs confirmados.
+resultados inciertos, falsos positivos nuevos, locks, `clawpatch fix` ni
+llamadas reales a ARCA. Los contadores restantes siguen siendo un ledger
+acumulativo, no una lista de bugs confirmados.
 
 La adjudicación original confirmó 33 problemas únicos: 20 P1, 12 P2 y un
 finding rechazado; además identificó tres registros duplicados entre slices.
@@ -170,8 +191,9 @@ ni reinicializar `.clawpatch/` sin decisión explícita.
 
 La guía canónica es `docs/project/audits/clawpatch/README.md`. Los cierres
 sanitizados están en
-`docs/project/audits/clawpatch/2026-07-12-cierre-auditoria-ordenada.md` y
-`docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01a.md`.
+`docs/project/audits/clawpatch/2026-07-12-cierre-auditoria-ordenada.md`,
+`docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01a.md` y
+`docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01b.md`.
 El portafolio que integra estos hallazgos con el roadmap está en
 `docs/agents/development-portfolio.md`.
 
@@ -300,12 +322,14 @@ Siguen pendientes:
 7. PF-01 está cerrado: PF-01A y PF-01B fueron publicados, sus CI quedaron
    verdes y R02/B03/B04/B24/B10/B17 figuran `fixed` en Clawpatch. No repetir
    esos checkpoints.
-8. El siguiente corte recomendado es preparar el candidato provisional
-   `v0.2.2` antes de mezclar PF-02. Aplicar la guía flexible de `ROADMAP.md` y
-   las puertas de `docs/agents/production-workflow.md`; no crear tag ni
-   desplegar sin decisión explícita.
-9. Después de cerrar o diferir explícitamente ese corte de release, continuar
-   PF-02 y luego PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio.
+8. Completar el candidato `v0.2.2` antes de mezclar PF-02: la validación local
+   está verde y el P2 de versionado de la primera pasada de `autoreview` fue
+   corregido; la pasada final quedó limpia. Falta publicar el commit y exigir
+   CI verde. No crear tag todavía.
+9. Después, completar en privado backup/restauración y preflight. Crear el tag
+   solo con decisión explícita y desplegar únicamente con otra autorización.
+   Si el corte se difiere explícitamente, continuar PF-02 y luego PF-03,
+   PF-06/PF-07, PF-08 y PF-09 según el portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
     `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
 
@@ -321,6 +345,7 @@ Siguen pendientes:
 - QA manual vigente: `docs/agents/manual-qa.md`
 - Historial: `CHANGELOG.md`
 - Flujo productivo: `docs/agents/production-workflow.md`
+- Candidato v0.2.2: `docs/project/releases/v0.2.2-candidate.md`
 - Checklist fiscal: `docs/agents/fiscal-change-checklist.md`
 - Clawpatch: `docs/project/audits/clawpatch/README.md`
 - Cierre v0.2.1:

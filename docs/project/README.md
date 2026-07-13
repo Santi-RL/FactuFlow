@@ -29,6 +29,8 @@ Regla de lectura:
   - Los resúmenes de fases antiguas quedaron consolidados en `CHANGELOG.md`.
     No mantener nuevos archivos de fase salvo que haya una razón operativa
     concreta.
+  - Preparación operativa del candidato `v0.2.2`:
+    `docs/project/releases/v0.2.2-candidate.md`.
 - Auditorías:
   - Verificación del proyecto: `docs/project/audits/VERIFICACION_PROYECTO.md`
   - Clawpatch: `docs/project/audits/clawpatch/README.md`

@@ -794,6 +794,12 @@ Objetivo: profesionalizar la entrega del producto.
 - [ ] Paquetes o imagenes publicables
 - [x] Notas de release inauguradas con `v0.2.1`; mantenerlas en cada versión
   futura
+- [~] Candidato `v0.2.2` en preparación: alcance funcional congelado en
+  `f9d170a`, versionado `0.2.2`, changelog, dossier y validaciones locales
+  completos. La primera pasada de `autoreview gpt-5.5 high` encontró un P2
+  válido de versionado, ya corregido; la pasada final quedó limpia. Faltan CI
+  del commit candidato, backup/restauración y preflight privados, decisión
+  de tag y autorización separada de despliegue.
 
 #### Guía flexible de cortes
 
@@ -826,7 +832,9 @@ el despliegue siguen siendo decisiones separadas de cada commit o push.
 - [ ] Instalación simplificada para terceros, posterior a estabilizar VPS
 - [ ] Plantillas de configuración por ambiente
 - [ ] Demo controlada o entorno de evaluación
-- [ ] Procedimiento de upgrade entre versiones
+- [~] Procedimiento de upgrade `v0.2.1 -> v0.2.2` preparado en
+  `docs/project/releases/v0.2.2-candidate.md`; falta ensayarlo sobre una
+  restauración privada aislada antes del tag
 
 ### Soporte y adopcion
 - [ ] Runbooks de soporte
@@ -851,10 +859,9 @@ Objetivo: ampliar valor más allá del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Preparar el candidato provisional `v0.2.2` antes de mezclar PF-02: congelar
-   su alcance, comparar el rango desde `v0.2.1`, completar notas y upgrade,
-   ensayar preflight/rollback sobre una restauración aislada y decidir
-   explícitamente tag y despliegue.
+2. Completar las puertas del candidato `v0.2.2` antes de mezclar PF-02:
+   validar el commit de versionado, ensayar backup/restauración y preflight en
+   privado, y decidir por separado tag y despliegue.
 3. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
 4. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,

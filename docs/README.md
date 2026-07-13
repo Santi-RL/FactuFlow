@@ -5,6 +5,7 @@ Este directorio agrupa la documentación del proyecto.
 ## Índice
 
 - Changelog y corte versionado actual: `CHANGELOG.md`
+- Candidato de release `v0.2.2`: `docs/project/releases/v0.2.2-candidate.md`
 - Instalación y setup: `docs/setup/README.md`
 - Migración local a VPS: `docs/setup/vps-migration.md`
 - Manual de usuario: `docs/user-guide/README.md`

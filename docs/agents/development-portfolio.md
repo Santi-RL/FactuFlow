@@ -45,9 +45,9 @@ emisores y una plataforma multiempresa compleja.
 | Clawpatch `repo` | 15 abiertos: 4 `high`, 4 `medium`, 7 `low` | Riesgos end-to-end y contratos entre capas |
 | Clawpatch `backend` | 96 abiertos: 20 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
 | Clawpatch `frontend` | 29 abiertos: 5 `high`, 20 `medium`, 4 `low` | Estado de UI, contratos, concurrencia y UX |
-| `ROADMAP.md` | 83 ítems no cerrados: 53 pendientes, 30 en curso | Producto, plataforma, operación y evolución |
+| `ROADMAP.md` | 84 ítems no cerrados: 52 pendientes, 32 en curso | Producto, plataforma, operación y evolución |
 
-Los 140 hallazgos abiertos actuales y los 83 ítems no representan 223 tareas independientes.
+Los 140 hallazgos abiertos actuales y los 84 ítems no representan 224 tareas independientes.
 Existen duplicados entre slices, repeticiones del mismo objetivo en distintas
 fases del roadmap y hallazgos que son síntomas de una misma causa raíz.
 

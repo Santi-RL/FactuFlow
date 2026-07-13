@@ -18,65 +18,76 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-### Robustez de lotes y base de datos
+> Estado: candidato `v0.2.2` en preparación. Todavía no existe tag, release ni
+> despliegue; producción continúa en `v0.2.1`.
 
-- El seguimiento de lotes usa un endpoint allowlist de estado y polling
-  adaptativo `3/5/10 s`, sin ciclos solapados, con backoff y guards ante cambios
-  de emisor o respuestas tardías.
-- PostgreSQL separa el pool API, limitado a un máximo de cuatro conexiones sin
-  overflow, de una conexión dedicada al worker secuencial. SQLite conserva un
-  engine compartido como topología esperada.
-- Las sesiones API ya no adquieren conexión antes del primer SQL; la falta de
-  credenciales no ocupa el pool. Saturación y desconexión responden `503` con
-  mensajes sanitizados.
-- Antes de `FECAESolicitar`, solo se devuelve `503` con `Retry-After: 2` cuando
-  FactuFlow confirmó durablemente recuperación segura y cero intentos fiscales.
-  La operación pasa `en_proceso -> interrumpida_pre_arca`; un replay con la misma
-  clave hace CAS a `en_proceso`, con un único ganador. Individual y lotes
-  restauran el lote o grupo exacto. Si existe un intento o no puede persistirse
-  la recuperación, responde `409 pre_arca_estado_bloqueado`, conserva la clave y
-  exige revisar o esperar, sin afirmar reconciliación ARCA.
-- El worker pre-ARCA solo devuelve el lote a `en_cola` sin intentos, conserva la
-  operación `en_proceso` para impedir replay HTTP paralelo y corta el ciclo.
-  Desde la frontera irreversible mantiene `409`, reconciliación y ausencia de
-  retry. `IntegrityError` no cambia.
-- `get_db` preserva la excepción primaria aunque fallen `rollback` o `close`; un
-  `409` post-ARCA no se degrada a `503` por cleanup.
-- `Sistema > Estado` incorpora salud administrativa del worker y métricas
-  allowlist de pools, sin DSN, credenciales, SQL ni errores crudos.
-- Una prueba PostgreSQL efímera confirmó capacidad `4 + 1`, máximos y timeouts a
-  cinco segundos sin crear datos fiscales ni llamar ARCA.
-- Los lotes pequeños pedidos en background conservan ese modo al ser tomados por
-  el worker. No cambiaron CAE, numeración, idempotencia ni reconciliación.
-- La corrección fiscal quedó cerrada en el commit local `e175b77`
-  (`fix: preserve fiscal state on database outages`). Las pasadas intermedias de
-  `autoreview` detectaron P1 válidos sobre persistencia de rechazos, estado ORM
-  posterior a rollback, fronteras pre-ARCA y ownership de creaciones ambiguas;
-  todos fueron aceptados y corregidos dentro del mismo corte.
-- La validación final aprobó `487` tests backend con `2` omitidos, las `120`
-  pruebas de API, Ruff, Black y `git diff --check`. El `autoreview` final se
-  ejecutó con `gpt-5.6-sol` en `high` y quedó limpio, sin findings accionables;
-  calificó el patch como correcto con probabilidad `0,87`.
-- `main` está dos commits por delante de `origin/main`: `8b311b5` y `e175b77`.
-  El corte está listo para push, pero continúa local: no hubo push, release ni
-  despliegue, y `v0.2.1` sigue siendo la versión productiva.
+### Confiabilidad fiscal
+
+- WSFE solo acepta autorizaciones individuales con `Resultado=A`, CAE ASCII de
+  14 dígitos y vencimiento válido. Respuestas parciales, ambiguas o globalmente
+  erróneas no se persisten como comprobantes autorizados.
+- Los fallos inesperados posteriores a iniciar `FECAESolicitar` conservan un
+  estado reconciliable y bloquean reintentos inseguros. La UI individual
+  mantiene la misma clave y payload mientras el resultado sea incierto.
+- La frontera DB/FECAE distingue recuperación pre-ARCA comprobada de estados
+  inciertos. Solo devuelve `503` cuando confirmó durablemente cero intentos;
+  cualquier ambigüedad conserva `409`, ownership e idempotencia.
+- PF-01B incorpora vocabularios cerrados y constraints persistidos para estados,
+  reservas activas y coherencia entre autorización, CAE y vencimiento.
+
+### Migración y persistencia
+
+- Se agrega la revisión Alembic `a8b9c0d1e2f3`, posterior a
+  `f7a8b9c0d1e2`.
+- La migración audita cinco categorías de datos legacy antes del DDL y aborta
+  con conteos sanitizados si encuentra estados desconocidos, autorizados
+  incompletos, CAE en estados no autorizados o reservas activas duplicadas.
+- No normaliza ni completa datos fiscales por inferencia. SQLite y PostgreSQL 16
+  efímero validaron upgrade, downgrade, constraints, estados y concurrencia.
+
+### Operación de lotes y base de datos
+
+- PostgreSQL separa el pool API, limitado a cuatro conexiones sin overflow, de
+  una conexión dedicada al worker secuencial. Los timeouts y warnings son
+  configurables con límites seguros.
+- Las sesiones API adquieren conexión recién al primer SQL; saturación y
+  desconexiones responden `503` sin exponer detalles internos.
+- El seguimiento de lotes usa una consulta allowlist, polling adaptativo y
+  guards ante cambios de emisor o respuestas tardías.
+- `Sistema > Estado` muestra salud sanitizada del worker y de los pools.
 
 ### Seguridad
 
-- `/api/health/db` deja de exponer excepciones internas y los timeouts o fallos
-  de conexión no controlados reciben una respuesta genérica reintentable.
+- Pillow se actualiza de `12.2.0` a `12.3.0` para cerrar los avisos de
+  seguridad detectados por CI.
+- Los errores de base y emisión mantienen detalle solo en logs privados y
+  devuelven mensajes públicos sanitizados.
 
-### Documentación y continuidad
+### Validación acumulada
 
-- Se normalizaron el estado operativo y el QA manual para dejar un handoff breve
-  de `v0.2.1` y un único punto técnico de reanudación.
-- Se corrigieron permisos multiemisor, fechas visibles, recuperación de lotes
-  vencidos y referencias de despliegue obsoletas.
-- La metodología vigente conserva fixes sensibles aislados, agrupa cambios
-  chicos relacionados, usa tests enfocados y revisa con `gpt-5.6-sol high`,
-  con `gpt-5.5 high` como alternativa.
-- Se documentaron el registro acumulativo de Clawpatch, la decisión ante
-  migraciones inesperadas y la inmutabilidad de tags publicados.
+- El baseline funcional `f9d170a` tiene CI `29275715128` verde en Security
+  Audit, Backend Tests, Frontend Build y E2E Tests.
+- PF-01B aprobó `531` pruebas backend con `4` omisiones configuradas y un
+  harness PostgreSQL 16 de `4` pruebas.
+- Los cortes sensibles fueron revisados con `autoreview`; las revisiones
+  finales efectivas usaron `gpt-5.5 high` según la política vigente.
+- Clawpatch revalidó R02/B03/B04/B24/B10/B17 como `fixed`, sin
+  `clawpatch fix` ni llamadas reales a ARCA.
+- La preparación `0.2.2` aprobó lint, type-check, Black, `531` pruebas
+  backend, `127` frontend, `3` de scripts y build.
+
+### Preparación de release
+
+- El alcance funcional se congela después de PF-01 y antes de PF-02.
+- El versionado técnico y visible se prepara como `0.2.2`.
+- El inventario, migración, rollback y puertas pendientes están en
+  `docs/project/releases/v0.2.2-candidate.md`.
+- La primera pasada de `autoreview gpt-5.5 high` detectó un P2 válido:
+  metadatos `0.2.1` remanentes en dos manifiestos backend. Se aceptó y corrigió;
+  la pasada final quedó limpia, sin findings, con confianza `0,82`.
+- Siguen pendientes las verificaciones privadas de backup/restauración,
+  preflight sobre una copia productiva aislada, CI del commit candidato y las
+  decisiones explícitas de tag y despliegue.
 
 ## [0.2.1] - 2026-07-10
 
