@@ -224,13 +224,15 @@
 
 ### CAE, idempotencia e intentos fiscales
 
-Estado de implementación 2026-07-13: PF-01A.1 ya valida en el cliente WSFE que
+Estado de implementación 2026-07-13: PF-01A.1 valida en el cliente WSFE que
 `Resultado=A` incluya un CAE ASCII de 14 dígitos y un vencimiento calendario
-válido `YYYYMMDD`. También rechaza `P`, resultados desconocidos, errores globales
-y cardinalidades o rangos ambiguos; un `R` completo se conserva como rechazo
-verificable. PF-01A.2 sigue pendiente: hasta cerrarlo, no asumir que toda
-excepción inesperada post-ARCA ya persiste reconciliación y una respuesta
-idempotente estructurada. Diseño: `docs/agents/pf-01-authorization-integrity-design.md`.
+válido `YYYYMMDD`. Rechaza `P`, resultados desconocidos, errores globales y
+cardinalidades o rangos ambiguos; un `R` completo se conserva como rechazo
+verificable. PF-01A.2 transforma toda excepción inesperada post-ARCA en una
+respuesta sanitizada `requiere_reconciliacion`, individual o batch, actualiza los
+intentos y persiste el `409` idempotente cuando la base lo permite. PF-01A.3,
+correspondiente a la UI dedicada, sigue pendiente. Diseño:
+`docs/agents/pf-01-authorization-integrity-design.md`.
 
 - El CAE es la prueba de autorización fiscal devuelta por ARCA. No es la llave
   primaria de idempotencia: FactuFlow no puede esperar a tener CAE para decidir

@@ -75,6 +75,65 @@ def _error_db_post_arca(
     return HTTPException(status_code=409, detail=detail)
 
 
+def _respuesta_inesperada_post_arca(
+    request: EmitirComprobanteRequest,
+    resultado: EmitirComprobanteResponse | None,
+) -> EmitirComprobanteResponse:
+    """Construye un replay sanitizado si una excepción cruza la frontera ARCA."""
+    return EmitirComprobanteResponse(
+        exito=False,
+        comprobante_id=resultado.comprobante_id if resultado else None,
+        tipo_comprobante=(
+            resultado.tipo_comprobante if resultado else request.tipo_comprobante
+        ),
+        punto_venta=resultado.punto_venta if resultado else 0,
+        numero=resultado.numero if resultado else 0,
+        fecha=resultado.fecha if resultado else request.fecha_emision,
+        cae=resultado.cae if resultado else None,
+        cae_vencimiento=resultado.cae_vencimiento if resultado else None,
+        total=resultado.total if resultado else 0,
+        mensaje=(
+            "La solicitud fiscal pudo haber sido procesada por ARCA, pero "
+            "FactuFlow no pudo confirmar su cierre local."
+        ),
+        errores=[
+            "No reintentes con otra clave. Conservá esta operación y reconciliá el comprobante."
+        ],
+        requiere_reconciliacion=True,
+        categoria_error=(
+            "post_arca_persistencia" if resultado else "arca_respuesta_incierta"
+        ),
+    )
+
+
+async def _guardar_respuesta_inesperada_post_arca(
+    db: AsyncSession,
+    idempotencia: IdempotenciaFiscalService,
+    operacion: OperacionIdempotente,
+    respuesta: EmitirComprobanteResponse,
+) -> None:
+    """Intenta persistir el replay incierto sin reemplazar la respuesta HTTP segura."""
+    try:
+        await db.rollback()
+        await idempotencia.guardar_respuesta_operacion(
+            operacion,
+            response_json=respuesta,
+            estado="requiere_reconciliacion",
+        )
+    except Exception as persistencia_exc:
+        logger.error(
+            "event=post_arca_response_persistence_failed tipo_error=%s",
+            type(persistencia_exc).__name__,
+        )
+        try:
+            await db.rollback()
+        except Exception as rollback_exc:
+            logger.error(
+                "event=post_arca_response_rollback_failed tipo_error=%s",
+                type(rollback_exc).__name__,
+            )
+
+
 def _error_db_pre_arca_bloqueado() -> HTTPException:
     """Devuelve un conflicto seguro si no pudo abrirse un replay pre-ARCA."""
     return HTTPException(
@@ -547,6 +606,18 @@ async def emitir_comprobante(
         raise _error_db_post_arca(resultado)
     except Exception as exc:
         logger.exception("Error inesperado al emitir comprobante")
+        if fase_solicitud_arca.iniciada:
+            respuesta_incierta = _respuesta_inesperada_post_arca(request, resultado)
+            await _guardar_respuesta_inesperada_post_arca(
+                db,
+                idempotencia,
+                operacion,
+                respuesta_incierta,
+            )
+            raise HTTPException(
+                status_code=409,
+                detail=jsonable_encoder(respuesta_incierta),
+            ) from exc
         raise HTTPException(
             status_code=500,
             detail={

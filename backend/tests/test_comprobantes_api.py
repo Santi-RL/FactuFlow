@@ -665,6 +665,150 @@ async def test_emitir_comprobante_sanitiza_errores_inesperados(
 
 
 @pytest.mark.asyncio
+async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Una excepción inesperada post-ARCA se guarda y no vuelve a emitir."""
+    llamadas = 0
+
+    async def fake_emitir(self, request, **kwargs):
+        """Cruza la frontera ARCA y simula un fallo interno posterior."""
+        nonlocal llamadas
+        llamadas += 1
+        kwargs["fase_solicitud_arca"].marcar_iniciada()
+        raise RuntimeError(
+            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    headers = {
+        **auth_headers,
+        **_idempotency_header("idem-excepcion-post-arca"),
+    }
+    payload = _request_emitir_base(test_empresa)
+
+    primera = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    segunda = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+
+    assert primera.status_code == 409
+    assert segunda.status_code == 409
+    assert llamadas == 1
+    for response in (primera, segunda):
+        detail = response.json()["detail"]
+        assert detail["requiere_reconciliacion"] is True
+        assert detail["categoria_error"] == "arca_respuesta_incierta"
+        assert "otra clave" in detail["errores"][0]
+        assert "secreto" not in response.text
+        assert "privada.key" not in response.text
+
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-excepcion-post-arca"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "requiere_reconciliacion"
+    assert operacion.response_json["categoria_error"] == "arca_respuesta_incierta"
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_409(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un fallo idempotente post-CAE conserva CAE y bloquea el replay."""
+    llamadas_emision = 0
+    llamadas_guardado = 0
+    guardar_original = IdempotenciaFiscalService.guardar_respuesta_operacion
+
+    async def fake_emitir(self, request, **kwargs):
+        """Devuelve una autorización después de marcar la frontera ARCA."""
+        nonlocal llamadas_emision
+        llamadas_emision += 1
+        kwargs["fase_solicitud_arca"].marcar_iniciada()
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=101,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=6,
+            numero=22,
+            fecha=request.fecha_emision,
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 7, 23),
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    async def fallar_primer_guardado(self, operacion, **kwargs):
+        """Falla una vez y permite persistir el fallback incierto."""
+        nonlocal llamadas_guardado
+        llamadas_guardado += 1
+        if llamadas_guardado == 1:
+            raise RuntimeError("secreto privada.key")
+        return await guardar_original(self, operacion, **kwargs)
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "guardar_respuesta_operacion",
+        fallar_primer_guardado,
+    )
+    headers = {
+        **auth_headers,
+        **_idempotency_header("idem-fallo-respuesta-post-arca"),
+    }
+    payload = _request_emitir_base(test_empresa)
+
+    primera = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    segunda = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+
+    assert primera.status_code == 409
+    assert segunda.status_code == 409
+    assert llamadas_emision == 1
+    assert llamadas_guardado == 2
+    for response in (primera, segunda):
+        detail = response.json()["detail"]
+        assert detail["requiere_reconciliacion"] is True
+        assert detail["categoria_error"] == "post_arca_persistencia"
+        assert detail["cae"] == "12345678901234"
+        assert detail["numero"] == 22
+        assert "secreto" not in response.text
+        assert "privada.key" not in response.text
+
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-fallo-respuesta-post-arca"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "requiere_reconciliacion"
+    assert operacion.response_json["cae"] == "12345678901234"
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     client: AsyncClient,
     auth_headers: dict,

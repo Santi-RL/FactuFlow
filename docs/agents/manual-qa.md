@@ -64,6 +64,9 @@ Verificar al menos:
   ARCA;
 - caída desde la frontera irreversible: `409`, sin retry, con evidencia conocida
   preservada y reconciliación obligatoria;
+- excepción inesperada post-ARCA individual o batch: respuesta sanitizada,
+  intento `requiere_reconciliacion` y replay con la misma clave sin nueva emisión;
+- rechazo `R` completo: fallo verificado sin comprobante ni reconciliación;
 - aislamiento entre emisores.
 
 No solicitar CAE real durante QA salvo decisión fiscal explícita del usuario.
@@ -134,9 +137,34 @@ backend aprobados y `2` omitidos, `120` pruebas de API aprobadas, Ruff, Black y
 quedó limpio, sin findings accionables, con probabilidad `0,87` de patch
 correcto. La QA manual y la evidencia productiva continúan pendientes.
 
-El commit local `e175b77` está listo para push junto con `8b311b5`, pero ninguno
-de los dos commits locales fue publicado. No hubo push, release ni despliegue;
-`v0.2.1` continúa como versión productiva.
+Los commits `8b311b5` y `e175b77` ya fueron publicados en `main`. No formaron una
+nueva release ni fueron desplegados; `v0.2.1` continúa como versión productiva.
+
+### PF-01A.2 — QA manual pendiente
+
+La cobertura automatizada usa dobles y no solicita CAE real. En una QA
+controlada, provocar sin red una excepción inesperada después de marcar la
+frontera fiscal y verificar:
+
+1. respuesta `409` sanitizada con `requiere_reconciliacion`;
+2. conservación de CAE, vencimiento, número y total cuando ya se conocían;
+3. operación e intento bloqueantes;
+4. replay con la misma clave y payload sin segunda ejecución;
+5. rechazo `R` explícito como fallo verificado;
+6. comportamiento equivalente en individual y batch.
+
+El cierre automatizado aprobó `503` tests backend, con `2` omitidos por marcas
+preexistentes, y una regresión enfocada final de `189` tests sobre WSFE,
+facturación, API y lotes. Ruff, Black y `git diff --check` quedaron limpios. Dos
+findings P2 intermedios de `autoreview` se aceptaron, corrigieron y cubrieron con
+regresiones; la revisión final efectiva con `gpt-5.5 high` quedó limpia, sin
+findings accionables y con confianza `0,82`. `gpt-5.6-sol` no llegó a revisar
+porque el motor exigió una versión más nueva del binario local de Codex.
+
+PF-01A.3 debe agregar la validación visual de estado dedicado, payload congelado
+y acción segura de verificación. Hasta entonces, no hacer QA con CAE real para
+forzar este escenario.
+
 
 ### P1 pool/worker — cierre local
 

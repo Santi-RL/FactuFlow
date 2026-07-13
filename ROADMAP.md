@@ -415,9 +415,13 @@ Objetivo: dejar la emisión validada contra servicios reales.
   con CAE ASCII de 14 dígitos y vencimiento calendario `YYYYMMDD`; rechaza
   parciales, estados desconocidos, errores globales y cardinalidades/rangos
   batch ambiguos. Un `R` completo permanece como rechazo verificable.
-- [x] La emisión CAE individual solo retorna normalmente para resultado
-  aprobado con CAE utilizable; rechaza resultados parciales o cualquier estado
-  distinto de `A`.
+- [x] La emisión CAE individual retorna autorizaciones utilizables o rechazos
+  `R` verificables; los resultados parciales y respuestas ambiguas quedan para
+  reconciliación.
+- [x] Toda excepción inesperada posterior a iniciar `FECAESolicitar`, individual
+  o batch, produce una respuesta sanitizada `requiere_reconciliacion`. La API
+  persiste el `409` idempotente cuando es posible y el replay con la misma clave
+  no vuelve a emitir.
 - [x] Validación de numeración y punto de venta en emisión
 - [x] Mapeo de `CondicionIVAReceptorId`
 - [x] Validación local de ventana ARCA para fecha de emisión antes de emitir
@@ -809,9 +813,8 @@ Objetivo: ampliar valor mas alla del MVP.
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
 2. Continuar PF-01A según
-   `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1 (validador CAE
-   y matriz batch) está cerrado localmente; siguen clasificación post-ARCA,
-   replay seguro, UI bloqueante y verificación integrada.
+   `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1 y PF-01A.2
+   están cerrados localmente; siguen UI bloqueante y verificación integrada.
 3. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
    migración y constraints de estados, CAE y reservas activas.
 4. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no

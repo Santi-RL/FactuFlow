@@ -25,7 +25,11 @@ from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     ItemComprobanteCreate,
 )
-from app.services.facturacion_service import FacturacionService, ValidationError
+from app.services.facturacion_service import (
+    FacturacionService,
+    FaseSolicitudArca,
+    ValidationError,
+)
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
 
@@ -857,6 +861,132 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("modo", ["individual", "batch"])
+async def test_excepcion_inesperada_post_arca_requiere_reconciliacion(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    modo: str,
+) -> None:
+    """Individual y batch bloquean reintentos ante una excepción post-ARCA."""
+
+    class FakeWSFEClient:
+        """Cliente WSFE que falla después de cruzar la frontera fiscal."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma real sin usar red."""
+
+        async def fe_cae_solicitar(self, _arca_request):
+            """Simula un fallo inesperado durante la solicitud individual."""
+            raise RuntimeError("secreto privada.key")
+
+        async def fe_cae_solicitar_lote(self, _arca_requests):
+            """Simula un fallo inesperado durante la solicitud batch."""
+            raise RuntimeError("secreto privada.key")
+
+    async def fake_validar_datos(self, request):
+        """Acepta el request de prueba."""
+
+    async def fake_tomar_lock(self, *args, **kwargs):
+        """Evita locks dependientes del motor de base."""
+
+    async def fake_obtener_empresa(self, empresa_id):
+        """Devuelve el emisor de prueba."""
+        return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
+
+    async def fake_obtener_certificado_activo(self, empresa_id):
+        """Devuelve material de certificado simulado."""
+        return SimpleNamespace(
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
+
+    async def fake_ticket(self, empresa, certificado):
+        """Devuelve credenciales WSAA simuladas."""
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        """Acepta el punto de venta de prueba."""
+
+    async def fake_obtener_proximo(self, *args, **kwargs):
+        """Reserva un número fiscal conocido."""
+        return 77
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
+    monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_obtener_certificado_activo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_proximo_numero",
+        fake_obtener_proximo,
+    )
+
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 7, 13),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    service = FacturacionService(db_session)
+    if modo == "individual":
+        resultado = await service.emitir_comprobante(request)
+    else:
+        resultado = (await service.emitir_comprobantes_lote([request]))[0]
+
+    intento = await db_session.scalar(select(IntentoEmisionFiscal))
+    assert resultado.exito is False
+    assert resultado.requiere_reconciliacion is True
+    assert resultado.categoria_error == "arca_respuesta_incierta"
+    assert resultado.numero == 77
+    assert resultado.punto_venta == 1
+    assert intento is not None
+    assert intento.estado == "requiere_reconciliacion"
+    respuesta_json = resultado.model_dump_json()
+    assert "secreto" not in respuesta_json
+    assert "privada.key" not in respuesta_json
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_sanea_error_interno_del_servicio(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
@@ -891,12 +1021,22 @@ async def test_emitir_comprobante_sanea_error_interno_del_servicio(
         ],
     )
 
-    individual = await service.emitir_comprobante(request)
-    batch = (await service.emitir_comprobantes_lote([request]))[0]
+    fase_compartida = FaseSolicitudArca(iniciada=True)
+    individual = await service.emitir_comprobante(
+        request,
+        fase_solicitud_arca=fase_compartida,
+    )
+    batch = (
+        await service.emitir_comprobantes_lote(
+            [request],
+            fase_solicitud_arca=fase_compartida,
+        )
+    )[0]
 
     for resultado in (individual, batch):
         respuesta_json = resultado.model_dump_json()
         assert resultado.exito is False
+        assert resultado.requiere_reconciliacion is False
         assert "secreto" not in respuesta_json
         assert "privada.key" not in respuesta_json
         assert "logs privados" in respuesta_json
@@ -1019,7 +1159,7 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
     """Un rechazo ARCA solo es definitivo si el intento pudo cerrarse."""
 
     class FakeWSFEClient:
-        """Cliente WSFE simulado con resultado parcial sin CAE."""
+        """Cliente WSFE simulado con rechazo explícito sin CAE."""
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
@@ -1045,7 +1185,7 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
                 numero_comprobante=77,
                 tipo_cbte=6,
                 punto_venta=1,
-                resultado="P",
+                resultado="R",
             )
 
     async def fake_validar_datos(self, request):
@@ -1103,6 +1243,23 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
             IdempotenciaFiscalService,
             "actualizar_intento_desde_respuesta",
             fallar_actualizacion_intento,
+        )
+    if modo == "batch" and fallar_cierre:
+        respuesta_original = FacturacionService._respuesta_si_arca_no_autorizo
+        llamadas_clasificacion = 0
+
+        def fallar_primera_clasificacion(self, *args, **kwargs):
+            """Fuerza el fallback amplio y luego permite clasificar el R."""
+            nonlocal llamadas_clasificacion
+            llamadas_clasificacion += 1
+            if llamadas_clasificacion == 1:
+                raise RuntimeError("fallo inesperado post-ARCA")
+            return respuesta_original(self, *args, **kwargs)
+
+        monkeypatch.setattr(
+            FacturacionService,
+            "_respuesta_si_arca_no_autorizo",
+            fallar_primera_clasificacion,
         )
 
     punto_venta = PuntoVenta(

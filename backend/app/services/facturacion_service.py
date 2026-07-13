@@ -333,6 +333,7 @@ class FacturacionService:
     ) -> list[EmitirComprobanteResponse]:
         """Ejecuta la emisión batch asumiendo que el lock local ya fue tomado."""
         fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
+        arca_iniciada_en_esta_llamada = False
         try:
             requests = [self.normalizar_receptor(request) for request in requests]
             self._validar_lote_homogeneo(requests, max_registros=max_registros)
@@ -449,8 +450,10 @@ class FacturacionService:
                     )
                 ]
 
+            resultados_arca = []
             try:
                 fase_solicitud_arca.marcar_iniciada()
+                arca_iniciada_en_esta_llamada = True
                 resultados_arca_sin_ordenar = await wsfe_client.fe_cae_solicitar_lote(
                     arca_requests
                 )
@@ -700,6 +703,71 @@ class FacturacionService:
             ]
         except Exception:
             logger.exception("Error inesperado al emitir sublote")
+            if arca_iniciada_en_esta_llamada:
+                resultados_por_numero = {
+                    int(resultado.numero_comprobante): resultado
+                    for resultado in resultados_arca
+                }
+                respuestas = []
+                for index, (request, totales, intento) in enumerate(
+                    zip(requests, totales_por_request, intentos)
+                ):
+                    numero = proximo + index
+                    resultado_arca = resultados_por_numero.get(numero)
+                    respuesta = None
+                    if resultado_arca is not None:
+                        respuesta = self._respuesta_si_arca_no_autorizo(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=numero,
+                            totales=totales,
+                            resultado_arca=resultado_arca,
+                        )
+                    if respuesta is None:
+                        respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=numero,
+                            totales=totales,
+                            resultado_arca=resultado_arca,
+                            mensaje=(
+                                "FactuFlow no pudo confirmar el resultado del "
+                                "sublote enviado a ARCA"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante.",
+                                ERROR_INTERNO_EMISION_PUBLICO,
+                            ],
+                            categoria_error="arca_respuesta_incierta",
+                        )
+                    intento_actualizado = (
+                        await self._actualizar_intento_batch_preservando_respuesta(
+                            idempotencia,
+                            intento,
+                            respuesta,
+                            contexto="excepcion_inesperada_post_arca",
+                        )
+                    )
+                    if (
+                        not intento_actualizado
+                        and not respuesta.requiere_reconciliacion
+                    ):
+                        respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=numero,
+                            totales=totales,
+                            resultado_arca=resultado_arca,
+                            mensaje=(
+                                "ARCA rechazó el comprobante, pero FactuFlow "
+                                "no pudo cerrar el intento fiscal"
+                            ),
+                            errores=[
+                                "No reintentes esta emisión hasta reconciliar el intento fiscal."
+                            ],
+                        )
+                    respuestas.append(respuesta)
+                return respuestas
             return [
                 EmitirComprobanteResponse(
                     exito=False,
@@ -737,6 +805,7 @@ class FacturacionService:
         7. Retornar resultado
         """
         fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
+        arca_iniciada_en_esta_llamada = False
         try:
             request = self.normalizar_receptor(request)
             # 1. Validar datos
@@ -826,8 +895,10 @@ class FacturacionService:
             )
 
             # 6. Solicitar CAE
+            resultado = None
             try:
                 fase_solicitud_arca.marcar_iniciada()
+                arca_iniciada_en_esta_llamada = True
                 resultado = await wsfe_client.fe_cae_solicitar(arca_request)
 
             except (ArcaServiceError, ArcaValidationError) as e:
@@ -1022,6 +1093,31 @@ class FacturacionService:
             )
         except Exception:
             logger.exception("Error inesperado al emitir comprobante")
+            if arca_iniciada_en_esta_llamada:
+                respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    numero=proximo,
+                    totales=totales,
+                    resultado_arca=resultado,
+                    mensaje=(
+                        "FactuFlow no pudo confirmar el resultado de la solicitud "
+                        "enviada a ARCA"
+                    ),
+                    errores=[
+                        "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante.",
+                        ERROR_INTERNO_EMISION_PUBLICO,
+                    ],
+                    categoria_error="arca_respuesta_incierta",
+                )
+                await self._actualizar_intento_preservando_respuesta(
+                    idempotencia,
+                    intento,
+                    respuesta,
+                    commit=commit,
+                    contexto="excepcion_inesperada_post_arca",
+                )
+                return respuesta
             return EmitirComprobanteResponse(
                 exito=False,
                 tipo_comprobante=request.tipo_comprobante,
@@ -1994,8 +2090,9 @@ class FacturacionService:
         resultado_arca,
         mensaje: str,
         errores: list[str],
+        categoria_error: str = "post_arca_persistencia",
     ) -> EmitirComprobanteResponse:
-        """Arma una respuesta no reintentable cuando ARCA ya autorizó CAE."""
+        """Arma una respuesta no reintentable después de iniciar ARCA."""
         return EmitirComprobanteResponse(
             exito=False,
             tipo_comprobante=request.tipo_comprobante,
@@ -2010,7 +2107,7 @@ class FacturacionService:
             mensaje=mensaje,
             errores=errores,
             requiere_reconciliacion=True,
-            categoria_error="post_arca_persistencia",
+            categoria_error=categoria_error,
         )
 
     async def _actualizar_intento_batch_preservando_respuesta(

@@ -178,14 +178,23 @@ WSFE exige CAE ASCII de 14 dígitos y vencimiento calendario `YYYYMMDD` para
 respuestas batch ambiguas, y conserva `R` completo como rechazo verificable. La
 matriz negativa cubre individual y batch con dobles locales, sin llamadas ARCA.
 
-PF-01A continúa en curso. El próximo corte es PF-01A.2: clasificar toda
-ambigüedad posterior a iniciar ARCA, persistir `requiere_reconciliacion` y devolver
-una respuesta idempotente estructurada. No se modificaron todavía servicio, API,
-persistencia, UI ni migraciones. El diseño completo está en
+PF-01A.2 quedó implementado localmente. Un rechazo `R` completo se cierra como
+`rechazado_arca`; toda excepción inesperada después de iniciar `FECAESolicitar`
+se transforma en respuesta sanitizada `requiere_reconciliacion` para individual
+y batch. La API intenta persistir el `409` como replay idempotente y conserva la
+evidencia fiscal conocida; la misma clave no vuelve a emitir. Los fallos
+inequívocamente pre-ARCA mantienen el comportamiento anterior.
+
+PF-01A continúa en curso. El próximo corte es PF-01A.3: UI de reconciliación con
+clave y payload inmutables. No se modificaron todavía frontend, esquema ni
+migraciones. El diseño completo está en
 `docs/agents/pf-01-authorization-integrity-design.md`.
 
 Validación de PF-01A.1:
 
+- commit `bd0d817` publicado en `origin/main`; ejecución de GitHub Actions
+  `29221936407` aprobada en Frontend Build, Backend Tests, Security Audit y E2E
+  Tests;
 - backend completo: `498` tests aprobados y `2` omitidos por marcas
   preexistentes;
 - suite ARCA: `85` tests aprobados; servicio de facturación: `39` aprobados;
@@ -197,6 +206,22 @@ Validación de PF-01A.1:
 - no se ejecutó Clawpatch en este microcorte. Su revalidación corresponde al
   checkpoint de cortes relacionados o al cierre de PF-01A, no después de cada
   cambio aislado.
+
+Validación de PF-01A.2:
+
+- backend completo: `503` tests aprobados y `2` omitidos por marcas
+  preexistentes; regresión enfocada final de WSFE, servicio, API y lotes: `189`
+  tests aprobados;
+- Ruff y Black: limpios sobre `app` y `tests`; `git diff --check`: limpio;
+- dos pasadas intermedias de `autoreview` detectaron findings P2 válidos: cierre
+  durable de rechazos `R` en el fallback batch y separación entre la fase
+  monotónica compartida y la invocación ARCA iniciada por cada llamada. Ambos se
+  aceptaron, corrigieron y cubrieron con regresiones;
+- revisión final efectiva con `gpt-5.5`, thinking `high`: limpia, sin findings
+  accionables y con confianza `0,82`. `gpt-5.6-sol` se intentó dos veces, pero
+  el motor exigió una versión más nueva del binario local de Codex y no llegó a
+  revisar;
+- no hubo llamadas reales a ARCA ni se ejecutó Clawpatch en este microcorte.
 
 PF-01B será un corte posterior y separado para auditar datos heredados, agregar
 constraints de estados/CAE/reservas y ejecutar su migración. Solo después se
@@ -244,11 +269,11 @@ Siguen pendientes:
 5. La adjudicación de los 36 `high` está completada. No repetirla ni usar
    `clawpatch fix`; consultar el portafolio y el reporte local si hace falta
    rastrear una decisión.
-6. PF-01A.1 ya está cerrado localmente. Con confirmación del usuario, el siguiente
-   cambio de código debe ser únicamente PF-01A.2: clasificación post-ARCA y
-   respuesta idempotente estructurada en servicio/API.
-7. Continuar PF-01A en cortes revisables: PF-01A.2; UI de reconciliación;
-   verificación integrada y documentación visible.
+6. PF-01A.1 y PF-01A.2 ya están cerrados localmente. Con confirmación del usuario,
+   el siguiente cambio de código debe ser únicamente PF-01A.3: UI de
+   reconciliación con clave y payload inmutables.
+7. Continuar PF-01A en cortes revisables: PF-01A.3; verificación integrada y
+   documentación visible.
 8. Mantener PF-01B separado porque exige auditoría legacy, migración y
    constraints. No comenzar PF-02 hasta cerrar PF-01.
 9. Aplicar `docs/project/audits/clawpatch/README.md`: tests enfocados,

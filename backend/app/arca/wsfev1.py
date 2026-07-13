@@ -159,17 +159,14 @@ class WSFEv1Client:
             comprobante: Datos del comprobante
 
         Returns:
-            CAEResponse con el CAE y datos del comprobante
+            CAEResponse con la autorización o el rechazo verificable
 
         Raises:
             ArcaValidationError: Si hay errores de validación
             ArcaServiceError: Si hay error del servicio
         """
         try:
-            resultados = await self.fe_cae_solicitar_lote(
-                [comprobante],
-                rechazar_detalles_no_aprobados=True,
-            )
+            resultados = await self.fe_cae_solicitar_lote([comprobante])
             return resultados[0]
 
         except Fault as e:

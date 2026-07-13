@@ -182,7 +182,7 @@ async def test_fe_comp_tot_x_request_parsea_reg_x_req():
 
 @pytest.mark.asyncio
 async def test_fe_cae_solicitar_rechaza_resultado_parcial():
-    """La variante individual solo retorna cuando el detalle está aprobado."""
+    """La variante individual nunca retorna un resultado parcial."""
 
     class FakeService:
         """Servicio SOAP simulado con resultado parcial sin CAE utilizable."""
@@ -205,6 +205,35 @@ async def test_fe_cae_solicitar_rechaza_resultado_parcial():
 
     with pytest.raises(ArcaServiceError, match="resultado parcial P"):
         await client.fe_cae_solicitar(_comprobante())
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_conserva_rechazo_explicito():
+    """La variante individual devuelve un R completo como rechazo verificable."""
+
+    class FakeService:
+        """Servicio SOAP simulado con rechazo definitivo."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle rechazado para el comprobante solicitado."""
+            detalle = SimpleNamespace(
+                CAE=None,
+                CAEFchVto=None,
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="R",
+            )
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
+                Errors=None,
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    resultado = await client.fe_cae_solicitar(_comprobante())
+
+    assert resultado.is_rechazado is True
+    assert resultado.cae is None
 
 
 @pytest.mark.asyncio

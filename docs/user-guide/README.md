@@ -391,8 +391,10 @@ y reintenta con la misma clave; no crees otra carga. Ante
 operación y espera o pide revisión. Ese bloqueo no requiere reconciliar ARCA
 porque la solicitud fiscal no comenzó. Si el `409` es posterior al inicio de la
 solicitud o indica `Requiere reconciliación`, no reintentes: pide revisión y
-reconciliación. En lotes, el worker detiene el ciclo y solo vuelve a poner el
-lote en cola pre-ARCA cuando comprobó que no hay intentos fiscales.
+reconciliación. FactuFlow conserva la respuesta con la misma clave cuando puede;
+repetir esa misma operación sirve para consultar su estado, no para pedir otro
+CAE. En lotes, el worker detiene el ciclo y solo vuelve a poner el lote en cola
+pre-ARCA cuando comprobó que no hay intentos fiscales.
 
 Si la pantalla no puede refrescar el seguimiento por timeout o error del
 servidor, eso no significa por sí mismo que el lote haya desaparecido. No vuelvas
@@ -841,8 +843,10 @@ una recuperación durable sin intentos: reintenta la misma operación con la mis
 clave. Ante `409 pre_arca_estado_bloqueado`, conserva la clave y pide revisión o
 espera, sin abrir otra operación ni reconciliar ARCA si FECAE no comenzó. Si el
 `409` es posterior a esa frontera, indica `Requiere reconciliación` o no sabes si
-ARCA fue llamada, no repitas la emisión: sigue el runbook y pide revisión. La
-acción `Probar conexión`
+ARCA fue llamada, no generes otra clave ni cambies los datos: conserva la
+operación y pide revisión. La pantalla dedicada para verificar y congelar este
+estado forma parte del siguiente corte; hasta entonces, un mensaje genérico no
+habilita a reemitir. La acción `Probar conexión`
 puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La guía
 rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
 autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.

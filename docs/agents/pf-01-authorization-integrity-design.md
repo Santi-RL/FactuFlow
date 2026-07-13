@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: EN IMPLEMENTACIÓN. PF-01A.1 COMPLETADO LOCALMENTE; PF-01A.2 PENDIENTE.
+Estado: EN IMPLEMENTACIÓN. PF-01A.1 Y PF-01A.2 COMPLETADOS LOCALMENTE; PF-01A.3 PENDIENTE.
 
 ## Objetivo
 
@@ -250,7 +250,7 @@ la limitación antes de implementar.
 ## Cortes de implementación previstos
 
 1. [x] Validador ARCA común y matriz negativa de `WSFEv1Client`.
-2. [ ] Clasificación post-ARCA y respuesta idempotente estructurada en API/servicio.
+2. [x] Clasificación post-ARCA y respuesta idempotente estructurada en API/servicio.
 3. [ ] UI de reconciliación con clave y payload inmutables.
 4. [ ] Pruebas integradas individual/batch y documentación viva.
 
@@ -273,7 +273,7 @@ Después de implementar:
 
 No se usará `clawpatch fix` para este trabajo fiscal crítico.
 
-## Cierre local de PF-01A.1
+## Cierre local de PF-01A.1 y PF-01A.2
 
 El 2026-07-13 se implementó el validador común y la matriz negativa de
 `WSFEv1Client`, sin llamadas reales a ARCA y sin modificar servicio, API,
@@ -283,5 +283,30 @@ efectiva fue `autoreview` con `gpt-5.5 high`, sin findings accionables y con
 confianza `0,86`; `gpt-5.6-sol` no llegó a revisar porque el motor exigió una
 versión más nueva del binario local de Codex.
 
-El próximo corte es exclusivamente PF-01A.2. Clawpatch se revalidará después de
-cortes relacionados o al cerrar PF-01A, no en este microcorte aislado.
+El 2026-07-13 también se implementó PF-01A.2. Un `R` completo queda como rechazo
+verificado; las excepciones inesperadas posteriores al cruce ARCA producen una
+respuesta sanitizada `requiere_reconciliacion` en individual y batch. La API
+intenta persistir ese `409` como replay idempotente y conserva CAE, vencimiento,
+número y total cuando ya se conocen. Las regresiones prueban que la misma clave
+no vuelve a emitir y que un fallo inequívocamente pre-ARCA conserva el contrato
+anterior.
+
+El cierre automatizado de PF-01A.2 aprobó `503` tests backend, con `2` omitidos
+por marcas preexistentes, y una regresión enfocada final de `189` tests. Ruff,
+Black y `git diff --check` quedaron limpios. Dos pasadas intermedias de
+`autoreview` encontraron findings P2 válidos: el fallback batch debía exigir el
+cierre durable del intento para conservar un `R` como rechazo verificado, y la
+clasificación de una excepción debía depender de que esa llamada hubiera
+iniciado ARCA, no de una fase monotónica compartida entre sublotes. Ambos se
+aceptaron, corrigieron y cubrieron con regresiones. La revisión final efectiva
+con `gpt-5.5 high` quedó limpia, sin findings accionables y con confianza `0,82`;
+`gpt-5.6-sol` no llegó a revisar porque el motor exigió una versión más nueva
+del binario local de Codex.
+
+PF-01A.1 se publicó como `bd0d817`. La ejecución de GitHub Actions
+`29221936407` aprobó Frontend Build, Backend Tests, Security Audit y E2E Tests.
+PF-01A.2 permanece local hasta que el usuario autorice un nuevo push.
+
+El próximo corte es exclusivamente PF-01A.3, dedicado a UI. Clawpatch se
+revalidará después de cortes relacionados o al cerrar PF-01A, no en cada
+microcorte aislado.
