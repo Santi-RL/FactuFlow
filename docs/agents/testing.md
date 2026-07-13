@@ -29,27 +29,31 @@ El marker `integration` está registrado en `backend/pytest.ini`. Las pruebas
 que requieren infraestructura real deben llevar ese marker y omitir su
 ejecución cuando no exista una configuración explícita.
 
-`backend/tests/integration/test_pool_capacity_postgresql.py` requiere la
-variable de proceso `FACTUFLOW_TEST_POSTGRES_URL`, que debe apuntar a una
-instancia PostgreSQL desechable. La URL y sus credenciales son privadas: no
-deben escribirse en comandos versionados, documentación pública, logs ni Git.
-Una vez configurada de forma segura en el entorno, ejecutar:
+Las pruebas requieren la variable de proceso `FACTUFLOW_TEST_POSTGRES_URL`, que
+debe apuntar a una instancia PostgreSQL desechable. La URL y sus credenciales
+son privadas: no deben escribirse en comandos versionados, documentación
+pública, logs ni Git. Una vez configurada de forma segura, ejecutar:
 
 ```bash
 cd backend
 pytest -m integration tests/integration/test_pool_capacity_postgresql.py -q
+pytest -m integration tests/integration/test_integridad_fiscal_postgresql.py -q
 ```
 
-La prueba ocupa las cuatro conexiones del pool API, confirma que el worker
-conserva su conexión dedicada y verifica los timeouts de una quinta conexión
-API y una segunda conexión de worker. Solo ejecuta consultas técnicas `SELECT
-1`: no crea lotes, no usa datos fiscales y no llama a ARCA. Debe correrse
-contra una base efímera que pueda descartarse al terminar, nunca contra una
-instalación operativa.
+La prueba de capacidad ocupa cuatro conexiones API, confirma una conexión
+worker dedicada y verifica los timeouts excedentes. Solo ejecuta `SELECT 1`.
 
-El corte `4+1` fue aprobado contra PostgreSQL efímero el 10/07/2026. Esa
-evidencia valida el contrato de capacidad local, pero no demuestra ni declara
-un despliegue.
+La prueba PF-01B recrea el schema `public`, aplica Alembic y usa datos fiscales
+sintéticos para validar checks, estados, CAE, índice parcial, concurrencia,
+downgrade y preflight. Exige `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1` y
+que el nombre de la base incluya `test`, `tmp`, `temp` o `pf01b`; falla antes de
+conectarse si falta cualquiera de los dos guardarraíles. Debe ejecutarse
+exclusivamente contra una base efímera preparada para ser descartada, nunca
+contra una instalación operativa. No solicita CAE ni usa certificados.
+
+El corte `4+1` fue aprobado el 10/07/2026 y PF-01B.3 el 13/07/2026 contra
+PostgreSQL efímero. Esa evidencia valida contratos locales, pero no demuestra ni
+declara un despliegue.
 
 Los archivos Python deben mantenerse con saltos de línea LF. El repo fija esta
 política en `.gitattributes` para `*.py` y `*.pyi`, evitando que `core.autocrlf`

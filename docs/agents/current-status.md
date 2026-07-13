@@ -239,17 +239,19 @@ Validación de PF-01A.3 y cierre integrado:
 - Clawpatch revalidó R02, B03, B04 y B24 como `fixed` con `gpt-5.6-sol high`.
   No hubo resultados inciertos, correcciones automáticas ni llamadas reales a ARCA.
 
-PF-01B.2 quedó implementado y validado localmente como corte separado. Agrega
-vocabularios canónicos, constraints de estados/CAE/reservas y una migración
-bloqueante que no normaliza datos ambiguos. Aprobaron `20` regresiones SQLite,
-`7` pruebas Alembic y `190` pruebas vecinas; Ruff, Black y `git diff --check`
-quedaron limpios. `autoreview` con `gpt-5.5 high` terminó sin findings
-accionables y con confianza `0,86`.
+PF-01B.2 quedó publicado como `f1219b7`; su CI `29268679829` aprobó Security
+Audit, Backend Tests, Frontend Build y E2E Tests. PF-01B.3 validó el mismo corte
+contra PostgreSQL 16 efímero con un harness reproducible de datos sintéticos:
+upgrade, tres checks, índice parcial, todos los estados, coherencia CAE,
+liberación terminal, dos transacciones concurrentes con un único ganador,
+downgrade y preflight con las cinco categorías ambiguas.
 
-PF-01B aún no está cerrado: falta PF-01B.3 con PostgreSQL desechable, suite
-backend completa y validaciones finales. Solo después corresponde revalidar B10
-y B17 con Clawpatch y pasar a PF-02. No hubo llamadas reales a ARCA ni cambios
-de UI, numeración global o historia externa.
+La integración PostgreSQL aprobó `4` pruebas; el backend completo aprobó `531` y
+omitió `4` según configuración. Ruff, Black y `git diff --check` quedaron
+limpios. `autoreview` con `gpt-5.5 high` quedó sin findings accionables y con
+confianza `0,82`. El contenedor no tuvo volumen persistente y fue eliminado. No hubo
+llamadas reales a ARCA ni cambios de UI, numeración global o historia externa.
+PF-01B aún no está cerrado: falta revalidar B10/B17 con Clawpatch.
 
 ### Backlog Clawpatch priorizado
 
@@ -293,13 +295,12 @@ Siguen pendientes:
 6. PF-01A está cerrado: los tres cortes, el parche de Pillow, la CI final y las
    revalidaciones R02/B03/B04/B24 están completos. No repetir ni ampliar ese
    checkpoint.
-7. PF-01B.1 y PF-01B.2 están cerrados localmente. El siguiente corte es
-   PF-01B.3: ejecutar la matriz en PostgreSQL desechable, la suite backend
-   completa y las validaciones finales definidas en
-   `docs/agents/pf-01b-persistence-integrity-design.md`. Si no exige cambios de
-   código, no repetir `autoreview`; después revalidar B10/B17 con Clawpatch.
+7. PF-01B.1, PF-01B.2 y PF-01B.3 están completos. El siguiente corte exclusivo
+   es el checkpoint PF-01B: publicar primero el harness reproducible y luego
+   revalidar B10/B17 secuencialmente con Clawpatch según
+   `docs/agents/pf-01b-persistence-integrity-design.md`.
 8. Mantener PF-01B separado de PF-02. No modificar numeración global ni historia
-   externa hasta cerrar el checkpoint PostgreSQL y las revalidaciones de PF-01B.
+   externa hasta cerrar las revalidaciones y la documentación final de PF-01B.
 9. Después de PF-01B, continuar PF-02 y luego los P1 PF-03, PF-06/PF-07,
    PF-08 y PF-09 según el portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con

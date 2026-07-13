@@ -267,8 +267,9 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   `fallido_verificado` la liberan.
 - Un comprobante `autorizado` exige CAE de 14 caracteres y vencimiento; cualquier
   otro estado exige ambos campos nulos. La migración aborta con conteos
-  sanitizados ante datos legacy ambiguos y nunca los normaliza. La validación
-  PostgreSQL desechable de PF-01B.3 sigue pendiente antes del cierre.
+  sanitizados ante datos legacy ambiguos y nunca los normaliza. PF-01B.3 validó
+  la misma semántica, incluida la concurrencia, en PostgreSQL 16 efímero. Falta
+  el checkpoint Clawpatch de B10/B17 antes del cierre.
 - La variante individual de `FECAESolicitar` solo puede continuar cuando el
   detalle tiene `Resultado=A`. Estados parciales `P`, rechazados `R` o
   cualquier valor no aprobado deben generar error y no tratarse como CAE válido.

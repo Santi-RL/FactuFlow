@@ -183,18 +183,18 @@ llegó a revisar porque exige una versión más nueva del binario local.
 No forzar este escenario con CAE real hasta autorizar explícitamente una QA
 fiscal controlada. PF-01A.3 está publicado, pero no está desplegado.
 
-### PF-01B — validación pendiente
+### PF-01B — validación local completada
 
-PF-01B.2 ya tiene cobertura automatizada SQLite y Alembic. El próximo
-checkpoint no requiere CAE real ni UI: sobre PostgreSQL desechable y datos
-sintéticos debe verificar upgrade, checks, estados, coherencia CAE, unicidad de
-reservas, dos transacciones concurrentes, preflight bloqueante y downgrade.
+PF-01B.2 tiene cobertura SQLite/Alembic y PF-01B.3 aprobó en PostgreSQL 16
+efímero: upgrade, checks, estados, coherencia CAE, unicidad, dos transacciones
+concurrentes, preflight bloqueante y downgrade. El backend completo aprobó
+`531` pruebas y omitió `4`; Ruff y Black quedaron limpios. No hubo CAE real,
+UI, despliegue ni datos privados.
 
 Antes de un despliegue futuro, con backup y autorización explícita, el preflight
 productivo debe ejecutarse sin listar filas fiscales. Si informa cualquier
 categoría con cantidad mayor que cero, detener la migración y reconciliar
-manualmente; no completar estados, CAE ni vencimientos por inferencia. No hacer
-QA productiva ni desplegar este diff durante PF-01B.3.
+manualmente; no completar estados, CAE ni vencimientos por inferencia.
 
 ### P1 pool/worker — cierre local
 
@@ -244,10 +244,10 @@ básicos y restauración aislada. Seguir
 ## Punto de reanudación de QA
 
 PF-01A está publicado y su checkpoint integrado quedó cerrado con CI verde y
-R02/B03/B04/B24 revalidados como `fixed`. PF-01B.1 y PF-01B.2 están cerrados
-localmente; el próximo trabajo es PF-01B.3 con PostgreSQL desechable, sin CAE
-real, despliegue ni datos privados. La QA manual/productiva de DB/FECAE, PF-01B
-y pool/worker solo se ejecuta con autorización explícita de despliegue.
+R02/B03/B04/B24 revalidados como `fixed`. PF-01B.1, PF-01B.2 y PF-01B.3 están
+completos; el próximo trabajo es publicar el harness y revalidar B10/B17 con
+Clawpatch, sin CAE real ni despliegue. La QA manual/productiva de DB/FECAE,
+PF-01B y pool/worker solo se ejecuta con autorización explícita de despliegue.
 No repetir como pendiente el setup productivo inicial, el rediseño UX de lotes
 ni la validación de `v0.2.1`.
 

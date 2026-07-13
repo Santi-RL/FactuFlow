@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: PF-01B.2 IMPLEMENTADO Y VALIDADO EN SQLITE. PF-01B.3 PENDIENTE.
+Estado: PF-01B.3 COMPLETADO. CHECKPOINT CLAWPATCH PENDIENTE.
 
 ## Objetivo
 
@@ -232,9 +232,10 @@ reales.
 - dos transacciones concurrentes sobre la misma reserva, con un solo ganador;
 - preflight con datos sintéticos inválidos.
 
-Si no hay una instancia PostgreSQL desechable disponible en el corte, la
-implementación no se considerará cerrada: quedará validada localmente pero
-pendiente de ese checkpoint antes de publicar o desplegar.
+El checkpoint se ejecutó contra PostgreSQL 16 efímero, sin volumen persistente,
+con datos sintéticos y sin ARCA. El contenedor se eliminó al terminar. Esta
+evidencia valida el dialecto productivo, pero no constituye despliegue ni
+sustituye el preflight obligatorio sobre un backup/restauración controlados.
 
 ## Cortes de implementación
 
@@ -243,12 +244,13 @@ pendiente de ese checkpoint antes de publicar o desplegar.
 2. **PF-01B.2 — modelo y migración:** completado localmente; constantes,
    constraints, preflight bloqueante, downgrade y regresiones SQLite forman un
    diff único y revisable.
-3. **PF-01B.3 — validación productiva equivalente:** pendiente; ejecutar
-   PostgreSQL desechable, suite backend completa, lint y formato. La revisión
-   final temprana de PF-01B.2 ya se ejecutó con `gpt-5.5 high` y deberá
-   repetirse solo si PF-01B.3 obliga a cambiar código.
-4. **Checkpoint PF-01B:** revalidar B10 y B17 secuencialmente con Clawpatch,
-   actualizar documentación y cerrar PF-01 antes de iniciar PF-02.
+3. **PF-01B.3 — validación productiva equivalente:** completado; PostgreSQL 16
+   efímero aprobó migración, constraints, estados, CAE, preflight, downgrade y
+   exclusión concurrente. La suite backend completa, Ruff y Black quedaron
+   limpios.
+4. **Checkpoint PF-01B:** siguiente corte; revalidar B10 y B17 secuencialmente
+   con Clawpatch, actualizar documentación y cerrar PF-01 antes de iniciar
+   PF-02.
 
 No se ejecutará `clawpatch fix`. Los cambios fiscales se implementarán
 manualmente y se contrastarán con los findings después de las pruebas.
@@ -272,8 +274,36 @@ Pruebas ejecutadas el 2026-07-13:
   limpio, sin findings aceptados ni accionables, confianza `0,86`.
 
 No hubo llamadas reales a ARCA, cambios de UI, normalización de datos legacy ni
-ejecución de Clawpatch. PF-01B todavía no está cerrado: falta validar la misma
-semántica en PostgreSQL desechable y luego revalidar B10/B17 en el checkpoint.
+ejecución de Clawpatch. PF-01B todavía no está cerrado: faltan las
+revalidaciones B10/B17 del checkpoint.
+
+## Resultado local de PF-01B.3
+
+El harness `tests/integration/test_integridad_fiscal_postgresql.py` recrea solo
+el schema de una base desechable explícita. Exige opt-in destructivo y un nombre
+de base marcado como descartable antes de conectarse, ejecuta Alembic desde
+`f7a8b9c0d1e2` y valida:
+
+- instalación e inspección de los tres checks y conservación del índice único
+  parcial;
+- todos los estados canónicos, coherencia CAE y liberación terminal;
+- dos transacciones concurrentes sobre la misma reserva, con un único ganador;
+- downgrade limpio;
+- aborto previo con las cinco categorías ambiguas y revisión Alembic sin avance.
+
+Resultados del 2026-07-13:
+
+- integración PostgreSQL 16: `4` pruebas aprobadas;
+- backend completo: `531` pruebas aprobadas y `4` omitidas según configuración;
+- Ruff sobre `app` y `tests`, Black sobre `app` y `tests` y `git diff --check`:
+  limpios;
+- CI de `f1219b7`: Security Audit, Backend Tests, Frontend Build y E2E Tests
+  aprobados;
+- `autoreview --mode local --engine codex --model gpt-5.5 --thinking high`:
+  limpio, sin findings aceptados ni accionables, confianza `0,82`.
+
+El contenedor no usó volumen persistente y fue eliminado. No se utilizaron
+datos privados, certificados ni llamadas ARCA.
 
 ## Revisión temprana del diseño
 

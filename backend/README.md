@@ -184,19 +184,23 @@ pytest tests/test_clientes.py::test_create_cliente -v
 
 ### Integración PostgreSQL desechable
 
-El marker `integration` está registrado en `pytest.ini`. La prueba de capacidad
-`tests/integration/test_pool_capacity_postgresql.py` requiere que
-`FACTUFLOW_TEST_POSTGRES_URL` apunte a una instancia PostgreSQL desechable
+El marker `integration` está registrado en `pytest.ini`. Las pruebas requieren
+que `FACTUFLOW_TEST_POSTGRES_URL` apunte a una instancia PostgreSQL desechable
 configurada fuera del repositorio:
 
 ```bash
 pytest -m integration tests/integration/test_pool_capacity_postgresql.py -q
+pytest -m integration tests/integration/test_integridad_fiscal_postgresql.py -q
 ```
 
-La prueba verifica cuatro conexiones API más una conexión dedicada del worker,
-sin crear lotes ni llamar a ARCA. El corte `4+1` ya fue aprobado contra una
-instancia efímera; esa evidencia local no declara ningún despliegue. No guardar
-la URL ni sus credenciales en Git. Ver `docs/agents/testing.md`.
+La primera verifica cuatro conexiones API más una conexión dedicada del worker.
+La segunda recrea únicamente el schema de la base desechable y valida la
+migración PF-01B, constraints, estados, CAE, concurrencia y preflight con datos
+sintéticos. Exige además `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1` y que el
+nombre de la base incluya `test`, `tmp`, `temp` o `pf01b`; sin ambas condiciones
+falla antes de conectarse. Ninguna prueba llama a ARCA ni declara un despliegue. No ejecutarlas contra
+una instalación operativa ni guardar la URL o sus credenciales en Git. Ver
+`docs/agents/testing.md`.
 
 ## Troubleshooting
 
