@@ -96,6 +96,27 @@ Para cambios chicos de documentación, puede no tener sentido desplegar al VPS.
 Para cambios de backend, frontend, migraciones, Docker o configuración de
 producción, el deploy debe decidirse explícitamente.
 
+### Decidir un corte de release
+
+La guía de candidatos vive en `ROADMAP.md > Guía flexible de cortes`. Es una
+orientación revisable, no un calendario: un riesgo nuevo, una migración incierta
+o un cambio de alcance puede dividir, adelantar o posponer el corte. No es
+necesario terminar todo el roadmap.
+
+Antes de declarar un candidato listo:
+
+1. congelar una unidad funcional coherente y el rango exacto desde la versión
+   productiva;
+2. confirmar que no quedan P0 ni P1 bloqueantes conocidos dentro del alcance;
+3. exigir CI verde sobre el commit candidato y cerrar las revisiones sensibles;
+4. enumerar y ensayar migraciones, dependencias, configuración y rollback;
+5. verificar backup/restauración, notas de release, upgrade y smoke;
+6. decidir por separado si se crea el tag y si se despliega.
+
+El roadmap recomienda provisionalmente `v0.2.2` como estabilización posterior a
+PF-01 y anterior a PF-02, y `v0.3.0` después del cambio funcional de PF-02.
+Esos nombres y alcances pueden cambiar si aparece nueva evidencia.
+
 ## Antes de desplegar
 
 Antes de actualizar producción:

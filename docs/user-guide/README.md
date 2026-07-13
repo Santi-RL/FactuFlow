@@ -178,8 +178,9 @@ nueva confirmación.
 >
 > El endurecimiento PF-01B está publicado en `main`, pero no desplegado. No
 > cambia pantallas ni pasos de uso: agrega controles de base para impedir estados
-> fiscales o CAE incoherentes. Su validación técnica en SQLite y PostgreSQL está
-> completa; todavía falta el checkpoint final de revisión antes de un release.
+> fiscales o CAE incoherentes. Su validación técnica en SQLite/PostgreSQL y el
+> checkpoint final de revisión están completos; se incorporará a un corte
+> productivo solo cuando se aprueben sus puertas de release y el despliegue.
 
 Si FactuFlow no puede confirmar todavía si ARCA autorizó la operación, muestra
 `Emisión pendiente de verificación` con emisor, tipo, fecha, punto de venta,

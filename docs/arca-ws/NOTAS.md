@@ -166,9 +166,9 @@ Mapping aplicado en el proyecto:
 
 ### 4.g Idempotencia fiscal y CAE
 
-Estado 2026-07-13: PF-01A está cerrado y PF-01B.3 validó en SQLite y
-PostgreSQL 16 efímero los constraints, la migración y la concurrencia; falta el
-checkpoint Clawpatch B10/B17. El borde WSFE solo acepta
+Estado 2026-07-13: PF-01 está cerrado. PF-01B.3 validó en SQLite y PostgreSQL 16
+efímero los constraints, la migración y la concurrencia, y Clawpatch revalidó
+B10/B17 como `fixed`. El borde WSFE solo acepta
 una autorización con `Resultado=A`, CAE ASCII de 14 dígitos y vencimiento
 calendario válido `YYYYMMDD`; rechaza `P`, resultados desconocidos, errores
 globales y respuestas batch ambiguas. Un `R` completo permanece como rechazo

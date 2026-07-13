@@ -248,12 +248,11 @@ sustituye el preflight obligatorio sobre un backup/restauración controlados.
    efímero aprobó migración, constraints, estados, CAE, preflight, downgrade y
    exclusión concurrente. La suite backend completa, Ruff y Black quedaron
    limpios.
-4. **Checkpoint PF-01B:** siguiente corte; revalidar B10 y B17 secuencialmente
-   con Clawpatch, actualizar documentación y cerrar PF-01 antes de iniciar
-   PF-02.
+4. **Checkpoint PF-01B:** completado; B10 y B17 quedaron `fixed` tras la
+   revalidación secuencial con Clawpatch y PF-01 quedó cerrado antes de PF-02.
 
-No se ejecutará `clawpatch fix`. Los cambios fiscales se implementarán
-manualmente y se contrastarán con los findings después de las pruebas.
+No se ejecutó `clawpatch fix`. Los cambios fiscales se implementaron
+manualmente y se contrastaron con los findings después de las pruebas.
 
 ## Resultado local de PF-01B.2
 
@@ -274,8 +273,8 @@ Pruebas ejecutadas el 2026-07-13:
   limpio, sin findings aceptados ni accionables, confianza `0,86`.
 
 No hubo llamadas reales a ARCA, cambios de UI, normalización de datos legacy ni
-ejecución de Clawpatch. PF-01B todavía no está cerrado: faltan las
-revalidaciones B10/B17 del checkpoint.
+ejecución de Clawpatch en ese corte. El checkpoint se completó después de
+publicar y validar PF-01B.3.
 
 ## Resultado local de PF-01B.3
 
@@ -305,6 +304,29 @@ Resultados del 2026-07-13:
 El contenedor no usó volumen persistente y fue eliminado. No se utilizaron
 datos privados, certificados ni llamadas ARCA.
 
+## Resultado del checkpoint PF-01B
+
+El commit `6625254` se publicó en `main` y su CI `29270728104` aprobó
+Security Audit, Backend Tests, Frontend Build y E2E Tests. Con el worktree
+limpio, Clawpatch `0.7.0`, sin locks y usando el root/state/config backend
+vigente:
+
+- B10 quedó `fixed`: el estado inválido ya no puede eludir la reserva y la
+  migración bloquea estados legacy o reservas activas duplicadas;
+- B17 quedó `fixed`: la base rechaza estados desconocidos, autorizados sin CAE
+  completo y no autorizados con CAE;
+- ambas decisiones se ejecutaron secuencialmente con `gpt-5.6-sol` y
+  razonamiento `high`;
+- no se utilizó `clawpatch fix`, no hubo llamadas ARCA ni cambios de código
+  durante el checkpoint.
+
+La primera revalidación de B10 agotó el límite interno de 300 segundos después
+de intentar una invocación recursiva de Clawpatch. No se tomó como evidencia de
+cierre: se comprobó que el ledger seguía sin locks y se hizo un único reintento
+razonable con el mismo modelo, que concluyó `fixed`. B17 concluyó `fixed` en
+su primera ejecución. El cierre sanitizado está en
+`docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01b.md`.
+
 ## Revisión temprana del diseño
 
 El diff documental se revisó con `autoreview --mode local`, motor Codex,
@@ -314,7 +336,7 @@ resultado de la revisión.
 
 ## Criterio de cierre
 
-PF-01B solo queda cerrado cuando:
+PF-01B quedó cerrado el 2026-07-13 porque:
 
 - el preflight no normaliza ni oculta datos ambiguos;
 - SQLite y PostgreSQL aplican la misma semántica fiscal;

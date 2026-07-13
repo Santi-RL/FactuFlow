@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: PRIORIZADO; PF-01A CERRADO; PF-01B ES EL SIGUIENTE CORTE FISCAL.
+Estado: PRIORIZADO; PF-01 CERRADO; PF-02 ES EL SIGUIENTE CORTE FISCAL.
 
 ## Propósito y autoridad
 
@@ -43,11 +43,11 @@ emisores y una plataforma multiempresa compleja.
 | Fuente | Estado observado | Uso dentro del portafolio |
 |---|---:|---|
 | Clawpatch `repo` | 15 abiertos: 4 `high`, 4 `medium`, 7 `low` | Riesgos end-to-end y contratos entre capas |
-| Clawpatch `backend` | 98 abiertos: 22 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
+| Clawpatch `backend` | 96 abiertos: 20 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
 | Clawpatch `frontend` | 29 abiertos: 5 `high`, 20 `medium`, 4 `low` | Estado de UI, contratos, concurrencia y UX |
 | `ROADMAP.md` | 83 ítems no cerrados: 53 pendientes, 30 en curso | Producto, plataforma, operación y evolución |
 
-Los 142 hallazgos abiertos actuales y los 83 ítems no representan 225 tareas independientes.
+Los 140 hallazgos abiertos actuales y los 83 ítems no representan 223 tareas independientes.
 Existen duplicados entre slices, repeticiones del mismo objetivo en distintas
 fases del roadmap y hallazgos que son síntomas de una misma causa raíz.
 
@@ -69,7 +69,7 @@ La distribución principal es:
 
 | Línea | P1 | P2 | Resultado |
 |---|---:|---:|---|
-| PF-01 | 6 | 0 | Cuatro fuentes cerradas en PF-01A; las dos restantes corresponden a PF-01B y su migración separada. |
+| PF-01 | 6 | 0 | Las seis fuentes quedaron cerradas: cuatro en PF-01A y B10/B17 en PF-01B. |
 | PF-03 | 2 | 0 | Contratos fiscales estrictos e importes válidos. |
 | PF-04 | 0 | 4 | Evidencia histórica, moneda, redondeo y tests PDF. |
 | PF-06 | 2 | 0 | Invariantes multiemisor backend. |
@@ -178,5 +178,7 @@ Antes de editar código, cada corte debe tener:
 - PF-01A cerró sus cuatro fuentes R02/B03/B04/B24 como `fixed` después de
   publicar los tres cortes, validar CI y ejecutar Clawpatch con
   `gpt-5.6-sol high`.
-- PF-01B queda como siguiente corte fiscal independiente: auditoría legacy,
-  migración, constraints y matriz de tests propia.
+- PF-01B cerró B10/B17 como `fixed` después de migración, constraints, matriz
+  SQLite/PostgreSQL, CI y revalidación secuencial con `gpt-5.6-sol high`.
+- PF-02 queda como siguiente corte fiscal, precedido por la evaluación del
+  candidato provisional `v0.2.2`.

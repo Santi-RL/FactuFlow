@@ -175,11 +175,12 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   B04 y B24 como `fixed` con `gpt-5.6-sol high`, sin `clawpatch fix` ni
   llamadas ARCA. El backlog restante continúa por causa raíz en
   `docs/agents/development-portfolio.md`.
-- [~] PF-01B.1, PF-01B.2 y PF-01B.3 completados: vocabularios canónicos,
-  constraints de estados/CAE/reservas y migración bloqueante sin normalización
-  automática. SQLite, Alembic, PostgreSQL 16 efímero, concurrencia y backend
-  completo quedaron verdes; `f1219b7` también tiene CI completa aprobada.
-  Falta únicamente el checkpoint Clawpatch de B10/B17 antes de cerrar PF-01.
+- [x] PF-01B cerrado: vocabularios canónicos, constraints de
+  estados/CAE/reservas y migración bloqueante sin normalización automática.
+  SQLite, Alembic, PostgreSQL 16 efímero, concurrencia y backend completo
+  quedaron verdes. El harness se publicó en `6625254`, cuya CI
+  `29270728104` aprobó seguridad, backend, frontend y E2E; Clawpatch revalidó
+  B10 y B17 como `fixed` con `gpt-5.6-sol high`.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
@@ -794,6 +795,33 @@ Objetivo: profesionalizar la entrega del producto.
 - [x] Notas de release inauguradas con `v0.2.1`; mantenerlas en cada versión
   futura
 
+#### Guía flexible de cortes
+
+Los siguientes cortes son candidatos revisables, no fechas ni compromisos
+inamovibles. Un P0/P1 nuevo, una regresión de CI, una migración incierta, un
+cambio de alcance o evidencia productiva puede adelantar, dividir, posponer o
+renombrar una versión. No hace falta terminar todo el roadmap para publicar una
+release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
+
+- **`v0.2.2` provisional:** corte de estabilización recomendado después de
+  PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE, el
+  endurecimiento de pool/worker y las correcciones de seguridad ya aceptadas,
+  sin mezclar todavía el cambio de política de numeración global.
+- **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y su
+  QA fiscal, porque permitir historia previa u otros sistemas cambia el contrato
+  operativo de numeración. Puede incluir otros P1 solo si forman una unidad
+  revisable y no vuelven riesgoso el despliegue.
+- **Patch extraordinario:** un fix urgente, aislado y compatible puede justificar
+  una versión intermedia sin esperar al candidato siguiente.
+
+Un candidato está listo para migrar a producción cuando el alcance quedó
+congelado, no contiene P0 ni P1 bloqueantes conocidos, el commit exacto tiene CI
+verde, las revisiones sensibles y revalidaciones aplicables están cerradas, las
+migraciones fueron ensayadas sobre PostgreSQL desechable o una restauración
+aislada, existen backup verificado y rollback, las notas y el procedimiento de
+upgrade están actualizados y hay autorización explícita para desplegar. El tag y
+el despliegue siguen siendo decisiones separadas de cada commit o push.
+
 ### Distribución
 - [ ] Instalación simplificada para terceros, posterior a estabilizar VPS
 - [ ] Plantillas de configuración por ambiente
@@ -823,8 +851,10 @@ Objetivo: ampliar valor más allá del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Publicar el harness reproducible de PF-01B.3 y ejecutar el checkpoint
-   Clawpatch secuencial de B10/B17 antes de cerrar PF-01.
+2. Preparar el candidato provisional `v0.2.2` antes de mezclar PF-02: congelar
+   su alcance, comparar el rango desde `v0.2.1`, completar notas y upgrade,
+   ensayar preflight/rollback sobre una restauración aislada y decidir
+   explícitamente tag y despliegue.
 3. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
 4. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
@@ -844,7 +874,8 @@ Objetivo: ampliar valor más allá del MVP.
 11. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
 12. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
 13. Mantener notas de release y procedimiento de upgrade para cada versión
-    posterior a `v0.2.1`.
+    posterior a `v0.2.1`, revisando los candidatos cuando cambien riesgos o
+    alcance.
 
 ## Criterio de éxito del MVP
 

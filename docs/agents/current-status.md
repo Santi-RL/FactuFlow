@@ -240,18 +240,20 @@ Validación de PF-01A.3 y cierre integrado:
   No hubo resultados inciertos, correcciones automáticas ni llamadas reales a ARCA.
 
 PF-01B.2 quedó publicado como `f1219b7`; su CI `29268679829` aprobó Security
-Audit, Backend Tests, Frontend Build y E2E Tests. PF-01B.3 validó el mismo corte
-contra PostgreSQL 16 efímero con un harness reproducible de datos sintéticos:
-upgrade, tres checks, índice parcial, todos los estados, coherencia CAE,
-liberación terminal, dos transacciones concurrentes con un único ganador,
-downgrade y preflight con las cinco categorías ambiguas.
+Audit, Backend Tests, Frontend Build y E2E Tests. PF-01B.3 se publicó como
+`6625254`; su CI `29270728104` volvió a aprobar los cuatro jobs y el harness
+reproducible validó PostgreSQL 16 efímero con datos sintéticos: upgrade, tres
+checks, índice parcial, todos los estados, coherencia CAE, liberación terminal,
+dos transacciones concurrentes con un único ganador, downgrade y preflight con
+las cinco categorías ambiguas.
 
 La integración PostgreSQL aprobó `4` pruebas; el backend completo aprobó `531` y
 omitió `4` según configuración. Ruff, Black y `git diff --check` quedaron
 limpios. `autoreview` con `gpt-5.5 high` quedó sin findings accionables y con
-confianza `0,82`. El contenedor no tuvo volumen persistente y fue eliminado. No hubo
-llamadas reales a ARCA ni cambios de UI, numeración global o historia externa.
-PF-01B aún no está cerrado: falta revalidar B10/B17 con Clawpatch.
+confianza `0,82`. El contenedor no tuvo volumen persistente y fue eliminado.
+Clawpatch `0.7.0` revalidó B10 y B17 secuencialmente como `fixed` con
+`gpt-5.6-sol high`; no se usó `clawpatch fix`. No hubo llamadas reales a ARCA
+ni cambios de UI, numeración global o historia externa. PF-01 quedó cerrado.
 
 ### Backlog Clawpatch priorizado
 
@@ -295,14 +297,15 @@ Siguen pendientes:
 6. PF-01A está cerrado: los tres cortes, el parche de Pillow, la CI final y las
    revalidaciones R02/B03/B04/B24 están completos. No repetir ni ampliar ese
    checkpoint.
-7. PF-01B.1, PF-01B.2 y PF-01B.3 están completos. El siguiente corte exclusivo
-   es el checkpoint PF-01B: publicar primero el harness reproducible y luego
-   revalidar B10/B17 secuencialmente con Clawpatch según
-   `docs/agents/pf-01b-persistence-integrity-design.md`.
-8. Mantener PF-01B separado de PF-02. No modificar numeración global ni historia
-   externa hasta cerrar las revalidaciones y la documentación final de PF-01B.
-9. Después de PF-01B, continuar PF-02 y luego los P1 PF-03, PF-06/PF-07,
-   PF-08 y PF-09 según el portafolio.
+7. PF-01 está cerrado: PF-01A y PF-01B fueron publicados, sus CI quedaron
+   verdes y R02/B03/B04/B24/B10/B17 figuran `fixed` en Clawpatch. No repetir
+   esos checkpoints.
+8. El siguiente corte recomendado es preparar el candidato provisional
+   `v0.2.2` antes de mezclar PF-02. Aplicar la guía flexible de `ROADMAP.md` y
+   las puertas de `docs/agents/production-workflow.md`; no crear tag ni
+   desplegar sin decisión explícita.
+9. Después de cerrar o diferir explícitamente ese corte de release, continuar
+   PF-02 y luego PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
     `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
 
@@ -312,6 +315,9 @@ Siguen pendientes:
 - Prioridades: `ROADMAP.md`
 - Portafolio integrado: `docs/agents/development-portfolio.md`
 - Diseño PF-01A: `docs/agents/pf-01-authorization-integrity-design.md`
+- Diseño PF-01B: `docs/agents/pf-01b-persistence-integrity-design.md`
+- Cierre Clawpatch PF-01B:
+  `docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01b.md`
 - QA manual vigente: `docs/agents/manual-qa.md`
 - Historial: `CHANGELOG.md`
 - Flujo productivo: `docs/agents/production-workflow.md`

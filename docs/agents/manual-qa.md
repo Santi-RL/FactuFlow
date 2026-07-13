@@ -188,8 +188,9 @@ fiscal controlada. PF-01A.3 está publicado, pero no está desplegado.
 PF-01B.2 tiene cobertura SQLite/Alembic y PF-01B.3 aprobó en PostgreSQL 16
 efímero: upgrade, checks, estados, coherencia CAE, unicidad, dos transacciones
 concurrentes, preflight bloqueante y downgrade. El backend completo aprobó
-`531` pruebas y omitió `4`; Ruff y Black quedaron limpios. No hubo CAE real,
-UI, despliegue ni datos privados.
+`531` pruebas y omitió `4`; Ruff y Black quedaron limpios. El commit
+`6625254` tuvo CI completa verde y Clawpatch cerró B10/B17 como `fixed` con
+`gpt-5.6-sol high`. No hubo CAE real, UI, despliegue ni datos privados.
 
 Antes de un despliegue futuro, con backup y autorización explícita, el preflight
 productivo debe ejecutarse sin listar filas fiscales. Si informa cualquier
@@ -243,13 +244,12 @@ básicos y restauración aislada. Seguir
 
 ## Punto de reanudación de QA
 
-PF-01A está publicado y su checkpoint integrado quedó cerrado con CI verde y
-R02/B03/B04/B24 revalidados como `fixed`. PF-01B.1, PF-01B.2 y PF-01B.3 están
-completos; el próximo trabajo es publicar el harness y revalidar B10/B17 con
-Clawpatch, sin CAE real ni despliegue. La QA manual/productiva de DB/FECAE,
-PF-01B y pool/worker solo se ejecuta con autorización explícita de despliegue.
-No repetir como pendiente el setup productivo inicial, el rediseño UX de lotes
-ni la validación de `v0.2.1`.
+PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
+`fixed` en Clawpatch. El próximo corte recomendado es preparar el candidato
+provisional `v0.2.2` y sus puertas de salida antes de mezclar PF-02. La QA
+manual/productiva de DB/FECAE, PF-01B y pool/worker solo se ejecuta con
+autorización explícita de despliegue. No repetir como pendiente el setup
+productivo inicial, el rediseño UX de lotes ni la validación de `v0.2.1`.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

@@ -137,6 +137,14 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
   salida mientras la CLI global directa respondió correctamente con el mismo
   `--root`, `--state-dir` y `--config`. Si se repite, detener el wrapper y usar
   el equivalente directo; no crear un state default ni reinicializar el ledger.
+- Con Clawpatch `0.7.0`, una revalidación `gpt-5.6-sol high` agotó el límite
+  interno de 300 segundos después de que el agente intentara invocar
+  `clawpatch revalidate` dentro de su propia sesión. Esa corrida no autoriza a
+  marcar el finding como `fixed`, aunque haya pruebas parciales verdes.
+  Comprobar `status`, ausencia de locks, worktree limpio y estado del finding;
+  hacer un único reintento razonable y, si vuelve a fallar, usar el fallback de
+  modelo documentado. No cerrar manualmente el finding a partir de la salida
+  truncada. En PF-01B el reintento concluyó correctamente.
 
 ## Reglas De Seguridad
 
