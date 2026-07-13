@@ -795,11 +795,12 @@ Objetivo: profesionalizar la entrega del producto.
 - [x] Notas de release inauguradas con `v0.2.1`; mantenerlas en cada versión
   futura
 - [~] Candidato `v0.2.2` en preparación: alcance funcional congelado en
-  `f9d170a`, versionado `0.2.2`, changelog, dossier y validaciones locales
-  completos. La primera pasada de `autoreview gpt-5.5 high` encontró un P2
-  válido de versionado, ya corregido; la pasada final quedó limpia. Faltan CI
-  del commit candidato, backup/restauración y preflight privados, decisión
-  de tag y autorización separada de despliegue.
+  `f9d170a`; el commit candidato `0271d8a` contiene el versionado `0.2.2`,
+  changelog, dossier y validaciones, y su CI `29284577864` quedó completa
+  verde. La primera pasada de `autoreview gpt-5.5 high` encontró un P2 válido
+  de versionado, ya corregido; la pasada final quedó limpia. Faltan
+  backup/restauración y preflight privados, decisión de tag y autorización
+  separada de despliegue.
 
 #### Guía flexible de cortes
 

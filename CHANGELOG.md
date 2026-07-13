@@ -85,9 +85,11 @@ Reglas vigentes desde 2026-05-22:
 - La primera pasada de `autoreview gpt-5.5 high` detectó un P2 válido:
   metadatos `0.2.1` remanentes en dos manifiestos backend. Se aceptó y corrigió;
   la pasada final quedó limpia, sin findings, con confianza `0,82`.
+- El commit candidato `0271d8a` aprobó la CI `29284577864` completa:
+  Security Audit, Backend Tests, Frontend Build y E2E Tests.
 - Siguen pendientes las verificaciones privadas de backup/restauración,
-  preflight sobre una copia productiva aislada, CI del commit candidato y las
-  decisiones explícitas de tag y despliegue.
+  preflight sobre una copia productiva aislada y las decisiones explícitas de
+  tag y despliegue.
 
 ## [0.2.1] - 2026-07-10
 

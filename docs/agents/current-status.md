@@ -105,10 +105,11 @@ manual/productiva de ese corte sigue pendiente.
 
 ### Candidato v0.2.2
 
-`main` prepara el candidato `0.2.2` con alcance funcional congelado después
-de PF-01 y antes de PF-02. El baseline publicado es `f9d170a`; el versionado,
-changelog y dossier de upgrade están en preparación local. Producción continúa
-en `v0.2.1`: no existe tag, release ni despliegue `v0.2.2`.
+`main` contiene el candidato `0.2.2` con alcance funcional congelado después
+de PF-01 y antes de PF-02. El commit publicado `0271d8a` reúne el versionado,
+changelog y dossier de upgrade; su CI `29284577864` aprobó los cuatro jobs.
+Producción continúa en `v0.2.1`: no existe tag, release ni despliegue
+`v0.2.2`.
 
 El rango incorpora una migración fiscal (`a8b9c0d1e2f3`), Pillow `12.3.0` y
 variables nuevas de pool. El versionado local aprobó lint, type-check, Black,
@@ -117,8 +118,8 @@ pasada de `autoreview gpt-5.5 high` detectó un P2 válido: dos manifiestos
 backend conservaban `0.2.1`. El hallazgo se aceptó y corrigió; la segunda
 pasada quedó limpia, sin findings, con confianza `0,82`.
 
-Antes de etiquetar faltan publicar el commit candidato y obtener CI verde,
-confirmar en privado el backup portable, restaurar una copia,
+Antes de etiquetar faltan confirmar en privado el backup portable, restaurar
+una copia,
 ejecutar el preflight de las cinco categorías legacy y decidir explícitamente
 el tag. El despliegue requiere una autorización posterior separada. El dossier
 vigente es `docs/project/releases/v0.2.2-candidate.md`.
@@ -323,9 +324,9 @@ Siguen pendientes:
    verdes y R02/B03/B04/B24/B10/B17 figuran `fixed` en Clawpatch. No repetir
    esos checkpoints.
 8. Completar el candidato `v0.2.2` antes de mezclar PF-02: la validación local
-   está verde y el P2 de versionado de la primera pasada de `autoreview` fue
-   corregido; la pasada final quedó limpia. Falta publicar el commit y exigir
-   CI verde. No crear tag todavía.
+   está verde, el P2 de versionado de la primera pasada de `autoreview` fue
+   corregido y la pasada final quedó limpia. El commit `0271d8a` está
+   publicado y su CI `29284577864` quedó verde. No crear tag todavía.
 9. Después, completar en privado backup/restauración y preflight. Crear el tag
    solo con decisión explícita y desplegar únicamente con otra autorización.
    Si el corte se difiere explícitamente, continuar PF-02 y luego PF-03,
