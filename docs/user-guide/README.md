@@ -172,9 +172,13 @@ a pedir CAE para el mismo comprobante. Si cambiás datos fiscales como fecha,
 punto de venta, receptor, ítems o comprobantes asociados, la operación exige una
 nueva confirmación.
 
-> Disponibilidad: el siguiente estado visual está implementado en PF-01A.3 y
-> permanece pendiente de publicación y despliegue; no forma parte de
-> `v0.2.1` productiva.
+> Disponibilidad: el siguiente estado visual está publicado en `main` desde
+> PF-01A.3, pero permanece pendiente de despliegue y no forma parte de `v0.2.1`
+> productiva.
+>
+> El endurecimiento PF-01B.2 tampoco está desplegado. No cambia pantallas ni
+> pasos de uso: agrega controles de base para impedir estados fiscales o CAE
+> incoherentes. Su validación PostgreSQL y publicación todavía están pendientes.
 
 Si FactuFlow no puede confirmar todavía si ARCA autorizó la operación, muestra
 `Emisión pendiente de verificación` con emisor, tipo, fecha, punto de venta,

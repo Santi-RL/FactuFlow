@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: DISEÑO COMPLETADO. IMPLEMENTACIÓN PENDIENTE.
+Estado: PF-01B.2 IMPLEMENTADO Y VALIDADO EN SQLITE. PF-01B.3 PENDIENTE.
 
 ## Objetivo
 
@@ -130,19 +130,26 @@ como rechazo de ARCA ni habilita un reintento automático.
 
 ## Orden de la migración
 
-La migración será bloqueante y seguirá este orden:
+La migración implementada es bloqueante y sigue este orden:
 
-1. identificar el dialecto y verificar que las tablas esperadas existen;
+1. partir de la revisión padre `f7a8b9c0d1e2`, que garantiza la existencia de
+   las tablas y del índice parcial; una base fuera de esa cadena falla sin
+   normalización;
 2. contar estados desconocidos de ambas tablas;
 3. detectar comprobantes autorizados sin CAE, con CAE de longitud distinta de
    14 o sin vencimiento;
 4. detectar comprobantes no autorizados con CAE o vencimiento;
 5. detectar reservas activas duplicadas según el predicado canónico;
 6. si existe cualquier conflicto, abortar con un error sanitizado que indique
-   tabla, clase de conflicto y cantidad, sin listar datos fiscales;
-7. crear los constraints de dominio y coherencia;
-8. verificar por inspección que los constraints y el índice parcial existen;
-9. dejar Alembic en el nuevo `head`.
+   clase de conflicto y cantidad, sin listar filas ni datos fiscales;
+7. crear los constraints de dominio y coherencia mediante operaciones batch
+   portables;
+8. verificar por inspección que los constraints nuevos existen y dejar Alembic
+   en el nuevo `head`.
+
+El índice parcial existente se conserva sin recrearlo porque su predicado ya
+coincide con el vocabulario canónico. Las regresiones SQLite comprueban su
+semántica para estados activos y terminales.
 
 No habrá `UPDATE` correctivo automático. Los estados desconocidos y las
 combinaciones con CAE requieren determinar primero si ARCA autorizó el
@@ -231,18 +238,42 @@ pendiente de ese checkpoint antes de publicar o desplegar.
 
 ## Cortes de implementación
 
-1. **PF-01B.1 — diseño y vocabulario:** cerrar este documento, confirmar los
-   estados contra código y tests y revisar el riesgo de migración.
-2. **PF-01B.2 — modelo y migración:** agregar constantes, constraints,
-   preflight, downgrade y regresiones SQLite en un diff único y revisable.
-3. **PF-01B.3 — validación productiva equivalente:** ejecutar PostgreSQL
-   desechable, suite backend, lint, formato y `autoreview` directo con
-   `gpt-5.5 high`.
+1. **PF-01B.1 — diseño y vocabulario:** completado; estados contrastados contra
+   código y riesgo de migración documentado.
+2. **PF-01B.2 — modelo y migración:** completado localmente; constantes,
+   constraints, preflight bloqueante, downgrade y regresiones SQLite forman un
+   diff único y revisable.
+3. **PF-01B.3 — validación productiva equivalente:** pendiente; ejecutar
+   PostgreSQL desechable, suite backend completa, lint y formato. La revisión
+   final temprana de PF-01B.2 ya se ejecutó con `gpt-5.5 high` y deberá
+   repetirse solo si PF-01B.3 obliga a cambiar código.
 4. **Checkpoint PF-01B:** revalidar B10 y B17 secuencialmente con Clawpatch,
    actualizar documentación y cerrar PF-01 antes de iniciar PF-02.
 
 No se ejecutará `clawpatch fix`. Los cambios fiscales se implementarán
 manualmente y se contrastarán con los findings después de las pruebas.
+
+## Resultado local de PF-01B.2
+
+La implementación agregó vocabularios canónicos en los modelos, checks de
+dominio para intentos y comprobantes, coherencia persistida entre autorización,
+CAE y vencimiento, y una migración Alembic bloqueante sin `UPDATE`
+correctivo. El error de preflight informa únicamente categorías y cantidades.
+
+Pruebas ejecutadas el 2026-07-13:
+
+- `20` regresiones SQLite de modelo, estados, CAE y reservas: aprobadas;
+- `7` regresiones Alembic de upgrade, bloqueo, downgrade y re-upgrade:
+  aprobadas;
+- `190` pruebas vecinas de facturación, API, lotes, PDF, emisores y reportes:
+  aprobadas;
+- Ruff, Black y `git diff --check`: limpios;
+- `autoreview --mode local --engine codex --model gpt-5.5 --thinking high`:
+  limpio, sin findings aceptados ni accionables, confianza `0,86`.
+
+No hubo llamadas reales a ARCA, cambios de UI, normalización de datos legacy ni
+ejecución de Clawpatch. PF-01B todavía no está cerrado: falta validar la misma
+semántica en PostgreSQL desechable y luego revalidar B10/B17 en el checkpoint.
 
 ## Revisión temprana del diseño
 

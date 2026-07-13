@@ -239,12 +239,17 @@ Validación de PF-01A.3 y cierre integrado:
 - Clawpatch revalidó R02, B03, B04 y B24 como `fixed` con `gpt-5.6-sol high`.
   No hubo resultados inciertos, correcciones automáticas ni llamadas reales a ARCA.
 
-PF-01B será un corte posterior y separado para auditar datos heredados, agregar
-constraints de estados/CAE/reservas y ejecutar su migración. Solo después se
-debe implementar PF-02: numeración compatible con historia previa o sistemas
-externos, manteniendo ARCA como fuente global y FactuFlow como fuente de sus
-intentos propios e incertidumbres. No iniciar código sin confirmación del
-usuario.
+PF-01B.2 quedó implementado y validado localmente como corte separado. Agrega
+vocabularios canónicos, constraints de estados/CAE/reservas y una migración
+bloqueante que no normaliza datos ambiguos. Aprobaron `20` regresiones SQLite,
+`7` pruebas Alembic y `190` pruebas vecinas; Ruff, Black y `git diff --check`
+quedaron limpios. `autoreview` con `gpt-5.5 high` terminó sin findings
+accionables y con confianza `0,86`.
+
+PF-01B aún no está cerrado: falta PF-01B.3 con PostgreSQL desechable, suite
+backend completa y validaciones finales. Solo después corresponde revalidar B10
+y B17 con Clawpatch y pasar a PF-02. No hubo llamadas reales a ARCA ni cambios
+de UI, numeración global o historia externa.
 
 ### Backlog Clawpatch priorizado
 
@@ -288,13 +293,13 @@ Siguen pendientes:
 6. PF-01A está cerrado: los tres cortes, el parche de Pillow, la CI final y las
    revalidaciones R02/B03/B04/B24 están completos. No repetir ni ampliar ese
    checkpoint.
-7. PF-01B.1 está cerrado como diseño documental, con auditoría local
-   sanitizada y `autoreview` limpio en `gpt-5.5 high`. El siguiente corte es
-   PF-01B.2: modelo, migración bloqueante, downgrade y regresiones SQLite según
-   `docs/agents/pf-01b-persistence-integrity-design.md`; PostgreSQL desechable
-   queda como checkpoint obligatorio antes del cierre.
+7. PF-01B.1 y PF-01B.2 están cerrados localmente. El siguiente corte es
+   PF-01B.3: ejecutar la matriz en PostgreSQL desechable, la suite backend
+   completa y las validaciones finales definidas en
+   `docs/agents/pf-01b-persistence-integrity-design.md`. Si no exige cambios de
+   código, no repetir `autoreview`; después revalidar B10/B17 con Clawpatch.
 8. Mantener PF-01B separado de PF-02. No modificar numeración global ni historia
-   externa hasta cerrar las invariantes persistentes de PF-01B.
+   externa hasta cerrar el checkpoint PostgreSQL y las revalidaciones de PF-01B.
 9. Después de PF-01B, continuar PF-02 y luego los P1 PF-03, PF-06/PF-07,
    PF-08 y PF-09 según el portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con

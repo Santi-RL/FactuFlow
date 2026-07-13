@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from sqlalchemy import (
+    CheckConstraint,
     Column,
     Integer,
     String,
@@ -17,6 +18,16 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
+ESTADO_COMPROBANTE_AUTORIZADO = "autorizado"
+ESTADOS_COMPROBANTE = (
+    ESTADO_COMPROBANTE_AUTORIZADO,
+    "borrador",
+    "pendiente",
+    "rechazado",
+)
+_ESTADOS_COMPROBANTE_SQL = ", ".join(f"'{estado}'" for estado in ESTADOS_COMPROBANTE)
+
+
 class Comprobante(Base):
     """Modelo de Comprobante (Facturas, NC, ND)."""
 
@@ -30,6 +41,20 @@ class Comprobante(Base):
             "tipo_comprobante",
             "numero",
             name="uq_comprobantes_empresa_pv_tipo_numero",
+        ),
+        CheckConstraint(
+            f"estado IN ({_ESTADOS_COMPROBANTE_SQL})",
+            name="ck_comprobantes_estado_valido",
+        ),
+        CheckConstraint(
+            "((estado = 'autorizado' "
+            "AND cae IS NOT NULL "
+            "AND length(trim(cae)) = 14 "
+            "AND cae_vencimiento IS NOT NULL) "
+            "OR (estado <> 'autorizado' "
+            "AND cae IS NULL "
+            "AND cae_vencimiento IS NULL))",
+            name="ck_comprobantes_estado_cae_coherente",
         ),
         # Índice para búsqueda por tipo y número (único por punto de venta)
         Index("ix_comprobantes_tipo_numero", "tipo_comprobante", "numero"),

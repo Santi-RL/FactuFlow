@@ -175,6 +175,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   B04 y B24 como `fixed` con `gpt-5.6-sol high`, sin `clawpatch fix` ni
   llamadas ARCA. El backlog restante continúa por causa raíz en
   `docs/agents/development-portfolio.md`.
+- [~] PF-01B.1 y PF-01B.2 completados localmente: vocabularios canónicos,
+  constraints de estados/CAE/reservas y migración bloqueante sin normalización
+  automática. Aprobaron regresiones SQLite/Alembic y `autoreview` con
+  `gpt-5.5 high`. Falta PF-01B.3 en PostgreSQL desechable, suite backend
+  completa y checkpoint Clawpatch de B10/B17 antes de cerrar PF-01.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
@@ -818,8 +823,9 @@ Objetivo: ampliar valor más allá del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
-   migración y constraints de estados, CAE y reservas activas.
+2. Completar PF-01B.3: validar constraints, migración y concurrencia en
+   PostgreSQL desechable, ejecutar la suite backend completa y revalidar B10/B17
+   con Clawpatch antes de cerrar PF-01.
 3. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
 4. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,

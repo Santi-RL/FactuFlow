@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -19,6 +20,32 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+
+
+ESTADOS_INTENTO_FISCAL = (
+    "autorizado",
+    "en_proceso",
+    "fallido_verificado",
+    "rechazado_arca",
+    "requiere_reconciliacion",
+)
+ESTADOS_RESERVA_FISCAL_ACTIVA = (
+    "autorizado",
+    "en_proceso",
+    "requiere_reconciliacion",
+)
+ESTADOS_INTENTO_FISCAL_BLOQUEANTES = (
+    "en_proceso",
+    "requiere_reconciliacion",
+)
+_ESTADOS_INTENTO_FISCAL_SQL = ", ".join(
+    f"'{estado}'" for estado in ESTADOS_INTENTO_FISCAL
+)
+PREDICADO_RESERVA_FISCAL_ACTIVA = (
+    "numero_planificado IS NOT NULL AND estado IN ("
+    f"{', '.join(repr(estado) for estado in ESTADOS_RESERVA_FISCAL_ACTIVA)}"
+    ")"
+)
 
 
 class OperacionIdempotente(Base):
@@ -82,6 +109,10 @@ class IntentoEmisionFiscal(Base):
 
     __tablename__ = "intentos_emision_fiscal"
     __table_args__ = (
+        CheckConstraint(
+            f"estado IN ({_ESTADOS_INTENTO_FISCAL_SQL})",
+            name="ck_intentos_emision_fiscal_estado_valido",
+        ),
         Index(
             "uq_intentos_emision_fiscal_reserva_activa",
             "empresa_id",
@@ -89,14 +120,8 @@ class IntentoEmisionFiscal(Base):
             "tipo_comprobante",
             "numero_planificado",
             unique=True,
-            sqlite_where=text(
-                "numero_planificado IS NOT NULL AND estado IN "
-                "('en_proceso', 'autorizado', 'requiere_reconciliacion')"
-            ),
-            postgresql_where=text(
-                "numero_planificado IS NOT NULL AND estado IN "
-                "('en_proceso', 'autorizado', 'requiere_reconciliacion')"
-            ),
+            sqlite_where=text(PREDICADO_RESERVA_FISCAL_ACTIVA),
+            postgresql_where=text(PREDICADO_RESERVA_FISCAL_ACTIVA),
         ),
         Index(
             "ix_intentos_emision_fiscal_operacion",

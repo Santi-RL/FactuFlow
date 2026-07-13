@@ -166,17 +166,20 @@ Mapping aplicado en el proyecto:
 
 ### 4.g Idempotencia fiscal y CAE
 
-Estado 2026-07-13: PF-01A.1, PF-01A.2 y PF-01A.3 están implementados; el cierre
-integrado continúa pendiente. El borde WSFE solo acepta una autorización con
-`Resultado=A`, CAE ASCII de 14 dígitos y vencimiento calendario válido
-`YYYYMMDD`; rechaza `P`, resultados desconocidos, errores globales y respuestas
-batch ambiguas. Un `R` completo permanece como rechazo verificable. Toda
-excepción inesperada posterior a iniciar `FECAESolicitar` produce
-`requiere_reconciliacion`, intenta actualizar los intentos y conserva un replay
-idempotente `409` cuando la base lo permite. La UI individual congela en memoria
-la clave y el payload, bloquea cambios y verifica la misma operación hasta un
-resultado final. No usa storage web; una recarga forzada no habilita reemisión.
-Diseño y tests: `docs/agents/pf-01-authorization-integrity-design.md`.
+Estado 2026-07-13: PF-01A está cerrado y PF-01B.2 está implementado y validado
+en SQLite; falta el checkpoint PostgreSQL de PF-01B.3. El borde WSFE solo acepta
+una autorización con `Resultado=A`, CAE ASCII de 14 dígitos y vencimiento
+calendario válido `YYYYMMDD`; rechaza `P`, resultados desconocidos, errores
+globales y respuestas batch ambiguas. Un `R` completo permanece como rechazo
+verificable. Toda excepción inesperada posterior a iniciar `FECAESolicitar`
+produce `requiere_reconciliacion`, intenta actualizar los intentos y conserva un
+replay idempotente `409` cuando la base lo permite. La UI individual congela en
+memoria la clave y el payload, bloquea cambios y verifica la misma operación
+hasta un resultado final. No usa storage web; una recarga forzada no habilita
+reemisión. PF-01B.2 agrega checks persistidos de estados y coherencia CAE, con
+preflight bloqueante y sin normalización de datos legacy. Diseños y tests:
+`docs/agents/pf-01-authorization-integrity-design.md` y
+`docs/agents/pf-01b-persistence-integrity-design.md`.
 
 - La llave de idempotencia de una emisión no es el CAE. La llave operativa es
   `X-Idempotency-Key` junto con emisor, tipo de operación y hash del payload

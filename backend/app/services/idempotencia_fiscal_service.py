@@ -18,6 +18,8 @@ from app.arca.utils import clean_cuit
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.comprobante import Comprobante
 from app.models.idempotencia_fiscal import (
+    ESTADOS_INTENTO_FISCAL_BLOQUEANTES,
+    ESTADOS_RESERVA_FISCAL_ACTIVA,
     IntentoEmisionFiscal,
     OperacionIdempotente,
 )
@@ -47,12 +49,8 @@ class IdempotenciaFiscalError(Exception):
 class IdempotenciaFiscalService:
     """Coordina operaciones idempotentes e intentos fiscales durables."""
 
-    ESTADOS_INTENTO_ACTIVOS = {
-        "en_proceso",
-        "autorizado",
-        "requiere_reconciliacion",
-    }
-    ESTADOS_INTENTO_BLOQUEANTES = {"en_proceso", "requiere_reconciliacion"}
+    ESTADOS_INTENTO_ACTIVOS = ESTADOS_RESERVA_FISCAL_ACTIVA
+    ESTADOS_INTENTO_BLOQUEANTES = ESTADOS_INTENTO_FISCAL_BLOQUEANTES
 
     def __init__(self, db: AsyncSession) -> None:
         """Inicializa el servicio con una sesión async."""
