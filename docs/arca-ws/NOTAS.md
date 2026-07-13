@@ -166,10 +166,12 @@ Mapping aplicado en el proyecto:
 
 ### 4.g Idempotencia fiscal y CAE
 
-Nota de diseño 2026-07-12: queda pendiente implementar PF-01A. Una autorización
-solo será válida con `Resultado=A`, CAE de 14 dígitos y vencimiento `YYYYMMDD`
-válido; toda ambigüedad posterior a iniciar `FECAESolicitar` deberá persistirse
-como `requiere_reconciliacion`. Diseño y tests previstos:
+Estado 2026-07-13: PF-01A.1 está implementado. El borde WSFE solo acepta una
+autorización con `Resultado=A`, CAE ASCII de 14 dígitos y vencimiento calendario
+válido `YYYYMMDD`; rechaza `P`, resultados desconocidos, errores globales y
+respuestas batch ambiguas. Un `R` completo permanece como rechazo verificable.
+PF-01A.2 debe hacer que toda ambigüedad posterior a iniciar `FECAESolicitar` se
+persista como `requiere_reconciliacion`. Diseño y tests previstos:
 `docs/agents/pf-01-authorization-integrity-design.md`.
 
 - La llave de idempotencia de una emisión no es el CAE. La llave operativa es

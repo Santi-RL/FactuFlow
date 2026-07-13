@@ -1,6 +1,7 @@
 """Cliente para el Web Service de Factura Electrónica v1 (WSFEv1) de ARCA."""
 
 import logging
+from datetime import datetime
 from typing import List
 
 from zeep.exceptions import Fault, TransportError
@@ -380,11 +381,14 @@ class WSFEv1Client:
         )
         errores = self._parse_errors_response(response)
 
-        if not detalles:
+        if errores:
             mensajes = "; ".join(f"[{e.code}] {e.msg}" for e in errores)
             raise ArcaServiceError(
-                f"ARCA no devolvió detalle de comprobantes. {mensajes}".strip()
+                "ARCA devolvió errores globales al solicitar CAE: " f"{mensajes}"
             )
+
+        if not detalles:
+            raise ArcaServiceError("ARCA no devolvió detalle de comprobantes")
 
         if len(detalles) != len(comprobantes):
             raise ArcaServiceError(
@@ -476,6 +480,8 @@ class WSFEv1Client:
         errores: list[ErrorArca],
     ) -> CAEResponse:
         """Convierte un `FECAEDetResponse` en `CAEResponse`."""
+        resultado, cae, cae_vencimiento = self._validar_autorizacion_cae(fe_det_resp)
+
         # Extraer observaciones
         observaciones = []
         if hasattr(fe_det_resp, "Observaciones") and fe_det_resp.Observaciones:
@@ -486,19 +492,66 @@ class WSFEv1Client:
 
         # Crear respuesta
         cae_response = CAEResponse(
-            cae=fe_det_resp.CAE if hasattr(fe_det_resp, "CAE") else None,
-            cae_vencimiento=(
-                fe_det_resp.CAEFchVto if hasattr(fe_det_resp, "CAEFchVto") else None
-            ),
+            cae=cae,
+            cae_vencimiento=cae_vencimiento,
             numero_comprobante=comprobante.cbte_desde,
             tipo_cbte=comprobante.tipo_cbte,
             punto_venta=comprobante.punto_venta,
-            resultado=fe_det_resp.Resultado,
+            resultado=resultado,
             observaciones=observaciones,
             errores=errores,
         )
 
         return cae_response
+
+    @staticmethod
+    def _validar_autorizacion_cae(
+        fe_det_resp,
+    ) -> tuple[str, str | None, str | None]:
+        """Valida el resultado fiscal y los campos que acreditan autorización."""
+        resultado_raw = getattr(fe_det_resp, "Resultado", None)
+        resultado = str(resultado_raw or "").strip().upper()
+        if resultado not in {"A", "R", "P"}:
+            raise ArcaServiceError(
+                "ARCA devolvió un resultado de autorización ausente o inválido"
+            )
+        if resultado == "P":
+            raise ArcaServiceError(
+                "ARCA devolvió un resultado parcial P que requiere verificación"
+            )
+
+        cae_raw = getattr(fe_det_resp, "CAE", None)
+        vencimiento_raw = getattr(fe_det_resp, "CAEFchVto", None)
+        cae = str(cae_raw).strip() if cae_raw is not None else None
+        cae_vencimiento = (
+            str(vencimiento_raw).strip() if vencimiento_raw is not None else None
+        )
+
+        if resultado == "R":
+            return resultado, cae or None, cae_vencimiento or None
+
+        if cae is None or len(cae) != 14 or not cae.isascii() or not cae.isdigit():
+            raise ArcaServiceError(
+                "ARCA informó una aprobación sin un CAE válido de 14 dígitos"
+            )
+
+        if (
+            cae_vencimiento is None
+            or len(cae_vencimiento) != 8
+            or not cae_vencimiento.isascii()
+            or not cae_vencimiento.isdigit()
+        ):
+            raise ArcaServiceError(
+                "ARCA informó una aprobación sin vencimiento de CAE válido YYYYMMDD"
+            )
+        try:
+            datetime.strptime(cae_vencimiento, "%Y%m%d")
+        except ValueError as exc:
+            raise ArcaServiceError(
+                "ARCA informó una aprobación con vencimiento de CAE inválido"
+            ) from exc
+
+        return resultado, cae, cae_vencimiento
 
     @staticmethod
     def _normalizar_lista(valor) -> list:

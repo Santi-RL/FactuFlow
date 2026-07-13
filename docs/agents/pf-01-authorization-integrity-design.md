@@ -1,8 +1,8 @@
 # Diseño PF-01A: integridad de autorización y estado incierto
 
-Última actualización: 2026-07-12
+Última actualización: 2026-07-13
 
-Estado: LISTO PARA IMPLEMENTACIÓN; SIN CAMBIOS DE CÓDIGO INICIADOS.
+Estado: EN IMPLEMENTACIÓN. PF-01A.1 COMPLETADO LOCALMENTE; PF-01A.2 PENDIENTE.
 
 ## Objetivo
 
@@ -249,10 +249,10 @@ la limitación antes de implementar.
 
 ## Cortes de implementación previstos
 
-1. Validador ARCA común y matriz negativa de `WSFEv1Client`.
-2. Clasificación post-ARCA y respuesta idempotente estructurada en API/servicio.
-3. UI de reconciliación con clave y payload inmutables.
-4. Pruebas integradas individual/batch y documentación viva.
+1. [x] Validador ARCA común y matriz negativa de `WSFEv1Client`.
+2. [ ] Clasificación post-ARCA y respuesta idempotente estructurada en API/servicio.
+3. [ ] UI de reconciliación con clave y payload inmutables.
+4. [ ] Pruebas integradas individual/batch y documentación viva.
 
 Cada corte debe ser pequeño y revisable. PF-01B será un trabajo posterior con
 auditoría de datos, migración, constraints y sus propias pruebas.
@@ -272,3 +272,16 @@ Después de implementar:
   comportamiento visible.
 
 No se usará `clawpatch fix` para este trabajo fiscal crítico.
+
+## Cierre local de PF-01A.1
+
+El 2026-07-13 se implementó el validador común y la matriz negativa de
+`WSFEv1Client`, sin llamadas reales a ARCA y sin modificar servicio, API,
+persistencia, UI ni migraciones. El backend completo aprobó `498` tests con `2`
+omitidos por marcas preexistentes; Ruff y Black quedaron limpios. La revisión
+efectiva fue `autoreview` con `gpt-5.5 high`, sin findings accionables y con
+confianza `0,86`; `gpt-5.6-sol` no llegó a revisar porque el motor exigió una
+versión más nueva del binario local de Codex.
+
+El próximo corte es exclusivamente PF-01A.2. Clawpatch se revalidará después de
+cortes relacionados o al cerrar PF-01A, no en este microcorte aislado.

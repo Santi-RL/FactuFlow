@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-12
+Última actualización: 2026-07-13
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -411,8 +411,13 @@ Objetivo: dejar la emisión validada contra servicios reales.
   fallback ausente y falla explícitamente si ARCA no devuelve ningún número
 - [x] `FECompConsultar` usado para resolver intentos fiscales vencidos antes de
   liberar numeración o registrar una autorización pendiente.
+- [x] El borde común de respuestas `FECAESolicitar` solo acepta `Resultado=A`
+  con CAE ASCII de 14 dígitos y vencimiento calendario `YYYYMMDD`; rechaza
+  parciales, estados desconocidos, errores globales y cardinalidades/rangos
+  batch ambiguos. Un `R` completo permanece como rechazo verificable.
 - [x] La emisión CAE individual solo retorna normalmente para resultado
-  aprobado; rechaza resultados parciales o cualquier estado distinto de `A`
+  aprobado con CAE utilizable; rechaza resultados parciales o cualquier estado
+  distinto de `A`.
 - [x] Validación de numeración y punto de venta en emisión
 - [x] Mapeo de `CondicionIVAReceptorId`
 - [x] Validación local de ventana ARCA para fecha de emisión antes de emitir
@@ -803,9 +808,10 @@ Objetivo: ampliar valor mas alla del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Revisar y, con confirmación del usuario, implementar PF-01A según
-   `docs/agents/pf-01-authorization-integrity-design.md`: CAE válido, errores
-   post-ARCA reconciliables, replay seguro, UI bloqueante y matriz batch.
+2. Continuar PF-01A según
+   `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1 (validador CAE
+   y matriz batch) está cerrado localmente; siguen clasificación post-ARCA,
+   replay seguro, UI bloqueante y verificación integrada.
 3. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
    migración y constraints de estados, CAE y reservas activas.
 4. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no

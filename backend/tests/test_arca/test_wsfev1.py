@@ -203,7 +203,76 @@ async def test_fe_cae_solicitar_rechaza_resultado_parcial():
 
     client = _crear_cliente_wsfe(FakeService())
 
-    with pytest.raises(ArcaValidationError, match="resultado P"):
+    with pytest.raises(ArcaServiceError, match="resultado parcial P"):
+        await client.fe_cae_solicitar(_comprobante())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("cae", "vencimiento", "mensaje"),
+    [
+        (None, "20260610", "CAE válido de 14 dígitos"),
+        ("1234567890123", "20260610", "CAE válido de 14 dígitos"),
+        ("1234567890123X", "20260610", "CAE válido de 14 dígitos"),
+        ("12345678901234", None, "vencimiento de CAE válido"),
+        ("12345678901234", "20260231", "vencimiento de CAE inválido"),
+    ],
+)
+async def test_fe_cae_solicitar_rechaza_aprobacion_sin_cae_utilizable(
+    cae,
+    vencimiento,
+    mensaje,
+):
+    """Una aprobación exige CAE de 14 dígitos y vencimiento calendario válido."""
+
+    class FakeService:
+        """Servicio SOAP simulado con una aprobación incompleta."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve los campos de autorización indicados por el caso."""
+            detalle = SimpleNamespace(
+                CAE=cae,
+                CAEFchVto=vencimiento,
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="A",
+            )
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
+                Errors=None,
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match=mensaje):
+        await client.fe_cae_solicitar(_comprobante())
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_rechaza_errores_globales_aun_con_detalle_aprobado():
+    """Un error global impide confiar en un detalle que aparenta aprobación."""
+
+    class FakeService:
+        """Servicio SOAP simulado con detalle y error global simultáneos."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve una combinación globalmente inconsistente."""
+            detalle = SimpleNamespace(
+                CAE="12345678901234",
+                CAEFchVto="20260610",
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="A",
+            )
+            error = SimpleNamespace(Code=1000, Msg="Respuesta global inconsistente")
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
+                Errors=SimpleNamespace(Err=[error]),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="errores globales"):
         await client.fe_cae_solicitar(_comprobante())
 
 
@@ -447,3 +516,159 @@ async def test_fe_cae_solicitar_lote_rechaza_punto_o_tipo_mixto():
         await client.fe_cae_solicitar_lote(
             [_comprobante(1, punto_venta=1), _comprobante(2, punto_venta=2)]
         )
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_resultado_parcial():
+    """Un detalle P vuelve no confiable la respuesta completa del lote."""
+
+    class FakeService:
+        """Servicio SOAP simulado con un detalle parcial."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve una aprobación y un resultado parcial."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901231",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    CbteHasta=1,
+                    Resultado="A",
+                ),
+                SimpleNamespace(
+                    CAE=None,
+                    CAEFchVto=None,
+                    CbteDesde=2,
+                    CbteHasta=2,
+                    Resultado="P",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="resultado parcial P"):
+        await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_conserva_rechazo_explicito():
+    """Un detalle R completo se conserva como rechazo verificable, no como éxito."""
+
+    class FakeService:
+        """Servicio SOAP simulado con una aprobación y un rechazo."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve resultados definitivos asociados a cada número."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901231",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    CbteHasta=1,
+                    Resultado="A",
+                ),
+                SimpleNamespace(
+                    CAE=None,
+                    CAEFchVto=None,
+                    CbteDesde=2,
+                    CbteHasta=2,
+                    Resultado="R",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    resultados = await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
+
+    assert resultados[0].is_aprobado is True
+    assert resultados[1].is_rechazado is True
+    assert resultados[1].cae is None
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_rango_duplicado():
+    """Dos detalles para el mismo rango no pueden cubrir un lote de dos números."""
+
+    class FakeService:
+        """Servicio SOAP simulado con un rango repetido."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve dos veces el primer comprobante."""
+            detalles = [
+                SimpleNamespace(
+                    CAE="12345678901231",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    CbteHasta=1,
+                    Resultado="A",
+                ),
+                SimpleNamespace(
+                    CAE="12345678901232",
+                    CAEFchVto="20260610",
+                    CbteDesde=1,
+                    CbteHasta=1,
+                    Resultado="A",
+                ),
+            ]
+            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="rango.*duplicado"):
+        await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_detalle_faltante():
+    """La cardinalidad incompleta impide aceptar cualquier autorización del lote."""
+
+    class FakeService:
+        """Servicio SOAP simulado que omite el segundo detalle."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un solo detalle para dos comprobantes."""
+            detalle = SimpleNamespace(
+                CAE="12345678901231",
+                CAEFchVto="20260610",
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="A",
+            )
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle])
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="cantidad de detalles distinta"):
+        await client.fe_cae_solicitar_lote([_comprobante(1), _comprobante(2)])
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_lote_rechaza_error_global():
+    """Un error global invalida todo el lote aunque los detalles parezcan válidos."""
+
+    class FakeService:
+        """Servicio SOAP simulado con un error global."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle aprobado junto con un error global."""
+            detalle = SimpleNamespace(
+                CAE="12345678901231",
+                CAEFchVto="20260610",
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="A",
+            )
+            error = SimpleNamespace(Code=1000, Msg="Respuesta global inconsistente")
+            return SimpleNamespace(
+                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
+                Errors=SimpleNamespace(Err=error),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaServiceError, match="errores globales"):
+        await client.fe_cae_solicitar_lote([_comprobante(1)])
