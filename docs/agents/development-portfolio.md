@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: PRIORIZADO; PF-01A.1, PF-01A.2 Y PF-01A.3 PUBLICADOS; CHECKPOINT INTEGRADO PENDIENTE.
+Estado: PRIORIZADO; PF-01A CERRADO; PF-01B ES EL SIGUIENTE CORTE FISCAL.
 
 ## Propósito y autoridad
 
@@ -42,12 +42,12 @@ emisores y una plataforma multiempresa compleja.
 
 | Fuente | Estado observado | Uso dentro del portafolio |
 |---|---:|---|
-| Clawpatch `repo` | 16 abiertos: 5 `high`, 4 `medium`, 7 `low` | Riesgos end-to-end y contratos entre capas |
-| Clawpatch `backend` | 101 abiertos: 25 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
+| Clawpatch `repo` | 15 abiertos: 4 `high`, 4 `medium`, 7 `low` | Riesgos end-to-end y contratos entre capas |
+| Clawpatch `backend` | 98 abiertos: 22 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
 | Clawpatch `frontend` | 29 abiertos: 5 `high`, 20 `medium`, 4 `low` | Estado de UI, contratos, concurrencia y UX |
 | `ROADMAP.md` | 83 ítems no cerrados: 53 pendientes, 30 en curso | Producto, plataforma, operación y evolución |
 
-Los 146 hallazgos abiertos actuales y los 83 ítems no representan 229 tareas independientes.
+Los 142 hallazgos abiertos actuales y los 83 ítems no representan 225 tareas independientes.
 Existen duplicados entre slices, repeticiones del mismo objetivo en distintas
 fases del roadmap y hallazgos que son síntomas de una misma causa raíz.
 
@@ -69,7 +69,7 @@ La distribución principal es:
 
 | Línea | P1 | P2 | Resultado |
 |---|---:|---:|---|
-| PF-01 | 6 | 0 | PF-01A.1/.2/.3 publicados; checkpoint integrado pendiente. PF-01B requiere migración separada. |
+| PF-01 | 6 | 0 | Cuatro fuentes cerradas en PF-01A; las dos restantes corresponden a PF-01B y su migración separada. |
 | PF-03 | 2 | 0 | Contratos fiscales estrictos e importes válidos. |
 | PF-04 | 0 | 4 | Evidencia histórica, moneda, redondeo y tests PDF. |
 | PF-06 | 2 | 0 | Invariantes multiemisor backend. |
@@ -81,9 +81,9 @@ La distribución principal es:
 | PF-13 | 0 | 1 | Replay corregible pre-ARCA en lotes. |
 | PF-16 | 0 | 1 | Default productivo seguro; además queda un gap residual de tests no contado como finding aceptado. |
 
-El detalle con IDs y evidencia queda solo en `.tmp/clawpatch/2026-07-12/`,
-ignorado por Git. El diseño sanitizado del primer corte está en
-`docs/agents/pf-01-authorization-integrity-design.md`.
+El detalle con IDs y evidencia queda solo en `.tmp/clawpatch/2026-07-12/` y
+`.tmp/clawpatch/2026-07-13/`, ignorado por Git. El diseño sanitizado del
+primer corte está en `docs/agents/pf-01-authorization-integrity-design.md`.
 
 ## Bandas de investigación del backlog restante
 
@@ -175,9 +175,8 @@ Antes de editar código, cada corte debe tener:
 - P1 y P2 conservan su intención original.
 - Los 36 hallazgos `high` fueron adjudicados, deduplicados y asignados a PF.
 - No se confirmó ningún P0.
-- PF-01A tiene alcance, invariantes, estados, orden de operaciones, fallos y
-  matriz de tests definidos. PF-01A.1, PF-01A.2 y PF-01A.3 están publicados;
-  el último conserva estado visual bloqueante y replay exacto de clave/payload.
-- El siguiente paso es publicar el parche de seguridad de Pillow solo con
-  autorización, verificar CI por SHA y cerrar el checkpoint integrado con
-  revalidación Clawpatch antes de iniciar PF-01B.
+- PF-01A cerró sus cuatro fuentes R02/B03/B04/B24 como `fixed` después de
+  publicar los tres cortes, validar CI y ejecutar Clawpatch con
+  `gpt-5.6-sol high`.
+- PF-01B queda como siguiente corte fiscal independiente: auditoría legacy,
+  migración, constraints y matriz de tests propia.

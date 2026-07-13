@@ -71,6 +71,9 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
 - 2026-07-12: auditoría completa ordenada con Clawpatch `0.7.0`, reconstrucción
   autorizada del ledger backend, evaluación controlada de `jobs` y backlog
   sanitizado en `2026-07-12-cierre-auditoria-ordenada.md`.
+- 2026-07-13: checkpoint dirigido de PF-01A, con R02/B03/B04/B24
+  revalidados como `fixed`, CI verde y aprendizaje operativo en
+  `2026-07-13-cierre-checkpoint-pf-01a.md`.
 
 ## Lecciones 2026-07-05
 
@@ -118,6 +121,22 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
   conservar `status=open` y usar una nota de triage con PF y prioridad. Reservar
   `wont-fix` para una decisión permanente y `false-positive` para una premisa
   refutada.
+
+## Lecciones 2026-07-13
+
+- Para un checkpoint dirigido posterior a varios cortes relacionados, si el
+  worktree está limpio, los ledgers no tienen locks ni features pendientes y los
+  findings ya están adjudicados con IDs exactos, no hace falta relanzar una
+  auditoría masiva. Ejecutar `show`, contrastar cada premisa con código/tests y
+  luego `revalidate` de a un finding por vez, sin paralelizar slices.
+- En Clawpatch `0.7.0`, `report --status open --output archivo.md` escribe el
+  archivo y además vuelca el reporte Markdown completo por stdout. Prever una
+  salida grande; conservar el archivo en `.tmp/clawpatch/` y no interpretar la
+  verbosidad como una segunda auditoría.
+- En una sesión Codex sobre Windows, el wrapper npm de `repo:status` quedó sin
+  salida mientras la CLI global directa respondió correctamente con el mismo
+  `--root`, `--state-dir` y `--config`. Si se repite, detener el wrapper y usar
+  el equivalente directo; no crear un state default ni reinicializar el ledger.
 
 ## Reglas De Seguridad
 

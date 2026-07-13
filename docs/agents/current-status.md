@@ -146,26 +146,32 @@ El ciclo 2026-07-07/10 que formó `v0.2.1` continúa cerrado y desplegado. El
 actual con Clawpatch `0.7.0`, Codex `gpt-5.6-sol`, razonamiento `high` y sin
 aplicar fixes.
 
-El estado local ignorado quedó así después de adjudicar los 36 `high`:
+El checkpoint integrado PF-01A del 2026-07-13 dejó el estado local ignorado
+así:
 
-- repo: 16 abiertos, 5 `high`, 4 `medium` y 7 `low`;
-- backend: 101 abiertos, 25 `high`, 52 `medium` y 24 `low`;
+- repo: 15 abiertos, 4 `high`, 4 `medium` y 7 `low`;
+- backend: 98 abiertos, 22 `high`, 52 `medium` y 24 `low`;
 - frontend: 29 abiertos, 5 `high`, 20 `medium` y 4 `low`.
 
-Los tres slices están sin locks y con cero features pendientes de review. La
-adjudicación confirmó 33 problemas únicos: 20 P1, 12 P2 y un finding rechazado;
-además identificó tres registros duplicados entre slices. No se confirmó ningún
-P0 ni P3 entre los `high`. Los riesgos reales continúan abiertos con una nota de
-PF y prioridad; solo se marcó `false-positive` el finding cuya premisa de
-ausencia total de tests de vista quedó refutada por la suite existente.
+R02, B03, B04 y B24 se revalidaron secuencialmente como `fixed` con
+Clawpatch `0.7.0`, Codex `gpt-5.6-sol` y razonamiento `high`. No hubo
+resultados inciertos, falsos positivos nuevos, locks, `clawpatch fix` ni llamadas
+reales a ARCA. Los contadores restantes siguen siendo un ledger acumulativo,
+no una lista de bugs confirmados.
 
-La evidencia detallada permanece en `.tmp/clawpatch/2026-07-12/`, ignorada por
-Git. No reparar en masa, no usar el contador global como backlog ejecutable y no
-borrar ni reinicializar `.clawpatch/` sin decisión explícita.
+La adjudicación original confirmó 33 problemas únicos: 20 P1, 12 P2 y un
+finding rechazado; además identificó tres registros duplicados entre slices.
+No se confirmó ningún P0 ni P3 entre los `high`.
 
-La guía canónica es `docs/project/audits/clawpatch/README.md`. El cierre
-sanitizado de esta auditoría está en
-`docs/project/audits/clawpatch/2026-07-12-cierre-auditoria-ordenada.md`.
+La evidencia detallada permanece en `.tmp/clawpatch/2026-07-12/` y los reportes
+post-PF-01A en `.tmp/clawpatch/2026-07-13/`, ambos ignorados por Git. No
+reparar en masa, no usar el contador global como backlog ejecutable y no borrar
+ni reinicializar `.clawpatch/` sin decisión explícita.
+
+La guía canónica es `docs/project/audits/clawpatch/README.md`. Los cierres
+sanitizados están en
+`docs/project/audits/clawpatch/2026-07-12-cierre-auditoria-ordenada.md` y
+`docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01a.md`.
 El portafolio que integra estos hallazgos con el roadmap está en
 `docs/agents/development-portfolio.md`.
 
@@ -214,23 +220,24 @@ Validación de PF-01A.2:
   findings accionables y con confianza `0,82`;
 - no hubo llamadas reales a ARCA ni se ejecutó Clawpatch en el microcorte.
 
-Validación local de PF-01A.3:
+Validación de PF-01A.3 y cierre integrado:
 
 - pruebas unitarias enfocadas: `17` aprobadas; suite frontend completa: `127`
   aprobadas;
 - E2E enfocado del replay exacto: aprobado; suite E2E completa: `33` aprobadas;
 - ESLint, type-check y build: limpios; Browserslist solo informó datos
   desactualizados;
-- `autoreview` efectivo con `gpt-5.5 high` detectó un P1 válido: el rechazo final
-  real llega como HTTP `400`, no como promesa resuelta. Se aceptó, corrigió y
-  cubrió con el contrato real; la segunda pasada quedó limpia, sin findings
-  accionables y con confianza `0,80`;
-- `gpt-5.6-sol` se intentó dos veces, pero el binario local requiere una versión
-  más nueva y no llegó a revisar;
-- se aplicó la revisión de seguridad de Vue/FastAPI: sin HTML crudo ni storage
-  web para el snapshot fiscal, y con respuestas inciertas allowlist/sanitizadas;
-- no hubo llamadas reales a ARCA ni se ejecutó Clawpatch. La revalidación
-  corresponde al checkpoint integrado de PF-01A.
+- `autoreview` efectivo con `gpt-5.5 high` detectó un P1 válido sobre el rechazo
+  final HTTP `400`; se corrigió y la segunda pasada quedó limpia, con confianza
+  `0,80`;
+- PF-01A.3 se publicó como `578a15a`. La CI `29244681533` aprobó backend,
+  frontend y E2E, pero detectó cinco avisos de Pillow `12.2.0`;
+- `82d4245` actualizó Pillow a `12.3.0` y `2c8ac72` sincronizó la documentación.
+  El intento 2 de la CI `29245900987` aprobó Security Audit, Backend Tests,
+  Frontend Build y E2E Tests; el intento 1 se canceló porque el runner quedó
+  atascado más de veinte minutos al descargar Playwright;
+- Clawpatch revalidó R02, B03, B04 y B24 como `fixed` con `gpt-5.6-sol high`.
+  No hubo resultados inciertos, correcciones automáticas ni llamadas reales a ARCA.
 
 PF-01B será un corte posterior y separado para auditar datos heredados, agregar
 constraints de estados/CAE/reservas y ejecutar su migración. Solo después se
@@ -278,18 +285,16 @@ Siguen pendientes:
 5. La adjudicación de los 36 `high` está completada. No repetirla ni usar
    `clawpatch fix`; consultar el portafolio y el reporte local si hace falta
    rastrear una decisión.
-6. PF-01A.1, PF-01A.2 y PF-01A.3 están publicados. No volver a diseñar ni
-   ampliar esos cortes.
-7. La CI por SHA de PF-01A.3 aprobó backend, frontend y E2E, pero la auditoría
-   detectó cinco avisos nuevos de Pillow `12.2.0`, corregidos en `12.3.0`.
-   El commit local `82d4245` actualiza solo esa dependencia; tiene 503 tests
-   backend aprobados, 2 omitidos y `pip-audit` limpio.
-8. El siguiente paso es publicar `82d4245` solo con autorización y verificar su
-   CI por SHA. Después, ejecutar el checkpoint integrado de PF-01: revisar la
-   evidencia individual/batch relacionada, revalidar Clawpatch según su runbook
-   y registrar el cierre antes de iniciar PF-01B.
-9. Mantener PF-01B separado porque exige auditoría legacy, migración y
-   constraints. No comenzar PF-02 hasta cerrar PF-01.
+6. PF-01A está cerrado: los tres cortes, el parche de Pillow, la CI final y las
+   revalidaciones R02/B03/B04/B24 están completos. No repetir ni ampliar ese
+   checkpoint.
+7. El siguiente corte de código es PF-01B. Antes de editar, auditar datos legacy
+   y completar su diseño de migración, constraints, rollback y matriz de tests
+   mediante `docs/agents/fiscal-change-checklist.md`.
+8. Mantener PF-01B separado de PF-02. No modificar numeración global ni historia
+   externa hasta cerrar las invariantes persistentes de PF-01B.
+9. Después de PF-01B, continuar PF-02 y luego los P1 PF-03, PF-06/PF-07,
+   PF-08 y PF-09 según el portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
     `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
 

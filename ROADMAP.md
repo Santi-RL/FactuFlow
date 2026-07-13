@@ -170,9 +170,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [~] Auditoría Clawpatch 2026-07-12 completada sobre `repo`, `backend` y
   `frontend`, sin fixes ni llamadas ARCA. Los findings `high` ya fueron
   deduplicados, adjudicados por causa raíz y enrutados al portafolio. PF-01A.1,
-  PF-01A.2 y PF-01A.3 están publicados; corresponde
-  revalidar Clawpatch en el checkpoint integrado, no reparar hallazgos aislados.
-  El portafolio consolidado vive en `docs/agents/development-portfolio.md`.
+  PF-01A.2, PF-01A.3 y el parche de seguridad de Pillow están publicados; la CI
+  final quedó verde. El checkpoint integrado del 2026-07-13 revalidó R02, B03,
+  B04 y B24 como `fixed` con `gpt-5.6-sol high`, sin `clawpatch fix` ni
+  llamadas ARCA. El backlog restante continúa por causa raíz en
+  `docs/agents/development-portfolio.md`.
 - [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control actual presupone que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
@@ -801,7 +803,7 @@ Objetivo: profesionalizar la entrega del producto.
 
 ## Fase 9 - Evolucion del producto
 
-Objetivo: ampliar valor mas alla del MVP.
+Objetivo: ampliar valor más allá del MVP.
 
 - [x] Producción ARCA inicial
 - [~] Operación productiva robusta y repetible
@@ -816,35 +818,30 @@ Objetivo: ampliar valor mas alla del MVP.
 1. Confirmar en la documentación privada si la clave portable del backup
    cifrado ya está guardada en un gestor seguro. El repo público no puede
    resolver ni afirmar ese estado.
-2. Cerrar el checkpoint integrado de PF-01A según
-   `docs/agents/pf-01-authorization-integrity-design.md`: PF-01A.1, PF-01A.2 y
-   PF-01A.3 están publicados. Falta publicar el parche de seguridad de Pillow,
-   verificar su CI, revalidar el conjunto relacionado con Clawpatch y registrar
-   el cierre antes de PF-01B.
-3. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
+2. Diseñar e implementar PF-01B como corte separado: auditoría legacy,
    migración y constraints de estados, CAE y reservas activas.
-4. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
+3. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
-5. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
+4. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
    PF-08 y PF-09.
-6. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+5. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
-7. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+6. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-8. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+7. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-9. Definir y luego automatizar backups cifrados con validación, retención,
+8. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-10. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-11. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+9. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+10. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
     resguardo ZIP, compactación y limpieza segura.
-12. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-13. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-14. Mantener notas de release y procedimiento de upgrade para cada versión
+11. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+12. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+13. Mantener notas de release y procedimiento de upgrade para cada versión
     posterior a `v0.2.1`.
 
-## Criterio de exito del MVP
+## Criterio de éxito del MVP
 
 El MVP se considera cerrado cuando:
 
@@ -856,7 +853,7 @@ El MVP se considera cerrado cuando:
 - el usuario puede consultar comprobantes, ver PDF y operar reportes básicos
 - la documentación permite retomar el proyecto y operarlo sin reconstruir contexto desde cero
 
-## Criterio de exito de largo plazo
+## Criterio de éxito de largo plazo
 
 FactuFlow deja de ser "solo un MVP" cuando además:
 

@@ -2,7 +2,7 @@
 
 Última actualización: 2026-07-13
 
-Estado: EN IMPLEMENTACIÓN. PF-01A.1, PF-01A.2 Y PF-01A.3 PUBLICADOS; CHECKPOINT INTEGRADO PENDIENTE.
+Estado: COMPLETADO. PF-01A CERRADO; PF-01B QUEDA COMO CORTE POSTERIOR SEPARADO.
 
 ## Objetivo
 
@@ -256,14 +256,13 @@ la limitación antes de implementar.
 1. [x] Validador ARCA común y matriz negativa de `WSFEv1Client`.
 2. [x] Clasificación post-ARCA y respuesta idempotente estructurada en API/servicio.
 3. [x] UI de reconciliación con clave y payload inmutables.
-4. [~] Pruebas integradas individual/batch y documentación viva: suites backend y
-   frontend relacionadas y documentación actualizadas; restan publicación, CI
-   por SHA y revalidación Clawpatch del conjunto antes del cierre de PF-01A.
+4. [x] Pruebas integradas individual/batch, publicación, CI, documentación viva
+   y revalidación Clawpatch del conjunto.
 
 Cada corte debe ser pequeño y revisable. PF-01B será un trabajo posterior con
 auditoría de datos, migración, constraints y sus propias pruebas.
 
-## Validación y cierre futuros
+## Validación y cierre
 
 Después de implementar:
 
@@ -279,7 +278,7 @@ Después de implementar:
 
 No se usará `clawpatch fix` para este trabajo fiscal crítico.
 
-## Cierre local de PF-01A.1, PF-01A.2 y PF-01A.3
+## Cierre de implementación de PF-01A.1, PF-01A.2 y PF-01A.3
 
 El 2026-07-13 se implementó el validador común y la matriz negativa de
 `WSFEv1Client`, sin llamadas reales a ARCA y sin modificar servicio, API,
@@ -325,10 +324,19 @@ confianza `0,80`. `gpt-5.6-sol` se intentó dos veces, pero no llegó a revisar 
 la incompatibilidad del binario local. No hubo llamadas reales a ARCA ni se
 ejecutó Clawpatch.
 
-PF-01A.3 se publicó como `578a15a`. GitHub Actions `29244681533` aprobó
-backend, frontend y E2E; la auditoría de seguridad detectó cinco avisos nuevos
-de Pillow `12.2.0`, todos corregidos por el commit local `82d4245` con la
-actualización a `12.3.0`. El próximo paso es publicar ese parche, verificar su
-CI por SHA, revisar la evidencia individual/batch, revalidar Clawpatch según
-su runbook y cerrar documentalmente PF-01A. PF-01B continúa separado por su
-auditoría legacy, migración y constraints.
+PF-01A.3 se publicó como `578a15a`. La primera CI `29244681533` aprobó
+backend, frontend y E2E, pero la auditoría de seguridad detectó cinco avisos
+nuevos de Pillow `12.2.0`. `82d4245` actualizó la dependencia a `12.3.0` y
+`2c8ac72` sincronizó la documentación. El intento 2 de GitHub Actions
+`29245900987` aprobó Security Audit, Backend Tests, Frontend Build y E2E
+Tests; el intento 1 se canceló porque el runner quedó atascado durante la
+descarga de Playwright, no por un fallo del código.
+
+El checkpoint integrado revalidó R02, B03, B04 y B24 secuencialmente como
+`fixed` con Clawpatch `0.7.0`, Codex `gpt-5.6-sol` y razonamiento `high`.
+Los ledgers terminaron sin locks con 15 findings abiertos en `repo`, 98 en
+`backend` y 29 en `frontend`. No se ejecutó `clawpatch fix`, no hubo resultados
+inciertos y no se realizaron llamadas reales a ARCA.
+
+PF-01A queda cerrado. PF-01B continúa separado por su auditoría legacy,
+migración y constraints; no debe mezclarse con PF-02.

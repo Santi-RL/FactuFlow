@@ -230,11 +230,12 @@ básicos y restauración aislada. Seguir
 
 ## Punto de reanudación de QA
 
-PF-01A.3 está publicado. El próximo checkpoint de QA es publicar el parche de
-seguridad de Pillow solo con autorización, verificar CI por SHA y luego cerrar
-la revalidación integrada de PF-01A, incluida Clawpatch según su runbook. La QA
-manual/productiva de DB/FECAE, PF-01A y pool/worker solo se ejecuta con
-autorización explícita de despliegue y sin forzar CAE real para fabricar fallos.
+PF-01A está publicado y su checkpoint integrado quedó cerrado con CI verde y
+R02/B03/B04/B24 revalidados como `fixed`. El próximo trabajo es el diseño y la
+auditoría legacy de PF-01B; no requiere fabricar fallos con CAE real ni hacer
+QA productiva antes de definir migración, constraints y matriz de tests. La QA
+manual/productiva de DB/FECAE, PF-01B y pool/worker solo se ejecuta con
+autorización explícita de despliegue.
 No repetir como pendiente el setup productivo inicial, el rediseño UX de lotes
 ni la validación de `v0.2.1`.
 
