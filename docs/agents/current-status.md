@@ -95,33 +95,31 @@ manual/productiva de ese corte sigue pendiente.
 - Tag desplegado e inmutable:
   `8099b223f3be7342dbb29367d24c6209dee93a58`.
 - La release quedó desplegada y aceptada el 2026-07-10.
-- `origin/main` avanzó hasta `f9d170a`: incluye PF-01A/PF-01B, el
-  endurecimiento de pools/worker, la frontera DB/FECAE y su cierre documental.
-  Su CI `29275715128` aprobó seguridad, backend, frontend y E2E. Ninguno de
-  estos cortes posteriores al tag implica un nuevo despliegue.
-- Producción quedó sana después de backup, restauración aislada, migración,
-  smoke checks y QA manual autenticada con emisión fiscal real satisfactoria.
+- `main` contiene PF-01A/PF-01B, el endurecimiento de pools/worker, la frontera
+  DB/FECAE y el cierre de release `0.2.2`. Los commits candidatos y sus CI
+  aprobaron seguridad, backend, frontend y E2E.
+- Producción continúa sana en `v0.2.1`; el tag `v0.2.2` es un corte publicable
+  y no implica despliegue automático.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
 
-### Candidato v0.2.2
+### Release v0.2.2
 
-`main` contiene el candidato `0.2.2` con alcance funcional congelado después
-de PF-01 y antes de PF-02. El commit publicado `0271d8a` reúne el versionado,
+`main` contiene el corte `0.2.2` con alcance funcional congelado después de
+PF-01 y antes de PF-02. El commit publicado `0271d8a` reúne el versionado,
 changelog y dossier de upgrade; su CI `29284577864` aprobó los cuatro jobs.
-Producción continúa en `v0.2.1`: no existe tag, release ni despliegue
-`v0.2.2`.
+La release queda publicada el 2026-07-23, pero producción continúa en
+`v0.2.1` hasta un despliegue autorizado por separado.
 
-El rango incorpora una migración fiscal (`a8b9c0d1e2f3`), Pillow `12.3.0` y
-variables nuevas de pool. El versionado local aprobó lint, type-check, Black,
-`531` pruebas backend, `127` frontend, `3` de scripts y build. La primera
-pasada de `autoreview gpt-5.5 high` detectó un P2 válido: dos manifiestos
-backend conservaban `0.2.1`. El hallazgo se aceptó y corrigió; la segunda
-pasada quedó limpia, sin findings, con confianza `0,82`.
+El rango incorpora la migración fiscal `a8b9c0d1e2f3`, Pillow `12.3.0` y
+variables nuevas de pool. El versionado aprobó lint, type-check, Black, `531`
+pruebas backend, `127` frontend, `3` de scripts y build. La primera pasada de
+`autoreview gpt-5.5 high` detectó un P2 válido de versionado; se aceptó, se
+corrigió y la segunda pasada quedó limpia, sin findings, con confianza `0,82`.
 
-Antes de etiquetar faltan confirmar en privado el backup portable, restaurar
-una copia,
-ejecutar el preflight de las cinco categorías legacy y decidir explícitamente
-el tag. El despliegue requiere una autorización posterior separada. El dossier
+El 2026-07-23 se completó en privado la puerta operativa: backup fresco cifrado
+con copia externa, restauración aislada, cinco categorías de preflight en cero,
+migración hasta `a8b9c0d1e2f3`, constraints, pools, worker y smoke checks
+aprobados. No hubo llamadas de emisión a ARCA ni cambios productivos. El dossier
 vigente es `docs/project/releases/v0.2.2-candidate.md`.
 
 ## Estado del producto
@@ -292,9 +290,9 @@ para trabajo fiscal, migraciones, certificados, aislamiento o borrados.
 
 ### Operación privada
 
-Confirmar en la documentación privada si la clave portable del backup cifrado
-ya está guardada en un gestor de contraseñas. El repo público no puede afirmar
-ese estado.
+La puerta privada de backup portable y restauración quedó verificada para
+`v0.2.2`. La custodia concreta de credenciales y artefactos continúa fuera del
+repositorio público.
 
 Siguen pendientes:
 
@@ -323,14 +321,13 @@ Siguen pendientes:
 7. PF-01 está cerrado: PF-01A y PF-01B fueron publicados, sus CI quedaron
    verdes y R02/B03/B04/B24/B10/B17 figuran `fixed` en Clawpatch. No repetir
    esos checkpoints.
-8. Completar el candidato `v0.2.2` antes de mezclar PF-02: la validación local
-   está verde, el P2 de versionado de la primera pasada de `autoreview` fue
-   corregido y la pasada final quedó limpia. El commit `0271d8a` está
-   publicado y su CI `29284577864` quedó verde. No crear tag todavía.
-9. Después, completar en privado backup/restauración y preflight. Crear el tag
-   solo con decisión explícita y desplegar únicamente con otra autorización.
-   Si el corte se difiere explícitamente, continuar PF-02 y luego PF-03,
-   PF-06/PF-07, PF-08 y PF-09 según el portafolio.
+8. `v0.2.2` quedó validada y publicada como corte posterior a PF-01. No repetir
+   el versionado, las revisiones, el backup/restauración ni el ensayo de
+   migración salvo que aparezca evidencia nueva.
+9. El próximo paso operativo es desplegar `v0.2.2` solo con autorización
+   explícita, mantenimiento controlado, preflight inmediato y QA post-deploy.
+   Después continuar PF-02 y luego PF-03, PF-06/PF-07, PF-08 y PF-09 según el
+   portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
     `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
 

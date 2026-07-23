@@ -113,9 +113,9 @@ Antes de declarar un candidato listo:
 5. verificar backup/restauración, notas de release, upgrade y smoke;
 6. decidir por separado si se crea el tag y si se despliega.
 
-El roadmap recomienda provisionalmente `v0.2.2` como estabilización posterior a
-PF-01 y anterior a PF-02, y `v0.3.0` después del cambio funcional de PF-02.
-Esos nombres y alcances pueden cambiar si aparece nueva evidencia.
+El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
+PF-02. `v0.3.0` continúa como corte provisional después del cambio funcional de
+PF-02; su nombre y alcance pueden cambiar si aparece nueva evidencia.
 
 ## Antes de desplegar
 

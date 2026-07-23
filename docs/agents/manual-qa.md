@@ -190,12 +190,14 @@ efímero: upgrade, checks, estados, coherencia CAE, unicidad, dos transacciones
 concurrentes, preflight bloqueante y downgrade. El backend completo aprobó
 `531` pruebas y omitió `4`; Ruff y Black quedaron limpios. El commit
 `6625254` tuvo CI completa verde y Clawpatch cerró B10/B17 como `fixed` con
-`gpt-5.6-sol high`. No hubo CAE real, UI, despliegue ni datos privados.
+`gpt-5.6-sol high`.
 
-Antes de un despliegue futuro, con backup y autorización explícita, el preflight
-productivo debe ejecutarse sin listar filas fiscales. Si informa cualquier
-categoría con cantidad mayor que cero, detener la migración y reconciliar
-manualmente; no completar estados, CAE ni vencimientos por inferencia.
+El 2026-07-23 el candidato repitió estas garantías sobre una restauración
+aislada de un backup productivo reciente: preflight en cero, migración,
+constraints, conteos, pools, worker y smoke checks aprobados, sin CAE ni cambios
+productivos. Esto habilita la release, no el despliegue. Antes de migrar
+producción se debe repetir el preflight agregado inmediato; cualquier cantidad
+mayor que cero obliga a detenerse y reconciliar sin inferencias.
 
 ### P1 pool/worker — cierre local
 
@@ -245,11 +247,11 @@ básicos y restauración aislada. Seguir
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
-`fixed` en Clawpatch. El próximo corte recomendado es preparar el candidato
-provisional `v0.2.2` y sus puertas de salida antes de mezclar PF-02. La QA
-manual/productiva de DB/FECAE, PF-01B y pool/worker solo se ejecuta con
-autorización explícita de despliegue. No repetir como pendiente el setup
-productivo inicial, el rediseño UX de lotes ni la validación de `v0.2.1`.
+`fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas y quedó publicada.
+El próximo paso de QA es el despliegue controlado, únicamente con autorización
+explícita, seguido por verificación post-deploy de DB/FECAE, PF-01B, pools y
+worker. No repetir como pendiente el setup productivo inicial, el rediseño UX
+de lotes ni las validaciones ya cerradas de `v0.2.1` y del candidato.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

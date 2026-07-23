@@ -794,13 +794,11 @@ Objetivo: profesionalizar la entrega del producto.
 - [ ] Paquetes o imagenes publicables
 - [x] Notas de release inauguradas con `v0.2.1`; mantenerlas en cada versión
   futura
-- [~] Candidato `v0.2.2` en preparación: alcance funcional congelado en
-  `f9d170a`; el commit candidato `0271d8a` contiene el versionado `0.2.2`,
-  changelog, dossier y validaciones, y su CI `29284577864` quedó completa
-  verde. La primera pasada de `autoreview gpt-5.5 high` encontró un P2 válido
-  de versionado, ya corregido; la pasada final quedó limpia. Faltan
-  backup/restauración y preflight privados, decisión de tag y autorización
-  separada de despliegue.
+- [x] Release `v0.2.2` publicada el 2026-07-23 como corte posterior a PF-01:
+  versionado, dossier, CI, `autoreview`, backup cifrado recuperable, copia
+  externa, restauración aislada, preflight, migración, constraints, pools,
+  worker y smoke checks aprobados. El despliegue productivo sigue siendo una
+  decisión separada.
 
 #### Guía flexible de cortes
 
@@ -810,10 +808,10 @@ cambio de alcance o evidencia productiva puede adelantar, dividir, posponer o
 renombrar una versión. No hace falta terminar todo el roadmap para publicar una
 release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
 
-- **`v0.2.2` provisional:** corte de estabilización recomendado después de
-  PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE, el
-  endurecimiento de pool/worker y las correcciones de seguridad ya aceptadas,
-  sin mezclar todavía el cambio de política de numeración global.
+- **`v0.2.2` publicado:** corte de estabilización cerrado después de PF-01 y
+  antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE, el
+  endurecimiento de pool/worker y las correcciones de seguridad aceptadas, sin
+  mezclar el cambio de política de numeración global.
 - **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y su
   QA fiscal, porque permitir historia previa u otros sistemas cambia el contrato
   operativo de numeración. Puede incluir otros P1 solo si forman una unidad
@@ -833,9 +831,9 @@ el despliegue siguen siendo decisiones separadas de cada commit o push.
 - [ ] Instalación simplificada para terceros, posterior a estabilizar VPS
 - [ ] Plantillas de configuración por ambiente
 - [ ] Demo controlada o entorno de evaluación
-- [~] Procedimiento de upgrade `v0.2.1 -> v0.2.2` preparado en
-  `docs/project/releases/v0.2.2-candidate.md`; falta ensayarlo sobre una
-  restauración privada aislada antes del tag
+- [x] Procedimiento de upgrade `v0.2.1 -> v0.2.2` preparado y ensayado sobre
+  una restauración privada aislada; el despliegue real queda sujeto a
+  autorización y QA post-deploy
 
 ### Soporte y adopcion
 - [ ] Runbooks de soporte
@@ -857,16 +855,16 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Confirmar en la documentación privada si la clave portable del backup
-   cifrado ya está guardada en un gestor seguro. El repo público no puede
-   resolver ni afirmar ese estado.
-2. Completar las puertas del candidato `v0.2.2` antes de mezclar PF-02:
-   validar el commit de versionado, ensayar backup/restauración y preflight en
-   privado, y decidir por separado tag y despliegue.
-3. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
+1. Desplegar `v0.2.2` solo con autorización explícita, mantenimiento
+   controlado, backup conservado, preflight inmediato, migración única y QA
+   post-deploy; producción continúa en `v0.2.1` hasta completar ese ciclo.
+2. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
-4. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
+3. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
    PF-08 y PF-09.
+4. Mantener la custodia y la evidencia concreta del backup fuera del repo
+   público; automatización, retención y recuperación a un VPS nuevo siguen
+   como trabajo separado.
 5. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
 6. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,

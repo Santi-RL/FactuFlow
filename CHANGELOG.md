@@ -18,8 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-> Estado: candidato `v0.2.2` en preparación. Todavía no existe tag, release ni
-> despliegue; producción continúa en `v0.2.1`.
+Sin cambios registrados después de `v0.2.2`.
+
+## [0.2.2] - 2026-07-23
+
+> Estado: release publicada; producción continúa en `v0.2.1` hasta un
+> despliegue autorizado y verificado por separado.
 
 ### Confiabilidad fiscal
 
@@ -87,9 +91,12 @@ Reglas vigentes desde 2026-05-22:
   la pasada final quedó limpia, sin findings, con confianza `0,82`.
 - El commit candidato `0271d8a` aprobó la CI `29284577864` completa:
   Security Audit, Backend Tests, Frontend Build y E2E Tests.
-- Siguen pendientes las verificaciones privadas de backup/restauración,
-  preflight sobre una copia productiva aislada y las decisiones explícitas de
-  tag y despliegue.
+- El ensayo privado aprobó backup cifrado recuperable, copia externa,
+  restauración aislada de un backup productivo reciente, cinco categorías de
+  preflight en cero, migración, constraints, pools, worker y smoke checks sin
+  llamadas de emisión a ARCA ni cambios productivos.
+- El tag y la GitHub Release quedaron autorizados. El despliegue productivo
+  continúa pendiente de una decisión y un ciclo separados.
 
 ## [0.2.1] - 2026-07-10
 
