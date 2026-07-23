@@ -22,8 +22,8 @@ Sin cambios registrados después de `v0.2.2`.
 
 ## [0.2.2] - 2026-07-23
 
-> Estado: release publicada; producción continúa en `v0.2.1` hasta un
-> despliegue autorizado y verificado por separado.
+> Estado: release publicada y desplegada en producción el 2026-07-23 desde el
+> tag inmutable `v0.2.2`.
 
 ### Confiabilidad fiscal
 
@@ -95,8 +95,27 @@ Sin cambios registrados después de `v0.2.2`.
   restauración aislada de un backup productivo reciente, cinco categorías de
   preflight en cero, migración, constraints, pools, worker y smoke checks sin
   llamadas de emisión a ARCA ni cambios productivos.
-- El tag y la GitHub Release quedaron autorizados. El despliegue productivo
-  continúa pendiente de una decisión y un ciclo separados.
+- El tag, la GitHub Release y el despliegue productivo tuvieron autorizaciones
+  explícitas y separadas.
+
+### Despliegue productivo
+
+- El tag `v0.2.2` se desplegó desde el SHA exacto
+  `64629957ebff64ca60f474fcb44f054557e69ec0`; `main` no se usó como target.
+- Bajo mantenimiento se creó y validó un backup final mediante checksums,
+  inspección del dump PostgreSQL y validación de los paquetes, sin reemplazar
+  las copias recuperables existentes.
+- El preflight PF-01B dio cero en las cinco categorías inmediatamente antes del
+  DDL. Alembic avanzó una sola vez de `f7a8b9c0d1e2` a
+  `a8b9c0d1e2f3 (head)`.
+- Los tres constraints, las cinco invariantes y los conteos agregados quedaron
+  preservados. Aprobaron pools API/worker `4 + 1`, Uvicorn único, worker
+  saludable y los smoke checks de lectura, autenticación, reportes y PDF.
+- FactuFlow reabrió correctamente y los servicios vecinos permanecieron sanos.
+  No hubo llamadas ARCA de escritura, solicitudes de CAE, emisiones, reintentos
+  fiscales, downgrade ni restauración productiva.
+- La evidencia concreta y los artefactos permanecen en la documentación
+  operativa privada.
 
 ## [0.2.1] - 2026-07-10
 

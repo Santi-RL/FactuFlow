@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-13
+Última actualización: 2026-07-23
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -9,8 +9,8 @@ lecciones de herramientas viven en `docs/project/**`.
 ## Cierre local — P1 UI, pool y worker
 
 El P1 estructural quedó implementado y validado localmente el 2026-07-10. Sus
-commits ya están publicados en `main`, pero no desplegados; `v0.2.1` continúa
-como versión productiva.
+commits se publicaron primero en `main` y luego quedaron incluidos en el
+despliegue productivo de `v0.2.2` del 2026-07-23.
 
 Decisiones cerradas:
 
@@ -46,8 +46,9 @@ Validación del corte:
 
 Durante la validación original no se ejecutaron Clawpatch fix, push ni
 despliegue. El cierre fiscal posterior quedó integrado en `e175b77` y luego fue
-publicado en `main`; no se desplegó como una nueva release y su QA
-manual/productiva continúa pendiente.
+publicado en `main`. Ese estado local quedó posteriormente incluido en
+`v0.2.2`; la QA manual de fallos controlados continúa separada del smoke
+productivo seguro.
 
 ### Corrección local posterior — frontera DB/FECAE
 
@@ -85,21 +86,20 @@ El cierre final quedó así:
 
 `8b311b5` y `e175b77` ya son ancestros de `origin/main`. La planificación
 posterior avanzó `main` hasta `4b4c210`, punto sincronizado con `origin/main`
-antes de iniciar PF-01A.1. Esos cambios posteriores al tag no forman una nueva
-release ni fueron desplegados. `v0.2.1` continúa como versión productiva y la QA
-manual/productiva de ese corte sigue pendiente.
+antes de iniciar PF-01A.1. Esos cambios no formaron una release independiente;
+quedaron incluidos en el corte productivo `v0.2.2`.
 
 ## Snapshot vigente
 
-- Versión productiva: `v0.2.1`.
+- Versión productiva: `v0.2.2`.
 - Tag desplegado e inmutable:
-  `8099b223f3be7342dbb29367d24c6209dee93a58`.
-- La release quedó desplegada y aceptada el 2026-07-10.
+  `64629957ebff64ca60f474fcb44f054557e69ec0`.
+- La release quedó desplegada y aceptada el 2026-07-23.
 - `main` contiene PF-01A/PF-01B, el endurecimiento de pools/worker, la frontera
   DB/FECAE y el cierre de release `0.2.2`. Los commits candidatos y sus CI
   aprobaron seguridad, backend, frontend y E2E.
-- Producción continúa sana en `v0.2.1`; la release `v0.2.2` está publicada y su
-  despliegue fue autorizado el 2026-07-23, pero todavía no fue ejecutado.
+- Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
+  el 2026-07-23.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
 
 ### Release v0.2.2
@@ -107,8 +107,9 @@ manual/productiva de ese corte sigue pendiente.
 `main` contiene el corte `0.2.2` con alcance funcional congelado después de
 PF-01 y antes de PF-02. El commit publicado `0271d8a` reúne el versionado,
 changelog y dossier de upgrade; su CI `29284577864` aprobó los cuatro jobs.
-La release queda publicada el 2026-07-23, pero producción continúa en
-`v0.2.1` hasta un despliegue autorizado por separado.
+La release fue publicada y desplegada mediante autorizaciones separadas el
+2026-07-23 desde el tag exacto
+`64629957ebff64ca60f474fcb44f054557e69ec0`.
 
 El rango incorpora la migración fiscal `a8b9c0d1e2f3`, Pillow `12.3.0` y
 variables nuevas de pool. El versionado aprobó lint, type-check, Black, `531`
@@ -121,6 +122,14 @@ con copia externa, restauración aislada, cinco categorías de preflight en cero
 migración hasta `a8b9c0d1e2f3`, constraints, pools, worker y smoke checks
 aprobados. No hubo llamadas de emisión a ARCA ni cambios productivos. El dossier
 vigente es `docs/project/releases/v0.2.2-candidate.md`.
+
+El despliegue posterior repitió el preflight PF-01B inmediatamente antes del
+DDL con sus cinco categorías en cero, aplicó Alembic una sola vez hasta
+`a8b9c0d1e2f3 (head)` y verificó los tres constraints, invariantes y conteos
+agregados. También aprobaron pools `4 + 1`, Uvicorn único, worker saludable,
+smoke autenticado de solo lectura, reportes y PDF. FactuFlow y los servicios
+vecinos reabrieron sanos. No hubo llamadas ARCA de escritura, solicitudes de
+CAE, emisiones, reintentos fiscales, downgrade ni restauración productiva.
 
 ## Estado del producto
 
@@ -146,7 +155,7 @@ Las reglas no negociables siguen en `VISION.md` y `AGENTS.md`. En particular:
 la fecha fiscal nunca se completa con la fecha actual, ninguna ruta puede pedir
 CAE sin confirmación explícita y los datos de emisores distintos no se mezclan.
 
-## Validación vigente de v0.2.1
+## Cierre histórico de v0.2.1
 
 - Backend: 411 tests aprobados y 1 omitido según su marca preexistente.
 - Frontend: 111 tests aprobados; ESLint, type-check y build limpios.
@@ -157,7 +166,7 @@ CAE sin confirmación explícita y los datos de emisores distintos no se mezclan
   aprobados.
 - `autoreview` acumulado del ciclo: GPT-5.5 en `high` sin hallazgos accionables.
 - QA productiva manual: login autenticado y emisión fiscal real satisfactoria.
-- Alembic productivo: `current` y `heads` en `f7a8b9c0d1e2`.
+- Alembic productivo en ese checkpoint: `current` y `heads` en `f7a8b9c0d1e2`.
 
 ## Estado Clawpatch
 
@@ -321,13 +330,11 @@ Siguen pendientes:
 7. PF-01 está cerrado: PF-01A y PF-01B fueron publicados, sus CI quedaron
    verdes y R02/B03/B04/B24/B10/B17 figuran `fixed` en Clawpatch. No repetir
    esos checkpoints.
-8. `v0.2.2` quedó validada y publicada como corte posterior a PF-01. No repetir
-   el versionado, las revisiones, el backup/restauración ni el ensayo de
-   migración salvo que aparezca evidencia nueva.
-9. El próximo paso operativo es ejecutar el despliegue ya autorizado de
-   `v0.2.2` con mantenimiento controlado, preflight inmediato y QA post-deploy.
-   Después continuar PF-02 y luego PF-03, PF-06/PF-07, PF-08 y PF-09 según el
-   portafolio.
+8. `v0.2.2` quedó validada, publicada y desplegada como corte posterior a
+   PF-01. No repetir el versionado, el despliegue, las revisiones, el
+   backup/restauración ni la migración salvo que aparezca evidencia nueva.
+9. El próximo paso de desarrollo es PF-02 y luego PF-03, PF-06/PF-07, PF-08 y
+   PF-09 según el portafolio integrado.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
     `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
 
@@ -343,7 +350,7 @@ Siguen pendientes:
 - QA manual vigente: `docs/agents/manual-qa.md`
 - Historial: `CHANGELOG.md`
 - Flujo productivo: `docs/agents/production-workflow.md`
-- Candidato v0.2.2: `docs/project/releases/v0.2.2-candidate.md`
+- Dossier v0.2.2: `docs/project/releases/v0.2.2-candidate.md`
 - Checklist fiscal: `docs/agents/fiscal-change-checklist.md`
 - Clawpatch: `docs/project/audits/clawpatch/README.md`
 - Cierre v0.2.1:

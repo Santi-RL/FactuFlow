@@ -784,7 +784,7 @@ Objetivo: profesionalizar la entrega del producto.
 
 ### Releases
 - [x] Changelog operativo consistente como fuente principal de historial
-- [x] Release estable `v0.2.1` definida como corte productivo vigente
+- [x] Release estable `v0.2.1` definida como corte productivo anterior
 - [x] Despliegue productivo de `v0.2.1` cerrado el 2026-07-10 con backup y
   restauración aislada, migración verificada, CI y smoke sanos, QA manual
   autenticada y emisión fiscal real satisfactoria
@@ -797,8 +797,10 @@ Objetivo: profesionalizar la entrega del producto.
 - [x] Release `v0.2.2` publicada el 2026-07-23 como corte posterior a PF-01:
   versionado, dossier, CI, `autoreview`, backup cifrado recuperable, copia
   externa, restauración aislada, preflight, migración, constraints, pools,
-  worker y smoke checks aprobados. El despliegue productivo sigue siendo una
-  decisión separada.
+  worker y smoke checks aprobados
+- [x] Despliegue productivo separado de `v0.2.2` completado el 2026-07-23 desde
+  el tag exacto, con backup final, preflight inmediato, migración única y QA
+  post-deploy aprobados, sin emisiones ni solicitudes de CAE
 
 #### Guía flexible de cortes
 
@@ -808,10 +810,10 @@ cambio de alcance o evidencia productiva puede adelantar, dividir, posponer o
 renombrar una versión. No hace falta terminar todo el roadmap para publicar una
 release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
 
-- **`v0.2.2` publicado:** corte de estabilización cerrado después de PF-01 y
-  antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE, el
-  endurecimiento de pool/worker y las correcciones de seguridad aceptadas, sin
-  mezclar el cambio de política de numeración global.
+- **`v0.2.2` publicado y desplegado:** corte de estabilización cerrado después
+  de PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE,
+  el endurecimiento de pool/worker y las correcciones de seguridad aceptadas,
+  sin mezclar el cambio de política de numeración global.
 - **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y su
   QA fiscal, porque permitir historia previa u otros sistemas cambia el contrato
   operativo de numeración. Puede incluir otros P1 solo si forman una unidad
@@ -831,9 +833,8 @@ el despliegue siguen siendo decisiones separadas de cada commit o push.
 - [ ] Instalación simplificada para terceros, posterior a estabilizar VPS
 - [ ] Plantillas de configuración por ambiente
 - [ ] Demo controlada o entorno de evaluación
-- [x] Procedimiento de upgrade `v0.2.1 -> v0.2.2` preparado y ensayado sobre
-  una restauración privada aislada; el despliegue real fue autorizado el
-  2026-07-23 y queda pendiente de ejecución y QA post-deploy
+- [x] Upgrade `v0.2.1 -> v0.2.2` ensayado sobre una restauración privada
+  aislada y ejecutado en producción el 2026-07-23 con QA post-deploy aprobada
 
 ### Soporte y adopcion
 - [ ] Runbooks de soporte
@@ -855,33 +856,29 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Ejecutar el despliegue autorizado de `v0.2.2` con mantenimiento controlado,
-   backup conservado, preflight inmediato, migración única y QA post-deploy;
-   producción continúa en `v0.2.1` hasta completar ese ciclo.
-2. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
+1. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
-3. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
+2. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
    PF-08 y PF-09.
-4. Mantener la custodia y la evidencia concreta del backup fuera del repo
+3. Mantener la custodia y la evidencia concreta del backup fuera del repo
    público; automatización, retención y recuperación a un VPS nuevo siguen
    como trabajo separado.
-5. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+4. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
-6. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+5. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-7. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+6. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-8. Definir y luego automatizar backups cifrados con validación, retención,
+7. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-9. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-10. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
-    resguardo ZIP, compactación y limpieza segura.
-11. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-12. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-13. Mantener notas de release y procedimiento de upgrade para cada versión
-    posterior a `v0.2.1`, revisando los candidatos cuando cambien riesgos o
-    alcance.
+8. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+9. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+   resguardo ZIP, compactación y limpieza segura.
+10. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+11. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+12. Mantener notas de release y procedimiento de upgrade para cada versión
+    futura, revisando los candidatos cuando cambien riesgos o alcance.
 
 ## Criterio de éxito del MVP
 

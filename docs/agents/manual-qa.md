@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-13
+Última actualización: 2026-07-23
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -8,14 +8,17 @@ fechadas de `docs/project/**`.
 
 ## Último checkpoint aceptado
 
-`v0.2.1` quedó validada en producción el 2026-07-10.
+`v0.2.2` quedó validada en producción el 2026-07-23.
 
-- El despliegue verificó backup y restauración aislada, Alembic, constraints,
-  integridad básica de datos, runtime, worker, healthchecks, login y PDF
-  sintético.
-- La validación manual autenticada confirmó el acceso y la operación normal.
-- Se emitieron comprobantes fiscales reales correctamente.
-- No queda QA manual bloqueante para `v0.2.1`.
+- El ciclo verificó previamente backup recuperable y restauración aislada; bajo
+  mantenimiento repitió backup final, preflight, Alembic, constraints,
+  invariantes, conteos, runtime, worker y logs sanitizados.
+- Los smoke autenticados confirmaron acceso, lecturas, certificados, puntos de
+  venta, reportes y PDF seguro.
+- No se solicitaron CAE ni se realizaron emisiones o reintentos fiscales
+  durante el despliegue. La emisión fiscal real ya había sido validada en el
+  checkpoint productivo de `v0.2.1`.
+- No queda QA bloqueante para mantener `v0.2.2` en producción.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
@@ -135,10 +138,11 @@ Estos casos quedaron cubiertos por el cierre automatizado local: `487` tests
 backend aprobados y `2` omitidos, `120` pruebas de API aprobadas, Ruff, Black y
 `git diff --check` limpios. El `autoreview` final con `gpt-5.6-sol` en `high`
 quedó limpio, sin findings accionables, con probabilidad `0,87` de patch
-correcto. La QA manual y la evidencia productiva continúan pendientes.
+correcto. La QA manual de fallos controlados continúa pendiente; la evidencia
+productiva básica quedó cerrada con el despliegue seguro de `v0.2.2`.
 
-Los commits `8b311b5` y `e175b77` ya fueron publicados en `main`. No formaron una
-nueva release ni fueron desplegados; `v0.2.1` continúa como versión productiva.
+Los commits `8b311b5` y `e175b77` ya fueron publicados en `main` y quedaron
+incluidos en la versión productiva `v0.2.2`.
 
 ### PF-01A — QA manual pendiente
 
@@ -181,7 +185,8 @@ cubrió, y la segunda pasada quedó limpia con confianza `0,80`. `gpt-5.6-sol` n
 llegó a revisar porque exige una versión más nueva del binario local.
 
 No forzar este escenario con CAE real hasta autorizar explícitamente una QA
-fiscal controlada. PF-01A.3 está publicado, pero no está desplegado.
+fiscal controlada. PF-01A.3 está publicado y desplegado, pero esta matriz manual
+de fallos simulados continúa pendiente.
 
 ### PF-01B — validación local completada
 
@@ -195,9 +200,9 @@ concurrentes, preflight bloqueante y downgrade. El backend completo aprobó
 El 2026-07-23 el candidato repitió estas garantías sobre una restauración
 aislada de un backup productivo reciente: preflight en cero, migración,
 constraints, conteos, pools, worker y smoke checks aprobados, sin CAE ni cambios
-productivos. Esto habilita la release, no el despliegue. Antes de migrar
-producción se debe repetir el preflight agregado inmediato; cualquier cantidad
-mayor que cero obliga a detenerse y reconciliar sin inferencias.
+productivos. El despliegue repitió después el preflight agregado inmediato con
+las cinco categorías en cero, migró una sola vez y volvió a verificar
+constraints, invariantes y conteos antes de reabrir.
 
 ### P1 pool/worker — cierre local
 
@@ -209,10 +214,11 @@ La implementación y la capacidad estructural quedaron validadas localmente:
 4. prueba PostgreSQL efímera con saturación `4 + 1`, sin datos ni ARCA;
 5. suites backend/frontend y regresiones fiscales vecinas aprobadas.
 
-Después de un despliegue explícitamente autorizado todavía corresponde verificar
-en el entorno privado `Sistema > Estado`, logs sanitizados y tiempos de un lote
-de prueba controlado. El runbook privado de la instalación debe registrar el
-commit desplegado y sus comandos concretos sin llevar esos datos al repo.
+El despliegue confirmó en el entorno privado la configuración efectiva, salud
+del worker, pools, logs sanitizados y cero trabajos elegibles. Todavía
+corresponde medir los tiempos de un lote de prueba controlado y completar la QA
+visual de `Sistema > Estado`. El runbook privado conserva el commit desplegado
+y sus comandos concretos.
 
 ### Operación VPS
 
@@ -247,11 +253,11 @@ básicos y restauración aislada. Seguir
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
-`fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas y quedó publicada.
-El próximo paso de QA es el despliegue controlado, únicamente con autorización
-explícita, seguido por verificación post-deploy de DB/FECAE, PF-01B, pools y
-worker. No repetir como pendiente el setup productivo inicial, el rediseño UX
-de lotes ni las validaciones ya cerradas de `v0.2.1` y del candidato.
+`fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
+superó el despliegue y la verificación post-deploy. El próximo foco de QA
+acompaña PF-02 y los escenarios manuales controlados todavía enumerados. No
+repetir como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el
+rediseño UX de lotes ni las validaciones ya cerradas.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

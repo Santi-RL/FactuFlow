@@ -6,7 +6,7 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 Versión publicada más reciente: `v0.2.2`
 
-Versión productiva vigente: `v0.2.1`
+Versión productiva vigente: `v0.2.2`
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El
@@ -16,9 +16,10 @@ observabilidad y mantenimiento sin perder las reglas fiscales críticas.
 La release `v0.2.2` del 2026-07-23 cierra PF-01 con pools/worker endurecidos y
 una migración fiscal nueva. El backup recuperable, la restauración aislada, el
 preflight y los smoke checks candidatos quedaron aprobados antes del tag.
-Producción continúa en `v0.2.1` hasta completar el despliegue de `v0.2.2`,
-autorizado el 2026-07-23 como una operación separada. El detalle se conserva en
-`CHANGELOG.md` y
+El despliegue productivo de `v0.2.2` se completó el mismo día desde el tag
+inmutable, con backup final validado, preflight fiscal en cero, migración única,
+constraints y smoke checks aprobados. No se solicitaron CAE ni se realizaron
+emisiones durante la actualización. El detalle se conserva en `CHANGELOG.md` y
 `docs/project/releases/v0.2.2-candidate.md`.
 
 Capacidades actuales:
@@ -99,7 +100,8 @@ Esta opción no es un instalador ni configura inicio automático con Windows.
 El uso local con launcher ya está implementado y testeado hasta nivel
 desarrollo/QA. La primera instalación privada en VPS con Docker producción,
 PostgreSQL y HTTPS quedó validada el 2026-06-09. La actualización a `v0.2.1` quedó
-desplegada y aceptada el 2026-07-10.
+desplegada y aceptada el 2026-07-10; `v0.2.2` quedó desplegada y aceptada el
+2026-07-23.
 
 ### Docker
 
