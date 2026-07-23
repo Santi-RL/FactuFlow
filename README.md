@@ -16,8 +16,9 @@ observabilidad y mantenimiento sin perder las reglas fiscales críticas.
 La release `v0.2.2` del 2026-07-23 cierra PF-01 con pools/worker endurecidos y
 una migración fiscal nueva. El backup recuperable, la restauración aislada, el
 preflight y los smoke checks candidatos quedaron aprobados antes del tag.
-Producción continúa en `v0.2.1` hasta un despliegue autorizado por separado. El
-detalle se conserva en `CHANGELOG.md` y
+Producción continúa en `v0.2.1` hasta completar el despliegue de `v0.2.2`,
+autorizado el 2026-07-23 como una operación separada. El detalle se conserva en
+`CHANGELOG.md` y
 `docs/project/releases/v0.2.2-candidate.md`.
 
 Capacidades actuales:

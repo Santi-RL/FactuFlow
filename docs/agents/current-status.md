@@ -98,8 +98,8 @@ manual/productiva de ese corte sigue pendiente.
 - `main` contiene PF-01A/PF-01B, el endurecimiento de pools/worker, la frontera
   DB/FECAE y el cierre de release `0.2.2`. Los commits candidatos y sus CI
   aprobaron seguridad, backend, frontend y E2E.
-- Producción continúa sana en `v0.2.1`; el tag `v0.2.2` es un corte publicable
-  y no implica despliegue automático.
+- Producción continúa sana en `v0.2.1`; la release `v0.2.2` está publicada y su
+  despliegue fue autorizado el 2026-07-23, pero todavía no fue ejecutado.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
 
 ### Release v0.2.2
@@ -324,8 +324,8 @@ Siguen pendientes:
 8. `v0.2.2` quedó validada y publicada como corte posterior a PF-01. No repetir
    el versionado, las revisiones, el backup/restauración ni el ensayo de
    migración salvo que aparezca evidencia nueva.
-9. El próximo paso operativo es desplegar `v0.2.2` solo con autorización
-   explícita, mantenimiento controlado, preflight inmediato y QA post-deploy.
+9. El próximo paso operativo es ejecutar el despliegue ya autorizado de
+   `v0.2.2` con mantenimiento controlado, preflight inmediato y QA post-deploy.
    Después continuar PF-02 y luego PF-03, PF-06/PF-07, PF-08 y PF-09 según el
    portafolio.
 10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con

@@ -832,8 +832,8 @@ el despliegue siguen siendo decisiones separadas de cada commit o push.
 - [ ] Plantillas de configuración por ambiente
 - [ ] Demo controlada o entorno de evaluación
 - [x] Procedimiento de upgrade `v0.2.1 -> v0.2.2` preparado y ensayado sobre
-  una restauración privada aislada; el despliegue real queda sujeto a
-  autorización y QA post-deploy
+  una restauración privada aislada; el despliegue real fue autorizado el
+  2026-07-23 y queda pendiente de ejecución y QA post-deploy
 
 ### Soporte y adopcion
 - [ ] Runbooks de soporte
@@ -855,9 +855,9 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Desplegar `v0.2.2` solo con autorización explícita, mantenimiento
-   controlado, backup conservado, preflight inmediato, migración única y QA
-   post-deploy; producción continúa en `v0.2.1` hasta completar ese ciclo.
+1. Ejecutar el despliegue autorizado de `v0.2.2` con mantenimiento controlado,
+   backup conservado, preflight inmediato, migración única y QA post-deploy;
+   producción continúa en `v0.2.1` hasta completar ese ciclo.
 2. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
 3. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,

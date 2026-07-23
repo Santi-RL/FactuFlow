@@ -83,7 +83,7 @@ Sin cambios registrados después de `v0.2.2`.
 ### Preparación de release
 
 - El alcance funcional se congela después de PF-01 y antes de PF-02.
-- El versionado técnico y visible se prepara como `0.2.2`.
+- El versionado técnico y visible se publicó como `0.2.2`.
 - El inventario, migración, rollback y puertas pendientes están en
   `docs/project/releases/v0.2.2-candidate.md`.
 - La primera pasada de `autoreview gpt-5.5 high` detectó un P2 válido:
