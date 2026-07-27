@@ -740,20 +740,22 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 ##### Cortes de implementación
 
-- [ ] **PF-16A — Política ejecutable y evidencia simple:** crear una plantilla
-  breve de clasificación, criterios de aceptación, pruebas requeridas, riesgo
-  residual y resultado. El resumen debe poder ser entendido y aprobado por una
-  persona contadora sin leer código.
-- [ ] **PF-16B — Protección de `main` sin burocracia innecesaria:** impedir
-  force-push y borrado; integrar cambios funcionales mediante ramas cortas y PR;
-  exigir checks automáticos verdes; no requerir un segundo revisor humano para
-  el mantenedor único; y definir un recorrido abreviado para cambios Nivel 0.
-  Los jobs no aplicables deben terminar correctamente mediante detección de
-  cambios, no obligar a ejecutar suites costosas sin valor.
-- [ ] **PF-16C — CI como barrera real:** ejecutar Ruff y Black en backend;
-  type-check, lint, build y unit tests en frontend; tests de scripts; E2E;
-  auditoría de dependencias; y retirar checks decorativos que siempre devuelvan
-  éxito. Conservar artefactos y resúmenes suficientes para diagnosticar fallos.
+- [x] **PF-16A — Política ejecutable y evidencia simple:** la clasificación por
+  riesgo, la evidencia comprensible para una persona contadora y la plantilla
+  de PR quedaron vigentes en `docs/agents/change-quality-gates.md` y
+  `.github/pull_request_template.md`.
+- [x] **PF-16B — Protección de `main` sin burocracia innecesaria:** `main` exige
+  PR y seis checks actualizados también al administrador, sin requerir un
+  segundo aprobador. Force-push y borrado están deshabilitados; los cambios
+  Markdown/`.gitignore` conservan jobs visibles mediante un recorrido Nivel 0
+  liviano. La configuración quedó verificada el 2026-07-27 con el PR `#14`.
+- [~] **PF-16C — CI como barrera real:** la barrera básica ya ejecuta Ruff,
+  Black, tests backend, type-check, lint, build, unit tests frontend, tests de
+  scripts, E2E y auditorías bloqueantes de dependencias productivas; también se
+  retiró Pylint decorativo. La ejecución `30305581217` aprobó los seis jobs.
+  Para cerrar el corte completo antes de `v0.3.0` resta modernizar el toolchain
+  frontend, bloquear su auditoría integral y ampliar artefactos/resúmenes donde
+  aporten diagnóstico real.
 - [ ] **PF-16D — Cobertura medible y progresiva:** medir backend y frontend,
   fijar una línea base real y aplicar un umbral incremental que impida
   retroceder. No imponer de entrada un porcentaje arbitrario global; exigir
@@ -784,8 +786,8 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 ##### Secuencia y alcance de las puertas
 
-- **Antes del próximo cambio funcional no trivial integrado a `main`:** cerrar
-  PF-16A, PF-16B y la barrera básica de PF-16C.
+- **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
+  barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
 - **Antes del candidato `v0.3.0`:** cerrar PF-16C, PF-16D, PF-16E y la primera
   matriz de PF-16G, aplicadas al rango real de la versión.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
