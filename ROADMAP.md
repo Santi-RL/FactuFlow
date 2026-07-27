@@ -17,7 +17,7 @@ desde este archivo.
 La visión canónica del producto está definida en `VISION.md`.
 
 Todo ítem de este roadmap debe alinearse con esa visión. Si una prioridad,
-fase, implementacion o cambio deseado contradice `VISION.md`, primero debe
+fase, implementación o cambio deseado contradice `VISION.md`, primero debe
 modificarse explícitamente la visión y recién después incorporarse al roadmap.
 
 ## Objetivo actual
@@ -46,7 +46,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - Las integraciones externas quedan para una etapa posterior, cuando la
   facturación este madura y productiva estable. Esas integraciones deben estar
   enfocadas en obtener datos desde otras fuentes o aplicaciones, o enviar datos
-  hacia ellas, usando la API existente o su evolucion.
+  hacia ellas, usando la API existente o su evolución.
 - El modelo multiemisor vigente es el de una empresa/emisor activo por vez. Un
   contador independiente o estudio chico puede administrar varios CUITs, pero
   toda operación debe quedar scopiada al emisor activo seleccionado.
@@ -59,7 +59,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   ficha.
 - No se avanza por ahora hacia una plataforma multiempresa compleja con
   administración central completa, permisos finos por organización, reportes
-  globales consolidados u operación simultanea entre emisores.
+  globales consolidados u operación simultánea entre emisores.
 - La seguridad multiemisor es prioritaria: clientes, certificados, puntos de
   venta, comprobantes, lotes, PDFs, reportes, perfiles de carga y formatos de
   importación no deben mezclarse entre emisores.
@@ -418,7 +418,7 @@ Objetivo: dejar la emisión validada contra servicios reales.
 - [x] `FECAESolicitar`
 - [x] `FECAESolicitar` por sublotes usando `FECompTotXRequest.RegXReq`
 - [x] `FECompUltimoAutorizado`
-- [x] `FECompConsultar` útil para verificacion
+- [x] `FECompConsultar` útil para verificación
 - [x] `FECompConsultar` acepta el número canónico `CbteNro` sin evaluar un
   fallback ausente y falla explícitamente si ARCA no devuelve ningún número
 - [x] `FECompConsultar` usado para resolver intentos fiscales vencidos antes de
@@ -588,7 +588,7 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
   de fecha fiscal sin emitir
 - [x] Preparacion y validación segura sin emisión de lote de Nota de Crédito C
   para anular duplicados productivos
-- [x] Emisión y verificacion por consulta ARCA de 19 Nota de Crédito C para
+- [x] Emisión y verificación por consulta ARCA de 19 Nota de Crédito C para
   anular duplicados productivos
 - [x] Preparacion y validación segura sin emisión de 1113 Nota de Crédito B
   para corregir Factura B de un emisor privado emitidas con total usado como neto
@@ -636,7 +636,7 @@ Objetivo: reducir al mínimo la necesidad de soporte técnico para operar.
 
 ## Fase 5 - Datos, migraciones y estabilidad
 
-Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
+Objetivo: que el proyecto soporte evolución sin deuda estructural peligrosa.
 
 ### Base de datos
 - [x] Modelos principales definidos
@@ -657,7 +657,11 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [x] Script de lint frontend no destructivo `npm run lint:check`
 - [ ] Migrar el entorno de build/test del frontend y CI a Node.js 24 LTS,
   validando `npm ci`, `type-check`, `lint:check`, `build` y `test:unit`, y
-  documentando la versión recomendada para desarrollo local.
+  documentando la versión recomendada para desarrollo local. El mismo corte
+  debe actualizar de forma compatible Vite, Vitest, ESLint y `vue-tsc`, resolver
+  las alertas vigentes del árbol exclusivo de desarrollo y convertir su
+  auditoría completa en una puerta bloqueante cuando la migración quede estable;
+  no usar `npm audit fix --force` sobre el stack actual.
 - [x] Reparaciones Clawpatch 2026-05-16/17 cerradas con
   backend/frontend/repo en `openFindings=0`
 - [x] Auditoría Clawpatch 2026-07-05 cerrada nuevamente con repo completo,
@@ -673,7 +677,7 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
   gravados y el detalle de subdiario incluye gravado e IVA 27%
 - [x] Corregir setup E2E para que `npm run test:e2e` vuelva a ser evidencia
   confiable en auditorías locales de escritorio
-- [ ] Cobertura mas profunda sobre detalles de comprobantes, PDF y reportes
+- [ ] Cobertura más profunda sobre detalles de comprobantes, PDF y reportes
 - [ ] Smoke automatizado de stack completo local
 
 #### PF-16 — Programa transversal de garantía de calidad
@@ -736,20 +740,22 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 ##### Cortes de implementación
 
-- [ ] **PF-16A — Política ejecutable y evidencia simple:** crear una plantilla
-  breve de clasificación, criterios de aceptación, pruebas requeridas, riesgo
-  residual y resultado. El resumen debe poder ser entendido y aprobado por una
-  persona contadora sin leer código.
-- [ ] **PF-16B — Protección de `main` sin burocracia innecesaria:** impedir
-  force-push y borrado; integrar cambios funcionales mediante ramas cortas y PR;
-  exigir checks automáticos verdes; no requerir un segundo revisor humano para
-  el mantenedor único; y definir un recorrido abreviado para cambios Nivel 0.
-  Los jobs no aplicables deben terminar correctamente mediante detección de
-  cambios, no obligar a ejecutar suites costosas sin valor.
-- [ ] **PF-16C — CI como barrera real:** ejecutar Ruff y Black en backend;
-  type-check, lint, build y unit tests en frontend; tests de scripts; E2E;
-  auditoría de dependencias; y retirar checks decorativos que siempre devuelvan
-  éxito. Conservar artefactos y resúmenes suficientes para diagnosticar fallos.
+- [x] **PF-16A — Política ejecutable y evidencia simple:** la clasificación por
+  riesgo, la evidencia comprensible para una persona contadora y la plantilla
+  de PR quedaron vigentes en `docs/agents/change-quality-gates.md` y
+  `.github/pull_request_template.md`.
+- [x] **PF-16B — Protección de `main` sin burocracia innecesaria:** `main` exige
+  PR y seis checks actualizados también al administrador, sin requerir un
+  segundo aprobador. Force-push y borrado están deshabilitados; los cambios
+  Markdown/`.gitignore` conservan jobs visibles mediante un recorrido Nivel 0
+  liviano. La configuración quedó verificada el 2026-07-27 con el PR `#14`.
+- [~] **PF-16C — CI como barrera real:** la barrera básica ya ejecuta Ruff,
+  Black, tests backend, type-check, lint, build, unit tests frontend, tests de
+  scripts, E2E y auditorías bloqueantes de dependencias productivas; también se
+  retiró Pylint decorativo. La ejecución `30305581217` aprobó los seis jobs.
+  Para cerrar el corte completo antes de `v0.3.0` resta modernizar el toolchain
+  frontend, bloquear su auditoría integral y ampliar artefactos/resúmenes donde
+  aporten diagnóstico real.
 - [ ] **PF-16D — Cobertura medible y progresiva:** medir backend y frontend,
   fijar una línea base real y aplicar un umbral incremental que impida
   retroceder. No imponer de entrada un porcentaje arbitrario global; exigir
@@ -780,8 +786,8 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 ##### Secuencia y alcance de las puertas
 
-- **Antes del próximo cambio funcional no trivial integrado a `main`:** cerrar
-  PF-16A, PF-16B y la barrera básica de PF-16C.
+- **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
+  barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
 - **Antes del candidato `v0.3.0`:** cerrar PF-16C, PF-16D, PF-16E y la primera
   matriz de PF-16G, aplicadas al rango real de la versión.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
@@ -808,7 +814,7 @@ Objetivo: permitir que contadores independientes o estudios chicos administren
 varios emisores desde una misma instalación, operando siempre un emisor activo
 explícito por vez. No incluye, por ahora, administración central compleja,
 permisos finos por organización, reportes globales consolidados ni operación
-simultanea entre emisores.
+simultánea entre emisores.
 
 - [x] Header `X-Empresa-Id` para usuarios autenticados activos
 - [x] Selector de emisor activo en frontend
@@ -828,7 +834,7 @@ simultanea entre emisores.
 - [~] Modelo multiemisor validado con mas de un emisor real de prueba
 - [ ] Auditoria de aislamiento entre emisores en certificados, puntos de venta,
   clientes, comprobantes, lotes, PDFs, reportes, perfiles y formatos
-- [ ] Tests de regresion multiemisor para operaciones críticas antes de ampliar
+- [ ] Tests de regresión multiemisor para operaciones críticas antes de ampliar
   volumen productivo
 - [ ] Onboarding multiemisor mas claro para contadores y estudios chicos
 
@@ -893,7 +899,7 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
   documentación privada por instalación
 - [ ] Metricas y alertas avanzadas, después de estabilizar VPS
 
-## Fase 8 - Distribución, releases y adopcion
+## Fase 8 - Distribución, releases y adopción
 
 Objetivo: profesionalizar la entrega del producto.
 
@@ -906,7 +912,7 @@ Objetivo: profesionalizar la entrega del producto.
 - [x] Resumenes de fases antiguas consolidados en changelog para evitar
   snapshots obsoletos
 - [x] Primera release formal posterior al MVP publicada como `v0.2.1`
-- [ ] Paquetes o imagenes publicables
+- [ ] Paquetes o imágenes publicables
 - [x] Notas de release inauguradas con `v0.2.1`; mantenerlas en cada versión
   futura
 - [x] Release `v0.2.2` publicada el 2026-07-23 como corte posterior a PF-01:
@@ -951,7 +957,7 @@ el despliegue siguen siendo decisiones separadas de cada commit o push.
 - [x] Upgrade `v0.2.1 -> v0.2.2` ensayado sobre una restauración privada
   aislada y ejecutado en producción el 2026-07-23 con QA post-deploy aprobada
 
-### Soporte y adopcion
+### Soporte y adopción
 - [ ] Runbooks de soporte
 - [ ] Manuales de troubleshooting para usuarios administrativos
 - [ ] Manuales técnicos para deploy y mantenimiento

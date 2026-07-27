@@ -13,6 +13,29 @@ formato backend queda explícito como `backend:format:check`. El comando
 frontend `npm run format` escribe cambios y no se usa como verificación global
 raíz mientras exista deuda histórica de Prettier en archivos no tocados.
 
+## Puertas de CI por alcance
+
+La política canónica está en `docs/agents/change-quality-gates.md`. GitHub
+clasifica el diff antes de instalar dependencias:
+
+- si solo cambian archivos Markdown o `.gitignore`, ejecuta el recorrido
+  documental de Nivel 0 y los seis jobs informan éxito sin suites de runtime;
+- si cambia cualquier otro archivo, ejecuta controles de repositorio, Ruff,
+  Black, backend completo, type-check, lint, build, unit tests, E2E Chromium y
+  auditorías bloqueantes de dependencias productivas;
+- un conjunto vacío o una clasificación dudosa activa la matriz completa como
+  medida conservadora.
+
+Al cerrar localmente una unidad funcional o sensible, ejecutar:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/ci-local.ps1
+```
+
+El script continúa después de cada fallo para entregar un diagnóstico completo,
+pero devuelve código distinto de cero si falla alguna puerta. El log queda en
+`.tmp/ci-local.log` y no se versiona.
+
 ## Backend
 
 ```bash

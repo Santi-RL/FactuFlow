@@ -333,17 +333,23 @@ Siguen pendientes:
 8. `v0.2.2` quedó validada, publicada y desplegada como corte posterior a
    PF-01. No repetir el versionado, el despliegue, las revisiones, el
    backup/restauración ni la migración salvo que aparezca evidencia nueva.
-9. Antes de integrar a `main` el próximo cambio funcional no trivial, implementar
-   PF-16A, PF-16B y la barrera básica de PF-16C: clasificación por riesgo,
-   evidencia simple, protección de rama y checks obligatorios sin imponer la
-   matriz completa a cada microcambio.
-10. Después de esa base de calidad, el próximo corte funcional es PF-02 y luego
-    PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
-11. Para próximas pasadas de `autoreview`, usar una única configuración de
-    cierre: Codex `gpt-5.6-sol medium`, indicada explícitamente así:
-    `--engine codex --model gpt-5.6-sol --thinking medium`. No hacer revisiones
-    incrementales ni cambios manuales de modelo o esfuerzo. Si un hallazgo
-    aceptado cambia código, repetir tests y la misma revisión.
+9. PF-16A, PF-16B y la barrera básica de PF-16C quedaron cerradas mediante el
+   PR `#14`: clasificación por riesgo, evidencia simple, una única rama
+   permanente, recorrido Nivel 0 y seis checks obligatorios. La CI
+   `30305581217` quedó verde y `main` bloquea force-push, borrado y bypass del
+   administrador, sin exigir un segundo aprobador humano.
+10. El próximo corte funcional es PF-02 y luego PF-03, PF-06/PF-07, PF-08 y
+    PF-09 según el portafolio integrado. PF-16C continúa en paralelo únicamente
+    con la modernización planificada del toolchain y evidencia de release.
+11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
+    `gpt-5.6-sol medium`, pero Codex `0.130.0-alpha.5` rechazó crear auxiliares
+    bajo el directorio temporal aislado de Windows y no produjo dictamen. No se
+    debilitó el aislamiento ni se cambió de modelo; no presentar esos intentos
+    como una revisión limpia.
+12. Para próximas pasadas de `autoreview`, mantener una única configuración de
+    cierre: `--engine codex --model gpt-5.6-sol --thinking medium`. Resolver
+    primero la incompatibilidad del runtime temporal; no hacer revisiones
+    incrementales ni cambiar manualmente de modelo o esfuerzo.
 
 ## Referencias de continuidad
 

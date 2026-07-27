@@ -128,10 +128,24 @@ Bajo / Medio / Alto (opcional)
 
 ## 🔧 Flujo interno de trabajo
 
-Para el trabajo diario del proyecto se usa `main` como rama activa. No crear
-branches nuevas salvo que el usuario lo pida explícitamente.
+`main` es la única rama permanente y representa el código aceptado. El trabajo
+interno se realiza en una rama temporal corta por unidad lógica, normalmente una
+sola activa a la vez:
 
-Antes de empezar cualquier cambio:
+1. sincronizar y verificar que `main` esté limpia;
+2. crear la rama temporal desde `main`;
+3. implementar, probar y documentar una única unidad;
+4. abrir un pull request hacia `main`;
+5. esperar todos los checks obligatorios;
+6. hacer merge solo con CI verde y riesgos aceptados;
+7. eliminar inmediatamente la rama remota y local.
+
+La rama temporal no es una versión ni se despliega. Las versiones se identifican
+únicamente mediante tags/releases sobre commits aceptados de `main`. Los cambios
+Nivel 0 usan una CI liviana, pero conservan PR, merge y eliminación para que
+`main` nunca reciba cambios sin una verificación previa.
+
+Antes de empezar:
 
 ```bash
 git status --short --branch
@@ -139,32 +153,24 @@ git fetch origin
 git rev-list --left-right --count origin/main...HEAD
 ```
 
-Interpretacion mínima:
-- Si hay commits locales adelante de `origin/main`, recomendar hacer push antes
-  de seguir.
-- Si hay cambios modificados o sin trackear de una implementacion anterior,
-  recomendar cerrarlos con commit y push antes de acumular trabajo nuevo.
-- Si hay cambios del usuario no relacionados, no revertirlos; trabajar alrededor
-  de ellos o pedir confirmación si bloquean la tarea.
+Si hay commits sin publicar, cambios pendientes o una rama anterior abierta,
+cerrar ese ciclo antes de acumular otra unidad. No revertir trabajo del usuario
+que no pertenezca al alcance.
 
 Después de implementar:
-- Ejecutar la verificacion proporcional al cambio.
-- Preparar un commit con unidad lógica y mensaje Conventional Commit en espanol.
-- Recomendar push para mantener GitHub actualizado.
-- No ejecutar `git push` sin pedido explícito del usuario.
 
-Política de commits:
-- Preferir una implementacion relevante por commit.
-- Agrupar cambios chicos o bugs relacionados si forman una misma correccion.
-- Evitar commits exclusivos de formato/lint si pueden integrarse al commit
-  funcional sin ensuciar la historia.
+- ejecutar la verificación proporcional definida en
+  `docs/agents/change-quality-gates.md`;
+- preparar uno o pocos commits con unidad lógica y Conventional Commits;
+- revisar que no haya evidencia privada;
+- solicitar autorización antes de push, merge o eliminación remota, salvo que el
+  usuario ya haya autorizado explícitamente completar todo el ciclo.
 
 ## 🔧 Proceso de Pull Requests
 
-El flujo con Pull Request sigue disponible para colaboraciones externas o
-cambios no triviales cuando se decida trabajar con ramas. En el trabajo interno
-habitual de FactuFlow, la regla anterior sobre `main` tiene prioridad.
-
+El proceso interno usa ramas temporales del repositorio. Las colaboraciones
+externas pueden usar un fork, pero deben cumplir las mismas puertas y completar
+la plantilla `.github/pull_request_template.md`.
 ### 1. Fork y Clone
 
 ```bash
@@ -211,54 +217,65 @@ git checkout -b docs/guia-instalacion
 
 ### 4. Tests
 
-#### CI local (mismo alcance que GitHub Actions)
+#### CI local completo
 
-Antes de commitear, ejecutá el **CI local** que replica los mismos pasos del workflow de GitHub Actions:
+Al cerrar una unidad funcional o sensible, ejecutar la matriz local completa:
 
-```bash
+```powershell
 powershell -ExecutionPolicy Bypass -File scripts/ci-local.ps1
 ```
 
-El log queda en `.tmp/ci-local.log` y **se sobrescribe en cada ejecución**. El script **no se detiene** ante un fallo: ejecuta todas las etapas y muestra un **resumen final** con OK/WARN/FAIL. El exit code será distinto de 0 si hubo fallas.
+El script ejecuta controles de repositorio, Ruff, Black, backend, frontend, E2E
+y auditorías de dependencias. Continúa después de un fallo para mostrar el
+resumen completo, pero devuelve un código distinto de cero si cualquier puerta
+obligatoria falla. El log local queda en `.tmp/ci-local.log`.
 
-**Regla de sincronía obligatoria:** si agregás/modificás tests o pasos en `.github/workflows/ci.yml`, **tenés que** reflejar lo mismo en `scripts/ci-local.ps1` (y viceversa). El CI de GitHub y el CI local deben ejecutar **exactamente las mismas pruebas**.
+GitHub ejecuta la misma matriz para cualquier archivo de runtime o configuración.
+Si el cambio contiene únicamente Markdown o `.gitignore`, todos los jobs
+informan éxito mediante el recorrido Nivel 0 sin instalar dependencias ni correr
+suites costosas.
 
-**Backend:**
+Si se agregan o modifican pruebas o pasos de `.github/workflows/ci.yml`, mantener
+alineados `scripts/ci-local.ps1`, los scripts raíz y
+`docs/agents/change-quality-gates.md`.
+
+Controles principales de backend:
+
 ```bash
 cd backend
-pytest tests/ -v --cov=app
+ruff check app/ tests/
+black --check app/ tests/
+pytest tests/ -v --cov=app --cov-report=xml
 ```
 
-**Frontend:**
+Controles principales de frontend:
+
 ```bash
 cd frontend
-npm run test
-npm run type-check  # Si usás TypeScript
+npm run lint:check
+npm run type-check
+npm run build
+npm run test:unit
+npm run test:e2e
 ```
+### 5. Lint y formato
 
-### 5. Lint y Formato
+Usar checks no destructivos antes de integrar:
 
-**Backend:**
 ```bash
-cd backend
-black app/ tests/
-pylint app/
-```
-
-**Frontend:**
-```bash
-cd frontend
 npm run lint
-npm run format
+npm run backend:format:check
 ```
 
+Los comandos con `--fix` o `--write` se reservan para cuando se quiera modificar
+archivos y siempre requieren revisar el diff resultante.
 ### 6. Commit
 
 Seguí la convención de [Conventional Commits](#conventional-commits) en español.
 
 ```bash
 git add .
-git commit -m "feat: agregar wizard de certificados AFIP"
+git commit -m "feat: agregar wizard de certificados ARCA"
 ```
 
 ### 7. Push
@@ -271,50 +288,19 @@ git push origin feat/wizard-certificados
 
 1. Andá a tu fork en GitHub
 2. Click en "Compare & pull request"
-3. Completá el template del PR:
-
-```markdown
-## Descripción
-¿Qué hace este PR?
-
-## Tipo de Cambio
-- [ ] Bug fix (cambio que corrige un issue)
-- [ ] Nueva feature (cambio que agrega funcionalidad)
-- [ ] Breaking change (cambio que rompe compatibilidad)
-- [ ] Documentación
-
-## Checklist
-- [ ] Mi código sigue el estilo del proyecto
-- [ ] Revisé mi propio código
-- [ ] Comenté el código en partes complicadas
-- [ ] Actualicé la documentación
-- [ ] Mis cambios no generan nuevas advertencias
-- [ ] Agregué tests que prueban mi fix/feature
-- [ ] Tests nuevos y existentes pasan localmente
-- [ ] Cambios dependientes ya fueron mergeados
-
-## Issue Relacionado
-Closes #123
-Fixes #456
-
-## Screenshots (si aplica)
-[Agregar capturas de pantalla de cambios visuales]
-
-## Notas Adicionales
-Información extra que los reviewers deberían saber.
-```
-
+3. Completá `.github/pull_request_template.md` con nivel de riesgo, autoridad
+   funcional, invariantes, evidencia, riesgo residual y recuperación.
 4. Click en "Create pull request"
 
 ### 9. Code Review
 
 - Respondé a comentarios de reviewers
 - Hacé los cambios solicitados
-- Pushea los cambios (se actualizarán automáticamente en el PR)
+- Publicá correcciones en la misma rama temporal; el PR y la CI se actualizarán automáticamente
 
 ### 10. Merge
 
-Una vez aprobado, un mantenedor hará merge de tu PR. ¡Gracias por tu contribución! 🎉
+Una vez aprobados todos los checks y aceptados los riesgos, se hace merge a `main`, se verifica el commit resultante y se elimina la rama temporal local y remota.
 
 ---
 
@@ -614,7 +600,7 @@ git diff --cached
 git grep -n -E "[0-9]{11}|password|secret|token|CAE|BEGIN (RSA |EC |)PRIVATE KEY"
 ```
 
-Usar datos sinteticos en tests, docs y ejemplos. Si una corrida real deja
+Usar datos sintéticos en tests, docs y ejemplos. Si una corrida real deja
 evidencia necesaria para continuidad operativa, guardarla fuera del repo en una
 carpeta ignorada y documentar solo un resumen redactado.
 

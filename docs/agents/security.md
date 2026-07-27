@@ -6,7 +6,7 @@
 - No commitear CUITs reales, nombres de clientes o emisores reales,
   credenciales, tokens, CAEs reales, capturas privadas, PDFs, Excel de clientes,
   bases locales, logs de producción ni evidencia de debug local.
-- La documentación versionada debe usar datos sinteticos o redactados. La
+- La documentación versionada debe usar datos sintéticos o redactados. La
   evidencia operativa privada queda fuera del repo, por ejemplo en `.tmp/`,
   `private/`, `evidence/`, `factuflow-documentacion-base/`, `output/`,
   `data/`, `backend/data/` o `certs/`.
@@ -23,12 +23,26 @@
 - Registrar rutas faltantes solo en logs privados; las respuestas HTTP deben
   usar mensajes genéricos sin revelar rutas internas.
 - Mantener separados:
-  - proyecto público: código, migraciones, tests con fixtures sinteticos,
+  - proyecto público: código, migraciones, tests con fixtures sintéticos,
     documentación general y ejemplos sin datos reales
   - entorno privado: `.env*`, bases SQLite/PostgreSQL locales, certificados,
     constancias ARCA reales, archivos Excel/PDF de clientes, screenshots,
-    trazas Playwright, logs, auditorias locales, planes privados de cambio y
+    trazas Playwright, logs, auditorías locales, planes privados de cambio y
     scripts exploratorios de debug
+
+## Dependencias y cadena de construcción
+
+- La CI bloquea vulnerabilidades conocidas en dependencias productivas de
+  Python y frontend mediante `pip-audit -r requirements.txt` y
+  `npm audit --omit=dev --audit-level=high`.
+- Los lockfiles son parte del comportamiento reproducible: cualquier cambio en
+  ellos activa la matriz completa, aunque no cambie código de aplicación.
+- Las alertas de herramientas exclusivas de desarrollo deben revisarse y quedar
+  documentadas. Si su corrección exige migraciones mayores incompatibles, se
+  planifican como una unidad técnica separada, sin usar `npm audit fix --force`
+  ni debilitar las auditorías productivas.
+- El servidor de desarrollo, el modo UI de tests y las herramientas de build no
+  deben exponerse en producción ni en redes no confiables.
 
 ## Migración local a VPS
 
@@ -63,7 +77,7 @@
 - Ningún flujo debe reutilizar silenciosamente datos de otro emisor. Ante duda,
   bloquear la operación y pedir una selección o validación explícita.
 - Los cambios que toquen emisión, lotes, certificados, puntos de venta,
-  clientes, reportes o PDFs deben considerar pruebas de regresion multiemisor.
+  clientes, reportes o PDFs deben considerar pruebas de regresión multiemisor.
 
 ## Administración de emisores
 
