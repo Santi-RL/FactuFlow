@@ -13,7 +13,8 @@ Set-Content -Path $logPath -Value "" -Encoding Unicode
 
 $script:results = @()
 $script:groups = @{
-  "Backend"  = New-Object System.Collections.ArrayList
+  "Repository" = New-Object System.Collections.ArrayList
+  "Backend"    = New-Object System.Collections.ArrayList
   "Frontend" = New-Object System.Collections.ArrayList
   "E2E"      = New-Object System.Collections.ArrayList
   "Security" = New-Object System.Collections.ArrayList
@@ -68,7 +69,8 @@ function Invoke-Step($label, [scriptblock]$block, [switch]$WarnOnly) {
 
   # Group mapping for summary
   $group =
-    if ($label -like "Backend:*") { "Backend" }
+    if ($label -like "Repository:*") { "Repository" }
+    elseif ($label -like "Backend:*") { "Backend" }
     elseif ($label -like "Frontend: E2E*") { "E2E" }
     elseif ($label -like "Frontend:*") { "Frontend" }
     elseif ($label -like "Security:*") { "Security" }
@@ -89,7 +91,7 @@ function Write-Summary {
   $failures = @($script:results | Where-Object { $_.Status -eq "FAIL" })
   $warnings = @($script:results | Where-Object { $_.Status -eq "WARN" })
 
-  $groupOrder = @("Backend", "Frontend", "E2E", "Security")
+  $groupOrder = @("Repository", "Backend", "Frontend", "E2E", "Security")
   foreach ($groupName in $groupOrder) {
     $statuses = $script:groups[$groupName]
     if (-not $statuses -or $statuses.Count -eq 0) {
@@ -108,6 +110,14 @@ function Write-Summary {
 }
 
 # -----------------------------
+# Repository scripts
+# -----------------------------
+Push-Location $root
+Invoke-Step "Repository: package script tests" { npm run test:scripts }
+Invoke-Step "Repository: Clawpatch seed tests" { npm run clawpatch:test-seeds }
+Pop-Location
+
+# -----------------------------
 # Backend
 # -----------------------------
 Push-Location (Join-Path $root "backend")
@@ -117,9 +127,8 @@ $python = if (Test-Path ".\\.venv\\Scripts\\python.exe") { ".\\.venv\\Scripts\\p
 Invoke-Step "Backend: upgrade pip" { & $python -m pip install --upgrade pip }
 Invoke-Step "Backend: install requirements" { & $python -m pip install -r requirements.txt }
 Invoke-Step "Backend: install dev requirements" { & $python -m pip install -r requirements-dev.txt }
-Invoke-Step "Backend: install lint tools" { & $python -m pip install black pylint }
+Invoke-Step "Backend: ruff" { & $python -m ruff check app/ tests/ }
 Invoke-Step "Backend: black --check" { & $python -m black --check app/ tests/ }
-Invoke-Step "Backend: pylint (exit-zero)" { & $python -m pylint app/ --exit-zero }
 Invoke-Step "Backend: pytest" { & $python -m pytest tests/ -v --cov=app --cov-report=xml }
 
 Pop-Location
@@ -146,15 +155,15 @@ Invoke-Step "Frontend: E2E (Chromium)" { npm run test:e2e -- --project=chromium 
 Pop-Location
 
 # -----------------------------
-# Security (soft-fail like CI)
+# Security (blocking, igual que GitHub Actions)
 # -----------------------------
 Push-Location (Join-Path $root "backend")
-Invoke-Step "Security: install pip-audit" { & $python -m pip install pip-audit } -WarnOnly
-Invoke-Step "Security: pip-audit" { & $python -m pip_audit } -WarnOnly
+Invoke-Step "Security: install pip-audit" { & $python -m pip install --upgrade pip setuptools wheel; & $python -m pip install pip-audit }
+Invoke-Step "Security: pip-audit producción" { & $python -m pip_audit -r requirements.txt }
 Pop-Location
 
 Push-Location (Join-Path $root "frontend")
-Invoke-Step "Security: npm audit (high)" { npm audit --audit-level=high } -WarnOnly
+Invoke-Step "Security: npm audit producción (high)" { npm audit --omit=dev --audit-level=high }
 Pop-Location
 
 Write-Summary

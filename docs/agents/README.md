@@ -38,16 +38,18 @@
 
 ## Git y GitHub
 
-- El flujo interno por defecto trabaja sobre `main`; no crear ramas nuevas salvo
-  pedido explícito del usuario.
-- Antes de empezar una implementación, revisar estado local y remoto con Git.
-  Si hay commits locales sin push o cambios de una implementación anterior, hay
-  que avisar y recomendar publicar/cerrar ese trabajo antes de seguir.
-- Después de cada implementación verificada, recomendar commit y push. No hacer
-  `git push` sin aprobación explícita del usuario.
-- Usar commits chicos y con unidad lógica: una implementación por commit cuando
-  sea posible; bugs chicos relacionados pueden agruparse si forman una misma
-  corrección.
+- `main` es la única rama permanente. Cada unidad se trabaja en una rama corta,
+  por defecto una sola a la vez, y se integra mediante PR con checks verdes.
+- La rama temporal no representa una versión ni se despliega. Después del merge
+  debe eliminarse en GitHub y localmente; las versiones se identifican solo por
+  tags/releases sobre `main`.
+- Antes de empezar una implementación, revisar estado local/remoto y cerrar
+  commits, ramas o cambios anteriores. No acumular unidades desalineadas.
+- Los cambios Nivel 0 usan CI liviana; los Nivel 1/2 aplican las puertas de
+  `docs/agents/change-quality-gates.md`.
+- Usar commits chicos y con unidad lógica. No hacer push, merge ni eliminación
+  remota sin aprobación explícita del usuario o una autorización previa que
+  cubra claramente el ciclo completo.
 - Para GitHub, seguir el enfoque del plugin local: resolver primero repo/rama
   con Git, usar la app de GitHub para PRs/issues/metadatos cuando aplique, y
   usar `git`/`gh` para gaps como estado de rama, commits, push y checks.
@@ -132,6 +134,7 @@
 - Seguridad y certificados: `docs/agents/security.md`
 - Observabilidad operativa estándar: `docs/agents/operational-observability.md`
 - Guía de testing: `docs/agents/testing.md`
+- Puertas de calidad y evidencia: `docs/agents/change-quality-gates.md`
 - Changelog y línea base actual: `CHANGELOG.md`
 - Puesta a punto y reportes Clawpatch:
   `docs/project/audits/clawpatch/README.md`

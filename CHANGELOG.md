@@ -18,7 +18,17 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-Sin cambios registrados después de `v0.2.2`.
+### Calidad y seguridad
+
+- Se incorpora una política proporcional de calidad con tres niveles de riesgo,
+  una plantilla de PR comprensible sin leer código y una única rama permanente:
+  `main`. Las ramas de trabajo son temporales y se eliminan después del merge.
+- La CI agrega clasificación documental conservadora, tests de scripts, Ruff,
+  Black, type-check, lint, build, unit tests, E2E y auditorías bloqueantes de
+  dependencias productivas; se retira el Pylint decorativo que ignoraba fallos.
+- `pypdf` se actualiza a `6.14.2` y PostCSS a `8.5.23` para resolver avisos
+  conocidos. La migración mayor del toolchain frontend queda planificada sin
+  aplicar actualizaciones forzadas incompatibles.
 
 ## [0.2.2] - 2026-07-23
 
@@ -280,12 +290,12 @@ antiguas a versiones previas como fuente de estado operativo.
 
 - FactuFlow es una herramienta para facturar.
 - No se planifica incorporar cuentas corrientes, stock ni catálogos.
-- Las integraciones externas quedan como evolucion futura, enfocadas en entrada
+- Las integraciones externas quedan como evolución futura, enfocadas en entrada
   y salida de datos mediante la API, después de estabilizar facturación.
 - El modelo operativo es multiemisor con un emisor activo explícito por vez,
   pensado para contadores independientes y estudios chicos.
 - No se avanza por ahora hacia plataforma multiempresa compleja con permisos
-  finos, reportes globales u operación simultanea entre emisores.
+  finos, reportes globales u operación simultánea entre emisores.
 - El uso local con launcher queda como entorno implementado para desarrollo/QA.
 - El siguiente hito de despliegue es VPS con Docker producción y PostgreSQL.
 - La distribución comercial instalable queda para después de estabilizar VPS.
@@ -343,7 +353,7 @@ antiguas a versiones previas como fuente de estado operativo.
 ### Integración ARCA y comprobantes
 
 - Se implemento WSAA y WSFEv1.
-- Se agregaron certificados por ambiente, wizard de carga/verificacion y
+- Se agregaron certificados por ambiente, wizard de carga/verificación y
   validaciones de autorización `wsfe`.
 - Se completo emisión individual, vista previa, guardado de comprobantes,
   consulta posterior y generacion de PDFs.

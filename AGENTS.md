@@ -144,22 +144,28 @@
 - `docs/arca-ws/_extracted/` es material derivado. Si vuelve a generarse localmente, no tomarlo como fuente canónica.
 
 ## Git / Colaboración
-- Rama de trabajo por defecto: `main`. No crear ramas nuevas salvo pedido
-  explícito del usuario.
-- Antes de empezar un cambio, revisar `git status --short --branch` y, si hace
-  falta, comparar con `origin/main`. Si hay commits locales sin publicar o
-  cambios listos de una implementacion anterior, avisar y recomendar cerrar ese
-  ciclo con commit/push antes de acumular trabajo nuevo.
-- Mantener cada implementacion relevante en su propio commit. Para ajustes
-  chicos, bugs relacionados o correcciones de una misma verificacion, se puede
-  agrupar un commit único si mantiene una unidad lógica clara.
-- Después de implementar y verificar un cambio, recomendar commit y push para
-  mantener `main` local y GitHub sincronizados.
-- No ejecutar `git push` sin pedido explícito del usuario. Si hay cambios listos
-  para publicar, preparar commit(s) y pedir confirmación antes de pushear.
-- Preferir PRs para cambios no triviales cuando el usuario lo pida. En el flujo
-  habitual sobre `main`, minimizar commits de ruido (formato/lint) y agruparlos
-  con el cambio funcional correspondiente.
+- `main` es la única rama permanente y la fuente canónica del código aceptado.
+- Cada unidad nueva se implementa en una rama temporal corta creada desde
+  `main` sincronizada. Por defecto mantener una sola rama interna activa; no
+  abrir líneas paralelas salvo decisión explícita del usuario.
+- La rama temporal sirve para aislar implementación, pruebas y PR. No es una
+  versión, no se despliega y debe mergearse a `main` cuando los checks estén
+  verdes y los riesgos aceptados. Después del merge, verificar `main` y eliminar
+  la rama local y remota.
+- Los cambios Nivel 0 siguen un recorrido abreviado en CI y pueden agruparse si
+  forman una unidad documental coherente. Los cambios Nivel 1/2 conservan las
+  puertas indicadas en `docs/agents/change-quality-gates.md`.
+- Antes de empezar un cambio, revisar `git status --short --branch` y comparar
+  con `origin/main`. Si hay commits sin publicar, una rama anterior abierta o
+  cambios de otra implementación, avisar y cerrar ese ciclo antes de acumular
+  trabajo nuevo.
+- Mantener cada implementación relevante en su propio commit. Ajustes chicos,
+  bugs relacionados o correcciones de una misma verificación pueden agruparse
+  si conservan una unidad lógica clara.
+- No ejecutar `git push`, merge ni eliminación remota sin pedido explícito del
+  usuario. Si una rama está lista, preparar el commit y pedir confirmación antes
+  de publicar; una autorización para completar el ciclo puede abarcar push, PR,
+  merge y eliminación cuando el alcance haya quedado explícito.
 - Para verificar CI en GitHub, usar el mecanismo moderno de GitHub Actions:
   `gh run list`, `gh run view` y check-runs. No consultar el endpoint legacy de
   commit statuses (`/commits/{sha}/status`) salvo que el usuario pida auditar
