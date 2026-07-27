@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-13
+Última actualización: 2026-07-27
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -676,6 +676,121 @@ Objetivo: que el proyecto soporte evolucion sin deuda estructural peligrosa.
 - [ ] Cobertura mas profunda sobre detalles de comprobantes, PDF y reportes
 - [ ] Smoke automatizado de stack completo local
 
+#### PF-16 — Programa transversal de garantía de calidad
+
+Objetivo: que una persona contadora sin conocimientos de programación pueda
+mantener, evaluar y eventualmente ofrecer FactuFlow a otros profesionales con
+evidencia comprensible de que cada versión preserva la seguridad fiscal,
+funcional y operativa. La cantidad de tests o la afirmación de un agente no son
+garantía suficiente por sí solas: cada release debe demostrar los requisitos,
+los fallos ensayados, los riesgos residuales y la recuperación disponible.
+
+Los controles se aplican por **riesgo y momento de integración**, no solamente
+por cantidad de líneas. Un cambio pequeño sobre fecha fiscal, numeración o
+idempotencia puede ser crítico; una serie amplia de correcciones editoriales
+puede requerir únicamente controles livianos.
+
+##### Clasificación obligatoria del cambio
+
+- **Nivel 0 — editorial o visual aislado:** documentación, textos, tildes,
+  estilos sin comportamiento, metadatos y mantenimiento que no altere runtime.
+  Requiere revisión del diff y validación enfocada; no exige suite completa,
+  QA integral ni `autoreview`.
+- **Nivel 1 — funcional no crítico:** CRUD administrativo, UX, reportes,
+  transformaciones o servicios que no puedan emitir, mezclar emisores, cambiar
+  permisos, perder evidencia fiscal ni modificar datos irreversiblemente.
+  Requiere tests del área, lint/type-check/formato aplicable y smoke del flujo
+  visible cuando corresponda. La suite completa se reserva para cerrar la
+  unidad lógica o integrarla.
+- **Nivel 2 — sensible o fiscal crítico:** ARCA/WSAA/WSFE, CAE, fecha fiscal,
+  numeración, receptor, tipo o total del comprobante, idempotencia, reintentos,
+  reconciliación, lotes, concurrencia, aislamiento multiemisor, autenticación,
+  autorización, certificados, secretos, migraciones, borrados, backups,
+  restauración o exportación de datos fiscales. Exige diseño de invariantes,
+  checklist fiscal o de seguridad aplicable, matriz de errores y concurrencia,
+  tests definidos antes o junto al código y revisión de cierre.
+
+Si existe duda entre dos niveles, se usa el nivel superior hasta justificar por
+escrito la clasificación menor. La clasificación debe quedar en el diseño,
+commit, PR o dossier de release, según el tamaño de la unidad.
+
+##### Puertas proporcionales
+
+1. **Durante microcambios:** ejecutar solo pruebas y controles enfocados. No
+   correr toda la suite, QA manual completa, Clawpatch ni `autoreview` por cada
+   edición intermedia.
+2. **Al cerrar una unidad lógica o antes de un push funcional relevante:**
+   congelar alcance; ejecutar la suite completa de las áreas afectadas;
+   comprobar lint, formato, tipos, build, archivos privados y documentación;
+   y usar `autoreview` cuando el cambio sea importante o sensible, manteniendo
+   la confirmación explícita vigente.
+3. **Antes de crear una versión candidata:** ejecutar la matriz integral de CI,
+   integración PostgreSQL, smoke de stack completo, controles de seguridad,
+   cobertura y QA contable en lenguaje funcional. No puede quedar un P0 ni un
+   P1 bloqueante conocido dentro del alcance.
+4. **Antes de publicar o desplegar:** identificar commit y tag exactos, verificar
+   backup/restauración y migraciones cuando apliquen, cerrar notas de release,
+   documentar riesgos residuales y obtener autorizaciones separadas para tag,
+   publicación y despliegue. Una prueba con CAE real requiere siempre decisión
+   fiscal explícita.
+
+##### Cortes de implementación
+
+- [ ] **PF-16A — Política ejecutable y evidencia simple:** crear una plantilla
+  breve de clasificación, criterios de aceptación, pruebas requeridas, riesgo
+  residual y resultado. El resumen debe poder ser entendido y aprobado por una
+  persona contadora sin leer código.
+- [ ] **PF-16B — Protección de `main` sin burocracia innecesaria:** impedir
+  force-push y borrado; integrar cambios funcionales mediante ramas cortas y PR;
+  exigir checks automáticos verdes; no requerir un segundo revisor humano para
+  el mantenedor único; y definir un recorrido abreviado para cambios Nivel 0.
+  Los jobs no aplicables deben terminar correctamente mediante detección de
+  cambios, no obligar a ejecutar suites costosas sin valor.
+- [ ] **PF-16C — CI como barrera real:** ejecutar Ruff y Black en backend;
+  type-check, lint, build y unit tests en frontend; tests de scripts; E2E;
+  auditoría de dependencias; y retirar checks decorativos que siempre devuelvan
+  éxito. Conservar artefactos y resúmenes suficientes para diagnosticar fallos.
+- [ ] **PF-16D — Cobertura medible y progresiva:** medir backend y frontend,
+  fijar una línea base real y aplicar un umbral incremental que impida
+  retroceder. No imponer de entrada un porcentaje arbitrario global; exigir
+  cobertura fuerte sobre módulos fiscales tocados y justificar invariantes sin
+  prueba automatizada.
+- [ ] **PF-16E — Integración reproducible:** ejecutar en CI PostgreSQL
+  desechable para migraciones, constraints, concurrencia, pool e integridad
+  fiscal; agregar smoke automatizado frontend + backend + base; mantener ARCA
+  simulada o contractual en automatización y reservar llamadas reales para QA
+  expresamente autorizada.
+- [ ] **PF-16F — Pruebas avanzadas dirigidas por riesgo:** incorporar pruebas
+  basadas en propiedades para fechas, importes, redondeos, archivos de entrada,
+  idempotencia y máquinas de estados; pruebas de mutación acotadas a núcleos
+  fiscales; entradas inesperadas y archivos malformados; y pruebas de carga y
+  resistencia prolongada para lotes, worker y pools. Ejecutarlas de forma
+  programada o en candidatos de release, no en cada microcambio.
+- [ ] **PF-16G — QA contable y dossier de release:** expresar escenarios de
+  aceptación en español y términos contables, con datos sintéticos y resultados
+  esperados; registrar qué se probó, qué no, riesgos residuales, migración,
+  rollback y evidencia. La autoridad funcional-contable valida el resultado;
+  los agentes y herramientas validan la implementación.
+- [ ] **PF-16H — Puerta para ofrecer FactuFlow a terceros:** antes de anunciar
+  una versión apta para otros contadores, cerrar auditoría multiemisor,
+  autenticación/autorización, certificados y secretos, instalación limpia,
+  actualización, backup, restauración hacia un entorno nuevo, observabilidad,
+  soporte, compatibilidad y procedimiento de respuesta ante incidentes. Una
+  release puede seguir siendo gratuita sin reducir estas garantías.
+
+##### Secuencia y alcance de las puertas
+
+- **Antes del próximo cambio funcional no trivial integrado a `main`:** cerrar
+  PF-16A, PF-16B y la barrera básica de PF-16C.
+- **Antes del candidato `v0.3.0`:** cerrar PF-16C, PF-16D, PF-16E y la primera
+  matriz de PF-16G, aplicadas al rango real de la versión.
+- **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
+  críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
+  PF-15 y PF-18 que correspondan.
+- Los controles periódicos o de release no convierten cada commit en una
+  auditoría total. Una unidad Nivel 2 sí conserva sus puertas fiscales aunque
+  el diff sea pequeño.
+
 ### Robustez
 - [x] Jobs de lotes persistidos en BD con ventana stale segura: la ventana ya
   no habilita reemisión automática, sino bloqueo y reconciliación; los grupos
@@ -856,28 +971,31 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
+1. Implementar PF-16A, PF-16B y la barrera básica de PF-16C antes de integrar a
+   `main` el próximo cambio funcional no trivial, manteniendo un recorrido
+   liviano para cambios Nivel 0.
+2. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
-2. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
+3. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
    PF-08 y PF-09.
-3. Mantener la custodia y la evidencia concreta del backup fuera del repo
+4. Mantener la custodia y la evidencia concreta del backup fuera del repo
    público; automatización, retención y recuperación a un VPS nuevo siguen
    como trabajo separado.
-4. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+5. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
-5. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+6. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-6. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+7. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-7. Definir y luego automatizar backups cifrados con validación, retención,
+8. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-8. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-9. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
-   resguardo ZIP, compactación y limpieza segura.
-10. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-11. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-12. Mantener notas de release y procedimiento de upgrade para cada versión
+9. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+10. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+    resguardo ZIP, compactación y limpieza segura.
+11. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+12. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+13. Mantener notas de release y procedimiento de upgrade para cada versión
     futura, revisando los candidatos cuando cambien riesgos o alcance.
 
 ## Criterio de éxito del MVP

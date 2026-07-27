@@ -89,7 +89,8 @@ Nota de lectura: los reportes con fecha guardados en esta carpeta son evidencia 
 - Para fechas visibles en FactuFlow, `DD/MM/AAAA` es formato soportado y debe
   validarse como tal. Los formatos ISO quedan para contratos técnicos.
 - Después de cambios aceptados por `autoreview`, repetir tests enfocados y
-  volver a correr `autoreview` sobre el commit final.
+  volver a correr `autoreview` sobre el commit final con la misma configuración
+  canónica `gpt-5.6-sol medium`.
 
 ## Lecciones 2026-07-12
 
@@ -440,14 +441,19 @@ espacios por el wrapper local de review, porque `cmd.exe` puede fragmentarlas.
 4. Ejecutar tests enfocados y checks del área por cambio.
 5. Ejecutar suites completas en checkpoints lógicos o antes de una candidata,
    no después de cada microfix.
-6. Correr un `autoreview` por commit sensible o lote coherente ya probado.
-7. Verificar manualmente sus findings y repetir tests/review si se cambia código.
+6. Correr un único `autoreview` de cierre por commit sensible o lote coherente
+   ya probado, con `gpt-5.6-sol medium`.
+7. Verificar manualmente sus findings y, si se cambia código, repetir tests y la
+   misma configuración de review.
 8. Hacer push solo con autorización, verificar CI por SHA y revalidar Clawpatch
    después de varios cortes relacionados.
 
-Modelo preferido para nuevas revisiones: `gpt-5.6-sol high`; alternativa
-`gpt-5.5 high` si el modelo preferido no puede ejecutarse. El cierre histórico
-de `v0.2.1` fue revisado con GPT-5.5 alto.
+Configuración canónica para nuevas revisiones de `autoreview`: Codex
+`gpt-5.6-sol medium`, pasada explícitamente así:
+`--engine codex --model gpt-5.6-sol --thinking medium`. No usar escaleras,
+cambios manuales de modelo ni paneles
+ni segundas opiniones incrementales. El cierre histórico de `v0.2.1` fue
+revisado con GPT-5.5 alto.
 
 ## Política Para Usar `clawpatch fix`
 

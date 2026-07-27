@@ -164,6 +164,7 @@ temp/
 *.tmp/
 *.tmp
 .codex_*
+.codex-remote-attachments/
 
 # ARCA WS documentation (local reference only)
 # PDFs/ZIPs suelen ser pesados. Se conserva un indice y notas en Markdown.

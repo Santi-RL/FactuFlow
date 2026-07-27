@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-23
+Última actualización: 2026-07-27
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -333,10 +333,17 @@ Siguen pendientes:
 8. `v0.2.2` quedó validada, publicada y desplegada como corte posterior a
    PF-01. No repetir el versionado, el despliegue, las revisiones, el
    backup/restauración ni la migración salvo que aparezca evidencia nueva.
-9. El próximo paso de desarrollo es PF-02 y luego PF-03, PF-06/PF-07, PF-08 y
-   PF-09 según el portafolio integrado.
-10. Para próximas pasadas de `autoreview`, usar directamente `gpt-5.5` con
-    `high`; no intentar antes `gpt-5.6-sol` salvo nueva indicación explícita.
+9. Antes de integrar a `main` el próximo cambio funcional no trivial, implementar
+   PF-16A, PF-16B y la barrera básica de PF-16C: clasificación por riesgo,
+   evidencia simple, protección de rama y checks obligatorios sin imponer la
+   matriz completa a cada microcambio.
+10. Después de esa base de calidad, el próximo corte funcional es PF-02 y luego
+    PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
+11. Para próximas pasadas de `autoreview`, usar una única configuración de
+    cierre: Codex `gpt-5.6-sol medium`, indicada explícitamente así:
+    `--engine codex --model gpt-5.6-sol --thinking medium`. No hacer revisiones
+    incrementales ni cambios manuales de modelo o esfuerzo. Si un hallazgo
+    aceptado cambia código, repetir tests y la misma revisión.
 
 ## Referencias de continuidad
 

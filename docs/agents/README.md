@@ -78,20 +78,21 @@
   seguridad multiemisor o confirmaciones irreversibles.
 - No insistir con `autoreview` para cambios chicos y de bajo riesgo, como texto,
   documentación simple o estilos menores, salvo pedido del usuario.
-- Elegir el momento según costo y precisión: para cambios pequeños pero
-  sensibles conviene revisarlo enseguida; para varios cambios relacionados puede
-  convenir un único `autoreview` al cerrar el lote; si el diff mezcla temas
-  independientes, sugerir separar commits o revisiones.
-- Si el usuario confirma la revisión, ejecutar primero tests/lint/formato
-  relevantes, revisar el diff real y verificar manualmente cada finding antes
-  de aplicar fixes. Si se corrige código por hallazgos aceptados, repetir
-  pruebas enfocadas y volver a correr `autoreview` hasta quedar limpio o hasta
-  que el usuario decida detener el ciclo.
+- Ejecutar `autoreview` como cierre de una unidad lógica ya estabilizada, después
+  de tests/lint/formato relevantes y antes del commit o PR. No hacer revisiones
+  preliminares por cada microcorte; si el diff mezcla temas independientes,
+  separar las unidades antes de revisar.
+- Verificar manualmente cada finding antes de aplicar fixes. Si se corrige código
+  por un hallazgo aceptado, repetir pruebas enfocadas y volver a correr la misma
+  configuración de `autoreview` para cerrar el ciclo.
 - Para cambios fiscales críticos, aplicar primero el checklist
   `docs/agents/fiscal-change-checklist.md`. Si el usuario confirma
-  `autoreview`, usar directamente `gpt-5.5 high` como revisión final. No intentar
-  antes `gpt-5.6-sol` salvo nueva indicación explícita. No ejecutar una escalera
-  automática de tres modelos/niveles para un fix pequeño ya cubierto por tests.
+  `autoreview`, usar directamente Codex `gpt-5.6-sol medium` como única
+  configuración de cierre:
+  `--engine codex --model gpt-5.6-sol --thinking medium`. No ejecutar escaleras
+  de niveles, cambios manuales de modelo, paneles ni
+  segundas opiniones incrementales. Si un fix aceptado cambia código, repetir
+  tests y la revisión con la misma configuración.
 - Los hallazgos son asesoramiento. Clasificar cada uno como aceptado, rechazado
   o diferido antes de modificar código. Corregir solo hallazgos que reduzcan un
   riesgo real o cubran un contrato roto dentro del alcance.

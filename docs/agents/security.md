@@ -94,10 +94,12 @@
   irreversibles, completar `docs/agents/fiscal-change-checklist.md`.
 - El diseño debe identificar invariantes, estados, fallos intermedios,
   concurrencia, constraints, reconciliación y matriz de tests antes del código.
-- Si se usa `autoreview`, la revisión final preferida es
-  `gpt-5.6-sol high`; usar `gpt-5.5 high` solo como fallback de
-  disponibilidad. No aplicar hallazgos automáticamente ni repetir revisiones
-  redundantes cuando el cambio ya quedó limpio.
+- Si se usa `autoreview`, la única configuración de cierre es Codex
+  `gpt-5.6-sol medium`, indicada explícitamente así:
+  `--engine codex --model gpt-5.6-sol --thinking medium`. No aplicar hallazgos
+  automáticamente, cambiar manualmente de modelo/esfuerzo ni ejecutar revisiones
+  incrementales o redundantes. Si un
+  hallazgo aceptado cambia código, repetir las pruebas y la misma revisión.
 
 ## Checklist antes de commit
 

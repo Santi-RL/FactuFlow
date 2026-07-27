@@ -153,17 +153,18 @@ Si un invariante no se testea, dejar una justificación explícita.
 encontrar contratos rotos, casos omitidos y riesgos que el autor no vio.
 
 Antes de escribir código, aplicar esta misma rúbrica al diseño y a la matriz de
-tests. Para un diseño amplio o incierto puede pedirse una revisión temprana,
-pero un fix pequeño ya cubierto por regresiones no necesita una escalera
-automática de niveles.
+tests. `autoreview` se reserva como cierre de una unidad lógica ya estabilizada;
+no se ejecutan pasadas preliminares o incrementales ni cambios manuales de
+modelo o nivel mientras el diseño o el diff todavía están cambiando.
 
 Para cambios fiscales críticos confirmados por el usuario:
 
 1. Diseñar invariantes y tests antes o junto al código.
 2. Corregir solo hallazgos aceptados después de verificarlos en el código real.
 3. Ejecutar pruebas enfocadas y controles del área.
-4. Hacer la revisión final directamente con `gpt-5.5` y `high`.
-5. Si la revisión provoca cambios, repetir pruebas enfocadas y la revisión.
+4. Hacer la revisión final directamente con Codex `gpt-5.6-sol` y `medium`.
+5. Si la revisión provoca cambios, repetir pruebas enfocadas y volver a correr
+   exactamente `gpt-5.6-sol medium` sobre el diff corregido.
 6. Cuando quede limpia, detenerse; no correr otra opinión redundante.
 
 Comando Windows habitual para un diff sin commit:
@@ -173,7 +174,7 @@ $env:PYTHONUTF8='1'
 $env:PYTHONIOENCODING='utf-8'
 $autoreview = Join-Path $env:USERPROFILE '.codex\skills\autoreview\scripts\autoreview'
 $codexBin = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin\codex.exe'
-python $autoreview --mode local --engine codex --model gpt-5.5 --thinking high --codex-bin $codexBin
+python $autoreview --mode local --engine codex --model gpt-5.6-sol --thinking medium --codex-bin $codexBin
 ```
 
 Para un commit ya creado, reemplazar `--mode local` por
@@ -197,7 +198,8 @@ Al aceptar un hallazgo:
 - buscar casos hermanos en rutas vecinas;
 - agregar o ajustar tests;
 - repetir pruebas enfocadas;
-- volver a correr `autoreview` en el nivel apropiado.
+- volver a correr `autoreview` con la misma configuración canónica
+  `gpt-5.6-sol medium`.
 
 No corregir automáticamente todo lo que proponga `autoreview`. La corrección
 debe reducir un riesgo concreto sin sobredimensionar el diseño.

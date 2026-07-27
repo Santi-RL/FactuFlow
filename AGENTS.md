@@ -270,21 +270,23 @@ npm run type-check
 - No ejecutar `autoreview` automáticamente. El usuario puede pedirlo en cualquier momento, pero si no lo pidió hay que sugerirlo cuando el cambio sea importante y pedir confirmación explícita antes de correrlo, porque puede consumir mucho tiempo, tokens y enviar el diff local al motor de revisión.
 - Recomendar `autoreview` especialmente cuando el cambio toque autenticación, autorización, usuarios, permisos, roles, sesiones, certificados, ARCA/WSAA/WSFE, emisión fiscal, confirmaciones irreversibles, borrados, migraciones, datos fiscales, archivos locales, red, seguridad multiemisor o flujos donde un error pueda bloquear acceso, exponer datos, mezclar emisores o emitir comprobantes incorrectos.
 - No insistir con `autoreview` para cambios chicos, aislados y de bajo riesgo, como correcciones de texto, documentación simple, estilos visuales menores o tests que no cambian comportamiento. En esos casos alcanza con las validaciones normales del área tocada, salvo que el usuario lo pida.
-- Elegir el momento de la sugerencia según costo y precisión:
-  - Para cambios pequeños pero sensibles, proponer `autoreview` inmediatamente después de implementar y antes de seguir acumulando trabajo, para que la revisión sea rápida, concreta y accionable.
-  - Para varios cambios relacionados dentro de una misma unidad lógica, puede convenir terminar el lote coherente, ejecutar tests/lint/formato y luego proponer un único `autoreview` sobre todo el diff.
-  - Si el diff empieza a mezclar temas independientes, sugerir cortar en commits o revisiones separadas para optimizar tiempo, tokens y calidad de hallazgos.
-  - Antes de commit/PR de cambios no triviales, recordar la opción de `autoreview` si todavía no se ejecutó en ese ciclo.
-- Antes de correr `autoreview`, ejecutar tests/lint/formato relevantes siempre que sea razonable. Después, revisar el diff real y verificar manualmente cada finding antes de aplicar fixes. Si se aceptan fixes que cambian código, repetir las pruebas enfocadas y volver a correr `autoreview` hasta que no queden hallazgos aceptados/accionables o hasta que el usuario decida detener el ciclo.
-- Para cambios sensibles confirmados por el usuario, ejecutar directamente la
-  revisión final con Codex `gpt-5.5` y `high`, y registrar el modelo realmente
-  utilizado. No intentar previamente `gpt-5.6-sol` salvo que el usuario cambie
-  explícitamente esta preferencia.
-- No ejecutar automáticamente una escalera `low -> medium -> high` para un fix
-  pequeño ya cubierto por tests. Reservar una revisión temprana adicional para
-  diseños amplios, inciertos o que cambien contratos. Si una pasada encuentra
-  hallazgos aceptados y se cambia código, repetir tests enfocados y volver a
-  correr la revisión final.
+- Ejecutar `autoreview` como cierre de una unidad lógica ya estabilizada, después
+  de tests/lint/formato relevantes y antes del commit o PR. No correr revisiones
+  preliminares por cada microcorte mientras el diff todavía está cambiando. Si el
+  diff mezcla temas independientes, separar las unidades antes de revisar.
+- Para cambios sensibles confirmados por el usuario, usar una única configuración
+  de revisión: Codex `gpt-5.6-sol` con `medium`, pasando explícitamente
+  `--engine codex --model gpt-5.6-sol --thinking medium`, y registrar el modelo y
+  el esfuerzo realmente utilizados.
+- No ejecutar escaleras de razonamiento, cambios manuales de modelo, paneles ni
+  segundas opiniones incrementales. Si una revisión encuentra un hallazgo
+  aceptado y se cambia código, repetir las pruebas enfocadas y volver a correr la
+  revisión con exactamente `gpt-5.6-sol medium`; esa repetición cierra el mismo
+  ciclo y no habilita cambiar de modelo o esfuerzo.
+- La única excepción técnica es el fallback automático de `gpt-5.6-sol` a
+  `gpt-5.6-terra` cuando la cuenta no tiene acceso a Sol, documentado por la skill
+  `autoreview`. Si ocurre, registrarlo como fallback de acceso, no como una segunda
+  revisión ni como una nueva política de modelo.
 - Los hallazgos de `autoreview` son asesoramiento, no órdenes. Para cada
   finding, clasificar explícitamente si se acepta, se rechaza o se difiere. Solo
   corregirlo si representa un riesgo real, una regresión, un contrato roto, un
@@ -292,8 +294,8 @@ npm run type-check
   hallazgos especulativos, cambios sobredimensionados o refactors que no
   reduzcan un riesgo concreto.
 - Autorización permanente del usuario para este proyecto: cuando el usuario pida o confirme ejecutar `autoreview`, queda permitido usar el motor Codex/OpenAI, enviarle el diff local necesario para la revisión y mantener habilitada la búsqueda web del helper. Esta autorización no habilita ejecutar `autoreview` sin pedido o confirmación explícita del usuario.
-- En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app:
-  `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
+- En Windows, si `autoreview` falla con `PermissionError: [WinError 5] Acceso denegado` al invocar `codex`, no usar el shim `codex` del PATH ni el binario de `WindowsApps`. Ejecutar el helper apuntando al binario local de la app y manteniendo la configuración canónica:
+  `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --engine codex --model gpt-5.6-sol --thinking medium --codex-bin "C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\codex.exe"`.
   Ese comando ya funcionó en FactuFlow con motor `codex`, herramientas de solo lectura y búsqueda web habilitada.
 - Elegir el modo de `autoreview` según el estado real: `--mode local` para diff
   sin commit, `--mode commit --commit HEAD` para un commit ya creado y

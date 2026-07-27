@@ -153,7 +153,8 @@ Nota 2026-07-05:
   feature. Se puede usar una revalidación acotada por abiertos y hacer triage
   manual solo si el duplicado exacto ya fue revalidado como fixed, dejando nota.
 - Después de aceptar un finding de `autoreview` y cambiar código, repetir los
-  tests enfocados y volver a correr `autoreview` sobre el commit final.
+  tests enfocados y volver a correr `autoreview` sobre el commit final con la
+  misma configuración canónica `gpt-5.6-sol medium`.
 - Para verificar CI remoto, usar `gh run list` y `gh run view` sobre el SHA del
   commit esperado; no usar el endpoint legacy de commit statuses.
 
