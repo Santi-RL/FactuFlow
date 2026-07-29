@@ -391,25 +391,23 @@ class FacturacionService:
                 wsfe_client,
                 punto_venta_numero,
             )
-            try:
-                proximo = await self._obtener_proximo_numero(
-                    primer_request.empresa_id,
-                    primer_request.punto_venta_id,
-                    primer_request.tipo_comprobante,
-                    wsfe_client,
-                    punto_venta_numero,
+            diagnostico = await self._obtener_diagnostico_numeracion(
+                primer_request.empresa_id,
+                primer_request.punto_venta_id,
+                primer_request.tipo_comprobante,
+                wsfe_client,
+                punto_venta_numero,
+            )
+            if diagnostico.estado == "local_adelantada":
+                raise ValidationError(
+                    "La numeración local está adelantada respecto de ARCA. "
+                    "Revisá los comprobantes emitidos antes de continuar."
                 )
-            except ReconciliacionNumeracionError as exc:
-                return [
-                    self._respuesta_numeracion_arca_adelantada(
-                        request=request,
-                        punto_venta_numero=punto_venta_numero,
-                        numero=exc.ultimo_arca,
-                        totales=totales,
-                        exc=exc,
-                    )
-                    for request, totales in zip(requests, totales_por_request)
-                ]
+            if diagnostico.proximo_numero is None:
+                raise ValidationError(
+                    "No se pudo determinar una numeración fiscal segura"
+                )
+            proximo = diagnostico.proximo_numero
 
             idempotencia = IdempotenciaFiscalService(self.db)
             intentos: list[IntentoEmisionFiscal | None] = []
@@ -466,6 +464,25 @@ class FacturacionService:
                         zip(requests, totales_por_request)
                     )
                 ]
+
+            respuestas_pre_arca = (
+                await self._confirmar_reservas_batch_antes_de_solicitar_cae(
+                    requests=requests,
+                    totales_por_request=totales_por_request,
+                    wsfe_client=wsfe_client,
+                    punto_venta_numero=punto_venta_numero,
+                    primer_numero_planificado=proximo,
+                )
+            )
+            if respuestas_pre_arca is not None:
+                for intento, respuesta in zip(intentos, respuestas_pre_arca):
+                    await self._actualizar_intento_batch_preservando_respuesta(
+                        idempotencia,
+                        intento,
+                        respuesta,
+                        contexto="preflight_numeracion_batch_antes_arca",
+                    )
+                return respuestas_pre_arca
 
             resultados_arca = []
             try:
@@ -1340,33 +1357,42 @@ class FacturacionService:
             categoria_error="numeracion_arca_cambio_pre_arca",
         )
 
-    def _respuesta_numeracion_arca_adelantada(
+    async def _confirmar_reservas_batch_antes_de_solicitar_cae(
         self,
-        request: EmitirComprobanteRequest,
+        *,
+        requests: list[EmitirComprobanteRequest],
+        totales_por_request: list[dict],
+        wsfe_client: WSFEv1Client,
         punto_venta_numero: int,
-        numero: int,
-        totales: dict,
-        exc: ReconciliacionNumeracionError,
-    ) -> EmitirComprobanteResponse:
-        """Arma respuesta cuando ARCA tiene numeración ausente localmente."""
-        return EmitirComprobanteResponse(
-            exito=False,
-            tipo_comprobante=request.tipo_comprobante,
-            punto_venta=punto_venta_numero,
-            numero=numero,
-            fecha=request.fecha_emision,
-            total=totales["total"],
-            mensaje="ARCA registra comprobantes que no están guardados en FactuFlow",
-            errores=[
-                str(exc),
-                (
-                    f"Último local: {exc.ultimo_local}; "
-                    f"último ARCA: {exc.ultimo_arca}."
-                ),
-            ],
-            requiere_reconciliacion=True,
-            categoria_error="numeracion_arca_adelantada",
+        primer_numero_planificado: int,
+    ) -> list[EmitirComprobanteResponse] | None:
+        """Revalida el inicio del rango batch después de reservarlo completo."""
+        respuesta_base = await self._confirmar_reserva_antes_de_solicitar_cae(
+            request=requests[0],
+            wsfe_client=wsfe_client,
+            punto_venta_numero=punto_venta_numero,
+            numero_planificado=primer_numero_planificado,
+            total=totales_por_request[0]["total"],
         )
+        if respuesta_base is None:
+            return None
+
+        return [
+            EmitirComprobanteResponse(
+                exito=False,
+                tipo_comprobante=request.tipo_comprobante,
+                punto_venta=punto_venta_numero,
+                numero=primer_numero_planificado + index,
+                fecha=request.fecha_emision,
+                total=totales["total"],
+                mensaje=respuesta_base.mensaje,
+                errores=list(respuesta_base.errores),
+                categoria_error=respuesta_base.categoria_error,
+            )
+            for index, (request, totales) in enumerate(
+                zip(requests, totales_por_request)
+            )
+        ]
 
     def _respuesta_batch_sin_detalle_requiere_reconciliacion(
         self,

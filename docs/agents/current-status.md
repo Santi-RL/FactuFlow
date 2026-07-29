@@ -6,11 +6,29 @@ Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
 lecciones de herramientas viven en `docs/project/**`.
 
-## Cierre de implementación — PF-02A numeración individual
+## Implementación local en curso — PF-02B numeración masiva
 
-PF-02A quedó implementado en la rama temporal
-`codex/pf-02a-numeracion-individual` y publicado para revisión mediante el PR
-`#15`. La emisión individual ahora distingue numeración `alineada`,
+El primer corte de PF-02B se desarrolla en
+`codex/pf-02b-numeracion-masiva`. El núcleo batch ahora acepta una historia
+externa legítima como inicio del rango global, crea una reserva durable por
+comprobante y repite `FECompUltimoAutorizado` después de reservar el rango
+completo. Si ARCA avanzó o la consulta falla, no comienza `FECAESolicitar`, no
+se crean comprobantes y todos los intentos del sublote quedan
+`fallido_verificado`.
+
+El diseño y la matriz están en
+`docs/agents/pf-02b-numeracion-masiva-design.md`. El primer control enfocado
+aprobó `9` pruebas batch, la regresión completa de facturación y lotes aprobó
+`147` y el backend completo aprobó `539` con `4` omitidas por harness
+condicionado. No hubo emisiones reales, solicitudes de CAE, migraciones,
+cambios de UI ni llamadas ARCA de escritura. La recuperación stale del worker
+y los reintentos manuales de grupos conservan la política anterior hasta los
+siguientes cortes de PF-02B.
+
+## Cierre publicado — PF-02A numeración individual
+
+PF-02A fue integrado en `main` mediante el PR `#15` en el commit `c872497`.
+La emisión individual ahora distingue numeración `alineada`,
 `arca_adelantada` y `local_adelantada`:
 
 - una historia previa o actividad externa en ARCA se informa y usa
@@ -23,7 +41,7 @@ PF-02A quedó implementado en la rama temporal
   clave;
 - el endpoint y `Nueva Factura` muestran emisor, punto, tipo, último local,
   último ARCA y próximo número;
-- lotes y worker conservan la política estricta anterior hasta PF-02B;
+- el núcleo batch se extiende por separado en PF-02B;
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
 
 El diseño fiscal y la matriz están en
@@ -373,10 +391,12 @@ Siguen pendientes:
    permanente, recorrido Nivel 0 y seis checks obligatorios. La CI
    `30305581217` quedó verde y `main` bloquea force-push, borrado y bypass del
    administrador, sin exigir un segundo aprobador humano.
-10. PF-02A está cerrado localmente; el próximo corte de implementación es PF-02B
-    para lotes y worker. Después siguen PF-03, PF-06/PF-07, PF-08 y PF-09 según
-    el portafolio integrado. PF-16C continúa en paralelo únicamente con la
-    modernización planificada del toolchain y evidencia de release.
+10. PF-02A está integrado en `main`. PF-02B está en implementación local: el
+    primer corte cubre el núcleo batch y los siguientes deben cerrar
+    transiciones de grupos, reintentos y recuperación stale del worker. Después
+    siguen PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
+    PF-16C continúa en paralelo únicamente con la modernización planificada del
+    toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
     `gpt-5.6-sol medium`, pero Codex `0.130.0-alpha.5` rechazó crear auxiliares
     bajo el directorio temporal aislado de Windows y no produjo dictamen. No se

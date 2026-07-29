@@ -164,17 +164,19 @@ Mapping aplicado en el proyecto:
   Cuando hubo emisión externa verificada, el cierre correcto es
   `cerrado_reconciliado`.
 
-### 4.f.1 Numeración individual compatible con otros sistemas
+### 4.f.1 Numeración individual y batch compatible con otros sistemas
 
-Estado 2026-07-27: PF-02A implementa un diagnóstico separado entre último local
-y último ARCA. La emisión individual puede usar `ultimo_arca + 1` cuando ARCA
-está adelantada y no existe incertidumbre propia. FactuFlow no rellena huecos ni
-importa comprobantes en este paso.
+Estado 2026-07-29: PF-02A implementa un diagnóstico separado entre último local
+y último ARCA. El primer corte de PF-02B aplica la misma autoridad al núcleo
+batch: puede iniciar el rango en `ultimo_arca + 1` cuando ARCA está adelantada y
+no existe incertidumbre propia. FactuFlow no rellena huecos ni importa
+comprobantes en este paso.
 
 El manual WSFE exige que `CbteDesde` sea el siguiente al último autorizado y
 puede devolver `10016` ante una consecutividad inválida. Como otros sistemas no
 comparten locks con FactuFlow, se repite `FECompUltimoAutorizado` después de la
-reserva durable e inmediatamente antes de `FECAESolicitar`.
+reserva individual o de todas las reservas durables del rango batch e
+inmediatamente antes de `FECAESolicitar`.
 
 - Si la segunda consulta cambió o falló, FECAE no comienza y el intento se
   cierra `fallido_verificado`.
@@ -182,7 +184,9 @@ reserva durable e inmediatamente antes de `FECAESolicitar`.
   confirmación.
 - Un rechazo explícito posterior a FECAE sigue siendo rechazo ARCA verificable;
   una excepción ambigua sigue requiriendo `FECompConsultar` y reconciliación.
-- Emisión masiva y worker mantienen alineación estricta hasta PF-02B.
+- El procesamiento batch normal aplica el segundo preflight. La recuperación
+  stale del worker y los reintentos manuales mantienen alineación estricta hasta
+  sus siguientes cortes de PF-02B.
 - La importación histórica para informes es PF-05 y nunca condiciona una nueva
   emisión.
 ### 4.g Idempotencia fiscal y CAE
