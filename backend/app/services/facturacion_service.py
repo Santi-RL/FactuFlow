@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from sqlalchemy import desc, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -61,6 +61,23 @@ class FaseSolicitudArca:
     def registrar_recuperacion_pre_arca(self, exitosa: bool) -> None:
         """Registra el resultado interno de una recuperación anterior a ARCA."""
         self.recuperacion_pre_arca_exitosa = exitosa
+
+
+@dataclass(frozen=True)
+class DiagnosticoNumeracion:
+    """Describe la relación entre la historia local y la numeración de ARCA."""
+
+    ultimo_local: int
+    ultimo_arca: int
+    proximo_local: int
+    proximo_arca: int
+    proximo_numero: int | None
+    estado: Literal["alineada", "arca_adelantada", "local_adelantada"]
+
+    @property
+    def emision_habilitada(self) -> bool:
+        """Indica si el diagnóstico ofrece un próximo número fiscal seguro."""
+        return self.proximo_numero is not None
 
 
 class ValidationError(Exception):
@@ -851,33 +868,23 @@ class FacturacionService:
                 cuit=empresa.cuit,
             )
             await self._validar_punto_venta_habilitado(wsfe_client, punto_venta_numero)
-            try:
-                proximo = await self._obtener_proximo_numero(
-                    request.empresa_id,
-                    request.punto_venta_id,
-                    request.tipo_comprobante,
-                    wsfe_client,
-                    punto_venta_numero,
+            diagnostico = await self._obtener_diagnostico_numeracion(
+                request.empresa_id,
+                request.punto_venta_id,
+                request.tipo_comprobante,
+                wsfe_client,
+                punto_venta_numero,
+            )
+            if diagnostico.estado == "local_adelantada":
+                raise ValidationError(
+                    "La numeración local está adelantada respecto de ARCA. "
+                    "Revisá los comprobantes emitidos antes de continuar."
                 )
-            except ReconciliacionNumeracionError as exc:
-                return EmitirComprobanteResponse(
-                    exito=False,
-                    tipo_comprobante=request.tipo_comprobante,
-                    punto_venta=punto_venta_numero,
-                    numero=exc.ultimo_arca,
-                    fecha=request.fecha_emision,
-                    total=totales["total"],
-                    mensaje="ARCA registra comprobantes que no están guardados en FactuFlow",
-                    errores=[
-                        str(exc),
-                        (
-                            f"Último local: {exc.ultimo_local}; "
-                            f"último ARCA: {exc.ultimo_arca}."
-                        ),
-                    ],
-                    requiere_reconciliacion=True,
-                    categoria_error="numeracion_arca_adelantada",
+            if diagnostico.proximo_numero is None:
+                raise ValidationError(
+                    "No se pudo determinar una numeración fiscal segura"
                 )
+            proximo = diagnostico.proximo_numero
 
             # 5. Armar request para ARCA
             intento = await idempotencia.crear_intento_emision(
@@ -893,6 +900,22 @@ class FacturacionService:
             arca_request = self._armar_request_arca(
                 request, proximo, totales, punto_venta_numero
             )
+            respuesta_pre_arca = await self._confirmar_reserva_antes_de_solicitar_cae(
+                request=request,
+                wsfe_client=wsfe_client,
+                punto_venta_numero=punto_venta_numero,
+                numero_planificado=proximo,
+                total=totales["total"],
+            )
+            if respuesta_pre_arca is not None:
+                await self._actualizar_intento_preservando_respuesta(
+                    idempotencia,
+                    intento,
+                    respuesta_pre_arca,
+                    commit=commit,
+                    contexto="preflight_numeracion_antes_arca",
+                )
+                return respuesta_pre_arca
 
             # 6. Solicitar CAE
             resultado = None
@@ -1154,6 +1177,35 @@ class FacturacionService:
             {"lock_key": lock_key},
         )
 
+    async def obtener_diagnostico_numeracion(
+        self,
+        empresa_id: int,
+        punto_venta_id: int,
+        tipo_comprobante: int,
+    ) -> DiagnosticoNumeracion:
+        """Obtiene el diagnóstico local/ARCA para una emisión individual."""
+        punto_venta = await self._obtener_punto_venta(punto_venta_id, empresa_id)
+        if not punto_venta:
+            raise ValidationError("Punto de venta no encontrado")
+
+        empresa = await self._obtener_empresa(empresa_id)
+        if not empresa:
+            raise ValidationError("Empresa no encontrada")
+        certificado = await self._obtener_certificado_activo(empresa_id)
+        ticket = await self._obtener_ticket_acceso(empresa, certificado)
+        wsfe_client = WSFEv1Client(
+            ambiente=self._get_arca_ambiente(),
+            ticket=ticket,
+            cuit=empresa.cuit,
+        )
+        return await self._obtener_diagnostico_numeracion(
+            empresa_id,
+            punto_venta_id,
+            tipo_comprobante,
+            wsfe_client,
+            punto_venta.numero,
+        )
+
     async def obtener_proximo_numero(
         self,
         empresa_id: int,
@@ -1222,6 +1274,71 @@ class FacturacionService:
                     "Los comprobantes FCE/MiPyME deben emitirse de a uno según "
                     "la documentación ARCA"
                 )
+
+    async def _confirmar_reserva_antes_de_solicitar_cae(
+        self,
+        *,
+        request: EmitirComprobanteRequest,
+        wsfe_client: WSFEv1Client,
+        punto_venta_numero: int,
+        numero_planificado: int,
+        total: Decimal,
+    ) -> EmitirComprobanteResponse | None:
+        """Revalida la numeración después de reservar y antes de solicitar CAE."""
+        try:
+            ultimo_arca = await wsfe_client.fe_comp_ultimo_autorizado(
+                punto_venta_numero,
+                request.tipo_comprobante,
+            )
+        except Exception:
+            logger.exception(
+                "No se pudo reconfirmar numeración antes de ARCA. "
+                "empresa=%s pv=%s tipo=%s numero=%s",
+                request.empresa_id,
+                punto_venta_numero,
+                request.tipo_comprobante,
+                numero_planificado,
+            )
+            return EmitirComprobanteResponse(
+                exito=False,
+                tipo_comprobante=request.tipo_comprobante,
+                punto_venta=punto_venta_numero,
+                numero=numero_planificado,
+                fecha=request.fecha_emision,
+                total=total,
+                mensaje="No se pudo reconfirmar la numeración fiscal antes de emitir",
+                errores=[
+                    "No se envió ninguna solicitud de CAE. Actualizá la numeración y volvé a confirmar la emisión."
+                ],
+                categoria_error="preflight_arca_no_disponible",
+            )
+
+        proximo_arca = ultimo_arca + 1
+        if proximo_arca == numero_planificado:
+            return None
+
+        logger.warning(
+            "La numeración ARCA cambió después de reservar el intento. "
+            "empresa=%s pv=%s tipo=%s reservado=%s proximo_arca=%s",
+            request.empresa_id,
+            punto_venta_numero,
+            request.tipo_comprobante,
+            numero_planificado,
+            proximo_arca,
+        )
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero_planificado,
+            fecha=request.fecha_emision,
+            total=total,
+            mensaje="La numeración de ARCA cambió antes de solicitar el CAE",
+            errores=[
+                "No se envió ninguna solicitud de CAE. Actualizá el próximo número y volvé a confirmar la emisión."
+            ],
+            categoria_error="numeracion_arca_cambio_pre_arca",
+        )
 
     def _respuesta_numeracion_arca_adelantada(
         self,
@@ -1503,15 +1620,15 @@ class FacturacionService:
             }
         )
 
-    async def _obtener_proximo_numero(
+    async def _obtener_diagnostico_numeracion(
         self,
         empresa_id: int,
         punto_venta_id: int,
         tipo_comprobante: int,
         wsfe_client: Optional[WSFEv1Client] = None,
         punto_venta_numero: Optional[int] = None,
-    ) -> int:
-        """Obtiene el próximo número de comprobante disponible."""
+    ) -> DiagnosticoNumeracion:
+        """Compara la historia local con ARCA sin ocultar desfases legítimos."""
         intento_bloqueante = await self._resolver_intento_bloqueante(
             empresa_id=empresa_id,
             punto_venta_id=punto_venta_id,
@@ -1526,7 +1643,6 @@ class FacturacionService:
                 "Consultá ARCA y reconciliá antes de emitir nuevos comprobantes."
             )
 
-        # Buscar el último comprobante del mismo tipo y punto de venta
         stmt = (
             select(Comprobante)
             .where(
@@ -1537,13 +1653,20 @@ class FacturacionService:
             .order_by(desc(Comprobante.numero))
             .limit(1)
         )
-
         result = await self.db.execute(stmt)
         ultimo = result.scalar_one_or_none()
-        proximo_local = ultimo.numero + 1 if ultimo else 1
+        ultimo_local = ultimo.numero if ultimo else 0
+        proximo_local = ultimo_local + 1
 
         if not wsfe_client or punto_venta_numero is None:
-            return proximo_local
+            return DiagnosticoNumeracion(
+                ultimo_local=ultimo_local,
+                ultimo_arca=ultimo_local,
+                proximo_local=proximo_local,
+                proximo_arca=proximo_local,
+                proximo_numero=proximo_local,
+                estado="alineada",
+            )
 
         ultimo_arca = await wsfe_client.fe_comp_ultimo_autorizado(
             punto_venta_numero,
@@ -1552,28 +1675,83 @@ class FacturacionService:
         proximo_arca = ultimo_arca + 1
 
         if proximo_local > proximo_arca:
-            raise ValidationError(
-                "La numeración local está adelantada respecto de ARCA. Revisá los comprobantes emitidos antes de continuar."
-            )
-
-        if proximo_local < proximo_arca:
             logger.error(
-                "ARCA registra comprobantes ausentes localmente. "
+                "La numeración local está adelantada respecto de ARCA. "
                 "empresa=%s pv=%s tipo=%s ultimo_local=%s ultimo_arca=%s",
                 empresa_id,
                 punto_venta_numero,
                 tipo_comprobante,
-                proximo_local - 1,
+                ultimo_local,
                 ultimo_arca,
             )
-            raise ReconciliacionNumeracionError(
-                ultimo_local=proximo_local - 1,
+            return DiagnosticoNumeracion(
+                ultimo_local=ultimo_local,
                 ultimo_arca=ultimo_arca,
                 proximo_local=proximo_local,
                 proximo_arca=proximo_arca,
+                proximo_numero=None,
+                estado="local_adelantada",
             )
 
-        return max(proximo_local, proximo_arca)
+        if proximo_local < proximo_arca:
+            logger.info(
+                "ARCA registra historia anterior ausente localmente. "
+                "empresa=%s pv=%s tipo=%s ultimo_local=%s ultimo_arca=%s",
+                empresa_id,
+                punto_venta_numero,
+                tipo_comprobante,
+                ultimo_local,
+                ultimo_arca,
+            )
+            return DiagnosticoNumeracion(
+                ultimo_local=ultimo_local,
+                ultimo_arca=ultimo_arca,
+                proximo_local=proximo_local,
+                proximo_arca=proximo_arca,
+                proximo_numero=proximo_arca,
+                estado="arca_adelantada",
+            )
+
+        return DiagnosticoNumeracion(
+            ultimo_local=ultimo_local,
+            ultimo_arca=ultimo_arca,
+            proximo_local=proximo_local,
+            proximo_arca=proximo_arca,
+            proximo_numero=proximo_arca,
+            estado="alineada",
+        )
+
+    async def _obtener_proximo_numero(
+        self,
+        empresa_id: int,
+        punto_venta_id: int,
+        tipo_comprobante: int,
+        wsfe_client: Optional[WSFEv1Client] = None,
+        punto_venta_numero: Optional[int] = None,
+    ) -> int:
+        """Obtiene un próximo número exigiendo alineación local y ARCA."""
+        diagnostico = await self._obtener_diagnostico_numeracion(
+            empresa_id,
+            punto_venta_id,
+            tipo_comprobante,
+            wsfe_client,
+            punto_venta_numero,
+        )
+        if diagnostico.estado == "local_adelantada":
+            raise ValidationError(
+                "La numeración local está adelantada respecto de ARCA. "
+                "Revisá los comprobantes emitidos antes de continuar."
+            )
+        if diagnostico.estado == "arca_adelantada":
+            raise ReconciliacionNumeracionError(
+                ultimo_local=diagnostico.ultimo_local,
+                ultimo_arca=diagnostico.ultimo_arca,
+                proximo_local=diagnostico.proximo_local,
+                proximo_arca=diagnostico.proximo_arca,
+            )
+        if diagnostico.proximo_numero is None:
+            raise ValidationError("No se pudo determinar una numeración fiscal segura")
+        return diagnostico.proximo_numero
 
     async def _resolver_intento_bloqueante(
         self,

@@ -13,6 +13,7 @@ import {
 import type {
   EmitirComprobanteRequest,
   EmitirComprobanteResponse,
+  ProximoNumeroResponse,
 } from "@/types/comprobante";
 import type { Empresa } from "@/types/empresa";
 import type { PuntoVenta } from "@/types/punto_venta";
@@ -88,6 +89,22 @@ const puntoVentaMock = (
   ...overrides,
 });
 
+const diagnosticoNumeracionMock = (
+  proximoNumero: number | null,
+  overrides: Partial<ProximoNumeroResponse> = {},
+): ProximoNumeroResponse => ({
+  punto_venta: 1,
+  tipo_comprobante: 6,
+  ultimo_local: proximoNumero === null ? 10 : proximoNumero - 1,
+  ultimo_arca: proximoNumero === null ? 9 : proximoNumero - 1,
+  proximo_local: proximoNumero ?? 11,
+  proximo_arca: proximoNumero ?? 10,
+  proximo_numero: proximoNumero,
+  estado: proximoNumero === null ? "local_adelantada" : "alineada",
+  emision_habilitada: proximoNumero !== null,
+  advertencia: null,
+  ...overrides,
+});
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolver) => {
@@ -225,8 +242,8 @@ describe("ComprobanteNuevoView", () => {
   });
 
   it("ignora respuestas viejas al consultar el proximo numero", async () => {
-    const primeraConsulta = deferred<{ proximo_numero: number }>();
-    const segundaConsulta = deferred<{ proximo_numero: number }>();
+    const primeraConsulta = deferred<ProximoNumeroResponse>();
+    const segundaConsulta = deferred<ProximoNumeroResponse>();
     mockedComprobantesService.proximoNumero
       .mockReturnValueOnce(primeraConsulta.promise)
       .mockReturnValueOnce(segundaConsulta.promise);
@@ -239,15 +256,106 @@ describe("ComprobanteNuevoView", () => {
 
     vm.formData.punto_venta_id = 2;
     const segundaActualizacion = vm.actualizarProximoNumero();
-    segundaConsulta.resolve({ proximo_numero: 200 });
+    segundaConsulta.resolve(diagnosticoNumeracionMock(200));
     await segundaActualizacion;
     expect(vm.proximoNumero).toBe(200);
 
-    primeraConsulta.resolve({ proximo_numero: 100 });
+    primeraConsulta.resolve(diagnosticoNumeracionMock(100));
     await flushPromises();
     expect(vm.proximoNumero).toBe(200);
   });
 
+  it("descarta el diagnostico anterior si cambia el emisor activo", async () => {
+    const primeraConsulta = deferred<ProximoNumeroResponse>();
+    const segundaConsulta = deferred<ProximoNumeroResponse>();
+    mockedComprobantesService.proximoNumero
+      .mockReturnValueOnce(primeraConsulta.promise)
+      .mockReturnValueOnce(segundaConsulta.promise);
+    const wrapper = await mountView();
+    const empresaStore = useEmpresaStore();
+    const vm = wrapper.vm as unknown as {
+      proximoNumero: number | null;
+      diagnosticoNumeracion: ProximoNumeroResponse | null;
+    };
+
+    empresaStore.empresa = {
+      ...empresaMock(),
+      id: 2,
+      razon_social: "Emisor Dos",
+    };
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+
+    segundaConsulta.resolve(
+      diagnosticoNumeracionMock(200, {
+        ultimo_local: 199,
+        ultimo_arca: 199,
+      }),
+    );
+    await flushPromises();
+    expect(vm.proximoNumero).toBe(200);
+
+    primeraConsulta.resolve(
+      diagnosticoNumeracionMock(100, {
+        ultimo_local: 99,
+        ultimo_arca: 99,
+      }),
+    );
+    await flushPromises();
+
+    expect(vm.proximoNumero).toBe(200);
+    expect(vm.diagnosticoNumeracion?.ultimo_arca).toBe(199);
+  });
+  it("muestra historia externa y mantiene habilitado el siguiente numero ARCA", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(78, {
+        punto_venta: 1,
+        ultimo_local: 76,
+        ultimo_arca: 77,
+        proximo_local: 77,
+        proximo_arca: 78,
+        estado: "arca_adelantada",
+        advertencia: "Hay comprobantes anteriores registrados solo en ARCA.",
+      }),
+    );
+
+    const wrapper = await mountView();
+    const vm = wrapper.vm as unknown as {
+      proximoNumero: number | null;
+      diagnosticoNumeracion: ProximoNumeroResponse | null;
+    };
+
+    expect(vm.proximoNumero).toBe(78);
+    expect(vm.diagnosticoNumeracion?.estado).toBe("arca_adelantada");
+    expect(wrapper.text()).toContain("Emisor Demo");
+    expect(wrapper.text()).toContain("Último en FactuFlow: 76");
+    expect(wrapper.text()).toContain("Último en ARCA: 77");
+    expect(wrapper.text()).toContain("Hay comprobantes anteriores");
+  });
+
+  it("bloquea la vista previa si la numeracion local esta adelantada", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(null, {
+        advertencia:
+          "La emisión permanece bloqueada hasta revisar el historial fiscal.",
+      }),
+    );
+
+    const wrapper = await mountView();
+    const vm = wrapper.vm as unknown as {
+      abrirVistaPrevia: () => void;
+      mostrarPreview: boolean;
+      proximoNumero: number | null;
+    };
+
+    vm.abrirVistaPrevia();
+
+    expect(vm.proximoNumero).toBeNull();
+    expect(vm.mostrarPreview).toBe(false);
+    expect(wrapper.text()).toContain("Próximo número:");
+    expect(wrapper.text()).toContain("No disponible");
+    expect(wrapper.text()).toContain("La emisión permanece bloqueada");
+  });
   it("selecciona por defecto el primer punto de venta usable", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -262,9 +370,9 @@ describe("ComprobanteNuevoView", () => {
       }),
       puntoVentaMock(2, 6),
     ]);
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 42,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(42),
+    );
 
     const wrapper = mount(ComprobanteNuevoView, {
       global: {
@@ -287,9 +395,9 @@ describe("ComprobanteNuevoView", () => {
   });
 
   it("mantiene invalida una Factura A con receptor no CUIT", async () => {
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     const wrapper = await mountView();
     const vm = wrapper.vm as unknown as {
       formData: {
@@ -347,9 +455,9 @@ describe("ComprobanteNuevoView", () => {
   });
 
   it("limpia fechas de servicio al volver a productos", async () => {
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     const wrapper = await mountView();
     const vm = wrapper.vm as unknown as {
       formData: {
@@ -404,9 +512,9 @@ describe("ComprobanteNuevoView", () => {
   });
 
   it("envia una clave de idempotencia al confirmar la emision", async () => {
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     mockedComprobantesService.emitir.mockResolvedValue({
       exito: true,
       comprobante_id: 55,
@@ -475,13 +583,56 @@ describe("ComprobanteNuevoView", () => {
       expect.any(String),
     );
   });
+  it("invalida numero y clave si ARCA cambia antes de solicitar CAE", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
+    mockedComprobantesService.emitir.mockRejectedValue({
+      response: {
+        status: 400,
+        data: {
+          detail: {
+            mensaje: "La numeración de ARCA cambió antes de solicitar el CAE",
+            errores: ["No se envió ninguna solicitud de CAE."],
+            requiere_reconciliacion: false,
+            categoria_error: "numeracion_arca_cambio_pre_arca",
+          },
+        },
+      },
+    });
+
+    try {
+      const wrapper = await mountView();
+      const vm = (await completarFormulario(
+        wrapper,
+      )) as ComprobanteNuevoViewModel & {
+        proximoNumero: number | null;
+        errorProximoNumero: string;
+      };
+
+      await vm.confirmarEmision();
+      await flushPromises();
+
+      expect(vm.proximoNumero).toBeNull();
+      expect(vm.idempotencyKeyEmision).toBeNull();
+      expect(vm.operacionIncierta).toBeNull();
+      expect(vm.errorProximoNumero).toContain("numeración de ARCA cambió");
+      expect(wrapper.text()).toContain("Actualizar numeración");
+      expect(mockedComprobantesService.proximoNumero).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
   it("muestra un estado dedicado y congela la operación ante un 409 incierto", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     mockedComprobantesService.emitir.mockRejectedValue(errorReconciliacion());
 
     try {
@@ -513,9 +664,9 @@ describe("ComprobanteNuevoView", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     mockedComprobantesService.emitir
       .mockRejectedValueOnce(errorReconciliacion())
       .mockResolvedValueOnce(respuestaFinal());
@@ -548,9 +699,9 @@ describe("ComprobanteNuevoView", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     mockedComprobantesService.emitir.mockRejectedValue(errorReconciliacion());
 
     try {
@@ -583,9 +734,9 @@ describe("ComprobanteNuevoView", () => {
   });
 
   it("evita dos solicitudes efectivas ante una interacción duplicada", async () => {
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     const emisionDiferida = deferred<EmitirComprobanteResponse>();
     mockedComprobantesService.emitir.mockReturnValue(emisionDiferida.promise);
     const wrapper = await mountView();
@@ -603,9 +754,9 @@ describe("ComprobanteNuevoView", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     mockedComprobantesService.emitir
       .mockRejectedValueOnce(errorReconciliacion())
       .mockRejectedValueOnce({
@@ -641,9 +792,9 @@ describe("ComprobanteNuevoView", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    mockedComprobantesService.proximoNumero.mockResolvedValue({
-      proximo_numero: 100,
-    });
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
     mockedComprobantesService.emitir.mockRejectedValue({
       response: {
         data: {

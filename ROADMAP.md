@@ -216,6 +216,13 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   - Antes de implementar, completar `docs/agents/fiscal-change-checklist.md`,
     documentar estados y orden de operaciones, definir la matriz de tests y
     revisar los caminos vecinos de idempotencia y reconciliación.
+  - [x] **PF-02A — emisión individual:** diagnóstico local/ARCA, advertencia de
+    historia externa, candidato `ultimo_arca + 1`, segundo preflight después de
+    la reserva y aborto terminal con cero CAE si la numeración cambia o no puede
+    reconfirmarse. Diseño: `docs/agents/pf-02a-numeracion-individual-design.md`.
+  - [ ] **PF-02B — emisión masiva y worker:** aplicar la política a reservas de
+    grupos y lotes sin copiar diagnósticos a `numero_asignado`, y cerrar la
+    matriz de QA fiscal antes de considerar PF-02 completo.
 - [ ] **P2 - Reconstrucción histórica opcional desde ARCA para informes con
   cobertura verificable.** Permitir consultar con `FECompConsultar` e importar
   snapshots fiscales de comprobantes emitidos fuera de FactuFlow. Esta función

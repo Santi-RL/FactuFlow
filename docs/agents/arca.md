@@ -303,6 +303,30 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   solo los grupos con evidencia fiscal como `requiere_reconciliacion` y exigir
   auditoría antes de continuar.
 
+### PF-02A: numeración individual con historia externa
+
+- `FECompUltimoAutorizado` es la fuente del siguiente número fiscal global para
+  el emisor, punto de venta y tipo. Una historia ARCA posterior a la local se
+  clasifica `arca_adelantada`; se informa y la emisión individual usa
+  `ultimo_arca + 1` si no existe un intento propio bloqueante.
+- Una numeración local posterior se clasifica `local_adelantada`, no ofrece
+  candidato y bloquea. Los intentos propios `en_proceso` o
+  `requiere_reconciliacion` conservan prioridad sobre cualquier diagnóstico.
+- Después de crear la reserva durable, FactuFlow repite
+  `FECompUltimoAutorizado` inmediatamente antes de `FECAESolicitar`. Si el
+  siguiente número ya no coincide, responde
+  `numeracion_arca_cambio_pre_arca`; si la consulta falla, responde
+  `preflight_arca_no_disponible`.
+- Ambos resultados son terminales y verificados antes de ARCA: no hay solicitud
+  de CAE, el intento queda `fallido_verificado`, la operación idempotente queda
+  `fallido` y el usuario debe actualizar la numeración y confirmar de nuevo con
+  una clave nueva.
+- Una excepción después de iniciar `FECAESolicitar` no usa estas categorías:
+  mantiene `requiere_reconciliacion` y las reglas de PF-01.
+- Lotes y worker siguen exigiendo alineación estricta hasta PF-02B. El valor de
+  diagnóstico nunca se escribe en `numero_asignado` sin reserva e intento.
+- PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
+  opcional corresponde a PF-05.
 ### Reconciliación externa de lotes
 
 - Si un comprobante pendiente de un lote fue emitido manualmente en ARCA Web, no
