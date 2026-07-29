@@ -1,7 +1,7 @@
 # PF-02A — Numeración individual compatible con historia externa
 
 Fecha de diseño e implementación: 2026-07-27
-Estado: implementado, validado y cerrado localmente en rama temporal; sin push.
+Estado: implementado, validado y publicado para revisión mediante el PR `#15`.
 
 ## Objetivo y alcance
 

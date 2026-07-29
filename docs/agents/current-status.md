@@ -6,11 +6,12 @@ Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
 lecciones de herramientas viven en `docs/project/**`.
 
-## Cierre local — PF-02A numeración individual
+## Cierre de implementación — PF-02A numeración individual
 
 PF-02A quedó implementado en la rama temporal
-`codex/pf-02a-numeracion-individual`, todavía sin push. La emisión individual
-ahora distingue numeración `alineada`, `arca_adelantada` y `local_adelantada`:
+`codex/pf-02a-numeracion-individual` y publicado para revisión mediante el PR
+`#15`. La emisión individual ahora distingue numeración `alineada`,
+`arca_adelantada` y `local_adelantada`:
 
 - una historia previa o actividad externa en ARCA se informa y usa
   `ultimo_arca + 1` sin exigir importación histórica;
@@ -36,8 +37,9 @@ El cierre ejecutó una única revisión efectiva con Codex `gpt-5.6-sol`,
 thinking `medium`: patch correcto, confianza `0,87` y cero findings. El primer
 intento con el alias local obsoleto `0.130.0-alpha.5` no produjo dictamen; la
 revisión válida usó el binario vigente `0.146.0-alpha.3.1` de la misma app sin
-debilitar el aislamiento ni cambiar de modelo. PF-02A queda cerrado localmente
-en su rama temporal y todavía no fue publicado.
+debilitar el aislamiento ni cambiar de modelo. El mock del endpoint de
+numeración usado por Playwright se actualizó al contrato completo sin relajar
+ningún bloqueo productivo; las `33` pruebas E2E locales quedaron verdes.
 
 ## Cierre local — P1 UI, pool y worker
 
