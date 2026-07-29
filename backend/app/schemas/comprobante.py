@@ -2,7 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.date_parsing import parse_fecha_input
@@ -256,8 +256,15 @@ class PaginatedComprobantesResponse(BaseModel):
 
 
 class ProximoNumeroResponse(BaseModel):
-    """Respuesta con el próximo número de comprobante."""
+    """Diagnóstico de numeración local y ARCA para una emisión individual."""
 
     punto_venta: int
     tipo_comprobante: int
-    proximo_numero: int
+    ultimo_local: int
+    ultimo_arca: int
+    proximo_local: int
+    proximo_arca: int
+    proximo_numero: Optional[int]
+    estado: Literal["alineada", "arca_adelantada", "local_adelantada"]
+    emision_habilitada: bool
+    advertencia: Optional[str] = None

@@ -1,8 +1,8 @@
 # Portafolio integrado de desarrollo
 
-Última actualización: 2026-07-13
+Última actualización: 2026-07-27
 
-Estado: PRIORIZADO; PF-01 CERRADO; PF-02 ES EL SIGUIENTE CORTE FISCAL.
+Estado: PRIORIZADO; PF-01 CERRADO; PF-02A EN CIERRE; PF-02B ES EL SIGUIENTE CORTE FISCAL.
 
 ## Propósito y autoridad
 
@@ -104,7 +104,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | ID | Línea de trabajo y resultado buscado | Fuentes consolidadas | Riesgo o valor | Dependencias principales | Banda |
 |---|---|---|---|---|---|
 | PF-01 | Integridad de autorización fiscal: CAE válido, estados coherentes, idempotencia y reconciliación segura | Hallazgos ARCA/CAE, emisión individual y lotes; P1 fiscal | Evitar reintentos inseguros, autorizaciones incompletas y estados ambiguos | Checklist fiscal, tabla de estados y tests de fallos post-ARCA | A |
-| PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | Permitir emisiones legítimas sin debilitar intentos propios inciertos | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
+| PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | PF-02A individual en cierre; PF-02B masivo pendiente, sin debilitar intentos propios inciertos | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
 | PF-03 | Validación fiscal de entradas, fechas, importes, moneda y totales | Hallazgos de esquemas, analizadores, descuentos, perfiles, constancias y plantillas | Evitar payloads no elegidos, fechas inválidas y montos incoherentes | Contratos UI/API y matriz individual/masiva | A |
 | PF-04 | Evidencia fiscal histórica correcta en PDFs y reportes | Hallazgos de instantánea del emisor, moneda, IVA, paginado, ranking y aislamiento PDF | Evitar documentos históricos mutables o informes impositivos incorrectos | Modelo de instantáneas, migración de datos heredados y pruebas de evidencia | A |
 | PF-05 | Reconstrucción histórica opcional desde ARCA | P2 explícito del roadmap | Completar informes sin convertir historia externa en requisito de emisión | PF-02, PF-04, procedencia, cobertura y registro reanudable | B |
@@ -180,5 +180,5 @@ Antes de editar código, cada corte debe tener:
   `gpt-5.6-sol high`.
 - PF-01B cerró B10/B17 como `fixed` después de migración, constraints, matriz
   SQLite/PostgreSQL, CI y revalidación secuencial con `gpt-5.6-sol high`.
-- PF-02 queda como siguiente corte fiscal, precedido por la evaluación del
-  candidato provisional `v0.2.2`.
+- PF-02A individual está en cierre local; PF-02B para lotes y worker queda como
+  siguiente corte fiscal. La reconstrucción histórica opcional continúa en PF-05.

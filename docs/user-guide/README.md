@@ -102,8 +102,23 @@ Antes de emitir o consultar información, verifica siempre que el emisor activo 
 Si cambias el emisor activo, las pantallas principales recargan la información
 para mostrar solo datos de ese CUIT. En `Nueva Factura`, cambiar el emisor
 recarga puntos de venta y limpia el cliente seleccionado. La vista previa se
-habilita solo cuando FactuFlow pudo confirmar el próximo número. Si eliges
-Productos después de haber completado un período de Servicios, esas fechas se
+habilita solo cuando FactuFlow pudo confirmar el próximo número.
+
+El panel de numeración muestra emisor, punto de venta, tipo de comprobante,
+último número guardado en FactuFlow, último número informado por ARCA y próximo
+número. Si ARCA tiene comprobantes anteriores que no están en FactuFlow, verás
+una advertencia, pero podrás continuar con el siguiente número de ARCA. Importar
+esa historia para completar informes será una función opcional posterior y no es
+un requisito para emitir.
+
+Si FactuFlow aparece adelantado respecto de ARCA, existe una emisión propia en
+proceso o queda una respuesta incierta, la emisión continúa bloqueada. Además,
+FactuFlow vuelve a consultar la numeración justo antes de solicitar el CAE. Si
+otro sistema avanzó o esa consulta falla, no se solicita CAE: el número visible
+se invalida y debes pulsar `Actualizar numeración`, revisar la vista previa y
+confirmar nuevamente la fecha fiscal.
+
+Si eliges Productos después de haber completado un período de Servicios, esas fechas se
 limpian y no se envían a ARCA. Si modificas los datos de un cliente guardado, el
 receptor pasa a carga manual para no conservar una vinculación incorrecta. Al
 reducir la búsqueda de clientes a menos de dos caracteres, FactuFlow cierra los

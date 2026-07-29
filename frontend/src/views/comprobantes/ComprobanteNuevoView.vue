@@ -22,6 +22,7 @@ import type {
   ItemComprobante,
   EmitirComprobanteRequest,
   EmitirComprobanteResponse,
+  ProximoNumeroResponse,
 } from "@/types/comprobante";
 import {
   TIPOS_COMPROBANTE,
@@ -88,6 +89,7 @@ const idempotencyKeyEmision = ref<string | null>(null);
 const operacionIncierta = ref<OperacionInciertaEmision | null>(null);
 const confirmacionDuplicadoLogico = ref(false);
 const proximoNumero = ref<number | null>(null);
+const diagnosticoNumeracion = ref<ProximoNumeroResponse | null>(null);
 const consultandoProximoNumero = ref(false);
 const errorProximoNumero = ref("");
 let proximoNumeroRequestId = 0;
@@ -163,6 +165,10 @@ const obtenerStatusHttpError = (error: unknown): number | null => {
     : null;
 };
 
+const esAbortoPreArcaNumeracion = (detail: unknown): boolean =>
+  esRegistroDesconocido(detail) &&
+  (detail.categoria_error === "numeracion_arca_cambio_pre_arca" ||
+    detail.categoria_error === "preflight_arca_no_disponible");
 const obtenerMensajeRechazoFinal = (detail: unknown): string | null => {
   if (
     !esRegistroDesconocido(detail) ||
@@ -570,6 +576,7 @@ const actualizarProximoNumero = async () => {
   const puntoVentaId = formData.value.punto_venta_id;
   const tipoComprobante = formData.value.tipo_comprobante;
   proximoNumero.value = null;
+  diagnosticoNumeracion.value = null;
   consultandoProximoNumero.value = false;
   errorProximoNumero.value = "";
 
@@ -585,7 +592,7 @@ const actualizarProximoNumero = async () => {
       return;
     }
 
-    const numero = await comprobantesStore.obtenerProximoNumero(
+    const diagnostico = await comprobantesStore.obtenerProximoNumero(
       puntoVenta.numero,
       tipoComprobante,
     );
@@ -594,10 +601,21 @@ const actualizarProximoNumero = async () => {
       formData.value.punto_venta_id === puntoVentaId &&
       formData.value.tipo_comprobante === tipoComprobante
     ) {
-      proximoNumero.value = numero;
+      diagnosticoNumeracion.value = diagnostico;
+      if (
+        diagnostico.emision_habilitada &&
+        diagnostico.proximo_numero !== null
+      ) {
+        proximoNumero.value = diagnostico.proximo_numero;
+      } else {
+        errorProximoNumero.value =
+          diagnostico.advertencia ||
+          "La numeración fiscal no permite emitir en este momento.";
+      }
     }
   } catch (error) {
     if (requestId === proximoNumeroRequestId) {
+      diagnosticoNumeracion.value = null;
       errorProximoNumero.value =
         "No se pudo confirmar la numeración fiscal con ARCA.";
       console.error("Error al obtener próximo número:", error);
@@ -762,10 +780,7 @@ const ejecutarEmision = async (
           )
         : [];
       mensajeConfirmacionDuplicadoLogico.value =
-        [
-          typeof detail.mensaje === "string" ? detail.mensaje : "",
-          ...errores,
-        ]
+        [typeof detail.mensaje === "string" ? detail.mensaje : "", ...errores]
           .filter(Boolean)
           .join(" ") ||
         "Existe un comprobante local muy similar ya autorizado. Confirmá si corresponde emitirlo igualmente.";
@@ -773,6 +788,20 @@ const ejecutarEmision = async (
       return;
     }
 
+    if (!esVerificacion && esAbortoPreArcaNumeracion(detail)) {
+      finalizarOperacionIncierta();
+      proximoNumero.value = null;
+      diagnosticoNumeracion.value = null;
+      errorProximoNumero.value =
+        esRegistroDesconocido(detail) && typeof detail.mensaje === "string"
+          ? detail.mensaje
+          : "La numeración debe actualizarse antes de volver a emitir.";
+      showError(
+        "La emisión se detuvo antes de solicitar CAE",
+        errorProximoNumero.value,
+      );
+      return;
+    }
     const mensajeRechazoFinal = obtenerMensajeRechazoFinal(detail);
     if (
       esVerificacion &&
@@ -823,11 +852,7 @@ const verificarEstado = async () => {
     return;
   }
 
-  await ejecutarEmision(
-    operacion.request,
-    operacion.idempotencyKey,
-    true,
-  );
+  await ejecutarEmision(operacion.request, operacion.idempotencyKey, true);
 };
 const confirmarDuplicadoLogico = async () => {
   confirmacionDuplicadoLogico.value = true;
@@ -888,7 +913,8 @@ const confirmarCancelacion = () => {
           </div>
           <p class="mt-2 max-w-3xl text-sm">
             ARCA pudo haber procesado esta solicitud. Los datos y la clave
-            quedaron congelados: no generes otra factura ni cambies la operación.
+            quedaron congelados: no generes otra factura ni cambies la
+            operación.
           </p>
         </div>
         <button
@@ -898,10 +924,7 @@ const confirmarCancelacion = () => {
           class="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-50"
           @click="verificarEstado"
         >
-          <ArrowPathIcon
-            class="h-5 w-5"
-            :class="{ 'animate-spin': loading }"
-          />
+          <ArrowPathIcon class="h-5 w-5" :class="{ 'animate-spin': loading }" />
           {{ loading ? "Verificando..." : "Verificar estado" }}
         </button>
       </div>
@@ -910,33 +933,25 @@ const confirmarCancelacion = () => {
         class="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5"
       >
         <div>
-          <span
-            class="block text-xs font-semibold uppercase text-orange-700"
-          >
+          <span class="block text-xs font-semibold uppercase text-orange-700">
             Emisor
           </span>
           <span>{{ operacionIncierta.empresaNombre }}</span>
         </div>
         <div>
-          <span
-            class="block text-xs font-semibold uppercase text-orange-700"
-          >
+          <span class="block text-xs font-semibold uppercase text-orange-700">
             Comprobante
           </span>
           <span>{{ tipoOperacionIncierta }}</span>
         </div>
         <div>
-          <span
-            class="block text-xs font-semibold uppercase text-orange-700"
-          >
+          <span class="block text-xs font-semibold uppercase text-orange-700">
             Fecha fiscal
           </span>
           <span>{{ fechaOperacionIncierta }}</span>
         </div>
         <div>
-          <span
-            class="block text-xs font-semibold uppercase text-orange-700"
-          >
+          <span class="block text-xs font-semibold uppercase text-orange-700">
             Punto y número
           </span>
           <span>
@@ -949,9 +964,7 @@ const confirmarCancelacion = () => {
           </span>
         </div>
         <div>
-          <span
-            class="block text-xs font-semibold uppercase text-orange-700"
-          >
+          <span class="block text-xs font-semibold uppercase text-orange-700">
             Total
           </span>
           <span>ARS {{ Number(totalOperacionIncierta).toFixed(2) }}</span>
@@ -973,8 +986,8 @@ const confirmarCancelacion = () => {
         data-testid="operacion-incierta-emisor-distinto"
         class="mt-4 font-medium text-red-800"
       >
-        Volvé a seleccionar {{ operacionIncierta.empresaNombre }} para verificar.
-        La operación permanece bloqueada.
+        Volvé a seleccionar {{ operacionIncierta.empresaNombre }} para
+        verificar. La operación permanece bloqueada.
       </p>
     </section>
 
@@ -1040,7 +1053,8 @@ const confirmarCancelacion = () => {
               v-if="puntosVentaUsables.length === 0"
               class="mt-1 text-sm text-red-600"
             >
-              No hay puntos de venta Web Services habilitados para emitir con FactuFlow.
+              No hay puntos de venta Web Services habilitados para emitir con
+              FactuFlow.
             </p>
           </div>
 
@@ -1058,12 +1072,7 @@ const confirmarCancelacion = () => {
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option
-                disabled
-                value=""
-              >
-                Elegir productos o servicios
-              </option>
+              <option disabled value="">Elegir productos o servicios</option>
               <option :value="TIPOS_CONCEPTO.PRODUCTOS">
                 {{ TIPOS_CONCEPTO_NOMBRES[1] }}
               </option>
@@ -1087,31 +1096,74 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
         </div>
 
         <!-- Próximo número -->
-        <div
-          v-if="consultandoProximoNumero"
-          class="mt-4 text-sm text-gray-600"
-        >
+        <div v-if="consultandoProximoNumero" class="mt-4 text-sm text-gray-600">
           Consultando próximo número...
         </div>
         <div
-          v-else-if="proximoNumero !== null"
-          class="mt-4 text-sm text-gray-600"
+          v-else-if="diagnosticoNumeracion"
+          class="mt-4 rounded-lg border p-4 text-sm"
+          :class="
+            diagnosticoNumeracion.estado === 'local_adelantada'
+              ? 'border-red-300 bg-red-50 text-red-900'
+              : diagnosticoNumeracion.estado === 'arca_adelantada'
+                ? 'border-amber-300 bg-amber-50 text-amber-950'
+                : 'border-gray-200 bg-gray-50 text-gray-700'
+          "
         >
-          El próximo número será:
-          <span class="font-mono font-semibold">{{
-            String(proximoNumero).padStart(8, "0")
-          }}</span>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <p>
+              <span class="font-medium">Emisor:</span>
+              {{ empresaActiva?.razon_social || "Emisor activo" }}
+            </p>
+            <p>
+              <span class="font-medium">Punto de venta:</span>
+              {{ String(diagnosticoNumeracion.punto_venta).padStart(4, "0") }}
+            </p>
+            <p>
+              <span class="font-medium">Comprobante:</span>
+              {{
+                TIPOS_COMPROBANTE_NOMBRES[
+                  diagnosticoNumeracion.tipo_comprobante
+                ] || `Tipo ${diagnosticoNumeracion.tipo_comprobante}`
+              }}
+            </p>
+            <p>
+              <span class="font-medium">Último en FactuFlow:</span>
+              {{ diagnosticoNumeracion.ultimo_local }}
+            </p>
+            <p>
+              <span class="font-medium">Último en ARCA:</span>
+              {{ diagnosticoNumeracion.ultimo_arca }}
+            </p>
+            <p>
+              <span class="font-medium">Próximo número:</span>
+              <span
+                v-if="proximoNumero !== null"
+                class="font-mono font-semibold"
+                >{{ String(proximoNumero).padStart(8, "0") }}</span
+              >
+              <span v-else>No disponible</span>
+            </p>
+          </div>
+          <p v-if="diagnosticoNumeracion.advertencia" class="mt-3">
+            {{ diagnosticoNumeracion.advertencia }}
+          </p>
         </div>
-        <div
-          v-else-if="errorProximoNumero"
-          class="mt-4 text-sm text-red-700"
-        >
-          {{ errorProximoNumero }}
+        <div v-else-if="errorProximoNumero" class="mt-4 text-sm text-red-700">
+          <p>{{ errorProximoNumero }}</p>
+          <button
+            type="button"
+            class="mt-2 font-medium underline disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="consultandoProximoNumero"
+            @click="actualizarProximoNumero"
+          >
+            Actualizar numeración
+          </button>
         </div>
 
         <!-- Fechas de servicios -->
@@ -1128,7 +1180,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
 
           <div>
@@ -1140,7 +1192,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
 
           <div>
@@ -1152,7 +1204,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
         </div>
       </BaseCard>

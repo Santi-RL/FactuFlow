@@ -820,7 +820,14 @@ export const mockApi = async (page: Page) => {
       return jsonResponse(route, 200, {
         punto_venta: puntoVenta,
         tipo_comprobante: tipoComprobante,
+        ultimo_local: 0,
+        ultimo_arca: 0,
+        proximo_local: 1,
+        proximo_arca: 1,
         proximo_numero: 1,
+        estado: "alineada",
+        emision_habilitada: true,
+        advertencia: null,
       });
     }
 

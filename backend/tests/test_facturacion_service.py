@@ -746,6 +746,10 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
 
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable el próximo número reservado en la prueba."""
+            return 76
+
         async def fe_cae_solicitar(self, _arca_request):
             """Devuelve un CAE autorizado simulado."""
             return SimpleNamespace(
@@ -875,6 +879,10 @@ async def test_excepcion_inesperada_post_arca_requiere_reconciliacion(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable el próximo número reservado en la prueba."""
+            return 76
 
         async def fe_cae_solicitar(self, _arca_request):
             """Simula un fallo inesperado durante la solicitud individual."""
@@ -1186,6 +1194,12 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
                 tipo_cbte=6,
                 punto_venta=1,
                 resultado="R",
+                errores=[
+                    {
+                        "code": 10016,
+                        "msg": "El número debe ser consecutivo al último autorizado",
+                    }
+                ],
             )
 
     async def fake_validar_datos(self, request):
@@ -1319,6 +1333,8 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
     respuesta_json = resultado.model_dump_json()
     assert "secreto" not in respuesta_json
     assert "privada.key" not in respuesta_json
+    if not fallar_cierre:
+        assert "10016" in respuesta_json
 
 
 @pytest.mark.asyncio
@@ -1760,12 +1776,12 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
 
 
 @pytest.mark.asyncio
-async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantada(
+async def test_emitir_comprobante_usa_siguiente_arca_si_historia_local_es_parcial(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Si ARCA tiene números ausentes localmente, no debe pedir otro CAE."""
+    """La historia externa no bloquea si el número ARCA sigue estable."""
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -1780,7 +1796,7 @@ async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantad
             tipo_comprobante=6,
             concepto=1,
             numero=76,
-            fecha_emision=date.today(),
+            fecha_emision=date(2026, 7, 27),
             subtotal=Decimal("1000.00"),
             descuento=Decimal("0.00"),
             iva_21=Decimal("0.00"),
@@ -1798,7 +1814,8 @@ async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantad
         )
     )
     await db_session.commit()
-    cae_solicitado = False
+    numeros_consultados: list[int] = []
+    numeros_solicitados: list[int] = []
 
     class FakeWSFEClient:
         """Cliente WSFE simulado con ARCA adelantada."""
@@ -1808,13 +1825,20 @@ async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantad
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Devuelve un último comprobante que no existe localmente."""
+            numeros_consultados.append(punto_venta_numero)
             return 77
 
-        async def fe_cae_solicitar(self, _arca_request):
-            """No debe llamarse cuando falta reconciliar numeración."""
-            nonlocal cae_solicitado
-            cae_solicitado = True
-            raise AssertionError("No debe solicitar CAE con numeración desfasada")
+        async def fe_cae_solicitar(self, arca_request):
+            """Autoriza el siguiente número confirmado por ARCA."""
+            numeros_solicitados.append(arca_request.cbte_desde)
+            return CAEResponse(
+                cae="12345678901235",
+                cae_vencimiento="20260806",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
 
     async def fake_validar_datos(self, request):
         return None
@@ -1859,7 +1883,144 @@ async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantad
         punto_venta_id=punto_venta.id,
         tipo_comprobante=6,
         concepto=1,
-        fecha_emision=date.today(),
+        fecha_emision=date(2026, 7, 27),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    resultado = await service.emitir_comprobante(request)
+
+    assert resultado.exito is True
+    assert resultado.requiere_reconciliacion is False
+    assert resultado.numero == 78
+    assert numeros_consultados == [1, 1]
+    assert numeros_solicitados == [78]
+
+    comprobantes = (
+        (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
+        .scalars()
+        .all()
+    )
+    assert [comprobante.numero for comprobante in comprobantes] == [76, 78]
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_aborta_si_arca_avanza_despues_de_reservar(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Un avance externo tras reservar debe abortar antes de solicitar CAE."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    db_session.add(
+        Comprobante(
+            tipo_comprobante=6,
+            concepto=1,
+            numero=76,
+            fecha_emision=date(2026, 7, 27),
+            subtotal=Decimal("1000.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("0.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("1000.00"),
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            estado="autorizado",
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+        )
+    )
+    await db_session.commit()
+    numeros_consultados: list[int] = []
+    numeros_solicitados: list[int] = []
+    ultimos_arca = iter([77, 78])
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado con ARCA adelantada."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Devuelve un último comprobante que no existe localmente."""
+            numeros_consultados.append(punto_venta_numero)
+            return next(ultimos_arca)
+
+        async def fe_cae_solicitar(self, arca_request):
+            """No debe invocarse si cambió el siguiente número de ARCA."""
+            numeros_solicitados.append(arca_request.cbte_desde)
+            raise AssertionError("No debe solicitar CAE con una reserva obsoleta")
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    async def fake_tomar_lock(self, *args, **kwargs):
+        return None
+
+    async def fake_obtener_empresa(self, empresa_id):
+        return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
+
+    async def fake_obtener_certificado_activo(self, empresa_id):
+        return SimpleNamespace(
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
+    monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_obtener_certificado_activo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 7, 27),
         tipo_documento=99,
         numero_documento="0",
         razon_social="A CONSUMIDOR FINAL",
@@ -1881,10 +2042,238 @@ async def test_emitir_comprobante_requiere_reconciliacion_si_arca_esta_adelantad
     resultado = await service.emitir_comprobante(request)
 
     assert resultado.exito is False
-    assert resultado.requiere_reconciliacion is True
-    assert resultado.categoria_error == "numeracion_arca_adelantada"
-    assert resultado.numero == 77
-    assert cae_solicitado is False
+    assert resultado.requiere_reconciliacion is False
+    assert resultado.categoria_error == "numeracion_arca_cambio_pre_arca"
+    assert resultado.numero == 78
+    assert numeros_consultados == [1, 1]
+    assert numeros_solicitados == []
+
+    intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
+    assert len(intentos) == 1
+    assert intentos[0].numero_planificado == 78
+    assert intentos[0].estado == "fallido_verificado"
+
+    comprobantes = (
+        (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
+        .scalars()
+        .all()
+    )
+    assert [comprobante.numero for comprobante in comprobantes] == [76]
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_cierra_intento_si_falla_segundo_preflight(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Un error del segundo preflight es terminal porque FECAE no comenzó."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    db_session.add(
+        Comprobante(
+            tipo_comprobante=6,
+            concepto=1,
+            numero=76,
+            fecha_emision=date(2026, 7, 27),
+            subtotal=Decimal("1000.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("0.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("1000.00"),
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 5, 26),
+            estado="autorizado",
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+        )
+    )
+    await db_session.commit()
+    numeros_consultados: list[int] = []
+    numeros_solicitados: list[int] = []
+
+    class FakeWSFEClient:
+        """Cliente WSFE simulado con ARCA adelantada."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Devuelve un último comprobante que no existe localmente."""
+            numeros_consultados.append(punto_venta_numero)
+            if len(numeros_consultados) == 2:
+                raise ArcaServiceError("ARCA no disponible")
+            return 77
+
+        async def fe_cae_solicitar(self, arca_request):
+            """No debe invocarse si cambió el siguiente número de ARCA."""
+            numeros_solicitados.append(arca_request.cbte_desde)
+            raise AssertionError("No debe solicitar CAE con una reserva obsoleta")
+
+    async def fake_validar_datos(self, request):
+        return None
+
+    async def fake_tomar_lock(self, *args, **kwargs):
+        return None
+
+    async def fake_obtener_empresa(self, empresa_id):
+        return SimpleNamespace(id=empresa_id, cuit=test_empresa.cuit)
+
+    async def fake_obtener_certificado_activo(self, empresa_id):
+        return SimpleNamespace(
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_tomar_lock_numeracion", fake_tomar_lock)
+    monkeypatch.setattr(FacturacionService, "_obtener_empresa", fake_obtener_empresa)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_obtener_certificado_activo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    service = FacturacionService(db_session)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 7, 27),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Producto",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+
+    resultado = await service.emitir_comprobante(request)
+
+    assert resultado.exito is False
+    assert resultado.requiere_reconciliacion is False
+    assert resultado.categoria_error == "preflight_arca_no_disponible"
+    assert resultado.numero == 78
+    assert numeros_consultados == [1, 1]
+    assert numeros_solicitados == []
+
+    intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
+    assert len(intentos) == 1
+    assert intentos[0].numero_planificado == 78
+    assert intentos[0].estado == "fallido_verificado"
+
+    comprobantes = (
+        (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
+        .scalars()
+        .all()
+    )
+    assert [comprobante.numero for comprobante in comprobantes] == [76]
+
+
+@pytest.mark.asyncio
+async def test_diagnostico_bloquea_si_factuflow_esta_adelantado(
+    db_session: AsyncSession,
+    test_empresa,
+):
+    """Una numeración local posterior a ARCA no ofrece candidato de emisión."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    db_session.add(
+        Comprobante(
+            tipo_comprobante=6,
+            concepto=1,
+            numero=2,
+            fecha_emision=date(2026, 7, 27),
+            subtotal=Decimal("1000.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("0.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("1000.00"),
+            cae="12345678901234",
+            cae_vencimiento=date(2026, 8, 6),
+            estado="autorizado",
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+        )
+    )
+    await db_session.commit()
+
+    class FakeWSFEClient:
+        """Simula que ARCA no registra comprobantes para la clave fiscal."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Devuelve una numeración anterior a la historia local."""
+            return 0
+
+    service = FacturacionService(db_session)
+    diagnostico = await service._obtener_diagnostico_numeracion(
+        test_empresa.id,
+        punto_venta.id,
+        6,
+        FakeWSFEClient(),
+        punto_venta.numero,
+    )
+
+    assert diagnostico.estado == "local_adelantada"
+    assert diagnostico.ultimo_local == 2
+    assert diagnostico.ultimo_arca == 0
+    assert diagnostico.proximo_numero is None
+    assert diagnostico.emision_habilitada is False
+
+    with pytest.raises(ValidationError, match="local está adelantada"):
+        await service._obtener_proximo_numero(
+            test_empresa.id,
+            punto_venta.id,
+            6,
+            FakeWSFEClient(),
+            punto_venta.numero,
+        )
 
 
 @pytest.mark.asyncio

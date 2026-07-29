@@ -178,7 +178,7 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
         puntoVenta,
         tipoComprobante,
       );
-      return response.proximo_numero;
+      return response;
     } catch (e: any) {
       error.value =
         e.response?.data?.detail || "Error al obtener próximo número";

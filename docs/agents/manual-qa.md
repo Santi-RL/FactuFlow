@@ -250,6 +250,36 @@ Si hubo migraciones, comprobar `alembic current`, `heads`, constraints, conteos
 básicos y restauración aislada. Seguir
 `docs/agents/production-workflow.md`.
 
+## PF-02A — numeración individual e historia externa
+
+Este corte se valida sin emisiones reales ni solicitudes de CAE salvo
+autorización explícita. Para carreras y errores usar dobles controlados.
+
+1. Abrir `Nueva Factura` con un emisor, punto y tipo alineados. Verificar emisor,
+   punto, tipo, último local, último ARCA y próximo número.
+2. Simular local `76` y ARCA `77`. Debe mostrarse una advertencia, ofrecer el
+   `78` y aclarar que la reconstrucción histórica es opcional y posterior.
+3. Simular local adelantado. Debe verse `No disponible`; la vista previa y la
+   emisión permanecen bloqueadas.
+4. Simular un intento propio `en_proceso` o `requiere_reconciliacion`. La
+   consulta no debe convertirlo en historia externa ni habilitar otro número.
+5. Simular ARCA estable en el primer preflight y adelantada en el segundo. Debe
+   haber cero llamadas a FECAE, cero comprobantes nuevos, intento
+   `fallido_verificado`, número invalidado y botón `Actualizar numeración`.
+6. Simular un error en el segundo preflight. Debe aplicar el mismo cierre seguro
+   pre-ARCA y no mostrar el estado de operación incierta post-ARCA.
+7. Pulsar `Actualizar numeración`, abrir nuevamente la vista previa y verificar
+   que el modal irreversible conserva la fecha `DD/MM/AAAA`, el punto de venta y
+   el texto fiscal obligatorio.
+8. Cambiar de punto, tipo o emisor mientras una consulta anterior está pendiente.
+   La respuesta anterior no debe reemplazar el diagnóstico de la selección
+   actual.
+9. Confirmar que lotes y worker no cambiaron: PF-02B sigue pendiente y no se debe
+   copiar un número diagnóstico a `numero_asignado`.
+
+Evidencia mínima: captura sanitizada del panel para los tres estados, resultado
+de pruebas enfocadas, conteo cero de FECAE en abortos pre-ARCA y ausencia de
+datos fiscales reales en el repositorio.
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron

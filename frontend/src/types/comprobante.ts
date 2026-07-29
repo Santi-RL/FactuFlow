@@ -122,10 +122,22 @@ export interface PaginatedComprobantesResponse {
   pages: number;
 }
 
+export type EstadoNumeracion =
+  | "alineada"
+  | "arca_adelantada"
+  | "local_adelantada";
+
 export interface ProximoNumeroResponse {
   punto_venta: number;
   tipo_comprobante: number;
-  proximo_numero: number;
+  ultimo_local: number;
+  ultimo_arca: number;
+  proximo_local: number;
+  proximo_arca: number;
+  proximo_numero: number | null;
+  estado: EstadoNumeracion;
+  emision_habilitada: boolean;
+  advertencia: string | null;
 }
 
 // Tipos de comprobante

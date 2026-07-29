@@ -307,9 +307,16 @@ de solicitar CAE.
 GET /api/comprobantes/
 GET /api/comprobantes/{comprobante_id}
 POST /api/comprobantes/emitir
-GET /api/comprobantes/proximo-numero/{punto_venta_id}/{tipo_comprobante}
+GET /api/comprobantes/proximo-numero/{punto_venta}/{tipo_comprobante}
 ```
 
+`GET /api/comprobantes/proximo-numero/...` devuelve un diagnóstico con
+`ultimo_local`, `ultimo_arca`, `proximo_local`, `proximo_arca`,
+`proximo_numero`, `estado`, `emision_habilitada` y `advertencia`. Los estados
+son `alineada`, `arca_adelantada` y `local_adelantada`. Una historia externa no
+bloquea por sí sola; un intento propio incierto continúa devolviendo error y una
+numeración local adelantada devuelve `proximo_numero=null` con emisión
+deshabilitada.
 `POST /api/comprobantes/emitir` emite a través del servicio de facturación y
 puede consumir numeración fiscal si `ARCA_ENV=produccion`.
 

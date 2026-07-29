@@ -2,6 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from httpx import AsyncClient
@@ -178,6 +179,55 @@ async def test_emitir_comprobante_reconciliacion_devuelve_409(
     assert detail["categoria_error"] == "post_arca_persistencia"
     assert detail["cae"] == "12345678901234"
     assert detail["numero"] == 12
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobante_cambio_pre_arca_devuelve_fallo_terminal(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """El aborto anterior a FECAE conserva categoría y cierra la operación."""
+
+    async def fake_emitir(self, request, **kwargs):
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=6,
+            numero=78,
+            fecha=request.fecha_emision,
+            total=Decimal("1000.00"),
+            mensaje="La numeración de ARCA cambió antes de solicitar el CAE",
+            errores=["No se envió ninguna solicitud de CAE."],
+            requiere_reconciliacion=False,
+            categoria_error="numeracion_arca_cambio_pre_arca",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    key = "idem-preflight-numeracion"
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header(key)},
+        json=_request_emitir_base(test_empresa),
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["requiere_reconciliacion"] is False
+    assert detail["categoria_error"] == "numeracion_arca_cambio_pre_arca"
+    assert "No se envió ninguna solicitud de CAE." in detail["errores"]
+
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(OperacionIdempotente.idempotency_key == key)
+    )
+    assert operacion is not None
+    assert operacion.estado == "fallido"
+    assert operacion.response_json["categoria_error"] == (
+        "numeracion_arca_cambio_pre_arca"
+    )
 
 
 @pytest.mark.asyncio
@@ -1004,3 +1054,70 @@ async def test_proximo_numero_rechaza_punto_no_usable(
 
     assert response.status_code == 400
     assert "no está habilitado" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_proximo_numero_expone_historia_externa_sin_bloquear_emision(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """El endpoint distingue historia externa de un intento propio incierto."""
+    punto_venta = PuntoVenta(
+        numero=5,
+        nombre="Web Services",
+        es_webservice=True,
+        bloqueado=False,
+        activo=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.commit()
+
+    async def fake_diagnostico(self, empresa_id, punto_venta_id, tipo):
+        """Devuelve un desfase legítimo sin conectarse con ARCA."""
+        assert empresa_id == test_empresa.id
+        assert punto_venta_id == punto_venta.id
+        assert tipo == 6
+        return SimpleNamespace(
+            ultimo_local=76,
+            ultimo_arca=77,
+            proximo_local=77,
+            proximo_arca=78,
+            proximo_numero=78,
+            estado="arca_adelantada",
+            emision_habilitada=True,
+        )
+
+    monkeypatch.setattr(
+        FacturacionService,
+        "obtener_diagnostico_numeracion",
+        fake_diagnostico,
+    )
+
+    response = await client.get(
+        "/api/comprobantes/proximo-numero/5/6",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data == {
+        "punto_venta": 5,
+        "tipo_comprobante": 6,
+        "ultimo_local": 76,
+        "ultimo_arca": 77,
+        "proximo_local": 77,
+        "proximo_arca": 78,
+        "proximo_numero": 78,
+        "estado": "arca_adelantada",
+        "emision_habilitada": True,
+        "advertencia": (
+            "ARCA registra comprobantes anteriores que todavía no están en "
+            "FactuFlow. La emisión continuará con el siguiente número de ARCA; "
+            "la reconstrucción histórica es opcional y se realizará en un paso "
+            "posterior."
+        ),
+    }

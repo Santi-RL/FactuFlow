@@ -1,10 +1,45 @@
 # Estado actual
 
-Última actualización: 2026-07-27
+Última actualización: 2026-07-29
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
 lecciones de herramientas viven en `docs/project/**`.
+
+## Cierre de implementación — PF-02A numeración individual
+
+PF-02A quedó implementado en la rama temporal
+`codex/pf-02a-numeracion-individual` y publicado para revisión mediante el PR
+`#15`. La emisión individual ahora distingue numeración `alineada`,
+`arca_adelantada` y `local_adelantada`:
+
+- una historia previa o actividad externa en ARCA se informa y usa
+  `ultimo_arca + 1` sin exigir importación histórica;
+- intentos propios `en_proceso` o `requiere_reconciliacion` y una numeración
+  local adelantada continúan bloqueando;
+- después de reservar el intento se repite `FECompUltimoAutorizado`; si el
+  número cambió o la consulta falla, no se llama a FECAE, el intento queda
+  `fallido_verificado` y la UI exige actualizar y reconfirmar con una nueva
+  clave;
+- el endpoint y `Nueva Factura` muestran emisor, punto, tipo, último local,
+  último ARCA y próximo número;
+- lotes y worker conservan la política estricta anterior hasta PF-02B;
+- PF-05 mantiene separada la reconstrucción histórica opcional para informes.
+
+El diseño fiscal y la matriz están en
+`docs/agents/pf-02a-numeracion-individual-design.md`. Las validaciones enfocadas
+son `68` pruebas de servicio/API y `16` de la vista. La puerta global aprobó
+`536` pruebas backend con `4` omitidas por harness condicionado, `131` frontend
+y `7` de scripts; Ruff, Black, type-check y build quedaron verdes. ESLint terminó
+sin errores y conservó `13` advertencias de estilo no bloqueantes. No se hicieron
+emisiones reales, solicitudes de CAE, migraciones ni llamadas ARCA de escritura.
+El cierre ejecutó una única revisión efectiva con Codex `gpt-5.6-sol`,
+thinking `medium`: patch correcto, confianza `0,87` y cero findings. El primer
+intento con el alias local obsoleto `0.130.0-alpha.5` no produjo dictamen; la
+revisión válida usó el binario vigente `0.146.0-alpha.3.1` de la misma app sin
+debilitar el aislamiento ni cambiar de modelo. El mock del endpoint de
+numeración usado por Playwright se actualizó al contrato completo sin relajar
+ningún bloqueo productivo; las `33` pruebas E2E locales quedaron verdes.
 
 ## Cierre local — P1 UI, pool y worker
 
@@ -338,18 +373,21 @@ Siguen pendientes:
    permanente, recorrido Nivel 0 y seis checks obligatorios. La CI
    `30305581217` quedó verde y `main` bloquea force-push, borrado y bypass del
    administrador, sin exigir un segundo aprobador humano.
-10. El próximo corte funcional es PF-02 y luego PF-03, PF-06/PF-07, PF-08 y
-    PF-09 según el portafolio integrado. PF-16C continúa en paralelo únicamente
-    con la modernización planificada del toolchain y evidencia de release.
+10. PF-02A está cerrado localmente; el próximo corte de implementación es PF-02B
+    para lotes y worker. Después siguen PF-03, PF-06/PF-07, PF-08 y PF-09 según
+    el portafolio integrado. PF-16C continúa en paralelo únicamente con la
+    modernización planificada del toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
     `gpt-5.6-sol medium`, pero Codex `0.130.0-alpha.5` rechazó crear auxiliares
     bajo el directorio temporal aislado de Windows y no produjo dictamen. No se
     debilitó el aislamiento ni se cambió de modelo; no presentar esos intentos
     como una revisión limpia.
 12. Para próximas pasadas de `autoreview`, mantener una única configuración de
-    cierre: `--engine codex --model gpt-5.6-sol --thinking medium`. Resolver
-    primero la incompatibilidad del runtime temporal; no hacer revisiones
-    incrementales ni cambiar manualmente de modelo o esfuerzo.
+    cierre: `--engine codex --model gpt-5.6-sol --thinking medium`. En esta
+    instalación, verificar que `--codex-bin` apunte al binario vigente de la app:
+    el alias `bin\codex.exe` continúa en `0.130.0-alpha.5`, mientras que el
+    ejecutable versionado `0.146.0-alpha.3.1` completó PF-02A correctamente. No
+    hacer revisiones incrementales ni cambiar manualmente de modelo o esfuerzo.
 
 ## Referencias de continuidad
 

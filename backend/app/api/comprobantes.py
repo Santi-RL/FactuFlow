@@ -28,7 +28,6 @@ from app.schemas.comprobante import (
 from app.services.facturacion_service import (
     FacturacionService,
     FaseSolicitudArca,
-    ReconciliacionNumeracionError,
     ValidationError,
 )
 from app.services.idempotencia_fiscal_service import (
@@ -212,7 +211,12 @@ def _raise_resultado_no_exitoso(resultado: EmitirComprobanteResponse) -> None:
         raise HTTPException(status_code=409, detail=jsonable_encoder(resultado))
     raise HTTPException(
         status_code=400,
-        detail={"mensaje": resultado.mensaje, "errores": resultado.errores},
+        detail={
+            "mensaje": resultado.mensaje,
+            "errores": resultado.errores,
+            "requiere_reconciliacion": resultado.requiere_reconciliacion,
+            "categoria_error": resultado.categoria_error,
+        },
     )
 
 
@@ -668,23 +672,39 @@ async def obtener_proximo_numero(
             ),
         )
 
-    # Obtener próximo número
     service = FacturacionService(db)
     try:
-        proximo = await service.obtener_proximo_numero(empresa_activa_id, pv.id, tipo)
-    except ReconciliacionNumeracionError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "mensaje": "ARCA registra comprobantes que no están guardados en FactuFlow",
-                "errores": [str(exc)],
-                "requiere_reconciliacion": True,
-                "categoria_error": "numeracion_arca_adelantada",
-            },
-        ) from exc
+        diagnostico = await service.obtener_diagnostico_numeracion(
+            empresa_activa_id,
+            pv.id,
+            tipo,
+        )
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    advertencia = None
+    if diagnostico.estado == "arca_adelantada":
+        advertencia = (
+            "ARCA registra comprobantes anteriores que todavía no están en "
+            "FactuFlow. La emisión continuará con el siguiente número de ARCA; "
+            "la reconstrucción histórica es opcional y se realizará en un paso "
+            "posterior."
+        )
+    elif diagnostico.estado == "local_adelantada":
+        advertencia = (
+            "FactuFlow registra una numeración posterior a ARCA. La emisión "
+            "permanece bloqueada hasta revisar el historial fiscal."
+        )
+
     return ProximoNumeroResponse(
-        punto_venta=punto_venta, tipo_comprobante=tipo, proximo_numero=proximo
+        punto_venta=punto_venta,
+        tipo_comprobante=tipo,
+        ultimo_local=diagnostico.ultimo_local,
+        ultimo_arca=diagnostico.ultimo_arca,
+        proximo_local=diagnostico.proximo_local,
+        proximo_arca=diagnostico.proximo_arca,
+        proximo_numero=diagnostico.proximo_numero,
+        estado=diagnostico.estado,
+        emision_habilitada=diagnostico.emision_habilitada,
+        advertencia=advertencia,
     )
