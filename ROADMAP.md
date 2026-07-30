@@ -220,9 +220,15 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     historia externa, candidato `ultimo_arca + 1`, segundo preflight después de
     la reserva y aborto terminal con cero CAE si la numeración cambia o no puede
     reconfirmarse. Diseño: `docs/agents/pf-02a-numeracion-individual-design.md`.
-  - [ ] **PF-02B — emisión masiva y worker:** aplicar la política a reservas de
+  - [~] **PF-02B — emisión masiva y worker:** aplicar la política a reservas de
     grupos y lotes sin copiar diagnósticos a `numero_asignado`, y cerrar la
     matriz de QA fiscal antes de considerar PF-02 completo.
+    - [x] Primer corte local: el núcleo batch acepta historia externa legítima,
+      reserva un rango durable y repite `FECompUltimoAutorizado` antes de
+      `FECAESolicitar`; un cambio o error aborta todo el sublote con cero CAE.
+    - [ ] Integrar las transiciones de grupos y reintentos manuales.
+    - [ ] Extender la recuperación stale del worker sin liberar intentos propios
+      inciertos y cerrar la QA fiscal de PF-02.
 - [ ] **P2 - Reconstrucción histórica opcional desde ARCA para informes con
   cobertura verificable.** Permitir consultar con `FECompConsultar` e importar
   snapshots fiscales de comprobantes emitidos fuera de FactuFlow. Esta función

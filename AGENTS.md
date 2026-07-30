@@ -307,6 +307,14 @@ npm run type-check
   sin commit, `--mode commit --commit HEAD` para un commit ya creado y
   `--mode branch --base <base>` para varios commits. Un `main` limpio después
   del push no se revisa con `--mode local` porque ese modo no tendría diff.
+- Por defecto, en trabajo nuevo de FactuFlow ejecutar `autoreview --mode local`
+  después de las validaciones y antes del commit. No crear un commit únicamente
+  para poder revisarlo ni repetir en modo `commit` un diff local que ya fue
+  revisado sin cambios. Si la revisión provoca modificaciones, repetir las
+  pruebas enfocadas y la misma revisión antes de commitear. Reservar
+  `--mode commit --commit HEAD` para un commit que ya existe por una razón real
+  y `--mode branch --base <base>` para el resultado acumulado de varios commits
+  o de un PR.
 - Antes de ejecutar cualquier comando de Clawpatch, leer completo y seguir
   `docs/project/audits/clawpatch/README.md`. Esa guía es el runbook operativo
   vigente; los documentos fechados son evidencia histórica y no reemplazan el

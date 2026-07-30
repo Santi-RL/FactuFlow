@@ -303,16 +303,17 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   solo los grupos con evidencia fiscal como `requiere_reconciliacion` y exigir
   auditoría antes de continuar.
 
-### PF-02A: numeración individual con historia externa
+### PF-02A/PF-02B: numeración individual y núcleo batch con historia externa
 
 - `FECompUltimoAutorizado` es la fuente del siguiente número fiscal global para
   el emisor, punto de venta y tipo. Una historia ARCA posterior a la local se
-  clasifica `arca_adelantada`; se informa y la emisión individual usa
-  `ultimo_arca + 1` si no existe un intento propio bloqueante.
+  clasifica `arca_adelantada`; se informa y la emisión individual o el núcleo
+  batch usan `ultimo_arca + 1` si no existe un intento propio bloqueante.
 - Una numeración local posterior se clasifica `local_adelantada`, no ofrece
   candidato y bloquea. Los intentos propios `en_proceso` o
   `requiere_reconciliacion` conservan prioridad sobre cualquier diagnóstico.
-- Después de crear la reserva durable, FactuFlow repite
+- Después de crear la reserva individual o todas las reservas del rango batch,
+  FactuFlow repite
   `FECompUltimoAutorizado` inmediatamente antes de `FECAESolicitar`. Si el
   siguiente número ya no coincide, responde
   `numeracion_arca_cambio_pre_arca`; si la consulta falla, responde
@@ -323,8 +324,10 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   una clave nueva.
 - Una excepción después de iniciar `FECAESolicitar` no usa estas categorías:
   mantiene `requiere_reconciliacion` y las reglas de PF-01.
-- Lotes y worker siguen exigiendo alineación estricta hasta PF-02B. El valor de
-  diagnóstico nunca se escribe en `numero_asignado` sin reserva e intento.
+- El procesamiento batch normal ya aplica esta política. La recuperación stale
+  del worker y los reintentos manuales siguen exigiendo alineación estricta
+  hasta sus siguientes cortes de PF-02B. El valor de diagnóstico nunca se
+  escribe en `numero_asignado` sin reserva, intento y resultado fiscal.
 - PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
   opcional corresponde a PF-05.
 ### Reconciliación externa de lotes

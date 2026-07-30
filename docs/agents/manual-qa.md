@@ -274,12 +274,37 @@ autorización explícita. Para carreras y errores usar dobles controlados.
 8. Cambiar de punto, tipo o emisor mientras una consulta anterior está pendiente.
    La respuesta anterior no debe reemplazar el diagnóstico de la selección
    actual.
-9. Confirmar que lotes y worker no cambiaron: PF-02B sigue pendiente y no se debe
-   copiar un número diagnóstico a `numero_asignado`.
+9. Confirmar que el flujo individual no copia un número diagnóstico a campos
+   persistidos sin reserva, intento y resultado fiscal.
 
 Evidencia mínima: captura sanitizada del panel para los tres estados, resultado
 de pruebas enfocadas, conteo cero de FECAE en abortos pre-ARCA y ausencia de
 datos fiscales reales en el repositorio.
+
+## PF-02B — primer corte de numeración batch
+
+Este corte se valida únicamente con dobles controlados. No autoriza solicitudes
+de CAE reales.
+
+1. Simular un sublote de dos comprobantes con local `0` y ARCA `5`. Debe
+   reservar `6` y `7`, repetir `FECompUltimoAutorizado` y efectuar una sola
+   llamada batch únicamente si ARCA continúa en `5`.
+2. Simular ARCA alineada en el primer preflight y adelantada en el segundo.
+   Debe haber cero FECAE, cero comprobantes y ambos intentos
+   `fallido_verificado`.
+3. Simular un error en el segundo preflight. Debe aplicar el mismo cierre
+   terminal pre-ARCA sin presentar reconciliación post-ARCA.
+4. Confirmar que `local_adelantada` y los intentos propios `en_proceso` o
+   `requiere_reconciliacion` siguen bloqueando antes de crear nuevas reservas.
+5. Confirmar que los números diagnósticos nunca se copian a
+   `numero_asignado`; solo una autorización o reconciliación verificada puede
+   completar ese campo.
+6. Verificar que fecha fiscal y punto de venta permanecen visibles en
+   `DD/MM/AAAA` dentro de la confirmación irreversible existente.
+
+El worker stale y los reintentos manuales de grupos todavía conservan la
+política estricta anterior. Se validarán en los siguientes cortes de PF-02B.
+
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron

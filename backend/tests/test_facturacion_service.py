@@ -1370,12 +1370,14 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
         """Cliente WSFE simulado para emisión batch."""
 
         arca_requests = []
+        consultas_numeracion = 0
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Simula que ARCA no tiene comprobantes previos."""
+            FakeWSFEClient.consultas_numeracion += 1
             return 0
 
         async def fe_cae_solicitar_lote(self, arca_requests):
@@ -1455,11 +1457,238 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
         "12345678901232",
     ]
     assert len(FakeWSFEClient.arca_requests) == 1
+    assert FakeWSFEClient.consultas_numeracion == 2
     assert [request.cbte_desde for request in FakeWSFEClient.arca_requests[0]] == [
         1,
         2,
     ]
     assert [comprobante.numero for comprobante in comprobantes] == [1, 2]
+
+
+async def _preparar_escenario_numeracion_batch(
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    wsfe_client_class: type,
+) -> tuple[FacturacionService, list[EmitirComprobanteRequest]]:
+    """Configura un sublote homogéneo con datos fiscales sintéticos."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        wsfe_client_class,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    def request_cliente(nombre: str) -> EmitirComprobanteRequest:
+        return EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=1,
+            fecha_emision=date(2026, 7, 29),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social=nombre,
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Producto",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000"),
+                    iva_porcentaje=Decimal("0"),
+                )
+            ],
+        )
+
+    return FacturacionService(db_session), [
+        request_cliente("Cliente Uno"),
+        request_cliente("Cliente Dos"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_emitir_comprobantes_lote_usa_historia_externa_como_inicio_del_rango(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """La historia externa legítima debe iniciar el rango en último ARCA más uno."""
+
+    class FakeWSFEClient:
+        """Cliente WSFE con historia externa estable."""
+
+        consultas_numeracion = 0
+        numeros_solicitados: list[int] = []
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Informa cinco comprobantes previos ajenos a FactuFlow."""
+            FakeWSFEClient.consultas_numeracion += 1
+            return 5
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Autoriza el rango reservado por el servicio."""
+            FakeWSFEClient.numeros_solicitados = [
+                request.cbte_desde for request in arca_requests
+            ]
+            return [
+                CAEResponse(
+                    cae=f"1234567890123{request.cbte_desde}",
+                    cae_vencimiento="20260808",
+                    numero_comprobante=request.cbte_desde,
+                    tipo_cbte=request.tipo_cbte,
+                    punto_venta=request.punto_venta,
+                    resultado="A",
+                )
+                for request in arca_requests
+            ]
+
+    service, requests = await _preparar_escenario_numeracion_batch(
+        db_session,
+        test_empresa,
+        monkeypatch,
+        FakeWSFEClient,
+    )
+
+    resultados = await service.emitir_comprobantes_lote(requests, max_registros=2)
+
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).order_by(
+                    IntentoEmisionFiscal.numero_planificado
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [resultado.numero for resultado in resultados] == [6, 7]
+    assert [resultado.exito for resultado in resultados] == [True, True]
+    assert FakeWSFEClient.consultas_numeracion == 2
+    assert FakeWSFEClient.numeros_solicitados == [6, 7]
+    assert [intento.numero_planificado for intento in intentos] == [6, 7]
+    assert [intento.estado for intento in intentos] == ["autorizado", "autorizado"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("segundo_preflight", "categoria_error"),
+    [
+        ("avanza", "numeracion_arca_cambio_pre_arca"),
+        ("falla", "preflight_arca_no_disponible"),
+    ],
+)
+async def test_emitir_comprobantes_lote_aborta_todo_el_rango_antes_de_arca(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    segundo_preflight: str,
+    categoria_error: str,
+):
+    """Un segundo preflight inestable debe cerrar el rango sin solicitar CAE."""
+
+    class FakeWSFEClient:
+        """Cliente WSFE que cambia o falla después de crear las reservas."""
+
+        consultas_numeracion = 0
+        llamadas_lote = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene el primer diagnóstico y desestabiliza el segundo."""
+            FakeWSFEClient.consultas_numeracion += 1
+            if FakeWSFEClient.consultas_numeracion == 1:
+                return 0
+            if segundo_preflight == "avanza":
+                return 1
+            raise ArcaServiceError("preflight simulado no disponible")
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Falla la prueba si el servicio cruza la frontera ARCA."""
+            FakeWSFEClient.llamadas_lote += 1
+            raise AssertionError("No debe solicitar CAE con un rango obsoleto")
+
+    service, requests = await _preparar_escenario_numeracion_batch(
+        db_session,
+        test_empresa,
+        monkeypatch,
+        FakeWSFEClient,
+    )
+    fase_solicitud_arca = FaseSolicitudArca()
+
+    resultados = await service.emitir_comprobantes_lote(
+        requests,
+        max_registros=2,
+        fase_solicitud_arca=fase_solicitud_arca,
+    )
+
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).order_by(
+                    IntentoEmisionFiscal.numero_planificado
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
+    assert FakeWSFEClient.consultas_numeracion == 2
+    assert FakeWSFEClient.llamadas_lote == 0
+    assert fase_solicitud_arca.iniciada is False
+    assert [resultado.numero for resultado in resultados] == [1, 2]
+    assert [resultado.exito for resultado in resultados] == [False, False]
+    assert {resultado.categoria_error for resultado in resultados} == {categoria_error}
+    assert all(not resultado.requiere_reconciliacion for resultado in resultados)
+    assert [intento.numero_planificado for intento in intentos] == [1, 2]
+    assert [intento.estado for intento in intentos] == [
+        "fallido_verificado",
+        "fallido_verificado",
+    ]
+    assert {intento.categoria_error for intento in intentos} == {categoria_error}
+    assert comprobantes == []
 
 
 @pytest.mark.asyncio

@@ -318,6 +318,14 @@ a pedir CAE para el mismo procesamiento. La clave se conserva para el retry de
 la misma operación y se reemplaza si cambiás de lote, archivo, emisor o
 selección de grupos.
 
+Si ARCA ya tiene comprobantes de ese emisor, punto de venta y tipo que no fueron
+creados por FactuFlow, el procesamiento batch toma como inicio el siguiente
+número global informado por ARCA. No es necesario importar esa historia para
+emitir. Antes de solicitar CAE, FactuFlow reserva todo el rango y vuelve a
+consultar la numeración. Si otro sistema avanzó o la consulta no puede
+completarse, el sublote se detiene sin solicitar CAE ni guardar comprobantes; no
+se replanifica automáticamente.
+
 Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
 con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos
 valores contra el Excel antes de presionar `Emitir comprobantes válidos`.
@@ -355,8 +363,9 @@ pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
 datos locales. FactuFlow solo considera aprobado un resultado ARCA explícito
 `A`; una respuesta parcial no se presenta como comprobante autorizado. Si un lote que estaba
 `Procesando` queda vencido, FactuFlow separa los grupos intactos de aquellos con
-evidencia fiscal. Solo reencola pendientes intactos cuando puede demostrar que
-no tuvieron intento fiscal y que la numeración ARCA/local sigue alineada. Los
+evidencia fiscal. Por ahora, la recuperación stale solo reencola pendientes
+intactos cuando puede demostrar que no tuvieron intento fiscal y que la
+numeración ARCA/local sigue alineada. Los
 grupos con evidencia o incertidumbre pasan a reconciliación; si esa comprobación
 no puede completarse, el lote queda bloqueado y los grupos intactos conservan su
 estado sin emitirse. En ese caso no reintentes manualmente: primero audita el
