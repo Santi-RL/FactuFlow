@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-27
+Última actualización: 2026-07-30
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -181,8 +181,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   quedaron verdes. El harness se publicó en `6625254`, cuya CI
   `29270728104` aprobó seguridad, backend, frontend y E2E; Clawpatch revalidó
   B10 y B17 como `fixed` con `gpt-5.6-sol high`.
-- [ ] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
-  actividad de otros sistemas.** El control actual presupone que la base local
+- [~] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
+  actividad de otros sistemas.** El control original presuponía que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
   `FECompUltimoAutorizado` informa un número diferente del último comprobante
   local. Esa diferencia puede ser normal: un emisor nuevo puede tener historia
@@ -219,14 +219,18 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   - [x] **PF-02A — emisión individual:** diagnóstico local/ARCA, advertencia de
     historia externa, candidato `ultimo_arca + 1`, segundo preflight después de
     la reserva y aborto terminal con cero CAE si la numeración cambia o no puede
-    reconfirmarse. Diseño: `docs/agents/pf-02a-numeracion-individual-design.md`.
+    reconfirmarse. Integrado mediante el PR `#15` (`c872497`). Diseño:
+    `docs/agents/pf-02a-numeracion-individual-design.md`.
   - [~] **PF-02B — emisión masiva y worker:** aplicar la política a reservas de
     grupos y lotes sin copiar diagnósticos a `numero_asignado`, y cerrar la
     matriz de QA fiscal antes de considerar PF-02 completo.
-    - [x] Primer corte local: el núcleo batch acepta historia externa legítima,
-      reserva un rango durable y repite `FECompUltimoAutorizado` antes de
-      `FECAESolicitar`; un cambio o error aborta todo el sublote con cero CAE.
-    - [ ] Integrar las transiciones de grupos y reintentos manuales.
+    - [x] Primer corte integrado mediante el PR `#16` (`2c75fd2`): el núcleo
+      batch acepta historia externa legítima, reserva un rango durable y repite
+      `FECompUltimoAutorizado` antes de `FECAESolicitar`; un cambio o error
+      aborta todo el sublote con cero CAE.
+    - [ ] Ratificar y completar las transiciones de grupos y los reintentos
+      manuales con cobertura específica. Actualmente reutilizan el núcleo
+      individual y admiten `arca_adelantada`, pero ese contrato no está cerrado.
     - [ ] Extender la recuperación stale del worker sin liberar intentos propios
       inciertos y cerrar la QA fiscal de PF-02.
 - [ ] **P2 - Reconstrucción histórica opcional desde ARCA para informes con
@@ -765,7 +769,9 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 - [~] **PF-16C — CI como barrera real:** la barrera básica ya ejecuta Ruff,
   Black, tests backend, type-check, lint, build, unit tests frontend, tests de
   scripts, E2E y auditorías bloqueantes de dependencias productivas; también se
-  retiró Pylint decorativo. La ejecución `30305581217` aprobó los seis jobs.
+  retiró Pylint decorativo. La alineación documental agrega una revisión
+  semántica antes del commit/PR y un control estructural que corre también en
+  Nivel 0. La ejecución `30305581217` aprobó los seis jobs de la barrera básica.
   Para cerrar el corte completo antes de `v0.3.0` resta modernizar el toolchain
   frontend, bloquear su auditoría integral y ampliar artefactos/resúmenes donde
   aporten diagnóstico real.
@@ -990,11 +996,11 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Implementar PF-16A, PF-16B y la barrera básica de PF-16C antes de integrar a
-   `main` el próximo cambio funcional no trivial, manteniendo un recorrido
-   liviano para cambios Nivel 0.
-2. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
+1. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
    bloquee la emisión sin debilitar intentos propios inciertos.
+2. Continuar PF-16C con la modernización planificada del toolchain y la
+   evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
+   documental ya están cerradas.
 3. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
    PF-08 y PF-09.
 4. Mantener la custodia y la evidencia concreta del backup fuera del repo

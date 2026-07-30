@@ -90,6 +90,10 @@
 - Aplicar desde el diseño la misma disciplina que exige `autoreview`: revisar
   rutas vecinas, contratos externos, casos límite, clases de bug repetidas y
   ownership correcto. No esperar al final para descubrir invariantes faltantes.
+- Si se modifica un servicio, helper o contrato compartido, enumerar todos sus
+  consumidores directos e indirectos —API, UI, worker, lotes, reintentos,
+  reconciliación y scripts— y revisar para cada uno comportamiento, tests y
+  documentación. El nombre conceptual del método no limita su impacto real.
 
 ## Mapa rápido
 - `backend/app/main.py`: entrada FastAPI y registro de routers.
@@ -131,17 +135,55 @@
 - Si el usuario dice "seguir donde quedamos", arrancar por
   `docs/agents/current-status.md` y `ROADMAP.md`. Consultar
   `docs/agents/manual-qa.md` solo si el siguiente trabajo necesita QA.
-- Después de cambios importantes en producto, UX, flujos core o ARCA, actualizar siempre:
-  - `VISION.md` solo si el usuario pidió explícitamente cambiar la visión
-  - `ROADMAP.md`
-  - `docs/agents/current-status.md`
-  - `docs/agents/manual-qa.md`
-  - `docs/user-guide/README.md`
+- Después de cambios importantes en producto, UX, flujos core o ARCA, revisar
+  siempre el corpus documental aplicable. Como mínimo:
+  - `VISION.md` solo si el usuario pidió explícitamente cambiar la visión;
+  - `README.md` cuando cambien capacidades, versión publicada o estado
+    productivo;
+  - `CHANGELOG.md > Unreleased` para todo cambio aceptado todavía no incluido
+    en una release;
+  - `ROADMAP.md`;
+  - `docs/agents/current-status.md`;
+  - `docs/agents/development-portfolio.md` cuando cambie el avance de una línea
+    PF;
+  - `docs/agents/manual-qa.md`;
+  - `docs/user-guide/README.md`;
+  - el diseño del corte y `docs/agents/overview.md`,
+    `docs/agents/testing.md`, `docs/setup/**`, índices o dossiers cuando sus
+    afirmaciones hayan cambiado.
 - Si el cambio impacta ARCA o homologación, actualizar también:
   - `docs/agents/arca.md`
   - `docs/arca-ws/NOTAS.md`
 - `docs/user-guide/README.md` debe mantenerse al día cada vez que cambien pantallas, textos, pasos de uso o limitaciones funcionales visibles para usuarios.
 - `docs/arca-ws/_extracted/` es material derivado. Si vuelve a generarse localmente, no tomarlo como fuente canónica.
+
+### Puerta obligatoria de alineación documental
+
+- Ejecutar esta puerta después de estabilizar código y tests, pero antes de
+  `autoreview`, `git add` y el commit. Tocar un archivo no demuestra que quedó
+  actualizado: hay que releer completas las secciones afectadas y contrastarlas
+  con código, tests, estado Git, versión publicada y versión productiva.
+- La documentación incluida en una rama debe describir el estado objetivo que
+  tendrá `main` al integrar el PR. No dejar en documentos canónicos nombres de
+  ramas temporales, "implementación local", "primer corte local", "publicado
+  para revisión" ni otros estados efímeros. Ese contexto pertenece al cuerpo
+  del PR. Los hechos que solo existen después, como un despliegue real, se
+  registran mediante un cierre documental posterior explícito.
+- Distinguir siempre tres estados: código aceptado en `main`, última release
+  publicada y versión realmente desplegada. No presentar una capacidad de
+  `main` como disponible en producción si todavía no pertenece al tag
+  desplegado.
+- Actualizar fechas, encabezados de estado, enlaces de índices y diseños cuando
+  corresponda. Las menciones históricas deliberadas deben quedar rotuladas como
+  tales; no reescribir evidencia histórica para simular actualidad.
+- Antes de marcar un PR como listo, revisar nuevamente el rango completo contra
+  su base y completar la matriz documental de
+  `.github/pull_request_template.md` con archivos concretos o un `No aplica`
+  justificado. Si el PR se crea por API o con un cuerpo personalizado, debe
+  conservar esa misma evidencia; no omitirla por no usar la plantilla visual.
+- Después del merge, verificar en modo lectura que `main` no conserve estados
+  transitorios y que los documentos canónicos indiquen el siguiente paso real.
+  No cerrar el ciclo ni eliminar la rama hasta completar esa comprobación.
 
 ## Git / Colaboración
 - `main` es la única rama permanente y la fuente canónica del código aceptado.

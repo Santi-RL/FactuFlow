@@ -80,14 +80,15 @@ jobs:
         run: echo "Cambio exclusivamente documental; no requiere tests de runtime."
 
       - name: Checkout
-        if: needs.scope.outputs.runtime == 'true'
         uses: actions/checkout@v6
 
       - name: Setup Node.js
-        if: needs.scope.outputs.runtime == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: "20"
+
+      - name: Check documentation alignment
+        run: npm run docs:check
 
       - name: Run package script tests
         if: needs.scope.outputs.runtime == 'true'

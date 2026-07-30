@@ -1,31 +1,56 @@
 # Estado actual
 
-Última actualización: 2026-07-29
+Última actualización: 2026-07-30
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
 lecciones de herramientas viven en `docs/project/**`.
 
-## Implementación local en curso — PF-02B numeración masiva
+## Puerta documental reforzada
 
-El primer corte de PF-02B se desarrolla en
-`codex/pf-02b-numeracion-masiva`. El núcleo batch ahora acepta una historia
-externa legítima como inicio del rango global, crea una reserva durable por
-comprobante y repite `FECompUltimoAutorizado` después de reservar el rango
-completo. Si ARCA avanzó o la consulta falla, no comienza `FECAESolicitar`, no
-se crean comprobantes y todos los intentos del sublote quedan
-`fallido_verificado`.
+La documentación viva fue contrastada con `main`, la release publicada y el tag
+productivo. El proceso exige ahora una revisión semántica después de estabilizar
+código/tests y antes de staging/commit, una segunda comprobación del rango antes
+de marcar el PR como listo y una verificación de `main` posterior al merge.
+
+`npm run docs:check` agrega una defensa estructural en todos los niveles de CI:
+comprueba versiones, `CHANGELOG.md > Unreleased` y estados transitorios
+inequívocos. No reemplaza la matriz documental ni la lectura humana. También se
+exige enumerar todos los consumidores de helpers compartidos; este control evita
+repetir el punto ciego que ocultó el comportamiento real de los reintentos
+manuales durante PF-02A/PF-02B.1.
+
+El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz local
+completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
+E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
+operaciones fiscales reales ni llamadas ARCA de escritura.
+
+## Integrado en main — PF-02B.1 numeración masiva
+
+El primer corte de PF-02B fue integrado en `main` mediante el PR `#16`, commit
+`2c75fd2`. El núcleo batch acepta una historia externa legítima como inicio del
+rango global, crea una reserva durable por comprobante y repite
+`FECompUltimoAutorizado` después de reservar el rango completo. Si ARCA avanzó
+o la consulta falla, no comienza `FECAESolicitar`, no se crean comprobantes y
+todos los intentos del sublote quedan `fallido_verificado`.
 
 El diseño y la matriz están en
 `docs/agents/pf-02b-numeracion-masiva-design.md`. El primer control enfocado
 aprobó `9` pruebas batch, la regresión completa de facturación y lotes aprobó
 `147` y el backend completo aprobó `539` con `4` omitidas por harness
-condicionado. No hubo emisiones reales, solicitudes de CAE, migraciones,
-cambios de UI ni llamadas ARCA de escritura. La recuperación stale del worker
-y los reintentos manuales de grupos conservan la política anterior hasta los
-siguientes cortes de PF-02B.
+condicionado. Una única revisión con Codex `gpt-5.6-sol`, thinking `medium`,
+quedó limpia con confianza `0,94`; los seis checks del PR aprobaron. No hubo
+emisiones reales, solicitudes de CAE, migraciones, cambios de UI ni llamadas
+ARCA de escritura.
 
-## Cierre publicado — PF-02A numeración individual
+La recuperación stale del worker conserva una puerta estricta: solo reencola
+grupos intactos cuando la numeración está alineada y nunca libera intentos
+propios inciertos. El reintento manual reutiliza actualmente el núcleo
+individual y por eso admite `arca_adelantada` en runtime, pero sus transiciones
+de grupo y fallos todavía necesitan cobertura específica antes de cerrar ese
+tramo de PF-02B.
+
+## Integrado en main — PF-02A numeración individual
 
 PF-02A fue integrado en `main` mediante el PR `#15` en el commit `c872497`.
 La emisión individual ahora distingue numeración `alineada`,
@@ -59,7 +84,7 @@ debilitar el aislamiento ni cambiar de modelo. El mock del endpoint de
 numeración usado por Playwright se actualizó al contrato completo sin relajar
 ningún bloqueo productivo; las `33` pruebas E2E locales quedaron verdes.
 
-## Cierre local — P1 UI, pool y worker
+## Cierre histórico — P1 UI, pool y worker
 
 El P1 estructural quedó implementado y validado localmente el 2026-07-10. Sus
 commits se publicaron primero en `main` y luego quedaron incluidos en el
@@ -103,7 +128,7 @@ publicado en `main`. Ese estado local quedó posteriormente incluido en
 `v0.2.2`; la QA manual de fallos controlados continúa separada del smoke
 productivo seguro.
 
-### Corrección local posterior — frontera DB/FECAE
+### Corrección histórica posterior — frontera DB/FECAE
 
 Quedó implementada y validada localmente una corrección puntual de manejo de
 indisponibilidad temporal de base:
@@ -148,9 +173,9 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 2026-07-23.
-- `main` contiene PF-01A/PF-01B, el endurecimiento de pools/worker, la frontera
-  DB/FECAE y el cierre de release `0.2.2`. Los commits candidatos y sus CI
-  aprobaron seguridad, backend, frontend y E2E.
+- `main` contiene además de `v0.2.2` los cortes PF-02A y PF-02B.1 integrados por
+  los PR `#15` y `#16`. Esos cambios posteriores aún no pertenecen a una
+  release publicada ni a la versión productiva.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 2026-07-23.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
@@ -390,11 +415,14 @@ Siguen pendientes:
    PR `#14`: clasificación por riesgo, evidencia simple, una única rama
    permanente, recorrido Nivel 0 y seis checks obligatorios. La CI
    `30305581217` quedó verde y `main` bloquea force-push, borrado y bypass del
-   administrador, sin exigir un segundo aprobador humano.
-10. PF-02A está integrado en `main`. PF-02B está en implementación local: el
-    primer corte cubre el núcleo batch y los siguientes deben cerrar
-    transiciones de grupos, reintentos y recuperación stale del worker. Después
-    siguen PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
+   administrador, sin exigir un segundo aprobador humano. La continuación de
+   PF-16 agrega la puerta documental semántica y `npm run docs:check` sin
+   presentar el control automático como sustituto de la revisión.
+10. PF-02A y PF-02B.1 están integrados en `main`. El siguiente corte debe
+    ratificar con pruebas específicas las transiciones y fallos de reintentos
+    manuales, y luego extender de forma explícita la recuperación stale del
+    worker sin liberar intentos inciertos. Después siguen PF-03, PF-06/PF-07,
+    PF-08 y PF-09 según el portafolio integrado.
     PF-16C continúa en paralelo únicamente con la modernización planificada del
     toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
@@ -416,6 +444,8 @@ Siguen pendientes:
 - Portafolio integrado: `docs/agents/development-portfolio.md`
 - Diseño PF-01A: `docs/agents/pf-01-authorization-integrity-design.md`
 - Diseño PF-01B: `docs/agents/pf-01b-persistence-integrity-design.md`
+- Diseño PF-02A: `docs/agents/pf-02a-numeracion-individual-design.md`
+- Diseño PF-02B: `docs/agents/pf-02b-numeracion-masiva-design.md`
 - Cierre Clawpatch PF-01B:
   `docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01b.md`
 - QA manual vigente: `docs/agents/manual-qa.md`

@@ -19,12 +19,19 @@ La política canónica está en `docs/agents/change-quality-gates.md`. GitHub
 clasifica el diff antes de instalar dependencias:
 
 - si solo cambian archivos Markdown o `.gitignore`, ejecuta el recorrido
-  documental de Nivel 0 y los seis jobs informan éxito sin suites de runtime;
+  documental de Nivel 0: `Repository Checks` valida la alineación estructural y
+  los demás jobs informan éxito sin suites de runtime;
 - si cambia cualquier otro archivo, ejecuta controles de repositorio, Ruff,
   Black, backend completo, type-check, lint, build, unit tests, E2E Chromium y
   auditorías bloqueantes de dependencias productivas;
 - un conjunto vacío o una clasificación dudosa activa la matriz completa como
   medida conservadora.
+
+`npm run docs:check` se ejecuta en todos los niveles y comprueba versiones
+publicada/productiva, presencia de `CHANGELOG.md > Unreleased` y marcadores
+transitorios inequívocos en documentación viva. Es una protección mecánica; no
+reemplaza la puerta semántica definida en
+`docs/agents/change-quality-gates.md` ni la matriz documental del PR.
 
 Al cerrar localmente una unidad funcional o sensible, ejecutar:
 
@@ -235,11 +242,11 @@ queda limitada a tests.
   `pytest tests/test_perfiles_carga_masiva.py` y
   `npm run test:unit -- perfiles-carga-masiva`
 - Si se toco un flujo visible: smoke manual o Playwright
-- Si se tocaron flujos core o UX: actualizar `docs/user-guide/README.md`
-- Siempre actualizar:
-  - `ROADMAP.md`
-  - `docs/agents/current-status.md`
-  - `docs/agents/manual-qa.md`
+- Completar la matriz documental por impacto de
+  `docs/agents/change-quality-gates.md`, incluidos `CHANGELOG.md > Unreleased`,
+  estado, roadmap, QA, manual, diseño y documentos de dominio aplicables.
+- Ejecutar `npm run docs:check`; después releer semánticamente las secciones
+  afectadas y distinguir `main`, release publicada y producción.
 
 ## QA manual actual
 
@@ -251,7 +258,28 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Última verificación técnica
 
-Fecha: 2026-07-10
+Fecha: 2026-07-30
+
+- Puerta documental y tests de scripts: `npm run docs:check` aprobado y `16`
+  pruebas aprobadas.
+- Matriz local completa: `539` pruebas backend aprobadas con `4` omitidas,
+  `131` frontend y `33` E2E; Ruff, Black, type-check, build y auditorías de
+  dependencias productivas quedaron verdes. ESLint conservó `13` advertencias
+  de estilo no bloqueantes y cero errores.
+- La unidad solo modifica documentación, proceso y CI; no ejecutó emisiones,
+  solicitudes de CAE ni llamadas ARCA de escritura.
+
+Fecha histórica: 2026-07-29
+
+- PF-02A: `68` pruebas enfocadas de servicio/API y `16` de vista; puerta global
+  con `536` backend (`4` omitidas), `131` frontend, `7` de scripts y `33` E2E.
+  El PR `#15` aprobó los seis checks de CI.
+- PF-02B.1: `9` pruebas batch enfocadas, `147` de facturación/lotes y `539`
+  backend (`4` omitidas). El PR `#16` aprobó los seis checks de CI.
+- Ambos cortes usaron dobles controlados: no hubo emisiones reales, solicitudes
+  de CAE ni llamadas ARCA de escritura.
+
+Fecha histórica: 2026-07-10
 
 - Evidencia histórica de la release `v0.2.1` / `8099b22`: backend `411` tests
   aprobados y `1` omitido; frontend `111` tests aprobados.

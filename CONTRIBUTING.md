@@ -135,10 +135,13 @@ sola activa a la vez:
 1. sincronizar y verificar que `main` esté limpia;
 2. crear la rama temporal desde `main`;
 3. implementar, probar y documentar una única unidad;
-4. abrir un pull request hacia `main`;
-5. esperar todos los checks obligatorios;
-6. hacer merge solo con CI verde y riesgos aceptados;
-7. eliminar inmediatamente la rama remota y local.
+4. ejecutar la puerta de alineación documental antes del commit final;
+5. abrir un pull request hacia `main` con la matriz documental completa;
+6. revisar nuevamente el rango completo antes de marcarlo como listo;
+7. esperar todos los checks obligatorios;
+8. hacer merge solo con CI verde y riesgos aceptados;
+9. verificar `main`, incluida su documentación, y eliminar la rama remota y
+   local.
 
 La rama temporal no es una versión ni se despliega. Las versiones se identifican
 únicamente mediante tags/releases sobre commits aceptados de `main`. Los cambios
@@ -161,6 +164,10 @@ Después de implementar:
 
 - ejecutar la verificación proporcional definida en
   `docs/agents/change-quality-gates.md`;
+- completar la puerta documental después de estabilizar comportamiento y tests,
+  antes de `autoreview`, staging y commit. Los documentos deben describir el
+  estado objetivo de `main`, distinguirlo de la versión desplegada y no
+  conservar nombres o estados de la rama temporal;
 - preparar uno o pocos commits con unidad lógica y Conventional Commits;
 - revisar que no haya evidencia privada;
 - solicitar autorización antes de push, merge o eliminación remota, salvo que el
@@ -289,7 +296,9 @@ git push origin feat/wizard-certificados
 1. Andá a tu fork en GitHub
 2. Click en "Compare & pull request"
 3. Completá `.github/pull_request_template.md` con nivel de riesgo, autoridad
-   funcional, invariantes, evidencia, riesgo residual y recuperación.
+   funcional, invariantes, evidencia, matriz documental, riesgo residual y
+   recuperación. Si usás un cuerpo personalizado o una API, conservá las mismas
+   secciones y justificá cada `No aplica`.
 4. Click en "Create pull request"
 
 ### 9. Code Review

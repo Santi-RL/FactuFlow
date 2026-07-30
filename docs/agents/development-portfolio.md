@@ -1,8 +1,9 @@
 # Portafolio integrado de desarrollo
 
-Última actualización: 2026-07-29
+Última actualización: 2026-07-30
 
-Estado: PRIORIZADO; PF-01 Y PF-02A CERRADOS; PF-02B EN IMPLEMENTACIÓN POR CORTES.
+Estado: PRIORIZADO; PF-01 Y PF-02A CERRADOS; PF-02B.1 INTEGRADO Y PF-02B EN
+CONTINUACIÓN POR CORTES.
 
 ## Propósito y autoridad
 
@@ -104,7 +105,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | ID | Línea de trabajo y resultado buscado | Fuentes consolidadas | Riesgo o valor | Dependencias principales | Banda |
 |---|---|---|---|---|---|
 | PF-01 | Integridad de autorización fiscal: CAE válido, estados coherentes, idempotencia y reconciliación segura | Hallazgos ARCA/CAE, emisión individual y lotes; P1 fiscal | Evitar reintentos inseguros, autorizaciones incompletas y estados ambiguos | Checklist fiscal, tabla de estados y tests de fallos post-ARCA | A |
-| PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | PF-02A individual cerrado; primer corte batch de PF-02B local, con worker stale y reintentos todavía pendientes | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
+| PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | PF-02A individual y PF-02B.1 batch integrados; faltan ratificar transiciones/reintentos y extender worker stale | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
 | PF-03 | Validación fiscal de entradas, fechas, importes, moneda y totales | Hallazgos de esquemas, analizadores, descuentos, perfiles, constancias y plantillas | Evitar payloads no elegidos, fechas inválidas y montos incoherentes | Contratos UI/API y matriz individual/masiva | A |
 | PF-04 | Evidencia fiscal histórica correcta en PDFs y reportes | Hallazgos de instantánea del emisor, moneda, IVA, paginado, ranking y aislamiento PDF | Evitar documentos históricos mutables o informes impositivos incorrectos | Modelo de instantáneas, migración de datos heredados y pruebas de evidencia | A |
 | PF-05 | Reconstrucción histórica opcional desde ARCA | P2 explícito del roadmap | Completar informes sin convertir historia externa en requisito de emisión | PF-02, PF-04, procedencia, cobertura y registro reanudable | B |
@@ -118,7 +119,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | PF-13 | Emisión masiva, formatos, perfiles y arquitectura de procesos | Roadmap de lotes/procesos; hallazgos de worker, formatos, perfiles, Excel y bucle de eventos | Mantener volumen y UX sin perder garantías fiscales ni recursos | PF-01, PF-03, PF-12 y límites de VPS pequeño | B |
 | PF-14 | Contratos API, errores y concurrencia CRUD coherentes | Hallazgos de 400/404/500, errores posteriores al commit, paginación y unicidad | Respuestas previsibles, sanitizadas e idempotentes | Convención API, manejo uniforme de IntegrityError y tests contractuales | B/C |
 | PF-15 | Observabilidad, salud, trazabilidad y soporte | Roadmap de estado del sistema/logs/runbooks; hallazgos de salud y diagnósticos engañosos | Diagnosticar sin exponer secretos ni presentar falsos OK | Taxonomía de estados, IDs de correlación y retención | B/C |
-| PF-16 | Calidad, CI y cadena de herramientas portable | Roadmap Node 24/testing; hallazgos de scripts Windows, Playwright, fechas dinámicas y vacíos de cobertura en suites | Evitar regresiones y mantener Windows/Linux reproducibles | Matriz de entornos y suites por línea de trabajo | C |
+| PF-16 | Calidad, CI, documentación y cadena de herramientas portable | Roadmap Node 24/testing; hallazgos de scripts Windows, Playwright, fechas dinámicas, alineación documental y vacíos de cobertura en suites | Evitar regresiones y mantener documentación, Windows y Linux reproducibles | Matriz de entornos, suites y documentación por línea de trabajo | C |
 | PF-17 | UX administrativa, accesibilidad y recuperación de errores | Roadmap UX; hallazgos de navegación, notificaciones, fechas visibles y estado persistido corrupto | Reducir errores operativos de usuarios no técnicos | Contratos estables de PF-03, PF-07, PF-08 y PF-14 | C |
 | PF-18 | Salidas masivas, distribución y evolución posterior | ZIP de PDFs, paquetes, actualizaciones, soporte, correo electrónico, integraciones y dashboard | Mejorar adopción sin desviar recursos del núcleo fiscal | PF-04, PF-10, PF-11 y madurez productiva | D |
 
@@ -180,7 +181,7 @@ Antes de editar código, cada corte debe tener:
   `gpt-5.6-sol high`.
 - PF-01B cerró B10/B17 como `fixed` después de migración, constraints, matriz
   SQLite/PostgreSQL, CI y revalidación secuencial con `gpt-5.6-sol high`.
-- PF-02A individual está integrado en `main`. PF-02B avanza por cortes: el
-  núcleo batch ya tiene implementación local y quedan las transiciones de
-  grupos, reintentos y recuperación stale del worker. La reconstrucción
-  histórica opcional continúa separada en PF-05.
+- PF-02A individual y PF-02B.1 batch están integrados en `main`. Quedan la
+  ratificación específica de transiciones y reintentos, y la extensión segura
+  de la recuperación stale del worker. La reconstrucción histórica opcional
+  continúa separada en PF-05.

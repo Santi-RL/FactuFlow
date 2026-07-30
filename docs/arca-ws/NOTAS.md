@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 2026-07-09
+Última actualización: 2026-07-30
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -166,11 +166,11 @@ Mapping aplicado en el proyecto:
 
 ### 4.f.1 Numeración individual y batch compatible con otros sistemas
 
-Estado 2026-07-29: PF-02A implementa un diagnóstico separado entre último local
-y último ARCA. El primer corte de PF-02B aplica la misma autoridad al núcleo
-batch: puede iniciar el rango en `ultimo_arca + 1` cuando ARCA está adelantada y
-no existe incertidumbre propia. FactuFlow no rellena huecos ni importa
-comprobantes en este paso.
+Estado 2026-07-30: PF-02A y el primer corte de PF-02B están integrados en
+`main` mediante los PR `#15` y `#16`. Separan el último local del último ARCA y
+el núcleo batch puede iniciar el rango en `ultimo_arca + 1` cuando ARCA está
+adelantada y no existe incertidumbre propia. FactuFlow no rellena huecos ni
+importa comprobantes en este paso.
 
 El manual WSFE exige que `CbteDesde` sea el siguiente al último autorizado y
 puede devolver `10016` ante una consecutividad inválida. Como otros sistemas no
@@ -185,8 +185,10 @@ inmediatamente antes de `FECAESolicitar`.
 - Un rechazo explícito posterior a FECAE sigue siendo rechazo ARCA verificable;
   una excepción ambigua sigue requiriendo `FECompConsultar` y reconciliación.
 - El procesamiento batch normal aplica el segundo preflight. La recuperación
-  stale del worker y los reintentos manuales mantienen alineación estricta hasta
-  sus siguientes cortes de PF-02B.
+  stale del worker mantiene una puerta estricta antes de reencolar y no libera
+  intentos inciertos. El reintento manual reutiliza el núcleo individual y por
+  eso admite `arca_adelantada` en runtime, aunque todavía requiere pruebas
+  específicas de sus transiciones y fallos.
 - La importación histórica para informes es PF-05 y nunca condiciona una nueva
   emisión.
 ### 4.g Idempotencia fiscal y CAE

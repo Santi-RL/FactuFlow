@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 2026-07-10
+Última actualización: 2026-07-30
 
 ## Qué es FactuFlow
 
@@ -10,7 +10,7 @@ facturación individual y masiva con seguridad fiscal.
 
 ## Estado actual
 
-- Release productiva vigente: `v0.2.1`.
+- Release productiva vigente: `v0.2.2`.
 - Backend FastAPI y frontend Vue operativos.
 - PostgreSQL es la base productiva; Alembic es el camino canónico de schema.
 - Emisión individual y masiva con WSAA/WSFE ya utilizada en producción.
@@ -19,11 +19,13 @@ facturación individual y masiva con seguridad fiscal.
 - Varios emisores con uno activo explícito por vez.
 - Administradores con acceso operativo a todos los emisores; usuarios comunes
   limitados al emisor asignado.
-- VPS con Docker producción y HTTPS operativo. `v0.2.1` quedó desplegada y
-  validada el 2026-07-10.
+- VPS con Docker producción y HTTPS operativo. `v0.2.2` quedó desplegada y
+  validada el 2026-07-23.
 - La evidencia productiva concreta permanece fuera del repositorio público.
-- El P1 UI/pool/worker tiene un corte local validado con PostgreSQL efímero;
-  esa prueba no creó lotes ni llamó a ARCA y no declara despliegue.
+- `main` avanzó después del tag productivo: PF-02A y PF-02B.1 permiten historia
+  externa legítima en emisión individual y batch con reservas y segundo
+  preflight. Todavía no pertenecen a una release publicada ni están
+  desplegados.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -65,12 +67,12 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-El corte UI/pool/worker ya está validado localmente y continúa sin publicar ni
-desplegar. El siguiente trabajo planificado es el P1 fiscal de numeración para
-emisores con historia previa o emisión multicanal, pero no debe iniciarse hasta
-que el usuario lo indique. Cuando se autorice, debe comenzar por el diseño, el
-checklist fiscal, los estados y la matriz de tests, no por la implementación
-directa.
+Continuar PF-02B por unidades pequeñas. El primer corte batch ya está integrado;
+el siguiente debe ratificar con pruebas específicas el contrato de reintentos
+manuales y sus transiciones de grupo. Después corresponde extender de forma
+explícita la recuperación stale del worker sin liberar intentos propios
+inciertos. PF-05 conserva separada la reconstrucción histórica opcional para
+informes.
 
 ## Principios de trabajo
 

@@ -1,7 +1,7 @@
 # PF-02A — Numeración individual compatible con historia externa
 
 Fecha de diseño e implementación: 2026-07-27
-Estado: implementado, validado y publicado para revisión mediante el PR `#15`.
+Estado: cerrado e integrado en `main` mediante el PR `#15` (`c872497`).
 
 ## Objetivo y alcance
 
@@ -45,8 +45,9 @@ La reconstrucción histórica permanece en PF-05 y no es requisito para emitir.
 10. No hay replanificación ni reintento automático. La UI invalida número y
     clave, y exige una actualización manual y una nueva confirmación fiscal.
 11. La confirmación irreversible de fecha fiscal permanece sin cambios.
-12. Lotes y worker mantienen el control estricto previo hasta PF-02B; ningún
-    número diagnóstico se copia a `numero_asignado`.
+12. Al cerrar PF-02A, lotes y worker mantenían el control estricto previo hasta
+    PF-02B; ningún número diagnóstico se copiaba a `numero_asignado`. PF-02B.1
+    extendió posteriormente el núcleo batch sin alterar esta invariante.
 
 ## Estados y decisiones
 

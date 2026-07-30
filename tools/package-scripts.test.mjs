@@ -21,10 +21,18 @@ test("backend-only format check is explicitly scoped", () => {
 });
 
 test("scoped frontend quality scripts delegate to frontend package", () => {
-  assert.match(scripts["frontend:lint"], /npm --prefix frontend run lint:check/);
+  assert.match(
+    scripts["frontend:lint"],
+    /npm --prefix frontend run lint:check/,
+  );
   assert.match(
     scripts["frontend:type-check"],
     /npm --prefix frontend run type-check/,
   );
   assert.match(scripts["frontend:test"], /npm --prefix frontend run test:unit/);
+});
+
+test("documentation alignment has a command and script test coverage", () => {
+  assert.match(scripts["docs:check"], /documentation-alignment\.mjs/);
+  assert.match(scripts["test:scripts"], /documentation-alignment\.test\.mjs/);
 });

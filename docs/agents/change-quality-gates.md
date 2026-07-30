@@ -1,6 +1,6 @@
 # Puertas de calidad y evidencia de cambios
 
-Última actualización: 2026-07-27
+Última actualización: 2026-07-30
 
 Estado: VIGENTE para todo cambio nuevo después de `v0.2.2`.
 
@@ -43,12 +43,15 @@ Para cada unidad de trabajo:
 1. sincronizar `main` con `origin/main` y exigir un árbol limpio;
 2. crear una única rama temporal con un objetivo concreto;
 3. implementar y probar solamente esa unidad;
-4. publicar la rama y abrir un pull request hacia `main`;
-5. esperar todos los checks obligatorios;
-6. corregir en la misma rama si algún control falla;
-7. hacer merge únicamente con CI verde y riesgos aceptados;
-8. verificar el commit resultante en `main`;
-9. eliminar la rama temporal en GitHub y localmente.
+4. completar la puerta documental y la revisión sensible que corresponda;
+5. preparar el commit y publicar la rama;
+6. abrir un pull request hacia `main` con la matriz documental completa;
+7. revisar el rango completo antes de marcarlo como listo;
+8. esperar todos los checks obligatorios y corregir en la misma rama si falla
+   alguno;
+9. hacer merge únicamente con CI verde y riesgos aceptados;
+10. verificar el commit resultante y la documentación en `main`;
+11. eliminar la rama temporal en GitHub y localmente.
 
 Por defecto no se mantienen varias ramas internas activas en paralelo. Una rama
 temporal no es una versión del producto, no se despliega y no se conserva como
@@ -58,6 +61,45 @@ releases inmutables sobre commits aceptados de `main`.
 Los cambios Nivel 0 usan el mismo ciclo pero recorren una CI liviana. Pueden
 agruparse cuando formen una unidad documental coherente; no requieren suites de
 runtime ni `autoreview`.
+
+## Puerta de alineación documental
+
+La documentación forma parte de la unidad y debe quedar estabilizada antes de
+`autoreview`, staging y commit. La revisión ocurre en dos momentos:
+
+1. **Antes del commit:** releer las secciones aplicables después de estabilizar
+   comportamiento y tests. Contrastar el diff con el estado objetivo de `main`,
+   la release publicada y el tag realmente desplegado.
+2. **Antes de marcar el PR como listo:** revisar el rango completo contra la
+   base, completar la matriz documental del PR y buscar referencias transitorias
+   o contradicciones que un diff archivo por archivo puede ocultar.
+
+Matriz mínima por impacto:
+
+| Impacto | Documentación que debe revisarse |
+|---|---|
+| Todo cambio funcional aceptado | `CHANGELOG.md > Unreleased`, `ROADMAP.md`, `docs/agents/current-status.md` y `docs/agents/manual-qa.md` |
+| Pantallas, pasos o capacidades visibles | `README.md`, `docs/user-guide/README.md` y documentación API si cambia el contrato |
+| ARCA, CAE, numeración, lotes o reconciliación | diseño fiscal, `docs/agents/arca.md`, `docs/arca-ws/NOTAS.md` y matriz de QA |
+| Arquitectura, tooling o estrategia de tests | `docs/agents/overview.md`, `docs/agents/testing.md`, `CONTRIBUTING.md` e índices aplicables |
+| Release, despliegue o instalación | README, changelog, estado, manual, setup, dossier e índices de releases |
+| Avance de una línea PF | `docs/agents/development-portfolio.md` y estado del documento de diseño |
+
+No se exige editar todos esos archivos indiscriminadamente. Se exige revisarlos
+y registrar en el PR cuáles cambiaron y por qué los restantes no aplican. Una
+casilla genérica o la mera presencia del archivo en el diff no constituyen
+evidencia.
+
+Los documentos canónicos incluidos en el PR describen cómo quedará `main` al
+integrarse; no deben contener nombres de ramas temporales ni estados como
+"implementación local" o "publicado para revisión". El cuerpo del PR conserva
+el estado transitorio. Los hechos posteriores al merge —en especial una
+publicación o despliegue— requieren un cierre documental explícito separado.
+
+Todo cambio sobre un servicio o helper compartido debe revisar sus consumidores
+reales, no solo el flujo sugerido por su nombre. La matriz documental y la de
+tests deben incluir API, UI, worker, lotes, reintentos y reconciliación que usen
+ese contrato.
 
 ## Evidencia mínima de una unidad
 

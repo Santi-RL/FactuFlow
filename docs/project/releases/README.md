@@ -14,6 +14,7 @@ No reemplaza las fuentes canónicas:
 Un dossier no crea un tag ni autoriza producción. Los datos, comandos y
 evidencia de una instalación real permanecen en documentación privada.
 
-## Candidato vigente
+## Último dossier publicado
 
-- `v0.2.2`: `docs/project/releases/v0.2.2-candidate.md`
+- `v0.2.2`, publicada y desplegada el 2026-07-23:
+  `docs/project/releases/v0.2.2-candidate.md`

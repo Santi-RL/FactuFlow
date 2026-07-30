@@ -1,7 +1,8 @@
 # PF-02B — Numeración masiva compatible con actividad externa
 
 Fecha de diseño: 2026-07-29
-Estado: primer corte implementado y validado localmente.
+Estado: primer corte cerrado e integrado en `main` mediante el PR `#16`
+(`2c75fd2`).
 
 ## Objetivo y alcance del primer corte
 
@@ -22,10 +23,13 @@ Incluye:
 - aborto terminal pre-ARCA de todo el sublote si el rango cambia o no puede
   reconfirmarse.
 
-No incluye recuperación de lotes stale, cambios de UI o API, reintentos
-manuales de grupos, reconstrucción histórica, `FECompConsultar`, migraciones ni
-QA con CAE real. Esos caminos se mantienen estrictos hasta sus cortes
-posteriores de PF-02B.
+No incluye cambios dedicados a recuperación de lotes stale, UI, API o
+reintentos manuales de grupos; tampoco reconstrucción histórica,
+`FECompConsultar`, migraciones ni QA con CAE real. La recuperación stale
+conserva una puerta estricta antes de reencolar. El reintento manual ya reutiliza
+el núcleo individual compartido y por eso admite `arca_adelantada` en runtime,
+pero sus transiciones y fallos todavía requieren pruebas específicas antes de
+considerar cerrado ese tramo de PF-02B.
 
 ## Riesgo fiscal
 
@@ -172,10 +176,15 @@ cambia el esquema.
 
 ## Criterio de cierre del primer corte
 
-- pruebas enfocadas de facturación y lotes aprobadas;
-- regresiones fiscales vecinas aprobadas;
+- `9` pruebas batch enfocadas aprobadas;
+- `147` pruebas de facturación y lotes aprobadas;
+- backend completo: `539` pruebas aprobadas y `4` omitidas por harness
+  condicionado;
 - Ruff, Black y `git diff --check` limpios;
+- única revisión efectiva con Codex `gpt-5.6-sol`, thinking `medium`, sin
+  findings y con confianza `0,94`;
+- PR `#16` integrado después de aprobar los seis checks: Change Scope,
+  Repository Checks, Backend Tests, Security Audit, Frontend Build y E2E Tests;
 - documentación de diseño y contratos ARCA actualizada;
-- cero CAE reales, cero emisiones y cero datos privados;
-- `autoreview` sugerido únicamente al estabilizar la unidad y con autorización
-  explícita del usuario.
+- cero CAE reales, cero emisiones, cero llamadas ARCA de escritura y cero datos
+  privados.
