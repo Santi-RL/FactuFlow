@@ -14,6 +14,11 @@ incorrectos con consecuencias impositivas y legales.
 
 - Describir qué flujo cambia: emisión individual, lote, reintento,
   reconciliación, consulta, migración, UI, API o servicio.
+- Enumerar todos los consumidores directos e indirectos de cada servicio,
+  helper o contrato compartido que se modifica. Incluir API, UI, worker,
+  procesamiento batch y unitario, reintentos, recuperación stale,
+  reconciliación y scripts, aunque el nombre del método sugiera un alcance más
+  estrecho.
 - Indicar si el cambio puede solicitar CAE directa o indirectamente.
 - Indicar si toca fecha fiscal, punto de venta, tipo de comprobante,
   numeración, receptor, total, ítems, comprobantes asociados, CAE,
@@ -211,6 +216,9 @@ Antes de dar por terminado un cambio fiscal crítico:
 - verificar tests backend y frontend relevantes;
 - ejecutar formato/lint/type-check según el área tocada;
 - confirmar que la documentación viva quedó actualizada;
+- confirmar que comportamiento, tests y documentación cubren todos los
+  consumidores identificados en el alcance, o dejar una exclusión explícita y
+  justificada en el diseño;
 - revisar `git status --short --untracked-files=all`;
 - revisar que no haya datos privados, CAEs reales, CUITs reales ni evidencia
   local versionable;

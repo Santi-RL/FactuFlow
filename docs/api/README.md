@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 2026-07-09
+Última actualización: 2026-07-30
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -636,6 +636,13 @@ formato. No emite comprobantes. La emisión ocurre solo con
   chicos se procesan en la misma request y lotes grandes se encolan según
   `BATCH_SYNC_LIMIT`.
 
+Para cada sublote homogéneo por emisor, punto de venta y tipo, el procesamiento
+normal consulta el último local y `FECompUltimoAutorizado`. Si ARCA está
+adelantada y no existe un intento propio bloqueante, reserva el rango desde
+`ultimo_arca + 1`. Después de persistir todas las reservas repite la consulta;
+si el rango cambió o el preflight falla, no llama a `FECAESolicitar`, no crea
+comprobantes y cierra las reservas como `fallido_verificado`.
+
 Si el pedido requiere procesamiento en segundo plano y el worker no está
 disponible, la API responde `503` con
 `categoria_error=worker_lotes_no_disponible`. Esa comprobación ocurre antes
@@ -657,6 +664,13 @@ contrato idempotente: exige `X-Idempotency-Key`,
 `X-Confirmacion-Duplicado-Logico`. El body puede incluir `grupo_ids` para
 acotar el reintento. Un grupo tomado para reintento que queda incierto debe
 tratarse como reconciliable, no como fallido reintentable.
+
+El reintento manual reutiliza actualmente el núcleo individual y admite
+`arca_adelantada` con el mismo segundo preflight. Este comportamiento existe en
+runtime, pero sus transiciones de grupo y fallos intermedios todavía requieren
+cobertura específica antes de considerar cerrado ese tramo de PF-02B. La
+recuperación stale del worker conserva una puerta previa más estricta: solo
+reencola grupos intactos, sin intentos, cuando la numeración está alineada.
 
 Durante el procesamiento, el backend actualiza `grupos_emitidos`,
 `grupos_fallidos`, `grupos_validos` y `mensaje_resumen` después de cada grupo,

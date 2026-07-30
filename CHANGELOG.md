@@ -18,6 +18,24 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Numeración fiscal
+
+- PF-02A, integrado mediante el PR `#15` (`c872497`), distingue numeración
+  `alineada`, `arca_adelantada` y `local_adelantada` en emisión individual.
+  Cuando la diferencia proviene de historia externa legítima usa
+  `ultimo_arca + 1`; los intentos propios activos o inciertos y la numeración
+  local adelantada continúan bloqueando.
+- PF-02B.1, integrado mediante el PR `#16` (`2c75fd2`), extiende la misma
+  autoridad al núcleo batch: reserva el rango completo y repite
+  `FECompUltimoAutorizado` antes de `FECAESolicitar`. Un cambio o error aborta
+  el sublote con cero solicitudes de CAE y cero comprobantes nuevos.
+- Los reintentos manuales reutilizan actualmente el núcleo individual y admiten
+  `arca_adelantada`, pero sus transiciones y fallos requieren cobertura
+  específica. La recuperación stale conserva una puerta estricta antes de
+  reencolar y no libera intentos propios inciertos.
+- PF-05 mantiene separada la reconstrucción histórica opcional para informes.
+  Ninguno de estos cortes posteriores a `v0.2.2` está desplegado todavía.
+
 ### Calidad y seguridad
 
 - Se incorpora una política proporcional de calidad con tres niveles de riesgo,
@@ -29,6 +47,13 @@ Reglas vigentes desde 2026-05-22:
 - `pypdf` se actualiza a `6.14.2` y PostCSS a `8.5.23` para resolver avisos
   conocidos. La migración mayor del toolchain frontend queda planificada sin
   aplicar actualizaciones forzadas incompatibles.
+- La alineación documental pasa a ser una puerta explícita antes del commit y
+  antes de marcar un PR como listo. La plantilla exige una matriz por impacto y
+  la CI comprueba versiones y marcadores transitorios también en cambios Nivel
+  0; este control estructural no reemplaza la revisión semántica.
+- Se explicita que `autoreview --mode local` es el cierre predeterminado de un
+  diff sin commit; `--mode commit` queda reservado para commits que ya existen
+  por una razón real y `--mode branch` para rangos acumulados.
 
 ## [0.2.2] - 2026-07-23
 

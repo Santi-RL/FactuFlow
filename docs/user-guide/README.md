@@ -1,11 +1,14 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-07-13
+Última actualización: 2026-07-30
 
-Este manual describe `v0.2.1`, el producto actualmente desplegado, y señala de
-forma explícita los cambios del código vigente que todavía no fueron publicados
-o desplegados. No debe asumirse que una función pendiente de despliegue está
-disponible en producción.
+Versión productiva cubierta por este manual: `v0.2.2`.
+
+Este manual describe las capacidades aceptadas en `main`. La versión publicada
+y desplegada continúa siendo `v0.2.2` del 23/07/2026. PF-02A y PF-02B.1 están
+integrados en `main`, pero todavía no pertenecen a una release ni están
+disponibles en producción. No debe asumirse que una función posterior al tag
+desplegado ya está operativa en una instalación concreta.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -107,9 +110,10 @@ habilita solo cuando FactuFlow pudo confirmar el próximo número.
 El panel de numeración muestra emisor, punto de venta, tipo de comprobante,
 último número guardado en FactuFlow, último número informado por ARCA y próximo
 número. Si ARCA tiene comprobantes anteriores que no están en FactuFlow, verás
-una advertencia, pero podrás continuar con el siguiente número de ARCA. Importar
-esa historia para completar informes será una función opcional posterior y no es
-un requisito para emitir.
+una advertencia, pero podrás continuar con el siguiente número de ARCA. Esta
+política corresponde a PF-02A, integrado en `main` pero aún no desplegado.
+Importar esa historia para completar informes será una función opcional
+posterior y no es un requisito para emitir.
 
 Si FactuFlow aparece adelantado respecto de ARCA, existe una emisión propia en
 proceso o queda una respuesta incierta, la emisión continúa bloqueada. Además,
@@ -186,16 +190,6 @@ con los mismos datos, la aplicación reutiliza esa clave y el backend no vuelve
 a pedir CAE para el mismo comprobante. Si cambiás datos fiscales como fecha,
 punto de venta, receptor, ítems o comprobantes asociados, la operación exige una
 nueva confirmación.
-
-> Disponibilidad: el siguiente estado visual está publicado en `main` desde
-> PF-01A.3, pero permanece pendiente de despliegue y no forma parte de `v0.2.1`
-> productiva.
->
-> El endurecimiento PF-01B está publicado en `main`, pero no desplegado. No
-> cambia pantallas ni pasos de uso: agrega controles de base para impedir estados
-> fiscales o CAE incoherentes. Su validación técnica en SQLite/PostgreSQL y el
-> checkpoint final de revisión están completos; se incorporará a un corte
-> productivo solo cuando se aprueben sus puertas de release y el despliegue.
 
 Si FactuFlow no puede confirmar todavía si ARCA autorizó la operación, muestra
 `Emisión pendiente de verificación` con emisor, tipo, fecha, punto de venta,
@@ -324,7 +318,8 @@ número global informado por ARCA. No es necesario importar esa historia para
 emitir. Antes de solicitar CAE, FactuFlow reserva todo el rango y vuelve a
 consultar la numeración. Si otro sistema avanzó o la consulta no puede
 completarse, el sublote se detiene sin solicitar CAE ni guardar comprobantes; no
-se replanifica automáticamente.
+se replanifica automáticamente. Esta política corresponde a PF-02B.1,
+integrado en `main` pero aún no desplegado.
 
 Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
 con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos
@@ -901,16 +896,15 @@ clave. Ante `409 pre_arca_estado_bloqueado`, conservá la clave y pedí revisió
 esperá, sin abrir otra operación ni reconciliar ARCA si FECAE no comenzó. Si el
 `409` es posterior a esa frontera, indica `Requiere reconciliación` o no sabés si
 ARCA fue llamada, no generes otra clave ni cambies los datos: conservá la
-operación y pedí revisión. PF-01A.3 agrega en desarrollo la pantalla dedicada de
-emisión individual que congela y verifica esa misma operación; todavía no está
-desplegada en `v0.2.1`. La acción `Probar conexión`
+operación y pedí revisión. La pantalla dedicada de emisión individual congela y
+verifica esa misma operación. La acción `Probar conexión`
 puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La guía
 rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
 autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.
 
 La separación `4+1` fue verificada con una prueba PostgreSQL efímera que no creó
-lotes ni llamó a ARCA. Esa prueba no demuestra que el corte esté desplegado: para
-una instalación concreta, soporte debe confirmar primero el commit o tag activo.
+lotes ni llamó a ARCA y forma parte de `v0.2.2`. Para una instalación concreta,
+soporte debe confirmar siempre el commit o tag activo.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación

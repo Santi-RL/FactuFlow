@@ -113,6 +113,7 @@ function Write-Summary {
 # Repository scripts
 # -----------------------------
 Push-Location $root
+Invoke-Step "Repository: documentation alignment" { npm run docs:check }
 Invoke-Step "Repository: package script tests" { npm run test:scripts }
 Invoke-Step "Repository: Clawpatch seed tests" { npm run clawpatch:test-seeds }
 Pop-Location

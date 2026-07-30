@@ -16,7 +16,7 @@ El flujo recomendado es:
 1. Desarrollar y probar en local.
 2. Versionar en Git.
 3. Publicar en GitHub.
-4. Decidir explícitamente si ese cambió se despliega.
+4. Decidir explícitamente si ese cambio se despliega.
 5. Actualizar el VPS a un commit o tag concreto.
 6. Ejecutar QA post-deploy y documentar el resultado.
 
@@ -121,30 +121,35 @@ PF-02; su nombre y alcance pueden cambiar si aparece nueva evidencia.
 
 Antes de actualizar producción:
 
-1. Confirmar que el diff no contiene secretos ni evidencia privada.
+1. Revisar `git status --short --branch` y confirmar que el diff no contiene
+   secretos ni evidencia privada.
 2. Ejecutar las pruebas relevantes al cambio.
-3. Revisar `git status --short --branch`.
-4. Commit y push del cambio aceptado.
-5. Para cambios sensibles, considerar `autoreview` con confirmación explícita
-   del usuario.
-6. Si el cambio toca base, emisión, certificados, Docker o configuración,
+3. Completar la puerta de alineación documental de
+   `docs/agents/change-quality-gates.md` antes de staging y commit.
+4. Para cambios sensibles, considerar `autoreview` con confirmación explícita
+   del usuario después de pruebas y documentación estabilizadas.
+5. Preparar commit, push y PR del cambio aceptado; antes de marcar el PR como
+   listo, revisar el rango completo y completar la matriz documental.
+6. Integrar solo con CI verde y verificar después del merge que `main` y su
+   documentación no conservan estados transitorios.
+7. Si el cambio toca base, emisión, certificados, Docker o configuración,
    verificar que existe un backup recuperable reciente o generar uno manual.
-7. Decidir el commit o tag exacto a desplegar.
-8. Registrar el commit o tag que efectivamente corre en producción y comparar
+8. Decidir el commit o tag exacto a desplegar.
+9. Registrar el commit o tag que efectivamente corre en producción y comparar
    el rango completo con el objetivo, por ejemplo con
    `git diff --name-status <commit_desplegado>..<objetivo>`. Enumerar
    explícitamente migraciones Alembic, dependencias y lockfiles, Docker/compose,
    configuración y cambios de schema desde ese origen real; no inferirlos desde
    otro candidato local reciente. Revisar además `alembic current`, `heads` y la
    ruta pendiente de migraciones de la base productiva.
-9. Confirmar que producción usa un único proceso Uvicorn mientras el worker de
+10. Confirmar que producción usa un único proceso Uvicorn mientras el worker de
    lotes siga embebido en el backend.
-10. Confirmar `BATCH_WORKER_ENABLED=true` si la instalación permite procesar
+11. Confirmar `BATCH_WORKER_ENABLED=true` si la instalación permite procesar
     lotes en segundo plano.
-11. Para PostgreSQL, revisar que el pool API esté dentro de `1..4`, con default y
+12. Para PostgreSQL, revisar que el pool API esté dentro de `1..4`, con default y
     máximo `4`, overflow `0`, y que el worker tenga su pool dedicado de `1`.
     Confirmar también timeout de adquisición `5 s` y warning de retención `10 s`.
-12. Ejecutar la prueba `integration` de capacidad contra PostgreSQL desechable,
+13. Ejecutar la prueba `integration` de capacidad contra PostgreSQL desechable,
     según `docs/agents/testing.md`. La prueba `4+1` no crea lotes ni llama a ARCA;
     su aprobación local no sustituye la verificación del commit/tag desplegado.
 

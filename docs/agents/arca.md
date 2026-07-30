@@ -325,9 +325,11 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
 - Una excepción después de iniciar `FECAESolicitar` no usa estas categorías:
   mantiene `requiere_reconciliacion` y las reglas de PF-01.
 - El procesamiento batch normal ya aplica esta política. La recuperación stale
-  del worker y los reintentos manuales siguen exigiendo alineación estricta
-  hasta sus siguientes cortes de PF-02B. El valor de diagnóstico nunca se
-  escribe en `numero_asignado` sin reserva, intento y resultado fiscal.
+  del worker conserva una puerta estricta antes de reencolar y no libera
+  intentos propios inciertos. El reintento manual reutiliza el núcleo individual
+  y por eso admite `arca_adelantada` en runtime, pero su contrato de estados y
+  fallos todavía requiere cobertura específica. El valor de diagnóstico nunca
+  se escribe en `numero_asignado` sin reserva, intento y resultado fiscal.
 - PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
   opcional corresponde a PF-05.
 ### Reconciliación externa de lotes

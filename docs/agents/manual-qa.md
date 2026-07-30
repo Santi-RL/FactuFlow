@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-23
+Última actualización: 2026-07-30
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -21,6 +21,11 @@ fechadas de `docs/project/**`.
 - No queda QA bloqueante para mantener `v0.2.2` en producción.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
+
+El código aceptado en `main` avanzó después de ese tag: PF-02A y PF-02B.1 están
+integrados, pero todavía no pertenecen a una release publicada ni al despliegue
+productivo. Sus escenarios se validaron con dobles controlados, sin CAE reales
+ni llamadas ARCA de escritura.
 
 ## Preparación local
 
@@ -188,7 +193,7 @@ No forzar este escenario con CAE real hasta autorizar explícitamente una QA
 fiscal controlada. PF-01A.3 está publicado y desplegado, pero esta matriz manual
 de fallos simulados continúa pendiente.
 
-### PF-01B — validación local completada
+### PF-01B — validación histórica completada
 
 PF-01B.2 tiene cobertura SQLite/Alembic y PF-01B.3 aprobó en PostgreSQL 16
 efímero: upgrade, checks, estados, coherencia CAE, unicidad, dos transacciones
@@ -204,7 +209,7 @@ productivos. El despliegue repitió después el preflight agregado inmediato con
 las cinco categorías en cero, migró una sola vez y volvió a verificar
 constraints, invariantes y conteos antes de reabrir.
 
-### P1 pool/worker — cierre local
+### P1 pool/worker — cierre histórico
 
 La implementación y la capacidad estructural quedaron validadas localmente:
 
@@ -302,8 +307,13 @@ de CAE reales.
 6. Verificar que fecha fiscal y punto de venta permanecen visibles en
    `DD/MM/AAAA` dentro de la confirmación irreversible existente.
 
-El worker stale y los reintentos manuales de grupos todavía conservan la
-política estricta anterior. Se validarán en los siguientes cortes de PF-02B.
+La recuperación stale del worker conserva una puerta estricta antes de
+reencolar: exige grupos intactos, ausencia de intentos y numeración alineada. El
+procesamiento normal vuelve a diagnosticar después del reencolado. Los
+reintentos manuales ya reutilizan el núcleo individual y por eso admiten
+`arca_adelantada` en runtime, pero todavía deben validarse sus transiciones de
+grupo, errores intermedios y bloqueos de intentos propios antes de cerrar ese
+tramo de PF-02B.
 
 ## Punto de reanudación de QA
 
