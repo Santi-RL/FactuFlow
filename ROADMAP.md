@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-04
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -636,6 +636,13 @@ Objetivo: reducir al mínimo la necesidad de soporte técnico para operar.
 - [~] Mensajes accionables en errores de negocio
 - [x] Mensaje claro en login cuando el backend local no responde
 - [~] Ayudas contextuales en pantallas sensibles
+- [ ] Ayuda contextual para el constructor de plantillas de carga masiva:
+  enlace visible, guía paso a paso, explicación de los orígenes y la
+  compatibilidad, ejemplo completo, fechas en `DD/MM/AAAA` y preservación del
+  formulario mientras se consulta la ayuda. Tratar como un corte PF-17
+  posterior a estabilizar los contratos de plantillas y validación de PF-03,
+  sin incorporarlo a las prioridades inmediatas ni ampliar el alcance fiscal de
+  PF-03.
 - [~] Pantalla de estado del sistema dentro del frontend
 - [ ] Integración formal entre launcher local y UI web
 - [ ] Tooltips y microcopy sistematizados en toda la app
