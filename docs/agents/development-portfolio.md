@@ -1,6 +1,6 @@
 # Portafolio integrado de desarrollo
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-04
 
 Estado: PRIORIZADO; PF-01 Y PF-02A CERRADOS; PF-02B.1 INTEGRADO Y PF-02B EN
 CONTINUACIÓN POR CORTES.
@@ -120,7 +120,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | PF-14 | Contratos API, errores y concurrencia CRUD coherentes | Hallazgos de 400/404/500, errores posteriores al commit, paginación y unicidad | Respuestas previsibles, sanitizadas e idempotentes | Convención API, manejo uniforme de IntegrityError y tests contractuales | B/C |
 | PF-15 | Observabilidad, salud, trazabilidad y soporte | Roadmap de estado del sistema/logs/runbooks; hallazgos de salud y diagnósticos engañosos | Diagnosticar sin exponer secretos ni presentar falsos OK | Taxonomía de estados, IDs de correlación y retención | B/C |
 | PF-16 | Calidad, CI, documentación y cadena de herramientas portable | Roadmap Node 24/testing; hallazgos de scripts Windows, Playwright, fechas dinámicas, alineación documental y vacíos de cobertura en suites | Evitar regresiones y mantener documentación, Windows y Linux reproducibles | Matriz de entornos, suites y documentación por línea de trabajo | C |
-| PF-17 | UX administrativa, accesibilidad y recuperación de errores | Roadmap UX; hallazgos de navegación, notificaciones, fechas visibles y estado persistido corrupto | Reducir errores operativos de usuarios no técnicos | Contratos estables de PF-03, PF-07, PF-08 y PF-14 | C |
+| PF-17 | UX administrativa, accesibilidad y recuperación de errores | Roadmap UX; hallazgos de navegación, notificaciones, fechas visibles y estado persistido corrupto; ayuda contextual del constructor de plantillas | Reducir errores operativos de usuarios no técnicos sin desplazar prioridades fiscales | Contratos estables de PF-03, PF-07, PF-08 y PF-14; la ayuda del constructor comienza después de estabilizar PF-03 | C |
 | PF-18 | Salidas masivas, distribución y evolución posterior | ZIP de PDFs, paquetes, actualizaciones, soporte, correo electrónico, integraciones y dashboard | Mejorar adopción sin desviar recursos del núcleo fiscal | PF-04, PF-10, PF-11 y madurez productiva | D |
 
 ## Relaciones que condicionan el orden
