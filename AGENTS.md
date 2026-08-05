@@ -146,10 +146,15 @@
   - `docs/agents/current-status.md`;
   - `docs/agents/development-portfolio.md` cuando cambie el avance de una línea
     PF;
+  - `docs/agents/overview.md` cuando cambien las capacidades aceptadas en
+    `main`, el próximo paso o la arquitectura;
+  - `docs/agents/testing.md` cuando cambien matrices, conteos, suites, CI o
+    evidencia de validación, aunque los comandos permanezcan iguales;
   - `docs/agents/manual-qa.md`;
   - `docs/user-guide/README.md`;
-  - el diseño del corte y `docs/agents/overview.md`,
-    `docs/agents/testing.md`, `docs/setup/**`, índices o dossiers cuando sus
+  - `docs/api/README.md` cuando cambie la conducta documentada de un endpoint o
+    servicio, aunque rutas, schemas y status HTTP permanezcan iguales;
+  - el diseño del corte, `docs/setup/**`, índices o dossiers cuando sus
     afirmaciones hayan cambiado.
 - Si el cambio impacta ARCA o homologación, actualizar también:
   - `docs/agents/arca.md`

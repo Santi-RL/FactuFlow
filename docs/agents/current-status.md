@@ -20,6 +20,12 @@ exige enumerar todos los consumidores de helpers compartidos; este control evita
 repetir el punto ciego que ocultó el comportamiento real de los reintentos
 manuales durante PF-02A/PF-02B.1.
 
+La comprobación posterior a PF-02B.2 confirmó esa frontera: la puerta
+estructural estaba verde mientras `overview`, la guía API y la evidencia de
+testing conservaban afirmaciones anteriores. La matriz de PR separa ahora esos
+tres consumidores documentales y prohíbe declarar `No aplica` solo porque el
+contrato HTTP o los comandos de test no hayan cambiado.
+
 El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz local
 completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
@@ -27,7 +33,8 @@ operaciones fiscales reales ni llamadas ARCA de escritura.
 
 ## Dependencia criptográfica y auditoría
 
-`main` usa `cryptography==50.0.0`, que corrige `PYSEC-2026-3552`,
+El PR `#20` integró en `main` el commit `712197d`. `main` usa
+`cryptography==50.0.0`, que corrige `PYSEC-2026-3552`,
 `PYSEC-2026-3553` y `PYSEC-2026-3554` sin excepciones en `pip-audit`. La
 compatibilidad se prueba con material sintético para carga PEM, clave cifrada y
 firma CMS. La matriz enfocada aprobó `47` pruebas y el backend completo `540`,
@@ -36,11 +43,13 @@ limpios. Tres tests históricos de numeración batch mantienen su fecha fiscal
 fija, pero ya no dependen del reloj de ejecución para validar un comportamiento
 ajeno a su escenario. No se relajó la validación productiva. No hubo
 certificados reales, conexiones ARCA, solicitudes de CAE ni cambios
-productivos.
+productivos. El PR y la CI post-merge `31042753464` aprobaron los seis checks
+obligatorios; la CI del PR fue `31042184221`.
 
-## PF-02B.2 — reintentos manuales seguros
+## Integrado en main — PF-02B.2 reintentos manuales seguros
 
-El segundo corte de PF-02B cierra el contrato específico de
+El PR `#19` integró en `main` el commit `1a5e335`. El segundo corte de PF-02B
+cierra el contrato específico de
 `reintentar-fallidos` sobre el núcleo individual compartido. El flujo admite
 historia externa legítima desde `ultimo_arca + 1`, conserva el CAS
 `fallido -> reintentando` y detiene inmediatamente la selección si existe un
@@ -62,8 +71,9 @@ type-check y build. Una única revisión con Codex `gpt-5.6-sol`, thinking
 `medium`, completó dos pases automáticos por tamaño, quedó limpia con confianza
 `0,99` y cero findings; usó el binario versionado `0.147.0-alpha.1.2`. No hubo
 emisiones reales, solicitudes de CAE, migraciones ni llamadas ARCA de escritura.
-El siguiente corte de PF-02 es PF-02B.3: extender la recuperación stale sin
-liberar intentos propios inciertos.
+La CI del PR `31043726676` y la post-merge `31044367510` aprobaron los seis
+checks obligatorios. El siguiente corte de PF-02 es PF-02B.3: extender la
+recuperación stale sin liberar intentos propios inciertos.
 
 ## Integrado en main — PF-02B.1 numeración masiva
 
@@ -469,9 +479,11 @@ Siguen pendientes:
 12. Para próximas pasadas de `autoreview`, mantener una única configuración de
     cierre: `--engine codex --model gpt-5.6-sol --thinking medium`. En esta
     instalación, verificar que `--codex-bin` apunte al binario vigente de la app:
-    el alias `bin\codex.exe` continúa en `0.130.0-alpha.5`, mientras que el
-    ejecutable versionado `0.146.0-alpha.3.1` completó PF-02A correctamente. No
-    hacer revisiones incrementales ni cambiar manualmente de modelo o esfuerzo.
+    el alias `bin\codex.exe` continuaba en `0.130.0-alpha.5`; PF-02A usó el
+    ejecutable versionado `0.146.0-alpha.3.1` y los cierres más recientes
+    usaron `0.147.0-alpha.1.2`. Resolver y verificar siempre el binario
+    versionado vigente antes de revisar. No hacer revisiones incrementales ni
+    cambiar manualmente de modelo o esfuerzo.
 
 ## Referencias de continuidad
 
