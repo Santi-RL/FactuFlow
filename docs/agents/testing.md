@@ -258,6 +258,15 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Última verificación técnica
 
+Fecha: 2026-08-05
+
+- Actualización de `cryptography` a `50.0.0`: `47` pruebas enfocadas de
+  criptografía, certificados, WSAA y migración aprobadas; backend completo con
+  `540` aprobadas y `4` omitidas; Ruff, Black y `pip-audit` sin hallazgos.
+- Tres tests batch con fecha fiscal explícita fija quedaron aislados del reloj
+  de ejecución porque verifican numeración, no la ventana temporal. El helper
+  productivo no cambió.
+
 Fecha: 2026-07-30
 
 - Puerta documental y tests de scripts: `npm run docs:check` aprobado y `16`

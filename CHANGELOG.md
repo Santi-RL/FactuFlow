@@ -38,6 +38,13 @@ Reglas vigentes desde 2026-05-22:
 
 ### Calidad y seguridad
 
+- `cryptography` se actualiza de `48.0.1` a `50.0.0`, corrigiendo
+  `PYSEC-2026-3552`, `PYSEC-2026-3553` y `PYSEC-2026-3554` sin excepciones en
+  la auditoría. La compatibilidad de carga PEM, claves cifradas y firma CMS se
+  verifica con material criptográfico sintético.
+- Tres pruebas de numeración batch conservan su fecha fiscal fija y aíslan la
+  validación temporal que no forma parte de esos escenarios. Esto evita que el
+  reloj de ejecución venza los tests sin relajar la validación productiva.
 - Se incorpora una política proporcional de calidad con tres niveles de riesgo,
   una plantilla de PR comprensible sin leer código y una única rama permanente:
   `main`. Las ramas de trabajo son temporales y se eliminan después del merge.

@@ -11,10 +11,10 @@ passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 PyJWT==2.13.0
 email-validator==2.1.1
-# AFIP webservices
+# ARCA webservices
 zeep==4.3.3
 lxml==6.1.0
-cryptography==48.0.1
+cryptography==50.0.0
 # Database
 psycopg2-binary==2.9.9
 asyncpg==0.29.0
