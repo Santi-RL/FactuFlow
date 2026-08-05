@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-05
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -24,6 +24,19 @@ El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz loca
 completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
+
+## Dependencia criptográfica y auditoría
+
+`main` usa `cryptography==50.0.0`, que corrige `PYSEC-2026-3552`,
+`PYSEC-2026-3553` y `PYSEC-2026-3554` sin excepciones en `pip-audit`. La
+compatibilidad se prueba con material sintético para carga PEM, clave cifrada y
+firma CMS. La matriz enfocada aprobó `47` pruebas y el backend completo `540`,
+con `4` omisiones por harness configurado; Ruff, Black y la auditoría quedaron
+limpios. Tres tests históricos de numeración batch mantienen su fecha fiscal
+fija, pero ya no dependen del reloj de ejecución para validar un comportamiento
+ajeno a su escenario. No se relajó la validación productiva. No hubo
+certificados reales, conexiones ARCA, solicitudes de CAE ni cambios
+productivos.
 
 ## Integrado en main — PF-02B.1 numeración masiva
 

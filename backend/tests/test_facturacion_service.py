@@ -1497,6 +1497,11 @@ async def _preparar_escenario_numeracion_batch(
     async def fake_ticket(self, empresa, certificado):
         return SimpleNamespace(token="token", sign="sign")
 
+    async def fake_validar_datos(
+        self: FacturacionService, request: EmitirComprobanteRequest
+    ) -> None:
+        """Aísla la fecha explícita del test respecto del reloj de ejecución."""
+
     async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
         return None
 
@@ -1504,6 +1509,7 @@ async def _preparar_escenario_numeracion_batch(
         "app.services.facturacion_service.WSFEv1Client",
         wsfe_client_class,
     )
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
     monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
     monkeypatch.setattr(
         FacturacionService,
