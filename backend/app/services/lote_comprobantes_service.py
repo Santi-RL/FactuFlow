@@ -993,11 +993,12 @@ class LoteComprobantesService:
                 lote.modo_procesamiento = "background"
                 lote.mensaje_resumen = (
                     "El lote se recuperó de una interrupción sin evidencia fiscal "
-                    "en los comprobantes pendientes y quedó en cola para continuar."
+                    "en los comprobantes pendientes, verificó una numeración segura "
+                    "contra ARCA y quedó en cola para continuar."
                 )
                 metadata = dict(lote.metadata_json or {})
                 metadata["recuperacion_stale_intacta"] = {
-                    "motivo": "pendientes_sin_intento_fiscal_y_numeracion_alineada",
+                    "motivo": "pendientes_sin_intento_fiscal_y_numeracion_segura",
                     "stale_minutes": settings.batch_processing_stale_minutes,
                     "requeued_at": datetime.utcnow().isoformat(),
                     "grupos_reconciliados_localmente": grupos_reconciliados,
@@ -1012,7 +1013,8 @@ class LoteComprobantesService:
                     motivo=(
                         "El worker verificó que los comprobantes pendientes no "
                         "tenían intento fiscal ni numeración asignada y reencoló "
-                        "el lote tras validar la numeración contra ARCA."
+                        "el lote tras diagnosticar una numeración segura contra "
+                        "ARCA, incluso con historia externa legítima."
                     ),
                     metadata_json={
                         "estado_anterior": "procesando",
@@ -3904,26 +3906,18 @@ class LoteComprobantesService:
         combos: dict[tuple[int, int, int], EmitirComprobanteRequest] = {}
         for grupo in grupos:
             if not grupo.payload_json:
-                return (
-                    False,
-                    [],
-                    f"El grupo {grupo.comprobante_ref} no conserva payload fiscal.",
-                )
+                return False, [], "payload_fiscal_ausente"
             try:
                 request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
-            except Exception as exc:
+            except Exception:
                 logger.warning(
                     "No se pudo validar payload fiscal del grupo stale %s",
                     grupo.comprobante_ref,
                     exc_info=True,
                 )
-                return False, [], str(exc)
+                return False, [], "payload_fiscal_invalido"
             if request.empresa_id != lote.empresa_id:
-                return (
-                    False,
-                    [],
-                    f"El grupo {grupo.comprobante_ref} pertenece a otra empresa.",
-                )
+                return False, [], "emisor_inconsistente"
             combos[
                 (
                     request.empresa_id,
@@ -3936,7 +3930,7 @@ class LoteComprobantesService:
         for empresa_id, punto_venta_id, tipo_comprobante in sorted(combos):
             try:
                 checks.append(
-                    await self.facturacion_service.verificar_numeracion_alineada_para_emision(
+                    await self.facturacion_service.verificar_numeracion_segura_para_emision(
                         empresa_id=empresa_id,
                         punto_venta_id=punto_venta_id,
                         tipo_comprobante=tipo_comprobante,
@@ -3944,13 +3938,13 @@ class LoteComprobantesService:
                 )
             except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
                 raise
-            except Exception as exc:
+            except Exception:
                 logger.warning(
                     "No se pudo verificar numeración ARCA/local para lote stale %s",
                     lote.id,
                     exc_info=True,
                 )
-                return False, checks, str(exc)
+                return False, checks, "numeracion_no_verificable"
 
         return True, checks, None
 

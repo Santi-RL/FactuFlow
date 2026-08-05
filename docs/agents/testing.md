@@ -260,6 +260,16 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 Fecha: 2026-08-05
 
+- PF-02B.3: `12` pruebas enfocadas de diagnóstico y recuperación stale, `164`
+  de facturación/lotes y backend completo con `557` aprobadas y `4` omitidas.
+  La puerta local agregó `131` frontend, `16` de scripts y `33` E2E; Ruff,
+  Black, type-check, build y `docs:check` quedaron verdes. ESLint terminó sin
+  errores y conservó `13` advertencias históricas de estilo. `pip-audit` y
+  `npm audit --omit=dev` no encontraron vulnerabilidades productivas conocidas.
+  La matriz cubre historia
+  externa, grupos mixtos, ambos estados inciertos, doble recuperación, reclamo
+  atómico, carrera con reintento manual, segundo preflight y metadatos
+  sanitizados. No hubo emisiones reales, CAE ni llamadas ARCA de escritura.
 - PF-02B.2: `11` escenarios específicos de reintento manual y `109` pruebas de
   lotes aprobadas; puerta global con `548` backend (`4` omitidas), `131`
   frontend, `16` de scripts y `33` E2E, además de Ruff, Black, type-check,

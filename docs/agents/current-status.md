@@ -26,10 +26,40 @@ testing conservaban afirmaciones anteriores. La matriz de PR separa ahora esos
 tres consumidores documentales y prohíbe declarar `No aplica` solo porque el
 contrato HTTP o los comandos de test no hayan cambiado.
 
+El PR `#21` alineó ese corpus y reforzó la matriz documental. Su CI y la CI
+post-merge `31052652891` aprobaron los seis checks obligatorios; `main` quedó
+limpio y sincronizado en `8f25d361` antes de iniciar PF-02B.3.
+
 El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz local
 completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
+
+## PF-02B.3 — recuperación stale compatible con historia externa
+
+PF-02B.3 cierra PF-02 sin ampliar el alcance de PF-05. Un lote `procesando`
+vencido continúa tratando la expiración solo como señal de diagnóstico: primero
+reconcilia evidencia local fuerte y separa grupos intactos de grupos con
+evidencia fiscal. Si todos los pendientes son realmente intactos, el preflight
+compartido acepta `alineada` o `arca_adelantada`; no asigna número, no crea
+intento y no solicita CAE.
+
+Los intentos propios `en_proceso` activos o `requiere_reconciliacion`, una
+autorización sin comprobante local coherente, `local_adelantada` y cualquier
+consulta no concluyente conservan el bloqueo. Después de reencolar, el reclamo
+atómico permite un único worker y el núcleo normal vuelve a diagnosticar, crea
+reservas durables y ejecuta el segundo preflight antes de FECAE. Los metadatos
+expuestos usan categorías estables; el detalle de excepciones queda solo en logs
+privados.
+
+El corte no cambia modelo, migraciones, estados, rutas, schemas ni UI. La matriz enfocada
+aprobó `12` casos y la regresión completa de facturación/lotes `164`. La puerta
+local aprobó `557` pruebas backend con `4` omisiones configuradas, `131`
+frontend, `16` de scripts y `33` E2E, además de Ruff, Black, ESLint sin errores,
+type-check, build y `docs:check`. `pip-audit` y `npm audit --omit=dev` no
+encontraron vulnerabilidades productivas conocidas. Las pruebas usaron fechas
+explícitas y datos sintéticos; no hubo emisiones reales, solicitudes de CAE,
+migraciones ni llamadas ARCA de escritura.
 
 ## Dependencia criptográfica y auditoría
 
@@ -72,8 +102,8 @@ type-check y build. Una única revisión con Codex `gpt-5.6-sol`, thinking
 `0,99` y cero findings; usó el binario versionado `0.147.0-alpha.1.2`. No hubo
 emisiones reales, solicitudes de CAE, migraciones ni llamadas ARCA de escritura.
 La CI del PR `31043726676` y la post-merge `31044367510` aprobaron los seis
-checks obligatorios. El siguiente corte de PF-02 es PF-02B.3: extender la
-recuperación stale sin liberar intentos propios inciertos.
+checks obligatorios. En ese checkpoint quedó pendiente PF-02B.3; la sección
+anterior registra su cierre posterior sin liberar intentos propios inciertos.
 
 ## Integrado en main — PF-02B.1 numeración masiva
 
@@ -93,9 +123,9 @@ quedó limpia con confianza `0,94`; los seis checks del PR aprobaron. No hubo
 emisiones reales, solicitudes de CAE, migraciones, cambios de UI ni llamadas
 ARCA de escritura.
 
-La recuperación stale del worker conserva una puerta estricta: solo reencola
-grupos intactos cuando la numeración está alineada y nunca libera intentos
-propios inciertos. Su extensión segura permanece separada en PF-02B.3.
+Al cerrar PF-02B.1, la recuperación stale todavía exigía numeración alineada y
+su extensión se dejó para PF-02B.3. Ese alcance histórico quedó cerrado en la
+sección anterior sin liberar intentos propios inciertos.
 
 ## Integrado en main — PF-02A numeración individual
 
@@ -220,7 +250,7 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 2026-07-23.
-- `main` contiene además de `v0.2.2` PF-02A y los dos primeros cortes de PF-02B.
+- `main` contiene además de `v0.2.2` PF-02A y los tres cortes de PF-02B.
   Esos cambios posteriores aún no pertenecen a una release publicada ni a la
   versión productiva.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
@@ -465,10 +495,11 @@ Siguen pendientes:
    administrador, sin exigir un segundo aprobador humano. La continuación de
    PF-16 agrega la puerta documental semántica y `npm run docs:check` sin
    presentar el control automático como sustituto de la revisión.
-10. PF-02A, PF-02B.1 y PF-02B.2 están integrados en `main`. El siguiente corte
-    debe extender de forma explícita la recuperación stale del worker sin
-    liberar intentos inciertos y cerrar la QA fiscal de PF-02. Después siguen
-    PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
+10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
+    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. El
+    siguiente corte debe comenzar PF-03 con auditoría, checklist fiscal y una
+    primera unidad vertical pequeña. Después siguen PF-06/PF-07, PF-08 y PF-09
+    según el portafolio integrado.
     PF-16C continúa en paralelo únicamente con la modernización planificada del
     toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex

@@ -297,13 +297,16 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   intento fuerte no cierra automáticamente el grupo. Si quedan pendientes, solo
   puede reencolarlos si están intactos, sin intento fiscal, CAE, número,
   comprobante vinculado ni comprobante local autorizado candidato, y si
-  `FECompUltimoAutorizado` confirma numeración ARCA/local alineada por emisor,
-  punto de venta y tipo. Si queda cualquier incertidumbre, debe marcar el lote
+  la comparación con `FECompUltimoAutorizado` produce un diagnóstico `alineada`
+  o `arca_adelantada` por emisor, punto de venta y tipo, sin incertidumbre propia.
+  La recuperación no asigna número ni crea reserva; el procesamiento normal
+  vuelve a diagnosticar y conserva el segundo preflight. Si queda cualquier
+  incertidumbre, debe marcar el lote
   `requiere_reconciliacion`, registrar `bloqueo_operativo_no_reemitir`, marcar
   solo los grupos con evidencia fiscal como `requiere_reconciliacion` y exigir
   auditoría antes de continuar.
 
-### PF-02A/PF-02B: numeración individual, batch y reintentos con historia externa
+### PF-02A/PF-02B: numeración individual, batch, reintentos y stale con historia externa
 
 - `FECompUltimoAutorizado` es la fuente del siguiente número fiscal global para
   el emisor, punto de venta y tipo. Una historia ARCA posterior a la local se
@@ -331,9 +334,12 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   intento como `requiere_reconciliacion`, hace rollback del comprobante
   incompleto y no toca los grupos posteriores.
 - La recuperación stale del worker conserva una puerta estricta antes de
-  reencolar y no libera intentos propios inciertos; su extensión sigue separada
-  en PF-02B.3. El valor de diagnóstico nunca se escribe en
-  `numero_asignado` sin reserva, intento y resultado fiscal.
+  reencolar y no libera intentos propios inciertos. Acepta `alineada` o
+  `arca_adelantada` únicamente para grupos realmente intactos y deja la reserva
+  y el segundo preflight al procesamiento normal. El valor de diagnóstico nunca
+  se escribe en `numero_asignado` sin reserva, intento y resultado fiscal.
+- Los errores del preflight stale se registran con traceback en logs privados;
+  los metadatos visibles solo guardan categorías estables y sanitizadas.
 - PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
   opcional corresponde a PF-05.
 ### Reconciliación externa de lotes

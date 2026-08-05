@@ -5,10 +5,10 @@
 Versión productiva cubierta por este manual: `v0.2.2`.
 
 Este manual describe las capacidades aceptadas en `main`. La versión publicada
-y desplegada continúa siendo `v0.2.2` del 23/07/2026. PF-02A, PF-02B.1 y
-PF-02B.2 están integrados en `main`, pero todavía no pertenecen a una release ni
-están disponibles en producción. No debe asumirse que una función posterior al
-tag desplegado ya está operativa en una instalación concreta.
+y desplegada continúa siendo `v0.2.2` del 23/07/2026. PF-02A y los tres cortes
+de PF-02B están integrados en `main`, pero todavía no pertenecen a una release
+ni están disponibles en producción. No debe asumirse que una función posterior
+al tag desplegado ya está operativa en una instalación concreta.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -356,17 +356,22 @@ Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
 pudo terminar de guardarlos. Primero hay que consultar ARCA y reconciliar los
 datos locales. FactuFlow solo considera aprobado un resultado ARCA explícito
-`A`; una respuesta parcial no se presenta como comprobante autorizado. Si un lote que estaba
-`Procesando` queda vencido, FactuFlow separa los grupos intactos de aquellos con
-evidencia fiscal. Por ahora, la recuperación stale solo reencola pendientes
-intactos cuando puede demostrar que no tuvieron intento fiscal y que la
-numeración ARCA/local sigue alineada. Los
-grupos con evidencia o incertidumbre pasan a reconciliación; si esa comprobación
-no puede completarse, el lote queda bloqueado y los grupos intactos conservan su
-estado sin emitirse. En ese caso no reintentes manualmente: primero audita el
-lote. Si un reintento se interrumpe después de tomar un comprobante para
-emisión, ese grupo también queda para reconciliación porque reemitirlo podría
-duplicar una autorización fiscal.
+`A`; una respuesta parcial no se presenta como comprobante autorizado.
+
+Si un lote que estaba `Procesando` queda vencido, FactuFlow separa los grupos
+intactos de aquellos con
+evidencia fiscal. La recuperación stale solo reencola pendientes intactos cuando
+puede demostrar que no tuvieron intento fiscal, número, CAE ni comprobante local
+candidato. Si ARCA tiene historia externa legítima, esa diferencia no bloquea
+por sí sola; FactuFlow todavía no asigna números ni solicita CAE durante la
+recuperación. Los grupos con evidencia o incertidumbre pasan a reconciliación;
+si la comprobación no puede completarse, el lote queda bloqueado y los grupos
+intactos conservan su estado sin emitirse. En ese caso no reintentes
+manualmente: primero auditá el lote.
+
+Si un reintento se interrumpe después de tomar un comprobante para emisión, ese
+grupo también queda para reconciliación porque reemitirlo podría duplicar una
+autorización fiscal.
 
 ### Gestión de lotes parciales y limpieza
 
@@ -438,8 +443,10 @@ FactuFlow no vuelve a pedir CAE automáticamente. Primero vincula comprobantes
 locales ya autorizados si puede hacerlo sin consultar ARCA. Si quedan
 comprobantes pendientes, solo vuelve a poner el lote en cola cuando puede probar
 que esos pendientes no tuvieron intento fiscal, CAE, número ni comprobante local
-candidato y que la numeración ARCA/local sigue alineada. Si no puede probarlo,
-el lote pasa a `Requiere reconciliación` y debe auditarse antes de continuar.
+candidato y que la numeración es segura, tanto si está alineada como si ARCA
+registra historia externa legítima. El procesamiento normal vuelve a consultar
+la numeración antes de solicitar CAE. Si no puede probarlo, el lote pasa a
+`Requiere reconciliación` y debe auditarse antes de continuar.
 
 Si FactuFlow informa que el worker de lotes no está disponible, el lote no fue
 puesto en cola y no se solicitó CAE desde ese intento. Conserva el lote y vuelve
