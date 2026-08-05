@@ -1,8 +1,8 @@
 # PF-02B — Numeración masiva compatible con actividad externa
 
 Fecha de diseño: 2026-07-29
-Estado: primer corte cerrado e integrado en `main` mediante el PR `#16`
-(`2c75fd2`).
+Estado: primer corte batch y segundo corte de reintentos manuales cerrados;
+recuperación stale pendiente en PF-02B.3.
 
 ## Objetivo y alcance del primer corte
 
@@ -23,13 +23,11 @@ Incluye:
 - aborto terminal pre-ARCA de todo el sublote si el rango cambia o no puede
   reconfirmarse.
 
-No incluye cambios dedicados a recuperación de lotes stale, UI, API o
-reintentos manuales de grupos; tampoco reconstrucción histórica,
+El primer corte no incluyó cambios dedicados a recuperación de lotes stale, UI,
+API o reintentos manuales de grupos; tampoco reconstrucción histórica,
 `FECompConsultar`, migraciones ni QA con CAE real. La recuperación stale
-conserva una puerta estricta antes de reencolar. El reintento manual ya reutiliza
-el núcleo individual compartido y por eso admite `arca_adelantada` en runtime,
-pero sus transiciones y fallos todavía requieren pruebas específicas antes de
-considerar cerrado ese tramo de PF-02B.
+conserva una puerta estricta antes de reencolar. El segundo corte que cierra el
+contrato del reintento manual se documenta más abajo.
 
 ## Riesgo fiscal
 
@@ -188,3 +186,141 @@ cambia el esquema.
 - documentación de diseño y contratos ARCA actualizada;
 - cero CAE reales, cero emisiones, cero llamadas ARCA de escritura y cero datos
   privados.
+
+## Diseño del segundo corte: PF-02B.2 — reintentos manuales
+
+### Causa raíz y alcance
+
+Antes de este corte, el endpoint manual `reintentar-fallidos` ya reutilizaba el
+núcleo individual de `FacturacionService` y, por lo tanto, admitía
+`arca_adelantada` en runtime. Sin embargo, el contrato específico del lote no
+demostraba qué ocurría con el grupo reclamado, los grupos restantes, la
+operación idempotente y los intentos fiscales ante cada resultado del doble
+preflight o después de iniciar `FECAESolicitar`.
+
+El corte cierra esa frontera con pruebas end-to-end de backend y con ajustes
+mínimos en el servicio de lotes. No cambia el contrato HTTP, la UI, los modelos,
+las constraints ni el esquema de base. Tampoco modifica la recuperación stale
+del worker, que corresponde a PF-02B.3.
+
+Consumidores revisados:
+
+- `POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos`;
+- `LoteComprobantesService.reintentar_grupos_fallidos` y sus transiciones de
+  grupo, filas, lote y eventos;
+- `FacturacionService._emitir_comprobante_locked`, compartido con emisión
+  individual y procesamiento unitario de lotes;
+- `IdempotenciaFiscalService`, operaciones e intentos vinculados a lote/grupo;
+- `_aplicar_resultado_emision_grupo`, compartido por procesamiento unitario,
+  batch y reintento manual;
+- el frontend de lotes, que ya envía confirmación fiscal e idempotencia y
+  bloquea el reintento cuando el lote requiere reconciliación;
+- el worker stale, revisado como consumidor vecino pero expresamente excluido
+  de cambios en este corte.
+
+### Invariantes adicionales de PF-02B.2
+
+1. Solo un grupo `fallido` del lote y emisor activos puede pasar por CAS a
+   `reintentando`; ningún request paralelo puede reclamarlo dos veces.
+2. La fecha fiscal y el punto de venta se recalculan desde los grupos elegidos y
+   deben coincidir con la confirmación exacta antes de reclamar el primer grupo.
+3. La operación exige `X-Idempotency-Key`. Misma clave y mismo material fiscal
+   devuelve el resultado guardado sin otra llamada ARCA; la misma clave con una
+   selección o payload distinto responde conflicto.
+4. `arca_adelantada` sin intento propio bloqueante usa `ultimo_arca + 1`, crea
+   una reserva vinculada al lote/grupo y repite el preflight antes de FECAE.
+5. `local_adelantada`, un intento propio activo o incierto y un replay
+   conflictivo bloquean sin crear una nueva reserva ni solicitar CAE.
+6. Si el segundo preflight cambia o falla, el intento queda
+   `fallido_verificado`, el grupo vuelve a `fallido` sin CAE,
+   `numero_asignado` ni comprobante, y se detiene la selección. Los grupos aún
+   no reclamados permanecen intactos.
+7. Un rechazo ARCA explícito y completo puede dejar el grupo `fallido`; una
+   respuesta ambigua o una excepción posterior a iniciar FECAE nunca puede
+   degradarlo a `fallido` ni habilitar otro reintento.
+8. Si el núcleo devuelve o la capa de lote detecta incertidumbre post-ARCA, el
+   grupo y el lote quedan `requiere_reconciliacion`, el intento conserva número
+   y CAE conocidos y no se procesa ningún grupo posterior de la selección.
+9. Una excepción inesperada posterior a ARCA se registra con mensaje público
+   sanitizado. Rutas, credenciales, SQL, certificados y detalles internos quedan
+   únicamente en logs privados.
+10. `numero_asignado` solo se completa desde un resultado fiscal conocido o una
+    reconciliación verificada; nunca desde el diagnóstico inicial.
+11. Los grupos ya autorizados antes de una incertidumbre posterior conservan su
+    autorización. No se revierte evidencia fiscal ni se reejecuta la operación
+    completa.
+12. El aislamiento permanece por ambiente, emisor, lote, punto de venta, tipo y
+    grupo. Un ID de otro emisor no alcanza el servicio fiscal.
+
+### Tabla de estados del reintento manual
+
+| Situación del grupo reclamado | Intento | Grupo | Lote | Grupos posteriores | FECAE |
+|---|---|---|---|---|---|
+| `arca_adelantada` estable y CAE autorizado | `autorizado` | `autorizado` | recalculado | pueden continuar | una por grupo |
+| `local_adelantada` o intento propio bloqueante | sin intento nuevo | `fallido` | recalculado | se detienen | no |
+| segundo preflight cambió o falló | `fallido_verificado` | `fallido` | recalculado | se detienen intactos | no |
+| rechazo ARCA explícito | `rechazado_arca` | `fallido` | recalculado | pueden continuar | iniciada |
+| respuesta o excepción post-ARCA incierta | `requiere_reconciliacion` | `requiere_reconciliacion` | `requiere_reconciliacion` | se detienen intactos | iniciada |
+| caída DB pre-ARCA sin intentos y recuperación durable | ninguno | vuelve a `fallido` | recalculado | no procesados | no |
+| caída DB con intento o después de ARCA | bloqueante | `reintentando` o `requiere_reconciliacion` | bloqueado | no procesados | posible |
+
+### Orden de operaciones del segundo corte
+
+1. Verificar usuario, emisor activo y pertenencia del lote.
+2. Resolver la operación idempotente con la selección y la huella estable de
+   los payloads fiscales.
+3. Recalcular y validar confirmación de fecha fiscal y punto de venta.
+4. Validar la confirmación adicional de duplicado lógico cuando corresponda.
+5. Obtener únicamente grupos `fallido` de la selección.
+6. Reclamar cada grupo mediante `fallido -> reintentando` antes de entrar al
+   núcleo fiscal.
+7. Ejecutar diagnóstico, reserva durable y segundo preflight mediante el núcleo
+   individual compartido.
+8. Aplicar y persistir el resultado del grupo, sus filas, intento, comprobante,
+   evento y resumen del lote.
+9. Detener inmediatamente la selección ante bloqueo de numeración, aborto del
+   segundo preflight o incertidumbre post-ARCA.
+10. Guardar la respuesta idempotente final con estado `finalizado` o
+    `requiere_reconciliacion` según el lote.
+
+### Fallos intermedios, concurrencia y recuperación
+
+- El CAS de grupo impide doble reclamo aunque dos requests superen lecturas
+  previas simultáneas.
+- La operación idempotente protege doble click, replay y selección conflictiva.
+- Una caída durablemente recuperable antes de crear intentos restaura solo el
+  grupo reclamado y abre replay con la misma clave.
+- Una caída con intento existente no se presenta como reintentable: conserva la
+  clave y responde el bloqueo pre-ARCA vigente.
+- Una excepción al trasladar un resultado post-ARCA a grupo/lote debe hacer
+  rollback de la transacción incompleta y reconstruir un estado
+  `requiere_reconciliacion` desde el intento y la respuesta conocida. Si ese
+  cierre tampoco puede persistirse, el grupo `reintentando` y el intento activo
+  siguen siendo bloqueantes y la API responde `409`.
+- No hay migración. Las constraints e índices parciales vigentes continúan como
+  defensa SQLite/PostgreSQL.
+
+### Matriz automatizada de PF-02B.2
+
+- historia local parcial y ARCA estable: autoriza `ultimo_arca + 1`, vincula
+  operación/intento/grupo y el replay exacto no vuelve a consultar ni emitir;
+- avance externo y error en el segundo preflight: cero FECAE, intento
+  `fallido_verificado`, grupo sin número/CAE/comprobante y selección detenida;
+- `local_adelantada`: cero intentos nuevos y cero FECAE;
+- intento propio `en_proceso` y `requiere_reconciliacion`: cero reservas nuevas
+  y cero FECAE;
+- respuesta post-ARCA ambigua: primer grupo y lote en reconciliación, grupos
+  restantes intactos y ninguna llamada fiscal posterior;
+- excepción de persistencia de la capa de lote después de un resultado
+  autorizado: nunca vuelve a `fallido`, conserva evidencia conocida y bloquea;
+- rechazo ARCA explícito: grupo `fallido`, intento `rechazado_arca` y sin
+  reconciliación falsa;
+- misma clave con mismo material: replay sin nueva ejecución; misma clave con
+  selección distinta: `409`;
+- doble reclamo concurrente: un único grupo entra al núcleo;
+- emisor ajeno: rechazo antes del servicio fiscal;
+- regresiones existentes de fecha fiscal, duplicado lógico, caída DB pre/post
+  ARCA, procesamiento normal unitario/batch y worker stale estricto.
+
+No se realizan llamadas ARCA reales. Las pruebas usan dobles controlados y
+datos fiscales sintéticos.

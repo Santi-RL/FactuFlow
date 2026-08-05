@@ -2,8 +2,8 @@
 
 Última actualización: 2026-08-04
 
-Estado: PRIORIZADO; PF-01 Y PF-02A CERRADOS; PF-02B.1 INTEGRADO Y PF-02B EN
-CONTINUACIÓN POR CORTES.
+Estado: PRIORIZADO; PF-01 Y PF-02A CERRADOS; PF-02B.1/PF-02B.2 INTEGRADOS Y
+PF-02B EN CONTINUACIÓN POR CORTES.
 
 ## Propósito y autoridad
 
@@ -105,7 +105,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | ID | Línea de trabajo y resultado buscado | Fuentes consolidadas | Riesgo o valor | Dependencias principales | Banda |
 |---|---|---|---|---|---|
 | PF-01 | Integridad de autorización fiscal: CAE válido, estados coherentes, idempotencia y reconciliación segura | Hallazgos ARCA/CAE, emisión individual y lotes; P1 fiscal | Evitar reintentos inseguros, autorizaciones incompletas y estados ambiguos | Checklist fiscal, tabla de estados y tests de fallos post-ARCA | A |
-| PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | PF-02A individual y PF-02B.1 batch integrados; faltan ratificar transiciones/reintentos y extender worker stale | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
+| PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | PF-02A individual y PF-02B.1 batch integrados; PF-02B.2 cierra reintentos manuales y falta extender worker stale | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
 | PF-03 | Validación fiscal de entradas, fechas, importes, moneda y totales | Hallazgos de esquemas, analizadores, descuentos, perfiles, constancias y plantillas | Evitar payloads no elegidos, fechas inválidas y montos incoherentes | Contratos UI/API y matriz individual/masiva | A |
 | PF-04 | Evidencia fiscal histórica correcta en PDFs y reportes | Hallazgos de instantánea del emisor, moneda, IVA, paginado, ranking y aislamiento PDF | Evitar documentos históricos mutables o informes impositivos incorrectos | Modelo de instantáneas, migración de datos heredados y pruebas de evidencia | A |
 | PF-05 | Reconstrucción histórica opcional desde ARCA | P2 explícito del roadmap | Completar informes sin convertir historia externa en requisito de emisión | PF-02, PF-04, procedencia, cobertura y registro reanudable | B |
@@ -181,7 +181,6 @@ Antes de editar código, cada corte debe tener:
   `gpt-5.6-sol high`.
 - PF-01B cerró B10/B17 como `fixed` después de migración, constraints, matriz
   SQLite/PostgreSQL, CI y revalidación secuencial con `gpt-5.6-sol high`.
-- PF-02A individual y PF-02B.1 batch están integrados en `main`. Quedan la
-  ratificación específica de transiciones y reintentos, y la extensión segura
-  de la recuperación stale del worker. La reconstrucción histórica opcional
-  continúa separada en PF-05.
+- PF-02A individual, PF-02B.1 batch y PF-02B.2 reintentos manuales están
+  integrados en `main`. Queda la extensión segura de la recuperación stale del
+  worker. La reconstrucción histórica opcional continúa separada en PF-05.

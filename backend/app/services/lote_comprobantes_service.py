@@ -1778,6 +1778,8 @@ class LoteComprobantesService:
                 request.punto_venta_id,
                 request.tipo_comprobante,
             )
+            fase_grupo = FaseSolicitudArca()
+            resultado: EmitirComprobanteResponse | None = None
             async with lock:
                 try:
                     resultado = (
@@ -1788,9 +1790,11 @@ class LoteComprobantesService:
                             usuario_id=usuario_id,
                             lote_id=lote_id,
                             grupo_id=grupo_reclamado.id,
-                            fase_solicitud_arca=fase_solicitud_arca,
+                            fase_solicitud_arca=fase_grupo,
                         )
                     )
+                    if fase_grupo.iniciada:
+                        fase_solicitud_arca.marcar_iniciada()
                     await self._aplicar_resultado_emision_grupo(
                         grupo_reclamado,
                         resultado,
@@ -1813,6 +1817,8 @@ class LoteComprobantesService:
                     await self._actualizar_estado_lote(lote)
                     await self.db.commit()
                 except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                    if fase_grupo.iniciada:
+                        fase_solicitud_arca.marcar_iniciada()
                     recuperada = False
                     if operacion_id is not None and not fase_solicitud_arca.iniciada:
                         recuperada = (
@@ -1827,13 +1833,24 @@ class LoteComprobantesService:
                     raise
                 except Exception as exc:  # pragma: no cover - defensa operacional
                     try:
-                        await self._marcar_reintento_fallido(
-                            lote_id=lote_id,
-                            empresa_id=empresa_id,
-                            usuario_id=usuario_id,
-                            grupo=grupo_reclamado,
-                            exc=exc,
-                        )
+                        if fase_grupo.iniciada:
+                            fase_solicitud_arca.marcar_iniciada()
+                            await self._marcar_reintento_requiere_reconciliacion(
+                                lote_id=lote_id,
+                                empresa_id=empresa_id,
+                                usuario_id=usuario_id,
+                                grupo_id=grupo_reclamado.id,
+                                operacion_id=operacion_id,
+                                resultado=resultado,
+                            )
+                        else:
+                            await self._marcar_reintento_fallido(
+                                lote_id=lote_id,
+                                empresa_id=empresa_id,
+                                usuario_id=usuario_id,
+                                grupo=grupo_reclamado,
+                                exc=exc,
+                            )
                     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
                         recuperada = False
                         if (
@@ -1850,6 +1867,17 @@ class LoteComprobantesService:
                             )
                         fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
                         raise
+                    if fase_grupo.iniciada:
+                        break
+
+            if resultado is not None and (
+                resultado.requiere_reconciliacion
+                or (
+                    not resultado.exito
+                    and resultado.categoria_error != "arca_no_aprobado"
+                )
+            ):
+                break
 
         return await self.obtener_lote_resumen(lote_id, empresa_id)
 
@@ -2230,15 +2258,119 @@ class LoteComprobantesService:
     ) -> None:
         """Persiste un reintento fallido y actualiza el resumen del lote."""
         logger.exception("Error reintentando grupo fallido %s", grupo.id)
+        mensaje = (
+            "No se pudo completar el reintento antes de solicitar CAE. "
+            "El detalle técnico quedó registrado en logs privados."
+        )
         grupo.estado = "fallido"
-        grupo.mensajes_json = [str(exc)]
+        grupo.mensajes_json = [mensaje]
         await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
         self._registrar_evento_lote(
             lote_id=lote_id,
             accion="reintentar_fallido",
             usuario_id=usuario_id,
             grupo_id=grupo.id,
-            metadata_json={"resultado": "fallido", "error": str(exc)},
+            metadata_json={
+                "resultado": "fallido",
+                "categoria_error": "reintento_pre_arca",
+            },
+        )
+        await self.db.flush()
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        await self._actualizar_estado_lote(lote)
+        await self.db.commit()
+
+    async def _marcar_reintento_requiere_reconciliacion(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+        usuario_id: int | None,
+        grupo_id: int,
+        operacion_id: int | None,
+        resultado: EmitirComprobanteResponse | None,
+    ) -> None:
+        """Reconstruye un bloqueo durable tras un fallo local post-ARCA."""
+        logger.exception(
+            "Fallo local post-ARCA al cerrar reintento del grupo %s",
+            grupo_id,
+        )
+        await self.db.rollback()
+
+        grupo = await self._obtener_grupo_para_resolver(
+            lote_id=lote_id,
+            grupo_id=grupo_id,
+            estados={"reintentando", "requiere_reconciliacion"},
+        )
+        intento_query = select(IntentoEmisionFiscal).where(
+            IntentoEmisionFiscal.lote_id == lote_id,
+            IntentoEmisionFiscal.grupo_id == grupo_id,
+        )
+        if operacion_id is not None:
+            intento_query = intento_query.where(
+                IntentoEmisionFiscal.operacion_id == operacion_id
+            )
+        intento = (
+            await self.db.execute(
+                intento_query.order_by(IntentoEmisionFiscal.id.desc()).limit(1)
+            )
+        ).scalar_one_or_none()
+
+        mensaje = (
+            "ARCA pudo haber autorizado el comprobante, pero FactuFlow no pudo "
+            "completar el registro local. No lo reintentes hasta reconciliarlo."
+        )
+        numero_conocido = resultado.numero if resultado and resultado.numero else None
+        cae_conocido = resultado.cae if resultado else None
+        if intento is not None:
+            numero_conocido = numero_conocido or intento.numero_planificado
+            cae_conocido = cae_conocido or intento.cae
+
+        grupo.estado = "requiere_reconciliacion"
+        grupo.numero_asignado = numero_conocido
+        grupo.cae = cae_conocido
+        grupo.comprobante_id = None
+        grupo.mensajes_json = [mensaje]
+        await self._marcar_filas(
+            grupo,
+            "requiere_reconciliacion",
+            grupo.mensajes_json,
+        )
+
+        if intento is not None:
+            if resultado is not None:
+                respuesta_bloqueante = resultado.model_copy(
+                    update={
+                        "exito": False,
+                        "comprobante_id": None,
+                        "mensaje": mensaje,
+                        "errores": [mensaje],
+                        "requiere_reconciliacion": True,
+                        "categoria_error": "post_arca_persistencia",
+                    }
+                )
+                await IdempotenciaFiscalService(
+                    self.db
+                ).actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta_bloqueante,
+                    commit=False,
+                )
+            else:
+                intento.estado = "requiere_reconciliacion"
+                intento.categoria_error = "post_arca_persistencia"
+                intento.mensaje = mensaje
+                self.db.add(intento)
+
+        self._registrar_evento_lote(
+            lote_id=lote_id,
+            accion="reintentar_fallido",
+            usuario_id=usuario_id,
+            grupo_id=grupo_id,
+            metadata_json={
+                "resultado": "requiere_reconciliacion",
+                "categoria_error": "post_arca_persistencia",
+            },
         )
         await self.db.flush()
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)

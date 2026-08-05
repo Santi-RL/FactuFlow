@@ -303,7 +303,7 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   solo los grupos con evidencia fiscal como `requiere_reconciliacion` y exigir
   auditoría antes de continuar.
 
-### PF-02A/PF-02B: numeración individual y núcleo batch con historia externa
+### PF-02A/PF-02B: numeración individual, batch y reintentos con historia externa
 
 - `FECompUltimoAutorizado` es la fuente del siguiente número fiscal global para
   el emisor, punto de venta y tipo. Una historia ARCA posterior a la local se
@@ -324,12 +324,16 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   una clave nueva.
 - Una excepción después de iniciar `FECAESolicitar` no usa estas categorías:
   mantiene `requiere_reconciliacion` y las reglas de PF-01.
-- El procesamiento batch normal ya aplica esta política. La recuperación stale
-  del worker conserva una puerta estricta antes de reencolar y no libera
-  intentos propios inciertos. El reintento manual reutiliza el núcleo individual
-  y por eso admite `arca_adelantada` en runtime, pero su contrato de estados y
-  fallos todavía requiere cobertura específica. El valor de diagnóstico nunca
-  se escribe en `numero_asignado` sin reserva, intento y resultado fiscal.
+- El procesamiento batch normal y el reintento manual aplican esta política. El
+  reintento detiene la selección ante un bloqueo o aborto pre-ARCA; solo un
+  rechazo ARCA explícito puede permitir continuar. Una respuesta ambigua o una
+  falla local posterior a una autorización conocida conserva grupo, lote e
+  intento como `requiere_reconciliacion`, hace rollback del comprobante
+  incompleto y no toca los grupos posteriores.
+- La recuperación stale del worker conserva una puerta estricta antes de
+  reencolar y no libera intentos propios inciertos; su extensión sigue separada
+  en PF-02B.3. El valor de diagnóstico nunca se escribe en
+  `numero_asignado` sin reserva, intento y resultado fiscal.
 - PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
   opcional corresponde a PF-05.
 ### Reconciliación externa de lotes

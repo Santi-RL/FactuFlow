@@ -1,14 +1,14 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-05
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
 Este manual describe las capacidades aceptadas en `main`. La versión publicada
-y desplegada continúa siendo `v0.2.2` del 23/07/2026. PF-02A y PF-02B.1 están
-integrados en `main`, pero todavía no pertenecen a una release ni están
-disponibles en producción. No debe asumirse que una función posterior al tag
-desplegado ya está operativa en una instalación concreta.
+y desplegada continúa siendo `v0.2.2` del 23/07/2026. PF-02A, PF-02B.1 y
+PF-02B.2 están integrados en `main`, pero todavía no pertenecen a una release ni
+están disponibles en producción. No debe asumirse que una función posterior al
+tag desplegado ya está operativa en una instalación concreta.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -378,7 +378,11 @@ excepcionales con la revisión normal del lote:
 - `Reintentar fallidos`: vuelve a solicitar CAE para comprobantes fallidos. La
   pantalla muestra una confirmación de fecha fiscal y punto de venta; si esos
   datos no son correctos, cancela y revisa el lote. No se habilita para lotes en
-  `Requiere reconciliación`.
+  `Requiere reconciliación`. Si ARCA registra actividad externa legítima,
+  FactuFlow usa el siguiente número global y vuelve a verificarlo antes del
+  CAE. Un cambio, error o intento propio incierto detiene la selección sin tocar
+  los comprobantes posteriores. Solo un rechazo ARCA explícito permite seguir
+  con el siguiente comprobante.
 - `Reconciliar ARCA Web`: úsalo cuando el comprobante pendiente ya fue emitido
   manualmente desde ARCA Web. Debes cargar el comprobante visible, número
   autorizado, CAE si lo tienes y motivo operativo. FactuFlow consulta ARCA antes
@@ -386,6 +390,12 @@ excepcionales con la revisión normal del lote:
   interrumpidos que quedaron pendientes de verificación.
 - `Descartar visibles`: cierra comprobantes pendientes que no deben emitirse
   desde ese lote. No se usa para comprobantes con incertidumbre post-ARCA.
+
+Si ARCA autorizó pero FactuFlow falla al cerrar el registro local, el reintento
+queda en `Requiere reconciliación` aunque el comprobante todavía no aparezca en
+la lista local. No vuelvas a pulsar `Reintentar`: el sistema conserva el número
+y el CAE conocidos para que soporte pueda verificar el comprobante sin riesgo
+de duplicarlo.
 
 Estados de cierre:
 

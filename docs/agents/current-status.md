@@ -38,6 +38,33 @@ ajeno a su escenario. No se relajó la validación productiva. No hubo
 certificados reales, conexiones ARCA, solicitudes de CAE ni cambios
 productivos.
 
+## PF-02B.2 — reintentos manuales seguros
+
+El segundo corte de PF-02B cierra el contrato específico de
+`reintentar-fallidos` sobre el núcleo individual compartido. El flujo admite
+historia externa legítima desde `ultimo_arca + 1`, conserva el CAS
+`fallido -> reintentando` y detiene inmediatamente la selección si existe un
+intento propio bloqueante, la numeración local está adelantada, el segundo
+preflight cambia o falla, o aparece incertidumbre después de iniciar FECAE.
+
+Un rechazo ARCA explícito puede liberar el número y permitir el grupo siguiente.
+Una respuesta ambigua o una falla local posterior a una autorización conocida
+nunca vuelve el grupo a `fallido`: hace rollback de la persistencia incompleta,
+conserva número y CAE conocidos en el intento y deja grupo/lote en
+`requiere_reconciliacion`, con mensajes públicos sanitizados. No cambia la UI,
+el contrato HTTP, el esquema ni la recuperación stale del worker.
+
+La matriz específica aprobó `11` escenarios y la regresión completa de lotes
+aprobó `109`, incluidos procesamiento unitario y batch, reanudación y worker
+stale. La puerta global aprobó `548` pruebas backend con `4` omisiones por
+harness, `131` frontend, `16` de scripts y `33` E2E, además de Ruff, Black,
+type-check y build. Una única revisión con Codex `gpt-5.6-sol`, thinking
+`medium`, completó dos pases automáticos por tamaño, quedó limpia con confianza
+`0,99` y cero findings; usó el binario versionado `0.147.0-alpha.1.2`. No hubo
+emisiones reales, solicitudes de CAE, migraciones ni llamadas ARCA de escritura.
+El siguiente corte de PF-02 es PF-02B.3: extender la recuperación stale sin
+liberar intentos propios inciertos.
+
 ## Integrado en main — PF-02B.1 numeración masiva
 
 El primer corte de PF-02B fue integrado en `main` mediante el PR `#16`, commit
@@ -58,10 +85,7 @@ ARCA de escritura.
 
 La recuperación stale del worker conserva una puerta estricta: solo reencola
 grupos intactos cuando la numeración está alineada y nunca libera intentos
-propios inciertos. El reintento manual reutiliza actualmente el núcleo
-individual y por eso admite `arca_adelantada` en runtime, pero sus transiciones
-de grupo y fallos todavía necesitan cobertura específica antes de cerrar ese
-tramo de PF-02B.
+propios inciertos. Su extensión segura permanece separada en PF-02B.3.
 
 ## Integrado en main — PF-02A numeración individual
 
@@ -186,9 +210,9 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 2026-07-23.
-- `main` contiene además de `v0.2.2` los cortes PF-02A y PF-02B.1 integrados por
-  los PR `#15` y `#16`. Esos cambios posteriores aún no pertenecen a una
-  release publicada ni a la versión productiva.
+- `main` contiene además de `v0.2.2` PF-02A y los dos primeros cortes de PF-02B.
+  Esos cambios posteriores aún no pertenecen a una release publicada ni a la
+  versión productiva.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 2026-07-23.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
@@ -431,11 +455,10 @@ Siguen pendientes:
    administrador, sin exigir un segundo aprobador humano. La continuación de
    PF-16 agrega la puerta documental semántica y `npm run docs:check` sin
    presentar el control automático como sustituto de la revisión.
-10. PF-02A y PF-02B.1 están integrados en `main`. El siguiente corte debe
-    ratificar con pruebas específicas las transiciones y fallos de reintentos
-    manuales, y luego extender de forma explícita la recuperación stale del
-    worker sin liberar intentos inciertos. Después siguen PF-03, PF-06/PF-07,
-    PF-08 y PF-09 según el portafolio integrado.
+10. PF-02A, PF-02B.1 y PF-02B.2 están integrados en `main`. El siguiente corte
+    debe extender de forma explícita la recuperación stale del worker sin
+    liberar intentos inciertos y cerrar la QA fiscal de PF-02. Después siguen
+    PF-03, PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
     PF-16C continúa en paralelo únicamente con la modernización planificada del
     toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex

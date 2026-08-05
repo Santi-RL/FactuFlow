@@ -22,12 +22,14 @@ constraints y smoke checks aprobados. No se solicitaron CAE ni se realizaron
 emisiones durante la actualización. El detalle se conserva en `CHANGELOG.md` y
 `docs/project/releases/v0.2.2-candidate.md`.
 
-Después de ese tag, `main` incorporó PF-02A y PF-02B.1 mediante los PR `#15` y
-`#16`: la emisión individual y el procesamiento batch normal pueden continuar
-ante historia externa legítima usando la numeración global de ARCA, sin liberar
-intentos propios inciertos y con un segundo preflight antes de FECAE. Estos
-cambios todavía no pertenecen a una release publicada ni están desplegados en
-producción.
+Después de ese tag, `main` incorporó PF-02A y los dos primeros cortes de
+PF-02B: la emisión individual, el procesamiento batch normal y los reintentos
+manuales pueden continuar ante historia externa legítima usando la numeración
+global de ARCA, sin liberar intentos propios inciertos y con un segundo
+preflight antes de FECAE. Los reintentos detienen la selección ante numeración
+inestable o incertidumbre post-ARCA y nunca degradan una autorización conocida
+a un estado reintentable. Estos cambios todavía no pertenecen a una release
+publicada ni están desplegados en producción.
 
 Capacidades actuales:
 

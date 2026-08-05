@@ -29,10 +29,15 @@ Reglas vigentes desde 2026-05-22:
   autoridad al núcleo batch: reserva el rango completo y repite
   `FECompUltimoAutorizado` antes de `FECAESolicitar`. Un cambio o error aborta
   el sublote con cero solicitudes de CAE y cero comprobantes nuevos.
-- Los reintentos manuales reutilizan actualmente el núcleo individual y admiten
-  `arca_adelantada`, pero sus transiciones y fallos requieren cobertura
-  específica. La recuperación stale conserva una puerta estricta antes de
-  reencolar y no libera intentos propios inciertos.
+- PF-02B.2 cierra el contrato de reintentos manuales: admite
+  `arca_adelantada`, detiene la selección ante bloqueos o abortos del segundo
+  preflight, permite continuar solo después de un rechazo ARCA explícito y
+  conserva `requiere_reconciliacion` ante cualquier incertidumbre post-ARCA.
+  Una falla local posterior a una autorización conocida hace rollback del
+  comprobante incompleto, preserva número/CAE en el intento y nunca vuelve el
+  grupo a `fallido`. Los errores inesperados se muestran sanitizados.
+- La recuperación stale conserva una puerta estricta antes de reencolar y no
+  libera intentos propios inciertos; su extensión corresponde a PF-02B.3.
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
   Ninguno de estos cortes posteriores a `v0.2.2` está desplegado todavía.
 
