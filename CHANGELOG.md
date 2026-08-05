@@ -29,7 +29,8 @@ Reglas vigentes desde 2026-05-22:
   autoridad al núcleo batch: reserva el rango completo y repite
   `FECompUltimoAutorizado` antes de `FECAESolicitar`. Un cambio o error aborta
   el sublote con cero solicitudes de CAE y cero comprobantes nuevos.
-- PF-02B.2 cierra el contrato de reintentos manuales: admite
+- PF-02B.2, integrado mediante el PR `#19` (`1a5e335`), cierra el contrato de
+  reintentos manuales: admite
   `arca_adelantada`, detiene la selección ante bloqueos o abortos del segundo
   preflight, permite continuar solo después de un rechazo ARCA explícito y
   conserva `requiere_reconciliacion` ante cualquier incertidumbre post-ARCA.
@@ -43,7 +44,8 @@ Reglas vigentes desde 2026-05-22:
 
 ### Calidad y seguridad
 
-- `cryptography` se actualiza de `48.0.1` a `50.0.0`, corrigiendo
+- El PR `#20` (`712197d`) actualiza `cryptography` de `48.0.1` a `50.0.0`,
+  corrigiendo
   `PYSEC-2026-3552`, `PYSEC-2026-3553` y `PYSEC-2026-3554` sin excepciones en
   la auditoría. La compatibilidad de carga PEM, claves cifradas y firma CMS se
   verifica con material criptográfico sintético.
@@ -63,6 +65,10 @@ Reglas vigentes desde 2026-05-22:
   antes de marcar un PR como listo. La plantilla exige una matriz por impacto y
   la CI comprueba versiones y marcadores transitorios también en cambios Nivel
   0; este control estructural no reemplaza la revisión semántica.
+- Después de PF-02B.2, la matriz documental separa resumen/arquitectura, API y
+  evidencia de testing. Un contrato HTTP o comando de test sin cambios ya no
+  justifica por sí solo un `No aplica` cuando cambió la semántica documentada,
+  el estado de `main` o la evidencia vigente.
 - Se explicita que `autoreview --mode local` es el cierre predeterminado de un
   diff sin commit; `--mode commit` queda reservado para commits que ya existen
   por una razón real y `--mode branch` para rangos acumulados.

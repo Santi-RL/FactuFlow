@@ -28,6 +28,9 @@
 <!--
 Completar cada fila con archivos concretos o "No aplica" y una justificación.
 La documentación debe describir el estado objetivo de main, no la rama actual.
+No usar "No aplica" solo porque no cambió la forma del contrato HTTP o los
+comandos de test: si cambió la conducta documentada, el estado de main o la
+evidencia vigente, hay que actualizar o justificar esos documentos por separado.
 -->
 
 | Área revisada | Archivos actualizados o motivo de `No aplica` |
@@ -35,8 +38,11 @@ La documentación debe describir el estado objetivo de main, no la rama actual.
 | Estado, roadmap y portafolio | |
 | `CHANGELOG.md > Unreleased` | |
 | README y manual de usuario | |
-| QA, testing y diseño del corte | |
-| ARCA/API, si corresponde | |
+| Resumen, arquitectura e índices | |
+| QA y diseño del corte | |
+| Testing y evidencia de validación | |
+| API y documentación de dominio | |
+| ARCA, si corresponde | |
 | Versión publicada, producción, setup y releases | |
 | Índices y fechas/estados documentales | |
 
@@ -46,6 +52,8 @@ La documentación debe describir el estado objetivo de main, no la rama actual.
 - [ ] No quedan nombres de ramas temporales ni estados efímeros en documentos
       canónicos.
 - [ ] Revisé todos los consumidores de servicios o contratos compartidos.
+- [ ] Busqué afirmaciones anteriores que presenten como pendiente una capacidad
+      cerrada por este PR, incluso fuera de los archivos inicialmente previstos.
 
 ## Seguridad y privacidad
 

@@ -665,12 +665,17 @@ contrato idempotente: exige `X-Idempotency-Key`,
 acotar el reintento. Un grupo tomado para reintento que queda incierto debe
 tratarse como reconciliable, no como fallido reintentable.
 
-El reintento manual reutiliza actualmente el núcleo individual y admite
-`arca_adelantada` con el mismo segundo preflight. Este comportamiento existe en
-runtime, pero sus transiciones de grupo y fallos intermedios todavía requieren
-cobertura específica antes de considerar cerrado ese tramo de PF-02B. La
-recuperación stale del worker conserva una puerta previa más estricta: solo
-reencola grupos intactos, sin intentos, cuando la numeración está alineada.
+El reintento manual reutiliza el núcleo individual y admite `arca_adelantada`
+con el mismo segundo preflight. PF-02B.2 cerró sus transiciones de grupo y
+fallos intermedios: cada grupo se reclama mediante CAS antes de emitir; un
+bloqueo propio, una numeración local adelantada, un cambio o error del segundo
+preflight y cualquier incertidumbre post-ARCA detienen la selección. Solo un
+rechazo ARCA explícito permite continuar con el grupo siguiente. Una respuesta
+ambigua o una falla local posterior a una autorización conocida deja
+grupo/lote en `requiere_reconciliacion`, conserva la evidencia fiscal y nunca
+vuelve el grupo a `fallido`. La recuperación stale del worker conserva una
+puerta previa más estricta: solo reencola grupos intactos, sin intentos, cuando
+la numeración está alineada; su extensión corresponde a PF-02B.3.
 
 Durante el procesamiento, el backend actualiza `grupos_emitidos`,
 `grupos_fallidos`, `grupos_validos` y `mensaje_resumen` después de cada grupo,

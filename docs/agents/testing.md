@@ -260,9 +260,18 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 Fecha: 2026-08-05
 
+- PF-02B.2: `11` escenarios específicos de reintento manual y `109` pruebas de
+  lotes aprobadas; puerta global con `548` backend (`4` omitidas), `131`
+  frontend, `16` de scripts y `33` E2E, además de Ruff, Black, type-check,
+  build y `docs:check`. El PR `#19` y la CI post-merge de `main` aprobaron los
+  seis checks obligatorios sobre `853e58b` y `1a5e335`, respectivamente.
+  Los dobles controlados no solicitaron CAE ni realizaron llamadas ARCA de
+  escritura.
 - Actualización de `cryptography` a `50.0.0`: `47` pruebas enfocadas de
   criptografía, certificados, WSAA y migración aprobadas; backend completo con
-  `540` aprobadas y `4` omitidas; Ruff, Black y `pip-audit` sin hallazgos.
+  `540` aprobadas y `4` omitidas; Ruff, Black y `pip-audit` sin hallazgos. El
+  PR `#20` aprobó los seis checks sobre `8ebf459`; su integración quedó en
+  `712197d` y la CI post-merge volvió a aprobarlos.
 - Tres tests batch con fecha fiscal explícita fija quedaron aislados del reloj
   de ejecución porque verifican numeración, no la ventana temporal. El helper
   productivo no cambió.

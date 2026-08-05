@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-08-04
+Última actualización: 2026-08-05
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -228,8 +228,9 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       batch acepta historia externa legítima, reserva un rango durable y repite
       `FECompUltimoAutorizado` antes de `FECAESolicitar`; un cambio o error
       aborta todo el sublote con cero CAE.
-    - [x] Segundo corte: ratificar y completar las transiciones de grupos y los
-      reintentos manuales con cobertura específica. Admiten
+    - [x] Segundo corte integrado mediante el PR `#19` (`1a5e335`): ratificar y
+      completar las transiciones de grupos y los reintentos manuales con
+      cobertura específica. Admiten
       `arca_adelantada`, detienen la selección ante bloqueos, aborto del segundo
       preflight o incertidumbre post-ARCA, y preservan como reconciliable una
       autorización conocida aunque falle el cierre local.

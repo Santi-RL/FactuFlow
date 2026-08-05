@@ -1,6 +1,6 @@
 # Puertas de calidad y evidencia de cambios
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-05
 
 Estado: VIGENTE para todo cambio nuevo después de `v0.2.2`.
 
@@ -79,9 +79,12 @@ Matriz mínima por impacto:
 | Impacto | Documentación que debe revisarse |
 |---|---|
 | Todo cambio funcional aceptado | `CHANGELOG.md > Unreleased`, `ROADMAP.md`, `docs/agents/current-status.md` y `docs/agents/manual-qa.md` |
-| Pantallas, pasos o capacidades visibles | `README.md`, `docs/user-guide/README.md` y documentación API si cambia el contrato |
+| Estado de `main`, capacidades o próximo paso | `README.md`, `docs/agents/overview.md`, `ROADMAP.md` y `docs/agents/development-portfolio.md` |
+| Pantallas o pasos visibles | `docs/user-guide/README.md` y manuales del flujo |
+| Conducta de un endpoint o servicio | `docs/api/README.md` y documentación de dominio, aunque rutas, schemas y status HTTP no cambien |
 | ARCA, CAE, numeración, lotes o reconciliación | diseño fiscal, `docs/agents/arca.md`, `docs/arca-ws/NOTAS.md` y matriz de QA |
-| Arquitectura, tooling o estrategia de tests | `docs/agents/overview.md`, `docs/agents/testing.md`, `CONTRIBUTING.md` e índices aplicables |
+| Tests, CI o evidencia de validación | `docs/agents/testing.md`, aunque los comandos de ejecución no cambien |
+| Arquitectura o tooling | `docs/agents/overview.md`, `CONTRIBUTING.md` e índices aplicables |
 | Release, despliegue o instalación | README, changelog, estado, manual, setup, dossier e índices de releases |
 | Avance de una línea PF | `docs/agents/development-portfolio.md` y estado del documento de diseño |
 
@@ -89,6 +92,12 @@ No se exige editar todos esos archivos indiscriminadamente. Se exige revisarlos
 y registrar en el PR cuáles cambiaron y por qué los restantes no aplican. Una
 casilla genérica o la mera presencia del archivo en el diff no constituyen
 evidencia.
+
+Un contrato HTTP sin cambios no vuelve irrelevante la guía API si cambió la
+semántica del endpoint. Del mismo modo, comandos de test estables no justifican
+omitir `docs/agents/testing.md` cuando el PR agrega una matriz, nuevos conteos o
+un checkpoint de CI. Si cambia qué contiene `main` o cuál es el siguiente paso,
+`docs/agents/overview.md` debe revisarse aunque la arquitectura no cambie.
 
 Los documentos canónicos incluidos en el PR describen cómo quedará `main` al
 integrarse; no deben contener nombres de ramas temporales ni estados como
