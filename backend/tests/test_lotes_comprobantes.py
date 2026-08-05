@@ -15,6 +15,7 @@ from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.exceptions import ArcaServiceError
+from app.arca.models import CAEResponse
 from app.arca.models import ComprobanteResponse as ArcaComprobanteResponse
 from app.core.config import settings
 from app.models.certificado import Certificado
@@ -69,6 +70,7 @@ CAE_TEST_NO_REAL_37 = f"{CAE_TEST_NO_REAL_SERIE}37"
 CAE_TEST_NO_REAL_38 = f"{CAE_TEST_NO_REAL_SERIE}38"
 CAE_TEST_NO_REAL_39 = f"{CAE_TEST_NO_REAL_SERIE}39"
 CAE_TEST_NO_REAL_40 = f"{CAE_TEST_NO_REAL_SERIE}40"
+FECHA_FISCAL_PF02B2 = date(2026, 7, 29)
 
 
 @pytest.fixture(autouse=True)
@@ -734,6 +736,75 @@ async def _marcar_grupos_lote(
     await service._actualizar_estado_lote(lote)
     await db_session.commit()
     return grupos
+
+
+async def _preparar_reintento_manual_pf02b2(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta: PuntoVenta,
+    wsfe_client_class: type,
+    *,
+    nombre_archivo: str,
+    total_grupos: int = 1,
+    ultimo_local: int | None = None,
+) -> tuple[int, list[LoteComprobanteGrupo]]:
+    """Prepara un reintento manual determinista con un doble WSFE controlado."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo=nombre_archivo,
+        total_grupos=total_grupos,
+    )
+    grupos = await _marcar_grupos_lote(
+        db_session,
+        lote_id,
+        ["fallido"] * total_grupos,
+    )
+    for grupo in grupos:
+        payload = dict(grupo.payload_json or {})
+        payload["fecha_emision"] = FECHA_FISCAL_PF02B2.isoformat()
+        grupo.payload_json = payload
+
+    if ultimo_local is not None:
+        await _persistir_comprobante_autorizado(
+            db_session,
+            test_empresa,
+            test_punto_venta,
+            tipo_comprobante=6,
+            numero=ultimo_local,
+            fecha_emision=date(2026, 7, 28),
+            cae=CAE_TEST_NO_REAL,
+            cae_vencimiento=date(2026, 8, 31),
+            total=Decimal("1210.00"),
+        )
+    await db_session.commit()
+
+    async def fake_validar_datos(self, request):
+        """Aísla la ventana temporal ARCA para usar una fecha fiscal fija."""
+
+    async def fake_ticket(self, empresa, certificado):
+        """Evita leer certificados o contactar WSAA."""
+        return SimpleNamespace(token="token-test", sign="sign-test")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        """Mantiene el punto sintético habilitado sin consultar ARCA."""
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        wsfe_client_class,
+    )
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    return lote_id, grupos
 
 
 @pytest.mark.asyncio
@@ -3473,6 +3544,626 @@ async def test_reintentar_fallidos_reclama_grupo_antes_de_emitir(
     assert estados_vistos == ["reintentando"]
     await db_session.refresh(grupo)
     assert grupo.estado == "fallido"
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_usa_historia_externa_y_replay_no_reemite(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """El reintento usa el siguiente ARCA y el replay no vuelve a solicitar CAE."""
+
+    class FakeWSFEClient:
+        """Simula historia externa estable y una autorización verificable."""
+
+        consultas_numeracion = 0
+        numeros_solicitados: list[int] = []
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Informa un comprobante externo posterior a la historia local."""
+            FakeWSFEClient.consultas_numeracion += 1
+            return 77
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Autoriza únicamente el número confirmado por ambos preflights."""
+            FakeWSFEClient.numeros_solicitados.append(arca_request.cbte_desde)
+            return CAEResponse(
+                cae=CAE_TEST_NO_REAL_ALT,
+                cae_vencimiento="20260831",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-reintento-historia-externa.xlsx",
+        total_grupos=2,
+        ultimo_local=76,
+    )
+    grupo_id = grupos[0].id
+    otro_grupo_id = grupos[1].id
+    headers = {
+        **auth_headers,
+        **_confirmacion_fecha_fiscal_header(
+            FECHA_FISCAL_PF02B2,
+            idempotency_key="idem-reintento-historia-externa",
+        ),
+    }
+    body = {"grupo_ids": [grupo_id]}
+
+    primera = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+    segunda = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+    conflicto = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json={"grupo_ids": [otro_grupo_id]},
+    )
+
+    assert primera.status_code == 200, primera.text
+    assert segunda.status_code == 200, segunda.text
+    assert conflicto.status_code == 409, conflicto.text
+    assert segunda.json() == primera.json()
+    assert FakeWSFEClient.consultas_numeracion == 2
+    assert FakeWSFEClient.numeros_solicitados == [78]
+    db_session.expire_all()
+    grupo = await db_session.get(LoteComprobanteGrupo, grupo_id)
+    assert grupo is not None
+    assert grupo.estado == "autorizado"
+    assert grupo.numero_asignado == 78
+    assert grupo.cae == CAE_TEST_NO_REAL_ALT
+    assert grupo.comprobante_id is not None
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.grupo_id == grupo.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(intentos) == 1
+    assert intentos[0].estado == "autorizado"
+    assert intentos[0].numero_planificado == 78
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-reintento-historia-externa"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "finalizado"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("segundo_preflight", "categoria_error"),
+    [
+        ("avanza", "numeracion_arca_cambio_pre_arca"),
+        ("falla", "preflight_arca_no_disponible"),
+    ],
+)
+async def test_reintentar_fallidos_aborta_seleccion_si_falla_segundo_preflight(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    segundo_preflight: str,
+    categoria_error: str,
+) -> None:
+    """La numeración inestable cierra el intento y no reclama otro grupo."""
+
+    class FakeWSFEClient:
+        """Desestabiliza el segundo preflight y prohíbe continuar la selección."""
+
+        consultas_numeracion = 0
+        llamadas_cae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Cambia o falla después de reservar el primer grupo."""
+            FakeWSFEClient.consultas_numeracion += 1
+            if FakeWSFEClient.consultas_numeracion == 1:
+                return 5
+            if FakeWSFEClient.consultas_numeracion == 2:
+                if segundo_preflight == "avanza":
+                    return 6
+                raise ArcaServiceError("preflight sintético no disponible")
+            raise AssertionError("No debe consultar la numeración de otro grupo")
+
+        async def fe_cae_solicitar(self, arca_request):
+            """No debe invocarse con una reserva no reconfirmada."""
+            FakeWSFEClient.llamadas_cae += 1
+            raise AssertionError("No debe solicitar CAE")
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo=f"lote-reintento-{segundo_preflight}.xlsx",
+        total_grupos=2,
+    )
+    grupo_ids = [grupo.id for grupo in grupos]
+    mensajes_segundo = list(grupos[1].mensajes_json or [])
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={
+            **auth_headers,
+            **_confirmacion_fecha_fiscal_header(
+                FECHA_FISCAL_PF02B2,
+                idempotency_key=f"idem-reintento-{segundo_preflight}",
+            ),
+        },
+        json={"grupo_ids": grupo_ids},
+    )
+
+    assert response.status_code == 200, response.text
+    assert FakeWSFEClient.consultas_numeracion == 2
+    assert FakeWSFEClient.llamadas_cae == 0
+    db_session.expire_all()
+    primero = await db_session.get(LoteComprobanteGrupo, grupo_ids[0])
+    segundo = await db_session.get(LoteComprobanteGrupo, grupo_ids[1])
+    assert primero is not None
+    assert segundo is not None
+    assert primero.estado == "fallido"
+    assert primero.numero_asignado is None
+    assert primero.cae is None
+    assert primero.comprobante_id is None
+    assert segundo.estado == "fallido"
+    assert segundo.mensajes_json == mensajes_segundo
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).order_by(IntentoEmisionFiscal.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(intentos) == 1
+    assert intentos[0].grupo_id == primero.id
+    assert intentos[0].estado == "fallido_verificado"
+    assert intentos[0].categoria_error == categoria_error
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Una respuesta ambigua bloquea el lote y deja intactos los demás grupos."""
+
+    class FakeWSFEClient:
+        """Simula una excepción incierta después de iniciar FECAE."""
+
+        consultas_numeracion = 0
+        llamadas_cae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable la numeración antes del primer FECAE."""
+            FakeWSFEClient.consultas_numeracion += 1
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Falla sin confirmar si ARCA autorizó el comprobante."""
+            FakeWSFEClient.llamadas_cae += 1
+            raise ArcaServiceError("respuesta sintética incierta")
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-reintento-incierto.xlsx",
+        total_grupos=2,
+    )
+    grupo_ids = [grupo.id for grupo in grupos]
+    mensajes_segundo = list(grupos[1].mensajes_json or [])
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={
+            **auth_headers,
+            **_confirmacion_fecha_fiscal_header(
+                FECHA_FISCAL_PF02B2,
+                idempotency_key="idem-reintento-incierto",
+            ),
+        },
+        json={"grupo_ids": grupo_ids},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["lote"]["estado"] == "requiere_reconciliacion"
+    assert FakeWSFEClient.consultas_numeracion == 2
+    assert FakeWSFEClient.llamadas_cae == 1
+    db_session.expire_all()
+    primero = await db_session.get(LoteComprobanteGrupo, grupo_ids[0])
+    segundo = await db_session.get(LoteComprobanteGrupo, grupo_ids[1])
+    assert primero is not None
+    assert segundo is not None
+    assert primero.estado == "requiere_reconciliacion"
+    assert primero.numero_asignado == 1
+    assert segundo.estado == "fallido"
+    assert segundo.mensajes_json == mensajes_segundo
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).order_by(IntentoEmisionFiscal.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(intentos) == 1
+    assert intentos[0].estado == "requiere_reconciliacion"
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-reintento-incierto"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "requiere_reconciliacion"
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_no_degrada_autorizacion_si_falla_capa_lote(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Un fallo local posterior al CAE debe bloquear, nunca volver a fallido."""
+
+    class FakeWSFEClient:
+        """Autoriza el primer comprobante antes del fallo local inyectado."""
+
+        llamadas_cae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable la numeración sintética."""
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Devuelve un CAE sintético válido."""
+            FakeWSFEClient.llamadas_cae += 1
+            return CAEResponse(
+                cae=CAE_TEST_NO_REAL_ALT,
+                cae_vencimiento="20260831",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-reintento-fallo-capa-lote.xlsx",
+        total_grupos=2,
+    )
+    grupo_ids = [grupo.id for grupo in grupos]
+    mensajes_segundo = list(grupos[1].mensajes_json or [])
+
+    async def fail_aplicar_resultado(self, grupo, resultado):
+        raise RuntimeError("detalle interno sintético")
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "_aplicar_resultado_emision_grupo",
+        fail_aplicar_resultado,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={
+            **auth_headers,
+            **_confirmacion_fecha_fiscal_header(
+                FECHA_FISCAL_PF02B2,
+                idempotency_key="idem-reintento-fallo-capa-lote",
+            ),
+        },
+        json={"grupo_ids": grupo_ids},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["lote"]["estado"] == "requiere_reconciliacion"
+    assert "detalle interno sintético" not in response.text
+    assert FakeWSFEClient.llamadas_cae == 1
+    db_session.expire_all()
+    primero = await db_session.get(LoteComprobanteGrupo, grupo_ids[0])
+    segundo = await db_session.get(LoteComprobanteGrupo, grupo_ids[1])
+    assert primero is not None
+    assert segundo is not None
+    assert primero.estado == "requiere_reconciliacion"
+    assert primero.numero_asignado == 1
+    assert primero.cae == CAE_TEST_NO_REAL_ALT
+    assert primero.comprobante_id is None
+    assert segundo.estado == "fallido"
+    assert segundo.mensajes_json == mensajes_segundo
+    intentos = (
+        (
+            await db_session.execute(
+                select(IntentoEmisionFiscal).order_by(IntentoEmisionFiscal.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(intentos) == 1
+    assert intentos[0].estado == "requiere_reconciliacion"
+    assert intentos[0].cae == CAE_TEST_NO_REAL_ALT
+    comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
+    assert comprobantes == []
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_continua_solo_tras_rechazo_arca_explicito(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Un rechazo explícito libera el número y permite el siguiente grupo."""
+
+    class FakeWSFEClient:
+        """Rechaza el primer request y autoriza el segundo de forma explícita."""
+
+        consultas_numeracion = 0
+        llamadas_cae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene disponible el mismo número tras el rechazo."""
+            FakeWSFEClient.consultas_numeracion += 1
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Devuelve primero R y luego A con respuestas completas."""
+            FakeWSFEClient.llamadas_cae += 1
+            if FakeWSFEClient.llamadas_cae == 1:
+                return CAEResponse(
+                    cae=None,
+                    cae_vencimiento=None,
+                    numero_comprobante=arca_request.cbte_desde,
+                    tipo_cbte=arca_request.tipo_cbte,
+                    punto_venta=arca_request.punto_venta,
+                    resultado="R",
+                    errores=[
+                        {
+                            "code": 10016,
+                            "msg": "Rechazo sintético explícito",
+                        }
+                    ],
+                )
+            return CAEResponse(
+                cae=CAE_TEST_NO_REAL_ALT,
+                cae_vencimiento="20260831",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-reintento-rechazo-explicito.xlsx",
+        total_grupos=2,
+    )
+    grupo_ids = [grupo.id for grupo in grupos]
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={
+            **auth_headers,
+            **_confirmacion_fecha_fiscal_header(
+                FECHA_FISCAL_PF02B2,
+                idempotency_key="idem-reintento-rechazo-explicito",
+            ),
+        },
+        json={"grupo_ids": grupo_ids},
+    )
+
+    assert response.status_code == 200, response.text
+    assert FakeWSFEClient.consultas_numeracion == 4
+    assert FakeWSFEClient.llamadas_cae == 2
+    db_session.expire_all()
+    primero = await db_session.get(LoteComprobanteGrupo, grupo_ids[0])
+    segundo = await db_session.get(LoteComprobanteGrupo, grupo_ids[1])
+    assert primero is not None
+    assert segundo is not None
+    assert primero.estado == "fallido"
+    assert primero.numero_asignado is None
+    assert segundo.estado == "autorizado"
+    assert segundo.numero_asignado == 1
+    intentos = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal).order_by(IntentoEmisionFiscal.id)
+            )
+        ).all()
+    )
+    assert [intento.estado for intento in intentos] == [
+        "rechazado_arca",
+        "autorizado",
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "bloqueo",
+    ["local_adelantada", "en_proceso", "requiere_reconciliacion"],
+)
+async def test_reintentar_fallidos_detiene_seleccion_ante_bloqueo_propio(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    bloqueo: str,
+) -> None:
+    """La historia local o un intento propio incierto bloquean toda selección."""
+
+    class FakeWSFEClient:
+        """Expone historia ARCA solo para el caso local adelantado."""
+
+        consultas_numeracion = 0
+        llamadas_cae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real sin usar red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Deja a la historia local exactamente un número adelantada."""
+            FakeWSFEClient.consultas_numeracion += 1
+            if bloqueo != "local_adelantada":
+                raise AssertionError("Un intento propio debe bloquear antes de ARCA")
+            return 4
+
+        async def fe_cae_solicitar(self, arca_request):
+            """No debe solicitar CAE bajo ningún bloqueo."""
+            FakeWSFEClient.llamadas_cae += 1
+            raise AssertionError("No debe solicitar CAE")
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo=f"lote-reintento-bloqueo-{bloqueo}.xlsx",
+        total_grupos=2,
+        ultimo_local=5 if bloqueo == "local_adelantada" else None,
+    )
+    grupo_ids = [grupo.id for grupo in grupos]
+    mensajes_segundo = list(grupos[1].mensajes_json or [])
+    if bloqueo != "local_adelantada":
+        db_session.add(
+            IntentoEmisionFiscal(
+                tipo_comprobante=6,
+                punto_venta_numero=test_punto_venta.numero,
+                numero_planificado=1,
+                fecha_emision=FECHA_FISCAL_PF02B2,
+                total=Decimal("1210.00"),
+                receptor_tipo_documento=80,
+                receptor_numero_documento=CUIT_RECEPTOR_TEST_NO_REAL,
+                receptor_razon_social="Cliente Lote SA",
+                payload_hash=f"payload-bloqueante-{bloqueo}",
+                huella_logica=f"huella-bloqueante-{bloqueo}",
+                estado=bloqueo,
+                empresa_id=test_empresa.id,
+                punto_venta_id=test_punto_venta.id,
+            )
+        )
+        await db_session.commit()
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={
+            **auth_headers,
+            **_confirmacion_fecha_fiscal_header(
+                FECHA_FISCAL_PF02B2,
+                idempotency_key=f"idem-reintento-bloqueo-{bloqueo}",
+            ),
+        },
+        json={"grupo_ids": grupo_ids},
+    )
+
+    assert response.status_code == 200, response.text
+    assert FakeWSFEClient.consultas_numeracion == (
+        1 if bloqueo == "local_adelantada" else 0
+    )
+    assert FakeWSFEClient.llamadas_cae == 0
+    db_session.expire_all()
+    primero = await db_session.get(LoteComprobanteGrupo, grupo_ids[0])
+    segundo = await db_session.get(LoteComprobanteGrupo, grupo_ids[1])
+    assert primero is not None
+    assert segundo is not None
+    assert primero.estado == "fallido"
+    assert primero.numero_asignado is None
+    assert primero.cae is None
+    assert segundo.estado == "fallido"
+    assert segundo.mensajes_json == mensajes_segundo
+    intentos_grupo = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.grupo_id.in_(grupo_ids)
+                )
+            )
+        ).all()
+    )
+    assert intentos_grupo == []
 
 
 @pytest.mark.asyncio

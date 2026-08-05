@@ -166,9 +166,9 @@ Mapping aplicado en el proyecto:
 
 ### 4.f.1 Numeración individual y batch compatible con otros sistemas
 
-Estado 2026-07-30: PF-02A y el primer corte de PF-02B están integrados en
-`main` mediante los PR `#15` y `#16`. Separan el último local del último ARCA y
-el núcleo batch puede iniciar el rango en `ultimo_arca + 1` cuando ARCA está
+Estado 2026-08-05: PF-02A y los dos primeros cortes de PF-02B están integrados
+en `main`. Separan el último local del último ARCA; el núcleo batch y los
+reintentos manuales pueden iniciar en `ultimo_arca + 1` cuando ARCA está
 adelantada y no existe incertidumbre propia. FactuFlow no rellena huecos ni
 importa comprobantes en este paso.
 
@@ -184,11 +184,13 @@ inmediatamente antes de `FECAESolicitar`.
   confirmación.
 - Un rechazo explícito posterior a FECAE sigue siendo rechazo ARCA verificable;
   una excepción ambigua sigue requiriendo `FECompConsultar` y reconciliación.
-- El procesamiento batch normal aplica el segundo preflight. La recuperación
-  stale del worker mantiene una puerta estricta antes de reencolar y no libera
-  intentos inciertos. El reintento manual reutiliza el núcleo individual y por
-  eso admite `arca_adelantada` en runtime, aunque todavía requiere pruebas
-  específicas de sus transiciones y fallos.
+- El procesamiento batch normal y el reintento manual aplican el segundo
+  preflight. En reintentos, un bloqueo o aborto detiene los grupos posteriores;
+  solo un rechazo explícito permite continuar. Una respuesta ambigua o una
+  falla local después de una autorización conocida exige rollback del registro
+  incompleto y `requiere_reconciliacion`, nunca `fallido`.
+- La recuperación stale del worker mantiene una puerta estricta antes de
+  reencolar y no libera intentos inciertos. Su extensión queda en PF-02B.3.
 - La importación histórica para informes es PF-05 y nunca condiciona una nueva
   emisión.
 ### 4.g Idempotencia fiscal y CAE

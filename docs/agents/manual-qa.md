@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-05
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -22,10 +22,10 @@ fechadas de `docs/project/**`.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-El código aceptado en `main` avanzó después de ese tag: PF-02A y PF-02B.1 están
-integrados, pero todavía no pertenecen a una release publicada ni al despliegue
-productivo. Sus escenarios se validaron con dobles controlados, sin CAE reales
-ni llamadas ARCA de escritura.
+El código aceptado en `main` avanzó después de ese tag: PF-02A, PF-02B.1 y
+PF-02B.2 están integrados, pero todavía no pertenecen a una release publicada
+ni al despliegue productivo. Sus escenarios se validaron con dobles
+controlados, sin CAE reales ni llamadas ARCA de escritura.
 
 ## Preparación local
 
@@ -286,7 +286,7 @@ Evidencia mínima: captura sanitizada del panel para los tres estados, resultado
 de pruebas enfocadas, conteo cero de FECAE en abortos pre-ARCA y ausencia de
 datos fiscales reales en el repositorio.
 
-## PF-02B — primer corte de numeración batch
+## PF-02B — batch y reintentos manuales
 
 Este corte se valida únicamente con dobles controlados. No autoriza solicitudes
 de CAE reales.
@@ -306,14 +306,27 @@ de CAE reales.
    completar ese campo.
 6. Verificar que fecha fiscal y punto de venta permanecen visibles en
    `DD/MM/AAAA` dentro de la confirmación irreversible existente.
+7. En `Reintentar fallidos`, simular historia local parcial y ARCA estable.
+   Debe usar `ultimo_arca + 1`; un replay exacto con la misma clave no vuelve a
+   consultar ni solicitar CAE, y la misma clave con otra selección responde
+   conflicto.
+8. Simular avance o error en el segundo preflight del primer grupo. Debe haber
+   cero FECAE y los grupos posteriores deben permanecer intactos.
+9. Simular respuesta ARCA ambigua. El primer grupo y el lote deben quedar
+   `requiere_reconciliacion`; no debe reclamarse ningún grupo posterior.
+10. Simular autorización seguida de una falla en la persistencia de lote. Debe
+    hacerse rollback del comprobante incompleto, conservar número/CAE conocidos
+    en el intento, sanitizar el error y bloquear toda reemisión.
+11. Simular rechazo ARCA explícito y completo. Solo en ese caso el grupo puede
+    quedar `fallido` y continuar la selección.
+12. Confirmar que `local_adelantada` y los intentos propios `en_proceso` o
+    `requiere_reconciliacion` detienen la selección sin nueva reserva ni FECAE.
 
 La recuperación stale del worker conserva una puerta estricta antes de
 reencolar: exige grupos intactos, ausencia de intentos y numeración alineada. El
-procesamiento normal vuelve a diagnosticar después del reencolado. Los
-reintentos manuales ya reutilizan el núcleo individual y por eso admiten
-`arca_adelantada` en runtime, pero todavía deben validarse sus transiciones de
-grupo, errores intermedios y bloqueos de intentos propios antes de cerrar ese
-tramo de PF-02B.
+procesamiento normal vuelve a diagnosticar después del reencolado. El contrato
+de reintentos manuales quedó cerrado en PF-02B.2. La extensión de la
+recuperación stale permanece como PF-02B.3 y no debe inferirse de estos casos.
 
 ## Punto de reanudación de QA
 
