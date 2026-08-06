@@ -59,13 +59,13 @@ escritura y luego validar ítems, descuentos y valores no finitos entre UI, API 
 servicio. La matriz aprobó `9` casos enfocados, `29` de API, `50` del servicio de
 facturación, `118` de lotes y el backend completo con `566` aprobados y `4`
 omitidos. La puerta completa agregó `131` frontend, `16` de scripts, `5` de
-  seeds y `33` E2E; Ruff, Black, type-check, lint, build, `docs:check`,
-  `pip-audit` y `npm audit --omit=dev` quedaron verdes. Se usaron datos
-  sintéticos; no hubo emisiones reales, solicitudes de CAE, migraciones ni
-  llamadas ARCA de escritura. `autoreview --mode local` usó efectivamente Codex
-  `gpt-5.6-sol` con thinking `medium`: TruffleHog quedó limpio y las dos pasadas
-  terminaron sin findings accionables, con probabilidad `0,99` de patch correcto
-  y sin fallback.
+seeds y `33` E2E; Ruff, Black, type-check, lint, build, `docs:check`,
+`pip-audit` y `npm audit --omit=dev` quedaron verdes. Se usaron datos
+sintéticos; no hubo emisiones reales, solicitudes de CAE, migraciones ni
+llamadas ARCA de escritura. `autoreview --mode local` usó efectivamente Codex
+`gpt-5.6-sol` con thinking `medium`: TruffleHog quedó limpio y las dos pasadas
+terminaron sin findings accionables, con probabilidad `0,99` de patch correcto
+y sin fallback.
 
 ## PF-02B.3 — recuperación stale compatible con historia externa
 
