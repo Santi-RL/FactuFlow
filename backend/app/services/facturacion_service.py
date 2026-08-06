@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Literal, Optional
 
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import desc, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2034,7 +2035,14 @@ class FacturacionService:
         if punto_venta is None:
             return None
 
-        request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
+        try:
+            request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
+        except PydanticValidationError:
+            logger.warning(
+                "El payload fiscal del intento autorizado %s no cumple el contrato vigente",
+                intento.id,
+            )
+            return None
         totales = self._calcular_totales(request.items)
         if Decimal(str(totales["total"])).quantize(Decimal("0.01")) != Decimal(
             str(intento.total)

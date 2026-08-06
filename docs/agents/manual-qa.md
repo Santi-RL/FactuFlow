@@ -22,10 +22,10 @@ fechadas de `docs/project/**`.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-El código aceptado en `main` avanzó después de ese tag: PF-02A y los tres cortes
-de PF-02B están integrados, pero todavía no pertenecen a una release publicada
-ni al despliegue productivo. Sus escenarios se validaron con dobles controlados,
-sin CAE reales ni llamadas ARCA de escritura.
+El código aceptado en `main` avanzó después de ese tag: PF-02A, los tres cortes
+de PF-02B y PF-03A están integrados, pero todavía no pertenecen a una release
+publicada ni al despliegue productivo. Sus escenarios se validaron con dobles
+controlados, sin CAE reales ni llamadas ARCA de escritura.
 
 ## Preparación local
 
@@ -341,14 +341,48 @@ como diagnóstico de lectura; nunca asigna el número ni crea la reserva. El
 procesamiento normal vuelve a diagnosticar, reserva y ejecuta el segundo
 preflight antes de cualquier FECAE.
 
+## PF-03A — contrato superior estricto de emisión
+
+Este corte no cambia pantallas. Puede validarse con requests sintéticos y dobles;
+no autoriza emisiones reales ni solicitudes de CAE.
+
+1. Enviar un request individual válido con una clave superior adicional, como
+   `monedaa`, `cotizaccion` o `guardar_clientee`. Debe responder `422` con
+   `extra_forbidden` y localizar la clave incorrecta.
+2. Omitir la clave correcta en esos casos. FactuFlow no debe continuar usando
+   silenciosamente `PES`, cotización `1` o `guardar_cliente=true`.
+3. Escribir mal `confirmacion_fecha_fiscal`. Debe responder `422`, no ejecutar
+   la rama `400` de confirmación ausente y no crear una operación idempotente.
+4. Repetir un request conocido y válido. La idempotencia, numeración, fecha
+   fiscal explícita y comportamiento del servicio deben permanecer sin cambios.
+5. Revalidar un snapshot batch canónico en procesamiento unitario, batch,
+   worker, reintento y reconciliación. Debe continuar normalmente con dobles.
+6. Agregar una clave superior desconocida al snapshot de un grupo `fallido` y
+   ejecutar el reintento manual. El grupo debe conservarse sin número, CAE ni
+   comprobante y debe haber cero llamadas de emisión.
+7. Usar un lote stale mixto con un grupo canónico y otro con una clave superior
+   desconocida. Debe devolver `payload_fiscal_invalido`, sin consultar
+   numeración ni reencolar ningún grupo.
+8. Confirmar que un ítem que la UI actual mantiene con `subtotal` derivado sigue
+   aceptándose transitoriamente. La eliminación de ese campo del DTO y la
+   validación estricta del ítem corresponden a PF-03B.
+9. Simular `FECompConsultar` autorizado para un intento stale cuyo snapshot tiene
+   una clave superior desconocida. Debe conservar CAE y vencimiento en
+   `requiere_reconciliacion`, sin reconstruir comprobante ni habilitar FECAE.
+
+Evidencia mínima: respuesta `422` estructurada, ausencia de operación idempotente,
+cero emisión en reintento/stale y resultados de las suites enfocadas. No usar
+datos fiscales reales.
+
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
 superó el despliegue y la verificación post-deploy. PF-02 quedó cerrado con
-dobles controlados; el próximo foco de QA acompaña la primera unidad vertical de
-PF-03. No repetir como pendiente el setup productivo inicial, el despliegue
-`v0.2.2`, el rediseño UX de lotes ni las validaciones ya cerradas.
+dobles controlados y PF-03A cerró el contrato superior. El próximo foco de QA es
+PF-03B sobre DTO de ítems, descuentos y valores no finitos. No repetir como
+pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño UX de
+lotes ni las validaciones ya cerradas.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-06
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -34,6 +34,38 @@ El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz loca
 completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
+
+## PF-03A — contrato superior estricto de emisión
+
+PF-03A inicia PF-03 con una frontera pequeña y completa. El objeto superior de
+`EmitirComprobanteRequest` prohíbe claves desconocidas: una errata fiscal
+devuelve `422 extra_forbidden` antes de crear una operación idempotente, reservar
+numeración, persistir intentos o invocar el servicio de facturación. Los campos
+conocidos, la fecha fiscal explícita, el aislamiento por emisor y los valores
+predeterminados vigentes no cambian.
+
+Los payloads batch canónicos continúan revalidándose en procesamiento, worker,
+reintento manual, stale y reconciliación. Si un snapshot histórico o manipulado
+contiene una clave superior desconocida, falla cerrado sin solicitar CAE: el
+reintento conserva el grupo sin número, CAE ni comprobante, y el preflight stale
+mixto bloquea todos los grupos antes de consultar numeración. Si
+`FECompConsultar` ya confirma una autorización, el intento conserva CAE y
+vencimiento en `requiere_reconciliacion` sin reconstruir el comprobante desde el
+payload inválido. No hay modelos, migraciones, rutas ni cambios de UI.
+
+La UI todavía serializa `subtotal` como propiedad derivada del ítem. Por eso
+PF-03A no endurece los modelos anidados: PF-03B debe separar primero el DTO de
+escritura y luego validar ítems, descuentos y valores no finitos entre UI, API y
+servicio. La matriz aprobó `9` casos enfocados, `29` de API, `50` del servicio de
+facturación, `118` de lotes y el backend completo con `566` aprobados y `4`
+omitidos. La puerta completa agregó `131` frontend, `16` de scripts, `5` de
+  seeds y `33` E2E; Ruff, Black, type-check, lint, build, `docs:check`,
+  `pip-audit` y `npm audit --omit=dev` quedaron verdes. Se usaron datos
+  sintéticos; no hubo emisiones reales, solicitudes de CAE, migraciones ni
+  llamadas ARCA de escritura. `autoreview --mode local` usó efectivamente Codex
+  `gpt-5.6-sol` con thinking `medium`: TruffleHog quedó limpio y las dos pasadas
+  terminaron sin findings accionables, con probabilidad `0,99` de patch correcto
+  y sin fallback.
 
 ## PF-02B.3 — recuperación stale compatible con historia externa
 
@@ -496,10 +528,11 @@ Siguen pendientes:
    PF-16 agrega la puerta documental semántica y `npm run docs:check` sin
    presentar el control automático como sustituto de la revisión.
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
-    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. El
-    siguiente corte debe comenzar PF-03 con auditoría, checklist fiscal y una
-    primera unidad vertical pequeña. Después siguen PF-06/PF-07, PF-08 y PF-09
-    según el portafolio integrado.
+    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-03A
+    cerró el contrato superior de emisión; el siguiente corte es PF-03B para
+    separar el DTO de ítem y validar descuentos/importes no finitos de extremo a
+    extremo. Después siguen PF-06/PF-07, PF-08 y PF-09 según el portafolio
+    integrado.
     PF-16C continúa en paralelo únicamente con la modernización planificada del
     toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex

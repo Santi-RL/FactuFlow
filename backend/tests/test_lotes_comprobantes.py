@@ -2728,6 +2728,64 @@ async def test_procesar_lote_sync_actualiza_resultados(
 
 
 @pytest.mark.asyncio
+async def test_procesar_lote_sanitiza_payload_con_clave_desconocida(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """El procesamiento no debe exponer el valor de un payload no canónico."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-payload-no-canonico.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["validado"])
+    grupo = grupos[0]
+    valor_no_publicable = "dato-sintetico-no-publicable"
+    payload = dict(grupo.payload_json or {})
+    payload["instruccion_fiscal_desconocida"] = valor_no_publicable
+    grupo.payload_json = payload
+    await db_session.commit()
+    llamadas_emision = 0
+
+    async def fail_emitir(self, request, **kwargs):
+        nonlocal llamadas_emision
+        llamadas_emision += 1
+        raise AssertionError("No debe emitir un payload fiscal no canónico")
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fail_emitir)
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={
+            **auth_headers,
+            **_confirmacion_fecha_fiscal_header(
+                idempotency_key="idem-lote-payload-no-canonico"
+            ),
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert llamadas_emision == 0
+    await db_session.refresh(grupo)
+    assert grupo.estado == "fallido"
+    assert grupo.mensajes_json == [
+        "El payload fiscal guardado no cumple el contrato vigente. "
+        "No se solicitó CAE; revisá el lote antes de reintentar."
+    ]
+    assert valor_no_publicable not in response.text
+    assert valor_no_publicable not in str(grupo.mensajes_json)
+    assert grupo.numero_asignado is None
+    assert grupo.cae is None
+    assert grupo.comprobante_id is None
+
+
+@pytest.mark.asyncio
 async def test_procesar_lote_background_encola_lote_chico(
     client: AsyncClient,
     auth_headers: dict,
@@ -3544,6 +3602,61 @@ async def test_reintentar_fallidos_reclama_grupo_antes_de_emitir(
     assert estados_vistos == ["reintentando"]
     await db_session.refresh(grupo)
     assert grupo.estado == "fallido"
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_bloquea_payload_con_clave_desconocida(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Un reintento no debe emitir si el snapshot fiscal no es canónico."""
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-reintento-payload-no-canonico.xlsx",
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
+    grupo = grupos[0]
+    payload = dict(grupo.payload_json or {})
+    payload["cotizaccion"] = "2"
+    grupo.payload_json = payload
+    await db_session.commit()
+    llamadas_emision = 0
+
+    async def fail_emitir_locked(self, request, commit=True, **kwargs):
+        nonlocal llamadas_emision
+        llamadas_emision += 1
+        raise AssertionError("No debe emitir un payload fiscal no canónico")
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.FacturacionService._emitir_comprobante_locked",
+        fail_emitir_locked,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **_confirmacion_fecha_fiscal_header()},
+        json={"grupo_ids": [grupo.id]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert llamadas_emision == 0
+    await db_session.refresh(grupo)
+    assert grupo.estado == "fallido"
+    assert grupo.mensajes_json == [
+        "No se pudo completar el reintento antes de solicitar CAE. "
+        "El detalle técnico quedó registrado en logs privados."
+    ]
+    assert "cotizaccion" not in str(grupo.mensajes_json)
+    assert grupo.numero_asignado is None
+    assert grupo.cae is None
+    assert grupo.comprobante_id is None
 
 
 @pytest.mark.asyncio
@@ -5933,6 +6046,60 @@ async def test_preflight_stale_exige_todas_las_combinaciones_seguras(
         assert preflight_ok is False
         assert error == "numeracion_no_verificable"
         assert [check["estado"] for check in checks] == ["alineada"]
+
+
+@pytest.mark.asyncio
+async def test_preflight_stale_bloquea_payload_con_clave_superior_desconocida(
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+) -> None:
+    """Un payload no canónico bloquea todo el conjunto antes del preflight."""
+    fecha_fiscal = date(2026, 8, 5)
+    payload_invalido = _payload_lote_basico(
+        test_empresa.id,
+        test_punto_venta.id + 1,
+        fecha_fiscal,
+        razon_social="Cliente con payload no canónico SA",
+    )
+    payload_invalido["monedaa"] = "USD"
+    lote = SimpleNamespace(id=988, empresa_id=test_empresa.id)
+    grupos = (
+        SimpleNamespace(
+            comprobante_ref="MIXTO-VALIDO",
+            payload_json=_payload_lote_basico(
+                test_empresa.id,
+                test_punto_venta.id,
+                fecha_fiscal,
+            ),
+        ),
+        SimpleNamespace(
+            comprobante_ref="MIXTO-INVALIDO",
+            payload_json=payload_invalido,
+        ),
+    )
+    service = LoteComprobantesService(db_session)
+    llamadas_preflight = 0
+
+    async def fail_preflight(**kwargs):
+        nonlocal llamadas_preflight
+        llamadas_preflight += 1
+        raise AssertionError("No debe consultar numeración con payload inválido")
+
+    service.facturacion_service.verificar_numeracion_segura_para_emision = (
+        fail_preflight
+    )
+
+    (
+        preflight_ok,
+        checks,
+        error,
+    ) = await service._preflight_reanudar_grupos_intactos_stale(lote, grupos)
+
+    assert preflight_ok is False
+    assert checks == []
+    assert error == "payload_fiscal_invalido"
+    assert llamadas_preflight == 0
 
 
 @pytest.mark.asyncio

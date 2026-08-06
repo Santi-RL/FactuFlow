@@ -19,6 +19,7 @@ from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
 from app.models.empresa import Empresa
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
+from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import (
     ComprobanteAsociadoCreate,
@@ -2659,6 +2660,132 @@ async def test_intento_stale_no_libera_numero_con_error_arca_ambiguo(
     await db_session.refresh(intento)
     assert intento.estado == "requiere_reconciliacion"
     assert intento.categoria_error == "arca_consulta_incierta"
+
+
+@pytest.mark.asyncio
+async def test_intento_stale_autorizado_preserva_cae_con_payload_no_canonico(
+    db_session: AsyncSession,
+    test_empresa,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Una autorización conocida no se pierde ni reconstruye con payload inválido."""
+    fecha_fiscal = date(2026, 8, 5)
+    cae_sintetico = "12345678901234"
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    lote = LoteComprobante(
+        nombre_archivo="lote-payload-no-canonico.xlsx",
+        archivo_hash="a" * 64,
+        estado="procesando",
+        total_filas=1,
+        total_grupos=1,
+        grupos_validos=1,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, lote])
+    await db_session.flush()
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=fecha_fiscal,
+        confirmacion_fecha_fiscal=True,
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Servicio",
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+    payload = request.model_dump(mode="json")
+    payload["instruccion_fiscal_desconocida"] = "valor-sintetico"
+    grupo = LoteComprobanteGrupo(
+        lote_id=lote.id,
+        comprobante_ref="LOTE-001",
+        orden=1,
+        estado="validado",
+        tipo_comprobante=6,
+        punto_venta_numero=punto_venta.numero,
+        cliente_documento="0",
+        cliente_razon_social="A CONSUMIDOR FINAL",
+        total_estimado=Decimal("1000.00"),
+        payload_json=payload,
+    )
+    db_session.add(grupo)
+    await db_session.flush()
+    intento = IntentoEmisionFiscal(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        punto_venta_numero=punto_venta.numero,
+        tipo_comprobante=6,
+        numero_planificado=1,
+        fecha_emision=fecha_fiscal,
+        total=Decimal("1000.00"),
+        receptor_tipo_documento=99,
+        receptor_numero_documento="0",
+        receptor_razon_social="A CONSUMIDOR FINAL",
+        payload_hash="payload-stale-autorizado-no-canonico",
+        huella_logica="huella-stale-autorizado-no-canonico",
+        estado="en_proceso",
+        lote_id=lote.id,
+        grupo_id=grupo.id,
+    )
+    db_session.add(intento)
+    await db_session.commit()
+
+    class FakeWSFEClient:
+        """Cliente WSFE que confirma una autorización sintética."""
+
+        async def fe_comp_consultar(self, punto_venta, tipo_cbte, numero):
+            """Devuelve el comprobante planificado como autorizado."""
+            return SimpleNamespace(
+                resultado="A",
+                cae=cae_sintetico,
+                cae_vencimiento="20260819",
+                cuit_emisor=test_empresa.cuit,
+                tipo_cbte=tipo_cbte,
+                punto_venta=punto_venta,
+                numero=numero,
+                fecha_cbte="20260805",
+                imp_total="1000.00",
+                tipo_doc=99,
+                nro_doc="0",
+            )
+
+    service = FacturacionService(db_session)
+
+    reconciliado = await service._reconciliar_intento_stale(
+        intento=intento,
+        wsfe_client=FakeWSFEClient(),
+        punto_venta_numero=punto_venta.numero,
+    )
+
+    await db_session.refresh(intento)
+    await db_session.refresh(grupo)
+    assert reconciliado is intento
+    assert intento.estado == "requiere_reconciliacion"
+    assert intento.categoria_error == "arca_autorizado_sin_payload_local"
+    assert intento.cae == cae_sintetico
+    assert intento.cae_vencimiento == date(2026, 8, 19)
+    assert intento.comprobante_id is None
+    assert grupo.estado == "validado"
+    assert grupo.numero_asignado is None
+    assert grupo.cae is None
+    assert grupo.comprobante_id is None
+    assert "no cumple el contrato vigente" in caplog.text
+    assert "valor-sintetico" not in caplog.text
 
 
 @pytest.mark.asyncio

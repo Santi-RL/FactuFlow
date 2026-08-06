@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 from typing import Any, List, Literal, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.date_parsing import parse_fecha_input
 
@@ -75,6 +75,8 @@ class EmitirComprobanteRequest(ComprobanteBase):
     Incluye todos los datos necesarios para generar
     el comprobante y solicitar el CAE a ARCA.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     empresa_id: int
     punto_venta_id: int

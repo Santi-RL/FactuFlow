@@ -13,6 +13,8 @@
   `docs/agents/pf-02a-numeracion-individual-design.md`
 - Diseño PF-02B de numeración masiva:
   `docs/agents/pf-02b-numeracion-masiva-design.md`
+- Diseño PF-03 de validación fiscal estricta:
+  `docs/agents/pf-03-validacion-fiscal-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 
@@ -115,6 +117,8 @@
   `docs/agents/pf-02a-numeracion-individual-design.md`
 - Diseño PF-02B de numeración masiva:
   `docs/agents/pf-02b-numeracion-masiva-design.md`
+- Diseño PF-03 de validación fiscal estricta:
+  `docs/agents/pf-03-validacion-fiscal-design.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
 - Pendientes temporales de alineación: `docs/agents/alignment-pending.md`
 - Estructura del repo y ubicación de archivos: `docs/agents/structure.md`

@@ -326,6 +326,15 @@ misma operación. Misma clave con mismo payload devuelve la respuesta persistida
 o el estado actual sin volver a llamar a ARCA; misma clave con datos distintos
 devuelve `409`; clave ausente devuelve `400`.
 
+El objeto superior del body es cerrado. Una clave no documentada devuelve
+`422` con `type=extra_forbidden` antes de crear la operación idempotente,
+reservar numeración o alcanzar el servicio fiscal. Esto incluye erratas de
+campos con defaults como `moneda`, `cotizacion`, `guardar_cliente` y las
+confirmaciones: el backend no elimina la clave ni completa silenciosamente otro
+significado. PF-03A conserva de forma transitoria la tolerancia de propiedades
+derivadas dentro de `items`; los clientes deben enviar solo los campos de ítem
+documentados y PF-03B cerrará ese contrato después de separar el DTO de la UI.
+
 Las fechas visibles que se muestran al usuario deben formatearse como `DD/MM/AAAA`. Los contratos técnicos de API pueden seguir usando `YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD` según corresponda, convirtiendo siempre en los bordes.
 
 El body debe incluir `fecha_emision`. FactuFlow no la completa con la fecha del

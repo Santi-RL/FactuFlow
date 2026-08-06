@@ -258,8 +258,22 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Última verificación técnica
 
-Fecha: 2026-08-05
+Fecha: 2026-08-06
 
+- PF-03A: `9` casos enfocados cubren claves superiores desconocidas, ausencia
+  de operación idempotente, compatibilidad transitoria del ítem UI,
+  procesamiento sanitizado, reintento manual, preflight stale mixto y
+  autorización stale preservada para reconciliación. Aprobaron además `29`
+  pruebas de API, `50` del servicio de facturación, `118` de lotes y el backend
+  completo con `566` aprobadas y `4` omitidas por infraestructura configurada.
+  La puerta completa agregó `131` frontend, `16` de scripts, `5` de seeds y
+  `33` E2E; Ruff, Black, type-check, build y `docs:check` quedaron verdes.
+  ESLint conservó `13` advertencias históricas y cero errores; `pip-audit` y
+  `npm audit --omit=dev` no encontraron vulnerabilidades productivas conocidas.
+  Los escenarios usaron datos sintéticos y cero llamadas ARCA de escritura.
+  `autoreview --mode local` con Codex `gpt-5.6-sol` y thinking `medium` pasó el
+  preflight de TruffleHog y dos pasadas sin findings accionables; informó una
+  probabilidad `0,99` de patch correcto y no activó fallback.
 - PF-02B.3: `12` pruebas enfocadas de diagnóstico y recuperación stale, `164`
   de facturación/lotes y backend completo con `557` aprobadas y `4` omitidas.
   La puerta local agregó `131` frontend, `16` de scripts y `33` E2E; Ruff,

@@ -342,6 +342,26 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   los metadatos visibles solo guardan categorías estables y sanitizadas.
 - PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
   opcional corresponde a PF-05.
+
+### PF-03A: contrato de entrada cerrado antes de ARCA
+
+- `EmitirComprobanteRequest` rechaza toda clave superior desconocida con
+  `422 extra_forbidden` antes de crear idempotencia, intentos o reservas y antes
+  de cualquier `FECAESolicitar`.
+- Una errata en moneda, cotización, guardado de cliente o confirmaciones no se
+  ignora ni activa un valor predeterminado. El request completo se considera
+  inválido.
+- Los snapshots batch canónicos se persisten desde `model_dump(mode="json")` y
+  continúan revalidándose en procesamiento, worker, reintento, stale y
+  reconciliación.
+- Un snapshot legacy o manipulado con una clave superior desconocida falla
+  cerrado. No se elimina el campo porque podría representar una instrucción
+  fiscal que FactuFlow no comprende; si existe evidencia de autorización, se
+  preserva y no se habilita reemisión.
+- PF-03A no modifica el payload SOAP, la numeración, el segundo preflight ni los
+  estados fiscales. Los ítems anidados continúan transitoriamente compatibles
+  con el `subtotal` derivado que hoy serializa la UI; PF-03B cerrará esa frontera.
+
 ### Reconciliación externa de lotes
 
 - Si un comprobante pendiente de un lote fue emitido manualmente en ARCA Web, no
