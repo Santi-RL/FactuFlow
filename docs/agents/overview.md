@@ -22,13 +22,12 @@ facturación individual y masiva con seguridad fiscal.
 - VPS con Docker producción y HTTPS operativo. `v0.2.2` quedó desplegada y
   validada el 2026-07-23.
 - La evidencia productiva concreta permanece fuera del repositorio público.
-- `main` avanzó después del tag productivo: PF-02A, PF-02B.1 y PF-02B.2
+- `main` avanzó después del tag productivo: PF-02A y los tres cortes de PF-02B
   permiten historia externa legítima en emisión individual, procesamiento
-  batch y reintentos manuales, con reservas y segundo preflight. Los reintentos
-  detienen la selección ante bloqueos o incertidumbre post-ARCA y nunca
-  degradan una autorización conocida a un estado reintentable. Estos cortes
-  quedaron integrados mediante los PR `#15`, `#16` y `#19`; todavía no
-  pertenecen a una release publicada ni están desplegados.
+  batch, reintentos manuales y recuperación stale. Los intentos propios activos
+  o inciertos conservan prioridad; la recuperación no asigna números ni pide
+  CAE, y el procesamiento normal mantiene reservas y segundo preflight. Estos
+  cambios todavía no pertenecen a una release publicada ni están desplegados.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -70,11 +69,11 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-Continuar PF-02B por unidades pequeñas. El núcleo batch y los reintentos
-manuales ya están integrados; el siguiente corte es PF-02B.3: extender de forma
-explícita la recuperación stale del worker sin liberar intentos propios
-inciertos y cerrar la QA fiscal de PF-02. PF-05 conserva separada la
-reconstrucción histórica opcional para informes.
+PF-02 quedó cerrado en unidades pequeñas y PF-05 conserva separada la
+reconstrucción histórica opcional para informes. El siguiente corte fiscal debe
+comenzar PF-03 con auditoría y diseño de la primera unidad vertical de validación
+de entradas, fechas, importes, moneda y totales, sin agrupar causas raíz
+independientes.
 
 ## Principios de trabajo
 

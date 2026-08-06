@@ -5757,10 +5757,15 @@ async def test_reanudar_lote_stale_con_pendientes_intactos_reencola_tras_preflig
         return {
             **kwargs,
             "punto_venta_numero": punto_venta_numero,
-            "proximo_numero": 78,
+            "ultimo_local": 77,
+            "ultimo_arca": 80,
+            "proximo_local": 78,
+            "proximo_arca": 81,
+            "proximo_numero": 81,
+            "estado": "arca_adelantada",
         }
 
-    service.facturacion_service.verificar_numeracion_alineada_para_emision = (
+    service.facturacion_service.verificar_numeracion_segura_para_emision = (
         fake_preflight
     )
 
@@ -5781,6 +5786,13 @@ async def test_reanudar_lote_stale_con_pendientes_intactos_reencola_tras_preflig
         }
     ]
 
+    segundo_resultado = await service.bloquear_lote_procesando_stale(
+        lote_id,
+        empresa_id,
+    )
+    assert segundo_resultado.estado == "en_cola"
+    assert len(preflight_llamadas) == 1
+
     detalle = await service.obtener_lote(lote_id, empresa_id)
     pendiente = next(
         grupo for grupo in detalle.grupos if grupo.comprobante_ref == "LOTE-002"
@@ -5789,6 +5801,12 @@ async def test_reanudar_lote_stale_con_pendientes_intactos_reencola_tras_preflig
     assert pendiente.cae is None
     assert pendiente.numero_asignado is None
     assert pendiente.comprobante_id is None
+    intentos_pendiente = await db_session.scalar(
+        select(func.count(IntentoEmisionFiscal.id)).where(
+            IntentoEmisionFiscal.grupo_id == pendiente.id
+        )
+    )
+    assert intentos_pendiente == 0
 
     eventos = (
         (
@@ -5805,6 +5823,116 @@ async def test_reanudar_lote_stale_con_pendientes_intactos_reencola_tras_preflig
     assert len(eventos) == 1
     assert eventos[0].metadata_json["estado_nuevo"] == "en_cola"
     assert eventos[0].metadata_json["grupos_intactos"] == 1
+    assert eventos[0].metadata_json["preflight_arca"] == [
+        {
+            "empresa_id": empresa_id,
+            "punto_venta_id": punto_venta_id,
+            "punto_venta_numero": punto_venta_numero,
+            "tipo_comprobante": 6,
+            "ultimo_local": 77,
+            "ultimo_arca": 80,
+            "proximo_local": 78,
+            "proximo_arca": 81,
+            "proximo_numero": 81,
+            "estado": "arca_adelantada",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("segunda_combinacion_segura", [True, False])
+async def test_preflight_stale_exige_todas_las_combinaciones_seguras(
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    segunda_combinacion_segura: bool,
+) -> None:
+    """Un lote mixto solo supera el preflight si todas sus combinaciones son seguras."""
+    fecha_fiscal = date(2026, 8, 4)
+    segundo_punto_venta_id = test_punto_venta.id + 1000
+    lote = SimpleNamespace(id=987, empresa_id=test_empresa.id)
+    grupos = (
+        SimpleNamespace(
+            comprobante_ref="MIXTO-001",
+            payload_json=_payload_lote_basico(
+                test_empresa.id,
+                test_punto_venta.id,
+                fecha_fiscal,
+                razon_social="Cliente Alineado SA",
+            ),
+        ),
+        SimpleNamespace(
+            comprobante_ref="MIXTO-002",
+            payload_json=_payload_lote_basico(
+                test_empresa.id,
+                segundo_punto_venta_id,
+                fecha_fiscal,
+                razon_social="Cliente Historia Externa SA",
+            ),
+        ),
+    )
+    service = LoteComprobantesService(db_session)
+    llamadas: list[dict[str, int]] = []
+
+    async def fake_preflight(**kwargs):
+        llamadas.append(dict(kwargs))
+        if kwargs["punto_venta_id"] == segundo_punto_venta_id:
+            if not segunda_combinacion_segura:
+                raise RuntimeError("segunda combinación no verificable")
+            return {
+                **kwargs,
+                "punto_venta_numero": 2,
+                "ultimo_local": 70,
+                "ultimo_arca": 75,
+                "proximo_local": 71,
+                "proximo_arca": 76,
+                "proximo_numero": 76,
+                "estado": "arca_adelantada",
+            }
+        return {
+            **kwargs,
+            "punto_venta_numero": test_punto_venta.numero,
+            "ultimo_local": 70,
+            "ultimo_arca": 70,
+            "proximo_local": 71,
+            "proximo_arca": 71,
+            "proximo_numero": 71,
+            "estado": "alineada",
+        }
+
+    service.facturacion_service.verificar_numeracion_segura_para_emision = (
+        fake_preflight
+    )
+
+    (
+        preflight_ok,
+        checks,
+        error,
+    ) = await service._preflight_reanudar_grupos_intactos_stale(lote, grupos)
+
+    assert llamadas == [
+        {
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": test_punto_venta.id,
+            "tipo_comprobante": 6,
+        },
+        {
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": segundo_punto_venta_id,
+            "tipo_comprobante": 6,
+        },
+    ]
+    if segunda_combinacion_segura:
+        assert preflight_ok is True
+        assert error is None
+        assert [check["estado"] for check in checks] == [
+            "alineada",
+            "arca_adelantada",
+        ]
+    else:
+        assert preflight_ok is False
+        assert error == "numeracion_no_verificable"
+        assert [check["estado"] for check in checks] == ["alineada"]
 
 
 @pytest.mark.asyncio
@@ -5895,10 +6023,15 @@ async def test_reanudar_lote_stale_autorizado_sin_evidencia_requiere_reconciliac
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "estado_intento",
+    ["en_proceso", "requiere_reconciliacion"],
+)
 async def test_reanudar_lote_stale_autorizado_con_intento_incierto_requiere_reconciliacion(
     db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
+    estado_intento: str,
 ) -> None:
     """Un lote localmente autorizado no se cierra si conserva intentos inciertos."""
     fecha_fiscal = date(2026, 3, 20)
@@ -5974,7 +6107,7 @@ async def test_reanudar_lote_stale_autorizado_con_intento_incierto_requiere_reco
         receptor_razon_social="Cliente Lote SA",
         payload_hash="hash-payload-incierto",
         huella_logica="hash-huella-incierta",
-        estado="en_proceso",
+        estado=estado_intento,
         empresa_id=test_empresa.id,
         punto_venta_id=test_punto_venta.id,
         lote_id=lote.id,
@@ -7210,6 +7343,23 @@ async def test_procesar_lote_exige_idempotency_key(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "estado_lote",
+    ["en_cola", "procesando", "requiere_reconciliacion"],
+)
+async def test_lote_activo_o_incierto_no_admite_reintento_manual(
+    db_session: AsyncSession,
+    estado_lote: str,
+) -> None:
+    """El worker y el reintento manual no pueden resolver el mismo lote."""
+    lote = SimpleNamespace(estado=estado_lote)
+    service = LoteComprobantesService(db_session)
+
+    with pytest.raises(LoteComprobanteError):
+        service._validar_lote_resoluble(lote)
+
+
+@pytest.mark.asyncio
 async def test_tomar_lote_para_procesamiento_es_atomico(
     client: AsyncClient,
     auth_headers: dict,
@@ -7424,9 +7574,11 @@ async def test_procesar_lote_procesando_stale_bloquea_y_preserva_intactos_sin_em
     service = LoteComprobantesService(db_session)
 
     async def fail_preflight(**_kwargs):
-        raise RuntimeError("preflight ARCA no disponible")
+        raise RuntimeError(
+            "preflight ARCA no disponible en C:\\privado\\certificado.key"
+        )
 
-    service.facturacion_service.verificar_numeracion_alineada_para_emision = (
+    service.facturacion_service.verificar_numeracion_segura_para_emision = (
         fail_preflight
     )
 
@@ -7480,7 +7632,15 @@ async def test_procesar_lote_procesando_stale_bloquea_y_preserva_intactos_sin_em
     assert eventos[0].metadata_json["estado_nuevo"] == "requiere_reconciliacion"
     assert eventos[0].metadata_json["grupos_marcados_reconciliacion"] == 0
     assert eventos[0].metadata_json["grupos_intactos_preservados"] == 1
-    assert "preflight ARCA no disponible" in eventos[0].metadata_json["preflight_error"]
+    assert eventos[0].metadata_json["preflight_error"] == "numeracion_no_verificable"
+    metadata_serializada = str(
+        {
+            "lote": lote.metadata_json,
+            "evento": eventos[0].metadata_json,
+        }
+    )
+    assert "preflight ARCA no disponible" not in metadata_serializada
+    assert "certificado.key" not in metadata_serializada
 
 
 @pytest.mark.asyncio

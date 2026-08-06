@@ -1,8 +1,8 @@
 # PF-02B — Numeración masiva compatible con actividad externa
 
 Fecha de diseño: 2026-07-29
-Estado: primer corte batch y segundo corte de reintentos manuales cerrados;
-recuperación stale pendiente en PF-02B.3.
+Estado: PF-02B cerrado en tres cortes: batch, reintentos manuales y recuperación
+stale compatible con historia externa.
 
 ## Objetivo y alcance del primer corte
 
@@ -324,3 +324,216 @@ Consumidores revisados:
 
 No se realizan llamadas ARCA reales. Las pruebas usan dobles controlados y
 datos fiscales sintéticos.
+
+## Diseño del tercer corte: PF-02B.3 — recuperación stale compatible con historia externa
+
+### Autoridad, causa raíz y unidad vertical
+
+ARCA conserva la autoridad sobre el último comprobante autorizado de cada
+ambiente, emisor, punto de venta y tipo. FactuFlow conserva la autoridad sobre
+sus intentos propios, la idempotencia, las reservas, los estados locales y toda
+incertidumbre que pueda haber comenzado `FECAESolicitar`.
+
+La recuperación stale ya distingue grupos intactos de grupos con evidencia
+fiscal, reconcilia únicamente evidencia local fuerte y nunca toma la expiración
+del lote como prueba de que ARCA no autorizó. La causa raíz pendiente es más
+acotada: su preflight final todavía exige igualdad estricta entre la historia
+local y ARCA mediante un helper anterior a PF-02A. Por eso bloquea actividad
+externa legítima que el procesamiento individual, batch y el reintento manual ya
+tratan de forma segura como `arca_adelantada`.
+
+La unidad vertical de PF-02B.3 reemplaza esa igualdad estricta por el mismo
+diagnóstico fiscal compartido que ya protege los demás caminos. El worker puede
+reencolar grupos realmente intactos tanto con numeración `alineada` como con
+`arca_adelantada`, pero no asigna números, no crea intentos, no solicita CAE y no
+omite el segundo preflight inmediatamente anterior a `FECAESolicitar`.
+
+No requiere modelo, migración, estados nuevos, rutas ni schemas de API, ni UI.
+Tampoco importa historia externa, reconstruye comprobantes ajenos ni incorpora
+el alcance opcional de PF-05.
+
+Consumidores auditados:
+
+- `LoteWorker`, incluida la prioridad de lotes stale sobre lotes nuevos y la
+  detención conservadora del ciclo ante un bloqueo incompleto;
+- `bloquear_lote_procesando_stale`, la clasificación de grupos intactos, la
+  reconciliación local fuerte y los eventos operativos;
+- procesamiento normal unitario y batch, que vuelven a diagnosticar, crean
+  reservas durables y ejecutan el segundo preflight antes de FECAE;
+- reintento manual, cuyo CAS de grupo e idempotencia no admiten lotes
+  `en_cola`, `procesando` ni `requiere_reconciliacion`;
+- `FacturacionService`, resolución de intentos propios stale,
+  `FECompUltimoAutorizado` y confirmación de reservas;
+- `IdempotenciaFiscalService`, el índice parcial de reservas activas y las
+  operaciones vinculadas al lote;
+- reconciliación local y ARCA mediante `FECompConsultar` para intentos propios;
+- endpoints y frontend de lotes, que conservan el contrato HTTP, la
+  confirmación fiscal y los bloqueos visuales vigentes.
+
+### Invariantes adicionales de PF-02B.3
+
+1. El vencimiento de `BATCH_PROCESSING_STALE_MINUTES` solo habilita diagnóstico;
+   nunca demuestra ausencia de autorización ni libera una reserva fiscal.
+2. Un grupo reencolable no tiene intento fiscal de ningún estado, CAE, número,
+   comprobante vinculado ni comprobante local autorizado candidato con la misma
+   huella fiscal.
+3. Cualquier intento propio `en_proceso` activo o
+   `requiere_reconciliacion`, del lote o de la misma combinación fiscal,
+   bloquea la reanudación y toda nueva reserva.
+4. Un intento propio `en_proceso` vencido solo deja de ser incierto si
+   `FECompConsultar` confirma explícitamente que el comprobante no existe y el
+   intento pasa a `fallido_verificado`, o si confirma una autorización que puede
+   reconstruirse y vincularse con evidencia local completa. Una consulta ambigua
+   o inconsistente conserva `requiere_reconciliacion`.
+5. Un intento autorizado solo se vincula automáticamente con un comprobante
+   local completo y coherente en intento, payload, emisor, punto, tipo, número,
+   fecha fiscal, receptor, total y CAE. Autorizado sin comprobante local no
+   habilita reemisión.
+6. Los grupos mixtos se evalúan como una sola decisión conservadora: si algún
+   grupo tiene evidencia fiscal o alguna combinación no supera el preflight,
+   ningún grupo intacto se reencola por separado.
+7. `alineada` y `arca_adelantada` son diagnósticos reencolables solo cuando no
+   existe incertidumbre propia. `local_adelantada` siempre bloquea.
+8. El preflight stale consulta una vez cada combinación única de ambiente
+   configurado, emisor, punto de venta y tipo; un ID de otro emisor se rechaza
+   antes de cualquier continuidad fiscal.
+9. El diagnóstico nunca escribe `numero_asignado`, crea una reserva, cambia la
+   fecha fiscal ni solicita CAE. La fecha explícita del payload se conserva sin
+   usar la fecha actual como valor predeterminado.
+10. Después de reencolar, el procesamiento normal vuelve a reclamar el lote de
+    forma atómica. Dos workers pueden observarlo, pero solo uno puede pasar
+    `en_cola -> procesando` y entrar al núcleo fiscal.
+11. El núcleo normal repite `FECompUltimoAutorizado` después de crear la reserva
+    o el rango durable e inmediatamente antes de FECAE. Un avance externo entre
+    el preflight stale y esa segunda consulta produce cero FECAE.
+12. La carrera con un reintento manual no habilita dos emisiones: el reintento
+    rechaza lotes activos y la reserva parcial única protege la combinación
+    fiscal entre sesiones.
+13. Un fallo del preflight deja los grupos intactos sin número, CAE ni
+    comprobante; el lote pasa a `requiere_reconciliacion` y no sigue el ciclo
+    automático.
+14. Los metadatos expuestos por la API solo conservan categorías estables de
+    error. Rutas, URLs internas, certificados, credenciales y textos de
+    excepciones quedan únicamente en logs privados.
+
+### Tabla de estados de la recuperación stale
+
+| Situación observada | Intentos/grupos | Lote | Acción ARCA | Resultado |
+|---|---|---|---|---|
+| todos los grupos autorizados con evidencia fuerte | `autorizado` y vinculados | cierre terminal vigente | ninguna escritura | cierra sin nuevos CAE |
+| autorizado sin comprobante local o evidencia incompleta | bloqueante | `requiere_reconciliacion` | ninguna escritura | no reencola |
+| intento propio activo o incierto | se conserva | `requiere_reconciliacion` | consulta segura solo si corresponde | no libera ni reemite |
+| intento propio stale y ARCA confirma inexistencia | `fallido_verificado` | continúa el diagnóstico | `FECompConsultar` lectura | puede dejar de bloquear |
+| intento propio stale y autorización totalmente verificable | `autorizado` y vinculado | continúa el diagnóstico | `FECompConsultar` lectura | no reemite lo ya autorizado |
+| todos los pendientes intactos y `alineada` | sin intentos ni números | `en_cola` | `FECompUltimoAutorizado` lectura | procesamiento normal posterior |
+| todos los pendientes intactos y `arca_adelantada` | sin intentos ni números | `en_cola` | `FECompUltimoAutorizado` lectura | usa historia externa solo como diagnóstico |
+| `local_adelantada`, error o combinación insegura | intactos preservados | `requiere_reconciliacion` | cero FECAE | bloqueo conservador |
+| avance externo después de reencolar | reservas cerradas `fallido_verificado` | recalculado por núcleo | segunda lectura; cero FECAE | nueva ejecución explícita requerida |
+
+### Orden de operaciones del tercer corte
+
+1. Detectar un lote `procesando` cuya actualización superó la ventana stale.
+2. Reconciliar únicamente grupos autorizados respaldados por evidencia local
+   fuerte y recalcular el lote.
+3. Si el lote quedó terminal, exigir ausencia de intentos inciertos y coherencia
+   fiscal completa antes de cerrarlo sin solicitar CAE.
+4. Clasificar cada grupo válido como intacto o con evidencia fiscal.
+5. Exigir que todos los pendientes sean intactos, que no exista evidencia
+   fiscal ambigua y que el lote no conserve intentos propios inciertos.
+6. Validar el payload fiscal persistido, su emisor y las combinaciones únicas de
+   punto de venta y tipo.
+7. Para cada combinación, validar empresa, certificado, punto habilitado e
+   intentos propios mediante el diagnóstico compartido.
+8. Consultar último local y `FECompUltimoAutorizado`; rechazar
+   `local_adelantada` y aceptar `alineada` o `arca_adelantada`.
+9. Si todas las combinaciones son seguras, persistir solo la transición del lote
+   a `en_cola`, el diagnóstico y el evento de recuperación. Los grupos siguen
+   sin número, CAE, intento ni comprobante.
+10. Si alguna combinación falla, preservar los intactos, marcar únicamente los
+    grupos con evidencia fiscal y bloquear el lote para reconciliación con una
+    categoría pública sanitizada.
+11. El worker vuelve a seleccionar el lote; el CAS existente permite un único
+    ganador para `en_cola -> procesando`.
+12. El procesamiento normal repite diagnóstico, crea reservas durables y exige
+    su segundo preflight antes de cualquier `FECAESolicitar`.
+
+### Concurrencia, fallos intermedios y recuperación
+
+- Dos ciclos de worker no comparten autoridad fiscal externa. La recuperación
+  stale no emite y el reclamo atómico posterior impide que ambos entren al
+  núcleo fiscal con el mismo lote.
+- Un reintento manual concurrente se bloquea por el estado activo del lote; si
+  dos operaciones alcanzaran la numeración por caminos distintos, el lock de
+  base y `uq_intentos_emision_fiscal_reserva_activa` impiden reservas activas
+  duplicadas.
+- Un avance externo entre consultas no se compensa ni replantea bajo la misma
+  ejecución. El segundo preflight normal cierra la reserva como
+  `fallido_verificado` y termina antes de FECAE.
+- Una caída de base temporal conserva su excepción para que el worker detenga
+  el ciclo; no se transforma en un lote falsamente seguro.
+- Un error de certificado, WSAA, punto de venta o consulta de numeración bloquea
+  la reanudación. El traceback se registra en logs privados y la respuesta
+  persistida usa una categoría estable.
+- Si una autorización ya existe pero falta evidencia local suficiente, no hay
+  rollback destructivo ni reconstrucción optimista: el intento y el lote
+  permanecen bloqueantes hasta reconciliación.
+- Los datos legacy no se normalizan ni se completan. Un payload ausente o
+  inválido es evidencia insuficiente y produce bloqueo conservador.
+
+### Migraciones, contratos y cortes posteriores
+
+No se requieren migraciones, backfill ni nuevos índices. El contrato usa el
+diagnóstico, los estados y las constraints existentes. No cambia el contrato
+HTTP ni la estructura visible de fechas; los metadatos de recuperación agregan
+el diagnóstico seguro y reemplazan detalles de excepción por categorías
+sanitizadas.
+
+`FECompUltimoAutorizado` y, solo para resolver intentos propios stale,
+`FECompConsultar` son lecturas. PF-02B.3 no agrega llamadas ARCA de escritura;
+`FECAESolicitar` permanece exclusivamente en el procesamiento normal posterior
+con confirmación fiscal e idempotencia vigentes.
+
+No quedan unidades funcionales adicionales dentro de PF-02B.3. La importación o
+reconstrucción de historia externa para informes continúa separada en PF-05.
+
+### Matriz automatizada de PF-02B.3
+
+- preflight compartido con historia alineada: devuelve próximo número y
+  diagnóstico completos;
+- historia externa legítima: acepta `arca_adelantada` y propone
+  `ultimo_arca + 1` sin crear intento ni comprobante;
+- `local_adelantada`: bloquea antes de reencolar;
+- lote stale parcial con autorizado fuerte e intacto: reconcilia el primero,
+  reencola el segundo y conserva número/CAE/comprobante vacíos;
+- combinaciones mixtas alineada y `arca_adelantada`: todas deben aprobar y el
+  diagnóstico se registra por combinación;
+- una combinación insegura en un grupo mixto: ningún intacto se reencola;
+- intento propio `en_proceso` activo o `requiere_reconciliacion`: cero reservas
+  nuevas, cero FECAE y bloqueo;
+- autorizado con y sin comprobante local, candidato local sin intento e
+  intentos autorizados duplicados: solo la evidencia fuerte cierra o vincula;
+- error inesperado del preflight: grupos intactos preservados, categoría pública
+  sanitizada y ausencia del detalle sensible en lote y evento;
+- doble recuperación: el segundo intento no duplica la transición; el CAS
+  vigente prueba un único reclamo del procesamiento;
+- carrera worker/reintento manual: los estados activos no son resolubles por el
+  endpoint manual;
+- avance externo entre consultas: regresiones individual, batch y reintento
+  demuestran segundo preflight, intentos `fallido_verificado` y cero FECAE;
+- aislamiento por emisor, punto y tipo, fecha fiscal explícita e idempotencia:
+  regresiones vigentes del servicio y la API.
+
+Todas las pruebas usan dobles controlados, fechas explícitas y datos sintéticos.
+No solicitan CAE real ni realizan escrituras en ARCA.
+
+### Evidencia automatizada del tercer corte
+
+- `12` pruebas enfocadas de diagnóstico y recuperación stale;
+- `164` pruebas de facturación y lotes;
+- backend completo: `557` aprobadas y `4` omitidas por harness configurado;
+- frontend: `131` unitarias y `33` E2E;
+- `16` pruebas de scripts de repositorio;
+- Ruff, Black, ESLint sin errores, type-check y build aprobados;
+- `docs:check`, `pip-audit` y `npm audit --omit=dev` aprobados;
+- cero migraciones, cero CAE reales, cero emisiones y cero llamadas ARCA de
+  escritura.

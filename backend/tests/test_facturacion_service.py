@@ -285,12 +285,23 @@ async def test_validar_punto_venta_habilitado_rechaza_bloqueado_s(
 
 
 @pytest.mark.asyncio
-async def test_verificar_numeracion_alineada_para_emision_consulta_arca(
+@pytest.mark.parametrize(
+    ("ultimo_arca", "estado_esperado", "proximo_esperado"),
+    [
+        (76, "alineada", 77),
+        (80, "arca_adelantada", 81),
+        (75, "local_adelantada", None),
+    ],
+)
+async def test_verificar_numeracion_segura_para_emision_consulta_arca(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
+    ultimo_arca: int,
+    estado_esperado: str,
+    proximo_esperado: int | None,
 ):
-    """El preflight confirma punto habilitado y numeración local/ARCA alineada."""
+    """El preflight acepta historia externa, pero no historia local adelantada."""
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -346,9 +357,9 @@ async def test_verificar_numeracion_alineada_para_emision_consulta_arca(
             return [SimpleNamespace(numero=1, bloqueado="N")]
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
-            """Simula que ARCA está alineada con el último local."""
+            """Devuelve el último número ARCA parametrizado."""
             self.consultas_ultimo.append((punto_venta_numero, tipo))
-            return 76
+            return ultimo_arca
 
     async def fake_ticket(self, empresa, certificado):
         return SimpleNamespace(token="token", sign="sign")
@@ -360,19 +371,32 @@ async def test_verificar_numeracion_alineada_para_emision_consulta_arca(
     monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
 
     service = FacturacionService(db_session)
-    resultado = await service.verificar_numeracion_alineada_para_emision(
-        empresa_id=test_empresa.id,
-        punto_venta_id=punto_venta.id,
-        tipo_comprobante=6,
-    )
+    if proximo_esperado is None:
+        with pytest.raises(ValidationError, match="local está adelantada"):
+            await service.verificar_numeracion_segura_para_emision(
+                empresa_id=test_empresa.id,
+                punto_venta_id=punto_venta.id,
+                tipo_comprobante=6,
+            )
+    else:
+        resultado = await service.verificar_numeracion_segura_para_emision(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+        )
 
-    assert resultado == {
-        "empresa_id": test_empresa.id,
-        "punto_venta_id": punto_venta.id,
-        "punto_venta_numero": 1,
-        "tipo_comprobante": 6,
-        "proximo_numero": 77,
-    }
+        assert resultado == {
+            "empresa_id": test_empresa.id,
+            "punto_venta_id": punto_venta.id,
+            "punto_venta_numero": 1,
+            "tipo_comprobante": 6,
+            "ultimo_local": 76,
+            "ultimo_arca": ultimo_arca,
+            "proximo_local": 77,
+            "proximo_arca": ultimo_arca + 1,
+            "proximo_numero": proximo_esperado,
+            "estado": estado_esperado,
+        }
     assert FakePreflightWSFEClient.consultas_ultimo == [(1, 6)]
 
 

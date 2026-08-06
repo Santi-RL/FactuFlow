@@ -22,10 +22,10 @@ fechadas de `docs/project/**`.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-El código aceptado en `main` avanzó después de ese tag: PF-02A, PF-02B.1 y
-PF-02B.2 están integrados, pero todavía no pertenecen a una release publicada
-ni al despliegue productivo. Sus escenarios se validaron con dobles
-controlados, sin CAE reales ni llamadas ARCA de escritura.
+El código aceptado en `main` avanzó después de ese tag: PF-02A y los tres cortes
+de PF-02B están integrados, pero todavía no pertenecen a una release publicada
+ni al despliegue productivo. Sus escenarios se validaron con dobles controlados,
+sin CAE reales ni llamadas ARCA de escritura.
 
 ## Preparación local
 
@@ -286,7 +286,7 @@ Evidencia mínima: captura sanitizada del panel para los tres estados, resultado
 de pruebas enfocadas, conteo cero de FECAE en abortos pre-ARCA y ausencia de
 datos fiscales reales en el repositorio.
 
-## PF-02B — batch y reintentos manuales
+## PF-02B — batch, reintentos manuales y recuperación stale
 
 Este corte se valida únicamente con dobles controlados. No autoriza solicitudes
 de CAE reales.
@@ -321,21 +321,34 @@ de CAE reales.
     quedar `fallido` y continuar la selección.
 12. Confirmar que `local_adelantada` y los intentos propios `en_proceso` o
     `requiere_reconciliacion` detienen la selección sin nueva reserva ni FECAE.
+13. Simular un lote stale parcial con un grupo autorizado respaldado por intento
+    fuerte y otro intacto, con ARCA adelantada. Debe vincular el autorizado,
+    reencolar el intacto sin número, CAE, comprobante ni intento nuevo y registrar
+    el diagnóstico `arca_adelantada`.
+14. Simular grupos intactos con combinaciones mixtas. Todas deben aprobar el
+    preflight; si una queda `local_adelantada` o no puede verificarse, ningún
+    grupo se reencola y el lote queda bloqueado para reconciliación.
+15. Repetir la recuperación y simular dos reclamos del worker. La segunda
+    recuperación no duplica el evento y solo un reclamo atómico puede pasar
+    `en_cola -> procesando`. Un reintento manual sobre `en_cola`, `procesando` o
+    `requiere_reconciliacion` debe rechazarse.
+16. Hacer fallar el preflight con una excepción que contenga una ruta sintética.
+    El lote y el evento deben guardar solo `numeracion_no_verificable`; el texto
+    interno debe quedar fuera de la respuesta.
 
-La recuperación stale del worker conserva una puerta estricta antes de
-reencolar: exige grupos intactos, ausencia de intentos y numeración alineada. El
-procesamiento normal vuelve a diagnosticar después del reencolado. El contrato
-de reintentos manuales quedó cerrado en PF-02B.2. La extensión de la
-recuperación stale permanece como PF-02B.3 y no debe inferirse de estos casos.
+PF-02B.3 cierra esta matriz. La recuperación stale acepta historia externa solo
+como diagnóstico de lectura; nunca asigna el número ni crea la reserva. El
+procesamiento normal vuelve a diagnosticar, reserva y ejecuta el segundo
+preflight antes de cualquier FECAE.
 
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
-superó el despliegue y la verificación post-deploy. El próximo foco de QA
-acompaña PF-02 y los escenarios manuales controlados todavía enumerados. No
-repetir como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el
-rediseño UX de lotes ni las validaciones ya cerradas.
+superó el despliegue y la verificación post-deploy. PF-02 quedó cerrado con
+dobles controlados; el próximo foco de QA acompaña la primera unidad vertical de
+PF-03. No repetir como pendiente el setup productivo inicial, el despliegue
+`v0.2.2`, el rediseño UX de lotes ni las validaciones ya cerradas.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

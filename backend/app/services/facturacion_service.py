@@ -218,14 +218,14 @@ class FacturacionService:
         )
         return await wsfe_client.fe_comp_tot_x_request()
 
-    async def verificar_numeracion_alineada_para_emision(
+    async def verificar_numeracion_segura_para_emision(
         self,
         *,
         empresa_id: int,
         punto_venta_id: int,
         tipo_comprobante: int,
-    ) -> dict[str, int]:
-        """Verifica contra ARCA que la próxima numeración local sea segura."""
+    ) -> dict[str, int | str]:
+        """Diagnostica contra ARCA una numeración segura para emitir después."""
         empresa = await self._obtener_empresa(empresa_id)
         if not empresa:
             raise ValidationError("Empresa no encontrada")
@@ -242,19 +242,34 @@ class FacturacionService:
             cuit=empresa.cuit,
         )
         await self._validar_punto_venta_habilitado(wsfe_client, punto_venta.numero)
-        proximo_numero = await self._obtener_proximo_numero(
+        diagnostico = await self._obtener_diagnostico_numeracion(
             empresa_id,
             punto_venta_id,
             tipo_comprobante,
             wsfe_client=wsfe_client,
             punto_venta_numero=punto_venta.numero,
         )
+        if diagnostico.estado == "local_adelantada":
+            raise ValidationError(
+                "La numeración local está adelantada respecto de ARCA. "
+                "Revisá los comprobantes emitidos antes de continuar."
+            )
+        if (
+            diagnostico.estado not in {"alineada", "arca_adelantada"}
+            or diagnostico.proximo_numero is None
+        ):
+            raise ValidationError("No se pudo determinar una numeración fiscal segura")
         return {
             "empresa_id": empresa_id,
             "punto_venta_id": punto_venta_id,
             "punto_venta_numero": punto_venta.numero,
             "tipo_comprobante": tipo_comprobante,
-            "proximo_numero": proximo_numero,
+            "ultimo_local": diagnostico.ultimo_local,
+            "ultimo_arca": diagnostico.ultimo_arca,
+            "proximo_local": diagnostico.proximo_local,
+            "proximo_arca": diagnostico.proximo_arca,
+            "proximo_numero": diagnostico.proximo_numero,
+            "estado": diagnostico.estado,
         }
 
     async def resolver_operacion_idempotente_incompleta(

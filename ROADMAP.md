@@ -181,7 +181,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   quedaron verdes. El harness se publicó en `6625254`, cuya CI
   `29270728104` aprobó seguridad, backend, frontend y E2E; Clawpatch revalidó
   B10 y B17 como `fixed` con `gpt-5.6-sol high`.
-- [~] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
+- [x] **P1 fiscal - No bloquear emisiones legítimas por historia previa o
   actividad de otros sistemas.** El control original presuponía que la base local
   de FactuFlow contiene la secuencia fiscal completa y bloquea cuando
   `FECompUltimoAutorizado` informa un número diferente del último comprobante
@@ -221,7 +221,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     la reserva y aborto terminal con cero CAE si la numeración cambia o no puede
     reconfirmarse. Integrado mediante el PR `#15` (`c872497`). Diseño:
     `docs/agents/pf-02a-numeracion-individual-design.md`.
-  - [~] **PF-02B — emisión masiva y worker:** aplicar la política a reservas de
+  - [x] **PF-02B — emisión masiva y worker:** aplicar la política a reservas de
     grupos y lotes sin copiar diagnósticos a `numero_asignado`, y cerrar la
     matriz de QA fiscal antes de considerar PF-02 completo.
     - [x] Primer corte integrado mediante el PR `#16` (`2c75fd2`): el núcleo
@@ -234,8 +234,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       `arca_adelantada`, detienen la selección ante bloqueos, aborto del segundo
       preflight o incertidumbre post-ARCA, y preservan como reconciliable una
       autorización conocida aunque falle el cierre local.
-    - [ ] Extender la recuperación stale del worker sin liberar intentos propios
-      inciertos y cerrar la QA fiscal de PF-02.
+    - [x] Tercer corte: la recuperación stale acepta diagnósticos `alineada` o
+      `arca_adelantada` solo para pendientes realmente intactos, no asigna
+      números ni crea intentos, conserva todo bloqueo propio y delega la reserva
+      durable y el segundo preflight al procesamiento normal. PF-02 queda
+      cerrado sin incorporar la reconstrucción histórica opcional de PF-05.
 - [ ] **P2 - Reconstrucción histórica opcional desde ARCA para informes con
   cobertura verificable.** Permitir consultar con `FECompConsultar` e importar
   snapshots fiscales de comprobantes emitidos fuera de FactuFlow. Esta función
@@ -545,9 +548,11 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
 - [x] Worker evita reencolar lotes activos y ya no reemite lotes `procesando`
   stale: primero intenta reconciliación local respaldada por un intento fiscal
   autorizado del mismo lote/grupo con comprobante, número, CAE y datos fiscales
-  coherentes; luego solo reencola pendientes intactos si la numeración
-  ARCA/local está alineada por emisor, punto de venta y tipo. Si hay evidencia
-  fiscal, intento previo o preflight no concluyente, bloquea como
+  coherentes; luego solo reencola pendientes intactos si el diagnóstico por
+  emisor, punto de venta y tipo es `alineada` o `arca_adelantada` y no existe
+  incertidumbre propia. No asigna número ni crea reserva durante la recuperación;
+  el procesamiento normal repite el preflight. Si hay evidencia fiscal, intento
+  previo o preflight no concluyente, bloquea como
   `requiere_reconciliacion`. Si el bloqueo de un stale falla, no avanza con
   lotes `en_cola` en ese ciclo.
 - [x] La API comprueba que el worker embebido esté disponible antes de crear
@@ -1006,13 +1011,14 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Cerrar PF-02 para que una diferencia legítima entre ARCA y FactuFlow no
-   bloquee la emisión sin debilitar intentos propios inciertos.
+1. Iniciar PF-03 con auditoría, checklist fiscal y una primera unidad vertical
+   pequeña de validación de entradas, fechas, importes, moneda o totales. PF-02
+   ya está cerrado y PF-05 continúa separado.
 2. Continuar PF-16C con la modernización planificada del toolchain y la
    evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
    documental ya están cerradas.
-3. Continuar los P1 adjudicados por orden integrado: PF-03, PF-06/PF-07,
-   PF-08 y PF-09.
+3. Después de PF-03, continuar los P1 adjudicados por orden integrado:
+   PF-06/PF-07, PF-08 y PF-09.
 4. Mantener la custodia y la evidencia concreta del backup fuera del repo
    público; automatización, retención y recuperación a un VPS nuevo siguen
    como trabajo separado.

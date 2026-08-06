@@ -673,9 +673,18 @@ preflight y cualquier incertidumbre post-ARCA detienen la selección. Solo un
 rechazo ARCA explícito permite continuar con el grupo siguiente. Una respuesta
 ambigua o una falla local posterior a una autorización conocida deja
 grupo/lote en `requiere_reconciliacion`, conserva la evidencia fiscal y nunca
-vuelve el grupo a `fallido`. La recuperación stale del worker conserva una
-puerta previa más estricta: solo reencola grupos intactos, sin intentos, cuando
-la numeración está alineada; su extensión corresponde a PF-02B.3.
+vuelve el grupo a `fallido`.
+
+La recuperación stale del worker conserva una puerta previa más estricta: solo
+reencola grupos intactos, sin intento, CAE, número, comprobante vinculado ni
+comprobante autorizado candidato. El diagnóstico compartido admite
+`alineada` o `arca_adelantada` si no existe incertidumbre propia, pero no asigna
+el número ni crea reservas. El procesamiento normal posterior vuelve a
+diagnosticar, persiste las reservas y ejecuta el segundo preflight antes de
+FECAE. `local_adelantada`, un intento propio activo o incierto y cualquier
+preflight no concluyente bloquean el lote. Los metadatos expuestos conservan
+categorías estables como `numeracion_no_verificable`, no el texto interno de la
+excepción.
 
 Durante el procesamiento, el backend actualiza `grupos_emitidos`,
 `grupos_fallidos`, `grupos_validos` y `mensaje_resumen` después de cada grupo,

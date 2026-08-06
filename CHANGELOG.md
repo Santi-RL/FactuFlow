@@ -37,8 +37,12 @@ Reglas vigentes desde 2026-05-22:
   Una falla local posterior a una autorización conocida hace rollback del
   comprobante incompleto, preserva número/CAE en el intento y nunca vuelve el
   grupo a `fallido`. Los errores inesperados se muestran sanitizados.
-- La recuperación stale conserva una puerta estricta antes de reencolar y no
-  libera intentos propios inciertos; su extensión corresponde a PF-02B.3.
+- PF-02B.3 cierra la recuperación stale del worker: los pendientes realmente
+  intactos pueden volver a cola con diagnóstico `alineada` o
+  `arca_adelantada`, sin asignar número, crear intento ni solicitar CAE. Los
+  intentos propios activos o inciertos siguen bloqueando; el procesamiento
+  normal conserva la reserva durable y el segundo preflight. Los errores
+  persistidos usan categorías sanitizadas y no exponen textos de excepción.
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
   Ninguno de estos cortes posteriores a `v0.2.2` está desplegado todavía.
 

@@ -156,8 +156,10 @@ Mapping aplicado en el proyecto:
   total coherentes. Un comprobante local parecido pero sin ese intento no debe
   cerrar el grupo. Si quedan pendientes intactos, solo se reencolan cuando no
   tienen intento fiscal, CAE, número, comprobante vinculado ni comprobante local
-  autorizado candidato, y `FECompUltimoAutorizado` confirma numeración
-  ARCA/local alineada. Si queda cualquier duda, el lote pasa a
+  autorizado candidato, y la comparación con `FECompUltimoAutorizado` produce
+  `alineada` o `arca_adelantada` sin incertidumbre propia. La recuperación no
+  asigna número ni crea reserva; el procesamiento normal repite la consulta antes de FECAE.
+  Si queda cualquier duda, el lote pasa a
   `requiere_reconciliacion` con evento `bloqueo_operativo_no_reemitir`; solo los
   grupos con evidencia fiscal se marcan `requiere_reconciliacion`.
 - `Completado` queda reservado para comprobantes emitidos por FactuFlow.
@@ -166,11 +168,11 @@ Mapping aplicado en el proyecto:
 
 ### 4.f.1 Numeración individual y batch compatible con otros sistemas
 
-Estado 2026-08-05: PF-02A y los dos primeros cortes de PF-02B están integrados
-en `main`. Separan el último local del último ARCA; el núcleo batch y los
-reintentos manuales pueden iniciar en `ultimo_arca + 1` cuando ARCA está
-adelantada y no existe incertidumbre propia. FactuFlow no rellena huecos ni
-importa comprobantes en este paso.
+Estado 2026-08-05: PF-02A y los tres cortes de PF-02B están integrados en
+`main`. Separan el último local del último ARCA; el núcleo batch, los reintentos
+manuales y la recuperación stale pueden convivir con `arca_adelantada` cuando
+no existe incertidumbre propia. FactuFlow no rellena huecos ni importa
+comprobantes en este paso.
 
 El manual WSFE exige que `CbteDesde` sea el siguiente al último autorizado y
 puede devolver `10016` ante una consecutividad inválida. Como otros sistemas no
@@ -190,7 +192,9 @@ inmediatamente antes de `FECAESolicitar`.
   falla local después de una autorización conocida exige rollback del registro
   incompleto y `requiere_reconciliacion`, nunca `fallido`.
 - La recuperación stale del worker mantiene una puerta estricta antes de
-  reencolar y no libera intentos inciertos. Su extensión queda en PF-02B.3.
+  reencolar y no libera intentos inciertos. Solo mueve el lote a `en_cola`; el
+  procesamiento normal crea reservas y repite `FECompUltimoAutorizado` antes de
+  FECAE. Los errores persistidos usan categorías sanitizadas.
 - La importación histórica para informes es PF-05 y nunca condiciona una nueva
   emisión.
 ### 4.g Idempotencia fiscal y CAE
