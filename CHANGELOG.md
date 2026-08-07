@@ -18,6 +18,16 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Planificación de producto
+
+- PF-17 incorpora como trabajo futuro de banda C una señal liviana de
+  conectividad y recuperación segura. La propuesta distingue pérdida de red,
+  servidor no disponible, conexión inestable y recuperación; reutiliza
+  healthchecks sanitizados con pestaña activa y backoff, sin monitoreo pesado.
+  No habilita operación offline, caché de datos fiscales, colas locales ni
+  reintentos automáticos de escrituras o solicitudes de CAE. PF-03B y el orden
+  de prioridades inmediatas permanecen sin cambios.
+
 ### Validación fiscal
 
 - PF-03A cierra el objeto superior de `EmitirComprobanteRequest`: una clave no

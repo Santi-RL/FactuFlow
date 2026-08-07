@@ -2,6 +2,8 @@
 
 Estado: decisión vigente desde 2026-05-22.
 
+Última actualización: 2026-08-07.
+
 ## Objetivo
 
 FactuFlow ya fue usado en producción real. Antes de ampliar el uso productivo,
@@ -109,6 +111,36 @@ La vista administrativa también incluye `Sistema > Almacenamiento`: muestra uso
 medido, recuperable, límite configurado, espacio libre de disco, categorías y
 uso por emisor, y permite resguardar/descargar antes de liberar artefactos no
 vitales.
+
+### 3.1. Conectividad visible y recuperación segura
+
+PF-17 planifica una señal global y no invasiva para que una persona usuaria
+pueda distinguir entre una pantalla cargando, una conexión inestable, el
+servidor de FactuFlow no disponible y una recuperación en curso. Esta sección
+define el contrato futuro; no declara que la capacidad esté implementada.
+
+- La detección debe combinar los eventos del navegador como indicio con el
+  healthcheck real, errores de API y fallos al cargar vistas diferidas.
+- El costo debe ser mínimo: usar el healthcheck liviano solo con la pestaña
+  activa, suspender comprobaciones en segundo plano y aplicar backoff después de
+  un fallo. No agregar monitoreo externo, telemetría pesada ni polling agresivo.
+- La interfaz debe mostrar un aviso persistente y accesible, explicar el
+  impacto, ofrecer una acción segura y confirmar la recuperación sin apilar
+  notificaciones duplicadas.
+- FactuFlow no operará offline: no se guardarán formularios, payloads, datos
+  fiscales o evidencia privada para reenvío posterior, ni se crearán colas
+  locales o service workers de operaciones.
+- Ninguna escritura, emisión, solicitud de CAE, reintento o reconciliación puede
+  repetirse automáticamente. Una pérdida de conexión posterior a una acción
+  fiscal debe conservar el estado de incertidumbre y orientar a verificar o
+  reconciliar, nunca a recargar o volver a emitir.
+- Los reintentos automáticos quedan limitados a healthchecks y lecturas
+  expresamente seguras. Cualquier recuperación de una mutación requiere el
+  contrato idempotente y la decisión específica de su flujo.
+
+Este trabajo pertenece a la banda C del portafolio y depende de los contratos
+de errores de PF-14, las señales sanitizadas de PF-15 y las garantías fiscales
+de PF-01. No desplaza las prioridades inmediatas vigentes.
 
 ### 4. Backups y restauración probados
 
