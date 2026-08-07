@@ -410,6 +410,9 @@ Objetivo: poder operar una empresa y emitir comprobantes reales.
 ### API y backend
 - [x] Endpoints base para auth, clientes, empresa y comprobantes
 - [x] Seguridad básica por empresa
+- [x] PF-03A: el contrato superior de emisión individual rechaza claves
+  desconocidas con `422` antes de idempotencia, intentos o ARCA; los snapshots
+  batch no canónicos fallan cerrados al revalidarse
 - [x] Generacion de PDF bajo demanda
 - [x] PDF de comprobante con formato administrativo profesional, ubicación de
   elementos principales alineada a la factura oficial ARCA y QR ARCA testeado
@@ -1011,9 +1014,10 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Iniciar PF-03 con auditoría, checklist fiscal y una primera unidad vertical
-   pequeña de validación de entradas, fechas, importes, moneda o totales. PF-02
-   ya está cerrado y PF-05 continúa separado.
+1. Continuar PF-03 con PF-03B: separar el DTO de ítem que serializa la UI, hacer
+   estricto `ItemComprobanteCreate` y rechazar descuentos o valores no finitos
+   antes de calcular totales. PF-03A cerró el objeto superior; PF-02 está
+   cerrado y PF-05 continúa separado.
 2. Continuar PF-16C con la modernización planificada del toolchain y la
    evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
    documental ya están cerradas.

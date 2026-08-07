@@ -71,6 +71,88 @@ def _request_emitir_base(test_empresa) -> dict:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("campo_correcto", "campo_erroneo", "valor"),
+    [
+        ("moneda", "monedaa", "USD"),
+        ("cotizacion", "cotizaccion", 2),
+        ("guardar_cliente", "guardar_clientee", False),
+        (
+            "confirmacion_fecha_fiscal",
+            "confirmacion_fecha_fiscaal",
+            True,
+        ),
+    ],
+)
+async def test_emitir_comprobante_rechaza_claves_superiores_desconocidas(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    campo_correcto: str,
+    campo_erroneo: str,
+    valor: object,
+) -> None:
+    """Una errata fiscal debe fallar antes de idempotencia y del servicio."""
+    llamadas_servicio = 0
+
+    async def fake_emitir(self, request, **kwargs):
+        nonlocal llamadas_servicio
+        llamadas_servicio += 1
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=701,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=71,
+            fecha=request.fecha_emision,
+            total=Decimal("1000.00"),
+            mensaje="Comprobante emitido exitosamente",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    payload = _request_emitir_base(test_empresa)
+    payload.pop(campo_correcto, None)
+    payload[campo_erroneo] = valor
+    idempotency_key = f"idem-extra-{campo_erroneo}"
+    headers = {
+        **auth_headers,
+        **_idempotency_header(idempotency_key),
+    }
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+
+    assert response.status_code == 422, response.text
+    assert llamadas_servicio == 0
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == idempotency_key
+        )
+    )
+    assert operacion is None
+    assert any(
+        error["type"] == "extra_forbidden" and error["loc"] == ["body", campo_erroneo]
+        for error in response.json()["detail"]
+    )
+
+
+def test_emitir_request_preserva_compatibilidad_transitoria_del_item_ui() -> None:
+    """PF-03A no hace estricto el ítem que la UI aún envía con subtotal."""
+    payload = _request_emitir_base(SimpleNamespace(id=1))
+    payload["items"][0]["subtotal"] = 1000
+
+    request = EmitirComprobanteRequest.model_validate(payload)
+
+    assert request.items[0].descripcion == "Servicio"
+    assert "subtotal" not in request.items[0].model_dump()
+
+
+@pytest.mark.asyncio
 async def test_emitir_comprobante_rechaza_concepto_faltante(
     client: AsyncClient,
     auth_headers: dict,

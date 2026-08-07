@@ -136,6 +136,17 @@ Mapping aplicado en el proyecto:
   genérico también desde `FacturacionService`, incluidos sublotes y fallos
   post-CAE, y revisar idempotencia e intentos fiscales antes de reintentar.
 
+### 4.e.1 Contrato estricto antes de ARCA
+
+- El objeto superior de una emisión es cerrado. Una clave desconocida o mal
+  escrita debe responder `422 extra_forbidden` antes de idempotencia, reserva,
+  intento fiscal o `FECAESolicitar`.
+- No limpiar automáticamente campos desconocidos de un snapshot batch legacy:
+  pueden expresar una decisión fiscal que FactuFlow no comprende. El worker,
+  reintento, stale y reconciliación deben fallar cerrados sin reemitir.
+- Esta regla no cambia el contrato SOAP ni autoriza usar defaults de fecha,
+  moneda o cotización como sustituto de una entrada mal escrita.
+
 ### 4.f Reconciliación externa de lotes
 
 - Para comprobantes emitidos manualmente en ARCA Web, FactuFlow debe usar

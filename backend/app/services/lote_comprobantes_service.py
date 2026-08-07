@@ -18,6 +18,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -2826,7 +2827,13 @@ class LoteComprobantesService:
             except Exception as exc:  # pragma: no cover - fallback defensivo
                 logger.exception("Error procesando grupo %s", grupo.comprobante_ref)
                 grupo.estado = "fallido"
-                grupo.mensajes_json = [str(exc)]
+                mensaje = (
+                    "El payload fiscal guardado no cumple el contrato vigente. "
+                    "No se solicitó CAE; revisá el lote antes de reintentar."
+                    if isinstance(exc, PydanticValidationError)
+                    else str(exc)
+                )
+                grupo.mensajes_json = [mensaje]
                 await self._marcar_filas(grupo, "fallido", grupo.mensajes_json)
                 await self.db.flush()
                 await self._actualizar_progreso_lote(lote_id)

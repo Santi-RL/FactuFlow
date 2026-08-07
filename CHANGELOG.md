@@ -18,6 +18,22 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Validación fiscal
+
+- PF-03A cierra el objeto superior de `EmitirComprobanteRequest`: una clave no
+  documentada devuelve `422 extra_forbidden` antes de crear idempotencia,
+  reservar numeración o alcanzar el servicio fiscal. Erratas como `monedaa`,
+  `cotizaccion`, `guardar_clientee` o una confirmación mal escrita ya no pueden
+  activar valores predeterminados de manera silenciosa.
+- Los snapshots batch creados por FactuFlow continúan siendo canónicos. Un
+  payload histórico o manipulado con claves superiores desconocidas falla
+  cerrado en procesamiento, reintento, stale o reconciliación, sin solicitar
+  CAE ni limpiar una instrucción fiscal que el sistema no comprende. Si una
+  consulta segura ya confirma autorización, conserva CAE y vencimiento en
+  `requiere_reconciliacion` sin reconstruir el comprobante desde datos inválidos.
+  La serialización estricta de ítems y los límites de descuentos/importes
+  quedan separados para PF-03B.
+
 ### Numeración fiscal
 
 - PF-02A, integrado mediante el PR `#15` (`c872497`), distingue numeración
@@ -44,7 +60,8 @@ Reglas vigentes desde 2026-05-22:
   normal conserva la reserva durable y el segundo preflight. Los errores
   persistidos usan categorías sanitizadas y no exponen textos de excepción.
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
-  Ninguno de estos cortes posteriores a `v0.2.2` está desplegado todavía.
+  PF-02 y PF-03A son posteriores a `v0.2.2`: todavía no pertenecen a una release
+  publicada ni están desplegados.
 
 ### Calidad y seguridad
 

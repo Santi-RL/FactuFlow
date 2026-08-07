@@ -26,8 +26,11 @@ facturación individual y masiva con seguridad fiscal.
   permiten historia externa legítima en emisión individual, procesamiento
   batch, reintentos manuales y recuperación stale. Los intentos propios activos
   o inciertos conservan prioridad; la recuperación no asigna números ni pide
-  CAE, y el procesamiento normal mantiene reservas y segundo preflight. Estos
-  cambios todavía no pertenecen a una release publicada ni están desplegados.
+  CAE, y el procesamiento normal mantiene reservas y segundo preflight. PF-03A
+  agrega un contrato superior estricto: las claves desconocidas se rechazan
+  antes de idempotencia o emisión y los snapshots batch no canónicos fallan
+  cerrados. Estos cambios todavía no pertenecen a una release publicada ni
+  están desplegados.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -70,10 +73,10 @@ El estado detallado y el punto de reanudación viven en
 ## Próximo hito
 
 PF-02 quedó cerrado en unidades pequeñas y PF-05 conserva separada la
-reconstrucción histórica opcional para informes. El siguiente corte fiscal debe
-comenzar PF-03 con auditoría y diseño de la primera unidad vertical de validación
-de entradas, fechas, importes, moneda y totales, sin agrupar causas raíz
-independientes.
+reconstrucción histórica opcional para informes. PF-03A cerró el contrato
+superior de emisión. El siguiente corte fiscal es PF-03B: separar el DTO de ítem
+que envía la UI y validar de extremo a extremo propiedades desconocidas,
+descuentos y valores no finitos, sin agrupar moneda u otras causas raíz.
 
 ## Principios de trabajo
 

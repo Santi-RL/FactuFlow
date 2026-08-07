@@ -1,8 +1,8 @@
 # Portafolio integrado de desarrollo
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-06
 
-Estado: PRIORIZADO; PF-01 Y PF-02 CERRADOS; SIGUIENTE UNIDAD VERTICAL EN PF-03.
+Estado: PRIORIZADO; PF-01 Y PF-02 CERRADOS; PF-03A CERRADO; SIGUIENTE UNIDAD PF-03B.
 
 ## Propósito y autoridad
 
@@ -70,7 +70,7 @@ La distribución principal es:
 | Línea | P1 | P2 | Resultado |
 |---|---:|---:|---|
 | PF-01 | 6 | 0 | Las seis fuentes quedaron cerradas: cuatro en PF-01A y B10/B17 en PF-01B. |
-| PF-03 | 2 | 0 | Contratos fiscales estrictos e importes válidos. |
+| PF-03 | 2 | 0 | PF-03A cierra el contrato superior; PF-03B continúa con ítems e importes válidos. |
 | PF-04 | 0 | 4 | Evidencia histórica, moneda, redondeo y tests PDF. |
 | PF-06 | 2 | 0 | Invariantes multiemisor backend. |
 | PF-07 | 4 | 0 | Cambio de emisor y respuestas tardías frontend. |
@@ -105,7 +105,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 |---|---|---|---|---|---|
 | PF-01 | Integridad de autorización fiscal: CAE válido, estados coherentes, idempotencia y reconciliación segura | Hallazgos ARCA/CAE, emisión individual y lotes; P1 fiscal | Evitar reintentos inseguros, autorizaciones incompletas y estados ambiguos | Checklist fiscal, tabla de estados y tests de fallos post-ARCA | A |
 | PF-02 | Numeración compatible con historia previa y otros sistemas | P1 explícito del roadmap y hallazgos de reservas/numeración | Cerrado: PF-02A individual y PF-02B.1 batch, PF-02B.2 reintentos manuales y PF-02B.3 recuperación stale compatible con historia externa sin liberar incertidumbre propia | PF-01; ARCA como fuente global y FactuFlow como fuente de intentos propios | B |
-| PF-03 | Validación fiscal de entradas, fechas, importes, moneda y totales | Hallazgos de esquemas, analizadores, descuentos, perfiles, constancias y plantillas | Evitar payloads no elegidos, fechas inválidas y montos incoherentes | Contratos UI/API y matriz individual/masiva | A |
+| PF-03 | Validación fiscal de entradas, fechas, importes, moneda y totales | Hallazgos de esquemas, analizadores, descuentos, perfiles, constancias y plantillas | PF-03A rechaza claves superiores no elegidas; PF-03B debe cerrar ítems, descuentos y no finitos | Contratos UI/API y matriz individual/masiva | A |
 | PF-04 | Evidencia fiscal histórica correcta en PDFs y reportes | Hallazgos de instantánea del emisor, moneda, IVA, paginado, ranking y aislamiento PDF | Evitar documentos históricos mutables o informes impositivos incorrectos | Modelo de instantáneas, migración de datos heredados y pruebas de evidencia | A |
 | PF-05 | Reconstrucción histórica opcional desde ARCA | P2 explícito del roadmap | Completar informes sin convertir historia externa en requisito de emisión | PF-02, PF-04, procedencia, cobertura y registro reanudable | B |
 | PF-06 | Aislamiento multiemisor backend y modelo de datos | Roadmap multiemisor; hallazgos de pertenencia, enumeración y asociaciones cruzadas | Evitar mezcla o revelación de datos entre emisores | Invariantes DB, filtros uniformes y tests multiemisor | A |
@@ -182,4 +182,5 @@ Antes de editar código, cada corte debe tener:
   SQLite/PostgreSQL, CI y revalidación secuencial con `gpt-5.6-sol high`.
 - PF-02A individual y los tres cortes de PF-02B están integrados en `main`.
   PF-02 quedó cerrado; la reconstrucción histórica opcional continúa separada
-  en PF-05 y la siguiente unidad vertical comienza en PF-03.
+  en PF-05. PF-03A cerró el contrato superior de emisión y la siguiente unidad
+  vertical es PF-03B sobre DTO de ítem, descuentos y valores no finitos.
