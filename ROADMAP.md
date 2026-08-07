@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-07
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -646,6 +646,33 @@ Objetivo: reducir al mínimo la necesidad de soporte técnico para operar.
 - [x] Eliminacion de `alert()` y `confirm()` nativos en flujos principales
 - [~] Mensajes accionables en errores de negocio
 - [x] Mensaje claro en login cuando el backend local no responde
+- [ ] **PF-17 — Conectividad consciente y recuperación segura:** informar de
+  forma no invasiva cuando el navegador pierde red, el servidor de FactuFlow no
+  responde o una vista diferida no puede cargarse. Debe combinar una señal
+  global persistente con mensajes accionables al navegar, distinguir
+  `Sin conexión`, `Servidor no disponible`, `Conexión inestable` y
+  `Recuperando`, y confirmar cuando la comunicación se restablece.
+  - Mantener un costo mínimo: reutilizar healthchecks livianos solo con la
+    pestaña activa, pausar comprobaciones en segundo plano y aplicar backoff
+    ante fallos; no incorporar servicios externos, telemetría pesada ni polling
+    agresivo.
+  - Tratar el estado del navegador solo como indicio y confirmar la
+    disponibilidad de FactuFlow mediante su healthcheck y los errores reales de
+    API o navegación.
+  - No convertir FactuFlow en una aplicación offline: no cachear ni persistir
+    formularios, payloads, CUITs, CAEs, comprobantes o evidencia privada; no
+    crear colas locales ni service workers que reenvíen operaciones.
+  - Prohibir reintentos automáticos de escrituras y de cualquier camino fiscal.
+    Si una emisión pudo cruzar la frontera irreversible, conservar el flujo de
+    verificación/reconciliación y no recomendar recargar, cerrar ni volver a
+    emitir. Solo los healthchecks y lecturas expresamente seguras pueden
+    reintentarse de forma controlada.
+  - Reutilizar los avisos y el diseño actuales, contemplar accesibilidad para
+    cambios de estado y cubrir pérdida/recuperación, `502/503/504`, timeout,
+    fallo de chunk y ausencia de duplicación de avisos.
+  - Pertenece a la banda C del portafolio y depende de PF-14/PF-15 y de las
+    garantías fiscales vigentes. No forma parte de las prioridades inmediatas
+    ni debe desplazar PF-03, PF-06/PF-07, PF-08 o PF-09.
 - [~] Ayudas contextuales en pantallas sensibles
 - [ ] Ayuda contextual para el constructor de plantillas de carga masiva:
   enlace visible, guía paso a paso, explicación de los orígenes y la
@@ -930,6 +957,9 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
   reconciliaciones
 - [ ] Mensajes de error con explicacion simple, impacto y próximo paso seguro
+- [ ] Señal global liviana de conectividad y recuperación segura para usuarios,
+  planificada en PF-17 y coordinada con los contratos de errores de PF-14 y la
+  salud operativa de PF-15; no implica operación offline ni reintentos fiscales.
 - [~] Runbook de diagnostico para soporte y usuarios administrativos: guía y
   ficha visibles en `Sistema > Estado`, más primer runbook público sanitizado en
   `docs/agents/support-runbook.md`; quedan pendientes la señal de backup y la
