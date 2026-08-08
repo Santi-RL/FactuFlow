@@ -120,9 +120,16 @@ Reglas vigentes desde 2026-05-22:
 - La CI agrega clasificación documental conservadora, tests de scripts, Ruff,
   Black, type-check, lint, build, unit tests, E2E y auditorías bloqueantes de
   dependencias productivas; se retira el Pylint decorativo que ignoraba fallos.
-- `pypdf` se actualiza a `6.14.2` y PostCSS a `8.5.23` para resolver avisos
-  conocidos. La migración mayor del toolchain frontend queda planificada sin
-  aplicar actualizaciones forzadas incompatibles.
+- `pypdf` se actualiza de `6.14.2` a `6.15.0` para corregir
+  `CVE-2026-71852` y `CVE-2026-71870`. Los dos parsers de constancias se
+  verifican con PDFs sintéticos reales generados en memoria, desde la extracción
+  hasta los campos fiscales, y encapsulan PDFs malformados como errores de
+  dominio.
+- PostCSS permanece en `8.5.23` y su dependencia transitiva `nanoid` se resuelve
+  en `3.3.17` para corregir `CVE-2026-67213`, sin cambiar `package.json` ni usar
+  actualizaciones forzadas. Las auditorías productivas de Python y npm quedan
+  limpias; la modernización mayor del toolchain frontend continúa planificada
+  por separado.
 - La alineación documental pasa a ser una puerta explícita antes del commit y
   antes de marcar un PR como listo. La plantilla exige una matriz por impacto y
   la CI comprueba versiones y marcadores transitorios también en cambios Nivel

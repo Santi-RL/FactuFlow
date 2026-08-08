@@ -279,20 +279,28 @@ Fecha: 08/08/2026
   restauración del valor previo. El test PostgreSQL desechable quedó agregado y
   se omitió por falta de infraestructura explícita; no se conectó ninguna base
   real.
-- Backend completo: `603` pruebas aprobadas y `5` omitidas por infraestructura
+- Backend completo: `607` pruebas aprobadas y `5` omitidas por infraestructura
   opcional. Ruff y Black aprobaron los `120` archivos de `app/` y `tests/`.
+- Compatibilidad PDF: `13` pruebas enfocadas aprobaron con `pypdf 6.15.0`.
+  Ambas constancias usan PDFs sintéticos reales generados en memoria, sin
+  reemplazar `PdfReader`: encadenan extracción y parseo de CUIT, condición o
+  domicilio, y tabla/punto Web Services. Los dos formatos malformados devuelven
+  errores de dominio controlados; no se persistieron archivos ni se usaron datos
+  reales. `pip check` y `pip-audit -r requirements.txt` quedaron limpios.
 - Frontend: `131` pruebas unitarias y `33` E2E Chromium aprobadas; type-check y
   build aprobados. ESLint conservó `13` advertencias históricas y cero errores.
-- Repositorio: `docs:check` aprobado; `16` pruebas de scripts y `5` de seeds
-  Clawpatch aprobadas.
-- Puerta de seguridad pendiente en un corte separado: `pip-audit` detectó dos
-  vulnerabilidades conocidas en `pypdf 6.14.2` con corrección indicada en
-  `6.15.0`; `npm audit --omit=dev --audit-level=high` detectó una vulnerabilidad
-  alta en `nanoid <3.3.17`. Son dependencias preexistentes y PF-19A no las
-  actualiza para no mezclar alcances. La integración permanece bloqueada hasta
-  corregir y revalidar ambas auditorías.
-- Toda la evidencia PF-19A usó datos sintéticos y dobles. No hubo acceso a VPS,
-  consultas ARCA reales, solicitudes de CAE ni modificaciones de bases reales.
+- Frontend reproducible: `npm ci` con Node.js `24.15.0` y npm `11.12.1` dejó
+  `postcss 8.5.23 -> nanoid 3.3.17`; `npm audit --omit=dev --audit-level=high`
+  quedó sin vulnerabilidades y `package.json` permaneció intacto. La auditoría
+  integral conserva `10` avisos exclusivos del toolchain de desarrollo (`5`
+  moderados, `4` altos y `1` crítico), ya enrutados a la modernización PF-16C;
+  no se ejecutó `npm audit fix` ni `--force`.
+- Repositorio: `npm run lint`, `npm run backend:format:check` y `npm run test`
+  aprobaron; este último reunió `607` backend, `131` frontend y `16` pruebas de
+  scripts. `docs:check` también aprobó.
+- Toda la evidencia de esta verificación usó datos sintéticos y, cuando
+  correspondió, dobles controlados. No hubo acceso a VPS, consultas ARCA reales,
+  solicitudes de CAE ni modificaciones de bases reales.
 
 Fecha: 2026-08-06
 
