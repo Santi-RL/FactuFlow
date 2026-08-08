@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-08
 
 ## Qué es FactuFlow
 
@@ -31,6 +31,11 @@ facturación individual y masiva con seguridad fiscal.
   antes de idempotencia o emisión y los snapshots batch no canónicos fallan
   cerrados. Estos cambios todavía no pertenecen a una release publicada ni
   están desplegados.
+- La evidencia productiva posterior abre PF-19 como P1 fiscal: la clasificación
+  actual Web Services no demuestra por sí sola que un punto sea RECE y el error
+  global excluyente `10005` queda presentado como incertidumbre. PF-19 está
+  planificado, no implementado; hasta su cierre no debe considerarse completa la
+  elegibilidad fiscal de puntos de venta.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -73,10 +78,12 @@ El estado detallado y el punto de reanudación viven en
 ## Próximo hito
 
 PF-02 quedó cerrado en unidades pequeñas y PF-05 conserva separada la
-reconstrucción histórica opcional para informes. PF-03A cerró el contrato
-superior de emisión. El siguiente corte fiscal es PF-03B: separar el DTO de ítem
-que envía la UI y validar de extremo a extremo propiedades desconocidas,
-descuentos y valores no finitos, sin agrupar moneda u otras causas raíz.
+reconstrucción histórica opcional para informes. La siguiente unidad es PF-19A:
+diseñar estados, consumidores, contención e inventario legacy para elegibilidad
+RECE y rechazos globales excluyentes. Después siguen PF-19B/PF-19C y recién
+entonces PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos y
+valores no finitos. PF-19 no cambia numeración ni absorbe validaciones de ítems;
+PF-14/PF-15 consumen su contrato de error y trazabilidad.
 
 ## Principios de trabajo
 

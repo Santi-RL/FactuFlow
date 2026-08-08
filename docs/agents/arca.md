@@ -141,7 +141,9 @@
 
 - No se detectó una pantalla separada en el portal que diga "homologación" para los puntos de venta de WSFEv1.
 - En la práctica se revisa la misma pantalla `A/B/M de puntos de venta / emision`.
-- Para webservices, el indicio útil es la columna `Sistema`, por ejemplo `RECE para aplicativo y web services`.
+- Para emitir por WSFE, la columna `Sistema` debe identificar de forma
+  verificable `RECE para aplicativo y web services`. Una descripción genérica
+  `Web Services` no prueba por sí sola esa compatibilidad fiscal.
 - En esta sesión se usó el punto de venta `5`.
 - En producción para el emisor real privado, ARCA
   devolvio habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban
@@ -171,10 +173,24 @@
 - Certificados y puntos de venta solo consultan estado ARCA cuando existe un
   emisor confirmado para la pestaña. Un cambio de emisor cierra acciones
   pendientes e invalida resultados tardíos antes de actualizar la UI.
-- Los puntos devueltos por `FEParamGetPtosVenta` pertenecen al servicio WSFE:
-  al sincronizarlos en FactuFlow deben quedar marcados como Web Services,
-  activos y no bloqueados cuando `Bloqueado=N` y no tienen fecha de baja. Si se
-  crean solo con número, la UI los muestra erroneamente como `Otro sistema`.
+- El comportamiento actual marca los puntos devueltos por
+  `FEParamGetPtosVenta` como Web Services, activos y no bloqueados cuando
+  `Bloqueado=N` y no tienen fecha de baja. La evidencia productiva del
+  07/08/2026 demostró que esa presencia técnica no alcanza para probar que el
+  punto pertenece a RECE: un punto clasificado genéricamente como Web Services
+  alcanzó `FECAESolicitar` y ARCA devolvió el error global `10005`, validación
+  excluyente por punto de venta no RECE según el manual WSFEv1.
+- PF-19 corregirá esta frontera con elegibilidad RECE explícita y estado mínimo
+  `verificado_rece`, `no_rece` o `no_verificado`, aplicado de extremo a extremo
+  y con política de fallo cerrado. Hasta que ese corte se implemente, la marca
+  local `Usable` describe el filtro técnico vigente, no una prueba fiscal
+  concluyente: para una operación sensible hay que comprobar que la constancia
+  o el portal ARCA indiquen RECE y no emitir desde un punto genérico o dudoso.
+- PF-19 también separará un rechazo global preautorización reconocido —como
+  `10005` bajo el contrato oficial vigente— de una respuesta incierta. Solo el
+  primero podrá cerrarse como rechazo terminal sin habilitar reemisión ciega;
+  timeouts, respuestas parciales y códigos desconocidos seguirán requiriendo
+  reconciliación.
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.

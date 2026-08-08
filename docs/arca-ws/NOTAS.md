@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-08
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -29,7 +29,9 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 
 - En el portal no se detectó una pantalla separada de "puntos de venta homologación".
 - Hay que mirar la pantalla habitual `A/B/M de puntos de venta / emision`.
-- Para webservices, el indicio útil es la columna `Sistema`, por ejemplo `RECE para aplicativo y web services`.
+- Para emitir por WSFE, la columna `Sistema` debe indicar de forma verificable
+  `RECE para aplicativo y web services`. Una clasificación genérica Web
+  Services no demuestra por sí sola que el punto sea RECE.
 
 ### 3. `FEParamGetPtosVenta`
 
@@ -45,6 +47,16 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
   revisar manualmente.
 - Si el usuario cambia de emisor mientras se importa una constancia, la UI no
   debe mostrar el resultado bajo el nuevo contexto.
+- Evidencia productiva del 07/08/2026: un punto que el filtro local consideró
+  usable por ser Web Services, activo y no bloqueado llegó a
+  `FECAESolicitar`, pero ARCA devolvió el error global `10005`. El manual
+  WSFEv1 lo define como validación excluyente para un punto de venta que no
+  pertenece a RECE. Por lo tanto, `FEParamGetPtosVenta` y `Bloqueado=N` no son
+  prueba fiscal suficiente de elegibilidad RECE.
+- PF-19 incorporará elegibilidad explícita, fallo cerrado para puntos no
+  verificados y clasificación estructurada de rechazos globales. Hasta que se
+  implemente, no usar un punto genérico o dudoso: contrastar la columna
+  `Sistema` de la constancia o del portal ARCA antes de emitir.
 
 ### 4. `CondicionIVAReceptorId`
 
@@ -208,6 +220,26 @@ inmediatamente antes de `FECAESolicitar`.
   FECAE. Los errores persistidos usan categorías sanitizadas.
 - La importación histórica para informes es PF-05 y nunca condiciona una nueva
   emisión.
+
+### 4.f.2 PF-19: elegibilidad RECE y rechazo global preautorización
+
+Estado 2026-08-08: PF-19 está planificado y todavía no cambia el runtime. No
+reabre PF-02 ni modifica su regla de numeración; se ejecutará antes de PF-03B
+porque corrige una puerta previa a cualquier solicitud real de CAE.
+
+- PF-19A cerrará el diseño fiscal, el inventario de consumidores y la auditoría
+  solo lectura de lotes legacy afectados.
+- PF-19B separará `verificado_rece`, `no_rece` y `no_verificado`, migrará los
+  datos existentes sin afirmar compatibilidad no demostrada y aplicará la misma
+  puerta en emisión individual, lotes, perfiles, reintentos y worker.
+- PF-19C estructurará los errores globales WSFE. Solo códigos que el contrato
+  oficial vigente identifique como rechazo excluyente preautorización podrán
+  cerrar el intento como rechazo terminal; timeout, respuesta parcial o código
+  desconocido conservarán `requiere_reconciliacion`.
+- Los lotes legacy no se repararán mediante edición directa ni reintento ciego:
+  primero se contrastarán, por emisor, punto y tipo, con consultas ARCA seguras
+  como `FECompUltimoAutorizado` y, cuando corresponda, `FECompConsultar`.
+
 ### 4.g Idempotencia fiscal y CAE
 
 Estado 2026-07-13: PF-01 está cerrado. PF-01B.3 validó en SQLite y PostgreSQL 16

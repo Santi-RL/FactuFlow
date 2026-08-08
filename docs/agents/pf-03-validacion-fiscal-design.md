@@ -1,6 +1,6 @@
 # PF-03 — Validación fiscal estricta de entradas e importes
 
-Última actualización: 2026-08-06
+Última actualización: 2026-08-08
 
 ## Objetivo y secuencia de cortes
 
@@ -250,7 +250,10 @@ PF-03A queda cerrado cuando:
 5. la documentación canónica distingue el código aceptado, la release publicada
    y la versión productiva.
 
-La siguiente unidad propuesta es PF-03B: separar el DTO de ítem enviado por la
-UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos o valores no
-finitos antes de que puedan producir totales negativos o `NaN`. Ese corte debe
-definir primero sus invariantes cross-layer y sus pruebas UI/API/servicio.
+La siguiente unidad propia de PF-03 es PF-03B: separar el DTO de ítem enviado
+por la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos o
+valores no finitos antes de que puedan producir totales negativos o `NaN`. Ese
+corte debe definir primero sus invariantes cross-layer y sus pruebas
+UI/API/servicio. La secuencia global vigente prioriza PF-19A/PF-19B/PF-19C por
+evidencia productiva antes de retomar PF-03B; esta reordenación no cambia el
+alcance ni las invariantes de PF-03.
