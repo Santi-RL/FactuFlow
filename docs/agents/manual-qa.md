@@ -22,9 +22,10 @@ fechadas de `docs/project/**`.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-El estado objetivo de `main` al integrar este corte incluye PF-02A, los tres
-cortes de PF-02B, PF-03A y PF-19A. Todo ese tramo es posterior al tag productivo:
-todavía no pertenece a una release publicada ni está desplegado. Sus escenarios
+`main` incluye PF-02A, los tres cortes de PF-02B, PF-03A y PF-19A; este último
+quedó integrado mediante el PR `#27` (merge `45c0704`). Todo ese tramo es
+posterior al tag productivo: todavía no pertenece a una release publicada ni
+está desplegado. Sus escenarios
 se validaron con datos sintéticos y dobles controlados, sin CAE reales ni
 llamadas ARCA de escritura.
 
@@ -377,11 +378,12 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Estado objetivo de `main` al integrar el corte, 08/08/2026: PF-19A queda
-implementado y automatizado; PF-19B y PF-19C siguen pendientes. PF-19A es
-posterior a la release productiva `v0.2.2`: todavía no está publicado ni
-desplegado. Toda ejecución usa datos sintéticos y dobles de WSFE. Esta matriz no
-autoriza pedir CAE real para provocar errores ni editar registros fiscales.
+Estado vigente de `main` desde el PR `#27` (merge `45c0704`), 08/08/2026:
+PF-19A está implementado y automatizado; PF-19B y PF-19C siguen pendientes.
+PF-19A es posterior a la release productiva `v0.2.2`: todavía no pertenece a
+una release publicada ni está desplegado. Toda ejecución usa datos sintéticos y
+dobles de WSFE. Esta matriz no autoriza pedir CAE real para provocar errores ni
+editar registros fiscales.
 
 ### PF-19A — cobertura automatizada
 
@@ -442,9 +444,9 @@ contenido fiscal sensible.
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
-superó el despliegue y la verificación post-deploy. En el estado objetivo de
-`main`, PF-02 queda cerrado con dobles controlados, PF-03A cierra el contrato
-superior y PF-19A cierra diseño, contención explícita e inventario de solo
+superó el despliegue y la verificación post-deploy. En `main`, PF-02 está
+cerrado con dobles controlados, PF-03A cierra el contrato superior y PF-19A
+cierra diseño, contención explícita e inventario de solo
 lectura. Ese tramo todavía no pertenece a una release publicada ni está
 desplegado. El siguiente corte fiscal es PF-19B; PF-03B queda después. No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
