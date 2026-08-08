@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-08-07
+Última actualización: 2026-08-08
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -239,6 +239,72 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       números ni crea intentos, conserva todo bloqueo propio y delega la reserva
       durable y el segundo preflight al procesamiento normal. PF-02 queda
       cerrado sin incorporar la reconstrucción histórica opcional de PF-05.
+- [ ] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
+  seguro (P1 fiscal, Nivel 2).** La operación productiva sobre `v0.2.2`
+  confirmó dos fallas de una misma frontera: FactuFlow puede considerar usable
+  un punto cuyo sistema contiene `Web Services` sin demostrar que sea de tipo
+  RECE, y un error global excluyente de `FECAESolicitar`, como `10005`, se
+  degrada hoy a respuesta incierta aunque ARCA haya rechazado la cabecera antes
+  de autorizar comprobantes. El resultado es doble: una solicitud evitable a
+  ARCA y lotes/intentos bloqueados para reconciliación con un mensaje que no
+  describe lo ocurrido.
+  - **Prioridad y autoridad:** no hay evidencia de comprobantes incorrectos ni
+    un P0, pero sí un P1 alcanzable en emisión individual y masiva. El manual
+    oficial WSFEv1 clasifica `10005` entre las validaciones excluyentes de
+    `FeCabReq` y exige que el punto de venta esté dado de alta y sea RECE. Esta
+    evidencia productiva desplaza temporalmente PF-03B porque afecta una llamada
+    fiscal real y deja estados operativos engañosos.
+  - **Fronteras con líneas existentes:** PF-02 permanece cerrado y conserva sin
+    cambios la numeración desde `ultimo_arca + 1`, las reservas y el segundo
+    preflight. PF-03 continúa siendo dueño de la validez de entradas, ítems e
+    importes. PF-09 provee constancias, sincronización y ambiente; PF-14 consume
+    el contrato de error estructurado; PF-15 expone mensajes y trazabilidad; y
+    PF-11 conserva la evidencia de backup y recuperación. PF-19 es dueño solo
+    de la elegibilidad fiscal WSFE/RECE, la semántica de rechazos globales
+    excluyentes y el cierre seguro de estados legacy creados por esta falla.
+  - **Invariantes:** `es_webservice` no equivale a `compatible_rece`; un punto
+    no verificado como RECE no puede alcanzar `FECAESolicitar`; una respuesta
+    global solo puede tratarse como rechazo terminal cuando su código y contrato
+    estén documentados como excluyentes; todo código desconocido, respuesta
+    parcial, cardinalidad inconsistente, timeout o error de transporte continúa
+    en `requiere_reconciliacion`; ningún saneamiento legacy inventa CAE,
+    comprobantes ni historia; y todo diagnóstico permanece aislado por ambiente,
+    emisor, punto de venta y tipo.
+  - **PF-19A — diseño y contención:** completar el checklist fiscal, enumerar
+    importación de constancia, sincronización WSFE, edición manual, perfiles,
+    validación de Excel, emisión individual, batch, worker, reintentos, stale y
+    reconciliación; definir la tabla de estados y el orden exacto antes/durante/
+    después de FECAE; inventariar en modo lectura los lotes legacy afectados; y
+    mantener bloqueados los reintentos y los puntos conocidos no RECE hasta
+    disponer de una resolución soportada. No autoriza editar la base ni emitir.
+  - **PF-19B — elegibilidad RECE end-to-end:** modelar al menos `verificado_rece`,
+    `no_rece` y `no_verificado`, con fuente y fecha de verificación; dejar de
+    inferir RECE por la mera presencia de `Web Services`; definir migración y
+    política fail-closed para puntos legacy; alinear constancia, sincronización,
+    API, perfiles, selectores, emisión individual y lotes; invalidar cualquier
+    confirmación o clave vigente si cambia la elegibilidad del punto; y mostrar
+    un próximo paso administrativo claro sin exponer detalles internos.
+  - **PF-19C — rechazo global y saneamiento legacy:** preservar códigos globales
+    de ARCA en un contrato estructurado; reconocer inicialmente `10005` como
+    rechazo excluyente solo bajo el contrato oficial; cerrar intentos, grupos,
+    lotes y operación idempotente con transiciones terminales verificables; no
+    continuar otros grupos si la cabecera invalida el sublote completo; mantener
+    toda respuesta no clasificada como incierta; y ofrecer un procedimiento
+    auditado para resolver registros históricos después de
+    `FECompUltimoAutorizado` y, solo si corresponde, `FECompConsultar`, con
+    backup exacto y sin edición manual improvisada.
+  - **Matriz mínima:** punto RECE/no RECE/no verificable; constancia y
+    sincronización con fuentes concordantes o contradictorias; punto fijo y por
+    archivo; individual, batch y fallback unitario; error global `10005` antes
+    de detalles; `R` por detalle; error global desconocido; respuesta parcial,
+    timeout y caída de persistencia; replay idempotente; cambio de elegibilidad
+    después de confirmar; aislamiento multiemisor; datos legacy; y comprobación
+    explícita de cero CAE/comprobantes en todos los abortos preautorización.
+  - **Criterio de cierre y release:** diseño, tests con dobles, migración/rollback
+    cuando aplique, documentación, QA administrativa y revisión Nivel 2 deben
+    quedar cerrados antes del próximo candidato productivo. No se probará el
+    rechazo solicitando CAE real; la QA productiva se limita a lecturas seguras,
+    estado visible y verificación de que solo aparecen puntos RECE confirmados.
 - [ ] **P2 - Reconstrucción histórica opcional desde ARCA para informes con
   cobertura verificable.** Permitir consultar con `FECompConsultar` e importar
   snapshots fiscales de comprobantes emitidos fuera de FactuFlow. Esta función
@@ -460,7 +526,10 @@ Objetivo: dejar la emisión validada contra servicios reales.
   o batch, produce una respuesta sanitizada `requiere_reconciliacion`. La API
   persiste el `409` idempotente cuando es posible y el replay con la misma clave
   no vuelve a emitir.
-- [x] Validación de numeración y punto de venta en emisión
+- [~] Validación de numeración y punto de venta en emisión: numeración,
+  pertenencia, actividad, bloqueo y baja están cubiertos; PF-19 debe separar
+  Web Services genérico de compatibilidad RECE antes de considerar completa la
+  elegibilidad fiscal del punto.
 - [x] Mapeo de `CondicionIVAReceptorId`
 - [x] Validación local de ventana ARCA para fecha de emisión antes de emitir
 - [~] Manejo fino de edge cases homologación vs producción
@@ -935,6 +1004,11 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
   faltan backup y consolidación de las señales restantes
 - [~] Backup y restauración de base y certificados: prueba manual validada,
   automatización y retención pendientes
+- [ ] Evidencia exacta de backup preoperación, enrutada a PF-11/PF-15: cada
+  respaldo usado para una acción fiscal crítica debe registrar propósito,
+  timestamp, estado/commit objetivo y ausencia o enumeración de escrituras
+  intermedias. Un dump anterior o nombrado para otra operación no puede
+  presentarse como snapshot inmediato sin esa trazabilidad.
 - [ ] Automatización de backups cifrados con validación periódica, política de
   retención, destino externo y alertas de fallo
 - [ ] Runbook completo de recuperación a un VPS nuevo desde repositorio limpio,
@@ -955,7 +1029,9 @@ Objetivo: que FactuFlow pueda instalarse y operarse con menor riesgo técnico.
 - [x] Vista administrativa de almacenamiento integrada al diagnóstico operativo,
   sin escaneos pesados ni exposición innecesaria de datos privados
 - [ ] Trazabilidad visible de lotes, reintentos, estados parciales y
-  reconciliaciones
+  reconciliaciones, distinguiendo aborto antes de FECAE, rechazo ARCA explícito,
+  autorización conocida e incertidumbre real; PF-19C define la taxonomía fiscal
+  y PF-15 su exposición operativa.
 - [ ] Mensajes de error con explicacion simple, impacto y próximo paso seguro
 - [ ] Señal global liviana de conectividad y recuperación segura para usuarios,
   planificada en PF-17 y coordinada con los contratos de errores de PF-14 y la
@@ -1002,10 +1078,12 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   de PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE,
   el endurecimiento de pool/worker y las correcciones de seguridad aceptadas,
   sin mezclar el cambio de política de numeración global.
-- **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y su
-  QA fiscal, porque permitir historia previa u otros sistemas cambia el contrato
-  operativo de numeración. Puede incluir otros P1 solo si forman una unidad
-  revisable y no vuelven riesgoso el despliegue.
+- **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y
+  PF-19 con sus QA fiscales. PF-02 cambia el contrato operativo de numeración;
+  PF-19 cierra la elegibilidad RECE y la semántica de rechazo descubiertas por
+  evidencia productiva antes de desplegar esa política. PF-03B u otros P1 solo
+  pueden sumarse si ya están cerrados, forman una unidad revisable y no vuelven
+  riesgoso ni demoran innecesariamente el despliegue de estas defensas.
 - **Patch extraordinario:** un fix urgente, aislado y compatible puede justificar
   una versión intermedia sin esperar al candidato siguiente.
 
@@ -1044,33 +1122,40 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Continuar PF-03 con PF-03B: separar el DTO de ítem que serializa la UI, hacer
-   estricto `ItemComprobanteCreate` y rechazar descuentos o valores no finitos
-   antes de calcular totales. PF-03A cerró el objeto superior; PF-02 está
-   cerrado y PF-05 continúa separado.
-2. Continuar PF-16C con la modernización planificada del toolchain y la
+1. Ejecutar PF-19A: completar diseño fiscal, consumidores, tabla de estados,
+   contención e inventario de registros legacy en modo lectura, sin reintentos,
+   edición directa de base ni solicitudes reales de CAE.
+2. Implementar PF-19B/PF-19C en cortes revisables: elegibilidad RECE
+   end-to-end, error global estructurado, rechazo `10005` terminal y resolución
+   auditada de estados legacy; cerrar la matriz Nivel 2 antes de una release.
+3. Retomar PF-03 con PF-03B después de PF-19: separar el DTO de ítem que
+   serializa la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos
+   o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05
+   continúa separado.
+4. Continuar PF-16C con la modernización planificada del toolchain y la
    evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
    documental ya están cerradas.
-3. Después de PF-03, continuar los P1 adjudicados por orden integrado:
+5. Después de PF-03, continuar los P1 adjudicados por orden integrado:
    PF-06/PF-07, PF-08 y PF-09.
-4. Mantener la custodia y la evidencia concreta del backup fuera del repo
-   público; automatización, retención y recuperación a un VPS nuevo siguen
-   como trabajo separado.
-5. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+6. Mantener la custodia concreta del backup fuera del repo público y corregir
+   su trazabilidad PF-11/PF-15: snapshot exacto, propósito, timestamp y
+   escrituras intermedias. Automatización, retención y recuperación a un VPS
+   nuevo siguen como trabajo separado.
+7. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
-6. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+8. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-7. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+9. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-8. Definir y luego automatizar backups cifrados con validación, retención,
+10. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-9. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-10. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+11. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+12. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
     resguardo ZIP, compactación y limpieza segura.
-11. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-12. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-13. Mantener notas de release y procedimiento de upgrade para cada versión
+13. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+14. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+15. Mantener notas de release y procedimiento de upgrade para cada versión
     futura, revisando los candidatos cuando cambien riesgos o alcance.
 
 ## Criterio de éxito del MVP

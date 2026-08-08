@@ -20,6 +20,14 @@ Reglas vigentes desde 2026-05-22:
 
 ### Planificación de producto
 
+- La evidencia productiva de `v0.2.2` abre PF-19 como P1 fiscal Nivel 2 y lo
+  prioriza antes de PF-03B. PF-19 separa la elegibilidad RECE de la marca
+  genérica Web Services, preserva códigos globales de ARCA, clasifica `10005`
+  como rechazo excluyente solo bajo el contrato oficial y define un cierre
+  auditado para estados legacy. PF-02 permanece cerrado y sin cambios de
+  numeración; PF-03 conserva ítems/importes; PF-09, PF-14 y PF-15 son
+  consumidores. La trazabilidad del backup preoperación se enrutó a PF-11/PF-15.
+  Este cambio solo planifica: no modifica runtime, producción ni estados del VPS.
 - PF-17 incorpora como trabajo futuro de banda C una señal liviana de
   conectividad y recuperación segura. La propuesta distingue pérdida de red,
   servidor no disponible, conexión inestable y recuperación; reutiliza

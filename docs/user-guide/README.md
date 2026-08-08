@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-08
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
@@ -800,8 +800,8 @@ Importante:
 - el número debe coincidir con el punto de venta habilitado en ARCA para el sistema usado
 - para homologación o producción con webservices, validar el punto de venta antes de emitir
 - puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio
-- la sincronización importa o actualiza puntos no bloqueados y sin fecha de
-  baja como puntos Web Services usables
+- la sincronización actual importa o actualiza puntos no bloqueados y sin fecha
+  de baja como puntos Web Services usables según el filtro técnico vigente
 - si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs y
   cierra cualquier editor pendiente del emisor anterior
@@ -816,6 +816,15 @@ Importante:
   bloqueados y sin baja; los puntos Factuweb, Comprobantes en Línea o
   Controlador Fiscal quedan visibles como referencia pero no se usan para emitir
 - los datos importados se pueden editar manualmente desde `Editar`
+
+Limitación fiscal conocida en `v0.2.2` y en el código actual de `main`: la marca
+`Usable` todavía no demuestra por sí sola que el punto pertenezca a RECE. Antes
+de emitir, comprobá que la columna `Sistema` de la constancia o del portal ARCA
+indique `RECE para aplicativo y web services`. Si solo aparece una descripción
+genérica Web Services, el sistema es dudoso o no puede verificarse, no uses ese
+punto para solicitar CAE. PF-19 está planificado para bloquear automáticamente
+los puntos no verificados y distinguir un rechazo fiscal concluyente de una
+respuesta incierta; esa protección todavía no está implementada.
 
 ## 10. Emisores
 
@@ -976,7 +985,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 2026-07-10:
+Al 2026-08-08:
 
 - no existe todavía descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -995,6 +1004,10 @@ Al 2026-07-10:
 - la producción real ya fue operada; antes de cada nueva emisión productiva hay
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripción facturada, totales, backup/logs y confirmación irreversible
+- la elegibilidad RECE del punto de venta todavía requiere verificación manual:
+  `Usable` refleja el filtro técnico actual, no una prueba concluyente; PF-19
+  agregará el bloqueo automático de puntos no verificados y el tratamiento
+  seguro de rechazos globales preautorización
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
   rápida y ficha para soporte; todavía faltan backup visible y trazabilidad

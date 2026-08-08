@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-08
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -374,15 +374,58 @@ Evidencia mínima: respuesta `422` estructurada, ausencia de operación idempote
 cero emisión en reintento/stale y resultados de las suites enfocadas. No usar
 datos fiscales reales.
 
+## PF-19 — elegibilidad RECE y rechazo global excluyente
+
+Esta matriz está planificada y todavía no describe una capacidad implementada.
+Debe ejecutarse con constancias sintéticas y dobles de WSFE; no autoriza pedir
+CAE real para provocar errores. La auditoría de registros productivos es solo de
+lectura hasta contar con backup exacto y una resolución aprobada.
+
+1. Importar un punto cuyo sistema sea RECE y otro que solo contenga la frase
+   Web Services. El primero puede quedar verificado si sus demás señales
+   concuerdan; el segundo debe quedar `no_rece` o `no_verificado`, nunca usable
+   por inferencia genérica.
+2. Simular constancia, sincronización y edición manual con datos contradictorios.
+   La resolución debe fallar cerrada, conservar fuente/fecha y exigir revisión.
+3. Validar punto fijo y punto tomado del archivo en emisión individual y lote.
+   Ningún punto no verificado como RECE debe crear idempotencia, intento,
+   reserva ni llamada `FECAESolicitar`.
+4. Cambiar la elegibilidad después de confirmar fecha y punto. La confirmación
+   y la clave vigentes deben invalidarse antes de cualquier nueva emisión.
+5. Simular un error global `10005` en la cabecera batch. Debe preservarse el
+   código, registrarse rechazo terminal verificable para todo el sublote y haber
+   cero CAE/comprobantes; no debe mostrarse como respuesta sin confirmar.
+6. Simular `R` por detalle, error global desconocido, resultado parcial,
+   cardinalidad inconsistente, timeout y corte de transporte. Solo los rechazos
+   contractualmente completos terminan; los demás conservan
+   `requiere_reconciliacion` y bloquean reemisión.
+7. Repetir las rutas batch, fallback unitario, worker y reintento manual. Una
+   cabecera que invalida el sublote no permite continuar grupos como si fueran
+   rechazos individuales independientes.
+8. Repetir el mismo payload y clave después de un rechazo terminal y después de
+   una respuesta incierta. El replay no vuelve a llamar ARCA y mantiene la
+   transición durable correspondiente.
+9. Probar emisores, ambientes, puntos y tipos distintos con identificadores
+   coincidentes. Ninguna elegibilidad, error ni reparación legacy se comparte.
+10. Sobre datos legacy sintéticos, ejecutar primero
+    `FECompUltimoAutorizado` simulado y, solo si corresponde,
+    `FECompConsultar`; el procedimiento debe cerrar únicamente evidencia
+    verificada, sin inventar CAE, comprobantes o historia ni editar estados a
+    ciegas.
+
+Evidencia mínima: tabla de estados aprobada, cero FECAE en puntos no elegibles,
+código `10005` preservado, errores desconocidos todavía reconciliables, pruebas
+de todos los consumidores y procedimiento legacy con rollback/backup definido.
+
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
 superó el despliegue y la verificación post-deploy. PF-02 quedó cerrado con
-dobles controlados y PF-03A cerró el contrato superior. El próximo foco de QA es
-PF-03B sobre DTO de ítems, descuentos y valores no finitos. No repetir como
-pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño UX de
-lotes ni las validaciones ya cerradas.
+dobles controlados y PF-03A cerró el contrato superior. La nueva evidencia
+productiva prioriza primero el diseño y la matriz de PF-19; PF-03B se retoma
+después. No repetir como pendiente el setup productivo inicial, el despliegue
+`v0.2.2`, el rediseño UX de lotes ni las validaciones ya cerradas.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

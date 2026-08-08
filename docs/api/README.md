@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-08
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -242,6 +242,15 @@ DELETE /api/puntos-venta/{punto_venta_id}
 actualiza sistema, domicilio, nombre fantasia, estado bloqueado y usabilidad
 FactuFlow. Un punto es usable cuando está activo, es Web Services, no está
 bloqueado y no tiene fecha de baja.
+
+Limitación conocida del contrato actual: esa propiedad `usable_factuflow`
+expresa el filtro técnico vigente, pero no prueba que el punto pertenezca a
+RECE. La evidencia productiva del 07/08/2026 mostró que un punto genérico Web
+Services puede superar este filtro y recibir el rechazo global WSFE `10005` al
+alcanzar `FECAESolicitar`. PF-19 incorporará elegibilidad RECE explícita y fallo
+cerrado para estados no verificados; hasta entonces, los consumidores deben
+contrastar el valor `sistema` con la constancia o el portal ARCA y no emitir si
+no indica RECE de forma verificable.
 
 ## Certificados
 
@@ -609,7 +618,8 @@ lotes grandes en la UI porque pueden traer miles de registros.
 - `punto_venta_numero`: requerido cuando `punto_venta_modo=fijo`. Debe existir
   para el emisor activo y estar activo, Web Services, no bloqueado y sin fecha
   de baja. Si no está cargado en `Puntos de venta`, la API rechaza la
-  validación.
+  validación. Hasta PF-19, este control no demuestra por sí solo elegibilidad
+  RECE; el cliente debe verificarla antes de solicitar CAE.
 - `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
 - `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
 - `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.

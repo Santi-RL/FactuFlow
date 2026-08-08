@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-08-06
+Última actualización: 2026-08-08
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -34,6 +34,35 @@ El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz loca
 completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
+
+## Nueva evidencia productiva — PF-19 priorizado
+
+Los diagnósticos privados del 2026-08-07 sobre `v0.2.2` no muestran un P0 ni
+comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
+marcado de forma genérica como Web Services llegó a `FECAESolicitar` y ARCA
+devolvió el error global excluyente `10005`, que exige un punto RECE. FactuFlow
+convirtió ese rechazo de cabecera en `arca_batch_sin_respuesta` y dejó los
+intentos como `requiere_reconciliacion`, aunque no hubo autorización.
+
+La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
+
+- PF-02 permanece cerrado y no cambia numeración, reservas ni segundo preflight;
+- PF-03B conserva ítems, descuentos y valores no finitos, pero pasa detrás de
+  esta evidencia productiva;
+- PF-19A diseña estados, consumidores, contención e inventario legacy en modo
+  lectura;
+- PF-19B implementará elegibilidad RECE end-to-end sin equiparar
+  `es_webservice` con compatibilidad fiscal;
+- PF-19C preservará códigos globales, tratará `10005` como rechazo terminal solo
+  bajo el contrato oficial y ofrecerá un cierre auditado de registros legacy;
+- PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
+  trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
+
+Esto es planificación: `main` y producción todavía conservan la conducta
+actual. Hasta implementar y desplegar PF-19 no deben reintentarse lotes
+afectados ni asumirse que un punto Web Services genérico es RECE; cualquier
+cierre productivo exige lecturas ARCA seguras, backup exacto y autorización
+operativa separada.
 
 ## PF-03A — contrato superior estricto de emisión
 
@@ -394,7 +423,13 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ## Riesgos y pendientes priorizados
 
-### P1 fiscal siguiente
+### P1 fiscal priorizado
+
+PF-19 es el siguiente P1 fiscal por evidencia productiva. Su primer corte es de
+diseño y contención; no autoriza emisiones, reintentos ni ediciones directas de
+base. PF-03B se retoma después de cerrar elegibilidad RECE, semántica del
+rechazo global y política de saneamiento legacy. Los párrafos siguientes
+conservan la evidencia histórica de PF-01 ya cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
 `origin/main`. La UI de emisión individual
@@ -495,6 +530,8 @@ Siguen pendientes:
 - automatización de backups cifrados, retención y alertas;
 - recuperación ensayada hacia un VPS nuevo;
 - señal visible del último backup;
+- vínculo inequívoco entre cada backup preoperación, su propósito, timestamp y
+  cualquier escritura intermedia;
 - trazabilidad operativa más completa;
 - QA del gestor de almacenamiento en VPS con datos de prueba controlados;
 - descarga masiva de PDFs sin persistencia permanente en el servidor.
@@ -528,11 +565,11 @@ Siguen pendientes:
    PF-16 agrega la puerta documental semántica y `npm run docs:check` sin
    presentar el control automático como sustituto de la revisión.
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
-    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-03A
-    cerró el contrato superior de emisión; el siguiente corte es PF-03B para
-    separar el DTO de ítem y validar descuentos/importes no finitos de extremo a
-    extremo. Después siguen PF-06/PF-07, PF-08 y PF-09 según el portafolio
-    integrado.
+    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. La nueva
+    evidencia productiva prioriza PF-19A, luego PF-19B/PF-19C y recién después
+    PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores globales con
+    ítems/importes. Después siguen PF-06/PF-07, PF-08 y PF-09 según el
+    portafolio integrado.
     PF-16C continúa en paralelo únicamente con la modernización planificada del
     toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
