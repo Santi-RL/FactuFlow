@@ -22,12 +22,13 @@ facturación individual y masiva con seguridad fiscal.
   limitados al emisor asignado.
 - VPS con Docker producción y HTTPS operativo.
 - La evidencia productiva concreta permanece fuera del repositorio público.
-- El estado objetivo de `main` al integrar este corte incluye PF-02A, los tres
-  cortes de PF-02B, PF-03A y PF-19A. PF-02 admite historia externa legítima sin
-  perder reservas ni segundo preflight; PF-03A rechaza claves superiores
-  desconocidas; PF-19A agrega diseño, contención preautorización explícita e
-  inventario legacy de solo lectura. Todo ese tramo es posterior a `v0.2.2`:
-  todavía no pertenece a una release publicada ni está desplegado.
+- `main` incluye PF-02A, los tres cortes de PF-02B, PF-03A y PF-19A; este
+  último quedó integrado mediante el PR `#27` (merge `45c0704`). PF-02 admite
+  historia externa legítima sin perder reservas ni segundo preflight; PF-03A
+  rechaza claves superiores desconocidas; PF-19A agrega diseño, contención
+  preautorización explícita e inventario legacy de solo lectura. Todo ese tramo
+  es posterior a `v0.2.2`: todavía no pertenece a una release publicada ni está
+  desplegado.
 - PF-19B/PF-19C siguen pendientes. La clasificación actual Web Services no
   demuestra por sí sola que un punto sea RECE; una tupla omitida en la
   configuración PF-19A queda sin protección. Todavía no debe considerarse
@@ -73,9 +74,9 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-En el estado objetivo de `main`, PF-02, PF-03A y PF-19A quedan cerrados en
-unidades pequeñas; PF-05 conserva separada la reconstrucción histórica opcional
-para informes. La siguiente unidad es
+En `main`, PF-02, PF-03A y PF-19A están cerrados en unidades pequeñas; PF-05
+conserva separada la reconstrucción histórica opcional para informes. La
+siguiente unidad es
 PF-19B: persistir elegibilidad RECE y aplicarla de extremo a extremo. Después
 sigue PF-19C para errores globales estructurados y cierre legacy auditado, y
 recién entonces PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos

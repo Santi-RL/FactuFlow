@@ -21,8 +21,9 @@ Reglas vigentes desde 2026-05-22:
 ### Planificación de producto
 
 - La evidencia productiva de `v0.2.2` abrió PF-19 como P1 fiscal Nivel 2 y lo
-  priorizó antes de PF-03B. PF-19A ya cierra diseño, consumidores, contención
-  preautorización e inventario legacy de solo lectura. PF-19B/PF-19C conservan
+  priorizó antes de PF-03B. El PR `#27` (merge `45c0704`) integró PF-19A en
+  `main` y cerró diseño, consumidores, contención preautorización e inventario
+  legacy de solo lectura. PF-19B/PF-19C conservan
   elegibilidad RECE durable, códigos globales estructurados, clasificación
   terminal de `10005` bajo contrato oficial y cierre auditado. PF-02 permanece
   cerrado y sin cambios de numeración; PF-03 conserva ítems/importes; PF-09,

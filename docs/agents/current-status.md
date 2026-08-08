@@ -59,9 +59,9 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
-En el estado objetivo de `main` al integrar este corte, PF-19A queda
-implementado, pero todavía no pertenece a una release ni está desplegado. La
-lista privada de contención debe cubrir cada tupla
+PF-19A está integrado en `main` mediante el PR `#27` (merge `45c0704`), pero
+todavía no pertenece a una release ni está desplegado. La lista privada de
+contención debe cubrir cada tupla
 conocida o dudosa; no descubre RECE automáticamente y una lista vacía no acredita
 elegibilidad. Una combinación omitida queda sin protección hasta PF-19B. Hasta
 implementar y desplegar PF-19B/PF-19C no deben reintentarse
@@ -316,9 +316,10 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 23/07/2026.
-- El estado objetivo de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
-  cortes de PF-02B, PF-03A y PF-19A. Todo ese tramo es posterior a `v0.2.2`:
-  todavía no pertenece a una release publicada ni está desplegado.
+- `main` incorpora, además de `v0.2.2`, PF-02A, los tres cortes de PF-02B,
+  PF-03A y PF-19A; este último quedó integrado mediante el PR `#27` (merge
+  `45c0704`). Todo ese tramo es posterior a `v0.2.2`: todavía no pertenece a
+  una release publicada ni está desplegado.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 23/07/2026.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
