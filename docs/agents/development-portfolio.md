@@ -45,9 +45,9 @@ emisores y una plataforma multiempresa compleja.
 | Clawpatch `repo` | 15 abiertos: 4 `high`, 4 `medium`, 7 `low` | Riesgos end-to-end y contratos entre capas |
 | Clawpatch `backend` | 96 abiertos: 20 `high`, 52 `medium`, 24 `low` | Dominio, persistencia, API, ARCA y operación |
 | Clawpatch `frontend` | 29 abiertos: 5 `high`, 20 `medium`, 4 `low` | Estado de UI, contratos, concurrencia y UX |
-| `ROADMAP.md` | 93 ítems no cerrados: 61 pendientes, 32 en curso | Producto, plataforma, operación y evolución |
+| `ROADMAP.md` | 95 ítems no cerrados: 63 pendientes, 32 en curso | Producto, plataforma, operación y evolución |
 
-Los 140 hallazgos abiertos actuales y los 93 ítems no representan 233 tareas independientes.
+Los 140 hallazgos abiertos actuales y los 95 ítems no representan 235 tareas independientes.
 Existen duplicados entre slices, repeticiones del mismo objetivo en distintas
 fases del roadmap y hallazgos que son síntomas de una misma causa raíz.
 
@@ -114,9 +114,9 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | PF-03 | Validación fiscal de entradas, fechas, importes, moneda y totales | Hallazgos de esquemas, analizadores, descuentos, perfiles, constancias y plantillas | PF-03A rechaza claves superiores no elegidas; PF-03B debe cerrar ítems, descuentos y no finitos | Contratos UI/API y matriz individual/masiva | A |
 | PF-04 | Evidencia fiscal histórica correcta en PDFs y reportes | Hallazgos de instantánea del emisor, moneda, IVA, paginado, ranking y aislamiento PDF | Evitar documentos históricos mutables o informes impositivos incorrectos | Modelo de instantáneas, migración de datos heredados y pruebas de evidencia | A |
 | PF-05 | Reconstrucción histórica opcional desde ARCA | P2 explícito del roadmap | Completar informes sin convertir historia externa en requisito de emisión | PF-02, PF-04, procedencia, cobertura y registro reanudable | B |
-| PF-06 | Aislamiento multiemisor backend y modelo de datos | Roadmap multiemisor; hallazgos de pertenencia, enumeración y asociaciones cruzadas | Evitar mezcla o revelación de datos entre emisores | Invariantes DB, filtros uniformes y tests multiemisor | A |
-| PF-07 | Cambio de emisor seguro en frontend | Hallazgos del estado Pinia, respuestas tardías, asistente y selector de clientes | Evitar aplicar o mostrar respuestas del emisor anterior | PF-06; versión/cancelación común de solicitudes y contratos de stores | A |
-| PF-08 | Autenticación, sesiones, bootstrap y administración de usuarios | Hallazgos de inicio de sesión, 401 tardíos, setup, bloqueos y permisos; cambio de contraseña propio | Evitar apropiación inicial, sesión obsoleta y acciones administrativas tardías | Política de bootstrap y revalidación de autorización | A |
+| PF-06 | Aislamiento multiemisor backend y modelo de datos | Roadmap multiemisor; hallazgos de pertenencia, enumeración y asociaciones cruzadas; diseño de operadores con varios emisores y creación/edición delegada | Evitar mezcla o revelación de datos y permitir operación multiemisor sin privilegio administrativo global | Relación many-to-many, migración legacy, autorización por objeto, autoasignación atómica y tests multiemisor | A |
+| PF-07 | Cambio de emisor seguro en frontend | Hallazgos del estado Pinia, respuestas tardías, asistente y selector de clientes; revocación de emisores con sesión abierta | Evitar aplicar o mostrar respuestas del emisor anterior o revocado | PF-06; versión/cancelación común de solicitudes, selector limitado por API y contratos de stores | A |
+| PF-08 | Autenticación, sesiones, bootstrap y administración de usuarios | Hallazgos de inicio de sesión, 401 tardíos, setup, bloqueos y permisos; cambio de contraseña propio; selector múltiple de emisores y capacidad de crear/editar | Evitar apropiación inicial, sesión obsoleta, escalamiento global y concesiones administrativas parciales | Política de bootstrap, revalidación de autorización y contratos transaccionales de asignación/revocación | A |
 | PF-09 | Certificados, claves, WSAA, caché y ambientes | Hallazgos de archivos concurrentes, TRA, caché, CSR, ambiente y estado de servidores; roadmap WSAA | Evitar material huérfano, autenticación inválida y uso accidental de producción | Propiedad durable de archivos, zona horaria y contratos de ambiente | A |
 | PF-10 | Exportaciones y liberación segura de almacenamiento | Hallazgos de confirmación de descarga, concurrencia, caché HTTP y ZIP huérfanos | Evitar borrar datos antes de verificar un resguardo completo | Protocolo de posesión, idempotencia y limpieza durable | A |
 | PF-11 | Respaldos, migración y recuperación operativa | Roadmap de respaldos/VPS; hallazgos de instantánea SQLite, restauración, verificación de paquetes y evidencia preoperación no vinculada de forma inequívoca a la acción fiscal | Garantizar recuperación coherente, repetible y trazable hasta el snapshot exacto usado | PF-09, PF-10, PF-15, secretos y ensayo en entorno aislado | A/B |
@@ -154,13 +154,22 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
     arreglo. La fuente del punto, el error HTTP y el mensaje visible deben
     implementar una sola autoridad fiscal para no divergir entre UI, API,
     worker, reintentos y reconciliación.
+11. La mejora de permisos multiemisor se implementa como una sola unidad
+    PF-06/PF-07/PF-08 según
+    `docs/agents/pf-06-08-permisos-multiemisor-design.md`: PF-06 es dueño del
+    modelo y la autorización por objeto, PF-08 de la concesión administrativa y
+    PF-07 del selector y la revocación en frontend. No crear un PF paralelo ni
+    considerar cerrado un corte aislado. Su orden es posterior a PF-19 y PF-03B
+    y anterior a ampliar volumen multiusuario o distribución a terceros.
 
 ## Enrutamiento del roadmap
 
 - P1 fiscal: PF-01 y PF-02 cerrados; PF-19 activo y prioritario.
 - P2 histórico: PF-04 y PF-05.
-- Multiemisor: PF-06 y PF-07.
-- Usuarios y cuenta propia: PF-08 y PF-17.
+- Multiemisor y permisos operativos por emisor: PF-06, PF-07 y PF-08.
+- Usuarios y cuenta propia: PF-08 y PF-17; la capacidad de crear/editar emisores
+  pertenece al corte integrado PF-06/PF-07/PF-08, no a una matriz general de
+  roles.
 - Certificados, puntos RECE, homologación y producción ARCA: PF-09, PF-15 y
   PF-19.
 - Almacenamiento, respaldos, migración y recuperación: PF-10, PF-11 y PF-12.
@@ -190,7 +199,7 @@ Antes de editar código, cada corte debe tener:
 
 - Las 147 entradas originales de Clawpatch quedaron cubiertas por líneas
   temáticas sin tratarlas como tareas independientes.
-- Los 93 ítems abiertos o en curso del roadmap quedaron enrutados a una o más
+- Los 95 ítems abiertos o en curso del roadmap quedaron enrutados a una o más
   líneas del portafolio.
 - P1 y P2 conservan su intención original.
 - Los 36 hallazgos `high` fueron adjudicados, deduplicados y asignados a PF.

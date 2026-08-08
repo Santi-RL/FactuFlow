@@ -363,6 +363,11 @@ con:
 - administradores con acceso operativo a todos los emisores y gestión de
   usuarios, emisores y `Sistema`;
 - usuarios comunes limitados al emisor asignado;
+- evolución de permisos multiemisor aceptada pero todavía no implementada:
+  PF-06/PF-07/PF-08 reemplazará la asignación singular por accesos explícitos a
+  varios emisores y permitirá conceder el checkbox `Puede crear y editar
+  emisores`; crear autoasignará el nuevo emisor y editar exigirá además acceso
+  vigente, mientras borrado y administración global seguirán reservados;
 - worker embebido para lotes, con `BATCH_WORKER_ENABLED=true` y un único proceso
   Uvicorn en la instalación productiva actual;
 - PDFs bajo demanda y gestor administrativo de almacenamiento.
@@ -570,6 +575,9 @@ Siguen pendientes:
     PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores globales con
     ítems/importes. Después siguen PF-06/PF-07, PF-08 y PF-09 según el
     portafolio integrado.
+    Al llegar a ese bloque, ejecutar primero la unidad integrada de permisos
+    definida en `docs/agents/pf-06-08-permisos-multiemisor-design.md`; no crear
+    una línea paralela ni presentar el diseño como funcionalidad ya disponible.
     PF-16C continúa en paralelo únicamente con la modernización planificada del
     toolchain y evidencia de release.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
@@ -593,6 +601,8 @@ Siguen pendientes:
 - Portafolio integrado: `docs/agents/development-portfolio.md`
 - Diseño PF-01A: `docs/agents/pf-01-authorization-integrity-design.md`
 - Diseño PF-01B: `docs/agents/pf-01b-persistence-integrity-design.md`
+- Diseño de permisos multiemisor PF-06/PF-07/PF-08:
+  `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - Diseño PF-02A: `docs/agents/pf-02a-numeracion-individual-design.md`
 - Diseño PF-02B: `docs/agents/pf-02b-numeracion-masiva-design.md`
 - Cierre Clawpatch PF-01B:
