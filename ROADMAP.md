@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -144,8 +144,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   fechas y puntos de venta validados, no un boolean genérico
 - [x] La emisión valida que el punto de venta y el cliente opcional pertenezcan al
   emisor activo antes de solicitar CAE
-- [x] Nueva factura ofrece solo puntos de venta usables por FactuFlow y la API
-  rechaza numeración para puntos no Web Services con error de negocio
+- [x] Nueva factura ofrece puntos técnicamente usables por FactuFlow y la API
+  rechaza numeración para puntos no Web Services con error de negocio. Ese
+  filtro legacy no acredita RECE; PF-19A contiene solo las tuplas declaradas y
+  una omisión queda sin protección hasta PF-19B
 - [x] Emisión individual bloquea la vista previa hasta confirmar el próximo
   número, desacopla el cliente guardado si se editan sus datos y no informa
   fechas de servicio cuando el concepto fiscal es solo Productos
@@ -276,13 +278,13 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     en `requiere_reconciliacion`; ningún saneamiento legacy inventa CAE,
     comprobantes ni historia; y todo diagnóstico permanece aislado por ambiente,
     emisor, punto de venta y tipo.
-  - **PF-19A — diseño y contención:** completar el checklist fiscal, enumerar
-    importación de constancia, sincronización WSFE, edición manual, perfiles,
-    validación de Excel, emisión individual, batch, worker, reintentos, stale y
-    reconciliación; definir la tabla de estados y el orden exacto antes/durante/
-    después de FECAE; inventariar en modo lectura los lotes legacy afectados; y
-    mantener bloqueados los reintentos y los puntos conocidos no RECE hasta
-    disponer de una resolución soportada. No autoriza editar la base ni emitir.
+  - [x] **PF-19A — diseño y contención:** checklist fiscal, consumidores, tabla
+    de estados y orden antes/durante/después de FECAE cerrados. Una lista JSON
+    privada contiene tuplas explícitas por ambiente, emisor, ID/número de punto
+    y tipo antes de crear intentos o solicitar CAE; el inventario legacy usa una
+    transacción de solo lectura, salida sanitizada y ambiente histórico
+    indeterminado. `10005` sigue siendo candidato incierto, no rechazo terminal,
+    hasta PF-19C. No edita la base, no emite y no reemplaza PF-19B.
   - **PF-19B — elegibilidad RECE end-to-end:** modelar al menos `verificado_rece`,
     `no_rece` y `no_verificado`, con fuente y fecha de verificación; dejar de
     inferir RECE por la mera presencia de `Web Services`; definir migración y
@@ -353,6 +355,8 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   autorizado.
 - [x] Sincronización manual de puntos de venta ARCA validada desde UI; los
   puntos devueltos por WSFE se crean o actualizan como Web Services usables
+  según el filtro técnico, sin que eso acredite RECE. PF-19A contiene los
+  destinos dudosos únicamente cuando se declaran de forma explícita
 - [x] Validación de puntos de venta en emisión normaliza `Bloqueado=N`/`S` de ARCA
 - [x] Factura C no informa objeto `Iva` en WSFE y bloquea ítems con IVA distinto de 0
 - [x] Importes WSFE cuantizados con Decimal antes de solicitar CAE, evitando
@@ -668,7 +672,8 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
 - [x] Selector de perfil de carga masiva en emisión masiva, con aplicacion
   automática cuando el emisor tiene uno solo o uno predeterminado
 - [x] Selector de punto de venta en perfiles y emisión masiva: usar el punto del
-  archivo o fijar uno usable del emisor activo
+  archivo o fijar uno técnicamente usable del emisor activo. Ninguna opción
+  certifica RECE ni crea una regla PF-19A; una omisión queda sin protección
 - [x] Si el usuario modifica una configuración precargada por perfil de carga
   masiva, el lote se valida sin snapshot de perfil aplicado
 - [x] Separacion clara entre validar lote y emitir comprobantes válidos
@@ -961,7 +966,8 @@ simultánea entre emisores.
 - [x] Base vigente de usuarios comunes restringidos a un emisor asignado
 - [x] Alta básica de nuevos emisores desde UI admin
 - [x] Configuración de perfiles de carga masiva desde `Emisores > Carga masiva`,
-  incluyendo punto de venta por archivo o punto fijo usable del emisor
+  incluyendo punto de venta por archivo o punto fijo técnicamente usable del
+  emisor, sin acreditar RECE ni activar una contención PF-19A no declarada
 - [x] Precarga de emisor desde constancia de inscripcion ARCA en PDF,
   constancia de inscripción de persona física y constancia de opción de
   Monotributo, con provincia validada contra catálogo argentino
@@ -1179,12 +1185,13 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Ejecutar PF-19A: completar diseño fiscal, consumidores, tabla de estados,
-   contención e inventario de registros legacy en modo lectura, sin reintentos,
-   edición directa de base ni solicitudes reales de CAE.
-2. Implementar PF-19B/PF-19C en cortes revisables: elegibilidad RECE
-   end-to-end, error global estructurado, rechazo `10005` terminal y resolución
-   auditada de estados legacy; cerrar la matriz Nivel 2 antes de una release.
+1. Implementar PF-19B en un corte revisable: elegibilidad RECE durable,
+   migración fail-closed y alineación de constancia, sincronización, API,
+   perfiles, Excel, selectores, individual, lotes, worker y reintentos. PF-19A
+   ya cerró diseño, contención explícita e inventario legacy de solo lectura.
+2. Implementar PF-19C después de PF-19B: error global estructurado, rechazo
+   `10005` terminal solo bajo contrato oficial y resolución auditada de estados
+   legacy; cerrar la matriz Nivel 2 antes de una release.
 3. Retomar PF-03 con PF-03B después de PF-19: separar el DTO de ítem que
    serializa la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05

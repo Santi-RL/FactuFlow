@@ -2,11 +2,15 @@
 
 import pytest
 from httpx import AsyncClient
+from weasyprint import HTML
 
 from app.api import empresas
 from app.schemas.empresa import EmpresaCreate
-from app.services import constancia_arca_service
-from app.services.constancia_arca_service import parsear_constancia_arca
+from app.services.constancia_arca_service import (
+    ConstanciaArcaError,
+    extraer_texto_constancia_pdf,
+    parsear_constancia_arca,
+)
 
 
 def test_parsear_constancia_arca_extrae_datos_del_emisor():
@@ -153,28 +157,57 @@ def test_empresa_create_rechaza_provincia_invalida():
         )
 
 
-def test_extraer_texto_acepta_constancia_opcion_monotributo(
-    monkeypatch: pytest.MonkeyPatch,
-):
-    """Debe aceptar PDFs de constancia de opcion monotributo."""
-
-    class FakePage:
-        def extract_text(self) -> str:
-            return """
-            CONSTANCIA DE OPCIÓN
-            Régimen Simplificado para Pequeños Contribuyentes
-            CUIT: 27-12345678-5
+def test_extraer_texto_acepta_constancia_opcion_monotributo() -> None:
+    """Debe aceptar una constancia sintética real de opción monotributo."""
+    contenido = HTML(
+        string="""
+            <p>CONSTANCIA DE OPCIÓN</p>
+            <p>Régimen Simplificado para Pequeños Contribuyentes</p>
+            <p>CUIT: 27-12345678-5</p>
             """
+    ).write_pdf()
 
-    class FakeReader:
-        def __init__(self, _stream):
-            self.pages = [FakePage()]
-
-    monkeypatch.setattr(constancia_arca_service, "PdfReader", FakeReader)
-
-    texto = constancia_arca_service.extraer_texto_constancia_pdf(b"%PDF-test")
+    texto = extraer_texto_constancia_pdf(contenido)
 
     assert "CONSTANCIA DE OPCIÓN" in texto
+
+
+def test_extraer_y_parsear_constancia_pdf_real_sintetico() -> None:
+    """Debe extraer y parsear una constancia sintética real en memoria."""
+    contenido = HTML(
+        string="""
+            <pre>
+            AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO
+            CONSTANCIA DE INSCRIPCIÓN
+            ENTIDAD DE PRUEBA SIN DATOS REALES CUIT : 30-12345678-9
+            Forma Jurídica: ASOCIACIÓN
+            Fecha Contrato Social: 15-09-2017
+            CALLE FALSA 123
+            CIUDAD DE PRUEBA
+            1609-BUENOS AIRES
+            IMPUESTOS/REGÍMENES NACIONALES REGISTRADOS Y FECHA DE ALTA
+            IVA 08-2018
+            ACTIVIDADES NACIONALES REGISTRADAS Y FECHA DE ALTA
+            Actividad principal: 949990 SERVICIOS Mes de inicio: 08/2018
+            </pre>
+            """
+    ).write_pdf()
+
+    texto = extraer_texto_constancia_pdf(contenido)
+    datos = parsear_constancia_arca(texto)
+
+    assert datos.cuit == "30123456789"
+    assert datos.domicilio == "CALLE FALSA 123"
+    assert datos.condicion_iva == "RI"
+
+
+def test_extraer_texto_constancia_pdf_malformado_devuelve_error_controlado() -> None:
+    """Debe encapsular como error de dominio un PDF sintético malformado."""
+    with pytest.raises(
+        ConstanciaArcaError,
+        match="No se pudo leer el PDF de la constancia",
+    ):
+        extraer_texto_constancia_pdf(b"%PDF-1.7\ncontenido sintetico malformado")
 
 
 @pytest.mark.asyncio

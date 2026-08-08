@@ -33,6 +33,12 @@ from app.models.lote_comprobante import (
 )
 from app.models.punto_venta import PuntoVenta
 from app.services.certificados_service import requerir_material_certificado
+from app.services.contencion_fiscal_service import (
+    CATEGORIA_BLOQUEO_PREAUTORIZACION,
+    DETALLE_BLOQUEO_PREAUTORIZACION,
+    MENSAJE_BLOQUEO_PREAUTORIZACION,
+    obtener_bloqueo_preautorizacion,
+)
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
@@ -235,6 +241,13 @@ class FacturacionService:
         if punto_venta is None:
             raise ValidationError("Punto de venta no encontrado para la empresa activa")
 
+        self._validar_sin_bloqueo_preautorizacion(
+            empresa_id=empresa_id,
+            punto_venta_id=punto_venta.id,
+            punto_venta_numero=punto_venta.numero,
+            tipo_comprobante=tipo_comprobante,
+        )
+
         certificado = await self._obtener_certificado_activo(empresa_id)
         ticket = await self._obtener_ticket_acceso(empresa, certificado)
         wsfe_client = WSFEv1Client(
@@ -331,6 +344,14 @@ class FacturacionService:
                 categoria_error="idempotencia_en_proceso",
             )
 
+        if self._bloqueo_preautorizacion(
+            empresa_id=intento.empresa_id,
+            punto_venta_id=intento.punto_venta_id,
+            punto_venta_numero=intento.punto_venta_numero,
+            tipo_comprobante=intento.tipo_comprobante,
+        ):
+            return self._respuesta_intento_requiere_reconciliacion(intento)
+
         empresa = await self._obtener_empresa(intento.empresa_id)
         if empresa is None:
             return self._respuesta_intento_requiere_reconciliacion(intento)
@@ -392,10 +413,25 @@ class FacturacionService:
                 primer_request.punto_venta_id,
                 primer_request.empresa_id,
             )
+            punto_venta_numero = punto_venta.numero
+            if self._bloqueo_preautorizacion(
+                empresa_id=primer_request.empresa_id,
+                punto_venta_id=punto_venta.id,
+                punto_venta_numero=punto_venta_numero,
+                tipo_comprobante=primer_request.tipo_comprobante,
+            ):
+                return [
+                    self._respuesta_bloqueo_preautorizacion(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        totales=totales,
+                    )
+                    for request, totales in zip(requests, totales_por_request)
+                ]
+
             certificado = await self._obtener_certificado_activo(
                 primer_request.empresa_id
             )
-            punto_venta_numero = punto_venta.numero
 
             ticket = await self._obtener_ticket_acceso(empresa, certificado)
             wsfe_client = WSFEv1Client(
@@ -875,6 +911,18 @@ class FacturacionService:
                 request.punto_venta_id, request.empresa_id
             )
             punto_venta_numero = punto_venta.numero
+            if self._bloqueo_preautorizacion(
+                empresa_id=request.empresa_id,
+                punto_venta_id=punto_venta.id,
+                punto_venta_numero=punto_venta_numero,
+                tipo_comprobante=request.tipo_comprobante,
+            ):
+                return self._respuesta_bloqueo_preautorizacion(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    totales=totales,
+                )
+
             certificado = await self._obtener_certificado_activo(request.empresa_id)
             idempotencia = IdempotenciaFiscalService(self.db)
 
@@ -1221,6 +1269,13 @@ class FacturacionService:
         if not punto_venta:
             raise ValidationError("Punto de venta no encontrado")
 
+        self._validar_sin_bloqueo_preautorizacion(
+            empresa_id=empresa_id,
+            punto_venta_id=punto_venta.id,
+            punto_venta_numero=punto_venta.numero,
+            tipo_comprobante=tipo_comprobante,
+        )
+
         empresa = await self._obtener_empresa(empresa_id)
         if not empresa:
             raise ValidationError("Empresa no encontrada")
@@ -1255,6 +1310,13 @@ class FacturacionService:
             return await self._obtener_proximo_numero(
                 empresa_id, punto_venta_id, tipo_comprobante
             )
+
+        self._validar_sin_bloqueo_preautorizacion(
+            empresa_id=empresa_id,
+            punto_venta_id=punto_venta.id,
+            punto_venta_numero=punto_venta.numero,
+            tipo_comprobante=tipo_comprobante,
+        )
 
         empresa = await self._obtener_empresa(empresa_id)
         certificado = await self._obtener_certificado_activo(empresa_id)
@@ -2117,6 +2179,88 @@ class FacturacionService:
             stmt = stmt.where(PuntoVenta.empresa_id == empresa_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    def _bloqueo_preautorizacion(
+        self,
+        *,
+        empresa_id: int,
+        punto_venta_id: int,
+        punto_venta_numero: int,
+        tipo_comprobante: int,
+    ) -> bool:
+        """Indica si la tupla fiscal está contenida por configuración explícita."""
+        bloqueo = obtener_bloqueo_preautorizacion(
+            ambiente=self._get_arca_ambiente().value,
+            empresa_id=empresa_id,
+            punto_venta_id=punto_venta_id,
+            punto_venta=punto_venta_numero,
+            tipo_comprobante=tipo_comprobante,
+        )
+        if bloqueo is None:
+            return False
+
+        if bloqueo.punto_venta != punto_venta_numero:
+            logger.warning(
+                "event=arca_punto_bloqueado_renumerado ambiente=%s empresa_id=%s "
+                "punto_venta_id=%s numero_configurado=%s numero_actual=%s",
+                bloqueo.ambiente,
+                empresa_id,
+                punto_venta_id,
+                bloqueo.punto_venta,
+                punto_venta_numero,
+            )
+
+        logger.warning(
+            "event=arca_preautorizacion_bloqueada ambiente=%s empresa_id=%s "
+            "punto_venta=%s tipo_comprobante=%s motivo=%s",
+            bloqueo.ambiente,
+            empresa_id,
+            punto_venta_numero,
+            tipo_comprobante,
+            bloqueo.motivo,
+        )
+        return True
+
+    def _validar_sin_bloqueo_preautorizacion(
+        self,
+        *,
+        empresa_id: int,
+        punto_venta_id: int,
+        punto_venta_numero: int,
+        tipo_comprobante: int,
+    ) -> None:
+        """Falla cerrado antes de consultas ARCA si la tupla está bloqueada."""
+        if self._bloqueo_preautorizacion(
+            empresa_id=empresa_id,
+            punto_venta_id=punto_venta_id,
+            punto_venta_numero=punto_venta_numero,
+            tipo_comprobante=tipo_comprobante,
+        ):
+            raise ValidationError(
+                f"{MENSAJE_BLOQUEO_PREAUTORIZACION}. "
+                f"{DETALLE_BLOQUEO_PREAUTORIZACION}"
+            )
+
+    @staticmethod
+    def _respuesta_bloqueo_preautorizacion(
+        *,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        totales: dict,
+    ) -> EmitirComprobanteResponse:
+        """Devuelve un aborto local verificable sin iniciar una solicitud de CAE."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=0,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje=MENSAJE_BLOQUEO_PREAUTORIZACION,
+            errores=[DETALLE_BLOQUEO_PREAUTORIZACION],
+            requiere_reconciliacion=False,
+            categoria_error=CATEGORIA_BLOQUEO_PREAUTORIZACION,
+        )
 
     async def _obtener_cliente(
         self, cliente_id: int, empresa_id: int

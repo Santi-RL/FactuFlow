@@ -141,9 +141,12 @@
 
 - No se detectó una pantalla separada en el portal que diga "homologación" para los puntos de venta de WSFEv1.
 - En la práctica se revisa la misma pantalla `A/B/M de puntos de venta / emision`.
-- Para emitir por WSFE, la columna `Sistema` debe identificar de forma
-  verificable `RECE para aplicativo y web services`. Una descripción genérica
-  `Web Services` no prueba por sí sola esa compatibilidad fiscal.
+- La columna editable `Sistema` puede mostrar la señal administrativa
+  `RECE para aplicativo y web services`, pero no constituye evidencia durable
+  ni histórica. Una descripción genérica `Web Services` tampoco prueba esa
+  compatibilidad. PF-19A contiene únicamente las tuplas declaradas
+  explícitamente en `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`; una omisión queda
+  sin protección hasta PF-19B.
 - En esta sesión se usó el punto de venta `5`.
 - En producción para el emisor real privado, ARCA
   devolvio habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban
@@ -180,17 +183,19 @@
   punto pertenece a RECE: un punto clasificado genéricamente como Web Services
   alcanzó `FECAESolicitar` y ARCA devolvió el error global `10005`, validación
   excluyente por punto de venta no RECE según el manual WSFEv1.
-- PF-19 corregirá esta frontera con elegibilidad RECE explícita y estado mínimo
-  `verificado_rece`, `no_rece` o `no_verificado`, aplicado de extremo a extremo
-  y con política de fallo cerrado. Hasta que ese corte se implemente, la marca
-  local `Usable` describe el filtro técnico vigente, no una prueba fiscal
-  concluyente: para una operación sensible hay que comprobar que la constancia
-  o el portal ARCA indiquen RECE y no emitir desde un punto genérico o dudoso.
-- PF-19 también separará un rechazo global preautorización reconocido —como
-  `10005` bajo el contrato oficial vigente— de una respuesta incierta. Solo el
-  primero podrá cerrarse como rechazo terminal sin habilitar reemisión ciega;
-  timeouts, respuestas parciales y códigos desconocidos seguirán requiriendo
-  reconciliación.
+- PF-19A contiene antes de `FECAESolicitar` cada tupla explícitamente declarada
+  por ambiente, emisor, punto y tipo. La coincidencia usa tanto la identidad
+  local como el número fiscal para que renumerar o recrear el punto no evite el
+  bloqueo. La lista vacía no acredita elegibilidad.
+- La marca local `Usable`, la constancia y el texto editable `Sistema` describen
+  señales actuales, no evidencia fiscal durable ni histórica. Para contener un
+  punto genérico o dudoso hay que declarar explícitamente cada tupla afectada;
+  una combinación omitida sigue desprotegida hasta que PF-19B incorpore
+  `verificado_rece`, `no_rece` y `no_verificado` de extremo a extremo.
+- PF-19A no reetiqueta `10005` legacy como rechazo terminal: el código no quedó
+  persistido de forma estructurada y su firma textual solo identifica
+  candidatos de inventario. PF-19C definirá esa transición; timeout, respuesta
+  parcial y código desconocido continúan en reconciliación.
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.
@@ -466,8 +471,11 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   no puede emitir ni validar de forma silenciosa.
 - Un perfil de carga masiva también puede precargar punto de venta. Las opciones
   válidas son usar el punto definido en el archivo o fijar un punto Web Services
-  activo, no bloqueado y sin baja del emisor activo. Si no está cargado en
-  `Puntos de venta`, no se puede elegir como punto fijo.
+  activo, no bloqueado y sin baja del emisor activo. Es un filtro técnico: no
+  acredita RECE ni incorpora automáticamente la contención central. Si el
+  punto es genérico o dudoso, hay que declarar su tupla explícitamente; una
+  omisión queda sin protección hasta PF-19B. Si no está cargado en `Puntos de
+  venta`, no se puede elegir como punto fijo.
 - Para concepto servicios o productos y servicios, también deben resolverse
   `FchServDesde`, `FchServHasta` y `FchVtoPago`.
 - La validación local aplica una ventana ARCA preventiva:

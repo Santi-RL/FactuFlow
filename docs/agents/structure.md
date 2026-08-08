@@ -61,11 +61,18 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/services/idempotencia_fiscal_service.py`: idempotencia fiscal,
   reserva de numeración activa, deduplicación lógica y reconciliación de
   intentos.
+- `backend/app/services/contencion_fiscal_service.py`: guarda opt-in exacta por
+  ambiente, emisor, identidad/número de punto y tipo antes de
+  `FECAESolicitar`.
+- `backend/app/services/inventario_legacy_pf19_service.py`: inventario PF-19A
+  sanitizado, privado y estrictamente de solo lectura.
 - `backend/app/services/perfiles_carga_masiva_service.py`: CRUD, scoping y validación de perfiles de carga masiva.
 - `backend/app/services/almacenamiento_service.py`: cálculo acotado de uso,
   ZIPs de resguardo y limpieza confirmada.
 - `backend/app/services/lote_worker.py`: worker reanudable de lotes grandes.
 - `backend/app/scripts/create_admin_user.py`: alta/promoción de usuario administrador.
+- `backend/app/scripts/pf19_legacy_inventory.py`: CLI privada PF-19A con emisor
+  obligatorio, filtros allowlist y máximo duro de `500` registros.
 - `backend/app/templates/`: plantillas (PDF/HTML).
 - `backend/tests/`: tests del backend.
 - `backend/tests/integration/`: pruebas opt-in contra infraestructura desechable;

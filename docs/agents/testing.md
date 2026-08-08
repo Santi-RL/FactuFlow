@@ -258,6 +258,50 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Última verificación técnica
 
+Fecha: 08/08/2026
+
+- PF-19A: `15` pruebas de contención cubren configuración estricta, aislamiento
+  por ambiente/emisor/punto/tipo, renumeración/recreación, selección
+  determinística de reglas cruzadas, emisión individual, batch, intento stale y
+  preflight stale. Los núcleos directos individual y batch demuestran cero
+  WSAA/WSFE. El flujo completo `procesar_lote` demuestra una autenticación WSAA
+  y una lectura segura `FECompTotXRequest` previas, pero cero `FECAESolicitar`,
+  CAE, intentos y comprobantes. El replay HTTP conserva el aborto durable sin
+  reabrir la emisión.
+- Inventario PF-19A: `18` pruebas del inventario, incluidas `7` sobre SQLite,
+  cubren firma global exacta frente a falsos positivos, deduplicación,
+  contradicción con CAE de grupo, cadena lote/grupo/comprobante entre emisores y
+  validación de la FK directa por emisor, punto, tipo y número planificado. Los
+  casos incluyen referencia huérfana, número incorrecto, número ausente y vínculo
+  válido; verifican salida privada sanitizada, diagnóstico CLI sin traceback,
+  emisor obligatorio, aceptación exacta de `500`, aborto en `501` sin truncado,
+  ambiente histórico indeterminado, `query_only`, DML rechazado, rollback y
+  restauración del valor previo. El test PostgreSQL desechable quedó agregado y
+  se omitió por falta de infraestructura explícita; no se conectó ninguna base
+  real.
+- Backend completo: `607` pruebas aprobadas y `5` omitidas por infraestructura
+  opcional. Ruff y Black aprobaron los `120` archivos de `app/` y `tests/`.
+- Compatibilidad PDF: `13` pruebas enfocadas aprobaron con `pypdf 6.15.0`.
+  Ambas constancias usan PDFs sintéticos reales generados en memoria, sin
+  reemplazar `PdfReader`: encadenan extracción y parseo de CUIT, condición o
+  domicilio, y tabla/punto Web Services. Los dos formatos malformados devuelven
+  errores de dominio controlados; no se persistieron archivos ni se usaron datos
+  reales. `pip check` y `pip-audit -r requirements.txt` quedaron limpios.
+- Frontend: `131` pruebas unitarias y `33` E2E Chromium aprobadas; type-check y
+  build aprobados. ESLint conservó `13` advertencias históricas y cero errores.
+- Frontend reproducible: `npm ci` con Node.js `24.15.0` y npm `11.12.1` dejó
+  `postcss 8.5.23 -> nanoid 3.3.17`; `npm audit --omit=dev --audit-level=high`
+  quedó sin vulnerabilidades y `package.json` permaneció intacto. La auditoría
+  integral conserva `10` avisos exclusivos del toolchain de desarrollo (`5`
+  moderados, `4` altos y `1` crítico), ya enrutados a la modernización PF-16C;
+  no se ejecutó `npm audit fix` ni `--force`.
+- Repositorio: `npm run lint`, `npm run backend:format:check` y `npm run test`
+  aprobaron; este último reunió `607` backend, `131` frontend y `16` pruebas de
+  scripts. `docs:check` también aprobó.
+- Toda la evidencia de esta verificación usó datos sintéticos y, cuando
+  correspondió, dobles controlados. No hubo acceso a VPS, consultas ARCA reales,
+  solicitudes de CAE ni modificaciones de bases reales.
+
 Fecha: 2026-08-06
 
 - PF-03A: `9` casos enfocados cubren claves superiores desconocidas, ausencia

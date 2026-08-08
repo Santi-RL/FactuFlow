@@ -223,8 +223,18 @@ y sin solicitar CAE.
    APP_DEBUG=false
    APP_SECRET_KEY=<generar-clave-segura>
    ARCA_ENV=produccion  # Solo si ya tenés certificados de producción
+   ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION=[]
    # También acepta AFIP_ENV por compatibilidad
    ```
+
+   `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` es una lista JSON privada de
+   contención por ambiente, emisor, ID/número de punto de venta y tipo de
+   comprobante. Antes de operar, incluí cada tupla cuya pertenencia a RECE no
+   esté demostrada o esté bajo revisión legacy. Una lista vacía y la
+   clasificación genérica `Web Services` no acreditan elegibilidad RECE. Una
+   tupla omitida queda sin protección hasta PF-19B; el contrato y un ejemplo
+   sintético están en
+   `docs/agents/pf-19a-rece-contencion-design.md`.
 
    En `APP_ENV=production`, el backend no inicia si `APP_SECRET_KEY` queda
    vacío, usa un placeholder público o tiene menos de 32 caracteres. Generarlo
@@ -374,5 +384,9 @@ Después de la instalación:
 2. Configurar tu empresa en la aplicación
 3. Crear tu primer cliente
 4. Emitir primero comprobantes de prueba en homologación
-5. Pasar a producción solo con certificado/autorización `wsfe`, punto de venta
-   Web Services, backup/logs y fecha fiscal explícita confirmados
+5. Pasar a producción solo con certificado/autorización `wsfe`, elegibilidad
+   RECE revisada y cada tupla genérica o dudosa declarada explícitamente en
+   `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`, además de backup/logs y fecha fiscal
+   explícita confirmados. PF-19A no descubre omisiones: una combinación no
+   declarada queda sin protección hasta PF-19B. La etiqueta `Web Services` por
+   sí sola no autoriza a emitir

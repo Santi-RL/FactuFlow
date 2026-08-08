@@ -20,14 +20,14 @@ Reglas vigentes desde 2026-05-22:
 
 ### Planificación de producto
 
-- La evidencia productiva de `v0.2.2` abre PF-19 como P1 fiscal Nivel 2 y lo
-  prioriza antes de PF-03B. PF-19 separa la elegibilidad RECE de la marca
-  genérica Web Services, preserva códigos globales de ARCA, clasifica `10005`
-  como rechazo excluyente solo bajo el contrato oficial y define un cierre
-  auditado para estados legacy. PF-02 permanece cerrado y sin cambios de
-  numeración; PF-03 conserva ítems/importes; PF-09, PF-14 y PF-15 son
-  consumidores. La trazabilidad del backup preoperación se enrutó a PF-11/PF-15.
-  Este cambio solo planifica: no modifica runtime, producción ni estados del VPS.
+- La evidencia productiva de `v0.2.2` abrió PF-19 como P1 fiscal Nivel 2 y lo
+  priorizó antes de PF-03B. PF-19A ya cierra diseño, consumidores, contención
+  preautorización e inventario legacy de solo lectura. PF-19B/PF-19C conservan
+  elegibilidad RECE durable, códigos globales estructurados, clasificación
+  terminal de `10005` bajo contrato oficial y cierre auditado. PF-02 permanece
+  cerrado y sin cambios de numeración; PF-03 conserva ítems/importes; PF-09,
+  PF-14 y PF-15 son consumidores. La trazabilidad del backup preoperación se
+  enrutó a PF-11/PF-15.
 - PF-17 incorpora como trabajo futuro de banda C una señal liviana de
   conectividad y recuperación segura. La propuesta distingue pérdida de red,
   servidor no disponible, conexión inestable y recuperación; reutiliza
@@ -38,6 +38,29 @@ Reglas vigentes desde 2026-05-22:
 
 ### Validación fiscal
 
+- PF-19A agrega una contención privada y estricta por ambiente, emisor,
+  ID/número de punto de venta y tipo de comprobante. Una coincidencia aborta
+  en el núcleo fiscal antes de crear intento o invocar `FECAESolicitar`, con
+  cero CAE y cero comprobantes. El match por ID o número evita levantar el
+  bloqueo renumerando una fila o recreando el número fiscal con otro ID. La
+  selección ante cruces es determinística (`ID+número > ID > número`). La
+  contención es opt-in: una tupla omitida queda sin protección hasta PF-19B.
+- El inventario PF-19A consulta candidatos `arca_batch_sin_respuesta` y
+  `arca_respuesta_incierta` dentro de transacciones verificadas de solo lectura,
+  siempre revertidas. Restaura el modo previo de SQLite, valida el alcance de
+  punto/operación/lote/grupo y de los comprobantes directos o asociados antes de
+  examinar señales, incluida la coincidencia de emisor, punto, tipo y número
+  planificado; sin número planificado, la referencia no es válida. Separa
+  referencias huérfanas o cruzadas. Exige emisor, acepta exactamente `500`
+  registros, consulta como máximo `501` filas y aborta al detectar `501`, sin
+  truncar. La salida sanitizada sigue siendo evidencia privada porque conserva
+  IDs operativos, punto y tipo; omite CUIT, receptor, importes, CAE, fechas
+  fiscales y marcas temporales de comprobantes/intentos, payloads y mensajes
+  crudos. Conserva únicamente `generado_el` en `DD/MM/AAAA`, informa el ambiente
+  histórico como indeterminado y trata una firma textual `10005` solo como
+  candidata; no llama a ARCA, no cambia estados y no sanea registros. Los logs
+  privados pueden conservar identificadores operativos mínimos, nunca secretos
+  ni contenido fiscal sensible.
 - PF-03A cierra el objeto superior de `EmitirComprobanteRequest`: una clave no
   documentada devuelve `422 extra_forbidden` antes de crear idempotencia,
   reservar numeración o alcanzar el servicio fiscal. Erratas como `monedaa`,
@@ -78,8 +101,8 @@ Reglas vigentes desde 2026-05-22:
   normal conserva la reserva durable y el segundo preflight. Los errores
   persistidos usan categorías sanitizadas y no exponen textos de excepción.
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
-  PF-02 y PF-03A son posteriores a `v0.2.2`: todavía no pertenecen a una release
-  publicada ni están desplegados.
+  PF-02, PF-03A y PF-19A son posteriores a `v0.2.2`: todavía no pertenecen a
+  una release publicada ni están desplegados.
 
 ### Calidad y seguridad
 
@@ -97,9 +120,16 @@ Reglas vigentes desde 2026-05-22:
 - La CI agrega clasificación documental conservadora, tests de scripts, Ruff,
   Black, type-check, lint, build, unit tests, E2E y auditorías bloqueantes de
   dependencias productivas; se retira el Pylint decorativo que ignoraba fallos.
-- `pypdf` se actualiza a `6.14.2` y PostCSS a `8.5.23` para resolver avisos
-  conocidos. La migración mayor del toolchain frontend queda planificada sin
-  aplicar actualizaciones forzadas incompatibles.
+- `pypdf` se actualiza de `6.14.2` a `6.15.0` para corregir
+  `CVE-2026-71852` y `CVE-2026-71870`. Los dos parsers de constancias se
+  verifican con PDFs sintéticos reales generados en memoria, desde la extracción
+  hasta los campos fiscales, y encapsulan PDFs malformados como errores de
+  dominio.
+- PostCSS permanece en `8.5.23` y su dependencia transitiva `nanoid` se resuelve
+  en `3.3.17` para corregir `CVE-2026-67213`, sin cambiar `package.json` ni usar
+  actualizaciones forzadas. Las auditorías productivas de Python y npm quedan
+  limpias; la modernización mayor del toolchain frontend continúa planificada
+  por separado.
 - La alineación documental pasa a ser una puerta explícita antes del commit y
   antes de marcar un PR como listo. La plantilla exige una matriz por impacto y
   la CI comprueba versiones y marcadores transitorios también en cambios Nivel

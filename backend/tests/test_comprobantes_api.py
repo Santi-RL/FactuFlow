@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import BloqueoPreautorizacionArca, settings
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
@@ -68,6 +69,94 @@ def _request_emitir_base(test_empresa) -> dict:
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_replay_conserva_aborto_pf19_aunque_se_retire_la_regla(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La misma clave reproduce el aborto durable y nunca abre una emisión."""
+    punto = PuntoVenta(
+        numero=7,
+        nombre="Web Services PF-19 sintético",
+        sistema="Web Services",
+        es_webservice=True,
+        bloqueado=False,
+        activo=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto)
+    await db_session.commit()
+    await db_session.refresh(punto)
+
+    monkeypatch.setattr(settings, "arca_env", "produccion")
+    monkeypatch.setattr(
+        settings,
+        "arca_bloqueos_preautorizacion",
+        [
+            BloqueoPreautorizacionArca(
+                ambiente="produccion",
+                empresa_id=test_empresa.id,
+                punto_venta_id=punto.id,
+                punto_venta=punto.numero,
+                tipo_comprobante=6,
+                motivo="elegibilidad_no_verificada",
+            )
+        ],
+    )
+
+    def arca_no_debe_inicializarse(*_args, **_kwargs):
+        raise AssertionError("El aborto PF-19 no debe inicializar WSAA ni WSFE")
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSAAClient",
+        arca_no_debe_inicializarse,
+    )
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        arca_no_debe_inicializarse,
+    )
+    payload = _request_emitir_base(test_empresa)
+    payload["punto_venta_id"] = punto.id
+    headers = {
+        **auth_headers,
+        **_idempotency_header("idem-pf19-aborto-durable"),
+    }
+
+    primera = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    monkeypatch.setattr(settings, "arca_bloqueos_preautorizacion", [])
+    replay = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+
+    assert primera.status_code == 400, primera.text
+    assert replay.status_code == 400, replay.text
+    assert replay.json() == primera.json()
+    assert primera.json()["detail"]["categoria_error"] == (
+        "punto_venta_bloqueado_preautorizacion"
+    )
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-pf19-aborto-durable"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "fallido"
+    assert operacion.response_json["cae"] is None
+    assert (
+        await db_session.execute(select(IntentoEmisionFiscal))
+    ).scalars().all() == []
+    assert (await db_session.execute(select(Comprobante))).scalars().all() == []
 
 
 @pytest.mark.asyncio
