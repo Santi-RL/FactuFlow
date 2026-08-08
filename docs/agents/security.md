@@ -89,6 +89,12 @@
   `es_admin=true`; ocultar controles en frontend no reemplaza esa autorización.
 - La edición de identidad fiscal sigue bloqueada cuando existe historial
   operativo o fiscal, incluso para administradores.
+- Existe un diseño aceptado, todavía no implementado, para permitir que un
+  operador tenga varios emisores y reciba la capacidad acotada de crear y editar
+  emisores. Hasta cerrar PF-06/PF-07/PF-08, las reglas anteriores describen el
+  runtime vigente. El contrato futuro, sus invariantes y la matriz de pruebas
+  están en `docs/agents/pf-06-08-permisos-multiemisor-design.md`; la capacidad
+  no incluirá borrado ni permitirá editar emisores no asignados.
 
 ## Errores HTTP y logs
 

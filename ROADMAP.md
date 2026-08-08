@@ -50,13 +50,17 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - El modelo multiemisor vigente es el de una empresa/emisor activo por vez. Un
   contador independiente o estudio chico puede administrar varios CUITs, pero
   toda operación debe quedar scopiada al emisor activo seleccionado.
-- El modelo inicial de usuarios es simple: el primer usuario de una instalación
+- El modelo vigente de usuarios es simple: el primer usuario de una instalación
   es administrador propietario; luego solo administradores crean, desactivan,
-  reactivan o resetean usuarios. Los administradores pueden crear, editar y
-  eliminar emisores cuando las reglas de preservación lo permiten, además de
-  operar todos los emisores configurados. Los usuarios comunes pueden consultar
-  y operar únicamente el emisor asignado en su cuenta, pero no modificar su
-  ficha.
+  reactivan, asignan alcances o resetean usuarios. La evolución aceptada mantiene
+  dos roles y evita permisos finos: los administradores operan todos los
+  emisores y conservan la administración global; los operadores tendrán una
+  lista explícita de emisores autorizados y podrán recibir la única capacidad
+  adicional `Puede crear y editar emisores`. Esa capacidad permitirá crear un
+  emisor con autoasignación atómica y editar solo emisores ya autorizados; no
+  incluirá borrado, gestión de usuarios, `Sistema` ni acceso global. Hasta que
+  PF-06/PF-07/PF-08 implemente y cierre este diseño, la aplicación desplegada
+  conserva el alcance singular actual.
 - No se avanza por ahora hacia una plataforma multiempresa compleja con
   administración central completa, permisos finos por organización, reportes
   globales consolidados u operación simultánea entre emisores.
@@ -100,8 +104,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 
 ### Producto y negocio
 - [x] Objetivo principal redefinido: emisión masiva y UX administrativa simple
-- [x] Modelo multiemisor definido: varios CUITs por usuario, un emisor activo
-  explícito por vez
+- [x] Modelo multiemisor base definido: varios CUITs por instalación y un emisor
+  activo explícito por vez
+- [ ] Operadores con varios emisores autorizados y capacidad opcional para crear
+  y editar emisores asignados, según el diseño integrado PF-06/PF-07/PF-08
 - [~] Criterios UX no técnicos parcialmente implementados
 - [x] Login informa claramente cuando el servidor local no está disponible
 - [x] Setup inicial cerrado cuando ya existe cualquier usuario y administración
@@ -952,7 +958,7 @@ simultánea entre emisores.
 - [x] Header `X-Empresa-Id` para usuarios autenticados activos
 - [x] Selector de emisor activo en frontend
 - [x] Administradores operativos con acceso a todos los emisores configurados
-- [x] Usuarios comunes restringidos al emisor asignado
+- [x] Base vigente de usuarios comunes restringidos a un emisor asignado
 - [x] Alta básica de nuevos emisores desde UI admin
 - [x] Configuración de perfiles de carga masiva desde `Emisores > Carga masiva`,
   incluyendo punto de venta por archivo o punto fijo usable del emisor
@@ -970,6 +976,57 @@ simultánea entre emisores.
 - [ ] Tests de regresión multiemisor para operaciones críticas antes de ampliar
   volumen productivo
 - [ ] Onboarding multiemisor mas claro para contadores y estudios chicos
+- [ ] **PF-06/PF-07/PF-08 — operadores multiemisor y creación/edición
+  delegada.** Implementar el diseño canónico de
+  `docs/agents/pf-06-08-permisos-multiemisor-design.md` como una unidad Nivel 2
+  end-to-end, sin introducir un tercer rol ni permisos por módulo.
+  - **Alcance funcional:** cada operador tendrá cero, uno o varios emisores
+    asignados. Un checkbox administrativo `Puede crear y editar emisores`
+    habilitará crear nuevos emisores y editar únicamente los ya asignados. El
+    borrado, la gestión de usuarios, `Sistema`, almacenamiento y plantillas
+    globales seguirán reservados a administradores.
+  - **Regla de creación:** crear empresa, conceder acceso operativo al creador y
+    registrar auditoría será una sola transacción. Si cualquier paso falla, no
+    quedará empresa ni asignación parcial. El administrador podrá revocar luego
+    ese acceso; haber creado el emisor no generará propiedad permanente.
+  - **Regla de edición:** un operador necesitará simultáneamente la capacidad y
+    una asignación vigente al emisor. La autorización será backend, por objeto y
+    releída desde base; la UI no será autoridad. Las restricciones actuales de
+    identidad fiscal e historial continuarán aplicándose también al operador.
+  - **Modelo y migración:** PF-06A incorporará una relación many-to-many
+    usuario-emisor con constraint único y backfill desde `usuarios.empresa_id`.
+    La nueva tabla será la única fuente de autorización; la columna legacy podrá
+    sobrevivir transitoriamente solo como compatibilidad no autoritativa hasta
+    retirar todos sus consumidores y ensayar rollback en SQLite/PostgreSQL.
+  - **Concesión administrativa:** PF-08A ampliará contratos y pantalla `Usuarios`
+    con selector múltiple, checkbox, asignación/revocación transaccional,
+    previsualización al degradar administradores y eventos sanitizados. La
+    opción `Seleccionar todos` materializará solo emisores actuales; no otorgará
+    acceso automático a emisores futuros.
+  - **Frontend y revocación:** PF-07A mostrará únicamente emisores devueltos por
+    la API, conservará uno activo por vez y descartará estado o respuestas
+    tardías cuando cambie o se revoque el alcance. Una sesión abierta no
+    conservará autoridad por datos cacheados, Pinia, storage o JWT.
+  - **Procesos fiscales:** la autorización se verificará al iniciar o confirmar
+    la operación y otra vez antes de una transición diferida que aún pueda
+    alcanzar ARCA. Una revocación pre-ARCA bloqueará sin CAE; una revocación
+    posterior no inventará rollback y conservará PF-01, idempotencia y
+    reconciliación.
+  - **Concurrencia y auditoría:** edición, creación, cambios de capacidad y
+    revocación deberán tener orden determinista mediante locks, versión de
+    permisos o mecanismo equivalente. Registrar actor, usuario, emisor, origen
+    y altas/bajas sin exponer CUIT completo ni datos privados.
+  - **Matriz mínima:** migración legacy; cero/uno/varios emisores; acceso A/B y
+    rechazo C por header, query, body e ID; creación y autoasignación atómicas;
+    edición con capacidad más asignación; revocación al creador; borrado negado;
+    promoción/degradación; carreras; sesión abierta; worker/lotes antes y
+    después de la frontera ARCA; aislamiento de todos los recursos; UI y
+    PostgreSQL/SQLite, siempre con datos sintéticos y sin CAE real.
+  - **Propiedad y orden:** PF-06 será dueño del modelo y la autorización backend;
+    PF-08 de la concesión administrativa; PF-07 del selector y estado frontend.
+    Se ejecutará como primera unidad vertical de ese bloque después de PF-19 y
+    PF-03B, sin solaparse con la validez fiscal de PF-03, la elegibilidad RECE de
+    PF-19 ni las sesiones/cambio de contraseña restantes de PF-08.
 
 ## Fase 7 - Plataforma lista para despliegue serio
 
@@ -1135,8 +1192,9 @@ Objetivo: ampliar valor más allá del MVP.
 4. Continuar PF-16C con la modernización planificada del toolchain y la
    evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
    documental ya están cerradas.
-5. Después de PF-03, continuar los P1 adjudicados por orden integrado:
-   PF-06/PF-07, PF-08 y PF-09.
+5. Después de PF-03, ejecutar primero la unidad integrada PF-06A/PF-08A/PF-06B/
+   PF-07A de operadores multiemisor y creación/edición delegada; cerrar su
+   matriz Nivel 2 antes de continuar los restantes PF-06/PF-07, PF-08 y PF-09.
 6. Mantener la custodia concreta del backup fuera del repo público y corregir
    su trazabilidad PF-11/PF-15: snapshot exacto, propósito, timestamp y
    escrituras intermedias. Automatización, retención y recuperación a un VPS
