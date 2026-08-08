@@ -1,14 +1,15 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
-Este manual describe las capacidades aceptadas en `main`. La versión publicada
-y desplegada continúa siendo `v0.2.2` del 23/07/2026. PF-02A y los tres cortes
-de PF-02B están integrados en `main`, pero todavía no pertenecen a una release
-ni están disponibles en producción. No debe asumirse que una función posterior
-al tag desplegado ya está operativa en una instalación concreta.
+Este manual describe el estado objetivo de `main` después de integrar este
+corte. La versión publicada y desplegada continúa siendo `v0.2.2`, validada el
+23/07/2026. Ese estado objetivo incluye PF-02A, los tres cortes de PF-02B,
+PF-03A y PF-19A. Todo ese tramo es posterior a `v0.2.2`: todavía no pertenece a
+una release publicada ni está desplegado. No debe asumirse que una función
+posterior al tag productivo ya está operativa en una instalación concreta.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -180,9 +181,12 @@ En `Comprobantes` puedes:
 - crear un comprobante puntual
 - abrir el detalle de un comprobante autorizado
 
-Al crear un comprobante puntual, el selector de punto de venta muestra solo los
-puntos habilitados para emitir por FactuFlow: Web Services activos, no
-bloqueados y sin fecha de baja.
+Al crear un comprobante puntual, el selector de punto de venta aplica el filtro
+técnico actual: puntos Web Services activos, no bloqueados y sin fecha de baja.
+Ese filtro no demuestra pertenencia a RECE. No selecciones un punto genérico o
+dudoso; la instalación debe declarar explícitamente su tupla exacta en
+`ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`. Una omisión queda sin protección
+hasta completar la verificación durable prevista para PF-19B.
 
 Cuando confirmás la emisión final, FactuFlow genera una clave interna de
 idempotencia para esa operación. Si la conexión se corta o repetís el intento
@@ -524,11 +528,14 @@ Los lotes viejos validados antes de esta regla deben revalidarse. FactuFlow no
 permite procesarlos sin una política de concepto fiscal guardada.
 
 Regla de punto de venta en lotes: podés usar el punto de venta definido en el
-archivo o fijar un punto habilitado del emisor. Para elegir un punto fijo, ese
-punto debe estar cargado primero en `Puntos de venta` y debe figurar como usable
-por FactuFlow. Si el emisor no tiene puntos habilitados cargados, la pantalla lo
-indica y solo queda disponible usar el punto informado por el archivo hasta
-completar la pantalla correspondiente.
+archivo o fijar un punto técnicamente habilitado del emisor. Para elegir un
+punto fijo, ese punto debe estar cargado primero en `Puntos de venta` y debe
+figurar como usable por FactuFlow. Esa marca no acredita RECE: un punto
+genérico, dudoso o bajo revisión legacy solo queda contenido si su tupla se
+declara explícitamente, también cuando llega desde el archivo. Una omisión queda
+sin protección hasta PF-19B. Si el emisor no tiene puntos habilitados cargados,
+la pantalla lo indica y solo queda disponible usar el punto informado por el
+archivo hasta completar la pantalla correspondiente.
 
 Al emitir, FactuFlow vuelve a verificar en backend que el punto de venta y un
 cliente precargado opcional pertenezcan al emisor activo.
@@ -574,8 +581,12 @@ calendarios inválidos como `31/02/2026` y guarda internamente la fecha
 normalizada.
 
 Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
-`Puntos de venta` para ese emisor y estar habilitado para usar en FactuFlow. Si
-todavía no hay puntos cargados, completalos primero desde esa pantalla.
+`Puntos de venta` para ese emisor y estar técnicamente habilitado para usar en
+FactuFlow. El perfil no certifica RECE ni evita la contención central: si la
+tupla es genérica, dudosa o legacy, debe declararse explícitamente en la
+configuración privada. El perfil no activa esa regla y una omisión queda sin
+protección hasta PF-19B. Si todavía no hay puntos cargados, completalos primero
+desde esa pantalla.
 
 ### Plantillas de carga masiva
 
@@ -687,11 +698,13 @@ fecha del extracto puede usarse como fecha de emisión o como base del período
 solo si el usuario lo confirma y ARCA la admite para la fecha en que se solicita
 el CAE.
 
-Si el archivo observado informa que un punto de venta no está habilitado, primero
-contrastá `Puntos de venta > Sincronizar con ARCA` para el emisor activo. Usá
-solo puntos Web Services activos, no bloqueados y sin fecha de baja; si ARCA
-marca un punto como bloqueado o inexistente, no lo uses para emitir desde ese
-lote.
+Si el archivo observado informa que un punto de venta no está habilitado,
+primero contrastá `Puntos de venta > Sincronizar con ARCA` para el emisor
+activo. La sincronización solo confirma señales técnicas: no uses para emitir
+un punto genérico, dudoso, bloqueado o inexistente. Toda tupla sin elegibilidad
+RECE durable debe declararse explícitamente para quedar contenida, tanto si el
+lote toma el punto del archivo como si usa uno fijo; una omisión queda sin
+protección hasta PF-19B.
 
 Si el archivo externo trae una columna para distinguir productos y servicios,
 usa `Definido por archivo` solo cuando todas las filas esten completas con
@@ -799,7 +812,8 @@ En `Puntos de venta` puedes ver y sincronizar los puntos de venta habilitados pa
 Importante:
 - el número debe coincidir con el punto de venta habilitado en ARCA para el sistema usado
 - para homologación o producción con webservices, validar el punto de venta antes de emitir
-- puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio
+- puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio;
+  esta consulta no acredita por sí sola pertenencia a RECE
 - la sincronización actual importa o actualiza puntos no bloqueados y sin fecha
   de baja como puntos Web Services usables según el filtro técnico vigente
 - si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
@@ -813,18 +827,23 @@ Importante:
   conserva el estado local de los puntos existentes y deja inactivos los puntos
   nuevos hasta sincronizar con ARCA o revisarlos manualmente
 - FactuFlow marca como `Usable` solo los puntos Web Services activos, no
-  bloqueados y sin baja; los puntos Factuweb, Comprobantes en Línea o
-  Controlador Fiscal quedan visibles como referencia pero no se usan para emitir
+  bloqueados y sin baja; es una condición técnica, no una autorización RECE.
+  Los puntos Factuweb, Comprobantes en Línea o Controlador Fiscal quedan
+  visibles como referencia pero no se usan para emitir
 - los datos importados se pueden editar manualmente desde `Editar`
 
-Limitación fiscal conocida en `v0.2.2` y en el código actual de `main`: la marca
-`Usable` todavía no demuestra por sí sola que el punto pertenezca a RECE. Antes
-de emitir, comprobá que la columna `Sistema` de la constancia o del portal ARCA
-indique `RECE para aplicativo y web services`. Si solo aparece una descripción
-genérica Web Services, el sistema es dudoso o no puede verificarse, no uses ese
-punto para solicitar CAE. PF-19 está planificado para bloquear automáticamente
-los puntos no verificados y distinguir un rechazo fiscal concluyente de una
-respuesta incierta; esa protección todavía no está implementada.
+Limitación fiscal conocida de `v0.2.2`: la marca `Usable` no demuestra por sí
+sola que el punto pertenezca a RECE. En el estado objetivo de `main`, PF-19A
+permite contener explícitamente cada combinación de ambiente, emisor, punto y
+tipo antes de `FECAESolicitar`. La columna `Sistema` de la constancia o del
+portal ARCA es una señal administrativa actual, pero es editable y no conserva
+historial; tampoco constituye evidencia durable por sí sola. Si muestra una
+descripción genérica, es dudosa o no puede verificarse, no uses ese punto y
+declaralo explícitamente en la configuración privada. PF-19A no descubre esos
+casos automáticamente: una omisión queda sin protección hasta PF-19B. PF-19B
+incorporará el estado durable de elegibilidad y PF-19C estructurará los rechazos
+globales; hasta entonces un `10005` legacy sigue siendo candidato incierto y no
+habilita reemisión ni reparación ciega.
 
 ## 10. Emisores
 
@@ -985,7 +1004,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 2026-08-08:
+Al 08/08/2026:
 
 - no existe todavía descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -1004,10 +1023,12 @@ Al 2026-08-08:
 - la producción real ya fue operada; antes de cada nueva emisión productiva hay
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripción facturada, totales, backup/logs y confirmación irreversible
-- la elegibilidad RECE del punto de venta todavía requiere verificación manual:
-  `Usable` refleja el filtro técnico actual, no una prueba concluyente; PF-19
-  agregará el bloqueo automático de puntos no verificados y el tratamiento
-  seguro de rechazos globales preautorización
+- la elegibilidad RECE durable todavía no existe: `Usable` refleja el filtro
+  técnico actual y el texto `Sistema` es una señal editable, no una prueba
+  concluyente. PF-19A contiene las tuplas declaradas antes de solicitar CAE;
+  toda combinación genérica o dudosa debe declararse bloqueada hasta PF-19B y
+  una omisión queda sin protección. PF-19C resolverá el tratamiento estructurado de rechazos globales
+  preautorización
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
   rápida y ficha para soporte; todavía faltan backup visible y trazabilidad

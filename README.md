@@ -32,6 +32,15 @@ conocida a un estado reintentable; la recuperación stale no asigna números ni
 solicita CAE. Estos cambios todavía no pertenecen a una release publicada ni
 están desplegados en producción.
 
+`main` también incorporó PF-03A y PF-19A. El contrato superior de emisión
+rechaza claves desconocidas y la contención PF-19A permite bloquear, antes de
+FECAE, tuplas explícitas por ambiente, emisor, punto de venta y tipo. El
+inventario asociado solo informa candidatos legacy en modo lectura: no
+reclasifica `10005`, no cambia estados y reconoce que el ambiente histórico no
+está persistido. La elegibilidad RECE end-to-end y el cierre estructurado de
+rechazos globales siguen pendientes en PF-19B/PF-19C. Nada de este tramo
+posterior a `v0.2.2` está publicado ni desplegado en producción.
+
 Capacidades actuales:
 
 - configuración inicial de empresa y usuario administrador propietario
@@ -196,6 +205,10 @@ resetear su contraseña.
 ## Variables de entorno relevantes
 
 - `ARCA_ENV`: `homologacion` o `produccion`
+- `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`: lista JSON privada de contención
+  exacta por ambiente, emisor, ID/número de punto y tipo. Una lista vacía no
+  acredita elegibilidad RECE y una tupla omitida queda sin protección hasta
+  PF-19B
 - `CERTS_PATH`: carpeta de certificados
 - `CERTIFICATE_MAX_UPLOAD_BYTES`: tamaño máximo para subir certificados ARCA
 - `BATCH_SYNC_LIMIT`: máximo de comprobantes para procesamiento síncrono

@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -37,7 +37,7 @@ operaciones fiscales reales ni llamadas ARCA de escritura.
 
 ## Nueva evidencia productiva — PF-19 priorizado
 
-Los diagnósticos privados del 2026-08-07 sobre `v0.2.2` no muestran un P0 ni
+Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
 marcado de forma genérica como Web Services llegó a `FECAESolicitar` y ARCA
 devolvió el error global excluyente `10005`, que exige un punto RECE. FactuFlow
@@ -49,8 +49,9 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-02 permanece cerrado y no cambia numeración, reservas ni segundo preflight;
 - PF-03B conserva ítems, descuentos y valores no finitos, pero pasa detrás de
   esta evidencia productiva;
-- PF-19A diseña estados, consumidores, contención e inventario legacy en modo
-  lectura;
+- PF-19A cerró estados, consumidores, contención explícita e inventario legacy
+  en modo lectura. La guarda bloquea por ambiente, emisor, ID/número de punto y
+  tipo antes de intento/FECAE; el inventario no modifica estados;
 - PF-19B implementará elegibilidad RECE end-to-end sin equiparar
   `es_webservice` con compatibilidad fiscal;
 - PF-19C preservará códigos globales, tratará `10005` como rechazo terminal solo
@@ -58,11 +59,15 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
-Esto es planificación: `main` y producción todavía conservan la conducta
-actual. Hasta implementar y desplegar PF-19 no deben reintentarse lotes
-afectados ni asumirse que un punto Web Services genérico es RECE; cualquier
-cierre productivo exige lecturas ARCA seguras, backup exacto y autorización
-operativa separada.
+En el estado objetivo de `main` al integrar este corte, PF-19A queda
+implementado, pero todavía no pertenece a una release ni está desplegado. La
+lista privada de contención debe cubrir cada tupla
+conocida o dudosa; no descubre RECE automáticamente y una lista vacía no acredita
+elegibilidad. Una combinación omitida queda sin protección hasta PF-19B. Hasta
+implementar y desplegar PF-19B/PF-19C no deben reintentarse
+lotes afectados ni asumirse que un punto Web Services genérico es RECE;
+cualquier cierre productivo exige lecturas ARCA seguras, backup exacto y
+autorización operativa separada.
 
 ## PF-03A — contrato superior estricto de emisión
 
@@ -310,12 +315,12 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - Versión productiva: `v0.2.2`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
-- La release quedó desplegada y aceptada el 2026-07-23.
-- `main` contiene además de `v0.2.2` PF-02A y los tres cortes de PF-02B.
-  Esos cambios posteriores aún no pertenecen a una release publicada ni a la
-  versión productiva.
+- La release quedó desplegada y aceptada el 23/07/2026.
+- El estado objetivo de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
+  cortes de PF-02B, PF-03A y PF-19A. Todo ese tramo es posterior a `v0.2.2`:
+  todavía no pertenece a una release publicada ni está desplegado.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
-  el 2026-07-23.
+  el 23/07/2026.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
 
 ### Release v0.2.2
@@ -430,9 +435,10 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ### P1 fiscal priorizado
 
-PF-19 es el siguiente P1 fiscal por evidencia productiva. Su primer corte es de
-diseño y contención; no autoriza emisiones, reintentos ni ediciones directas de
-base. PF-03B se retoma después de cerrar elegibilidad RECE, semántica del
+PF-19 es el P1 fiscal activo por evidencia productiva. PF-19A ya cerró diseño,
+contención explícita e inventario de solo lectura; no autoriza emisiones reales,
+reintentos legacy ni ediciones directas de base. El siguiente corte es PF-19B y
+después PF-19C. PF-03B se retoma tras cerrar elegibilidad RECE, semántica del
 rechazo global y política de saneamiento legacy. Los párrafos siguientes
 conservan la evidencia histórica de PF-01 ya cerrada y no cambian ese orden.
 
@@ -570,11 +576,11 @@ Siguen pendientes:
    PF-16 agrega la puerta documental semántica y `npm run docs:check` sin
    presentar el control automático como sustituto de la revisión.
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
-    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. La nueva
-    evidencia productiva prioriza PF-19A, luego PF-19B/PF-19C y recién después
-    PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores globales con
-    ítems/importes. Después siguen PF-06/PF-07, PF-08 y PF-09 según el
-    portafolio integrado.
+    cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
+    cerró diseño, contención e inventario; retomar exactamente por PF-19B,
+    después PF-19C y recién entonces PF-03B. No reabrir PF-02 ni mezclar
+    elegibilidad RECE o errores globales con ítems/importes. Después siguen
+    PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
     Al llegar a ese bloque, ejecutar primero la unidad integrada de permisos
     definida en `docs/agents/pf-06-08-permisos-multiemisor-design.md`; no crear
     una línea paralela ni presentar el diseño como funcionalidad ya disponible.

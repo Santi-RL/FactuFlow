@@ -231,6 +231,56 @@ demuestran despliegue. La evidencia post-deploy debe registrar el commit o tag
 real y los resultados sanitizados del entorno, sin incluir credenciales ni
 rutas privadas.
 
+## Contención e inventario PF-19A
+
+En el estado objetivo de `main`, la variable privada
+`ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` contiene combinaciones exactas de
+ambiente, emisor, ID/número de punto de venta y tipo de comprobante. Antes de
+habilitar una instalación, el responsable debe declarar cada tupla no RECE, no
+verificada o bajo revisión legacy. La lista vacía, `FEParamGetPtosVenta`, la
+marca `Usable` y el texto editable `Sistema` no demuestran elegibilidad RECE.
+PF-19A no descubre tuplas dudosas: una omisión queda sin protección hasta
+PF-19B. Los valores reales pertenecen al `.env` y a documentación privada;
+nunca al repositorio ni a evidencias públicas. Los logs privados pueden
+conservar identificadores operativos mínimos para correlación, pero nunca
+secretos ni contenido fiscal sensible.
+
+La contención aborta localmente antes de `FECAESolicitar`, CAE, intento fiscal
+y comprobante. Retirar una regla es una decisión fiscal explícita: requiere
+evidencia administrativa suficiente y, hasta PF-19B, no puede basarse solo en
+una etiqueta genérica Web Services. Un rollback técnico puede restaurar código
+o configuración anterior solo después de conservar una contención equivalente
+o cerrar PF-19B; mientras existan destinos dudosos no se retira la guarda. No
+incluye migración ni saneamiento de datos.
+
+El inventario legacy se ejecuta solo con autorización sobre una fuente
+identificada y con `DATABASE_URL` configurada de forma privada:
+
+```powershell
+cd backend
+python -m app.scripts.pf19_legacy_inventory --empresa-id <ID> --punto-venta <N> --tipo-comprobante <TIPO> --pretty
+# Alternativa cuando el incidente ya está delimitado por lote:
+python -m app.scripts.pf19_legacy_inventory --empresa-id <ID> --lote-id <LOTE_ID> --pretty
+```
+
+El comando exige una transacción demostrablemente de solo lectura, ejecuta
+únicamente consultas, termina con rollback, no instancia ni invoca clientes
+ARCA y emite una salida operacional privada y sanitizada. Conserva IDs
+operativos, punto de venta y tipo de comprobante; omite CUIT, receptor, importes,
+CAE, fechas fiscales y marcas temporales de comprobantes/intentos, payloads y
+mensajes crudos. Conserva únicamente `generado_el` en `DD/MM/AAAA`. El ambiente
+histórico queda `indeterminado`; la señal textual exacta de `10005` identifica
+candidatos, no rechazos confirmados. La consulta materializa como máximo `501`
+filas y aborta si detecta más de `500`; nunca trunca silenciosamente. En
+producción se filtra por el emisor y el incidente investigado mediante punto +
+tipo o lote. El comando con solo `--empresa-id` queda reservado para una
+restauración aislada y
+descartable. Ante un error interno, la CLI devuelve código `2` por `stderr`, no
+genera JSON ni traceback y no promete una evidencia adicional en logs. Guardar
+cualquier salida operativa solo en una ruta ignorada y privada. PF-19A no
+autoriza editar, reconciliar, reintentar ni crear comprobantes a partir del
+informe.
+
 ## Auditoría de errores productivos
 
 Ante errores de emisión, lotes o inconsistencias productivas, la primera

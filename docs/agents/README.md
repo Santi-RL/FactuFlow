@@ -15,6 +15,8 @@
   `docs/agents/pf-02b-numeracion-masiva-design.md`
 - Diseño PF-03 de validación fiscal estricta:
   `docs/agents/pf-03-validacion-fiscal-design.md`
+- Diseño PF-19A de contención RECE e inventario legacy:
+  `docs/agents/pf-19a-rece-contencion-design.md`
 - Diseño integrado PF-06/PF-07/PF-08 de permisos operativos multiemisor:
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
@@ -121,6 +123,8 @@
   `docs/agents/pf-02b-numeracion-masiva-design.md`
 - Diseño PF-03 de validación fiscal estricta:
   `docs/agents/pf-03-validacion-fiscal-design.md`
+- Diseño PF-19A de contención RECE e inventario legacy:
+  `docs/agents/pf-19a-rece-contencion-design.md`
 - Diseño integrado PF-06/PF-07/PF-08 de permisos operativos multiemisor:
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - Resumen y arquitectura: `docs/agents/overview.md`
@@ -129,7 +133,7 @@
 - Integración ARCA y hallazgos de homologación: `docs/agents/arca.md`
 - Checklist de diseño fiscal crítico:
   `docs/agents/fiscal-change-checklist.md`
-- Documentación oficial ARCA WS curada: `docs/arca-ws/README.md`
+- Documentación oficial ARCA WS y vigencia: `docs/arca-ws/README.md`
 - Notas prácticas ARCA: `docs/arca-ws/NOTAS.md`
 - API REST: `docs/api/README.md`
 - Launcher local Windows: `FactuFlow Local.vbs`, `FactuFlow Local.cmd`,

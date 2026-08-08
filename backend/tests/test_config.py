@@ -1,5 +1,7 @@
 """Tests de configuración de la aplicación."""
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -13,12 +15,18 @@ POOL_ENV_KEYS = (
     "DATABASE_POOL_TIMEOUT_SECONDS",
     "DATABASE_POOL_HOLD_WARNING_SECONDS",
 )
+ARCA_CONTENCION_ENV_KEY = "ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION"
 
 
 @pytest.fixture(autouse=True)
 def limpiar_entorno_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Evita que variables reales del entorno alteren estos tests."""
-    for key in ("APP_ENV", "APP_SECRET_KEY", *POOL_ENV_KEYS):
+    for key in (
+        "APP_ENV",
+        "APP_SECRET_KEY",
+        ARCA_CONTENCION_ENV_KEY,
+        *POOL_ENV_KEYS,
+    ):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -121,4 +129,56 @@ def test_settings_rechaza_limites_pool_inseguros(
     monkeypatch.setenv(key, value)
 
     with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def _regla_contencion_pf19(
+    *,
+    punto_venta_id: int = 70,
+    punto_venta: int = 7,
+) -> dict[str, object]:
+    """Construye una regla sintética de contención fiscal."""
+    return {
+        "ambiente": "produccion",
+        "empresa_id": 1,
+        "punto_venta_id": punto_venta_id,
+        "punto_venta": punto_venta,
+        "tipo_comprobante": 6,
+        "motivo": "elegibilidad_no_verificada",
+    }
+
+
+def test_settings_parsea_contencion_pf19_desde_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La lista privada debe cargarse como un contrato JSON explícito."""
+    monkeypatch.setenv(
+        ARCA_CONTENCION_ENV_KEY,
+        json.dumps([_regla_contencion_pf19()]),
+    )
+
+    configured = Settings(_env_file=None)
+
+    assert len(configured.arca_bloqueos_preautorizacion) == 1
+    assert configured.arca_bloqueos_preautorizacion[0].punto_venta == 7
+
+
+@pytest.mark.parametrize(
+    "regla_repetida",
+    [
+        _regla_contencion_pf19(punto_venta_id=70, punto_venta=8),
+        _regla_contencion_pf19(punto_venta_id=71, punto_venta=7),
+    ],
+)
+def test_settings_rechaza_reglas_pf19_repetidas_por_id_o_numero(
+    monkeypatch: pytest.MonkeyPatch,
+    regla_repetida: dict[str, object],
+) -> None:
+    """Una identidad local o fiscal repetida no puede depender del orden JSON."""
+    monkeypatch.setenv(
+        ARCA_CONTENCION_ENV_KEY,
+        json.dumps([_regla_contencion_pf19(), regla_repetida]),
+    )
+
+    with pytest.raises(ValidationError, match="reglas repetidas por ID o número"):
         Settings(_env_file=None)

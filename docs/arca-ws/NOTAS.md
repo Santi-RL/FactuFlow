@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -29,9 +29,12 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 
 - En el portal no se detectó una pantalla separada de "puntos de venta homologación".
 - Hay que mirar la pantalla habitual `A/B/M de puntos de venta / emision`.
-- Para emitir por WSFE, la columna `Sistema` debe indicar de forma verificable
-  `RECE para aplicativo y web services`. Una clasificación genérica Web
-  Services no demuestra por sí sola que el punto sea RECE.
+- La columna editable `Sistema` puede indicar como señal administrativa
+  `RECE para aplicativo y web services`, pero no demuestra de forma durable ni
+  histórica que el punto sea RECE. Una clasificación genérica Web Services
+  tampoco alcanza. PF-19A contiene únicamente las tuplas declaradas
+  explícitamente en `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`; una omisión queda
+  sin protección hasta PF-19B.
 
 ### 3. `FEParamGetPtosVenta`
 
@@ -53,10 +56,11 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
   WSFEv1 lo define como validación excluyente para un punto de venta que no
   pertenece a RECE. Por lo tanto, `FEParamGetPtosVenta` y `Bloqueado=N` no son
   prueba fiscal suficiente de elegibilidad RECE.
-- PF-19 incorporará elegibilidad explícita, fallo cerrado para puntos no
-  verificados y clasificación estructurada de rechazos globales. Hasta que se
-  implemente, no usar un punto genérico o dudoso: contrastar la columna
-  `Sistema` de la constancia o del portal ARCA antes de emitir.
+- PF-19A incorpora contención explícita antes de `FECAESolicitar` para las
+  tuplas declaradas. No convierte la columna editable `Sistema`, la constancia
+  ni `FEParamGetPtosVenta` en evidencia durable. Un punto genérico o dudoso
+  solo queda contenido si se declara cada tupla afectada; una omisión permanece
+  sin protección hasta que PF-19B modele su elegibilidad.
 
 ### 4. `CondicionIVAReceptorId`
 
@@ -105,8 +109,11 @@ Mapping aplicado en el proyecto:
   vencimiento cuando dependen de una fecha de emisión ya explícita.
 - Los perfiles de carga masiva pueden sugerir un punto de venta fijo solo si el
   punto está cargado para el emisor activo, es Web Services, activo, no
-  bloqueado y no tiene fecha de baja. Si no, el lote debe usar el punto del
-  archivo o completar primero `Puntos de venta`.
+  bloqueado y no tiene fecha de baja. Esas condiciones son técnicas y no
+  demuestran RECE ni activan la contención: una tupla genérica, dudosa o legacy
+  debe declararse explícitamente aunque el perfil o el archivo la propongan.
+  Una omisión queda sin protección hasta PF-19B. Si el punto no está cargado,
+  el lote debe usar el punto del archivo o completar primero `Puntos de venta`.
 - Para servicios también se deben resolver `FchServDesde`, `FchServHasta` y
   `FchVtoPago`.
 - Para `Concepto=1` (Productos), no informar `FchServDesde`, `FchServHasta` ni
@@ -191,7 +198,7 @@ Mapping aplicado en el proyecto:
 
 ### 4.f.1 Numeración individual y batch compatible con otros sistemas
 
-Estado 2026-08-05: PF-02A y los tres cortes de PF-02B están integrados en
+Estado 05/08/2026: PF-02A y los tres cortes de PF-02B están integrados en
 `main`. Separan el último local del último ARCA; el núcleo batch, los reintentos
 manuales y la recuperación stale pueden convivir con `arca_adelantada` cuando
 no existe incertidumbre propia. FactuFlow no rellena huecos ni importa
@@ -223,12 +230,13 @@ inmediatamente antes de `FECAESolicitar`.
 
 ### 4.f.2 PF-19: elegibilidad RECE y rechazo global preautorización
 
-Estado 2026-08-08: PF-19 está planificado y todavía no cambia el runtime. No
-reabre PF-02 ni modifica su regla de numeración; se ejecutará antes de PF-03B
-porque corrige una puerta previa a cualquier solicitud real de CAE.
+Estado 08/08/2026: PF-19A cerró el diseño fiscal, incorporó la contención
+selectiva antes de `FECAESolicitar` y agregó un inventario legacy estrictamente
+de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
 
-- PF-19A cerrará el diseño fiscal, el inventario de consumidores y la auditoría
-  solo lectura de lotes legacy afectados.
+- PF-19A conserva los errores globales legacy como incertidumbre: la firma
+  textual `10005` solo identifica candidatos y nunca autoriza transición,
+  reparación o reemisión.
 - PF-19B separará `verificado_rece`, `no_rece` y `no_verificado`, migrará los
   datos existentes sin afirmar compatibilidad no demostrada y aplicará la misma
   puerta en emisión individual, lotes, perfiles, reintentos y worker.
@@ -236,9 +244,10 @@ porque corrige una puerta previa a cualquier solicitud real de CAE.
   oficial vigente identifique como rechazo excluyente preautorización podrán
   cerrar el intento como rechazo terminal; timeout, respuesta parcial o código
   desconocido conservarán `requiere_reconciliacion`.
-- Los lotes legacy no se repararán mediante edición directa ni reintento ciego:
-  primero se contrastarán, por emisor, punto y tipo, con consultas ARCA seguras
-  como `FECompUltimoAutorizado` y, cuando corresponda, `FECompConsultar`.
+- El inventario PF-19A no consulta ARCA, no infiere el ambiente histórico y no
+  sanea registros. La política de contraste y resolución pertenece a PF-19C;
+  mientras tanto, los lotes legacy no se reparan mediante edición directa ni
+  reintento ciego.
 
 ### 4.g Idempotencia fiscal y CAE
 
@@ -425,7 +434,11 @@ El proyecto tuvo que corregir estas estructuras:
 - Después de crear el certificado productivo, asociar el alias del computador al
   servicio `wsfe` desde `Administrador de Relaciones de Clave Fiscal`. Si falta
   esa asociacion, WSAA devuelve `Computador no autorizado a acceder al servicio`.
-- Usar punto de venta productivo especifico para webservices y mantener numeración correlativa.
+- Usar un punto de venta productivo cuya pertenencia a RECE haya sido revisada
+  administrativamente y mantener numeración correlativa. La descripción
+  genérica Web Services no basta. Cada tupla dudosa debe declararse
+  explícitamente en la configuración privada; una omisión queda sin protección
+  hasta contar con el estado durable de PF-19B.
 - En el piloto productivo de la Fundacion, `FEParamGetPtosVenta` devolvio
   habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban bloqueados.
 - El 2026-05-08 se corrigió la validación de emisión para interpretar

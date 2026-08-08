@@ -12,6 +12,10 @@
   `data/`, `backend/data/` o `certs/`.
 - Si un dato real es necesario para retomar una operación, referenciarlo como
   "evidencia local privada" y no copiar el valor al archivo versionado.
+- El JSON del inventario PF-19A está sanitizado, pero sigue siendo evidencia
+  privada: conserva IDs operativos, punto de venta y tipo de comprobante. Debe
+  guardarse únicamente en una ruta ignorada; nunca en el repositorio, tickets o
+  evidencia pública.
 
 ## Almacenamiento recomendado
 - Guardar en el filesystem el certificado y la clave.
@@ -105,6 +109,10 @@
 - Un error inesperado no habilita un reintento automático: primero se revisan
   logs, intento fiscal e idempotencia para determinar si ARCA pudo haber
   autorizado el comprobante.
+- Los logs privados pueden conservar identificadores operativos mínimos para
+  correlación. Nunca deben registrar secretos, credenciales, material de
+  certificados, payloads fiscales, receptores, importes ni mensajes crudos del
+  inventario.
 
 ## Cambios fiscales críticos
 
@@ -145,6 +153,10 @@ ignorada y dejar solo una descripción redactada en la documentación.
 - `ARCA_MIGRATION_TARGET_KEY_PASSWORD` solo para exportación local privada
 - `ARCA_MIGRATION_SOURCE_KEY_PASSWORD` solo si las claves fuente ya están
   cifradas
+- `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`: configuración fiscal privada. Sus
+  tuplas reales no se versionan ni se exponen completas; una lista vacía o una
+  omisión no demuestra elegibilidad y deja esa combinación sin protección hasta
+  PF-19B.
 - `AFIP_CERTS_PATH`
 - `AFIP_ENV`
 - `CORS_ORIGINS`

@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 ## Qué es FactuFlow
 
@@ -10,7 +10,8 @@ facturación individual y masiva con seguridad fiscal.
 
 ## Estado actual
 
-- Release productiva vigente: `v0.2.2`.
+- Versión productiva vigente: `v0.2.2`, también última release publicada y
+  validada en producción el 23/07/2026.
 - Backend FastAPI y frontend Vue operativos.
 - PostgreSQL es la base productiva; Alembic es el camino canónico de schema.
 - Emisión individual y masiva con WSAA/WSFE ya utilizada en producción.
@@ -19,23 +20,18 @@ facturación individual y masiva con seguridad fiscal.
 - Varios emisores con uno activo explícito por vez.
 - Administradores con acceso operativo a todos los emisores; usuarios comunes
   limitados al emisor asignado.
-- VPS con Docker producción y HTTPS operativo. `v0.2.2` quedó desplegada y
-  validada el 2026-07-23.
+- VPS con Docker producción y HTTPS operativo.
 - La evidencia productiva concreta permanece fuera del repositorio público.
-- `main` avanzó después del tag productivo: PF-02A y los tres cortes de PF-02B
-  permiten historia externa legítima en emisión individual, procesamiento
-  batch, reintentos manuales y recuperación stale. Los intentos propios activos
-  o inciertos conservan prioridad; la recuperación no asigna números ni pide
-  CAE, y el procesamiento normal mantiene reservas y segundo preflight. PF-03A
-  agrega un contrato superior estricto: las claves desconocidas se rechazan
-  antes de idempotencia o emisión y los snapshots batch no canónicos fallan
-  cerrados. Estos cambios todavía no pertenecen a una release publicada ni
-  están desplegados.
-- La evidencia productiva posterior abre PF-19 como P1 fiscal: la clasificación
-  actual Web Services no demuestra por sí sola que un punto sea RECE y el error
-  global excluyente `10005` queda presentado como incertidumbre. PF-19 está
-  planificado, no implementado; hasta su cierre no debe considerarse completa la
-  elegibilidad fiscal de puntos de venta.
+- El estado objetivo de `main` al integrar este corte incluye PF-02A, los tres
+  cortes de PF-02B, PF-03A y PF-19A. PF-02 admite historia externa legítima sin
+  perder reservas ni segundo preflight; PF-03A rechaza claves superiores
+  desconocidas; PF-19A agrega diseño, contención preautorización explícita e
+  inventario legacy de solo lectura. Todo ese tramo es posterior a `v0.2.2`:
+  todavía no pertenece a una release publicada ni está desplegado.
+- PF-19B/PF-19C siguen pendientes. La clasificación actual Web Services no
+  demuestra por sí sola que un punto sea RECE; una tupla omitida en la
+  configuración PF-19A queda sin protección. Todavía no debe considerarse
+  completa la elegibilidad fiscal de puntos ni resolverse registros históricos.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -77,13 +73,14 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-PF-02 quedó cerrado en unidades pequeñas y PF-05 conserva separada la
-reconstrucción histórica opcional para informes. La siguiente unidad es PF-19A:
-diseñar estados, consumidores, contención e inventario legacy para elegibilidad
-RECE y rechazos globales excluyentes. Después siguen PF-19B/PF-19C y recién
-entonces PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos y
-valores no finitos. PF-19 no cambia numeración ni absorbe validaciones de ítems;
-PF-14/PF-15 consumen su contrato de error y trazabilidad.
+En el estado objetivo de `main`, PF-02, PF-03A y PF-19A quedan cerrados en
+unidades pequeñas; PF-05 conserva separada la reconstrucción histórica opcional
+para informes. La siguiente unidad es
+PF-19B: persistir elegibilidad RECE y aplicarla de extremo a extremo. Después
+sigue PF-19C para errores globales estructurados y cierre legacy auditado, y
+recién entonces PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos
+y valores no finitos. PF-19 no cambia numeración ni absorbe validaciones de
+ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
 
 ## Principios de trabajo
 

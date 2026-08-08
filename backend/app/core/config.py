@@ -1,9 +1,9 @@
 """Configuración de la aplicación usando Pydantic Settings."""
 
 import os
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +14,23 @@ INSECURE_PRODUCTION_SECRET_KEYS = {
 }
 MIN_PRODUCTION_SECRET_LENGTH = 32
 PRODUCTION_ENV_NAMES = {"production", "prod", "produccion"}
+
+
+class BloqueoPreautorizacionArca(BaseModel):
+    """Identifica una tupla fiscal bloqueada antes de solicitar CAE."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ambiente: Literal["homologacion", "produccion"]
+    empresa_id: int = Field(strict=True, gt=0)
+    punto_venta_id: int = Field(strict=True, gt=0)
+    punto_venta: int = Field(strict=True, gt=0, le=99999)
+    tipo_comprobante: int = Field(strict=True, gt=0)
+    motivo: Literal[
+        "punto_no_rece_confirmado",
+        "elegibilidad_no_verificada",
+        "revision_legacy_pendiente",
+    ]
 
 
 class Settings(BaseSettings):
@@ -84,6 +101,10 @@ class Settings(BaseSettings):
 
     # ARCA
     arca_env: str = Field(default="homologacion", alias="ARCA_ENV")
+    arca_bloqueos_preautorizacion: list[BloqueoPreautorizacionArca] = Field(
+        default_factory=list,
+        alias="ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION",
+    )
     certs_path: str = Field(default="./certs", alias="CERTS_PATH")
     arca_private_key_password: Optional[str] = Field(
         default=None, alias="ARCA_PRIVATE_KEY_PASSWORD"
@@ -140,6 +161,36 @@ class Settings(BaseSettings):
             raise ValueError(
                 "APP_SECRET_KEY debe configurarse en producción con una clave "
                 "secreta segura generada con secrets.token_urlsafe(32)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_bloqueos_preautorizacion_unicos(self) -> "Settings":
+        """Rechaza reglas repetidas por identidad local o número fiscal."""
+        claves_id = [
+            (
+                bloqueo.ambiente,
+                bloqueo.empresa_id,
+                bloqueo.punto_venta_id,
+                bloqueo.tipo_comprobante,
+            )
+            for bloqueo in self.arca_bloqueos_preautorizacion
+        ]
+        claves_numero = [
+            (
+                bloqueo.ambiente,
+                bloqueo.empresa_id,
+                bloqueo.punto_venta,
+                bloqueo.tipo_comprobante,
+            )
+            for bloqueo in self.arca_bloqueos_preautorizacion
+        ]
+        if len(claves_id) != len(set(claves_id)) or len(claves_numero) != len(
+            set(claves_numero)
+        ):
+            raise ValueError(
+                "ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION contiene reglas "
+                "repetidas por ID o número"
             )
         return self
 

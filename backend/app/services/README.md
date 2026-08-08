@@ -10,11 +10,13 @@ Los servicios encapsulan la lógica compleja y son llamados desde los endpoints.
 services/
 ├── almacenamiento_service.py            # Resumen, resguardo ZIP y limpieza segura de almacenamiento
 ├── certificados_service.py              # CSR, validación y operación con certificados
+├── contencion_fiscal_service.py          # Guarda opt-in PF-19A antes de FECAESolicitar
 ├── constancia_arca_service.py           # Extracción de datos fiscales desde constancia ARCA
 ├── constancia_puntos_venta_service.py   # Extracción de puntos de venta desde constancia ARCA
 ├── facturacion_service.py               # Orquestación de emisión de comprobantes
 ├── formatos_importacion_service.py      # Plantillas/formato, compatibilidad, descarga XLSX y mapeo de Excel externos
 ├── idempotencia_fiscal_service.py       # Idempotencia y deduplicación fiscal
+├── inventario_legacy_pf19_service.py    # Inventario privado y de solo lectura PF-19A
 ├── lote_comprobantes_service.py         # Validación y procesamiento de lotes Excel
 ├── lote_worker.py                       # Worker reanudable para lotes grandes
 ├── perfiles_carga_masiva_service.py     # Perfiles de carga masiva por emisor
@@ -79,4 +81,15 @@ services/
   emisores distingue constancia de inscripción de persona jurídica, inscripción
   de persona física y opción Monotributo; valida provincia contra el catálogo
   argentino antes de completar el campo.
+- PF-19A: `contencion_fiscal_service.py` bloquea únicamente las tuplas
+  declaradas explícitamente en la configuración privada; una omisión queda sin
+  protección hasta PF-19B. `inventario_legacy_pf19_service.py` no llama ARCA ni
+  muta estados y produce evidencia sanitizada, pero privada. Antes de usar una
+  FK de comprobante directa o de grupo, exige existencia y coincidencia de
+  emisor, punto, tipo y número planificado. La CLI relacionada
+  vive en `backend/app/scripts/pf19_legacy_inventory.py`, exige
+  `--empresa-id`, consulta como máximo `501` filas y aborta si detecta más de
+  `500`; nunca trunca silenciosamente. En producción debe filtrarse por el
+  incidente, y un barrido amplio solo corresponde sobre una restauración
+  aislada y descartable.
 - PDF/reportes: ver `docs/FASE_6_PDF_REPORTES.md`.

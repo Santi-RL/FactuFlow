@@ -258,6 +258,42 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Última verificación técnica
 
+Fecha: 08/08/2026
+
+- PF-19A: `15` pruebas de contención cubren configuración estricta, aislamiento
+  por ambiente/emisor/punto/tipo, renumeración/recreación, selección
+  determinística de reglas cruzadas, emisión individual, batch, intento stale y
+  preflight stale. Los núcleos directos individual y batch demuestran cero
+  WSAA/WSFE. El flujo completo `procesar_lote` demuestra una autenticación WSAA
+  y una lectura segura `FECompTotXRequest` previas, pero cero `FECAESolicitar`,
+  CAE, intentos y comprobantes. El replay HTTP conserva el aborto durable sin
+  reabrir la emisión.
+- Inventario PF-19A: `18` pruebas del inventario, incluidas `7` sobre SQLite,
+  cubren firma global exacta frente a falsos positivos, deduplicación,
+  contradicción con CAE de grupo, cadena lote/grupo/comprobante entre emisores y
+  validación de la FK directa por emisor, punto, tipo y número planificado. Los
+  casos incluyen referencia huérfana, número incorrecto, número ausente y vínculo
+  válido; verifican salida privada sanitizada, diagnóstico CLI sin traceback,
+  emisor obligatorio, aceptación exacta de `500`, aborto en `501` sin truncado,
+  ambiente histórico indeterminado, `query_only`, DML rechazado, rollback y
+  restauración del valor previo. El test PostgreSQL desechable quedó agregado y
+  se omitió por falta de infraestructura explícita; no se conectó ninguna base
+  real.
+- Backend completo: `603` pruebas aprobadas y `5` omitidas por infraestructura
+  opcional. Ruff y Black aprobaron los `120` archivos de `app/` y `tests/`.
+- Frontend: `131` pruebas unitarias y `33` E2E Chromium aprobadas; type-check y
+  build aprobados. ESLint conservó `13` advertencias históricas y cero errores.
+- Repositorio: `docs:check` aprobado; `16` pruebas de scripts y `5` de seeds
+  Clawpatch aprobadas.
+- Puerta de seguridad pendiente en un corte separado: `pip-audit` detectó dos
+  vulnerabilidades conocidas en `pypdf 6.14.2` con corrección indicada en
+  `6.15.0`; `npm audit --omit=dev --audit-level=high` detectó una vulnerabilidad
+  alta en `nanoid <3.3.17`. Son dependencias preexistentes y PF-19A no las
+  actualiza para no mezclar alcances. La integración permanece bloqueada hasta
+  corregir y revalidar ambas auditorías.
+- Toda la evidencia PF-19A usó datos sintéticos y dobles. No hubo acceso a VPS,
+  consultas ARCA reales, solicitudes de CAE ni modificaciones de bases reales.
+
 Fecha: 2026-08-06
 
 - PF-03A: `9` casos enfocados cubren claves superiores desconocidas, ausencia

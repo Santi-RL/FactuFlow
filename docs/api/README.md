@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -247,10 +247,11 @@ Limitación conocida del contrato actual: esa propiedad `usable_factuflow`
 expresa el filtro técnico vigente, pero no prueba que el punto pertenezca a
 RECE. La evidencia productiva del 07/08/2026 mostró que un punto genérico Web
 Services puede superar este filtro y recibir el rechazo global WSFE `10005` al
-alcanzar `FECAESolicitar`. PF-19 incorporará elegibilidad RECE explícita y fallo
-cerrado para estados no verificados; hasta entonces, los consumidores deben
-contrastar el valor `sistema` con la constancia o el portal ARCA y no emitir si
-no indica RECE de forma verificable.
+alcanzar `FECAESolicitar`. PF-19A agrega una contención privada por ambiente,
+emisor, ID/número de punto y tipo, pero no descubre elegibilidad: el valor
+mutable `sistema` tampoco es evidencia durable. PF-19A contiene únicamente las
+tuplas declaradas explícitamente; una combinación genérica, contradictoria o
+dudosa omitida queda sin protección hasta PF-19B.
 
 ## Certificados
 
@@ -343,6 +344,15 @@ confirmaciones: el backend no elimina la clave ni completa silenciosamente otro
 significado. PF-03A conserva de forma transitoria la tolerancia de propiedades
 derivadas dentro de `items`; los clientes deben enviar solo los campos de ítem
 documentados y PF-03B cerrará ese contrato después de separar el DTO de la UI.
+
+Si la tupla exacta está incluida en
+`ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`, la emisión aborta localmente con
+`categoria_error=punto_venta_bloqueado_preautorizacion`, número `0`, CAE nulo y
+`requiere_reconciliacion=false`. No crea intento fiscal ni comprobante y no
+invoca `FECAESolicitar`. La operación idempotente HTTP puede existir porque se
+crea antes de entrar al núcleo. El replay de la misma clave conserva ese aborto
+durable incluso si después cambia la configuración; retirar una regla no
+convierte una operación ya cerrada en una emisión nueva.
 
 Las fechas visibles que se muestran al usuario deben formatearse como `DD/MM/AAAA`. Los contratos técnicos de API pueden seguir usando `YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD` según corresponda, convirtiendo siempre en los bordes.
 
@@ -618,8 +628,10 @@ lotes grandes en la UI porque pueden traer miles de registros.
 - `punto_venta_numero`: requerido cuando `punto_venta_modo=fijo`. Debe existir
   para el emisor activo y estar activo, Web Services, no bloqueado y sin fecha
   de baja. Si no está cargado en `Puntos de venta`, la API rechaza la
-  validación. Hasta PF-19, este control no demuestra por sí solo elegibilidad
-  RECE; el cliente debe verificarla antes de solicitar CAE.
+  validación. Ese control no demuestra elegibilidad RECE y el texto editable
+  `sistema` tampoco. Un punto genérico o dudoso solo queda en la contención
+  PF-19A si su tupla se declara explícitamente; una omisión queda sin protección
+  hasta PF-19B.
 - `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
 - `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
 - `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.
@@ -661,6 +673,13 @@ adelantada y no existe un intento propio bloqueante, reserva el rango desde
 `ultimo_arca + 1`. Después de persistir todas las reservas repite la consulta;
 si el rango cambió o el preflight falla, no llama a `FECAESolicitar`, no crea
 comprobantes y cierra las reservas como `fallido_verificado`.
+
+Cuando el batch ARCA está habilitado, el flujo exterior de `procesar_lote` y el
+worker puede autenticar WSAA, construir WSFE y consultar de forma segura
+`FECompTotXRequest` antes de formar los sublotes. Esa lectura solo determina la
+capacidad del request: no inicia `FaseSolicitudArca`, no autoriza comprobantes y
+no sustituye la contención. Para una tupla declarada, el núcleo posterior debe
+mantener cero `FECAESolicitar`, CAE, intentos fiscales y comprobantes.
 
 Si el pedido requiere procesamiento en segundo plano y el worker no está
 disponible, la API responde `503` con
@@ -760,7 +779,10 @@ El payload usa `configuracion_json` versionado. Valores principales:
 - `punto_venta.modo`: `archivo` para usar el punto definido en el Excel o
   `fijo` para precargar un punto concreto del emisor.
 - `punto_venta.numero`: requerido cuando `punto_venta.modo=fijo`; debe estar
-  cargado como punto usable por FactuFlow en `Puntos de venta`.
+  cargado como punto técnicamente usable por FactuFlow en `Puntos de venta`.
+  Esa validación no certifica RECE ni elude la contención preautorización
+  PF-19A. El perfil no crea una regla: una tupla omitida queda sin protección
+  hasta PF-19B.
 - `concepto_modo`: `productos`, `servicios`, `archivo` o vacío para completar
   en la carga.
 - `descripcion_item_modo`: `archivo`, `fija` o vacío.

@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 2026-08-08
+Última actualización: 08/08/2026
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -8,7 +8,7 @@ fechadas de `docs/project/**`.
 
 ## Último checkpoint aceptado
 
-`v0.2.2` quedó validada en producción el 2026-07-23.
+`v0.2.2` quedó validada en producción el 23/07/2026.
 
 - El ciclo verificó previamente backup recuperable y restauración aislada; bajo
   mantenimiento repitió backup final, preflight, Alembic, constraints,
@@ -22,10 +22,11 @@ fechadas de `docs/project/**`.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-El código aceptado en `main` avanzó después de ese tag: PF-02A, los tres cortes
-de PF-02B y PF-03A están integrados, pero todavía no pertenecen a una release
-publicada ni al despliegue productivo. Sus escenarios se validaron con dobles
-controlados, sin CAE reales ni llamadas ARCA de escritura.
+El estado objetivo de `main` al integrar este corte incluye PF-02A, los tres
+cortes de PF-02B, PF-03A y PF-19A. Todo ese tramo es posterior al tag productivo:
+todavía no pertenece a una release publicada ni está desplegado. Sus escenarios
+se validaron con datos sintéticos y dobles controlados, sin CAE reales ni
+llamadas ARCA de escritura.
 
 ## Preparación local
 
@@ -376,56 +377,78 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Esta matriz está planificada y todavía no describe una capacidad implementada.
-Debe ejecutarse con constancias sintéticas y dobles de WSFE; no autoriza pedir
-CAE real para provocar errores. La auditoría de registros productivos es solo de
-lectura hasta contar con backup exacto y una resolución aprobada.
+Estado objetivo de `main` al integrar el corte, 08/08/2026: PF-19A queda
+implementado y automatizado; PF-19B y PF-19C siguen pendientes. PF-19A es
+posterior a la release productiva `v0.2.2`: todavía no está publicado ni
+desplegado. Toda ejecución usa datos sintéticos y dobles de WSFE. Esta matriz no
+autoriza pedir CAE real para provocar errores ni editar registros fiscales.
 
-1. Importar un punto cuyo sistema sea RECE y otro que solo contenga la frase
-   Web Services. El primero puede quedar verificado si sus demás señales
-   concuerdan; el segundo debe quedar `no_rece` o `no_verificado`, nunca usable
-   por inferencia genérica.
-2. Simular constancia, sincronización y edición manual con datos contradictorios.
-   La resolución debe fallar cerrada, conservar fuente/fecha y exigir revisión.
-3. Validar punto fijo y punto tomado del archivo en emisión individual y lote.
-   Ningún punto no verificado como RECE debe crear idempotencia, intento,
-   reserva ni llamada `FECAESolicitar`.
-4. Cambiar la elegibilidad después de confirmar fecha y punto. La confirmación
-   y la clave vigentes deben invalidarse antes de cualquier nueva emisión.
-5. Simular un error global `10005` en la cabecera batch. Debe preservarse el
-   código, registrarse rechazo terminal verificable para todo el sublote y haber
-   cero CAE/comprobantes; no debe mostrarse como respuesta sin confirmar.
-6. Simular `R` por detalle, error global desconocido, resultado parcial,
-   cardinalidad inconsistente, timeout y corte de transporte. Solo los rechazos
-   contractualmente completos terminan; los demás conservan
-   `requiere_reconciliacion` y bloquean reemisión.
-7. Repetir las rutas batch, fallback unitario, worker y reintento manual. Una
-   cabecera que invalida el sublote no permite continuar grupos como si fueran
-   rechazos individuales independientes.
-8. Repetir el mismo payload y clave después de un rechazo terminal y después de
-   una respuesta incierta. El replay no vuelve a llamar ARCA y mantiene la
-   transición durable correspondiente.
-9. Probar emisores, ambientes, puntos y tipos distintos con identificadores
-   coincidentes. Ninguna elegibilidad, error ni reparación legacy se comparte.
-10. Sobre datos legacy sintéticos, ejecutar primero
-    `FECompUltimoAutorizado` simulado y, solo si corresponde,
-    `FECompConsultar`; el procedimiento debe cerrar únicamente evidencia
-    verificada, sin inventar CAE, comprobantes o historia ni editar estados a
-    ciegas.
+### PF-19A — cobertura automatizada
 
-Evidencia mínima: tabla de estados aprobada, cero FECAE en puntos no elegibles,
-código `10005` preservado, errores desconocidos todavía reconciliables, pruebas
-de todos los consumidores y procedimiento legacy con rollback/backup definido.
+1. Configurar una regla sintética de contención y repetir directamente los
+   núcleos individual y batch. Esos núcleos deben abortar antes de WSAA/WSFE,
+   intento, reserva, comprobante y CAE, con categoría pública sanitizada.
+   Repetir además `procesar_lote`: puede autenticar y leer
+   `FECompTotXRequest` antes de formar el sublote, pero debe mantener cero
+   `FECAESolicitar`, CAE, intentos y comprobantes.
+2. Repetir la misma regla cambiando, de a una, ambiente, emisor, punto y tipo.
+   Solo la tupla exacta debe bloquear. Renumerar la fila local o recrear el
+   número fiscal con otro ID tampoco puede evitar la regla; cambiar ambos debe
+   quedar fuera de su alcance.
+3. Confirmar en el mapa y las suites vecinas que worker, fallback unitario y
+   reintento delegan en los mismos núcleos contenidos. La matriz PF-19A prueba
+   directamente individual, batch, replay HTTP, intento stale y preflight stale
+   de lote. La reconciliación manual puede consultar, pero no solicitar un CAE
+   nuevo.
+4. Ejecutar el inventario sobre una SQLite sintética. Debe reconocer únicamente
+   la firma global canónica con token exacto `[10005]`, deduplicar por intento,
+   dejar el ambiente histórico como `indeterminado` y no modificar ninguna
+   tabla. Texto libre, `[100050]` o un detalle sin el prefijo global no califican.
+5. Confirmar que un marcador con CAE o comprobante de referencia válida, un
+   estado incompatible o una referencia huérfana/cruzada se informa en su clase
+   separada. La FK directa y la de grupo solo son válidas si coinciden emisor,
+   punto, tipo y número planificado; sin número planificado fallan cerrado. El
+   inventario no sanea, no reconcilia, no consulta ARCA y no convierte
+   incertidumbre en rechazo terminal.
+
+Evidencia mínima PF-19A: diseño aprobado, mapa exhaustivo de consumidores,
+cero `FECAESolicitar` y cero comprobantes/CAE en abortos preautorización,
+aislamiento por ambiente/emisor/punto/tipo y transacción demostrablemente de solo
+lectura. La salida está sanitizada, pero es evidencia privada: conserva IDs
+operativos, punto y tipo; omite CUIT, receptor, importes, CAE, fechas fiscales,
+marcas temporales de comprobantes/intentos, payloads y mensajes crudos. Conserva
+únicamente `generado_el` en `DD/MM/AAAA`. Los logs privados pueden conservar
+identificadores operativos mínimos para correlación, pero nunca secretos ni
+contenido fiscal sensible.
+
+### PF-19B/PF-19C — matriz pendiente
+
+1. Importar, sincronizar y editar manualmente constancias sintéticas con señales
+   RECE, genéricas y contradictorias. El modelo durable deberá fallar cerrado,
+   conservar procedencia y exigir revisión sin inferir elegibilidad.
+2. Validar puntos fijos, puntos del Excel y perfiles de carga masiva. La UI, la
+   API y el worker deberán consumir el mismo estado durable.
+3. Cambiar elegibilidad después de confirmar fecha y punto. La confirmación y
+   la clave vigentes deberán invalidarse antes de cualquier emisión.
+4. Simular `10005`, `R` por detalle, error global desconocido, resultado
+   parcial, cardinalidad inconsistente, timeout y corte de transporte. Solo un
+   rechazo completo y estructurado podrá ser terminal; toda incertidumbre
+   conservará `requiere_reconciliacion`.
+5. Repetir payload y clave después de rechazo terminal e incertidumbre; ningún
+   replay podrá llamar ARCA a ciegas. La resolución legacy requerirá una
+   política PF-19C separada y evidencia externa aprobada.
 
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
-superó el despliegue y la verificación post-deploy. PF-02 quedó cerrado con
-dobles controlados y PF-03A cerró el contrato superior. La nueva evidencia
-productiva prioriza primero el diseño y la matriz de PF-19; PF-03B se retoma
-después. No repetir como pendiente el setup productivo inicial, el despliegue
-`v0.2.2`, el rediseño UX de lotes ni las validaciones ya cerradas.
+superó el despliegue y la verificación post-deploy. En el estado objetivo de
+`main`, PF-02 queda cerrado con dobles controlados, PF-03A cierra el contrato
+superior y PF-19A cierra diseño, contención explícita e inventario de solo
+lectura. Ese tramo todavía no pertenece a una release publicada ni está
+desplegado. El siguiente corte fiscal es PF-19B; PF-03B queda después. No repetir
+como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
+UX de lotes ni las validaciones ya cerradas.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.
