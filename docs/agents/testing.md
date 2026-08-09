@@ -263,7 +263,7 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Evidencia de verificación
 
-### PF-19B — cierre local del 09/08/2026
+### PF-19B — cierre local y CI del 09/08/2026
 
 - Backend completo: `924` pruebas recolectadas; `905` aprobadas, `19` omitidas
   y `30` warnings en `403.90 s`. Los `19` skips corresponden a suites
@@ -275,19 +275,23 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
   históricas limitadas a `ComprobanteNuevoView.vue`.
 - La puerta documental aprobó `npm run docs:check` y las `16` pruebas de
   `npm run test:scripts`.
+- El PR `#29` aprobó los seis jobs del run de GitHub Actions
+  [`31331437476`](https://github.com/Santi-RL/FactuFlow/actions/runs/31331437476)
+  sobre `4056e0b`: clasificación de alcance, controles del repositorio, frontend,
+  backend con PostgreSQL 16 desechable, auditoría de seguridad y E2E. El backend
+  remoto aprobó `924` pruebas con `31` warnings; frontend aprobó `30` archivos y
+  `149` pruebas; Playwright aprobó `33` escenarios.
 - PF-19B cubre configuración estricta, modelo/ledger, migración y backup,
   atestación administrativa, snapshots, emisión individual, lotes, perfiles,
-  selectores y migración VPS v2 mediante SQLite y dobles controlados. CI y la
-  matriz PostgreSQL real todavía no se ejecutaron para este diff; tampoco se
-  declara release ni despliegue.
+  selectores y migración VPS v2 mediante SQLite, dobles controlados y la matriz
+  PostgreSQL efímera del job backend. No se declara release ni despliegue.
 - La matriz PostgreSQL cubre ambos ganadores de CUIT/atestación y de la
-  degradación `activo=false` o `es_admin=false` frente a atestación. Sus casos se
-  recolectaron dentro de la full, pero integran los `19` skips opt-in: solo CI
-  con PostgreSQL real puede acreditarlos y todavía no se ejecutó. La
-  revalidación frontend P1 enfocada `33/33`, incorporada luego a la full, cubre
-  limpieza pre-`await`, empresa + generación en los tres loaders de Lotes,
-  corte de la cadena obsoleta después de cada espera y la guarda agregada de
-  EmpresaConfig.
+  degradación `activo=false` o `es_admin=false` frente a atestación. La corrida
+  local los omitió por su guard opt-in y la CI los acreditó contra PostgreSQL
+  real desechable. La revalidación frontend P1 enfocada `33/33`, incorporada
+  luego a la full, cubre limpieza pre-`await`, empresa + generación en los tres
+  loaders de Lotes, corte de la cadena obsoleta después de cada espera y la
+  guarda agregada de EmpresaConfig.
 - La reauditoría final no encontró hallazgos P0-P2. No equivale a `autoreview`,
   ni reemplaza esa puerta.
 - El comando canónico de cierre
