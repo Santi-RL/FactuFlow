@@ -1,8 +1,6 @@
 """Prueba controlada y no fiscal de capacidad de pools PostgreSQL."""
 
 import asyncio
-import os
-
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
@@ -10,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import database
 from app.core.config import settings
+from tests.postgresql_harness import require_disposable_postgres_url
 
 
 @pytest.mark.integration
@@ -18,13 +17,7 @@ async def test_postgresql_aisla_capacidad_api_y_worker_bajo_saturacion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """El worker conserva su conexión cuando las cuatro conexiones API están ocupadas."""
-    configured_url = os.getenv("FACTUFLOW_TEST_POSTGRES_URL", "").strip()
-    if not configured_url:
-        pytest.skip("Requiere PostgreSQL desechable explícito para capacidad")
-
-    normalized_url = database._normalize_database_url(configured_url)
-    if not database._is_postgresql_url(normalized_url):
-        pytest.fail("FACTUFLOW_TEST_POSTGRES_URL debe apuntar a PostgreSQL")
+    normalized_url = require_disposable_postgres_url(purpose="capacidad")
 
     monkeypatch.setattr(settings, "database_api_pool_size", 4)
     monkeypatch.setattr(settings, "database_api_max_overflow", 0)

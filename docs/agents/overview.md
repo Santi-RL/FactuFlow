@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 08/08/2026
+Última actualización: 09/08/2026
 
 ## Qué es FactuFlow
 
@@ -22,17 +22,17 @@ facturación individual y masiva con seguridad fiscal.
   limitados al emisor asignado.
 - VPS con Docker producción y HTTPS operativo.
 - La evidencia productiva concreta permanece fuera del repositorio público.
-- `main` incluye PF-02A, los tres cortes de PF-02B, PF-03A y PF-19A; este
-  último quedó integrado mediante el PR `#27` (merge `45c0704`). PF-02 admite
-  historia externa legítima sin perder reservas ni segundo preflight; PF-03A
-  rechaza claves superiores desconocidas; PF-19A agrega diseño, contención
-  preautorización explícita e inventario legacy de solo lectura. Todo ese tramo
-  es posterior a `v0.2.2`: todavía no pertenece a una release publicada ni está
-  desplegado.
-- PF-19B/PF-19C siguen pendientes. La clasificación actual Web Services no
-  demuestra por sí sola que un punto sea RECE; una tupla omitida en la
-  configuración PF-19A queda sin protección. Todavía no debe considerarse
-  completa la elegibilidad fiscal de puntos ni resolverse registros históricos.
+- `main` incluye PF-02A, los tres cortes de PF-02B, PF-03A, PF-19A y PF-19B.
+  PF-02 admite historia externa legítima sin perder reservas ni segundo
+  preflight; PF-03A rechaza claves superiores desconocidas; PF-19A agrega la
+  contención preautorización explícita y el inventario legacy de solo lectura;
+  PF-19B cierra elegibilidad RECE durable, atestación administrativa productiva,
+  control integral y UI. Todo ese tramo es posterior a `v0.2.2`: todavía no
+  pertenece a una release publicada ni está desplegado.
+- PF-19C sigue pendiente para preservar el error global `10005` como rechazo
+  terminal bajo contrato oficial y sanear historia legacy de forma auditada.
+  Web Services genérico ya no acredita RECE en `main`; homologación permanece
+  fail-closed mientras no exista una fuente probatoria específica.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -67,6 +67,11 @@ El estado detallado y el punto de reanudación viven en
 - Procesamiento: worker de lotes embebido; mientras siga así, producción usa un
   único proceso Uvicorn. El seguimiento UI usa una allowlist liviana, una sola
   solicitud en vuelo, intervalos `3/5/10 s` y backoff máximo de `15 s`.
+- Elegibilidad RECE: ledger append-only y cabeza transaccional por punto y
+  ambiente, revisión fiscal monotónica, snapshots y guardas durables antes de
+  ARCA. La sincronización WSFE server-side solo actualiza estado técnico; una
+  acreditación positiva exige administrador, constancia productiva fresca,
+  señal exacta y confirmación expresa.
 - Observabilidad: `Sistema > Estado` consulta un health administrativo
   sanitizado de worker/pools, además de señales operativas simples, soporte,
   backups y trazabilidad
@@ -74,14 +79,12 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-En `main`, PF-02, PF-03A y PF-19A están cerrados en unidades pequeñas; PF-05
-conserva separada la reconstrucción histórica opcional para informes. La
-siguiente unidad es
-PF-19B: persistir elegibilidad RECE y aplicarla de extremo a extremo. Después
-sigue PF-19C para errores globales estructurados y cierre legacy auditado, y
-recién entonces PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos
-y valores no finitos. PF-19 no cambia numeración ni absorbe validaciones de
-ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
+En `main`, PF-02, PF-03A, PF-19A y PF-19B están cerrados; PF-05 conserva
+separada la reconstrucción histórica opcional para informes. La siguiente
+unidad es PF-19C para errores globales estructurados y cierre legacy auditado;
+recién entonces sigue PF-03B sobre DTO de ítem, propiedades desconocidas,
+descuentos y valores no finitos. PF-19 no cambia numeración ni absorbe
+validaciones de ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
 
 ## Principios de trabajo
 

@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 08/08/2026
+Última actualización: 09/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -35,7 +35,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## Nueva evidencia productiva — PF-19 priorizado
+## PF-19 priorizado — PF-19B cerrado end-to-end
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -52,22 +52,34 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-19A cerró estados, consumidores, contención explícita e inventario legacy
   en modo lectura. La guarda bloquea por ambiente, emisor, ID/número de punto y
   tipo antes de intento/FECAE; el inventario no modifica estados;
-- PF-19B implementará elegibilidad RECE end-to-end sin equiparar
-  `es_webservice` con compatibilidad fiscal;
+- PF-19B completa sus tres subcortes como una sola unidad: ledger y cabeza
+  durable, migración fail-closed, atestación administrativa productiva,
+  snapshots/guardas en todos los caminos fiscales y estados visibles en API/UI;
 - PF-19C preservará códigos globales, tratará `10005` como rechazo terminal solo
   bajo el contrato oficial y ofrecerá un cierre auditado de registros legacy;
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
-PF-19A está integrado en `main` mediante el PR `#27` (merge `45c0704`), pero
-todavía no pertenece a una release ni está desplegado. La lista privada de
-contención debe cubrir cada tupla
-conocida o dudosa; no descubre RECE automáticamente y una lista vacía no acredita
-elegibilidad. Una combinación omitida queda sin protección hasta PF-19B. Hasta
-implementar y desplegar PF-19B/PF-19C no deben reintentarse
-lotes afectados ni asumirse que un punto Web Services genérico es RECE;
-cualquier cierre productivo exige lecturas ARCA seguras, backup exacto y
-autorización operativa separada.
+PF-19B queda cerrado en `main`: cada punto posee elegibilidad versionada por
+ambiente y solo una cabeza efectiva `verificado_rece` puede avanzar hacia CAE.
+Los puntos legacy migran como
+`no_verificado`; Web Services genérico y `FEParamGetPtosVenta` no acreditan
+RECE. La sincronización se resuelve en el servidor y modifica únicamente estado
+técnico. Solo un administrador activo en un servidor productivo puede promover
+producción mediante una constancia de hasta siete días, señal exacta y
+confirmación expresa de procedencia; FactuFlow conserva hash y metadatos
+probatorios mínimos, no el PDF. Homologación permanece fail-closed porque no
+existe una fuente probatoria específica.
+
+Los badges `Verificado RECE`, `No RECE` y `No verificado`, la procedencia y la
+vigencia quedan visibles; perfiles, Excel y selectores usan el estado efectivo.
+Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
+revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
+adicional y no puede promover un punto. PF-19B todavía no pertenece a una
+release ni está desplegado: la release publicada y producción continúan en
+`v0.2.2`. PF-19C es la siguiente unidad; hasta cerrarla y autorizar un despliegue
+no deben reintentarse lotes afectados ni sanearse registros legacy de forma
+manual.
 
 ## PF-03A — contrato superior estricto de emisión
 
@@ -317,9 +329,8 @@ quedaron incluidos en el corte productivo `v0.2.2`.
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 23/07/2026.
 - `main` incorpora, además de `v0.2.2`, PF-02A, los tres cortes de PF-02B,
-  PF-03A y PF-19A; este último quedó integrado mediante el PR `#27` (merge
-  `45c0704`). Todo ese tramo es posterior a `v0.2.2`: todavía no pertenece a
-  una release publicada ni está desplegado.
+  PF-03A, PF-19A y la unidad completa PF-19B. Todo ese tramo es posterior a
+  `v0.2.2`: todavía no pertenece a una release publicada ni está desplegado.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 23/07/2026.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
@@ -377,6 +388,12 @@ con:
 - worker embebido para lotes, con `BATCH_WORKER_ENABLED=true` y un único proceso
   Uvicorn en la instalación productiva actual;
 - PDFs bajo demanda y gestor administrativo de almacenamiento.
+
+En `main`, PF-19B agrega ledger y cabeza durable de elegibilidad RECE,
+atestación administrativa de constancia productiva fresca, sincronización
+técnica server-side sin promoción, badges/estados visibles y compuertas comunes
+en individual, lotes, worker, reintentos y stale. Esta capacidad todavía no
+pertenece a la release publicada ni está disponible en producción.
 
 Las reglas no negociables siguen en `VISION.md` y `AGENTS.md`. En particular:
 la fecha fiscal nunca se completa con la fecha actual, ninguna ruta puede pedir
@@ -436,12 +453,13 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ### P1 fiscal priorizado
 
-PF-19 es el P1 fiscal activo por evidencia productiva. PF-19A ya cerró diseño,
-contención explícita e inventario de solo lectura; no autoriza emisiones reales,
-reintentos legacy ni ediciones directas de base. El siguiente corte es PF-19B y
-después PF-19C. PF-03B se retoma tras cerrar elegibilidad RECE, semántica del
-rechazo global y política de saneamiento legacy. Los párrafos siguientes
-conservan la evidencia histórica de PF-01 ya cerrada y no cambian ese orden.
+PF-19 es el P1 fiscal activo por evidencia productiva. PF-19A cerró diseño,
+contención explícita e inventario de solo lectura; PF-19B cerró la elegibilidad
+RECE durable end-to-end, incluida su autoridad administrativa y UI. Ninguno
+autoriza reintentos legacy ni ediciones directas de base. El siguiente corte es
+PF-19C para el rechazo global y el saneamiento auditado; después se retoma
+PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
 `origin/main`. La UI de emisión individual
@@ -578,9 +596,10 @@ Siguen pendientes:
    presentar el control automático como sustituto de la revisión.
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
-    cerró diseño, contención e inventario; retomar exactamente por PF-19B,
-    después PF-19C y recién entonces PF-03B. No reabrir PF-02 ni mezclar
-    elegibilidad RECE o errores globales con ítems/importes. Después siguen
+    cerró diseño, contención e inventario y PF-19B cerró sus cortes B.1+B.2+B.3
+    como una única unidad end-to-end. Retomar exactamente por PF-19C y recién
+    entonces PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
+    globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
     Al llegar a ese bloque, ejecutar primero la unidad integrada de permisos
     definida en `docs/agents/pf-06-08-permisos-multiemisor-design.md`; no crear

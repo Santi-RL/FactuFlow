@@ -5,9 +5,11 @@ from datetime import datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -30,6 +32,11 @@ class LoteComprobante(Base):
             "empresa_id",
             "archivo_hash",
             name="uq_lotes_comprobantes_empresa_hash",
+        ),
+        UniqueConstraint(
+            "id",
+            "empresa_id",
+            name="uq_lotes_comprobantes_id_empresa",
         ),
         Index("ix_lotes_comprobantes_empresa_estado", "empresa_id", "estado"),
         Index("ix_lotes_comprobantes_hash", "empresa_id", "archivo_hash"),
@@ -87,6 +94,9 @@ class LoteComprobante(Base):
         back_populates="lote",
         cascade="all, delete-orphan",
         order_by="LoteComprobanteGrupo.orden",
+        foreign_keys=(
+            "[LoteComprobanteGrupo.lote_id, " "LoteComprobanteGrupo.empresa_id]"
+        ),
     )
     filas = relationship(
         "LoteComprobanteFila",
@@ -111,6 +121,66 @@ class LoteComprobanteGrupo(Base):
             "comprobante_ref",
             name="uq_lotes_comprobantes_grupos_lote_ref",
         ),
+        UniqueConstraint(
+            "id",
+            "empresa_id",
+            name="uq_lotes_comprobantes_grupos_id_empresa",
+        ),
+        UniqueConstraint(
+            "id",
+            "lote_id",
+            "empresa_id",
+            "punto_venta_id",
+            "punto_venta_numero",
+            "ambiente",
+            "punto_venta_elegibilidad_revision_id",
+            "punto_venta_revision_fiscal",
+            "tipo_comprobante",
+            name="uq_lotes_grupos_identidad_fiscal_compuesta",
+        ),
+        CheckConstraint(
+            "((punto_venta_id IS NULL "
+            "AND ambiente IS NULL "
+            "AND punto_venta_elegibilidad_revision_id IS NULL "
+            "AND punto_venta_revision_fiscal IS NULL) "
+            "OR (punto_venta_id IS NOT NULL "
+            "AND punto_venta_numero IS NOT NULL "
+            "AND tipo_comprobante IS NOT NULL "
+            "AND ambiente IS NOT NULL "
+            "AND ambiente IN ('homologacion', 'produccion') "
+            "AND punto_venta_elegibilidad_revision_id IS NOT NULL "
+            "AND punto_venta_revision_fiscal IS NOT NULL "
+            "AND punto_venta_revision_fiscal > 0))",
+            name="ck_lotes_grupos_snapshot_rece_completo",
+        ),
+        ForeignKeyConstraint(
+            ["lote_id", "empresa_id"],
+            ["lotes_comprobantes.id", "lotes_comprobantes.empresa_id"],
+            name="fk_lotes_grupos_lote_empresa",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["punto_venta_id", "empresa_id"],
+            ["puntos_venta.id", "puntos_venta.empresa_id"],
+            name="fk_lotes_grupos_punto_empresa",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            [
+                "punto_venta_elegibilidad_revision_id",
+                "empresa_id",
+                "punto_venta_id",
+                "ambiente",
+            ],
+            [
+                "puntos_venta_elegibilidad_rece_revisiones.id",
+                "puntos_venta_elegibilidad_rece_revisiones.empresa_id",
+                "puntos_venta_elegibilidad_rece_revisiones.punto_venta_id",
+                "puntos_venta_elegibilidad_rece_revisiones.ambiente",
+            ],
+            name="fk_lotes_grupos_revision_rece_compuesta",
+            ondelete="RESTRICT",
+        ),
         Index("ix_lotes_comprobantes_grupos_lote_ref", "lote_id", "comprobante_ref"),
         Index(
             "uq_lotes_comprobantes_grupos_comprobante_id",
@@ -134,6 +204,11 @@ class LoteComprobanteGrupo(Base):
     mensajes_json = Column(JSON, nullable=True)
     cae = Column(String(14), nullable=True)
     numero_asignado = Column(Integer, nullable=True)
+    empresa_id = Column(Integer, nullable=False)
+    punto_venta_id = Column(Integer, nullable=True)
+    ambiente = Column(String(20), nullable=True)
+    punto_venta_elegibilidad_revision_id = Column(Integer, nullable=True)
+    punto_venta_revision_fiscal = Column(Integer, nullable=True)
     comprobante_id = Column(
         Integer, ForeignKey("comprobantes.id", ondelete="SET NULL"), nullable=True
     )
@@ -143,10 +218,16 @@ class LoteComprobanteGrupo(Base):
     )
 
     lote_id = Column(
-        Integer, ForeignKey("lotes_comprobantes.id", ondelete="CASCADE"), nullable=False
+        Integer,
+        ForeignKey("lotes_comprobantes.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
-    lote = relationship("LoteComprobante", back_populates="grupos")
+    lote = relationship(
+        "LoteComprobante",
+        back_populates="grupos",
+        foreign_keys=[lote_id, empresa_id],
+    )
     filas = relationship(
         "LoteComprobanteFila",
         back_populates="grupo",
@@ -154,6 +235,21 @@ class LoteComprobanteGrupo(Base):
         order_by="LoteComprobanteFila.fila_excel",
     )
     comprobante = relationship("Comprobante")
+    punto_venta = relationship(
+        "PuntoVenta",
+        foreign_keys=[punto_venta_id, empresa_id],
+        viewonly=True,
+    )
+    elegibilidad_revision = relationship(
+        "PuntoVentaElegibilidadReceRevision",
+        foreign_keys=[
+            punto_venta_elegibilidad_revision_id,
+            empresa_id,
+            punto_venta_id,
+            ambiente,
+        ],
+        viewonly=True,
+    )
 
     @property
     def fecha_emision(self) -> str | None:

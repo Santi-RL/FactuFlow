@@ -13,6 +13,7 @@ services/
 ├── contencion_fiscal_service.py          # Guarda opt-in PF-19A antes de FECAESolicitar
 ├── constancia_arca_service.py           # Extracción de datos fiscales desde constancia ARCA
 ├── constancia_puntos_venta_service.py   # Extracción de puntos de venta desde constancia ARCA
+├── elegibilidad_rece_service.py         # Autoridad durable y fail-closed PF-19B
 ├── facturacion_service.py               # Orquestación de emisión de comprobantes
 ├── formatos_importacion_service.py      # Plantillas/formato, compatibilidad, descarga XLSX y mapeo de Excel externos
 ├── idempotencia_fiscal_service.py       # Idempotencia y deduplicación fiscal
@@ -81,9 +82,15 @@ services/
   emisores distingue constancia de inscripción de persona jurídica, inscripción
   de persona física y opción Monotributo; valida provincia contra el catálogo
   argentino antes de completar el campo.
-- PF-19A: `contencion_fiscal_service.py` bloquea únicamente las tuplas
-  declaradas explícitamente en la configuración privada; una omisión queda sin
-  protección hasta PF-19B. `inventario_legacy_pf19_service.py` no llama ARCA ni
+- PF-19B: `elegibilidad_rece_service.py` es la autoridad central. Toda ruta que
+  pueda solicitar CAE exige estado efectivo `verificado_rece` para el ambiente
+  actual, snapshots coherentes y guardas antes de `FECAESolicitar`. La única
+  promoción
+  positiva es una atestación administrativa de constancia productiva completa,
+  reciente y con señal exacta; homologación permanece cerrada. La
+  sincronización WSFE solo actualiza estado técnico. PF-19A conserva una
+  denegación adicional para tuplas declaradas explícitamente en configuración
+  privada. `inventario_legacy_pf19_service.py` no llama ARCA ni
   muta estados y produce evidencia sanitizada, pero privada. Antes de usar una
   FK de comprobante directa o de grupo, exige existencia y coincidencia de
   emisor, punto, tipo y número planificado. La CLI relacionada

@@ -10,7 +10,8 @@ Esta carpeta contiene los endpoints (routers) de la API REST de FactuFlow.
 - `usuarios.py`: administración de usuarios por administradores.
 - `empresas.py`: CRUD de empresas.
 - `clientes.py`: CRUD de clientes.
-- `puntos_venta.py`: CRUD de puntos de venta.
+- `puntos_venta.py`: CRUD administrativo, importación/atestación RECE y
+  sincronización técnica WSFE server-side.
 - `certificados.py`: gestión de certificados (CSR, upload, verificación, alertas).
 - `arca.py`: integración ARCA (WSAA/WSFEv1 via `app/arca/`).
 - `comprobantes.py`: emisión y consulta de comprobantes.
@@ -55,8 +56,21 @@ política de lote confirmada antes de validar.
 
 Regla de usuarios: `es_admin` significa administrar usuarios y operar cualquier
 emisor configurado. Los usuarios comunes activos solo pueden operar el emisor
-asignado en su cuenta. Solo las rutas `/api/usuarios` y `/api/almacenamiento`
-quedan reservadas a administradores.
+asignado en su cuenta. Además de `/api/usuarios` y `/api/almacenamiento`, crear,
+importar/atestar y sincronizar puntos de venta son acciones administrativas.
+
+Regla crítica PF-19B: el DTO de puntos expone `revision_fiscal`,
+`elegibilidad_rece` y `usable_factuflow`, calculado por el servidor. Un endpoint
+capaz de solicitar CAE exige estado efectivo `verificado_rece` para el ambiente
+actual antes de crear una operación o intento nuevo y antes de
+`FECAESolicitar`. Las lecturas WSFE seguras de la capa exterior batch no
+autorizan ni eluden esa compuerta. La
+importación positiva requiere administrador, servidor en `produccion`,
+confirmación explícita de procedencia y constancia completa/reciente con señal
+exacta `RECE para aplicativo y web services`; el PDF no se persiste.
+Homologación permanece bloqueada hasta una fuente probatoria específica.
+`POST /api/puntos-venta/sincronizar-arca` actualiza solo el estado técnico y
+nunca promueve RECE.
 
 Regla de almacenamiento: las rutas `/api/almacenamiento` solo pueden escanear
 rutas administradas por FactuFlow y tablas conocidas. No deben devolver rutas
@@ -85,6 +99,11 @@ aplica a `POST /api/comprobantes/emitir`,
 mismo payload devuelve la respuesta o estado persistido sin reemitir; misma
 clave con payload distinto devuelve conflicto. La confirmación de duplicado
 lógico no forma parte del hash idempotente.
+
+El lookup de un replay terminal durable precede la reevaluación RECE y puede
+devolver la respuesta almacenada sin reemitir. Cualquier continuación legacy,
+sin snapshot o cuyo punto/ambiente/revisión cambió devuelve conflicto y no
+consulta ARCA.
 
 Regla crítica: ningún endpoint de emisión debe asumir productos o servicios por
 default. `concepto` o `concepto_modo` deben llegar explícitamente antes de

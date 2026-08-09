@@ -32,14 +32,18 @@ conocida a un estado reintentable; la recuperación stale no asigna números ni
 solicita CAE. Estos cambios todavía no pertenecen a una release publicada ni
 están desplegados en producción.
 
-`main` también incorporó PF-03A y PF-19A. El contrato superior de emisión
-rechaza claves desconocidas y la contención PF-19A permite bloquear, antes de
-FECAE, tuplas explícitas por ambiente, emisor, punto de venta y tipo. El
-inventario asociado solo informa candidatos legacy en modo lectura: no
-reclasifica `10005`, no cambia estados y reconoce que el ambiente histórico no
-está persistido. La elegibilidad RECE end-to-end y el cierre estructurado de
-rechazos globales siguen pendientes en PF-19B/PF-19C. Nada de este tramo
-posterior a `v0.2.2` está publicado ni desplegado en producción.
+`main` también incorporó PF-03A, PF-19A y la unidad completa PF-19B. El contrato
+superior de emisión rechaza claves desconocidas; la contención PF-19A bloquea
+tuplas explícitas antes de FECAE; y PF-19B reemplaza Web Services genérico por
+elegibilidad RECE durable, versionada y fail-closed. Solo un administrador en
+un servidor productivo puede acreditar un punto mediante una constancia fresca,
+señal exacta y confirmación expresa. La sincronización WSFE server-side actualiza
+el estado técnico, pero nunca promueve RECE; homologación permanece cerrada sin
+una fuente probatoria específica. La UI muestra estados, procedencia y vigencia,
+y los caminos individual, masivo, worker y reintentos comparten snapshots y
+guardas antes de `FECAESolicitar`. PF-19C sigue pendiente para el rechazo global
+estructurado y el cierre legacy auditado. Nada de este tramo posterior a
+`v0.2.2` está publicado ni desplegado en producción.
 
 Capacidades actuales:
 
@@ -51,6 +55,9 @@ Capacidades actuales:
   lote y archivo observado
 - diagnóstico administrativo sanitizado de worker y pools en `Sistema > Estado`
 - certificados por empresa y ambiente
+- elegibilidad RECE visible con estados `Verificado RECE`, `No RECE` y
+  `No verificado`; perfiles y selectores excluyen puntos sin acreditación
+  vigente
 - PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información
@@ -204,11 +211,13 @@ resetear su contraseña.
 
 ## Variables de entorno relevantes
 
-- `ARCA_ENV`: `homologacion` o `produccion`
+- `ARCA_ENV`: enum estricto; admite solo `homologacion` o `produccion`. Si no se
+  define ni existe el alias legacy, conserva el default seguro `homologacion`;
+  un valor presente vacío o inválido impide iniciar
 - `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`: lista JSON privada de contención
-  exacta por ambiente, emisor, ID/número de punto y tipo. Una lista vacía no
-  acredita elegibilidad RECE y una tupla omitida queda sin protección hasta
-  PF-19B
+  exacta por ambiente, emisor, ID/número de punto y tipo. Es una denegación
+  adicional: una lista vacía no acredita elegibilidad y una regla vigente puede
+  bloquear incluso un punto `verificado_rece`
 - `CERTS_PATH`: carpeta de certificados
 - `CERTIFICATE_MAX_UPLOAD_BYTES`: tamaño máximo para subir certificados ARCA
 - `BATCH_SYNC_LIMIT`: máximo de comprobantes para procesamiento síncrono

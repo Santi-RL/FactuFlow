@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -16,6 +17,7 @@ REVISION_FORMATOS_IMPORTACION = "a6b7c8d9e0f1"
 REVISION_RECEPTOR_SNAPSHOT = "e5f6a7b8c9d0"
 REVISION_ANTERIOR_INTEGRIDAD_FISCAL = "f7a8b9c0d1e2"
 REVISION_INTEGRIDAD_FISCAL = "a8b9c0d1e2f3"
+REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 COLUMNAS_FORMATOS_LOTE = {
     "mapeo_usado_json",
     "headers_detectados_json",
@@ -27,11 +29,20 @@ FECHA_SINTETICA = "2026-07-13"
 FECHA_HORA_SINTETICA = "2026-07-13 12:00:00"
 
 
-def _run_alembic(action: str, revision: str, database_url: str) -> None:
+def _run_alembic(
+    action: str,
+    revision: str,
+    database_url: str,
+    *,
+    extra_env: dict[str, str] | None = None,
+) -> None:
     """Ejecuta Alembic contra una base temporal de test."""
     env = os.environ.copy()
     env["DATABASE_URL"] = database_url
     env["APP_ENV"] = "testing"
+    env.pop("PF19B_SQLITE_BACKUP_CONFIRMED", None)
+    env.pop("PF19B_SQLITE_BACKUP_PATH", None)
+    env.update(extra_env or {})
 
     result = subprocess.run(
         [sys.executable, "-m", "alembic", action, revision],
@@ -49,11 +60,16 @@ def _run_alembic_failure(
     action: str,
     revision: str,
     database_url: str,
+    *,
+    extra_env: dict[str, str] | None = None,
 ) -> str:
     """Ejecuta Alembic y devuelve la salida de un fallo esperado."""
     env = os.environ.copy()
     env["DATABASE_URL"] = database_url
     env["APP_ENV"] = "testing"
+    env.pop("PF19B_SQLITE_BACKUP_CONFIRMED", None)
+    env.pop("PF19B_SQLITE_BACKUP_PATH", None)
+    env.update(extra_env or {})
 
     result = subprocess.run(
         [sys.executable, "-m", "alembic", action, revision],
@@ -91,6 +107,40 @@ def _alembic_version(db_path: Path) -> str:
         row = conn.execute("SELECT version_num FROM alembic_version").fetchone()
     assert row is not None
     return str(row[0])
+
+
+def _backup_env_pf19(db_path: Path, backup_path: Path) -> dict[str, str]:
+    """Copia y declara un backup SQLite físico para la puerta PF-19B."""
+    shutil.copy2(db_path, backup_path)
+    return {
+        "PF19B_SQLITE_BACKUP_CONFIRMED": "1",
+        "PF19B_SQLITE_BACKUP_PATH": str(backup_path.resolve()),
+    }
+
+
+def _foreign_key_targets(db_path: Path, table_name: str) -> set[str]:
+    """Devuelve las tablas referenciadas con FKs SQLite activables."""
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        return {
+            str(row[2])
+            for row in conn.execute(f"PRAGMA foreign_key_list({table_name})")
+        }
+
+
+def _foreign_key_actions(
+    db_path: Path,
+    table_name: str,
+    column_name: str,
+    referred_table: str,
+) -> set[str]:
+    """Devuelve políticas ON DELETE de las FKs que incluyen una columna."""
+    with sqlite3.connect(db_path) as conn:
+        return {
+            str(row[6]).upper()
+            for row in conn.execute(f"PRAGMA foreign_key_list({table_name})")
+            if row[2] == referred_table and row[3] == column_name
+        }
 
 
 def _crear_contexto_fiscal_sintetico(db_path: Path) -> None:
@@ -373,3 +423,427 @@ def test_sqlite_integridad_fiscal_preflight_bloquea_datos_ambiguos(
     comprobantes_sql = _table_sql(db_path, "comprobantes")
     assert "ck_comprobantes_estado_valido" not in comprobantes_sql
     assert "ck_comprobantes_estado_cae_coherente" not in comprobantes_sql
+
+
+def test_sqlite_pf19b_upgrade_downgrade_reupgrade_fail_closed(
+    tmp_path: Path,
+) -> None:
+    """PF-19B debe migrar cerrado y revertir solo con backups congruentes."""
+    db_path = tmp_path / "pf19b.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+
+    upgrade_env = _backup_env_pf19(db_path, tmp_path / "pf19b-pre-upgrade.db")
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=upgrade_env,
+    )
+
+    assert _alembic_version(db_path) == REVISION_ELEGIBILIDAD_RECE
+    assert "revision_fiscal" in _table_columns(db_path, "puntos_venta")
+    assert "rece_snapshot_hash" in _table_columns(db_path, "operaciones_idempotentes")
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        revisiones = conn.execute(
+            "SELECT ambiente, estado, fuente, revision FROM "
+            "puntos_venta_elegibilidad_rece_revisiones ORDER BY ambiente"
+        ).fetchall()
+        cabezas = conn.execute(
+            "SELECT COUNT(*) FROM puntos_venta_elegibilidad_rece_actual"
+        ).fetchone()
+        foreign_key_check = conn.execute("PRAGMA foreign_key_check").fetchall()
+    assert revisiones == [
+        ("homologacion", "no_verificado", "migracion_legacy", 1),
+        ("produccion", "no_verificado", "migracion_legacy", 1),
+    ]
+    assert cabezas == (2,)
+    assert foreign_key_check == []
+    assert {
+        "puntos_venta_guardas_emision_rece",
+        "puntos_venta_elegibilidad_rece_revisiones",
+        "operaciones_idempotentes",
+    } <= _foreign_key_targets(db_path, "intentos_emision_fiscal")
+    assert _foreign_key_actions(
+        db_path,
+        "intentos_emision_fiscal",
+        "lote_id",
+        "lotes_comprobantes",
+    ) == {"RESTRICT"}
+    assert _foreign_key_actions(
+        db_path,
+        "intentos_emision_fiscal",
+        "grupo_id",
+        "lotes_comprobantes_grupos",
+    ) == {"RESTRICT"}
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        revision_produccion = conn.execute(
+            "SELECT id FROM puntos_venta_elegibilidad_rece_revisiones "
+            "WHERE punto_venta_id = 1 AND ambiente = 'produccion'"
+        ).fetchone()
+        assert revision_produccion is not None
+        revision_id = int(revision_produccion[0])
+        for operacion_id in (10, 11):
+            conn.execute(
+                "INSERT INTO operaciones_idempotentes ("
+                "id, idempotency_key, tipo_operacion, payload_hash, estado, "
+                "created_at, updated_at, empresa_id, rece_snapshot_hash"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    operacion_id,
+                    f"pf19b-{operacion_id}",
+                    "emitir_comprobante",
+                    f"{operacion_id:064d}",
+                    "en_proceso",
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    1,
+                    f"{operacion_id + 20:064d}",
+                ),
+            )
+        conn.execute(
+            "INSERT INTO operaciones_idempotentes_elegibilidad_rece ("
+            "id, operacion_id, empresa_id, punto_venta_id, ambiente, "
+            "elegibilidad_revision_id, punto_venta_revision_fiscal, created_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (20, 10, 1, 1, "produccion", revision_id, 1, FECHA_HORA_SINTETICA),
+        )
+        conn.execute(
+            "INSERT INTO puntos_venta_guardas_emision_rece ("
+            "id, token, fase, operacion_id, empresa_id, punto_venta_id, "
+            "ambiente, elegibilidad_revision_id, punto_venta_revision_fiscal, "
+            "created_at, updated_at"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                30,
+                "6" * 64,
+                "pre_arca",
+                10,
+                1,
+                1,
+                "produccion",
+                revision_id,
+                1,
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+            ),
+        )
+        for lote_id in (50, 51):
+            conn.execute(
+                "INSERT INTO lotes_comprobantes ("
+                "id, nombre_archivo, archivo_hash, estado, modo_procesamiento, "
+                "procesamiento_async, total_filas, total_grupos, grupos_validos, "
+                "grupos_con_error, grupos_emitidos, grupos_fallidos, "
+                "grupos_reconciliados_externos, grupos_descartados, created_at, "
+                "updated_at, empresa_id"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    lote_id,
+                    f"pf19b-{lote_id}.xlsx",
+                    f"{lote_id:064d}",
+                    "validado",
+                    "sincronico",
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    1,
+                ),
+            )
+        conn.execute(
+            "INSERT INTO lotes_comprobantes_grupos ("
+            "id, comprobante_ref, orden, estado, tipo_comprobante, "
+            "punto_venta_numero, total_estimado, created_at, updated_at, "
+            "lote_id, empresa_id, punto_venta_id, ambiente, "
+            "punto_venta_elegibilidad_revision_id, punto_venta_revision_fiscal"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                60,
+                "PF19B-GRUPO-1",
+                1,
+                "validado",
+                6,
+                41,
+                121,
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+                50,
+                1,
+                1,
+                "produccion",
+                revision_id,
+                1,
+            ),
+        )
+        conn.execute(
+            "INSERT INTO intentos_emision_fiscal ("
+            "id, tipo_comprobante, punto_venta_numero, numero_planificado, "
+            "fecha_emision, total, payload_hash, huella_logica, estado, "
+            "created_at, updated_at, operacion_id, empresa_id, punto_venta_id, "
+            "ambiente, punto_venta_elegibilidad_revision_id, "
+            "punto_venta_revision_fiscal, guarda_rece_id"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                40,
+                6,
+                41,
+                1,
+                FECHA_SINTETICA,
+                121,
+                "7" * 64,
+                "8" * 64,
+                "en_proceso",
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+                10,
+                1,
+                1,
+                "produccion",
+                revision_id,
+                1,
+                30,
+            ),
+        )
+        conn.commit()
+
+        conn.execute(
+            "INSERT INTO intentos_emision_fiscal ("
+            "id, tipo_comprobante, punto_venta_numero, numero_planificado, "
+            "fecha_emision, total, payload_hash, huella_logica, estado, "
+            "created_at, updated_at, operacion_id, empresa_id, punto_venta_id, "
+            "lote_id, grupo_id, ambiente, punto_venta_elegibilidad_revision_id, "
+            "punto_venta_revision_fiscal, guarda_rece_id"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                42,
+                6,
+                41,
+                2,
+                FECHA_SINTETICA,
+                121,
+                "b" * 64,
+                "c" * 64,
+                "en_proceso",
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+                10,
+                1,
+                1,
+                50,
+                60,
+                "produccion",
+                revision_id,
+                1,
+                30,
+            ),
+        )
+        conn.commit()
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO lotes_comprobantes_grupos ("
+                "id, comprobante_ref, orden, estado, tipo_comprobante, "
+                "punto_venta_numero, total_estimado, created_at, updated_at, "
+                "lote_id, empresa_id, punto_venta_id, ambiente, "
+                "punto_venta_elegibilidad_revision_id, punto_venta_revision_fiscal"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    61,
+                    "PF19B-GRUPO-PARCIAL",
+                    2,
+                    "validado",
+                    6,
+                    41,
+                    121,
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    50,
+                    1,
+                    1,
+                    None,
+                    revision_id,
+                    1,
+                ),
+            )
+        conn.rollback()
+
+        for sentencia in (
+            "UPDATE lotes_comprobantes_grupos "
+            "SET punto_venta_revision_fiscal = NULL WHERE id = 60",
+            "UPDATE lotes_comprobantes_grupos "
+            "SET punto_venta_numero = NULL WHERE id = 60",
+            "UPDATE lotes_comprobantes_grupos "
+            "SET tipo_comprobante = NULL WHERE id = 60",
+        ):
+            with pytest.raises(sqlite3.IntegrityError):
+                conn.execute(sentencia)
+            conn.rollback()
+        grupo_persistido = conn.execute(
+            "SELECT ambiente, punto_venta_revision_fiscal, "
+            "punto_venta_numero, tipo_comprobante "
+            "FROM lotes_comprobantes_grupos WHERE id = 60"
+        ).fetchone()
+        assert grupo_persistido == ("produccion", 1, 41, 6)
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO intentos_emision_fiscal ("
+                "id, tipo_comprobante, punto_venta_numero, numero_planificado, "
+                "fecha_emision, total, payload_hash, huella_logica, estado, "
+                "created_at, updated_at, operacion_id, empresa_id, punto_venta_id, "
+                "lote_id, grupo_id, ambiente, "
+                "punto_venta_elegibilidad_revision_id, "
+                "punto_venta_revision_fiscal, guarda_rece_id"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    43,
+                    6,
+                    41,
+                    3,
+                    FECHA_SINTETICA,
+                    121,
+                    "d" * 64,
+                    "e" * 64,
+                    "en_proceso",
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    10,
+                    1,
+                    1,
+                    51,
+                    60,
+                    "produccion",
+                    revision_id,
+                    1,
+                    30,
+                ),
+            )
+        conn.rollback()
+
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "INSERT INTO intentos_emision_fiscal ("
+                "id, tipo_comprobante, punto_venta_numero, numero_planificado, "
+                "fecha_emision, total, payload_hash, huella_logica, estado, "
+                "created_at, updated_at, operacion_id, empresa_id, punto_venta_id, "
+                "ambiente, punto_venta_elegibilidad_revision_id, "
+                "punto_venta_revision_fiscal, guarda_rece_id"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    41,
+                    6,
+                    41,
+                    2,
+                    FECHA_SINTETICA,
+                    121,
+                    "9" * 64,
+                    "a" * 64,
+                    "en_proceso",
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    11,
+                    1,
+                    1,
+                    "produccion",
+                    revision_id,
+                    1,
+                    30,
+                ),
+            )
+        conn.rollback()
+        conn.execute("DELETE FROM intentos_emision_fiscal WHERE id IN (40, 42)")
+        conn.execute("DELETE FROM lotes_comprobantes_grupos WHERE id = 60")
+        conn.execute("DELETE FROM lotes_comprobantes WHERE id IN (50, 51)")
+        conn.execute("DELETE FROM puntos_venta_guardas_emision_rece WHERE id = 30")
+        conn.execute(
+            "DELETE FROM operaciones_idempotentes_elegibilidad_rece WHERE id = 20"
+        )
+        conn.execute("DELETE FROM operaciones_idempotentes WHERE id IN (10, 11)")
+        conn.commit()
+
+    downgrade_env = _backup_env_pf19(db_path, tmp_path / "pf19b-pre-downgrade.db")
+    _run_alembic(
+        "downgrade",
+        REVISION_INTEGRIDAD_FISCAL,
+        database_url,
+        extra_env=downgrade_env,
+    )
+    assert _alembic_version(db_path) == REVISION_INTEGRIDAD_FISCAL
+    assert "revision_fiscal" not in _table_columns(db_path, "puntos_venta")
+    assert _foreign_key_actions(
+        db_path,
+        "intentos_emision_fiscal",
+        "lote_id",
+        "lotes_comprobantes",
+    ) == {"SET NULL"}
+    assert _foreign_key_actions(
+        db_path,
+        "intentos_emision_fiscal",
+        "grupo_id",
+        "lotes_comprobantes_grupos",
+    ) == {"SET NULL"}
+
+    reupgrade_env = _backup_env_pf19(db_path, tmp_path / "pf19b-pre-reupgrade.db")
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=reupgrade_env,
+    )
+    assert _alembic_version(db_path) == REVISION_ELEGIBILIDAD_RECE
+
+
+def test_sqlite_pf19b_bloquea_sin_backup_antes_del_ddl(tmp_path: Path) -> None:
+    """La falta de backup físico debe abortar antes de agregar columnas PF-19B."""
+    db_path = tmp_path / "pf19b-sin-backup.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+
+    output = _run_alembic_failure(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+    )
+
+    assert "PF19B_SQLITE_BACKUP_CONFIRMED=1" in output
+    assert _alembic_version(db_path) == REVISION_INTEGRIDAD_FISCAL
+    assert "revision_fiscal" not in _table_columns(db_path, "puntos_venta")
+
+
+def test_sqlite_pf19b_rechaza_backup_distinto_con_igual_conteo(
+    tmp_path: Path,
+) -> None:
+    """Un backup con las mismas filas pero distinto contenido no habilita DDL."""
+    db_path = tmp_path / "pf19b-backup-origen.db"
+    backup_path = tmp_path / "pf19b-backup-distinto.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    backup_env = _backup_env_pf19(db_path, backup_path)
+    with sqlite3.connect(backup_path) as conn:
+        conn.execute(
+            "UPDATE puntos_venta SET nombre = ? WHERE id = ?",
+            ("Punto sintético distinto", 1),
+        )
+
+    output = _run_alembic_failure(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+
+    assert "equivalencia semántica exacta" in output
+    assert _alembic_version(db_path) == REVISION_INTEGRIDAD_FISCAL
+    assert "revision_fiscal" not in _table_columns(db_path, "puntos_venta")

@@ -23,12 +23,15 @@ Reglas vigentes desde 2026-05-22:
 - La evidencia productiva de `v0.2.2` abrió PF-19 como P1 fiscal Nivel 2 y lo
   priorizó antes de PF-03B. El PR `#27` (merge `45c0704`) integró PF-19A en
   `main` y cerró diseño, consumidores, contención preautorización e inventario
-  legacy de solo lectura. PF-19B/PF-19C conservan
-  elegibilidad RECE durable, códigos globales estructurados, clasificación
-  terminal de `10005` bajo contrato oficial y cierre auditado. PF-02 permanece
-  cerrado y sin cambios de numeración; PF-03 conserva ítems/importes; PF-09,
-  PF-14 y PF-15 son consumidores. La trazabilidad del backup preoperación se
-  enrutó a PF-11/PF-15.
+  legacy de solo lectura. PF-19B completa en `main` sus tres cortes internos
+  como una sola unidad: elegibilidad RECE durable y fail-closed, atestación
+  administrativa de una constancia productiva fresca, control integral en todos
+  los caminos fiscales y estados visibles en la UI. PF-19C conserva los códigos
+  globales estructurados, la clasificación terminal de `10005` bajo contrato
+  oficial y el cierre auditado de historia legacy; después se retoma PF-03B.
+  PF-02 permanece cerrado y sin cambios de numeración; PF-03 conserva
+  ítems/importes; PF-09, PF-14 y PF-15 son consumidores. La trazabilidad del
+  backup preoperación se enrutó a PF-11/PF-15.
 - PF-17 incorpora como trabajo futuro de banda C una señal liviana de
   conectividad y recuperación segura. La propuesta distingue pérdida de red,
   servidor no disponible, conexión inestable y recuperación; reutiliza
@@ -39,13 +42,34 @@ Reglas vigentes desde 2026-05-22:
 
 ### Validación fiscal
 
+- PF-19B reemplaza la inferencia mutable de Web Services por un ledger
+  inmutable de elegibilidad RECE, una cabeza transaccional por punto y ambiente,
+  revisión fiscal monotónica, snapshots en operaciones/intentos/grupos y una
+  guarda durable antes de `FECAESolicitar`. La migración deja cada punto legacy
+  como `no_verificado` tanto en homologación como en producción, sin inferir
+  elegibilidad desde texto, procedencia o actividad técnica.
+- Solo un administrador activo, en un servidor configurado para producción,
+  puede acreditar `verificado_rece` al procesar una constancia productiva de
+  hasta siete días, confirmar expresamente su procedencia y coincidir con la
+  señal exacta versionada. FactuFlow conserva hash y metadatos probatorios
+  mínimos, no el PDF. Una señal genérica queda `no_verificado`; homologación
+  permanece cerrada mientras no exista una fuente probatoria específica.
+- La sincronización WSFE es ahora una operación server-side transaccional que
+  actualiza exclusivamente el estado técnico y nunca promueve RECE. API y UI
+  exponen `Verificado RECE`, `No RECE` y `No verificado`, procedencia y vigencia;
+  perfiles, Excel y selectores consumen únicamente la elegibilidad efectiva.
+  Emisión individual, lotes, worker, fallback, reintentos y recuperación stale
+  revalidan los mismos snapshots antes de `FECAESolicitar`; un punto sin
+  acreditación vigente aborta antes de crear una operación nueva o solicitar
+  CAE.
 - PF-19A agrega una contención privada y estricta por ambiente, emisor,
   ID/número de punto de venta y tipo de comprobante. Una coincidencia aborta
   en el núcleo fiscal antes de crear intento o invocar `FECAESolicitar`, con
   cero CAE y cero comprobantes. El match por ID o número evita levantar el
   bloqueo renumerando una fila o recreando el número fiscal con otro ID. La
   selección ante cruces es determinística (`ID+número > ID > número`). La
-  contención es opt-in: una tupla omitida queda sin protección hasta PF-19B.
+  contención es opt-in y adicional: una tupla omitida no activa PF-19A, pero
+  tampoco elude la compuerta durable y fail-closed de PF-19B.
 - El inventario PF-19A consulta candidatos `arca_batch_sin_respuesta` y
   `arca_respuesta_incierta` dentro de transacciones verificadas de solo lectura,
   siempre revertidas. Restaura el modo previo de SQLite, valida el alcance de
@@ -102,8 +126,8 @@ Reglas vigentes desde 2026-05-22:
   normal conserva la reserva durable y el segundo preflight. Los errores
   persistidos usan categorías sanitizadas y no exponen textos de excepción.
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
-  PF-02, PF-03A y PF-19A son posteriores a `v0.2.2`: todavía no pertenecen a
-  una release publicada ni están desplegados.
+  PF-02, PF-03A, PF-19A y PF-19B son posteriores a `v0.2.2`: todavía no
+  pertenecen a una release publicada ni están desplegados.
 
 ### Calidad y seguridad
 

@@ -1,6 +1,6 @@
 """Tests para perfiles de carga masiva por emisor."""
 
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from httpx import AsyncClient
@@ -9,6 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.empresa import Empresa
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
+from app.services.elegibilidad_rece_service import (
+    AtestacionPuntoRece,
+    ElegibilidadReceService,
+)
 from app.services.perfiles_carga_masiva_service import (
     PerfilCargaMasivaError,
     PerfilesCargaMasivaService,
@@ -387,18 +391,63 @@ async def test_perfil_acepta_punto_venta_habilitado(
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa: Empresa,
+    test_admin,
+    monkeypatch,
 ):
-    """Permite fijar un punto de venta Web Services del emisor activo."""
+    """Permite fijar un punto técnico con acreditación RECE productiva vigente."""
+    from app.core.config import settings
+    from app.services import elegibilidad_rece_service
+
+    class _FechaHoraReceControlada(datetime):
+        """Reloj estable para la vigencia RECE de este escenario."""
+
+        @classmethod
+        def now(cls, tz=None) -> datetime:
+            """Devuelve el día argentino controlado."""
+            instante = cls(2026, 8, 9, 12, 0, 0)
+            return instante.replace(tzinfo=tz) if tz is not None else instante
+
+        @classmethod
+        def utcnow(cls) -> datetime:
+            """Devuelve el instante UTC controlado."""
+            return cls(2026, 8, 9, 15, 0, 0)
+
+    monkeypatch.setattr(settings, "arca_env", "produccion")
+    monkeypatch.setattr(
+        elegibilidad_rece_service,
+        "datetime",
+        _FechaHoraReceControlada,
+    )
     punto = PuntoVenta(
         numero=13,
-        nombre="Web Services",
+        nombre="RECE productivo",
+        sistema="RECE para aplicativo y web services",
         empresa_id=test_empresa.id,
         activo=True,
         es_webservice=True,
         bloqueado=False,
     )
     db_session.add(punto)
+    service = ElegibilidadReceService(db_session, hoy=date(2026, 8, 9))
+    await service.crear_contextos_iniciales_no_verificados(
+        punto,
+        creado_por_usuario_id=test_admin.id,
+    )
     await db_session.commit()
+    await service.atestiguar_constancia_productiva(
+        [
+            AtestacionPuntoRece(
+                punto_venta=punto,
+                cambios={"sistema": "RECE para aplicativo y web services"},
+                sistema_constancia="RECE para aplicativo y web services",
+            )
+        ],
+        empresa_id=test_empresa.id,
+        empresa_cuit=test_empresa.cuit,
+        evidencia_sha256="a" * 64,
+        documento_emitido_en=date(2026, 8, 9),
+        actor_usuario_id=test_admin.id,
+    )
 
     payload = _perfil_payload("Con punto fijo")
     payload["configuracion_json"]["punto_venta"] = {"modo": "fijo", "numero": 13}
@@ -411,6 +460,45 @@ async def test_perfil_acepta_punto_venta_habilitado(
 
     assert response.status_code == 201, response.text
     assert response.json()["configuracion_json"]["punto_venta"]["numero"] == 13
+
+
+@pytest.mark.asyncio
+async def test_perfil_rechaza_punto_tecnico_sin_acreditacion_rece(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+):
+    """Un punto Web Services sin evidencia RECE no puede quedar fijo en un perfil."""
+    punto = PuntoVenta(
+        numero=14,
+        nombre="Web Services sin acreditar",
+        empresa_id=test_empresa.id,
+        activo=True,
+        es_webservice=True,
+        bloqueado=False,
+    )
+    db_session.add(punto)
+    await ElegibilidadReceService(
+        db_session,
+        hoy=date(2026, 8, 9),
+    ).crear_contextos_iniciales_no_verificados(punto)
+    await db_session.commit()
+
+    payload = _perfil_payload("Punto sin RECE")
+    payload["configuracion_json"]["punto_venta"] = {
+        "modo": "fijo",
+        "numero": 14,
+    }
+
+    response = await client.post(
+        "/api/perfiles-carga-masiva",
+        headers=auth_headers,
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    assert "acreditación RECE vigente" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

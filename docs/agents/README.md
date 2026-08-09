@@ -17,6 +17,8 @@
   `docs/agents/pf-03-validacion-fiscal-design.md`
 - Diseño PF-19A de contención RECE e inventario legacy:
   `docs/agents/pf-19a-rece-contencion-design.md`
+- Diseño PF-19B de elegibilidad RECE durable y fail-closed:
+  `docs/agents/pf-19b-elegibilidad-rece-design.md`
 - Diseño integrado PF-06/PF-07/PF-08 de permisos operativos multiemisor:
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
@@ -125,6 +127,8 @@
   `docs/agents/pf-03-validacion-fiscal-design.md`
 - Diseño PF-19A de contención RECE e inventario legacy:
   `docs/agents/pf-19a-rece-contencion-design.md`
+- Diseño PF-19B de elegibilidad RECE durable y fail-closed:
+  `docs/agents/pf-19b-elegibilidad-rece-design.md`
 - Diseño integrado PF-06/PF-07/PF-08 de permisos operativos multiemisor:
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - Resumen y arquitectura: `docs/agents/overview.md`

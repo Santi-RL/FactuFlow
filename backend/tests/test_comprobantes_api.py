@@ -1,20 +1,26 @@
 """Tests de endpoints de comprobantes."""
 
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import BloqueoPreautorizacionArca, settings
+from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
+from app.models.elegibilidad_rece import (
+    PuntoVentaElegibilidadReceActual,
+    PuntoVentaElegibilidadReceRevision,
+    PuntoVentaGuardaEmisionRece,
+)
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import (
@@ -22,10 +28,21 @@ from app.schemas.comprobante import (
     EmitirComprobanteResponse,
 )
 from app.services.facturacion_service import FacturacionService
+from app.services.elegibilidad_rece_service import ElegibilidadReceService
 from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
     IdempotenciaFiscalService,
 )
+
+
+FECHA_FISCAL_PRUEBA = date(2026, 8, 9)
+AHORA_FISCAL_PRUEBA = datetime(2026, 8, 9, 12, 0, 0)
+
+
+@pytest.fixture(autouse=True)
+def _configurar_ambiente_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fija el ambiente RECE requerido sin depender del entorno del runner."""
+    monkeypatch.setattr(settings, "arca_env", "produccion")
 
 
 def _crear_error_db_temporal(
@@ -53,7 +70,7 @@ def _request_emitir_base(test_empresa) -> dict:
         "punto_venta_id": 1,
         "tipo_comprobante": 6,
         "concepto": 1,
-        "fecha_emision": date.today().isoformat(),
+        "fecha_emision": FECHA_FISCAL_PRUEBA.isoformat(),
         "confirmacion_fecha_fiscal": True,
         "tipo_documento": 99,
         "numero_documento": "0",
@@ -71,15 +88,102 @@ def _request_emitir_base(test_empresa) -> dict:
     }
 
 
+async def _crear_punto_rece_verificado_para_api(
+    db: AsyncSession,
+    *,
+    empresa,
+    usuario_id: int,
+    numero: int = 1,
+) -> PuntoVenta:
+    """Crea punto, cabeza RECE vigente y certificado sintéticos para API feliz."""
+    hoy = FECHA_FISCAL_PRUEBA
+    ahora = AHORA_FISCAL_PRUEBA
+    punto = PuntoVenta(
+        numero=numero,
+        nombre="Punto RECE API sintético",
+        sistema="Web Services",
+        activo=True,
+        es_webservice=True,
+        bloqueado=False,
+        revision_fiscal=1,
+        empresa_id=empresa.id,
+    )
+    certificado = Certificado(
+        nombre="Certificado RECE API sintético",
+        cuit=empresa.cuit,
+        fecha_emision=hoy - timedelta(days=1),
+        fecha_vencimiento=hoy + timedelta(days=30),
+        archivo_crt="certificado-api-test.crt",
+        archivo_key="certificado-api-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=empresa.id,
+    )
+    db.add_all([punto, certificado])
+    await db.flush()
+    revision = PuntoVentaElegibilidadReceRevision(
+        empresa_id=empresa.id,
+        punto_venta_id=punto.id,
+        ambiente=settings.arca_env,
+        revision=1,
+        estado="verificado_rece",
+        fuente="constancia_arca_atestada",
+        evidencia_tipo="rece_aplicativo_web_services_v1",
+        evidencia_sha256="a" * 64,
+        clasificador_version="rece-v1-api-test",
+        empresa_cuit_snapshot=empresa.cuit,
+        punto_venta_numero_snapshot=numero,
+        punto_revision_fiscal=1,
+        documento_emitido_en=hoy,
+        vigente_hasta=hoy + timedelta(days=7),
+        observado_en=ahora,
+        verificado_en=ahora,
+        creado_por_usuario_id=usuario_id,
+        actor_usuario_id_snapshot=usuario_id,
+        created_at=ahora,
+    )
+    db.add(revision)
+    await db.flush()
+    db.add(
+        PuntoVentaElegibilidadReceActual(
+            empresa_id=empresa.id,
+            punto_venta_id=punto.id,
+            ambiente=settings.arca_env,
+            revision_actual_id=revision.id,
+        )
+    )
+    await db.commit()
+    return punto
+
+
+async def _request_emitir_rece(
+    db: AsyncSession,
+    *,
+    empresa,
+    usuario_id: int,
+    numero: int = 1,
+) -> tuple[dict, PuntoVenta]:
+    """Construye un request individual con autoridad RECE moderna explícita."""
+    punto = await _crear_punto_rece_verificado_para_api(
+        db,
+        empresa=empresa,
+        usuario_id=usuario_id,
+        numero=numero,
+    )
+    payload = _request_emitir_base(empresa)
+    payload["punto_venta_id"] = punto.id
+    return payload, punto
+
+
 @pytest.mark.asyncio
-async def test_replay_conserva_aborto_pf19_aunque_se_retire_la_regla(
+async def test_pf19_bloquea_antes_de_operacion_y_sin_regla_exige_rece(
     client: AsyncClient,
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """La misma clave reproduce el aborto durable y nunca abre una emisión."""
+    """Los gates PF-19/RECE fallan antes de crear ownership fiscal."""
     punto = PuntoVenta(
         numero=7,
         nombre="Web Services PF-19 sintético",
@@ -139,20 +243,20 @@ async def test_replay_conserva_aborto_pf19_aunque_se_retire_la_regla(
         json=payload,
     )
 
-    assert primera.status_code == 400, primera.text
-    assert replay.status_code == 400, replay.text
-    assert replay.json() == primera.json()
+    assert primera.status_code == 409, primera.text
+    assert replay.status_code == 409, replay.text
     assert primera.json()["detail"]["categoria_error"] == (
         "punto_venta_bloqueado_preautorizacion"
+    )
+    assert replay.json()["detail"]["categoria_error"] == (
+        "elegibilidad_rece_no_verificada"
     )
     operacion = await db_session.scalar(
         select(OperacionIdempotente).where(
             OperacionIdempotente.idempotency_key == "idem-pf19-aborto-durable"
         )
     )
-    assert operacion is not None
-    assert operacion.estado == "fallido"
-    assert operacion.response_json["cae"] is None
+    assert operacion is None
     assert (
         await db_session.execute(select(IntentoEmisionFiscal))
     ).scalars().all() == []
@@ -255,7 +359,7 @@ async def test_emitir_comprobante_rechaza_concepto_faltante(
             "empresa_id": test_empresa.id,
             "punto_venta_id": 1,
             "tipo_comprobante": 6,
-            "fecha_emision": date.today().isoformat(),
+            "fecha_emision": FECHA_FISCAL_PRUEBA.isoformat(),
             "tipo_documento": 96,
             "numero_documento": "12345678",
             "razon_social": "Cliente sin concepto",
@@ -290,7 +394,7 @@ async def test_emitir_comprobante_exige_confirmacion_fecha_fiscal(
             "punto_venta_id": 1,
             "tipo_comprobante": 6,
             "concepto": 1,
-            "fecha_emision": date.today().isoformat(),
+            "fecha_emision": FECHA_FISCAL_PRUEBA.isoformat(),
             "tipo_documento": 96,
             "numero_documento": "12345678",
             "razon_social": "Cliente sin confirmacion",
@@ -315,12 +419,24 @@ async def test_emitir_comprobante_exige_confirmacion_fecha_fiscal(
 async def test_emitir_comprobante_reconciliacion_devuelve_409(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """La API debe exponer datos fiscales si ARCA autorizó y falló persistencia."""
 
     async def fake_emitir(self, request, **kwargs):
+        await self.db.execute(
+            update(OperacionIdempotente)
+            .where(
+                OperacionIdempotente.id == kwargs["operacion_id"],
+                OperacionIdempotente.estado == "en_proceso",
+                OperacionIdempotente.response_json.is_(None),
+            )
+            .values(estado="requiere_reconciliacion")
+        )
+        await self.db.commit()
         return EmitirComprobanteResponse(
             exito=False,
             tipo_comprobante=request.tipo_comprobante,
@@ -337,11 +453,17 @@ async def test_emitir_comprobante_reconciliacion_devuelve_409(
         )
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+        numero=6,
+    )
 
     response = await client.post(
         "/api/comprobantes/emitir",
         headers={**auth_headers, **_idempotency_header()},
-        json=_request_emitir_base(test_empresa),
+        json=payload,
     )
 
     assert response.status_code == 409
@@ -358,9 +480,15 @@ async def test_emitir_comprobante_cambio_pre_arca_devuelve_fallo_terminal(
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """El aborto anterior a FECAE conserva categoría y cierra la operación."""
+    await _crear_punto_rece_verificado_para_api(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     async def fake_emitir(self, request, **kwargs):
         return EmitirComprobanteResponse(
@@ -399,6 +527,113 @@ async def test_emitir_comprobante_cambio_pre_arca_devuelve_fallo_terminal(
     assert operacion.response_json["categoria_error"] == (
         "numeracion_arca_cambio_pre_arca"
     )
+
+
+@pytest.mark.asyncio
+async def test_emitir_recupera_fallo_durable_al_cerrar_pre_arca(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_user,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un cierre fallido no publica respuesta ni deja guarda pre-ARCA activa."""
+    punto = await _crear_punto_rece_verificado_para_api(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
+    consultas_numeracion = 0
+    llamadas_fecae = 0
+    cierres = 0
+
+    class FakeWSFEClient:
+        """Cambia la numeración después de reservar sin recibir FECAE."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva sin abrir red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Fuerza el aborto demostrablemente anterior a FECAE."""
+            nonlocal consultas_numeracion
+            consultas_numeracion += 1
+            return 0 if consultas_numeracion == 1 else 1
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Hace observable cualquier cruce indebido de la frontera."""
+            nonlocal llamadas_fecae
+            llamadas_fecae += 1
+            raise AssertionError("No debe solicitar FECAE en este escenario")
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    cierre_original = ElegibilidadReceService.cerrar_pre_arca
+
+    async def fallar_primer_cierre(self, guarda, **kwargs):
+        nonlocal cierres
+        cierres += 1
+        if cierres == 1:
+            raise RuntimeError("fallo sintético al confirmar cierre")
+        return await cierre_original(self, guarda, **kwargs)
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakeWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(
+        ElegibilidadReceService,
+        "cerrar_pre_arca",
+        fallar_primer_cierre,
+    )
+    payload = _request_emitir_base(test_empresa)
+    payload["punto_venta_id"] = punto.id
+    key = "idem-fallo-cierre-pre-arca-individual"
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header(key)},
+        json=payload,
+    )
+
+    assert response.status_code == 503, response.text
+    assert consultas_numeracion == 2
+    assert llamadas_fecae == 0
+    assert cierres == 1
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        operacion = await observador.scalar(
+            select(OperacionIdempotente).where(
+                OperacionIdempotente.idempotency_key == key
+            )
+        )
+        assert operacion is not None
+        guarda = await observador.scalar(
+            select(PuntoVentaGuardaEmisionRece).where(
+                PuntoVentaGuardaEmisionRece.operacion_id == operacion.id
+            )
+        )
+        intento = await observador.scalar(
+            select(IntentoEmisionFiscal).where(
+                IntentoEmisionFiscal.operacion_id == operacion.id
+            )
+        )
+        assert guarda is not None
+        assert intento is not None
+        assert guarda.fase == "cerrada_pre_arca"
+        assert guarda.arca_iniciada_en is None
+        assert intento.estado == "fallido_verificado"
+        assert operacion.estado == "interrumpida_pre_arca"
+        assert operacion.response_json is None
 
 
 @pytest.mark.asyncio
@@ -487,6 +722,7 @@ async def test_emitir_comprobante_db_temporal_devuelve_503_sanitizado(
     client: AsyncClient,
     auth_headers: dict,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
     db_session: AsyncSession,
     error_type: type[Exception],
@@ -497,11 +733,16 @@ async def test_emitir_comprobante_db_temporal_devuelve_503_sanitizado(
         raise _crear_error_db_temporal(error_type)
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     response = await client.post(
         "/api/comprobantes/emitir",
         headers={**auth_headers, **_idempotency_header("idem-db-temporal")},
-        json=_request_emitir_base(test_empresa),
+        json=payload,
     )
 
     assert response.status_code == 503
@@ -548,6 +789,7 @@ async def test_replay_individual_pre_arca_reclama_y_continua_una_sola_vez(
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
     error_type: type[Exception],
 ) -> None:
@@ -575,7 +817,11 @@ async def test_replay_individual_pre_arca_reclama_y_continua_una_sola_vez(
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
     headers = {**auth_headers, **_idempotency_header("idem-replay-pre-arca")}
-    payload = _request_emitir_base(test_empresa)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     primera = await client.post(
         "/api/comprobantes/emitir", headers=headers, json=payload
@@ -601,7 +847,9 @@ async def test_replay_individual_pre_arca_reclama_y_continua_una_sola_vez(
 async def test_replay_individual_pre_arca_cas_db_ambiguo_devuelve_409_sanitizado(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un CAS ambiguo conserva el bloqueo y nunca se presenta como 503 reintentable."""
@@ -614,7 +862,11 @@ async def test_replay_individual_pre_arca_cas_db_ambiguo_devuelve_409_sanitizado
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fail_primera)
     headers = {**auth_headers, **_idempotency_header("idem-replay-cas-ambiguo")}
-    payload = _request_emitir_base(test_empresa)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
     primera = await client.post(
         "/api/comprobantes/emitir", headers=headers, json=payload
     )
@@ -647,10 +899,16 @@ async def test_emitir_resuelve_creacion_ambigua_y_replay_reclama_misma_operacion
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
     stage_ambiguo: str,
 ) -> None:
     """Commit o refresh ambiguo propio abre replay con la misma clave."""
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
     fallo_inyectado = False
     if stage_ambiguo == "commit":
         original_commit = db_session.commit
@@ -691,7 +949,6 @@ async def test_emitir_resuelve_creacion_ambigua_y_replay_reclama_misma_operacion
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
     headers = {**auth_headers, **_idempotency_header("idem-create-ambiguo")}
-    payload = _request_emitir_base(test_empresa)
 
     primera = await client.post(
         "/api/comprobantes/emitir", headers=headers, json=payload
@@ -776,14 +1033,133 @@ async def test_emitir_lookup_temporal_no_interrumpe_operacion_viva(
 
 
 @pytest.mark.asyncio
+async def test_replay_individual_no_sobrescribe_terminal_concurrente(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_user,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El CAS del replay conserva un resultado terminal publicado en carrera."""
+    punto = await _crear_punto_rece_verificado_para_api(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
+    payload = _request_emitir_base(test_empresa)
+    payload.update(
+        {
+            "punto_venta_id": punto.id,
+            "fecha_emision": "2026-08-09",
+        }
+    )
+    request = EmitirComprobanteRequest.model_validate(payload)
+    elegibilidad = ElegibilidadReceService(db_session)
+    contexto = await elegibilidad.exigir_contexto_preautorizacion(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto.id,
+        ambiente=settings.arca_env,
+        tipo_comprobante=request.tipo_comprobante,
+        bloquear=True,
+    )
+    idempotencia = IdempotenciaFiscalService(db_session)
+    payload_hash = idempotencia.calcular_payload_hash(
+        idempotencia.payload_sin_confirmacion_duplicado(request.model_dump(mode="json"))
+    )
+    operacion, creada = await idempotencia.obtener_o_crear_operacion(
+        empresa_id=test_empresa.id,
+        usuario_id=test_user.id,
+        idempotency_key="idem-replay-terminal-concurrente",
+        tipo_operacion="emitir_comprobante",
+        payload_hash=payload_hash,
+        contextos_rece=[contexto],
+    )
+    assert creada is True
+    operacion_id = int(operacion.id)
+    terminal = EmitirComprobanteResponse(
+        exito=True,
+        comprobante_id=810,
+        tipo_comprobante=request.tipo_comprobante,
+        punto_venta=punto.numero,
+        numero=81,
+        fecha=request.fecha_emision,
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 8, 31),
+        total=Decimal("1000.00"),
+        mensaje="Resultado terminal concurrente",
+    )
+    reconstruida = terminal.model_copy(
+        update={
+            "comprobante_id": 820,
+            "numero": 82,
+            "mensaje": "Resultado reconstruido obsoleto",
+        }
+    )
+    llamadas_emision = 0
+
+    async def resolver_y_publicar_terminal(self, operacion_id_argumento):
+        assert operacion_id_argumento == operacion_id
+        await self.db.execute(
+            update(OperacionIdempotente)
+            .where(
+                OperacionIdempotente.id == operacion_id,
+                OperacionIdempotente.estado == "en_proceso",
+                OperacionIdempotente.response_json.is_(None),
+            )
+            .values(
+                estado="finalizado",
+                response_json=terminal.model_dump(mode="json"),
+            )
+        )
+        await self.db.commit()
+        return reconstruida
+
+    async def no_emitir(self, request, **kwargs):
+        nonlocal llamadas_emision
+        llamadas_emision += 1
+        raise AssertionError("El replay no debe volver a solicitar CAE")
+
+    monkeypatch.setattr(
+        FacturacionService,
+        "resolver_operacion_idempotente_incompleta",
+        resolver_y_publicar_terminal,
+    )
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", no_emitir)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={
+            **auth_headers,
+            **_idempotency_header("idem-replay-terminal-concurrente"),
+        },
+        json=payload,
+    )
+
+    assert response.status_code == 503, response.text
+    assert llamadas_emision == 0
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        durable = await observador.get(OperacionIdempotente, operacion_id)
+        assert durable is not None
+        assert durable.estado == "finalizado"
+        assert durable.response_json == terminal.model_dump(mode="json")
+
+
+@pytest.mark.asyncio
 async def test_emitir_creacion_ambigua_mismatch_no_muta_operacion(
     client: AsyncClient,
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """La recuperación ambigua rechaza otro payload y no muta su operación."""
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     async def crear_otro_payload(self, **kwargs):
         operacion = OperacionIdempotente(
@@ -807,7 +1183,7 @@ async def test_emitir_creacion_ambigua_mismatch_no_muta_operacion(
     response = await client.post(
         "/api/comprobantes/emitir",
         headers={**auth_headers, **_idempotency_header("idem-create-mismatch")},
-        json=_request_emitir_base(test_empresa),
+        json=payload,
     )
 
     assert response.status_code == 409
@@ -826,7 +1202,9 @@ async def test_emitir_creacion_ambigua_mismatch_no_muta_operacion(
 async def test_emitir_comprobante_integrity_error_conserva_500(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un conflicto de integridad no se clasifica como indisponibilidad temporal."""
@@ -839,11 +1217,16 @@ async def test_emitir_comprobante_integrity_error_conserva_500(
         )
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     response = await client.post(
         "/api/comprobantes/emitir",
         headers={**auth_headers, **_idempotency_header("idem-integrity")},
-        json=_request_emitir_base(test_empresa),
+        json=payload,
     )
 
     assert response.status_code == 500
@@ -860,22 +1243,27 @@ async def test_emitir_comprobante_integrity_error_conserva_500(
 async def test_emitir_comprobante_sanitiza_errores_inesperados(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Un error inesperado se registra sin exponer detalles internos por HTTP."""
 
     async def fake_emitir(self, request, **kwargs):
-        raise RuntimeError(
-            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
-        )
+        raise RuntimeError("detalle interno secreto; ruta C:\\certs\\privada.key")
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     response = await client.post(
         "/api/comprobantes/emitir",
         headers={**auth_headers, **_idempotency_header("idem-error-sanitizado")},
-        json=_request_emitir_base(test_empresa),
+        json=payload,
     )
 
     assert response.status_code == 500
@@ -891,6 +1279,7 @@ async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Una excepción inesperada post-ARCA se guarda y no vuelve a emitir."""
@@ -901,16 +1290,18 @@ async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
         nonlocal llamadas
         llamadas += 1
         kwargs["fase_solicitud_arca"].marcar_iniciada()
-        raise RuntimeError(
-            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
-        )
+        raise RuntimeError("detalle interno secreto; ruta C:\\certs\\privada.key")
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
     headers = {
         **auth_headers,
         **_idempotency_header("idem-excepcion-post-arca"),
     }
-    payload = _request_emitir_base(test_empresa)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+    )
 
     primera = await client.post(
         "/api/comprobantes/emitir",
@@ -950,12 +1341,13 @@ async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_4
     auth_headers: dict,
     db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un fallo idempotente post-CAE conserva CAE y bloquea el replay."""
     llamadas_emision = 0
     llamadas_guardado = 0
-    guardar_original = IdempotenciaFiscalService.guardar_respuesta_operacion
+    guardar_original = IdempotenciaFiscalService.guardar_respuesta_operacion_cas
 
     async def fake_emitir(self, request, **kwargs):
         """Devuelve una autorización después de marcar la frontera ARCA."""
@@ -975,25 +1367,30 @@ async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_4
             mensaje="Comprobante emitido exitosamente",
         )
 
-    async def fallar_primer_guardado(self, operacion, **kwargs):
+    async def fallar_primer_guardado(self, **kwargs):
         """Falla una vez y permite persistir el fallback incierto."""
         nonlocal llamadas_guardado
         llamadas_guardado += 1
         if llamadas_guardado == 1:
             raise RuntimeError("secreto privada.key")
-        return await guardar_original(self, operacion, **kwargs)
+        return await guardar_original(self, **kwargs)
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
     monkeypatch.setattr(
         IdempotenciaFiscalService,
-        "guardar_respuesta_operacion",
+        "guardar_respuesta_operacion_cas",
         fallar_primer_guardado,
     )
     headers = {
         **auth_headers,
         **_idempotency_header("idem-fallo-respuesta-post-arca"),
     }
-    payload = _request_emitir_base(test_empresa)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+        numero=6,
+    )
 
     primera = await client.post(
         "/api/comprobantes/emitir",
@@ -1033,7 +1430,9 @@ async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_4
 async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """La misma clave y payload debe devolver la respuesta persistida."""
@@ -1057,7 +1456,12 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
     headers = {**auth_headers, **_idempotency_header("idem-replay")}
-    payload = _request_emitir_base(test_empresa)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+        numero=6,
+    )
 
     primera = await client.post(
         "/api/comprobantes/emitir",
@@ -1081,7 +1485,9 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
 async def test_emitir_comprobante_misma_clave_payload_distinto_devuelve_409(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
+    test_user,
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Una clave reutilizada con otro payload debe fallar antes de emitir."""
@@ -1102,7 +1508,12 @@ async def test_emitir_comprobante_misma_clave_payload_distinto_devuelve_409(
 
     monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
     headers = {**auth_headers, **_idempotency_header("idem-conflicto")}
-    payload = _request_emitir_base(test_empresa)
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+        numero=6,
+    )
 
     primera = await client.post(
         "/api/comprobantes/emitir",

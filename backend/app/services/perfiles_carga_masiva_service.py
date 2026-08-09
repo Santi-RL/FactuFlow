@@ -9,9 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.date_parsing import parse_fecha_input
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
+from app.services.elegibilidad_rece_service import (
+    ElegibilidadReceError,
+    ElegibilidadReceService,
+)
 from app.services.formatos_importacion_service import FormatosImportacionService
 
 
@@ -336,8 +341,20 @@ class PerfilesCargaMasivaService:
                 PuntoVenta.fecha_baja.is_(None),
             )
         )
-        if result.scalar_one_or_none() is None:
+        punto_venta = result.scalar_one_or_none()
+        if punto_venta is None:
             raise PerfilCargaMasivaError(
                 "El punto de venta elegido no está habilitado para usar en FactuFlow. "
                 "Primero completá Puntos de venta para este emisor."
             )
+        try:
+            await ElegibilidadReceService(self.db).exigir_contexto_actual(
+                empresa_id=empresa_id,
+                punto_venta_id=int(punto_venta.id),
+                ambiente=settings.arca_env,
+            )
+        except ElegibilidadReceError as exc:
+            raise PerfilCargaMasivaError(
+                "El punto de venta elegido no tiene una acreditación RECE vigente. "
+                "Actualizá la constancia de puntos de venta para este emisor."
+            ) from exc

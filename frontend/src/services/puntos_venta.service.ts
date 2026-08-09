@@ -1,9 +1,11 @@
 import apiClient from "./api";
 import type {
+  ImportarConstanciaPuntosVentaOptions,
   ImportarPuntosVentaResponse,
   PuntoVenta,
   PuntoVentaCreate,
   PuntoVentaUpdate,
+  SincronizarPuntosVentaResponse,
 } from "@/types/punto_venta";
 
 export const puntosVentaService = {
@@ -32,13 +34,27 @@ export const puntosVentaService = {
     await apiClient.delete(`/api/puntos-venta/${id}`);
   },
 
-  async importarConstancia(file: File): Promise<ImportarPuntosVentaResponse> {
+  async importarConstancia(
+    file: File,
+    options: ImportarConstanciaPuntosVentaOptions,
+  ): Promise<ImportarPuntosVentaResponse> {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append(
+      "confirmar_procedencia_produccion",
+      String(options.confirmar_procedencia_produccion),
+    );
     const response = await apiClient.post<ImportarPuntosVentaResponse>(
       "/api/puntos-venta/importar-constancia",
       formData,
       { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return response.data;
+  },
+
+  async sincronizarArca(): Promise<SincronizarPuntosVentaResponse> {
+    const response = await apiClient.post<SincronizarPuntosVentaResponse>(
+      "/api/puntos-venta/sincronizar-arca",
     );
     return response.data;
   },

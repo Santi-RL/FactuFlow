@@ -7,11 +7,12 @@ import json
 import logging
 import unicodedata
 from collections import defaultdict
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
-from typing import Any
+from typing import Any, Literal
 from zipfile import BadZipFile
 
 from openpyxl import Workbook, load_workbook
@@ -19,8 +20,9 @@ from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.utils.datetime import from_excel
 from openpyxl.styles import Font, PatternFill
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import delete, exists, func, select, update
+from sqlalchemy import delete, exists, func, null, select, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -32,6 +34,10 @@ from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
+from app.models.elegibilidad_rece import (
+    FASES_GUARDA_RECE_ACTIVAS,
+    PuntoVentaGuardaEmisionRece,
+)
 from app.models.lote_comprobante import (
     LoteComprobante,
     LoteComprobanteEvento,
@@ -63,12 +69,21 @@ from app.services.formatos_importacion_service import (
     ImportacionNormalizada,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
+from app.services.elegibilidad_rece_service import (
+    ContextoElegibilidadRece,
+    ElegibilidadReceError,
+    ElegibilidadReceService,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class LoteComprobanteError(Exception):
     """Error funcional durante la validación o emisión del lote."""
+
+
+class LoteComprobanteConflictoError(LoteComprobanteError):
+    """Conflicto durable que impide mutar o eliminar un lote."""
 
 
 @dataclass(frozen=True)
@@ -114,6 +129,7 @@ class GrupoPendienteEmision:
 
     grupo: LoteComprobanteGrupo
     request: EmitirComprobanteRequest
+    contexto_rece: ContextoElegibilidadRece
 
 
 @dataclass(frozen=True)
@@ -475,6 +491,7 @@ class LoteComprobantesService:
             )
 
         orden = 0
+        elegibilidad = ElegibilidadReceService(self.db)
         for comprobante_ref, row_group in grupos_por_ref.items():
             group_result = self._validar_grupo(
                 comprobante_ref=comprobante_ref,
@@ -482,9 +499,28 @@ class LoteComprobantesService:
                 empresa=empresa,
                 puntos_venta=puntos_venta,
             )
+            contexto_rece: ContextoElegibilidadRece | None = None
+            if group_result["estado"] == "validado":
+                punto_numero = int(group_result["punto_venta_numero"])
+                punto = puntos_venta[punto_numero]
+                try:
+                    contexto_rece = await elegibilidad.exigir_contexto_preautorizacion(
+                        empresa_id=empresa.id,
+                        punto_venta_id=punto.id,
+                        ambiente=settings.arca_env,
+                        tipo_comprobante=int(group_result["tipo_comprobante"]),
+                    )
+                except ElegibilidadReceError as exc:
+                    group_result["estado"] = "con_error"
+                    group_result["mensajes"] = [
+                        exc.mensaje,
+                        "No se creó un payload emitible para este comprobante.",
+                    ]
+                    group_result["payload"] = None
             orden += 1
             grupo = LoteComprobanteGrupo(
                 lote_id=lote.id,
+                empresa_id=empresa.id,
                 comprobante_ref=comprobante_ref,
                 orden=orden,
                 estado=group_result["estado"],
@@ -495,6 +531,16 @@ class LoteComprobantesService:
                 total_estimado=group_result.get("total_estimado", Decimal("0")),
                 payload_json=group_result.get("payload"),
                 mensajes_json=group_result["mensajes"],
+                punto_venta_id=(
+                    contexto_rece.punto_venta_id if contexto_rece else None
+                ),
+                ambiente=contexto_rece.ambiente if contexto_rece else None,
+                punto_venta_elegibilidad_revision_id=(
+                    contexto_rece.elegibilidad_revision_id if contexto_rece else None
+                ),
+                punto_venta_revision_fiscal=(
+                    contexto_rece.punto_venta_revision_fiscal if contexto_rece else None
+                ),
             )
             self.db.add(grupo)
             await self.db.flush()
@@ -877,6 +923,8 @@ class LoteComprobantesService:
         empresa_id: int,
         operacion_id: int | None = None,
         confirmacion_duplicado_logico: bool = False,
+        material_rece: dict[str, Any] | None = None,
+        commit: bool = True,
     ) -> LoteComprobante:
         """Deja un lote validado en cola persistente para el worker."""
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
@@ -896,12 +944,20 @@ class LoteComprobantesService:
             "El lote quedó en cola para procesamiento en segundo plano."
         )
         if operacion_id is not None:
+            if not material_rece or not material_rece.get("grupos"):
+                raise LoteComprobanteError(
+                    "El lote no tiene material RECE durable para el worker."
+                )
             metadata = dict(lote.metadata_json or {})
             metadata["operacion_idempotente_id"] = operacion_id
             metadata["confirmacion_duplicado_logico"] = confirmacion_duplicado_logico
+            metadata["pf19b_rece_material"] = material_rece
             lote.metadata_json = metadata
-        await self.db.commit()
-        await self.db.refresh(lote)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(lote)
+        else:
+            await self.db.flush()
         return lote
 
     async def bloquear_lote_procesando_stale(
@@ -919,7 +975,46 @@ class LoteComprobantesService:
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         if lote.estado != "procesando" or lote.updated_at >= stale_before:
             return lote
+        ownership_inicial = await self._lote_tiene_guarda_rece_activa(lote)
+        if ownership_inicial == "guarda_activa":
+            await self.db.rollback()
+            return await self.obtener_lote_resumen(lote_id, empresa_id)
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        clasificacion_stale = await self._clasificar_grupos_validos_stale(lote)
+        ids_intactos_preflight = {
+            int(grupo.id) for grupo in clasificacion_stale.intactos
+        }
+        preflight_ok = False
+        preflight_checks: list[dict[str, Any]] = []
+        preflight_error: str | None = None
+        if (
+            ownership_inicial == "reclamada"
+            and clasificacion_stale.total_validos
+            and not clasificacion_stale.con_evidencia_fiscal
+            and not await self._lote_tiene_intentos_fiscales_inciertos(lote.id)
+            and await self._lote_tiene_evidencia_fiscal_local_coherente(lote.id)
+        ):
+            (
+                preflight_ok,
+                preflight_checks,
+                preflight_error,
+            ) = await self._preflight_reanudar_grupos_intactos_stale(
+                lote,
+                clasificacion_stale.intactos,
+            )
 
+        ownership_final = await self._lote_tiene_guarda_rece_activa(
+            lote,
+            retener_locks=True,
+        )
+        if ownership_final == "guarda_activa":
+            await self.db.rollback()
+            return await self.obtener_lote_resumen(lote_id, empresa_id)
+        ownership_valido = ownership_final == "reclamada"
+        if not ownership_valido:
+            preflight_ok = False
+            preflight_error = "operacion_o_snapshot_rece_legacy"
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         grupos_reconciliados = await self._reconciliar_grupos_autorizados_existentes(
             lote_id
         )
@@ -960,6 +1055,63 @@ class LoteComprobantesService:
                 },
             )
             operacion_id = (lote.metadata_json or {}).get("operacion_idempotente_id")
+            if ownership_valido and operacion_id is not None:
+                await self._guardar_respuesta_operacion_background(lote, operacion_id)
+            if commit:
+                await self.db.commit()
+                await self.db.refresh(lote)
+            else:
+                await self.db.flush()
+            return lote
+
+        clasificacion_actual = await self._clasificar_grupos_validos_stale(lote)
+        if {
+            int(grupo.id) for grupo in clasificacion_actual.intactos
+        } != ids_intactos_preflight:
+            preflight_ok = False
+            preflight_error = "membresia_stale_cambio_durante_preflight"
+        clasificacion_stale = clasificacion_actual
+        if preflight_ok and ownership_valido:
+            await self._actualizar_contadores_lote(lote)
+            lote.estado = "en_cola"
+            lote.finished_at = None
+            lote.procesamiento_async = True
+            lote.modo_procesamiento = "background"
+            lote.mensaje_resumen = (
+                "El lote se recuperó de una interrupción sin evidencia fiscal "
+                "en los comprobantes pendientes, verificó una numeración segura "
+                "contra ARCA y quedó en cola para continuar."
+            )
+            metadata = dict(lote.metadata_json or {})
+            metadata["recuperacion_stale_intacta"] = {
+                "motivo": "pendientes_sin_intento_fiscal_y_numeracion_segura",
+                "stale_minutes": settings.batch_processing_stale_minutes,
+                "requeued_at": datetime.utcnow().isoformat(),
+                "grupos_reconciliados_localmente": grupos_reconciliados,
+                "grupos_intactos": len(clasificacion_stale.intactos),
+                "preflight_arca": preflight_checks,
+            }
+            lote.metadata_json = metadata
+            self._registrar_evento_lote(
+                lote_id=lote.id,
+                accion="reanudacion_segura_stale",
+                usuario_id=None,
+                motivo=(
+                    "El worker verificó que los comprobantes pendientes no "
+                    "tenían intento fiscal ni numeración asignada y reencoló "
+                    "el lote tras diagnosticar una numeración segura contra "
+                    "ARCA, incluso con historia externa legítima."
+                ),
+                metadata_json={
+                    "estado_anterior": "procesando",
+                    "estado_nuevo": "en_cola",
+                    "stale_minutes": settings.batch_processing_stale_minutes,
+                    "grupos_reconciliados_localmente": grupos_reconciliados,
+                    "grupos_intactos": len(clasificacion_stale.intactos),
+                    "preflight_arca": preflight_checks,
+                },
+            )
+            operacion_id = metadata.get("operacion_idempotente_id")
             if operacion_id is not None:
                 await self._guardar_respuesta_operacion_background(lote, operacion_id)
             if commit:
@@ -969,79 +1121,42 @@ class LoteComprobantesService:
                 await self.db.flush()
             return lote
 
-        clasificacion_stale = await self._clasificar_grupos_validos_stale(lote)
-        preflight_checks: list[dict[str, Any]] = []
-        preflight_error: str | None = None
-        if (
-            clasificacion_stale.total_validos
-            and not clasificacion_stale.con_evidencia_fiscal
-            and not await self._lote_tiene_intentos_fiscales_inciertos(lote.id)
-            and await self._lote_tiene_evidencia_fiscal_local_coherente(lote.id)
-        ):
-            (
-                preflight_ok,
-                preflight_checks,
-                preflight_error,
-            ) = await self._preflight_reanudar_grupos_intactos_stale(
-                lote,
-                clasificacion_stale.intactos,
+        operacion_id_reconciliacion = (lote.metadata_json or {}).get(
+            "operacion_idempotente_id"
+        )
+        if ownership_valido:
+            if not isinstance(operacion_id_reconciliacion, int) or isinstance(
+                operacion_id_reconciliacion,
+                bool,
+            ):
+                await self.db.rollback()
+                raise LoteComprobanteConflictoError(
+                    "El lote perdió la operación propietaria antes de reconciliarse."
+                )
+            operacion_inmovilizada = await self.db.execute(
+                update(OperacionIdempotente)
+                .where(
+                    OperacionIdempotente.id == operacion_id_reconciliacion,
+                    OperacionIdempotente.empresa_id == empresa_id,
+                    OperacionIdempotente.lote_id == lote_id,
+                    OperacionIdempotente.tipo_operacion == "procesar_lote",
+                    OperacionIdempotente.estado == "en_proceso",
+                )
+                .values(estado="requiere_reconciliacion")
             )
-            if preflight_ok:
-                await self._actualizar_contadores_lote(lote)
-                lote.estado = "en_cola"
-                lote.finished_at = None
-                lote.procesamiento_async = True
-                lote.modo_procesamiento = "background"
-                lote.mensaje_resumen = (
-                    "El lote se recuperó de una interrupción sin evidencia fiscal "
-                    "en los comprobantes pendientes, verificó una numeración segura "
-                    "contra ARCA y quedó en cola para continuar."
+            if operacion_inmovilizada.rowcount != 1:
+                await self.db.rollback()
+                raise LoteComprobanteConflictoError(
+                    "La operación cambió antes de inmovilizar el lote stale."
                 )
-                metadata = dict(lote.metadata_json or {})
-                metadata["recuperacion_stale_intacta"] = {
-                    "motivo": "pendientes_sin_intento_fiscal_y_numeracion_segura",
-                    "stale_minutes": settings.batch_processing_stale_minutes,
-                    "requeued_at": datetime.utcnow().isoformat(),
-                    "grupos_reconciliados_localmente": grupos_reconciliados,
-                    "grupos_intactos": len(clasificacion_stale.intactos),
-                    "preflight_arca": preflight_checks,
-                }
-                lote.metadata_json = metadata
-                self._registrar_evento_lote(
-                    lote_id=lote.id,
-                    accion="reanudacion_segura_stale",
-                    usuario_id=None,
-                    motivo=(
-                        "El worker verificó que los comprobantes pendientes no "
-                        "tenían intento fiscal ni numeración asignada y reencoló "
-                        "el lote tras diagnosticar una numeración segura contra "
-                        "ARCA, incluso con historia externa legítima."
-                    ),
-                    metadata_json={
-                        "estado_anterior": "procesando",
-                        "estado_nuevo": "en_cola",
-                        "stale_minutes": settings.batch_processing_stale_minutes,
-                        "grupos_reconciliados_localmente": grupos_reconciliados,
-                        "grupos_intactos": len(clasificacion_stale.intactos),
-                        "preflight_arca": preflight_checks,
-                    },
-                )
-                operacion_id = metadata.get("operacion_idempotente_id")
-                if operacion_id is not None:
-                    await self._guardar_respuesta_operacion_background(
-                        lote, operacion_id
-                    )
-                if commit:
-                    await self.db.commit()
-                    await self.db.refresh(lote)
-                else:
-                    await self.db.flush()
-                return lote
 
+        grupos_a_reconciliar = list(clasificacion_stale.con_evidencia_fiscal)
+        if preflight_error is not None:
+            grupos_a_reconciliar.extend(clasificacion_stale.intactos)
         grupos_marcados_reconciliacion = (
             await self._marcar_grupos_validos_stale_para_reconciliacion(
                 lote,
-                grupos=clasificacion_stale.con_evidencia_fiscal,
+                grupos=grupos_a_reconciliar,
             )
         )
         await self._actualizar_contadores_lote(lote)
@@ -1089,7 +1204,7 @@ class LoteComprobantesService:
             },
         )
         operacion_id = metadata.get("operacion_idempotente_id")
-        if operacion_id is not None:
+        if ownership_valido and operacion_id is not None:
             await self._guardar_respuesta_operacion_background(lote, operacion_id)
         if commit:
             await self.db.commit()
@@ -1097,6 +1212,123 @@ class LoteComprobantesService:
         else:
             await self.db.flush()
         return lote
+
+    async def _lote_tiene_guarda_rece_activa(
+        self,
+        lote: LoteComprobante,
+        *,
+        retener_locks: bool = False,
+    ) -> Literal["reclamada", "guarda_activa", "legacy_invalida"]:
+        """Reclama la operación stale y detecta cualquier guarda activa."""
+        lote_id = int(lote.id)
+        empresa_id = int(lote.empresa_id)
+        operacion_id = (lote.metadata_json or {}).get("operacion_idempotente_id")
+        await self.db.rollback()
+        operacion = None
+        intentos: list[IntentoEmisionFiscal] = []
+        guardas: list[PuntoVentaGuardaEmisionRece] = []
+        if isinstance(operacion_id, int):
+            operacion = (
+                await self.db.execute(
+                    select(OperacionIdempotente)
+                    .where(
+                        OperacionIdempotente.id == operacion_id,
+                        OperacionIdempotente.empresa_id == empresa_id,
+                        OperacionIdempotente.lote_id == lote_id,
+                        OperacionIdempotente.tipo_operacion == "procesar_lote",
+                    )
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            intentos = list(
+                (
+                    await self.db.execute(
+                        select(IntentoEmisionFiscal)
+                        .where(IntentoEmisionFiscal.operacion_id == operacion_id)
+                        .order_by(IntentoEmisionFiscal.id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            guardas = list(
+                (
+                    await self.db.execute(
+                        select(PuntoVentaGuardaEmisionRece)
+                        .where(PuntoVentaGuardaEmisionRece.operacion_id == operacion_id)
+                        .order_by(PuntoVentaGuardaEmisionRece.id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        lote_actual = (
+            await self.db.execute(
+                select(LoteComprobante)
+                .where(
+                    LoteComprobante.id == lote_id,
+                    LoteComprobante.empresa_id == empresa_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        stale_before = datetime.utcnow() - timedelta(
+            minutes=settings.batch_processing_stale_minutes
+        )
+        metadata_actual = lote_actual.metadata_json if lote_actual is not None else None
+        material_rece = (
+            metadata_actual.get("pf19b_rece_material")
+            if isinstance(metadata_actual, dict)
+            else None
+        )
+        ids_guardas_referenciadas = {
+            int(intento.guarda_rece_id)
+            for intento in intentos
+            if intento.guarda_rece_id is not None
+        }
+        grafo_guardas_coherente = (
+            not any(intento.guarda_rece_id is None for intento in intentos)
+            and {int(guarda.id) for guarda in guardas} == ids_guardas_referenciadas
+        )
+        ownership_valido = (
+            isinstance(operacion_id, int)
+            and operacion is not None
+            and isinstance(metadata_actual, dict)
+            and metadata_actual.get("operacion_idempotente_id") == operacion_id
+            and isinstance(material_rece, dict)
+            and grafo_guardas_coherente
+            and IdempotenciaFiscalService.operacion_conserva_ownership_pre_arca(
+                operacion,
+                respuesta_es_sql_null=False,
+                lote_background=True,
+                material_rece=material_rece,
+            )
+            and lote_actual is not None
+            and lote_actual.estado == "procesando"
+            and lote_actual.updated_at < stale_before
+        )
+        lote_no_reclamable = (
+            lote_actual is None
+            or lote_actual.estado != "procesando"
+            or lote_actual.updated_at >= stale_before
+        )
+        if lote_no_reclamable:
+            estado = "guarda_activa"
+        elif any(guarda.fase in FASES_GUARDA_RECE_ACTIVAS for guarda in guardas):
+            estado = "guarda_activa"
+        elif ownership_valido:
+            estado = "reclamada"
+        else:
+            estado = "legacy_invalida"
+        if estado == "guarda_activa" or not retener_locks:
+            await self.db.commit()
+        return estado
 
     async def listar_lotes(
         self, empresa_id: int, limit: int = 20
@@ -1118,14 +1350,24 @@ class LoteComprobantesService:
         estados: set[str] | None = None,
         grupo_ids: list[int] | None = None,
     ) -> dict[str, Any]:
-        """Calcula una huella estable de los payloads fiscales del lote."""
+        """Calcula una huella estable de payload, membresía y snapshot RECE."""
         stmt = (
-            select(LoteComprobanteGrupo.id, LoteComprobanteGrupo.payload_json)
+            select(
+                LoteComprobanteGrupo.id,
+                LoteComprobanteGrupo.empresa_id,
+                LoteComprobanteGrupo.punto_venta_id,
+                LoteComprobanteGrupo.punto_venta_numero,
+                LoteComprobanteGrupo.ambiente,
+                LoteComprobanteGrupo.punto_venta_elegibilidad_revision_id,
+                LoteComprobanteGrupo.punto_venta_revision_fiscal,
+                LoteComprobanteGrupo.tipo_comprobante,
+                LoteComprobanteGrupo.payload_json,
+            )
             .join(LoteComprobante, LoteComprobante.id == LoteComprobanteGrupo.lote_id)
             .where(
                 LoteComprobanteGrupo.lote_id == lote_id,
                 LoteComprobante.empresa_id == empresa_id,
-                LoteComprobanteGrupo.payload_json.is_not(None),
+                LoteComprobanteGrupo.empresa_id == empresa_id,
             )
             .order_by(LoteComprobanteGrupo.id)
         )
@@ -1135,19 +1377,30 @@ class LoteComprobantesService:
             stmt = stmt.where(LoteComprobanteGrupo.id.in_(grupo_ids))
 
         rows = (await self.db.execute(stmt)).all()
+        if grupo_ids and {int(row.id) for row in rows} != set(grupo_ids):
+            raise LoteComprobanteError(
+                "La selección de comprobantes cambió antes de confirmar la acción"
+            )
         grupos = [
             {
-                "grupo_id": grupo_id,
+                "grupo_id": int(row.id),
+                "empresa_id": int(row.empresa_id),
+                "punto_venta_id": row.punto_venta_id,
+                "punto_venta_numero": row.punto_venta_numero,
+                "ambiente": row.ambiente,
+                "elegibilidad_revision_id": (row.punto_venta_elegibilidad_revision_id),
+                "punto_venta_revision_fiscal": row.punto_venta_revision_fiscal,
+                "tipo_comprobante": row.tipo_comprobante,
                 "payload_hash": hashlib.sha256(
                     json.dumps(
-                        payload_json or {},
+                        row.payload_json or {},
                         sort_keys=True,
                         separators=(",", ":"),
                         default=str,
                     ).encode("utf-8")
                 ).hexdigest(),
             }
-            for grupo_id, payload_json in rows
+            for row in rows
         ]
         encoded = json.dumps(
             grupos,
@@ -1157,6 +1410,7 @@ class LoteComprobantesService:
         return {
             "grupo_ids": [grupo["grupo_id"] for grupo in grupos],
             "grupos_hash": hashlib.sha256(encoded).hexdigest(),
+            "grupos": grupos,
         }
 
     async def obtener_lote(self, lote_id: int, empresa_id: int) -> LoteComprobante:
@@ -1271,8 +1525,14 @@ class LoteComprobantesService:
             )
         )
         filas = list(result.all())
+        material_validos = await self.calcular_material_idempotente_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            estados={"validado"},
+        )
         fechas, puntos_venta, token = self._crear_token_confirmacion_desde_payloads(
-            [(payload, punto) for payload, punto, _ in filas]
+            [(payload, punto) for payload, punto, _ in filas],
+            snapshot_digest=material_validos["grupos_hash"],
         )
         fallidos_result = await self.db.execute(
             select(
@@ -1287,7 +1547,16 @@ class LoteComprobantesService:
             fechas_fallidos,
             puntos_fallidos,
             token_fallidos,
-        ) = self._crear_token_confirmacion_desde_payloads(list(fallidos_result.all()))
+        ) = self._crear_token_confirmacion_desde_payloads(
+            list(fallidos_result.all()),
+            snapshot_digest=(
+                await self.calcular_material_idempotente_grupos(
+                    lote_id=lote_id,
+                    empresa_id=empresa_id,
+                    estados={"fallido"},
+                )
+            )["grupos_hash"],
+        )
         duplicados = await self.obtener_confirmacion_duplicado_logico_grupos(
             lote_id=lote_id,
             empresa_id=empresa_id,
@@ -1353,7 +1622,15 @@ class LoteComprobantesService:
             )
 
         fechas, puntos_venta, token = self._crear_token_confirmacion_desde_payloads(
-            [(payload, punto) for _, payload, punto in filas]
+            [(payload, punto) for _, payload, punto in filas],
+            snapshot_digest=(
+                await self.calcular_material_idempotente_grupos(
+                    lote_id=lote_id,
+                    empresa_id=empresa_id,
+                    estados=estados,
+                    grupo_ids=grupo_ids,
+                )
+            )["grupos_hash"],
         )
         if not fechas or not puntos_venta:
             raise LoteComprobanteError(
@@ -1493,9 +1770,11 @@ class LoteComprobantesService:
 
     @staticmethod
     def _crear_token_confirmacion_desde_payloads(
-        filas: list[tuple[dict[str, Any] | None, int | None]]
+        filas: list[tuple[dict[str, Any] | None, int | None]],
+        *,
+        snapshot_digest: str,
     ) -> tuple[list[str], list[int], str]:
-        """Construye fechas, puntos y token fiscal desde payloads de grupos."""
+        """Construye token con fechas, puntos y snapshot normalizado RECE."""
         fechas = sorted(
             {
                 str((payload or {}).get("fecha_emision"))[:10]
@@ -1506,7 +1785,8 @@ class LoteComprobantesService:
         puntos_venta = sorted({int(punto) for _, punto in filas if punto is not None})
         token = (
             f"fechas={','.join(fechas)};"
-            f"puntos_venta={','.join(str(punto) for punto in puntos_venta)}"
+            f"puntos_venta={','.join(str(punto) for punto in puntos_venta)};"
+            f"rece={snapshot_digest}"
         )
         return fechas, puntos_venta, token
 
@@ -1519,20 +1799,58 @@ class LoteComprobantesService:
         estado_reanudable: str,
         estados_claim: set[str],
         mensaje_seguro: str,
-    ) -> bool:
+        guarda_rece_id: int | None = None,
+        guarda_rece_token: str | None = None,
+    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
         """Revierte lote y operación en una transacción solo antes de ARCA."""
         try:
             await self.db.rollback()
+            if (guarda_rece_id is None) != (guarda_rece_token is None):
+                return "no_recuperable"
             idempotencia = IdempotenciaFiscalService(self.db)
-            operacion_marcada = (
-                await idempotencia.marcar_operacion_interrumpida_pre_arca(
-                    operacion_id,
+            grupo_ids_guarda: list[int] = []
+            if guarda_rece_id is not None and guarda_rece_token is not None:
+                grupo_ids_guarda = await self._ids_grupos_de_guarda(guarda_rece_id)
+                resultado_guarda = await ElegibilidadReceService(
+                    self.db
+                ).recuperar_guarda_interrumpida_pre_arca(
+                    operacion_id=operacion_id,
+                    guarda_id=guarda_rece_id,
+                    token=guarda_rece_token,
                     commit=False,
                 )
-            )
+                if resultado_guarda == "requiere_reconciliacion":
+                    await self._marcar_lote_y_grupos_requieren_reconciliacion(
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        grupo_ids=grupo_ids_guarda,
+                    )
+                    await self.db.commit()
+                    return "requiere_reconciliacion"
+                operacion_marcada = resultado_guarda == "recuperada_pre_arca"
+            else:
+                operacion_marcada = (
+                    await idempotencia.marcar_operacion_interrumpida_pre_arca(
+                        operacion_id,
+                        commit=False,
+                    )
+                )
             if not operacion_marcada:
                 await self.db.rollback()
-                return False
+                return "no_recuperable"
+            if grupo_ids_guarda:
+                grupos_restaurados = await self.db.execute(
+                    update(LoteComprobanteGrupo)
+                    .where(
+                        LoteComprobanteGrupo.id.in_(grupo_ids_guarda),
+                        LoteComprobanteGrupo.lote_id == lote_id,
+                        LoteComprobanteGrupo.estado == "validado",
+                    )
+                    .values(estado="validado")
+                )
+                if grupos_restaurados.rowcount != len(grupo_ids_guarda):
+                    await self.db.rollback()
+                    return "no_recuperable"
             result = await self.db.execute(
                 update(LoteComprobante)
                 .where(
@@ -1549,9 +1867,9 @@ class LoteComprobantesService:
             )
             if result.rowcount != 1:
                 await self.db.rollback()
-                return False
+                return "no_recuperable"
             await self.db.commit()
-            return True
+            return "recuperada_pre_arca"
         except Exception as recovery_exc:
             logger.error(
                 "event=pre_arca_lote_recovery_failed tipo_error=%s",
@@ -1564,17 +1882,22 @@ class LoteComprobantesService:
                     "event=pre_arca_lote_recovery_rollback_failed tipo_error=%s",
                     type(rollback_exc).__name__,
                 )
-            return False
+            return "no_recuperable"
 
     async def recuperar_lote_worker_interrumpido_pre_arca(
         self,
         *,
         lote_id: int,
         empresa_id: int,
-    ) -> bool:
+        guarda_rece_id: int | None = None,
+        guarda_rece_token: str | None = None,
+    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
         """Devuelve a cola un lote del worker solo si su operación es reanudable."""
         try:
             await self.db.rollback()
+            if (guarda_rece_id is None) != (guarda_rece_token is None):
+                return "no_recuperable"
+            tiene_guarda = guarda_rece_id is not None and guarda_rece_token is not None
             metadata = (
                 await self.db.execute(
                     select(LoteComprobante.metadata_json).where(
@@ -1586,7 +1909,7 @@ class LoteComprobantesService:
             operacion_id = (metadata or {}).get("operacion_idempotente_id")
             if not isinstance(operacion_id, int):
                 await self.db.rollback()
-                return False
+                return "no_recuperable"
         except Exception as recovery_exc:
             logger.error(
                 "event=pre_arca_worker_lookup_failed tipo_error=%s",
@@ -1599,21 +1922,81 @@ class LoteComprobantesService:
                     "event=pre_arca_worker_lookup_rollback_failed tipo_error=%s",
                     type(rollback_exc).__name__,
                 )
-            return False
+            return "no_recuperable"
 
         try:
-            sin_intentos = ~exists(
-                select(IntentoEmisionFiscal.id).where(
-                    IntentoEmisionFiscal.operacion_id == operacion_id
+            grupo_ids_guarda: list[int] = []
+            respuesta_worker: dict[str, Any] | None = None
+            if tiene_guarda:
+                operacion_worker = (
+                    await self.db.execute(
+                        select(OperacionIdempotente)
+                        .where(
+                            OperacionIdempotente.id == operacion_id,
+                            OperacionIdempotente.empresa_id == empresa_id,
+                            OperacionIdempotente.lote_id == lote_id,
+                            OperacionIdempotente.tipo_operacion == "procesar_lote",
+                            OperacionIdempotente.estado == "en_proceso",
+                        )
+                        .with_for_update()
+                    )
+                ).scalar_one_or_none()
+                if (
+                    operacion_worker is None
+                    or not self._respuesta_worker_en_progreso_valida(
+                        operacion_worker.response_json,
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        operacion_id=operacion_id,
+                        material_rece=(metadata or {}).get("pf19b_rece_material"),
+                    )
+                ):
+                    await self.db.rollback()
+                    return "no_recuperable"
+                respuesta_worker = dict(operacion_worker.response_json)
+                respuesta_liberada = await self.db.execute(
+                    update(OperacionIdempotente)
+                    .where(
+                        OperacionIdempotente.id == operacion_id,
+                        OperacionIdempotente.estado == "en_proceso",
+                    )
+                    .values(response_json=null())
                 )
-            )
+                if respuesta_liberada.rowcount != 1:
+                    await self.db.rollback()
+                    return "no_recuperable"
+                grupo_ids_guarda = await self._ids_grupos_de_guarda(guarda_rece_id)
+                resultado_guarda = await ElegibilidadReceService(
+                    self.db
+                ).recuperar_guarda_interrumpida_pre_arca(
+                    operacion_id=operacion_id,
+                    guarda_id=guarda_rece_id,
+                    token=guarda_rece_token,
+                    commit=False,
+                )
+                if resultado_guarda == "requiere_reconciliacion":
+                    await self._marcar_lote_y_grupos_requieren_reconciliacion(
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        grupo_ids=grupo_ids_guarda,
+                    )
+                    await self.db.commit()
+                    return "requiere_reconciliacion"
+                operacion_recuperada = resultado_guarda == "recuperada_pre_arca"
+            else:
+                sin_intentos = ~exists(
+                    select(IntentoEmisionFiscal.id).where(
+                        IntentoEmisionFiscal.operacion_id == operacion_id
+                    )
+                )
+                operacion_recuperada = True
             result = await self.db.execute(
                 update(LoteComprobante)
                 .where(
                     LoteComprobante.id == lote_id,
                     LoteComprobante.empresa_id == empresa_id,
                     LoteComprobante.estado.in_({"procesando", "en_cola"}),
-                    sin_intentos,
+                    *(() if tiene_guarda else (sin_intentos,)),
                 )
                 .values(
                     estado="en_cola",
@@ -1624,11 +2007,40 @@ class LoteComprobantesService:
                     ),
                 )
             )
-            if result.rowcount != 1:
+            if not operacion_recuperada or result.rowcount != 1:
                 await self.db.rollback()
-                return False
+                return "no_recuperable"
+            if grupo_ids_guarda:
+                grupos_restaurados = await self.db.execute(
+                    update(LoteComprobanteGrupo)
+                    .where(
+                        LoteComprobanteGrupo.id.in_(grupo_ids_guarda),
+                        LoteComprobanteGrupo.lote_id == lote_id,
+                        LoteComprobanteGrupo.estado == "validado",
+                    )
+                    .values(estado="validado")
+                )
+                if grupos_restaurados.rowcount != len(grupo_ids_guarda):
+                    await self.db.rollback()
+                    return "no_recuperable"
+            if tiene_guarda:
+                operacion_retenida_por_worker = await self.db.execute(
+                    update(OperacionIdempotente)
+                    .where(
+                        OperacionIdempotente.id == operacion_id,
+                        OperacionIdempotente.estado == "interrumpida_pre_arca",
+                        OperacionIdempotente.response_json.is_(None),
+                    )
+                    .values(
+                        estado="en_proceso",
+                        response_json=respuesta_worker,
+                    )
+                )
+                if operacion_retenida_por_worker.rowcount != 1:
+                    await self.db.rollback()
+                    return "no_recuperable"
             await self.db.commit()
-            return True
+            return "recuperada_pre_arca"
         except Exception as recovery_exc:
             logger.error(
                 "event=pre_arca_worker_recovery_failed tipo_error=%s",
@@ -1641,7 +2053,25 @@ class LoteComprobantesService:
                     "event=pre_arca_worker_recovery_rollback_failed tipo_error=%s",
                     type(rollback_exc).__name__,
                 )
-            return False
+            return "no_recuperable"
+
+    @staticmethod
+    def _respuesta_worker_en_progreso_valida(
+        response_json: Any,
+        *,
+        lote_id: int,
+        empresa_id: int,
+        operacion_id: int,
+        material_rece: Any,
+    ) -> bool:
+        """Reconoce solo la respuesta durable propia del worker de ese lote."""
+        return IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+            response_json,
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            operacion_id=operacion_id,
+            material_rece=material_rece,
+        )
 
     async def recuperar_reintento_interrumpido_pre_arca(
         self,
@@ -1650,26 +2080,174 @@ class LoteComprobantesService:
         grupo_id: int,
         operacion_id: int,
         mensajes_previos: list[str] | None,
-    ) -> bool:
+        guarda_rece_id: int | None = None,
+        guarda_rece_token: str | None = None,
+    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
         """Restaura únicamente el grupo reclamado y su operación antes de ARCA."""
         try:
             await self.db.rollback()
+            if (guarda_rece_id is None) != (guarda_rece_token is None):
+                return "no_recuperable"
+            operacion = (
+                await self.db.execute(
+                    select(OperacionIdempotente)
+                    .where(OperacionIdempotente.id == operacion_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            if (
+                operacion is None
+                or operacion.tipo_operacion != "reintentar_fallidos_lote"
+                or operacion.lote_id != lote_id
+            ):
+                await self.db.rollback()
+                return "no_recuperable"
+            await self.db.execute(
+                select(IntentoEmisionFiscal.id)
+                .where(IntentoEmisionFiscal.operacion_id == operacion_id)
+                .order_by(IntentoEmisionFiscal.id)
+                .with_for_update()
+            )
+            guardas_operacion = list(
+                (
+                    await self.db.execute(
+                        select(PuntoVentaGuardaEmisionRece)
+                        .where(PuntoVentaGuardaEmisionRece.operacion_id == operacion_id)
+                        .order_by(PuntoVentaGuardaEmisionRece.id)
+                        .with_for_update()
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            lote = (
+                await self.db.execute(
+                    select(LoteComprobante)
+                    .where(
+                        LoteComprobante.id == lote_id,
+                        LoteComprobante.empresa_id == operacion.empresa_id,
+                    )
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            metadata = lote.metadata_json if lote is not None else None
+            material_rece = (
+                metadata.get("pf19b_rece_material")
+                if isinstance(metadata, dict)
+                else None
+            )
+            owner_metadata = (
+                metadata.get("operacion_idempotente_id")
+                if isinstance(metadata, dict)
+                else None
+            )
+            if (
+                not isinstance(metadata, dict)
+                or not isinstance(owner_metadata, int)
+                or isinstance(owner_metadata, bool)
+                or owner_metadata != operacion_id
+                or not isinstance(material_rece, dict)
+                or set(material_rece) != {"grupo_ids", "grupos_hash", "grupos"}
+                or not isinstance(material_rece.get("grupo_ids"), list)
+                or not isinstance(material_rece.get("grupos"), list)
+                or not isinstance(material_rece.get("grupos_hash"), str)
+            ):
+                await self.db.rollback()
+                return "no_recuperable"
+            grupo_ids_raw = material_rece["grupo_ids"]
+            if any(
+                not isinstance(grupo_material_id, int)
+                or isinstance(grupo_material_id, bool)
+                for grupo_material_id in grupo_ids_raw
+            ):
+                await self.db.rollback()
+                return "no_recuperable"
+            grupo_ids_material = [
+                int(grupo_material_id) for grupo_material_id in grupo_ids_raw
+            ]
+            grupos_bloqueados = list(
+                (
+                    await self.db.execute(
+                        select(LoteComprobanteGrupo)
+                        .where(
+                            LoteComprobanteGrupo.lote_id == lote_id,
+                            LoteComprobanteGrupo.empresa_id == operacion.empresa_id,
+                            LoteComprobanteGrupo.id.in_(grupo_ids_material),
+                        )
+                        .order_by(LoteComprobanteGrupo.id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            grupo_objetivo = next(
+                (grupo for grupo in grupos_bloqueados if int(grupo.id) == grupo_id),
+                None,
+            )
+            if (
+                not grupo_ids_material
+                or len(grupo_ids_material) != len(set(grupo_ids_material))
+                or [int(grupo.id) for grupo in grupos_bloqueados] != grupo_ids_material
+                or grupo_objetivo is None
+                or grupo_objetivo.estado != "reintentando"
+                or (
+                    guarda_rece_id is not None
+                    and not any(
+                        int(guarda.id) == guarda_rece_id
+                        and guarda.operacion_id == operacion_id
+                        for guarda in guardas_operacion
+                    )
+                )
+            ):
+                await self.db.rollback()
+                return "no_recuperable"
+            material_actual = await self.calcular_material_idempotente_grupos(
+                lote_id=lote_id,
+                empresa_id=int(operacion.empresa_id),
+                grupo_ids=grupo_ids_material,
+            )
+            if material_actual != material_rece:
+                await self.db.rollback()
+                return "no_recuperable"
             idempotencia = IdempotenciaFiscalService(self.db)
-            operacion_marcada = (
-                await idempotencia.marcar_operacion_interrumpida_pre_arca(
-                    operacion_id,
+            if guarda_rece_id is not None and guarda_rece_token is not None:
+                resultado_guarda = await ElegibilidadReceService(
+                    self.db
+                ).recuperar_guarda_interrumpida_pre_arca(
+                    operacion_id=operacion_id,
+                    guarda_id=guarda_rece_id,
+                    token=guarda_rece_token,
                     commit=False,
                 )
-            )
+                if resultado_guarda == "requiere_reconciliacion":
+                    await self._marcar_lote_y_grupos_requieren_reconciliacion(
+                        lote_id=lote_id,
+                        empresa_id=None,
+                        grupo_ids=[grupo_id],
+                    )
+                    await self.db.commit()
+                    return "requiere_reconciliacion"
+                operacion_marcada = resultado_guarda == "recuperada_pre_arca"
+            else:
+                operacion_marcada = (
+                    await idempotencia.marcar_operacion_interrumpida_pre_arca(
+                        operacion_id,
+                        commit=False,
+                    )
+                )
             if not operacion_marcada:
                 await self.db.rollback()
-                return False
+                return "no_recuperable"
             result = await self.db.execute(
                 update(LoteComprobanteGrupo)
                 .where(
                     LoteComprobanteGrupo.id == grupo_id,
                     LoteComprobanteGrupo.lote_id == lote_id,
-                    LoteComprobanteGrupo.estado.in_({"reintentando", "fallido"}),
+                    LoteComprobanteGrupo.estado == "reintentando",
                 )
                 .values(
                     estado="fallido",
@@ -1681,9 +2259,9 @@ class LoteComprobantesService:
             )
             if result.rowcount != 1:
                 await self.db.rollback()
-                return False
+                return "no_recuperable"
             await self.db.commit()
-            return True
+            return "recuperada_pre_arca"
         except Exception as recovery_exc:
             logger.error(
                 "event=pre_arca_retry_recovery_failed tipo_error=%s",
@@ -1696,7 +2274,126 @@ class LoteComprobantesService:
                     "event=pre_arca_retry_recovery_rollback_failed tipo_error=%s",
                     type(rollback_exc).__name__,
                 )
-            return False
+            return "no_recuperable"
+
+    async def _ids_grupos_de_guarda(self, guarda_rece_id: int) -> list[int]:
+        """Obtiene la membresía batch durable protegida por una guarda propia."""
+        return sorted(
+            {
+                int(grupo_id)
+                for grupo_id in (
+                    await self.db.execute(
+                        select(IntentoEmisionFiscal.grupo_id)
+                        .where(
+                            IntentoEmisionFiscal.guarda_rece_id == guarda_rece_id,
+                            IntentoEmisionFiscal.grupo_id.is_not(None),
+                        )
+                        .order_by(IntentoEmisionFiscal.id)
+                    )
+                ).scalars()
+            }
+        )
+
+    async def _marcar_lote_y_grupos_requieren_reconciliacion(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int | None,
+        grupo_ids: list[int],
+        mensaje_reconciliacion: str | None = None,
+    ) -> None:
+        """Bloquea lote y grupos cuando la guarda ya pudo iniciar ARCA."""
+        mensaje_reconciliacion = mensaje_reconciliacion or (
+            "La guarda fiscal pudo iniciar ARCA. No reintentes este "
+            "comprobante hasta reconciliar su resultado."
+        )
+        ids_grupos = sorted(set(grupo_ids))
+        if grupo_ids:
+            lote_detalle = (
+                await self.db.execute(
+                    select(LoteComprobante.id, LoteComprobante.compactado_at).where(
+                        LoteComprobante.id == lote_id
+                    )
+                )
+            ).one_or_none()
+            if lote_detalle is None:
+                raise LoteComprobanteError(
+                    "No se pudo verificar el detalle fiscal del lote."
+                )
+            grupos_con_filas = dict(
+                (
+                    await self.db.execute(
+                        select(
+                            LoteComprobanteFila.grupo_id,
+                            func.count(LoteComprobanteFila.id),
+                        )
+                        .where(
+                            LoteComprobanteFila.lote_id == lote_id,
+                            LoteComprobanteFila.grupo_id.in_(ids_grupos),
+                        )
+                        .group_by(LoteComprobanteFila.grupo_id)
+                    )
+                ).all()
+            )
+            if lote_detalle.compactado_at is None:
+                if set(grupos_con_filas) != set(ids_grupos):
+                    raise LoteComprobanteError(
+                        "El detalle fiscal del lote está incompleto y requiere "
+                        "intervención manual."
+                    )
+            elif grupos_con_filas:
+                raise LoteComprobanteError(
+                    "El lote compactado conserva filas fiscales inesperadas."
+                )
+            grupos_actualizados = await self.db.execute(
+                update(LoteComprobanteGrupo)
+                .where(
+                    LoteComprobanteGrupo.id.in_(ids_grupos),
+                    LoteComprobanteGrupo.lote_id == lote_id,
+                )
+                .values(
+                    estado="requiere_reconciliacion",
+                    mensajes_json=[mensaje_reconciliacion],
+                )
+            )
+            if grupos_actualizados.rowcount != len(ids_grupos):
+                raise LoteComprobanteError(
+                    "No se pudo inmovilizar la membresía fiscal del lote."
+                )
+            if grupos_con_filas:
+                filas_actualizadas = await self.db.execute(
+                    update(LoteComprobanteFila)
+                    .where(
+                        LoteComprobanteFila.lote_id == lote_id,
+                        LoteComprobanteFila.grupo_id.in_(ids_grupos),
+                    )
+                    .values(
+                        estado="requiere_reconciliacion",
+                        mensajes_json=[mensaje_reconciliacion],
+                    )
+                )
+                if filas_actualizadas.rowcount != sum(grupos_con_filas.values()):
+                    raise LoteComprobanteError(
+                        "No se pudo inmovilizar el detalle fiscal del lote."
+                    )
+        filtros_lote = [LoteComprobante.id == lote_id]
+        if empresa_id is not None:
+            filtros_lote.append(LoteComprobante.empresa_id == empresa_id)
+        lote_actualizado = await self.db.execute(
+            update(LoteComprobante)
+            .where(*filtros_lote)
+            .values(
+                estado="requiere_reconciliacion",
+                finished_at=datetime.utcnow(),
+                mensaje_resumen=(
+                    f"{mensaje_reconciliacion} El lote completo quedó " "inmovilizado."
+                ),
+            )
+        )
+        if lote_actualizado.rowcount != 1:
+            raise LoteComprobanteError(
+                "No se pudo inmovilizar el lote para reconciliación."
+            )
 
     async def reintentar_grupos_fallidos(
         self,
@@ -1705,6 +2402,8 @@ class LoteComprobantesService:
         usuario_id: int | None,
         grupo_ids: list[int] | None = None,
         operacion_id: int | None = None,
+        contextos_rece: list[ContextoElegibilidadRece] | None = None,
+        material_rece_confirmado: dict[str, Any] | None = None,
         confirmacion_duplicado_logico: bool = False,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> LoteComprobante:
@@ -1721,27 +2420,53 @@ class LoteComprobantesService:
             raise LoteComprobanteError(
                 "El lote no tiene comprobantes fallidos para reintentar"
             )
+        if not material_rece_confirmado or not material_rece_confirmado.get("grupos"):
+            raise LoteComprobanteError(
+                "El reintento no conserva el material RECE confirmado."
+            )
+        metadata_inicial = lote.metadata_json or {}
+        owner_metadata_esperado = metadata_inicial.get("operacion_idempotente_id")
+        if owner_metadata_esperado is not None and (
+            not isinstance(owner_metadata_esperado, int)
+            or isinstance(owner_metadata_esperado, bool)
+        ):
+            raise LoteComprobanteConflictoError(
+                "El lote conserva un ownership idempotente inválido."
+            )
 
         for grupo in grupos:
             mensajes_previos = list(grupo.mensajes_json or [])
             try:
-                grupo_reclamado = await self._reclamar_grupo_para_reintento(
+                (
+                    grupo_reclamado,
+                    contextos_rece,
+                ) = await self._reclamar_grupo_para_reintento(
                     lote_id=lote_id,
+                    empresa_id=empresa_id,
                     grupo_id=grupo.id,
+                    operacion_id=operacion_id,
+                    owner_metadata_esperado=owner_metadata_esperado,
+                    contextos_esperados=contextos_rece,
+                    material_rece_confirmado=material_rece_confirmado,
+                    confirmacion_duplicado_logico=confirmacion_duplicado_logico,
                 )
             except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-                recuperada = False
-                if operacion_id is not None and not fase_solicitud_arca.iniciada:
-                    recuperada = await self.recuperar_reintento_interrumpido_pre_arca(
+                recuperacion = "no_recuperable"
+                if (
+                    operacion_id is not None
+                    and not fase_solicitud_arca.guarda_actual_iniciada
+                ):
+                    recuperacion = await self.recuperar_reintento_interrumpido_pre_arca(
                         lote_id=lote_id,
                         grupo_id=grupo.id,
                         operacion_id=operacion_id,
                         mensajes_previos=mensajes_previos,
                     )
-                fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
                 raise
             if grupo_reclamado is None:
                 continue
+            owner_metadata_esperado = operacion_id
 
             try:
                 request = EmitirComprobanteRequest.model_validate(
@@ -1762,9 +2487,12 @@ class LoteComprobantesService:
                         exc=exc,
                     )
                 except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-                    recuperada = False
-                    if operacion_id is not None and not fase_solicitud_arca.iniciada:
-                        recuperada = (
+                    recuperacion = "no_recuperable"
+                    if (
+                        operacion_id is not None
+                        and not fase_solicitud_arca.guarda_actual_iniciada
+                    ):
+                        recuperacion = (
                             await self.recuperar_reintento_interrumpido_pre_arca(
                                 lote_id=lote_id,
                                 grupo_id=grupo_reclamado.id,
@@ -1772,7 +2500,7 @@ class LoteComprobantesService:
                                 mensajes_previos=mensajes_previos,
                             )
                         )
-                    fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                    fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
                     raise
                 continue
 
@@ -1785,6 +2513,25 @@ class LoteComprobantesService:
             resultado: EmitirComprobanteResponse | None = None
             async with lock:
                 try:
+                    (
+                        grupo_revalidado,
+                        contextos_rece,
+                    ) = await self._reclamar_grupo_para_reintento(
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        grupo_id=grupo_reclamado.id,
+                        operacion_id=operacion_id,
+                        owner_metadata_esperado=operacion_id,
+                        contextos_esperados=contextos_rece,
+                        material_rece_confirmado=material_rece_confirmado,
+                        confirmacion_duplicado_logico=confirmacion_duplicado_logico,
+                        solo_revalidar=True,
+                    )
+                    if grupo_revalidado is None:  # pragma: no cover - fail closed
+                        raise LoteComprobanteConflictoError(
+                            "El grupo perdió ownership antes de reservar la emisión."
+                        )
+                    grupo_reclamado = grupo_revalidado
                     resultado = (
                         await self.facturacion_service._emitir_comprobante_locked(
                             request,
@@ -1793,9 +2540,15 @@ class LoteComprobantesService:
                             usuario_id=usuario_id,
                             lote_id=lote_id,
                             grupo_id=grupo_reclamado.id,
+                            contexto_rece=self._contexto_rece_de_grupo(
+                                grupo_reclamado,
+                                contextos_rece,
+                            ),
+                            contextos_operacion=contextos_rece,
                             fase_solicitud_arca=fase_grupo,
                         )
                     )
+                    fase_solicitud_arca.adoptar_guarda(fase_grupo)
                     if fase_grupo.iniciada:
                         fase_solicitud_arca.marcar_iniciada()
                     await self._aplicar_resultado_emision_grupo(
@@ -1819,22 +2572,34 @@ class LoteComprobantesService:
                     lote = await self.obtener_lote_resumen(lote_id, empresa_id)
                     await self._actualizar_estado_lote(lote)
                     await self.db.commit()
+                except LoteComprobanteConflictoError:
+                    await self.db.rollback()
+                    raise
                 except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
+                    fase_solicitud_arca.adoptar_guarda(fase_grupo)
                     if fase_grupo.iniciada:
                         fase_solicitud_arca.marcar_iniciada()
-                    recuperada = False
-                    if operacion_id is not None and not fase_solicitud_arca.iniciada:
-                        recuperada = (
+                    recuperacion = "no_recuperable"
+                    if (
+                        operacion_id is not None
+                        and not fase_solicitud_arca.guarda_actual_iniciada
+                    ):
+                        recuperacion = (
                             await self.recuperar_reintento_interrumpido_pre_arca(
                                 lote_id=lote_id,
                                 grupo_id=grupo_reclamado.id,
                                 operacion_id=operacion_id,
                                 mensajes_previos=mensajes_previos,
+                                guarda_rece_id=fase_solicitud_arca.guarda_rece_id,
+                                guarda_rece_token=(
+                                    fase_solicitud_arca.guarda_rece_token
+                                ),
                             )
                         )
-                    fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                    fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
                     raise
                 except Exception as exc:  # pragma: no cover - defensa operacional
+                    fase_solicitud_arca.adoptar_guarda(fase_grupo)
                     try:
                         if fase_grupo.iniciada:
                             fase_solicitud_arca.marcar_iniciada()
@@ -1855,20 +2620,26 @@ class LoteComprobantesService:
                                 exc=exc,
                             )
                     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-                        recuperada = False
+                        recuperacion = "no_recuperable"
                         if (
                             operacion_id is not None
-                            and not fase_solicitud_arca.iniciada
+                            and not fase_solicitud_arca.guarda_actual_iniciada
                         ):
-                            recuperada = (
+                            recuperacion = (
                                 await self.recuperar_reintento_interrumpido_pre_arca(
                                     lote_id=lote_id,
                                     grupo_id=grupo_reclamado.id,
                                     operacion_id=operacion_id,
                                     mensajes_previos=mensajes_previos,
+                                    guarda_rece_id=(fase_solicitud_arca.guarda_rece_id),
+                                    guarda_rece_token=(
+                                        fase_solicitud_arca.guarda_rece_token
+                                    ),
                                 )
                             )
-                        fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                        fase_solicitud_arca.registrar_recuperacion_pre_arca(
+                            recuperacion
+                        )
                         raise
                     if fase_grupo.iniciada:
                         break
@@ -2052,6 +2823,20 @@ class LoteComprobantesService:
         await self.db.commit()
         return await self.obtener_lote_resumen(lote_id, empresa.id)
 
+    async def validar_lote_para_reconciliacion_externa(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+    ) -> LoteComprobante:
+        """Valida ownership y estado local antes de construir un cliente ARCA."""
+        lote = await self.obtener_lote_resumen(lote_id, empresa_id)
+        self._validar_lote_resoluble(
+            lote,
+            permitir_reconciliacion_tecnica=True,
+        )
+        return lote
+
     async def eliminar_lote_sin_emision(
         self,
         lote_id: int,
@@ -2064,7 +2849,15 @@ class LoteComprobantesService:
         if not motivo:
             raise LoteComprobanteError("Debes indicar un motivo para eliminar el lote")
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
-        if lote.estado in {"en_cola", "procesando", "requiere_reconciliacion"}:
+        if await self._lote_tiene_intentos(lote_id):
+            raise LoteComprobanteConflictoError(
+                "No se puede eliminar un lote que conserva intentos fiscales"
+            )
+        if lote.estado == "requiere_reconciliacion":
+            raise LoteComprobanteConflictoError(
+                "No se puede eliminar un lote que requiere reconciliación fiscal"
+            )
+        if lote.estado in {"en_cola", "procesando"}:
             raise LoteComprobanteError("No se puede eliminar un lote activo o incierto")
         if await self._lote_tiene_emision_o_incertidumbre(lote_id):
             raise LoteComprobanteError(
@@ -2091,8 +2884,14 @@ class LoteComprobantesService:
             .where(LoteComprobanteEvento.lote_id == lote_id)
             .values(lote_id=None, grupo_id=None)
         )
-        await self.db.delete(lote)
-        await self.db.commit()
+        try:
+            await self.db.delete(lote)
+            await self.db.commit()
+        except IntegrityError as exc:
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El lote recibió evidencia fiscal concurrente y no puede eliminarse"
+            ) from exc
 
     async def compactar_lote(
         self,
@@ -2196,31 +2995,418 @@ class LoteComprobantesService:
 
     async def _reclamar_grupo_para_reintento(
         self,
+        *,
         lote_id: int,
+        empresa_id: int,
         grupo_id: int,
-    ) -> LoteComprobanteGrupo | None:
-        """Toma un grupo fallido antes de solicitar CAE para evitar doble emisión."""
-        result = await self.db.execute(
-            update(LoteComprobanteGrupo)
-            .where(
-                LoteComprobanteGrupo.id == grupo_id,
-                LoteComprobanteGrupo.lote_id == lote_id,
-                LoteComprobanteGrupo.estado == "fallido",
+        operacion_id: int | None,
+        owner_metadata_esperado: int | None,
+        contextos_esperados: list[ContextoElegibilidadRece] | None,
+        material_rece_confirmado: dict[str, Any],
+        confirmacion_duplicado_logico: bool,
+        solo_revalidar: bool = False,
+    ) -> tuple[LoteComprobanteGrupo | None, list[ContextoElegibilidadRece],]:
+        """Valida ownership y, si corresponde, publica el claim pre-ARCA."""
+        grupos_material = material_rece_confirmado.get("grupos")
+        grupo_ids_declarados = material_rece_confirmado.get("grupo_ids")
+        grupos_hash_declarado = material_rece_confirmado.get("grupos_hash")
+        if (
+            not isinstance(operacion_id, int)
+            or isinstance(operacion_id, bool)
+            or set(material_rece_confirmado) != {"grupo_ids", "grupos_hash", "grupos"}
+            or not isinstance(grupos_material, list)
+            or not isinstance(grupo_ids_declarados, list)
+            or any(
+                not isinstance(grupo_id, int) or isinstance(grupo_id, bool)
+                for grupo_id in grupo_ids_declarados
             )
-            .values(
-                estado="reintentando",
-                mensajes_json=["Reintento de emisión en curso."],
+            or not isinstance(grupos_hash_declarado, str)
+        ):
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El reintento no conserva ownership RECE completo."
             )
-        )
-        if result.rowcount != 1:
-            return None
+        campos_material_grupo = {
+            "grupo_id",
+            "empresa_id",
+            "punto_venta_id",
+            "punto_venta_numero",
+            "ambiente",
+            "elegibilidad_revision_id",
+            "punto_venta_revision_fiscal",
+            "tipo_comprobante",
+            "payload_hash",
+        }
+        campos_enteros_material = campos_material_grupo - {"ambiente", "payload_hash"}
+        if any(
+            not isinstance(item, dict)
+            or set(item) != campos_material_grupo
+            or any(
+                not isinstance(item.get(campo), int)
+                or isinstance(item.get(campo), bool)
+                for campo in campos_enteros_material
+            )
+            or item.get("ambiente") not in {"homologacion", "produccion"}
+            or not isinstance(item.get("payload_hash"), str)
+            or len(item["payload_hash"]) != 64
+            for item in grupos_material
+        ):
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El material RECE del reintento no es canónico."
+            )
+        try:
+            grupo_ids_material = [int(item["grupo_id"]) for item in grupos_material]
+            grupo_ids_normalizados = [int(item) for item in grupo_ids_declarados]
+            puntos_ids = sorted(
+                {int(item["punto_venta_id"]) for item in grupos_material}
+            )
+            tipos_por_grupo = {
+                int(item["grupo_id"]): int(item["tipo_comprobante"])
+                for item in grupos_material
+            }
+        except (KeyError, TypeError, ValueError) as exc:
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El material RECE del reintento contiene identidades inválidas."
+            ) from exc
+        if (
+            not grupo_ids_material
+            or grupo_id not in grupo_ids_material
+            or len(grupo_ids_material) != len(set(grupo_ids_material))
+            or grupo_ids_normalizados != grupo_ids_material
+            or not puntos_ids
+            or len(grupos_hash_declarado) != 64
+            or hashlib.sha256(
+                json.dumps(
+                    grupos_material,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            != grupos_hash_declarado
+        ):
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "La membresía RECE del reintento no es canónica."
+            )
 
-        await self.db.flush()
-        await self.db.commit()
-        return await self._obtener_grupo_para_resolver(
-            lote_id=lote_id,
-            grupo_id=grupo_id,
-            estados={"reintentando"},
+        await self.db.rollback()
+        elegibilidad = ElegibilidadReceService(self.db)
+        try:
+            async with AsyncExitStack() as stack:
+                for punto_venta_id in puntos_ids:
+                    await stack.enter_async_context(
+                        elegibilidad.bloqueo_local_punto(
+                            empresa_id=empresa_id,
+                            punto_venta_id=punto_venta_id,
+                        )
+                    )
+
+                materiales_por_contexto: dict[
+                    tuple[int, str, int], list[dict[str, Any]]
+                ] = {}
+                for item in grupos_material:
+                    clave_contexto = (
+                        int(item["punto_venta_id"]),
+                        str(item["ambiente"]),
+                        int(item["tipo_comprobante"]),
+                    )
+                    materiales_por_contexto.setdefault(clave_contexto, []).append(item)
+                for (
+                    punto_venta_id,
+                    ambiente,
+                    tipo_comprobante,
+                ), materiales_contexto in sorted(materiales_por_contexto.items()):
+                    contexto_actual = (
+                        await elegibilidad.exigir_contexto_preautorizacion(
+                            empresa_id=empresa_id,
+                            punto_venta_id=punto_venta_id,
+                            ambiente=ambiente,
+                            tipo_comprobante=tipo_comprobante,
+                            bloquear=True,
+                        )
+                    )
+                    if any(
+                        contexto_actual.punto_venta_numero != item["punto_venta_numero"]
+                        or contexto_actual.elegibilidad_revision_id
+                        != item["elegibilidad_revision_id"]
+                        or contexto_actual.punto_venta_revision_fiscal
+                        != item["punto_venta_revision_fiscal"]
+                        for item in materiales_contexto
+                    ):
+                        raise LoteComprobanteConflictoError(
+                            "La cabeza RECE cambió antes de reclamar el reintento."
+                        )
+
+                ids_operaciones = sorted(
+                    {
+                        operacion_id,
+                        *(
+                            [owner_metadata_esperado]
+                            if owner_metadata_esperado is not None
+                            else []
+                        ),
+                    }
+                )
+                filas_operaciones = list(
+                    (
+                        await self.db.execute(
+                            select(
+                                OperacionIdempotente,
+                                OperacionIdempotente.response_json.is_(None).label(
+                                    "respuesta_es_sql_null"
+                                ),
+                            )
+                            .where(
+                                OperacionIdempotente.id.in_(ids_operaciones),
+                                OperacionIdempotente.empresa_id == empresa_id,
+                                OperacionIdempotente.lote_id == lote_id,
+                            )
+                            .order_by(OperacionIdempotente.id)
+                            .with_for_update()
+                            .execution_options(populate_existing=True)
+                        )
+                    ).all()
+                )
+                operaciones = {int(fila[0].id): fila for fila in filas_operaciones}
+                fila_operacion = operaciones.get(operacion_id)
+
+                intentos = list(
+                    (
+                        await self.db.execute(
+                            select(IntentoEmisionFiscal)
+                            .where(
+                                IntentoEmisionFiscal.operacion_id.in_(ids_operaciones)
+                            )
+                            .order_by(IntentoEmisionFiscal.id)
+                            .with_for_update()
+                            .execution_options(populate_existing=True)
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                guardas = list(
+                    (
+                        await self.db.execute(
+                            select(PuntoVentaGuardaEmisionRece)
+                            .where(
+                                PuntoVentaGuardaEmisionRece.operacion_id.in_(
+                                    ids_operaciones
+                                )
+                            )
+                            .order_by(PuntoVentaGuardaEmisionRece.id)
+                            .with_for_update()
+                            .execution_options(populate_existing=True)
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                lote = (
+                    await self.db.execute(
+                        select(LoteComprobante)
+                        .where(
+                            LoteComprobante.id == lote_id,
+                            LoteComprobante.empresa_id == empresa_id,
+                        )
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                ).scalar_one_or_none()
+                metadata = lote.metadata_json if lote is not None else None
+                owner_actual = (
+                    metadata.get("operacion_idempotente_id")
+                    if isinstance(metadata, dict)
+                    else None
+                )
+                operacion = fila_operacion[0] if fila_operacion is not None else None
+                respuesta_es_sql_null = bool(
+                    fila_operacion[1] if fila_operacion is not None else False
+                )
+                if (
+                    lote is None
+                    or not isinstance(metadata, dict)
+                    or (
+                        owner_actual is not None
+                        and (
+                            not isinstance(owner_actual, int)
+                            or isinstance(owner_actual, bool)
+                        )
+                    )
+                    or owner_actual != owner_metadata_esperado
+                    or operacion is None
+                    or operacion.tipo_operacion != "reintentar_fallidos_lote"
+                    or not IdempotenciaFiscalService.operacion_conserva_ownership_pre_arca(
+                        operacion,
+                        respuesta_es_sql_null=respuesta_es_sql_null,
+                        lote_background=False,
+                        material_rece=material_rece_confirmado,
+                    )
+                    or any(
+                        intento.operacion_id == operacion_id
+                        and intento.estado in {"en_proceso", "requiere_reconciliacion"}
+                        for intento in intentos
+                    )
+                    or any(
+                        guarda.operacion_id == operacion_id
+                        and guarda.fase in FASES_GUARDA_RECE_ACTIVAS
+                        for guarda in guardas
+                    )
+                ):
+                    raise LoteComprobanteConflictoError(
+                        "El reintento perdió el ownership idempotente antes de ARCA."
+                    )
+
+                contextos_actuales = await elegibilidad.validar_grupos_lote(
+                    lote_id=lote_id,
+                    empresa_id=empresa_id,
+                    grupo_ids=grupo_ids_material,
+                    tipo_comprobante_por_grupo=tipos_por_grupo,
+                    material_confirmado=grupos_material,
+                    bloquear=True,
+                )
+                await elegibilidad.validar_operacion_para_continuar(
+                    operacion_id=operacion_id,
+                    empresa_id=empresa_id,
+                    contextos_esperados=contextos_actuales,
+                )
+                if contextos_esperados is not None and (
+                    elegibilidad.calcular_digest_contextos(contextos_actuales)
+                    != elegibilidad.calcular_digest_contextos(contextos_esperados)
+                ):
+                    raise LoteComprobanteConflictoError(
+                        "La membresía RECE cambió después de confirmar el reintento."
+                    )
+
+                if owner_metadata_esperado is None:
+                    if metadata.get("pf19b_rece_material") is not None:
+                        raise LoteComprobanteConflictoError(
+                            "El lote conserva material RECE sin operación propietaria."
+                        )
+                elif owner_metadata_esperado == operacion_id:
+                    if (
+                        metadata.get("pf19b_rece_material") != material_rece_confirmado
+                        or metadata.get("confirmacion_duplicado_logico")
+                        is not confirmacion_duplicado_logico
+                    ):
+                        raise LoteComprobanteConflictoError(
+                            "El material durable del reintento fue modificado."
+                        )
+                else:
+                    fila_anterior = operaciones.get(owner_metadata_esperado)
+                    operacion_anterior = (
+                        fila_anterior[0] if fila_anterior is not None else None
+                    )
+                    respuesta_anterior = (
+                        operacion_anterior.response_json
+                        if operacion_anterior is not None
+                        else None
+                    )
+                    lote_respuesta = (
+                        respuesta_anterior.get("lote")
+                        if isinstance(respuesta_anterior, dict)
+                        else None
+                    )
+                    metadata_respuesta = (
+                        lote_respuesta.get("metadata_json")
+                        if isinstance(lote_respuesta, dict)
+                        else None
+                    )
+                    if (
+                        operacion_anterior is None
+                        or operacion_anterior.tipo_operacion
+                        not in {"procesar_lote", "reintentar_fallidos_lote"}
+                        or operacion_anterior.estado
+                        not in {
+                            "finalizado",
+                            "fallido",
+                            "fallido_verificado",
+                            "rechazado_arca",
+                        }
+                        or not isinstance(metadata_respuesta, dict)
+                        or metadata_respuesta.get("operacion_idempotente_id")
+                        != owner_metadata_esperado
+                        or metadata_respuesta.get("pf19b_rece_material")
+                        != metadata.get("pf19b_rece_material")
+                        or any(
+                            guarda.operacion_id == owner_metadata_esperado
+                            and guarda.fase in FASES_GUARDA_RECE_ACTIVAS
+                            for guarda in guardas
+                        )
+                        or any(
+                            intento.operacion_id == owner_metadata_esperado
+                            and intento.estado
+                            in {"en_proceso", "requiere_reconciliacion"}
+                            for intento in intentos
+                        )
+                    ):
+                        raise LoteComprobanteConflictoError(
+                            "El lote conserva un owner fiscal previo no transferible."
+                        )
+
+                if solo_revalidar:
+                    grupo_revalidado = (
+                        await self.db.execute(
+                            select(LoteComprobanteGrupo)
+                            .options(selectinload(LoteComprobanteGrupo.filas))
+                            .where(
+                                LoteComprobanteGrupo.id == grupo_id,
+                                LoteComprobanteGrupo.lote_id == lote_id,
+                                LoteComprobanteGrupo.empresa_id == empresa_id,
+                                LoteComprobanteGrupo.estado == "reintentando",
+                            )
+                            .with_for_update()
+                            .execution_options(populate_existing=True)
+                        )
+                    ).scalar_one_or_none()
+                    if grupo_revalidado is None:
+                        raise LoteComprobanteConflictoError(
+                            "El grupo perdió el claim antes de reservar la emisión."
+                        )
+                    return grupo_revalidado, contextos_actuales
+
+                metadata_nueva = dict(metadata)
+                metadata_nueva["operacion_idempotente_id"] = operacion_id
+                metadata_nueva[
+                    "confirmacion_duplicado_logico"
+                ] = confirmacion_duplicado_logico
+                metadata_nueva["pf19b_rece_material"] = material_rece_confirmado
+                lote.metadata_json = metadata_nueva
+                result = await self.db.execute(
+                    update(LoteComprobanteGrupo)
+                    .where(
+                        LoteComprobanteGrupo.id == grupo_id,
+                        LoteComprobanteGrupo.lote_id == lote_id,
+                        LoteComprobanteGrupo.estado == "fallido",
+                    )
+                    .values(
+                        estado="reintentando",
+                        mensajes_json=["Reintento de emisión en curso."],
+                    )
+                )
+                if result.rowcount != 1:
+                    await self.db.rollback()
+                    raise LoteComprobanteConflictoError(
+                        "Otro reintento reclamó el grupo de forma concurrente."
+                    )
+                await self.db.flush()
+                await self.db.commit()
+        except ElegibilidadReceError as exc:
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(exc.mensaje) from exc
+        except LoteComprobanteConflictoError:
+            await self.db.rollback()
+            raise
+
+        return (
+            await self._obtener_grupo_para_resolver(
+                lote_id=lote_id,
+                grupo_id=grupo_id,
+                estados={"reintentando"},
+            ),
+            contextos_actuales,
         )
 
     async def _reclamar_grupo_para_accion_resolutiva(
@@ -2318,6 +3504,12 @@ class LoteComprobantesService:
                 intento_query.order_by(IntentoEmisionFiscal.id.desc()).limit(1)
             )
         ).scalar_one_or_none()
+        guarda = None
+        if intento is not None and intento.guarda_rece_id is not None:
+            guarda = await self.db.get(
+                PuntoVentaGuardaEmisionRece,
+                intento.guarda_rece_id,
+            )
 
         mensaje = (
             "ARCA pudo haber autorizado el comprobante, pero FactuFlow no pudo "
@@ -2340,30 +3532,29 @@ class LoteComprobantesService:
             grupo.mensajes_json,
         )
 
-        if intento is not None:
-            if resultado is not None:
-                respuesta_bloqueante = resultado.model_copy(
-                    update={
-                        "exito": False,
-                        "comprobante_id": None,
-                        "mensaje": mensaje,
-                        "errores": [mensaje],
-                        "requiere_reconciliacion": True,
-                        "categoria_error": "post_arca_persistencia",
-                    }
-                )
-                await IdempotenciaFiscalService(
-                    self.db
-                ).actualizar_intento_desde_respuesta(
-                    intento,
-                    respuesta_bloqueante,
-                    commit=False,
-                )
-            else:
-                intento.estado = "requiere_reconciliacion"
-                intento.categoria_error = "post_arca_persistencia"
-                intento.mensaje = mensaje
-                self.db.add(intento)
+        if intento is None or guarda is None or resultado is None:
+            raise SQLAlchemyTimeoutError(
+                "No se pudo reconstruir el grafo fiscal post-ARCA del reintento."
+            )
+        respuesta_bloqueante = resultado.model_copy(
+            update={
+                "exito": False,
+                "comprobante_id": None,
+                "mensaje": mensaje,
+                "errores": [mensaje],
+                "requiere_reconciliacion": True,
+                "categoria_error": "post_arca_persistencia",
+            }
+        )
+        await self.facturacion_service._persistir_intento_y_guarda_rece(
+            idempotencia=IdempotenciaFiscalService(self.db),
+            intento=intento,
+            respuesta=respuesta_bloqueante,
+            guarda=guarda,
+            fase="reconciliacion",
+            commit=False,
+            contexto="reintento_post_arca_capa_lote",
+        )
 
         self._registrar_evento_lote(
             lote_id=lote_id,
@@ -2594,6 +3785,15 @@ class LoteComprobantesService:
         )
         return int(result.scalar_one() or 0) > 0
 
+    async def _lote_tiene_intentos(self, lote_id: int) -> bool:
+        """Protege la auditoría durable ante cualquier intento fiscal del lote."""
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(IntentoEmisionFiscal)
+            .where(IntentoEmisionFiscal.lote_id == lote_id)
+        )
+        return int(result.scalar_one() or 0) > 0
+
     def _registrar_evento_lote(
         self,
         lote_id: int,
@@ -2709,6 +3909,106 @@ class LoteComprobantesService:
         """Redondea importes a centavos."""
         return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    async def _exigir_contextos_rece_grupos(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+        grupos: list[LoteComprobanteGrupo],
+        operacion_id: int | None,
+        contextos_esperados: list[ContextoElegibilidadRece] | None = None,
+        material_confirmado: dict[str, Any] | None = None,
+    ) -> list[ContextoElegibilidadRece]:
+        """Valida membresía completa, PF-19A y operación antes de cualquier ARCA."""
+        if operacion_id is None or not grupos:
+            raise LoteComprobanteError(
+                "El lote no tiene una operación y snapshots RECE emitibles."
+            )
+        puntos_ids = sorted(
+            {
+                int(grupo.punto_venta_id)
+                for grupo in grupos
+                if grupo.punto_venta_id is not None
+            }
+        )
+        if len(puntos_ids) == 0 or any(
+            grupo.punto_venta_id is None for grupo in grupos
+        ):
+            raise LoteComprobanteError(
+                "El lote es legacy y debe revalidarse antes de emitir."
+            )
+        material_actual = await self.calcular_material_idempotente_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            grupo_ids=[int(grupo.id) for grupo in grupos],
+        )
+        material_confirmado = material_confirmado or material_actual
+        if (
+            material_confirmado.get("grupo_ids") != material_actual["grupo_ids"]
+            or material_confirmado.get("grupos_hash") != material_actual["grupos_hash"]
+        ):
+            raise LoteComprobanteError(
+                "El material fiscal del lote cambió después de confirmarse."
+            )
+
+        elegibilidad = ElegibilidadReceService(self.db)
+        try:
+            async with AsyncExitStack() as stack:
+                for punto_venta_id in puntos_ids:
+                    await stack.enter_async_context(
+                        elegibilidad.bloqueo_local_punto(
+                            empresa_id=empresa_id,
+                            punto_venta_id=punto_venta_id,
+                        )
+                    )
+                contextos = await elegibilidad.validar_grupos_lote(
+                    lote_id=lote_id,
+                    empresa_id=empresa_id,
+                    grupo_ids=[int(grupo.id) for grupo in grupos],
+                    tipo_comprobante_por_grupo={
+                        int(grupo.id): int(grupo.tipo_comprobante)
+                        for grupo in grupos
+                        if grupo.tipo_comprobante is not None
+                    },
+                    material_confirmado=list(material_confirmado.get("grupos") or []),
+                    bloquear=True,
+                )
+                if contextos_esperados is not None and (
+                    elegibilidad.calcular_digest_contextos(contextos)
+                    != elegibilidad.calcular_digest_contextos(contextos_esperados)
+                ):
+                    raise ElegibilidadReceError(
+                        "La membresía RECE del lote cambió después de confirmarla."
+                    )
+                await elegibilidad.validar_operacion_para_continuar(
+                    operacion_id=operacion_id,
+                    empresa_id=empresa_id,
+                    contextos_esperados=contextos,
+                )
+        except ElegibilidadReceError as exc:
+            raise LoteComprobanteError(exc.mensaje) from exc
+        return contextos
+
+    @staticmethod
+    def _contexto_rece_de_grupo(
+        grupo: LoteComprobanteGrupo,
+        contextos: list[ContextoElegibilidadRece],
+    ) -> ContextoElegibilidadRece:
+        """Obtiene el contexto exacto capturado por un grupo ya validado."""
+        for contexto in contextos:
+            if (
+                contexto.punto_venta_id == grupo.punto_venta_id
+                and contexto.ambiente == grupo.ambiente
+                and contexto.elegibilidad_revision_id
+                == grupo.punto_venta_elegibilidad_revision_id
+                and contexto.punto_venta_revision_fiscal
+                == grupo.punto_venta_revision_fiscal
+            ):
+                return contexto
+        raise LoteComprobanteError(
+            "El grupo no pertenece al snapshot RECE confirmado por la operación."
+        )
+
     async def procesar_lote(
         self,
         lote_id: int,
@@ -2717,6 +4017,8 @@ class LoteComprobantesService:
         operacion_id: int | None = None,
         usuario_id: int | None = None,
         confirmacion_duplicado_logico: bool = False,
+        contextos_rece: list[ContextoElegibilidadRece] | None = None,
+        material_rece_confirmado: dict[str, Any] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> LoteComprobante:
         """Procesa un lote válido, en forma sincrónica o desde background."""
@@ -2724,6 +4026,10 @@ class LoteComprobantesService:
         lote = await self.obtener_lote_resumen(lote_id, empresa_id)
         if operacion_id is None:
             operacion_id = (lote.metadata_json or {}).get("operacion_idempotente_id")
+        if material_rece_confirmado is None:
+            material_guardado = (lote.metadata_json or {}).get("pf19b_rece_material")
+            if isinstance(material_guardado, dict):
+                material_rece_confirmado = material_guardado
         if not confirmacion_duplicado_logico:
             confirmacion_duplicado_logico = bool(
                 (lote.metadata_json or {}).get("confirmacion_duplicado_logico")
@@ -2733,10 +4039,12 @@ class LoteComprobantesService:
             metadata_actual.get("operacion_idempotente_id") != operacion_id
             or bool(metadata_actual.get("confirmacion_duplicado_logico"))
             != confirmacion_duplicado_logico
+            or metadata_actual.get("pf19b_rece_material") != material_rece_confirmado
         ):
             metadata = dict(lote.metadata_json or {})
             metadata["operacion_idempotente_id"] = operacion_id
             metadata["confirmacion_duplicado_logico"] = confirmacion_duplicado_logico
+            metadata["pf19b_rece_material"] = material_rece_confirmado
             lote.metadata_json = metadata
             await self.db.flush()
 
@@ -2762,6 +4070,7 @@ class LoteComprobantesService:
                     lote,
                     operacion_id,
                 )
+                await self.db.commit()
             return lote
         if lote.estado not in self.ESTADOS_PROCESABLES:
             raise LoteComprobanteError(
@@ -2775,6 +4084,21 @@ class LoteComprobantesService:
             raise LoteComprobanteError(
                 "Este lote fue validado antes de confirmar la descripción facturada. Revalidá el archivo eligiendo descripción desde archivo o una descripción fija antes de emitir."
             )
+        if not material_rece_confirmado or not material_rece_confirmado.get("grupos"):
+            raise LoteComprobanteError(
+                "El lote no conserva el material RECE confirmado y debe revalidarse."
+            )
+
+        grupos_confirmados = await self._obtener_grupos_emitibles(lote_id)
+        contextos_rece = await self._exigir_contextos_rece_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            grupos=grupos_confirmados,
+            operacion_id=operacion_id,
+            contextos_esperados=contextos_rece,
+            material_confirmado=material_rece_confirmado,
+        )
+        grupo_ids_confirmados = {int(grupo.id) for grupo in grupos_confirmados}
 
         procesamiento_async = (
             lote.procesamiento_async
@@ -2782,6 +4106,13 @@ class LoteComprobantesService:
             or lote.total_grupos > settings.batch_sync_limit
         )
         modo_procesamiento = "background" if procesamiento_async else "sincronico"
+        lote = await self._exigir_ownership_operacion_lote_pre_arca(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            operacion_id=operacion_id,
+            material_rece_confirmado=material_rece_confirmado,
+            lote_background=procesamiento_async,
+        )
         await self._tomar_lote_para_procesamiento(
             lote_id=lote_id,
             empresa_id=empresa_id,
@@ -2798,11 +4129,33 @@ class LoteComprobantesService:
             lote.modo_procesamiento,
         )
 
+        grupos = await self._obtener_grupos_emitibles(lote_id)
+        if {int(grupo.id) for grupo in grupos} != grupo_ids_confirmados:
+            raise LoteComprobanteError(
+                "La membresía del lote cambió antes de consultar capacidad a ARCA."
+            )
+        contextos_rece = await self._exigir_contextos_rece_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            grupos=grupos,
+            operacion_id=operacion_id,
+            contextos_esperados=contextos_rece,
+            material_confirmado=material_rece_confirmado,
+        )
+        lote = await self._exigir_ownership_operacion_lote_pre_arca(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            operacion_id=operacion_id,
+            material_rece_confirmado=material_rece_confirmado,
+            lote_background=procesamiento_async,
+            estados_lote_esperados={"procesando"},
+            inmovilizar_grupo_ids=sorted(grupo_ids_confirmados),
+        )
+        await self.db.commit()
         config_batch = await self._resolver_configuracion_batch_arca(lote, empresa_id)
         self._registrar_metadata_batch_arca(lote, config_batch)
         await self.db.commit()
 
-        grupos = await self._obtener_grupos_emitibles(lote_id)
         pendientes: list[GrupoPendienteEmision] = []
         for grupo in grupos:
             try:
@@ -2821,7 +4174,16 @@ class LoteComprobantesService:
                     await self.db.commit()
                     continue
 
-                pendientes.append(GrupoPendienteEmision(grupo=grupo, request=request))
+                pendientes.append(
+                    GrupoPendienteEmision(
+                        grupo=grupo,
+                        request=request,
+                        contexto_rece=self._contexto_rece_de_grupo(
+                            grupo,
+                            contextos_rece,
+                        ),
+                    )
+                )
             except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
                 raise
             except Exception as exc:  # pragma: no cover - fallback defensivo
@@ -2849,6 +4211,8 @@ class LoteComprobantesService:
                             usuario_id=usuario_id,
                             lote_id=lote_id,
                             grupo_id=pendiente.grupo.id,
+                            contexto_rece=pendiente.contexto_rece,
+                            contextos_operacion=contextos_rece,
                             fase_solicitud_arca=fase_solicitud_arca,
                         )
                         await self._aplicar_resultado_emision_grupo(
@@ -2885,6 +4249,8 @@ class LoteComprobantesService:
                             "usuario_id": usuario_id,
                             "lote_id": lote_id,
                             "grupo_id": pendiente.grupo.id,
+                            "contexto_rece": pendiente.contexto_rece,
+                            "contextos_operacion": contextos_rece,
                         }
                         for pendiente in sublote
                     ],
@@ -2943,13 +4309,13 @@ class LoteComprobantesService:
         lote.estado = "cargado"
         await self._actualizar_estado_lote(lote)
         self._aplicar_aviso_batch_arca(lote)
-        await self.db.commit()
-        await self.db.refresh(lote)
         if reanudar and operacion_id is not None:
             await self._guardar_respuesta_operacion_background(
                 lote,
                 operacion_id,
             )
+        await self.db.commit()
+        await self.db.refresh(lote)
         logger.info(
             "Lote %s finalizado con estado %s: emitidos=%s fallidos=%s",
             lote.id,
@@ -2964,17 +4330,7 @@ class LoteComprobantesService:
         lote: LoteComprobante,
         operacion_id: int,
     ) -> None:
-        """Actualiza la operación idempotente de un lote procesado por worker."""
-        result = await self.db.execute(
-            select(OperacionIdempotente).where(
-                OperacionIdempotente.id == operacion_id,
-                OperacionIdempotente.empresa_id == lote.empresa_id,
-            )
-        )
-        operacion = result.scalar_one_or_none()
-        if operacion is None:
-            return
-
+        """Publica lote y respuesta worker dentro de la misma transacción."""
         respuesta = LoteProcesamientoResponse(
             lote=LoteComprobanteResponse.model_validate(lote),
             mensaje=lote.mensaje_resumen or "Lote procesado",
@@ -2985,12 +4341,166 @@ class LoteComprobantesService:
             estado = "requiere_reconciliacion"
         elif respuesta.en_progreso:
             estado = "en_proceso"
-
-        await IdempotenciaFiscalService(self.db).guardar_respuesta_operacion(
-            operacion,
-            response_json=respuesta,
-            estado=estado,
+        respuesta_json = respuesta.model_dump(mode="json")
+        fila_operacion = (
+            await self.db.execute(
+                select(
+                    OperacionIdempotente,
+                    OperacionIdempotente.response_json.is_(None).label(
+                        "respuesta_es_sql_null"
+                    ),
+                )
+                .where(
+                    OperacionIdempotente.id == operacion_id,
+                    OperacionIdempotente.empresa_id == lote.empresa_id,
+                    OperacionIdempotente.lote_id == lote.id,
+                    OperacionIdempotente.tipo_operacion == "procesar_lote",
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).one_or_none()
+        if fila_operacion is None:
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El worker perdió la operación idempotente del lote."
+            )
+        operacion = fila_operacion[0]
+        material_rece = (lote.metadata_json or {}).get("pf19b_rece_material")
+        publicacion_reconciliacion = (
+            lote.estado == "requiere_reconciliacion"
+            and estado == "requiere_reconciliacion"
+            and respuesta.en_progreso is False
         )
+        estado_esperado = (
+            "requiere_reconciliacion" if publicacion_reconciliacion else "en_proceso"
+        )
+        if (
+            operacion.estado != estado_esperado
+            or not isinstance(material_rece, dict)
+            or not IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+                operacion.response_json,
+                lote_id=int(lote.id),
+                empresa_id=int(lote.empresa_id),
+                operacion_id=operacion_id,
+                material_rece=material_rece,
+            )
+        ):
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El worker perdió el ownership idempotente antes de publicar."
+            )
+        updated_at_esperado = operacion.updated_at
+        publicada = await self.db.execute(
+            update(OperacionIdempotente)
+            .where(
+                OperacionIdempotente.id == operacion_id,
+                OperacionIdempotente.empresa_id == lote.empresa_id,
+                OperacionIdempotente.lote_id == lote.id,
+                OperacionIdempotente.tipo_operacion == "procesar_lote",
+                OperacionIdempotente.estado == estado_esperado,
+                OperacionIdempotente.updated_at == updated_at_esperado,
+            )
+            .values(response_json=respuesta_json, estado=estado)
+        )
+        if publicada.rowcount != 1:
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El worker perdió el ownership idempotente durante la publicación."
+            )
+        await self.db.flush()
+
+    async def _exigir_ownership_operacion_lote_pre_arca(
+        self,
+        *,
+        lote_id: int,
+        empresa_id: int,
+        operacion_id: int | None,
+        material_rece_confirmado: dict[str, Any] | None,
+        lote_background: bool,
+        estados_lote_esperados: set[str] | None = None,
+        inmovilizar_grupo_ids: list[int] | None = None,
+    ) -> LoteComprobante:
+        """Valida ownership durable antes de publicar el lote o consultar ARCA."""
+        if operacion_id is None or not isinstance(material_rece_confirmado, dict):
+            await self.db.rollback()
+            raise LoteComprobanteConflictoError(
+                "El lote no conserva una operación RECE apta para procesarse."
+            )
+        fila_operacion = (
+            await self.db.execute(
+                select(
+                    OperacionIdempotente,
+                    OperacionIdempotente.response_json.is_(None).label(
+                        "respuesta_es_sql_null"
+                    ),
+                )
+                .where(
+                    OperacionIdempotente.id == operacion_id,
+                    OperacionIdempotente.empresa_id == empresa_id,
+                    OperacionIdempotente.lote_id == lote_id,
+                    OperacionIdempotente.tipo_operacion == "procesar_lote",
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).one_or_none()
+        lote = (
+            await self.db.execute(
+                select(LoteComprobante)
+                .where(
+                    LoteComprobante.id == lote_id,
+                    LoteComprobante.empresa_id == empresa_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        metadata = lote.metadata_json if lote is not None else None
+        material_durable = (
+            metadata.get("pf19b_rece_material") if isinstance(metadata, dict) else None
+        )
+        operacion = fila_operacion[0] if fila_operacion is not None else None
+        respuesta_es_sql_null = bool(
+            fila_operacion[1] if fila_operacion is not None else False
+        )
+        estados_esperados = estados_lote_esperados or self.ESTADOS_PROCESABLES
+        ownership_valido = (
+            lote is not None
+            and lote.estado in estados_esperados
+            and isinstance(metadata, dict)
+            and metadata.get("operacion_idempotente_id") == operacion_id
+            and material_durable == material_rece_confirmado
+            and operacion is not None
+            and IdempotenciaFiscalService.operacion_conserva_ownership_pre_arca(
+                operacion,
+                respuesta_es_sql_null=respuesta_es_sql_null,
+                lote_background=lote_background,
+                material_rece=material_durable,
+            )
+        )
+        if not ownership_valido:
+            await self.db.rollback()
+            if inmovilizar_grupo_ids:
+                try:
+                    await self._marcar_lote_y_grupos_requieren_reconciliacion(
+                        lote_id=lote_id,
+                        empresa_id=empresa_id,
+                        grupo_ids=inmovilizar_grupo_ids,
+                        mensaje_reconciliacion=(
+                            "La operación idempotente cambió después de tomar el "
+                            "lote. No se consultó capacidad ni se solicitó CAE; "
+                            "revisá el ownership antes de continuar."
+                        ),
+                    )
+                    await self.db.commit()
+                except Exception:
+                    await self.db.rollback()
+                    raise
+            raise LoteComprobanteConflictoError(
+                "El lote perdió el ownership idempotente antes de consultar ARCA."
+            )
+        return lote
 
     async def _tomar_lote_para_procesamiento(
         self,
@@ -3441,11 +4951,12 @@ class LoteComprobantesService:
 
     async def _obtener_certificado_activo(self, empresa_id: int) -> Certificado | None:
         """Obtiene el certificado activo para el ambiente actual."""
-        ambiente = (
-            ArcaAmbiente.PRODUCCION.value
-            if settings.arca_env.lower() == ArcaAmbiente.PRODUCCION.value
-            else ArcaAmbiente.HOMOLOGACION.value
-        )
+        ambiente = settings.arca_env.strip().lower()
+        if ambiente not in {
+            ArcaAmbiente.PRODUCCION.value,
+            ArcaAmbiente.HOMOLOGACION.value,
+        }:
+            raise LoteComprobanteError("El ambiente ARCA configurado no es válido")
         result = await self.db.execute(
             select(Certificado)
             .where(
@@ -3823,6 +5334,11 @@ class LoteComprobantesService:
             and not grupo.cae
             and grupo.numero_asignado is None
             and grupo.comprobante_id is None
+            and grupo.empresa_id is not None
+            and grupo.punto_venta_id is not None
+            and grupo.ambiente is not None
+            and grupo.punto_venta_elegibilidad_revision_id is not None
+            and grupo.punto_venta_revision_fiscal is not None
         )
 
     async def _obtener_claves_comprobantes_locales_candidatos(
@@ -3910,6 +5426,22 @@ class LoteComprobantesService:
         grupos: tuple[LoteComprobanteGrupo, ...],
     ) -> tuple[bool, list[dict[str, Any]], str | None]:
         """Valida que los grupos intactos puedan volver a cola sin riesgo fiscal."""
+        metadata = lote.metadata_json or {}
+        operacion_id = metadata.get("operacion_idempotente_id")
+        material_rece = metadata.get("pf19b_rece_material")
+        if not isinstance(operacion_id, int) or not isinstance(material_rece, dict):
+            return False, [], "snapshot_rece_u_operacion_ausente"
+        try:
+            await self._exigir_contextos_rece_grupos(
+                lote_id=lote.id,
+                empresa_id=lote.empresa_id,
+                grupos=list(grupos),
+                operacion_id=operacion_id,
+                material_confirmado=material_rece,
+            )
+        except LoteComprobanteError:
+            return False, [], "snapshot_rece_legacy_u_obsoleto"
+
         combos: dict[tuple[int, int, int], EmitirComprobanteRequest] = {}
         for grupo in grupos:
             if not grupo.payload_json:

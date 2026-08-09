@@ -1,12 +1,15 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
-import { arcaService } from "@/services/arca.service";
 import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useEmpresaStore } from "@/stores/empresa";
 import { usePuntosVentaStore } from "@/stores/puntos_venta";
 import type { Empresa } from "@/types/empresa";
-import type { PuntoVenta, PuntoVentaArca } from "@/types/punto_venta";
+import type {
+  ImportarPuntosVentaResponse,
+  PuntoVenta,
+  SincronizarPuntosVentaResponse,
+} from "@/types/punto_venta";
 import {
   clearEmpresaActivaIdForRequest,
   clearEmpresaActivaIdStorage,
@@ -20,12 +23,7 @@ vi.mock("@/services/puntos_venta.service", () => ({
     update: vi.fn(),
     delete: vi.fn(),
     importarConstancia: vi.fn(),
-  },
-}));
-
-vi.mock("@/services/arca.service", () => ({
-  arcaService: {
-    getPuntosVenta: vi.fn(),
+    sincronizarArca: vi.fn(),
   },
 }));
 
@@ -60,14 +58,21 @@ const puntoVentaMock = (empresaId: number, numero: number): PuntoVenta => ({
   fuente: "arca_wsfe",
   activo: true,
   usable_factuflow: true,
+  revision_fiscal: 1,
+  elegibilidad_rece: {
+    ambiente: "produccion",
+    estado: "verificado_rece",
+    estado_efectivo: "verificado_rece",
+    fuente: "constancia_arca_atestada",
+    revision_id: 1,
+    revision: 1,
+    punto_revision_fiscal: 1,
+    verificado_en: "2026-08-09T12:00:00-03:00",
+    vigente_hasta: "2026-08-15",
+    motivo: null,
+  },
   empresa_id: empresaId,
   created_at: "2024-01-01T00:00:00",
-});
-const puntoVentaArcaMock = (numero: number): PuntoVentaArca => ({
-  numero,
-  emision_tipo: "CAE - Factura Electronica",
-  bloqueado: "N",
-  fecha_baja: null,
 });
 
 const deferred = <T>() => {
@@ -84,11 +89,30 @@ const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
   create: Mock;
   update: Mock;
+  importarConstancia: Mock;
+  sincronizarArca: Mock;
 };
 
-const mockedArcaService = arcaService as unknown as {
-  getPuntosVenta: Mock;
-};
+const syncResponseMock = (): SincronizarPuntosVentaResponse => ({
+  total_arca: 2,
+  nuevos: 1,
+  existentes: 1,
+  actualizados: 1,
+  desactivados_ausentes: 1,
+});
+
+const importResponseMock = (): ImportarPuntosVentaResponse => ({
+  total_constancia: 2,
+  creados: 1,
+  actualizados: 1,
+  omitidos: 0,
+  desactivados_ausentes: 1,
+  verificados_rece: 1,
+  no_verificados_rece: 1,
+  documento_emitido_en: "2026-08-09",
+  vigente_hasta: "2026-08-15",
+  warnings: [],
+});
 
 describe("puntos venta store", () => {
   beforeEach(() => {
@@ -106,18 +130,43 @@ describe("puntos venta store", () => {
 
     await expect(store.syncFromArca()).rejects.toThrow(mensaje);
 
-    expect(mockedArcaService.getPuntosVenta).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
     expect(store.error).toBe(mensaje);
     expect(store.syncing).toBe(false);
   });
+
+  it("sincroniza en una sola operación transaccional y refresca el listado", async () => {
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const resultadoEsperado = syncResponseMock();
+    const puntosActualizados = [
+      puntoVentaMock(1, 1),
+      { ...puntoVentaMock(1, 2), activo: false, usable_factuflow: false },
+    ];
+    mockedPuntosVentaService.sincronizarArca.mockResolvedValue(
+      resultadoEsperado,
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue(puntosActualizados);
+    const store = usePuntosVentaStore();
+
+    await expect(store.syncFromArca()).resolves.toEqual(resultadoEsperado);
+
+    expect(mockedPuntosVentaService.sincronizarArca).toHaveBeenCalledTimes(1);
+    expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.update).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
+    expect(store.puntosVenta).toEqual(puntosActualizados);
+    expect(store.syncing).toBe(false);
+  });
+
   it("ignora sincronizaciones ARCA obsoletas cuando cambia el emisor activo", async () => {
-    const puntosArca = deferred<PuntoVentaArca[]>();
-    const locales = deferred<PuntoVenta[]>();
-    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
-    mockedPuntosVentaService.getAll.mockReturnValue(locales.promise);
-    mockedPuntosVentaService.create.mockResolvedValue(puntoVentaMock(1, 6));
-    mockedPuntosVentaService.update.mockResolvedValue(puntoVentaMock(1, 6));
+    const respuestaSync = deferred<SincronizarPuntosVentaResponse>();
+    mockedPuntosVentaService.sincronizarArca.mockReturnValue(
+      respuestaSync.promise,
+    );
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -129,11 +178,17 @@ describe("puntos venta store", () => {
     empresaStore.empresa = empresaMock(2);
     empresaStore.empresaActivaId = 2;
     setEmpresaActivaIdStorage(2);
-    puntosArca.resolve([puntoVentaArcaMock(6)]);
-    locales.resolve([]);
+    respuestaSync.resolve(syncResponseMock());
     const resultado = await sincronizacion;
 
-    expect(resultado).toEqual({ total_arca: 0, nuevos: 0, existentes: 0 });
+    expect(resultado).toEqual({
+      total_arca: 0,
+      nuevos: 0,
+      existentes: 0,
+      actualizados: 0,
+      desactivados_ausentes: 0,
+    });
+    expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.update).not.toHaveBeenCalled();
     expect(store.puntosVenta.map((punto) => punto.empresa_id)).toEqual([2]);
@@ -142,11 +197,10 @@ describe("puntos venta store", () => {
   });
 
   it("corta la sincronización si el scope de request se limpia durante cambio de emisor", async () => {
-    const puntosArca = deferred<PuntoVentaArca[]>();
-    const locales = deferred<PuntoVenta[]>();
-    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
-    mockedPuntosVentaService.getAll.mockReturnValue(locales.promise);
-    mockedPuntosVentaService.create.mockResolvedValue(puntoVentaMock(1, 6));
+    const respuestaSync = deferred<SincronizarPuntosVentaResponse>();
+    mockedPuntosVentaService.sincronizarArca.mockReturnValue(
+      respuestaSync.promise,
+    );
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -155,11 +209,17 @@ describe("puntos venta store", () => {
 
     const sincronizacion = store.syncFromArca();
     clearEmpresaActivaIdForRequest();
-    puntosArca.resolve([puntoVentaArcaMock(6)]);
-    locales.resolve([]);
+    respuestaSync.resolve(syncResponseMock());
     const resultado = await sincronizacion;
 
-    expect(resultado).toEqual({ total_arca: 0, nuevos: 0, existentes: 0 });
+    expect(resultado).toEqual({
+      total_arca: 0,
+      nuevos: 0,
+      existentes: 0,
+      actualizados: 0,
+      desactivados_ausentes: 0,
+    });
+    expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
     expect(store.puntosVenta).toEqual([]);
     expect(store.syncing).toBe(false);
@@ -167,9 +227,10 @@ describe("puntos venta store", () => {
   });
 
   it("ignora errores ARCA obsoletos si el scope de request se limpia durante cambio de emisor", async () => {
-    const puntosArca = deferred<PuntoVentaArca[]>();
-    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
-    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    const respuestaSync = deferred<SincronizarPuntosVentaResponse>();
+    mockedPuntosVentaService.sincronizarArca.mockReturnValue(
+      respuestaSync.promise,
+    );
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -178,14 +239,80 @@ describe("puntos venta store", () => {
 
     const sincronizacion = store.syncFromArca();
     clearEmpresaActivaIdForRequest();
-    puntosArca.reject({
+    respuestaSync.reject({
       response: { data: { detail: "ARCA no disponible" } },
     });
     const resultado = await sincronizacion;
 
-    expect(resultado).toEqual({ total_arca: 0, nuevos: 0, existentes: 0 });
+    expect(resultado).toEqual({
+      total_arca: 0,
+      nuevos: 0,
+      existentes: 0,
+      actualizados: 0,
+      desactivados_ausentes: 0,
+    });
     expect(store.error).toBeNull();
     expect(store.syncing).toBe(false);
+  });
+
+  it("importa una constancia con confirmación explícita y refresca el listado", async () => {
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const file = new File(["PDF"], "constancia.pdf", {
+      type: "application/pdf",
+    });
+    const resultadoEsperado = importResponseMock();
+    const puntosActualizados = [puntoVentaMock(1, 1)];
+    mockedPuntosVentaService.importarConstancia.mockResolvedValue(
+      resultadoEsperado,
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue(puntosActualizados);
+    const store = usePuntosVentaStore();
+
+    await expect(
+      store.importarConstancia(file, {
+        confirmar_procedencia_produccion: true,
+      }),
+    ).resolves.toEqual(resultadoEsperado);
+
+    expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledWith(
+      file,
+      { confirmar_procedencia_produccion: true },
+    );
+    expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
+    expect(store.puntosVenta).toEqual(puntosActualizados);
+    expect(store.importing).toBe(false);
+  });
+
+  it("no mezcla el refresh de una importación después de cambiar el emisor", async () => {
+    const importacionPendiente = deferred<ImportarPuntosVentaResponse>();
+    mockedPuntosVentaService.importarConstancia.mockReturnValue(
+      importacionPendiente.promise,
+    );
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const store = usePuntosVentaStore();
+    const puntosEmisorB = [puntoVentaMock(2, 2)];
+    store.puntosVenta = puntosEmisorB;
+
+    const importacion = store.importarConstancia(
+      new File(["PDF"], "constancia.pdf", { type: "application/pdf" }),
+      { confirmar_procedencia_produccion: false },
+    );
+    empresaStore.empresa = empresaMock(2);
+    empresaStore.empresaActivaId = 2;
+    setEmpresaActivaIdStorage(2);
+    importacionPendiente.resolve(importResponseMock());
+
+    await expect(importacion).resolves.toEqual(importResponseMock());
+    expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
+    expect(store.puntosVenta).toEqual(puntosEmisorB);
+    expect(store.error).toBeNull();
+    expect(store.importing).toBe(false);
   });
 
   it("ignora una actualización obsoleta con ids superpuestos", async () => {

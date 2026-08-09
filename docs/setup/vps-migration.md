@@ -1,6 +1,6 @@
 # Migración local a VPS
 
-Última actualización: 2026-07-30
+Última actualización: 2026-08-09
 
 Este runbook prepara una migración privada y repetible desde una instalación
 local SQLite hacia PostgreSQL. No despliega por sí mismo. La primera instalación
@@ -18,6 +18,8 @@ La migración conserva los datos necesarios para continuar operando desde el
 VPS sin perder continuidad fiscal local:
 
 - emisores, usuarios, clientes y puntos de venta
+- revisiones y cabezas de elegibilidad RECE
+- operaciones idempotentes terminales y sus asociaciones/snapshots RECE
 - certificados activos y sus archivos `.crt` / `.key`
 - formatos de importación, versiones, campos y reglas
 - perfiles de carga masiva
@@ -25,9 +27,17 @@ VPS sin perder continuidad fiscal local:
 
 Quedan fuera del paquete:
 
+- intentos fiscales y guardas RECE
 - lotes de comprobantes, grupos, filas y eventos de lote
 - eventos de sistema y exportaciones de almacenamiento
 - PDFs, XLSX, observados, temporales, cachés, logs y evidencia privada
+
+El scope v2 se identifica como `operacion_futura_con_comprobantes`. Las tablas
+excluidas solo pueden omitirse cuando el preflight demuestra que no contienen
+estado no terminal, incierto, contradictorio ni necesario para continuar una
+operación. Cualquier caso dudoso bloquea la exportación. En operaciones
+terminales de lote, `lote_id` se normaliza a `null` y el paquete preserva pares
+y hashes suficientes para un replay terminal consistente.
 
 La SQLite local queda como archivo histórico privado y no se versiona.
 
@@ -41,11 +51,13 @@ backend/app/scripts/vps_migration.py
 
 Subcomandos disponibles:
 
-- `preflight`: válida SQLite local, Alembic head, tablas esperadas y
-  certificados activos.
+- `preflight`: valida SQLite local, Alembic head, tablas esperadas, barrera de
+  idempotencia, elegibilidad RECE, operaciones y certificados activos.
 - `export`: genera un paquete privado en `.tmp/vps-migration/<timestamp>/`.
-- `import`: restaura el paquete sobre PostgreSQL limpio ya migrado con Alembic.
-- `validate`: compara datos restaurados y válida disponibilidad básica.
+- `import`: restaura un paquete v2 sobre PostgreSQL limpio ya migrado con
+  Alembic y bajo locks de tablas.
+- `validate`: compara manifest, datos, relaciones y disponibilidad básica; es
+  obligatorio antes de operar.
 
 ## Preflight local
 
@@ -59,16 +71,25 @@ cd backend
 La fuente predeterminada es `backend/data/factuflow.db` y `CERTS_PATH` se
 resuelve como `backend/certs` si no se configura otra ruta.
 
+La SQLite fuente debe llegar al head PF-19B mediante el procedimiento de backup
+de `docs/setup/README.md`: primero revisión `a8b9c0d1e2f3`, luego backup físico
+distinto y verificado, y recién entonces upgrade con
+`PF19B_SQLITE_BACKUP_CONFIRMED=1` y `PF19B_SQLITE_BACKUP_PATH`. Si el DDL falla,
+restaurar ese backup antes de reintentar.
+
 El preflight debe bloquear si:
 
 - la SQLite no existe o no está en el head Alembic vigente
 - faltan tablas esperadas
 - existe un certificado activo sin `.crt` y `.key` resolubles dentro de
   `CERTS_PATH`
-- se intenta operar con un estado que no puede migrarse de forma segura
+- existe una operación, intento, guarda o lote no terminal, incierto o
+  inconsistente que no puede migrarse u omitirse con seguridad
+- las asociaciones/snapshots RECE o la barrera de idempotencia no son coherentes
 
-En la instalación local actual hay que corregir primero el certificado activo
-que no resuelve sus archivos privados antes de exportar.
+Los hallazgos concretos de certificados, registros o conteos pertenecen a la
+evidencia operativa privada. Este runbook conserva únicamente las invariantes
+que deben cumplirse.
 
 ## Exportar paquete privado
 
@@ -79,8 +100,14 @@ usarán en producción. Esa misma contraseña debe quedar luego como
 ```powershell
 cd backend
 $env:ARCA_MIGRATION_TARGET_KEY_PASSWORD="<clave-larga-nueva>"
-.\.venv\Scripts\python.exe -m app.scripts.vps_migration export --non-interactive
+.\.venv\Scripts\python.exe -m app.scripts.vps_migration export `
+  --non-interactive `
+  --source-quiesced
 ```
+
+La exportación exige además `--source-quiesced`: el operador confirma que la
+fuente está detenida y el script sostiene una barrera SQLite, compara
+`data_version` y aborta si la base cambia durante la captura.
 
 Si las claves fuente ya estuvieran cifradas con otra contraseña:
 
@@ -90,14 +117,18 @@ $env:ARCA_MIGRATION_SOURCE_KEY_PASSWORD="<clave-local-actual>"
 
 El paquete generado incluye:
 
-- `manifest.json` con versión de paquete, scope, Alembic head, conteos,
-  checksums y tablas excluidas
+- `manifest.json` versión `2` con scope exacto, Alembic head, conteos, hashes,
+  rutas, shapes y tablas excluidas
 - `data/*.jsonl` con filas exportadas por tabla
 - `certs/*.crt` y `certs/*.key` de certificados activos
 - `env.production.required.example` con variables requeridas sin secretos reales
 
 El paquete es material privado. No se debe commitear, copiar a tickets ni subir
 a servicios externos.
+
+El importador rechaza paquetes v1: deben regenerarse desde la fuente con la
+versión vigente. El manifest v2 se valida de forma estricta y cada hash, conteo,
+ruta, shape, FK y barrera de idempotencia debe coincidir.
 
 ## Ensayo en PostgreSQL local
 
@@ -151,9 +182,11 @@ Importar el paquete:
 
 El importador acepta la URL productiva `postgresql+asyncpg://` y la convierte a
 un driver síncrono para insertar datos. Rechaza cualquier destino que no sea
-PostgreSQL, exige que la base esté en el mismo head Alembic del paquete, no
-modifica `alembic_version`, verifica que el destino esté limpio y ajusta
-secuencias `SERIAL/IDENTITY` al máximo ID restaurado.
+PostgreSQL, exige que la base esté limpia y en el mismo head Alembic del
+paquete, no modifica `alembic_version`, toma locks de tablas, restaura todo en
+una transacción y ajusta secuencias `SERIAL/IDENTITY` al máximo ID restaurado.
+Los certificados se preparan en staging; ante cualquier error se revierte la
+transacción y se limpian solo los archivos creados por esa ejecución.
 
 La base limpia puede contener los formatos globales seed creados por Alembic;
 el importador los reemplaza por los formatos del paquete. Si encuentra usuarios,
@@ -172,8 +205,9 @@ exportaciones previas, bloquea la restauración.
 
 Validaciones esperadas:
 
-- conteos de tablas incluidas coinciden con el manifiesto
+- versión, scope, head, hashes, rutas, shapes y conteos coinciden con el manifest
 - tablas excluidas quedan vacías
+- FKs, asociaciones RECE y barrera de idempotencia son coherentes
 - claves privadas restauradas abren con `ARCA_PRIVATE_KEY_PASSWORD`
 - secuencias PostgreSQL quedan por encima del mayor ID restaurado
 - opcionalmente, `--api-url http://localhost:8000` verifica `/api/health`
@@ -191,10 +225,13 @@ Verificar desde UI o API:
 4. Comprobantes, ítems y reportes básicos.
 5. `proximo-numero` solo como verificación segura de numeración, sin emitir CAE
    y sin ejecutar flujos de emisión.
+6. Elegibilidad RECE efectiva: homologación continúa bloqueada; producción solo
+   muestra como usable una atestación administrativa vigente.
 
 ## Bloqueos de seguridad
 
 - No ejecutar `export` si `preflight` falla.
+- No ejecutar `export` sin detener la fuente y declarar `--source-quiesced`.
 - No migrar certificados activos incompletos.
 - No reutilizar la contraseña local si se define una nueva política de secretos
   para producción.

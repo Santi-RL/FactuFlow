@@ -12,9 +12,14 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+from tests.postgresql_harness import (
+    SCHEMA_RESET_ENV,
+    require_disposable_postgres_url,
+    validate_disposable_postgres_url,
+)
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -30,65 +35,12 @@ ESTADOS_INTENTO_FISCAL = (
 ESTADOS_COMPROBANTE = ("autorizado", "borrador", "pendiente", "rechazado")
 CAE_SINTETICO = "12345678901234"
 FECHA_SINTETICA = date(2026, 7, 13)
-SCHEMA_RESET_ENV = "FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET"
-NOMBRES_DESCARTABLES = ("test", "tmp", "temp", "pf01b")
+ALEMBIC_TIMEOUT_SECONDS = 300
 
 
 def _postgres_url() -> str:
     """Valida la URL y el opt-in destructivo de PostgreSQL desechable."""
-    configured_url = os.getenv("FACTUFLOW_TEST_POSTGRES_URL", "").strip()
-    if not configured_url:
-        pytest.skip("Requiere PostgreSQL desechable explícito para PF-01B")
-
-    if configured_url.startswith("postgresql://"):
-        configured_url = configured_url.replace(
-            "postgresql://",
-            "postgresql+asyncpg://",
-            1,
-        )
-    if not configured_url.startswith("postgresql+asyncpg://"):
-        pytest.fail("FACTUFLOW_TEST_POSTGRES_URL debe apuntar a PostgreSQL")
-
-    if os.getenv(SCHEMA_RESET_ENV, "").strip() != "1":
-        pytest.fail(
-            f"{SCHEMA_RESET_ENV}=1 es obligatorio porque la prueba recrea "
-            "el schema public"
-        )
-
-    database_name = (make_url(configured_url).database or "").lower()
-    if not any(marker in database_name for marker in NOMBRES_DESCARTABLES):
-        pytest.fail(
-            "La base desechable debe incluir test, tmp, temp o pf01b en su nombre"
-        )
-    return configured_url
-
-
-def test_postgresql_guard_requiere_opt_in(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """El harness falla antes de conectar si no existe opt-in destructivo."""
-    monkeypatch.setenv(
-        "FACTUFLOW_TEST_POSTGRES_URL",
-        "postgresql+asyncpg://user@127.0.0.1/factuflow_pf01b_test",
-    )
-    monkeypatch.delenv(SCHEMA_RESET_ENV, raising=False)
-
-    with pytest.raises(pytest.fail.Exception, match=SCHEMA_RESET_ENV):
-        _postgres_url()
-
-
-def test_postgresql_guard_rechaza_nombre_operativo(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """El harness rechaza nombres que no declaran una base descartable."""
-    monkeypatch.setenv(
-        "FACTUFLOW_TEST_POSTGRES_URL",
-        "postgresql+asyncpg://user@127.0.0.1/factuflow",
-    )
-    monkeypatch.setenv(SCHEMA_RESET_ENV, "1")
-
-    with pytest.raises(pytest.fail.Exception, match="base desechable"):
-        _postgres_url()
+    return require_disposable_postgres_url(purpose="PF-01B")
 
 
 def _run_alembic(
@@ -99,18 +51,26 @@ def _run_alembic(
     expected_success: bool = True,
 ) -> str:
     """Ejecuta Alembic contra PostgreSQL sin imprimir la URL ni credenciales."""
+    database_url = validate_disposable_postgres_url(
+        database_url,
+        schema_reset_opt_in=os.getenv(SCHEMA_RESET_ENV, ""),
+    )
     env = os.environ.copy()
     env["DATABASE_URL"] = database_url
     env["APP_ENV"] = "testing"
 
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", action, revision],
-        cwd=BACKEND_DIR,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", action, revision],
+            cwd=BACKEND_DIR,
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=ALEMBIC_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.fail("Alembic excedió el timeout controlado del harness PostgreSQL")
     output = result.stdout + result.stderr
     if expected_success:
         assert result.returncode == 0, output
@@ -121,6 +81,10 @@ def _run_alembic(
 
 async def _reset_schema(database_url: str) -> None:
     """Recrea el schema público de la base exclusivamente desechable."""
+    database_url = validate_disposable_postgres_url(
+        database_url,
+        schema_reset_opt_in=os.getenv(SCHEMA_RESET_ENV, ""),
+    )
     engine = create_async_engine(database_url, isolation_level="AUTOCOMMIT")
     try:
         async with engine.connect() as connection:

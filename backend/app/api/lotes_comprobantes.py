@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 from fastapi import (
     APIRouter,
@@ -31,6 +34,7 @@ from app.core.database import get_db
 from app.core.date_parsing import parse_fecha_input
 from app.models.empresa import Empresa
 from app.models.idempotencia_fiscal import OperacionIdempotente
+from app.models.lote_comprobante import LoteComprobante
 from app.models.usuario import Usuario
 from app.schemas.lote_comprobante import (
     LoteAccionResponse,
@@ -49,6 +53,7 @@ from app.schemas.lote_comprobante import (
 )
 from app.services.facturacion_service import FaseSolicitudArca
 from app.services.lote_comprobantes_service import (
+    LoteComprobanteConflictoError,
     LoteComprobanteError,
     LoteComprobantesService,
     OpcionesConceptoLote,
@@ -61,6 +66,11 @@ from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
     IdempotenciaFiscalError,
     IdempotenciaFiscalService,
+)
+from app.services.elegibilidad_rece_service import (
+    ContextoElegibilidadRece,
+    ElegibilidadReceError,
+    ElegibilidadReceService,
 )
 from app.services.perfiles_carga_masiva_service import (
     PerfilCargaMasivaError,
@@ -148,11 +158,30 @@ async def _recuperar_operacion_lote_pre_arca(
     db: AsyncSession,
     idempotencia: IdempotenciaFiscalService,
     operacion_id: int,
-) -> bool:
-    """Marca una operación de lote interrumpida si no llegó a crear intentos."""
+    fase_solicitud_arca: FaseSolicitudArca,
+) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+    """Recupera una operación solo si su guarda prueba cero inicio ARCA."""
     try:
         await db.rollback()
-        return await idempotencia.marcar_operacion_interrumpida_pre_arca(operacion_id)
+        if (
+            fase_solicitud_arca.guarda_rece_id is not None
+            and fase_solicitud_arca.guarda_rece_token is not None
+        ):
+            resultado_guarda = await ElegibilidadReceService(
+                db
+            ).recuperar_guarda_interrumpida_pre_arca(
+                operacion_id=operacion_id,
+                guarda_id=fase_solicitud_arca.guarda_rece_id,
+                token=fase_solicitud_arca.guarda_rece_token,
+            )
+            if resultado_guarda == "recuperada_pre_arca":
+                return resultado_guarda
+            if resultado_guarda == "requiere_reconciliacion":
+                return resultado_guarda
+        recuperada = await idempotencia.marcar_operacion_interrumpida_pre_arca(
+            operacion_id
+        )
+        return "recuperada_pre_arca" if recuperada else "no_recuperable"
     except Exception as recovery_exc:
         logger.error(
             "event=pre_arca_lote_operation_recovery_failed tipo_error=%s",
@@ -165,7 +194,7 @@ async def _recuperar_operacion_lote_pre_arca(
                 "event=pre_arca_lote_operation_rollback_failed tipo_error=%s",
                 type(rollback_exc).__name__,
             )
-        return False
+        return "no_recuperable"
 
 
 def _estado_operacion_lote_desde_respuesta(response_json: dict) -> str:
@@ -187,21 +216,43 @@ async def _resolver_operacion_lote(
     tipo_operacion: str,
     payload: dict,
     lote_id: int,
-) -> tuple[IdempotenciaFiscalService, OperacionIdempotente, bool]:
+    material_rece: dict,
+) -> tuple[
+    IdempotenciaFiscalService,
+    OperacionIdempotente,
+    bool,
+    list[ContextoElegibilidadRece] | None,
+]:
     """Obtiene o crea una operación idempotente de lote."""
     idempotencia = IdempotenciaFiscalService(db)
     payload_hash = idempotencia.calcular_payload_hash(
         idempotencia.payload_sin_confirmacion_duplicado(payload)
     )
     try:
-        operacion, creada = await idempotencia.obtener_o_crear_operacion(
+        existente = await idempotencia.obtener_operacion_existente(
             empresa_id=empresa_id,
-            usuario_id=usuario_id,
             idempotency_key=idempotency_key,
-            tipo_operacion=tipo_operacion,
             payload_hash=payload_hash,
-            lote_id=lote_id,
         )
+        if existente is not None:
+            return idempotencia, existente, False, None
+        async with _contextos_rece_lote_bloqueados(
+            db=db,
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            material_rece=material_rece,
+        ) as contextos_rece:
+            operacion, creada = await idempotencia.obtener_o_crear_operacion(
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+                idempotency_key=idempotency_key,
+                tipo_operacion=tipo_operacion,
+                payload_hash=payload_hash,
+                lote_id=lote_id,
+                contextos_rece=contextos_rece,
+            )
+    except ElegibilidadReceError as exc:
+        raise _error_elegibilidad_lote(exc) from exc
     except IdempotenciaFiscalError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except CreacionOperacionAmbiguaError as exc:
@@ -212,6 +263,7 @@ async def _resolver_operacion_lote(
                 payload_hash=payload_hash,
                 tipo_operacion=tipo_operacion,
                 lote_id=lote_id,
+                contextos_rece=contextos_rece,
             )
         except Exception as recovery_exc:
             logger.error(
@@ -222,7 +274,96 @@ async def _resolver_operacion_lote(
         if not recuperada:
             raise _error_db_pre_arca_lote_bloqueado()
         raise exc.error_original
-    return idempotencia, operacion, creada
+    return idempotencia, operacion, creada, contextos_rece
+
+
+def _error_elegibilidad_lote(exc: ElegibilidadReceError) -> HTTPException:
+    """Devuelve un conflicto fail-closed sin filtrar evidencia fiscal."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "mensaje": exc.mensaje,
+            "errores": ["No se solicitó CAE ni se consultó capacidad batch a ARCA."],
+            "categoria_error": exc.categoria,
+        },
+    )
+
+
+async def _resolver_contextos_rece_lote(
+    *,
+    db: AsyncSession,
+    lote_id: int,
+    empresa_id: int,
+    material_rece: dict,
+    operacion: OperacionIdempotente | None = None,
+) -> list[ContextoElegibilidadRece]:
+    """Resuelve contextos bajo locks durante toda la validación."""
+    async with _contextos_rece_lote_bloqueados(
+        db=db,
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        material_rece=material_rece,
+        operacion=operacion,
+    ) as contextos:
+        return contextos
+
+
+@asynccontextmanager
+async def _contextos_rece_lote_bloqueados(
+    *,
+    db: AsyncSession,
+    lote_id: int,
+    empresa_id: int,
+    material_rece: dict,
+    operacion: OperacionIdempotente | None = None,
+) -> AsyncIterator[list[ContextoElegibilidadRece]]:
+    """Mantiene locks multipunto hasta que el caller termina su transacción."""
+    grupos = list(material_rece.get("grupos") or [])
+    grupo_ids = [int(grupo["grupo_id"]) for grupo in grupos]
+    puntos_ids = sorted(
+        {
+            int(grupo["punto_venta_id"])
+            for grupo in grupos
+            if grupo.get("punto_venta_id") is not None
+        }
+    )
+    if (
+        not grupos
+        or len(puntos_ids) == 0
+        or any(grupo.get("punto_venta_id") is None for grupo in grupos)
+    ):
+        raise ElegibilidadReceError(
+            "El lote no tiene una membresía RECE completa y emitible."
+        )
+    tipos = {
+        int(grupo["grupo_id"]): int(grupo["tipo_comprobante"])
+        for grupo in grupos
+        if grupo.get("tipo_comprobante") is not None
+    }
+    elegibilidad = ElegibilidadReceService(db)
+    async with AsyncExitStack() as stack:
+        for punto_venta_id in puntos_ids:
+            await stack.enter_async_context(
+                elegibilidad.bloqueo_local_punto(
+                    empresa_id=empresa_id,
+                    punto_venta_id=punto_venta_id,
+                )
+            )
+        contextos = await elegibilidad.validar_grupos_lote(
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            grupo_ids=grupo_ids,
+            tipo_comprobante_por_grupo=tipos,
+            material_confirmado=grupos,
+            bloquear=True,
+        )
+        if operacion is not None:
+            await elegibilidad.validar_operacion_para_continuar(
+                operacion_id=operacion.id,
+                empresa_id=empresa_id,
+                contextos_esperados=contextos,
+            )
+        yield contextos
 
 
 def _lote_puede_emitirse(lote) -> bool:
@@ -251,10 +392,58 @@ def _operacion_lote_esta_cerrada(operacion: OperacionIdempotente) -> bool:
     """Indica si una operación idempotente de lote ya tiene resultado final."""
     return operacion.estado in {
         "finalizado",
+        "fallido",
         "requiere_reconciliacion",
         "fallido_verificado",
         "rechazado_arca",
     }
+
+
+async def _publicar_respuesta_lote_reconstruida(
+    *,
+    db: AsyncSession,
+    service: LoteComprobantesService,
+    idempotencia: IdempotenciaFiscalService,
+    operacion: OperacionIdempotente,
+    lote: LoteComprobante,
+    respuesta: LoteProcesamientoResponse | LoteAccionResponse,
+) -> None:
+    """Publica un replay de lote sin sobrescribir ownership concurrente."""
+    metadata = lote.metadata_json or {}
+    material_rece = metadata.get("pf19b_rece_material")
+    ownership_worker = (
+        operacion.tipo_operacion == "procesar_lote"
+        and isinstance(material_rece, dict)
+        and IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+            operacion.response_json,
+            lote_id=int(lote.id),
+            empresa_id=int(lote.empresa_id),
+            operacion_id=int(operacion.id),
+            material_rece=material_rece,
+        )
+    )
+    if ownership_worker:
+        try:
+            await service._guardar_respuesta_operacion_background(
+                lote,
+                int(operacion.id),
+            )
+        except LoteComprobanteConflictoError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
+        await db.commit()
+        await db.refresh(operacion)
+        return
+
+    await idempotencia.guardar_resultado_operacion_sync(
+        operacion,
+        response_json=respuesta,
+        estado=_estado_operacion_lote_desde_respuesta(
+            respuesta.model_dump(mode="json")
+        ),
+    )
 
 
 def _raise_error_operacion_lote(response_json: dict) -> None:
@@ -279,7 +468,7 @@ async def _guardar_y_lanzar_error_operacion_lote(
         "categoria_error": categoria_error,
         "status_code": status_code,
     }
-    await idempotencia.guardar_respuesta_operacion(
+    await idempotencia.guardar_resultado_operacion_sync(
         operacion,
         response_json=detail,
         estado="fallido_verificado",
@@ -466,6 +655,56 @@ async def procesar_lote(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     requiere_background = background or lote.total_grupos > settings.batch_sync_limit
+    material_grupos = await service.calcular_material_idempotente_grupos(
+        lote_id=lote_id,
+        empresa_id=empresa_activa_id,
+        estados={
+            "validado",
+            "procesando",
+            "autorizado",
+            "fallido",
+            "requiere_reconciliacion",
+        },
+    )
+    material_rece = await service.calcular_material_idempotente_grupos(
+        lote_id=lote_id,
+        empresa_id=empresa_activa_id,
+        estados={"validado"},
+    )
+    payload_operacion = {
+        "lote_id": lote_id,
+        "background": background,
+        "confirmacion_fecha_fiscal": x_confirmacion_fecha_fiscal,
+        "grupo_ids": material_grupos["grupo_ids"],
+        "grupos_hash": material_grupos["grupos_hash"],
+    }
+    if x_idempotency_key:
+        idempotencia_replay = IdempotenciaFiscalService(db)
+        payload_hash_replay = idempotencia_replay.calcular_payload_hash(
+            idempotencia_replay.payload_sin_confirmacion_duplicado(payload_operacion)
+        )
+        try:
+            operacion_replay = await idempotencia_replay.obtener_operacion_existente(
+                empresa_id=empresa_activa_id,
+                idempotency_key=x_idempotency_key,
+                payload_hash=payload_hash_replay,
+            )
+        except IdempotenciaFiscalError as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail=exc.detail,
+            ) from exc
+        if (
+            operacion_replay is not None
+            and operacion_replay.response_json is not None
+            and _operacion_lote_esta_cerrada(operacion_replay)
+        ):
+            if "categoria_error" in operacion_replay.response_json:
+                _raise_error_operacion_lote(operacion_replay.response_json)
+            return LoteProcesamientoResponse.model_validate(
+                operacion_replay.response_json
+            )
+
     if (
         requiere_background
         and lote.estado in service.ESTADOS_PROCESABLES
@@ -485,35 +724,27 @@ async def procesar_lote(
             },
         )
 
-    material_grupos = await service.calcular_material_idempotente_grupos(
-        lote_id=lote_id,
-        empresa_id=empresa_activa_id,
-        estados={
-            "validado",
-            "procesando",
-            "autorizado",
-            "fallido",
-            "requiere_reconciliacion",
-        },
-    )
-    idempotencia, operacion, creada = await _resolver_operacion_lote(
+    idempotencia, operacion, creada, contextos_rece = await _resolver_operacion_lote(
         db=db,
         empresa_id=empresa_activa_id,
         usuario_id=current_user.id,
         idempotency_key=x_idempotency_key,
         tipo_operacion="procesar_lote",
-        payload={
-            "lote_id": lote_id,
-            "background": background,
-            "confirmacion_fecha_fiscal": x_confirmacion_fecha_fiscal,
-            "grupo_ids": material_grupos["grupo_ids"],
-            "grupos_hash": material_grupos["grupos_hash"],
-        },
+        payload=payload_operacion,
         lote_id=lote_id,
+        material_rece=material_rece,
     )
+    operacion_id_durable = int(operacion.id)
     try:
         continuar_operacion = creada
         if not creada and operacion.estado == "interrumpida_pre_arca":
+            contextos_rece = await _resolver_contextos_rece_lote(
+                db=db,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                material_rece=material_rece,
+                operacion=operacion,
+            )
             (
                 operacion,
                 continuar_operacion,
@@ -532,6 +763,13 @@ async def procesar_lote(
                     )
                     and x_confirmacion_duplicado_logico
                 ):
+                    contextos_rece = await _resolver_contextos_rece_lote(
+                        db=db,
+                        lote_id=lote_id,
+                        empresa_id=empresa_activa_id,
+                        material_rece=material_rece,
+                        operacion=operacion,
+                    )
                     operacion, tomada = await idempotencia.marcar_operacion_en_proceso(
                         operacion
                     )
@@ -557,14 +795,24 @@ async def procesar_lote(
                     "con_errores",
                     "requiere_reconciliacion",
                 }:
-                    await idempotencia.guardar_respuesta_operacion(
-                        operacion,
-                        response_json=respuesta_actual,
-                        estado=_estado_operacion_lote_desde_respuesta(
-                            respuesta_actual.model_dump(mode="json")
-                        ),
+                    await _publicar_respuesta_lote_reconstruida(
+                        db=db,
+                        service=service,
+                        idempotencia=idempotencia,
+                        operacion=operacion,
+                        lote=lote_actual,
+                        respuesta=respuesta_actual,
                     )
                 return respuesta_actual
+
+        if contextos_rece is None:
+            contextos_rece = await _resolver_contextos_rece_lote(
+                db=db,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                material_rece=material_rece,
+                operacion=operacion,
+            )
 
         if lote.grupos_validos == 0:
             await _guardar_y_lanzar_error_operacion_lote(
@@ -616,7 +864,7 @@ async def procesar_lote(
                         "cantidad_duplicados_logicos"
                     ],
                 }
-                await idempotencia.guardar_respuesta_operacion(
+                await idempotencia.guardar_resultado_operacion_sync(
                     operacion,
                     response_json=detail,
                     estado="requiere_confirmacion_duplicado",
@@ -629,21 +877,33 @@ async def procesar_lote(
                 empresa_activa_id,
                 operacion_id=operacion.id,
                 confirmacion_duplicado_logico=confirmacion_duplicado_ok,
+                material_rece=material_rece,
+                commit=False,
             )
-            if lote.estado != "procesando":
-                mensaje = "El lote quedó en cola y se está procesando en segundo plano."
-            else:
-                mensaje = "El lote ya está siendo procesado."
+            if lote.estado != "en_cola":
+                await db.rollback()
+                raise _error_idempotencia_en_proceso_lote()
             respuesta = LoteProcesamientoResponse(
                 lote=_serialize_lote(lote),
-                mensaje=mensaje,
+                mensaje=(
+                    "El lote quedó en cola y se está procesando en segundo plano."
+                ),
                 en_progreso=True,
             )
-            await idempotencia.guardar_respuesta_operacion(
-                operacion,
+            respuesta_publicada = await idempotencia.guardar_respuesta_operacion_cas(
+                operacion_id=operacion.id,
                 response_json=respuesta,
                 estado="en_proceso",
+                estado_esperado="en_proceso",
+                respuesta_esperada_nula=True,
+                commit=False,
             )
+            if not respuesta_publicada:
+                await db.rollback()
+                raise _error_idempotencia_en_proceso_lote()
+            await db.commit()
+            await db.refresh(lote)
+            await db.refresh(operacion)
             return respuesta
 
         try:
@@ -653,6 +913,8 @@ async def procesar_lote(
                 operacion_id=operacion.id,
                 usuario_id=current_user.id,
                 confirmacion_duplicado_logico=confirmacion_duplicado_ok,
+                contextos_rece=contextos_rece,
+                material_rece_confirmado=material_rece,
                 fase_solicitud_arca=fase_solicitud_arca,
             )
         except LoteComprobanteError as exc:
@@ -667,7 +929,7 @@ async def procesar_lote(
             mensaje=lote.mensaje_resumen or "Lote procesado",
             en_progreso=False,
         )
-        await idempotencia.guardar_respuesta_operacion(
+        await idempotencia.guardar_resultado_operacion_sync(
             operacion,
             response_json=respuesta,
             estado=_estado_operacion_lote_desde_respuesta(
@@ -676,23 +938,27 @@ async def procesar_lote(
         )
         return respuesta
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-        if fase_solicitud_arca.iniciada:
+        if fase_solicitud_arca.guarda_actual_iniciada:
             raise _error_db_post_arca_lote()
-        recuperada = fase_solicitud_arca.recuperacion_pre_arca_exitosa
-        if recuperada is None:
-            recuperada = await service.recuperar_lote_interrumpido_pre_arca(
+        recuperacion = fase_solicitud_arca.resultado_recuperacion_pre_arca
+        if recuperacion is None:
+            recuperacion = await service.recuperar_lote_interrumpido_pre_arca(
                 lote_id=lote_id,
                 empresa_id=empresa_activa_id,
-                operacion_id=operacion.id,
+                operacion_id=operacion_id_durable,
                 estado_reanudable="validado",
                 estados_claim=(
                     {"validado"} if requiere_background else {"procesando", "validado"}
                 ),
                 mensaje_seguro="El lote puede volver a procesarse de forma segura.",
+                guarda_rece_id=fase_solicitud_arca.guarda_rece_id,
+                guarda_rece_token=fase_solicitud_arca.guarda_rece_token,
             )
-            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
-        if recuperada is True:
+            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
+        if recuperacion == "recuperada_pre_arca":
             raise
+        if recuperacion == "requiere_reconciliacion":
+            raise _error_db_post_arca_lote()
         raise _error_db_pre_arca_lote_bloqueado()
 
 
@@ -730,7 +996,18 @@ async def reintentar_fallidos_lote(
             ),
             grupo_ids=grupo_ids,
         )
-        idempotencia, operacion, creada = await _resolver_operacion_lote(
+        material_rece = await service.calcular_material_idempotente_grupos(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            estados=None if grupo_ids else {"fallido"},
+            grupo_ids=grupo_ids,
+        )
+        (
+            idempotencia,
+            operacion,
+            creada,
+            contextos_rece,
+        ) = await _resolver_operacion_lote(
             db=db,
             empresa_id=empresa_activa_id,
             usuario_id=current_user.id,
@@ -744,9 +1021,17 @@ async def reintentar_fallidos_lote(
                 "grupos_hash": material_grupos["grupos_hash"],
             },
             lote_id=lote_id,
+            material_rece=material_rece,
         )
         continuar_operacion = creada
         if not creada and operacion.estado == "interrumpida_pre_arca":
+            contextos_rece = await _resolver_contextos_rece_lote(
+                db=db,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                material_rece=material_rece,
+                operacion=operacion,
+            )
             (
                 operacion,
                 continuar_operacion,
@@ -765,6 +1050,13 @@ async def reintentar_fallidos_lote(
                     )
                     and x_confirmacion_duplicado_logico
                 ):
+                    contextos_rece = await _resolver_contextos_rece_lote(
+                        db=db,
+                        lote_id=lote_id,
+                        empresa_id=empresa_activa_id,
+                        material_rece=material_rece,
+                        operacion=operacion,
+                    )
                     operacion, tomada = await idempotencia.marcar_operacion_en_proceso(
                         operacion
                     )
@@ -789,14 +1081,24 @@ async def reintentar_fallidos_lote(
                     "requiere_reconciliacion",
                     "cerrado_reconciliado",
                 }:
-                    await idempotencia.guardar_respuesta_operacion(
-                        operacion,
-                        response_json=respuesta_actual,
-                        estado=_estado_operacion_lote_desde_respuesta(
-                            respuesta_actual.model_dump(mode="json")
-                        ),
+                    await _publicar_respuesta_lote_reconstruida(
+                        db=db,
+                        service=service,
+                        idempotencia=idempotencia,
+                        operacion=operacion,
+                        lote=lote_actual,
+                        respuesta=respuesta_actual,
                     )
                 return respuesta_actual
+
+        if contextos_rece is None:
+            contextos_rece = await _resolver_contextos_rece_lote(
+                db=db,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                material_rece=material_rece,
+                operacion=operacion,
+            )
 
         try:
             confirmacion = await service.obtener_confirmacion_fiscal_grupos(
@@ -849,7 +1151,7 @@ async def reintentar_fallidos_lote(
                         "cantidad_duplicados_logicos"
                     ],
                 }
-                await idempotencia.guardar_respuesta_operacion(
+                await idempotencia.guardar_resultado_operacion_sync(
                     operacion,
                     response_json=detail,
                     estado="requiere_confirmacion_duplicado",
@@ -862,29 +1164,40 @@ async def reintentar_fallidos_lote(
             usuario_id=current_user.id,
             grupo_ids=grupo_ids,
             operacion_id=operacion.id,
+            contextos_rece=contextos_rece,
+            material_rece_confirmado=material_rece,
             confirmacion_duplicado_logico=confirmacion_duplicado_ok,
             fase_solicitud_arca=fase_solicitud_arca,
         )
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-        if fase_solicitud_arca.iniciada:
+        if fase_solicitud_arca.guarda_actual_iniciada:
             raise _error_db_post_arca_lote()
         if idempotencia is None or operacion is None:
             raise
-        recuperada = fase_solicitud_arca.recuperacion_pre_arca_exitosa
-        if recuperada is None:
-            recuperada = await _recuperar_operacion_lote_pre_arca(
+        recuperacion = fase_solicitud_arca.resultado_recuperacion_pre_arca
+        if recuperacion is None:
+            recuperacion = await _recuperar_operacion_lote_pre_arca(
                 db,
                 idempotencia,
                 operacion.id,
+                fase_solicitud_arca,
             )
-            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
-        if recuperada is True:
+            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
+        if recuperacion == "recuperada_pre_arca":
             raise
+        if recuperacion == "requiere_reconciliacion":
+            raise _error_db_post_arca_lote()
         raise _error_db_pre_arca_lote_bloqueado()
     except HTTPException:
         raise
+    except LoteComprobanteConflictoError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
     except LoteComprobanteError as exc:
-        if "idempotencia" in locals() and "operacion" in locals():
+        if idempotencia is not None and operacion is not None:
             await _guardar_y_lanzar_error_operacion_lote(
                 idempotencia,
                 operacion,
@@ -900,7 +1213,7 @@ async def reintentar_fallidos_lote(
         mensaje=lote.mensaje_resumen or "Reintento finalizado",
     )
     try:
-        await idempotencia.guardar_respuesta_operacion(
+        await idempotencia.guardar_resultado_operacion_sync(
             operacion,
             response_json=respuesta,
             estado=_estado_operacion_lote_desde_respuesta(
@@ -908,15 +1221,18 @@ async def reintentar_fallidos_lote(
             ),
         )
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-        if not fase_solicitud_arca.iniciada:
-            recuperada = await _recuperar_operacion_lote_pre_arca(
+        if not fase_solicitud_arca.guarda_actual_iniciada:
+            recuperacion = await _recuperar_operacion_lote_pre_arca(
                 db,
                 idempotencia,
                 operacion.id,
+                fase_solicitud_arca,
             )
-            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
-            if recuperada:
+            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
+            if recuperacion == "recuperada_pre_arca":
                 raise
+            if recuperacion == "requiere_reconciliacion":
+                raise _error_db_post_arca_lote()
             raise _error_db_pre_arca_lote_bloqueado()
         raise _error_db_post_arca_lote()
     return respuesta
@@ -934,6 +1250,10 @@ async def reconciliar_emitidos_externos(
     service = LoteComprobantesService(db)
     empresa = await _get_empresa(db, empresa_activa_id)
     try:
+        await service.validar_lote_para_reconciliacion_externa(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+        )
         wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         lote = await service.reconciliar_emitidos_externos(
             lote_id=lote_id,
@@ -1027,6 +1347,10 @@ async def eliminar_lote(
             usuario_id=current_user.id,
             motivo=request_body.motivo,
         )
+    except LoteComprobanteConflictoError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except LoteComprobanteError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

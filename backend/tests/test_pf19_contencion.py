@@ -12,16 +12,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import BloqueoPreautorizacionArca, settings
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
+from app.models.elegibilidad_rece import (
+    OperacionIdempotenteElegibilidadRece,
+    PuntoVentaElegibilidadReceActual,
+    PuntoVentaElegibilidadReceRevision,
+)
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
-from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
+from app.models.lote_comprobante import (
+    LoteComprobante,
+    LoteComprobanteFila,
+    LoteComprobanteGrupo,
+)
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteRequest, ItemComprobanteCreate
+from app.schemas.lote_comprobante import (
+    LoteComprobanteResponse,
+    LoteProcesamientoResponse,
+)
 from app.services.contencion_fiscal_service import (
     CATEGORIA_BLOQUEO_PREAUTORIZACION,
     obtener_bloqueo_preautorizacion,
 )
 from app.services.facturacion_service import FacturacionService, FaseSolicitudArca
-from app.services.lote_comprobantes_service import LoteComprobantesService
+from app.services.elegibilidad_rece_service import (
+    ContextoElegibilidadRece,
+    ElegibilidadReceService,
+)
+from app.services.lote_comprobantes_service import (
+    LoteComprobanteError,
+    LoteComprobantesService,
+)
 
 
 def _bloqueo(
@@ -71,6 +91,189 @@ def _request(
             )
         ],
     )
+
+
+async def _crear_contexto_rece_contenido(
+    db: AsyncSession,
+    *,
+    empresa,
+    punto: PuntoVenta,
+) -> ContextoElegibilidadRece:
+    """Crea una cabeza RECE moderna para alcanzar el gate PF-19 probado."""
+    ahora = datetime(2026, 8, 9, 12, 0, 0)
+    punto.revision_fiscal = 1
+    revision = PuntoVentaElegibilidadReceRevision(
+        empresa_id=empresa.id,
+        punto_venta_id=punto.id,
+        ambiente="produccion",
+        revision=1,
+        estado="verificado_rece",
+        fuente="constancia_arca_atestada",
+        evidencia_tipo="rece_aplicativo_web_services_v1",
+        evidencia_sha256="a" * 64,
+        clasificador_version="rece-v1-contencion-test",
+        empresa_cuit_snapshot=empresa.cuit,
+        punto_venta_numero_snapshot=punto.numero,
+        punto_revision_fiscal=1,
+        documento_emitido_en=date(2026, 8, 9),
+        vigente_hasta=date(2099, 12, 31),
+        observado_en=ahora,
+        verificado_en=ahora,
+        actor_usuario_id_snapshot=1,
+        created_at=ahora,
+    )
+    db.add(revision)
+    await db.flush()
+    db.add(
+        PuntoVentaElegibilidadReceActual(
+            empresa_id=empresa.id,
+            punto_venta_id=punto.id,
+            ambiente="produccion",
+            revision_actual_id=revision.id,
+        )
+    )
+    await db.flush()
+    return ContextoElegibilidadRece(
+        empresa_id=empresa.id,
+        punto_venta_id=punto.id,
+        punto_venta_numero=punto.numero,
+        ambiente="produccion",
+        elegibilidad_revision_id=revision.id,
+        punto_venta_revision_fiscal=1,
+    )
+
+
+async def _crear_operacion_rece_contenida(
+    db: AsyncSession,
+    *,
+    empresa,
+    punto: PuntoVenta,
+    requests: list[EmitirComprobanteRequest],
+    lote: LoteComprobante | None = None,
+    grupos: list[LoteComprobanteGrupo] | None = None,
+) -> tuple[OperacionIdempotente, ContextoElegibilidadRece, list[dict[str, object]]]:
+    """Publica ownership RECE exacto sin habilitar ninguna solicitud de CAE."""
+    contexto = await _crear_contexto_rece_contenido(
+        db,
+        empresa=empresa,
+        punto=punto,
+    )
+    es_batch = lote is not None or len(requests) > 1
+    operacion = OperacionIdempotente(
+        empresa_id=empresa.id,
+        idempotency_key=f"pf19-contenido-{contexto.elegibilidad_revision_id}-{int(es_batch)}",
+        tipo_operacion="procesar_lote" if es_batch else "emitir_comprobante",
+        payload_hash=f"{contexto.elegibilidad_revision_id:064d}",
+        estado="en_proceso",
+        rece_snapshot_hash=ElegibilidadReceService.calcular_digest_contextos(
+            [contexto]
+        ),
+    )
+    db.add(operacion)
+    await db.flush()
+    db.add(
+        OperacionIdempotenteElegibilidadRece(
+            operacion_id=operacion.id,
+            empresa_id=empresa.id,
+            punto_venta_id=punto.id,
+            ambiente=contexto.ambiente,
+            elegibilidad_revision_id=contexto.elegibilidad_revision_id,
+            punto_venta_revision_fiscal=1,
+        )
+    )
+
+    metadata: list[dict[str, object]] = []
+    if es_batch:
+        if lote is None:
+            lote = LoteComprobante(
+                empresa_id=empresa.id,
+                nombre_archivo="pf19-contenido-rece.xlsx",
+                archivo_hash="b" * 64,
+                estado="procesando",
+                procesamiento_async=False,
+                modo_procesamiento="sincronico",
+                total_filas=len(requests),
+                total_grupos=len(requests),
+                grupos_validos=len(requests),
+            )
+            db.add(lote)
+            await db.flush()
+        if grupos is None:
+            grupos = []
+            for indice, request in enumerate(requests, start=1):
+                grupo = LoteComprobanteGrupo(
+                    lote_id=lote.id,
+                    empresa_id=empresa.id,
+                    comprobante_ref=f"PF19-CONTENIDO-{indice:03d}",
+                    orden=indice,
+                    estado="validado",
+                    tipo_comprobante=request.tipo_comprobante,
+                    punto_venta_numero=punto.numero,
+                    total_estimado=Decimal("121.00"),
+                    payload_json=request.model_dump(mode="json"),
+                )
+                db.add(grupo)
+                await db.flush()
+                grupos.append(grupo)
+        for indice, (request, grupo) in enumerate(
+            zip(requests, grupos),
+            start=1,
+        ):
+            grupo.empresa_id = empresa.id
+            grupo.punto_venta_id = punto.id
+            grupo.ambiente = contexto.ambiente
+            grupo.punto_venta_elegibilidad_revision_id = (
+                contexto.elegibilidad_revision_id
+            )
+            grupo.punto_venta_revision_fiscal = 1
+            db.add(
+                LoteComprobanteFila(
+                    lote_id=lote.id,
+                    grupo_id=grupo.id,
+                    fila_excel=indice + 1,
+                    comprobante_ref=grupo.comprobante_ref,
+                    estado=grupo.estado,
+                    datos_json={},
+                    mensajes_json=["Validado sintético"],
+                )
+            )
+            metadata.append(
+                {
+                    "operacion_id": operacion.id,
+                    "contexto_rece": contexto,
+                    "contextos_operacion": [contexto],
+                    "lote_id": lote.id,
+                    "grupo_id": grupo.id,
+                    "usuario_id": None,
+                }
+            )
+        operacion.lote_id = lote.id
+        await db.flush()
+        material_rece = await LoteComprobantesService(
+            db
+        ).calcular_material_idempotente_grupos(
+            lote_id=lote.id,
+            empresa_id=empresa.id,
+            estados={"validado"},
+        )
+        metadata_lote = dict(lote.metadata_json or {})
+        metadata_lote.update(
+            {
+                "operacion_idempotente_id": operacion.id,
+                "confirmacion_duplicado_logico": False,
+                "pf19b_rece_material": material_rece,
+            }
+        )
+        lote.metadata_json = metadata_lote
+        if lote.procesamiento_async and lote.modo_procesamiento == "background":
+            await db.flush()
+            operacion.response_json = LoteProcesamientoResponse(
+                lote=LoteComprobanteResponse.model_validate(lote),
+                mensaje="El lote está siendo procesado en segundo plano.",
+                en_progreso=True,
+            ).model_dump(mode="json")
+    await db.commit()
+    return operacion, contexto, metadata
 
 
 @pytest.mark.parametrize(
@@ -259,15 +462,31 @@ async def test_contencion_aborta_sin_arca_intentos_cae_ni_comprobantes(
     fase = FaseSolicitudArca()
     service = FacturacionService(db_session)
     if modo == "individual":
+        operacion, contexto, _ = await _crear_operacion_rece_contenida(
+            db_session,
+            empresa=test_empresa,
+            punto=punto,
+            requests=[request],
+        )
         resultados = [
             await service.emitir_comprobante(
                 request,
+                operacion_id=operacion.id,
+                contexto_rece=contexto,
+                contextos_operacion=[contexto],
                 fase_solicitud_arca=fase,
             )
         ]
     else:
+        _, _, metadata = await _crear_operacion_rece_contenida(
+            db_session,
+            empresa=test_empresa,
+            punto=punto,
+            requests=[request, request.model_copy()],
+        )
         resultados = await service.emitir_comprobantes_lote(
             [request, request.model_copy()],
+            contextos=metadata,
             fase_solicitud_arca=fase,
         )
 
@@ -288,12 +507,12 @@ async def test_contencion_aborta_sin_arca_intentos_cae_ni_comprobantes(
 
 
 @pytest.mark.asyncio
-async def test_procesar_lote_permite_regxreq_previo_y_bloquea_todo_fecae(
+async def test_procesar_lote_bloquea_antes_de_capacidad_y_fecae(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """El flujo exterior puede leer RegXReq, pero la tupla nunca cruza FECAE."""
+    """La contención corta antes de WSAA, capacidad y cualquier FECAE."""
     punto = PuntoVenta(
         numero=7,
         nombre="Web Services batch sintético",
@@ -325,6 +544,8 @@ async def test_procesar_lote_permite_regxreq_previo_y_bloquea_todo_fecae(
         total_filas=2,
         total_grupos=2,
         grupos_validos=2,
+        procesamiento_async=True,
+        modo_procesamiento="background",
         metadata_json={
             "opciones_concepto": {"modo": "fijo", "valor": 1},
             "opciones_descripcion_item": {"modo": "archivo"},
@@ -334,6 +555,7 @@ async def test_procesar_lote_permite_regxreq_previo_y_bloquea_todo_fecae(
     grupos = [
         LoteComprobanteGrupo(
             lote=lote,
+            empresa_id=test_empresa.id,
             comprobante_ref=f"PF19-BATCH-{indice:03d}",
             orden=indice,
             estado="validado",
@@ -361,6 +583,14 @@ async def test_procesar_lote_permite_regxreq_previo_y_bloquea_todo_fecae(
                 punto_venta=punto.numero,
             )
         ],
+    )
+    await _crear_operacion_rece_contenida(
+        db_session,
+        empresa=test_empresa,
+        punto=punto,
+        requests=[request, request.model_copy()],
+        lote=lote,
+        grupos=grupos,
     )
 
     llamadas = {
@@ -413,29 +643,31 @@ async def test_procesar_lote_permite_regxreq_previo_y_bloquea_todo_fecae(
     )
 
     fase = FaseSolicitudArca()
-    resultado = await LoteComprobantesService(db_session).procesar_lote(
-        lote.id,
-        test_empresa.id,
-        fase_solicitud_arca=fase,
-    )
+    with pytest.raises(
+        LoteComprobanteError,
+        match="bloqueado preventivamente",
+    ):
+        await LoteComprobantesService(db_session).procesar_lote(
+            lote.id,
+            test_empresa.id,
+            fase_solicitud_arca=fase,
+        )
 
     assert llamadas == {
-        "wsaa_inicios": 1,
-        "wsaa_login": 1,
-        "wsfe_inicios": 1,
-        "reg_x_req": 1,
+        "wsaa_inicios": 0,
+        "wsaa_login": 0,
+        "wsfe_inicios": 0,
+        "reg_x_req": 0,
         "fecae": 0,
     }
     assert fase.iniciada is False
-    assert resultado.metadata_json["arca_batch"]["reg_x_req"] == 2
-    assert resultado.metadata_json["arca_batch"]["modo"] == "batch"
     assert (
         await db_session.execute(select(IntentoEmisionFiscal))
     ).scalars().all() == []
     assert (await db_session.execute(select(Comprobante))).scalars().all() == []
     for grupo in grupos:
         await db_session.refresh(grupo)
-        assert grupo.estado == "fallido"
+        assert grupo.estado == "validado"
         assert grupo.cae is None
         assert grupo.comprobante_id is None
         assert grupo.numero_asignado is None
@@ -551,12 +783,15 @@ async def test_contencion_impide_reencolar_lote_stale_sin_consultar_arca(
         total_filas=1,
         total_grupos=1,
         grupos_validos=1,
+        procesamiento_async=True,
+        modo_procesamiento="background",
         empresa_id=test_empresa.id,
         updated_at=datetime.utcnow()
         - timedelta(minutes=settings.batch_processing_stale_minutes + 1),
     )
     grupo = LoteComprobanteGrupo(
         lote=lote,
+        empresa_id=test_empresa.id,
         comprobante_ref="PF19-STALE-001",
         orden=1,
         estado="validado",
@@ -581,6 +816,18 @@ async def test_contencion_impide_reencolar_lote_stale_sin_consultar_arca(
             )
         ],
     )
+    await _crear_operacion_rece_contenida(
+        db_session,
+        empresa=test_empresa,
+        punto=punto,
+        requests=[request],
+        lote=lote,
+        grupos=[grupo],
+    )
+    lote.updated_at = datetime.utcnow() - timedelta(
+        minutes=settings.batch_processing_stale_minutes + 1
+    )
+    await db_session.commit()
 
     def arca_no_debe_inicializarse(*_args, **_kwargs):
         raise AssertionError("Lote stale contenido no debe consultar WSAA ni WSFE")
@@ -601,9 +848,14 @@ async def test_contencion_impide_reencolar_lote_stale_sin_consultar_arca(
 
     assert resultado.estado == "requiere_reconciliacion"
     assert resultado.metadata_json["bloqueo_operativo"]["preflight_error"] == (
-        "numeracion_no_verificable"
+        "snapshot_rece_legacy_u_obsoleto"
     )
-    assert grupo.estado == "validado"
+    operacion_id = resultado.metadata_json["operacion_idempotente_id"]
+    operacion = await db_session.get(OperacionIdempotente, operacion_id)
+    assert operacion is not None
+    assert operacion.estado == "requiere_reconciliacion"
+    assert operacion.response_json["lote"]["estado"] == "requiere_reconciliacion"
+    assert grupo.estado == "requiere_reconciliacion"
     assert grupo.cae is None
     assert grupo.comprobante_id is None
     assert (

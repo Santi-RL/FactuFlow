@@ -105,7 +105,10 @@ Verificar con dos emisores ficticios:
 
 - administrador: puede operar todos los emisores;
 - usuario común: solo puede operar el emisor asignado;
-- cambio de emisor limpia estado, modales y respuestas tardías;
+- cambio de emisor invalida la selección y las acciones del contexto anterior;
+  Lotes limpia formatos, perfiles y puntos antes de su primer `await`, y los
+  loaders con guarda explícita descartan finalizaciones tardías sin implicar
+  cancelación HTTP ni cobertura global;
 - clientes, puntos de venta, certificados, comprobantes, lotes, PDFs, reportes,
   perfiles y plantillas particulares no se mezclan.
 
@@ -378,12 +381,11 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Estado vigente de `main` desde el PR `#27` (merge `45c0704`), 08/08/2026:
-PF-19A está implementado y automatizado; PF-19B y PF-19C siguen pendientes.
-PF-19A es posterior a la release productiva `v0.2.2`: todavía no pertenece a
-una release publicada ni está desplegado. Toda ejecución usa datos sintéticos y
-dobles de WSFE. Esta matriz no autoriza pedir CAE real para provocar errores ni
-editar registros fiscales.
+Estado objetivo de `main`, 09/08/2026: PF-19A y PF-19B completo están
+implementados; PF-19C sigue pendiente. La release publicada y producción
+continúan en `v0.2.2`, sin estos cortes. Toda ejecución previa al checkpoint de
+release usa datos sintéticos y dobles de WSFE. Esta matriz no autoriza pedir CAE
+real para provocar errores ni editar registros fiscales.
 
 ### PF-19A — cobertura automatizada
 
@@ -423,32 +425,83 @@ marcas temporales de comprobantes/intentos, payloads y mensajes crudos. Conserva
 identificadores operativos mínimos para correlación, pero nunca secretos ni
 contenido fiscal sensible.
 
-### PF-19B/PF-19C — matriz pendiente
+### PF-19B — cobertura automatizada y QA segura
 
-1. Importar, sincronizar y editar manualmente constancias sintéticas con señales
-   RECE, genéricas y contradictorias. El modelo durable deberá fallar cerrado,
-   conservar procedencia y exigir revisión sin inferir elegibilidad.
-2. Validar puntos fijos, puntos del Excel y perfiles de carga masiva. La UI, la
-   API y el worker deberán consumir el mismo estado durable.
-3. Cambiar elegibilidad después de confirmar fecha y punto. La confirmación y
-   la clave vigentes deberán invalidarse antes de cualquier emisión.
-4. Simular `10005`, `R` por detalle, error global desconocido, resultado
+1. Importar constancias PDF sintéticas completas, parciales, antiguas, futuras,
+   ambiguas, con CUIT distinto y con señales exactas, genéricas o fuera de
+   allowlist. Solo administrador + servidor productivo + confirmación expresa +
+   documento de hasta siete días + `RECE para aplicativo y web services` puede
+   crear `verificado_rece`. El PDF no se persiste y homologación queda cerrada.
+2. Sincronizar WSFE desde el endpoint server-side. Debe crear, actualizar o
+   desactivar técnicamente en una transacción, sin promover RECE. Ediciones,
+   bajas, puntos ausentes y evidencia más nueva deben incrementar revisiones o
+   invalidar; una constancia anterior no puede reemplazar la autoridad vigente.
+3. Verificar DTO y UI: badges `Verificado RECE`, `No RECE` y `No verificado`,
+   estado efectivo vencido, causa, vigencia, procedencia y revisión. Selectores
+   individual/lote/perfil consumen `usable_factuflow` del servidor y no el texto
+   `Sistema`.
+4. Cambiar punto, ambiente o revisión después de validar/confirmar. El flujo
+   individual, proceso batch, worker, fallback, reintento y recuperación stale
+   deben abortar una continuación obsoleta antes de FECAE. Un replay terminal
+   durable conserva su respuesta sin reevaluar el estado actual.
+5. Forzar una falla local al reservar o preparar todos los grupos antes de
+   `FECAESolicitar`. La transacción debe dejar cero guardas, intentos y reservas
+   nuevos, y cero FECAE. WSAA o lecturas seguras como `FECompTotXRequest` y
+   `FECompUltimoAutorizado` pueden haberse ejecutado: no exigir “cero contacto
+   ARCA” en este caso.
+6. Ejecutar upgrade/downgrade SQLite solo con backup físico distinto y
+   verificado; ante falla posterior a DDL, restaurarlo antes de reintentar. La
+   matriz PostgreSQL se ejecuta en CI con el harness destructivo exacto; un skip
+   local sin URL no acredita PostgreSQL.
+7. Con un emisor sintético sin dependencias y una constancia que crearía su
+   primer punto, intercalar cambio de CUIT y atestación en ambos órdenes. Si gana
+   el update, debe quedar el CUIT nuevo y cero punto/evidencia de la constancia
+   anterior. Si gana la atestación, deben quedar el CUIT original y su revisión
+   positiva, mientras el update responde `409`. Nunca debe existir evidencia
+   positiva asociada a otra identidad fiscal.
+8. Sobre un punto sintético, intercalar la atestación con `activo=false` y con
+   `es_admin=false`, en ambos órdenes. Si gana la degradación, no debe crearse
+   evidencia positiva; si gana la atestación, la revisión se confirma bajo la
+   autoridad todavía válida y el cambio del actor continúa después. Estos casos
+   requieren PostgreSQL real en CI; un collect/skip local no los acredita.
+9. Después de atestiguar, simular una divergencia legacy del CUIT y exigir el
+   contexto RECE. Debe fallar cerrado por `empresa_cuit_snapshot` obsoleto antes
+   de `FECAESolicitar`; no reparar el ledger ni promover automáticamente.
+10. Demorar por separado formatos, perfiles y puntos de Lotes para el emisor A,
+    y cambiar a B o C entre esperas. Antes del primer `await` del watcher deben
+    quedar vacías las tres colecciones; cada respuesta/error tardío se descarta y
+    la cadena obsoleta no inicia el loader siguiente. Repetir en EmpresaConfig
+    con datos de A ya cargados y B pendiente o fallida: perfiles, formatos,
+    puntos y catálogo quedan vacíos. Ningún `finally` obsoleto puede apagar el
+    loading vigente. No exigir cancelación HTTP: alcanza con limpiar, revalidar
+    después de cada espera y descartar el resultado.
+
+QA manual posterior a una release candidate: navegar los badges y el modal de
+importación con PDFs sintéticos; probar homologación únicamente mediante
+conexión y lecturas seguras, sin solicitar CAE. Una constancia productiva real,
+sus identificadores y sus resultados pertenecen exclusivamente a evidencia
+operativa privada y requieren autorización separada.
+
+### PF-19C — matriz pendiente
+
+1. Simular `10005`, `R` por detalle, error global desconocido, resultado
    parcial, cardinalidad inconsistente, timeout y corte de transporte. Solo un
    rechazo completo y estructurado podrá ser terminal; toda incertidumbre
    conservará `requiere_reconciliacion`.
-5. Repetir payload y clave después de rechazo terminal e incertidumbre; ningún
-   replay podrá llamar ARCA a ciegas. La resolución legacy requerirá una
-   política PF-19C separada y evidencia externa aprobada.
+2. Repetir payload y clave después de rechazo terminal e incertidumbre; ningún
+   replay podrá llamar ARCA a ciegas. La resolución legacy requerirá política
+   PF-19C separada y evidencia externa aprobada.
 
 ## Punto de reanudación de QA
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
-superó el despliegue y la verificación post-deploy. En `main`, PF-02 está
-cerrado con dobles controlados, PF-03A cierra el contrato superior y PF-19A
-cierra diseño, contención explícita e inventario de solo
-lectura. Ese tramo todavía no pertenece a una release publicada ni está
-desplegado. El siguiente corte fiscal es PF-19B; PF-03B queda después. No repetir
+superó el despliegue y la verificación post-deploy. En el estado objetivo de
+`main`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
+superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
+lectura y autoridad RECE durable. Ese tramo todavía no pertenece a una release
+publicada ni está desplegado. El siguiente corte fiscal es PF-19C; PF-03B queda
+después. No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
 UX de lotes ni las validaciones ya cerradas.
 

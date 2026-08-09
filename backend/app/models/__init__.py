@@ -25,6 +25,12 @@ from app.models.idempotencia_fiscal import (
     OperacionIdempotente,
     IntentoEmisionFiscal,
 )
+from app.models.elegibilidad_rece import (
+    OperacionIdempotenteElegibilidadRece,
+    PuntoVentaElegibilidadReceActual,
+    PuntoVentaElegibilidadReceRevision,
+    PuntoVentaGuardaEmisionRece,
+)
 
 __all__ = [
     "Usuario",
@@ -47,4 +53,8 @@ __all__ = [
     "ExportacionAlmacenamiento",
     "OperacionIdempotente",
     "IntentoEmisionFiscal",
+    "PuntoVentaElegibilidadReceRevision",
+    "PuntoVentaElegibilidadReceActual",
+    "OperacionIdempotenteElegibilidadRece",
+    "PuntoVentaGuardaEmisionRece",
 ]

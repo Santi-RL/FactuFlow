@@ -5,33 +5,87 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import JSON, event, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.arca.exceptions import ArcaCertificateError, ArcaServiceError
 from app.arca.models import CAEResponse
 from app.core.config import settings
+from app.core.database import Base, _habilitar_foreign_keys_sqlite
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
 from app.models.empresa import Empresa
+from app.models.elegibilidad_rece import (
+    OperacionIdempotenteElegibilidadRece,
+    PuntoVentaElegibilidadReceActual,
+    PuntoVentaElegibilidadReceRevision,
+    PuntoVentaGuardaEmisionRece,
+)
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
-from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
+from app.models.lote_comprobante import (
+    LoteComprobante,
+    LoteComprobanteFila,
+    LoteComprobanteGrupo,
+)
 from app.models.punto_venta import PuntoVenta
+from app.models.usuario import Usuario
 from app.schemas.comprobante import (
     ComprobanteAsociadoCreate,
     EmitirComprobanteRequest,
+    EmitirComprobanteResponse,
     ItemComprobanteCreate,
 )
 from app.services.facturacion_service import (
+    ERROR_INTERNO_EMISION_PUBLICO,
     FacturacionService,
     FaseSolicitudArca,
     ValidationError,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
+from app.services.elegibilidad_rece_service import (
+    ContextoElegibilidadRece,
+    ElegibilidadReceError,
+    ElegibilidadReceService,
+)
+from app.services.lote_comprobantes_service import LoteComprobantesService
+
+
+FECHA_FISCAL_PRUEBA = date(2026, 8, 9)
+
+
+class _FechaFacturacionFija(date):
+    """Reloj de fecha determinista para validar la ventana fiscal."""
+
+    @classmethod
+    def today(cls) -> date:
+        """Devuelve la fecha fiscal explícita de estos escenarios."""
+        return cls(
+            FECHA_FISCAL_PRUEBA.year,
+            FECHA_FISCAL_PRUEBA.month,
+            FECHA_FISCAL_PRUEBA.day,
+        )
+
+
+@pytest.fixture(autouse=True)
+def _usar_ambiente_arca_productivo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fija el ambiente requerido por una acreditación RECE positiva."""
+    monkeypatch.setattr(settings, "arca_env", "produccion")
+
+
+def _fijar_reloj_facturacion(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fija `date.today()` del servicio sin alterar la fecha del request."""
+    monkeypatch.setattr(
+        "app.services.facturacion_service.date",
+        _FechaFacturacionFija,
+    )
 
 
 def _crear_error_db_temporal(
@@ -45,6 +99,163 @@ def _crear_error_db_temporal(
         {"empresa_id": 1},
         RuntimeError("base temporalmente no disponible"),
     )
+
+
+async def _crear_cabeza_rece_sintetica(
+    db: AsyncSession,
+    *,
+    empresa: Empresa,
+    punto_venta: PuntoVenta,
+) -> ContextoElegibilidadRece:
+    """Crea una revisión RECE positiva y su cabeza vigente para pruebas."""
+    ambiente = "produccion"
+    ahora = datetime(2026, 8, 9, 12, 0)
+    punto_venta.revision_fiscal = 1
+    revision = PuntoVentaElegibilidadReceRevision(
+        empresa_id=empresa.id,
+        punto_venta_id=punto_venta.id,
+        ambiente=ambiente,
+        revision=1,
+        estado="verificado_rece",
+        fuente="constancia_arca_atestada",
+        evidencia_tipo="rece_aplicativo_web_services_v1",
+        evidencia_sha256="a" * 64,
+        clasificador_version="rece-v1-test",
+        empresa_cuit_snapshot=empresa.cuit,
+        punto_venta_numero_snapshot=punto_venta.numero,
+        punto_revision_fiscal=1,
+        documento_emitido_en=FECHA_FISCAL_PRUEBA,
+        vigente_hasta=date(2099, 12, 31),
+        observado_en=ahora,
+        verificado_en=ahora,
+        actor_usuario_id_snapshot=1,
+        created_at=ahora,
+    )
+    db.add(revision)
+    await db.flush()
+    db.add(
+        PuntoVentaElegibilidadReceActual(
+            empresa_id=empresa.id,
+            punto_venta_id=punto_venta.id,
+            ambiente=ambiente,
+            revision_actual_id=revision.id,
+        )
+    )
+    await db.flush()
+    return ContextoElegibilidadRece(
+        empresa_id=empresa.id,
+        punto_venta_id=punto_venta.id,
+        punto_venta_numero=punto_venta.numero,
+        ambiente=ambiente,
+        elegibilidad_revision_id=revision.id,
+        punto_venta_revision_fiscal=1,
+    )
+
+
+async def _crear_operacion_rece_sintetica(
+    db: AsyncSession,
+    *,
+    empresa: Empresa,
+    punto_venta: PuntoVenta,
+    requests: list[EmitirComprobanteRequest],
+    batch: bool,
+) -> tuple[OperacionIdempotente, ContextoElegibilidadRece, list[dict[str, object]],]:
+    """Crea evidencia positiva y membresía durable solo para pruebas felices."""
+    contexto = await _crear_cabeza_rece_sintetica(
+        db,
+        empresa=empresa,
+        punto_venta=punto_venta,
+    )
+    ambiente = contexto.ambiente
+    revision_id = contexto.elegibilidad_revision_id
+    huella = f"{revision_id:064d}"
+    operacion = OperacionIdempotente(
+        empresa_id=empresa.id,
+        idempotency_key=f"rece-test-{revision_id}-{int(batch)}",
+        tipo_operacion=("procesar_lote" if batch else "emitir_comprobante"),
+        payload_hash=huella,
+        estado="en_proceso",
+        rece_snapshot_hash=ElegibilidadReceService.calcular_digest_contextos(
+            [contexto]
+        ),
+    )
+    db.add(operacion)
+    await db.flush()
+    db.add(
+        OperacionIdempotenteElegibilidadRece(
+            operacion_id=operacion.id,
+            empresa_id=empresa.id,
+            punto_venta_id=punto_venta.id,
+            ambiente=ambiente,
+            elegibilidad_revision_id=revision_id,
+            punto_venta_revision_fiscal=1,
+        )
+    )
+
+    metadata: list[dict[str, object]] = []
+    if batch:
+        lote = LoteComprobante(
+            empresa_id=empresa.id,
+            nombre_archivo=f"rece-{revision_id}.xlsx",
+            archivo_hash=f"{revision_id + 1:064d}",
+            estado="procesando",
+            procesamiento_async=False,
+            modo_procesamiento="sincronico",
+        )
+        db.add(lote)
+        await db.flush()
+        for indice, request in enumerate(requests, start=1):
+            grupo = LoteComprobanteGrupo(
+                lote_id=lote.id,
+                empresa_id=empresa.id,
+                comprobante_ref=f"RECE-{revision_id}-{indice}",
+                estado="validado",
+                tipo_comprobante=request.tipo_comprobante,
+                punto_venta_numero=punto_venta.numero,
+                total_estimado=Decimal("1000"),
+                payload_json=request.model_dump(mode="json"),
+                punto_venta_id=punto_venta.id,
+                ambiente=ambiente,
+                punto_venta_elegibilidad_revision_id=revision_id,
+                punto_venta_revision_fiscal=1,
+            )
+            db.add(grupo)
+            await db.flush()
+            db.add(
+                LoteComprobanteFila(
+                    lote_id=lote.id,
+                    grupo_id=grupo.id,
+                    fila_excel=indice + 1,
+                    comprobante_ref=grupo.comprobante_ref,
+                    estado="validado",
+                    datos_json={},
+                    mensajes_json=["Validado sintético."],
+                )
+            )
+            metadata.append(
+                {
+                    "operacion_id": operacion.id,
+                    "contexto_rece": contexto,
+                    "contextos_operacion": [contexto],
+                    "lote_id": lote.id,
+                    "grupo_id": grupo.id,
+                    "usuario_id": None,
+                }
+            )
+        operacion.lote_id = lote.id
+        material_rece = await LoteComprobantesService(
+            db
+        ).calcular_material_idempotente_grupos(
+            lote_id=lote.id,
+            empresa_id=empresa.id,
+            estados={"validado"},
+        )
+        lote.metadata_json = {
+            "operacion_idempotente_id": operacion.id,
+            "pf19b_rece_material": material_rece,
+        }
+    await db.commit()
+    return operacion, contexto, metadata
 
 
 @pytest.mark.asyncio
@@ -344,6 +555,11 @@ async def test_verificar_numeracion_segura_para_emision_consulta_arca(
     db_session.add_all([punto_venta, certificado, comprobante])
     await db_session.commit()
     await db_session.refresh(punto_venta)
+    await _crear_cabeza_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+    )
 
     class FakePreflightWSFEClient:
         """Cliente WSFE simulado para el preflight de numeración."""
@@ -687,6 +903,798 @@ async def test_validar_datos_rechaza_cliente_de_otro_emisor(
 
 
 @pytest.mark.asyncio
+async def test_batch_revierte_aprobado_si_falla_cerrar_rechazado_post_arca(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un fallo post-ARCA vuelve incierto todo el sublote, sin éxito fantasma."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+        revision_fiscal=1,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+
+    def crear_request(nombre: str) -> EmitirComprobanteRequest:
+        """Construye un comprobante sintético del mismo sublote."""
+        return EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=1,
+            fecha_emision=date(2026, 8, 8),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social=nombre,
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Producto",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000"),
+                    iva_porcentaje=Decimal("0"),
+                )
+            ],
+        )
+
+    requests = [crear_request("Cliente aprobado"), crear_request("Cliente rechazado")]
+    _operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=requests,
+        batch=True,
+    )
+
+    class FakeWSFEClient:
+        """Devuelve un aprobado seguido de un rechazo ARCA."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma del cliente real."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Informa que el rango comienza en uno."""
+            return 0
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Responde resultados mixtos en el mismo orden solicitado."""
+            primero, segundo = arca_requests
+            return [
+                CAEResponse(
+                    cae="12345678901231",
+                    cae_vencimiento="20260818",
+                    numero_comprobante=primero.cbte_desde,
+                    tipo_cbte=primero.tipo_cbte,
+                    punto_venta=primero.punto_venta,
+                    resultado="A",
+                ),
+                CAEResponse(
+                    cae=None,
+                    cae_vencimiento=None,
+                    numero_comprobante=segundo.cbte_desde,
+                    tipo_cbte=segundo.tipo_cbte,
+                    punto_venta=segundo.punto_venta,
+                    resultado="R",
+                    errores=[{"code": 10016, "msg": "Rechazo sintético"}],
+                ),
+            ]
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    original_actualizar = IdempotenciaFiscalService.actualizar_intento_desde_respuesta
+    fallo_inyectado = False
+
+    async def fallar_una_vez_al_cerrar_rechazado(
+        self,
+        intento,
+        response,
+        **kwargs,
+    ):
+        nonlocal fallo_inyectado
+        if response.categoria_error == "arca_no_aprobado" and not fallo_inyectado:
+            fallo_inyectado = True
+            raise RuntimeError("fallo sintético de persistencia")
+        return await original_actualizar(self, intento, response, **kwargs)
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "actualizar_intento_desde_respuesta",
+        fallar_una_vez_al_cerrar_rechazado,
+    )
+
+    resultados = await FacturacionService(db_session).emitir_comprobantes_lote(
+        requests,
+        max_registros=2,
+        contextos=metadata,
+    )
+
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        comprobantes = (await observador.execute(select(Comprobante))).scalars().all()
+        intentos = (
+            (
+                await observador.execute(
+                    select(IntentoEmisionFiscal).order_by(
+                        IntentoEmisionFiscal.numero_planificado
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        guarda = (
+            await observador.execute(select(PuntoVentaGuardaEmisionRece))
+        ).scalar_one()
+
+    assert fallo_inyectado is True
+    assert comprobantes == []
+    assert len(resultados) == 2
+    assert all(resultado.exito is False for resultado in resultados)
+    assert all(resultado.requiere_reconciliacion is True for resultado in resultados)
+    assert {resultado.categoria_error for resultado in resultados} == {
+        "post_arca_persistencia"
+    }
+    assert [intento.estado for intento in intentos] == [
+        "requiere_reconciliacion",
+        "requiere_reconciliacion",
+    ]
+    assert guarda.fase == "requiere_reconciliacion"
+
+
+@pytest.mark.asyncio
+async def test_dos_sublotes_recuperan_segunda_guarda_pre_arca_sin_segundo_fecae(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un FECAE previo no impide cerrar la guarda actual que nunca cruzó el CAS."""
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+        revision_fiscal=1,
+    )
+    certificado = Certificado(
+        nombre="Certificado Test",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="empresa-test.crt",
+        archivo_key="empresa-test.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+
+    def crear_request(nombre: str) -> EmitirComprobanteRequest:
+        """Construye una emisión individual perteneciente al mismo lote."""
+        return EmitirComprobanteRequest(
+            empresa_id=test_empresa.id,
+            punto_venta_id=punto_venta.id,
+            tipo_comprobante=6,
+            concepto=1,
+            fecha_emision=date(2026, 8, 8),
+            tipo_documento=99,
+            numero_documento="0",
+            razon_social=nombre,
+            condicion_iva="Consumidor Final",
+            guardar_cliente=False,
+            moneda="PES",
+            cotizacion=Decimal("1"),
+            items=[
+                ItemComprobanteCreate(
+                    descripcion="Producto",
+                    cantidad=Decimal("1"),
+                    unidad="unidad",
+                    precio_unitario=Decimal("1000"),
+                    iva_porcentaje=Decimal("0"),
+                )
+            ],
+        )
+
+    requests = [
+        crear_request("Primer chunk"),
+        crear_request("Segundo chunk").model_copy(
+            update={"confirmacion_duplicado_logico": True}
+        ),
+    ]
+    operacion, contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=requests,
+        batch=True,
+    )
+    operacion_id = operacion.id
+    empresa_id = test_empresa.id
+
+    class FakeWSFEClient:
+        """Autoriza solo la primera guarda; la segunda no llega a FECAE."""
+
+        consultas_numeracion = 0
+        llamadas_fecae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma real sin abrir red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable cada doble preflight de numeración."""
+            FakeWSFEClient.consultas_numeracion += 1
+            return 0 if FakeWSFEClient.consultas_numeracion <= 2 else 1
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Autoriza la única solicitud que puede cruzar el CAS."""
+            FakeWSFEClient.llamadas_fecae += 1
+            return CAEResponse(
+                cae="12345678901231",
+                cae_vencimiento="20260818",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    original_marcar_arca = ElegibilidadReceService.marcar_arca_iniciada
+    guardas_evaluadas = 0
+
+    async def fallar_segundo_cas(self, **kwargs):
+        nonlocal guardas_evaluadas
+        guardas_evaluadas += 1
+        if guardas_evaluadas == 2:
+            raise SQLAlchemyTimeoutError()
+        return await original_marcar_arca(self, **kwargs)
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    monkeypatch.setattr(
+        ElegibilidadReceService,
+        "marcar_arca_iniciada",
+        fallar_segundo_cas,
+    )
+
+    service = FacturacionService(db_session)
+    fase = FaseSolicitudArca()
+    primero = await service.emitir_comprobante(
+        requests[0],
+        operacion_id=operacion_id,
+        lote_id=int(metadata[0]["lote_id"]),
+        grupo_id=int(metadata[0]["grupo_id"]),
+        contexto_rece=contexto,
+        contextos_operacion=[contexto],
+        fase_solicitud_arca=fase,
+    )
+    assert primero.exito is True
+
+    with pytest.raises(SQLAlchemyTimeoutError):
+        await service.emitir_comprobante(
+            requests[1],
+            operacion_id=operacion_id,
+            lote_id=int(metadata[1]["lote_id"]),
+            grupo_id=int(metadata[1]["grupo_id"]),
+            contexto_rece=contexto,
+            contextos_operacion=[contexto],
+            fase_solicitud_arca=fase,
+        )
+
+    assert FakeWSFEClient.llamadas_fecae == 1
+    assert fase.iniciada is True
+    assert fase.guarda_actual_iniciada is False
+    assert fase.guarda_rece_id is not None
+    assert fase.guarda_rece_token is not None
+    lote_id = int(metadata[0]["lote_id"])
+    resultado_recovery = await LoteComprobantesService(
+        db_session
+    ).recuperar_lote_interrumpido_pre_arca(
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        operacion_id=operacion_id,
+        estado_reanudable="validado",
+        estados_claim={"validado"},
+        mensaje_seguro="No debe reencolar.",
+        guarda_rece_id=fase.guarda_rece_id,
+        guarda_rece_token=fase.guarda_rece_token,
+    )
+    assert resultado_recovery == "requiere_reconciliacion"
+
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        guardas = (
+            (
+                await observador.execute(
+                    select(PuntoVentaGuardaEmisionRece).order_by(
+                        PuntoVentaGuardaEmisionRece.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        intentos = (
+            (
+                await observador.execute(
+                    select(IntentoEmisionFiscal).order_by(IntentoEmisionFiscal.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        operacion_actual = await observador.get(OperacionIdempotente, operacion_id)
+        lote_actual = await observador.get(LoteComprobante, lote_id)
+        grupos = (
+            (
+                await observador.execute(
+                    select(LoteComprobanteGrupo).order_by(LoteComprobanteGrupo.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    assert [guarda.fase for guarda in guardas] == [
+        "cerrada_terminal",
+        "cerrada_pre_arca",
+    ]
+    assert [intento.estado for intento in intentos] == [
+        "autorizado",
+        "fallido_verificado",
+    ]
+    assert operacion_actual.estado == "requiere_reconciliacion"
+    assert lote_actual.estado == "requiere_reconciliacion"
+    assert [grupo.estado for grupo in grupos] == [
+        "validado",
+        "requiere_reconciliacion",
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("batch", [False, True], ids=["individual", "batch"])
+async def test_fecae_observa_guarda_e_intentos_commiteados_en_otra_conexion(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    batch: bool,
+) -> None:
+    """FECAE solo comienza cuando otra conexión ya ve toda la frontera durable."""
+    db_path = tmp_path / f"rece-observable-{int(batch)}.sqlite3"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path.as_posix()}")
+    event.listen(engine.sync_engine, "connect", _habilitar_foreign_keys_sqlite)
+    SessionArchivo = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    try:
+        async with SessionArchivo() as db:
+            empresa = Empresa(
+                razon_social="Empresa RECE observable",
+                cuit="20123456789",
+                condicion_iva="Responsable Inscripto",
+                domicilio="Domicilio sintético 123",
+                localidad="Ciudad de prueba",
+                provincia="Buenos Aires",
+                codigo_postal="1000",
+                inicio_actividades=date(2020, 1, 1),
+            )
+            db.add(empresa)
+            await db.flush()
+            usuario = Usuario(
+                email="rece-observable@example.test",
+                hashed_password="hash-sintetico",
+                nombre="Usuario RECE",
+                empresa_id=empresa.id,
+            )
+            punto = PuntoVenta(
+                numero=1,
+                nombre="Principal observable",
+                activo=True,
+                es_webservice=True,
+                empresa_id=empresa.id,
+                revision_fiscal=1,
+            )
+            certificado = Certificado(
+                nombre="Certificado observable",
+                cuit=empresa.cuit,
+                fecha_emision=date(2026, 1, 1),
+                fecha_vencimiento=date(2027, 1, 1),
+                archivo_crt="observable.crt",
+                archivo_key="observable.key",
+                activo=True,
+                ambiente=settings.arca_env,
+                empresa_id=empresa.id,
+            )
+            db.add_all([usuario, punto, certificado])
+            await db.commit()
+            assert usuario.id == 1
+
+            cantidad = 2 if batch else 1
+            requests = [
+                EmitirComprobanteRequest(
+                    empresa_id=empresa.id,
+                    punto_venta_id=punto.id,
+                    tipo_comprobante=6,
+                    concepto=1,
+                    fecha_emision=date(2026, 8, 8),
+                    tipo_documento=99,
+                    numero_documento="0",
+                    razon_social=f"Receptor observable {indice}",
+                    condicion_iva="Consumidor Final",
+                    guardar_cliente=False,
+                    moneda="PES",
+                    cotizacion=Decimal("1"),
+                    confirmacion_duplicado_logico=indice > 1,
+                    items=[
+                        ItemComprobanteCreate(
+                            descripcion=f"Servicio observable {indice}",
+                            cantidad=Decimal("1"),
+                            unidad="unidad",
+                            precio_unitario=Decimal("1000"),
+                            iva_porcentaje=Decimal("0"),
+                        )
+                    ],
+                )
+                for indice in range(1, cantidad + 1)
+            ]
+            operacion, contexto, metadata = await _crear_operacion_rece_sintetica(
+                db,
+                empresa=empresa,
+                punto_venta=punto,
+                requests=requests,
+                batch=batch,
+            )
+            operacion_id = int(operacion.id)
+            observaciones_fecae = 0
+
+            class FakeWSFEClient:
+                """Inspecciona la base desde otra conexión al entrar a FECAE."""
+
+                def __init__(self, *args, **kwargs) -> None:
+                    """Acepta la firma productiva sin abrir red."""
+
+                async def fe_comp_ultimo_autorizado(
+                    self,
+                    punto_venta_numero,
+                    tipo,
+                ):
+                    """Mantiene alineada la numeración en ambos preflights."""
+                    return 0
+
+                async def _observar_frontera(self) -> None:
+                    """Comprueba el commit desde una conexión SQLite distinta."""
+                    nonlocal observaciones_fecae
+                    async with SessionArchivo() as observador:
+                        operacion_visible = await observador.get(
+                            OperacionIdempotente,
+                            operacion_id,
+                        )
+                        asociaciones = list(
+                            (
+                                await observador.scalars(
+                                    select(OperacionIdempotenteElegibilidadRece).where(
+                                        OperacionIdempotenteElegibilidadRece.operacion_id
+                                        == operacion_id
+                                    )
+                                )
+                            ).all()
+                        )
+                        guardas = list(
+                            (
+                                await observador.scalars(
+                                    select(PuntoVentaGuardaEmisionRece).where(
+                                        PuntoVentaGuardaEmisionRece.operacion_id
+                                        == operacion_id
+                                    )
+                                )
+                            ).all()
+                        )
+                        intentos = list(
+                            (
+                                await observador.scalars(
+                                    select(IntentoEmisionFiscal).where(
+                                        IntentoEmisionFiscal.operacion_id
+                                        == operacion_id
+                                    )
+                                )
+                            ).all()
+                        )
+                        assert operacion_visible is not None
+                        assert operacion_visible.rece_snapshot_hash == (
+                            ElegibilidadReceService.calcular_digest_contextos(
+                                [contexto]
+                            )
+                        )
+                        assert len(asociaciones) == 1
+                        assert asociaciones[0].elegibilidad_revision_id == (
+                            contexto.elegibilidad_revision_id
+                        )
+                        assert len(guardas) == 1
+                        assert guardas[0].fase == "arca_iniciada"
+                        assert guardas[0].arca_iniciada_en is not None
+                        assert len(intentos) == cantidad
+                        assert {intento.guarda_rece_id for intento in intentos} == {
+                            guardas[0].id
+                        }
+                        assert {intento.estado for intento in intentos} == {
+                            "en_proceso"
+                        }
+                    observaciones_fecae += 1
+
+                async def fe_cae_solicitar(self, arca_request):
+                    """Observa y autoriza la emisión individual."""
+                    await self._observar_frontera()
+                    return CAEResponse(
+                        cae="12345678901231",
+                        cae_vencimiento="20260818",
+                        numero_comprobante=arca_request.cbte_desde,
+                        tipo_cbte=arca_request.tipo_cbte,
+                        punto_venta=arca_request.punto_venta,
+                        resultado="A",
+                    )
+
+                async def fe_cae_solicitar_lote(self, arca_requests):
+                    """Observa una vez y autoriza todos los intentos del batch."""
+                    await self._observar_frontera()
+                    return [
+                        CAEResponse(
+                            cae=f"1234567890123{indice}",
+                            cae_vencimiento="20260818",
+                            numero_comprobante=arca_request.cbte_desde,
+                            tipo_cbte=arca_request.tipo_cbte,
+                            punto_venta=arca_request.punto_venta,
+                            resultado="A",
+                        )
+                        for indice, arca_request in enumerate(arca_requests, start=1)
+                    ]
+
+            async def fake_ticket(self, empresa, certificado):
+                return SimpleNamespace(token="token", sign="sign")
+
+            async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+                return None
+
+            monkeypatch.setattr(
+                "app.services.facturacion_service.WSFEv1Client",
+                FakeWSFEClient,
+            )
+            monkeypatch.setattr(
+                FacturacionService,
+                "_obtener_ticket_acceso",
+                fake_ticket,
+            )
+            monkeypatch.setattr(
+                FacturacionService,
+                "_validar_punto_venta_habilitado",
+                fake_validar_punto,
+            )
+
+            service = FacturacionService(db)
+            if batch:
+                resultados = await service.emitir_comprobantes_lote(
+                    requests,
+                    max_registros=cantidad,
+                    contextos=metadata,
+                )
+                assert all(resultado.exito for resultado in resultados)
+            else:
+                resultado = await service.emitir_comprobante(
+                    requests[0],
+                    operacion_id=operacion_id,
+                    contexto_rece=contexto,
+                    contextos_operacion=[contexto],
+                )
+                assert resultado.exito is True
+            assert observaciones_fecae == 1
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("punto_fallo", ["cas", "guardar"])
+async def test_emitir_rehidrata_grafo_rece_despues_de_rollback(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    punto_fallo: str,
+) -> None:
+    """CAS y persistencia post-CAE recargan intento y guarda tras rollback."""
+    llamadas_fecae = 0
+
+    class FakeWSFEClient:
+        """Mantiene numeración estable y hace observable la frontera FECAE."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva sin abrir red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene el próximo número fiscal en uno."""
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Autoriza solo el caso cuyo fallo ocurre al guardar localmente."""
+            nonlocal llamadas_fecae
+            llamadas_fecae += 1
+            return CAEResponse(
+                cae="12345678901234",
+                cae_vencimiento="20260818",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        """Evita WSAA real en el oracle de persistencia."""
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_certificado(self, empresa_id):
+        """Devuelve material sintético sin leer archivos locales."""
+        return SimpleNamespace(id=1, ambiente=settings.arca_env)
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        """Aísla el test de la lectura de parámetros WSFE."""
+
+    punto_venta = PuntoVenta(
+        numero=93,
+        nombre=f"Rollback RECE {punto_fallo}",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 8, 9),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Servicio sintético",
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion_id = int(operacion.id)
+
+    monkeypatch.setattr("app.services.facturacion_service.WSFEv1Client", FakeWSFEClient)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_obtener_certificado_activo",
+        fake_certificado,
+    )
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    if punto_fallo == "cas":
+
+        async def rollback_y_rechazar_cas(self, **kwargs):
+            """Expira el grafo como un CAS que perdió ownership."""
+            await self.db.rollback()
+            raise ElegibilidadReceError("El snapshot cambió antes de ARCA.")
+
+        monkeypatch.setattr(
+            ElegibilidadReceService,
+            "marcar_arca_iniciada",
+            rollback_y_rechazar_cas,
+        )
+    else:
+
+        async def rollback_y_fallar_guardado(self, *args, **kwargs):
+            """Expira el grafo después de un CAE ya autorizado."""
+            await self.db.rollback()
+            raise RuntimeError("fallo sintético post-ARCA")
+
+        monkeypatch.setattr(
+            FacturacionService,
+            "_guardar_comprobante",
+            rollback_y_fallar_guardado,
+        )
+
+    resultado = await FacturacionService(db_session).emitir_comprobante(
+        request,
+        operacion_id=operacion_id,
+        contexto_rece=contexto,
+        contextos_operacion=[contexto],
+    )
+
+    guardas = list(
+        (
+            await db_session.scalars(
+                select(PuntoVentaGuardaEmisionRece).where(
+                    PuntoVentaGuardaEmisionRece.operacion_id == operacion_id
+                )
+            )
+        ).all()
+    )
+    intentos = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.operacion_id == operacion_id
+                )
+            )
+        ).all()
+    )
+    assert len(guardas) == 1
+    assert len(intentos) == 1
+    assert resultado.exito is False
+    if punto_fallo == "cas":
+        assert llamadas_fecae == 0
+        assert resultado.requiere_reconciliacion is False
+        assert guardas[0].fase == "cerrada_pre_arca"
+        assert intentos[0].estado == "fallido_verificado"
+    else:
+        assert llamadas_fecae == 1
+        assert resultado.requiere_reconciliacion is True
+        assert guardas[0].fase == "requiere_reconciliacion"
+        assert intentos[0].estado == "requiere_reconciliacion"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "error_type",
     [SQLAlchemyTimeoutError, OperationalError],
@@ -768,6 +1776,8 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
     class FakeWSFEClient:
         """Cliente WSFE simulado con CAE autorizado."""
 
+        llamadas_fecae = 0
+
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
 
@@ -777,6 +1787,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
 
         async def fe_cae_solicitar(self, _arca_request):
             """Devuelve un CAE autorizado simulado."""
+            type(self).llamadas_fecae += 1
             return SimpleNamespace(
                 cae="12345678901234",
                 cae_vencimiento="20260526",
@@ -829,6 +1840,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         FacturacionService, "_obtener_proximo_numero", fake_obtener_proximo
     )
     monkeypatch.setattr(FacturacionService, "_guardar_comprobante", fail_guardar)
+    original_rollback = None
     if rollback_falla:
         original_rollback = AsyncSession.rollback
 
@@ -856,7 +1868,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         punto_venta_id=punto_venta.id,
         tipo_comprobante=6,
         concepto=1,
-        fecha_emision=date.today(),
+        fecha_emision=FECHA_FISCAL_PRUEBA,
         tipo_documento=99,
         numero_documento="0",
         razon_social="A CONSUMIDOR FINAL",
@@ -874,9 +1886,71 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
             )
         ],
     )
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion_id = int(operacion.id)
 
-    resultado = await service.emitir_comprobante(request)
+    try:
+        resultado = await service.emitir_comprobante(
+            request,
+            operacion_id=operacion_id,
+            contexto_rece=contexto,
+            contextos_operacion=[contexto],
+        )
+    finally:
+        if original_rollback is not None:
+            monkeypatch.setattr(AsyncSession, "rollback", original_rollback)
 
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        operacion_actual = await observador.get(
+            OperacionIdempotente,
+            operacion_id,
+        )
+        intentos = (
+            (
+                await observador.execute(
+                    select(IntentoEmisionFiscal).where(
+                        IntentoEmisionFiscal.operacion_id == operacion_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        guardas = (
+            (
+                await observador.execute(
+                    select(PuntoVentaGuardaEmisionRece).where(
+                        PuntoVentaGuardaEmisionRece.operacion_id == operacion_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        comprobantes = (
+            (
+                await observador.execute(
+                    select(Comprobante).where(Comprobante.empresa_id == test_empresa.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    assert FakeWSFEClient.llamadas_fecae == 1
+    assert comprobantes == []
+    assert operacion_actual is not None
+    assert operacion_actual.estado == "requiere_reconciliacion"
+    assert len(intentos) == 1
+    assert intentos[0].estado == "requiere_reconciliacion"
+    assert len(guardas) == 1
+    assert guardas[0].fase == "requiere_reconciliacion"
     assert resultado.exito is False
     assert resultado.requiere_reconciliacion is True
     assert resultado.categoria_error == "post_arca_persistencia"
@@ -887,6 +1961,154 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
     respuesta_json = resultado.model_dump_json()
     assert "secreto" not in respuesta_json
     assert "privada.key" not in respuesta_json
+
+    operacion_publicable = await db_session.get(
+        OperacionIdempotente,
+        operacion_id,
+        populate_existing=True,
+    )
+    assert operacion_publicable is not None
+    await IdempotenciaFiscalService(db_session).guardar_resultado_operacion_sync(
+        operacion_publicable,
+        response_json=resultado,
+        estado="requiere_reconciliacion",
+    )
+    with pytest.raises(SQLAlchemyTimeoutError):
+        await IdempotenciaFiscalService(db_session).guardar_resultado_operacion_sync(
+            operacion_publicable,
+            response_json={"resultado": "adulterado"},
+            estado="finalizado",
+        )
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        operacion_publicada = await observador.get(
+            OperacionIdempotente,
+            operacion_id,
+        )
+    assert operacion_publicada is not None
+    assert operacion_publicada.estado == "requiere_reconciliacion"
+    assert operacion_publicada.response_json["categoria_error"] == (
+        "post_arca_persistencia"
+    )
+
+
+@pytest.mark.asyncio
+async def test_persistir_reconciliacion_rechaza_intento_y_guarda_de_otra_operacion(
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """Un grafo cruzado revierte sin inmovilizar evidencia de otra operación."""
+    punto_venta = PuntoVenta(
+        numero=41,
+        nombre="Punto reconciliación",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.commit()
+    await db_session.refresh(punto_venta)
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=FECHA_FISCAL_PRUEBA,
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Servicio reconciliación",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    elegibilidad = ElegibilidadReceService(db_session)
+    guarda = await elegibilidad.crear_guarda_pre_arca(
+        operacion_id=operacion.id,
+        contexto=contexto,
+        contextos_operacion=[contexto],
+    )
+    intento = await IdempotenciaFiscalService(db_session).crear_intento_emision(
+        request=request,
+        punto_venta=punto_venta,
+        numero_planificado=1,
+        total=Decimal("1000"),
+        operacion_id=operacion.id,
+        usuario_id=None,
+        lote_id=None,
+        grupo_id=None,
+        contexto_rece=contexto,
+        guarda_rece_id=guarda.id,
+        commit=False,
+    )
+    await db_session.commit()
+    await elegibilidad.marcar_arca_iniciada(
+        guarda=guarda,
+        contexto=contexto,
+        tipo_comprobante=request.tipo_comprobante,
+    )
+    operacion_id = int(operacion.id)
+    intento_id = int(intento.id)
+    guarda_id = int(guarda.id)
+    guarda_ajena = SimpleNamespace(
+        id=guarda_id,
+        operacion_id=operacion_id + 1,
+    )
+    respuesta = EmitirComprobanteResponse(
+        exito=False,
+        tipo_comprobante=request.tipo_comprobante,
+        punto_venta=punto_venta.numero,
+        numero=1,
+        fecha=request.fecha_emision,
+        total=Decimal("1000"),
+        mensaje="El resultado requiere reconciliación.",
+        errores=["No reintentes hasta reconciliar."],
+        requiere_reconciliacion=True,
+        categoria_error="post_arca_persistencia",
+    )
+
+    with pytest.raises(SQLAlchemyTimeoutError):
+        await FacturacionService(db_session)._persistir_intento_y_guarda_rece(
+            idempotencia=IdempotenciaFiscalService(db_session),
+            intento=intento,
+            respuesta=respuesta,
+            guarda=guarda_ajena,
+            fase="reconciliacion",
+            commit=True,
+            contexto="grafo_cruzado",
+        )
+
+    async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
+        operacion_actual = await observador.get(
+            OperacionIdempotente,
+            operacion_id,
+        )
+        intento_actual = await observador.get(IntentoEmisionFiscal, intento_id)
+        guarda_actual = await observador.get(
+            PuntoVentaGuardaEmisionRece,
+            guarda_id,
+        )
+    assert operacion_actual is not None
+    assert operacion_actual.estado == "en_proceso"
+    assert intento_actual is not None
+    assert intento_actual.estado == "en_proceso"
+    assert guarda_actual is not None
+    assert guarda_actual.fase == "arca_iniciada"
 
 
 @pytest.mark.asyncio
@@ -999,12 +2221,30 @@ async def test_excepcion_inesperada_post_arca_requiere_reconciliacion(
             )
         ],
     )
+    operacion, contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=modo == "batch",
+    )
+    operacion_id = int(operacion.id)
 
     service = FacturacionService(db_session)
     if modo == "individual":
-        resultado = await service.emitir_comprobante(request)
+        resultado = await service.emitir_comprobante(
+            request,
+            operacion_id=operacion_id,
+            contexto_rece=contexto,
+            contextos_operacion=[contexto],
+        )
     else:
-        resultado = (await service.emitir_comprobantes_lote([request]))[0]
+        resultado = (
+            await service.emitir_comprobantes_lote(
+                [request],
+                contextos=metadata,
+            )
+        )[0]
 
     intento = await db_session.scalar(select(IntentoEmisionFiscal))
     assert resultado.exito is False
@@ -1027,9 +2267,7 @@ async def test_emitir_comprobante_sanea_error_interno_del_servicio(
     """Los catches internos no deben devolver excepciones arbitrarias."""
 
     async def fail_validar(self, request):
-        raise RuntimeError(
-            "postgresql://usuario:secreto@db/factuflow C:\\certs\\privada.key"
-        )
+        raise RuntimeError("detalle interno secreto; ruta C:\\certs\\privada.key")
 
     monkeypatch.setattr(FacturacionService, "_validar_datos", fail_validar)
     service = FacturacionService(db_session)
@@ -1062,6 +2300,7 @@ async def test_emitir_comprobante_sanea_error_interno_del_servicio(
     batch = (
         await service.emitir_comprobantes_lote(
             [request],
+            contextos=[{}],
             fase_solicitud_arca=fase_compartida,
         )
     )[0]
@@ -1144,7 +2383,7 @@ async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
         punto_venta_id=punto_venta.id,
         tipo_comprobante=6,
         concepto=1,
-        fecha_emision=date.today(),
+        fecha_emision=FECHA_FISCAL_PRUEBA,
         tipo_documento=99,
         numero_documento="0",
         razon_social="A CONSUMIDOR FINAL",
@@ -1162,9 +2401,24 @@ async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
             )
         ],
     )
+    _fijar_reloj_facturacion(monkeypatch)
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion_id = int(operacion.id)
 
     service = FacturacionService(db_session)
-    resultado = await service.emitir_comprobante(request, commit=False)
+    resultado = await service.emitir_comprobante(
+        request,
+        commit=False,
+        operacion_id=operacion_id,
+        contexto_rece=contexto,
+        contextos_operacion=[contexto],
+    )
 
     assert resultado.exito is True
 
@@ -1182,23 +2436,26 @@ async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("modo", ["individual", "batch"])
 @pytest.mark.parametrize("fallar_cierre", [False, True])
-async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
+async def test_rechazo_arca_exige_cierre_durable_o_propaga_error_sanitizado(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
     modo: str,
     fallar_cierre: bool,
 ):
-    """Un rechazo ARCA solo es definitivo si el intento pudo cerrarse."""
+    """Un rechazo solo se devuelve si su cierre durable pudo persistirse."""
 
     class FakeWSFEClient:
         """Cliente WSFE simulado con rechazo explícito sin CAE."""
+
+        llamadas_fecae = 0
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
 
         async def fe_cae_solicitar(self, _arca_request):
             """Devuelve una respuesta no aprobada."""
+            type(self).llamadas_fecae += 1
             return self._respuesta_no_aprobada()
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
@@ -1207,6 +2464,7 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
 
         async def fe_cae_solicitar_lote(self, arca_requests):
             """Devuelve un rechazo por cada solicitud batch."""
+            type(self).llamadas_fecae += 1
             return [self._respuesta_no_aprobada() for _ in arca_requests]
 
         @staticmethod
@@ -1318,7 +2576,7 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
         punto_venta_id=punto_venta.id,
         tipo_comprobante=6,
         concepto=1,
-        fecha_emision=date.today(),
+        fecha_emision=FECHA_FISCAL_PRUEBA,
         tipo_documento=99,
         numero_documento="0",
         razon_social="A CONSUMIDOR FINAL",
@@ -1336,29 +2594,70 @@ async def test_rechazo_arca_reconcilia_si_falla_cerrar_intento(
             )
         ],
     )
+    operacion, contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=modo == "batch",
+    )
+    operacion_id = int(operacion.id)
 
-    if modo == "individual":
-        resultado = await service.emitir_comprobante(request)
-    else:
-        resultado = (
-            await service.emitir_comprobantes_lote([request], max_registros=1)
+    async def emitir() -> object:
+        """Ejecuta el camino individual o batch con el mismo grafo RECE."""
+        if modo == "individual":
+            return await service.emitir_comprobante(
+                request,
+                operacion_id=operacion_id,
+                contexto_rece=contexto,
+                contextos_operacion=[contexto],
+            )
+        return (
+            await service.emitir_comprobantes_lote(
+                [request],
+                max_registros=1,
+                contextos=metadata,
+            )
         )[0]
+
+    if fallar_cierre:
+        with pytest.raises(SQLAlchemyTimeoutError) as exc_info:
+            await emitir()
+        error_publico = str(exc_info.value)
+        assert "secreto" not in error_publico
+        assert "privada.key" not in error_publico
+        resultado = None
+    else:
+        resultado = await emitir()
     comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
     intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
-
-    assert resultado.exito is False
-    assert resultado.requiere_reconciliacion is fallar_cierre
-    assert resultado.categoria_error == (
-        "post_arca_persistencia" if fallar_cierre else "arca_no_aprobado"
+    guardas = (
+        (await db_session.execute(select(PuntoVentaGuardaEmisionRece))).scalars().all()
     )
-    assert resultado.cae is None
+    operacion_actual = await db_session.get(OperacionIdempotente, operacion_id)
+
+    assert FakeWSFEClient.llamadas_fecae == 1
     assert comprobantes == []
     assert len(intentos) == 1
-    assert intentos[0].estado == ("en_proceso" if fallar_cierre else "rechazado_arca")
-    respuesta_json = resultado.model_dump_json()
-    assert "secreto" not in respuesta_json
-    assert "privada.key" not in respuesta_json
-    if not fallar_cierre:
+    assert len(guardas) == 1
+    assert operacion_actual is not None
+    if fallar_cierre:
+        assert resultado is None
+        assert intentos[0].estado == "en_proceso"
+        assert guardas[0].fase == "arca_iniciada"
+        assert operacion_actual.estado == "en_proceso"
+        assert operacion_actual.response_json is None
+    else:
+        assert resultado is not None
+        assert resultado.exito is False
+        assert resultado.requiere_reconciliacion is False
+        assert resultado.categoria_error == "arca_no_aprobado"
+        assert resultado.cae is None
+        assert intentos[0].estado == "rechazado_arca"
+        assert guardas[0].fase == "cerrada_terminal"
+        respuesta_json = resultado.model_dump_json()
+        assert "secreto" not in respuesta_json
+        assert "privada.key" not in respuesta_json
         assert "10016" in respuesta_json
 
 
@@ -1441,7 +2740,7 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
             punto_venta_id=punto_venta.id,
             tipo_comprobante=6,
             concepto=1,
-            fecha_emision=date.today(),
+            fecha_emision=FECHA_FISCAL_PRUEBA,
             tipo_documento=99,
             numero_documento="0",
             razon_social=nombre,
@@ -1460,10 +2759,20 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
             ],
         )
 
+    _fijar_reloj_facturacion(monkeypatch)
+    requests = [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")]
+    _operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=requests,
+        batch=True,
+    )
     service = FacturacionService(db_session)
     resultados = await service.emitir_comprobantes_lote(
-        [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")],
+        requests,
         max_registros=2,
+        contextos=metadata,
     )
     comprobantes = (
         (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
@@ -1495,7 +2804,11 @@ async def _preparar_escenario_numeracion_batch(
     test_empresa: Empresa,
     monkeypatch: pytest.MonkeyPatch,
     wsfe_client_class: type,
-) -> tuple[FacturacionService, list[EmitirComprobanteRequest]]:
+) -> tuple[
+    FacturacionService,
+    list[EmitirComprobanteRequest],
+    list[dict[str, object]],
+]:
     """Configura un sublote homogéneo con datos fiscales sintéticos."""
     punto_venta = PuntoVenta(
         numero=1,
@@ -1567,10 +2880,18 @@ async def _preparar_escenario_numeracion_batch(
             ],
         )
 
-    return FacturacionService(db_session), [
+    requests = [
         request_cliente("Cliente Uno"),
         request_cliente("Cliente Dos"),
     ]
+    _operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=requests,
+        batch=True,
+    )
+    return FacturacionService(db_session), requests, metadata
 
 
 @pytest.mark.asyncio
@@ -1612,14 +2933,18 @@ async def test_emitir_comprobantes_lote_usa_historia_externa_como_inicio_del_ran
                 for request in arca_requests
             ]
 
-    service, requests = await _preparar_escenario_numeracion_batch(
+    service, requests, metadata = await _preparar_escenario_numeracion_batch(
         db_session,
         test_empresa,
         monkeypatch,
         FakeWSFEClient,
     )
 
-    resultados = await service.emitir_comprobantes_lote(requests, max_registros=2)
+    resultados = await service.emitir_comprobantes_lote(
+        requests,
+        max_registros=2,
+        contextos=metadata,
+    )
 
     intentos = (
         (
@@ -1680,7 +3005,7 @@ async def test_emitir_comprobantes_lote_aborta_todo_el_rango_antes_de_arca(
             FakeWSFEClient.llamadas_lote += 1
             raise AssertionError("No debe solicitar CAE con un rango obsoleto")
 
-    service, requests = await _preparar_escenario_numeracion_batch(
+    service, requests, metadata = await _preparar_escenario_numeracion_batch(
         db_session,
         test_empresa,
         monkeypatch,
@@ -1691,6 +3016,7 @@ async def test_emitir_comprobantes_lote_aborta_todo_el_rango_antes_de_arca(
     resultados = await service.emitir_comprobantes_lote(
         requests,
         max_registros=2,
+        contextos=metadata,
         fase_solicitud_arca=fase_solicitud_arca,
     )
 
@@ -1734,7 +3060,7 @@ async def test_emitir_comprobantes_lote_distingue_db_temporal_en_reserva_pre_arc
     monkeypatch: pytest.MonkeyPatch,
     error_type: type[Exception],
 ):
-    """Solo una falla no transitoria cierra reservas pre-ARCA como fallidas."""
+    """Una falla local revierte la preparación y las fallas DB se propagan."""
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -1836,22 +3162,54 @@ async def test_emitir_comprobantes_lote_distingue_db_temporal_en_reserva_pre_arc
 
     service = FacturacionService(db_session)
     requests = [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")]
+    operacion_inicial, _contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=requests,
+        batch=True,
+    )
+    operacion_id = int(operacion_inicial.id)
     if error_type is RuntimeError:
         resultados = await service.emitir_comprobantes_lote(
             requests,
             max_registros=2,
+            contextos=metadata,
         )
     else:
         with pytest.raises(error_type):
             await service.emitir_comprobantes_lote(
                 requests,
                 max_registros=2,
+                contextos=metadata,
             )
         resultados = []
     intentos = (await db_session.execute(select(IntentoEmisionFiscal))).scalars().all()
+    guardas = (
+        (await db_session.execute(select(PuntoVentaGuardaEmisionRece))).scalars().all()
+    )
+    comprobantes = (await db_session.execute(select(Comprobante))).scalars().all()
+    operacion = await db_session.get(
+        OperacionIdempotente,
+        operacion_id,
+        populate_existing=True,
+    )
+    operacion_con_respuesta_sql_null = await db_session.scalar(
+        select(OperacionIdempotente.id).where(
+            OperacionIdempotente.id == operacion_id,
+            OperacionIdempotente.response_json.is_(None),
+        )
+    )
 
     assert FakeWSFEClient.llamadas_lote == 0
     assert llamadas_reserva == 2
+    assert intentos == []
+    assert guardas == []
+    assert comprobantes == []
+    assert operacion is not None
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+    assert operacion_con_respuesta_sql_null == operacion_id
     if error_type is RuntimeError:
         assert [resultado.exito for resultado in resultados] == [False, False]
         assert [resultado.numero for resultado in resultados] == [1, 2]
@@ -1861,18 +3219,27 @@ async def test_emitir_comprobantes_lote_distingue_db_temporal_en_reserva_pre_arc
         assert {resultado.categoria_error for resultado in resultados} == {
             "pre_arca_reserva_fallida"
         }
-        assert len(intentos) == 1
-        assert intentos[0].estado == "fallido_verificado"
-        assert intentos[0].numero_planificado == 1
-        assert intentos[0].categoria_error == "pre_arca_reserva_fallida"
-        assert "no llegó a enviar" in intentos[0].mensaje
+        assert {resultado.mensaje for resultado in resultados} == {
+            "FactuFlow revirtió la preparación local antes de solicitar CAE"
+        }
+        assert all(
+            resultado.errores
+            == [
+                (
+                    "No se solicitó CAE; la transacción local se revirtió por "
+                    "completo y no quedó una reserva fiscal durable."
+                ),
+                ERROR_INTERNO_EMISION_PUBLICO,
+            ]
+            for resultado in resultados
+        )
+        assert all(
+            "reserva local fallida"
+            not in " ".join([resultado.mensaje, *resultado.errores])
+            for resultado in resultados
+        )
     else:
         assert resultados == []
-        assert all(intento.estado != "fallido_verificado" for intento in intentos)
-        assert all(
-            intento.categoria_error != "pre_arca_reserva_fallida"
-            for intento in intentos
-        )
 
 
 @pytest.mark.asyncio
@@ -1913,6 +3280,8 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
     class FakeWSFEClient:
         """Cliente WSFE simulado para emisión batch autorizada."""
 
+        llamadas_fecae = 0
+
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
 
@@ -1922,6 +3291,7 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
 
         async def fe_cae_solicitar_lote(self, arca_requests):
             """Devuelve CAE aprobados para todo el sublote."""
+            type(self).llamadas_fecae += 1
             return [
                 CAEResponse(
                     cae=f"1234567890123{arca_request.cbte_desde}",
@@ -1992,10 +3362,20 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
             ],
         )
 
+    requests = [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")]
+    operacion_inicial, _contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=requests,
+        batch=True,
+    )
+    operacion_id = int(operacion_inicial.id)
     service = FacturacionService(db_session)
     resultados = await service.emitir_comprobantes_lote(
-        [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")],
+        requests,
         max_registros=2,
+        contextos=metadata,
     )
     comprobantes = (
         (await db_session.execute(select(Comprobante).order_by(Comprobante.numero)))
@@ -2013,7 +3393,16 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
         .scalars()
         .all()
     )
+    guardas = (
+        (await db_session.execute(select(PuntoVentaGuardaEmisionRece))).scalars().all()
+    )
+    operacion = await db_session.get(
+        OperacionIdempotente,
+        operacion_id,
+        populate_existing=True,
+    )
 
+    assert FakeWSFEClient.llamadas_fecae == 1
     assert fallos_cierre == 1
     assert [resultado.exito for resultado in resultados] == [False, False]
     assert all(resultado.requiere_reconciliacion is True for resultado in resultados)
@@ -2027,12 +3416,15 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
     respuestas_json = " ".join(resultado.model_dump_json() for resultado in resultados)
     assert "secreto" not in respuestas_json
     assert "privada.key" not in respuestas_json
-    assert [comprobante.numero for comprobante in comprobantes] == [1]
-    assert comprobantes[0].cae == "12345678901231"
+    assert comprobantes == []
     assert [intento.estado for intento in intentos] == [
-        "en_proceso",
+        "requiere_reconciliacion",
         "requiere_reconciliacion",
     ]
+    assert len(guardas) == 1
+    assert guardas[0].fase == "requiere_reconciliacion"
+    assert operacion is not None
+    assert operacion.estado == "requiere_reconciliacion"
 
 
 @pytest.mark.asyncio
@@ -2162,7 +3554,20 @@ async def test_emitir_comprobante_usa_siguiente_arca_si_historia_local_es_parcia
         ],
     )
 
-    resultado = await service.emitir_comprobante(request)
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion_id = int(operacion.id)
+    resultado = await service.emitir_comprobante(
+        request,
+        operacion_id=operacion_id,
+        contexto_rece=contexto,
+        contextos_operacion=[contexto],
+    )
 
     assert resultado.exito is True
     assert resultado.requiere_reconciliacion is False
@@ -2299,7 +3704,20 @@ async def test_emitir_comprobante_aborta_si_arca_avanza_despues_de_reservar(
         ],
     )
 
-    resultado = await service.emitir_comprobante(request)
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion_id = int(operacion.id)
+    resultado = await service.emitir_comprobante(
+        request,
+        operacion_id=operacion_id,
+        contexto_rece=contexto,
+        contextos_operacion=[contexto],
+    )
 
     assert resultado.exito is False
     assert resultado.requiere_reconciliacion is False
@@ -2443,7 +3861,20 @@ async def test_emitir_comprobante_cierra_intento_si_falla_segundo_preflight(
         ],
     )
 
-    resultado = await service.emitir_comprobante(request)
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion_id = int(operacion.id)
+    resultado = await service.emitir_comprobante(
+        request,
+        operacion_id=operacion_id,
+        contexto_rece=contexto,
+        contextos_operacion=[contexto],
+    )
 
     assert resultado.exito is False
     assert resultado.requiere_reconciliacion is False
@@ -2606,6 +4037,361 @@ async def test_intento_stale_consulta_arca_antes_de_liberar_numero(
 
 
 @pytest.mark.asyncio
+async def test_intento_stale_legacy_admite_json_null_sin_snapshot_rece(
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """JSON null histórico no se confunde con ownership PF-19B moderno."""
+    punto_venta = PuntoVenta(
+        numero=91,
+        nombre="Legacy JSON null",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        idempotency_key="idem-stale-legacy-json-null",
+        tipo_operacion="emitir_comprobante",
+        payload_hash="payload-stale-legacy-json-null",
+        estado="en_proceso",
+        response_json=JSON.NULL,
+    )
+    db_session.add(operacion)
+    await db_session.flush()
+    intento = IntentoEmisionFiscal(
+        operacion_id=operacion.id,
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        punto_venta_numero=punto_venta.numero,
+        tipo_comprobante=6,
+        numero_planificado=1,
+        fecha_emision=date(2026, 8, 1),
+        total=Decimal("1000.00"),
+        receptor_tipo_documento=99,
+        receptor_numero_documento="0",
+        receptor_razon_social="A CONSUMIDOR FINAL",
+        payload_hash="payload-intento-stale-legacy-json-null",
+        huella_logica="huella-intento-stale-legacy-json-null",
+        estado="en_proceso",
+    )
+    db_session.add(intento)
+    await db_session.commit()
+
+    class FakeWSFEClient:
+        """Prueba por lectura segura que ARCA no conserva el comprobante."""
+
+        llamadas = 0
+
+        async def fe_comp_consultar(self, punto_venta, tipo_cbte, numero):
+            """Devuelve ausencia explícita sin solicitar un CAE."""
+            FakeWSFEClient.llamadas += 1
+            raise ArcaServiceError("Comprobante inexistente", codigo="10016")
+
+    resultado = await FacturacionService(db_session)._reconciliar_intento_stale(
+        intento=intento,
+        wsfe_client=FakeWSFEClient(),
+        punto_venta_numero=punto_venta.numero,
+    )
+
+    await db_session.refresh(intento)
+    assert resultado is None
+    assert FakeWSFEClient.llamadas == 1
+    assert intento.estado == "fallido_verificado"
+    assert intento.categoria_error == "arca_no_registrado"
+
+
+@pytest.mark.asyncio
+async def test_intento_stale_legacy_se_bloquea_por_guarda_huerfana_operacion(
+    db_session: AsyncSession,
+    test_empresa,
+) -> None:
+    """Una guarda de la operación bloquea stale aunque el intento no la referencie."""
+    punto_venta = PuntoVenta(
+        numero=92,
+        nombre="Legacy con guarda huérfana",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add(punto_venta)
+    await db_session.flush()
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=date(2026, 8, 1),
+        tipo_documento=99,
+        numero_documento="0",
+        razon_social="A CONSUMIDOR FINAL",
+        condicion_iva="Consumidor Final",
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Servicio sintético",
+                cantidad=Decimal("1"),
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("0"),
+            )
+        ],
+    )
+    operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=False,
+    )
+    operacion.rece_snapshot_hash = None
+    intento = IntentoEmisionFiscal(
+        operacion_id=operacion.id,
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        punto_venta_numero=punto_venta.numero,
+        tipo_comprobante=6,
+        numero_planificado=1,
+        fecha_emision=request.fecha_emision,
+        total=Decimal("1000.00"),
+        receptor_tipo_documento=99,
+        receptor_numero_documento="0",
+        receptor_razon_social="A CONSUMIDOR FINAL",
+        payload_hash="payload-stale-guarda-huerfana",
+        huella_logica="huella-stale-guarda-huerfana",
+        estado="en_proceso",
+    )
+    guarda = PuntoVentaGuardaEmisionRece(
+        token="b" * 64,
+        fase="pre_arca",
+        operacion_id=operacion.id,
+        empresa_id=contexto.empresa_id,
+        punto_venta_id=contexto.punto_venta_id,
+        ambiente=contexto.ambiente,
+        elegibilidad_revision_id=contexto.elegibilidad_revision_id,
+        punto_venta_revision_fiscal=contexto.punto_venta_revision_fiscal,
+    )
+    db_session.add_all([intento, guarda])
+    await db_session.commit()
+
+    class FakeWSFEClient:
+        """Explota si el stale cruza la guarda durable hacia ARCA."""
+
+        llamadas_fecomp = 0
+        llamadas_fecae = 0
+
+        async def fe_comp_consultar(self, punto_venta, tipo_cbte, numero):
+            """Registra una consulta FEComp indebida."""
+            FakeWSFEClient.llamadas_fecomp += 1
+            raise AssertionError(
+                "No debe consultar ARCA con una guarda de la operación"
+            )
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Registra una solicitud FECAE indebida."""
+            FakeWSFEClient.llamadas_fecae += 1
+            raise AssertionError("No debe solicitar CAE desde reconciliación stale")
+
+    resultado = await FacturacionService(db_session)._reconciliar_intento_stale(
+        intento=intento,
+        wsfe_client=FakeWSFEClient(),
+        punto_venta_numero=punto_venta.numero,
+    )
+
+    await db_session.refresh(intento)
+    await db_session.refresh(guarda)
+    assert resultado is intento
+    assert FakeWSFEClient.llamadas_fecomp == 0
+    assert FakeWSFEClient.llamadas_fecae == 0
+    assert intento.estado == "en_proceso"
+    assert intento.guarda_rece_id is None
+    assert guarda.fase == "pre_arca"
+
+
+@pytest.mark.asyncio
+async def test_intento_stale_moderno_no_sobrescribe_terminal_desde_orm_obsoleto(
+    tmp_path,
+) -> None:
+    """Un ORM obsoleto no consulta ARCA ni pisa evidencia RECE terminal."""
+    db_path = tmp_path / "rece-stale-terminal.sqlite3"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path.as_posix()}")
+    event.listen(engine.sync_engine, "connect", _habilitar_foreign_keys_sqlite)
+    SessionArchivo = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+    )
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    try:
+        async with SessionArchivo() as preparacion:
+            empresa = Empresa(
+                razon_social="Empresa stale RECE",
+                cuit="20123456789",
+                condicion_iva="Responsable Inscripto",
+                domicilio="Domicilio sintético 123",
+                localidad="Ciudad de prueba",
+                provincia="Buenos Aires",
+                codigo_postal="1000",
+                inicio_actividades=date(2020, 1, 1),
+            )
+            preparacion.add(empresa)
+            await preparacion.flush()
+            usuario = Usuario(
+                email="rece-stale@example.test",
+                hashed_password="hash-sintetico",
+                nombre="Usuario RECE stale",
+                empresa_id=empresa.id,
+            )
+            punto = PuntoVenta(
+                numero=93,
+                nombre="Punto stale RECE",
+                activo=True,
+                es_webservice=True,
+                empresa_id=empresa.id,
+                revision_fiscal=1,
+            )
+            preparacion.add_all([usuario, punto])
+            await preparacion.commit()
+            assert usuario.id == 1
+
+            request = EmitirComprobanteRequest(
+                empresa_id=empresa.id,
+                punto_venta_id=punto.id,
+                tipo_comprobante=6,
+                concepto=1,
+                fecha_emision=date(2026, 8, 1),
+                tipo_documento=99,
+                numero_documento="0",
+                razon_social="A CONSUMIDOR FINAL",
+                condicion_iva="Consumidor Final",
+                guardar_cliente=False,
+                moneda="PES",
+                cotizacion=Decimal("1"),
+                items=[
+                    ItemComprobanteCreate(
+                        descripcion="Servicio stale RECE",
+                        cantidad=Decimal("1"),
+                        unidad="unidad",
+                        precio_unitario=Decimal("1000"),
+                        iva_porcentaje=Decimal("0"),
+                    )
+                ],
+            )
+            operacion, contexto, _ = await _crear_operacion_rece_sintetica(
+                preparacion,
+                empresa=empresa,
+                punto_venta=punto,
+                requests=[request],
+                batch=False,
+            )
+            guarda = await ElegibilidadReceService(preparacion).crear_guarda_pre_arca(
+                operacion_id=operacion.id,
+                contexto=contexto,
+                contextos_operacion=[contexto],
+            )
+            intento = await IdempotenciaFiscalService(
+                preparacion
+            ).crear_intento_emision(
+                request=request,
+                punto_venta=punto,
+                numero_planificado=1,
+                total=Decimal("1000"),
+                operacion_id=operacion.id,
+                usuario_id=usuario.id,
+                lote_id=None,
+                grupo_id=None,
+                contexto_rece=contexto,
+                guarda_rece_id=guarda.id,
+                commit=False,
+            )
+            intento.created_at = datetime.utcnow() - timedelta(
+                minutes=settings.fiscal_attempt_stale_minutes + 1
+            )
+            await preparacion.commit()
+            intento_id = int(intento.id)
+            guarda_id = int(guarda.id)
+
+        async with SessionArchivo() as sesion_stale:
+            intento_obsoleto = await sesion_stale.get(
+                IntentoEmisionFiscal,
+                intento_id,
+            )
+            assert intento_obsoleto is not None
+            assert intento_obsoleto.estado == "en_proceso"
+            await sesion_stale.commit()
+
+            async with SessionArchivo() as terminalizador:
+                intento_terminal = await terminalizador.get(
+                    IntentoEmisionFiscal,
+                    intento_id,
+                )
+                guarda_terminal = await terminalizador.get(
+                    PuntoVentaGuardaEmisionRece,
+                    guarda_id,
+                )
+                assert intento_terminal is not None
+                assert guarda_terminal is not None
+                ahora = datetime.utcnow()
+                intento_terminal.estado = "rechazado_arca"
+                intento_terminal.categoria_error = "arca_no_aprobado"
+                intento_terminal.mensaje = "Rechazo terminal sintético."
+                guarda_terminal.fase = "cerrada_terminal"
+                guarda_terminal.arca_iniciada_en = ahora
+                guarda_terminal.cerrada_en = ahora
+                await terminalizador.commit()
+
+            class FakeWSFEClient:
+                """Explota si el ORM obsoleto cruza la frontera hacia ARCA."""
+
+                llamadas_fecomp = 0
+                llamadas_fecae = 0
+
+                async def fe_comp_consultar(self, punto_venta, tipo_cbte, numero):
+                    """Registra una consulta FEComp indebida."""
+                    FakeWSFEClient.llamadas_fecomp += 1
+                    raise AssertionError(
+                        "No debe consultar ARCA con evidencia terminal"
+                    )
+
+                async def fe_cae_solicitar(self, arca_request):
+                    """Registra una solicitud FECAE indebida."""
+                    FakeWSFEClient.llamadas_fecae += 1
+                    raise AssertionError("La reconciliación stale nunca solicita CAE")
+
+            resultado = await FacturacionService(
+                sesion_stale
+            )._reconciliar_intento_stale(
+                intento=intento_obsoleto,
+                wsfe_client=FakeWSFEClient(),
+                punto_venta_numero=93,
+            )
+
+            assert resultado is intento_obsoleto
+            assert FakeWSFEClient.llamadas_fecomp == 0
+            assert FakeWSFEClient.llamadas_fecae == 0
+
+        async with SessionArchivo() as observador:
+            intento_visible = await observador.get(IntentoEmisionFiscal, intento_id)
+            guarda_visible = await observador.get(
+                PuntoVentaGuardaEmisionRece,
+                guarda_id,
+            )
+            assert intento_visible is not None
+            assert guarda_visible is not None
+            assert intento_visible.estado == "rechazado_arca"
+            assert intento_visible.categoria_error == "arca_no_aprobado"
+            assert intento_visible.mensaje == "Rechazo terminal sintético."
+            assert guarda_visible.fase == "cerrada_terminal"
+            assert guarda_visible.arca_iniciada_en is not None
+            assert guarda_visible.cerrada_en is not None
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_intento_stale_no_libera_numero_con_error_arca_ambiguo(
     db_session: AsyncSession,
     test_empresa,
@@ -2713,6 +4499,7 @@ async def test_intento_stale_autorizado_preserva_cae_con_payload_no_canonico(
     payload["instruccion_fiscal_desconocida"] = "valor-sintetico"
     grupo = LoteComprobanteGrupo(
         lote_id=lote.id,
+        empresa_id=test_empresa.id,
         comprobante_ref="LOTE-001",
         orden=1,
         estado="validado",
@@ -2948,6 +4735,15 @@ async def test_confirmacion_duplicado_toma_operacion_solo_una_vez(
     assert tomada is True
     assert operacion.estado == "en_proceso"
     assert operacion.response_json is None
+    assert (
+        await db_session.scalar(
+            select(OperacionIdempotente.id).where(
+                OperacionIdempotente.id == operacion.id,
+                OperacionIdempotente.response_json.is_(None),
+            )
+        )
+        == operacion.id
+    )
 
     operacion, tomada = await service.marcar_operacion_en_proceso(operacion)
     assert tomada is False

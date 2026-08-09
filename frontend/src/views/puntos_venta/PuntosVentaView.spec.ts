@@ -4,9 +4,16 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { arcaService, type ArcaStatus } from "@/services/arca.service";
 import { puntosVentaService } from "@/services/puntos_venta.service";
+import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
+import type { Usuario } from "@/types/auth";
 import type { Empresa } from "@/types/empresa";
-import type { PuntoVenta, PuntoVentaArca } from "@/types/punto_venta";
+import type {
+  ElegibilidadRece,
+  ImportarPuntosVentaResponse,
+  PuntoVenta,
+  SincronizarPuntosVentaResponse,
+} from "@/types/punto_venta";
 import {
   clearEmpresaActivaIdForRequest,
   clearEmpresaActivaIdStorage,
@@ -23,7 +30,6 @@ vi.mock("vue-router", () => ({
 vi.mock("@/services/arca.service", () => ({
   arcaService: {
     getStatus: vi.fn(),
-    getPuntosVenta: vi.fn(),
   },
 }));
 
@@ -34,6 +40,7 @@ vi.mock("@/services/puntos_venta.service", () => ({
     update: vi.fn(),
     delete: vi.fn(),
     importarConstancia: vi.fn(),
+    sincronizarArca: vi.fn(),
   },
 }));
 
@@ -65,7 +72,37 @@ const empresaMock = (id: number): Empresa => ({
   updated_at: "2024-01-01T00:00:00",
 });
 
-const puntoVentaMock = (empresaId: number): PuntoVenta => ({
+const usuarioMock = (esAdmin: boolean): Usuario => ({
+  id: 1,
+  email: "usuario@example.com",
+  nombre: esAdmin ? "Administrador" : "Operador",
+  empresa_id: 1,
+  activo: true,
+  es_admin: esAdmin,
+  created_at: "2024-01-01T00:00:00",
+  ultimo_login: null,
+});
+
+const elegibilidadReceMock = (
+  overrides: Partial<ElegibilidadRece> = {},
+): ElegibilidadRece => ({
+  ambiente: "produccion",
+  estado: "verificado_rece",
+  estado_efectivo: "verificado_rece",
+  fuente: "constancia_arca_atestada",
+  revision_id: 1,
+  revision: 1,
+  punto_revision_fiscal: 1,
+  verificado_en: "2026-08-09T12:00:00-03:00",
+  vigente_hasta: "2026-08-15",
+  motivo: null,
+  ...overrides,
+});
+
+const puntoVentaMock = (
+  empresaId: number,
+  overrides: Partial<PuntoVenta> = {},
+): PuntoVenta => ({
   id: empresaId,
   numero: empresaId,
   nombre: `Punto ${empresaId}`,
@@ -78,8 +115,11 @@ const puntoVentaMock = (empresaId: number): PuntoVenta => ({
   fuente: "arca_wsfe",
   activo: true,
   usable_factuflow: true,
+  revision_fiscal: 1,
+  elegibilidad_rece: elegibilidadReceMock(),
   empresa_id: empresaId,
   created_at: "2026-01-01T00:00:00",
+  ...overrides,
 });
 
 const statusMock = (
@@ -105,14 +145,35 @@ const deferred = <T>() => {
 
 const mockedArcaService = arcaService as unknown as {
   getStatus: Mock;
-  getPuntosVenta: Mock;
 };
 const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
   create: Mock;
   update: Mock;
   importarConstancia: Mock;
+  sincronizarArca: Mock;
 };
+
+const syncResponseMock = (): SincronizarPuntosVentaResponse => ({
+  total_arca: 2,
+  nuevos: 1,
+  existentes: 1,
+  actualizados: 1,
+  desactivados_ausentes: 1,
+});
+
+const importResponseMock = (): ImportarPuntosVentaResponse => ({
+  total_constancia: 2,
+  creados: 1,
+  actualizados: 1,
+  omitidos: 0,
+  desactivados_ausentes: 1,
+  verificados_rece: 1,
+  no_verificados_rece: 1,
+  documento_emitido_en: "2026-08-09",
+  vigente_hasta: "2026-08-15",
+  warnings: [],
+});
 
 describe("PuntosVentaView", () => {
   beforeEach(() => {
@@ -120,23 +181,22 @@ describe("PuntosVentaView", () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     window.sessionStorage.clear();
+    document.body.innerHTML = "";
     clearEmpresaActivaIdStorage();
   });
 
   it("no muestra éxito de una sincronización obsoleta si el cambio de emisor está en curso", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-    const puntosArca = deferred<PuntoVentaArca[]>();
-    const locales = deferred<PuntoVenta[]>();
+    useAuthStore().user = usuarioMock(true);
+    const respuestaSync = deferred<SincronizarPuntosVentaResponse>();
     mockedArcaService.getStatus.mockResolvedValue(
       statusMock("produccion", true),
     );
-    mockedArcaService.getPuntosVenta.mockReturnValue(puntosArca.promise);
-    mockedPuntosVentaService.getAll
-      .mockResolvedValueOnce([])
-      .mockReturnValueOnce(locales.promise);
-    mockedPuntosVentaService.create.mockResolvedValue({});
-    mockedPuntosVentaService.update.mockResolvedValue({});
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    mockedPuntosVentaService.sincronizarArca.mockReturnValue(
+      respuestaSync.promise,
+    );
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -154,15 +214,7 @@ describe("PuntosVentaView", () => {
 
     const sincronizacion = vm.sincronizar();
     clearEmpresaActivaIdForRequest();
-    puntosArca.resolve([
-      {
-        numero: 6,
-        emision_tipo: "CAE - Factura Electronica",
-        bloqueado: "N",
-        fecha_baja: null,
-      },
-    ]);
-    locales.resolve([]);
+    respuestaSync.resolve(syncResponseMock());
     await sincronizacion;
 
     expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
@@ -172,11 +224,8 @@ describe("PuntosVentaView", () => {
   it("no muestra una importación obsoleta después de cambiar el emisor", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-    const importacionPendiente = deferred<{
-      total_constancia: number;
-      creados: number;
-      actualizados: number;
-    }>();
+    useAuthStore().user = usuarioMock(true);
+    const importacionPendiente = deferred<ImportarPuntosVentaResponse>();
     mockedArcaService.getStatus.mockResolvedValue(
       statusMock("produccion", true),
     );
@@ -198,23 +247,352 @@ describe("PuntosVentaView", () => {
       value: [new File(["PDF"], "constancia.pdf", { type: "application/pdf" })],
     });
     const vm = wrapper.vm as unknown as {
-      importarConstancia: (event: Event) => Promise<void>;
+      prepararImportacionConstancia: (event: Event) => void;
+      importarConstancia: () => Promise<void>;
     };
-    const importacion = vm.importarConstancia({ target: input } as unknown as Event);
+    vm.prepararImportacionConstancia({
+      target: input,
+    } as unknown as Event);
+    const importacion = vm.importarConstancia();
 
     empresaStore.empresa = empresaMock(2);
     empresaStore.empresaActivaId = 2;
     setEmpresaActivaIdStorage(2);
-    importacionPendiente.resolve({
-      total_constancia: 1,
-      creados: 1,
-      actualizados: 0,
-    });
+    importacionPendiente.resolve(importResponseMock());
     await importacion;
 
     expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
     expect(notificationMocks.showError).not.toHaveBeenCalled();
     expect(input.value).toBe("");
+  });
+
+  it("muestra estado efectivo, causa y vigencia RECE y filtra solo elegibles", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(true);
+    const verificado = puntoVentaMock(1, {
+      id: 11,
+      numero: 1,
+      nombre: "Punto verificado",
+    });
+    const noRece = puntoVentaMock(1, {
+      id: 12,
+      numero: 2,
+      nombre: "Punto no RECE",
+      usable_factuflow: false,
+      elegibilidad_rece: elegibilidadReceMock({
+        estado: "no_rece",
+        estado_efectivo: "no_rece",
+        fuente: "constancia_arca_atestada",
+        verificado_en: null,
+        vigente_hasta: null,
+        motivo: "punto_no_rece",
+      }),
+    });
+    const vencido = puntoVentaMock(1, {
+      id: 13,
+      numero: 3,
+      nombre: "Punto vencido",
+      usable_factuflow: false,
+      elegibilidad_rece: elegibilidadReceMock({
+        estado: "verificado_rece",
+        estado_efectivo: "no_verificado",
+        vigente_hasta: "20260808",
+        motivo: "evidencia_rece_vencida",
+      }),
+    });
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([
+      verificado,
+      noRece,
+      vencido,
+    ]);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Verificado RECE");
+    expect(wrapper.text()).toContain("No RECE");
+    expect(wrapper.text()).toContain("No verificado");
+    expect(wrapper.text()).toContain(
+      "La evidencia vigente indica que el punto no es RECE.",
+    );
+    expect(wrapper.text()).toContain("Vigente hasta 15/08/2026");
+    expect(wrapper.text()).toContain("Evidencia vencida el 08/08/2026");
+    expect(wrapper.findAll("tbody tr")).toHaveLength(3);
+
+    const filtro = wrapper
+      .findAll("label")
+      .find((label) => label.text().includes("Solo elegibles para emitir"));
+    expect(filtro).toBeDefined();
+    await filtro!.get('input[type="checkbox"]').setValue(true);
+
+    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
+    expect(wrapper.text()).toContain("0001");
+    expect(wrapper.text()).not.toContain("0002");
+    expect(wrapper.text()).not.toContain("0003");
+  });
+
+  it("exige atestación expresa para acreditar y permite importar sin acreditar", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(true);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    const warningTecnico =
+      "No se desactivaron puntos ausentes porque la constancia no pudo validarse como completa.";
+    mockedPuntosVentaService.importarConstancia
+      .mockResolvedValueOnce({
+        ...importResponseMock(),
+        desactivados_ausentes: 0,
+        warnings: [warningTecnico],
+      })
+      .mockResolvedValue(importResponseMock());
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as {
+      prepararImportacionConstancia: (event: Event) => void;
+      seleccionarModoImportacion: (
+        modo: "sin_acreditar" | "acreditar_rece",
+      ) => void;
+      importarConstancia: () => Promise<void>;
+      confirmarProcedenciaProduccion: boolean;
+      puedeConfirmarImportacion: boolean;
+    };
+    const prepararArchivo = () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      Object.defineProperty(input, "files", {
+        value: [
+          new File(["PDF"], "constancia.pdf", {
+            type: "application/pdf",
+          }),
+        ],
+      });
+      vm.prepararImportacionConstancia({
+        target: input,
+      } as unknown as Event);
+    };
+
+    prepararArchivo();
+    await flushPromises();
+    expect(document.body.textContent).toContain("Importar sin acreditar RECE");
+    expect(document.body.textContent).toContain("Importar y acreditar RECE");
+    expect(vm.puedeConfirmarImportacion).toBe(true);
+    await vm.importarConstancia();
+    expect(
+      mockedPuntosVentaService.importarConstancia,
+    ).toHaveBeenLastCalledWith(expect.any(File), {
+      confirmar_procedencia_produccion: false,
+    });
+    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
+      "Constancia importada sin acreditar RECE",
+      expect.stringContaining("Esta modalidad no acreditó RECE"),
+    );
+    expect(notificationMocks.showWarning).toHaveBeenCalledWith(
+      "Importación con observaciones",
+      warningTecnico,
+    );
+
+    prepararArchivo();
+    vm.seleccionarModoImportacion("acreditar_rece");
+    await flushPromises();
+    expect(document.body.textContent).toContain(
+      "FactuFlow no puede verificar criptográficamente el origen del PDF",
+    );
+    expect(document.body.textContent).toContain(
+      "Confirmo que descargué esta constancia desde la gestión productiva de ARCA",
+    );
+    expect(vm.puedeConfirmarImportacion).toBe(false);
+    await vm.importarConstancia();
+    expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(notificationMocks.showWarning).toHaveBeenCalledWith(
+      "Confirmación requerida",
+      expect.stringContaining("Confirmá expresamente"),
+    );
+
+    vm.confirmarProcedenciaProduccion = true;
+    await vm.importarConstancia();
+    expect(
+      mockedPuntosVentaService.importarConstancia,
+    ).toHaveBeenLastCalledWith(expect.any(File), {
+      confirmar_procedencia_produccion: true,
+    });
+    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
+      "Constancia productiva procesada",
+      expect.stringContaining("Desactivados por ausencia: 1"),
+    );
+    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
+      "Constancia productiva procesada",
+      expect.stringContaining("Documento: 09/08/2026"),
+    );
+    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
+      "Constancia productiva procesada",
+      expect.stringContaining("Verificados RECE: 1"),
+    );
+    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
+      "Constancia productiva procesada",
+      expect.stringContaining("Vigencia: 15/08/2026"),
+    );
+
+    notificationMocks.showSuccess.mockClear();
+    notificationMocks.showError.mockClear();
+    mockedPuntosVentaService.importarConstancia.mockResolvedValueOnce({
+      ...importResponseMock(),
+      warnings: ["Observación fiscal inesperada."],
+    });
+    prepararArchivo();
+    vm.seleccionarModoImportacion("acreditar_rece");
+    vm.confirmarProcedenciaProduccion = true;
+    await vm.importarConstancia();
+
+    expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
+    expect(notificationMocks.showError).toHaveBeenCalledWith(
+      "Resultado fiscal con observaciones",
+      expect.stringContaining("no se presenta como exitosa"),
+    );
+  });
+
+  it("bloquea la acreditación RECE en homologación y conserva la importación técnica", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(true);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("homologacion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    const input = document.createElement("input");
+    input.type = "file";
+    Object.defineProperty(input, "files", {
+      value: [new File(["PDF"], "constancia.pdf", { type: "application/pdf" })],
+    });
+    const vm = wrapper.vm as unknown as {
+      prepararImportacionConstancia: (event: Event) => void;
+      seleccionarModoImportacion: (
+        modo: "sin_acreditar" | "acreditar_rece",
+      ) => void;
+      importarConstancia: () => Promise<void>;
+      modoImportacion: "sin_acreditar" | "acreditar_rece";
+      confirmarProcedenciaProduccion: boolean;
+      puedeAcreditarRece: boolean;
+      puedeConfirmarImportacion: boolean;
+    };
+    vm.prepararImportacionConstancia({ target: input } as unknown as Event);
+    await flushPromises();
+
+    expect(vm.puedeAcreditarRece).toBe(false);
+    const opcionAcreditar = document.body.querySelector<HTMLInputElement>(
+      'input[value="acreditar_rece"]',
+    );
+    expect(opcionAcreditar).not.toBeNull();
+    expect(opcionAcreditar?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "No disponible en homologación",
+    );
+    vm.seleccionarModoImportacion("acreditar_rece");
+    expect(vm.modoImportacion).toBe("sin_acreditar");
+    expect(notificationMocks.showWarning).toHaveBeenCalledWith(
+      "Acreditación no disponible",
+      expect.stringContaining(
+        "solo está disponible en el ambiente de producción",
+      ),
+    );
+
+    vm.modoImportacion = "acreditar_rece";
+    vm.confirmarProcedenciaProduccion = true;
+    expect(vm.puedeConfirmarImportacion).toBe(false);
+    await vm.importarConstancia();
+    expect(mockedPuntosVentaService.importarConstancia).not.toHaveBeenCalled();
+  });
+
+  it("oculta acciones administrativas y limita la edición operativa a datos descriptivos", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(false);
+    const punto = puntoVentaMock(1);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([punto]);
+    mockedPuntosVentaService.update.mockResolvedValue({
+      ...punto,
+      nombre: "Nombre operativo",
+      domicilio: "Domicilio operativo",
+      nombre_fantasia: "Fantasía operativa",
+    });
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+
+    const botonesVisibles = wrapper
+      .findAll("button")
+      .map((button) => button.text().trim());
+    expect(botonesVisibles).not.toContain("Sincronizar con ARCA");
+    expect(botonesVisibles).not.toContain("Importar constancia");
+    expect(wrapper.text()).toContain("Solo un administrador puede sincronizar");
+
+    const vm = wrapper.vm as unknown as {
+      editarPunto: (punto: PuntoVenta) => void;
+      guardarEdicion: () => Promise<void>;
+      editForm: Record<string, unknown>;
+    };
+    vm.editarPunto(punto);
+    await flushPromises();
+    expect(document.body.textContent).toContain(
+      "Editar datos descriptivos del punto",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Fecha de baja (DD/MM/AAAA o AAAA-MM-DD)",
+    );
+    vm.editForm.nombre = "Nombre operativo";
+    vm.editForm.domicilio = "Domicilio operativo";
+    vm.editForm.nombre_fantasia = "Fantasía operativa";
+    vm.editForm.numero = 999;
+    vm.editForm.sistema = "Cambio fiscal no autorizado";
+    vm.editForm.activo = false;
+
+    await vm.guardarEdicion();
+
+    expect(mockedPuntosVentaService.update).toHaveBeenCalledWith(punto.id, {
+      nombre: "Nombre operativo",
+      domicilio: "Domicilio operativo",
+      nombre_fantasia: "Fantasía operativa",
+    });
+    expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.importarConstancia).not.toHaveBeenCalled();
   });
 
   it("ignora estados ARCA viejos despues de cambiar el emisor activo", async () => {
@@ -258,6 +636,7 @@ describe("PuntosVentaView", () => {
   it("deshabilita sincronizar si el certificado activo no tiene archivos locales", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(true);
     mockedArcaService.getStatus.mockResolvedValue(
       statusMock("produccion", true, false),
     );
@@ -285,7 +664,7 @@ describe("PuntosVentaView", () => {
 
     await vm.sincronizar();
 
-    expect(mockedArcaService.getPuntosVenta).not.toHaveBeenCalled();
+    expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
     expect(notificationMocks.showWarning).toHaveBeenCalledWith(
       "Certificado no disponible",
       expect.stringContaining("Cargá un certificado o restaurá sus archivos"),
@@ -295,6 +674,7 @@ describe("PuntosVentaView", () => {
   it("cierra el editor pendiente al cambiar de emisor", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(true);
     const punto = puntoVentaMock(1);
     mockedArcaService.getStatus.mockResolvedValue(
       statusMock("produccion", true),
@@ -317,7 +697,12 @@ describe("PuntosVentaView", () => {
     };
 
     vm.editarPunto(punto);
+    await flushPromises();
     expect(vm.puntoEditando?.id).toBe(punto.id);
+    expect(document.body.textContent).toContain("Cambio fiscal");
+    expect(document.body.textContent).toContain(
+      "Fecha de baja (DD/MM/AAAA o AAAA-MM-DD)",
+    );
 
     mockedPuntosVentaService.getAll.mockResolvedValue([]);
     empresaStore.empresa = empresaMock(2);
@@ -334,7 +719,9 @@ describe("PuntosVentaView", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const empresaStore = useEmpresaStore();
-    empresaStore.inicializarEmpresaActiva = vi.fn().mockResolvedValue(undefined);
+    empresaStore.inicializarEmpresaActiva = vi
+      .fn()
+      .mockResolvedValue(undefined);
 
     mount(PuntosVentaView, {
       global: { plugins: [pinia] },

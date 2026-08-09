@@ -1,8 +1,17 @@
 """Modelo PuntoVenta - Puntos de venta de la empresa."""
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy import Index, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 
@@ -19,6 +28,15 @@ class PuntoVenta(Base):
             "numero",
             name="uq_puntos_venta_empresa_numero",
         ),
+        UniqueConstraint(
+            "id",
+            "empresa_id",
+            name="uq_puntos_venta_id_empresa",
+        ),
+        CheckConstraint(
+            "revision_fiscal > 0",
+            name="ck_puntos_venta_revision_fiscal_positiva",
+        ),
         Index("ix_puntos_venta_empresa_numero", "empresa_id", "numero"),
     )
 
@@ -33,6 +51,7 @@ class PuntoVenta(Base):
     fecha_baja = Column(String(20), nullable=True)
     fuente = Column(String(50), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
+    revision_fiscal = Column(Integer, default=1, nullable=False)
 
     # Relación con empresa
     empresa_id = Column(

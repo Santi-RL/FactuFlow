@@ -84,6 +84,19 @@ const puntoVentaMock = (
   fuente: "arca_wsfe",
   activo: true,
   usable_factuflow: true,
+  revision_fiscal: 1,
+  elegibilidad_rece: {
+    ambiente: "produccion",
+    estado: "verificado_rece",
+    estado_efectivo: "verificado_rece",
+    fuente: "constancia_arca_atestada",
+    revision_id: 1,
+    revision: 1,
+    punto_revision_fiscal: 1,
+    verificado_en: "2026-05-20T12:00:00-03:00",
+    vigente_hasta: "2026-05-26",
+    motivo: null,
+  },
   empresa_id: 1,
   created_at: "2024-01-01T00:00:00",
   ...overrides,
@@ -356,7 +369,7 @@ describe("ComprobanteNuevoView", () => {
     expect(wrapper.text()).toContain("No disponible");
     expect(wrapper.text()).toContain("La emisión permanece bloqueada");
   });
-  it("selecciona por defecto el primer punto de venta usable", async () => {
+  it("selecciona por defecto el primer punto elegible para emitir", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const empresaStore = useEmpresaStore();
@@ -364,9 +377,18 @@ describe("ComprobanteNuevoView", () => {
     empresaStore.empresaActivaId = 1;
     mockedPuntosVentaService.getAll.mockResolvedValue([
       puntoVentaMock(1, 1, {
-        sistema: "Factuweb (Imprenta) - Monotributo",
-        es_webservice: false,
         usable_factuflow: false,
+        elegibilidad_rece: {
+          ...puntoVentaMock(1, 1).elegibilidad_rece,
+          estado: "no_verificado",
+          estado_efectivo: "no_verificado",
+          fuente: "sincronizacion_wsfe",
+          revision_id: 2,
+          revision: 2,
+          verificado_en: null,
+          vigente_hasta: null,
+          motivo: "elegibilidad_rece_no_verificada",
+        },
       }),
       puntoVentaMock(2, 6),
     ]);
