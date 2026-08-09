@@ -184,10 +184,10 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                 INSERT INTO puntos_venta_guardas_emision_rece (
                     id, token, fase, operacion_id, empresa_id,
                     punto_venta_id, ambiente, elegibilidad_revision_id,
-                    punto_venta_revision_fiscal, created_at, updated_at
+                    punto_venta_revision_fiscal, cerrada_en, created_at, updated_at
                 ) VALUES (
                     30, :token, 'cerrada_pre_arca', 10, 1, 1,
-                    'produccion', :revision_id, 1, now(), now()
+                    'produccion', :revision_id, 1, now(), now(), now()
                 )
                 """
             ),

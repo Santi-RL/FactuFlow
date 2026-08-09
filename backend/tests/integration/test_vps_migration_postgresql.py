@@ -47,7 +47,11 @@ def _exportar_paquete_terminal(tmp_path: Path) -> Path:
     _insert_operation(
         db_path,
         estado="finalizado",
-        response_json=_lote_response_payload(),
+        response_json={
+            "lote": _lote_response_payload(),
+            "mensaje": "Lote procesado",
+            "en_progreso": False,
+        },
         tipo_operacion="procesar_lote",
         lote_id=130,
         operacion_id=150,

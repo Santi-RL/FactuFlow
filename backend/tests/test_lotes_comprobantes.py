@@ -113,6 +113,12 @@ def _controlar_reloj_fecha_fiscal(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _configurar_ambiente_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fija el ambiente RECE requerido sin depender del entorno del runner."""
+    monkeypatch.setattr(settings, "arca_env", "produccion")
+
+
+@pytest.fixture(autouse=True)
 def _desactivar_batch_arca_por_defecto(monkeypatch: pytest.MonkeyPatch):
     """Evita consultas WSAA/WSFE reales en tests que no prueban batching ARCA."""
     monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", False)

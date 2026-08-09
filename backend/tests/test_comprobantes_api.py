@@ -39,6 +39,12 @@ FECHA_FISCAL_PRUEBA = date(2026, 8, 9)
 AHORA_FISCAL_PRUEBA = datetime(2026, 8, 9, 12, 0, 0)
 
 
+@pytest.fixture(autouse=True)
+def _configurar_ambiente_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fija el ambiente RECE requerido sin depender del entorno del runner."""
+    monkeypatch.setattr(settings, "arca_env", "produccion")
+
+
 def _crear_error_db_temporal(
     error_type: type[Exception],
 ) -> SQLAlchemyTimeoutError | OperationalError:

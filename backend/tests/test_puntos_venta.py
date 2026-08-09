@@ -894,8 +894,10 @@ async def test_atestacion_revalida_cuit_actual_del_emisor(
     db_session: AsyncSession,
     test_empresa: Empresa,
     test_admin: Usuario,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Una identidad cambiada antes del commit invalida toda la atestación."""
+    _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
     cuit_leido = test_empresa.cuit
     creada = await client.post(
         "/api/puntos-venta",
@@ -1067,8 +1069,10 @@ async def test_contexto_rece_rechaza_snapshot_cuit_obsoleto(
     db_session: AsyncSession,
     test_empresa: Empresa,
     test_admin: Usuario,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """La emisión falla cerrado si el CUIT actual difiere del atestiguado."""
+    _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
     creada = await client.post(
         "/api/puntos-venta",
         headers=_headers_admin_emisor(admin_auth_headers, test_empresa),
