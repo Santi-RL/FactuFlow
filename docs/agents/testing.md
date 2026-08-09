@@ -66,20 +66,25 @@ pública, logs ni Git. Una vez configurada de forma segura, ejecutar:
 
 ```bash
 cd backend
-pytest -m integration tests/integration/test_pool_capacity_postgresql.py -q
-pytest -m integration tests/integration/test_integridad_fiscal_postgresql.py -q
+pytest -m integration tests/integration -q
 ```
 
-La prueba de capacidad ocupa cuatro conexiones API, confirma una conexión
-worker dedicada y verifica los timeouts excedentes. Solo ejecuta `SELECT 1`.
+El guard central vive en `backend/tests/postgresql_harness.py` y se revalida en
+cada punto destructivo. Solo admite un driver `postgresql` o
+`postgresql+asyncpg`, host loopback exacto `localhost`, `127.0.0.1` o `::1`,
+base exacta `factuflow_integration_test`, sin query ni options, y el opt-in
+destructivo exacto `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1`. Si falta una
+condición, falla antes de tocar el schema. Nunca apuntar esta URL a una
+instalación operativa.
 
-La prueba PF-01B recrea el schema `public`, aplica Alembic y usa datos fiscales
-sintéticos para validar checks, estados, CAE, índice parcial, concurrencia,
-downgrade y preflight. Exige `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1` y
-que el nombre de la base incluya `test`, `tmp`, `temp` o `pf01b`; falla antes de
-conectarse si falta cualquiera de los dos guardarraíles. Debe ejecutarse
-exclusivamente contra una base efímera preparada para ser descartada, nunca
-contra una instalación operativa. No solicita CAE ni usa certificados.
+La matriz cubre capacidad `4+1`, integridad PF-01, inventario PF-19A de solo
+lectura, migración y concurrencia PF-19B —incluidos ambos ganadores de la carrera
+entre cambio de CUIT y atestación—, y paquete VPS v2. GitHub Actions
+provisiona PostgreSQL 16 Alpine con credenciales sintéticas exclusivas del job y
+ejecuta el backend completo con esos guardarraíles. Una corrida local sin URL
+explícita omite esas pruebas: ese skip no constituye evidencia PostgreSQL. En
+este corte no se afirma una ejecución PostgreSQL local; la evidencia real debe
+provenir del job de CI. Ninguna prueba solicita CAE ni usa certificados reales.
 
 El corte `4+1` fue aprobado el 10/07/2026 y PF-01B.3 el 13/07/2026 contra
 PostgreSQL efímero. Esa evidencia valida contratos locales, pero no demuestra ni
@@ -256,9 +261,47 @@ El último checkpoint manual no está en este archivo sino en:
 
 Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión.
 
-## Última verificación técnica
+## Evidencia de verificación
 
-Fecha: 08/08/2026
+### PF-19B — cierre local del 09/08/2026
+
+- Backend completo: `924` pruebas recolectadas; `905` aprobadas, `19` omitidas
+  y `30` warnings en `403.90 s`. Los `19` skips corresponden a suites
+  PostgreSQL/harness opt-in sin daemon ni `FACTUFLOW_TEST_POSTGRES_URL` local;
+  esta corrida no constituye evidencia PostgreSQL real.
+- Frontend completo: `30` archivos y `149` pruebas unitarias aprobadas en
+  `12.65 s`; type-check y build aprobados, con `869` módulos transformados.
+  `lint:check` terminó con código `0`, cero errores y las `13` advertencias
+  históricas limitadas a `ComprobanteNuevoView.vue`.
+- La puerta documental aprobó `npm run docs:check` y las `16` pruebas de
+  `npm run test:scripts`.
+- PF-19B cubre configuración estricta, modelo/ledger, migración y backup,
+  atestación administrativa, snapshots, emisión individual, lotes, perfiles,
+  selectores y migración VPS v2 mediante SQLite y dobles controlados. CI y la
+  matriz PostgreSQL real todavía no se ejecutaron para este diff; tampoco se
+  declara release ni despliegue.
+- La matriz PostgreSQL cubre ambos ganadores de CUIT/atestación y de la
+  degradación `activo=false` o `es_admin=false` frente a atestación. Sus casos se
+  recolectaron dentro de la full, pero integran los `19` skips opt-in: solo CI
+  con PostgreSQL real puede acreditarlos y todavía no se ejecutó. La
+  revalidación frontend P1 enfocada `33/33`, incorporada luego a la full, cubre
+  limpieza pre-`await`, empresa + generación en los tres loaders de Lotes,
+  corte de la cadena obsoleta después de cada espera y la guarda agregada de
+  EmpresaConfig.
+- La reauditoría final no encontró hallazgos P0-P2. No equivale a `autoreview`,
+  ni reemplaza esa puerta.
+- El comando canónico de cierre
+  `--mode local --engine codex --model gpt-5.6-sol --thinking medium` se intentó
+  dos veces. Ambas corridas quedaron bloqueadas por TruffleHog antes de invocar
+  el motor: el bundle reprodujo tres candidatos PostgreSQL sintéticos
+  preexistentes en `HEAD`, reintroducidos por commits inversos del helper. El
+  árbol objetivo contiene cero URLs de esos candidatos y las pruebas enfocadas
+  del caso aprobaron `3/3`; un escaneo local sin verificación confirmó que no se
+  trata de una credencial real. El usuario autorizó explícitamente la dispensa
+  de `autoreview` el 09/08/2026. Esta dispensa permite continuar el cierre, pero
+  no constituye ni debe presentarse como un `autoreview` limpio.
+
+### Checkpoint anterior — 08/08/2026
 
 - PF-19A: `15` pruebas de contención cubren configuración estricta, aislamiento
   por ambiente/emisor/punto/tipo, renumeración/recreación, selección

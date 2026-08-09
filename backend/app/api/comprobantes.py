@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user, get_db
+from app.core.config import settings
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
@@ -29,6 +30,11 @@ from app.services.facturacion_service import (
     FacturacionService,
     FaseSolicitudArca,
     ValidationError,
+)
+from app.services.elegibilidad_rece_service import (
+    ContextoElegibilidadRece,
+    ElegibilidadReceError,
+    ElegibilidadReceService,
 )
 from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
@@ -114,10 +120,9 @@ async def _guardar_respuesta_inesperada_post_arca(
     """Intenta persistir el replay incierto sin reemplazar la respuesta HTTP segura."""
     try:
         await db.rollback()
-        await idempotencia.guardar_respuesta_operacion(
+        await idempotencia.guardar_resultado_post_arca_incierto(
             operacion,
             response_json=respuesta,
-            estado="requiere_reconciliacion",
         )
     except Exception as persistencia_exc:
         logger.error(
@@ -170,11 +175,30 @@ async def _recuperar_operacion_pre_arca(
     db: AsyncSession,
     idempotencia: IdempotenciaFiscalService,
     operacion_id: int,
-) -> bool:
+    fase_solicitud_arca: FaseSolicitudArca,
+) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
     """Intenta abrir un replay durable sin reemplazar el error primario."""
     try:
         await db.rollback()
-        return await idempotencia.marcar_operacion_interrumpida_pre_arca(operacion_id)
+        if (
+            fase_solicitud_arca.guarda_rece_id is not None
+            and fase_solicitud_arca.guarda_rece_token is not None
+        ):
+            resultado_guarda = await ElegibilidadReceService(
+                db
+            ).recuperar_guarda_interrumpida_pre_arca(
+                operacion_id=operacion_id,
+                guarda_id=fase_solicitud_arca.guarda_rece_id,
+                token=fase_solicitud_arca.guarda_rece_token,
+            )
+            if resultado_guarda == "recuperada_pre_arca":
+                return resultado_guarda
+            if resultado_guarda == "requiere_reconciliacion":
+                return resultado_guarda
+        recuperada = await idempotencia.marcar_operacion_interrumpida_pre_arca(
+            operacion_id
+        )
+        return "recuperada_pre_arca" if recuperada else "no_recuperable"
     except Exception as recovery_exc:
         logger.error(
             "event=pre_arca_operation_recovery_failed tipo_error=%s",
@@ -187,7 +211,7 @@ async def _recuperar_operacion_pre_arca(
                 "event=pre_arca_operation_recovery_rollback_failed tipo_error=%s",
                 type(rollback_exc).__name__,
             )
-        return False
+        return "no_recuperable"
 
 
 def _estado_operacion_desde_resultado(resultado: EmitirComprobanteResponse) -> str:
@@ -227,7 +251,12 @@ async def _resolver_operacion_emitir(
     empresa_id: int,
     usuario_id: int | None,
     idempotency_key: str | None,
-) -> tuple[IdempotenciaFiscalService, OperacionIdempotente, bool]:
+) -> tuple[
+    IdempotenciaFiscalService,
+    OperacionIdempotente,
+    bool,
+    ContextoElegibilidadRece | None,
+]:
     """Obtiene o crea la operación idempotente para emisión individual."""
     idempotencia = IdempotenciaFiscalService(db)
     payload = request.model_dump(mode="json")
@@ -235,13 +264,35 @@ async def _resolver_operacion_emitir(
         idempotencia.payload_sin_confirmacion_duplicado(payload)
     )
     try:
-        operacion, creada = await idempotencia.obtener_o_crear_operacion(
+        existente = await idempotencia.obtener_operacion_existente(
             empresa_id=empresa_id,
-            usuario_id=usuario_id,
             idempotency_key=idempotency_key,
-            tipo_operacion="emitir_comprobante",
             payload_hash=payload_hash,
         )
+        if existente is not None:
+            return idempotencia, existente, False, None
+        elegibilidad = ElegibilidadReceService(db)
+        async with elegibilidad.bloqueo_local_punto(
+            empresa_id=empresa_id,
+            punto_venta_id=request.punto_venta_id,
+        ):
+            contexto = await elegibilidad.exigir_contexto_preautorizacion(
+                empresa_id=empresa_id,
+                punto_venta_id=request.punto_venta_id,
+                ambiente=settings.arca_env,
+                tipo_comprobante=request.tipo_comprobante,
+                bloquear=True,
+            )
+            operacion, creada = await idempotencia.obtener_o_crear_operacion(
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+                idempotency_key=idempotency_key,
+                tipo_operacion="emitir_comprobante",
+                payload_hash=payload_hash,
+                contextos_rece=[contexto],
+            )
+    except ElegibilidadReceError as exc:
+        raise _error_elegibilidad_rece(exc) from exc
     except IdempotenciaFiscalError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     except CreacionOperacionAmbiguaError as exc:
@@ -252,6 +303,7 @@ async def _resolver_operacion_emitir(
                 payload_hash=payload_hash,
                 tipo_operacion="emitir_comprobante",
                 lote_id=None,
+                contextos_rece=[contexto],
             )
         except Exception as recovery_exc:
             logger.error(
@@ -262,7 +314,52 @@ async def _resolver_operacion_emitir(
         if not recuperada:
             raise _error_db_pre_arca_bloqueado()
         raise exc.error_original
-    return idempotencia, operacion, creada
+    return idempotencia, operacion, creada, contexto
+
+
+def _error_elegibilidad_rece(exc: ElegibilidadReceError) -> HTTPException:
+    """Convierte un rechazo RECE/PF-19A en un conflicto público estable."""
+    return HTTPException(
+        status_code=409,
+        detail={
+            "mensaje": exc.mensaje,
+            "errores": [
+                "No se solicitó CAE. Revalidá el punto de venta antes de continuar."
+            ],
+            "categoria_error": exc.categoria,
+        },
+    )
+
+
+async def _exigir_operacion_individual_continuable(
+    *,
+    db: AsyncSession,
+    operacion: OperacionIdempotente,
+    request: EmitirComprobanteRequest,
+    empresa_id: int,
+) -> ContextoElegibilidadRece:
+    """Revalida PF-19A, RECE y la asociación exacta antes de continuar."""
+    elegibilidad = ElegibilidadReceService(db)
+    try:
+        async with elegibilidad.bloqueo_local_punto(
+            empresa_id=empresa_id,
+            punto_venta_id=request.punto_venta_id,
+        ):
+            contexto = await elegibilidad.exigir_contexto_preautorizacion(
+                empresa_id=empresa_id,
+                punto_venta_id=request.punto_venta_id,
+                ambiente=settings.arca_env,
+                tipo_comprobante=request.tipo_comprobante,
+                bloquear=True,
+            )
+            await elegibilidad.validar_operacion_para_continuar(
+                operacion_id=operacion.id,
+                empresa_id=empresa_id,
+                contextos_esperados=[contexto],
+            )
+    except ElegibilidadReceError as exc:
+        raise _error_elegibilidad_rece(exc) from exc
+    return contexto
 
 
 @router.get("/", response_model=PaginatedComprobantesResponse)
@@ -501,7 +598,7 @@ async def emitir_comprobante(
     service = FacturacionService(db)
     fase_solicitud_arca = FaseSolicitudArca()
     request = request.model_copy(update={"empresa_id": empresa_activa_id})
-    idempotencia, operacion, creada = await _resolver_operacion_emitir(
+    idempotencia, operacion, creada, contexto_rece = await _resolver_operacion_emitir(
         db=db,
         request=request,
         empresa_id=empresa_activa_id,
@@ -512,6 +609,12 @@ async def emitir_comprobante(
     confirmacion_duplicado_autorizada = False
     continuar_operacion = creada
     if not creada and operacion.estado == "interrumpida_pre_arca":
+        contexto_rece = await _exigir_operacion_individual_continuable(
+            db=db,
+            operacion=operacion,
+            request=request,
+            empresa_id=empresa_activa_id,
+        )
         operacion, continuar_operacion = await _reclamar_operacion_pre_arca_segura(
             db,
             idempotencia,
@@ -525,6 +628,12 @@ async def emitir_comprobante(
                 )
                 and request.confirmacion_duplicado_logico
             ):
+                contexto_rece = await _exigir_operacion_individual_continuable(
+                    db=db,
+                    operacion=operacion,
+                    request=request,
+                    empresa_id=empresa_activa_id,
+                )
                 operacion, tomada = await idempotencia.marcar_operacion_en_proceso(
                     operacion
                 )
@@ -556,12 +665,20 @@ async def emitir_comprobante(
                     _raise_resultado_no_exitoso(resultado_guardado)
                 return resultado_guardado
         else:
+            operacion_legacy = operacion.rece_snapshot_hash is None
+            if not operacion_legacy:
+                contexto_rece = await _exigir_operacion_individual_continuable(
+                    db=db,
+                    operacion=operacion,
+                    request=request,
+                    empresa_id=empresa_activa_id,
+                )
             resultado_actual = await service.resolver_operacion_idempotente_incompleta(
                 operacion.id
             )
             if resultado_actual is not None:
                 if resultado_actual.categoria_error != "idempotencia_en_proceso":
-                    await idempotencia.guardar_respuesta_operacion(
+                    await idempotencia.guardar_resultado_operacion_sync(
                         operacion,
                         response_json=resultado_actual,
                         estado=_estado_operacion_desde_resultado(resultado_actual),
@@ -569,6 +686,27 @@ async def emitir_comprobante(
                 if not resultado_actual.exito:
                     _raise_resultado_no_exitoso(resultado_actual)
                 return resultado_actual
+            if operacion_legacy:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "mensaje": (
+                            "La operación legacy no pudo resolverse de forma "
+                            "concluyente y no puede volver a emitir."
+                        ),
+                        "errores": [
+                            "Usá reconciliación o iniciá una nueva operación después de revalidar RECE."
+                        ],
+                        "categoria_error": "operacion_legacy_no_continuable",
+                    },
+                )
+    if contexto_rece is None:
+        contexto_rece = await _exigir_operacion_individual_continuable(
+            db=db,
+            operacion=operacion,
+            request=request,
+            empresa_id=empresa_activa_id,
+        )
     if request.confirmacion_duplicado_logico != confirmacion_duplicado_autorizada:
         request = request.model_copy(
             update={
@@ -577,14 +715,16 @@ async def emitir_comprobante(
         )
 
     resultado: EmitirComprobanteResponse | None = None
+    operacion_id_durable = int(operacion.id)
     try:
         resultado = await service.emitir_comprobante(
             request,
-            operacion_id=operacion.id,
+            operacion_id=operacion_id_durable,
             usuario_id=current_user.id,
+            contexto_rece=contexto_rece,
             fase_solicitud_arca=fase_solicitud_arca,
         )
-        await idempotencia.guardar_respuesta_operacion(
+        await idempotencia.guardar_resultado_operacion_sync(
             operacion,
             response_json=resultado,
             estado=_estado_operacion_desde_resultado(resultado),
@@ -597,15 +737,18 @@ async def emitir_comprobante(
     except HTTPException:
         raise
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-        if not fase_solicitud_arca.iniciada:
-            recuperada = await _recuperar_operacion_pre_arca(
+        if not fase_solicitud_arca.guarda_actual_iniciada:
+            recuperacion = await _recuperar_operacion_pre_arca(
                 db,
                 idempotencia,
-                operacion.id,
+                operacion_id_durable,
+                fase_solicitud_arca,
             )
-            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
-            if recuperada:
+            fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
+            if recuperacion == "recuperada_pre_arca":
                 raise
+            if recuperacion == "requiere_reconciliacion":
+                raise _error_db_post_arca(resultado)
             raise _error_db_pre_arca_bloqueado()
         raise _error_db_post_arca(resultado)
     except Exception as exc:
@@ -679,6 +822,8 @@ async def obtener_proximo_numero(
             pv.id,
             tipo,
         )
+    except ElegibilidadReceError as exc:
+        raise _error_elegibilidad_rece(exc) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

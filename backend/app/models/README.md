@@ -18,7 +18,24 @@ Puntos de venta habilitados en ARCA:
 - Descripción/alias
 - Sistema, domicilio y nombre fantasia importados desde constancia ARCA
 - Estado Web Services, bloqueado, fecha de baja y usabilidad FactuFlow
+- Revisión fiscal monotónica; la usabilidad efectiva exige una cabeza RECE
+  vigente para el ambiente actual
 - Relación con Empresa
+
+### Elegibilidad RECE y guardas fiscales
+
+Autoridad fiscal durable PF-19B:
+
+- Modelos `PuntoVentaElegibilidadReceRevision`,
+  `PuntoVentaElegibilidadReceActual`,
+  `OperacionIdempotenteElegibilidadRece` y `PuntoVentaGuardaEmisionRece`.
+- Una cabeza por punto y ambiente con estado vigente.
+- Ledger inmutable con fuente, versión de clasificador, hash probatorio,
+  timestamps y vigencia; no persiste el PDF ni su texto completo.
+- Estados `verificado_rece`, `no_rece` y `no_verificado`; el estado efectivo
+  degrada a `no_verificado` al vencer.
+- Guarda por operación/intento/grupo para impedir cambios concurrentes y
+  continuar solo con el mismo snapshot fiscal.
 
 ### Certificado
 Metadatos de certificados ARCA (NO el archivo):
@@ -73,6 +90,8 @@ Control fiscal durable para caminos que pueden solicitar CAE:
   número, fecha, total, receptor, CAE si existe y estado reconciliable
 - Reserva única de numeración activa para evitar doble solicitud fiscal en
   estados inciertos
+- Snapshots RECE del punto y ambiente; un replay terminal durable puede
+  devolverse, pero una continuación legacy u obsoleta queda bloqueada
 
 ### FormatoImportacion, FormatoImportacionVersion, FormatoImportacionCampo y FormatoImportacionRegla
 Plantillas/formato reutilizables para interpretar archivos externos de emisión

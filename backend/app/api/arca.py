@@ -24,7 +24,7 @@ from app.arca.models import (
     TipoConcepto,
     TipoMoneda,
     Cotizacion,
-    PuntoVenta,
+    PuntoVenta as PuntoVentaArca,
 )
 from app.arca.exceptions import (
     ArcaError,
@@ -37,6 +37,11 @@ from app.services.certificados_service import (
     MATERIAL_CERTIFICADO_NO_DISPONIBLE,
     material_certificado_disponible,
     requerir_material_certificado,
+)
+from app.models.punto_venta import PuntoVenta as PuntoVentaModel
+from app.services.elegibilidad_rece_service import (
+    ElegibilidadReceError,
+    ElegibilidadReceService,
 )
 
 logger = logging.getLogger(__name__)
@@ -407,7 +412,7 @@ async def get_cotizacion(
         )
 
 
-@router.get("/puntos-venta", response_model=List[PuntoVenta])
+@router.get("/puntos-venta", response_model=List[PuntoVentaArca])
 async def get_puntos_venta(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_empresa_user),
@@ -452,6 +457,22 @@ async def get_ultimo_comprobante(
         Último número de comprobante
     """
     try:
+        punto_local = await db.scalar(
+            select(PuntoVentaModel).where(
+                PuntoVentaModel.empresa_id == empresa_activa_id,
+                PuntoVentaModel.numero == punto_venta,
+            )
+        )
+        if punto_local is None:
+            raise ElegibilidadReceError(
+                "El punto de venta no pertenece al emisor activo."
+            )
+        await ElegibilidadReceService(db).exigir_contexto_preautorizacion(
+            empresa_id=empresa_activa_id,
+            punto_venta_id=punto_local.id,
+            ambiente=settings.arca_env,
+            tipo_comprobante=tipo_cbte,
+        )
         wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         ultimo = await wsfe_client.fe_comp_ultimo_autorizado(punto_venta, tipo_cbte)
 
@@ -462,6 +483,17 @@ async def get_ultimo_comprobante(
             "proximo_comprobante": ultimo + 1,
         }
 
+    except ElegibilidadReceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "mensaje": exc.mensaje,
+                "errores": [
+                    "No se consultó ARCA. Revalidá el punto de venta antes de continuar."
+                ],
+                "categoria_error": exc.categoria,
+            },
+        ) from exc
     except HTTPException:
         raise
     except ArcaServiceError as e:

@@ -114,6 +114,7 @@ async def _sembrar_candidatos(engine: AsyncEngine) -> int:
         session.add_all([operacion, lote])
         await session.flush()
         grupo = LoteComprobanteGrupo(
+            empresa_id=empresa.id,
             comprobante_ref="grupo-1",
             orden=1,
             estado="requiere_reconciliacion",
@@ -221,6 +222,7 @@ async def _sembrar_candidatos(engine: AsyncEngine) -> int:
         session.add_all([operacion_grupo_con_cae, lote_grupo_con_cae])
         await session.flush()
         grupo_con_cae = LoteComprobanteGrupo(
+            empresa_id=empresa.id,
             comprobante_ref="grupo-contradictorio",
             orden=1,
             estado="autorizado_externo",
@@ -464,6 +466,7 @@ async def _sembrar_corrupcion_cruzada(engine: AsyncEngine) -> int:
         await session.flush()
 
         grupo_lote_ajeno = LoteComprobanteGrupo(
+            empresa_id=empresa_ajena.id,
             comprobante_ref="GRUPO-LOTE-AJENO",
             orden=1,
             estado="autorizado",
@@ -476,6 +479,7 @@ async def _sembrar_corrupcion_cruzada(engine: AsyncEngine) -> int:
             lote_id=lote_ajeno.id,
         )
         grupo_comprobante_ajeno = LoteComprobanteGrupo(
+            empresa_id=empresa_propia.id,
             comprobante_ref="GRUPO-COMPROBANTE-AJENO",
             orden=1,
             estado="autorizado",
@@ -488,6 +492,7 @@ async def _sembrar_corrupcion_cruzada(engine: AsyncEngine) -> int:
             lote_id=lote_propio.id,
         )
         grupo_comprobante_numero_incorrecto = LoteComprobanteGrupo(
+            empresa_id=empresa_propia.id,
             comprobante_ref="GRUPO-NUMERO-INCORRECTO",
             orden=2,
             estado="autorizado",
@@ -500,6 +505,7 @@ async def _sembrar_corrupcion_cruzada(engine: AsyncEngine) -> int:
             lote_id=lote_propio.id,
         )
         grupo_comprobante_punto_incorrecto = LoteComprobanteGrupo(
+            empresa_id=empresa_propia.id,
             comprobante_ref="GRUPO-PUNTO-INCORRECTO",
             orden=3,
             estado="autorizado",
@@ -512,6 +518,7 @@ async def _sembrar_corrupcion_cruzada(engine: AsyncEngine) -> int:
             lote_id=lote_propio.id,
         )
         grupo_comprobante_tipo_incorrecto = LoteComprobanteGrupo(
+            empresa_id=empresa_propia.id,
             comprobante_ref="GRUPO-TIPO-INCORRECTO",
             orden=4,
             estado="autorizado",
@@ -524,6 +531,7 @@ async def _sembrar_corrupcion_cruzada(engine: AsyncEngine) -> int:
             lote_id=lote_propio.id,
         )
         grupo_comprobante_sin_numero_planificado = LoteComprobanteGrupo(
+            empresa_id=empresa_propia.id,
             comprobante_ref="GRUPO-SIN-NUMERO-PLANIFICADO",
             orden=5,
             estado="autorizado",
@@ -982,7 +990,10 @@ async def test_inventario_es_solo_lectura_sanitizado_y_no_terminal(
     tmp_path: Path,
 ) -> None:
     """Deduplica por intento y no convierte una firma textual en saneamiento."""
-    engine = await _crear_engine_sintetico(tmp_path)
+    engine = await _crear_engine_sintetico(
+        tmp_path,
+        habilitar_claves_foraneas=False,
+    )
     empresa_id = await _sembrar_candidatos(engine)
     antes = await _contar_intentos(engine)
     sentencias: list[str] = []
@@ -1076,7 +1087,10 @@ async def test_inventario_restaura_query_only_previo_aun_si_falla(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """La salida excepcional no debe reducir una protección previa del engine."""
-    engine = await _crear_engine_sintetico(tmp_path)
+    engine = await _crear_engine_sintetico(
+        tmp_path,
+        habilitar_claves_foraneas=False,
+    )
     empresa_id = await _sembrar_candidatos(engine)
     sentencias: list[str] = []
 
@@ -1227,7 +1241,10 @@ async def test_inventario_no_consume_senales_cruzadas_entre_emisores(
     tmp_path: Path,
 ) -> None:
     """Cada dimensión grupal inválida prevalece y no aporta 10005 ni CAE."""
-    engine = await _crear_engine_sintetico(tmp_path)
+    engine = await _crear_engine_sintetico(
+        tmp_path,
+        habilitar_claves_foraneas=False,
+    )
     empresa_id = await _sembrar_corrupcion_cruzada(engine)
     try:
         resultado = await inventariar_legacy_pf19(

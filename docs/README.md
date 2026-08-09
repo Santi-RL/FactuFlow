@@ -15,6 +15,8 @@ Este directorio agrupa la documentación del proyecto.
 - Wizard de certificados (doc técnica): `docs/certificados-wizard.md`
 - Integración ARCA histórica/técnica inicial: `docs/arca-integration.md`
 - Integración ARCA operativa vigente: `docs/agents/arca.md` y `docs/arca-ws/NOTAS.md`
+- Diseño fiscal PF-19B de elegibilidad RECE durable y fail-closed:
+  `docs/agents/pf-19b-elegibilidad-rece-design.md`
 - PDFs y reportes (documento técnico histórico de fase): `docs/FASE_6_PDF_REPORTES.md`
 - Documentación para agentes (operativa del repo): `docs/agents/README.md`
 - Estado actual y continuidad: `docs/agents/current-status.md`

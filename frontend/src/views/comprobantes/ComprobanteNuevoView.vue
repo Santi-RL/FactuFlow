@@ -1053,8 +1053,8 @@ const confirmarCancelacion = () => {
               v-if="puntosVentaUsables.length === 0"
               class="mt-1 text-sm text-red-600"
             >
-              No hay puntos de venta Web Services habilitados para emitir con
-              FactuFlow.
+              No hay puntos de venta con elegibilidad RECE vigente y estado
+              técnico disponible para emitir.
             </p>
           </div>
 

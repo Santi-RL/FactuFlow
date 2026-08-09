@@ -255,6 +255,15 @@ black --check app/ tests/
 pytest tests/ -v --cov=app --cov-report=xml
 ```
 
+Las integraciones PostgreSQL que recrean el schema usan exclusivamente
+`FACTUFLOW_TEST_POSTGRES_URL` con driver `postgresql` o
+`postgresql+asyncpg`, host loopback exacto (`localhost`, `127.0.0.1` o `::1`),
+base exacta `factuflow_integration_test`, sin query/options, más
+`FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1`. El harness revalida esas
+condiciones en cada punto destructivo. No se acepta una base cuyo nombre solo
+“parezca de prueba”. La matriz CI y el uso seguro están documentados en
+[`docs/agents/testing.md`](docs/agents/testing.md).
+
 Controles principales de frontend:
 
 ```bash

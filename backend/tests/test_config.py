@@ -24,6 +24,8 @@ def limpiar_entorno_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
         "APP_ENV",
         "APP_SECRET_KEY",
+        "ARCA_ENV",
+        "AFIP_ENV",
         ARCA_CONTENCION_ENV_KEY,
         *POOL_ENV_KEYS,
     ):
@@ -73,6 +75,42 @@ def test_settings_mantiene_fallback_de_desarrollo(monkeypatch):
     settings = Settings(_env_file=None)
 
     assert settings.secret_key == DEFAULT_SECRET_KEY
+
+
+@pytest.mark.parametrize("ambiente", ["homologacion", "produccion", " PRODUCCION "])
+def test_settings_acepta_ambientes_arca_explicitos(
+    monkeypatch: pytest.MonkeyPatch,
+    ambiente: str,
+) -> None:
+    """ARCA_ENV acepta solo los dos ambientes canónicos, normalizados."""
+    monkeypatch.setenv("ARCA_ENV", ambiente)
+
+    configured = Settings(_env_file=None)
+
+    assert configured.arca_env in {"homologacion", "produccion"}
+
+
+@pytest.mark.parametrize("ambiente", ["", "production", "test", "otro"])
+def test_settings_rechaza_arca_env_ambiguo(
+    monkeypatch: pytest.MonkeyPatch,
+    ambiente: str,
+) -> None:
+    """Un ambiente ambiguo debe impedir el arranque en vez de caer a homologación."""
+    monkeypatch.setenv("ARCA_ENV", ambiente)
+
+    with pytest.raises(ValidationError, match="ARCA_ENV|arca_env"):
+        Settings(_env_file=None)
+
+
+def test_settings_conserva_alias_legacy_afip_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AFIP_ENV sigue siendo un alias técnico, con la misma allowlist estricta."""
+    monkeypatch.setenv("AFIP_ENV", "PRODUCCION")
+
+    configured = Settings(_env_file=None)
+
+    assert configured.arca_env == "produccion"
 
 
 def test_settings_usa_limites_pool_seguros_por_defecto() -> None:

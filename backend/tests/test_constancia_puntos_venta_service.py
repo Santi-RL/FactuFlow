@@ -1,10 +1,13 @@
-"""Tests de importacion de constancia de puntos de venta ARCA."""
+"""Tests de importación de constancia de puntos de venta ARCA."""
+
+from datetime import date
 
 import pytest
 from weasyprint import HTML
 
 from app.services.constancia_puntos_venta_service import (
     ConstanciaPuntosVentaError,
+    es_senal_rece_exacta,
     extraer_texto_constancia_puntos_pdf,
     parsear_constancia_puntos_venta,
 )
@@ -33,6 +36,7 @@ def test_extraer_y_parsear_constancia_puntos_pdf_real_sintetico() -> None:
     assert len(datos.puntos_venta) == 1
     assert datos.puntos_venta[0].numero == 6
     assert datos.puntos_venta[0].es_webservice is True
+    assert datos.documento_emitido_en == date(2026, 5, 4)
 
 
 def test_extraer_texto_constancia_puntos_pdf_malformado_devuelve_error() -> None:
@@ -68,3 +72,76 @@ def test_parsear_constancia_puntos_venta() -> None:
     assert "CALLE FALSA" in datos.puntos_venta[0].domicilio
     assert datos.puntos_venta[1].numero == 7
     assert datos.puntos_venta[1].es_webservice is False
+    assert datos.documento_emitido_en == date(2026, 5, 4)
+
+
+def test_parsear_constancia_rechaza_fecha_documental_invalida() -> None:
+    """Una fecha con forma argentina no puede normalizarse silenciosamente."""
+    texto = """
+    CONSTANCIA DE PUNTOS DE VENTA / EMISION Y DOMICILIOS
+    CUIT: ENTIDAD DE PRUEBA 30123456789
+    PUNTO VENTA SISTEMA DOMICILIO NOMBRE FANTASIA
+    00006 RECE para aplicativo y web services
+    FISCAL - 0001 - CALLE FALSA 123 - BUENOS AIRES QA
+    31/02/2026
+    """
+
+    with pytest.raises(ConstanciaPuntosVentaError, match="fecha documental"):
+        parsear_constancia_puntos_venta(texto)
+
+
+def test_parsear_constancia_rechaza_fechas_documentales_distintas() -> None:
+    """Dos fechas válidas distintas no pueden elegir autoridad por posición."""
+    texto = """
+    CONSTANCIA DE PUNTOS DE VENTA / EMISION Y DOMICILIOS
+    CUIT: ENTIDAD DE PRUEBA 30123456789
+    PUNTO VENTA SISTEMA DOMICILIO NOMBRE FANTASIA
+    00006 RECE para aplicativo y web services
+    FISCAL - 0001 - CALLE FALSA 123 - BUENOS AIRES QA
+    08/08/2026
+    09/08/2026
+    """
+
+    with pytest.raises(
+        ConstanciaPuntosVentaError, match="fechas documentales ambiguas"
+    ):
+        parsear_constancia_puntos_venta(texto)
+
+
+def test_parsear_constancia_omite_punto_cero_con_warning() -> None:
+    """El valor 00000 no puede convertirse en una identidad fiscal durable."""
+    texto = """
+    CONSTANCIA DE PUNTOS DE VENTA / EMISION Y DOMICILIOS
+    CUIT: ENTIDAD DE PRUEBA 30123456789
+    PUNTO VENTA SISTEMA DOMICILIO NOMBRE FANTASIA
+    00000 RECE para aplicativo y web services
+    FISCAL - 0001 - CALLE CERO 100 - BUENOS AIRES QA
+    00001 RECE para aplicativo y web services
+    FISCAL - 0001 - CALLE UNO 101 - BUENOS AIRES QA
+    09/08/2026
+    """
+
+    datos = parsear_constancia_puntos_venta(texto)
+
+    assert [punto.numero for punto in datos.puntos_venta] == [1]
+    assert len(datos.warnings) == 1
+    assert "entre 1 y 99999" in datos.warnings[0]
+
+
+@pytest.mark.parametrize(
+    ("sistema", "esperado"),
+    [
+        ("RECE para aplicativo y web services", True),
+        ("  RECE   para aplicativo y web services  ", True),
+        ("Web Services", False),
+        ("Factura electrónica - Web Services", False),
+        ("RECE para aplicativo y web services adicional", False),
+        ("", False),
+    ],
+)
+def test_clasificador_rece_solo_admite_senal_exacta(
+    sistema: str,
+    esperado: bool,
+) -> None:
+    """Sinónimos y coincidencias parciales deben fallar cerrado."""
+    assert es_senal_rece_exacta(sistema) is esperado

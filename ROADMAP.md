@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 08/08/2026
+Última actualización: 09/08/2026
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -144,10 +144,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   fechas y puntos de venta validados, no un boolean genérico
 - [x] La emisión valida que el punto de venta y el cliente opcional pertenezcan al
   emisor activo antes de solicitar CAE
-- [x] Nueva factura ofrece puntos técnicamente usables por FactuFlow y la API
-  rechaza numeración para puntos no Web Services con error de negocio. Ese
-  filtro legacy no acredita RECE; PF-19A contiene solo las tuplas declaradas y
-  una omisión queda sin protección hasta PF-19B
+- [x] Nueva factura, perfiles y emisión masiva ofrecen únicamente puntos
+  técnicamente usables con acreditación RECE efectiva para el ambiente. La API
+  bloquea numeración y toda continuación emitible antes de `FECAESolicitar`
+  cuando falta la cabeza o el snapshot durable; Web Services genérico ya no
+  acredita RECE
 - [x] Emisión individual bloquea la vista previa hasta confirmar el próximo
   número, desacopla el cliente guardado si se editan sus datos y no informa
   fechas de servicio cuando el concepto fiscal es solo Productos
@@ -247,7 +248,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       números ni crea intentos, conserva todo bloqueo propio y delega la reserva
       durable y el segundo preflight al procesamiento normal. PF-02 queda
       cerrado sin incorporar la reconstrucción histórica opcional de PF-05.
-- [ ] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
+- [~] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
   seguro (P1 fiscal, Nivel 2).** La operación productiva sobre `v0.2.2`
   confirmó dos fallas de una misma frontera: FactuFlow puede considerar usable
   un punto cuyo sistema contiene `Web Services` sin demostrar que sea de tipo
@@ -285,14 +286,17 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     transacción de solo lectura, salida sanitizada y ambiente histórico
     indeterminado. `10005` sigue siendo candidato incierto, no rechazo terminal,
     hasta PF-19C. No edita la base, no emite y no reemplaza PF-19B.
-  - **PF-19B — elegibilidad RECE end-to-end:** modelar al menos `verificado_rece`,
-    `no_rece` y `no_verificado`, con fuente y fecha de verificación; dejar de
-    inferir RECE por la mera presencia de `Web Services`; definir migración y
-    política fail-closed para puntos legacy; alinear constancia, sincronización,
-    API, perfiles, selectores, emisión individual y lotes; invalidar cualquier
-    confirmación o clave vigente si cambia la elegibilidad del punto; y mostrar
-    un próximo paso administrativo claro sin exponer detalles internos.
-  - **PF-19C — rechazo global y saneamiento legacy:** preservar códigos globales
+  - [x] **PF-19B — elegibilidad RECE end-to-end:** los cortes B.1, B.2 y B.3
+    forman una única unidad cerrada en `main`. El ledger durable distingue
+    `verificado_rece`, `no_rece` y `no_verificado`, conserva fuente, vigencia y
+    revisión monotónica, migra legacy de forma fail-closed y aplica snapshots y
+    guardas en individual, lotes, worker, fallback, reintentos y stale. Solo un
+    administrador puede acreditar producción con una constancia fresca,
+    confirmación explícita y señal exacta; la sincronización WSFE server-side
+    nunca promueve RECE. API, badges, perfiles, Excel y selectores consumen el
+    estado efectivo e invalidan confirmaciones obsoletas. Homologación permanece
+    cerrada mientras no exista una fuente probatoria específica.
+  - [ ] **PF-19C — rechazo global y saneamiento legacy:** preservar códigos globales
     de ARCA en un contrato estructurado; reconocer inicialmente `10005` como
     rechazo excluyente solo bajo el contrato oficial; cerrar intentos, grupos,
     lotes y operación idempotente con transiciones terminales verificables; no
@@ -353,10 +357,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
 - [x] Intentos fiscales `en_proceso` vencidos se verifican con
   `FECompConsultar` antes de liberar numeración o vincular un comprobante
   autorizado.
-- [x] Sincronización manual de puntos de venta ARCA validada desde UI; los
-  puntos devueltos por WSFE se crean o actualizan como Web Services usables
-  según el filtro técnico, sin que eso acredite RECE. PF-19A contiene los
-  destinos dudosos únicamente cuando se declaran de forma explícita
+- [x] Sincronización manual de puntos de venta ARCA validada desde UI y resuelta
+  de forma transaccional por el servidor. WSFE crea o actualiza el estado
+  técnico, pero nunca promueve elegibilidad RECE; la acreditación productiva
+  exige la atestación administrativa separada de una constancia fresca
 - [x] Validación de puntos de venta en emisión normaliza `Bloqueado=N`/`S` de ARCA
 - [x] Factura C no informa objeto `Iva` en WSFE y bloquea ítems con IVA distinto de 0
 - [x] Importes WSFE cuantizados con Decimal antes de solicitar CAE, evitando
@@ -411,6 +415,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
   confirmado y cierran borrados/editores pendientes al cambiar de CUIT
 - [x] Importación de constancias descarta notificaciones obsoletas al cambiar de
   emisor; la verificación de certificado bloquea reintentos concurrentes
+- [x] Puntos de venta muestra badges `Verificado RECE`, `No RECE` y
+  `No verificado`, procedencia y vigencia. La importación permite conservar la
+  constancia sin acreditar o atestiguar expresamente su procedencia productiva;
+  sincronizar con WSFE actualiza solo disponibilidad técnica
 - [x] El selector de clientes cierra resultados anteriores cuando la búsqueda
   queda por debajo del mínimo o cambia mientras una request está en curso
 - [x] Autodetección asistida de formato al subir Excel externo para emisión masiva
@@ -536,10 +544,10 @@ Objetivo: dejar la emisión validada contra servicios reales.
   o batch, produce una respuesta sanitizada `requiere_reconciliacion`. La API
   persiste el `409` idempotente cuando es posible y el replay con la misma clave
   no vuelve a emitir.
-- [~] Validación de numeración y punto de venta en emisión: numeración,
-  pertenencia, actividad, bloqueo y baja están cubiertos; PF-19 debe separar
-  Web Services genérico de compatibilidad RECE antes de considerar completa la
-  elegibilidad fiscal del punto.
+- [x] Validación de numeración y punto de venta en emisión: numeración,
+  pertenencia, actividad, bloqueo, baja y elegibilidad RECE efectiva están
+  cubiertos. Web Services genérico no acredita RECE y toda ruta emitible falla
+  cerrado sin una cabeza/snapshot vigente.
 - [x] Mapeo de `CondicionIVAReceptorId`
 - [x] Validación local de ventana ARCA para fecha de emisión antes de emitir
 - [~] Manejo fino de edge cases homologación vs producción
@@ -551,6 +559,10 @@ Objetivo: dejar la emisión validada contra servicios reales.
 - [x] Smoke real masivo
 - [x] QA manual completa desde UI
 - [ ] Smoke repetible documentado como procedimiento de soporte
+
+Los smokes marcados como hechos son evidencia histórica anterior a PF-19B. En
+el estado actual de `main`, homologación no solicita CAE hasta incorporar una
+fuente probatoria específica para ese ambiente.
 
 ### Producción
 - [x] Piloto productivo real ejecutado con comprobantes autorizados
@@ -672,8 +684,9 @@ Objetivo: que FactuFlow sea realmente útil para operaciones administrativas de 
 - [x] Selector de perfil de carga masiva en emisión masiva, con aplicacion
   automática cuando el emisor tiene uno solo o uno predeterminado
 - [x] Selector de punto de venta en perfiles y emisión masiva: usar el punto del
-  archivo o fijar uno técnicamente usable del emisor activo. Ninguna opción
-  certifica RECE ni crea una regla PF-19A; una omisión queda sin protección
+  archivo o fijar uno técnicamente usable y `verificado_rece` para el ambiente
+  del emisor activo. Los puntos sin acreditación vigente quedan excluidos y la
+  validación por archivo falla cerrado por grupo
 - [x] Si el usuario modifica una configuración precargada por perfil de carga
   masiva, el lote se valida sin snapshot de perfil aplicado
 - [x] Separacion clara entre validar lote y emitir comprobantes válidos
@@ -786,9 +799,11 @@ Objetivo: que el proyecto soporte evolución sin deuda estructural peligrosa.
 - [x] Modelos versionados de formatos de importación y trazabilidad del mapeo usado por lote
 - [~] Estrategia de convivencia con DB local legacy
 - [~] Stamping/migración limpia de instalaciones existentes
-- [x] Export/import privado desde SQLite local a PostgreSQL limpio, preservando
-  configuración operativa, certificados, formatos, perfiles, comprobantes e
-  ítems, y excluyendo lotes/artefactos no vitales
+- [x] Export/import privado v2 desde SQLite quiescent a PostgreSQL limpio,
+  preservando configuración, certificados, formatos, perfiles, comprobantes,
+  ítems, elegibilidad RECE y operaciones terminales. Solo excluye
+  intentos/guardas/lotes/eventos cuando el preflight demuestra que no hay estado
+  no terminal, incierto o necesario para continuar.
 - [ ] Política clara de seeds y datos de desarrollo
 
 ### Calidad y testing
@@ -905,11 +920,11 @@ commit, PR o dossier de release, según el tamaño de la unidad.
   retroceder. No imponer de entrada un porcentaje arbitrario global; exigir
   cobertura fuerte sobre módulos fiscales tocados y justificar invariantes sin
   prueba automatizada.
-- [ ] **PF-16E — Integración reproducible:** ejecutar en CI PostgreSQL
-  desechable para migraciones, constraints, concurrencia, pool e integridad
-  fiscal; agregar smoke automatizado frontend + backend + base; mantener ARCA
-  simulada o contractual en automatización y reservar llamadas reales para QA
-  expresamente autorizada.
+- [~] **PF-16E — Integración reproducible:** PF-19B incorpora a CI PostgreSQL 16
+  desechable con guard destructivo exacto para migraciones, constraints,
+  concurrencia, pool, integridad PF-01/PF-19 y paquete VPS v2. Resta agregar el
+  smoke automatizado frontend + backend + base; ARCA se mantiene simulada o
+  contractual y las llamadas reales se reservan para QA expresamente autorizada.
 - [ ] **PF-16F — Pruebas avanzadas dirigidas por riesgo:** incorporar pruebas
   basadas en propiedades para fechas, importes, redondeos, archivos de entrada,
   idempotencia y máquinas de estados; pruebas de mutación acotadas a núcleos
@@ -1185,42 +1200,39 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Implementar PF-19B en un corte revisable: elegibilidad RECE durable,
-   migración fail-closed y alineación de constancia, sincronización, API,
-   perfiles, Excel, selectores, individual, lotes, worker y reintentos. PF-19A
-   ya cerró diseño, contención explícita e inventario legacy de solo lectura.
-2. Implementar PF-19C después de PF-19B: error global estructurado, rechazo
-   `10005` terminal solo bajo contrato oficial y resolución auditada de estados
-   legacy; cerrar la matriz Nivel 2 antes de una release.
-3. Retomar PF-03 con PF-03B después de PF-19: separar el DTO de ítem que
+1. Implementar PF-19C después del cierre end-to-end de PF-19B: preservar el
+   error global en un contrato estructurado, tratar `10005` como rechazo
+   terminal solo bajo contrato oficial y resolver estados legacy de forma
+   auditada; cerrar la matriz Nivel 2 antes de una release.
+2. Retomar PF-03 con PF-03B después de PF-19C: separar el DTO de ítem que
    serializa la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05
    continúa separado.
-4. Continuar PF-16C con la modernización planificada del toolchain y la
+3. Continuar PF-16C con la modernización planificada del toolchain y la
    evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
    documental ya están cerradas.
-5. Después de PF-03, ejecutar primero la unidad integrada PF-06A/PF-08A/PF-06B/
+4. Después de PF-03, ejecutar primero la unidad integrada PF-06A/PF-08A/PF-06B/
    PF-07A de operadores multiemisor y creación/edición delegada; cerrar su
    matriz Nivel 2 antes de continuar los restantes PF-06/PF-07, PF-08 y PF-09.
-6. Mantener la custodia concreta del backup fuera del repo público y corregir
+5. Mantener la custodia concreta del backup fuera del repo público y corregir
    su trazabilidad PF-11/PF-15: snapshot exacto, propósito, timestamp y
    escrituras intermedias. Automatización, retención y recuperación a un VPS
    nuevo siguen como trabajo separado.
-7. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
+6. Continuar el backlog Clawpatch `medium`/`low` en lotes pequeños, enrutado por
    causa raíz y sin tratar los contadores acumulativos como bugs confirmados.
-8. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
+7. Diseñar e implementar por cortes el P2 de reconstrucción histórica opcional,
    comenzando por selección de alcance, límites, journal y cobertura visible en
    informes; no acoplarlo como requisito del P1.
-9. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
+8. Completar observabilidad operativa: backup visible, trazabilidad, logs útiles
    y mensajes simples para soporte.
-10. Definir y luego automatizar backups cifrados con validación, retención,
+9. Definir y luego automatizar backups cifrados con validación, retención,
    destino externo y alertas.
-11. Documentar y ensayar recuperación completa hacia un VPS nuevo.
-12. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
+10. Documentar y ensayar recuperación completa hacia un VPS nuevo.
+11. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
     resguardo ZIP, compactación y limpieza segura.
-13. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-14. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
-15. Mantener notas de release y procedimiento de upgrade para cada versión
+12. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
+13. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+14. Mantener notas de release y procedimiento de upgrade para cada versión
     futura, revisando los candidatos cuando cambien riesgos o alcance.
 
 ## Criterio de éxito del MVP

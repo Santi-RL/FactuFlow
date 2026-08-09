@@ -211,21 +211,27 @@ class LoteWorker:
                     )
                     lotes_procesados += 1
                 except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
-                    recuperada = False
-                    if not fase_solicitud_arca.iniciada:
-                        recuperada = (
+                    recuperacion = "no_recuperable"
+                    if not fase_solicitud_arca.guarda_actual_iniciada:
+                        recuperacion = (
                             await service.recuperar_lote_worker_interrumpido_pre_arca(
                                 lote_id=lote_id,
                                 empresa_id=empresa_id,
+                                guarda_rece_id=fase_solicitud_arca.guarda_rece_id,
+                                guarda_rece_token=(
+                                    fase_solicitud_arca.guarda_rece_token
+                                ),
                             )
                         )
-                        fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperada)
+                        fase_solicitud_arca.registrar_recuperacion_pre_arca(
+                            recuperacion
+                        )
                     logger.warning(
                         "Worker corta el ciclo por indisponibilidad temporal "
                         "lote_id=%s fase_arca_iniciada=%s recuperacion_pre_arca=%s",
                         lote_id,
                         fase_solicitud_arca.iniciada,
-                        fase_solicitud_arca.recuperacion_pre_arca_exitosa,
+                        fase_solicitud_arca.resultado_recuperacion_pre_arca,
                     )
                     return ResultadoCicloLoteWorker(
                         stale_detectados=stale_detectados,

@@ -10,6 +10,7 @@ from typing import Literal, Optional
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import desc, select, text, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.config import ArcaAmbiente
@@ -25,6 +26,7 @@ from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
 from app.models.cliente import Cliente
 from app.models.empresa import Empresa
+from app.models.elegibilidad_rece import PuntoVentaGuardaEmisionRece
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.lote_comprobante import (
     LoteComprobante,
@@ -40,6 +42,11 @@ from app.services.contencion_fiscal_service import (
     obtener_bloqueo_preautorizacion,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
+from app.services.elegibilidad_rece_service import (
+    ContextoElegibilidadRece,
+    ElegibilidadReceError,
+    ElegibilidadReceService,
+)
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     EmitirComprobanteResponse,
@@ -59,15 +66,71 @@ class FaseSolicitudArca:
     """Registra de forma monotónica si la operación ya invocó FECAESolicitar."""
 
     iniciada: bool = False
-    recuperacion_pre_arca_exitosa: bool | None = None
+    guarda_actual_iniciada: bool = False
+    resultado_recuperacion_pre_arca: Literal[
+        "recuperada_pre_arca",
+        "requiere_reconciliacion",
+        "no_recuperable",
+    ] | None = None
+    guarda_rece_id: int | None = None
+    guarda_rece_token: str | None = None
+
+    def __post_init__(self) -> None:
+        """Conserva compatibilidad al construir una fase ya iniciada."""
+        if self.iniciada:
+            self.guarda_actual_iniciada = True
+
+    @property
+    def recuperacion_pre_arca_exitosa(self) -> bool | None:
+        """Expone el resultado booleano histórico sin perder el triestado."""
+        if self.resultado_recuperacion_pre_arca is None:
+            return None
+        return self.resultado_recuperacion_pre_arca == "recuperada_pre_arca"
+
+    @property
+    def recuperacion_requiere_reconciliacion(self) -> bool:
+        """Indica que la recuperación conservó evidencia fiscal incierta."""
+        return self.resultado_recuperacion_pre_arca == "requiere_reconciliacion"
 
     def marcar_iniciada(self) -> None:
         """Marca el cruce irreversible hacia la solicitud fiscal."""
         self.iniciada = True
+        self.guarda_actual_iniciada = True
 
-    def registrar_recuperacion_pre_arca(self, exitosa: bool) -> None:
-        """Registra el resultado interno de una recuperación anterior a ARCA."""
-        self.recuperacion_pre_arca_exitosa = exitosa
+    def registrar_recuperacion_pre_arca(
+        self,
+        resultado: Literal[
+            "recuperada_pre_arca",
+            "requiere_reconciliacion",
+            "no_recuperable",
+        ],
+    ) -> None:
+        """Registra sin colapsar si el recovery abrió replay o inmovilizó."""
+        self.resultado_recuperacion_pre_arca = resultado
+
+    def registrar_guarda_pre_arca(
+        self,
+        guarda: PuntoVentaGuardaEmisionRece,
+    ) -> None:
+        """Conserva identidad y token de la única guarda creada por esta llamada."""
+        self.guarda_rece_id = int(guarda.id)
+        self.guarda_rece_token = str(guarda.token)
+        self.guarda_actual_iniciada = False
+        self.resultado_recuperacion_pre_arca = None
+
+    def adoptar_guarda(self, otra_fase: "FaseSolicitudArca") -> None:
+        """Propaga la guarda creada por un subflujo de la misma llamada."""
+        if (
+            otra_fase.guarda_rece_id is not None
+            and otra_fase.guarda_rece_token is not None
+        ):
+            self.guarda_rece_id = otra_fase.guarda_rece_id
+            self.guarda_rece_token = otra_fase.guarda_rece_token
+            self.guarda_actual_iniciada = otra_fase.guarda_actual_iniciada
+            self.resultado_recuperacion_pre_arca = (
+                otra_fase.resultado_recuperacion_pre_arca
+            )
+        self.iniciada = self.iniciada or otra_fase.iniciada
 
 
 @dataclass(frozen=True)
@@ -169,6 +232,8 @@ class FacturacionService:
         usuario_id: int | None = None,
         lote_id: int | None = None,
         grupo_id: int | None = None,
+        contexto_rece: ContextoElegibilidadRece | None = None,
+        contextos_operacion: list[ContextoElegibilidadRece] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> EmitirComprobanteResponse:
         """Serializa la emisión por empresa, punto de venta y tipo."""
@@ -183,6 +248,8 @@ class FacturacionService:
                 usuario_id=usuario_id,
                 lote_id=lote_id,
                 grupo_id=grupo_id,
+                contexto_rece=contexto_rece,
+                contextos_operacion=contextos_operacion,
                 fase_solicitud_arca=fase_solicitud_arca,
             )
 
@@ -190,7 +257,7 @@ class FacturacionService:
         self,
         requests: list[EmitirComprobanteRequest],
         max_registros: int | None = None,
-        contextos: list[dict[str, int | None]] | None = None,
+        contextos: list[dict[str, object]] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> list[EmitirComprobanteResponse]:
         """Emite un sublote homogéneo de comprobantes en un request ARCA."""
@@ -241,14 +308,15 @@ class FacturacionService:
         if punto_venta is None:
             raise ValidationError("Punto de venta no encontrado para la empresa activa")
 
-        self._validar_sin_bloqueo_preautorizacion(
+        await ElegibilidadReceService(self.db).exigir_contexto_preautorizacion(
             empresa_id=empresa_id,
             punto_venta_id=punto_venta.id,
-            punto_venta_numero=punto_venta.numero,
+            ambiente=settings.arca_env,
             tipo_comprobante=tipo_comprobante,
         )
 
         certificado = await self._obtener_certificado_activo(empresa_id)
+        await self.db.commit()
         ticket = await self._obtener_ticket_acceso(empresa, certificado)
         wsfe_client = WSFEv1Client(
             ambiente=self._get_arca_ambiente(),
@@ -352,6 +420,11 @@ class FacturacionService:
         ):
             return self._respuesta_intento_requiere_reconciliacion(intento)
 
+        if await self._guarda_activa_bloquea_reconciliacion_stale(intento):
+            await self.db.refresh(intento)
+            return self._respuesta_intento_requiere_reconciliacion(intento)
+        await self.db.refresh(intento)
+
         empresa = await self._obtener_empresa(intento.empresa_id)
         if empresa is None:
             return self._respuesta_intento_requiere_reconciliacion(intento)
@@ -382,18 +455,25 @@ class FacturacionService:
         self,
         requests: list[EmitirComprobanteRequest],
         max_registros: int | None = None,
-        contextos: list[dict[str, int | None]] | None = None,
+        contextos: list[dict[str, object]] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> list[EmitirComprobanteResponse]:
         """Ejecuta la emisión batch asumiendo que el lock local ya fue tomado."""
         fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
         arca_iniciada_en_esta_llamada = False
+        elegibilidad = ElegibilidadReceService(self.db)
+        guarda: PuntoVentaGuardaEmisionRece | None = None
+        intentos: list[IntentoEmisionFiscal] = []
+        intento_ids_durables: list[int] = []
+        guarda_id_durable: int | None = None
+        resultados_arca = []
         try:
             requests = [self.normalizar_receptor(request) for request in requests]
             self._validar_lote_homogeneo(requests, max_registros=max_registros)
-            contextos = contextos or [{} for _ in requests]
-            if len(contextos) != len(requests):
-                contextos = [{} for _ in requests]
+            if contextos is None or len(contextos) != len(requests):
+                raise ElegibilidadReceError(
+                    "El sublote no tiene operación y snapshots RECE completos."
+                )
 
             for request in requests:
                 await self._validar_datos(request)
@@ -414,17 +494,81 @@ class FacturacionService:
                 primer_request.empresa_id,
             )
             punto_venta_numero = punto_venta.numero
-            if self._bloqueo_preautorizacion(
-                empresa_id=primer_request.empresa_id,
-                punto_venta_id=punto_venta.id,
-                punto_venta_numero=punto_venta_numero,
-                tipo_comprobante=primer_request.tipo_comprobante,
-            ):
+            try:
+                contextos_sublote = [
+                    contexto["contexto_rece"] for contexto in contextos
+                ]
+                if not all(
+                    isinstance(contexto, ContextoElegibilidadRece)
+                    for contexto in contextos_sublote
+                ):
+                    raise ElegibilidadReceError(
+                        "El sublote no conserva snapshots RECE tipados."
+                    )
+                contexto_rece = contextos_sublote[0]
+                if any(contexto != contexto_rece for contexto in contextos_sublote):
+                    raise ElegibilidadReceError(
+                        "Un sublote ARCA no puede mezclar snapshots RECE distintos."
+                    )
+                operacion_ids = {contexto.get("operacion_id") for contexto in contextos}
+                if len(operacion_ids) != 1 or not isinstance(
+                    next(iter(operacion_ids)), int
+                ):
+                    raise ElegibilidadReceError(
+                        "El sublote no pertenece a una única operación durable."
+                    )
+                operacion_id = int(next(iter(operacion_ids)))
+                contextos_operacion = contextos[0].get("contextos_operacion")
+                if not isinstance(contextos_operacion, list) or not all(
+                    isinstance(contexto, ContextoElegibilidadRece)
+                    for contexto in contextos_operacion
+                ):
+                    raise ElegibilidadReceError(
+                        "La operación no conserva su membresía RECE completa."
+                    )
+                digest_operacion = elegibilidad.calcular_digest_contextos(
+                    contextos_operacion
+                )
+                if any(
+                    not isinstance(contexto.get("contextos_operacion"), list)
+                    or elegibilidad.calcular_digest_contextos(
+                        contexto["contextos_operacion"]
+                    )
+                    != digest_operacion
+                    for contexto in contextos
+                ):
+                    raise ElegibilidadReceError(
+                        "Los comprobantes no comparten la membresía RECE confirmada."
+                    )
+                actual = await elegibilidad.exigir_contexto_preautorizacion(
+                    empresa_id=primer_request.empresa_id,
+                    punto_venta_id=punto_venta.id,
+                    ambiente=contexto_rece.ambiente,
+                    tipo_comprobante=primer_request.tipo_comprobante,
+                )
+                if actual != contexto_rece:
+                    raise ElegibilidadReceError(
+                        "La acreditación RECE cambió después de confirmar el sublote."
+                    )
+                await elegibilidad.validar_operacion_para_continuar(
+                    operacion_id=operacion_id,
+                    empresa_id=primer_request.empresa_id,
+                    contextos_esperados=contextos_operacion,
+                )
+            except (KeyError, TypeError, ValueError, ElegibilidadReceError) as exc:
+                error = (
+                    exc
+                    if isinstance(exc, ElegibilidadReceError)
+                    else ElegibilidadReceError(
+                        "El sublote no tiene un contexto RECE válido."
+                    )
+                )
                 return [
-                    self._respuesta_bloqueo_preautorizacion(
+                    self._respuesta_rechazo_elegibilidad(
                         request=request,
                         punto_venta_numero=punto_venta_numero,
                         totales=totales,
+                        error=error,
                     )
                     for request, totales in zip(requests, totales_por_request)
                 ]
@@ -433,6 +577,7 @@ class FacturacionService:
                 primer_request.empresa_id
             )
 
+            await self.db.commit()
             ticket = await self._obtener_ticket_acceso(empresa, certificado)
             wsfe_client = WSFEv1Client(
                 ambiente=self._get_arca_ambiente(),
@@ -462,36 +607,75 @@ class FacturacionService:
             proximo = diagnostico.proximo_numero
 
             idempotencia = IdempotenciaFiscalService(self.db)
-            intentos: list[IntentoEmisionFiscal | None] = []
-            intento_ids: list[int] = []
             try:
-                for index, (request, totales, contexto) in enumerate(
-                    zip(requests, totales_por_request, contextos)
+                async with elegibilidad.bloqueo_local_punto(
+                    empresa_id=primer_request.empresa_id,
+                    punto_venta_id=punto_venta.id,
                 ):
-                    intento = await idempotencia.crear_intento_emision(
-                        request=request,
-                        punto_venta=punto_venta,
-                        numero_planificado=proximo + index,
-                        total=totales["total"],
-                        operacion_id=contexto.get("operacion_id"),
-                        usuario_id=contexto.get("usuario_id"),
-                        lote_id=contexto.get("lote_id"),
-                        grupo_id=contexto.get("grupo_id"),
+                    await self._tomar_lock_numeracion(
+                        primer_request.empresa_id,
+                        primer_request.punto_venta_id,
+                        primer_request.tipo_comprobante,
                     )
-                    intentos.append(intento)
-                    if intento.id is not None:
-                        intento_ids.append(intento.id)
-                arca_requests = [
-                    self._armar_request_arca(
-                        request,
-                        proximo + index,
-                        totales,
-                        punto_venta_numero,
+                    actual = await elegibilidad.exigir_contexto_preautorizacion(
+                        empresa_id=primer_request.empresa_id,
+                        punto_venta_id=punto_venta.id,
+                        ambiente=contexto_rece.ambiente,
+                        tipo_comprobante=primer_request.tipo_comprobante,
+                        bloquear=True,
                     )
-                    for index, (request, totales) in enumerate(
-                        zip(requests, totales_por_request)
+                    if actual != contexto_rece:
+                        raise ElegibilidadReceError(
+                            "La acreditación RECE cambió antes de reservar el sublote."
+                        )
+                    await elegibilidad.validar_operacion_para_continuar(
+                        operacion_id=operacion_id,
+                        empresa_id=primer_request.empresa_id,
+                        contextos_esperados=contextos_operacion,
                     )
-                ]
+                    guarda = await elegibilidad.crear_guarda_pre_arca(
+                        operacion_id=operacion_id,
+                        contexto=contexto_rece,
+                        contextos_operacion=contextos_operacion,
+                    )
+                    for index, (request, totales, metadata) in enumerate(
+                        zip(requests, totales_por_request, contextos)
+                    ):
+                        if not isinstance(
+                            metadata.get("lote_id"), int
+                        ) or not isinstance(metadata.get("grupo_id"), int):
+                            raise ElegibilidadReceError(
+                                "El intento batch no pertenece a un lote y grupo durables."
+                            )
+                        intento = await idempotencia.crear_intento_emision(
+                            request=request,
+                            punto_venta=punto_venta,
+                            numero_planificado=proximo + index,
+                            total=totales["total"],
+                            operacion_id=operacion_id,
+                            usuario_id=metadata.get("usuario_id"),
+                            lote_id=metadata.get("lote_id"),
+                            grupo_id=metadata.get("grupo_id"),
+                            contexto_rece=contexto_rece,
+                            guarda_rece_id=guarda.id,
+                            commit=False,
+                        )
+                        intentos.append(intento)
+                    arca_requests = [
+                        self._armar_request_arca(
+                            request,
+                            proximo + index,
+                            totales,
+                            punto_venta_numero,
+                        )
+                        for index, (request, totales) in enumerate(
+                            zip(requests, totales_por_request)
+                        )
+                    ]
+                    fase_solicitud_arca.registrar_guarda_pre_arca(guarda)
+                    intento_ids_durables = [int(intento.id) for intento in intentos]
+                    guarda_id_durable = int(guarda.id)
+                    await self.db.commit()
             except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
                 await self._rollback_seguro("reservas_batch_pre_arca")
                 raise
@@ -500,10 +684,6 @@ class FacturacionService:
                     "Fallo preparando reservas fiscales del sublote antes de ARCA"
                 )
                 await self._rollback_seguro("reservas_batch_pre_arca_fallidas")
-                await self._marcar_intentos_batch_pre_arca_fallidos(
-                    intento_ids,
-                    ERROR_INTERNO_EMISION_PUBLICO,
-                )
                 return [
                     self._respuesta_batch_reserva_pre_arca_fallida(
                         request=request,
@@ -527,17 +707,22 @@ class FacturacionService:
                 )
             )
             if respuestas_pre_arca is not None:
-                for intento, respuesta in zip(intentos, respuestas_pre_arca):
-                    await self._actualizar_intento_batch_preservando_respuesta(
-                        idempotencia,
-                        intento,
-                        respuesta,
-                        contexto="preflight_numeracion_batch_antes_arca",
-                    )
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_pre_arca,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    contexto="preflight_numeracion_batch_antes_arca",
+                )
                 return respuestas_pre_arca
 
-            resultados_arca = []
             try:
+                await elegibilidad.marcar_arca_iniciada(
+                    guarda=guarda,
+                    contexto=contexto_rece,
+                    tipo_comprobante=primer_request.tipo_comprobante,
+                )
                 fase_solicitud_arca.marcar_iniciada()
                 arca_iniciada_en_esta_llamada = True
                 resultados_arca_sin_ordenar = await wsfe_client.fe_cae_solicitar_lote(
@@ -547,6 +732,32 @@ class FacturacionService:
                     arca_requests,
                     resultados_arca_sin_ordenar,
                 )
+            except ElegibilidadReceError as exc:
+                await self._rollback_seguro(
+                    "revalidacion_rece_batch_inmediatamente_antes_arca"
+                )
+                intentos, guarda = await self._recargar_intentos_y_guarda_rece(
+                    intento_ids=intento_ids_durables,
+                    guarda_id=guarda_id_durable,
+                )
+                respuestas_bloqueadas = [
+                    self._respuesta_rechazo_elegibilidad(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        totales=totales,
+                        error=exc,
+                    )
+                    for request, totales in zip(requests, totales_por_request)
+                ]
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_bloqueadas,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    contexto="revalidacion_rece_batch_inmediatamente_antes_arca",
+                )
+                return respuestas_bloqueadas
             except (ArcaServiceError, ArcaValidationError) as exc:
                 logger.error("Error al solicitar CAE por sublote: %s", str(exc))
                 respuestas_inciertas = [
@@ -563,13 +774,14 @@ class FacturacionService:
                         totales_por_request,
                     )
                 ]
-                for intento, respuesta in zip(intentos, respuestas_inciertas):
-                    await self._actualizar_intento_batch_preservando_respuesta(
-                        idempotencia,
-                        intento,
-                        respuesta,
-                        contexto="respuesta_incierta_arca",
-                    )
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_inciertas,
+                    guarda=guarda,
+                    fase="reconciliacion",
+                    contexto="respuesta_incierta_arca",
+                )
                 return respuestas_inciertas
 
             respuestas: list[EmitirComprobanteResponse] = []
@@ -581,6 +793,24 @@ class FacturacionService:
                 resultados_arca,
                 intentos,
             ):
+                if persistencia_bloqueada:
+                    respuestas.append(
+                        self._respuesta_post_arca_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            resultado_arca=resultado,
+                            mensaje=(
+                                "El sublote requiere reconciliación porque su "
+                                "persistencia local dejó de ser atómica"
+                            ),
+                            errores=[
+                                "No reintentes hasta reconciliar todo el sublote."
+                            ],
+                        )
+                    )
+                    continue
                 respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
                     request=request,
                     punto_venta_numero=punto_venta_numero,
@@ -598,6 +828,7 @@ class FacturacionService:
                         )
                     )
                     if not intento_actualizado:
+                        persistencia_bloqueada = True
                         respuesta_no_aprobada = self._respuesta_post_arca_requiere_reconciliacion(
                             request=request,
                             punto_venta_numero=punto_venta_numero,
@@ -647,6 +878,7 @@ class FacturacionService:
                         totales,
                         resultado,
                         punto_venta,
+                        commit=False,
                     )
                 except IntegrityError as exc:
                     await self._rollback_seguro("integrity_batch_post_arca")
@@ -739,6 +971,7 @@ class FacturacionService:
                         await idempotencia.actualizar_intento_desde_respuesta(
                             intento,
                             respuesta,
+                            commit=False,
                         )
                     except Exception:
                         await self._rollback_seguro("cierre_intento_batch_post_arca")
@@ -768,13 +1001,77 @@ class FacturacionService:
                         )
                     respuestas.append(respuesta)
 
+            if persistencia_bloqueada:
+                await self._rollback_seguro("sublote_post_arca_reconciliacion")
+                respuestas = []
+                for request, arca_request, totales, resultado in zip(
+                    requests,
+                    arca_requests,
+                    totales_por_request,
+                    resultados_arca,
+                ):
+                    respuesta = self._respuesta_post_arca_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                        resultado_arca=resultado,
+                        mensaje=(
+                            "El resultado ARCA del sublote no pudo persistirse "
+                            "atómicamente"
+                        ),
+                        errores=["No reintentes hasta reconciliar todo el sublote."],
+                    )
+                    respuestas.append(respuesta)
+                intentos, guarda = await self._recargar_intentos_y_guarda_rece(
+                    intento_ids=intento_ids_durables,
+                    guarda_id=guarda_id_durable,
+                )
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas,
+                    guarda=guarda,
+                    fase="reconciliacion",
+                    contexto="persistencia_batch_post_arca",
+                )
+                return respuestas
+
+            await self._persistir_intentos_y_guarda_rece(
+                idempotencia=idempotencia,
+                intentos=intentos,
+                respuestas=respuestas,
+                guarda=guarda,
+                fase="cerrada_terminal",
+                contexto="cierre_terminal_batch",
+            )
             return respuestas
 
         except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
             raise
+        except ElegibilidadReceError as exc:
+            respuestas_elegibilidad = [
+                self._respuesta_rechazo_elegibilidad(
+                    request=request,
+                    punto_venta_numero=0,
+                    totales={"total": Decimal("0")},
+                    error=exc,
+                )
+                for request in requests
+            ]
+            if guarda is not None and intentos:
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_elegibilidad,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    contexto="elegibilidad_batch_pre_arca",
+                )
+            return respuestas_elegibilidad
         except ValidationError as e:
             logger.warning("Error de validación en sublote: %s", str(e))
-            return [
+            respuestas_validacion = [
                 EmitirComprobanteResponse(
                     exito=False,
                     tipo_comprobante=request.tipo_comprobante,
@@ -787,6 +1084,16 @@ class FacturacionService:
                 )
                 for request in requests
             ]
+            if guarda is not None and intentos:
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_validacion,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    contexto="validacion_batch_pre_arca",
+                )
+            return respuestas_validacion
         except Exception:
             logger.exception("Error inesperado al emitir sublote")
             if arca_iniciada_en_esta_llamada:
@@ -795,8 +1102,8 @@ class FacturacionService:
                     for resultado in resultados_arca
                 }
                 respuestas = []
-                for index, (request, totales, intento) in enumerate(
-                    zip(requests, totales_por_request, intentos)
+                for index, (request, totales) in enumerate(
+                    zip(requests, totales_por_request)
                 ):
                     numero = proximo + index
                     resultado_arca = resultados_por_numero.get(numero)
@@ -826,35 +1133,18 @@ class FacturacionService:
                             ],
                             categoria_error="arca_respuesta_incierta",
                         )
-                    intento_actualizado = (
-                        await self._actualizar_intento_batch_preservando_respuesta(
-                            idempotencia,
-                            intento,
-                            respuesta,
-                            contexto="excepcion_inesperada_post_arca",
-                        )
-                    )
-                    if (
-                        not intento_actualizado
-                        and not respuesta.requiere_reconciliacion
-                    ):
-                        respuesta = self._respuesta_post_arca_requiere_reconciliacion(
-                            request=request,
-                            punto_venta_numero=punto_venta_numero,
-                            numero=numero,
-                            totales=totales,
-                            resultado_arca=resultado_arca,
-                            mensaje=(
-                                "ARCA rechazó el comprobante, pero FactuFlow "
-                                "no pudo cerrar el intento fiscal"
-                            ),
-                            errores=[
-                                "No reintentes esta emisión hasta reconciliar el intento fiscal."
-                            ],
-                        )
                     respuestas.append(respuesta)
+                if guarda is not None and intentos:
+                    await self._persistir_intentos_y_guarda_rece(
+                        idempotencia=idempotencia,
+                        intentos=intentos,
+                        respuestas=respuestas,
+                        guarda=guarda,
+                        fase="reconciliacion",
+                        contexto="excepcion_inesperada_post_arca",
+                    )
                 return respuestas
-            return [
+            respuestas_inesperadas = [
                 EmitirComprobanteResponse(
                     exito=False,
                     tipo_comprobante=request.tipo_comprobante,
@@ -867,6 +1157,16 @@ class FacturacionService:
                 )
                 for request in requests
             ]
+            if guarda is not None and intentos:
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_inesperadas,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    contexto="excepcion_inesperada_batch_pre_arca",
+                )
+            return respuestas_inesperadas
 
     async def _emitir_comprobante_locked(
         self,
@@ -876,6 +1176,8 @@ class FacturacionService:
         usuario_id: int | None = None,
         lote_id: int | None = None,
         grupo_id: int | None = None,
+        contexto_rece: ContextoElegibilidadRece | None = None,
+        contextos_operacion: list[ContextoElegibilidadRece] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
     ) -> EmitirComprobanteResponse:
         """
@@ -892,6 +1194,11 @@ class FacturacionService:
         """
         fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
         arca_iniciada_en_esta_llamada = False
+        elegibilidad = ElegibilidadReceService(self.db)
+        intento: IntentoEmisionFiscal | None = None
+        guarda = None
+        intento_id_durable: int | None = None
+        guarda_id_durable: int | None = None
         try:
             request = self.normalizar_receptor(request)
             # 1. Validar datos
@@ -911,16 +1218,47 @@ class FacturacionService:
                 request.punto_venta_id, request.empresa_id
             )
             punto_venta_numero = punto_venta.numero
-            if self._bloqueo_preautorizacion(
-                empresa_id=request.empresa_id,
-                punto_venta_id=punto_venta.id,
-                punto_venta_numero=punto_venta_numero,
-                tipo_comprobante=request.tipo_comprobante,
-            ):
-                return self._respuesta_bloqueo_preautorizacion(
+            if operacion_id is None or contexto_rece is None:
+                return self._respuesta_rechazo_elegibilidad(
                     request=request,
                     punto_venta_numero=punto_venta_numero,
                     totales=totales,
+                    error=ElegibilidadReceError(
+                        "La emisión no tiene una operación y snapshot RECE durables."
+                    ),
+                )
+            contextos_operacion = contextos_operacion or [contexto_rece]
+            if contexto_rece not in contextos_operacion:
+                return self._respuesta_rechazo_elegibilidad(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    totales=totales,
+                    error=ElegibilidadReceError(
+                        "El punto de venta no pertenece a la membresía de la operación."
+                    ),
+                )
+            try:
+                actual = await elegibilidad.exigir_contexto_preautorizacion(
+                    empresa_id=request.empresa_id,
+                    punto_venta_id=punto_venta.id,
+                    ambiente=contexto_rece.ambiente,
+                    tipo_comprobante=request.tipo_comprobante,
+                )
+                if actual != contexto_rece:
+                    raise ElegibilidadReceError(
+                        "La acreditación RECE cambió después de confirmar la emisión."
+                    )
+                await elegibilidad.validar_operacion_para_continuar(
+                    operacion_id=operacion_id,
+                    empresa_id=request.empresa_id,
+                    contextos_esperados=contextos_operacion,
+                )
+            except ElegibilidadReceError as exc:
+                return self._respuesta_rechazo_elegibilidad(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    totales=totales,
+                    error=exc,
                 )
 
             certificado = await self._obtener_certificado_activo(request.empresa_id)
@@ -942,6 +1280,7 @@ class FacturacionService:
                     )
 
             # 4. Autenticar contra ARCA y reconciliar numeración
+            await self.db.commit()
             ticket = await self._obtener_ticket_acceso(empresa, certificado)
             wsfe_client = WSFEv1Client(
                 ambiente=self._get_arca_ambiente(),
@@ -967,17 +1306,75 @@ class FacturacionService:
                 )
             proximo = diagnostico.proximo_numero
 
-            # 5. Armar request para ARCA
-            intento = await idempotencia.crear_intento_emision(
-                request=request,
-                punto_venta=punto_venta,
-                numero_planificado=proximo,
-                total=totales["total"],
-                operacion_id=operacion_id,
-                usuario_id=usuario_id,
-                lote_id=lote_id,
-                grupo_id=grupo_id,
-            )
+            # 5. Crear guarda e intento en una única transacción durable.
+            try:
+                async with elegibilidad.bloqueo_local_punto(
+                    empresa_id=request.empresa_id,
+                    punto_venta_id=punto_venta.id,
+                ):
+                    await self._tomar_lock_numeracion(
+                        request.empresa_id,
+                        request.punto_venta_id,
+                        request.tipo_comprobante,
+                    )
+                    actual = await elegibilidad.exigir_contexto_preautorizacion(
+                        empresa_id=request.empresa_id,
+                        punto_venta_id=punto_venta.id,
+                        ambiente=contexto_rece.ambiente,
+                        tipo_comprobante=request.tipo_comprobante,
+                        bloquear=True,
+                    )
+                    if actual != contexto_rece:
+                        raise ElegibilidadReceError(
+                            "La acreditación RECE cambió antes de reservar la emisión."
+                        )
+                    await elegibilidad.validar_operacion_para_continuar(
+                        operacion_id=operacion_id,
+                        empresa_id=request.empresa_id,
+                        contextos_esperados=contextos_operacion,
+                    )
+                    guarda = await elegibilidad.crear_guarda_pre_arca(
+                        operacion_id=operacion_id,
+                        contexto=contexto_rece,
+                        contextos_operacion=contextos_operacion,
+                    )
+                    intento = await idempotencia.crear_intento_emision(
+                        request=request,
+                        punto_venta=punto_venta,
+                        numero_planificado=proximo,
+                        total=totales["total"],
+                        operacion_id=operacion_id,
+                        usuario_id=usuario_id,
+                        lote_id=lote_id,
+                        grupo_id=grupo_id,
+                        contexto_rece=contexto_rece,
+                        guarda_rece_id=guarda.id,
+                        commit=False,
+                    )
+                    fase_solicitud_arca.registrar_guarda_pre_arca(guarda)
+                    intento_id_durable = int(intento.id)
+                    guarda_id_durable = int(guarda.id)
+                    await self.db.commit()
+            except ElegibilidadReceError as exc:
+                await self.db.rollback()
+                return self._respuesta_rechazo_elegibilidad(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    totales=totales,
+                    error=exc,
+                )
+            except IntegrityError:
+                await self.db.rollback()
+                return self._respuesta_rechazo_elegibilidad(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    totales=totales,
+                    error=ElegibilidadReceError(
+                        "El punto de venta ya tiene una solicitud fiscal activa.",
+                        categoria="conflicto_guarda_rece_activa",
+                    ),
+                )
+
             arca_request = self._armar_request_arca(
                 request, proximo, totales, punto_venta_numero
             )
@@ -989,10 +1386,12 @@ class FacturacionService:
                 total=totales["total"],
             )
             if respuesta_pre_arca is not None:
-                await self._actualizar_intento_preservando_respuesta(
-                    idempotencia,
-                    intento,
-                    respuesta_pre_arca,
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta_pre_arca,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
                     commit=commit,
                     contexto="preflight_numeracion_antes_arca",
                 )
@@ -1001,10 +1400,39 @@ class FacturacionService:
             # 6. Solicitar CAE
             resultado = None
             try:
+                await elegibilidad.marcar_arca_iniciada(
+                    guarda=guarda,
+                    contexto=contexto_rece,
+                    tipo_comprobante=request.tipo_comprobante,
+                )
                 fase_solicitud_arca.marcar_iniciada()
                 arca_iniciada_en_esta_llamada = True
                 resultado = await wsfe_client.fe_cae_solicitar(arca_request)
 
+            except ElegibilidadReceError as exc:
+                await self._rollback_seguro(
+                    "revalidacion_rece_inmediatamente_antes_arca"
+                )
+                [intento], guarda = await self._recargar_intentos_y_guarda_rece(
+                    intento_ids=[intento_id_durable],
+                    guarda_id=guarda_id_durable,
+                )
+                respuesta = self._respuesta_rechazo_elegibilidad(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    totales=totales,
+                    error=exc,
+                )
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    commit=commit,
+                    contexto="revalidacion_rece_inmediatamente_antes_arca",
+                )
+                return respuesta
             except (ArcaServiceError, ArcaValidationError) as e:
                 logger.error(f"Error al solicitar CAE: {str(e)}")
                 respuesta = EmitirComprobanteResponse(
@@ -1022,11 +1450,13 @@ class FacturacionService:
                     requiere_reconciliacion=True,
                     categoria_error="arca_respuesta_incierta",
                 )
-                await self._actualizar_intento_preservando_respuesta(
-                    idempotencia,
-                    intento,
-                    respuesta,
-                    commit=commit,
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta,
+                    guarda=guarda,
+                    fase="reconciliacion",
+                    commit=True,
                     contexto="respuesta_incierta_arca",
                 )
                 return respuesta
@@ -1039,30 +1469,15 @@ class FacturacionService:
                 resultado_arca=resultado,
             )
             if respuesta_no_aprobada is not None:
-                intento_actualizado = (
-                    await self._actualizar_intento_preservando_respuesta(
-                        idempotencia,
-                        intento,
-                        respuesta_no_aprobada,
-                        commit=commit,
-                        contexto="arca_no_aprobado",
-                    )
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta_no_aprobada,
+                    guarda=guarda,
+                    fase="cerrada_terminal",
+                    commit=commit,
+                    contexto="arca_no_aprobado",
                 )
-                if not intento_actualizado:
-                    return self._respuesta_post_arca_requiere_reconciliacion(
-                        request=request,
-                        punto_venta_numero=punto_venta_numero,
-                        numero=proximo,
-                        totales=totales,
-                        resultado_arca=resultado,
-                        mensaje=(
-                            "ARCA rechazó el comprobante, pero FactuFlow no pudo "
-                            "cerrar el intento fiscal"
-                        ),
-                        errores=[
-                            "No reintentes esta emisión hasta reconciliar el intento fiscal."
-                        ],
-                    )
                 return respuesta_no_aprobada
 
             # 7. Guardar en BD
@@ -1073,10 +1488,14 @@ class FacturacionService:
                     totales,
                     resultado,
                     punto_venta,
-                    commit=commit,
+                    commit=False,
                 )
             except IntegrityError as exc:
                 await self._rollback_seguro("integrity_individual_post_arca")
+                [intento], guarda = await self._recargar_intentos_y_guarda_rece(
+                    intento_ids=[intento_id_durable],
+                    guarda_id=guarda_id_durable,
+                )
                 logger.exception(
                     "Conflicto de numeración al guardar comprobante autorizado. "
                     "empresa=%s pv=%s tipo=%s numero=%s",
@@ -1097,16 +1516,22 @@ class FacturacionService:
                         str(exc.orig),
                     ],
                 )
-                await self._actualizar_intento_preservando_respuesta(
-                    idempotencia,
-                    intento,
-                    respuesta,
-                    commit=commit,
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta,
+                    guarda=guarda,
+                    fase="reconciliacion",
+                    commit=True,
                     contexto="conflicto_numeracion_post_arca",
                 )
                 return respuesta
             except Exception:
                 await self._rollback_seguro("persistencia_individual_post_arca")
+                [intento], guarda = await self._recargar_intentos_y_guarda_rece(
+                    intento_ids=[intento_id_durable],
+                    guarda_id=guarda_id_durable,
+                )
                 logger.exception(
                     "Fallo posterior a CAE autorizado. empresa=%s pv=%s tipo=%s numero=%s",
                     request.empresa_id,
@@ -1126,11 +1551,13 @@ class FacturacionService:
                         ERROR_INTERNO_EMISION_PUBLICO,
                     ],
                 )
-                await self._actualizar_intento_preservando_respuesta(
-                    idempotencia,
-                    intento,
-                    respuesta,
-                    commit=commit,
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta,
+                    guarda=guarda,
+                    fase="reconciliacion",
+                    commit=True,
                     contexto="fallo_persistencia_post_arca",
                 )
                 return respuesta
@@ -1157,35 +1584,22 @@ class FacturacionService:
                 total=totales["total"],
                 mensaje="Comprobante emitido exitosamente",
             )
-            intento_actualizado = await self._actualizar_intento_preservando_respuesta(
-                idempotencia,
-                intento,
-                respuesta,
+            await self._persistir_intento_y_guarda_rece(
+                idempotencia=idempotencia,
+                intento=intento,
+                respuesta=respuesta,
+                guarda=guarda,
+                fase="cerrada_terminal",
                 commit=commit,
                 contexto="cierre_exitoso_post_arca",
             )
-            if not intento_actualizado:
-                return self._respuesta_post_arca_requiere_reconciliacion(
-                    request=request,
-                    punto_venta_numero=punto_venta_numero,
-                    numero=proximo,
-                    totales=totales,
-                    resultado_arca=resultado,
-                    mensaje=(
-                        "ARCA autorizó el comprobante y FactuFlow lo guardó, "
-                        "pero no pudo cerrar el intento fiscal"
-                    ),
-                    errores=[
-                        "No reintentes esta emisión hasta reconciliar el intento fiscal y verificar el comprobante local."
-                    ],
-                )
             return respuesta
 
         except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
             raise
         except ValidationError as e:
             logger.warning(f"Error de validación: {str(e)}")
-            return EmitirComprobanteResponse(
+            respuesta_validacion = EmitirComprobanteResponse(
                 exito=False,
                 tipo_comprobante=request.tipo_comprobante,
                 punto_venta=0,
@@ -1195,6 +1609,17 @@ class FacturacionService:
                 mensaje="Error de validación",
                 errores=[str(e)],
             )
+            if intento is not None and guarda is not None:
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta_validacion,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    commit=True,
+                    contexto="validacion_individual_pre_arca",
+                )
+            return respuesta_validacion
         except Exception:
             logger.exception("Error inesperado al emitir comprobante")
             if arca_iniciada_en_esta_llamada:
@@ -1214,15 +1639,18 @@ class FacturacionService:
                     ],
                     categoria_error="arca_respuesta_incierta",
                 )
-                await self._actualizar_intento_preservando_respuesta(
-                    idempotencia,
-                    intento,
-                    respuesta,
-                    commit=commit,
-                    contexto="excepcion_inesperada_post_arca",
-                )
+                if intento is not None and guarda is not None:
+                    await self._persistir_intento_y_guarda_rece(
+                        idempotencia=idempotencia,
+                        intento=intento,
+                        respuesta=respuesta,
+                        guarda=guarda,
+                        fase="reconciliacion",
+                        commit=True,
+                        contexto="excepcion_inesperada_post_arca",
+                    )
                 return respuesta
-            return EmitirComprobanteResponse(
+            respuesta_inesperada = EmitirComprobanteResponse(
                 exito=False,
                 tipo_comprobante=request.tipo_comprobante,
                 punto_venta=0,
@@ -1232,6 +1660,17 @@ class FacturacionService:
                 mensaje="Error inesperado",
                 errores=[ERROR_INTERNO_EMISION_PUBLICO],
             )
+            if intento is not None and guarda is not None:
+                await self._persistir_intento_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intento=intento,
+                    respuesta=respuesta_inesperada,
+                    guarda=guarda,
+                    fase="cerrada_pre_arca",
+                    commit=True,
+                    contexto="excepcion_inesperada_individual_pre_arca",
+                )
+            return respuesta_inesperada
 
     @classmethod
     async def _get_number_lock(
@@ -1269,10 +1708,10 @@ class FacturacionService:
         if not punto_venta:
             raise ValidationError("Punto de venta no encontrado")
 
-        self._validar_sin_bloqueo_preautorizacion(
+        await ElegibilidadReceService(self.db).exigir_contexto_preautorizacion(
             empresa_id=empresa_id,
             punto_venta_id=punto_venta.id,
-            punto_venta_numero=punto_venta.numero,
+            ambiente=settings.arca_env,
             tipo_comprobante=tipo_comprobante,
         )
 
@@ -1280,6 +1719,7 @@ class FacturacionService:
         if not empresa:
             raise ValidationError("Empresa no encontrada")
         certificado = await self._obtener_certificado_activo(empresa_id)
+        await self.db.commit()
         ticket = await self._obtener_ticket_acceso(empresa, certificado)
         wsfe_client = WSFEv1Client(
             ambiente=self._get_arca_ambiente(),
@@ -1311,15 +1751,16 @@ class FacturacionService:
                 empresa_id, punto_venta_id, tipo_comprobante
             )
 
-        self._validar_sin_bloqueo_preautorizacion(
+        await ElegibilidadReceService(self.db).exigir_contexto_preautorizacion(
             empresa_id=empresa_id,
             punto_venta_id=punto_venta.id,
-            punto_venta_numero=punto_venta.numero,
+            ambiente=settings.arca_env,
             tipo_comprobante=tipo_comprobante,
         )
 
         empresa = await self._obtener_empresa(empresa_id)
         certificado = await self._obtener_certificado_activo(empresa_id)
+        await self.db.commit()
         ticket = await self._obtener_ticket_acceso(empresa, certificado)
         wsfe_client = WSFEv1Client(
             ambiente=self._get_arca_ambiente(),
@@ -1954,6 +2395,9 @@ class FacturacionService:
         punto_venta_numero: int,
     ) -> IntentoEmisionFiscal | None:
         """Consulta ARCA por un intento vencido antes de liberar la reserva."""
+        if await self._guarda_activa_bloquea_reconciliacion_stale(intento):
+            return intento
+        await self.db.refresh(intento)
         try:
             consulta_arca = await wsfe_client.fe_comp_consultar(
                 punto_venta=punto_venta_numero,
@@ -1961,6 +2405,13 @@ class FacturacionService:
                 numero=intento.numero_planificado,
             )
         except ArcaServiceError as exc:
+            if await self._guarda_activa_bloquea_reconciliacion_stale(
+                intento,
+                retener_locks=True,
+            ):
+                await self.db.refresh(intento)
+                return intento
+            await self.db.refresh(intento)
             if self._arca_indica_comprobante_inexistente(exc):
                 intento.estado = "fallido_verificado"
                 intento.categoria_error = "arca_no_registrado"
@@ -1982,6 +2433,13 @@ class FacturacionService:
             await self.db.commit()
             return intento
 
+        if await self._guarda_activa_bloquea_reconciliacion_stale(
+            intento,
+            retener_locks=True,
+        ):
+            await self.db.refresh(intento)
+            return intento
+        await self.db.refresh(intento)
         if not await self._validar_consulta_intento_stale(intento, consulta_arca):
             intento.estado = "requiere_reconciliacion"
             intento.categoria_error = "arca_consulta_inconsistente"
@@ -2019,6 +2477,121 @@ class FacturacionService:
         self.db.add(intento)
         await self.db.commit()
         return None
+
+    async def _guarda_activa_bloquea_reconciliacion_stale(
+        self,
+        intento: IntentoEmisionFiscal,
+        *,
+        retener_locks: bool = False,
+    ) -> bool:
+        """Reserva solo un intento legacy; cualquier snapshot RECE queda inmóvil."""
+        intento_id = int(intento.id)
+        operacion_id = intento.operacion_id
+        if operacion_id is None:
+            await self.db.rollback()
+            intento_actual = (
+                await self.db.execute(
+                    select(IntentoEmisionFiscal)
+                    .where(IntentoEmisionFiscal.id == intento_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            bloquea = (
+                intento_actual is None
+                or intento_actual.estado != "en_proceso"
+                or intento_actual.operacion_id is not None
+                or any(
+                    valor is not None
+                    for valor in (
+                        intento_actual.ambiente,
+                        intento_actual.punto_venta_elegibilidad_revision_id,
+                        intento_actual.punto_venta_revision_fiscal,
+                        intento_actual.guarda_rece_id,
+                    )
+                )
+            )
+            if bloquea or not retener_locks:
+                await self.db.commit()
+            return bloquea
+        await self.db.rollback()
+        fila_operacion = (
+            await self.db.execute(
+                select(
+                    OperacionIdempotente,
+                    OperacionIdempotente.response_json.is_(None).label(
+                        "respuesta_es_sql_null"
+                    ),
+                )
+                .where(
+                    OperacionIdempotente.id == operacion_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).one_or_none()
+        intentos_operacion = list(
+            (
+                await self.db.execute(
+                    select(IntentoEmisionFiscal)
+                    .where(IntentoEmisionFiscal.operacion_id == operacion_id)
+                    .order_by(IntentoEmisionFiscal.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        guardas = list(
+            (
+                await self.db.execute(
+                    select(PuntoVentaGuardaEmisionRece)
+                    .where(PuntoVentaGuardaEmisionRece.operacion_id == operacion_id)
+                    .order_by(PuntoVentaGuardaEmisionRece.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        intento_actual = next(
+            (
+                intento_operacion
+                for intento_operacion in intentos_operacion
+                if int(intento_operacion.id) == intento_id
+            ),
+            None,
+        )
+        operacion = fila_operacion[0] if fila_operacion is not None else None
+        snapshot_rece_presente = intento_actual is not None and any(
+            valor is not None
+            for valor in (
+                intento_actual.ambiente,
+                intento_actual.punto_venta_elegibilidad_revision_id,
+                intento_actual.punto_venta_revision_fiscal,
+                intento_actual.guarda_rece_id,
+            )
+        )
+        bloquea = (
+            operacion is None
+            or operacion.estado != "en_proceso"
+            or operacion.tipo_operacion != "emitir_comprobante"
+            # JSON literal null es indistinguible de None al deserializar y
+            # existía antes de PF-19B. Solo se admite en esta clasificación
+            # legacy exacta; el ownership moderno sigue exigiendo SQL NULL.
+            or operacion.response_json is not None
+            or operacion.rece_snapshot_hash is not None
+            or intento_actual is None
+            or intento_actual.estado != "en_proceso"
+            or snapshot_rece_presente
+            or len(intentos_operacion) != 1
+            or bool(guardas)
+        )
+        if bloquea or not retener_locks:
+            await self.db.commit()
+        return bloquea
 
     async def _validar_consulta_intento_stale(
         self,
@@ -2262,6 +2835,33 @@ class FacturacionService:
             categoria_error=CATEGORIA_BLOQUEO_PREAUTORIZACION,
         )
 
+    @staticmethod
+    def _respuesta_rechazo_elegibilidad(
+        *,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        totales: dict,
+        error: ElegibilidadReceError,
+    ) -> EmitirComprobanteResponse:
+        """Devuelve un rechazo local RECE/PF-19A sin iniciar llamadas ARCA."""
+        detalle = (
+            DETALLE_BLOQUEO_PREAUTORIZACION
+            if error.categoria == CATEGORIA_BLOQUEO_PREAUTORIZACION
+            else "Revalidá la acreditación RECE del punto de venta."
+        )
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=0,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje=error.mensaje,
+            errores=[detalle],
+            requiere_reconciliacion=False,
+            categoria_error=error.categoria,
+        )
+
     async def _obtener_cliente(
         self, cliente_id: int, empresa_id: int
     ) -> Optional[Cliente]:
@@ -2294,9 +2894,12 @@ class FacturacionService:
 
     def _get_arca_ambiente(self) -> ArcaAmbiente:
         """Resuelve el ambiente ARCA configurado."""
-        if settings.arca_env.lower() == ArcaAmbiente.PRODUCCION.value:
+        ambiente = settings.arca_env.strip().lower()
+        if ambiente == ArcaAmbiente.PRODUCCION.value:
             return ArcaAmbiente.PRODUCCION
-        return ArcaAmbiente.HOMOLOGACION
+        if ambiente == ArcaAmbiente.HOMOLOGACION.value:
+            return ArcaAmbiente.HOMOLOGACION
+        raise ValidationError("El ambiente ARCA configurado no es válido")
 
     async def _obtener_ticket_acceso(self, empresa: Empresa, certificado: Certificado):
         """Obtiene ticket WSAA para la empresa con material local utilizable."""
@@ -2494,6 +3097,7 @@ class FacturacionService:
             intento,
             respuesta,
             contexto=contexto,
+            commit=False,
         )
 
     async def _actualizar_intento_preservando_respuesta(
@@ -2522,6 +3126,366 @@ class FacturacionService:
             return False
         return True
 
+    async def _recargar_intentos_y_guarda_rece(
+        self,
+        *,
+        intento_ids: list[int | None],
+        guarda_id: int | None,
+    ) -> tuple[list[IntentoEmisionFiscal], PuntoVentaGuardaEmisionRece]:
+        """Rehidrata el grafo durable después de un rollback post-ARCA."""
+        if (
+            guarda_id is None
+            or not intento_ids
+            or any(intento_id is None for intento_id in intento_ids)
+        ):
+            raise SQLAlchemyTimeoutError(
+                "No se conservan las identidades del grafo fiscal durable."
+            )
+        ids_durables = [int(intento_id) for intento_id in intento_ids]
+        intentos_por_id = {
+            intento.id: intento
+            for intento in (
+                await self.db.execute(
+                    select(IntentoEmisionFiscal)
+                    .where(IntentoEmisionFiscal.id.in_(ids_durables))
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        }
+        intentos = [
+            intentos_por_id[intento_id]
+            for intento_id in ids_durables
+            if intento_id in intentos_por_id
+        ]
+        guarda = (
+            await self.db.execute(
+                select(PuntoVentaGuardaEmisionRece)
+                .where(PuntoVentaGuardaEmisionRece.id == guarda_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if len(intentos) != len(ids_durables) or guarda is None:
+            raise SQLAlchemyTimeoutError(
+                "No se pudo recargar el grafo fiscal durable del sublote."
+            )
+        return intentos, guarda
+
+    async def _persistir_intento_y_guarda_rece(
+        self,
+        *,
+        idempotencia: IdempotenciaFiscalService,
+        intento: IntentoEmisionFiscal,
+        respuesta: EmitirComprobanteResponse,
+        guarda: PuntoVentaGuardaEmisionRece,
+        fase: Literal["cerrada_pre_arca", "cerrada_terminal", "reconciliacion"],
+        commit: bool,
+        contexto: str,
+    ) -> None:
+        """Persiste intento y fase de guarda en una única transacción."""
+        elegibilidad = ElegibilidadReceService(self.db)
+        try:
+            if fase == "reconciliacion":
+                (
+                    intentos_bloqueados,
+                    guarda,
+                ) = await self._inmovilizar_grafo_reconciliacion(
+                    intentos=[intento],
+                    guarda=guarda,
+                )
+                intento = intentos_bloqueados[0]
+            await idempotencia.actualizar_intento_desde_respuesta(
+                intento,
+                respuesta,
+                commit=False,
+            )
+            if fase == "cerrada_pre_arca":
+                await elegibilidad.cerrar_pre_arca(guarda, commit=False)
+            elif fase == "cerrada_terminal":
+                await elegibilidad.cerrar_terminal(guarda, commit=False)
+            else:
+                await elegibilidad.marcar_requiere_reconciliacion(
+                    guarda,
+                    commit=False,
+                )
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
+        except Exception as exc:
+            await self._rollback_seguro(f"intento_guarda_rece:{contexto}")
+            logger.error(
+                "No se pudo cerrar intento y guarda RECE contexto=%s tipo_error=%s",
+                contexto,
+                type(exc).__name__,
+            )
+            if isinstance(exc, DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS):
+                raise
+            raise SQLAlchemyTimeoutError(
+                "No se pudo confirmar el cierre fiscal durable."
+            ) from exc
+
+    async def _persistir_intentos_y_guarda_rece(
+        self,
+        *,
+        idempotencia: IdempotenciaFiscalService,
+        intentos: list[IntentoEmisionFiscal],
+        respuestas: list[EmitirComprobanteResponse],
+        guarda: PuntoVentaGuardaEmisionRece,
+        fase: Literal["cerrada_pre_arca", "cerrada_terminal", "reconciliacion"],
+        contexto: str,
+    ) -> None:
+        """Cierra todos los intentos batch y su guarda en un único commit."""
+        if len(intentos) != len(respuestas) or not intentos:
+            raise SQLAlchemyTimeoutError(
+                "El sublote fiscal no conserva todos sus intentos durables."
+            )
+        elegibilidad = ElegibilidadReceService(self.db)
+        try:
+            if fase == "reconciliacion":
+                intentos, guarda = await self._inmovilizar_grafo_reconciliacion(
+                    intentos=intentos,
+                    guarda=guarda,
+                )
+            for intento, respuesta in zip(intentos, respuestas):
+                await idempotencia.actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta,
+                    commit=False,
+                )
+            if fase == "cerrada_pre_arca":
+                await elegibilidad.cerrar_pre_arca(guarda, commit=False)
+            elif fase == "cerrada_terminal":
+                await elegibilidad.cerrar_terminal(guarda, commit=False)
+            else:
+                await elegibilidad.marcar_requiere_reconciliacion(
+                    guarda,
+                    commit=False,
+                )
+            await self.db.commit()
+        except Exception as exc:
+            await self._rollback_seguro(f"intentos_guarda_rece:{contexto}")
+            logger.error(
+                "No se pudo cerrar sublote y guarda RECE contexto=%s tipo_error=%s",
+                contexto,
+                type(exc).__name__,
+            )
+            if isinstance(exc, DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS):
+                raise
+            raise SQLAlchemyTimeoutError(
+                "No se pudo confirmar el cierre fiscal durable del sublote."
+            ) from exc
+
+    async def _inmovilizar_grafo_reconciliacion(
+        self,
+        *,
+        intentos: list[IntentoEmisionFiscal],
+        guarda: PuntoVentaGuardaEmisionRece,
+    ) -> tuple[list[IntentoEmisionFiscal], PuntoVentaGuardaEmisionRece]:
+        """Bloquea y valida el grafo post-ARCA antes de inmovilizar su operación."""
+        intento_ids = [intento.id for intento in intentos]
+        operacion_ids = {intento.operacion_id for intento in intentos}
+        if (
+            not intentos
+            or any(
+                not isinstance(intento_id, int) or isinstance(intento_id, bool)
+                for intento_id in intento_ids
+            )
+            or len(set(intento_ids)) != len(intento_ids)
+            or len(operacion_ids) != 1
+            or None in operacion_ids
+            or not isinstance(guarda.id, int)
+            or isinstance(guarda.id, bool)
+            or guarda.operacion_id not in operacion_ids
+        ):
+            raise SQLAlchemyTimeoutError(
+                "El grafo fiscal no conserva una operación reconciliable única."
+            )
+
+        operacion_id = int(next(iter(operacion_ids)))
+        fila_operacion = (
+            await self.db.execute(
+                select(
+                    OperacionIdempotente,
+                    OperacionIdempotente.response_json.is_(None).label(
+                        "respuesta_es_sql_null"
+                    ),
+                )
+                .where(OperacionIdempotente.id == operacion_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).one_or_none()
+        if fila_operacion is None:
+            raise SQLAlchemyTimeoutError(
+                "La operación fiscal reconciliable ya no existe."
+            )
+        operacion = fila_operacion[0]
+        respuesta_es_sql_null = fila_operacion[1] is True
+
+        intentos_bloqueados = list(
+            (
+                await self.db.execute(
+                    select(IntentoEmisionFiscal)
+                    .where(IntentoEmisionFiscal.id.in_(intento_ids))
+                    .order_by(IntentoEmisionFiscal.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        guardas_bloqueadas = list(
+            (
+                await self.db.execute(
+                    select(PuntoVentaGuardaEmisionRece)
+                    .where(PuntoVentaGuardaEmisionRece.operacion_id == operacion_id)
+                    .order_by(PuntoVentaGuardaEmisionRece.id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        intentos_por_id = {int(intento.id): intento for intento in intentos_bloqueados}
+        guardas_por_id = {int(item.id): item for item in guardas_bloqueadas}
+        guarda_bloqueada = guardas_por_id.get(int(guarda.id))
+        intentos_ordenados = [
+            intentos_por_id[int(intento_id)]
+            for intento_id in intento_ids
+            if int(intento_id) in intentos_por_id
+        ]
+        lote_ids = {intento.lote_id for intento in intentos_ordenados}
+        identidad_valida = (
+            len(intentos_ordenados) == len(intento_ids)
+            and guarda_bloqueada is not None
+            and guarda_bloqueada.operacion_id == operacion_id
+            and guarda_bloqueada.empresa_id == operacion.empresa_id
+            and guarda_bloqueada.fase == "arca_iniciada"
+            and len(lote_ids) == 1
+            and next(iter(lote_ids)) == operacion.lote_id
+            and all(
+                intento.operacion_id == operacion_id
+                and intento.empresa_id == operacion.empresa_id
+                and intento.guarda_rece_id == guarda_bloqueada.id
+                and intento.estado == "en_proceso"
+                and intento.punto_venta_id == guarda_bloqueada.punto_venta_id
+                and intento.ambiente == guarda_bloqueada.ambiente
+                and intento.punto_venta_elegibilidad_revision_id
+                == guarda_bloqueada.elegibilidad_revision_id
+                and intento.punto_venta_revision_fiscal
+                == guarda_bloqueada.punto_venta_revision_fiscal
+                for intento in intentos_ordenados
+            )
+        )
+        if not identidad_valida:
+            raise SQLAlchemyTimeoutError(
+                "El grafo fiscal cambió antes de inmovilizar la operación."
+            )
+
+        material_rece = None
+        lote_background: bool | None = None
+        if operacion.lote_id is not None:
+            lote_background = False
+        if not respuesta_es_sql_null:
+            if operacion.tipo_operacion != "procesar_lote" or operacion.lote_id is None:
+                raise SQLAlchemyTimeoutError(
+                    "La operación fiscal conserva una respuesta incompatible."
+                )
+            lote = (
+                await self.db.execute(
+                    select(LoteComprobante)
+                    .where(
+                        LoteComprobante.id == operacion.lote_id,
+                        LoteComprobante.empresa_id == operacion.empresa_id,
+                    )
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).scalar_one_or_none()
+            metadata = lote.metadata_json if lote is not None else None
+            owner = (
+                metadata.get("operacion_idempotente_id")
+                if isinstance(metadata, dict)
+                else None
+            )
+            material_rece = (
+                metadata.get("pf19b_rece_material")
+                if isinstance(metadata, dict)
+                else None
+            )
+            if (
+                not isinstance(owner, int)
+                or isinstance(owner, bool)
+                or owner != operacion_id
+                or not isinstance(material_rece, dict)
+            ):
+                raise SQLAlchemyTimeoutError(
+                    "El lote perdió el ownership fiscal antes de reconciliarse."
+                )
+            lote_background = True
+
+        hash_valido = (
+            isinstance(operacion.rece_snapshot_hash, str)
+            and len(operacion.rece_snapshot_hash) == 64
+        )
+        if operacion.tipo_operacion == "emitir_comprobante":
+            ownership_valido = (
+                operacion.lote_id is None
+                and lote_background is None
+                and respuesta_es_sql_null
+            )
+        elif operacion.tipo_operacion == "reintentar_fallidos_lote":
+            ownership_valido = (
+                operacion.lote_id is not None
+                and lote_background is False
+                and respuesta_es_sql_null
+            )
+        elif operacion.tipo_operacion == "procesar_lote":
+            ownership_valido = operacion.lote_id is not None and (
+                (lote_background is False and respuesta_es_sql_null)
+                or (
+                    lote_background is True
+                    and material_rece is not None
+                    and IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+                        operacion.response_json,
+                        lote_id=int(operacion.lote_id),
+                        empresa_id=int(operacion.empresa_id),
+                        operacion_id=operacion_id,
+                        material_rece=material_rece,
+                    )
+                )
+            )
+        else:
+            ownership_valido = False
+        if (
+            operacion.estado not in {"en_proceso", "requiere_reconciliacion"}
+            or not hash_valido
+            or not ownership_valido
+        ):
+            raise SQLAlchemyTimeoutError(
+                "La operación fiscal perdió su ownership reconciliable."
+            )
+
+        if operacion.estado == "en_proceso":
+            publicada = await self.db.execute(
+                update(OperacionIdempotente)
+                .where(
+                    OperacionIdempotente.id == operacion_id,
+                    OperacionIdempotente.estado == "en_proceso",
+                    OperacionIdempotente.updated_at == operacion.updated_at,
+                )
+                .values(estado="requiere_reconciliacion")
+            )
+            if publicada.rowcount != 1:
+                raise SQLAlchemyTimeoutError(
+                    "La operación fiscal cambió durante la reconciliación."
+                )
+        return intentos_ordenados, guarda_bloqueada
+
     async def _rollback_seguro(self, contexto: str) -> None:
         """Intenta rollback sin tapar el resultado fiscal ni registrar detalles."""
         try:
@@ -2533,33 +3497,6 @@ class FacturacionService:
                 type(exc).__name__,
             )
 
-    async def _marcar_intentos_batch_pre_arca_fallidos(
-        self,
-        intento_ids: list[int],
-        error: str,
-    ) -> None:
-        """Cierra intentos batch que nunca llegaron a enviarse a ARCA."""
-        if not intento_ids:
-            return
-
-        mensaje = (
-            "FactuFlow no llegó a enviar el sublote a ARCA porque falló la "
-            f"preparación local. Detalle: {error}"
-        )
-        await self.db.execute(
-            update(IntentoEmisionFiscal)
-            .where(
-                IntentoEmisionFiscal.id.in_(intento_ids),
-                IntentoEmisionFiscal.estado == "en_proceso",
-            )
-            .values(
-                estado="fallido_verificado",
-                categoria_error="pre_arca_reserva_fallida",
-                mensaje=mensaje,
-            )
-        )
-        await self.db.commit()
-
     def _respuesta_batch_reserva_pre_arca_fallida(
         self,
         request: EmitirComprobanteRequest,
@@ -2568,7 +3505,7 @@ class FacturacionService:
         totales: dict,
         error: str,
     ) -> EmitirComprobanteResponse:
-        """Arma una respuesta fallida cuando el sublote no llegó a ARCA."""
+        """Arma una respuesta fallida cuando el sublote no llegó a solicitar CAE."""
         return EmitirComprobanteResponse(
             exito=False,
             tipo_comprobante=request.tipo_comprobante,
@@ -2576,9 +3513,12 @@ class FacturacionService:
             numero=numero,
             fecha=request.fecha_emision,
             total=totales["total"],
-            mensaje="FactuFlow no pudo preparar el sublote antes de contactar ARCA",
+            mensaje=("FactuFlow revirtió la preparación local antes de solicitar CAE"),
             errores=[
-                "No se envió esta solicitud a ARCA; la reserva local quedó cerrada como fallida verificada.",
+                (
+                    "No se solicitó CAE; la transacción local se revirtió por "
+                    "completo y no quedó una reserva fiscal durable."
+                ),
                 error,
             ],
             categoria_error="pre_arca_reserva_fallida",

@@ -142,6 +142,9 @@ const timerHandle = ref<number | null>(null);
 const timerNow = ref(new Date());
 const inicioProcesamientoLocal = ref<Date | null>(null);
 let deteccionFormatoRequestId = 0;
+let formatosImportacionRequestId = 0;
+let perfilesCargaMasivaRequestId = 0;
+let puntosVentaRequestId = 0;
 let detalleLoteRequestId = 0;
 let gruposLoteRequestId = 0;
 let pollingGeneration = 0;
@@ -1042,11 +1045,22 @@ const cargarLotes = async (silent = false): Promise<boolean> => {
   }
 };
 const cargarFormatosImportacion = async () => {
-  if (!empresaActivaId.value) return;
+  const empresaId = empresaActivaId.value;
+  const requestId = ++formatosImportacionRequestId;
+  const sigueVigente = () =>
+    !componenteDesmontado &&
+    empresaActivaId.value === empresaId &&
+    requestId === formatosImportacionRequestId;
+
+  formatosImportacion.value = [];
+  if (!empresaId || componenteDesmontado) return;
 
   try {
-    formatosImportacion.value = await formatosImportacionService.listar();
+    const nuevosFormatos = await formatosImportacionService.listar();
+    if (!sigueVigente()) return;
+    formatosImportacion.value = nuevosFormatos;
   } catch (error: any) {
+    if (!sigueVigente()) return;
     showError(
       "No se pudieron cargar los formatos",
       error.response?.data?.detail ||
@@ -1056,29 +1070,56 @@ const cargarFormatosImportacion = async () => {
 };
 
 const cargarPerfilesCargaMasiva = async () => {
-  if (!empresaActivaId.value) return;
+  const empresaId = empresaActivaId.value;
+  const requestId = ++perfilesCargaMasivaRequestId;
+  const sigueVigente = () =>
+    !componenteDesmontado &&
+    empresaActivaId.value === empresaId &&
+    requestId === perfilesCargaMasivaRequestId;
+
+  perfilesCargaMasiva.value = [];
+  if (!empresaId || componenteDesmontado) {
+    loadingPerfiles.value = false;
+    return;
+  }
 
   loadingPerfiles.value = true;
   try {
-    perfilesCargaMasiva.value = await perfilesCargaMasivaService.listar();
+    const nuevosPerfiles = await perfilesCargaMasivaService.listar();
+    if (!sigueVigente()) return;
+    perfilesCargaMasiva.value = nuevosPerfiles;
     aplicarPerfilInicial();
   } catch (error: any) {
+    if (!sigueVigente()) return;
     showError(
       "No se pudieron cargar los perfiles de carga masiva",
       error.response?.data?.detail ||
         "Revisa tu sesion antes de validar archivos.",
     );
   } finally {
-    loadingPerfiles.value = false;
+    if (sigueVigente()) {
+      loadingPerfiles.value = false;
+    }
   }
 };
 
 const cargarPuntosVenta = async () => {
-  if (!empresaActivaId.value) return;
+  const empresaId = empresaActivaId.value;
+  const requestId = ++puntosVentaRequestId;
+  const sigueVigente = () =>
+    !componenteDesmontado &&
+    empresaActivaId.value === empresaId &&
+    requestId === puntosVentaRequestId;
+
+  puntosVenta.value = [];
+  if (!empresaId || componenteDesmontado) return;
 
   try {
-    puntosVenta.value = await puntosVentaService.getAll();
+    const nuevosPuntosVenta = await puntosVentaService.getAll();
+    if (!sigueVigente()) return;
+    puntosVenta.value = nuevosPuntosVenta;
   } catch (error: any) {
+    if (!sigueVigente()) return;
     showError(
       "No se pudieron cargar los puntos de venta",
       error.response?.data?.detail ||
@@ -1918,11 +1959,17 @@ watch(
 watch(
   empresaActivaId,
   async (empresaId) => {
+    const sigueVigente = () =>
+      !componenteDesmontado && empresaActivaId.value === empresaId;
     detenerPolling(true);
     detalleLoteRequestId += 1;
     gruposLoteRequestId += 1;
+    formatosImportacionRequestId += 1;
+    perfilesCargaMasivaRequestId += 1;
+    puntosVentaRequestId += 1;
     loadingLotes.value = false;
     loadingGruposLote.value = false;
+    loadingPerfiles.value = false;
     archivoSeleccionado.value = null;
     loteActual.value = null;
     lotes.value = [];
@@ -1935,7 +1982,9 @@ watch(
     resetearIdempotencyKeyReintentar();
     resetearConfirmacionDuplicadoPendiente();
     deteccionFormato.value = null;
+    formatosImportacion.value = [];
     perfilesCargaMasiva.value = [];
+    puntosVenta.value = [];
     perfilSeleccionadoId.value = "";
     perfilAplicadoId.value = null;
     configuracionModificada.value = false;
@@ -1943,8 +1992,11 @@ watch(
 
     if (!empresaId) return;
     await cargarFormatosImportacion();
+    if (!sigueVigente()) return;
     await cargarPuntosVenta();
+    if (!sigueVigente()) return;
     await cargarPerfilesCargaMasiva();
+    if (!sigueVigente()) return;
     await cargarLotes();
   },
   { immediate: false },
@@ -1969,6 +2021,9 @@ onBeforeUnmount(() => {
   componenteDesmontado = true;
   detalleLoteRequestId += 1;
   gruposLoteRequestId += 1;
+  formatosImportacionRequestId += 1;
+  perfilesCargaMasivaRequestId += 1;
+  puntosVentaRequestId += 1;
   detenerPolling(true);
   detenerTimer();
 });
@@ -2340,7 +2395,7 @@ onBeforeUnmount(() => {
                 </p>
                 <p class="mt-1 text-sm text-indigo-900">
                   Podés usar el punto de venta definido en el archivo o fijar
-                  uno habilitado para FactuFlow en este emisor.
+                  uno elegible para emitir en este emisor.
                 </p>
               </div>
             </div>
@@ -2387,7 +2442,7 @@ onBeforeUnmount(() => {
               class="mt-4"
             >
               Para elegir un punto de venta fijo, primero completá los puntos de
-              venta habilitados del emisor en la pantalla Puntos de venta.
+              venta elegibles para emitir en la pantalla Puntos de venta.
             </BaseAlert>
             <BaseAlert
               v-else-if="puntoVentaModo === 'fijo' && !puntoVentaNumero"

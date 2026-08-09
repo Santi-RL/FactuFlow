@@ -285,7 +285,12 @@ async def update_empresa(
         HTTPException: Si la empresa no existe
     """
     _validar_usuario_puede_operar_empresa(current_user, empresa_id)
-    result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
+    result = await db.execute(
+        select(Empresa)
+        .where(Empresa.id == empresa_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     empresa = result.scalar_one_or_none()
 
     if not empresa:

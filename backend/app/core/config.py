@@ -3,7 +3,14 @@
 import os
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -100,7 +107,10 @@ class Settings(BaseSettings):
     )
 
     # ARCA
-    arca_env: str = Field(default="homologacion", alias="ARCA_ENV")
+    arca_env: Literal["homologacion", "produccion"] = Field(
+        default="homologacion",
+        validation_alias=AliasChoices("ARCA_ENV", "AFIP_ENV"),
+    )
     arca_bloqueos_preautorizacion: list[BloqueoPreautorizacionArca] = Field(
         default_factory=list,
         alias="ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION",
@@ -207,12 +217,10 @@ class Settings(BaseSettings):
     @field_validator("arca_env", mode="before")
     @classmethod
     def parse_arca_env(cls, v, _info):
-        """Permite usar ARCA_ENV y mantiene compatibilidad con AFIP_ENV."""
-        if not v:
-            legacy = os.getenv("AFIP_ENV")
-            if legacy:
-                return legacy
-        return v or "homologacion"
+        """Normaliza el ambiente y rechaza valores fuera de la allowlist."""
+        if not isinstance(v, str):
+            return v
+        return v.strip().lower()
 
     # Logging
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

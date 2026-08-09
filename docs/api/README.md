@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 08/08/2026
+Última actualización: 09/08/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -234,24 +234,41 @@ La respuesta de listado es paginada con `items`, `total`, `page`, `per_page` y
 GET /api/puntos-venta
 POST /api/puntos-venta
 POST /api/puntos-venta/importar-constancia
+POST /api/puntos-venta/sincronizar-arca
 PUT /api/puntos-venta/{punto_venta_id}
 DELETE /api/puntos-venta/{punto_venta_id}
 ```
 
-`POST /api/puntos-venta/importar-constancia` recibe un PDF de constancia ARCA y
-actualiza sistema, domicilio, nombre fantasia, estado bloqueado y usabilidad
-FactuFlow. Un punto es usable cuando está activo, es Web Services, no está
-bloqueado y no tiene fecha de baja.
+`POST /api/puntos-venta`, `importar-constancia`, `sincronizar-arca` y `DELETE` requieren
+administrador. Un usuario común solo puede editar campos descriptivos; cambiar
+identidad o estado fiscal/técnico requiere administrador.
 
-Limitación conocida del contrato actual: esa propiedad `usable_factuflow`
-expresa el filtro técnico vigente, pero no prueba que el punto pertenezca a
-RECE. La evidencia productiva del 07/08/2026 mostró que un punto genérico Web
-Services puede superar este filtro y recibir el rechazo global WSFE `10005` al
-alcanzar `FECAESolicitar`. PF-19A agrega una contención privada por ambiente,
-emisor, ID/número de punto y tipo, pero no descubre elegibilidad: el valor
-mutable `sistema` tampoco es evidencia durable. PF-19A contiene únicamente las
-tuplas declaradas explícitamente; una combinación genérica, contradictoria o
-dudosa omitida queda sin protección hasta PF-19B.
+Cada `PuntoVentaResponse` expone `revision_fiscal`, `usable_factuflow` y el
+objeto `elegibilidad_rece` con `ambiente`, `estado`, `estado_efectivo`, `fuente`,
+`revision_id`, `revision`, `punto_revision_fiscal`, `verificado_en`,
+`vigente_hasta` y `motivo`. El servidor calcula `usable_factuflow`: exige el
+filtro técnico (activo, Web Services, no bloqueado y sin baja) y estado efectivo
+`verificado_rece` para el ambiente actual. El cliente no debe reconstruir esa
+decisión desde `sistema` ni desde la marca técnica.
+
+`POST /api/puntos-venta/importar-constancia` recibe PDF de hasta `5 MB` y el
+form booleano `confirmar_procedencia_produccion`. Sin confirmación importa y
+sincroniza datos técnicos, pero no acredita RECE. Con confirmación solo acepta
+un administrador, servidor con `ARCA_ENV=produccion`, CUIT exacto, documento
+completo y no ambiguo, fecha única no futura de hasta siete días y señal exacta
+`RECE para aplicativo y web services`. Persiste hash SHA-256, clasificador,
+actor y snapshots mínimos; no guarda el PDF ni su texto completo. Una señal
+genérica o fuera de allowlist queda `no_verificado`, nunca se infiere
+`no_rece`. Evidencia más antigua que la vigente se rechaza. La respuesta agrega
+`verificados_rece`, `no_verificados_rece`, `documento_emitido_en`,
+`vigente_hasta` y warnings sanitizados.
+
+La importación aplica en una transacción los puntos existentes, nuevos y —solo
+si la constancia es completa— ausentes. Además consulta el estado técnico WSFE
+en el servidor. `POST /api/puntos-venta/sincronizar-arca` ofrece esa
+sincronización sin PDF: crea/actualiza/desactiva técnicamente en una sola
+operación y nunca promueve RECE. Homologación no admite atestación positiva y
+permanece cerrada hasta una fuente probatoria específica.
 
 ## Certificados
 
@@ -329,6 +346,16 @@ numeración local adelantada devuelve `proximo_numero=null` con emisión
 deshabilitada.
 `POST /api/comprobantes/emitir` emite a través del servicio de facturación y
 puede consumir numeración fiscal si `ARCA_ENV=produccion`.
+
+Antes de crear una operación o intento nuevo y antes de `FECAESolicitar`, tanto
+`proximo-numero` como la emisión exigen un contexto RECE vigente del punto para
+el ambiente actual; la emisión lo persiste como snapshot durable. Si falta,
+venció o cambió, responden `409` con
+`categoria_error=elegibilidad_rece_no_verificada` y no solicitan CAE. Un replay
+terminal durable se devuelve sin reevaluar la elegibilidad actual; una
+continuación legacy, sin snapshot o desalineada queda bloqueada. En lotes, la
+capa exterior puede haber autenticado WSAA o ejecutado una lectura WSFE segura
+de capacidad; eso no crea una autorización ni habilita `FECAESolicitar`.
 
 Este endpoint exige el header `X-Idempotency-Key`. El cliente debe generar una
 clave nueva por confirmación fiscal final y conservarla para retries de la
@@ -626,12 +653,10 @@ lotes grandes en la UI porque pueden traer miles de registros.
   es `fijo`, la validación sobrescribe el punto de venta de todas las filas con
   `punto_venta_numero`.
 - `punto_venta_numero`: requerido cuando `punto_venta_modo=fijo`. Debe existir
-  para el emisor activo y estar activo, Web Services, no bloqueado y sin fecha
-  de baja. Si no está cargado en `Puntos de venta`, la API rechaza la
-  validación. Ese control no demuestra elegibilidad RECE y el texto editable
-  `sistema` tampoco. Un punto genérico o dudoso solo queda en la contención
-  PF-19A si su tupla se declara explícitamente; una omisión queda sin protección
-  hasta PF-19B.
+  para el emisor activo y tener `usable_factuflow=true`, incluido estado efectivo
+  `verificado_rece`. Si no está cargado o no es elegible, la API rechaza la
+  validación. El mismo control se aplica por grupo cuando el número viene del
+  archivo y el lote persiste el snapshot RECE usado.
 - `fecha_emision_modo`: obligatorio. Valores: `archivo` o `fija`.
 - `fecha_emision_fija`: obligatorio solo si `fecha_emision_modo=fija`.
 - `concepto_modo`: obligatorio. Valores: `productos`, `servicios` o `archivo`.
@@ -668,18 +693,19 @@ formato. No emite comprobantes. La emisión ocurre solo con
   `BATCH_SYNC_LIMIT`.
 
 Para cada sublote homogéneo por emisor, punto de venta y tipo, el procesamiento
-normal consulta el último local y `FECompUltimoAutorizado`. Si ARCA está
-adelantada y no existe un intento propio bloqueante, reserva el rango desde
-`ultimo_arca + 1`. Después de persistir todas las reservas repite la consulta;
-si el rango cambió o el preflight falla, no llama a `FECAESolicitar`, no crea
-comprobantes y cierra las reservas como `fallido_verificado`.
+revalida el snapshot RECE antes de la operación y nuevamente bajo guarda antes
+de ARCA. Si falla una preparación o reserva local antes de `FECAESolicitar`, la
+transacción completa se revierte: quedan cero guardas, intentos y reservas
+nuevos, y cero `FECAESolicitar`. WSAA y lecturas seguras como
+`FECompTotXRequest` o `FECompUltimoAutorizado` pueden haber ocurrido antes; no
+debe describirse ese rollback como “cero contacto con ARCA”.
 
 Cuando el batch ARCA está habilitado, el flujo exterior de `procesar_lote` y el
 worker puede autenticar WSAA, construir WSFE y consultar de forma segura
 `FECompTotXRequest` antes de formar los sublotes. Esa lectura solo determina la
-capacidad del request: no inicia `FaseSolicitudArca`, no autoriza comprobantes y
-no sustituye la contención. Para una tupla declarada, el núcleo posterior debe
-mantener cero `FECAESolicitar`, CAE, intentos fiscales y comprobantes.
+capacidad del request: no inicia `FaseSolicitudArca`, no autoriza comprobantes
+y no sustituye PF-19B. Para un contexto RECE inválido, el núcleo posterior
+mantiene cero `FECAESolicitar`, CAE, intentos fiscales y comprobantes nuevos.
 
 Si el pedido requiere procesamiento en segundo plano y el worker no está
 disponible, la API responde `503` con
@@ -779,10 +805,9 @@ El payload usa `configuracion_json` versionado. Valores principales:
 - `punto_venta.modo`: `archivo` para usar el punto definido en el Excel o
   `fijo` para precargar un punto concreto del emisor.
 - `punto_venta.numero`: requerido cuando `punto_venta.modo=fijo`; debe estar
-  cargado como punto técnicamente usable por FactuFlow en `Puntos de venta`.
-  Esa validación no certifica RECE ni elude la contención preautorización
-  PF-19A. El perfil no crea una regla: una tupla omitida queda sin protección
-  hasta PF-19B.
+  cargado con `usable_factuflow=true`, incluido estado efectivo
+  `verificado_rece` para el ambiente actual. El perfil no crea evidencia ni
+  evita la revalidación del lote.
 - `concepto_modo`: `productos`, `servicios`, `archivo` o vacío para completar
   en la carga.
 - `descripcion_item_modo`: `archivo`, `fija` o vacío.
@@ -843,6 +868,7 @@ modelo actual no distingue otro subtipo fiscal para esa alícuota.
 | 401 | No autenticado |
 | 403 | Sin permisos |
 | 404 | Recurso no encontrado |
+| 409 | Conflicto fiscal, concurrencia, idempotencia o elegibilidad RECE |
 | 422 | Error de validación |
 | 500 | Error interno |
 | 503 | Servicio externo no disponible |

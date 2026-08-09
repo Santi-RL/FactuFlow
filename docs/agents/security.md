@@ -153,10 +153,17 @@ ignorada y dejar solo una descripción redactada en la documentación.
 - `ARCA_MIGRATION_TARGET_KEY_PASSWORD` solo para exportación local privada
 - `ARCA_MIGRATION_SOURCE_KEY_PASSWORD` solo si las claves fuente ya están
   cifradas
+- `ARCA_ENV`: enum estricto; solo `homologacion` o `produccion`. `AFIP_ENV` es
+  un alias legacy y `ARCA_ENV` tiene precedencia. Si ambos faltan usa
+  `homologacion`; un valor presente vacío o inválido impide iniciar.
 - `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`: configuración fiscal privada. Sus
-  tuplas reales no se versionan ni se exponen completas; una lista vacía o una
-  omisión no demuestra elegibilidad y deja esa combinación sin protección hasta
+  tuplas reales no se versionan ni se exponen completas. Es una denegación
+  adicional PF-19A: nunca promueve RECE ni sustituye la autoridad durable
   PF-19B.
+- `PF19B_SQLITE_BACKUP_CONFIRMED=1` y `PF19B_SQLITE_BACKUP_PATH`: opt-in de una
+  sola ejecución para upgrade o downgrade PF-19B sobre SQLite física. La ruta
+  debe apuntar a un backup distinto, privado, no vacío y semánticamente idéntico
+  a la fuente; no dejar estas variables persistidas ni versionar el archivo.
 - `AFIP_CERTS_PATH`
 - `AFIP_ENV`
 - `CORS_ORIGINS`

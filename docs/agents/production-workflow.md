@@ -231,27 +231,45 @@ demuestran despliegue. La evidencia post-deploy debe registrar el commit o tag
 real y los resultados sanitizados del entorno, sin incluir credenciales ni
 rutas privadas.
 
-## Contención e inventario PF-19A
+## Elegibilidad RECE PF-19B y contención adicional PF-19A
 
-En el estado objetivo de `main`, la variable privada
-`ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` contiene combinaciones exactas de
-ambiente, emisor, ID/número de punto de venta y tipo de comprobante. Antes de
-habilitar una instalación, el responsable debe declarar cada tupla no RECE, no
-verificada o bajo revisión legacy. La lista vacía, `FEParamGetPtosVenta`, la
-marca `Usable` y el texto editable `Sistema` no demuestran elegibilidad RECE.
-PF-19A no descubre tuplas dudosas: una omisión queda sin protección hasta
-PF-19B. Los valores reales pertenecen al `.env` y a documentación privada;
+En el estado objetivo de `main`, PF-19B exige que toda ruta capaz de solicitar
+CAE encuentre una revisión durable cuyo estado efectivo sea
+`verificado_rece` para el ambiente actual. La sincronización técnica
+`FEParamGetPtosVenta`, la marca legacy `Usable` y el texto editable `Sistema` no
+promueven elegibilidad. Solo un administrador, en un servidor configurado en
+`produccion`, puede atestar una constancia productiva completa, reciente y no
+ambigua; únicamente la señal exacta `RECE para aplicativo y web services`
+produce el estado positivo, con vigencia operativa de siete días. El PDF no se
+persiste. Homologación permanece bloqueada hasta contar con una fuente
+probatoria específica y no hereda evidencia productiva.
+
+La variable privada `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` conserva PF-19A
+como denegación adicional por combinación exacta de ambiente, emisor,
+ID/número de punto y tipo. Una regla nunca puede promover RECE ni sustituir el
+ledger. Los valores reales pertenecen al `.env` y a documentación privada;
 nunca al repositorio ni a evidencias públicas. Los logs privados pueden
 conservar identificadores operativos mínimos para correlación, pero nunca
 secretos ni contenido fiscal sensible.
 
-La contención aborta localmente antes de `FECAESolicitar`, CAE, intento fiscal
-y comprobante. Retirar una regla es una decisión fiscal explícita: requiere
-evidencia administrativa suficiente y, hasta PF-19B, no puede basarse solo en
-una etiqueta genérica Web Services. Un rollback técnico puede restaurar código
-o configuración anterior solo después de conservar una contención equivalente
-o cerrar PF-19B; mientras existan destinos dudosos no se retira la guarda. No
-incluye migración ni saneamiento de datos.
+La compuerta PF-19B aborta antes de crear una operación o intento nuevo y antes
+de WSAA/WSFE cuando el contexto ya es inválido. Un replay terminal durable se
+puede devolver sin reevaluar el estado actual; cualquier continuación legacy,
+obsoleta o sin snapshot se bloquea. Retirar una regla PF-19A sigue siendo una
+decisión fiscal explícita. Un rollback técnico a una versión que ignore PF-19B
+solo es seguro si repone una contención equivalente y verifica que no haya
+operaciones iniciadas durante la ventana.
+
+En lotes, la capa exterior puede haber autenticado WSAA o ejecutado
+`FECompTotXRequest`/`FECompUltimoAutorizado` antes de preparar el sublote. Si
+falla la preparación o reserva local previa a `FECAESolicitar`, se revierte la
+transacción completa: quedan cero guardas, intentos y reservas nuevos, y cero
+llamadas `FECAESolicitar`. Esas lecturas seguras previas no convierten el fallo
+en una solicitud de CAE ni habilitan un reintento automático.
+
+Este comportamiento describe el estado objetivo de `main`. La última release
+publicada y el despliegue real continúan en `v0.2.2`, sin PF-19B; integrar, crear
+una release y desplegar son checkpoints separados.
 
 El inventario legacy se ejecuta solo con autorización sobre una fuente
 identificada y con `DATABASE_URL` configurada de forma privada:

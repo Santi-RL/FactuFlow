@@ -109,6 +109,24 @@ configura inicio automático con Windows.
    ```
 
 4. **Ejecutar migraciones**
+
+   En PostgreSQL se puede aplicar `upgrade head` de forma transaccional. En una
+   SQLite nueva o existente, aplicar primero hasta `a8b9c0d1e2f3`; antes de
+   cruzar la migración PF-19B, crear un backup distinto de la base activa y
+   verificar que sea recuperable. Luego declarar únicamente en el proceso de
+   Alembic:
+
+   ```bash
+   PF19B_SQLITE_BACKUP_CONFIRMED=1
+   PF19B_SQLITE_BACKUP_PATH=<ruta-absoluta-al-backup>
+   ```
+
+   La migración compara origen y backup mediante integridad SQLite y digest
+   semántico exacto antes del DDL. Si falla después de iniciar DDL, detenerse y
+   restaurar ese backup antes de reintentar: que `alembic_version` no avance no
+   demuestra que SQLite haya quedado intacta. En PostgreSQL el cambio es
+   transaccional.
+
    ```bash
    cd backend
    alembic upgrade head
@@ -222,18 +240,19 @@ y sin solicitar CAE.
    APP_ENV=production
    APP_DEBUG=false
    APP_SECRET_KEY=<generar-clave-segura>
-   ARCA_ENV=produccion  # Solo si ya tenés certificados de producción
-   ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION=[]
-   # También acepta AFIP_ENV por compatibilidad
+    ARCA_ENV=produccion  # Solo con certificado y operación productivos autorizados
+    ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION=[]
+    # AFIP_ENV queda como alias legacy; ARCA_ENV tiene precedencia
    ```
 
-   `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` es una lista JSON privada de
-   contención por ambiente, emisor, ID/número de punto de venta y tipo de
-   comprobante. Antes de operar, incluí cada tupla cuya pertenencia a RECE no
-   esté demostrada o esté bajo revisión legacy. Una lista vacía y la
-   clasificación genérica `Web Services` no acreditan elegibilidad RECE. Una
-   tupla omitida queda sin protección hasta PF-19B; el contrato y un ejemplo
-   sintético están en
+   `ARCA_ENV` solo admite `homologacion` o `produccion`; un valor presente vacío
+   o inválido impide iniciar. `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` es una
+   lista JSON privada de denegación adicional por ambiente, emisor, ID/número de
+   punto de venta y tipo de comprobante. No puede promover elegibilidad. PF-19B
+   exige además una revisión durable con estado efectivo `verificado_rece` para
+   toda ruta capaz de solicitar CAE; la marca técnica, la lista vacía y la
+   clasificación genérica `Web Services` no alcanzan. El contrato PF-19A y un
+   ejemplo sintético están en
    `docs/agents/pf-19a-rece-contencion-design.md`.
 
    En `APP_ENV=production`, el backend no inicia si `APP_SECRET_KEY` queda
@@ -383,10 +402,12 @@ Después de la instalación:
 1. Seguir el [Wizard de Certificados](../certificates/README.md)
 2. Configurar tu empresa en la aplicación
 3. Crear tu primer cliente
-4. Emitir primero comprobantes de prueba en homologación
-5. Pasar a producción solo con certificado/autorización `wsfe`, elegibilidad
-   RECE revisada y cada tupla genérica o dudosa declarada explícitamente en
-   `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`, además de backup/logs y fecha fiscal
-   explícita confirmados. PF-19A no descubre omisiones: una combinación no
-   declarada queda sin protección hasta PF-19B. La etiqueta `Web Services` por
-   sí sola no autoriza a emitir
+4. En homologación, probar conexión y lecturas seguras sin solicitar CAE. PF-19B
+   mantiene la emisión bloqueada allí hasta incorporar una fuente probatoria
+   específica; no reutiliza evidencia productiva.
+5. Pasar a producción solo con certificado/autorización `wsfe`, backup/logs,
+   fecha fiscal explícita y una atestación administrativa vigente desde una
+   constancia productiva completa. Solo la señal exacta
+   `RECE para aplicativo y web services` puede producir
+   `verificado_rece`; `Web Services` genérico no autoriza. Mantener además las
+   reglas privadas PF-19A como denegación complementaria.

@@ -115,9 +115,19 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 ### Puntos de Venta
 
 - `GET /api/puntos-venta` - Listar puntos de venta
-- `POST /api/puntos-venta` - Crear punto de venta
+- `POST /api/puntos-venta` - Crear punto de venta como administrador; inicia
+  cerrado para RECE
+- `POST /api/puntos-venta/importar-constancia` - Importar una constancia y,
+  con confirmación productiva explícita, atestar elegibilidad RECE
+- `POST /api/puntos-venta/sincronizar-arca` - Sincronizar en el servidor el
+  estado técnico WSFE, sin promover RECE
 - `PUT /api/puntos-venta/{id}` - Actualizar punto de venta
 - `DELETE /api/puntos-venta/{id}` - Desactivar punto de venta
+
+El DTO expone `revision_fiscal`, `elegibilidad_rece` y
+`usable_factuflow`. Este último se calcula en el servidor y solo es verdadero
+cuando el punto también tiene estado efectivo `verificado_rece` para el ambiente
+actual.
 
 ### Certificados
 
@@ -189,18 +199,18 @@ que `FACTUFLOW_TEST_POSTGRES_URL` apunte a una instancia PostgreSQL desechable
 configurada fuera del repositorio:
 
 ```bash
-pytest -m integration tests/integration/test_pool_capacity_postgresql.py -q
-pytest -m integration tests/integration/test_integridad_fiscal_postgresql.py -q
+pytest -m integration tests/integration -q
 ```
 
-La primera verifica cuatro conexiones API más una conexión dedicada del worker.
-La segunda recrea únicamente el schema de la base desechable y valida la
-migración PF-01B, constraints, estados, CAE, concurrencia y preflight con datos
-sintéticos. Exige además `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1` y que el
-nombre de la base incluya `test`, `tmp`, `temp` o `pf01b`; sin ambas condiciones
-falla antes de conectarse. Ninguna prueba llama a ARCA ni declara un despliegue. No ejecutarlas contra
-una instalación operativa ni guardar la URL o sus credenciales en Git. Ver
-`docs/agents/testing.md`.
+`backend/tests/postgresql_harness.py` exige simultáneamente: driver
+`postgresql` o `postgresql+asyncpg`; host loopback exacto `localhost`,
+`127.0.0.1` o `::1`; base exacta `factuflow_integration_test`; ausencia de query
+y options; y `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1`. El guard se
+revalida antes de cada operación destructiva. La matriz cubre capacidad `4+1`,
+integridad PF-01, inventario PF-19A de solo lectura, migración/concurrencia
+PF-19B y paquete VPS v2 con datos sintéticos. Ninguna prueba llama a ARCA ni
+declara un despliegue. No ejecutarlas contra una instalación operativa ni
+guardar la URL o sus credenciales en Git. Ver `docs/agents/testing.md`.
 
 ## Troubleshooting
 
@@ -292,7 +302,10 @@ Principales:
 - `DATABASE_WORKER_POOL_SIZE` - Pool dedicado del worker, fijo en `1`
 - `DATABASE_POOL_TIMEOUT_SECONDS` - Timeout de adquisición, default `5`
 - `DATABASE_POOL_HOLD_WARNING_SECONDS` - Warning de retención, default `10`
-- `ARCA_ENV` - Ambiente de ARCA (`homologacion`/`produccion`)
+- `ARCA_ENV` - Ambiente ARCA estricto: solo `homologacion` o `produccion`;
+  `AFIP_ENV` se conserva como alias legacy y `ARCA_ENV` tiene precedencia. Si
+  ambos faltan usa `homologacion`; un valor presente vacío o inválido impide
+  iniciar.
 - `CERTS_PATH` - Carpeta donde se guardan certificados
 - `CERTIFICATE_MAX_UPLOAD_BYTES` - Tamaño máximo para subir certificados ARCA
 - `BATCH_SYNC_LIMIT` - Corte entre procesamiento síncrono y background

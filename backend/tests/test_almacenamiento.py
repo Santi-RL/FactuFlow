@@ -43,6 +43,7 @@ async def _crear_lote_cerrado_con_filas(
 
     grupo = LoteComprobanteGrupo(
         lote_id=lote.id,
+        empresa_id=empresa_id,
         comprobante_ref="A-1",
         orden=1,
         estado="autorizado",

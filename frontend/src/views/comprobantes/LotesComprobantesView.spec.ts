@@ -21,6 +21,7 @@ import type {
 } from "@/types/formato-importacion";
 import type { PerfilCargaMasiva } from "@/types/perfil-carga-masiva";
 import type { Empresa } from "@/types/empresa";
+import type { PuntoVenta } from "@/types/punto_venta";
 import type {
   LoteComprobante,
   LoteComprobanteGrupoDetalle,
@@ -163,11 +164,43 @@ const deteccionMock = (
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolver) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolver, rechazar) => {
     resolve = resolver;
+    reject = rechazar;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 };
+
+const puntoVentaMock = (numero: number, empresaId: number): PuntoVenta => ({
+  id: empresaId * 100 + numero,
+  numero,
+  nombre: `Punto ${numero}`,
+  sistema: "RECE",
+  domicilio: null,
+  nombre_fantasia: null,
+  es_webservice: true,
+  bloqueado: false,
+  fecha_baja: null,
+  fuente: "arca",
+  activo: true,
+  usable_factuflow: true,
+  revision_fiscal: 1,
+  elegibilidad_rece: {
+    ambiente: "produccion",
+    estado: "verificado_rece",
+    estado_efectivo: "verificado_rece",
+    fuente: "constancia_arca",
+    revision_id: 1,
+    revision: 1,
+    punto_revision_fiscal: 1,
+    verificado_en: "2026-08-01T12:00:00Z",
+    vigente_hasta: "2026-09-01",
+    motivo: null,
+  },
+  empresa_id: empresaId,
+  created_at: "2026-08-01T12:00:00Z",
+});
 
 const mockedFormatos = formatosImportacionService as unknown as {
   listar: Mock;
@@ -287,6 +320,7 @@ const mountView = async (
   lotesIniciales: LoteComprobante[] = [],
   resumen: LoteComprobanteResumen = loteResumenMock(),
   grupos: LoteComprobanteGruposPage = gruposPageMock(),
+  puntosVentaIniciales: PuntoVenta[] | Promise<PuntoVenta[]> = [],
 ) => {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -305,7 +339,9 @@ const mountView = async (
   mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(resumen);
   mockedLotesDetalle.obtenerGrupos.mockResolvedValue(grupos);
   mockedPerfiles.listar.mockResolvedValue(perfiles);
-  mockedPuntosVenta.getAll.mockResolvedValue([]);
+  mockedPuntosVenta.getAll.mockReturnValue(
+    Promise.resolve(puntosVentaIniciales),
+  );
 
   const wrapper = mount(LotesComprobantesView, {
     global: {
@@ -326,6 +362,248 @@ describe("LotesComprobantesView", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("conserva los puntos del emisor B si la respuesta de A llega tarde", async () => {
+    const cargaA = deferred<PuntoVenta[]>();
+    const cargaB = deferred<PuntoVenta[]>();
+    const wrapper = await mountView(
+      [],
+      [],
+      loteResumenMock(),
+      gruposPageMock(),
+      cargaA.promise,
+    );
+    mockedPuntosVenta.getAll.mockReturnValue(cargaB.promise);
+
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresas = [
+      empresaMock(),
+      { ...empresaMock(), id: 2, razon_social: "Emisor B" },
+    ];
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+
+    expect(mockedPuntosVenta.getAll).toHaveBeenCalledTimes(2);
+    cargaB.resolve([puntoVentaMock(2, 2)]);
+    await flushPromises();
+
+    const vm = wrapper.vm as unknown as { puntosVenta: PuntoVenta[] };
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([2]);
+
+    cargaA.resolve([puntoVentaMock(1, 1)]);
+    await flushPromises();
+
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([2]);
+    wrapper.unmount();
+  });
+
+  it("ignora el error tardío de A mientras carga los puntos del emisor B", async () => {
+    const cargaA = deferred<PuntoVenta[]>();
+    const cargaB = deferred<PuntoVenta[]>();
+    const wrapper = await mountView(
+      [],
+      [],
+      loteResumenMock(),
+      gruposPageMock(),
+      cargaA.promise,
+    );
+    mockedPuntosVenta.getAll.mockReturnValue(cargaB.promise);
+
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresas = [
+      empresaMock(),
+      { ...empresaMock(), id: 2, razon_social: "Emisor B" },
+    ];
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+    notificationMock.showError.mockClear();
+
+    cargaA.reject({ response: { data: { detail: "Error del emisor A" } } });
+    await flushPromises();
+
+    expect(notificationMock.showError).not.toHaveBeenCalledWith(
+      "No se pudieron cargar los puntos de venta",
+      expect.any(String),
+    );
+    const vm = wrapper.vm as unknown as { puntosVenta: PuntoVenta[] };
+    expect(vm.puntosVenta).toEqual([]);
+
+    cargaB.resolve([puntoVentaMock(2, 2)]);
+    await flushPromises();
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([2]);
+    wrapper.unmount();
+  });
+
+  it("limpia la configuración visible de A antes de esperar la primera carga de B", async () => {
+    const cargaFormatoB = deferred<FormatoImportacion[]>();
+    const cargaB = deferred<PuntoVenta[]>();
+    const wrapper = await mountView(
+      [perfilRelativoMock()],
+      [],
+      loteResumenMock(),
+      gruposPageMock(),
+      [puntoVentaMock(1, 1)],
+    );
+    const vm = wrapper.vm as unknown as {
+      formatosImportacion: FormatoImportacion[];
+      perfilesCargaMasiva: PerfilCargaMasiva[];
+      puntosVenta: PuntoVenta[];
+    };
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
+      1,
+    ]);
+    expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
+      1,
+    ]);
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([1]);
+
+    mockedFormatos.listar.mockReturnValue(cargaFormatoB.promise);
+    mockedPuntosVenta.getAll.mockReturnValue(cargaB.promise);
+    mockedPerfiles.listar.mockResolvedValue([
+      { ...perfilRelativoMock(), id: 20, empresa_id: 2 },
+    ]);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresas = [
+      empresaMock(),
+      { ...empresaMock(), id: 2, razon_social: "Emisor B" },
+    ];
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+
+    expect(vm.formatosImportacion).toEqual([]);
+    expect(vm.perfilesCargaMasiva).toEqual([]);
+    expect(vm.puntosVenta).toEqual([]);
+
+    cargaFormatoB.resolve([
+      { ...formatoMock(), id: 20, empresa_id: 2, nombre: "Formato B" },
+    ]);
+    await flushPromises();
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
+      2,
+    ]);
+    expect(vm.perfilesCargaMasiva).toEqual([]);
+    expect(vm.puntosVenta).toEqual([]);
+
+    notificationMock.showError.mockClear();
+    cargaB.reject({ response: { data: { detail: "Error del emisor B" } } });
+    await flushPromises();
+
+    expect(vm.puntosVenta).toEqual([]);
+    expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
+      2,
+    ]);
+    expect(notificationMock.showError).toHaveBeenCalledWith(
+      "No se pudieron cargar los puntos de venta",
+      "Error del emisor B",
+    );
+    wrapper.unmount();
+  });
+
+  it("descarta formatos de B si terminan después de completar la carga de C", async () => {
+    const cargaFormatoB = deferred<FormatoImportacion[]>();
+    const wrapper = await mountView(
+      [perfilRelativoMock()],
+      [],
+      loteResumenMock(),
+      gruposPageMock(),
+      [puntoVentaMock(1, 1)],
+    );
+    const vm = wrapper.vm as unknown as {
+      formatosImportacion: FormatoImportacion[];
+      perfilesCargaMasiva: PerfilCargaMasiva[];
+      puntosVenta: PuntoVenta[];
+    };
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresas = [
+      empresaMock(),
+      { ...empresaMock(), id: 2, razon_social: "Emisor B" },
+      { ...empresaMock(), id: 3, razon_social: "Emisor C" },
+    ];
+
+    mockedFormatos.listar.mockReturnValue(cargaFormatoB.promise);
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+    expect(vm.formatosImportacion).toEqual([]);
+
+    mockedFormatos.listar.mockResolvedValue([
+      { ...formatoMock(), id: 30, empresa_id: 3, nombre: "Formato C" },
+    ]);
+    mockedPuntosVenta.getAll.mockResolvedValue([puntoVentaMock(3, 3)]);
+    mockedPerfiles.listar.mockResolvedValue([
+      { ...perfilRelativoMock(), id: 30, empresa_id: 3 },
+    ]);
+    empresaStore.empresaActivaId = 3;
+    await flushPromises();
+
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
+      3,
+    ]);
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([3]);
+    expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
+      3,
+    ]);
+
+    cargaFormatoB.resolve([
+      { ...formatoMock(), id: 20, empresa_id: 2, nombre: "Formato B" },
+    ]);
+    await flushPromises();
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
+      3,
+    ]);
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([3]);
+    expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
+      3,
+    ]);
+    wrapper.unmount();
+  });
+
+  it("descarta perfiles de B si terminan después de completar la carga de C", async () => {
+    const cargaPerfilB = deferred<PerfilCargaMasiva[]>();
+    const wrapper = await mountView();
+    const vm = wrapper.vm as unknown as {
+      formatosImportacion: FormatoImportacion[];
+      perfilesCargaMasiva: PerfilCargaMasiva[];
+      puntosVenta: PuntoVenta[];
+    };
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresas = [
+      empresaMock(),
+      { ...empresaMock(), id: 2, razon_social: "Emisor B" },
+      { ...empresaMock(), id: 3, razon_social: "Emisor C" },
+    ];
+
+    mockedFormatos.listar.mockResolvedValue([
+      { ...formatoMock(), id: 20, empresa_id: 2, nombre: "Formato B" },
+    ]);
+    mockedPuntosVenta.getAll.mockResolvedValue([puntoVentaMock(2, 2)]);
+    mockedPerfiles.listar.mockReturnValue(cargaPerfilB.promise);
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+    expect(vm.perfilesCargaMasiva).toEqual([]);
+
+    mockedFormatos.listar.mockResolvedValue([
+      { ...formatoMock(), id: 30, empresa_id: 3, nombre: "Formato C" },
+    ]);
+    mockedPuntosVenta.getAll.mockResolvedValue([puntoVentaMock(3, 3)]);
+    mockedPerfiles.listar.mockResolvedValue([
+      { ...perfilRelativoMock(), id: 30, empresa_id: 3 },
+    ]);
+    empresaStore.empresaActivaId = 3;
+    await flushPromises();
+
+    cargaPerfilB.resolve([
+      { ...perfilRelativoMock(), id: 20, empresa_id: 2 },
+    ]);
+    await flushPromises();
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
+      3,
+    ]);
+    expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([3]);
+    expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
+      3,
+    ]);
+    wrapper.unmount();
   });
 
   it("ignora detecciones de formato resueltas fuera de orden", async () => {

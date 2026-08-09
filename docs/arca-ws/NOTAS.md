@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 08/08/2026
+Última actualización: 09/08/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -10,8 +10,9 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 2. Generar CSR con el CUIT del titular del certificado
 3. Crear DN y certificado en WSASS
 4. Crear autorización al servicio `wsfe` para el CUIT representado
-5. Verificar punto de venta habilitado
-6. Emitir y validar por `FECompConsultar`
+5. Verificar certificado, conexión y lecturas seguras
+6. No solicitar CAE: PF-19B mantiene homologación cerrada hasta contar con una
+   fuente probatoria específica para ese ambiente
 
 ## Lo que aprendimos hoy
 
@@ -29,12 +30,13 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 
 - En el portal no se detectó una pantalla separada de "puntos de venta homologación".
 - Hay que mirar la pantalla habitual `A/B/M de puntos de venta / emision`.
-- La columna editable `Sistema` puede indicar como señal administrativa
-  `RECE para aplicativo y web services`, pero no demuestra de forma durable ni
-  histórica que el punto sea RECE. Una clasificación genérica Web Services
-  tampoco alcanza. PF-19A contiene únicamente las tuplas declaradas
-  explícitamente en `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`; una omisión queda
-  sin protección hasta PF-19B.
+- La columna editable `Sistema`, una clasificación genérica Web Services y
+  `FEParamGetPtosVenta` no acreditan RECE. PF-19B exige una cabeza durable con
+  estado efectivo `verificado_rece`; PF-19A queda como denegación adicional.
+- Solo un administrador en servidor productivo puede atestar una constancia
+  completa, no ambigua y de hasta siete días. Únicamente la señal exacta
+  `RECE para aplicativo y web services` promueve el ambiente `produccion`.
+  Homologación no hereda esa evidencia.
 
 ### 3. `FEParamGetPtosVenta`
 
@@ -50,17 +52,15 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
   revisar manualmente.
 - Si el usuario cambia de emisor mientras se importa una constancia, la UI no
   debe mostrar el resultado bajo el nuevo contexto.
-- Evidencia productiva del 07/08/2026: un punto que el filtro local consideró
-  usable por ser Web Services, activo y no bloqueado llegó a
-  `FECAESolicitar`, pero ARCA devolvió el error global `10005`. El manual
-  WSFEv1 lo define como validación excluyente para un punto de venta que no
-  pertenece a RECE. Por lo tanto, `FEParamGetPtosVenta` y `Bloqueado=N` no son
-  prueba fiscal suficiente de elegibilidad RECE.
-- PF-19A incorpora contención explícita antes de `FECAESolicitar` para las
-  tuplas declaradas. No convierte la columna editable `Sistema`, la constancia
-  ni `FEParamGetPtosVenta` en evidencia durable. Un punto genérico o dudoso
-  solo queda contenido si se declara cada tupla afectada; una omisión permanece
-  sin protección hasta que PF-19B modele su elegibilidad.
+- La evidencia operativa privada confirmó que un punto técnicamente Web
+  Services puede no pertenecer a RECE. Identificadores y fecha exacta quedan
+  fuera del repositorio; la invariante es que `FEParamGetPtosVenta` y
+  `Bloqueado=N` no prueban elegibilidad fiscal.
+- PF-19B exige estado efectivo `verificado_rece` antes de crear una operación o
+  intento nuevo y antes de `FECAESolicitar`. La capa exterior batch puede haber
+  autenticado WSAA o hecho una lectura WSFE segura de capacidad; eso no autoriza
+  ni permite saltear la compuerta. PF-19A mantiene la denegación adicional
+  para tuplas declaradas, pero nunca promueve elegibilidad.
 
 ### 4. `CondicionIVAReceptorId`
 
@@ -107,13 +107,11 @@ Mapping aplicado en el proyecto:
   completar manualmente, venir del archivo o ser una fecha personalizada
   explícita válida. Las reglas relativas se reservan para período de servicios o
   vencimiento cuando dependen de una fecha de emisión ya explícita.
-- Los perfiles de carga masiva pueden sugerir un punto de venta fijo solo si el
-  punto está cargado para el emisor activo, es Web Services, activo, no
-  bloqueado y no tiene fecha de baja. Esas condiciones son técnicas y no
-  demuestran RECE ni activan la contención: una tupla genérica, dudosa o legacy
-  debe declararse explícitamente aunque el perfil o el archivo la propongan.
-  Una omisión queda sin protección hasta PF-19B. Si el punto no está cargado,
-  el lote debe usar el punto del archivo o completar primero `Puntos de venta`.
+- Los perfiles de carga masiva pueden sugerir un punto fijo solo si el servidor
+  devuelve `usable_factuflow=true`, incluido estado efectivo
+  `verificado_rece`. El perfil no crea evidencia ni evita que el lote revalide
+  el snapshot. Si el punto no está cargado o acreditado, hay que completar
+  primero `Puntos de venta`.
 - Para servicios también se deben resolver `FchServDesde`, `FchServHasta` y
   `FchVtoPago`.
 - Para `Concepto=1` (Productos), no informar `FchServDesde`, `FchServHasta` ni
@@ -356,10 +354,11 @@ El proyecto tuvo que corregir estas estructuras:
   en la lista. La cantidad de detalles debe coincidir, no puede haber números
   duplicados y el conjunto de `CbteDesde` devuelto debe ser exactamente el de
   los comprobantes solicitados.
-- Si falla la preparación local antes de contactar ARCA, los intentos batch ya
-  creados se marcan `fallido_verificado` con categoría
-  `pre_arca_reserva_fallida`. Ese caso no requiere reconciliación porque el
-  sublote no fue enviado.
+- Si falla la preparación o reserva local antes de `FECAESolicitar`, la
+  transacción completa revierte: cero guardas, intentos y reservas nuevos, y
+  cero FECAE. WSAA o lecturas seguras (`FECompTotXRequest`,
+  `FECompUltimoAutorizado`) pueden haber ocurrido; no describirlo como “cero
+  contacto con ARCA”.
 - Si un sublote enviado no devuelve detalle confiable, el lote queda en
   `requiere_reconciliacion`; no se reintenta automáticamente y ningún grupo
   remanente debe seguir mostrándose como listo para emitir.
@@ -374,12 +373,11 @@ El proyecto tuvo que corregir estas estructuras:
   número, fecha y CUIT del emisor de la factura duplicada.
 - Los importes van positivos; el tipo de comprobante define que se trata de un
   crédito.
-- El 2026-05-08 se generó un Excel privado local con 19 notas de crédito para
-  anular duplicados productivos. Se válido contra una copia de la base, sin
-  emisión: 19 válidas, 0 errores, 0 emitidas.
-- Luego el usuario emitió las 19 notas en producción. Verificación posterior
-  solo lectura por `FECompConsultar`: 19 con `Resultado=A`, CAE coincidente e
-  informacion de `CbtesAsoc` contra la factura duplicada esperada.
+- La corrección productiva histórica se ensayó sobre una copia privada y luego
+  se verificó en modo solo lectura con `FECompConsultar`. Identificadores,
+  cantidades, CAEs y asociaciones exactas permanecen en evidencia operativa
+  privada; la invariante pública es que cada crédito conservó el `CbtesAsoc`
+  esperado.
 - En la respuesta de `FECompConsultar`, usar `CbteDesde`/`CbteHasta` para el
   número; no depender de `CbteNro`.
 
@@ -436,14 +434,12 @@ El proyecto tuvo que corregir estas estructuras:
   esa asociacion, WSAA devuelve `Computador no autorizado a acceder al servicio`.
 - Usar un punto de venta productivo cuya pertenencia a RECE haya sido revisada
   administrativamente y mantener numeración correlativa. La descripción
-  genérica Web Services no basta. Cada tupla dudosa debe declararse
-  explícitamente en la configuración privada; una omisión queda sin protección
-  hasta contar con el estado durable de PF-19B.
-- En el piloto productivo de la Fundacion, `FEParamGetPtosVenta` devolvio
-  habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban bloqueados.
-- El 2026-05-08 se corrigió la validación de emisión para interpretar
-  `Bloqueado=N` como punto habilitado. Antes de ese ajuste, el lote observado
-  podía marcar como no habilitados puntos válidos como `6`, `10` y `13`.
+  genérica Web Services no basta. En PF-19B, el punto debe tener estado efectivo
+  `verificado_rece`; una atestación vencida o ausente falla cerrado.
+- La validación interpreta `Bloqueado=N` como señal técnica de punto no
+  bloqueado, pero no como autorización RECE. La evidencia productiva detallada,
+  incluidos organización, puntos, conteos y numeración, permanece en el entorno
+  operativo privado.
 - La lista completa de puntos con sistema, domicilio y nombre fantasia no vino
   por WSFEv1; se importo desde la constancia PDF de puntos de venta.
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
@@ -459,10 +455,10 @@ El proyecto tuvo que corregir estas estructuras:
   un único proceso Uvicorn y `BATCH_WORKER_ENABLED=true` mientras el worker de
   lotes siga embebido.
 - Antes de mover la operación a VPS, preparar el paquete con
-  `python -m app.scripts.vps_migration`: `preflight` debe bloquear cualquier
-  certificado activo sin `.crt` y `.key` resolubles, `export` re-cifra claves
-  privadas con la contraseña destino y `import` exige PostgreSQL limpio ya
-  migrado con Alembic.
+  `python -m app.scripts.vps_migration`: el paquete v2 exige fuente quiescent,
+  manifest estricto, barrera de idempotencia y estados migrables; `preflight`
+  bloquea certificados incompletos o estados no terminales/inciertos, `export`
+  re-cifra claves y `import` exige PostgreSQL limpio en el head exacto.
 - La contraseña usada en `ARCA_MIGRATION_TARGET_KEY_PASSWORD` durante el export
   debe coincidir con `ARCA_PRIVATE_KEY_PASSWORD` en `.env.production`.
 - La migración y el ensayo local no solicitan CAE ni emiten comprobantes.
@@ -473,14 +469,10 @@ El proyecto tuvo que corregir estas estructuras:
 
 ## Dato histórico útil
 
-El smoke real de homologación del 2026-03-09 emitió:
-- comprobante individual con CAE registrado en evidencia local privada
-- lote con CAEs registrados en evidencia local privada
+Los smokes históricos de homologación cubrieron emisión individual, lote y
+consulta posterior. Comprobantes, puntos, CAEs, cantidades y fechas exactas
+permanecen en evidencia privada y no se replican en este repositorio público.
 
-La QA real del 2026-04-10 agregó:
-- comprobante individual `0005-00000004` con CAE registrado en evidencia local privada
-- lote `0005-00000005` con CAE registrado en evidencia local privada
-- lote `0005-00000006` con CAE registrado en evidencia local privada
-
-Detalle completo:
-- `docs/project/notes/SESSION_2026-03-09.md`
+Este documento describe el estado objetivo de `main`. La release publicada y
+producción continúan en `v0.2.2`, sin PF-19B; release y despliegue requieren
+checkpoints separados.

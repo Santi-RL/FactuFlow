@@ -1,12 +1,18 @@
-"""Extraccion de puntos de venta desde constancias ARCA."""
+"""Extracción de puntos de venta desde constancias ARCA."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from io import BytesIO
 import re
+import unicodedata
 
 from pypdf import PdfReader
+
+
+CLASIFICADOR_RECE_VERSION = "rece_constancia_v1"
+SENAL_RECE_EXACTA = "RECE para aplicativo y web services"
 
 
 class ConstanciaPuntosVentaError(ValueError):
@@ -30,6 +36,7 @@ class DatosConstanciaPuntosVenta:
 
     cuit: str | None = None
     razon_social: str | None = None
+    documento_emitido_en: date | None = None
     puntos_venta: list[PuntoVentaConstancia] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -63,7 +70,7 @@ PROVINCIAS = [
 
 
 def extraer_texto_constancia_puntos_pdf(contenido: bytes) -> str:
-    """Extraer texto de una constancia PDF de puntos de venta."""
+    """Extrae texto de una constancia PDF de puntos de venta."""
 
     try:
         reader = PdfReader(BytesIO(contenido))
@@ -72,7 +79,7 @@ def extraer_texto_constancia_puntos_pdf(contenido: bytes) -> str:
         raise ConstanciaPuntosVentaError("No se pudo leer el PDF.") from exc
 
     if not text.strip():
-        raise ConstanciaPuntosVentaError("El PDF no contiene texto extraible.")
+        raise ConstanciaPuntosVentaError("El PDF no contiene texto extraíble.")
 
     compact = re.sub(r"\s+", " ", text).upper()
     if "PUNTOS DE VENTA" not in compact:
@@ -84,11 +91,12 @@ def extraer_texto_constancia_puntos_pdf(contenido: bytes) -> str:
 
 
 def parsear_constancia_puntos_venta(texto: str) -> DatosConstanciaPuntosVenta:
-    """Parsear la lista de puntos de venta desde texto extraido del PDF."""
+    """Parsea la lista de puntos de venta desde texto extraído del PDF."""
 
     datos = DatosConstanciaPuntosVenta()
     datos.cuit = _extraer_cuit(texto)
     datos.razon_social = _extraer_razon_social(texto)
+    datos.documento_emitido_en = _extraer_fecha_documento(texto)
 
     bloque = _extraer_bloque_tabla(texto)
     rows = re.split(r"(?=\b\d{5}\s+)", bloque)
@@ -110,6 +118,33 @@ def parsear_constancia_puntos_venta(texto: str) -> DatosConstanciaPuntosVenta:
     return datos
 
 
+def es_senal_rece_exacta(sistema: str) -> bool:
+    """Clasifica solo la señal administrativa allowlist de PF-19B."""
+    normalizado = " ".join(unicodedata.normalize("NFKC", sistema).split())
+    return normalizado.casefold() == SENAL_RECE_EXACTA.casefold()
+
+
+def _extraer_fecha_documento(texto: str) -> date | None:
+    """Extrae una única fecha argentina sin inventar ante ambigüedad."""
+    valores = re.findall(r"\b(\d{1,2}/\d{1,2}/\d{4})\b", texto)
+    if not valores:
+        return None
+    fechas: list[date] = []
+    for valor in valores:
+        try:
+            fechas.append(datetime.strptime(valor, "%d/%m/%Y").date())
+        except ValueError as exc:
+            raise ConstanciaPuntosVentaError(
+                "La fecha documental de la constancia no es válida."
+            ) from exc
+    unicas = set(fechas)
+    if len(unicas) != 1:
+        raise ConstanciaPuntosVentaError(
+            "La constancia contiene fechas documentales ambiguas."
+        )
+    return fechas[0]
+
+
 def _extraer_cuit(texto: str) -> str | None:
     match = re.search(r"\b(20|23|24|27|30|33|34)\d{9}\b", texto)
     return match.group(0) if match else None
@@ -125,7 +160,7 @@ def _extraer_razon_social(texto: str) -> str | None:
 def _extraer_bloque_tabla(texto: str) -> str:
     start = re.search(r"PUNTO VENTA\s+SISTEMA\s+DOMICILIO\s+NOMBRE FANTASIA", texto)
     if not start:
-        raise ConstanciaPuntosVentaError("No se encontro la tabla de puntos de venta.")
+        raise ConstanciaPuntosVentaError("No se encontró la tabla de puntos de venta.")
     bloque = texto[start.end() :]
     end = re.search(r"\d{1,2}/\d{1,2}/\d{4}", bloque)
     return bloque[: end.start()] if end else bloque
@@ -137,6 +172,10 @@ def _parsear_fila(row: str) -> PuntoVentaConstancia:
         raise ConstanciaPuntosVentaError(f"No se pudo leer fila: {row[:80]}")
 
     numero = int(number_match.group("numero"))
+    if numero < 1:
+        raise ConstanciaPuntosVentaError(
+            "El número de punto de venta debe estar entre 1 y 99999."
+        )
     resto = number_match.group("resto")
     marker = re.search(
         r"(FISCAL|LOCALES Y ESTABLECIMIENTOS)\s*-\s*\d{4}\s*-",

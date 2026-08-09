@@ -31,6 +31,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   administrativo sanitizado de worker/pools.
 - `backend/app/api/lotes_comprobantes.py`: emisión masiva y seguimiento allowlist
   para polling de lotes.
+- `backend/app/api/puntos_venta.py`: CRUD, importación administrativa con
+  atestación RECE y sincronización técnica WSFE server-side.
 - `backend/app/api/almacenamiento.py`: endpoints administrativos de uso,
   resguardo y limpieza segura de almacenamiento.
 - `backend/app/api/formatos_importacion.py`: endpoints de formatos configurables para importar Excel externos.
@@ -53,6 +55,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   exportaciones de almacenamiento.
 - `backend/app/models/idempotencia_fiscal.py`: operaciones idempotentes e
   intentos fiscales durables para emisión ARCA segura.
+- `backend/app/models/elegibilidad_rece.py`: cabeza vigente, ledger inmutable y
+  guardas RECE por punto y ambiente.
 - `backend/app/schemas/formato_importacion.py`: contratos de formatos, detección y candidatos.
 - `backend/app/schemas/perfil_carga_masiva.py`: contratos de perfiles de carga masiva.
 - `backend/app/schemas/almacenamiento.py`: contratos del gestor de
@@ -64,6 +68,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/services/contencion_fiscal_service.py`: guarda opt-in exacta por
   ambiente, emisor, identidad/número de punto y tipo antes de
   `FECAESolicitar`.
+- `backend/app/services/elegibilidad_rece_service.py`: autoridad durable,
+  atestación productiva, revisión monotónica, snapshots y compuerta fail-closed.
 - `backend/app/services/inventario_legacy_pf19_service.py`: inventario PF-19A
   sanitizado, privado y estrictamente de solo lectura.
 - `backend/app/services/perfiles_carga_masiva_service.py`: CRUD, scoping y validación de perfiles de carga masiva.
@@ -73,10 +79,14 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/scripts/create_admin_user.py`: alta/promoción de usuario administrador.
 - `backend/app/scripts/pf19_legacy_inventory.py`: CLI privada PF-19A con emisor
   obligatorio, filtros allowlist y máximo duro de `500` registros.
+- `backend/app/scripts/vps_migration.py`: preflight/export/import/validate del
+  paquete privado v2 para SQLite a PostgreSQL.
 - `backend/app/templates/`: plantillas (PDF/HTML).
 - `backend/tests/`: tests del backend.
-- `backend/tests/integration/`: pruebas opt-in contra infraestructura desechable;
-  la capacidad PostgreSQL usa el marker `integration`.
+- `backend/tests/postgresql_harness.py`: guard central destructivo para la base
+  loopback exacta `factuflow_integration_test`.
+- `backend/tests/integration/`: pruebas opt-in contra PostgreSQL desechable para
+  capacidad, PF-01, PF-19A/PF-19B y migración VPS v2.
 - `backend/tests/test_arca/`: tests específicos de ARCA.
 
 ## Frontend
@@ -95,12 +105,15 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   administrativo de almacenamiento.
 - `frontend/src/services/formatos-importacion.service.ts`: cliente HTTP para listar y detectar formatos de importación.
 - `frontend/src/services/perfiles-carga-masiva.service.ts`: cliente HTTP de perfiles de carga masiva.
+- `frontend/src/services/puntos_venta.service.ts`: CRUD, importación/atestación y
+  sincronización técnica server-side de puntos.
 - `frontend/src/stores/`: estado global (Pinia).
 - `frontend/src/types/`: tipos compartidos.
 - `frontend/src/types/lote-comprobante.ts`: tipos del flujo de lotes.
 - `frontend/src/types/almacenamiento.ts`: tipos del gestor de almacenamiento.
 - `frontend/src/types/formato-importacion.ts`: tipos de formatos, versiones y candidatos detectados.
 - `frontend/src/types/perfil-carga-masiva.ts`: tipos de perfiles de carga masiva.
+- `frontend/src/types/punto_venta.ts`: DTO técnico y estado efectivo RECE.
 - `frontend/src/assets/`: estáticos.
 
 ## Documentación
@@ -108,6 +121,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `docs/agents/README.md`: índice de documentación y guía de búsqueda.
 - `docs/agents/overview.md`: resumen y arquitectura.
 - `docs/agents/arca.md`: integración ARCA y nomenclatura legacy.
+- `docs/agents/pf-19b-elegibilidad-rece-design.md`: diseño fiscal de autoridad
+  RECE durable, fail-closed y rollout.
 - `docs/arca-ws/`: descargas locales de documentación oficial ARCA WS (gitignored).
 - `docs/api/`: referencia de API REST.
 - `docs/certificates/`: manejo de certificados.

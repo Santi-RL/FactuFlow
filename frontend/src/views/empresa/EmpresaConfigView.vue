@@ -99,6 +99,7 @@ const compatibilidadPlantilla = ref<FormatoImportacionCompatibilidad | null>(
 );
 const evaluandoCompatibilidad = ref(false);
 let compatibilidadPlantillaTimer: ReturnType<typeof setTimeout> | undefined;
+let configuracionCargaMasivaRequestId = 0;
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
 const puedeAdministrarEmisor = computed(() =>
@@ -872,7 +873,20 @@ const cargarEmpresa = async () => {
 };
 
 const cargarConfiguracionCargaMasiva = async () => {
-  if (!empresaStore.empresaActivaId) return;
+  const empresaId = empresaStore.empresaActivaId;
+  const requestId = ++configuracionCargaMasivaRequestId;
+  const sigueVigente = () =>
+    empresaStore.empresaActivaId === empresaId &&
+    requestId === configuracionCargaMasivaRequestId;
+
+  perfilesCargaMasiva.value = [];
+  formatosImportacion.value = [];
+  puntosVenta.value = [];
+  catalogoCampos.value = [];
+  if (!empresaId) {
+    loadingPerfiles.value = false;
+    return;
+  }
 
   loadingPerfiles.value = true;
   try {
@@ -882,18 +896,22 @@ const cargarConfiguracionCargaMasiva = async () => {
       puntosVentaService.getAll(),
       formatosImportacionService.catalogoCampos(),
     ]);
+    if (!sigueVigente()) return;
     perfilesCargaMasiva.value = perfiles;
     formatosImportacion.value = formatos;
     puntosVenta.value = puntos;
     catalogoCampos.value = campos;
   } catch (error: any) {
+    if (!sigueVigente()) return;
     showError(
       "No se pudo cargar la configuración de carga masiva",
       error.response?.data?.detail ||
         "Revisa tu sesión e intenta nuevamente.",
     );
   } finally {
-    loadingPerfiles.value = false;
+    if (sigueVigente()) {
+      loadingPerfiles.value = false;
+    }
   }
 };
 
@@ -1876,7 +1894,7 @@ onMounted(async () => {
             class="md:col-span-2"
           >
             Para elegir un punto de venta fijo, primero cargá los puntos de
-            venta habilitados del emisor en la pantalla Puntos de venta.
+            venta elegibles para emitir en la pantalla Puntos de venta.
           </BaseAlert>
           <BaseSelect
             v-model="perfilForm.configuracion.concepto_modo"

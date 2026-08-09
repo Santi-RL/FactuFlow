@@ -72,11 +72,10 @@ real controlada, no la configuración productiva base.
 mismo punto de reanudacion productivo y no hay contradicciones sobre certificado,
 autorización `wsfe` ni puntos de venta productivos.
 
-**Cierre:** Se definio `docs/agents/current-status.md` como fuente canónica del
-estado operativo. Se revalido por base local y por API segura contra ARCA
-producción que el emisor real tiene certificado productivo activo, conexión ARCA
-OK, puntos Web Services `6`, `8`, `10`, `12`, `13` y `14` disponibles, `7` y
-`9` bloqueados, y último comprobante Factura B en punto `6` igual a `0`. Se
+**Cierre:** Se definió `docs/agents/current-status.md` como fuente canónica del
+estado operativo. La verificación privada confirmó las precondiciones técnicas
+productivas mediante base local y consultas ARCA seguras. Identificadores,
+conteos y resultados exactos permanecen en la evidencia operativa privada. Se
 actualizaron `current-status.md`, `manual-qa.md`, `overview.md`,
 `user-guide/README.md`, `agents/arca.md`, `agents/testing.md`, `ROADMAP.md` y
 `agents/README.md` para que el punto de reanudacion sea la primera prueba real

@@ -13,6 +13,8 @@
 - `backend/app/arca/cache.py`: cache de tickets WSAA
 - `backend/app/arca/models.py`: modelos de request/response
 - `backend/app/services/facturacion_service.py`: orquestacion de emisión real
+- `backend/app/services/elegibilidad_rece_service.py`: autoridad RECE durable,
+  atestación, snapshots y guarda fail-closed
 - `backend/app/api/arca.py`: endpoints HTTP vinculados a ARCA
 
 ## Endpoints oficiales
@@ -24,7 +26,9 @@
 
 ## Variables de entorno reales del proyecto
 
-- `ARCA_ENV`: `homologacion` o `produccion`
+- `ARCA_ENV`: enum estricto; solo `homologacion` o `produccion`. `AFIP_ENV` es
+  el alias legacy y `ARCA_ENV` tiene precedencia. Si ambos faltan usa
+  `homologacion`; un valor presente vacío o inválido impide iniciar.
 - `CERTS_PATH`: base path de certificados
 - `CERTIFICATE_MAX_UPLOAD_BYTES`: tamaño máximo para subir certificados antes
   de persistirlos
@@ -140,28 +144,16 @@
 ### Puntos de venta
 
 - No se detectó una pantalla separada en el portal que diga "homologación" para los puntos de venta de WSFEv1.
-- En la práctica se revisa la misma pantalla `A/B/M de puntos de venta / emision`.
-- La columna editable `Sistema` puede mostrar la señal administrativa
-  `RECE para aplicativo y web services`, pero no constituye evidencia durable
-  ni histórica. Una descripción genérica `Web Services` tampoco prueba esa
-  compatibilidad. PF-19A contiene únicamente las tuplas declaradas
-  explícitamente en `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`; una omisión queda
-  sin protección hasta PF-19B.
-- En esta sesión se usó el punto de venta `5`.
-- En producción para el emisor real privado, ARCA
-  devolvio habilitados `6`, `8`, `10`, `12`, `13` y `14`; `7` y `9` estaban
-  bloqueados.
+- En la práctica se revisa la misma pantalla `A/B/M de puntos de venta / emisión`.
+- PF-19B separa el estado técnico de la autoridad RECE. La columna editable
+  `Sistema`, la marca legacy `Usable` y la presencia en
+  `FEParamGetPtosVenta` nunca promueven elegibilidad por sí solas.
 - `FEParamGetPtosVenta` devuelve el indicador `Bloqueado` como `N`/`S`; en
   validaciones de emisión debe normalizarse explícitamente. `N` significa no
   bloqueado y debe tratarse como punto habilitado. No evaluar ese campo como
-  booleano directo.
-- El 2026-05-07 se revalido de forma segura por API local contra ARCA
-  producción:
-  - `GET /api/arca/test-conexion`: `status=ok`, ambiente `produccion`
-  - `GET /api/arca/puntos-venta`: `6`, `8`, `10`, `12`, `13` y `14` no
-    bloqueados; `7` y `9` bloqueados
-  - `GET /api/arca/ultimo-comprobante/6/6`: último comprobante `0`, próximo
-    `1` para Factura B en punto de venta `6`
+  booleano directo. La evidencia productiva detallada, incluidos
+  identificadores, conteos y numeración, permanece en el entorno operativo
+  privado; este documento conserva únicamente la invariante técnica validada.
 - `FEParamGetPtosVenta` no devuelve domicilio ni nombre fantasia. Esos datos se
   importan desde la constancia PDF de `Administración de Puntos de Venta y
   Domicilios`.
@@ -176,22 +168,46 @@
 - Certificados y puntos de venta solo consultan estado ARCA cuando existe un
   emisor confirmado para la pestaña. Un cambio de emisor cierra acciones
   pendientes e invalida resultados tardíos antes de actualizar la UI.
-- El comportamiento actual marca los puntos devueltos por
-  `FEParamGetPtosVenta` como Web Services, activos y no bloqueados cuando
-  `Bloqueado=N` y no tienen fecha de baja. La evidencia productiva del
-  07/08/2026 demostró que esa presencia técnica no alcanza para probar que el
-  punto pertenece a RECE: un punto clasificado genéricamente como Web Services
-  alcanzó `FECAESolicitar` y ARCA devolvió el error global `10005`, validación
-  excluyente por punto de venta no RECE según el manual WSFEv1.
+- La sincronización server-side marca técnicamente los puntos informados por
+  `FEParamGetPtosVenta`, desactiva ausentes y escribe el cambio de forma atómica,
+  pero conserva el estado RECE vigente o inicia una cabeza cerrada; nunca
+  promueve elegibilidad. No encadena escrituras desde el navegador.
 - PF-19A contiene antes de `FECAESolicitar` cada tupla explícitamente declarada
   por ambiente, emisor, punto y tipo. La coincidencia usa tanto la identidad
   local como el número fiscal para que renumerar o recrear el punto no evite el
   bloqueo. La lista vacía no acredita elegibilidad.
-- La marca local `Usable`, la constancia y el texto editable `Sistema` describen
-  señales actuales, no evidencia fiscal durable ni histórica. Para contener un
-  punto genérico o dudoso hay que declarar explícitamente cada tupla afectada;
-  una combinación omitida sigue desprotegida hasta que PF-19B incorpore
-  `verificado_rece`, `no_rece` y `no_verificado` de extremo a extremo.
+- PF-19B falla cerrado para toda omisión: solo `verificado_rece` efectivo para
+  el ambiente actual habilita un punto técnica y fiscalmente válido. Una
+  atestación positiva exige administrador, servidor en `produccion`,
+  confirmación de procedencia, constancia completa con CUIT/fecha exactos, hasta
+  siete días de antigüedad y señal exacta
+  `RECE para aplicativo y web services`. Se persisten hash, fuente, versión,
+  actor y snapshots mínimos, nunca el PDF ni su texto probatorio completo.
+- La importación confirmada termina primero PDF, WSAA y
+  `FEParamGetPtosVenta`. Antes de cualquier `db.add` o `flush` de Punto/cabezas,
+  toma `Usuario administrador -> Empresa` con `FOR UPDATE`,
+  `populate_existing` y `no_autoflush`; revalida actor activo/admin y CUIT
+  persistido. El productor vuelve a validar idempotentemente esa frontera y
+  recién después continúa `puntos por ID -> cabezas/guardas` hasta el único
+  commit. La edición fiscal del emisor bloquea `Empresa`, fuerza la relectura
+  persistida y recién después compara campos y consulta dependencias.
+  Si el CUIT cambia primero, la atestación anterior revierte; si la atestación
+  gana, el cambio de identidad responde `409`. Además, cada contexto emitible
+  compara `empresa_cuit_snapshot` con el CUIT actual y falla cerrado ante una
+  divergencia.
+- Homologación permanece `no_verificado` hasta disponer de una fuente probatoria
+  específica; no reutiliza una constancia productiva. Evidencia vencida degrada
+  el estado efectivo a `no_verificado`. La API/UI expone badge, causa, vigencia,
+  procedencia y revisión fiscal, y los selectores usan `usable_factuflow`
+  calculado por el servidor.
+- Al cambiar de emisor, Lotes invalida generaciones y vacía formatos, perfiles y
+  puntos antes del primer `await`. Sus tres loaders capturan `empresa_id` y una
+  generación propia, descartan éxito/error obsoleto y la cadena revalida el
+  emisor después de cada espera antes de iniciar la siguiente carga;
+  `loadingPerfiles` también queda protegido. EmpresaConfig conserva la limpieza
+  de perfiles, formatos, puntos y catálogo y la misma guarda sobre su loader
+  agregado. Los `finally` obsoletos no apagan la solicitud vigente. Las requests
+  HTTP anteriores pueden completar y simplemente se ignoran.
 - PF-19A no reetiqueta `10005` legacy como rechazo terminal: el código no quedó
   persistido de forma estructurada y su firma textual solo identifica
   candidatos de inventario. PF-19C definirá esa transición; timeout, respuesta
@@ -203,6 +219,9 @@
   no se debe inventar estado ARCA activo: los puntos existentes conservan
   `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
   sincronizar con ARCA o revisarlos manualmente.
+- Este comportamiento describe el estado objetivo de `main`. La release
+  publicada y producción continúan en `v0.2.2`, sin PF-19B; no confundir merge,
+  release y despliegue.
 
 ### Constancias de emisores
 
@@ -470,12 +489,10 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   explícita. El backend de lotes sigue recibiendo `archivo` o `fija`; el perfil
   no puede emitir ni validar de forma silenciosa.
 - Un perfil de carga masiva también puede precargar punto de venta. Las opciones
-  válidas son usar el punto definido en el archivo o fijar un punto Web Services
-  activo, no bloqueado y sin baja del emisor activo. Es un filtro técnico: no
-  acredita RECE ni incorpora automáticamente la contención central. Si el
-  punto es genérico o dudoso, hay que declarar su tupla explícitamente; una
-  omisión queda sin protección hasta PF-19B. Si no está cargado en `Puntos de
-  venta`, no se puede elegir como punto fijo.
+  válidas son usar el punto definido en el archivo o fijar uno con
+  `usable_factuflow=true`, incluido `verificado_rece` efectivo. El perfil no
+  crea evidencia y el lote revalida su snapshot antes de emitir. Si no está
+  cargado o acreditado en `Puntos de venta`, no se puede elegir como fijo.
 - Para concepto servicios o productos y servicios, también deben resolverse
   `FchServDesde`, `FchServHasta` y `FchVtoPago`.
 - La validación local aplica una ventana ARCA preventiva:
@@ -531,13 +548,11 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   venta o número del comprobante asociado.
 - Los importes se cargan positivos; el tipo de comprobante define el efecto
   fiscal del crédito.
-- Para los duplicados productivos del 2026-05-08 se preparo un Excel privado
-  local con 19 Nota de Crédito C y se válido sin emisión contra
-  una copia de la base: 19 válidas, 0 errores, 0 emitidas.
-- El usuario emitió luego esas 19 Nota de Crédito C en producción. Verificacion
-  posterior solo lectura por `FECompConsultar`: las 19 devolvieron
-  `Resultado=A`, CAE coincidente y `CbtesAsoc` contra la Factura C duplicada
-  esperada.
+- La corrección productiva histórica fue validada con un Excel privado y luego
+  verificada en modo solo lectura mediante `FECompConsultar`. Identificadores,
+  cantidades, CAEs y asociaciones exactas permanecen en evidencia operativa
+  privada; la invariante pública es que cada crédito autorizado conservó su
+  `CbtesAsoc` esperado.
 
 ## Hallazgos técnicos de integración solucionados
 
@@ -572,10 +587,11 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   posición del detalle devuelto por ARCA. La cantidad y el conjunto de números
   deben coincidir exactamente con lo solicitado; cualquier diferencia vuelve el
   sublote no confiable.
-- Si falla la preparación local antes de enviar el sublote a ARCA, los intentos
-  ya reservados se cierran como `fallido_verificado` con categoría
-  `pre_arca_reserva_fallida`; no deben quedar `en_proceso` ni forzar
-  reconciliación porque ARCA no fue contactada.
+- Si falla la preparación o reserva local antes de `FECAESolicitar`, la
+  transacción completa revierte: quedan cero guardas, intentos y reservas
+  nuevos, y cero FECAE. WSAA y lecturas seguras como `FECompTotXRequest` o
+  `FECompUltimoAutorizado` pueden haber ocurrido antes; no afirmar que ARCA no
+  fue contactada.
 - Si un sublote ya enviado a ARCA queda sin detalle confiable, el lote se marca
   como `requiere_reconciliacion` para bloquear reintentos automáticos hasta
   consultar ARCA. Los grupos todavía `validado` no deben seguir apareciendo
@@ -602,18 +618,12 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
 Los CAEs emitidos en la sesión quedan como evidencia local privada y no deben
 copiarse a la documentación versionada.
 
-## QA real completada el 2026-04-10
+## QA real histórica completada
 
-- `Ver PDF` y `Descargar PDF` revalidados manualmente.
-- Emisión individual real desde UI:
-  - `0005-00000004`
-  - CAE registrado en evidencia local privada
-- Emisión masiva real desde UI:
-  - `0005-00000005`
-  - CAE registrado en evidencia local privada
-  - `0005-00000006`
-  - CAE registrado en evidencia local privada
-- `Sincronizar con ARCA` en puntos de venta corregido y revalidado manualmente.
+- `Ver PDF`, `Descargar PDF`, emisión individual, emisión masiva y
+  sincronización técnica fueron revalidados manualmente.
+- Comprobantes, puntos, CAEs, cantidades y fechas exactas permanecen en la
+  evidencia operativa privada; no se replican en este repositorio público.
 
 ## Referencias locales
 
