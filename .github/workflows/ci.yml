@@ -33,6 +33,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: "24.15.0"
+          package-manager-cache: false
 
       - name: Classify changed files
         id: classify
@@ -86,6 +87,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: "24.15.0"
+          package-manager-cache: false
 
       - name: Check documentation alignment
         run: npm run docs:check
@@ -405,6 +407,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: "24.15.0"
+          package-manager-cache: false
 
       - name: Check npm dependencies
         if: needs.scope.outputs.runtime == 'true'

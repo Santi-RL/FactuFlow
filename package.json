@@ -18,7 +18,7 @@
     "frontend:coverage": "npm --prefix frontend run test:coverage",
     "lint": "npm run backend:lint && npm run frontend:lint && npm run frontend:type-check",
     "test": "npm run backend:test && npm run frontend:test && npm run test:scripts",
-    "test:scripts": "node --test tools/package-scripts.test.mjs tools/ci/change-scope.test.mjs tools/ci/documentation-alignment.test.mjs tools/ci/runtime-smoke.test.mjs tools/ci/version-alignment.test.mjs",
+    "test:scripts": "node --test tools/package-scripts.test.mjs tools/ci/change-scope.test.mjs tools/ci/ci-workflow.test.mjs tools/ci/documentation-alignment.test.mjs tools/ci/runtime-smoke.test.mjs tools/ci/version-alignment.test.mjs",
     "test:runtime-smoke": "node tools/ci/runtime-smoke.mjs",
     "docs:check": "node tools/ci/documentation-alignment.mjs",
     "clawpatch:backend:init": "node tools/clawpatch/run-clawpatch.mjs --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json init",

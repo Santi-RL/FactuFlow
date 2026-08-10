@@ -35,7 +35,7 @@ Reglas vigentes desde 2026-05-22:
   de backup/restauración/upgrade/rollback.
 - PF-16C, PF-16D y PF-16E quedaron incorporados por el candidato:
   Node.js 24, auditorías npm, cobertura con gates, CI PostgreSQL/Runtime Smoke
-  y `26/26` tests de scripts. PF-16G ya tiene matriz y dossier preparados, pero su
+  y `27/27` tests de scripts. PF-16G ya tiene matriz y dossier preparados, pero su
   aceptación funcional y CI atribuible al SHA final siguen pendientes. La firma externa de manifests
   VPS permanece como P2 posterior y no bloquea este candidato.
 

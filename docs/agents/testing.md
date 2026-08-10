@@ -290,7 +290,7 @@ seguras, sin provocar CAE ni `10005` real.
   `56/50/43/57`.
 - PF-16C/D/E: Node.js `24.15.0`, npm `11.12.1`, auditorías npm de producción y
   desarrollo sin vulnerabilidades, Runtime Smoke cubierto por pruebas unitarias
-  y CI configurada para PostgreSQL 16; `npm run test:scripts` aprobó `26/26`.
+  y CI configurada para PostgreSQL 16; `npm run test:scripts` aprobó `27/27`.
    La prueba Runtime Smoke con PostgreSQL real todavía no se ejecutó en CI.
 - `autoreview` final autorizado: el primer intento con el binario `0.130` se
   detuvo antes de revisar por el catálogo `max`; el reintento con el binario
