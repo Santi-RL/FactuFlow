@@ -1,3 +1,5 @@
+import type { ErrorArcaFiscalResponse } from "@/types/comprobante";
+
 export interface LoteComprobanteFila {
   id: number;
   fila_excel: number;
@@ -128,11 +130,13 @@ export interface LoteProcesamientoResponse {
   lote: LoteComprobante;
   mensaje: string;
   en_progreso: boolean;
+  errores_arca?: ErrorArcaFiscalResponse[];
 }
 
 export interface LoteAccionResponse {
   lote: LoteComprobante;
   mensaje: string;
+  errores_arca?: ErrorArcaFiscalResponse[];
 }
 
 export interface ReconciliacionExternaItem {

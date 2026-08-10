@@ -121,6 +121,11 @@ class IntentoEmisionFiscal(Base):
 
     __tablename__ = "intentos_emision_fiscal"
     __table_args__ = (
+        UniqueConstraint(
+            "id",
+            "empresa_id",
+            name="uq_intentos_emision_fiscal_id_empresa",
+        ),
         CheckConstraint(
             f"estado IN ({_ESTADOS_INTENTO_FISCAL_SQL})",
             name="ck_intentos_emision_fiscal_estado_valido",
@@ -270,6 +275,9 @@ class IntentoEmisionFiscal(Base):
     estado = Column(String(40), nullable=False, default="en_proceso")
     categoria_error = Column(String(80), nullable=True)
     mensaje = Column(Text, nullable=True)
+    # Evidencia estructurada de ARCA. Los intentos anteriores a PF-19C conservan
+    # ``NULL`` para no reinterpretar información legacy ni mensajes libres.
+    errores_arca_json = Column(JSON, nullable=True)
     ambiente = Column(String(20), nullable=True)
     punto_venta_elegibilidad_revision_id = Column(Integer, nullable=True)
     punto_venta_revision_fiscal = Column(Integer, nullable=True)
@@ -358,3 +366,80 @@ class IntentoEmisionFiscal(Base):
         ],
         viewonly=True,
     )
+
+
+class ResolucionLegacyPF19Journal(Base):
+    """Journal append-only de cierres administrativos legacy de PF-19."""
+
+    __tablename__ = "resoluciones_legacy_pf19_journal"
+    __table_args__ = (
+        CheckConstraint(
+            "length(plan_sha256) = 64",
+            name="ck_resoluciones_legacy_pf19_journal_plan_sha256",
+        ),
+        CheckConstraint(
+            "length(terminal_response_sha256) = 64",
+            name="ck_resoluciones_legacy_pf19_journal_terminal_response_sha256",
+        ),
+        CheckConstraint(
+            "length(backup_sha256) = 64",
+            name="ck_resoluciones_legacy_pf19_journal_backup_sha256",
+        ),
+        CheckConstraint(
+            "ambiente_consultado IN ('homologacion', 'produccion', 'ambos')",
+            name="ck_resoluciones_legacy_pf19_journal_ambiente",
+        ),
+        CheckConstraint(
+            "accion = 'cerrar_legacy_sin_autorizacion_verificada'",
+            name="ck_resoluciones_legacy_pf19_journal_accion",
+        ),
+        CheckConstraint(
+            "resultado = 'legacy_sin_autorizacion_verificada'",
+            name="ck_resoluciones_legacy_pf19_journal_resultado",
+        ),
+        UniqueConstraint(
+            "intento_id",
+            name="uq_resoluciones_legacy_pf19_journal_intento",
+        ),
+        ForeignKeyConstraint(
+            ["intento_id", "empresa_id"],
+            [
+                "intentos_emision_fiscal.id",
+                "intentos_emision_fiscal.empresa_id",
+            ],
+            name="fk_resoluciones_legacy_pf19_journal_intento_empresa",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_resoluciones_legacy_pf19_journal_empresa_intento",
+            "empresa_id",
+            "intento_id",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    accion = Column(String(80), nullable=False)
+    plan_sha256 = Column(String(64), nullable=False)
+    terminal_response_sha256 = Column(String(64), nullable=False)
+    actor_usuario_id = Column(
+        Integer,
+        ForeignKey("usuarios.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    ambiente_consultado = Column(String(20), nullable=False)
+    resultado = Column(String(80), nullable=False)
+    resultado_consultas_json = Column(JSON, nullable=False)
+    backup_metadata_json = Column(JSON, nullable=False)
+    backup_sha256 = Column(String(64), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    intento_id = Column(Integer, nullable=False)
+    empresa_id = Column(
+        Integer,
+        ForeignKey("empresas.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+    intento = relationship("IntentoEmisionFiscal")
+    empresa = relationship("Empresa")
+    actor_usuario = relationship("Usuario", foreign_keys=[actor_usuario_id])

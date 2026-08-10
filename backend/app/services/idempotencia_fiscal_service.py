@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from fastapi.encoders import jsonable_encoder
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import exists, inspect as sa_inspect, null, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
@@ -18,6 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.arca.utils import clean_cuit
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.comprobante import Comprobante
+from app.models.elegibilidad_rece import PuntoVentaGuardaEmisionRece
 from app.models.idempotencia_fiscal import (
     ESTADOS_INTENTO_FISCAL_BLOQUEANTES,
     ESTADOS_RESERVA_FISCAL_ACTIVA,
@@ -60,6 +62,270 @@ class IdempotenciaFiscalService:
         """Inicializa el servicio con una sesión async."""
         self.db = db
 
+    async def validar_replay_individual_durable(
+        self,
+        *,
+        operacion_id: int,
+        empresa_id: int,
+        respuesta_raw: Any,
+        permitir_candidato_sin_publicar: bool = False,
+    ) -> EmitirComprobanteResponse | None:
+        """Valida estado, owner y grafo terminal antes de publicar un replay."""
+        if not isinstance(respuesta_raw, dict):
+            return None
+        operacion = (
+            await self.db.execute(
+                select(OperacionIdempotente)
+                .where(OperacionIdempotente.id == operacion_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if (
+            operacion is None
+            or operacion.empresa_id != empresa_id
+            or operacion.tipo_operacion != "emitir_comprobante"
+            or operacion.lote_id is not None
+        ):
+            return None
+        if permitir_candidato_sin_publicar:
+            if operacion.response_json is not None or operacion.estado not in {
+                "en_proceso",
+                "requiere_reconciliacion",
+            }:
+                return None
+        elif operacion.response_json != respuesta_raw:
+            return None
+        try:
+            respuesta = EmitirComprobanteResponse.model_validate(respuesta_raw)
+        except PydanticValidationError:
+            return None
+
+        estado_respuesta = "fallido"
+        if respuesta.exito:
+            estado_respuesta = "finalizado"
+        elif respuesta.categoria_error == "duplicado_logico":
+            estado_respuesta = "requiere_confirmacion_duplicado"
+        elif respuesta.categoria_error == "arca_rechazo_global_excluyente":
+            estado_respuesta = "rechazado_arca"
+        elif respuesta.requiere_reconciliacion:
+            estado_respuesta = "requiere_reconciliacion"
+        estados_compatibles = {
+            "finalizado": {"finalizado"},
+            "requiere_confirmacion_duplicado": {"requiere_confirmacion_duplicado"},
+            "rechazado_arca": {"rechazado_arca"},
+            "requiere_reconciliacion": {"requiere_reconciliacion"},
+            "fallido": {"fallido", "fallido_verificado"},
+        }
+        if (
+            not permitir_candidato_sin_publicar
+            and operacion.estado not in estados_compatibles[estado_respuesta]
+        ):
+            return None
+
+        intentos = list(
+            (
+                await self.db.execute(
+                    select(IntentoEmisionFiscal)
+                    .where(IntentoEmisionFiscal.operacion_id == operacion_id)
+                    .order_by(IntentoEmisionFiscal.id)
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        guardas = list(
+            (
+                await self.db.execute(
+                    select(PuntoVentaGuardaEmisionRece)
+                    .where(PuntoVentaGuardaEmisionRece.operacion_id == operacion_id)
+                    .order_by(PuntoVentaGuardaEmisionRece.id)
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not intentos:
+            if permitir_candidato_sin_publicar:
+                return None
+            return await self._validar_replay_individual_sin_reserva(
+                respuesta=respuesta,
+                empresa_id=empresa_id,
+                estado_respuesta=estado_respuesta,
+                guardas=guardas,
+            )
+        if len(intentos) != 1 or len(guardas) != 1:
+            return None
+
+        intento = intentos[0]
+        guarda = guardas[0]
+        errores_arca = [
+            error.model_dump(mode="json") for error in respuesta.errores_arca
+        ]
+        identidad_valida = (
+            intento.operacion_id == operacion_id
+            and intento.empresa_id == empresa_id
+            and intento.lote_id is None
+            and intento.grupo_id is None
+            and intento.numero_planificado is not None
+            and intento.tipo_comprobante == respuesta.tipo_comprobante
+            and intento.punto_venta_numero == respuesta.punto_venta
+            and intento.numero_planificado == respuesta.numero
+            and intento.fecha_emision == respuesta.fecha
+            and Decimal(str(intento.total)).quantize(Decimal("0.01"))
+            == Decimal(str(respuesta.total)).quantize(Decimal("0.01"))
+            and intento.cae == respuesta.cae
+            and intento.cae_vencimiento == respuesta.cae_vencimiento
+            and intento.comprobante_id == respuesta.comprobante_id
+            and intento.categoria_error == respuesta.categoria_error
+            and (intento.errores_arca_json or []) == errores_arca
+            and (intento.mensaje is None or intento.mensaje == respuesta.mensaje)
+            and intento.guarda_rece_id == guarda.id
+            and guarda.operacion_id == operacion_id
+            and guarda.empresa_id == empresa_id
+            and guarda.punto_venta_id == intento.punto_venta_id
+            and guarda.ambiente == intento.ambiente
+            and guarda.elegibilidad_revision_id
+            == intento.punto_venta_elegibilidad_revision_id
+            and guarda.punto_venta_revision_fiscal
+            == intento.punto_venta_revision_fiscal
+        )
+        if not identidad_valida:
+            return None
+
+        if estado_respuesta == "finalizado":
+            return await self._validar_replay_individual_autorizado(
+                respuesta=respuesta,
+                intento=intento,
+                guarda=guarda,
+                empresa_id=empresa_id,
+            )
+        if estado_respuesta == "rechazado_arca":
+            error_canonico = [
+                {
+                    "codigo": 10005,
+                    "alcance": "global",
+                    "mensaje": (
+                        "El punto de venta no está dado de alta como RECE en ARCA."
+                    ),
+                }
+            ]
+            if (
+                intento.estado != "rechazado_arca"
+                or guarda.fase != "cerrada_terminal"
+                or respuesta.exito is not False
+                or respuesta.requiere_reconciliacion is not False
+                or respuesta.cae is not None
+                or respuesta.comprobante_id is not None
+                or errores_arca != error_canonico
+                or respuesta.mensaje
+                != "ARCA rechazó el requerimiento completo antes de autorizar."
+                or respuesta.errores
+                != [
+                    "Revisá la habilitación RECE del punto de venta antes de iniciar otra emisión."
+                ]
+            ):
+                return None
+            return respuesta
+        if estado_respuesta == "requiere_reconciliacion":
+            if (
+                intento.estado != "requiere_reconciliacion"
+                or guarda.fase != "requiere_reconciliacion"
+            ):
+                return None
+            return respuesta
+        if (
+            estado_respuesta == "fallido"
+            and intento.estado in {"fallido_verificado", "rechazado_arca"}
+            and guarda.fase in {"cerrada_pre_arca", "cerrada_terminal"}
+        ):
+            return respuesta
+        return None
+
+    async def _validar_replay_individual_sin_reserva(
+        self,
+        *,
+        respuesta: EmitirComprobanteResponse,
+        empresa_id: int,
+        estado_respuesta: str,
+        guardas: list[PuntoVentaGuardaEmisionRece],
+    ) -> EmitirComprobanteResponse | None:
+        """Acepta solo terminales pre-reserva sin claims fiscales huérfanos."""
+        if (
+            guardas
+            or estado_respuesta not in {"fallido", "requiere_confirmacion_duplicado"}
+            or respuesta.exito
+            or respuesta.cae is not None
+            or respuesta.cae_vencimiento is not None
+            or respuesta.errores_arca
+            or respuesta.requiere_reconciliacion
+        ):
+            return None
+        if estado_respuesta == "fallido":
+            return respuesta if respuesta.comprobante_id is None else None
+        if respuesta.comprobante_id is None:
+            return None
+        comprobante = await self.db.get(Comprobante, respuesta.comprobante_id)
+        punto = (
+            await self.db.get(PuntoVenta, comprobante.punto_venta_id)
+            if comprobante is not None
+            else None
+        )
+        if (
+            comprobante is None
+            or punto is None
+            or comprobante.estado != "autorizado"
+            or comprobante.empresa_id != empresa_id
+            or punto.empresa_id != empresa_id
+            or comprobante.tipo_comprobante != respuesta.tipo_comprobante
+            or punto.numero != respuesta.punto_venta
+            or comprobante.numero != respuesta.numero
+            or comprobante.fecha_emision != respuesta.fecha
+            or Decimal(str(comprobante.total)).quantize(Decimal("0.01"))
+            != Decimal(str(respuesta.total)).quantize(Decimal("0.01"))
+        ):
+            return None
+        return respuesta
+
+    async def _validar_replay_individual_autorizado(
+        self,
+        *,
+        respuesta: EmitirComprobanteResponse,
+        intento: IntentoEmisionFiscal,
+        guarda: PuntoVentaGuardaEmisionRece,
+        empresa_id: int,
+    ) -> EmitirComprobanteResponse | None:
+        """Exige comprobante autorizado idéntico al intento y DTO durable."""
+        if (
+            intento.estado != "autorizado"
+            or guarda.fase != "cerrada_terminal"
+            or intento.comprobante_id is None
+            or respuesta.requiere_reconciliacion
+            or respuesta.categoria_error is not None
+            or respuesta.errores_arca
+        ):
+            return None
+        comprobante = await self.db.get(Comprobante, intento.comprobante_id)
+        if (
+            comprobante is None
+            or comprobante.estado != "autorizado"
+            or comprobante.empresa_id != empresa_id
+            or comprobante.punto_venta_id != intento.punto_venta_id
+            or comprobante.tipo_comprobante != intento.tipo_comprobante
+            or comprobante.numero != intento.numero_planificado
+            or comprobante.fecha_emision != intento.fecha_emision
+            or Decimal(str(comprobante.total)).quantize(Decimal("0.01"))
+            != Decimal(str(intento.total)).quantize(Decimal("0.01"))
+            or comprobante.cae != intento.cae
+            or comprobante.cae_vencimiento != intento.cae_vencimiento
+            or respuesta.comprobante_id != comprobante.id
+            or respuesta.cae != comprobante.cae
+            or respuesta.cae_vencimiento != comprobante.cae_vencimiento
+        ):
+            return None
+        return respuesta
+
     @staticmethod
     def respuesta_worker_en_progreso_valida(
         response_json: Any,
@@ -70,11 +336,16 @@ class IdempotenciaFiscalService:
         material_rece: dict[str, Any],
     ) -> bool:
         """Reconoce solo el ownership durable exacto del worker de un lote."""
-        if not isinstance(response_json, dict) or set(response_json) != {
-            "lote",
-            "mensaje",
-            "en_progreso",
+        if not isinstance(response_json, dict):
+            return False
+        claves = frozenset(response_json)
+        claves_legacy = {"lote", "mensaje", "en_progreso"}
+        if claves not in {
+            frozenset(claves_legacy),
+            frozenset(claves_legacy | {"errores_arca"}),
         }:
+            return False
+        if "errores_arca" in response_json and response_json["errores_arca"] != []:
             return False
         lote = response_json.get("lote")
         if (
@@ -102,6 +373,26 @@ class IdempotenciaFiscalService:
             or material != material_rece
         ):
             return False
+        if not IdempotenciaFiscalService.material_rece_valido(
+            material,
+            empresa_id=empresa_id,
+        ):
+            return False
+        return True
+
+    @staticmethod
+    def material_rece_valido(
+        material: Any,
+        *,
+        empresa_id: int,
+    ) -> bool:
+        """Valida sin coerción la forma y la huella del material RECE durable."""
+        if not isinstance(material, dict) or set(material) != {
+            "grupo_ids",
+            "grupos_hash",
+            "grupos",
+        }:
+            return False
         grupos = material.get("grupos")
         grupo_ids = material.get("grupo_ids")
         grupos_hash = material.get("grupos_hash")
@@ -114,11 +405,12 @@ class IdempotenciaFiscalService:
             or len(grupos_hash) != 64
         ):
             return False
-        try:
-            ids_normalizados = [int(grupo_id) for grupo_id in grupo_ids]
-        except (TypeError, ValueError):
+        if any(
+            not isinstance(grupo_id, int) or isinstance(grupo_id, bool) or grupo_id <= 0
+            for grupo_id in grupo_ids
+        ):
             return False
-        if len(ids_normalizados) != len(set(ids_normalizados)):
+        if len(grupo_ids) != len(set(grupo_ids)):
             return False
         campos_grupo = {
             "grupo_id",
@@ -133,18 +425,30 @@ class IdempotenciaFiscalService:
         }
         grupos_normalizados: list[int] = []
         for grupo in grupos:
-            if not isinstance(grupo, dict) or not campos_grupo.issubset(grupo):
+            if not isinstance(grupo, dict) or set(grupo) != campos_grupo:
                 return False
-            try:
-                grupo_id = int(grupo["grupo_id"])
-                grupo_empresa_id = int(grupo["empresa_id"])
-                punto_venta_id = int(grupo["punto_venta_id"])
-                punto_venta_numero = int(grupo["punto_venta_numero"])
-                revision_id = int(grupo["elegibilidad_revision_id"])
-                revision_fiscal = int(grupo["punto_venta_revision_fiscal"])
-                tipo_comprobante = int(grupo["tipo_comprobante"])
-            except (TypeError, ValueError):
+            campos_enteros = (
+                "grupo_id",
+                "empresa_id",
+                "punto_venta_id",
+                "punto_venta_numero",
+                "elegibilidad_revision_id",
+                "punto_venta_revision_fiscal",
+                "tipo_comprobante",
+            )
+            if any(
+                not isinstance(grupo.get(campo), int)
+                or isinstance(grupo.get(campo), bool)
+                for campo in campos_enteros
+            ):
                 return False
+            grupo_id = grupo["grupo_id"]
+            grupo_empresa_id = grupo["empresa_id"]
+            punto_venta_id = grupo["punto_venta_id"]
+            punto_venta_numero = grupo["punto_venta_numero"]
+            revision_id = grupo["elegibilidad_revision_id"]
+            revision_fiscal = grupo["punto_venta_revision_fiscal"]
+            tipo_comprobante = grupo["tipo_comprobante"]
             if (
                 grupo_empresa_id != empresa_id
                 or punto_venta_id <= 0
@@ -158,7 +462,7 @@ class IdempotenciaFiscalService:
             ):
                 return False
             grupos_normalizados.append(grupo_id)
-        if grupos_normalizados != ids_normalizados:
+        if grupos_normalizados != grupo_ids:
             return False
         grupos_hash_calculado = hashlib.sha256(
             json.dumps(
@@ -168,6 +472,45 @@ class IdempotenciaFiscalService:
             ).encode("utf-8")
         ).hexdigest()
         return grupos_hash_calculado == grupos_hash
+
+    @classmethod
+    def material_rece_coincide_grupos(
+        cls,
+        material: Any,
+        *,
+        empresa_id: int,
+        grupos: list[Any],
+    ) -> bool:
+        """Contrasta material, membresía y payload contra grupos bloqueados."""
+        if not cls.material_rece_valido(material, empresa_id=empresa_id):
+            return False
+        esperados = [
+            {
+                "grupo_id": grupo.id,
+                "empresa_id": grupo.empresa_id,
+                "punto_venta_id": grupo.punto_venta_id,
+                "punto_venta_numero": grupo.punto_venta_numero,
+                "ambiente": grupo.ambiente,
+                "elegibilidad_revision_id": (
+                    grupo.punto_venta_elegibilidad_revision_id
+                ),
+                "punto_venta_revision_fiscal": grupo.punto_venta_revision_fiscal,
+                "tipo_comprobante": grupo.tipo_comprobante,
+                "payload_hash": hashlib.sha256(
+                    json.dumps(
+                        grupo.payload_json or {},
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        default=str,
+                    ).encode("utf-8")
+                ).hexdigest(),
+            }
+            for grupo in grupos
+        ]
+        return (
+            material["grupo_ids"] == [grupo["grupo_id"] for grupo in esperados]
+            and material["grupos"] == esperados
+        )
 
     @classmethod
     def operacion_conserva_ownership_pre_arca(
@@ -676,12 +1019,20 @@ class IdempotenciaFiscalService:
         intento.cae_vencimiento = response.cae_vencimiento
         intento.categoria_error = response.categoria_error
         intento.mensaje = response.mensaje
+        intento.errores_arca_json = (
+            [error.model_dump(mode="json") for error in response.errores_arca]
+            if response.errores_arca
+            else None
+        )
         if response.exito:
             intento.estado = "autorizado"
             intento.comprobante_id = response.comprobante_id
         elif response.requiere_reconciliacion:
             intento.estado = "requiere_reconciliacion"
-        elif response.categoria_error == "arca_no_aprobado":
+        elif response.categoria_error in {
+            "arca_no_aprobado",
+            "arca_rechazo_global_excluyente",
+        }:
             intento.estado = "rechazado_arca"
         else:
             intento.estado = "fallido_verificado"

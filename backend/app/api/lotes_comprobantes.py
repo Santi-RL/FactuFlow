@@ -23,7 +23,9 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user
@@ -36,6 +38,7 @@ from app.models.empresa import Empresa
 from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.lote_comprobante import LoteComprobante
 from app.models.usuario import Usuario
+from app.schemas.comprobante import ErrorArcaFiscalResponse
 from app.schemas.lote_comprobante import (
     LoteAccionResponse,
     LoteComprobanteDetalleResponse,
@@ -197,14 +200,67 @@ async def _recuperar_operacion_lote_pre_arca(
         return "no_recuperable"
 
 
-def _estado_operacion_lote_desde_respuesta(response_json: dict) -> str:
+def _estado_operacion_lote_desde_respuesta(
+    response_json: dict,
+    *,
+    operacion_id: int,
+) -> str:
     """Mapea una respuesta de lote al estado de operación idempotente."""
     if response_json.get("categoria_error") == "duplicado_logico_lote":
         return "requiere_confirmacion_duplicado"
     lote = response_json.get("lote") or {}
     if lote.get("estado") == "requiere_reconciliacion":
         return "requiere_reconciliacion"
+    metadata = lote.get("metadata_json") or {}
+    errores_arca = LoteComprobantesService.errores_arca_publicables_desde_metadata(
+        metadata,
+        operacion_id=operacion_id,
+    )
+    if errores_arca and response_json.get("errores_arca") == [
+        error.model_dump(mode="json") for error in errores_arca
+    ]:
+        return "rechazado_arca"
     return "finalizado"
+
+
+def _respuesta_lote_replay_validada(
+    response_json: dict,
+    response_schema: type[LoteProcesamientoResponse] | type[LoteAccionResponse],
+    *,
+    operacion: OperacionIdempotente,
+    lote_id: int,
+    empresa_id: int,
+) -> LoteProcesamientoResponse | LoteAccionResponse:
+    """Valida que un replay durable pertenezca a su operación y lote exactos."""
+    try:
+        respuesta = response_schema.model_validate(response_json)
+    except PydanticValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "La respuesta fiscal durable del lote no conserva un formato "
+                "publicable válido."
+            ),
+        ) from exc
+    if (
+        operacion.lote_id != lote_id
+        or operacion.empresa_id != empresa_id
+        or not LoteComprobantesService.respuesta_lote_coincide_operacion(
+            respuesta,
+            estado_operacion=operacion.estado,
+            operacion_id=int(operacion.id),
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "La respuesta fiscal durable del lote perdió su identidad o "
+                "evidencia ARCA canónica."
+            ),
+        )
+    return respuesta
 
 
 async def _resolver_operacion_lote(
@@ -377,6 +433,18 @@ def _serialize_lote(lote) -> LoteComprobanteResponse:
     return LoteComprobanteResponse.model_validate(lote)
 
 
+def _errores_arca_lote(
+    lote: LoteComprobante,
+    *,
+    operacion_id: int | None = None,
+) -> list[ErrorArcaFiscalResponse]:
+    """Extrae evidencia fiscal publicable desde la metadata durable del lote."""
+    return LoteComprobantesService.errores_arca_publicables_desde_metadata(
+        lote.metadata_json,
+        operacion_id=operacion_id,
+    )
+
+
 def _serialize_lote_detalle(lote) -> LoteComprobanteDetalleResponse:
     return LoteComprobanteDetalleResponse.model_validate(lote)
 
@@ -410,6 +478,19 @@ async def _publicar_respuesta_lote_reconstruida(
 ) -> None:
     """Publica un replay de lote sin sobrescribir ownership concurrente."""
     metadata = lote.metadata_json or {}
+    owner_actual = metadata.get("operacion_idempotente_id")
+    if (
+        not isinstance(owner_actual, int)
+        or isinstance(owner_actual, bool)
+        or owner_actual != operacion.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "El lote ya no conserva el ownership de la operación fiscal "
+                "que intenta reconstruirse."
+            ),
+        )
     material_rece = metadata.get("pf19b_rece_material")
     ownership_worker = (
         operacion.tipo_operacion == "procesar_lote"
@@ -441,7 +522,8 @@ async def _publicar_respuesta_lote_reconstruida(
         operacion,
         response_json=respuesta,
         estado=_estado_operacion_lote_desde_respuesta(
-            respuesta.model_dump(mode="json")
+            respuesta.model_dump(mode="json"),
+            operacion_id=int(operacion.id),
         ),
     )
 
@@ -701,8 +783,12 @@ async def procesar_lote(
         ):
             if "categoria_error" in operacion_replay.response_json:
                 _raise_error_operacion_lote(operacion_replay.response_json)
-            return LoteProcesamientoResponse.model_validate(
-                operacion_replay.response_json
+            return _respuesta_lote_replay_validada(
+                operacion_replay.response_json,
+                LoteProcesamientoResponse,
+                operacion=operacion_replay,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
             )
 
     if (
@@ -777,8 +863,12 @@ async def procesar_lote(
                 elif "categoria_error" in operacion.response_json:
                     _raise_error_operacion_lote(operacion.response_json)
                 elif _operacion_lote_esta_cerrada(operacion):
-                    return LoteProcesamientoResponse.model_validate(
-                        operacion.response_json
+                    return _respuesta_lote_replay_validada(
+                        operacion.response_json,
+                        LoteProcesamientoResponse,
+                        operacion=operacion,
+                        lote_id=lote_id,
+                        empresa_id=empresa_activa_id,
                     )
             if not continuar_operacion:
                 lote_actual = await service.obtener_lote_resumen(
@@ -789,12 +879,15 @@ async def procesar_lote(
                     mensaje=lote_actual.mensaje_resumen
                     or "La operación está en curso.",
                     en_progreso=lote_actual.estado in {"en_cola", "procesando"},
+                    errores_arca=_errores_arca_lote(
+                        lote_actual,
+                        operacion_id=int(operacion.id),
+                    ),
                 )
-                if not respuesta_actual.en_progreso and lote_actual.estado in {
-                    "completado",
-                    "con_errores",
-                    "requiere_reconciliacion",
-                }:
+                if (
+                    not respuesta_actual.en_progreso
+                    and lote_actual.estado in service.ESTADOS_TERMINALES
+                ):
                     await _publicar_respuesta_lote_reconstruida(
                         db=db,
                         service=service,
@@ -889,6 +982,10 @@ async def procesar_lote(
                     "El lote quedó en cola y se está procesando en segundo plano."
                 ),
                 en_progreso=True,
+                errores_arca=_errores_arca_lote(
+                    lote,
+                    operacion_id=int(operacion.id),
+                ),
             )
             respuesta_publicada = await idempotencia.guardar_respuesta_operacion_cas(
                 operacion_id=operacion.id,
@@ -928,14 +1025,53 @@ async def procesar_lote(
             lote=_serialize_lote(lote),
             mensaje=lote.mensaje_resumen or "Lote procesado",
             en_progreso=False,
-        )
-        await idempotencia.guardar_resultado_operacion_sync(
-            operacion,
-            response_json=respuesta,
-            estado=_estado_operacion_lote_desde_respuesta(
-                respuesta.model_dump(mode="json")
+            errores_arca=_errores_arca_lote(
+                lote,
+                operacion_id=int(operacion.id),
             ),
         )
+        try:
+            await idempotencia.guardar_resultado_operacion_sync(
+                operacion,
+                response_json=respuesta,
+                estado=_estado_operacion_lote_desde_respuesta(
+                    respuesta.model_dump(mode="json"),
+                    operacion_id=int(operacion.id),
+                ),
+            )
+        except SQLAlchemyTimeoutError:
+            await db.rollback()
+            operacion_ganadora = await db.get(
+                OperacionIdempotente,
+                int(operacion.id),
+                populate_existing=True,
+            )
+            if (
+                operacion_ganadora is None
+                or not _operacion_lote_esta_cerrada(operacion_ganadora)
+                or not isinstance(operacion_ganadora.response_json, dict)
+            ):
+                raise
+            try:
+                respuesta_ganadora = LoteProcesamientoResponse.model_validate(
+                    operacion_ganadora.response_json
+                )
+            except PydanticValidationError:
+                raise
+            if (
+                respuesta_ganadora.en_progreso
+                or respuesta_ganadora.lote.id != lote_id
+                or respuesta_ganadora.lote.empresa_id != empresa_activa_id
+                or not service.respuesta_lote_coincide_operacion(
+                    respuesta_ganadora,
+                    estado_operacion=operacion_ganadora.estado,
+                    operacion_id=int(operacion_ganadora.id),
+                    lote_id=lote_id,
+                    empresa_id=empresa_activa_id,
+                )
+            ):
+                raise
+            return respuesta_ganadora
         return respuesta
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
         if fase_solicitud_arca.guarda_actual_iniciada:
@@ -1064,7 +1200,13 @@ async def reintentar_fallidos_lote(
                 elif "categoria_error" in operacion.response_json:
                     _raise_error_operacion_lote(operacion.response_json)
                 elif _operacion_lote_esta_cerrada(operacion):
-                    return LoteAccionResponse.model_validate(operacion.response_json)
+                    return _respuesta_lote_replay_validada(
+                        operacion.response_json,
+                        LoteAccionResponse,
+                        operacion=operacion,
+                        lote_id=lote_id,
+                        empresa_id=empresa_activa_id,
+                    )
             if not continuar_operacion:
                 lote_actual = await service.obtener_lote_resumen(
                     lote_id,
@@ -1074,13 +1216,12 @@ async def reintentar_fallidos_lote(
                     lote=_serialize_lote(lote_actual),
                     mensaje=lote_actual.mensaje_resumen
                     or "La operación está en curso.",
+                    errores_arca=_errores_arca_lote(
+                        lote_actual,
+                        operacion_id=int(operacion.id),
+                    ),
                 )
-                if lote_actual.estado in {
-                    "completado",
-                    "con_errores",
-                    "requiere_reconciliacion",
-                    "cerrado_reconciliado",
-                }:
+                if lote_actual.estado in service.ESTADOS_TERMINALES:
                     await _publicar_respuesta_lote_reconstruida(
                         db=db,
                         service=service,
@@ -1211,13 +1352,18 @@ async def reintentar_fallidos_lote(
     respuesta = LoteAccionResponse(
         lote=_serialize_lote(lote),
         mensaje=lote.mensaje_resumen or "Reintento finalizado",
+        errores_arca=_errores_arca_lote(
+            lote,
+            operacion_id=int(operacion.id),
+        ),
     )
     try:
         await idempotencia.guardar_resultado_operacion_sync(
             operacion,
             response_json=respuesta,
             estado=_estado_operacion_lote_desde_respuesta(
-                respuesta.model_dump(mode="json")
+                respuesta.model_dump(mode="json"),
+                operacion_id=int(operacion.id),
             ),
         )
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
@@ -1272,6 +1418,7 @@ async def reconciliar_emitidos_externos(
     return LoteAccionResponse(
         lote=_serialize_lote(lote),
         mensaje=lote.mensaje_resumen or "Comprobantes externos reconciliados",
+        errores_arca=_errores_arca_lote(lote),
     )
 
 
@@ -1301,6 +1448,7 @@ async def descartar_grupos_lote(
     return LoteAccionResponse(
         lote=_serialize_lote(lote),
         mensaje=lote.mensaje_resumen or "Comprobantes descartados",
+        errores_arca=_errores_arca_lote(lote),
     )
 
 
@@ -1327,6 +1475,7 @@ async def compactar_lote(
     return LoteAccionResponse(
         lote=_serialize_lote(lote),
         mensaje="El lote se compactó correctamente.",
+        errores_arca=_errores_arca_lote(lote),
     )
 
 

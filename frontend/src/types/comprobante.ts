@@ -48,6 +48,12 @@ export interface EmitirComprobanteRequest {
   cotizacion: number;
 }
 
+export interface ErrorArcaFiscalResponse {
+  codigo: number;
+  alcance: "global";
+  mensaje: string;
+}
+
 export interface EmitirComprobanteResponse {
   exito: boolean;
   comprobante_id?: number;
@@ -60,6 +66,7 @@ export interface EmitirComprobanteResponse {
   total: number;
   mensaje: string;
   errores: string[];
+  errores_arca?: ErrorArcaFiscalResponse[];
   requiere_reconciliacion?: boolean;
   categoria_error?: string | null;
 }

@@ -6,7 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.arca.exceptions import ArcaServiceError, ArcaValidationError
+from app.arca.exceptions import (
+    ArcaErrorGlobalEstructurado,
+    ArcaServiceError,
+    ArcaValidationError,
+    clasificar_error_global_fecae,
+)
 from app.arca.models import ComprobanteRequest, IvaItem, TicketAcceso, TributoItem
 from app.arca.wsfev1 import WSFEv1Client
 
@@ -701,3 +706,209 @@ async def test_fe_cae_solicitar_lote_rechaza_error_global():
 
     with pytest.raises(ArcaServiceError, match="errores globales"):
         await client.fe_cae_solicitar_lote([_comprobante(1)])
+
+
+@pytest.mark.asyncio
+async def test_fe_cae_solicitar_preserva_error_global_y_eventos_estructurados():
+    """El adaptador conserva cabecera, error, evento y correlación sin coerción."""
+
+    class FakeService:
+        """Servicio SOAP con rechazo global excluyente coherente."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve el contrato global exacto sin detalle."""
+            return SimpleNamespace(
+                FeCabResp=SimpleNamespace(
+                    Cuit=20123456789,
+                    PtoVta=1,
+                    CbteTipo=6,
+                    CantReg=1,
+                    Resultado="R",
+                ),
+                Errors=SimpleNamespace(
+                    Err=SimpleNamespace(Code=10005, Msg="mensaje crudo privado")
+                ),
+                Events=SimpleNamespace(
+                    Evt=SimpleNamespace(Code=39, Msg="evento crudo privado")
+                ),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+    comprobante = _comprobante(7)
+
+    with pytest.raises(ArcaErrorGlobalEstructurado) as exc_info:
+        await client.fe_cae_solicitar(comprobante)
+
+    error = exc_info.value
+    assert error.operacion == "FECAESolicitar"
+    assert error.cabecera is not None
+    assert error.cabecera.cuit == 20123456789
+    assert error.cabecera.punto_venta == 1
+    assert error.cabecera.tipo_comprobante == 6
+    assert error.cabecera.cantidad == 1
+    assert error.cabecera.resultado == "R"
+    assert [(item.codigo, item.mensaje) for item in error.errores] == [
+        (10005, "mensaje crudo privado")
+    ]
+    assert [(item.codigo, item.mensaje) for item in error.eventos] == [
+        (39, "evento crudo privado")
+    ]
+    assert error.detalles_presentes is False
+    assert error.senales_cae_presentes is False
+    assert error.request_cuit == 20123456789
+    assert error.request_punto_venta == 1
+    assert error.request_tipo_comprobante == 6
+    assert error.request_cantidad == 1
+    assert error.request_rangos == ((7, 7),)
+    assert clasificar_error_global_fecae(error) == "rechazo_global_excluyente"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("codigo", [1005, "10005", 10005.0, True, 10006])
+async def test_fe_cae_solicitar_no_clasifica_codigos_no_enteros_exactos(codigo):
+    """Solo el entero exacto 10005 puede cerrar el rechazo global."""
+
+    class FakeService:
+        """Servicio SOAP con un código global no admisible."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve una variante adversarial del código."""
+            return SimpleNamespace(
+                FeCabResp=SimpleNamespace(
+                    Cuit=20123456789,
+                    PtoVta=1,
+                    CbteTipo=6,
+                    CantReg=1,
+                    Resultado="R",
+                ),
+                Errors=SimpleNamespace(
+                    Err=SimpleNamespace(Code=codigo, Msg="incluye 10005 en texto")
+                ),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaErrorGlobalEstructurado) as exc_info:
+        await client.fe_cae_solicitar(_comprobante())
+
+    assert exc_info.value.errores[0].codigo == codigo
+    assert clasificar_error_global_fecae(exc_info.value) == "respuesta_incierta"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("Cuit", 20123456780),
+        ("Cuit", "20123456789"),
+        ("PtoVta", 2),
+        ("PtoVta", "1"),
+        ("CbteTipo", 11),
+        ("CbteTipo", "6"),
+        ("CantReg", 2),
+        ("CantReg", "1"),
+        ("Resultado", "A"),
+        ("Resultado", "P"),
+        ("Resultado", "r"),
+    ],
+)
+async def test_fe_cae_solicitar_exige_cabecera_global_exacta(campo, valor):
+    """Una cabecera ausente, discordante o coaccionable permanece incierta."""
+
+    class FakeService:
+        """Servicio SOAP con una única discordancia de cabecera."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve cabecera adversarial con 10005 exacto."""
+            cabecera = {
+                "Cuit": 20123456789,
+                "PtoVta": 1,
+                "CbteTipo": 6,
+                "CantReg": 1,
+                "Resultado": "R",
+            }
+            cabecera[campo] = valor
+            return SimpleNamespace(
+                FeCabResp=SimpleNamespace(**cabecera),
+                Errors=SimpleNamespace(
+                    Err=SimpleNamespace(Code=10005, Msg="rechazo global")
+                ),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaErrorGlobalEstructurado) as exc_info:
+        await client.fe_cae_solicitar(_comprobante())
+
+    assert clasificar_error_global_fecae(exc_info.value) == "respuesta_incierta"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("errores", [[10005, 10005], [10005, 10006]])
+async def test_fe_cae_solicitar_rechazo_global_exige_error_unico(errores):
+    """Un 10005 duplicado o mezclado no constituye evidencia terminal."""
+
+    class FakeService:
+        """Servicio SOAP con múltiples errores globales."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve los códigos globales indicados."""
+            return SimpleNamespace(
+                FeCabResp=SimpleNamespace(
+                    Cuit=20123456789,
+                    PtoVta=1,
+                    CbteTipo=6,
+                    CantReg=1,
+                    Resultado="R",
+                ),
+                Errors=SimpleNamespace(
+                    Err=[SimpleNamespace(Code=code, Msg="error") for code in errores]
+                ),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaErrorGlobalEstructurado) as exc_info:
+        await client.fe_cae_solicitar(_comprobante())
+
+    assert clasificar_error_global_fecae(exc_info.value) == "respuesta_incierta"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cae", [None, "12345678901234"])
+async def test_fe_cae_solicitar_no_clasifica_10005_con_detalle_o_cae(cae):
+    """Cualquier detalle o señal de CAE vuelve contradictoria la respuesta."""
+
+    class FakeService:
+        """Servicio SOAP con respuesta global y detalle contradictorio."""
+
+        def FECAESolicitar(self, Auth, FeCAEReq):
+            """Devuelve un detalle junto con el error global."""
+            detalle = SimpleNamespace(
+                CbteDesde=1,
+                CbteHasta=1,
+                Resultado="R",
+                CAE=cae,
+            )
+            return SimpleNamespace(
+                FeCabResp=SimpleNamespace(
+                    Cuit=20123456789,
+                    PtoVta=1,
+                    CbteTipo=6,
+                    CantReg=1,
+                    Resultado="R",
+                ),
+                FeDetResp=SimpleNamespace(FECAEDetResponse=detalle),
+                Errors=SimpleNamespace(
+                    Err=SimpleNamespace(Code=10005, Msg="rechazo global")
+                ),
+            )
+
+    client = _crear_cliente_wsfe(FakeService())
+
+    with pytest.raises(ArcaErrorGlobalEstructurado) as exc_info:
+        await client.fe_cae_solicitar(_comprobante())
+
+    assert exc_info.value.detalles_presentes is True
+    assert exc_info.value.senales_cae_presentes is (cae is not None)
+    assert clasificar_error_global_fecae(exc_info.value) == "respuesta_incierta"

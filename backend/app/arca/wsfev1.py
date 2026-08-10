@@ -23,9 +23,12 @@ from app.arca.models import (
     ErrorArca,
 )
 from app.arca.exceptions import (
+    ArcaErrorGlobalEstructurado,
     ArcaServiceError,
     ArcaValidationError,
     ArcaConnectionError,
+    CabeceraRespuestaFecae,
+    MensajeArcaEstructurado,
 )
 from app.arca.soap import create_soap_client, run_soap_call
 from app.arca.utils import clean_cuit, format_importe
@@ -373,16 +376,23 @@ class WSFEv1Client:
         rechazar_detalles_no_aprobados: bool,
     ) -> list[CAEResponse]:
         """Parsea una respuesta WSFE que puede contener varios detalles."""
+        fe_det_resp = getattr(response, "FeDetResp", None)
         detalles = self._normalizar_lista(
-            getattr(getattr(response, "FeDetResp", None), "FECAEDetResponse", None)
+            getattr(fe_det_resp, "FECAEDetResponse", None)
         )
-        errores = self._parse_errors_response(response)
-
-        if errores:
-            mensajes = "; ".join(f"[{e.code}] {e.msg}" for e in errores)
-            raise ArcaServiceError(
-                "ARCA devolvió errores globales al solicitar CAE: " f"{mensajes}"
+        errores_estructurados = self._parse_mensajes_estructurados(
+            getattr(getattr(response, "Errors", None), "Err", None)
+        )
+        if errores_estructurados:
+            raise self._crear_error_global_fecae(
+                response=response,
+                comprobantes=comprobantes,
+                errores=errores_estructurados,
+                detalles=detalles,
+                fe_det_resp_presente=fe_det_resp is not None,
             )
+
+        errores = self._parse_errors_response(response)
 
         if not detalles:
             raise ArcaServiceError("ARCA no devolvió detalle de comprobantes")
@@ -568,6 +578,63 @@ class WSFEv1Client:
             ErrorArca(code=err.Code, msg=err.Msg)
             for err in self._normalizar_lista(response.Errors.Err)
         ]
+
+    def _parse_mensajes_estructurados(
+        self,
+        valor: object,
+    ) -> tuple[MensajeArcaEstructurado, ...]:
+        """Preserva código sin coerción y texto crudo de errores o eventos SOAP."""
+        return tuple(
+            MensajeArcaEstructurado(
+                codigo=getattr(item, "Code", None),
+                mensaje=str(getattr(item, "Msg", "")),
+            )
+            for item in self._normalizar_lista(valor)
+        )
+
+    def _crear_error_global_fecae(
+        self,
+        *,
+        response: object,
+        comprobantes: list[ComprobanteRequest],
+        errores: tuple[MensajeArcaEstructurado, ...],
+        detalles: list[object],
+        fe_det_resp_presente: bool,
+    ) -> ArcaErrorGlobalEstructurado:
+        """Construye la excepción global correlacionada con el request exacto."""
+        cabecera_raw = getattr(response, "FeCabResp", None)
+        cabecera = None
+        if cabecera_raw is not None:
+            cabecera = CabeceraRespuestaFecae(
+                cuit=getattr(cabecera_raw, "Cuit", None),
+                punto_venta=getattr(cabecera_raw, "PtoVta", None),
+                tipo_comprobante=getattr(cabecera_raw, "CbteTipo", None),
+                cantidad=getattr(cabecera_raw, "CantReg", None),
+                resultado=getattr(cabecera_raw, "Resultado", None),
+            )
+        eventos = self._parse_mensajes_estructurados(
+            getattr(getattr(response, "Events", None), "Evt", None)
+        )
+        senales_cae = any(
+            getattr(detalle, "CAE", None) not in (None, "")
+            or getattr(detalle, "CAEFchVto", None) not in (None, "")
+            for detalle in detalles
+        )
+        return ArcaErrorGlobalEstructurado(
+            cabecera=cabecera,
+            errores=errores,
+            eventos=eventos,
+            detalles_presentes=fe_det_resp_presente,
+            senales_cae_presentes=senales_cae,
+            request_cuit=int(self.cuit),
+            request_punto_venta=int(comprobantes[0].punto_venta),
+            request_tipo_comprobante=int(comprobantes[0].tipo_cbte),
+            request_cantidad=len(comprobantes),
+            request_rangos=tuple(
+                (int(comprobante.cbte_desde), int(comprobante.cbte_hasta))
+                for comprobante in comprobantes
+            ),
+        )
 
     async def fe_comp_consultar(
         self, punto_venta: int, tipo_cbte: int, numero: int
