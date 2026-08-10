@@ -117,8 +117,8 @@ El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
 PF-02. `v0.3.0` es el candidato funcional `beb3bc1`, sobre la base `b5eefcd`,
 e incorpora PF-19C/PF-16C-D-E; no existe tag, release ni despliegue. La última
 release publicada y producción siguen en `v0.2.2`. El `autoreview` final cerró
-limpio. Antes de declarar el candidato listo faltan PostgreSQL y Runtime Smoke
-reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo privado de
+limpio. La CI Nivel 2 del SHA funcional aprobó PostgreSQL real y Runtime Smoke;
+la aceptación PF-16G fue registrada el 10/08/2026. Antes de declarar el candidato listo falta el ensayo privado de
 backup/restauración/upgrade/rollback. La firma externa de manifests VPS es P2 posterior y
 no bloquea este corte.
 

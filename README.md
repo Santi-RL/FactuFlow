@@ -46,9 +46,11 @@ una fuente probatoria específica. La UI muestra estados, procedencia y vigencia
 y los caminos individual, masivo, worker y reintentos comparten snapshots y
 guardas antes de `FECAESolicitar`. PF-19C, incorporado por el candidato,
 completa el rechazo global estructurado y el cierre legacy auditado. El
-`autoreview` final autorizado cerró limpio; permanecen pendientes PostgreSQL y
-Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y el
-ensayo privado de backup/restauración/upgrade/rollback. Nada de este tramo
+`autoreview` final autorizado cerró limpio y la CI Nivel 2 del SHA funcional
+`e9c583a8174ea8edc6fe30845584033feab0394d` aprobó sus siete checks, incluido
+PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
+10/08/2026; permanece el ensayo privado de backup/restauración/upgrade/rollback.
+Nada de este tramo
 posterior a `v0.2.2` está publicado ni desplegado
 en producción.
 

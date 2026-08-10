@@ -93,9 +93,10 @@ un entero exacto con cabecera global estrictamente correlacionada y sin detalle
 ni CAE. Todas las variantes desconocidas, mixtas, parciales o de transporte se
 esperan en reconciliación. La resolución legacy usa consultas seguras simuladas
 en plan/apply; un ambiente histórico indeterminado obliga a ambos ambientes.
-La evidencia final externa de este corte queda pendiente: no se atribuyen
-todavía CI, release ni despliegue. El `autoreview` final sí cerró localmente;
-la suite completa local se registra en la evidencia vigente de PF-19C.
+La evidencia CI externa del corte quedó atribuida al SHA funcional
+`e9c583a8174ea8edc6fe30845584033feab0394d` el 10/08/2026. No se infieren
+release ni despliegue. El `autoreview` final sí cerró localmente; la suite
+completa local se registra en la evidencia vigente de PF-19C.
 
 El corte `4+1` fue aprobado el 10/07/2026 y PF-01B.3 el 13/07/2026 contra
 PostgreSQL efímero. Esa evidencia valida contratos locales, pero no demuestra ni
@@ -290,8 +291,8 @@ seguras, sin provocar CAE ni `10005` real.
   `56/50/43/57`.
 - PF-16C/D/E: Node.js `24.15.0`, npm `11.12.1`, auditorías npm de producción y
   desarrollo sin vulnerabilidades, Runtime Smoke cubierto por pruebas unitarias
-  y CI configurada para PostgreSQL 16; `npm run test:scripts` aprobó `27/27`.
-   La prueba Runtime Smoke con PostgreSQL real todavía no se ejecutó en CI.
+  y CI PostgreSQL 16; `npm run test:scripts` aprobó `27/27`. La ejecución
+  `31354948875` aprobó Runtime Smoke contra PostgreSQL real.
 - `autoreview` final autorizado: el primer intento con el binario `0.130` se
   detuvo antes de revisar por el catálogo `max`; el reintento con el binario
   instalado `0.147`, el mismo motor/modelo/esfuerzo, terminó con exit `0`.
@@ -302,8 +303,8 @@ seguras, sin provocar CAE ni `10005` real.
   La revisión final de seguridad separada quedó en P0/P1/P2 = `0` tras el fix
   de la CLI.
 
-Antes de release faltan PostgreSQL y Runtime Smoke reales en CI, CI atribuible
-al SHA final, aceptación PF-16G y ensayo privado de
+La CI Nivel 2 del SHA funcional ya aprobó PostgreSQL real y Runtime Smoke; la
+aceptación PF-16G fue registrada el 10/08/2026. Antes de release falta el ensayo privado de
 backup/restauración/upgrade/rollback. No se infiere tag,
 publicación ni despliegue de esta evidencia local.
 

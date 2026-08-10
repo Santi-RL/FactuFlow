@@ -297,9 +297,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     estado efectivo e invalidan confirmaciones obsoletas. Homologación permanece
     cerrada mientras no exista una fuente probatoria específica.
   - [~] **PF-19C — rechazo global y saneamiento legacy:** implementación, diseño
-    y evidencia completos en el candidato; antes de declararlo listo faltan
-    PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final,
-    aceptación PF-16G y ensayo privado de backup/restauración/upgrade/rollback.
+    y evidencia completos; la CI Nivel 2 del SHA funcional
+    `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó PostgreSQL real y Runtime
+    Smoke junto con los siete checks. La aceptación PF-16G fue registrada el
+    10/08/2026; antes de declararlo listo falta el ensayo privado de
+    backup/restauración/upgrade/rollback.
     El `autoreview` final autorizado cerró limpio con
     Codex `gpt-5.6-sol medium`. Solo `10005` entero exacto, una cabecera `R` estrictamente
     correlacionada, un único error y ausencia de detalle/CAE cierran un rechazo
@@ -927,18 +929,19 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 - [x] **PF-16E — Integración reproducible:** CI usa PostgreSQL 16 desechable con
   guard destructivo exacto para migraciones, constraints, concurrencia, pool,
   integridad PF-01/PF-19 y paquete VPS v2; incorpora Runtime Smoke de frontend,
-  backend y base. ARCA se mantiene simulada o contractual. Falta ejecutar y
-  atribuir el smoke PostgreSQL real al commit candidato.
+  backend y base. ARCA se mantiene simulada o contractual. El smoke PostgreSQL
+  real aprobó en la CI Nivel 2 del SHA funcional `e9c583a8174ea8edc6fe30845584033feab0394d`.
 - [ ] **PF-16F — Pruebas avanzadas dirigidas por riesgo:** incorporar pruebas
   basadas en propiedades para fechas, importes, redondeos, archivos de entrada,
   idempotencia y máquinas de estados; pruebas de mutación acotadas a núcleos
   fiscales; entradas inesperadas y archivos malformados; y pruebas de carga y
   resistencia prolongada para lotes, worker y pools. Ejecutarlas de forma
   programada o en candidatos de release, no en cada microcambio.
-- [~] **PF-16G — QA contable y dossier de release:** la matriz y el dossier de
+- [x] **PF-16G — QA contable y dossier de release:** la matriz y el dossier de
   `v0.3.0` ya expresan escenarios de aceptación en español y términos contables,
   con datos sintéticos, resultados esperados, riesgos, migración y rollback.
-  Quedan la aceptación funcional y la CI del rango final. La autoridad
+  La CI Nivel 2 del SHA funcional y la aceptación funcional-contable del
+  10/08/2026 ya aprobaron. La autoridad
   funcional-contable valida el resultado; los agentes y herramientas validan la
   implementación.
 - [ ] **PF-16H — Puerta para ofrecer FactuFlow a terceros:** antes de anunciar
@@ -952,11 +955,11 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 - **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
   barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
-- **Antes de declarar listo el candidato `v0.3.0`:** atribuir al SHA final la
-  CI, PostgreSQL/Runtime Smoke reales, aceptación PF-16G y ensayo privado de
-  backup/restauración/upgrade/rollback. El `autoreview` autorizado cerró limpio
-  con Codex `gpt-5.6-sol medium`; PF-16C/D/E y la matriz PF-16G están
-  incorporados por el candidato.
+- **Antes de declarar listo el candidato `v0.3.0`:** completar el ensayo
+  privado de backup/restauración/upgrade/rollback. La CI Nivel 2 del SHA
+  funcional aprobó PostgreSQL/Runtime Smoke y la aceptación PF-16G fue
+  registrada el 10/08/2026. El `autoreview` autorizado cerró limpio con Codex
+  `gpt-5.6-sol medium`.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
   críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
   PF-15 y PF-18 que correspondan.
@@ -1170,9 +1173,11 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   evidencia productiva antes de desplegar esa política. PF-03B u otros P1 solo
   pueden sumarse si ya están cerrados, forman una unidad revisable y no vuelven
   riesgoso ni demoran innecesariamente el despliegue de estas defensas.
-- **Candidato `v0.3.0`:** `c1dbd82` incorpora PF-19C y `beb3bc1` es el commit
-  funcional sobre `b5eefcd`; PF-16G tiene matriz. No existe tag, release ni
-  despliegue, y la producción continúa en `v0.2.2`.
+- **Candidato `v0.3.0`:** `c1dbd82` incorpora PF-19C; el SHA funcional
+  `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre `b5eefcd`, aprobó la CI
+  Nivel 2 completa. PF-16G fue aceptada el 10/08/2026; el ensayo privado
+  permanece pendiente. No existe tag, release ni despliegue, y la
+  producción continúa en `v0.2.2`.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1216,8 +1221,9 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Cerrar las puertas externas de PF-19C antes de una release: ejecutar su
-   matriz contra PostgreSQL real/CI y el ensayo de migración/restauración. El
+1. Cerrar la puerta externa restante de PF-19C antes de una release: completar
+   el ensayo privado de backup/restauración/upgrade/rollback. La matriz ya
+   aprobó contra PostgreSQL real/CI y PF-16G fue aceptada el 10/08/2026. El
    `autoreview` autorizado ya cerró limpio con Codex `gpt-5.6-sol medium`. La
    evidencia local ya cubre el contrato global
    estricto de `10005`, atomicidad, replay/ownership, reconciliación fail-closed
@@ -1226,9 +1232,9 @@ Objetivo: ampliar valor más allá del MVP.
    serializa la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05
    continúa separado.
-3. Atribuir al rango final la evidencia de release de PF-16C/D/E y aceptar la
-   matriz PF-16G; Node 24, auditorías, cobertura, CI y Runtime Smoke ya están
-   implementados. La firma externa de manifests VPS es P2 posterior y no bloquea
+3. Conservar PF-16G aceptada el 10/08/2026; Node 24, auditorías, cobertura, CI
+   y Runtime Smoke ya están implementados y validados en el SHA funcional. La
+   firma externa de manifests VPS es P2 posterior y no bloquea
    `v0.3.0`.
 4. Después de PF-03, ejecutar primero la unidad integrada PF-06A/PF-08A/PF-06B/
    PF-07A de operadores multiemisor y creación/edición delegada; cerrar su

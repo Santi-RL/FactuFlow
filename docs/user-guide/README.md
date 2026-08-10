@@ -839,9 +839,9 @@ declarada por ARCA. La release y producción `v0.2.2` todavía no incluyen este
 flujo. PF-19C, incorporado por el candidato y aún sin release ni despliegue,
 trata como terminal solo un `10005` global estrictamente corroborado; detiene
 los grupos no enviados y deja cualquier respuesta incompleta o legacy en
-reconciliación. El `autoreview` final cerró limpio. Permanecen pendientes
-PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación
-PF-16G y ensayo privado de backup/restauración/upgrade/rollback. Un `10005`
+reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA
+funcional aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue
+registrada el 10/08/2026; permanece pendiente el ensayo privado de backup/restauración/upgrade/rollback. Un `10005`
 legacy no habilita reemisión ciega ni edición manual.
 
 ## 10. Emisores

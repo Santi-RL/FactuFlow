@@ -383,9 +383,10 @@ datos fiscales reales.
 
 Estado objetivo de `main`, 09/08/2026: PF-19A, PF-19B completo y PF-19C están
 incorporados por el candidato; PF-19C ya tiene evidencia completa. El
-`autoreview` final cerró limpio. Permanecen pendientes PostgreSQL y Runtime
-Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo
-privado de backup/restauración/upgrade/rollback. La release publicada y producción
+`autoreview` final cerró limpio y la CI Nivel 2 del SHA funcional aprobó
+PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
+10/08/2026; permanece el ensayo privado de backup/restauración/upgrade/rollback.
+La release publicada y producción
 continúan en `v0.2.2`, sin estos cortes. Toda ejecución previa al checkpoint de
 release usa datos sintéticos y dobles de WSFE. Esta matriz no autoriza pedir CAE
 real para provocar errores ni editar registros fiscales.
@@ -525,8 +526,8 @@ La evidencia local registró `1049 passed`, `22 skipped`, `31 warnings` en
 `9m14s`, con los skips limitados a PostgreSQL sin URL/daemon local. La cobertura
 backend fue `69.2278%` total branch-aware, `73.6741%` líneas y `55.1759%` ramas;
 frontend aprobó `149` pruebas y registró cobertura `56.12/50.14/43.77/57.37`.
-Quedan PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final,
-aceptación PF-16G y ensayo privado de backup/restauración/upgrade/rollback. No declarar suite de CI, release,
+La CI Nivel 2 ya aprobó PostgreSQL real y Runtime Smoke sobre el SHA funcional;
+la aceptación PF-16G fue registrada el 10/08/2026. Queda el ensayo privado de backup/restauración/upgrade/rollback. No declarar release,
 tag ni despliegue hasta cerrar esas puertas.
 
 ## Punto de reanudación de QA
@@ -537,9 +538,8 @@ superó el despliegue y la verificación post-deploy. En el estado objetivo de
 `main`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
 superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
 lectura y autoridad RECE durable. Ese tramo todavía no pertenece a una release
-publicada ni está desplegado. PF-19C está incorporado por el candidato; siguen
-pendientes PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final,
-aceptación PF-16G y ensayo privado de backup/restauración/upgrade/rollback; PF-03B
+publicada ni está desplegado. PF-19C está incorporado por el candidato; sigue
+pendiente el ensayo privado de backup/restauración/upgrade/rollback; PF-03B
 queda después. No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
 UX de lotes ni las validaciones ya cerradas.

@@ -22,21 +22,25 @@ Reglas vigentes desde 2026-05-22:
 
 - Se sincronizó la versión técnica y visible `0.3.0` en los manifiestos raíz,
   backend y frontend, la configuración/API y la barra lateral. El candidato
-  funcional es `beb3bc1`, sobre `b5eefcd`; la última release publicada y la
-  producción continúan en `v0.2.2`.
+  funcional validado es `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre
+  `b5eefcd`; la última release publicada y la producción continúan en `v0.2.2`.
 - PF-19C en `c1dbd82` completó diseño, implementación y evidencia con dobles y SQLite.
   La suite backend registró `1049 passed`, `22 skipped`, `31 warnings` en
   `9m14s`; la cobertura total branch-aware fue `69.2278%` (líneas `73.6741%`,
   ramas `55.1759%`, gate `69%`). Los skips son PostgreSQL sin URL/daemon local.
   El `autoreview` final autorizado terminó limpio con Codex `gpt-5.6-sol`
   (`medium`): TruffleHog limpio, `5/5` pasadas, cero hallazgos y probabilidad
-  `0,98` de parche correcto. Quedan pendientes PostgreSQL y Runtime Smoke
-  reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo privado
-  de backup/restauración/upgrade/rollback.
+  `0,98` de parche correcto. La CI Nivel 2 del 10/08/2026, ejecución
+  [`31354948875`](https://github.com/Santi-RL/FactuFlow/actions/runs/31354948875),
+  aprobó los siete checks del SHA funcional: Backend Tests registró `1076`
+  pruebas aprobadas, `32` warnings, `441,83 s` y cobertura total `70,03%`; E2E
+  aprobó `33` pruebas y Runtime Smoke aprobó contra PostgreSQL real. La
+  aceptación funcional-contable PF-16G fue registrada el 10/08/2026; queda el
+  ensayo privado de backup/restauración/upgrade/rollback.
 - PF-16C, PF-16D y PF-16E quedaron incorporados por el candidato:
   Node.js 24, auditorías npm, cobertura con gates, CI PostgreSQL/Runtime Smoke
-  y `27/27` tests de scripts. PF-16G ya tiene matriz y dossier preparados, pero su
-  aceptación funcional y CI atribuible al SHA final siguen pendientes. La firma externa de manifests
+  y `27/27` tests de scripts. PF-16G ya tiene matriz, dossier y aceptación
+  funcional-contable registrada el 10/08/2026. La firma externa de manifests
   VPS permanece como P2 posterior y no bloquea este candidato.
 
 ### Planificación de producto

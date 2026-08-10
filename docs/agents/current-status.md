@@ -58,8 +58,9 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-19C, incorporado por el candidato, completa el contrato: solo `10005` entero exacto bajo
   cabecera global estricta puede ser terminal; lo desconocido, mixto, parcial o
   contradictorio requiere reconciliación. El `autoreview` final autorizado
-  cerró limpio con Codex `gpt-5.6-sol medium`; aún faltan PostgreSQL y Runtime
-  Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo
+  cerró limpio con Codex `gpt-5.6-sol medium`; la CI Nivel 2 del SHA funcional
+  `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó PostgreSQL real y Runtime
+  Smoke; la aceptación PF-16G fue registrada el 10/08/2026 y falta el ensayo
   privado de backup/restauración/upgrade/rollback;
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
@@ -464,10 +465,11 @@ PF-19 es el P1 fiscal activo por evidencia productiva. PF-19A cerró diseño,
 contención explícita e inventario de solo lectura; PF-19B cerró la elegibilidad
 RECE durable end-to-end, incluida su autoridad administrativa y UI. Ninguno
 autoriza reintentos legacy ni ediciones directas de base. PF-19C completó su
-evidencia de rechazo global y saneamiento auditado; siguen pendientes
-PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación
-PF-16G y ensayo privado de backup/restauración/upgrade/rollback antes de una
-release. Después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+evidencia de rechazo global y saneamiento auditado; la CI Nivel 2 ya aprobó
+PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G
+fue registrada el 10/08/2026; sigue el ensayo privado de
+backup/restauración/upgrade/rollback antes de una release. Después se retoma
+PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
 cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
@@ -607,16 +609,15 @@ Siguen pendientes:
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
     y PF-19C está incorporado por el candidato con implementación y evidencia completas. Retomar por
-    PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final,
-    aceptación PF-16G y ensayo privado de backup/restauración/upgrade/rollback;
+    el ensayo privado de backup/restauración/upgrade/rollback;
     recién entonces PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
     Al llegar a ese bloque, ejecutar primero la unidad integrada de permisos
     definida en `docs/agents/pf-06-08-permisos-multiemisor-design.md`; no crear
     una línea paralela ni presentar el diseño como funcionalidad ya disponible.
-    PF-16C/D/E están implementados; falta atribuir su evidencia al rango de
-    release y aceptar PF-16G.
+    PF-16C/D/E están implementados y su evidencia se atribuyó al SHA funcional;
+    la aceptación PF-16G fue registrada el 10/08/2026.
 11. La revisión local de PF-16 intentó dos veces `autoreview` con Codex
     `gpt-5.6-sol medium`, pero Codex `0.130.0-alpha.5` rechazó crear auxiliares
     bajo el directorio temporal aislado de Windows y no produjo dictamen. No se

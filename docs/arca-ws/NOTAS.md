@@ -259,8 +259,8 @@ de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
   contrato oficial vigente identifique como rechazo excluyente preautorización
   pueden cerrar el intento como rechazo terminal; timeout, respuesta parcial o
   código desconocido conservan `requiere_reconciliacion`. El `autoreview` final
-  cerró limpio; antes de release siguen pendientes PostgreSQL y Runtime Smoke
-  reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo privado
+  cerró limpio y la CI Nivel 2 del SHA funcional aprobó PostgreSQL real y Runtime
+  Smoke; la aceptación PF-16G fue registrada el 10/08/2026 y antes de release sigue pendiente el ensayo privado
   de backup/restauración/upgrade/rollback; la producción continúa en `v0.2.2`.
 - El inventario PF-19A no consulta ARCA, no infiere el ambiente histórico y no
   sanea registros. La política de contraste y resolución pertenece a PF-19C;

@@ -278,10 +278,10 @@ ambiente histórico es indeterminado consulta producción y homologación. `appl
 usa `FECompUltimoAutorizado` y solo `FECompConsultar` si el último alcanza el
 número planificado. Autorización, fallo o duda conserva reconciliación. La
 migración `c0d1e2f3a4b` guarda el cierre en journal append-only hasheado; el
-paquete VPS valida y omite esa evidencia terminal, sin recrearla. PostgreSQL
-El `autoreview` final cerró limpio. Antes de release permanecen PostgreSQL y
-Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y
-ensayo privado de backup/restauración/upgrade/rollback; `v0.2.2` no incorpora
+paquete VPS valida y omite esa evidencia terminal, sin recrearla. El
+`autoreview` final cerró limpio y la CI Nivel 2 del SHA funcional aprobó
+PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
+10/08/2026; antes de release permanece el ensayo privado de backup/restauración/upgrade/rollback; `v0.2.2` no incorpora
 PF-19C.
 
 Estado de implementación 2026-07-13: PF-01A.1 valida en el cliente WSFE que
