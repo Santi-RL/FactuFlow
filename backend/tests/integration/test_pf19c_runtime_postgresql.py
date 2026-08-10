@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import select, text
+from sqlalchemy import null, select, text
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -200,7 +200,7 @@ async def _sembrar_grafos(
             tipo_operacion="procesar_lote",
             payload_hash="1" * 64,
             estado="en_proceso",
-            response_json=None,
+            response_json=null(),
             rece_snapshot_hash="2" * 64,
             lote_id=lote_rollback.id,
             empresa_id=1,
@@ -210,7 +210,7 @@ async def _sembrar_grafos(
             tipo_operacion="procesar_lote",
             payload_hash="3" * 64,
             estado="en_proceso",
-            response_json=None,
+            response_json=null(),
             rece_snapshot_hash="4" * 64,
             lote_id=lote_sync.id,
             empresa_id=1,
@@ -220,13 +220,34 @@ async def _sembrar_grafos(
             tipo_operacion="procesar_lote",
             payload_hash="5" * 64,
             estado="en_proceso",
-            response_json=None,
+            response_json=null(),
             rece_snapshot_hash="6" * 64,
             lote_id=lote_worker.id,
             empresa_id=1,
         )
         session.add_all([operacion_rollback, operacion_sync, operacion_worker])
         await session.flush()
+        operaciones_sin_respuesta = set(
+            (
+                await session.scalars(
+                    select(OperacionIdempotente.id).where(
+                        OperacionIdempotente.id.in_(
+                            {
+                                operacion_rollback.id,
+                                operacion_sync.id,
+                                operacion_worker.id,
+                            }
+                        ),
+                        OperacionIdempotente.response_json.is_(None),
+                    )
+                )
+            ).all()
+        )
+        assert operaciones_sin_respuesta == {
+            operacion_rollback.id,
+            operacion_sync.id,
+            operacion_worker.id,
+        }
 
         for lote, operacion, grupos in (
             (lote_rollback, operacion_rollback, grupos_rollback),

@@ -30,13 +30,10 @@ from tests.test_vps_migration import (
 )
 
 
-REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
-
-
 async def _preparar_destino_vps(database_url: str) -> AsyncEngine:
-    """Recrea bajo guard y migra el destino PostgreSQL al head PF-19B."""
+    """Recrea bajo guard y migra el destino PostgreSQL al head actual."""
     await _reset_schema(database_url)
-    _run_alembic("upgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
+    _run_alembic("upgrade", "head", database_url)
     return create_async_engine(database_url)
 
 
