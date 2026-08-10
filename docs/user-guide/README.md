@@ -7,7 +7,7 @@ Versión productiva cubierta por este manual: `v0.2.2`.
 Este manual describe el estado objetivo de `main` después de integrar este
 corte. La versión publicada y desplegada continúa siendo `v0.2.2`, validada el
 23/07/2026. Ese estado objetivo incluye PF-02A, los tres cortes de PF-02B,
-PF-03A, PF-19A y PF-19B completo. Todo ese tramo es posterior a `v0.2.2`:
+PF-03A, PF-19A, PF-19B completo y PF-19C completo localmente. Todo ese tramo es posterior a `v0.2.2`:
 todavía no pertenece a una release publicada ni está desplegado. No debe asumirse que una función
 posterior al tag productivo ya está operativa en una instalación concreta.
 
@@ -836,8 +836,11 @@ La atestación vence operativamente a los siete días. Antes del vencimiento, un
 administrador debe obtener e importar una constancia productiva reciente. Esta
 ventana es una política conservadora de FactuFlow, no una vigencia fiscal
 declarada por ARCA. La release y producción `v0.2.2` todavía no incluyen este
-flujo; PF-19C queda como siguiente corte para estructurar rechazos globales
-WSFE. Un `10005` legacy sigue siendo incierto y no habilita reemisión ciega.
+flujo. PF-19C, aún sin release ni despliegue, completó su evidencia local y
+trata como terminal solo un `10005` global estrictamente corroborado; detiene
+los grupos no enviados y deja cualquier respuesta incompleta o legacy en
+reconciliación. PostgreSQL real, CI, `autoreview` y ensayo de migración/restauración
+siguen pendientes. Un `10005` legacy no habilita reemisión ciega ni edición manual.
 
 ## 10. Emisores
 
@@ -1021,8 +1024,10 @@ Al 09/08/2026:
   descripción facturada, totales, backup/logs y confirmación irreversible
 - en el estado objetivo de `main`, PF-19B aporta elegibilidad RECE durable y
   fail-closed; homologación continúa sin una fuente probatoria positiva y, por
-  eso, no permite solicitar CAE. `v0.2.2` no incluye esta capacidad. PF-19C
-  resolverá el tratamiento estructurado de rechazos globales preautorización
+eso, no permite solicitar CAE. `v0.2.2` no incluye esta capacidad. PF-19C ya
+completó evidencia local para el tratamiento estructurado de rechazos globales
+preautorización; no está publicado ni desplegado y conserva puertas externas de
+PostgreSQL real, CI, `autoreview` y ensayo de migración/restauración
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
   rápida y ficha para soporte; todavía faltan backup visible y trazabilidad

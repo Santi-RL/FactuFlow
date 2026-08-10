@@ -2,7 +2,9 @@
 
 Última actualización: 09/08/2026
 
-Estado: PRIORIZADO; PF-01, PF-02, PF-19A Y PF-19B CERRADOS; PF-03A CERRADO; SIGUIENTE UNIDAD PF-19C.
+Estado: PRIORIZADO; PF-01, PF-02, PF-19A Y PF-19B CERRADOS; PF-03A CERRADO;
+PF-19C COMPLETO LOCALMENTE; PENDIENTES POSTGRESQL REAL, CI, AUTOREVIEW Y
+ENSAYO DE MIGRACIÓN/RESTAURACIÓN.
 
 ## Propósito y autoridad
 
@@ -92,8 +94,9 @@ compatibilidad RECE y que el error global excluyente `10005` queda tratado como
 incertidumbre. No se confirmó un P0 ni una autorización incorrecta. PF-19A ya
 cerró el diseño, la contención explícita previa a FECAE y el inventario legacy
 de solo lectura. PF-19B cerró la elegibilidad durable end-to-end, la autoridad
-administrativa productiva y la exposición UI; PF-19C conserva el rechazo global
-estructurado y el saneamiento auditado.
+administrativa productiva y la exposición UI; PF-19C completa localmente el
+rechazo global estructurado y el saneamiento auditado. Antes de release faltan
+PostgreSQL real, CI, `autoreview` y ensayo de migración/restauración.
 
 ## Bandas de investigación del backlog restante
 
@@ -131,7 +134,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | PF-16 | Calidad, CI, documentación y cadena de herramientas portable | Roadmap Node 24/testing; hallazgos de scripts Windows, Playwright, fechas dinámicas, alineación documental y vacíos de cobertura en suites | Evitar regresiones y mantener documentación, Windows y Linux reproducibles | Matriz de entornos, suites y documentación por línea de trabajo | C |
 | PF-17 | UX administrativa, accesibilidad y recuperación de errores | Roadmap UX; hallazgos de navegación, notificaciones, fechas visibles y estado persistido corrupto; ayuda contextual del constructor de plantillas; conectividad consciente ante red, servidor o chunks no disponibles | Reducir errores operativos de usuarios no técnicos sin desplazar prioridades fiscales ni convertir FactuFlow en una aplicación offline | Contratos estables de PF-03, PF-07, PF-08, PF-14 y PF-15; preservar PF-01 sin reintentos automáticos de escrituras o caminos fiscales; la ayuda del constructor comienza después de estabilizar PF-03 | C |
 | PF-18 | Salidas masivas, distribución y evolución posterior | ZIP de PDFs, paquetes, actualizaciones, soporte, correo electrónico, integraciones y dashboard | Mejorar adopción sin desviar recursos del núcleo fiscal | PF-04, PF-10, PF-11 y madurez productiva | D |
-| PF-19 | Elegibilidad fiscal WSFE/RECE, rechazos globales excluyentes y cierre legacy seguro | Evidencia productiva de `v0.2.2`; manual WSFEv1 para `10005`; importación/sincronización genérica de Web Services y respuestas batch sin detalle | PF-19A cerró diseño, contención exacta e inventario de solo lectura. PF-19B cerró ledger fail-closed, atestación productiva, control integral y UI; PF-19C debe cerrar error global y saneamiento auditado | PF-01 para estados e idempotencia; PF-02 permanece cerrado; PF-09 para fuentes del punto; PF-11 para backup; PF-14/PF-15 para contrato y exposición | A |
+| PF-19 | Elegibilidad fiscal WSFE/RECE, rechazos globales excluyentes y cierre legacy seguro | Evidencia productiva de `v0.2.2`; manual WSFEv1 para `10005`; importación/sincronización genérica de Web Services y respuestas batch sin detalle | PF-19A cerró diseño, contención exacta e inventario de solo lectura. PF-19B cerró ledger fail-closed, atestación productiva, control integral y UI; PF-19C completó localmente contrato global estricto, cierre atómico y plan/apply legacy. Faltan PostgreSQL real, CI, `autoreview` y ensayo de migración/restauración | PF-01 para estados e idempotencia; PF-02 permanece cerrado; PF-09 para fuentes del punto; PF-11 para backup; PF-14/PF-15 para contrato y exposición | A |
 
 ## Relaciones que condicionan el orden
 
@@ -168,8 +171,8 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 
 ## Enrutamiento del roadmap
 
-- P1 fiscal: PF-01, PF-02, PF-19A y PF-19B cerrados; PF-19C es la siguiente
-  unidad y conserva el cierre global/legacy.
+- P1 fiscal: PF-01, PF-02, PF-19A y PF-19B cerrados; PF-19C completa su
+  evidencia local de cierre global/legacy y conserva puertas externas de release.
 - P2 histórico: PF-04 y PF-05.
 - Multiemisor y permisos operativos por emisor: PF-06, PF-07 y PF-08.
 - Usuarios y cuenta propia: PF-08 y PF-17; la capacidad de crear/editar emisores

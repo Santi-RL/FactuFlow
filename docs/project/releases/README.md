@@ -18,3 +18,11 @@ evidencia de una instalación real permanecen en documentación privada.
 
 - `v0.2.2`, publicada y desplegada el 2026-07-23:
   `docs/project/releases/v0.2.2-candidate.md`
+
+## Candidato en preparación
+
+- `v0.3.0`: candidato local con versión técnica, PF-19C completo localmente y
+  matriz PF-16G preparada; sin commit candidato identificado, tag, publicación
+  ni despliegue. PostgreSQL real, CI, `autoreview` y ensayo de migración/
+  restauración continúan pendientes:
+  `docs/project/releases/v0.3.0-candidate.md`

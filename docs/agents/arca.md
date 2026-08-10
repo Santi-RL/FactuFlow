@@ -210,8 +210,8 @@
   HTTP anteriores pueden completar y simplemente se ignoran.
 - PF-19A no reetiqueta `10005` legacy como rechazo terminal: el código no quedó
   persistido de forma estructurada y su firma textual solo identifica
-  candidatos de inventario. PF-19C definirá esa transición; timeout, respuesta
-  parcial y código desconocido continúan en reconciliación.
+  candidatos de inventario. PF-19C ya completa localmente esa transición;
+  timeout, respuesta parcial y código desconocido continúan en reconciliación.
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.
@@ -220,8 +220,8 @@
   `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
   sincronizar con ARCA o revisarlos manualmente.
 - Este comportamiento describe el estado objetivo de `main`. La release
-  publicada y producción continúan en `v0.2.2`, sin PF-19B; no confundir merge,
-  release y despliegue.
+  publicada y producción continúan en `v0.2.2`, sin PF-19A/B/C; no confundir
+  implementación local, release y despliegue.
 
 ### Constancias de emisores
 
@@ -263,6 +263,24 @@
   `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut` y `codAut`.
 
 ### CAE, idempotencia e intentos fiscales
+
+PF-19C congela el tratamiento del rechazo global: solo `10005` como entero
+exacto, único, con cabecera `R` correlacionada al request y sin detalles ni CAE,
+es `arca_rechazo_global_excluyente`. No se interpreta texto libre ni el ejemplo
+documental `1005`. Respuesta desconocida, mixta, parcial, con timeout, transporte
+o contradicción queda en `requiere_reconciliacion`; el replay no vuelve a WSAA,
+WSFE ni `FECAESolicitar`. En lote se cierra el sublote enviado y se detienen los
+remanentes como no enviados, sin afirmar que ARCA los rechazó.
+
+Los candidatos legacy se resuelven solo mediante la CLI privada PF-19C en fases
+`plan` read-only y `apply` auditado. El plan fija ambientes por evidencia; si el
+ambiente histórico es indeterminado consulta producción y homologación. `apply`
+usa `FECompUltimoAutorizado` y solo `FECompConsultar` si el último alcanza el
+número planificado. Autorización, fallo o duda conserva reconciliación. La
+migración `c0d1e2f3a4b` guarda el cierre en journal append-only hasheado; el
+paquete VPS valida y omite esa evidencia terminal, sin recrearla. PostgreSQL
+real, CI, `autoreview` y ensayo de migración/restauración siguen pendientes
+antes de release; `v0.2.2` no incorpora PF-19C.
 
 Estado de implementación 2026-07-13: PF-01A.1 valida en el cliente WSFE que
 `Resultado=A` incluya un CAE ASCII de 14 dígitos y un vencimiento calendario

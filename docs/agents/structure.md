@@ -72,6 +72,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   atestación productiva, revisión monotónica, snapshots y compuerta fail-closed.
 - `backend/app/services/inventario_legacy_pf19_service.py`: inventario PF-19A
   sanitizado, privado y estrictamente de solo lectura.
+- `backend/app/services/resolucion_legacy_pf19_service.py`: resolución PF-19C
+  privada en fases `plan`/`apply`, con evidencia sanitizada y journal durable.
 - `backend/app/services/perfiles_carga_masiva_service.py`: CRUD, scoping y validación de perfiles de carga masiva.
 - `backend/app/services/almacenamiento_service.py`: cálculo acotado de uso,
   ZIPs de resguardo y limpieza confirmada.
@@ -79,6 +81,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/scripts/create_admin_user.py`: alta/promoción de usuario administrador.
 - `backend/app/scripts/pf19_legacy_inventory.py`: CLI privada PF-19A con emisor
   obligatorio, filtros allowlist y máximo duro de `500` registros.
+- `backend/app/scripts/pf19_legacy_resolution.py`: CLI privada PF-19C para
+  planificar y aplicar un cierre legacy con confirmación y backup verificable.
 - `backend/app/scripts/vps_migration.py`: preflight/export/import/validate del
   paquete privado v2 para SQLite a PostgreSQL.
 - `backend/app/templates/`: plantillas (PDF/HTML).
@@ -123,6 +127,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `docs/agents/arca.md`: integración ARCA y nomenclatura legacy.
 - `docs/agents/pf-19b-elegibilidad-rece-design.md`: diseño fiscal de autoridad
   RECE durable, fail-closed y rollout.
+- `docs/agents/pf-19c-rechazo-global-design.md`: contrato estricto de rechazo
+  global WSFE y resolución legacy auditada.
 - `docs/arca-ws/`: descargas locales de documentación oficial ARCA WS (gitignored).
 - `docs/api/`: referencia de API REST.
 - `docs/certificates/`: manejo de certificados.

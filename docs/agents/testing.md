@@ -79,12 +79,23 @@ instalación operativa.
 
 La matriz cubre capacidad `4+1`, integridad PF-01, inventario PF-19A de solo
 lectura, migración y concurrencia PF-19B —incluidos ambos ganadores de la carrera
-entre cambio de CUIT y atestación—, y paquete VPS v2. GitHub Actions
+entre cambio de CUIT y atestación—, y los escenarios PF-19C de journal legacy,
+atomicidad/CAS runtime y migración `c0d1e2f3a4b`, además del paquete VPS v2.
+GitHub Actions
 provisiona PostgreSQL 16 Alpine con credenciales sintéticas exclusivas del job y
 ejecuta el backend completo con esos guardarraíles. Una corrida local sin URL
 explícita omite esas pruebas: ese skip no constituye evidencia PostgreSQL. En
 este corte no se afirma una ejecución PostgreSQL local; la evidencia real debe
 provenir del job de CI. Ninguna prueba solicita CAE ni usa certificados reales.
+
+PF-19C se valida con respuestas WSFE simuladas: `10005` solo es terminal si es
+un entero exacto con cabecera global estrictamente correlacionada y sin detalle
+ni CAE. Todas las variantes desconocidas, mixtas, parciales o de transporte se
+esperan en reconciliación. La resolución legacy usa consultas seguras simuladas
+en plan/apply; un ambiente histórico indeterminado obliga a ambos ambientes.
+La evidencia final externa de este corte queda pendiente: no se atribuyen
+todavía CI, release ni despliegue. El `autoreview` final sí cerró localmente;
+la suite completa local se registra en la evidencia vigente de PF-19C.
 
 El corte `4+1` fue aprobado el 10/07/2026 y PF-01B.3 el 13/07/2026 contra
 PostgreSQL efímero. Esa evidencia valida contratos locales, pero no demuestra ni
@@ -263,6 +274,38 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Evidencia de verificación
 
+### PF-19C — evidencia local completa; cierre externo pendiente
+
+El diseño, código y pruebas focalizadas completaron localmente el contrato de
+`10005`, cierre atómico de lotes, replay/ownership, resolución legacy,
+migración y omisión validada en el paquete VPS. La QA usó dobles y consultas
+seguras, sin provocar CAE ni `10005` real.
+
+- Backend: `1049 passed`, `22 skipped`, `31 warnings` en `9m14s`; los skips
+  corresponden a PostgreSQL sin URL/daemon local.
+- Cobertura backend: total branch-aware `69.2278%`, líneas `73.6741%`, ramas
+  `55.1759%`, con gate global `69%`.
+- Frontend: `30` archivos y `149` pruebas aprobadas; cobertura statements
+  `56.12%`, branches `50.14%`, functions `43.77%`, lines `57.37%`, con gates
+  `56/50/43/57`.
+- PF-16C/D/E: Node.js `24.15.0`, npm `11.12.1`, auditorías npm de producción y
+  desarrollo sin vulnerabilidades, Runtime Smoke cubierto por pruebas unitarias
+  y CI configurada para PostgreSQL 16; `npm run test:scripts` aprobó `26/26`.
+   La prueba Runtime Smoke con PostgreSQL real todavía no se ejecutó en CI.
+- `autoreview` final autorizado: el primer intento con el binario `0.130` se
+  detuvo antes de revisar por el catálogo `max`; el reintento con el binario
+  instalado `0.147`, el mismo motor/modelo/esfuerzo, terminó con exit `0`.
+  El comando efectivo fue
+  `python C:\Users\SANTI\.codex\skills\autoreview\scripts\autoreview --mode local --engine codex --model gpt-5.6-sol --thinking medium --codex-bin C:\Users\SANTI\AppData\Local\OpenAI\Codex\bin\cfac6bda2d141e07\codex.exe`.
+  TruffleHog quedó limpio; el bundle de `2.087.478` bytes completó `5/5`
+  pasadas, sin hallazgos, y reportó `overall patch is correct (0.98)`.
+  La revisión final de seguridad separada quedó en P0/P1/P2 = `0` tras el fix
+  de la CLI.
+
+Antes de release faltan PostgreSQL real, CI atribuible al commit candidato,
+aceptación PF-16G y ensayo de migración/restauración. No se infiere tag,
+publicación ni despliegue de esta evidencia local.
+
 ### PF-19B — cierre local y CI del 09/08/2026
 
 - Backend completo: `924` pruebas recolectadas; `905` aprobadas, `19` omitidas
@@ -292,18 +335,9 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
   luego a la full, cubre limpieza pre-`await`, empresa + generación en los tres
   loaders de Lotes, corte de la cadena obsoleta después de cada espera y la
   guarda agregada de EmpresaConfig.
-- La reauditoría final no encontró hallazgos P0-P2. No equivale a `autoreview`,
-  ni reemplaza esa puerta.
-- El comando canónico de cierre
-  `--mode local --engine codex --model gpt-5.6-sol --thinking medium` se intentó
-  dos veces. Ambas corridas quedaron bloqueadas por TruffleHog antes de invocar
-  el motor: el bundle reprodujo tres candidatos PostgreSQL sintéticos
-  preexistentes en `HEAD`, reintroducidos por commits inversos del helper. El
-  árbol objetivo contiene cero URLs de esos candidatos y las pruebas enfocadas
-  del caso aprobaron `3/3`; un escaneo local sin verificación confirmó que no se
-  trata de una credencial real. El usuario autorizó explícitamente la dispensa
-  de `autoreview` el 09/08/2026. Esta dispensa permite continuar el cierre, pero
-  no constituye ni debe presentarse como un `autoreview` limpio.
+- La reauditoría final no encontró hallazgos P0-P2. Su resultado se consolidó
+  luego con el `autoreview` final de PF-19C registrado arriba; no es evidencia
+  de CI ni de despliegue.
 
 ### Checkpoint anterior — 08/08/2026
 

@@ -115,7 +115,12 @@ Antes de declarar un candidato listo:
 
 El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
 PF-02. `v0.3.0` continúa como corte provisional después del cambio funcional de
-PF-02; su nombre y alcance pueden cambiar si aparece nueva evidencia.
+PF-02. Su checkpoint técnico local ya sincroniza la versión `0.3.0` y completa
+PF-19C/PF-16C-D-E; no existe tag, release, SHA candidato integrado ni despliegue.
+La última release publicada y producción siguen en `v0.2.2`. Antes de declarar
+el candidato listo faltan PostgreSQL real, CI, `autoreview` autorizado y ensayo
+de migración/restauración. La firma externa de manifests VPS es P2 posterior y
+no bloquea este corte.
 
 ## Antes de desplegar
 

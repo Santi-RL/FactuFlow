@@ -739,6 +739,18 @@ ambigua o una falla local posterior a una autorización conocida deja
 grupo/lote en `requiere_reconciliacion`, conserva la evidencia fiscal y nunca
 vuelve el grupo a `fallido`.
 
+Cuando `FECAESolicitar` devuelve un error global estructurado, la API solo
+publica `arca_rechazo_global_excluyente` para el entero exacto `10005` con
+cabecera `R` correlacionada al request, un único error y ausencia de detalle o
+CAE. La respuesta puede incluir el error sanitario global; no expone el mensaje
+SOAP. El sublote enviado se cierra atómicamente y el lote detiene los grupos
+posteriores como `no_enviado_por_rechazo_global`. Código desconocido o mezclado,
+tipos no exactos, respuesta parcial, timeout, transporte, CAE o detalle dejan
+la operación en `requiere_reconciliacion`; el replay de la misma clave devuelve
+su estado durable sin realizar WSAA, WSFE ni una nueva FECAE. El contrato
+completó evidencia local, pero PostgreSQL real, CI, `autoreview` y ensayo de
+migración/restauración siguen pendientes; no pertenece a `v0.2.2`.
+
 La recuperación stale del worker conserva una puerta previa más estricta: solo
 reencola grupos intactos, sin intento, CAE, número, comprobante vinculado ni
 comprobante autorizado candidato. El diagnóstico compartido admite

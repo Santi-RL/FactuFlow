@@ -1,17 +1,25 @@
 {
   "name": "factuflow",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
+  "engines": {
+    "node": "24.15.0",
+    "npm": "11.12.1"
+  },
+  "packageManager": "npm@11.12.1",
   "scripts": {
     "backend:lint": "node tools/run-backend-python.mjs -m ruff check app tests",
     "backend:format:check": "node tools/run-backend-python.mjs -m black --check app tests",
-    "backend:test": "node tools/run-backend-python.mjs -m pytest tests -q",
+    "backend:test": "npm run backend:coverage",
+    "backend:coverage": "node tools/run-backend-python.mjs -m pytest tests -q",
     "frontend:lint": "npm --prefix frontend run lint:check",
     "frontend:type-check": "npm --prefix frontend run type-check",
     "frontend:test": "npm --prefix frontend run test:unit",
+    "frontend:coverage": "npm --prefix frontend run test:coverage",
     "lint": "npm run backend:lint && npm run frontend:lint && npm run frontend:type-check",
     "test": "npm run backend:test && npm run frontend:test && npm run test:scripts",
-    "test:scripts": "node --test tools/package-scripts.test.mjs tools/ci/change-scope.test.mjs tools/ci/documentation-alignment.test.mjs",
+    "test:scripts": "node --test tools/package-scripts.test.mjs tools/ci/change-scope.test.mjs tools/ci/documentation-alignment.test.mjs tools/ci/runtime-smoke.test.mjs tools/ci/version-alignment.test.mjs",
+    "test:runtime-smoke": "node tools/ci/runtime-smoke.mjs",
     "docs:check": "node tools/ci/documentation-alignment.mjs",
     "clawpatch:backend:init": "node tools/clawpatch/run-clawpatch.mjs --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json init",
     "clawpatch:backend:map:native": "node tools/clawpatch/run-clawpatch.mjs --root backend --state-dir ../.clawpatch/backend --config ../.clawpatch/backend/config.json map",

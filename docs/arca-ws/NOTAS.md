@@ -153,6 +153,23 @@ Mapping aplicado en el proyecto:
   genérico también desde `FacturacionService`, incluidos sublotes y fallos
   post-CAE, y revisar idempotencia e intentos fiscales antes de reintentar.
 
+### 4.e.2 Rechazo global excluyente PF-19C
+
+- Solo el entero exacto `10005` puede cerrar un rechazo global, y únicamente
+  cuando la cabecera de `FECAESolicitar` es `R`, coincide estrictamente con el
+  request y no hay detalle ni CAE. No se infiere por texto, `1005`, strings,
+  floats, booleanos, duplicados o códigos mezclados.
+- Un error global desconocido, mixto, parcial, contradictorio o un timeout/Fault
+  de transporte conserva `requiere_reconciliacion`. No se reintenta ni solicita
+  otro CAE a ciegas. En un lote, FactuFlow cierra el sublote enviado y detiene
+  los restantes como no enviados, sin atribuirles un rechazo ARCA.
+- La resolución de candidatos legacy no invoca `FECAESolicitar`: planifica sin
+  escribir y aplica solo con backup verificable, hash, actor y evidencia externa
+  segura. Si el ambiente es indeterminado, compara producción y homologación;
+  cualquier autorización o incertidumbre mantiene reconciliación. El journal
+  append-only es evidencia privada sanitizada y el traslado a VPS lo omite sin
+  reatestarlo.
+
 ### 4.e.1 Contrato estricto antes de ARCA
 
 - El objeto superior de una emisión es cerrado. Una clave desconocida o mal
@@ -235,13 +252,15 @@ de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
 - PF-19A conserva los errores globales legacy como incertidumbre: la firma
   textual `10005` solo identifica candidatos y nunca autoriza transición,
   reparación o reemisión.
-- PF-19B separará `verificado_rece`, `no_rece` y `no_verificado`, migrará los
-  datos existentes sin afirmar compatibilidad no demostrada y aplicará la misma
-  puerta en emisión individual, lotes, perfiles, reintentos y worker.
-- PF-19C estructurará los errores globales WSFE. Solo códigos que el contrato
-  oficial vigente identifique como rechazo excluyente preautorización podrán
-  cerrar el intento como rechazo terminal; timeout, respuesta parcial o código
-  desconocido conservarán `requiere_reconciliacion`.
+- PF-19B separa `verificado_rece`, `no_rece` y `no_verificado`, migra los datos
+  existentes sin afirmar compatibilidad no demostrada y aplica la misma puerta
+  en emisión individual, lotes, perfiles, reintentos y worker.
+- PF-19C estructura localmente los errores globales WSFE. Solo códigos que el
+  contrato oficial vigente identifique como rechazo excluyente preautorización
+  pueden cerrar el intento como rechazo terminal; timeout, respuesta parcial o
+  código desconocido conservan `requiere_reconciliacion`. PostgreSQL real, CI,
+  `autoreview` y ensayo de migración/restauración siguen pendientes antes de
+  release; la producción continúa en `v0.2.2`.
 - El inventario PF-19A no consulta ARCA, no infiere el ambiente histórico y no
   sanea registros. La política de contraste y resolución pertenece a PF-19C;
   mientras tanto, los lotes legacy no se reparan mediante edición directa ni
@@ -474,5 +493,5 @@ consulta posterior. Comprobantes, puntos, CAEs, cantidades y fechas exactas
 permanecen en evidencia privada y no se replican en este repositorio público.
 
 Este documento describe el estado objetivo de `main`. La release publicada y
-producción continúan en `v0.2.2`, sin PF-19B; release y despliegue requieren
+producción continúan en `v0.2.2`, sin PF-19A/B/C; release y despliegue requieren
 checkpoints separados.

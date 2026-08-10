@@ -12,6 +12,8 @@ facturación individual y masiva con seguridad fiscal.
 
 - Versión productiva vigente: `v0.2.2`, también última release publicada y
   validada en producción el 23/07/2026.
+- Versión técnica del candidato local: `v0.3.0`, sin tag, publicación ni
+  despliegue.
 - Backend FastAPI y frontend Vue operativos.
 - PostgreSQL es la base productiva; Alembic es el camino canónico de schema.
 - Emisión individual y masiva con WSAA/WSFE ya utilizada en producción.
@@ -22,15 +24,21 @@ facturación individual y masiva con seguridad fiscal.
   limitados al emisor asignado.
 - VPS con Docker producción y HTTPS operativo.
 - La evidencia productiva concreta permanece fuera del repositorio público.
-- `main` incluye PF-02A, los tres cortes de PF-02B, PF-03A, PF-19A y PF-19B.
+- `main` incluye PF-02A, los tres cortes de PF-02B, PF-03A, PF-19A, PF-19B y
+  PF-19C completo localmente.
   PF-02 admite historia externa legítima sin perder reservas ni segundo
   preflight; PF-03A rechaza claves superiores desconocidas; PF-19A agrega la
   contención preautorización explícita y el inventario legacy de solo lectura;
   PF-19B cierra elegibilidad RECE durable, atestación administrativa productiva,
-  control integral y UI. Todo ese tramo es posterior a `v0.2.2`: todavía no
+  control integral y UI. PF-19C acepta solo el `10005` entero exacto con
+  cabecera global estricta como terminal; lo incierto se reconcilia y el legacy
+  usa plan/apply auditado. Faltan PostgreSQL real, CI, `autoreview` y ensayo de
+  migración/restauración. Todo ese tramo es posterior a `v0.2.2`: todavía no
   pertenece a una release publicada ni está desplegado.
-- PF-19C sigue pendiente para preservar el error global `10005` como rechazo
-  terminal bajo contrato oficial y sanear historia legacy de forma auditada.
+- PF-19C completó evidencia local enfocada; preserva el error global `10005`
+  como rechazo terminal solo bajo contrato oficial, detiene grupos no enviados
+  y sanea historia legacy de forma auditada. PostgreSQL real, CI, `autoreview`
+  y ensayo de migración/restauración continúan pendientes antes de release.
   Web Services genérico ya no acredita RECE en `main`; homologación permanece
   fail-closed mientras no exista una fuente probatoria específica.
 
@@ -79,10 +87,11 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-En `main`, PF-02, PF-03A, PF-19A y PF-19B están cerrados; PF-05 conserva
-separada la reconstrucción histórica opcional para informes. La siguiente
-unidad es PF-19C para errores globales estructurados y cierre legacy auditado;
-recién entonces sigue PF-03B sobre DTO de ítem, propiedades desconocidas,
+En el estado objetivo de `main`, PF-02, PF-03A, PF-19A y PF-19B están cerrados;
+PF-19C completó la evidencia local y PF-05 conserva separada la reconstrucción
+histórica opcional para informes. La siguiente unidad es cerrar las puertas
+externas de PF-19C —PostgreSQL real, CI, `autoreview` y ensayo de
+migración/restauración—; recién entonces sigue PF-03B sobre DTO de ítem, propiedades desconocidas,
 descuentos y valores no finitos. PF-19 no cambia numeración ni absorbe
 validaciones de ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
 
