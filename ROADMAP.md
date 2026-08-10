@@ -297,9 +297,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     estado efectivo e invalidan confirmaciones obsoletas. Homologación permanece
     cerrada mientras no exista una fuente probatoria específica.
   - [~] **PF-19C — rechazo global y saneamiento legacy:** implementación, diseño
-    y evidencia local completos para el candidato; antes de declarar el corte
-    listo faltan PostgreSQL real, CI atribuible y ensayo de
-    migración/restauración. El `autoreview` final autorizado cerró limpio con
+    y evidencia completos en el candidato; antes de declararlo listo faltan
+    PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final,
+    aceptación PF-16G y ensayo privado de backup/restauración/upgrade/rollback.
+    El `autoreview` final autorizado cerró limpio con
     Codex `gpt-5.6-sol medium`. Solo `10005` entero exacto, una cabecera `R` estrictamente
     correlacionada, un único error y ausencia de detalle/CAE cierran un rechazo
     global. Lo desconocido, mixto, parcial o contradictorio queda en
@@ -951,11 +952,11 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 - **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
   barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
-- **Antes de declarar listo el candidato `v0.3.0`:** atribuir al rango real la
-  CI, PostgreSQL/Runtime Smoke, aceptación PF-16G y ensayo de
-  migración/restauración. El `autoreview` autorizado cerró limpio con Codex
-  `gpt-5.6-sol medium`; PF-16C/D/E y la matriz PF-16G ya están implementados
-  localmente.
+- **Antes de declarar listo el candidato `v0.3.0`:** atribuir al SHA final la
+  CI, PostgreSQL/Runtime Smoke reales, aceptación PF-16G y ensayo privado de
+  backup/restauración/upgrade/rollback. El `autoreview` autorizado cerró limpio
+  con Codex `gpt-5.6-sol medium`; PF-16C/D/E y la matriz PF-16G están
+  incorporados por el candidato.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
   críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
   PF-15 y PF-18 que correspondan.
@@ -1163,15 +1164,15 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   de PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE,
   el endurecimiento de pool/worker y las correcciones de seguridad aceptadas,
   sin mezclar el cambio de política de numeración global.
-- **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y
+- **`v0.3.0`:** candidato funcional después de PF-02 y
   PF-19 con sus QA fiscales. PF-02 cambia el contrato operativo de numeración;
   PF-19 cierra la elegibilidad RECE y la semántica de rechazo descubiertas por
   evidencia productiva antes de desplegar esa política. PF-03B u otros P1 solo
   pueden sumarse si ya están cerrados, forman una unidad revisable y no vuelven
   riesgoso ni demoran innecesariamente el despliegue de estas defensas.
-- **Checkpoint local `v0.3.0`:** la versión técnica, PF-19C y PF-16C/D/E están
-  preparados localmente; PF-16G tiene matriz. No existe tag, release, SHA
-  candidato integrado ni despliegue, y la producción continúa en `v0.2.2`.
+- **Candidato `v0.3.0`:** `c1dbd82` incorpora PF-19C y `beb3bc1` es el commit
+  funcional sobre `b5eefcd`; PF-16G tiene matriz. No existe tag, release ni
+  despliegue, y la producción continúa en `v0.2.2`.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en

@@ -7,7 +7,7 @@ Este directorio agrupa la documentación del proyecto.
 - Changelog y corte versionado actual: `CHANGELOG.md`
 - Último dossier de release publicada y desplegada (`v0.2.2`):
   `docs/project/releases/v0.2.2-candidate.md`
-- Dossier de candidato local `v0.3.0` (sin tag, publicación ni despliegue):
+- Dossier del candidato `v0.3.0` (sin tag, publicación ni despliegue):
   `docs/project/releases/v0.3.0-candidate.md`
 - Instalación y setup: `docs/setup/README.md`
 - Migración local a VPS: `docs/setup/vps-migration.md`

@@ -274,7 +274,7 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Evidencia de verificación
 
-### PF-19C — evidencia local completa; cierre externo pendiente
+### PF-19C — evidencia del candidato completa; cierre externo pendiente
 
 El diseño, código y pruebas focalizadas completaron localmente el contrato de
 `10005`, cierre atómico de lotes, replay/ownership, resolución legacy,
@@ -302,8 +302,9 @@ seguras, sin provocar CAE ni `10005` real.
   La revisión final de seguridad separada quedó en P0/P1/P2 = `0` tras el fix
   de la CLI.
 
-Antes de release faltan PostgreSQL real, CI atribuible al commit candidato,
-aceptación PF-16G y ensayo de migración/restauración. No se infiere tag,
+Antes de release faltan PostgreSQL y Runtime Smoke reales en CI, CI atribuible
+al SHA final, aceptación PF-16G y ensayo privado de
+backup/restauración/upgrade/rollback. No se infiere tag,
 publicación ni despliegue de esta evidencia local.
 
 ### PF-19B — cierre local y CI del 09/08/2026

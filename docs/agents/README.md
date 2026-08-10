@@ -25,7 +25,7 @@
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
-- Dossier del candidato local v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
+- Dossier del candidato v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
 
 ## Fuente de verdad operativa
 

@@ -255,12 +255,13 @@ de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
 - PF-19B separa `verificado_rece`, `no_rece` y `no_verificado`, migra los datos
   existentes sin afirmar compatibilidad no demostrada y aplica la misma puerta
   en emisión individual, lotes, perfiles, reintentos y worker.
-- PF-19C estructura localmente los errores globales WSFE. Solo códigos que el
+- PF-19C, incorporado por el candidato, estructura los errores globales WSFE. Solo códigos que el
   contrato oficial vigente identifique como rechazo excluyente preautorización
   pueden cerrar el intento como rechazo terminal; timeout, respuesta parcial o
-  código desconocido conservan `requiere_reconciliacion`. PostgreSQL real, CI,
-  `autoreview` y ensayo de migración/restauración siguen pendientes antes de
-  release; la producción continúa en `v0.2.2`.
+  código desconocido conservan `requiere_reconciliacion`. El `autoreview` final
+  cerró limpio; antes de release siguen pendientes PostgreSQL y Runtime Smoke
+  reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo privado
+  de backup/restauración/upgrade/rollback; la producción continúa en `v0.2.2`.
 - El inventario PF-19A no consulta ARCA, no infiere el ambiente histórico y no
   sanea registros. La política de contraste y resolución pertenece a PF-19C;
   mientras tanto, los lotes legacy no se reparan mediante edición directa ni

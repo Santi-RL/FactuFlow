@@ -308,8 +308,10 @@ La QA no provocará `10005` ni solicitará un CAE real. Usará dobles controlado
 PostgreSQL descartable en CI y lecturas seguras para el procedimiento legacy.
 La evidencia privada de backup, ambiente y consultas no se versiona.
 
-PF-19C completó localmente diseño, migración, rollback, tests y documentación.
-El cierre externo del candidato exige PostgreSQL real, CI atribuible al commit
-candidato, `autoreview` autorizado y ensayo de migración/restauración. El tag,
+PF-19C quedó incorporado por el candidato con diseño, migración, rollback,
+tests y documentación. El `autoreview` final cerró limpio. El cierre externo
+del candidato exige PostgreSQL y Runtime Smoke reales en CI, CI atribuible al
+SHA final, aceptación PF-16G y ensayo privado de
+backup/restauración/upgrade/rollback. El tag,
 la publicación y el despliegue de `v0.3.0` requieren autorizaciones posteriores
 separadas.

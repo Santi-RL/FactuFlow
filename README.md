@@ -8,7 +8,7 @@ Versión publicada más reciente: `v0.2.2`
 
 Versión productiva vigente: `v0.2.2`
 
-Versión técnica del candidato local: `v0.3.0` (sin tag, publicación ni
+Versión técnica del candidato: `v0.3.0` (sin tag, publicación ni
 despliegue).
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
@@ -44,10 +44,12 @@ señal exacta y confirmación expresa. La sincronización WSFE server-side actua
 el estado técnico, pero nunca promueve RECE; homologación permanece cerrada sin
 una fuente probatoria específica. La UI muestra estados, procedencia y vigencia,
 y los caminos individual, masivo, worker y reintentos comparten snapshots y
-guardas antes de `FECAESolicitar`. PF-19C completa localmente el rechazo global
-estructurado y el cierre legacy auditado. PostgreSQL real, CI del commit
-candidato, `autoreview` autorizado y el ensayo de migración/restauración siguen
-pendientes. Nada de este tramo posterior a `v0.2.2` está publicado ni desplegado
+guardas antes de `FECAESolicitar`. PF-19C, incorporado por el candidato,
+completa el rechazo global estructurado y el cierre legacy auditado. El
+`autoreview` final autorizado cerró limpio; permanecen pendientes PostgreSQL y
+Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y el
+ensayo privado de backup/restauración/upgrade/rollback. Nada de este tramo
+posterior a `v0.2.2` está publicado ni desplegado
 en producción.
 
 Capacidades actuales:

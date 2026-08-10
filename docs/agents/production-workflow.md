@@ -114,12 +114,12 @@ Antes de declarar un candidato listo:
 6. decidir por separado si se crea el tag y si se despliega.
 
 El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
-PF-02. `v0.3.0` continúa como corte provisional después del cambio funcional de
-PF-02. Su checkpoint técnico local ya sincroniza la versión `0.3.0` y completa
-PF-19C/PF-16C-D-E; no existe tag, release, SHA candidato integrado ni despliegue.
-La última release publicada y producción siguen en `v0.2.2`. Antes de declarar
-el candidato listo faltan PostgreSQL real, CI, `autoreview` autorizado y ensayo
-de migración/restauración. La firma externa de manifests VPS es P2 posterior y
+PF-02. `v0.3.0` es el candidato funcional `beb3bc1`, sobre la base `b5eefcd`,
+e incorpora PF-19C/PF-16C-D-E; no existe tag, release ni despliegue. La última
+release publicada y producción siguen en `v0.2.2`. El `autoreview` final cerró
+limpio. Antes de declarar el candidato listo faltan PostgreSQL y Runtime Smoke
+reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo privado de
+backup/restauración/upgrade/rollback. La firma externa de manifests VPS es P2 posterior y
 no bloquea este corte.
 
 ## Antes de desplegar
@@ -145,7 +145,7 @@ Antes de actualizar producción:
    `git diff --name-status <commit_desplegado>..<objetivo>`. Enumerar
    explícitamente migraciones Alembic, dependencias y lockfiles, Docker/compose,
    configuración y cambios de schema desde ese origen real; no inferirlos desde
-   otro candidato local reciente. Revisar además `alembic current`, `heads` y la
+   otro candidato reciente. Revisar además `alembic current`, `heads` y la
    ruta pendiente de migraciones de la base productiva.
 10. Confirmar que producción usa un único proceso Uvicorn mientras el worker de
    lotes siga embebido en el backend.

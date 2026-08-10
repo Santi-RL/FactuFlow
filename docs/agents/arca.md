@@ -210,7 +210,7 @@
   HTTP anteriores pueden completar y simplemente se ignoran.
 - PF-19A no reetiqueta `10005` legacy como rechazo terminal: el código no quedó
   persistido de forma estructurada y su firma textual solo identifica
-  candidatos de inventario. PF-19C ya completa localmente esa transición;
+  candidatos de inventario. PF-19C, incorporado por el candidato, completa esa transición;
   timeout, respuesta parcial y código desconocido continúan en reconciliación.
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
@@ -221,7 +221,7 @@
   sincronizar con ARCA o revisarlos manualmente.
 - Este comportamiento describe el estado objetivo de `main`. La release
   publicada y producción continúan en `v0.2.2`, sin PF-19A/B/C; no confundir
-  implementación local, release y despliegue.
+  estado objetivo de `main`, release y despliegue.
 
 ### Constancias de emisores
 
@@ -279,8 +279,10 @@ usa `FECompUltimoAutorizado` y solo `FECompConsultar` si el último alcanza el
 número planificado. Autorización, fallo o duda conserva reconciliación. La
 migración `c0d1e2f3a4b` guarda el cierre en journal append-only hasheado; el
 paquete VPS valida y omite esa evidencia terminal, sin recrearla. PostgreSQL
-real, CI, `autoreview` y ensayo de migración/restauración siguen pendientes
-antes de release; `v0.2.2` no incorpora PF-19C.
+El `autoreview` final cerró limpio. Antes de release permanecen PostgreSQL y
+Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y
+ensayo privado de backup/restauración/upgrade/rollback; `v0.2.2` no incorpora
+PF-19C.
 
 Estado de implementación 2026-07-13: PF-01A.1 valida en el cliente WSFE que
 `Resultado=A` incluya un CAE ASCII de 14 dígitos y un vencimiento calendario

@@ -35,7 +35,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## PF-19 priorizado — PF-19C completo localmente; puertas externas pendientes
+## PF-19 priorizado — PF-19C integrado en el candidato; puertas externas pendientes
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -55,11 +55,12 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-19B completa sus tres subcortes como una sola unidad: ledger y cabeza
   durable, migración fail-closed, atestación administrativa productiva,
   snapshots/guardas en todos los caminos fiscales y estados visibles en API/UI;
-- PF-19C completa localmente el contrato: solo `10005` entero exacto bajo
+- PF-19C, incorporado por el candidato, completa el contrato: solo `10005` entero exacto bajo
   cabecera global estricta puede ser terminal; lo desconocido, mixto, parcial o
   contradictorio requiere reconciliación. El `autoreview` final autorizado
-  cerró limpio con Codex `gpt-5.6-sol medium`; aún faltan PostgreSQL real, CI
-  del commit candidato y ensayo de migración/restauración;
+  cerró limpio con Codex `gpt-5.6-sol medium`; aún faltan PostgreSQL y Runtime
+  Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y ensayo
+  privado de backup/restauración/upgrade/rollback;
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
@@ -80,7 +81,7 @@ Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. PF-19B todavía no pertenece a una
 release ni está desplegado: la release publicada y producción continúan en
-`v0.2.2`. PF-19C está completo localmente y no está desplegado; hasta cerrar
+`v0.2.2`. PF-19C está incorporado por el candidato y no está desplegado; hasta cerrar
 sus puertas externas y autorizar un despliegue no deben reintentarse lotes
 afectados ni sanearse registros legacy de forma manual.
 
@@ -328,14 +329,14 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 ## Snapshot vigente
 
 - Versión productiva: `v0.2.2`.
-- Versión técnica del candidato local: `v0.3.0`, sin tag, publicación ni
+- Versión técnica del candidato: `v0.3.0`, sin tag, publicación ni
   despliegue.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 23/07/2026.
 - El estado objetivo de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
-  cortes de PF-02B, PF-03A, PF-19A, la unidad completa PF-19B y PF-19C completo
-  localmente. Todo ese tramo es posterior a
+  cortes de PF-02B, PF-03A, PF-19A, la unidad completa PF-19B y PF-19C
+  incorporado por el candidato. Todo ese tramo es posterior a
   `v0.2.2`: todavía no pertenece a una release publicada ni está desplegado.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 23/07/2026.
@@ -463,9 +464,10 @@ PF-19 es el P1 fiscal activo por evidencia productiva. PF-19A cerró diseño,
 contención explícita e inventario de solo lectura; PF-19B cerró la elegibilidad
 RECE durable end-to-end, incluida su autoridad administrativa y UI. Ninguno
 autoriza reintentos legacy ni ediciones directas de base. PF-19C completó su
-evidencia local de rechazo global y saneamiento auditado; siguen pendientes
-PostgreSQL real, CI, `autoreview` y ensayo de migración/restauración antes de
-una release. Después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+evidencia de rechazo global y saneamiento auditado; siguen pendientes
+PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación
+PF-16G y ensayo privado de backup/restauración/upgrade/rollback antes de una
+release. Después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
 cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
@@ -604,8 +606,9 @@ Siguen pendientes:
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
-    y PF-19C tiene implementación y evidencia local completas. Retomar por
-    PostgreSQL real, CI, `autoreview` autorizado y ensayo de migración/restauración;
+    y PF-19C está incorporado por el candidato con implementación y evidencia completas. Retomar por
+    PostgreSQL y Runtime Smoke reales en CI, CI atribuible al SHA final,
+    aceptación PF-16G y ensayo privado de backup/restauración/upgrade/rollback;
     recién entonces PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
@@ -645,7 +648,7 @@ Siguen pendientes:
 - Historial: `CHANGELOG.md`
 - Flujo productivo: `docs/agents/production-workflow.md`
 - Dossier v0.2.2: `docs/project/releases/v0.2.2-candidate.md`
-- Dossier local v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
+- Dossier v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
 - Checklist fiscal: `docs/agents/fiscal-change-checklist.md`
 - Clawpatch: `docs/project/audits/clawpatch/README.md`
 - Cierre v0.2.1:

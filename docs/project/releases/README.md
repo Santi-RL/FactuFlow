@@ -21,8 +21,9 @@ evidencia de una instalación real permanecen en documentación privada.
 
 ## Candidato en preparación
 
-- `v0.3.0`: candidato local con versión técnica, PF-19C completo localmente y
-  matriz PF-16G preparada; sin commit candidato identificado, tag, publicación
-  ni despliegue. PostgreSQL real, CI, `autoreview` y ensayo de migración/
-  restauración continúan pendientes:
+- `v0.3.0`: candidato funcional `beb3bc1`, sobre la base `b5eefcd`, con
+  PF-19C en `c1dbd82` y matriz PF-16G preparada; sin tag, publicación ni
+  despliegue. El `autoreview` final cerró limpio. Permanecen PostgreSQL y
+  Runtime Smoke reales en CI, CI atribuible al SHA final, aceptación PF-16G y
+  ensayo privado de backup/restauración/upgrade/rollback:
   `docs/project/releases/v0.3.0-candidate.md`
