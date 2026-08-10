@@ -21,10 +21,9 @@ evidencia de una instalación real permanecen en documentación privada.
 
 ## Candidato en preparación
 
-- `v0.3.0`: candidato funcional validado
-  `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre la base `b5eefcd`, con
-  PF-19C en `c1dbd82` y matriz PF-16G aceptada el 10/08/2026; sin tag, publicación ni
-  despliegue. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA
-  funcional aprobó PostgreSQL real y Runtime Smoke. Permanece el ensayo privado
-  de backup/restauración/upgrade/rollback:
+- `v0.3.0`: candidato `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`, sobre
+  la base `b5eefcd`, con PF-19C y matriz PF-16G aceptada el 10/08/2026; sin
+  tag, publicación ni despliegue. El `autoreview` final cerró limpio, la CI
+  Nivel 2 aprobó PostgreSQL real y Runtime Smoke, y el ensayo privado de backup,
+  restauración aislada, upgrade y rollback quedó aprobado:
   `docs/project/releases/v0.3.0-candidate.md`

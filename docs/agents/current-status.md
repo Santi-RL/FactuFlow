@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 09/08/2026
+Última actualización: 10/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -35,7 +35,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## PF-19 priorizado — PF-19C integrado en el candidato; puertas externas pendientes
+## PF-19 cerrado en el candidato; release y despliegue pendientes
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -60,8 +60,9 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
   contradictorio requiere reconciliación. El `autoreview` final autorizado
   cerró limpio con Codex `gpt-5.6-sol medium`; la CI Nivel 2 del SHA funcional
   `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó PostgreSQL real y Runtime
-  Smoke; la aceptación PF-16G fue registrada el 10/08/2026 y falta el ensayo
-  privado de backup/restauración/upgrade/rollback;
+  Smoke; la aceptación PF-16G fue registrada el 10/08/2026 y el candidato
+  `7f7b3808` aprobó el ensayo privado de backup, restauración aislada, upgrade
+  y rollback;
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
@@ -82,8 +83,8 @@ Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. PF-19B todavía no pertenece a una
 release ni está desplegado: la release publicada y producción continúan en
-`v0.2.2`. PF-19C está incorporado por el candidato y no está desplegado; hasta cerrar
-sus puertas externas y autorizar un despliegue no deben reintentarse lotes
+`v0.2.2`. PF-19C está incorporado por el candidato y no está desplegado; hasta
+publicar y autorizar el despliegue no deben reintentarse lotes
 afectados ni sanearse registros legacy de forma manual.
 
 ## PF-03A — contrato superior estricto de emisión
@@ -466,10 +467,10 @@ contención explícita e inventario de solo lectura; PF-19B cerró la elegibilid
 RECE durable end-to-end, incluida su autoridad administrativa y UI. Ninguno
 autoriza reintentos legacy ni ediciones directas de base. PF-19C completó su
 evidencia de rechazo global y saneamiento auditado; la CI Nivel 2 ya aprobó
-PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G
-fue registrada el 10/08/2026; sigue el ensayo privado de
-backup/restauración/upgrade/rollback antes de una release. Después se retoma
-PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G y
+el ensayo privado de backup/restauración/upgrade/rollback quedaron cerrados el
+10/08/2026. El siguiente paso es integrar, publicar y desplegar `v0.3.0` con
+decisiones separadas; después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
 cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
@@ -608,8 +609,9 @@ Siguen pendientes:
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
-    y PF-19C está incorporado por el candidato con implementación y evidencia completas. Retomar por
-    el ensayo privado de backup/restauración/upgrade/rollback;
+    y PF-19C está incorporado por el candidato con implementación, evidencia y
+    ensayo privado completos. Retomar por la integración del candidato, la
+    decisión de tag/publicación y, por separado, el despliegue controlado;
     recién entonces PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.

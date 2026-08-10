@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 09/08/2026
+Última actualización: 10/08/2026
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
@@ -840,9 +840,9 @@ flujo. PF-19C, incorporado por el candidato y aún sin release ni despliegue,
 trata como terminal solo un `10005` global estrictamente corroborado; detiene
 los grupos no enviados y deja cualquier respuesta incompleta o legacy en
 reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA
-funcional aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue
-registrada el 10/08/2026; permanece pendiente el ensayo privado de backup/restauración/upgrade/rollback. Un `10005`
-legacy no habilita reemisión ciega ni edición manual.
+funcional aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el
+ensayo privado de backup/restauración/upgrade/rollback quedaron aprobados el
+10/08/2026. Un `10005` legacy no habilita reemisión ciega ni edición manual.
 
 ## 10. Emisores
 

@@ -35,13 +35,18 @@ Reglas vigentes desde 2026-05-22:
   aprobó los siete checks del SHA funcional: Backend Tests registró `1076`
   pruebas aprobadas, `32` warnings, `441,83 s` y cobertura total `70,03%`; E2E
   aprobó `33` pruebas y Runtime Smoke aprobó contra PostgreSQL real. La
-  aceptación funcional-contable PF-16G fue registrada el 10/08/2026; queda el
-  ensayo privado de backup/restauración/upgrade/rollback.
+  aceptación funcional-contable PF-16G fue registrada el 10/08/2026. El
+  candidato `7f7b3808` aprobó además un ensayo privado con backup reciente,
+  restauración aislada, upgrade hasta `c0d1e2f3a4b` y rollback exacto hasta
+  `a8b9c0d1e2f3`, sin modificar producción.
 - PF-16C, PF-16D y PF-16E quedaron incorporados por el candidato:
   Node.js 24, auditorías npm, cobertura con gates, CI PostgreSQL/Runtime Smoke
   y `27/27` tests de scripts. PF-16G ya tiene matriz, dossier y aceptación
   funcional-contable registrada el 10/08/2026. La firma externa de manifests
   VPS permanece como P2 posterior y no bloquea este candidato.
+- La guía de trabajo prioriza unidades enfocadas y releases seguros sin ampliar
+  el alcance automáticamente: un bloqueo real se consulta al desarrollador y
+  los hallazgos no bloqueantes se difieren al roadmap.
 
 ### Planificación de producto
 

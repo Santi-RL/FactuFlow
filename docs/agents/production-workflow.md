@@ -99,9 +99,11 @@ producción, el deploy debe decidirse explícitamente.
 ### Decidir un corte de release
 
 La guía de candidatos vive en `ROADMAP.md > Guía flexible de cortes`. Es una
-orientación revisable, no un calendario: un riesgo nuevo, una migración incierta
-o un cambio de alcance puede dividir, adelantar o posponer el corte. No es
-necesario terminar todo el roadmap.
+orientación revisable, no un calendario. El alcance de un release solo cambia
+por decisión explícita del desarrollador: un problema que impida un cierre
+seguro detiene el corte y se consulta; un hallazgo no bloqueante se registra en
+el roadmap y no demora automáticamente la unidad vigente. No es necesario
+terminar todo el roadmap.
 
 Antes de declarar un candidato listo:
 
@@ -114,13 +116,15 @@ Antes de declarar un candidato listo:
 6. decidir por separado si se crea el tag y si se despliega.
 
 El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
-PF-02. `v0.3.0` es el candidato funcional `beb3bc1`, sobre la base `b5eefcd`,
-e incorpora PF-19C/PF-16C-D-E; no existe tag, release ni despliegue. La última
-release publicada y producción siguen en `v0.2.2`. El `autoreview` final cerró
-limpio. La CI Nivel 2 del SHA funcional aprobó PostgreSQL real y Runtime Smoke;
-la aceptación PF-16G fue registrada el 10/08/2026. Antes de declarar el candidato listo falta el ensayo privado de
-backup/restauración/upgrade/rollback. La firma externa de manifests VPS es P2 posterior y
-no bloquea este corte.
+PF-02. El alcance de `v0.3.0`, detallado en su dossier, está congelado en PF-02,
+PF-03A y PF-19; PF-16C/D/E aportan sus puertas de calidad. No existe tag,
+release ni despliegue. La última release publicada y producción siguen en
+`v0.2.2`. El `autoreview` final cerró limpio,
+la CI Nivel 2 aprobó PostgreSQL real y Runtime Smoke, y la aceptación PF-16G fue
+registrada el 10/08/2026. El candidato `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`
+aprobó además el ensayo privado de backup, restauración aislada, upgrade y
+rollback. La firma externa de manifests VPS es P2 posterior y no bloquea este
+corte.
 
 ## Antes de desplegar
 

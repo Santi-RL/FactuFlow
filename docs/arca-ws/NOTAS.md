@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 09/08/2026
+Última actualización: 10/08/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -260,8 +260,9 @@ de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
   pueden cerrar el intento como rechazo terminal; timeout, respuesta parcial o
   código desconocido conservan `requiere_reconciliacion`. El `autoreview` final
   cerró limpio y la CI Nivel 2 del SHA funcional aprobó PostgreSQL real y Runtime
-  Smoke; la aceptación PF-16G fue registrada el 10/08/2026 y antes de release sigue pendiente el ensayo privado
-  de backup/restauración/upgrade/rollback; la producción continúa en `v0.2.2`.
+  Smoke; la aceptación PF-16G y el ensayo privado de
+  backup/restauración/upgrade/rollback quedaron aprobados el 10/08/2026; la
+  producción continúa en `v0.2.2`.
 - El inventario PF-19A no consulta ARCA, no infiere el ambiente histórico y no
   sanea registros. La política de contraste y resolución pertenece a PF-19C;
   mientras tanto, los lotes legacy no se reparan mediante edición directa ni

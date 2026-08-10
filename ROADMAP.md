@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 09/08/2026
+Última actualización: 10/08/2026
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -248,7 +248,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       números ni crea intentos, conserva todo bloqueo propio y delega la reserva
       durable y el segundo preflight al procesamiento normal. PF-02 queda
       cerrado sin incorporar la reconstrucción histórica opcional de PF-05.
-- [~] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
+- [x] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
   seguro (P1 fiscal, Nivel 2).** La operación productiva sobre `v0.2.2`
   confirmó dos fallas de una misma frontera: FactuFlow puede considerar usable
   un punto cuyo sistema contiene `Web Services` sin demostrar que sea de tipo
@@ -296,12 +296,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     nunca promueve RECE. API, badges, perfiles, Excel y selectores consumen el
     estado efectivo e invalidan confirmaciones obsoletas. Homologación permanece
     cerrada mientras no exista una fuente probatoria específica.
-  - [~] **PF-19C — rechazo global y saneamiento legacy:** implementación, diseño
-    y evidencia completos; la CI Nivel 2 del SHA funcional
-    `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó PostgreSQL real y Runtime
-    Smoke junto con los siete checks. La aceptación PF-16G fue registrada el
-    10/08/2026; antes de declararlo listo falta el ensayo privado de
-    backup/restauración/upgrade/rollback.
+  - [x] **PF-19C — rechazo global y saneamiento legacy:** implementación, diseño
+    y evidencia completos; la CI Nivel 2 aprobó PostgreSQL real, Runtime Smoke y
+    los siete checks. La aceptación PF-16G fue registrada el 10/08/2026 y el
+    candidato `7f7b3808` aprobó el ensayo privado de backup, restauración
+    aislada, upgrade y rollback.
     El `autoreview` final autorizado cerró limpio con
     Codex `gpt-5.6-sol medium`. Solo `10005` entero exacto, una cabecera `R` estrictamente
     correlacionada, un único error y ausencia de detalle/CAE cierran un rechazo
@@ -955,11 +954,11 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 - **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
   barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
-- **Antes de declarar listo el candidato `v0.3.0`:** completar el ensayo
-  privado de backup/restauración/upgrade/rollback. La CI Nivel 2 del SHA
-  funcional aprobó PostgreSQL/Runtime Smoke y la aceptación PF-16G fue
-  registrada el 10/08/2026. El `autoreview` autorizado cerró limpio con Codex
-  `gpt-5.6-sol medium`.
+- **Candidato `v0.3.0`:** la CI Nivel 2 aprobó PostgreSQL/Runtime Smoke, la
+  aceptación PF-16G fue registrada el 10/08/2026 y el ensayo privado de
+  backup/restauración/upgrade/rollback quedó aprobado. El `autoreview`
+  autorizado cerró limpio con Codex `gpt-5.6-sol medium`. Tag, publicación y
+  despliegue siguen como decisiones separadas.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
   críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
   PF-15 y PF-18 que correspondan.
@@ -1158,26 +1157,26 @@ Objetivo: profesionalizar la entrega del producto.
 #### Guía flexible de cortes
 
 Los siguientes cortes son candidatos revisables, no fechas ni compromisos
-inamovibles. Un P0/P1 nuevo, una regresión de CI, una migración incierta, un
-cambio de alcance o evidencia productiva puede adelantar, dividir, posponer o
-renombrar una versión. No hace falta terminar todo el roadmap para publicar una
+inamovibles. El alcance solo cambia por decisión explícita del desarrollador:
+un problema que impida un release seguro detiene el corte y se consulta; un
+hallazgo no bloqueante se registra en el roadmap y no lo demora
+automáticamente. No hace falta terminar todo el roadmap para publicar una
 release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
 
 - **`v0.2.2` publicado y desplegado:** corte de estabilización cerrado después
   de PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE,
   el endurecimiento de pool/worker y las correcciones de seguridad aceptadas,
   sin mezclar el cambio de política de numeración global.
-- **`v0.3.0`:** candidato funcional después de PF-02 y
-  PF-19 con sus QA fiscales. PF-02 cambia el contrato operativo de numeración;
-  PF-19 cierra la elegibilidad RECE y la semántica de rechazo descubiertas por
-  evidencia productiva antes de desplegar esa política. PF-03B u otros P1 solo
-  pueden sumarse si ya están cerrados, forman una unidad revisable y no vuelven
-  riesgoso ni demoran innecesariamente el despliegue de estas defensas.
-- **Candidato `v0.3.0`:** `c1dbd82` incorpora PF-19C; el SHA funcional
-  `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre `b5eefcd`, aprobó la CI
-  Nivel 2 completa. PF-16G fue aceptada el 10/08/2026; el ensayo privado
-  permanece pendiente. No existe tag, release ni despliegue, y la
-  producción continúa en `v0.2.2`.
+- **`v0.3.0`:** el alcance está congelado en PF-02, PF-03A y PF-19 con sus QA
+  fiscales. PF-02 cambia el contrato operativo de numeración y PF-19 cierra la
+  elegibilidad RECE y la semántica de rechazo descubiertas por evidencia
+  productiva. PF-03B u otro trabajo solo pueden incorporarse si el desarrollador
+  decide explícitamente reabrir el alcance; de lo contrario siguen después de
+  `v0.3.0`.
+- **Candidato `v0.3.0`:** el SHA `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`,
+  sobre `b5eefcd`, aprobó la CI Nivel 2 completa, PF-16G y el ensayo privado de
+  backup, restauración aislada, upgrade y rollback. No existe tag, release ni
+  despliegue, y la producción continúa en `v0.2.2`.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1221,15 +1220,14 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Cerrar la puerta externa restante de PF-19C antes de una release: completar
-   el ensayo privado de backup/restauración/upgrade/rollback. La matriz ya
-   aprobó contra PostgreSQL real/CI y PF-16G fue aceptada el 10/08/2026. El
-   `autoreview` autorizado ya cerró limpio con Codex `gpt-5.6-sol medium`. La
-   evidencia local ya cubre el contrato global
-   estricto de `10005`, atomicidad, replay/ownership, reconciliación fail-closed
-   y resolución legacy plan/apply con dobles. No provocar un CAE ni `10005` real.
-2. Retomar PF-03 con PF-03B después de PF-19C: separar el DTO de ítem que
-   serializa la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos
+1. Cerrar `v0.3.0` sin ampliar su alcance: integrar el candidato solo con los
+   siete checks verdes, decidir tag y publicación, y autorizar el despliegue por
+   separado mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real
+   y el ensayo privado de backup/restauración/upgrade/rollback ya están
+   aprobados. No provocar un CAE ni `10005` real.
+2. Retomar PF-03 con PF-03B después de publicar y desplegar `v0.3.0`:
+   separar el DTO de ítem que serializa la UI, hacer estricto
+   `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05
    continúa separado.
 3. Conservar PF-16G aceptada el 10/08/2026; Node 24, auditorías, cobertura, CI

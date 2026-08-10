@@ -275,7 +275,7 @@ Eso evita mezclar instrucciones permanentes con el estado puntual de una sesión
 
 ## Evidencia de verificación
 
-### PF-19C — evidencia del candidato completa; cierre externo pendiente
+### PF-19C — evidencia técnica y ensayo privado completos
 
 El diseño, código y pruebas focalizadas completaron localmente el contrato de
 `10005`, cierre atómico de lotes, replay/ownership, resolución legacy,
@@ -304,9 +304,23 @@ seguras, sin provocar CAE ni `10005` real.
   de la CLI.
 
 La CI Nivel 2 del SHA funcional ya aprobó PostgreSQL real y Runtime Smoke; la
-aceptación PF-16G fue registrada el 10/08/2026. Antes de release falta el ensayo privado de
-backup/restauración/upgrade/rollback. No se infiere tag,
-publicación ni despliegue de esta evidencia local.
+aceptación PF-16G fue registrada el 10/08/2026.
+
+El ensayo privado de release del 10/08/2026 también quedó aprobado:
+
+- se obtuvo un backup reciente de producción `v0.2.2` en revisión
+  `a8b9c0d1e2f3` y se restauró en PostgreSQL aislado;
+- el upgrade recorrió `a8b9c0d1e2f3 -> b9c0d1e2f3a4 -> c0d1e2f3a4b`;
+- el rollback volvió de `c0d1e2f3a4b` a `a8b9c0d1e2f3` y coincidió con una
+  segunda restauración fresca en conteos, schema normalizado, hashes lógicos,
+  secuencias y objetos grandes;
+- las tablas y columnas nuevas quedaron ausentes después del rollback, las
+  constraints resultaron válidas y se retiraron los contenedores y volúmenes
+  temporales.
+
+La evidencia detallada permanece en almacenamiento privado y producción no fue
+modificada. No se inició aplicación, worker, ARCA ni solicitud de CAE. Esta
+evidencia no infiere tag, publicación ni despliegue.
 
 ### PF-19B — cierre local y CI del 09/08/2026
 

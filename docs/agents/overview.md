@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 09/08/2026
+Última actualización: 10/08/2026
 
 ## Qué es FactuFlow
 
@@ -33,13 +33,14 @@ facturación individual y masiva con seguridad fiscal.
   control integral y UI. PF-19C acepta solo el `10005` entero exacto con
   cabecera global estricta como terminal; lo incierto se reconcilia y el legacy
   usa plan/apply auditado. El `autoreview` final cerró limpio y la CI Nivel 2
-  aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
-  10/08/2026; falta el ensayo privado de backup/restauración/upgrade/rollback. Todo ese tramo es posterior a `v0.2.2`: todavía no
+  aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el ensayo
+  privado de backup/restauración/upgrade/rollback quedaron aprobados el
+  10/08/2026. Todo ese tramo es posterior a `v0.2.2`: todavía no
   pertenece a una release publicada ni está desplegado.
 - PF-19C, incorporado por el candidato, preserva el error global `10005`
   como rechazo terminal solo bajo contrato oficial, detiene grupos no enviados
-  y sanea historia legacy de forma auditada. Antes de release permanece el
-  ensayo privado de backup/restauración/upgrade/rollback.
+  y sanea historia legacy de forma auditada. Su ensayo privado de backup,
+  restauración aislada, upgrade y rollback quedó aprobado.
   Web Services genérico ya no acredita RECE en `main`; homologación permanece
   fail-closed mientras no exista una fuente probatoria específica.
 
@@ -89,11 +90,11 @@ El estado detallado y el punto de reanudación viven en
 ## Próximo hito
 
 En el estado objetivo de `main`, PF-02, PF-03A, PF-19A y PF-19B están cerrados;
-PF-19C quedó incorporado por el candidato y PF-05 conserva separada la reconstrucción
-histórica opcional para informes. La siguiente unidad es cerrar las puertas
-externas restantes de PF-19C —ensayo privado de backup/restauración/upgrade/
-rollback—; recién entonces sigue PF-03B sobre DTO de ítem, propiedades desconocidas,
-descuentos y valores no finitos. PF-19 no cambia numeración ni absorbe
+PF-19C quedó incorporado por el candidato y PF-05 conserva separada la
+reconstrucción histórica opcional para informes. La siguiente unidad es integrar,
+publicar y desplegar `v0.3.0` mediante decisiones separadas; recién entonces
+sigue PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos y valores
+no finitos. PF-19 no cambia numeración ni absorbe
 validaciones de ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
 
 ## Principios de trabajo
