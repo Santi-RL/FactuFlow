@@ -7,6 +7,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.date_parsing import parse_fecha_input
+from app.schemas.comprobante import ErrorArcaFiscalResponse
 
 
 class LoteComprobanteFilaResponse(BaseModel):
@@ -174,6 +175,7 @@ class LoteProcesamientoResponse(BaseModel):
     lote: LoteComprobanteResponse
     mensaje: str
     en_progreso: bool
+    errores_arca: list[ErrorArcaFiscalResponse] = Field(default_factory=list)
 
 
 class LoteGrupoIdsRequest(BaseModel):
@@ -238,3 +240,4 @@ class LoteAccionResponse(BaseModel):
 
     lote: LoteComprobanteResponse
     mensaje: str
+    errores_arca: list[ErrorArcaFiscalResponse] = Field(default_factory=list)

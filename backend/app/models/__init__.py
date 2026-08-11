@@ -24,6 +24,7 @@ from app.models.evento_sistema import EventoSistema, ExportacionAlmacenamiento
 from app.models.idempotencia_fiscal import (
     OperacionIdempotente,
     IntentoEmisionFiscal,
+    ResolucionLegacyPF19Journal,
 )
 from app.models.elegibilidad_rece import (
     OperacionIdempotenteElegibilidadRece,
@@ -53,6 +54,7 @@ __all__ = [
     "ExportacionAlmacenamiento",
     "OperacionIdempotente",
     "IntentoEmisionFiscal",
+    "ResolucionLegacyPF19Journal",
     "PuntoVentaElegibilidadReceRevision",
     "PuntoVentaElegibilidadReceActual",
     "OperacionIdempotenteElegibilidadRece",

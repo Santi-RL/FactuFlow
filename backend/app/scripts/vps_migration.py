@@ -49,8 +49,10 @@ from app.core.database import Base
 from app.schemas.comprobante import EmitirComprobanteResponse
 from app.schemas.lote_comprobante import (
     LoteAccionResponse,
+    LoteComprobanteResponse,
     LoteProcesamientoResponse,
 )
+from app.services.resolucion_legacy_pf19_service import BackupLegacyPF19
 
 
 MIGRATION_PACKAGE_VERSION = 2
@@ -77,6 +79,7 @@ INCLUDED_TABLES = [
 
 EXCLUDED_TABLES = [
     "intentos_emision_fiscal",
+    "resoluciones_legacy_pf19_journal",
     "puntos_venta_guardas_emision_rece",
     "lotes_comprobantes",
     "lotes_comprobantes_grupos",
@@ -123,7 +126,9 @@ REQUIRED_ENV_KEYS = [
 
 ENV_TEMPLATE_FILENAME = "env.production.required.example"
 OPERATION_LOTE_NORMALIZATION_KEY = "operaciones_idempotentes.lote_id"
-OPERATION_LOTE_NORMALIZATION_RULE = "set_null_preserve_source_pairs_sha256_v1"
+OPERATION_LOTE_NORMALIZATION_RULE = (
+    "set_null_preserve_source_pairs_and_group_inventory_sha256_v2"
+)
 IDEMPOTENCY_BARRIER_ALGORITHM = "sha256-json-c14n-v1"
 PACKAGE_NOTES = [
     "No incluye lotes, filas, temporales, PDFs, Excels, logs ni cache ARCA.",
@@ -208,6 +213,7 @@ ESTADOS_GRUPO_SEGUROS_OMITIBLES = {
 ESTADOS_FILA_SEGUROS_OMITIBLES = set(ESTADOS_GRUPO_SEGUROS_OMITIBLES)
 SAFE_OMITTED_COUNT_KEYS = {
     "intentos_emision_fiscal": "intentos_terminales_omitidos",
+    "resoluciones_legacy_pf19_journal": "resoluciones_legacy_pf19_omitidas",
     "puntos_venta_guardas_emision_rece": "guardas_terminales_omitidas",
     "lotes_comprobantes": "lotes_seguros_omitidos",
     "lotes_comprobantes_grupos": "grupos_seguros_omitidos",
@@ -216,6 +222,29 @@ SAFE_OMITTED_COUNT_KEYS = {
     "eventos_sistema": "eventos_sistema_omitidos",
     "exportaciones_almacenamiento": "exportaciones_omitidas",
 }
+ARCA_RECHAZO_GLOBAL_CATEGORIA = "arca_rechazo_global_excluyente"
+ARCA_RECHAZO_GLOBAL_MENSAJE = (
+    "El punto de venta no está dado de alta como RECE en ARCA."
+)
+ARCA_RECHAZO_GLOBAL_INDIVIDUAL_MENSAJE = (
+    "ARCA rechazó el requerimiento completo antes de autorizar."
+)
+ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES = [
+    "Revisá la habilitación RECE del punto de venta antes de iniciar otra emisión."
+]
+ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE = (
+    "ARCA rechazó un requerimiento completo y FactuFlow detuvo los "
+    "grupos restantes sin enviarlos."
+)
+ARCA_RECHAZO_GLOBAL_ERRORES = [
+    {
+        "codigo": 10005,
+        "alcance": "global",
+        "mensaje": ARCA_RECHAZO_GLOBAL_MENSAJE,
+    }
+]
+LEGACY_PF19_CATEGORIA = "legacy_sin_autorizacion_verificada"
+LEGACY_PF19_MENSAJE = "Cierre legacy por ausencia de autorización verificada"
 SAFE_OMITTED_KEYS = {
     "blockers",
     "excluded_counts",
@@ -461,6 +490,13 @@ def export_package(
 
             active_certs = list_active_certificates(conn)
             active_by_id = {int(row["id"]): row for row in active_certs}
+            group_ids_by_lote: dict[int, list[int]] = {}
+            for group_row in conn.execute(
+                "SELECT id, lote_id FROM lotes_comprobantes_grupos ORDER BY lote_id, id"
+            ):
+                group_ids_by_lote.setdefault(int(group_row["lote_id"]), []).append(
+                    int(group_row["id"])
+                )
             copied_names = export_active_certificate_files(
                 active_certs=active_certs,
                 certs_dir=preflight.certs_dir,
@@ -478,7 +514,10 @@ def export_package(
                         copied_names,
                     )
                 elif table_name == "operaciones_idempotentes":
-                    rows, normalization = normalize_operation_rows(rows)
+                    rows, normalization = normalize_operation_rows(
+                        rows,
+                        group_ids_by_lote=group_ids_by_lote,
+                    )
                     normalizations[OPERATION_LOTE_NORMALIZATION_KEY] = normalization
                     operation_rows_for_barrier = [dict(row) for row in rows]
                 elif table_name == "operaciones_idempotentes_elegibilidad_rece":
@@ -820,6 +859,141 @@ def _json_object_sqlite(value: Any) -> dict[str, Any] | None:
     return decoded if isinstance(decoded, dict) else None
 
 
+def _json_list_sqlite(value: Any) -> list[Any] | None:
+    """Decodifica una lista JSON SQLite sin aceptar objetos ni escalares."""
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    return decoded if isinstance(decoded, list) else None
+
+
+def _is_json_null_sqlite(value: Any) -> bool:
+    """Distingue el `NULL` JSON durable del texto no estructurado legacy."""
+    if value is None:
+        return True
+    if not isinstance(value, str):
+        return False
+    try:
+        return json.loads(value) is None
+    except (TypeError, ValueError):
+        return False
+
+
+def _is_exact_global_10005_errors(value: Any) -> bool:
+    """Exige la evidencia sanitaria PF-19C sin coerciones JSON ambiguas."""
+    errors = _json_list_sqlite(value)
+    if errors is None or len(errors) != 1 or not isinstance(errors[0], dict):
+        return False
+    error = errors[0]
+    return bool(
+        set(error) == {"codigo", "alcance", "mensaje"}
+        and isinstance(error["codigo"], int)
+        and not isinstance(error["codigo"], bool)
+        and error["codigo"] == 10005
+        and error["alcance"] == "global"
+        and error["mensaje"] == ARCA_RECHAZO_GLOBAL_MENSAJE
+    )
+
+
+def _response_is_exact_global_10005(
+    response: EmitirComprobanteResponse,
+) -> bool:
+    """Comprueba que un DTO individual conserva el rechazo global canónico."""
+    return bool(
+        response.exito is False
+        and response.requiere_reconciliacion is False
+        and response.comprobante_id is None
+        and response.cae is None
+        and response.cae_vencimiento is None
+        and response.mensaje == ARCA_RECHAZO_GLOBAL_INDIVIDUAL_MENSAJE
+        and response.errores == ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES
+        and response.categoria_error == ARCA_RECHAZO_GLOBAL_CATEGORIA
+        and len(response.errores_arca) == 1
+        and response.errores_arca[0].codigo == 10005
+        and response.errores_arca[0].alcance == "global"
+        and response.errores_arca[0].mensaje == ARCA_RECHAZO_GLOBAL_MENSAJE
+    )
+
+
+def _strict_positive_id_list(value: Any) -> tuple[int, ...] | None:
+    """Acepta una lista ordenada de IDs positivos, únicos y sin coerciones."""
+    if not isinstance(value, list):
+        return None
+    if any(
+        not isinstance(item, int) or isinstance(item, bool) or item <= 0
+        for item in value
+    ):
+        return None
+    ids = tuple(value)
+    if ids != tuple(sorted(ids)) or len(ids) != len(set(ids)):
+        return None
+    return ids
+
+
+def _batch_global_rejection_context(
+    response: dict[str, Any],
+    *,
+    operation_type: str,
+    operation_id: int,
+) -> tuple[frozenset[int], frozenset[int]] | None:
+    """Extrae únicamente el rechazo batch PF-19C canónico y autocontenido."""
+    if (
+        not isinstance(operation_id, int)
+        or isinstance(operation_id, bool)
+        or operation_id <= 0
+    ):
+        return None
+    expected_keys = {"lote", "mensaje", "errores_arca"}
+    if operation_type == "procesar_lote":
+        expected_keys.add("en_progreso")
+    elif operation_type != "reintentar_fallidos_lote":
+        return None
+    if set(response) != expected_keys:
+        return None
+    if (
+        response.get("mensaje") != ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE
+        or not _is_exact_global_10005_errors(response.get("errores_arca"))
+        or (
+            operation_type == "procesar_lote"
+            and response.get("en_progreso") is not False
+        )
+    ):
+        return None
+    lote = response.get("lote")
+    if not isinstance(lote, dict):
+        return None
+    metadata = lote.get("metadata_json")
+    if not isinstance(metadata, dict):
+        return None
+    marker = metadata.get("pf19c_rechazo_global")
+    if not isinstance(marker, dict) or set(marker) != {
+        "operacion_id",
+        "categoria",
+        "grupos_rechazo_ids",
+        "grupos_no_enviados_ids",
+        "errores_arca",
+    }:
+        return None
+    rejection_ids = _strict_positive_id_list(marker.get("grupos_rechazo_ids"))
+    not_sent_ids = _strict_positive_id_list(marker.get("grupos_no_enviados_ids"))
+    if (
+        marker.get("operacion_id") != operation_id
+        or isinstance(marker.get("operacion_id"), bool)
+        or marker.get("categoria") != ARCA_RECHAZO_GLOBAL_CATEGORIA
+        or not _is_exact_global_10005_errors(marker.get("errores_arca"))
+        or not rejection_ids
+        or not_sent_ids is None
+        or set(rejection_ids) & set(not_sent_ids)
+    ):
+        return None
+    return frozenset(rejection_ids), frozenset(not_sent_ids)
+
+
 def terminal_operation_response_is_valid(row: dict[str, Any]) -> bool:
     """Valida el DTO exacto que cada endpoint puede reproducir sin mutar."""
     response = _json_object_sqlite(row.get("response_json"))
@@ -870,6 +1044,7 @@ def terminal_operation_response_is_valid(row: dict[str, Any]) -> bool:
         status_code = response.get("status_code")
         return bool(
             estado in (ESTADOS_OPERACION_TERMINALES - {"finalizado"})
+            and estado != "rechazado_arca"
             and isinstance(categoria, str)
             and categoria.strip()
             and categoria
@@ -903,6 +1078,20 @@ def terminal_operation_response_is_valid(row: dict[str, Any]) -> bool:
         else:
             parsed_lote = LoteAccionResponse.model_validate(response)
     except (TypeError, ValidationError, ValueError):
+        return False
+    rechazo_global = _batch_global_rejection_context(
+        response,
+        operation_type=tipo,
+        operation_id=int(row["id"]),
+    )
+    if estado == "rechazado_arca":
+        return bool(
+            rechazo_global is not None
+            and int(parsed_lote.lote.id) == int(lote_id)
+            and int(parsed_lote.lote.empresa_id) == int(row.get("empresa_id") or 0)
+            and parsed_lote.lote.estado in ESTADOS_LOTE_SEGUROS_OMITIBLES
+        )
+    if rechazo_global is not None or parsed_lote.errores_arca:
         return False
     return bool(
         estado in {"finalizado", "fallido"}
@@ -971,13 +1160,27 @@ def terminal_batch_response_matches_db(
     if response is None:
         return False
     if "categoria_error" in response:
-        return row.get("lote_encontrado") is not None
+        return bool(
+            row.get("estado") != "rechazado_arca"
+            and row.get("lote_encontrado") is not None
+        )
     try:
         if row["tipo_operacion"] == "procesar_lote":
-            parsed_lote = LoteProcesamientoResponse.model_validate(response).lote
+            parsed_response = LoteProcesamientoResponse.model_validate(response)
         else:
-            parsed_lote = LoteAccionResponse.model_validate(response).lote
+            parsed_response = LoteAccionResponse.model_validate(response)
     except (TypeError, ValidationError, ValueError):
+        return False
+    parsed_lote = parsed_response.lote
+    rechazo_global = _batch_global_rejection_context(
+        response,
+        operation_type=str(row["tipo_operacion"]),
+        operation_id=int(row["id"]),
+    )
+    if row.get("estado") == "rechazado_arca":
+        if rechazo_global is None:
+            return False
+    elif rechazo_global is not None or parsed_response.errores_arca:
         return False
     return bool(
         row.get("lote_encontrado") is not None
@@ -1097,6 +1300,262 @@ def individual_operation_result_matches_attempts(
         )
     except (TypeError, ValueError):
         return False
+
+
+def pf19c_global_rejection_matches_operation(
+    attempt: dict[str, Any],
+    operation: dict[str, Any] | None,
+) -> bool:
+    """Vincula un 10005 durable con el replay idempotente que lo publica."""
+    if (
+        attempt.get("estado") != "rechazado_arca"
+        or attempt.get("categoria_error") != ARCA_RECHAZO_GLOBAL_CATEGORIA
+        or not _is_exact_global_10005_errors(attempt.get("errores_arca_json"))
+        or operation is None
+        or int(operation.get("empresa_id") or 0) != int(attempt.get("empresa_id") or 0)
+        or operation.get("estado") not in ESTADOS_OPERACION_TERMINALES
+        or not terminal_operation_response_is_valid(operation)
+    ):
+        return False
+
+    if operation.get("tipo_operacion") in {
+        "procesar_lote",
+        "reintentar_fallidos_lote",
+    }:
+        response_raw = _json_object_sqlite(operation.get("response_json"))
+        if response_raw is None:
+            return False
+        contexto = _batch_global_rejection_context(
+            response_raw,
+            operation_type=str(operation["tipo_operacion"]),
+            operation_id=int(operation["id"]),
+        )
+        try:
+            rejection_ids = contexto[0] if contexto is not None else frozenset()
+            return bool(
+                operation.get("estado") == "rechazado_arca"
+                and operation.get("lote_id") is not None
+                and attempt.get("lote_id") is not None
+                and int(operation["lote_id"]) == int(attempt["lote_id"])
+                and attempt.get("grupo_id") is not None
+                and int(attempt["grupo_id"]) in rejection_ids
+            )
+        except (KeyError, TypeError, ValueError):
+            return False
+    if operation.get("tipo_operacion") != "emitir_comprobante":
+        return False
+    response_raw = _json_object_sqlite(operation.get("response_json"))
+    if response_raw is None:
+        return False
+    try:
+        response = EmitirComprobanteResponse.model_validate(response_raw)
+        fecha = date.fromisoformat(str(attempt["fecha_emision"])[:10])
+        total = Decimal(str(attempt["total"])).quantize(Decimal("0.01"))
+        numero = int(attempt["numero_planificado"])
+    except (KeyError, TypeError, ValidationError, ValueError, DecimalException):
+        return False
+    return bool(
+        _response_is_exact_global_10005(response)
+        and response.tipo_comprobante == int(attempt["tipo_comprobante"])
+        and response.punto_venta == int(attempt["punto_venta_numero"])
+        and response.numero == numero
+        and response.fecha == fecha
+        and response.total.quantize(Decimal("0.01")) == total
+    )
+
+
+def journal_legacy_pf19_is_coherent(
+    conn: sqlite3.Connection,
+    journal: dict[str, Any],
+    attempt: dict[str, Any] | None,
+    operation: dict[str, Any] | None,
+) -> bool:
+    """Valida que el journal append-only cierre solo un candidato legacy exacto."""
+    if (
+        attempt is None
+        or operation is None
+        or journal.get("accion") != "cerrar_legacy_sin_autorizacion_verificada"
+        or journal.get("resultado") != LEGACY_PF19_CATEGORIA
+        or journal.get("ambiente_consultado")
+        not in {"homologacion", "produccion", "ambos"}
+        or attempt.get("estado") != "fallido_verificado"
+        or attempt.get("categoria_error") != LEGACY_PF19_CATEGORIA
+        or not _is_json_null_sqlite(attempt.get("errores_arca_json"))
+        or operation.get("estado") not in ESTADOS_OPERACION_TERMINALES
+        or not terminal_operation_response_is_valid(operation)
+    ):
+        return False
+    consultas = _json_object_sqlite(journal.get("resultado_consultas_json"))
+    backup = _json_object_sqlite(journal.get("backup_metadata_json"))
+    ambiente = str(journal.get("ambiente_consultado") or "")
+    ambientes_esperados = (
+        {"homologacion", "produccion"} if ambiente == "ambos" else {ambiente}
+    )
+    if (
+        consultas
+        != {item: "ultimo_menor_al_planificado" for item in sorted(ambientes_esperados)}
+        or backup is None
+    ):
+        return False
+    try:
+        BackupLegacyPF19.model_validate(
+            {**backup, "sha256": journal.get("backup_sha256")}
+        )
+        _require_sha256(journal.get("plan_sha256"), label="journal.plan_sha256")
+        _require_sha256(
+            journal.get("terminal_response_sha256"),
+            label="journal.terminal_response_sha256",
+        )
+    except (MigrationError, TypeError, ValidationError, ValueError):
+        return False
+    response_terminal = _json_object_sqlite(operation.get("response_json"))
+    if response_terminal is None:
+        return False
+    response_sha256 = hashlib.sha256(
+        json.dumps(
+            response_terminal,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    if journal.get("terminal_response_sha256") != response_sha256:
+        return False
+    try:
+        same_company = (
+            int(journal["empresa_id"]) == int(attempt["empresa_id"])
+            and int(attempt["empresa_id"]) == int(operation["empresa_id"])
+            and int(attempt["operacion_id"]) == int(operation["id"])
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+    if operation.get("tipo_operacion") == "emitir_comprobante":
+        try:
+            response = EmitirComprobanteResponse.model_validate(response_terminal)
+            fecha = date.fromisoformat(str(attempt["fecha_emision"])[:10])
+            total = Decimal(str(attempt["total"])).quantize(Decimal("0.01"))
+        except (
+            KeyError,
+            TypeError,
+            ValidationError,
+            ValueError,
+            DecimalException,
+        ):
+            return False
+        if (
+            operation.get("estado") != "fallido_verificado"
+            or operation.get("lote_id") is not None
+            or attempt.get("lote_id") is not None
+            or attempt.get("grupo_id") is not None
+            or response.exito
+            or response.requiere_reconciliacion
+            or response.categoria_error != LEGACY_PF19_CATEGORIA
+            or response.errores_arca
+            or response.errores
+            or response.mensaje != LEGACY_PF19_MENSAJE
+            or response.comprobante_id is not None
+            or response.cae is not None
+            or response.cae_vencimiento is not None
+            or response.tipo_comprobante != int(attempt["tipo_comprobante"])
+            or response.punto_venta != int(attempt["punto_venta_numero"])
+            or response.numero != int(attempt["numero_planificado"])
+            or response.fecha != fecha
+            or response.total.quantize(Decimal("0.01")) != total
+        ):
+            return False
+    elif operation.get("tipo_operacion") in {
+        "procesar_lote",
+        "reintentar_fallidos_lote",
+    }:
+        try:
+            lote_row = conn.execute(
+                "SELECT * FROM lotes_comprobantes WHERE id = ?",
+                (int(operation["lote_id"]),),
+            ).fetchone()
+            if lote_row is None:
+                return False
+            lote_source = dict(lote_row)
+            for field_name in (
+                "metadata_json",
+                "mapeo_usado_json",
+                "headers_detectados_json",
+            ):
+                value = lote_source.get(field_name)
+                if isinstance(value, str):
+                    lote_source[field_name] = json.loads(value)
+            lote_esperado = LoteComprobanteResponse.model_validate(lote_source)
+            group_counts = {
+                str(row["estado"]): int(row["cantidad"])
+                for row in conn.execute(
+                    """
+                    SELECT estado, COUNT(*) AS cantidad
+                    FROM lotes_comprobantes_grupos
+                    WHERE lote_id = ?
+                    GROUP BY estado
+                    """,
+                    (int(operation["lote_id"]),),
+                )
+            }
+            row_count = int(
+                conn.execute(
+                    "SELECT COUNT(*) FROM lotes_comprobantes_filas WHERE lote_id = ?",
+                    (int(operation["lote_id"]),),
+                ).fetchone()[0]
+            )
+            if (
+                lote_esperado.total_filas != row_count
+                or lote_esperado.total_grupos != sum(group_counts.values())
+                or lote_esperado.grupos_validos != group_counts.get("validado", 0)
+                or lote_esperado.grupos_con_error != group_counts.get("con_error", 0)
+                or lote_esperado.grupos_emitidos != group_counts.get("autorizado", 0)
+                or lote_esperado.grupos_fallidos != group_counts.get("fallido", 0)
+                or lote_esperado.grupos_reconciliados_externos
+                != group_counts.get("autorizado_externo", 0)
+                or lote_esperado.grupos_descartados != group_counts.get("descartado", 0)
+            ):
+                return False
+            if operation["tipo_operacion"] == "procesar_lote":
+                if set(response_terminal) != {
+                    "lote",
+                    "mensaje",
+                    "en_progreso",
+                    "errores_arca",
+                }:
+                    return False
+                response_lote = LoteProcesamientoResponse.model_validate(
+                    response_terminal
+                )
+                if response_lote.en_progreso:
+                    return False
+            else:
+                if set(response_terminal) != {"lote", "mensaje", "errores_arca"}:
+                    return False
+                response_lote = LoteAccionResponse.model_validate(response_terminal)
+            batch_coherente = bool(
+                operation.get("estado") == "finalizado"
+                and operation.get("lote_id") is not None
+                and attempt.get("lote_id") is not None
+                and int(operation["lote_id"]) == int(attempt["lote_id"])
+                and attempt.get("grupo_id") is not None
+                and journal.get("grupo_encontrado") is not None
+                and int(journal["grupo_empresa_id"]) == int(journal["empresa_id"])
+                and int(journal["grupo_lote_id"]) == int(operation["lote_id"])
+                and journal.get("grupo_estado") == "fallido"
+                and response_lote.mensaje == LEGACY_PF19_MENSAJE
+                and not response_lote.errores_arca
+                and int(response_lote.lote.id) == int(operation["lote_id"])
+                and int(response_lote.lote.empresa_id) == int(journal["empresa_id"])
+                and response_lote.lote.estado == "fallido"
+                and response_lote.lote.model_dump(mode="json")
+                == lote_esperado.model_dump(mode="json")
+            )
+        except (KeyError, TypeError, ValidationError, ValueError, json.JSONDecodeError):
+            return False
+        if not batch_coherente:
+            return False
+    else:
+        return False
+    return same_company
 
 
 def _digest_asociaciones_rece(rows: list[dict[str, Any]]) -> str:
@@ -1435,12 +1894,12 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for row in conn.execute(
             """
             SELECT id, estado, operacion_id, guarda_rece_id, comprobante_id,
-                   empresa_id, punto_venta_id, punto_venta_numero,
+                   empresa_id, lote_id, grupo_id, punto_venta_id, punto_venta_numero,
                    tipo_comprobante, ambiente,
                    punto_venta_elegibilidad_revision_id,
                    punto_venta_revision_fiscal,
                    numero_planificado, fecha_emision, total, cae,
-                   cae_vencimiento
+                   cae_vencimiento, categoria_error, errores_arca_json
             FROM intentos_emision_fiscal
             ORDER BY id
             """
@@ -1497,6 +1956,120 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         blockers[
             "intentos_fallidos_con_evidencia_positiva"
         ] = intentos_fallidos_con_evidencia_positiva
+
+    operaciones_por_id = {int(row["id"]): row for row in operaciones}
+    intentos_rechazo_global_incoherentes = sum(
+        not pf19c_global_rejection_matches_operation(
+            intento,
+            operaciones_por_id.get(int(intento["operacion_id"] or 0)),
+        )
+        for intento in intentos
+        if intento["estado"] == "rechazado_arca"
+        and (
+            intento["categoria_error"] == ARCA_RECHAZO_GLOBAL_CATEGORIA
+            or not _is_json_null_sqlite(intento["errores_arca_json"])
+        )
+    )
+    if intentos_rechazo_global_incoherentes:
+        blockers[
+            "intentos_rechazo_global_pf19c_incoherentes"
+        ] = intentos_rechazo_global_incoherentes
+    legacy_con_errores_arca_estructurados = sum(
+        intento["estado"] == "fallido_verificado"
+        and intento["categoria_error"] == LEGACY_PF19_CATEGORIA
+        and not _is_json_null_sqlite(intento["errores_arca_json"])
+        for intento in intentos
+    )
+    if legacy_con_errores_arca_estructurados:
+        blockers[
+            "intentos_legacy_con_errores_arca_estructurados"
+        ] = legacy_con_errores_arca_estructurados
+
+    journals = [
+        dict(row)
+        for row in conn.execute(
+            """
+            SELECT j.*, i.id AS intento_encontrado, i.empresa_id AS intento_empresa_id,
+                   i.estado AS intento_estado,
+                   i.categoria_error AS intento_categoria_error,
+                   i.errores_arca_json AS intento_errores_arca_json,
+                   i.operacion_id AS intento_operacion_id,
+                   i.lote_id AS intento_lote_id, i.grupo_id AS intento_grupo_id,
+                   i.tipo_comprobante AS intento_tipo_comprobante,
+                   i.punto_venta_numero AS intento_punto_venta_numero,
+                   i.numero_planificado AS intento_numero_planificado,
+                   i.fecha_emision AS intento_fecha_emision,
+                   i.total AS intento_total,
+                   o.id AS operacion_encontrada,
+                   o.empresa_id AS operacion_empresa_id,
+                   o.estado AS operacion_estado,
+                   o.tipo_operacion AS operacion_tipo_operacion,
+                   o.response_json AS operacion_response_json,
+                   o.lote_id AS operacion_lote_id,
+                   l.id AS operacion_lote_encontrado,
+                   l.empresa_id AS operacion_lote_empresa_id,
+                   l.estado AS operacion_lote_estado,
+                   g.id AS grupo_encontrado, g.empresa_id AS grupo_empresa_id,
+                   g.lote_id AS grupo_lote_id, g.estado AS grupo_estado,
+                   u.id AS actor_encontrado, u.empresa_id AS actor_empresa_id
+            FROM resoluciones_legacy_pf19_journal j
+            LEFT JOIN intentos_emision_fiscal i
+              ON i.id = j.intento_id AND i.empresa_id = j.empresa_id
+            LEFT JOIN operaciones_idempotentes o
+              ON o.id = i.operacion_id AND o.empresa_id = i.empresa_id
+            LEFT JOIN lotes_comprobantes l
+              ON l.id = o.lote_id AND l.empresa_id = o.empresa_id
+            LEFT JOIN lotes_comprobantes_grupos g
+              ON g.id = i.grupo_id AND g.empresa_id = i.empresa_id
+            LEFT JOIN usuarios u ON u.id = j.actor_usuario_id
+            ORDER BY j.id
+            """
+        )
+    ]
+    journals_incoherentes = 0
+    for journal in journals:
+        intento = (
+            {
+                "id": journal["intento_encontrado"],
+                "empresa_id": journal["intento_empresa_id"],
+                "estado": journal["intento_estado"],
+                "categoria_error": journal["intento_categoria_error"],
+                "errores_arca_json": journal["intento_errores_arca_json"],
+                "operacion_id": journal["intento_operacion_id"],
+                "lote_id": journal["intento_lote_id"],
+                "grupo_id": journal["intento_grupo_id"],
+                "tipo_comprobante": journal["intento_tipo_comprobante"],
+                "punto_venta_numero": journal["intento_punto_venta_numero"],
+                "numero_planificado": journal["intento_numero_planificado"],
+                "fecha_emision": journal["intento_fecha_emision"],
+                "total": journal["intento_total"],
+            }
+            if journal["intento_encontrado"] is not None
+            else None
+        )
+        operation = (
+            {
+                "id": journal["operacion_encontrada"],
+                "empresa_id": journal["operacion_empresa_id"],
+                "estado": journal["operacion_estado"],
+                "tipo_operacion": journal["operacion_tipo_operacion"],
+                "response_json": journal["operacion_response_json"],
+                "lote_id": journal["operacion_lote_id"],
+                "lote_encontrado": journal["operacion_lote_encontrado"],
+                "lote_empresa_id": journal["operacion_lote_empresa_id"],
+                "lote_estado": journal["operacion_lote_estado"],
+            }
+            if journal["operacion_encontrada"] is not None
+            else None
+        )
+        if (
+            journal["actor_encontrado"] is None
+            or int(journal["actor_empresa_id"] or 0) != int(journal["empresa_id"] or 0)
+            or not journal_legacy_pf19_is_coherent(conn, journal, intento, operation)
+        ):
+            journals_incoherentes += 1
+    if journals_incoherentes:
+        blockers["journals_legacy_pf19_incoherentes"] = journals_incoherentes
 
     guardas = [
         dict(row)
@@ -1686,6 +2259,131 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
             grupos_evidencia_incoherente += 1
     if grupos_evidencia_incoherente:
         blockers["grupos_evidencia_fiscal_incoherente"] = grupos_evidencia_incoherente
+    grupos_por_id = {int(row["id"]): row for row in grupos}
+    operaciones_por_id = {int(row["id"]): row for row in operaciones}
+    intentos_por_operacion: dict[int, list[dict[str, Any]]] = {}
+    intentos_por_grupo_global: dict[int, list[dict[str, Any]]] = {}
+    for intento in intentos:
+        operacion_id = intento.get("operacion_id")
+        if operacion_id is not None:
+            intentos_por_operacion.setdefault(int(operacion_id), []).append(intento)
+        grupo_id = intento.get("grupo_id")
+        if grupo_id is not None:
+            intentos_por_grupo_global.setdefault(int(grupo_id), []).append(intento)
+
+    def grupo_pf19c_conserva_historia_terminal(
+        grupo: dict[str, Any],
+        operacion_rechazo: dict[str, Any],
+    ) -> bool:
+        """Acepta el rechazo original o una autorización batch posterior exacta."""
+        try:
+            if int(grupo["lote_id"]) != int(operacion_rechazo["lote_id"]) or int(
+                grupo["empresa_id"]
+            ) != int(operacion_rechazo["empresa_id"]):
+                return False
+            if grupo["estado"] == "fallido":
+                return True
+            if grupo["estado"] != "autorizado":
+                return False
+            supersesores = []
+            for intento in intentos_por_grupo_global.get(int(grupo["id"]), []):
+                sucesora_id = intento.get("operacion_id")
+                if (
+                    intento.get("estado") != "autorizado"
+                    or intento.get("comprobante_id") is None
+                    or sucesora_id is None
+                    or int(sucesora_id) <= int(operacion_rechazo["id"])
+                    or int(intento.get("lote_id") or 0) != int(grupo["lote_id"])
+                    or int(intento.get("empresa_id") or 0) != int(grupo["empresa_id"])
+                ):
+                    continue
+                sucesora = operaciones_por_id.get(int(sucesora_id))
+                if (
+                    sucesora is not None
+                    and sucesora.get("tipo_operacion")
+                    in {"procesar_lote", "reintentar_fallidos_lote"}
+                    and int(sucesora.get("lote_id") or 0) == int(grupo["lote_id"])
+                    and int(sucesora.get("empresa_id") or 0) == int(grupo["empresa_id"])
+                    and sucesora.get("estado") == "finalizado"
+                    and terminal_operation_response_is_valid(sucesora)
+                ):
+                    supersesores.append(int(intento["id"]))
+            return len(supersesores) == 1
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    operaciones_batch_pf19c_grafo_incoherente = 0
+    for operacion in operaciones:
+        if operacion.get("tipo_operacion") not in {
+            "procesar_lote",
+            "reintentar_fallidos_lote",
+        }:
+            continue
+        respuesta = _json_object_sqlite(operacion.get("response_json"))
+        contexto = (
+            _batch_global_rejection_context(
+                respuesta,
+                operation_type=str(operacion["tipo_operacion"]),
+                operation_id=int(operacion["id"]),
+            )
+            if respuesta is not None
+            else None
+        )
+        if operacion.get("estado") != "rechazado_arca" and contexto is None:
+            continue
+        if contexto is None or operacion.get("lote_id") is None:
+            operaciones_batch_pf19c_grafo_incoherente += 1
+            continue
+        rechazo_ids, no_enviados_ids = contexto
+        intentos_operacion = intentos_por_operacion.get(int(operacion["id"]), [])
+        intentos_rechazo = [
+            intento
+            for intento in intentos_operacion
+            if intento.get("grupo_id") is not None
+            and intento.get("estado") == "rechazado_arca"
+            and intento.get("categoria_error") == ARCA_RECHAZO_GLOBAL_CATEGORIA
+            and _is_exact_global_10005_errors(intento.get("errores_arca_json"))
+        ]
+        grupos_intentos_rechazo = [
+            int(intento["grupo_id"]) for intento in intentos_rechazo
+        ]
+        intentos_por_grupo: dict[int, list[dict[str, Any]]] = {}
+        for intento in intentos_operacion:
+            if intento.get("grupo_id") is not None:
+                intentos_por_grupo.setdefault(int(intento["grupo_id"]), []).append(
+                    intento
+                )
+        ids_contexto = rechazo_ids | no_enviados_ids
+        grupos_contexto = [grupos_por_id.get(grupo_id) for grupo_id in ids_contexto]
+        try:
+            grafo_valido = bool(
+                len(grupos_intentos_rechazo) == len(rechazo_ids)
+                and set(grupos_intentos_rechazo) == set(rechazo_ids)
+                and len(grupos_intentos_rechazo) == len(set(grupos_intentos_rechazo))
+                and all(
+                    len(intentos_por_grupo.get(grupo_id, [])) == 1
+                    for grupo_id in rechazo_ids
+                )
+                and all(grupo is not None for grupo in grupos_contexto)
+                and all(
+                    grupo_pf19c_conserva_historia_terminal(grupo, operacion)
+                    for grupo in grupos_contexto
+                    if grupo is not None
+                )
+                and all(
+                    intento.get("grupo_id") is None
+                    or int(intento["grupo_id"]) not in no_enviados_ids
+                    for intento in intentos_operacion
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            grafo_valido = False
+        if not grafo_valido:
+            operaciones_batch_pf19c_grafo_incoherente += 1
+    if operaciones_batch_pf19c_grafo_incoherente:
+        blockers[
+            "operaciones_batch_pf19c_grafo_incoherente"
+        ] = operaciones_batch_pf19c_grafo_incoherente
     filas = [
         dict(row)
         for row in conn.execute(
@@ -1727,6 +2425,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         ),
         "asociaciones_rece_preservadas": len(asociaciones),
         "intentos_terminales_omitidos": len(intentos),
+        "resoluciones_legacy_pf19_omitidas": len(journals),
         "guardas_terminales_omitidas": len(guardas),
         "lotes_seguros_omitidos": len(lotes),
         "grupos_seguros_omitidos": len(grupos),
@@ -2092,13 +2791,16 @@ def normalize_certificate_rows(
 
 def normalize_operation_rows(
     rows: list[dict[str, Any]],
+    *,
+    group_ids_by_lote: dict[int, list[int]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Desacopla lotes omitidos y atestigua los pares originales normalizados."""
+    """Desacopla lotes y atestigua su inventario de grupos omitido."""
+    group_ids_by_lote = group_ids_by_lote or {}
     pairs = [
-        {
-            "operacion_id": int(row["id"]),
-            "lote_id": int(row["lote_id"]),
-        }
+        _operation_lote_normalization_pair(
+            row,
+            group_ids_by_lote=group_ids_by_lote,
+        )
         for row in rows
         if row.get("lote_id") is not None
     ]
@@ -2118,6 +2820,34 @@ def normalize_operation_rows(
         "rows": len(pairs),
         "sha256": hashlib.sha256(canonical).hexdigest(),
         "pairs": pairs,
+    }
+
+
+def _operation_lote_normalization_pair(
+    row: dict[str, Any],
+    *,
+    group_ids_by_lote: dict[int, list[int]],
+) -> dict[str, Any]:
+    """Conserva inventario y roles PF-19C validados antes de omitir el lote."""
+    lote_id = int(row["lote_id"])
+    rejection_ids: list[int] = []
+    not_sent_ids: list[int] = []
+    response = _json_object_sqlite(row.get("response_json"))
+    if response is not None:
+        context = _batch_global_rejection_context(
+            response,
+            operation_type=str(row.get("tipo_operacion") or ""),
+            operation_id=int(row["id"]),
+        )
+        if context is not None:
+            rejection_ids = sorted(context[0])
+            not_sent_ids = sorted(context[1])
+    return {
+        "operacion_id": int(row["id"]),
+        "lote_id": lote_id,
+        "grupo_ids": list(group_ids_by_lote.get(lote_id, [])),
+        "grupos_rechazo_ids": rejection_ids,
+        "grupos_no_enviados_ids": not_sent_ids,
     }
 
 
@@ -2393,15 +3123,21 @@ def _read_manifest_jsonl_rows(
     )
 
 
-def _validate_normalization_pairs(value: Any) -> list[dict[str, int]]:
+def _validate_normalization_pairs(value: Any) -> list[dict[str, Any]]:
     """Valida y canoniza la evidencia de pares lote_id retirada del JSONL."""
     if not isinstance(value, list):
         raise MigrationError("pairs inválido en la normalización lote_id")
-    pairs: list[dict[str, int]] = []
+    pairs: list[dict[str, Any]] = []
     for index, raw_pair in enumerate(value):
         pair = _require_exact_keys(
             raw_pair,
-            {"operacion_id", "lote_id"},
+            {
+                "operacion_id",
+                "lote_id",
+                "grupo_ids",
+                "grupos_rechazo_ids",
+                "grupos_no_enviados_ids",
+            },
             label=f"normalizations.lote_id.pairs[{index}]",
         )
         operation_id = _require_nonnegative_int(
@@ -2414,7 +3150,28 @@ def _validate_normalization_pairs(value: Any) -> list[dict[str, int]]:
         )
         if operation_id <= 0 or lote_id <= 0:
             raise MigrationError("La normalización lote_id contiene IDs no positivos")
-        pairs.append({"operacion_id": operation_id, "lote_id": lote_id})
+        group_ids = _strict_positive_id_list(pair["grupo_ids"])
+        rejection_ids = _strict_positive_id_list(pair["grupos_rechazo_ids"])
+        not_sent_ids = _strict_positive_id_list(pair["grupos_no_enviados_ids"])
+        if (
+            group_ids is None
+            or rejection_ids is None
+            or not_sent_ids is None
+            or set(rejection_ids) & set(not_sent_ids)
+            or not (set(rejection_ids) | set(not_sent_ids)).issubset(set(group_ids))
+        ):
+            raise MigrationError(
+                "La normalización lote_id contiene inventario o roles de grupos inválidos"
+            )
+        pairs.append(
+            {
+                "operacion_id": operation_id,
+                "lote_id": lote_id,
+                "grupo_ids": list(group_ids),
+                "grupos_rechazo_ids": list(rejection_ids),
+                "grupos_no_enviados_ids": list(not_sent_ids),
+            }
+        )
     expected_order = sorted(
         pairs,
         key=lambda item: (item["operacion_id"], item["lote_id"]),
@@ -2428,7 +3185,7 @@ def _validate_normalization_pairs(value: Any) -> list[dict[str, int]]:
 def _validate_operation_lote_normalization(
     *,
     normalization: dict[str, Any],
-    pairs: list[dict[str, int]],
+    pairs: list[dict[str, Any]],
     operation_rows: list[dict[str, Any]],
 ) -> None:
     """Cruza la evidencia de lote retirada con cada operación batch empaquetada."""
@@ -2461,6 +3218,23 @@ def _validate_operation_lote_normalization(
         response = _json_object_sqlite(operation["response_json"])
         if response is None:
             raise MigrationError("Una operación batch no conserva respuesta durable")
+        rejection_context = _batch_global_rejection_context(
+            response,
+            operation_type=str(operation["tipo_operacion"]),
+            operation_id=operation_id,
+        )
+        if rejection_context is not None:
+            if (
+                sorted(rejection_context[0]) != pair["grupos_rechazo_ids"]
+                or sorted(rejection_context[1]) != pair["grupos_no_enviados_ids"]
+            ):
+                raise MigrationError(
+                    "El rechazo PF-19C no coincide con los roles de grupos fuente"
+                )
+        elif pair["grupos_rechazo_ids"] or pair["grupos_no_enviados_ids"]:
+            raise MigrationError(
+                "La normalización atribuye roles PF-19C a una operación no terminal"
+            )
         lote_payload = response.get("lote")
         if lote_payload is not None:
             if not isinstance(lote_payload, dict):
@@ -2597,7 +3371,7 @@ def _validate_packaged_foreign_keys(
 def _validate_packaged_terminal_operations(
     *,
     table_rows: dict[str, list[dict[str, Any]]],
-    normalization_pairs: list[dict[str, int]],
+    normalization_pairs: list[dict[str, Any]],
 ) -> None:
     """Valida autoridad de replay, DTO y evidencia incluida de cada operación."""
     companies = {int(row["id"]) for row in table_rows["empresas"]}
@@ -2721,6 +3495,13 @@ def _validate_packaged_terminal_operations(
                     in {"duplicado_logico", "idempotencia_en_proceso"}
                 ):
                     raise MigrationError("Replay individual negativo incoherente")
+                if parsed.categoria_error == ARCA_RECHAZO_GLOBAL_CATEGORIA and (
+                    state != "rechazado_arca"
+                    or not _response_is_exact_global_10005(parsed)
+                ):
+                    raise MigrationError(
+                        "Replay individual 10005 no conserva evidencia sanitaria exacta"
+                    )
                 continue
 
             pair = pair_by_operation.get(operation_id)
@@ -2733,6 +3514,7 @@ def _validate_packaged_terminal_operations(
                 status_code = response.get("status_code")
                 if (
                     state == "finalizado"
+                    or state == "rechazado_arca"
                     or not isinstance(category, str)
                     or not category.strip()
                     or category
@@ -2770,8 +3552,22 @@ def _validate_packaged_terminal_operations(
                 if "en_progreso" in response:
                     raise MigrationError("Replay de reintento tiene shape incorrecto")
                 parsed_lote = LoteAccionResponse.model_validate(response)
+            rechazo_global = _batch_global_rejection_context(
+                response,
+                operation_type=operation_type,
+                operation_id=operation_id,
+            )
+            if state == "rechazado_arca":
+                if rechazo_global is None:
+                    raise MigrationError(
+                        "Replay batch 10005 no conserva evidencia sanitaria exacta"
+                    )
+            elif rechazo_global is not None or parsed_lote.errores_arca:
+                raise MigrationError(
+                    "Replay batch conserva evidencia 10005 sin estado terminal exacto"
+                )
             if (
-                state not in {"finalizado", "fallido"}
+                state not in {"finalizado", "fallido", "rechazado_arca"}
                 or int(parsed_lote.lote.id) != pair["lote_id"]
                 or int(parsed_lote.lote.empresa_id) != company_id
                 or parsed_lote.lote.estado not in ESTADOS_LOTE_SEGUROS_OMITIBLES

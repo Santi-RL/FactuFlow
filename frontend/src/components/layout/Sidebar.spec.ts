@@ -80,6 +80,14 @@ describe("Sidebar", () => {
     wrapper.unmount();
   });
 
+  it("muestra la versión del candidato local", () => {
+    const wrapper = mountSidebar();
+
+    expect(wrapper.text()).toContain("FactuFlow v0.3.0");
+
+    wrapper.unmount();
+  });
+
   it("recarga alertas cuando cambia el emisor activo", async () => {
     const wrapper = mountSidebar();
     const empresaStore = useEmpresaStore();

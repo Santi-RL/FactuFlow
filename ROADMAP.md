@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última actualización: 09/08/2026
+Última actualización: 10/08/2026
 
 Este roadmap traduce la visión estable del producto en prioridades, fases y
 trabajo planificado. La visión canónica vive en `VISION.md` y no debe cambiarse
@@ -248,7 +248,7 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       números ni crea intentos, conserva todo bloqueo propio y delega la reserva
       durable y el segundo preflight al procesamiento normal. PF-02 queda
       cerrado sin incorporar la reconstrucción histórica opcional de PF-05.
-- [~] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
+- [x] **PF-19 — Elegibilidad RECE, rechazo preautorización y cierre legacy
   seguro (P1 fiscal, Nivel 2).** La operación productiva sobre `v0.2.2`
   confirmó dos fallas de una misma frontera: FactuFlow puede considerar usable
   un punto cuyo sistema contiene `Web Services` sin demostrar que sea de tipo
@@ -296,15 +296,23 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     nunca promueve RECE. API, badges, perfiles, Excel y selectores consumen el
     estado efectivo e invalidan confirmaciones obsoletas. Homologación permanece
     cerrada mientras no exista una fuente probatoria específica.
-  - [ ] **PF-19C — rechazo global y saneamiento legacy:** preservar códigos globales
-    de ARCA en un contrato estructurado; reconocer inicialmente `10005` como
-    rechazo excluyente solo bajo el contrato oficial; cerrar intentos, grupos,
-    lotes y operación idempotente con transiciones terminales verificables; no
-    continuar otros grupos si la cabecera invalida el sublote completo; mantener
-    toda respuesta no clasificada como incierta; y ofrecer un procedimiento
-    auditado para resolver registros históricos después de
-    `FECompUltimoAutorizado` y, solo si corresponde, `FECompConsultar`, con
-    backup exacto y sin edición manual improvisada.
+  - [x] **PF-19C — rechazo global y saneamiento legacy:** implementación, diseño
+    y evidencia completos; la CI Nivel 2 aprobó PostgreSQL real, Runtime Smoke y
+    los siete checks. La aceptación PF-16G fue registrada el 10/08/2026 y el
+    candidato `7f7b3808` aprobó el ensayo privado de backup, restauración
+    aislada, upgrade y rollback.
+    El `autoreview` final autorizado cerró limpio con
+    Codex `gpt-5.6-sol medium`. Solo `10005` entero exacto, una cabecera `R` estrictamente
+    correlacionada, un único error y ausencia de detalle/CAE cierran un rechazo
+    global. Lo desconocido, mixto, parcial o contradictorio queda en
+    `requiere_reconciliacion`; no reintenta ni emite de nuevo. El cierre atómico
+    inmoviliza el sublote enviado, detiene el lote y marca los remanentes como
+    `no_enviado_por_rechazo_global`. El CAS liga cada publicación a su owner:
+    una carrera `operacion_id A -> B` no permite que A publique o emita sobre B.
+    La resolución legacy es `plan` read-only + `apply` con backup verificable,
+    hash y journal append-only; consulta `FECompUltimoAutorizado` y solo usa
+    `FECompConsultar` cuando corresponde. Ambiente legacy indeterminado obliga
+    a contrastar ambos ambientes y cualquier duda conserva reconciliación.
   - **Matriz mínima:** punto RECE/no RECE/no verificable; constancia y
     sincronización con fuentes concordantes o contradictorias; punto fijo y por
     archivo; individual, batch y fallback unitario; error global `10005` antes
@@ -812,13 +820,11 @@ Objetivo: que el proyecto soporte evolución sin deuda estructural peligrosa.
 - [x] Smoke real de homologación ejecutado manualmente
 - [x] QA manual funcional cerrada
 - [x] Script de lint frontend no destructivo `npm run lint:check`
-- [ ] Migrar el entorno de build/test del frontend y CI a Node.js 24 LTS,
+- [x] Migrar el entorno de build/test del frontend y CI a Node.js 24 LTS,
   validando `npm ci`, `type-check`, `lint:check`, `build` y `test:unit`, y
-  documentando la versión recomendada para desarrollo local. El mismo corte
-  debe actualizar de forma compatible Vite, Vitest, ESLint y `vue-tsc`, resolver
-  las alertas vigentes del árbol exclusivo de desarrollo y convertir su
-  auditoría completa en una puerta bloqueante cuando la migración quede estable;
-  no usar `npm audit fix --force` sobre el stack actual.
+  documentando la versión recomendada para desarrollo local. El corte actualizó
+  de forma compatible Vite, Vitest, ESLint y `vue-tsc`, y dejó auditorías npm de
+  producción y desarrollo sin vulnerabilidades; no se usó `npm audit fix --force`.
 - [x] Reparaciones Clawpatch 2026-05-16/17 cerradas con
   backend/frontend/repo en `openFindings=0`
 - [x] Auditoría Clawpatch 2026-07-05 cerrada nuevamente con repo completo,
@@ -906,36 +912,37 @@ commit, PR o dossier de release, según el tamaño de la unidad.
   segundo aprobador. Force-push y borrado están deshabilitados; los cambios
   Markdown/`.gitignore` conservan jobs visibles mediante un recorrido Nivel 0
   liviano. La configuración quedó verificada el 2026-07-27 con el PR `#14`.
-- [~] **PF-16C — CI como barrera real:** la barrera básica ya ejecuta Ruff,
+- [x] **PF-16C — CI como barrera real:** la barrera ejecuta Ruff,
   Black, tests backend, type-check, lint, build, unit tests frontend, tests de
   scripts, E2E y auditorías bloqueantes de dependencias productivas; también se
   retiró Pylint decorativo. La alineación documental agrega una revisión
   semántica antes del commit/PR y un control estructural que corre también en
   Nivel 0. La ejecución `30305581217` aprobó los seis jobs de la barrera básica.
-  Para cerrar el corte completo antes de `v0.3.0` resta modernizar el toolchain
-  frontend, bloquear su auditoría integral y ampliar artefactos/resúmenes donde
-  aporten diagnóstico real.
-- [ ] **PF-16D — Cobertura medible y progresiva:** medir backend y frontend,
-  fijar una línea base real y aplicar un umbral incremental que impida
-  retroceder. No imponer de entrada un porcentaje arbitrario global; exigir
-  cobertura fuerte sobre módulos fiscales tocados y justificar invariantes sin
-  prueba automatizada.
-- [~] **PF-16E — Integración reproducible:** PF-19B incorpora a CI PostgreSQL 16
-  desechable con guard destructivo exacto para migraciones, constraints,
-  concurrencia, pool, integridad PF-01/PF-19 y paquete VPS v2. Resta agregar el
-  smoke automatizado frontend + backend + base; ARCA se mantiene simulada o
-  contractual y las llamadas reales se reservan para QA expresamente autorizada.
+  El toolchain Node.js 24, las auditorías npm, el resumen de cobertura y los
+  artefactos de diagnóstico quedan incorporados. La evidencia CI del commit
+  candidato sigue siendo una puerta de release, no una tarea pendiente de PF-16C.
+- [x] **PF-16D — Cobertura medible y progresiva:** backend y frontend tienen una
+  línea base con gates incrementales (`69%` total branch-aware backend;
+  `56/50/43/57` frontend) y resúmenes/artefactos de CI. Los núcleos fiscales
+  modificados conservan sus invariantes y pruebas específicas.
+- [x] **PF-16E — Integración reproducible:** CI usa PostgreSQL 16 desechable con
+  guard destructivo exacto para migraciones, constraints, concurrencia, pool,
+  integridad PF-01/PF-19 y paquete VPS v2; incorpora Runtime Smoke de frontend,
+  backend y base. ARCA se mantiene simulada o contractual. El smoke PostgreSQL
+  real aprobó en la CI Nivel 2 del SHA funcional `e9c583a8174ea8edc6fe30845584033feab0394d`.
 - [ ] **PF-16F — Pruebas avanzadas dirigidas por riesgo:** incorporar pruebas
   basadas en propiedades para fechas, importes, redondeos, archivos de entrada,
   idempotencia y máquinas de estados; pruebas de mutación acotadas a núcleos
   fiscales; entradas inesperadas y archivos malformados; y pruebas de carga y
   resistencia prolongada para lotes, worker y pools. Ejecutarlas de forma
   programada o en candidatos de release, no en cada microcambio.
-- [ ] **PF-16G — QA contable y dossier de release:** expresar escenarios de
-  aceptación en español y términos contables, con datos sintéticos y resultados
-  esperados; registrar qué se probó, qué no, riesgos residuales, migración,
-  rollback y evidencia. La autoridad funcional-contable valida el resultado;
-  los agentes y herramientas validan la implementación.
+- [x] **PF-16G — QA contable y dossier de release:** la matriz y el dossier de
+  `v0.3.0` ya expresan escenarios de aceptación en español y términos contables,
+  con datos sintéticos, resultados esperados, riesgos, migración y rollback.
+  La CI Nivel 2 del SHA funcional y la aceptación funcional-contable del
+  10/08/2026 ya aprobaron. La autoridad
+  funcional-contable valida el resultado; los agentes y herramientas validan la
+  implementación.
 - [ ] **PF-16H — Puerta para ofrecer FactuFlow a terceros:** antes de anunciar
   una versión apta para otros contadores, cerrar auditoría multiemisor,
   autenticación/autorización, certificados y secretos, instalación limpia,
@@ -947,8 +954,11 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 - **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
   barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
-- **Antes del candidato `v0.3.0`:** cerrar PF-16C, PF-16D, PF-16E y la primera
-  matriz de PF-16G, aplicadas al rango real de la versión.
+- **Candidato `v0.3.0`:** la CI Nivel 2 aprobó PostgreSQL/Runtime Smoke, la
+  aceptación PF-16G fue registrada el 10/08/2026 y el ensayo privado de
+  backup/restauración/upgrade/rollback quedó aprobado. El `autoreview`
+  autorizado cerró limpio con Codex `gpt-5.6-sol medium`. Tag, publicación y
+  despliegue siguen como decisiones separadas.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
   críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
   PF-15 y PF-18 que correspondan.
@@ -1147,21 +1157,31 @@ Objetivo: profesionalizar la entrega del producto.
 #### Guía flexible de cortes
 
 Los siguientes cortes son candidatos revisables, no fechas ni compromisos
-inamovibles. Un P0/P1 nuevo, una regresión de CI, una migración incierta, un
-cambio de alcance o evidencia productiva puede adelantar, dividir, posponer o
-renombrar una versión. No hace falta terminar todo el roadmap para publicar una
+inamovibles. El alcance solo cambia por decisión explícita del desarrollador:
+un problema que impida un release seguro detiene el corte y se consulta; un
+hallazgo no bloqueante se registra en el roadmap y no lo demora
+automáticamente. No hace falta terminar todo el roadmap para publicar una
 release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
 
 - **`v0.2.2` publicado y desplegado:** corte de estabilización cerrado después
   de PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE,
   el endurecimiento de pool/worker y las correcciones de seguridad aceptadas,
   sin mezclar el cambio de política de numeración global.
-- **`v0.3.0` provisional:** corte funcional recomendado después de PF-02 y
-  PF-19 con sus QA fiscales. PF-02 cambia el contrato operativo de numeración;
-  PF-19 cierra la elegibilidad RECE y la semántica de rechazo descubiertas por
-  evidencia productiva antes de desplegar esa política. PF-03B u otros P1 solo
-  pueden sumarse si ya están cerrados, forman una unidad revisable y no vuelven
-  riesgoso ni demoran innecesariamente el despliegue de estas defensas.
+- **`v0.3.0`:** el alcance está congelado en PF-02, PF-03A y PF-19 con sus QA
+  fiscales. PF-02 cambia el contrato operativo de numeración y PF-19 cierra la
+  elegibilidad RECE y la semántica de rechazo descubiertas por evidencia
+  productiva. PF-03B u otro trabajo solo pueden incorporarse si el desarrollador
+  decide explícitamente reabrir el alcance; de lo contrario siguen después de
+  `v0.3.0`.
+- **Candidato `v0.3.0`:** el SHA `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`,
+  sobre `b5eefcd`, aprobó la CI Nivel 2 completa, PF-16G y el ensayo privado de
+  backup, restauración aislada, upgrade y rollback. No existe tag, release ni
+  despliegue, y la producción continúa en `v0.2.2`.
+- **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
+  coordinadamente:** diseñar una firma externa verificable de manifests y la
+  coordinación de la reatestación entre origen/destino. No se implementa en
+  PF-19C ni permite revalidar, trasladar o reconstruir el journal legacy; se
+  planificará con custodia privada de claves, rotación y rollback.
 - **Patch extraordinario:** un fix urgente, aislado y compatible puede justificar
   una versión intermedia sin esperar al candidato siguiente.
 
@@ -1200,17 +1220,20 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Implementar PF-19C después del cierre end-to-end de PF-19B: preservar el
-   error global en un contrato estructurado, tratar `10005` como rechazo
-   terminal solo bajo contrato oficial y resolver estados legacy de forma
-   auditada; cerrar la matriz Nivel 2 antes de una release.
-2. Retomar PF-03 con PF-03B después de PF-19C: separar el DTO de ítem que
-   serializa la UI, hacer estricto `ItemComprobanteCreate` y rechazar descuentos
+1. Cerrar `v0.3.0` sin ampliar su alcance: desde el commit exacto aceptado en
+   `main`, decidir tag y publicación, y autorizar el despliegue por separado
+   mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real
+   y el ensayo privado de backup/restauración/upgrade/rollback ya están
+   aprobados. No provocar un CAE ni `10005` real.
+2. Retomar PF-03 con PF-03B después de publicar y desplegar `v0.3.0`:
+   separar el DTO de ítem que serializa la UI, hacer estricto
+   `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05
    continúa separado.
-3. Continuar PF-16C con la modernización planificada del toolchain y la
-   evidencia de release; PF-16A, PF-16B, su barrera básica y la puerta
-   documental ya están cerradas.
+3. Conservar PF-16G aceptada el 10/08/2026; Node 24, auditorías, cobertura, CI
+   y Runtime Smoke ya están implementados y validados en el SHA funcional. La
+   firma externa de manifests VPS es P2 posterior y no bloquea
+   `v0.3.0`.
 4. Después de PF-03, ejecutar primero la unidad integrada PF-06A/PF-08A/PF-06B/
    PF-07A de operadores multiemisor y creación/edición delegada; cerrar su
    matriz Nivel 2 antes de continuar los restantes PF-06/PF-07, PF-08 y PF-09.
@@ -1231,7 +1254,12 @@ Objetivo: ampliar valor más allá del MVP.
 11. Validar en VPS, con datos de prueba controlados, almacenamiento mínimo,
     resguardo ZIP, compactación y limpieza segura.
 12. Agregar descarga masiva de PDFs sin persistencia permanente en el servidor.
-13. Migrar desarrollo y CI a Node.js 24 LTS después de validar toda la matriz.
+13. Mantener la higiene del toolchain posterior a `v0.3.0`: seguir y retirar
+    dependencias transitivas obsoletas, incluida `glob@10.5.0`, cuando sus
+    productores publiquen una actualización compatible, sin `overrides`,
+    `--force` ni relajación de `peerDependencies`; actualizar además el runbook
+    de `autoreview` para resolver un binario local compatible por capacidad o
+    versión, sin depender de un launcher histórico desactualizado.
 14. Mantener notas de release y procedimiento de upgrade para cada versión
     futura, revisando los candidatos cuando cambien riesgos o alcance.
 

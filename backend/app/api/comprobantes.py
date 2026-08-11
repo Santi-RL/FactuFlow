@@ -220,9 +220,58 @@ def _estado_operacion_desde_resultado(resultado: EmitirComprobanteResponse) -> s
         return "finalizado"
     if resultado.categoria_error == "duplicado_logico":
         return "requiere_confirmacion_duplicado"
+    if resultado.categoria_error == "arca_rechazo_global_excluyente":
+        return "rechazado_arca"
     if resultado.requiere_reconciliacion:
         return "requiere_reconciliacion"
     return "fallido"
+
+
+def _error_replay_individual_no_recuperable() -> HTTPException:
+    """Devuelve un conflicto sanitario ante un terminal durable incoherente."""
+    return HTTPException(
+        status_code=409,
+        detail={
+            "mensaje": "La respuesta fiscal durable perdió su grafo terminal.",
+            "categoria_error": "idempotencia_terminal_no_recuperable",
+        },
+    )
+
+
+async def _respuesta_individual_replay_validada(
+    *,
+    idempotencia: IdempotenciaFiscalService,
+    operacion: OperacionIdempotente,
+    empresa_id: int,
+) -> EmitirComprobanteResponse:
+    """Publica solo un replay ligado a operación, intento, guarda y comprobante."""
+    respuesta = await idempotencia.validar_replay_individual_durable(
+        operacion_id=int(operacion.id),
+        empresa_id=empresa_id,
+        respuesta_raw=operacion.response_json,
+    )
+    if respuesta is None:
+        raise _error_replay_individual_no_recuperable()
+    return respuesta
+
+
+async def _respuesta_individual_candidata_validada(
+    *,
+    idempotencia: IdempotenciaFiscalService,
+    operacion: OperacionIdempotente,
+    empresa_id: int,
+    respuesta: EmitirComprobanteResponse,
+) -> EmitirComprobanteResponse:
+    """Valida el grafo terminal antes del primer CAS de una reconstrucción."""
+    validada = await idempotencia.validar_replay_individual_durable(
+        operacion_id=int(operacion.id),
+        empresa_id=empresa_id,
+        respuesta_raw=respuesta.model_dump(mode="json"),
+        permitir_candidato_sin_publicar=True,
+    )
+    if validada is None:
+        raise _error_replay_individual_no_recuperable()
+    return validada
 
 
 def _raise_resultado_no_exitoso(resultado: EmitirComprobanteResponse) -> None:
@@ -238,8 +287,117 @@ def _raise_resultado_no_exitoso(resultado: EmitirComprobanteResponse) -> None:
         detail={
             "mensaje": resultado.mensaje,
             "errores": resultado.errores,
+            "errores_arca": [
+                error.model_dump(mode="json") for error in resultado.errores_arca
+            ],
             "requiere_reconciliacion": resultado.requiere_reconciliacion,
             "categoria_error": resultado.categoria_error,
+        },
+    )
+
+
+async def _publicar_resultado_individual(
+    *,
+    db: AsyncSession,
+    service: FacturacionService,
+    idempotencia: IdempotenciaFiscalService,
+    operacion: OperacionIdempotente,
+    resultado: EmitirComprobanteResponse,
+) -> EmitirComprobanteResponse:
+    """Publica el terminal individual y reconstruye un 10005 si pierde el CAS."""
+    if resultado.categoria_error != "arca_rechazo_global_excluyente":
+        await idempotencia.guardar_resultado_operacion_sync(
+            operacion,
+            response_json=resultado,
+            estado=_estado_operacion_desde_resultado(resultado),
+        )
+        return resultado
+
+    publicada = await idempotencia.guardar_respuesta_operacion_cas(
+        operacion_id=int(operacion.id),
+        response_json=resultado,
+        estado="rechazado_arca",
+        estado_esperado="en_proceso",
+        respuesta_esperada_nula=True,
+        commit=False,
+    )
+    if publicada:
+        await db.commit()
+        return resultado
+
+    await db.rollback()
+    operacion_actual = (
+        await db.execute(
+            select(OperacionIdempotente)
+            .where(OperacionIdempotente.id == operacion.id)
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if operacion_actual is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "La operación fiscal terminal ya no está disponible.",
+                "categoria_error": "idempotencia_terminal_no_recuperable",
+            },
+        )
+    if operacion_actual.response_json is not None:
+        replay = await _respuesta_individual_replay_validada(
+            idempotencia=idempotencia,
+            operacion=operacion_actual,
+            empresa_id=int(operacion.empresa_id),
+        )
+        return replay
+
+    replay = await service.resolver_operacion_idempotente_incompleta(
+        int(operacion_actual.id)
+    )
+    if replay is None or replay.categoria_error != "arca_rechazo_global_excluyente":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "La operación fiscal cambió durante su cierre.",
+                "categoria_error": "idempotencia_terminal_no_recuperable",
+            },
+        )
+    await db.refresh(operacion_actual)
+    if operacion_actual.response_json is not None:
+        return await _respuesta_individual_replay_validada(
+            idempotencia=idempotencia,
+            operacion=operacion_actual,
+            empresa_id=int(operacion.empresa_id),
+        )
+    replay = await _respuesta_individual_candidata_validada(
+        idempotencia=idempotencia,
+        operacion=operacion_actual,
+        empresa_id=int(operacion.empresa_id),
+        respuesta=replay,
+    )
+    publicada = await idempotencia.guardar_respuesta_operacion_cas(
+        operacion_id=int(operacion_actual.id),
+        response_json=replay,
+        estado="rechazado_arca",
+        estado_esperado="en_proceso",
+        respuesta_esperada_nula=True,
+        commit=False,
+    )
+    if publicada:
+        await db.commit()
+        return replay
+
+    await db.rollback()
+    operacion_final = await db.get(OperacionIdempotente, int(operacion_actual.id))
+    if operacion_final is not None and operacion_final.response_json is not None:
+        return await _respuesta_individual_replay_validada(
+            idempotencia=idempotencia,
+            operacion=operacion_final,
+            empresa_id=int(operacion.empresa_id),
+        )
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "mensaje": "La operación fiscal cambió durante su cierre.",
+            "categoria_error": "idempotencia_terminal_no_recuperable",
         },
     )
 
@@ -640,8 +798,10 @@ async def emitir_comprobante(
                 if tomada:
                     confirmacion_duplicado_autorizada = True
                 elif operacion.response_json is not None:
-                    resultado_guardado = EmitirComprobanteResponse.model_validate(
-                        operacion.response_json
+                    resultado_guardado = await _respuesta_individual_replay_validada(
+                        idempotencia=idempotencia,
+                        operacion=operacion,
+                        empresa_id=empresa_activa_id,
                     )
                     if not resultado_guardado.exito:
                         _raise_resultado_no_exitoso(resultado_guardado)
@@ -658,8 +818,10 @@ async def emitir_comprobante(
                         },
                     )
             else:
-                resultado_guardado = EmitirComprobanteResponse.model_validate(
-                    operacion.response_json
+                resultado_guardado = await _respuesta_individual_replay_validada(
+                    idempotencia=idempotencia,
+                    operacion=operacion,
+                    empresa_id=empresa_activa_id,
                 )
                 if not resultado_guardado.exito:
                     _raise_resultado_no_exitoso(resultado_guardado)
@@ -678,11 +840,28 @@ async def emitir_comprobante(
             )
             if resultado_actual is not None:
                 if resultado_actual.categoria_error != "idempotencia_en_proceso":
-                    await idempotencia.guardar_resultado_operacion_sync(
-                        operacion,
-                        response_json=resultado_actual,
-                        estado=_estado_operacion_desde_resultado(resultado_actual),
-                    )
+                    await db.refresh(operacion)
+                    if operacion.response_json is not None:
+                        resultado_actual = await _respuesta_individual_replay_validada(
+                            idempotencia=idempotencia,
+                            operacion=operacion,
+                            empresa_id=empresa_activa_id,
+                        )
+                    elif operacion.rece_snapshot_hash is not None:
+                        resultado_actual = (
+                            await _respuesta_individual_candidata_validada(
+                                idempotencia=idempotencia,
+                                operacion=operacion,
+                                empresa_id=empresa_activa_id,
+                                respuesta=resultado_actual,
+                            )
+                        )
+                    if operacion.response_json is None:
+                        await idempotencia.guardar_resultado_operacion_sync(
+                            operacion,
+                            response_json=resultado_actual,
+                            estado=_estado_operacion_desde_resultado(resultado_actual),
+                        )
                 if not resultado_actual.exito:
                     _raise_resultado_no_exitoso(resultado_actual)
                 return resultado_actual
@@ -719,15 +898,18 @@ async def emitir_comprobante(
     try:
         resultado = await service.emitir_comprobante(
             request,
+            commit=False,
             operacion_id=operacion_id_durable,
             usuario_id=current_user.id,
             contexto_rece=contexto_rece,
             fase_solicitud_arca=fase_solicitud_arca,
         )
-        await idempotencia.guardar_resultado_operacion_sync(
-            operacion,
-            response_json=resultado,
-            estado=_estado_operacion_desde_resultado(resultado),
+        resultado = await _publicar_resultado_individual(
+            db=db,
+            service=service,
+            idempotencia=idempotencia,
+            operacion=operacion,
+            resultado=resultado,
         )
 
         if not resultado.exito:

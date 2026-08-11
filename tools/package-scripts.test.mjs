@@ -36,3 +36,8 @@ test("documentation alignment has a command and script test coverage", () => {
   assert.match(scripts["docs:check"], /documentation-alignment\.mjs/);
   assert.match(scripts["test:scripts"], /documentation-alignment\.test\.mjs/);
 });
+
+test("runtime smoke has a command and script test coverage", () => {
+  assert.match(scripts["test:runtime-smoke"], /runtime-smoke\.mjs/);
+  assert.match(scripts["test:scripts"], /runtime-smoke\.test\.mjs/);
+});

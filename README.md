@@ -8,6 +8,9 @@ Versión publicada más reciente: `v0.2.2`
 
 Versión productiva vigente: `v0.2.2`
 
+Versión técnica del candidato: `v0.3.0` (sin tag, publicación ni
+despliegue).
+
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El
 trabajo actual se concentra en robustecer operación, recuperación,
@@ -41,9 +44,15 @@ señal exacta y confirmación expresa. La sincronización WSFE server-side actua
 el estado técnico, pero nunca promueve RECE; homologación permanece cerrada sin
 una fuente probatoria específica. La UI muestra estados, procedencia y vigencia,
 y los caminos individual, masivo, worker y reintentos comparten snapshots y
-guardas antes de `FECAESolicitar`. PF-19C sigue pendiente para el rechazo global
-estructurado y el cierre legacy auditado. Nada de este tramo posterior a
-`v0.2.2` está publicado ni desplegado en producción.
+guardas antes de `FECAESolicitar`. PF-19C, incorporado por el candidato,
+completa el rechazo global estructurado y el cierre legacy auditado. El
+`autoreview` final autorizado cerró limpio y la CI Nivel 2 del SHA funcional
+`e9c583a8174ea8edc6fe30845584033feab0394d` aprobó sus siete checks, incluido
+PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
+10/08/2026. El candidato `7f7b3808` aprobó también el ensayo privado de backup,
+restauración aislada, upgrade y rollback. Nada de este tramo
+posterior a `v0.2.2` está publicado ni desplegado
+en producción.
 
 Capacidades actuales:
 

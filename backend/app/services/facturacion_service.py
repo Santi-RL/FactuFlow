@@ -14,7 +14,12 @@ from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.config import ArcaAmbiente
-from app.arca.exceptions import ArcaServiceError, ArcaValidationError
+from app.arca.exceptions import (
+    ArcaErrorGlobalEstructurado,
+    ArcaServiceError,
+    ArcaValidationError,
+    clasificar_error_global_fecae,
+)
 from app.arca.models import CbteAsocItem, ComprobanteRequest, IvaItem
 from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
@@ -48,6 +53,7 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceService,
 )
 from app.schemas.comprobante import (
+    ErrorArcaFiscalResponse,
     EmitirComprobanteRequest,
     EmitirComprobanteResponse,
     ItemComprobanteCreate,
@@ -259,6 +265,7 @@ class FacturacionService:
         max_registros: int | None = None,
         contextos: list[dict[str, object]] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
+        commit_rechazo_global: bool = True,
     ) -> list[EmitirComprobanteResponse]:
         """Emite un sublote homogéneo de comprobantes en un request ARCA."""
         if not requests:
@@ -275,6 +282,7 @@ class FacturacionService:
                 max_registros=max_registros,
                 contextos=contextos,
                 fase_solicitud_arca=fase_solicitud_arca,
+                commit_rechazo_global=commit_rechazo_global,
             )
 
     async def obtener_registros_maximos_por_request(self, empresa_id: int) -> int:
@@ -457,6 +465,7 @@ class FacturacionService:
         max_registros: int | None = None,
         contextos: list[dict[str, object]] | None = None,
         fase_solicitud_arca: FaseSolicitudArca | None = None,
+        commit_rechazo_global: bool = True,
     ) -> list[EmitirComprobanteResponse]:
         """Ejecuta la emisión batch asumiendo que el lock local ya fue tomado."""
         fase_solicitud_arca = fase_solicitud_arca or FaseSolicitudArca()
@@ -758,6 +767,58 @@ class FacturacionService:
                     contexto="revalidacion_rece_batch_inmediatamente_antes_arca",
                 )
                 return respuestas_bloqueadas
+            except ArcaErrorGlobalEstructurado as exc:
+                if clasificar_error_global_fecae(exc) != "rechazo_global_excluyente":
+                    respuestas_inciertas = [
+                        self._respuesta_batch_sin_detalle_requiere_reconciliacion(
+                            request=request,
+                            punto_venta_numero=punto_venta_numero,
+                            numero=arca_request.cbte_desde,
+                            totales=totales,
+                            error=(
+                                "ARCA devolvió una respuesta global que no cumple "
+                                "el contrato terminal verificable."
+                            ),
+                            errores_arca=self._errores_globales_sanitarios(exc),
+                        )
+                        for request, arca_request, totales in zip(
+                            requests,
+                            arca_requests,
+                            totales_por_request,
+                        )
+                    ]
+                    await self._persistir_intentos_y_guarda_rece(
+                        idempotencia=idempotencia,
+                        intentos=intentos,
+                        respuestas=respuestas_inciertas,
+                        guarda=guarda,
+                        fase="reconciliacion",
+                        contexto="respuesta_global_incierta_arca",
+                        commit=commit_rechazo_global,
+                    )
+                    return respuestas_inciertas
+
+                respuestas_globales = [
+                    self._respuesta_rechazo_global_excluyente(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                    )
+                    for request, arca_request, totales in zip(
+                        requests,
+                        arca_requests,
+                        totales_por_request,
+                    )
+                ]
+                await self._cerrar_rechazo_global_intentos_y_guarda(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas_globales,
+                    guarda=guarda,
+                    commit=commit_rechazo_global,
+                )
+                return respuestas_globales
             except (ArcaServiceError, ArcaValidationError) as exc:
                 logger.error("Error al solicitar CAE por sublote: %s", str(exc))
                 respuestas_inciertas = [
@@ -766,7 +827,7 @@ class FacturacionService:
                         punto_venta_numero=punto_venta_numero,
                         numero=arca_request.cbte_desde,
                         totales=totales,
-                        error=str(exc),
+                        error="ARCA no devolvió un resultado terminal verificable.",
                     )
                     for request, arca_request, totales in zip(
                         requests,
@@ -781,6 +842,7 @@ class FacturacionService:
                     guarda=guarda,
                     fase="reconciliacion",
                     contexto="respuesta_incierta_arca",
+                    commit=commit_rechazo_global,
                 )
                 return respuestas_inciertas
 
@@ -880,7 +942,7 @@ class FacturacionService:
                         punto_venta,
                         commit=False,
                     )
-                except IntegrityError as exc:
+                except IntegrityError:
                     await self._rollback_seguro("integrity_batch_post_arca")
                     persistencia_bloqueada = True
                     logger.exception(
@@ -902,7 +964,7 @@ class FacturacionService:
                         ),
                         errores=[
                             "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
-                            str(exc.orig),
+                            ERROR_INTERNO_EMISION_PUBLICO,
                         ],
                     )
                     await self._actualizar_intento_batch_preservando_respuesta(
@@ -1034,6 +1096,7 @@ class FacturacionService:
                     guarda=guarda,
                     fase="reconciliacion",
                     contexto="persistencia_batch_post_arca",
+                    commit=commit_rechazo_global,
                 )
                 return respuestas
 
@@ -1044,6 +1107,7 @@ class FacturacionService:
                 guarda=guarda,
                 fase="cerrada_terminal",
                 contexto="cierre_terminal_batch",
+                commit=commit_rechazo_global,
             )
             return respuestas
 
@@ -1142,6 +1206,7 @@ class FacturacionService:
                         guarda=guarda,
                         fase="reconciliacion",
                         contexto="excepcion_inesperada_post_arca",
+                        commit=commit_rechazo_global,
                     )
                 return respuestas
             respuestas_inesperadas = [
@@ -1433,6 +1498,53 @@ class FacturacionService:
                     contexto="revalidacion_rece_inmediatamente_antes_arca",
                 )
                 return respuesta
+            except ArcaErrorGlobalEstructurado as exc:
+                if clasificar_error_global_fecae(exc) != "rechazo_global_excluyente":
+                    respuesta = EmitirComprobanteResponse(
+                        exito=False,
+                        tipo_comprobante=request.tipo_comprobante,
+                        punto_venta=punto_venta_numero,
+                        numero=proximo,
+                        fecha=request.fecha_emision,
+                        total=totales["total"],
+                        mensaje=(
+                            "FactuFlow no pudo confirmar el resultado de la "
+                            "solicitud a ARCA"
+                        ),
+                        errores=[
+                            "ARCA devolvió una respuesta global que no cumple el "
+                            "contrato terminal verificable. No reintentes hasta "
+                            "reconciliar."
+                        ],
+                        requiere_reconciliacion=True,
+                        categoria_error="arca_respuesta_incierta",
+                        errores_arca=self._errores_globales_sanitarios(exc),
+                    )
+                    await self._persistir_intento_y_guarda_rece(
+                        idempotencia=idempotencia,
+                        intento=intento,
+                        respuesta=respuesta,
+                        guarda=guarda,
+                        fase="reconciliacion",
+                        commit=commit,
+                        contexto="respuesta_global_incierta_arca",
+                    )
+                    return respuesta
+
+                respuesta = self._respuesta_rechazo_global_excluyente(
+                    request=request,
+                    punto_venta_numero=punto_venta_numero,
+                    numero=proximo,
+                    totales=totales,
+                )
+                await self._cerrar_rechazo_global_intentos_y_guarda(
+                    idempotencia=idempotencia,
+                    intentos=[intento],
+                    respuestas=[respuesta],
+                    guarda=guarda,
+                    commit=commit,
+                )
+                return respuesta
             except (ArcaServiceError, ArcaValidationError) as e:
                 logger.error(f"Error al solicitar CAE: {str(e)}")
                 respuesta = EmitirComprobanteResponse(
@@ -1445,7 +1557,7 @@ class FacturacionService:
                     mensaje="FactuFlow no pudo confirmar el resultado de la solicitud a ARCA",
                     errores=[
                         "No reintentes esta emisión hasta consultar ARCA y reconciliar la numeración localmente.",
-                        str(e),
+                        "ARCA no devolvió un resultado terminal verificable.",
                     ],
                     requiere_reconciliacion=True,
                     categoria_error="arca_respuesta_incierta",
@@ -1456,7 +1568,7 @@ class FacturacionService:
                     respuesta=respuesta,
                     guarda=guarda,
                     fase="reconciliacion",
-                    commit=True,
+                    commit=commit,
                     contexto="respuesta_incierta_arca",
                 )
                 return respuesta
@@ -1490,7 +1602,7 @@ class FacturacionService:
                     punto_venta,
                     commit=False,
                 )
-            except IntegrityError as exc:
+            except IntegrityError:
                 await self._rollback_seguro("integrity_individual_post_arca")
                 [intento], guarda = await self._recargar_intentos_y_guarda_rece(
                     intento_ids=[intento_id_durable],
@@ -1513,7 +1625,7 @@ class FacturacionService:
                     mensaje="ARCA autorizó el comprobante, pero no se pudo guardar por conflicto de numeración",
                     errores=[
                         "No reintentes esta emisión hasta consultar ARCA y reconciliar el comprobante localmente.",
-                        str(exc.orig),
+                        ERROR_INTERNO_EMISION_PUBLICO,
                     ],
                 )
                 await self._persistir_intento_y_guarda_rece(
@@ -1522,7 +1634,7 @@ class FacturacionService:
                     respuesta=respuesta,
                     guarda=guarda,
                     fase="reconciliacion",
-                    commit=True,
+                    commit=commit,
                     contexto="conflicto_numeracion_post_arca",
                 )
                 return respuesta
@@ -1557,7 +1669,7 @@ class FacturacionService:
                     respuesta=respuesta,
                     guarda=guarda,
                     fase="reconciliacion",
-                    commit=True,
+                    commit=commit,
                     contexto="fallo_persistencia_post_arca",
                 )
                 return respuesta
@@ -1646,7 +1758,7 @@ class FacturacionService:
                         respuesta=respuesta,
                         guarda=guarda,
                         fase="reconciliacion",
-                        commit=True,
+                        commit=commit,
                         contexto="excepcion_inesperada_post_arca",
                     )
                 return respuesta
@@ -1920,6 +2032,7 @@ class FacturacionService:
         numero: int,
         totales: dict,
         error: str,
+        errores_arca: list[ErrorArcaFiscalResponse] | None = None,
     ) -> EmitirComprobanteResponse:
         """Arma respuesta no reintentable cuando un sublote no devuelve detalle."""
         return EmitirComprobanteResponse(
@@ -1936,6 +2049,7 @@ class FacturacionService:
                 "No reintentes esta emisión hasta consultar ARCA y reconciliar la numeración localmente.",
                 error,
             ],
+            errores_arca=errores_arca or [],
             requiere_reconciliacion=True,
             categoria_error="arca_batch_sin_respuesta",
         )
@@ -2341,7 +2455,42 @@ class FacturacionService:
         self,
         intento: IntentoEmisionFiscal,
     ) -> EmitirComprobanteResponse | None:
-        """Construye respuesta idempotente para un intento ya autorizado."""
+        """Construye respuesta idempotente para un intento terminal verificable."""
+        if (
+            intento.estado == "rechazado_arca"
+            and intento.categoria_error == "arca_rechazo_global_excluyente"
+        ):
+            errores_raw = intento.errores_arca_json
+            if not isinstance(errores_raw, list) or len(errores_raw) != 1:
+                return None
+            try:
+                error_arca = ErrorArcaFiscalResponse.model_validate(errores_raw[0])
+            except PydanticValidationError:
+                return None
+            if (
+                not isinstance(error_arca.codigo, int)
+                or isinstance(error_arca.codigo, bool)
+                or error_arca.codigo != 10005
+                or error_arca.alcance != "global"
+                or error_arca.mensaje
+                != "El punto de venta no está dado de alta como RECE en ARCA."
+            ):
+                return None
+            return EmitirComprobanteResponse(
+                exito=False,
+                tipo_comprobante=intento.tipo_comprobante,
+                punto_venta=intento.punto_venta_numero,
+                numero=intento.numero_planificado or 0,
+                fecha=intento.fecha_emision,
+                total=Decimal(str(intento.total)),
+                mensaje="ARCA rechazó el requerimiento completo antes de autorizar.",
+                errores=[
+                    "Revisá la habilitación RECE del punto de venta antes de iniciar otra emisión."
+                ],
+                errores_arca=[error_arca],
+                requiere_reconciliacion=False,
+                categoria_error="arca_rechazo_global_excluyente",
+            )
         if intento.estado != "autorizado" or not intento.comprobante_id:
             return None
 
@@ -3235,6 +3384,7 @@ class FacturacionService:
         guarda: PuntoVentaGuardaEmisionRece,
         fase: Literal["cerrada_pre_arca", "cerrada_terminal", "reconciliacion"],
         contexto: str,
+        commit: bool = True,
     ) -> None:
         """Cierra todos los intentos batch y su guarda en un único commit."""
         if len(intentos) != len(respuestas) or not intentos:
@@ -3263,7 +3413,10 @@ class FacturacionService:
                     guarda,
                     commit=False,
                 )
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
         except Exception as exc:
             await self._rollback_seguro(f"intentos_guarda_rece:{contexto}")
             logger.error(
@@ -3275,6 +3428,314 @@ class FacturacionService:
                 raise
             raise SQLAlchemyTimeoutError(
                 "No se pudo confirmar el cierre fiscal durable del sublote."
+            ) from exc
+
+    async def _cerrar_rechazo_global_intentos_y_guarda(
+        self,
+        *,
+        idempotencia: IdempotenciaFiscalService,
+        intentos: list[IntentoEmisionFiscal],
+        respuestas: list[EmitirComprobanteResponse],
+        guarda: PuntoVentaGuardaEmisionRece,
+        commit: bool,
+    ) -> None:
+        """Cierra un 10005 exacto bajo locks sin publicar la operación del caller."""
+        intento_ids = [getattr(intento, "id", None) for intento in intentos]
+        operacion_ids = {getattr(intento, "operacion_id", None) for intento in intentos}
+        if (
+            not intentos
+            or len(intentos) != len(respuestas)
+            or any(
+                not isinstance(intento_id, int) or isinstance(intento_id, bool)
+                for intento_id in intento_ids
+            )
+            or len(set(intento_ids)) != len(intento_ids)
+            or len(operacion_ids) != 1
+            or None in operacion_ids
+            or not isinstance(getattr(guarda, "id", None), int)
+            or isinstance(getattr(guarda, "id", None), bool)
+        ):
+            raise SQLAlchemyTimeoutError(
+                "El rechazo global no conserva un grafo fiscal exacto."
+            )
+
+        operacion_id = int(next(iter(operacion_ids)))
+        try:
+            fila_operacion = (
+                await self.db.execute(
+                    select(
+                        OperacionIdempotente,
+                        OperacionIdempotente.response_json.is_(None).label(
+                            "respuesta_es_sql_null"
+                        ),
+                    )
+                    .where(OperacionIdempotente.id == operacion_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+            ).one_or_none()
+            if fila_operacion is None:
+                raise SQLAlchemyTimeoutError(
+                    "La operación del rechazo global ya no existe."
+                )
+            operacion = fila_operacion[0]
+            respuesta_es_sql_null = fila_operacion[1] is True
+
+            intentos_operacion = list(
+                (
+                    await self.db.execute(
+                        select(IntentoEmisionFiscal)
+                        .where(IntentoEmisionFiscal.operacion_id == operacion_id)
+                        .order_by(IntentoEmisionFiscal.id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            guardas_operacion = list(
+                (
+                    await self.db.execute(
+                        select(PuntoVentaGuardaEmisionRece)
+                        .where(PuntoVentaGuardaEmisionRece.operacion_id == operacion_id)
+                        .order_by(PuntoVentaGuardaEmisionRece.id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            intentos_por_id = {
+                int(intento.id): intento for intento in intentos_operacion
+            }
+            guardas_por_id = {int(item.id): item for item in guardas_operacion}
+            intentos_bloqueados = [
+                intentos_por_id[int(intento_id)]
+                for intento_id in intento_ids
+                if int(intento_id) in intentos_por_id
+            ]
+            guarda_bloqueada = guardas_por_id.get(int(guarda.id))
+            intentos_de_guarda = [
+                intento
+                for intento in intentos_operacion
+                if intento.guarda_rece_id == guarda.id
+            ]
+            identidad_valida = (
+                len(intentos_bloqueados) == len(intentos)
+                and {int(item.id) for item in intentos_de_guarda}
+                == {int(item) for item in intento_ids}
+                and guarda_bloqueada is not None
+                and guarda_bloqueada.operacion_id == operacion_id
+                and guarda_bloqueada.empresa_id == operacion.empresa_id
+                and guarda_bloqueada.fase == "arca_iniciada"
+                and all(
+                    intento.estado == "en_proceso"
+                    and intento.operacion_id == operacion_id
+                    and intento.empresa_id == operacion.empresa_id
+                    and intento.guarda_rece_id == guarda_bloqueada.id
+                    and intento.punto_venta_id == guarda_bloqueada.punto_venta_id
+                    and intento.ambiente == guarda_bloqueada.ambiente
+                    and intento.punto_venta_elegibilidad_revision_id
+                    == guarda_bloqueada.elegibilidad_revision_id
+                    and intento.punto_venta_revision_fiscal
+                    == guarda_bloqueada.punto_venta_revision_fiscal
+                    for intento in intentos_bloqueados
+                )
+            )
+            if not identidad_valida:
+                raise SQLAlchemyTimeoutError(
+                    "El grafo fiscal cambió antes de cerrar el rechazo global."
+                )
+
+            lote = None
+            metadata = None
+            material_rece = None
+            owner_lote = None
+            if operacion.lote_id is not None:
+                lote = (
+                    await self.db.execute(
+                        select(LoteComprobante)
+                        .where(
+                            LoteComprobante.id == operacion.lote_id,
+                            LoteComprobante.empresa_id == operacion.empresa_id,
+                        )
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                ).scalar_one_or_none()
+                metadata = lote.metadata_json if lote is not None else None
+                if isinstance(metadata, dict):
+                    material_rece = metadata.get("pf19b_rece_material")
+                    owner_lote = metadata.get("operacion_idempotente_id")
+
+            grupos_material: list[LoteComprobanteGrupo] = []
+            if lote is not None and IdempotenciaFiscalService.material_rece_valido(
+                material_rece,
+                empresa_id=int(operacion.empresa_id),
+            ):
+                grupos_material = list(
+                    (
+                        await self.db.execute(
+                            select(LoteComprobanteGrupo)
+                            .where(
+                                LoteComprobanteGrupo.lote_id == lote.id,
+                                LoteComprobanteGrupo.id.in_(material_rece["grupo_ids"]),
+                            )
+                            .order_by(LoteComprobanteGrupo.id)
+                            .with_for_update()
+                            .execution_options(populate_existing=True)
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+            material_coincide = (
+                lote is not None
+                and IdempotenciaFiscalService.material_rece_coincide_grupos(
+                    material_rece,
+                    empresa_id=int(operacion.empresa_id),
+                    grupos=grupos_material,
+                )
+            )
+            material_por_grupo = {
+                item["grupo_id"]: item
+                for item in (material_rece or {}).get("grupos", [])
+                if isinstance(item, dict)
+                and isinstance(item.get("grupo_id"), int)
+                and not isinstance(item.get("grupo_id"), bool)
+            }
+            grupos_por_id = {int(grupo.id): grupo for grupo in grupos_material}
+            payload_hash_por_grupo = {
+                grupo_id: IdempotenciaFiscalService.calcular_payload_hash(
+                    IdempotenciaFiscalService.payload_sin_confirmacion_duplicado(
+                        self.normalizar_receptor(
+                            EmitirComprobanteRequest.model_validate(
+                                grupo.payload_json or {}
+                            )
+                        ).model_dump(mode="json")
+                    )
+                )
+                for grupo_id, grupo in grupos_por_id.items()
+            }
+
+            lote_ids_intentos = {intento.lote_id for intento in intentos_bloqueados}
+            if operacion.tipo_operacion == "emitir_comprobante":
+                ownership_valido = (
+                    respuesta_es_sql_null
+                    and operacion.lote_id is None
+                    and lote_ids_intentos == {None}
+                )
+            elif operacion.tipo_operacion in {
+                "procesar_lote",
+                "reintentar_fallidos_lote",
+            }:
+                ownership_lote_valido = (
+                    lote is not None
+                    and lote_ids_intentos == {int(lote.id)}
+                    and isinstance(owner_lote, int)
+                    and not isinstance(owner_lote, bool)
+                    and owner_lote == operacion_id
+                    and material_coincide
+                    and all(
+                        isinstance(intento.grupo_id, int)
+                        and not isinstance(intento.grupo_id, bool)
+                        and (item_material := material_por_grupo.get(intento.grupo_id))
+                        is not None
+                        and intento.empresa_id == item_material["empresa_id"]
+                        and intento.punto_venta_id == item_material["punto_venta_id"]
+                        and intento.punto_venta_numero
+                        == item_material["punto_venta_numero"]
+                        and intento.ambiente == item_material["ambiente"]
+                        and intento.punto_venta_elegibilidad_revision_id
+                        == item_material["elegibilidad_revision_id"]
+                        and intento.punto_venta_revision_fiscal
+                        == item_material["punto_venta_revision_fiscal"]
+                        and intento.tipo_comprobante
+                        == item_material["tipo_comprobante"]
+                        and intento.grupo_id in grupos_por_id
+                        and intento.payload_hash
+                        == payload_hash_por_grupo.get(intento.grupo_id)
+                        for intento in intentos_bloqueados
+                    )
+                )
+                ownership_valido = ownership_lote_valido and respuesta_es_sql_null
+                if not respuesta_es_sql_null:
+                    ownership_valido = (
+                        ownership_lote_valido
+                        and operacion.tipo_operacion == "procesar_lote"
+                        and IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+                            operacion.response_json,
+                            lote_id=int(lote.id),
+                            empresa_id=int(lote.empresa_id),
+                            operacion_id=operacion_id,
+                            material_rece=material_rece,
+                        )
+                    )
+            else:
+                ownership_valido = False
+            if (
+                operacion.estado != "en_proceso"
+                or not isinstance(operacion.rece_snapshot_hash, str)
+                or len(operacion.rece_snapshot_hash) != 64
+                or not ownership_valido
+            ):
+                raise SQLAlchemyTimeoutError(
+                    "La operación perdió ownership antes del rechazo global."
+                )
+
+            for intento, respuesta in zip(intentos_bloqueados, respuestas):
+                error_arca = (
+                    respuesta.errores_arca[0]
+                    if len(respuesta.errores_arca) == 1
+                    else None
+                )
+                respuesta_valida = (
+                    respuesta.exito is False
+                    and respuesta.requiere_reconciliacion is False
+                    and respuesta.categoria_error == "arca_rechazo_global_excluyente"
+                    and respuesta.cae is None
+                    and respuesta.comprobante_id is None
+                    and error_arca is not None
+                    and isinstance(error_arca.codigo, int)
+                    and not isinstance(error_arca.codigo, bool)
+                    and error_arca.codigo == 10005
+                    and error_arca.alcance == "global"
+                    and error_arca.mensaje
+                    == "El punto de venta no está dado de alta como RECE en ARCA."
+                    and respuesta.tipo_comprobante == intento.tipo_comprobante
+                    and respuesta.punto_venta == intento.punto_venta_numero
+                    and respuesta.numero == intento.numero_planificado
+                    and respuesta.fecha == intento.fecha_emision
+                    and Decimal(str(respuesta.total)).quantize(Decimal("0.01"))
+                    == Decimal(str(intento.total)).quantize(Decimal("0.01"))
+                )
+                if not respuesta_valida:
+                    raise SQLAlchemyTimeoutError(
+                        "La respuesta global no coincide con el intento bloqueado."
+                    )
+                await idempotencia.actualizar_intento_desde_respuesta(
+                    intento,
+                    respuesta,
+                    commit=False,
+                )
+            await ElegibilidadReceService(self.db).cerrar_terminal(
+                guarda_bloqueada,
+                commit=False,
+            )
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
+        except Exception as exc:
+            await self._rollback_seguro("rechazo_global_terminal")
+            if isinstance(exc, DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS):
+                raise
+            if isinstance(exc, SQLAlchemyTimeoutError):
+                raise
+            raise SQLAlchemyTimeoutError(
+                "No se pudo confirmar el rechazo global de forma durable."
             ) from exc
 
     async def _inmovilizar_grafo_reconciliacion(
@@ -3522,6 +3983,54 @@ class FacturacionService:
                 error,
             ],
             categoria_error="pre_arca_reserva_fallida",
+        )
+
+    @staticmethod
+    def _errores_globales_sanitarios(
+        exc: ArcaErrorGlobalEstructurado,
+    ) -> list[ErrorArcaFiscalResponse]:
+        """Conserva códigos globales enteros sin publicar mensajes externos."""
+        return [
+            ErrorArcaFiscalResponse(
+                codigo=mensaje.codigo,
+                alcance="global",
+                mensaje="ARCA informó un error global para el requerimiento.",
+            )
+            for mensaje in exc.errores
+            if isinstance(mensaje.codigo, int) and not isinstance(mensaje.codigo, bool)
+        ]
+
+    @staticmethod
+    def _respuesta_rechazo_global_excluyente(
+        *,
+        request: EmitirComprobanteRequest,
+        punto_venta_numero: int,
+        numero: int,
+        totales: dict,
+    ) -> EmitirComprobanteResponse:
+        """Devuelve el único rechazo global terminal reconocido por PF-19C."""
+        return EmitirComprobanteResponse(
+            exito=False,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=punto_venta_numero,
+            numero=numero,
+            fecha=request.fecha_emision,
+            total=totales["total"],
+            mensaje="ARCA rechazó el requerimiento completo antes de autorizar.",
+            errores=[
+                "Revisá la habilitación RECE del punto de venta antes de iniciar otra emisión."
+            ],
+            errores_arca=[
+                ErrorArcaFiscalResponse(
+                    codigo=10005,
+                    alcance="global",
+                    mensaje=(
+                        "El punto de venta no está dado de alta como RECE en ARCA."
+                    ),
+                )
+            ],
+            requiere_reconciliacion=False,
+            categoria_error="arca_rechazo_global_excluyente",
         )
 
     def _ordenar_resultados_arca_batch_por_numero(

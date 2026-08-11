@@ -11,6 +11,12 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.arca.exceptions import (
+    ArcaErrorGlobalEstructurado,
+    CabeceraRespuestaFecae,
+    MensajeArcaEstructurado,
+)
+from app.arca.models import CAEResponse
 from app.core.config import BloqueoPreautorizacionArca, settings
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
@@ -1041,7 +1047,7 @@ async def test_replay_individual_no_sobrescribe_terminal_concurrente(
     test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """El CAS del replay conserva un resultado terminal publicado en carrera."""
+    """El CAS conserva un winner huérfano, pero el replay no lo reatestigua."""
     punto = await _crear_punto_rece_verificado_para_api(
         db_session,
         empresa=test_empresa,
@@ -1136,7 +1142,10 @@ async def test_replay_individual_no_sobrescribe_terminal_concurrente(
         json=payload,
     )
 
-    assert response.status_code == 503, response.text
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["categoria_error"] == (
+        "idempotencia_terminal_no_recuperable"
+    )
     assert llamadas_emision == 0
     async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
         durable = await observador.get(OperacionIdempotente, operacion_id)
@@ -1282,7 +1291,7 @@ async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
     test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Una excepción inesperada post-ARCA se guarda y no vuelve a emitir."""
+    """Un fallback post-ARCA huérfano no se reatestigua ni vuelve a emitir."""
     llamadas = 0
 
     async def fake_emitir(self, request, **kwargs):
@@ -1317,11 +1326,14 @@ async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
     assert primera.status_code == 409
     assert segunda.status_code == 409
     assert llamadas == 1
+    detail_primera = primera.json()["detail"]
+    assert detail_primera["requiere_reconciliacion"] is True
+    assert detail_primera["categoria_error"] == "arca_respuesta_incierta"
+    assert "otra clave" in detail_primera["errores"][0]
+    assert segunda.json()["detail"]["categoria_error"] == (
+        "idempotencia_terminal_no_recuperable"
+    )
     for response in (primera, segunda):
-        detail = response.json()["detail"]
-        assert detail["requiere_reconciliacion"] is True
-        assert detail["categoria_error"] == "arca_respuesta_incierta"
-        assert "otra clave" in detail["errores"][0]
         assert "secreto" not in response.text
         assert "privada.key" not in response.text
 
@@ -1344,7 +1356,7 @@ async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_4
     test_user,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Un fallo idempotente post-CAE conserva CAE y bloquea el replay."""
+    """Un fallback con CAE huérfano se conserva pero no se reatestigua."""
     llamadas_emision = 0
     llamadas_guardado = 0
     guardar_original = IdempotenciaFiscalService.guardar_respuesta_operacion_cas
@@ -1407,12 +1419,15 @@ async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_4
     assert segunda.status_code == 409
     assert llamadas_emision == 1
     assert llamadas_guardado == 2
+    detail_primera = primera.json()["detail"]
+    assert detail_primera["requiere_reconciliacion"] is True
+    assert detail_primera["categoria_error"] == "post_arca_persistencia"
+    assert detail_primera["cae"] == "12345678901234"
+    assert detail_primera["numero"] == 22
+    assert segunda.json()["detail"]["categoria_error"] == (
+        "idempotencia_terminal_no_recuperable"
+    )
     for response in (primera, segunda):
-        detail = response.json()["detail"]
-        assert detail["requiere_reconciliacion"] is True
-        assert detail["categoria_error"] == "post_arca_persistencia"
-        assert detail["cae"] == "12345678901234"
-        assert detail["numero"] == 22
         assert "secreto" not in response.text
         assert "privada.key" not in response.text
 
@@ -1436,25 +1451,48 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """La misma clave y payload debe devolver la respuesta persistida."""
-    llamadas = 0
 
-    async def fake_emitir(self, request, **kwargs):
-        nonlocal llamadas
-        llamadas += 1
-        return EmitirComprobanteResponse(
-            exito=True,
-            comprobante_id=100 + llamadas,
-            tipo_comprobante=request.tipo_comprobante,
-            punto_venta=6,
-            numero=20 + llamadas,
-            fecha=request.fecha_emision,
-            cae="12345678901234",
-            cae_vencimiento=date(2026, 5, 26),
-            total=Decimal("1000.00"),
-            mensaje="Comprobante emitido exitosamente",
-        )
+    class FakeWSFEClient:
+        """Autoriza una única solicitud sin abrir red."""
 
-    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+        llamadas = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable la numeración sintética."""
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Devuelve una autorización verificable y contabilizada."""
+            FakeWSFEClient.llamadas += 1
+            return CAEResponse(
+                cae="12345678901234",
+                cae_vencimiento="20260831",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        """Evita leer material criptográfico de prueba."""
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        """Mantiene el punto sintético habilitado."""
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakeWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
     headers = {**auth_headers, **_idempotency_header("idem-replay")}
     payload, _ = await _request_emitir_rece(
         db_session,
@@ -1476,9 +1514,133 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
 
     assert primera.status_code == 200, primera.text
     assert segunda.status_code == 200, segunda.text
-    assert llamadas == 1
-    assert segunda.json()["numero"] == primera.json()["numero"]
-    assert segunda.json()["comprobante_id"] == primera.json()["comprobante_id"]
+    assert FakeWSFEClient.llamadas == 1
+    assert segunda.json() == primera.json()
+
+
+@pytest.mark.asyncio
+async def test_replay_individual_10005_adulterado_no_publica_exito_ni_reemite(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_user,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un DTO exitoso no puede contradecir un grafo 10005 rechazado."""
+
+    class FakeWSFEClient:
+        """Devuelve el rechazo global canónico una sola vez."""
+
+        llamadas = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva sin abrir red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable la numeración sintética."""
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Rechaza el requerimiento sin detalle ni señales de CAE."""
+            FakeWSFEClient.llamadas += 1
+            raise ArcaErrorGlobalEstructurado(
+                cabecera=CabeceraRespuestaFecae(
+                    cuit=int(test_empresa.cuit),
+                    punto_venta=arca_request.punto_venta,
+                    tipo_comprobante=arca_request.tipo_cbte,
+                    cantidad=1,
+                    resultado="R",
+                ),
+                errores=(MensajeArcaEstructurado(10005, "mensaje privado ARCA"),),
+                eventos=(),
+                detalles_presentes=False,
+                senales_cae_presentes=False,
+                request_cuit=int(test_empresa.cuit),
+                request_punto_venta=arca_request.punto_venta,
+                request_tipo_comprobante=arca_request.tipo_cbte,
+                request_cantidad=1,
+                request_rangos=((arca_request.cbte_desde, arca_request.cbte_hasta),),
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        """Evita leer material criptográfico de prueba."""
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        """Mantiene el punto sintético habilitado."""
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakeWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+    payload, _ = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=test_user.id,
+        numero=7,
+    )
+    idempotency_key = "idem-replay-individual-pf19c-10005"
+    headers = {**auth_headers, **_idempotency_header(idempotency_key)}
+
+    primera = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    assert primera.status_code == 400, primera.text
+    assert FakeWSFEClient.llamadas == 1
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == idempotency_key
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "rechazado_arca"
+    replay_valido = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+    assert replay_valido.status_code == 400, replay_valido.text
+    assert replay_valido.json() == primera.json()
+    assert FakeWSFEClient.llamadas == 1
+    respuesta_adulterada = dict(operacion.response_json)
+    respuesta_adulterada["exito"] = True
+    operacion.response_json = respuesta_adulterada
+    await db_session.commit()
+
+    replay = await client.post(
+        "/api/comprobantes/emitir",
+        headers=headers,
+        json=payload,
+    )
+
+    assert replay.status_code == 409, replay.text
+    assert replay.json()["detail"]["categoria_error"] == (
+        "idempotencia_terminal_no_recuperable"
+    )
+    assert FakeWSFEClient.llamadas == 1
+    intento = await db_session.scalar(
+        select(IntentoEmisionFiscal).where(
+            IntentoEmisionFiscal.operacion_id == operacion.id
+        )
+    )
+    guarda = await db_session.scalar(
+        select(PuntoVentaGuardaEmisionRece).where(
+            PuntoVentaGuardaEmisionRece.operacion_id == operacion.id
+        )
+    )
+    assert intento is not None
+    assert intento.estado == "rechazado_arca"
+    assert guarda is not None
+    assert guarda.fase == "cerrada_terminal"
 
 
 @pytest.mark.asyncio

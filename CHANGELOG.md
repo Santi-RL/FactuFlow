@@ -18,6 +18,36 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Candidato v0.3.0
+
+- Se sincronizó la versión técnica y visible `0.3.0` en los manifiestos raíz,
+  backend y frontend, la configuración/API y la barra lateral. El candidato
+  funcional validado es `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre
+  `b5eefcd`; la última release publicada y la producción continúan en `v0.2.2`.
+- PF-19C en `c1dbd82` completó diseño, implementación y evidencia con dobles y SQLite.
+  La suite backend registró `1049 passed`, `22 skipped`, `31 warnings` en
+  `9m14s`; la cobertura total branch-aware fue `69.2278%` (líneas `73.6741%`,
+  ramas `55.1759%`, gate `69%`). Los skips son PostgreSQL sin URL/daemon local.
+  El `autoreview` final autorizado terminó limpio con Codex `gpt-5.6-sol`
+  (`medium`): TruffleHog limpio, `5/5` pasadas, cero hallazgos y probabilidad
+  `0,98` de parche correcto. La CI Nivel 2 del 10/08/2026, ejecución
+  [`31354948875`](https://github.com/Santi-RL/FactuFlow/actions/runs/31354948875),
+  aprobó los siete checks del SHA funcional: Backend Tests registró `1076`
+  pruebas aprobadas, `32` warnings, `441,83 s` y cobertura total `70,03%`; E2E
+  aprobó `33` pruebas y Runtime Smoke aprobó contra PostgreSQL real. La
+  aceptación funcional-contable PF-16G fue registrada el 10/08/2026. El
+  candidato `7f7b3808` aprobó además un ensayo privado con backup reciente,
+  restauración aislada, upgrade hasta `c0d1e2f3a4b` y rollback exacto hasta
+  `a8b9c0d1e2f3`, sin modificar producción.
+- PF-16C, PF-16D y PF-16E quedaron incorporados por el candidato:
+  Node.js 24, auditorías npm, cobertura con gates, CI PostgreSQL/Runtime Smoke
+  y `27/27` tests de scripts. PF-16G ya tiene matriz, dossier y aceptación
+  funcional-contable registrada el 10/08/2026. La firma externa de manifests
+  VPS permanece como P2 posterior y no bloquea este candidato.
+- La guía de trabajo prioriza unidades enfocadas y releases seguros sin ampliar
+  el alcance automáticamente: un bloqueo real se consulta al desarrollador y
+  los hallazgos no bloqueantes se difieren al roadmap.
+
 ### Planificación de producto
 
 - La evidencia productiva de `v0.2.2` abrió PF-19 como P1 fiscal Nivel 2 y lo
@@ -41,6 +71,24 @@ Reglas vigentes desde 2026-05-22:
   de prioridades inmediatas permanecen sin cambios.
 
 ### Validación fiscal
+
+- PF-19C incorpora evidencia estructurada de errores globales WSFE y acepta
+  como terminal únicamente `10005` entero exacto con cabecera `R` correlacionada
+  (CUIT, punto, tipo, cantidad y rangos), un solo error y sin detalle ni CAE.
+  Códigos mezclados, texto, tipos no enteros, respuesta parcial, timeout,
+  transporte o contradicción inmovilizan la operación en
+  `requiere_reconciliacion`; nunca habilitan retry ni una nueva FECAE.
+- Un rechazo global confirmado cierra atómicamente el sublote enviado y detiene
+  el lote: los grupos posteriores quedan `no_enviado_por_rechazo_global`, sin
+  atribuirles un rechazo ARCA. La publicación y el replay conservan ownership
+  por `operacion_id`; una carrera de A hacia B no permite publicar ni emitir
+  sobre la operación ajena.
+- La revisión `c0d1e2f3a4b` agrega evidencia ARCA estructurada y el journal
+  legacy PF-19C append-only. El plan es read-only; apply exige backup verificable,
+  hash, actor, plan inmutable y consultas seguras. Un ambiente legacy
+  indeterminado exige producción y homologación; cualquier autorización o duda
+  conserva reconciliación. La migración VPS valida esa evidencia y omite el
+  journal/terminales PF-19C, sin recrearlos.
 
 - PF-19B reemplaza la inferencia mutable de Web Services por un ledger
   inmutable de elegibilidad RECE, una cabeza transaccional por punto y ambiente,

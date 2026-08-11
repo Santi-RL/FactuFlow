@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 08/08/2026
+Última actualización: 10/08/2026
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -381,8 +381,12 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Estado objetivo de `main`, 09/08/2026: PF-19A y PF-19B completo están
-implementados; PF-19C sigue pendiente. La release publicada y producción
+Estado objetivo de `main`, 10/08/2026: PF-19A, PF-19B completo y PF-19C quedan
+integrados en `main`; PF-19C ya tiene evidencia completa. El
+`autoreview` final cerró limpio, la CI Nivel 2 aprobó PostgreSQL real y Runtime
+Smoke, y la aceptación PF-16G y el ensayo privado de
+backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026.
+La release publicada y producción
 continúan en `v0.2.2`, sin estos cortes. Toda ejecución previa al checkpoint de
 release usa datos sintéticos y dobles de WSFE. Esta matriz no autoriza pedir CAE
 real para provocar errores ni editar registros fiscales.
@@ -482,15 +486,50 @@ conexión y lecturas seguras, sin solicitar CAE. Una constancia productiva real,
 sus identificadores y sus resultados pertenecen exclusivamente a evidencia
 operativa privada y requieren autorización separada.
 
-### PF-19C — matriz pendiente
+### PF-19C — matriz, evidencia y ensayo privado completos
 
-1. Simular `10005`, `R` por detalle, error global desconocido, resultado
-   parcial, cardinalidad inconsistente, timeout y corte de transporte. Solo un
-   rechazo completo y estructurado podrá ser terminal; toda incertidumbre
-   conservará `requiere_reconciliacion`.
-2. Repetir payload y clave después de rechazo terminal e incertidumbre; ningún
-   replay podrá llamar ARCA a ciegas. La resolución legacy requerirá política
-   PF-19C separada y evidencia externa aprobada.
+Usar exclusivamente dobles WSFE, SQLite sintética y PostgreSQL desechable
+habilitado por el harness. Esta QA no provoca `10005`, no solicita CAE real y
+no emplea certificados, CUIT, backups ni datos operativos reales.
+
+1. Simular `10005` como entero no booleano, único, con cabecera `R` que coincide
+   exactamente en CUIT, punto, tipo y cantidad, rangos unitarios exactos y sin
+   detalle/CAE. Debe cerrar solo el sublote enviado como
+   `arca_rechazo_global_excluyente`, conservar su evidencia sanitaria y detener
+   todos los grupos posteriores como `no_enviado_por_rechazo_global`, con cero
+   `FECAESolicitar` adicional.
+2. Repetir con `1005`, string, float, booleano, duplicado o mezclado; cabecera
+   ausente, `A`, `P` o discordante; detalle/CAE; `R` por detalle, cardinalidad
+   inconsistente, timeout, Fault, deserialización y corte de transporte. Ningún
+   caso puede ser terminal: el grafo pertinente queda
+   `requiere_reconciliacion`, el lote se inmoviliza y el procesador no continúa.
+3. Repetir mismo payload y clave tras terminal e incertidumbre. El replay debe
+   devolver la respuesta durable con cero WSAA, `FECompUltimoAutorizado`,
+   `FECompConsultar` o `FECAESolicitar`. Forzar CAS perdedor y cambio de owner
+   `operacion_id A -> B`: A no publica ni emite sobre B.
+4. Inyectar una falla en cada frontera posterior a ARCA. Intento, guarda,
+   grupo/fila, lote, respuesta idempotente y metadatos deben cerrar juntos o
+   revertirse juntos; una persistencia no confirmable conserva reconciliación,
+   nunca habilita retry.
+5. Para legacy, ejecutar primero `plan` sobre un candidato sintético: debe ser
+   read-only, determinista y hasheado. `apply` requiere backup sintético
+   verificable, actor y confirmación. Con ambiente nulo debe consultar ambos
+   ambientes; solo dos últimos autorizados menores cierran
+   `legacy_sin_autorizacion_verificada`. Si hay autorización, timeout o duda,
+   no muta ni agrega journal. El journal debe ser único, append-only y sanitizado.
+6. Ensayar upgrade/downgrade de `c0d1e2f3a4b`: la evidencia/journal bloquea el
+   downgrade. El paquete VPS solo valida y contabiliza los terminales PF-19C
+   omitidos; no los transporta ni reatesta. Mantener dumps, hashes y rutas reales
+   fuera del repositorio.
+
+La evidencia local registró `1049 passed`, `22 skipped`, `31 warnings` en
+`9m14s`, con los skips limitados a PostgreSQL sin URL/daemon local. La cobertura
+backend fue `69.2278%` total branch-aware, `73.6741%` líneas y `55.1759%` ramas;
+frontend aprobó `149` pruebas y registró cobertura `56.12/50.14/43.77/57.37`.
+La CI Nivel 2 ya aprobó PostgreSQL real y Runtime Smoke sobre el SHA funcional;
+la aceptación PF-16G y el ensayo privado de
+backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026. Tag,
+release y despliegue continúan como decisiones separadas.
 
 ## Punto de reanudación de QA
 
@@ -500,8 +539,9 @@ superó el despliegue y la verificación post-deploy. En el estado objetivo de
 `main`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
 superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
 lectura y autoridad RECE durable. Ese tramo todavía no pertenece a una release
-publicada ni está desplegado. El siguiente corte fiscal es PF-19C; PF-03B queda
-después. No repetir
+publicada ni está desplegado. PF-19C queda integrado en `main` con su ensayo
+privado cerrado; publicar y desplegar `v0.3.0` son decisiones separadas y
+PF-03B queda después. No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
 UX de lotes ni las validaciones ya cerradas.
 

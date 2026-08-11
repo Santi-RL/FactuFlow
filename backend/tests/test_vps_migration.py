@@ -715,6 +715,508 @@ def _individual_success_response(**overrides: Any) -> dict[str, Any]:
     return response
 
 
+def _individual_global_rejection_response() -> dict[str, Any]:
+    """Construye el DTO sanitario del rechazo global PF-19C."""
+    return {
+        "exito": False,
+        "comprobante_id": None,
+        "tipo_comprobante": 6,
+        "punto_venta": 6,
+        "numero": 124,
+        "fecha": "2026-06-03",
+        "cae": None,
+        "cae_vencimiento": None,
+        "total": "121.00",
+        "mensaje": "ARCA rechazó el requerimiento completo antes de autorizar.",
+        "errores": [
+            "Revisá la habilitación RECE del punto de venta antes de iniciar otra emisión."
+        ],
+        "errores_arca": [
+            {
+                "codigo": 10005,
+                "alcance": "global",
+                "mensaje": "El punto de venta no está dado de alta como RECE en ARCA.",
+            }
+        ],
+        "requiere_reconciliacion": False,
+        "categoria_error": "arca_rechazo_global_excluyente",
+    }
+
+
+def _canonical_json_sha256(value: dict[str, Any]) -> str:
+    """Reproduce la huella canónica append-only del replay legacy PF-19C."""
+    canonical = json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _batch_global_rejection_response(*, operation_id: int = 140) -> dict[str, Any]:
+    """Construye el replay batch autocontenido del rechazo global PF-19C."""
+    errores_arca = _individual_global_rejection_response()["errores_arca"]
+    marker = {
+        "operacion_id": operation_id,
+        "categoria": "arca_rechazo_global_excluyente",
+        "grupos_rechazo_ids": [160],
+        "grupos_no_enviados_ids": [],
+        "errores_arca": errores_arca,
+    }
+    lote = _lote_response_payload()
+    lote.update(
+        {
+            "estado": "fallido",
+            "grupos_validos": 0,
+            "grupos_emitidos": 0,
+            "grupos_fallidos": 1,
+            "mensaje_resumen": (
+                "ARCA rechazó un requerimiento completo y FactuFlow detuvo los "
+                "grupos restantes sin enviarlos."
+            ),
+            "metadata_json": {"pf19c_rechazo_global": marker},
+            "finished_at": "2026-06-03T12:01:00",
+        }
+    )
+    return {
+        "lote": lote,
+        "mensaje": lote["mensaje_resumen"],
+        "en_progreso": False,
+        "errores_arca": errores_arca,
+    }
+
+
+def _insert_pf19c_global_rejection(db_path: Path) -> None:
+    """Convierte el contexto sintético en un rechazo global terminal exacto."""
+    _insert_terminal_guard_context(db_path, with_attempt=True)
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+            conn.execute(
+                Base.metadata.tables["puntos_venta_guardas_emision_rece"]
+                .update()
+                .where(
+                    Base.metadata.tables["puntos_venta_guardas_emision_rece"].c.id
+                    == 142
+                )
+                .values(
+                    fase="cerrada_terminal",
+                    arca_iniciada_en=datetime(2026, 6, 3, 12, 0, 30),
+                    cerrada_en=datetime(2026, 6, 3, 12, 1, 0),
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["intentos_emision_fiscal"]
+                .update()
+                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .values(
+                    estado="rechazado_arca",
+                    categoria_error="arca_rechazo_global_excluyente",
+                    errores_arca_json=_individual_global_rejection_response()[
+                        "errores_arca"
+                    ],
+                    mensaje="ARCA rechazó el requerimiento completo antes de autorizar.",
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(
+                    estado="rechazado_arca",
+                    response_json=_individual_global_rejection_response(),
+                )
+            )
+    finally:
+        engine.dispose()
+
+
+def _insert_pf19c_batch_global_rejection(db_path: Path) -> None:
+    """Persiste un 10005 batch con lote, grupo, intento y replay coherentes."""
+    _insert_terminal_guard_context(db_path, with_attempt=True)
+    _insert_group_and_row(db_path, group_state="fallido", row_state="fallido")
+    response = _batch_global_rejection_response()
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+            conn.execute(
+                Base.metadata.tables["puntos_venta_guardas_emision_rece"]
+                .update()
+                .where(
+                    Base.metadata.tables["puntos_venta_guardas_emision_rece"].c.id
+                    == 142
+                )
+                .values(
+                    fase="cerrada_terminal",
+                    arca_iniciada_en=datetime(2026, 6, 3, 12, 0, 30),
+                    cerrada_en=datetime(2026, 6, 3, 12, 1, 0),
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes_grupos"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes_grupos"].c.id == 160)
+                .values(
+                    punto_venta_id=40,
+                    ambiente="produccion",
+                    punto_venta_elegibilidad_revision_id=45,
+                    punto_venta_revision_fiscal=1,
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["intentos_emision_fiscal"]
+                .update()
+                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .values(
+                    estado="rechazado_arca",
+                    categoria_error="arca_rechazo_global_excluyente",
+                    errores_arca_json=response["errores_arca"],
+                    mensaje="ARCA rechazó el requerimiento completo antes de autorizar.",
+                    lote_id=130,
+                    grupo_id=160,
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                .values(
+                    estado="fallido",
+                    grupos_validos=0,
+                    grupos_emitidos=0,
+                    grupos_fallidos=1,
+                    mensaje_resumen=response["mensaje"],
+                    metadata_json=response["lote"]["metadata_json"],
+                    finished_at=datetime(2026, 6, 3, 12, 1, 0),
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(
+                    tipo_operacion="procesar_lote",
+                    lote_id=130,
+                    estado="rechazado_arca",
+                    response_json=response,
+                )
+            )
+    finally:
+        engine.dispose()
+
+
+def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
+    """Superpone una autorización batch B sin borrar la evidencia histórica A."""
+    _insert_pf19c_batch_global_rejection(db_path)
+    marker = _batch_global_rejection_response()["lote"]["metadata_json"]
+    lote_response = _lote_response_payload()
+    lote_response.update(
+        {
+            "metadata_json": marker,
+            "finished_at": "2026-06-03T12:03:00",
+            "updated_at": "2026-06-03T12:03:00",
+        }
+    )
+    response = {
+        "lote": lote_response,
+        "mensaje": "El grupo fallido fue autorizado sin repetir el rechazo anterior.",
+        "errores_arca": [],
+    }
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"].insert(),
+                {
+                    "id": 240,
+                    "idempotency_key": "vps-reintento-pf19c-b",
+                    "tipo_operacion": "reintentar_fallidos_lote",
+                    "payload_hash": "f" * 64,
+                    "estado": "finalizado",
+                    "response_json": response,
+                    "rece_snapshot_hash": _rece_digest(),
+                    "lote_id": 130,
+                    "empresa_id": 10,
+                    "usuario_id": 20,
+                    "created_at": datetime(2026, 6, 3, 12, 2, 0),
+                    "updated_at": datetime(2026, 6, 3, 12, 3, 0),
+                },
+            )
+            conn.execute(
+                Base.metadata.tables[
+                    "operaciones_idempotentes_elegibilidad_rece"
+                ].insert(),
+                {
+                    "id": 241,
+                    "operacion_id": 240,
+                    "empresa_id": 10,
+                    "punto_venta_id": 40,
+                    "ambiente": "produccion",
+                    "elegibilidad_revision_id": 45,
+                    "punto_venta_revision_fiscal": 1,
+                    "created_at": datetime(2026, 6, 3, 12, 2, 0),
+                },
+            )
+            conn.execute(
+                Base.metadata.tables["puntos_venta_guardas_emision_rece"].insert(),
+                {
+                    "id": 242,
+                    "token": "h" * 64,
+                    "fase": "cerrada_terminal",
+                    "operacion_id": 240,
+                    "empresa_id": 10,
+                    "punto_venta_id": 40,
+                    "ambiente": "produccion",
+                    "elegibilidad_revision_id": 45,
+                    "punto_venta_revision_fiscal": 1,
+                    "arca_iniciada_en": datetime(2026, 6, 3, 12, 2, 30),
+                    "cerrada_en": datetime(2026, 6, 3, 12, 3, 0),
+                    "created_at": datetime(2026, 6, 3, 12, 2, 0),
+                    "updated_at": datetime(2026, 6, 3, 12, 3, 0),
+                },
+            )
+            conn.execute(
+                Base.metadata.tables["intentos_emision_fiscal"].insert(),
+                {
+                    "id": 243,
+                    "tipo_comprobante": 6,
+                    "punto_venta_numero": 6,
+                    "numero_planificado": 123,
+                    "fecha_emision": date(2026, 6, 3),
+                    "total": Decimal("121.00"),
+                    "payload_hash": "1" * 64,
+                    "huella_logica": "2" * 64,
+                    "estado": "autorizado",
+                    "mensaje": "Comprobante autorizado",
+                    "cae": "12345678901234",
+                    "cae_vencimiento": date(2026, 6, 13),
+                    "comprobante_id": 110,
+                    "ambiente": "produccion",
+                    "punto_venta_elegibilidad_revision_id": 45,
+                    "punto_venta_revision_fiscal": 1,
+                    "guarda_rece_id": 242,
+                    "operacion_id": 240,
+                    "lote_id": 130,
+                    "grupo_id": 160,
+                    "empresa_id": 10,
+                    "usuario_id": 20,
+                    "punto_venta_id": 40,
+                    "created_at": datetime(2026, 6, 3, 12, 2, 0),
+                    "updated_at": datetime(2026, 6, 3, 12, 3, 0),
+                },
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                .values(
+                    estado="completado",
+                    grupos_validos=1,
+                    grupos_emitidos=1,
+                    grupos_fallidos=0,
+                    mensaje_resumen=None,
+                    metadata_json=marker,
+                    finished_at=datetime(2026, 6, 3, 12, 3, 0),
+                    updated_at=datetime(2026, 6, 3, 12, 3, 0),
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes_grupos"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes_grupos"].c.id == 160)
+                .values(
+                    estado="autorizado",
+                    mensajes_json=[],
+                    cae="12345678901234",
+                    numero_asignado=123,
+                    comprobante_id=110,
+                    updated_at=datetime(2026, 6, 3, 12, 3, 0),
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes_filas"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes_filas"].c.id == 161)
+                .values(estado="autorizado", mensajes_json=[])
+            )
+    finally:
+        engine.dispose()
+
+
+def _insert_legacy_pf19_journal(db_path: Path) -> None:
+    """Registra un cierre legacy PF-19 verificable y apto para omisión."""
+    _insert_terminal_guard_context(db_path, with_attempt=True)
+    response = _individual_success_response(
+        exito=False,
+        comprobante_id=None,
+        numero=124,
+        cae=None,
+        cae_vencimiento=None,
+        mensaje="Cierre legacy por ausencia de autorización verificada",
+        errores=[],
+        errores_arca=[],
+        categoria_error="legacy_sin_autorizacion_verificada",
+    )
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+            conn.execute(
+                Base.metadata.tables["intentos_emision_fiscal"]
+                .update()
+                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .values(
+                    categoria_error="legacy_sin_autorizacion_verificada",
+                    errores_arca_json=None,
+                    mensaje="Cierre legacy por ausencia de autorización verificada",
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(
+                    estado="fallido_verificado",
+                    response_json=response,
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["resoluciones_legacy_pf19_journal"].insert(),
+                {
+                    "id": 170,
+                    "accion": "cerrar_legacy_sin_autorizacion_verificada",
+                    "plan_sha256": "1" * 64,
+                    "terminal_response_sha256": _canonical_json_sha256(response),
+                    "actor_usuario_id": 20,
+                    "ambiente_consultado": "ambos",
+                    "resultado": "legacy_sin_autorizacion_verificada",
+                    "resultado_consultas_json": {
+                        "homologacion": "ultimo_menor_al_planificado",
+                        "produccion": "ultimo_menor_al_planificado",
+                    },
+                    "backup_metadata_json": {
+                        "identificador": "backup-pf19c-001",
+                        "timestamp": "2026-06-03T12:00:00Z",
+                        "proposito": "cierre legacy pf19c",
+                        "referencia_codigo": "commit-pf19c-001",
+                    },
+                    "backup_sha256": "2" * 64,
+                    "intento_id": 143,
+                    "empresa_id": 10,
+                    "created_at": datetime(2026, 6, 3, 12, 1, 0),
+                },
+            )
+    finally:
+        engine.dispose()
+
+
+def _insert_legacy_pf19_batch_journal(db_path: Path) -> None:
+    """Registra un cierre legacy batch con replay y membresía exactos."""
+    _insert_terminal_guard_context(db_path, with_attempt=True)
+    _insert_group_and_row(db_path, group_state="fallido", row_state="fallido")
+    lote = _lote_response_payload()
+    lote.update(
+        {
+            "estado": "fallido",
+            "grupos_validos": 0,
+            "grupos_emitidos": 0,
+            "grupos_fallidos": 1,
+            "mensaje_resumen": "Cierre legacy por ausencia de autorización verificada",
+            "updated_at": "2026-06-03T12:01:00",
+        }
+    )
+    response = {
+        "lote": lote,
+        "mensaje": "Cierre legacy por ausencia de autorización verificada",
+        "en_progreso": False,
+        "errores_arca": [],
+    }
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("PRAGMA foreign_keys=ON"))
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes_grupos"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes_grupos"].c.id == 160)
+                .values(
+                    punto_venta_id=40,
+                    ambiente="produccion",
+                    punto_venta_elegibilidad_revision_id=45,
+                    punto_venta_revision_fiscal=1,
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["intentos_emision_fiscal"]
+                .update()
+                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .values(
+                    estado="fallido_verificado",
+                    categoria_error="legacy_sin_autorizacion_verificada",
+                    errores_arca_json=None,
+                    mensaje="Cierre legacy por ausencia de autorización verificada",
+                    lote_id=130,
+                    grupo_id=160,
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes"]
+                .update()
+                .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                .values(
+                    estado="fallido",
+                    grupos_validos=0,
+                    grupos_emitidos=0,
+                    grupos_fallidos=1,
+                    mensaje_resumen=response["mensaje"],
+                    updated_at=datetime(2026, 6, 3, 12, 1, 0),
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(
+                    tipo_operacion="procesar_lote",
+                    lote_id=130,
+                    estado="finalizado",
+                    response_json=response,
+                )
+            )
+            conn.execute(
+                Base.metadata.tables["resoluciones_legacy_pf19_journal"].insert(),
+                {
+                    "id": 170,
+                    "accion": "cerrar_legacy_sin_autorizacion_verificada",
+                    "plan_sha256": "1" * 64,
+                    "terminal_response_sha256": _canonical_json_sha256(response),
+                    "actor_usuario_id": 20,
+                    "ambiente_consultado": "ambos",
+                    "resultado": "legacy_sin_autorizacion_verificada",
+                    "resultado_consultas_json": {
+                        "homologacion": "ultimo_menor_al_planificado",
+                        "produccion": "ultimo_menor_al_planificado",
+                    },
+                    "backup_metadata_json": {
+                        "identificador": "backup-pf19c-001",
+                        "timestamp": "2026-06-03T12:00:00Z",
+                        "proposito": "cierre legacy pf19c",
+                        "referencia_codigo": "commit-pf19c-001",
+                    },
+                    "backup_sha256": "2" * 64,
+                    "intento_id": 143,
+                    "empresa_id": 10,
+                    "created_at": datetime(2026, 6, 3, 12, 1, 0),
+                },
+            )
+    finally:
+        engine.dispose()
+
+
 def _insert_foreign_comprobante(db_path: Path) -> None:
     """Agrega otro emisor con ledger válido y un comprobante autorizado."""
     engine = create_engine(f"sqlite:///{db_path}", future=True)
@@ -1063,6 +1565,405 @@ def test_preflight_admite_guarda_terminal_con_intento_canonico(
 
     assert result.safe_omitted["intentos_terminales_omitidos"] == 1
     assert result.safe_omitted["guardas_terminales_omitidas"] == 1
+
+
+def test_preflight_omite_rechazo_global_pf19c_con_evidencia_exacta(
+    tmp_path: Path,
+) -> None:
+    """El 10005 terminal queda fuera del paquete solo si su replay es exacto."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_global_rejection(db_path)
+
+    result = vps_migration.run_preflight(db_path, certs_dir)
+
+    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
+    assert result.excluded_counts["intentos_emision_fiscal"] == 1
+
+
+def test_preflight_omite_rechazo_global_pf19c_batch_con_grafo_exacto(
+    tmp_path: Path,
+) -> None:
+    """El 10005 batch exige replay, lote, grupo e intento del mismo grafo."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_batch_global_rejection(db_path)
+
+    result = vps_migration.run_preflight(db_path, certs_dir)
+
+    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
+    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
+    assert result.safe_omitted["operaciones_terminales_preservadas"] == 1
+
+
+def test_preflight_conserva_rechazo_pf19c_supersedido_por_reintento_exitoso(
+    tmp_path: Path,
+) -> None:
+    """A conserva su replay y B autoriza solo con un grafo terminal posterior."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_batch_success_after_global_rejection(db_path)
+
+    result = vps_migration.run_preflight(db_path, certs_dir)
+
+    assert result.safe_omitted["intentos_terminales_omitidos"] == 2
+    assert result.safe_omitted["guardas_terminales_omitidas"] == 2
+    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
+    assert result.safe_omitted["operaciones_terminales_preservadas"] == 2
+
+
+def test_paquete_conserva_roles_pf19c_por_operacion_tras_supersesion(
+    tmp_path: Path,
+) -> None:
+    """El manifest atribuye el 10005 solo a A y deja B como éxito terminal."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_batch_success_after_global_rejection(db_path)
+
+    package = vps_migration.export_package(
+        source_db=db_path,
+        certs_dir=certs_dir,
+        output_root=tmp_path / "packages",
+        target_key_password="clave-destino-larga",
+        source_quiesced=True,
+    )
+    manifest = vps_migration.load_and_verify_manifest(package)
+
+    pairs = manifest["normalizations"]["operaciones_idempotentes.lote_id"]["pairs"]
+    assert pairs == [
+        {
+            "operacion_id": 140,
+            "lote_id": 130,
+            "grupo_ids": [160],
+            "grupos_rechazo_ids": [160],
+            "grupos_no_enviados_ids": [],
+        },
+        {
+            "operacion_id": 240,
+            "lote_id": 130,
+            "grupo_ids": [160],
+            "grupos_rechazo_ids": [],
+            "grupos_no_enviados_ids": [],
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["respuesta", "marker", "owner", "intento", "intento_duplicado"],
+)
+def test_preflight_bloquea_rechazo_global_pf19c_batch_mutado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    """No se omite un batch 10005 si se desliga su evidencia autocontenida."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_batch_global_rejection(db_path)
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            if mutation in {"respuesta", "marker", "owner"}:
+                response = _batch_global_rejection_response()
+                if mutation == "respuesta":
+                    response["errores_arca"] = []
+                elif mutation == "marker":
+                    response["lote"]["metadata_json"]["pf19c_rechazo_global"][
+                        "grupos_rechazo_ids"
+                    ] = [999]
+                else:
+                    response["lote"]["metadata_json"]["pf19c_rechazo_global"][
+                        "operacion_id"
+                    ] = 999
+                conn.execute(
+                    Base.metadata.tables["operaciones_idempotentes"]
+                    .update()
+                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .values(response_json=response)
+                )
+            elif mutation == "intento":
+                conn.execute(
+                    Base.metadata.tables["intentos_emision_fiscal"]
+                    .update()
+                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .values(lote_id=None, grupo_id=None)
+                )
+            else:
+                intento = dict(
+                    conn.execute(
+                        select(Base.metadata.tables["intentos_emision_fiscal"]).where(
+                            Base.metadata.tables["intentos_emision_fiscal"].c.id == 143
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+                intento.update(
+                    id=144,
+                    categoria_error="arca_no_aprobado",
+                    errores_arca_json=None,
+                )
+                conn.execute(
+                    Base.metadata.tables["intentos_emision_fiscal"].insert(),
+                    intento,
+                )
+    finally:
+        engine.dispose()
+
+    with pytest.raises(vps_migration.MigrationError):
+        vps_migration.run_preflight(db_path, certs_dir)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["error_arca", "respuesta", "categoria", "texto_publico"],
+)
+def test_preflight_bloquea_rechazo_global_pf19c_mutado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    """No se omite un 10005 si cambia su evidencia durable o su replay."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_global_rejection(db_path)
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            if mutation == "error_arca":
+                conn.execute(
+                    Base.metadata.tables["intentos_emision_fiscal"]
+                    .update()
+                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .values(
+                        errores_arca_json=[
+                            {
+                                "codigo": 10005.0,
+                                "alcance": "global",
+                                "mensaje": "El punto de venta no está dado de alta como RECE en ARCA.",
+                            }
+                        ]
+                    )
+                )
+            elif mutation == "respuesta":
+                response = _individual_global_rejection_response()
+                response["errores_arca"] = []
+                conn.execute(
+                    Base.metadata.tables["operaciones_idempotentes"]
+                    .update()
+                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .values(response_json=response)
+                )
+            elif mutation == "categoria":
+                conn.execute(
+                    Base.metadata.tables["intentos_emision_fiscal"]
+                    .update()
+                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .values(categoria_error="arca_no_aprobado")
+                )
+            else:
+                response = _individual_global_rejection_response()
+                response["mensaje"] = "Reintentá inmediatamente"
+                response["errores"] = []
+                conn.execute(
+                    Base.metadata.tables["operaciones_idempotentes"]
+                    .update()
+                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .values(response_json=response)
+                )
+    finally:
+        engine.dispose()
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="rechazo_global_pf19c_incoherentes",
+    ):
+        vps_migration.run_preflight(db_path, certs_dir)
+
+
+def test_preflight_omite_journal_legacy_pf19_y_declara_target_vacio(
+    tmp_path: Path,
+) -> None:
+    """El journal legacy se cuenta y nunca se serializa hacia el VPS."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_legacy_pf19_journal(db_path)
+
+    result = vps_migration.run_preflight(db_path, certs_dir)
+    package = vps_migration.export_package(
+        source_db=db_path,
+        certs_dir=certs_dir,
+        output_root=tmp_path / "packages",
+        target_key_password="clave-destino-larga",
+        source_quiesced=True,
+    )
+    manifest = vps_migration.load_and_verify_manifest(package)
+
+    assert result.safe_omitted["resoluciones_legacy_pf19_omitidas"] == 1
+    assert manifest["excluded_counts"]["resoluciones_legacy_pf19_journal"] == 1
+    assert "resoluciones_legacy_pf19_journal" in manifest["target_empty_tables"]
+    assert "resoluciones_legacy_pf19_journal" not in manifest["data_files"]
+
+
+def test_preflight_omite_journal_legacy_pf19_batch_con_replay_exacto(
+    tmp_path: Path,
+) -> None:
+    """El journal batch solo se omite si intento, grupo, lote y DTO coinciden."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_legacy_pf19_batch_journal(db_path)
+
+    result = vps_migration.run_preflight(db_path, certs_dir)
+
+    assert result.safe_omitted["resoluciones_legacy_pf19_omitidas"] == 1
+    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
+    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
+
+
+def test_preflight_bloquea_journal_legacy_pf19_batch_con_mensaje_mutado(
+    tmp_path: Path,
+) -> None:
+    """Un envelope batch genérico no prueba el cierre legacy auditado."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_legacy_pf19_batch_journal(db_path)
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            response = {
+                "lote": _lote_response_payload(),
+                "mensaje": "Resultado batch genérico",
+                "en_progreso": False,
+                "errores_arca": [],
+            }
+            response["lote"]["estado"] = "fallido"
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(response_json=response)
+            )
+            conn.execute(
+                Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                .update()
+                .where(
+                    Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id == 170
+                )
+                .values(terminal_response_sha256=_canonical_json_sha256(response))
+            )
+    finally:
+        engine.dispose()
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="journals_legacy_pf19_incoherentes",
+    ):
+        vps_migration.run_preflight(db_path, certs_dir)
+
+
+def test_preflight_bloquea_journal_legacy_pf19_batch_con_dto_coordinado(
+    tmp_path: Path,
+) -> None:
+    """La huella reatestiguada no reemplaza el cruce con el lote fuente exacto."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_legacy_pf19_batch_journal(db_path)
+    response = {
+        "lote": _lote_response_payload(),
+        "mensaje": "Cierre legacy por ausencia de autorización verificada",
+        "en_progreso": False,
+        "errores_arca": [],
+    }
+    response["lote"].update(
+        {
+            "estado": "fallido",
+            "grupos_emitidos": 0,
+            "grupos_fallidos": 1,
+            "total_grupos": 999,
+            "mensaje_resumen": response["mensaje"],
+        }
+    )
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(response_json=response)
+            )
+            conn.execute(
+                Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                .update()
+                .where(
+                    Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id == 170
+                )
+                .values(terminal_response_sha256=_canonical_json_sha256(response))
+            )
+    finally:
+        engine.dispose()
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="journals_legacy_pf19_incoherentes",
+    ):
+        vps_migration.run_preflight(db_path, certs_dir)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["error_arca", "orphan", "response", "huella"],
+)
+def test_preflight_bloquea_journal_legacy_pf19_incoherente(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    """El journal no puede omitir un cierre legacy sin su grafo coherente."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_legacy_pf19_journal(db_path)
+    engine = create_engine(f"sqlite:///{db_path}", future=True)
+    try:
+        with engine.begin() as conn:
+            if mutation == "error_arca":
+                conn.execute(
+                    Base.metadata.tables["intentos_emision_fiscal"]
+                    .update()
+                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .values(errores_arca_json=[])
+                )
+            elif mutation == "orphan":
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                conn.execute(
+                    Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                    .update()
+                    .where(
+                        Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id
+                        == 170
+                    )
+                    .values(intento_id=999)
+                )
+            elif mutation == "response":
+                response = _individual_success_response(
+                    exito=False,
+                    comprobante_id=None,
+                    numero=124,
+                    cae=None,
+                    cae_vencimiento=None,
+                    categoria_error="arca_no_aprobado",
+                )
+                conn.execute(
+                    Base.metadata.tables["operaciones_idempotentes"]
+                    .update()
+                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .values(response_json=response)
+                )
+            else:
+                conn.execute(
+                    Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                    .update()
+                    .where(
+                        Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id
+                        == 170
+                    )
+                    .values(terminal_response_sha256="3" * 64)
+                )
+    finally:
+        engine.dispose()
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="legacy|referencias inválidas",
+    ):
+        vps_migration.run_preflight(db_path, certs_dir)
 
 
 def test_preflight_bloquea_respuesta_negativa_con_intento_autorizado(
@@ -1674,7 +2575,15 @@ def test_export_normaliza_lote_operacion_sin_mutar_fuente(tmp_path: Path) -> Non
     for key, value in source_row.items():
         if key != "lote_id":
             assert exported_rows[0][key] == value
-    pairs = [{"operacion_id": 140, "lote_id": 130}]
+    pairs = [
+        {
+            "operacion_id": 140,
+            "lote_id": 130,
+            "grupo_ids": [],
+            "grupos_rechazo_ids": [],
+            "grupos_no_enviados_ids": [],
+        }
+    ]
     canonical = json.dumps(
         pairs,
         ensure_ascii=False,
@@ -2639,13 +3548,33 @@ def test_manifest_v2_reconstruye_pares_lote_normalizados(
         vps_migration.OPERATION_LOTE_NORMALIZATION_KEY
     ]
     if mutation == "missing":
-        pairs: list[dict[str, int]] = []
+        pairs: list[dict[str, Any]] = []
     elif mutation == "wrong_lote":
-        pairs = [{"operacion_id": 140, "lote_id": 999}]
+        pairs = [
+            {
+                "operacion_id": 140,
+                "lote_id": 999,
+                "grupo_ids": [],
+                "grupos_rechazo_ids": [],
+                "grupos_no_enviados_ids": [],
+            }
+        ]
     else:
         pairs = [
-            {"operacion_id": 140, "lote_id": 130},
-            {"operacion_id": 140, "lote_id": 130},
+            {
+                "operacion_id": 140,
+                "lote_id": 130,
+                "grupo_ids": [],
+                "grupos_rechazo_ids": [],
+                "grupos_no_enviados_ids": [],
+            },
+            {
+                "operacion_id": 140,
+                "lote_id": 130,
+                "grupo_ids": [],
+                "grupos_rechazo_ids": [],
+                "grupos_no_enviados_ids": [],
+            },
         ]
     normalization["pairs"] = pairs
     normalization["rows"] = len(pairs)
@@ -3075,6 +4004,156 @@ def test_manifest_v2_recalcula_barrera_idempotente_desde_jsonl(
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(vps_migration.MigrationError, match="barrera idempotente"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize("mutation", ["errores_arca", "texto_publico"])
+def test_loader_bloquea_replay_10005_reatestiguado_sin_evidencia_canonica(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    """Reatestar archivo y barrera no permite degradar el DTO PF-19C."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_global_rejection(db_path)
+    package = vps_migration.export_package(
+        source_db=db_path,
+        certs_dir=certs_dir,
+        output_root=tmp_path / "packages",
+        target_key_password="clave-destino-larga",
+        source_quiesced=True,
+    )
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    rows = _read_package_jsonl_rows(package, manifest, "operaciones_idempotentes")
+    response = json.loads(rows[0]["response_json"])
+    if mutation == "errores_arca":
+        response["errores_arca"] = []
+    else:
+        response["mensaje"] = "Reintentá inmediatamente"
+        response["errores"] = []
+    rows[0]["response_json"] = json.dumps(
+        response,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    _rewrite_package_jsonl_rows(package, manifest, "operaciones_idempotentes", rows)
+    _rebuild_manifest_idempotency_barrier(package, manifest)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(vps_migration.MigrationError, match="10005"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "errores",
+        "marker",
+        "owner",
+        "marker_fuera_inventario",
+        "marker_otro_existente",
+        "envelope",
+    ],
+)
+def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    """El loader reconstruye la evidencia batch aunque se reatestigüe el JSONL."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    _insert_pf19c_batch_global_rejection(db_path)
+    if mutation == "marker_otro_existente":
+        engine = create_engine(f"sqlite:///{db_path}", future=True)
+        try:
+            with engine.begin() as conn:
+                group = dict(
+                    conn.execute(
+                        select(Base.metadata.tables["lotes_comprobantes_grupos"]).where(
+                            Base.metadata.tables["lotes_comprobantes_grupos"].c.id
+                            == 160
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+                group.update(id=161, comprobante_ref="VPS-2", orden=2)
+                conn.execute(
+                    Base.metadata.tables["lotes_comprobantes_grupos"].insert(),
+                    group,
+                )
+                row = dict(
+                    conn.execute(
+                        select(Base.metadata.tables["lotes_comprobantes_filas"]).where(
+                            Base.metadata.tables["lotes_comprobantes_filas"].c.id == 161
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+                row.update(
+                    id=162,
+                    fila_excel=3,
+                    comprobante_ref="VPS-2",
+                    grupo_id=161,
+                )
+                conn.execute(
+                    Base.metadata.tables["lotes_comprobantes_filas"].insert(),
+                    row,
+                )
+        finally:
+            engine.dispose()
+    package = vps_migration.export_package(
+        source_db=db_path,
+        certs_dir=certs_dir,
+        output_root=tmp_path / "packages",
+        target_key_password="clave-destino-larga",
+        source_quiesced=True,
+    )
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    rows = _read_package_jsonl_rows(package, manifest, "operaciones_idempotentes")
+    response = json.loads(rows[0]["response_json"])
+    if mutation == "envelope":
+        response = {
+            "categoria_error": "arca_rechazo_global_excluyente",
+            "mensaje": "Resultado batch inválido",
+            "errores": [],
+            "status_code": 400,
+        }
+    elif mutation == "errores":
+        response["errores_arca"] = []
+    elif mutation == "owner":
+        response["lote"]["metadata_json"]["pf19c_rechazo_global"]["operacion_id"] = 999
+    elif mutation == "marker_fuera_inventario":
+        response["lote"]["metadata_json"]["pf19c_rechazo_global"][
+            "grupos_rechazo_ids"
+        ] = [999]
+    elif mutation == "marker_otro_existente":
+        response["lote"]["metadata_json"]["pf19c_rechazo_global"][
+            "grupos_rechazo_ids"
+        ] = [161]
+    else:
+        response["lote"]["metadata_json"]["pf19c_rechazo_global"][
+            "grupos_rechazo_ids"
+        ] = []
+    rows[0]["response_json"] = json.dumps(
+        response,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    _rewrite_package_jsonl_rows(package, manifest, "operaciones_idempotentes", rows)
+    _rebuild_manifest_idempotency_barrier(package, manifest)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match=(
+            "10005|batch negativo|inventario fuente|roles de grupos fuente|"
+            "normalización atribuye roles"
+        ),
+    ):
         vps_migration.load_and_verify_manifest(package)
 
 

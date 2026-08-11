@@ -19,10 +19,13 @@
   `docs/agents/pf-19a-rece-contencion-design.md`
 - Diseño PF-19B de elegibilidad RECE durable y fail-closed:
   `docs/agents/pf-19b-elegibilidad-rece-design.md`
+- Diseño PF-19C de rechazo global excluyente y resolución legacy:
+  `docs/agents/pf-19c-rechazo-global-design.md`
 - Diseño integrado PF-06/PF-07/PF-08 de permisos operativos multiemisor:
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
+- Dossier del candidato v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
 
 ## Fuente de verdad operativa
 
@@ -129,6 +132,8 @@
   `docs/agents/pf-19a-rece-contencion-design.md`
 - Diseño PF-19B de elegibilidad RECE durable y fail-closed:
   `docs/agents/pf-19b-elegibilidad-rece-design.md`
+- Diseño PF-19C de rechazo global excluyente y resolución legacy:
+  `docs/agents/pf-19c-rechazo-global-design.md`
 - Diseño integrado PF-06/PF-07/PF-08 de permisos operativos multiemisor:
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - Resumen y arquitectura: `docs/agents/overview.md`

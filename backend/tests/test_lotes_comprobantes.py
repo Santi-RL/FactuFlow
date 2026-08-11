@@ -3,7 +3,9 @@
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+import hashlib
 from io import BytesIO
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -15,7 +17,12 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.arca.exceptions import ArcaServiceError
+from app.arca.exceptions import (
+    ArcaErrorGlobalEstructurado,
+    ArcaServiceError,
+    CabeceraRespuestaFecae,
+    MensajeArcaEstructurado,
+)
 from app.arca.models import CAEResponse
 from app.arca.models import ComprobanteResponse as ArcaComprobanteResponse
 from app.core.config import settings
@@ -3666,7 +3673,9 @@ async def test_replay_terminal_background_no_depende_del_worker(
         assert response.json()["detail"] == respuesta_terminal
     else:
         assert response.status_code == 200, response.text
-        assert response.json() == respuesta_terminal
+        assert response.json() == LoteProcesamientoResponse.model_validate(
+            respuesta_terminal
+        ).model_dump(mode="json")
     assert await db_session.scalar(select(func.count(IntentoEmisionFiscal.id))) == 0
     assert (
         await db_session.scalar(select(func.count(PuntoVentaGuardaEmisionRece.id))) == 0
@@ -3798,6 +3807,7 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
         max_registros=None,
         contextos=None,
         fase_solicitud_arca=None,
+        commit_rechazo_global=True,
     ):
         nonlocal numero
         assert fase_solicitud_arca.iniciada is False
@@ -3882,6 +3892,645 @@ async def test_procesar_lote_usa_sublotes_arca_segun_regxreq(
     assert data["lote"]["metadata_json"]["arca_batch"]["reg_x_req"] == 2
     assert data["lote"]["metadata_json"]["arca_batch"]["chunk_size"] == 2
     assert data["lote"]["metadata_json"]["arca_batch"]["modo"] == "batch"
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_10005_cierra_sublote_y_aborta_remanentes_sin_replay_arca(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Todos los enviados conservan 10005 y los demás quedan no enviados."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", True)
+    llamadas_fecae = 0
+
+    class FakeWSFEClient:
+        """Expone capacidad dos y rechaza globalmente el primer sublote."""
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva sin abrir red."""
+
+        async def fe_comp_tot_x_request(self):
+            return 2
+
+        async def fe_comp_ultimo_autorizado(self, punto, tipo):
+            return 0
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            nonlocal llamadas_fecae
+            llamadas_fecae += 1
+            primero = arca_requests[0]
+            raise ArcaErrorGlobalEstructurado(
+                cabecera=CabeceraRespuestaFecae(
+                    cuit=int(test_empresa.cuit),
+                    punto_venta=primero.punto_venta,
+                    tipo_comprobante=primero.tipo_cbte,
+                    cantidad=len(arca_requests),
+                    resultado="R",
+                ),
+                errores=(MensajeArcaEstructurado(10005, "mensaje privado ARCA"),),
+                eventos=(),
+                detalles_presentes=False,
+                senales_cae_presentes=False,
+                request_cuit=int(test_empresa.cuit),
+                request_punto_venta=primero.punto_venta,
+                request_tipo_comprobante=primero.tipo_cbte,
+                request_cantidad=len(arca_requests),
+                request_rangos=tuple(
+                    (request.cbte_desde, request.cbte_hasta)
+                    for request in arca_requests
+                ),
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, numero):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakeWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-pf19c-10005.xlsx",
+        total_grupos=4,
+    )
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="idem-lote-pf19c-10005",
+    )
+    primera = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert primera.status_code == 200, primera.text
+    assert llamadas_fecae == 1
+    errores_arca_esperados = [
+        {
+            "codigo": 10005,
+            "alcance": "global",
+            "mensaje": "El punto de venta no está dado de alta como RECE en ARCA.",
+        }
+    ]
+    assert primera.json()["errores_arca"] == errores_arca_esperados
+    assert (
+        primera.json()["lote"]["metadata_json"]["pf19c_rechazo_global"]["errores_arca"]
+        == errores_arca_esperados
+    )
+
+    db_session.expire_all()
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    intentos = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal)
+                .where(IntentoEmisionFiscal.lote_id == lote_id)
+                .order_by(IntentoEmisionFiscal.id)
+            )
+        ).all()
+    )
+    assert len(intentos) == 2
+    assert {intento.grupo_id for intento in intentos} == {
+        grupos[0].id,
+        grupos[1].id,
+    }
+    assert {intento.estado for intento in intentos} == {"rechazado_arca"}
+    assert all(
+        intento.errores_arca_json == errores_arca_esperados for intento in intentos
+    )
+    assert all(grupo.estado == "fallido" for grupo in grupos), [
+        grupo.estado for grupo in grupos
+    ]
+    assert all(
+        any(
+            "no_enviado_por_rechazo_global" in mensaje
+            for mensaje in grupos[indice].mensajes_json
+        )
+        for indice in (2, 3)
+    )
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-lote-pf19c-10005"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "rechazado_arca"
+    assert (
+        primera.json()["lote"]["metadata_json"]["pf19c_rechazo_global"]["operacion_id"]
+        == operacion.id
+    )
+    assert operacion.response_json == primera.json()
+
+    segunda = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert segunda.status_code == 200, segunda.text
+    assert segunda.json() == primera.json()
+    assert llamadas_fecae == 1
+
+    respuesta_original = deepcopy(operacion.response_json)
+    respuesta_adulterada = deepcopy(respuesta_original)
+    respuesta_adulterada["errores_arca"][0]["codigo"] = 10006
+    operacion.response_json = respuesta_adulterada
+    await db_session.commit()
+    desconocida = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert desconocida.status_code == 409, desconocida.text
+    assert llamadas_fecae == 1
+
+    respuesta_sin_evidencia = deepcopy(respuesta_original)
+    respuesta_sin_evidencia["errores_arca"] = []
+    respuesta_sin_evidencia["lote"]["metadata_json"].pop("pf19c_rechazo_global")
+    operacion.response_json = respuesta_sin_evidencia
+    await db_session.commit()
+    reatestiguada = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert reatestiguada.status_code == 409, reatestiguada.text
+    assert llamadas_fecae == 1
+
+
+@pytest.mark.asyncio
+async def test_reintento_exitoso_no_publica_10005_historico_y_replay_a_es_exacto(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """El retry B revalida RECE sin heredar el rechazo durable de A."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", False)
+
+    class FakeWSFEClient:
+        """Rechaza A con 10005 y autoriza B sin abrir red."""
+
+        solicitudes_fecae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva."""
+
+        async def fe_comp_ultimo_autorizado(self, punto, tipo):
+            """Mantiene disponible el mismo número tras el rechazo."""
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Expone el rechazo inicial y la autorización posterior."""
+            FakeWSFEClient.solicitudes_fecae += 1
+            if FakeWSFEClient.solicitudes_fecae == 1:
+                raise ArcaErrorGlobalEstructurado(
+                    cabecera=CabeceraRespuestaFecae(
+                        cuit=int(test_empresa.cuit),
+                        punto_venta=arca_request.punto_venta,
+                        tipo_comprobante=arca_request.tipo_cbte,
+                        cantidad=1,
+                        resultado="R",
+                    ),
+                    errores=(MensajeArcaEstructurado(10005, "mensaje privado ARCA"),),
+                    eventos=(),
+                    detalles_presentes=False,
+                    senales_cae_presentes=False,
+                    request_cuit=int(test_empresa.cuit),
+                    request_punto_venta=arca_request.punto_venta,
+                    request_tipo_comprobante=arca_request.tipo_cbte,
+                    request_cantidad=1,
+                    request_rangos=(
+                        (arca_request.cbte_desde, arca_request.cbte_hasta),
+                    ),
+                )
+            return CAEResponse(
+                cae=CAE_TEST_NO_REAL_ALT,
+                cae_vencimiento="20260831",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token", sign="sign")
+
+    async def fake_validar_punto(self, wsfe_client, numero):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakeWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-pf19c-owner-historico.xlsx",
+    )
+    headers_a = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="idem-pf19c-owner-a",
+    )
+    respuesta_a = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers_a},
+    )
+    assert respuesta_a.status_code == 200, respuesta_a.text
+    assert respuesta_a.json()["errores_arca"][0]["codigo"] == 10005
+
+    db_session.expire_all()
+    [grupo] = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo).where(
+                    LoteComprobanteGrupo.lote_id == lote_id
+                )
+            )
+        ).all()
+    )
+    operacion_a = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-pf19c-owner-a"
+        )
+    )
+    assert operacion_a is not None
+    assert operacion_a.estado == "rechazado_arca"
+    assert grupo.estado == "fallido", grupo.estado
+    operacion_a_id = int(operacion_a.id)
+    assert (
+        respuesta_a.json()["lote"]["metadata_json"]["pf19c_rechazo_global"][
+            "operacion_id"
+        ]
+        == operacion_a_id
+    )
+
+    headers_b = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        grupo_ids=[int(grupo.id)],
+        idempotency_key="idem-pf19c-owner-b",
+    )
+    respuesta_b = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **headers_b},
+        json={"grupo_ids": [int(grupo.id)]},
+    )
+    assert respuesta_b.status_code == 200, respuesta_b.text
+    assert respuesta_b.json()["errores_arca"] == []
+    assert respuesta_b.json()["lote"]["estado"] == "completado"
+    assert (
+        respuesta_b.json()["lote"]["metadata_json"]["pf19c_rechazo_global"][
+            "operacion_id"
+        ]
+        == operacion_a_id
+    )
+
+    operacion_b = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-pf19c-owner-b"
+        )
+    )
+    assert operacion_b is not None
+    assert operacion_b.estado == "finalizado"
+    assert operacion_b.response_json == respuesta_b.json()
+    intentos = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal)
+                .where(IntentoEmisionFiscal.lote_id == lote_id)
+                .order_by(IntentoEmisionFiscal.id)
+            )
+        ).all()
+    )
+    assert [(intento.operacion_id, intento.estado) for intento in intentos] == [
+        (operacion_a_id, "rechazado_arca"),
+        (int(operacion_b.id), "autorizado"),
+    ]
+    assert FakeWSFEClient.solicitudes_fecae == 2
+
+    replay_a = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers_a},
+    )
+    assert replay_a.status_code == 200, replay_a.text
+    assert replay_a.json() == respuesta_a.json()
+    assert FakeWSFEClient.solicitudes_fecae == 2
+
+    operacion_a_sin_respuesta = await db_session.get(
+        OperacionIdempotente,
+        operacion_a_id,
+        populate_existing=True,
+    )
+    assert operacion_a_sin_respuesta is not None
+    operacion_a_sin_respuesta.response_json = None
+    await db_session.commit()
+    reconstruccion_cruzada = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers_a},
+    )
+    assert reconstruccion_cruzada.status_code == 409, reconstruccion_cruzada.text
+    assert FakeWSFEClient.solicitudes_fecae == 2
+
+
+@pytest.mark.parametrize(
+    "error_raw",
+    [
+        {
+            "codigo": 10006,
+            "alcance": "global",
+            "mensaje": "ARCA informó un error global para el requerimiento.",
+        },
+        {
+            "codigo": "10005",
+            "alcance": "global",
+            "mensaje": "El punto de venta no está dado de alta como RECE en ARCA.",
+        },
+        {
+            "codigo": 10005,
+            "alcance": "global",
+            "mensaje": "mensaje privado ARCA",
+        },
+    ],
+    ids=["desconocido", "coaccionable", "mensaje-no-canonico"],
+)
+def test_metadata_lote_desconocida_no_publica_rechazo_global_10005(
+    error_raw: dict,
+) -> None:
+    """Metadata no canónica nunca se reatestigua como evidencia terminal 10005."""
+    metadata = {
+        "pf19c_rechazo_global": {
+            "operacion_id": 17,
+            "categoria": "arca_rechazo_global_excluyente",
+            "grupos_rechazo_ids": [1],
+            "grupos_no_enviados_ids": [2],
+            "errores_arca": [error_raw],
+        }
+    }
+
+    assert (
+        LoteComprobantesService.errores_arca_publicables_desde_metadata(
+            metadata,
+            operacion_id=17,
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("owner_marker", "owner_actual"),
+    [
+        pytest.param(17, 18, id="operacion-distinta"),
+        pytest.param(True, 1, id="marker-bool"),
+        pytest.param(17, True, id="owner-actual-bool"),
+        pytest.param("17", 17, id="marker-string"),
+    ],
+)
+def test_metadata_lote_10005_exige_owner_entero_exacto(
+    owner_marker: object,
+    owner_actual: object,
+) -> None:
+    """Un marker canónico no prueba el rechazo de otra operación."""
+    metadata = {
+        "pf19c_rechazo_global": {
+            "operacion_id": owner_marker,
+            "categoria": "arca_rechazo_global_excluyente",
+            "grupos_rechazo_ids": [1],
+            "grupos_no_enviados_ids": [],
+            "errores_arca": [
+                {
+                    "codigo": 10005,
+                    "alcance": "global",
+                    "mensaje": (
+                        "El punto de venta no está dado de alta como RECE en ARCA."
+                    ),
+                }
+            ],
+        }
+    }
+
+    assert (
+        LoteComprobantesService.errores_arca_publicables_desde_metadata(
+            metadata,
+            operacion_id=owner_actual,
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize("estado", ["finalizado", "fallido", "fallido_verificado"])
+def test_replay_lote_sin_10005_conserva_terminal_historico(estado: str) -> None:
+    """Terminales históricos sin evidencia global siguen siendo publicables."""
+    respuesta = SimpleNamespace(
+        lote=SimpleNamespace(
+            id=9,
+            empresa_id=1,
+            estado="fallido",
+            metadata_json={},
+        ),
+        errores_arca=[],
+    )
+
+    assert LoteComprobantesService.respuesta_lote_coincide_operacion(
+        respuesta,
+        estado_operacion=estado,
+        operacion_id=17,
+        lote_id=9,
+        empresa_id=1,
+    )
+
+
+def test_ownership_worker_acepta_legacy_o_errores_vacios_pero_no_evidencia() -> None:
+    """El progress worker admite el default nuevo sin aceptar un 10005 terminal."""
+    grupo = {
+        "grupo_id": 1,
+        "empresa_id": 1,
+        "punto_venta_id": 1,
+        "punto_venta_numero": 41,
+        "ambiente": "produccion",
+        "elegibilidad_revision_id": 1,
+        "punto_venta_revision_fiscal": 1,
+        "tipo_comprobante": 6,
+        "payload_hash": "a" * 64,
+    }
+    material = {
+        "grupo_ids": [1],
+        "grupos_hash": hashlib.sha256(
+            json.dumps([grupo], sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest(),
+        "grupos": [grupo],
+    }
+    respuesta_legacy = {
+        "lote": {
+            "id": 9,
+            "empresa_id": 1,
+            "estado": "en_cola",
+            "modo_procesamiento": "background",
+            "procesamiento_async": True,
+            "metadata_json": {
+                "operacion_idempotente_id": 7,
+                "pf19b_rece_material": material,
+            },
+        },
+        "mensaje": "El lote quedó en cola.",
+        "en_progreso": True,
+    }
+    respuesta_nueva = {**respuesta_legacy, "errores_arca": []}
+    respuesta_adulterada = {
+        **respuesta_legacy,
+        "errores_arca": [
+            {
+                "codigo": 10005,
+                "alcance": "global",
+                "mensaje": (
+                    "El punto de venta no está dado de alta como RECE en ARCA."
+                ),
+            }
+        ],
+    }
+
+    for respuesta in (respuesta_legacy, respuesta_nueva):
+        assert IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+            respuesta,
+            lote_id=9,
+            empresa_id=1,
+            operacion_id=7,
+            material_rece=material,
+        )
+    assert not IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
+        respuesta_adulterada,
+        lote_id=9,
+        empresa_id=1,
+        operacion_id=7,
+        material_rece=material,
+    )
+
+
+@pytest.mark.asyncio
+async def test_procesar_lote_error_inesperado_post_arca_inmoviliza_todo_y_detiene(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Un fallo post-FECAE no publica datos crudos ni inicia otro sublote."""
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", True)
+    llamadas_batch = 0
+
+    async def fake_regxreq(self, empresa_id):
+        return 2
+
+    async def fake_emitir_lote(
+        self,
+        requests,
+        max_registros=None,
+        contextos=None,
+        fase_solicitud_arca=None,
+        commit_rechazo_global=True,
+    ):
+        nonlocal llamadas_batch
+        llamadas_batch += 1
+        fase_solicitud_arca.marcar_iniciada()
+        raise RuntimeError("detalle privado post ARCA")
+
+    async def fail_emitir_unitario(self, request, **kwargs):
+        raise AssertionError("No debe degradar a unitario")
+
+    monkeypatch.setattr(
+        FacturacionService,
+        "obtener_registros_maximos_por_request",
+        fake_regxreq,
+    )
+    monkeypatch.setattr(
+        FacturacionService,
+        "emitir_comprobantes_lote",
+        fake_emitir_lote,
+    )
+    monkeypatch.setattr(
+        FacturacionService,
+        "emitir_comprobante",
+        fail_emitir_unitario,
+    )
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-pf19c-incierto.xlsx",
+        total_grupos=4,
+    )
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="idem-lote-pf19c-incierto",
+    )
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert response.status_code == 200, response.text
+    assert llamadas_batch == 1
+    assert "detalle privado" not in response.text
+    db_session.expire_all()
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo).where(
+                    LoteComprobanteGrupo.lote_id == lote_id
+                )
+            )
+        ).all()
+    )
+    assert len(grupos) == 4
+    assert {grupo.estado for grupo in grupos} == {"requiere_reconciliacion"}
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == "idem-lote-pf19c-incierto"
+        )
+    )
+    assert operacion is not None
+    assert operacion.estado == "requiere_reconciliacion"
 
 
 @pytest.mark.asyncio
@@ -4916,6 +5565,149 @@ async def test_reintentar_fallidos_usa_historia_externa_y_replay_no_reemite(
 
 
 @pytest.mark.asyncio
+async def test_reintentar_10005_reconstruye_publicacion_tras_crash_sin_reemitir(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Un crash tras cerrar 10005 publica desde lote fallido sin otra FECAE."""
+
+    class FakeWSFEClient:
+        """Rechaza exactamente una solicitud con el 10005 global canónico."""
+
+        consultas_numeracion = 0
+        solicitudes_fecae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            """Acepta la firma productiva sin abrir red."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Mantiene estable la numeración sintética."""
+            FakeWSFEClient.consultas_numeracion += 1
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            """Devuelve un rechazo global exacto sin detalle ni CAE."""
+            FakeWSFEClient.solicitudes_fecae += 1
+            raise ArcaErrorGlobalEstructurado(
+                cabecera=CabeceraRespuestaFecae(
+                    cuit=int(test_empresa.cuit),
+                    punto_venta=arca_request.punto_venta,
+                    tipo_comprobante=arca_request.tipo_cbte,
+                    cantidad=1,
+                    resultado="R",
+                ),
+                errores=(MensajeArcaEstructurado(10005, "mensaje privado ARCA"),),
+                eventos=(),
+                detalles_presentes=False,
+                senales_cae_presentes=False,
+                request_cuit=int(test_empresa.cuit),
+                request_punto_venta=arca_request.punto_venta,
+                request_tipo_comprobante=arca_request.tipo_cbte,
+                request_cantidad=1,
+                request_rangos=((arca_request.cbte_desde, arca_request.cbte_hasta),),
+            )
+
+    lote_id, [grupo] = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-reintento-pf19c-10005-crash.xlsx",
+    )
+    idempotency_key = "idem-reintento-pf19c-10005-crash"
+    headers_reintento = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        grupo_ids=[int(grupo.id)],
+        idempotency_key=idempotency_key,
+    )
+    headers = {**auth_headers, **headers_reintento}
+    body = {"grupo_ids": [int(grupo.id)]}
+    guardar_original = IdempotenciaFiscalService.guardar_resultado_operacion_sync
+    publicaciones_fallidas = 0
+
+    async def fallar_primera_publicacion(
+        self,
+        operacion,
+        *,
+        response_json,
+        estado,
+    ):
+        """Simula el crash posterior al commit del grafo y previo al response CAS."""
+        nonlocal publicaciones_fallidas
+        if publicaciones_fallidas == 0 and estado == "rechazado_arca":
+            publicaciones_fallidas += 1
+            raise SQLAlchemyTimeoutError("crash sintético post-cierre")
+        return await guardar_original(
+            self,
+            operacion,
+            response_json=response_json,
+            estado=estado,
+        )
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "guardar_resultado_operacion_sync",
+        fallar_primera_publicacion,
+    )
+
+    cierre_sin_publicar = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+    assert cierre_sin_publicar.status_code == 409, cierre_sin_publicar.text
+    db_session.expire_all()
+    lote_cerrado = await db_session.get(LoteComprobante, lote_id)
+    operacion = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == idempotency_key
+        )
+    )
+    assert lote_cerrado is not None
+    assert lote_cerrado.estado == "fallido"
+    assert operacion is not None
+    assert operacion.estado == "en_proceso"
+    assert operacion.response_json is None
+
+    reconstruida = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+    replay = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers=headers,
+        json=body,
+    )
+
+    assert reconstruida.status_code == 200, reconstruida.text
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == reconstruida.json()
+    assert reconstruida.json()["lote"]["estado"] == "fallido"
+    assert reconstruida.json()["errores_arca"] == [
+        {
+            "codigo": 10005,
+            "alcance": "global",
+            "mensaje": "El punto de venta no está dado de alta como RECE en ARCA.",
+        }
+    ]
+    assert FakeWSFEClient.solicitudes_fecae == 1
+    await db_session.refresh(operacion)
+    assert operacion.estado == "rechazado_arca"
+    assert operacion.response_json == reconstruida.json()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("body", "caso"),
     [
@@ -5222,7 +6014,6 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
         total_grupos=2,
     )
     grupo_ids = [grupo.id for grupo in grupos]
-    mensajes_segundo = list(grupos[1].mensajes_json or [])
     headers_reintento = await _confirmacion_fecha_fiscal_header_lote(
         db_session,
         lote_id=lote_id,
@@ -5248,8 +6039,11 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
     assert segundo is not None
     assert primero.estado == "requiere_reconciliacion"
     assert primero.numero_asignado == 1
-    assert segundo.estado == "fallido"
-    assert segundo.mensajes_json == mensajes_segundo
+    assert segundo.estado == "requiere_reconciliacion"
+    assert segundo.numero_asignado is None
+    assert segundo.cae is None
+    assert segundo.comprobante_id is None
+    assert "No se enviaron grupos posteriores" in segundo.mensajes_json[0]
     intentos = (
         (
             await db_session.execute(

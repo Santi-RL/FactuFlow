@@ -18,6 +18,7 @@ REVISION_RECEPTOR_SNAPSHOT = "e5f6a7b8c9d0"
 REVISION_ANTERIOR_INTEGRIDAD_FISCAL = "f7a8b9c0d1e2"
 REVISION_INTEGRIDAD_FISCAL = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
+REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
 COLUMNAS_FORMATOS_LOTE = {
     "mapeo_usado_json",
     "headers_detectados_json",
@@ -847,3 +848,148 @@ def test_sqlite_pf19b_rechaza_backup_distinto_con_igual_conteo(
     assert "equivalencia semántica exacta" in output
     assert _alembic_version(db_path) == REVISION_INTEGRIDAD_FISCAL
     assert "revision_fiscal" not in _table_columns(db_path, "puntos_venta")
+
+
+def test_sqlite_pf19c_upgrade_downgrade_reupgrade_y_journal_append_only(
+    tmp_path: Path,
+) -> None:
+    """PF-19C instala journal protegido y solo permite downgrade sin evidencia."""
+    db_path = tmp_path / "pf19c-migracion.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    backup_env = _backup_env_pf19(db_path, tmp_path / "pf19c-pf19b-backup.db")
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+    _run_alembic("upgrade", REVISION_PF19C_LEGACY, database_url)
+    assert "errores_arca_json" in _table_columns(db_path, "intentos_emision_fiscal")
+    _run_alembic("downgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
+    assert "errores_arca_json" not in _table_columns(db_path, "intentos_emision_fiscal")
+    _run_alembic("upgrade", REVISION_PF19C_LEGACY, database_url)
+    assert _alembic_version(db_path) == REVISION_PF19C_LEGACY
+    assert "resoluciones_legacy_pf19_journal" in {
+        row[0]
+        for row in sqlite3.connect(db_path).execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }
+    with sqlite3.connect(db_path) as conn:
+        triggers = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger' "
+                "AND name LIKE 'tr_resoluciones_legacy_pf19_journal_%'"
+            )
+        }
+        assert triggers == {
+            "tr_resoluciones_legacy_pf19_journal_update",
+            "tr_resoluciones_legacy_pf19_journal_delete",
+        }
+        conn.execute(
+            "INSERT INTO resoluciones_legacy_pf19_journal "
+            "(accion, plan_sha256, terminal_response_sha256, actor_usuario_id, "
+            "ambiente_consultado, resultado, resultado_consultas_json, "
+            "backup_metadata_json, backup_sha256, created_at, intento_id, empresa_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "cerrar_legacy_sin_autorizacion_verificada",
+                "a" * 64,
+                "c" * 64,
+                1,
+                "ambos",
+                "legacy_sin_autorizacion_verificada",
+                "{}",
+                "{}",
+                "b" * 64,
+                FECHA_HORA_SINTETICA,
+                1,
+                1,
+            ),
+        )
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute(
+                "UPDATE resoluciones_legacy_pf19_journal SET resultado = ?", ("x",)
+            )
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("DELETE FROM resoluciones_legacy_pf19_journal")
+    output = _run_alembic_failure("downgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
+    assert "no eliminar journal administrativo" in output
+
+
+def test_sqlite_pf19c_downgrade_bloquea_evidencia_arca_estructurada(
+    tmp_path: Path,
+) -> None:
+    """PF-19C nunca descarta una columna que ya contiene evidencia estructurada."""
+    db_path = tmp_path / "pf19c-evidencia-estructurada.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    _insertar_intento_sintetico(
+        db_path,
+        row_id=1,
+        estado="fallido_verificado",
+    )
+    backup_env = _backup_env_pf19(
+        db_path,
+        tmp_path / "pf19c-evidencia-pf19b-backup.db",
+    )
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+    _run_alembic("upgrade", REVISION_PF19C_LEGACY, database_url)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE intentos_emision_fiscal SET errores_arca_json = ? WHERE id = ?",
+            ("[]", 1),
+        )
+    output = _run_alembic_failure(
+        "downgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+    )
+    assert "no eliminar evidencia ARCA estructurada" in output
+    assert _alembic_version(db_path) == REVISION_PF19C_LEGACY
+    assert "errores_arca_json" in _table_columns(db_path, "intentos_emision_fiscal")
+
+
+def test_sqlite_pf19c_downgrade_no_confunde_json_null_con_evidencia(
+    tmp_path: Path,
+) -> None:
+    """JSON null es ausencia semántica y no bloquea un downgrade sin journal."""
+    db_path = tmp_path / "pf19c-json-null.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    _insertar_intento_sintetico(
+        db_path,
+        row_id=1,
+        estado="fallido_verificado",
+    )
+    backup_env = _backup_env_pf19(
+        db_path,
+        tmp_path / "pf19c-json-null-pf19b-backup.db",
+    )
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+    _run_alembic("upgrade", REVISION_PF19C_LEGACY, database_url)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE intentos_emision_fiscal SET errores_arca_json = ? WHERE id = ?",
+            ("null", 1),
+        )
+    _run_alembic("downgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
+    assert _alembic_version(db_path) == REVISION_ELEGIBILIDAD_RECE
+    assert "errores_arca_json" not in _table_columns(
+        db_path,
+        "intentos_emision_fiscal",
+    )

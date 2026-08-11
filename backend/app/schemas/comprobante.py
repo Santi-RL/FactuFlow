@@ -153,6 +153,16 @@ class EmitirComprobanteRequest(ComprobanteBase):
         return v
 
 
+class ErrorArcaFiscalResponse(BaseModel):
+    """Error ARCA sanitario apto para persistencia y respuesta pública."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    codigo: int = Field(strict=True)
+    alcance: Literal["global"]
+    mensaje: str
+
+
 class EmitirComprobanteResponse(BaseModel):
     """Respuesta al emitir un comprobante."""
 
@@ -167,6 +177,7 @@ class EmitirComprobanteResponse(BaseModel):
     total: Decimal
     mensaje: str
     errores: List[str] = Field(default_factory=list)
+    errores_arca: List[ErrorArcaFiscalResponse] = Field(default_factory=list)
     requiere_reconciliacion: bool = False
     categoria_error: Optional[str] = None
 

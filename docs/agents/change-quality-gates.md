@@ -1,6 +1,6 @@
 # Puertas de calidad y evidencia de cambios
 
-Última actualización: 2026-08-05
+Última actualización: 2026-08-09
 
 Estado: VIGENTE para todo cambio nuevo después de `v0.2.2`.
 
@@ -132,18 +132,21 @@ tests” o “compiló”. Cada evidencia debe vincularse con una conducta o rie
 
 ## Checks obligatorios de GitHub
 
-Los siguientes jobs deben terminar correctamente antes del merge:
+Los siete checks remotos del workflow de Nivel 2 deben terminar correctamente
+y la protección remota debe verificarlos antes del merge:
 
 - `Change Scope`;
 - `Repository Checks`;
 - `Backend Tests`;
 - `Frontend Build`;
+- `Runtime Smoke`;
 - `E2E Tests`;
 - `Security Audit`.
 
-En Nivel 0 todos los jobs se informan y terminan correctamente, pero los cinco
-jobs de runtime omiten sus tareas costosas. Si cambia cualquier archivo no
-documental, la matriz completa se ejecuta.
+En Nivel 0 todos los checks se informan, pero los jobs de runtime omiten sus
+tareas costosas. Si cambia cualquier archivo no documental, la matriz completa
+se ejecuta. Esta regla describe la puerta requerida; no afirma que la CI de un
+SHA concreto ya haya ocurrido.
 
 Los checks decorativos que ignoran su código de salida no cuentan como puertas.
 Ruff, Black, tests, build, auditorías y scripts deben fallar de forma visible

@@ -14,6 +14,22 @@
   `docs/agents/manual-qa.md` cuando el trabajo implique QA, UI, un despliegue o
   un flujo funcional.
 
+## Foco y alcance de la unidad
+
+- Cada unidad de trabajo o release debe tener un objetivo concreto. Mantener ese
+  foco y no ampliar el alcance ni iniciar otro fix sin decisión explícita del
+  desarrollador.
+- Si aparece un problema que impide demostrar o ejecutar el objetivo de forma
+  segura, detenerse, explicar el impacto y pedir una decisión; no incorporarlo
+  automáticamente.
+- Un hallazgo no bloqueante, concreto y alineado con `VISION.md` se registra en
+  `ROADMAP.md` en la prioridad correspondiente y no desvía la unidad vigente.
+  No agregar ideas meramente especulativas.
+- Buscar que cada unidad coherente llegue pronto a producción sin omitir
+  controles. La velocidad se mejora con alcance pequeño, pruebas enfocadas,
+  automatización y runbooks; no con releases por microcambio ni despliegues
+  apresurados.
+
 ## Visión del producto
 - `VISION.md` es la fuente canónica y protegida de la visión del producto.
 - Antes de proponer, incorporar o implementar cambios de producto, UX,
