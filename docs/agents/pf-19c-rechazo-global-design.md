@@ -308,7 +308,7 @@ La QA no provocará `10005` ni solicitará un CAE real. Usará dobles controlado
 PostgreSQL descartable en CI y lecturas seguras para el procedimiento legacy.
 La evidencia privada de backup, ambiente y consultas no se versiona.
 
-PF-19C quedó incorporado por el candidato con diseño, migración, rollback,
+PF-19C quedó integrado en `main` con diseño, migración, rollback,
 tests y documentación. El `autoreview` final cerró limpio y la CI Nivel 2 del
 SHA funcional aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el
 ensayo privado de backup/restauración/upgrade/rollback quedaron aprobados el

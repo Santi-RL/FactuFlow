@@ -210,7 +210,8 @@
   HTTP anteriores pueden completar y simplemente se ignoran.
 - PF-19A no reetiqueta `10005` legacy como rechazo terminal: el código no quedó
   persistido de forma estructurada y su firma textual solo identifica
-  candidatos de inventario. PF-19C, incorporado por el candidato, completa esa transición;
+  candidatos de inventario. PF-19C, ya integrado en `main`, completa esa
+  transición;
   timeout, respuesta parcial y código desconocido continúan en reconciliación.
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
@@ -219,9 +220,9 @@
   no se debe inventar estado ARCA activo: los puntos existentes conservan
   `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
   sincronizar con ARCA o revisarlos manualmente.
-- Este comportamiento describe el estado objetivo de `main`. La release
-  publicada y producción continúan en `v0.2.2`, sin PF-19A/B/C; no confundir
-  estado objetivo de `main`, release y despliegue.
+- Este comportamiento describe el estado actual de `main`. La release publicada
+  y producción continúan en `v0.2.2`, que no incluye PF-19A/B/C; no confundir
+  código integrado en `main`, release y despliegue.
 
 ### Constancias de emisores
 

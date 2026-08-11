@@ -4,10 +4,10 @@
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
-Este manual describe el estado objetivo de `main` después de integrar este
-corte. La versión publicada y desplegada continúa siendo `v0.2.2`, validada el
-23/07/2026. Ese estado objetivo incluye PF-02A, los tres cortes de PF-02B,
-PF-03A, PF-19A, PF-19B completo y PF-19C incorporado por el candidato. Todo ese tramo es posterior a `v0.2.2`:
+Este manual describe el estado actual de `main`. La versión publicada y
+desplegada continúa siendo `v0.2.2`, validada el 23/07/2026. Ese estado incluye
+PF-02A, los tres cortes de PF-02B, PF-03A, PF-19A, PF-19B completo y PF-19C.
+Todo ese tramo es posterior a `v0.2.2`:
 todavía no pertenece a una release publicada ni está desplegado. No debe asumirse que una función
 posterior al tag productivo ya está operativa en una instalación concreta.
 
@@ -836,7 +836,7 @@ La atestación vence operativamente a los siete días. Antes del vencimiento, un
 administrador debe obtener e importar una constancia productiva reciente. Esta
 ventana es una política conservadora de FactuFlow, no una vigencia fiscal
 declarada por ARCA. La release y producción `v0.2.2` todavía no incluyen este
-flujo. PF-19C, incorporado por el candidato y aún sin release ni despliegue,
+flujo. PF-19C, ya integrado en `main` pero aún sin release ni despliegue,
 trata como terminal solo un `10005` global estrictamente corroborado; detiene
 los grupos no enviados y deja cualquier respuesta incompleta o legacy en
 reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA
@@ -1024,7 +1024,7 @@ Al 09/08/2026:
 - la producción real ya fue operada; antes de cada nueva emisión productiva hay
   que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
   descripción facturada, totales, backup/logs y confirmación irreversible
-- en el estado objetivo de `main`, PF-19B aporta elegibilidad RECE durable y
+- en el estado actual de `main`, PF-19B aporta elegibilidad RECE durable y
   fail-closed; homologación continúa sin una fuente probatoria positiva y, por
 eso, no permite solicitar CAE. `v0.2.2` no incluye esta capacidad. PF-19C ya
 completó evidencia local para el tratamiento estructurado de rechazos globales

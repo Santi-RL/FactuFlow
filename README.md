@@ -44,7 +44,7 @@ señal exacta y confirmación expresa. La sincronización WSFE server-side actua
 el estado técnico, pero nunca promueve RECE; homologación permanece cerrada sin
 una fuente probatoria específica. La UI muestra estados, procedencia y vigencia,
 y los caminos individual, masivo, worker y reintentos comparten snapshots y
-guardas antes de `FECAESolicitar`. PF-19C, incorporado por el candidato,
+guardas antes de `FECAESolicitar`. PF-19C, ya integrado en `main`,
 completa el rechazo global estructurado y el cierre legacy auditado. El
 `autoreview` final autorizado cerró limpio y la CI Nivel 2 del SHA funcional
 `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó sus siete checks, incluido

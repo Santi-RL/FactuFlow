@@ -242,7 +242,7 @@ rutas privadas.
 
 ## Elegibilidad RECE PF-19B y contención adicional PF-19A
 
-En el estado objetivo de `main`, PF-19B exige que toda ruta capaz de solicitar
+En el estado actual de `main`, PF-19B exige que toda ruta capaz de solicitar
 CAE encuentre una revisión durable cuyo estado efectivo sea
 `verificado_rece` para el ambiente actual. La sincronización técnica
 `FEParamGetPtosVenta`, la marca legacy `Usable` y el texto editable `Sistema` no
@@ -276,9 +276,9 @@ transacción completa: quedan cero guardas, intentos y reservas nuevos, y cero
 llamadas `FECAESolicitar`. Esas lecturas seguras previas no convierten el fallo
 en una solicitud de CAE ni habilitan un reintento automático.
 
-Este comportamiento describe el estado objetivo de `main`. La última release
-publicada y el despliegue real continúan en `v0.2.2`, sin PF-19B; integrar, crear
-una release y desplegar son checkpoints separados.
+Este comportamiento describe el estado actual de `main`. La última release
+publicada y el despliegue real continúan en `v0.2.2`, que no incluye PF-19B;
+crear el tag, publicar una release y desplegar son checkpoints separados.
 
 El inventario legacy se ejecuta solo con autorización sobre una fuente
 identificada y con `DATABASE_URL` configurada de forma privada:
