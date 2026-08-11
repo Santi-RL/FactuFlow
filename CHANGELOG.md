@@ -18,12 +18,20 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-### Candidato v0.3.0
+### Candidato v0.3.0 — notas congeladas para tag
 
 - Se sincronizó la versión técnica y visible `0.3.0` en los manifiestos raíz,
-  backend y frontend, la configuración/API y la barra lateral. El candidato
-  funcional validado es `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre
-  `b5eefcd`; la última release publicada y la producción continúan en `v0.2.2`.
+  backend y frontend, la configuración/API y la barra lateral. El SHA funcional
+  validado es `e9c583a8174ea8edc6fe30845584033feab0394d`, sobre `b5eefcd`;
+  el merge funcional aceptado en `main`, `2add308a933109f83f73e67aeb4991d84c783dca`,
+  aprobó los siete checks en la ejecución
+  [`31446404345`](https://github.com/Santi-RL/FactuFlow/actions/runs/31446404345).
+  El cierre documental post-merge `147693f232777e5d9cb5e9257c84802cbe359188`
+  aprobó su recorrido Nivel 0 en
+  [`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
+  El tag deberá apuntar al merge commit exacto de esta preparación después de
+  su propia CI Nivel 0; hasta entonces la última release publicada y producción
+  continúan en `v0.2.2`.
 - PF-19C en `c1dbd82` completó diseño, implementación y evidencia con dobles y SQLite.
   La suite backend registró `1049 passed`, `22 skipped`, `31 warnings` en
   `9m14s`; la cobertura total branch-aware fue `69.2278%` (líneas `73.6741%`,
@@ -39,11 +47,11 @@ Reglas vigentes desde 2026-05-22:
   candidato `7f7b3808` aprobó además un ensayo privado con backup reciente,
   restauración aislada, upgrade hasta `c0d1e2f3a4b` y rollback exacto hasta
   `a8b9c0d1e2f3`, sin modificar producción.
-- PF-16C, PF-16D y PF-16E quedaron incorporados por el candidato:
+- PF-16C, PF-16D y PF-16E quedaron incorporados en `main` para `v0.3.0`:
   Node.js 24, auditorías npm, cobertura con gates, CI PostgreSQL/Runtime Smoke
   y `27/27` tests de scripts. PF-16G ya tiene matriz, dossier y aceptación
   funcional-contable registrada el 10/08/2026. La firma externa de manifests
-  VPS permanece como P2 posterior y no bloquea este candidato.
+  VPS permanece como P2 posterior y no bloquea `v0.3.0`.
 - La guía de trabajo prioriza unidades enfocadas y releases seguros sin ampliar
   el alcance automáticamente: un bloqueo real se consulta al desarrollador y
   los hallazgos no bloqueantes se difieren al roadmap.

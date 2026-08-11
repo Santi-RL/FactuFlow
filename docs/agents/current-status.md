@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 10/08/2026
+Última actualización: 11/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -60,9 +60,10 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
   contradictorio requiere reconciliación. El `autoreview` final autorizado
   cerró limpio con Codex `gpt-5.6-sol medium`; la CI Nivel 2 del SHA funcional
   `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó PostgreSQL real y Runtime
-  Smoke; la aceptación PF-16G fue registrada el 10/08/2026 y el candidato
-  `7f7b3808` aprobó el ensayo privado de backup, restauración aislada, upgrade
-  y rollback;
+  Smoke. El merge funcional `2add308a` aprobó los siete checks en la ejecución
+  `31446404345` y el cierre documental `147693f2` aprobó su recorrido Nivel 0
+  en `31458109268`; la aceptación PF-16G y el ensayo privado de backup,
+  restauración aislada, upgrade y rollback quedaron aprobados;
 - PF-11/PF-15 incorporan la evidencia exacta del backup preoperación y la
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
@@ -331,7 +332,7 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 ## Snapshot vigente
 
 - Versión productiva: `v0.2.2`.
-- Versión técnica del candidato: `v0.3.0`, sin tag, publicación ni
+- Versión técnica lista para tag: `v0.3.0`, sin tag, publicación ni
   despliegue.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
@@ -610,9 +611,11 @@ Siguen pendientes:
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
     y PF-19C queda integrado en `main` con implementación, evidencia y ensayo
-    privado completos. Retomar por la decisión de tag/publicación y, por
-    separado, el despliegue controlado;
-    recién entonces PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
+    privado completos. Las notas de `v0.3.0` están congeladas; el tag debe
+    apuntar al merge commit exacto de este cierre después de su CI Nivel 0.
+    Retomar por la autorización separada de tag/publicación y luego por el
+    despliegue controlado; recién entonces PF-03B. No reabrir PF-02 ni mezclar
+    elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
     Al llegar a ese bloque, ejecutar primero la unidad integrada de permisos

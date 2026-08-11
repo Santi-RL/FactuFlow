@@ -954,11 +954,12 @@ commit, PR o dossier de release, según el tamaño de la unidad.
 
 - **Base previa al próximo cambio funcional no trivial:** PF-16A, PF-16B y la
   barrera básica de PF-16C quedaron cerradas el 2026-07-27 mediante el PR `#14`.
-- **Candidato `v0.3.0`:** la CI Nivel 2 aprobó PostgreSQL/Runtime Smoke, la
-  aceptación PF-16G fue registrada el 10/08/2026 y el ensayo privado de
-  backup/restauración/upgrade/rollback quedó aprobado. El `autoreview`
-  autorizado cerró limpio con Codex `gpt-5.6-sol medium`. Tag, publicación y
-  despliegue siguen como decisiones separadas.
+- **Candidato `v0.3.0`:** la CI Nivel 2 aprobó PostgreSQL/Runtime Smoke, el
+  merge funcional `2add308a` volvió a aprobar los siete checks y el cierre
+  documental `147693f2` aprobó su recorrido Nivel 0. La aceptación PF-16G, el
+  ensayo privado de backup/restauración/upgrade/rollback y el `autoreview` con
+  Codex `gpt-5.6-sol medium` están cerrados. Las notas están congeladas; tag,
+  publicación y despliegue siguen como decisiones separadas.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
   críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
   PF-15 y PF-18 que correspondan.
@@ -1173,10 +1174,12 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   productiva. PF-03B u otro trabajo solo pueden incorporarse si el desarrollador
   decide explícitamente reabrir el alcance; de lo contrario siguen después de
   `v0.3.0`.
-- **Candidato `v0.3.0`:** el SHA `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`,
-  sobre `b5eefcd`, aprobó la CI Nivel 2 completa, PF-16G y el ensayo privado de
-  backup, restauración aislada, upgrade y rollback. No existe tag, release ni
-  despliegue, y la producción continúa en `v0.2.2`.
+- **Candidato `v0.3.0`:** el SHA funcional y `7f7b3808` cerraron la CI Nivel 2,
+  PF-16G y el ensayo privado. El merge funcional `2add308a` aprobó después los
+  siete checks completos y `147693f2` acreditó el cierre documental Nivel 0.
+  Las notas de release están congeladas; el tag deberá apuntar al merge commit
+  exacto de esta preparación después de su CI Nivel 0. No existe tag, release
+  ni despliegue, y producción continúa en `v0.2.2`.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1220,11 +1223,12 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Cerrar `v0.3.0` sin ampliar su alcance: desde el commit exacto aceptado en
-   `main`, decidir tag y publicación, y autorizar el despliegue por separado
-   mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real
-   y el ensayo privado de backup/restauración/upgrade/rollback ya están
-   aprobados. No provocar un CAE ni `10005` real.
+1. Cerrar `v0.3.0` sin ampliar su alcance: las notas están congeladas y el tag
+   debe apuntar al merge commit exacto de esta preparación después de su CI
+   Nivel 0. Decidir tag y publicación, y autorizar el despliegue por separado
+   mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real y el
+   ensayo privado de backup/restauración/upgrade/rollback ya están aprobados.
+   No provocar un CAE ni `10005` real.
 2. Retomar PF-03 con PF-03B después de publicar y desplegar `v0.3.0`:
    separar el DTO de ítem que serializa la UI, hacer estricto
    `ItemComprobanteCreate` y rechazar descuentos

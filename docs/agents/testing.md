@@ -304,7 +304,15 @@ seguras, sin provocar CAE ni `10005` real.
   de la CLI.
 
 La CI Nivel 2 del SHA funcional ya aprobó PostgreSQL real y Runtime Smoke; la
-aceptación PF-16G fue registrada el 10/08/2026.
+aceptación PF-16G fue registrada el 10/08/2026. El merge funcional aceptado en
+`main`, `2add308a933109f83f73e67aeb4991d84c783dca`, aprobó otra vez los
+siete checks en la ejecución
+[`31446404345`](https://github.com/Santi-RL/FactuFlow/actions/runs/31446404345).
+El cierre documental `147693f232777e5d9cb5e9257c84802cbe359188` aprobó su
+recorrido Nivel 0 en
+[`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
+No hubo cambios de código entre ambos; la preparación de release debe aprobar
+su propia CI Nivel 0 antes de elegir el SHA exacto del tag.
 
 El ensayo privado de release del 10/08/2026 también quedó aprobado:
 

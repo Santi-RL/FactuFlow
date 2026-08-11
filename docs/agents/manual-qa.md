@@ -381,12 +381,14 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Estado objetivo de `main`, 10/08/2026: PF-19A, PF-19B completo y PF-19C quedan
-integrados en `main`; PF-19C ya tiene evidencia completa. El
+Estado actual de `main`, 11/08/2026: PF-19A, PF-19B completo y PF-19C están
+integrados; PF-19C ya tiene evidencia completa. El
 `autoreview` final cerró limpio, la CI Nivel 2 aprobó PostgreSQL real y Runtime
 Smoke, y la aceptación PF-16G y el ensayo privado de
-backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026.
-La release publicada y producción
+backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026. El merge
+funcional `2add308a` aprobó los siete checks completos y el cierre documental
+`147693f2` aprobó su recorrido Nivel 0. Las notas de `v0.3.0` están congeladas,
+pero el tag y la publicación siguen pendientes. La release publicada y producción
 continúan en `v0.2.2`, sin estos cortes. Toda ejecución previa al checkpoint de
 release usa datos sintéticos y dobles de WSFE. Esta matriz no autoriza pedir CAE
 real para provocar errores ni editar registros fiscales.
