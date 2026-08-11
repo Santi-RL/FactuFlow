@@ -381,8 +381,8 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Estado objetivo de `main`, 10/08/2026: PF-19A, PF-19B completo y PF-19C están
-incorporados por el candidato; PF-19C ya tiene evidencia completa. El
+Estado objetivo de `main`, 10/08/2026: PF-19A, PF-19B completo y PF-19C quedan
+integrados en `main`; PF-19C ya tiene evidencia completa. El
 `autoreview` final cerró limpio, la CI Nivel 2 aprobó PostgreSQL real y Runtime
 Smoke, y la aceptación PF-16G y el ensayo privado de
 backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026.
@@ -539,9 +539,9 @@ superó el despliegue y la verificación post-deploy. En el estado objetivo de
 `main`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
 superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
 lectura y autoridad RECE durable. Ese tramo todavía no pertenece a una release
-publicada ni está desplegado. PF-19C está incorporado por el candidato con su
-ensayo privado cerrado; integrar, publicar y desplegar `v0.3.0` son los pasos
-siguientes y PF-03B queda después. No repetir
+publicada ni está desplegado. PF-19C queda integrado en `main` con su ensayo
+privado cerrado; publicar y desplegar `v0.3.0` son decisiones separadas y
+PF-03B queda después. No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
 UX de lotes ni las validaciones ya cerradas.
 

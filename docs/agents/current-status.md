@@ -35,7 +35,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## PF-19 cerrado en el candidato; release y despliegue pendientes
+## PF-19 integrado en `main`; release y despliegue pendientes
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -55,7 +55,7 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
 - PF-19B completa sus tres subcortes como una sola unidad: ledger y cabeza
   durable, migración fail-closed, atestación administrativa productiva,
   snapshots/guardas en todos los caminos fiscales y estados visibles en API/UI;
-- PF-19C, incorporado por el candidato, completa el contrato: solo `10005` entero exacto bajo
+- PF-19C, integrado en `main`, completa el contrato: solo `10005` entero exacto bajo
   cabecera global estricta puede ser terminal; lo desconocido, mixto, parcial o
   contradictorio requiere reconciliación. El `autoreview` final autorizado
   cerró limpio con Codex `gpt-5.6-sol medium`; la CI Nivel 2 del SHA funcional
@@ -83,7 +83,7 @@ Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. PF-19B todavía no pertenece a una
 release ni está desplegado: la release publicada y producción continúan en
-`v0.2.2`. PF-19C está incorporado por el candidato y no está desplegado; hasta
+`v0.2.2`. PF-19C está integrado en `main` y no está desplegado; hasta
 publicar y autorizar el despliegue no deben reintentarse lotes
 afectados ni sanearse registros legacy de forma manual.
 
@@ -338,7 +338,7 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - La release quedó desplegada y aceptada el 23/07/2026.
 - El estado objetivo de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
   cortes de PF-02B, PF-03A, PF-19A, la unidad completa PF-19B y PF-19C
-  incorporado por el candidato. Todo ese tramo es posterior a
+  integrado en `main`. Todo ese tramo es posterior a
   `v0.2.2`: todavía no pertenece a una release publicada ni está desplegado.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 23/07/2026.
@@ -469,8 +469,8 @@ autoriza reintentos legacy ni ediciones directas de base. PF-19C completó su
 evidencia de rechazo global y saneamiento auditado; la CI Nivel 2 ya aprobó
 PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G y
 el ensayo privado de backup/restauración/upgrade/rollback quedaron cerrados el
-10/08/2026. El siguiente paso es integrar, publicar y desplegar `v0.3.0` con
-decisiones separadas; después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+10/08/2026. El siguiente paso es decidir el tag y la publicación de `v0.3.0` y,
+por separado, autorizar su despliegue; después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
 cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
@@ -609,9 +609,9 @@ Siguen pendientes:
 10. PF-02A y los tres cortes de PF-02B están integrados en `main`; PF-02 quedó
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
-    y PF-19C está incorporado por el candidato con implementación, evidencia y
-    ensayo privado completos. Retomar por la integración del candidato, la
-    decisión de tag/publicación y, por separado, el despliegue controlado;
+    y PF-19C queda integrado en `main` con implementación, evidencia y ensayo
+    privado completos. Retomar por la decisión de tag/publicación y, por
+    separado, el despliegue controlado;
     recién entonces PF-03B. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.

@@ -1220,9 +1220,9 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Cerrar `v0.3.0` sin ampliar su alcance: integrar el candidato solo con los
-   siete checks verdes, decidir tag y publicación, y autorizar el despliegue por
-   separado mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real
+1. Cerrar `v0.3.0` sin ampliar su alcance: desde el commit exacto aceptado en
+   `main`, decidir tag y publicación, y autorizar el despliegue por separado
+   mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real
    y el ensayo privado de backup/restauración/upgrade/rollback ya están
    aprobados. No provocar un CAE ni `10005` real.
 2. Retomar PF-03 con PF-03B después de publicar y desplegar `v0.3.0`:
