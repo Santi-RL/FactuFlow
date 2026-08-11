@@ -311,8 +311,11 @@ siete checks en la ejecución
 El cierre documental `147693f232777e5d9cb5e9257c84802cbe359188` aprobó su
 recorrido Nivel 0 en
 [`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
-No hubo cambios de código entre ambos; la preparación de release debe aprobar
-su propia CI Nivel 0 antes de elegir el SHA exacto del tag.
+La preparación final `6fb2878479db84cfa9b3caada8de98ce9bfd009c` aprobó su
+recorrido Nivel 0 post-merge en
+[`31462387733`](https://github.com/Santi-RL/FactuFlow/actions/runs/31462387733).
+No hubo cambios de código entre esos cierres; el único objetivo válido del tag es
+el merge de la finalización documental con su propia CI Nivel 0 verde.
 
 El ensayo privado de release del 10/08/2026 también quedó aprobado:
 

@@ -35,7 +35,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## PF-19 integrado en `main`; release y despliegue pendientes
+## PF-19 integrado en `main`; corte v0.3.0 congelado
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -82,9 +82,9 @@ Los badges `Verificado RECE`, `No RECE` y `No verificado`, la procedencia y la
 vigencia quedan visibles; perfiles, Excel y selectores usan el estado efectivo.
 Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
-adicional y no puede promover un punto. PF-19B todavía no pertenece a una
-release ni está desplegado: la release publicada y producción continúan en
-`v0.2.2`. PF-19C está integrado en `main` y no está desplegado; hasta
+adicional y no puede promover un punto. Al congelar el snapshot de `v0.3.0`,
+PF-19B y PF-19C todavía no pertenecían a una release ni estaban desplegados: la
+release publicada y producción eran `v0.2.2`. Hasta
 publicar y autorizar el despliegue no deben reintentarse lotes
 afectados ni sanearse registros legacy de forma manual.
 
@@ -329,18 +329,17 @@ posterior avanzó `main` hasta `4b4c210`, punto sincronizado con `origin/main`
 antes de iniciar PF-01A.1. Esos cambios no formaron una release independiente;
 quedaron incluidos en el corte productivo `v0.2.2`.
 
-## Snapshot vigente
+## Snapshot de cierre de v0.3.0 — 11/08/2026
 
-- Versión productiva: `v0.2.2`.
-- Versión técnica lista para tag: `v0.3.0`, sin tag, publicación ni
-  despliegue.
+- Versión productiva al cierre: `v0.2.2`.
+- Contenido de release congelado: `v0.3.0`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 23/07/2026.
 - El estado actual de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
   cortes de PF-02B, PF-03A, PF-19A, la unidad completa PF-19B y PF-19C
-  integrado en `main`. Todo ese tramo es posterior a
-  `v0.2.2`: todavía no pertenece a una release publicada ni está desplegado.
+  integrado en `main`. Al cerrar este snapshot, todo ese tramo era posterior a
+  `v0.2.2` y todavía no pertenecía a una release publicada ni estaba desplegado.
 - Producción está sana en `v0.2.2`; el upgrade y la QA post-deploy se cerraron
   el 23/07/2026.
 - La evidencia concreta del VPS permanece en documentación operativa privada.
@@ -470,8 +469,9 @@ autoriza reintentos legacy ni ediciones directas de base. PF-19C completó su
 evidencia de rechazo global y saneamiento auditado; la CI Nivel 2 ya aprobó
 PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G y
 el ensayo privado de backup/restauración/upgrade/rollback quedaron cerrados el
-10/08/2026. El siguiente paso es decidir el tag y la publicación de `v0.3.0` y,
-por separado, autorizar su despliegue; después se retoma PF-03B. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+10/08/2026. El cierre de `v0.3.0` separa tag, publicación y despliegue; cada
+checkpoint se registra después de ejecutarse. PF-03B se retoma tras completar
+ese ciclo. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
 cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
@@ -611,9 +611,9 @@ Siguen pendientes:
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
     y PF-19C queda integrado en `main` con implementación, evidencia y ensayo
-    privado completos. Las notas de `v0.3.0` están congeladas; el tag debe
-    apuntar al merge commit exacto de este cierre después de su CI Nivel 0.
-    Retomar por la autorización separada de tag/publicación y luego por el
+    privado completos. Las notas de `v0.3.0` están versionadas; el único objetivo
+    válido del tag es el merge commit exacto de este cierre con CI Nivel 0 verde.
+    Registrar por separado tag/publicación y luego autorizar el
     despliegue controlado; recién entonces PF-03B. No reabrir PF-02 ni mezclar
     elegibilidad RECE o errores
     globales con ítems/importes. Después siguen

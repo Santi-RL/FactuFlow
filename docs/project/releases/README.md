@@ -14,16 +14,17 @@ No reemplaza las fuentes canónicas:
 Un dossier no crea un tag ni autoriza producción. Los datos, comandos y
 evidencia de una instalación real permanecen en documentación privada.
 
-## Último dossier publicado
+## Release productiva al cierre documental
 
 - `v0.2.2`, publicada y desplegada el 2026-07-23:
   `docs/project/releases/v0.2.2-candidate.md`
 
-## Candidato listo para tag
+## Snapshot de cierre de preparación de v0.3.0
 
-- `v0.3.0`: alcance y notas congelados; sin tag, publicación ni despliegue. El
+- `v0.3.0`: alcance y notas versionados. Al cerrar el snapshot el 11/08/2026
+  todavía no se habían ejecutado tag, publicación ni despliegue. El
   `autoreview`, PF-16G, PostgreSQL/Runtime Smoke y el ensayo privado están
-  cerrados. El merge funcional `2add308a` aprobó los siete checks y el cierre
-  documental `147693f2` aprobó su recorrido Nivel 0. El tag debe apuntar al
-  merge commit exacto de esta preparación después de su propia CI Nivel 0:
+  cerrados. El merge funcional `2add308a` aprobó los siete checks; el cierre
+  documental `147693f2` y la preparación final `6fb2878` aprobaron sus recorridos
+  Nivel 0. Los checkpoints posteriores se registran por separado:
   `docs/project/releases/v0.3.0-candidate.md`

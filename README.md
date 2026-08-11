@@ -2,14 +2,17 @@
 
 Sistema de facturación electrónica ARCA enfocado en usuarios administrativos no técnicos, con emisión individual y emisión masiva por lote.
 
-## Estado actual
+## Estado al cierre documental de v0.3.0
+
+Este bloque registra el snapshot previo al tag congelado el 11/08/2026. Los
+estados posteriores de GitHub y producción se verifican en sus registros
+correspondientes.
 
 Versión publicada más reciente: `v0.2.2`
 
 Versión productiva vigente: `v0.2.2`
 
-Versión técnica lista para tag: `v0.3.0` (sin tag, publicación ni
-despliegue).
+Contenido de release congelado: `v0.3.0`.
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El
@@ -32,8 +35,8 @@ numeración global de ARCA. Los intentos propios activos o inciertos conservan
 prioridad y el procesamiento normal mantiene la reserva durable y el segundo
 preflight antes de FECAE. Los reintentos nunca degradan una autorización
 conocida a un estado reintentable; la recuperación stale no asigna números ni
-solicita CAE. Estos cambios todavía no pertenecen a una release publicada ni
-están desplegados en producción.
+solicita CAE. Al cerrar este snapshot, esos cambios todavía no pertenecían a
+una release publicada ni estaban desplegados en producción.
 
 `main` también incorporó PF-03A, PF-19A y la unidad completa PF-19B. El contrato
 superior de emisión rechaza claves desconocidas; la contención PF-19A bloquea
@@ -49,15 +52,16 @@ completa el rechazo global estructurado y el cierre legacy auditado. El
 `autoreview` final autorizado cerró limpio y la CI Nivel 2 del SHA funcional
 `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó sus siete checks, incluido
 PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
-10/08/2026. El candidato `7f7b3808` aprobó también el ensayo privado de backup,
+10/08/2026. El snapshot `7f7b3808` aprobó también el ensayo privado de backup,
 restauración aislada, upgrade y rollback. El merge funcional `2add308a` aprobó
 la CI completa en la ejecución
 [`31446404345`](https://github.com/Santi-RL/FactuFlow/actions/runs/31446404345),
 y el cierre documental `147693f2` aprobó su recorrido Nivel 0 en
 [`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
-El tag deberá apuntar al merge commit exacto de esta preparación una vez verde
-su CI Nivel 0. Nada de este tramo posterior a `v0.2.2` está publicado ni
-desplegado en producción.
+La preparación final `6fb2878` aprobó su recorrido Nivel 0 en
+[`31462387733`](https://github.com/Santi-RL/FactuFlow/actions/runs/31462387733).
+Al cerrar este contenido, el tramo posterior a `v0.2.2` aún no estaba publicado
+ni desplegado; tag, publicación y despliegue se registran por separado.
 
 Capacidades actuales:
 

@@ -116,10 +116,10 @@ Antes de declarar un candidato listo:
 6. decidir por separado si se crea el tag y si se despliega.
 
 El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
-PF-02. El alcance de `v0.3.0`, detallado en su dossier, está congelado en PF-02,
-PF-03A y PF-19; PF-16C/D/E aportan sus puertas de calidad. No existe tag,
-release ni despliegue. La última release publicada y producción siguen en
-`v0.2.2`. El `autoreview` final cerró limpio,
+PF-02. El alcance de `v0.3.0`, detallado en su dossier, quedó congelado en PF-02,
+PF-03A y PF-19; PF-16C/D/E aportan sus puertas de calidad. Al cerrar la
+preparación el 11/08/2026 todavía no existían tag, publicación ni despliegue; la
+última release publicada y producción eran `v0.2.2`. El `autoreview` final cerró limpio,
 la CI Nivel 2 aprobó PostgreSQL real y Runtime Smoke, y la aceptación PF-16G fue
 registrada el 10/08/2026. El candidato `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`
 aprobó además el ensayo privado de backup, restauración aislada, upgrade y
@@ -276,9 +276,10 @@ transacción completa: quedan cero guardas, intentos y reservas nuevos, y cero
 llamadas `FECAESolicitar`. Esas lecturas seguras previas no convierten el fallo
 en una solicitud de CAE ni habilitan un reintento automático.
 
-Este comportamiento describe el estado actual de `main`. La última release
-publicada y el despliegue real continúan en `v0.2.2`, que no incluye PF-19B;
-crear el tag, publicar una release y desplegar son checkpoints separados.
+Este comportamiento describe el estado de `main` congelado para `v0.3.0`. Al
+cerrar esa preparación, la última release publicada y el despliegue real eran
+`v0.2.2`, que no incluye PF-19B; tag, publicación y despliegue son checkpoints
+separados y su ejecución se registra posteriormente.
 
 El inventario legacy se ejecuta solo con autorización sobre una fuente
 identificada y con `DATABASE_URL` configurada de forma privada:

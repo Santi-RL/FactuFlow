@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 10/08/2026
+Última actualización: 11/08/2026
 
 ## Qué es FactuFlow
 
@@ -8,12 +8,12 @@ FactuFlow es un sistema de facturación electrónica ARCA para Argentina orienta
 a personal administrativo no técnico. El foco es emitir, revisar y sostener
 facturación individual y masiva con seguridad fiscal.
 
-## Estado actual
+## Estado del cierre documental previo al tag
 
 - Versión productiva vigente: `v0.2.2`, también última release publicada y
-  validada en producción el 23/07/2026.
-- Versión técnica del candidato: `v0.3.0`, sin tag, publicación ni
-  despliegue.
+  validada en producción al cerrar el snapshot el 11/08/2026.
+- Contenido de release congelado: `v0.3.0`; tag, publicación y despliegue son
+  checkpoints separados y se registran después de ejecutarse.
 - Backend FastAPI y frontend Vue operativos.
 - PostgreSQL es la base productiva; Alembic es el camino canónico de schema.
 - Emisión individual y masiva con WSAA/WSFE ya utilizada en producción.
@@ -35,8 +35,8 @@ facturación individual y masiva con seguridad fiscal.
   usa plan/apply auditado. El `autoreview` final cerró limpio y la CI Nivel 2
   aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el ensayo
   privado de backup/restauración/upgrade/rollback quedaron aprobados el
-  10/08/2026. Todo ese tramo es posterior a `v0.2.2`: todavía no
-  pertenece a una release publicada ni está desplegado.
+  10/08/2026. Al cerrar el snapshot de `v0.3.0`, todo ese tramo era posterior a
+  `v0.2.2` y todavía no pertenecía a una release publicada ni estaba desplegado.
 - PF-19C, ya integrado en `main`, preserva el error global `10005`
   como rechazo terminal solo bajo contrato oficial, detiene grupos no enviados
   y sanea historia legacy de forma auditada. Su ensayo privado de backup,
@@ -91,7 +91,7 @@ El estado detallado y el punto de reanudación viven en
 
 En `main`, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados; PF-05
 conserva separada la reconstrucción histórica opcional para informes. La
-siguiente decisión es crear el tag y publicar `v0.3.0` y, por separado,
+el ciclo de `v0.3.0` exige registrar el tag y la publicación y, por separado,
 autorizar su despliegue; recién entonces
 sigue PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos y valores
 no finitos. PF-19 no cambia numeración ni absorbe
