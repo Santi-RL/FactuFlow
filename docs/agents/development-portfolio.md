@@ -2,7 +2,7 @@
 
 Última actualización: 10/08/2026
 
-Estado: PRIORIZADO; PF-01, PF-02, PF-03A Y PF-19 CERRADOS PARA EL CANDIDATO;
+Estado: PRIORIZADO; PF-01, PF-02, PF-03A Y PF-19 CERRADOS EN `main`;
 CI NIVEL 2, ACEPTACIÓN PF-16G Y ENSAYO PRIVADO DE
 BACKUP/RESTAURACIÓN/UPGRADE/ROLLBACK CERRADOS.
 
@@ -94,8 +94,8 @@ compatibilidad RECE y que el error global excluyente `10005` queda tratado como
 incertidumbre. No se confirmó un P0 ni una autorización incorrecta. PF-19A ya
 cerró el diseño, la contención explícita previa a FECAE y el inventario legacy
 de solo lectura. PF-19B cerró la elegibilidad durable end-to-end, la autoridad
-administrativa productiva y la exposición UI; PF-19C, incorporado por el
-candidato, completa el rechazo global estructurado y el saneamiento auditado.
+administrativa productiva y la exposición UI; PF-19C, ya integrado en `main`,
+completa el rechazo global estructurado y el saneamiento auditado.
 La CI Nivel 2 ya aprobó PostgreSQL real y Runtime Smoke en el SHA funcional; la
 aceptación PF-16G y el ensayo privado de backup/restauración/upgrade/rollback
 quedaron cerrados el 10/08/2026.
@@ -136,7 +136,7 @@ desglosadas. Los `high` ya tienen prioridad manual P1/P2.
 | PF-16 | Calidad, CI, documentación y cadena de herramientas portable | Roadmap Node 24/testing; hallazgos de scripts Windows, Playwright, fechas dinámicas, alineación documental y vacíos de cobertura en suites | Evitar regresiones y mantener documentación, Windows y Linux reproducibles | Matriz de entornos, suites y documentación por línea de trabajo | C |
 | PF-17 | UX administrativa, accesibilidad y recuperación de errores | Roadmap UX; hallazgos de navegación, notificaciones, fechas visibles y estado persistido corrupto; ayuda contextual del constructor de plantillas; conectividad consciente ante red, servidor o chunks no disponibles | Reducir errores operativos de usuarios no técnicos sin desplazar prioridades fiscales ni convertir FactuFlow en una aplicación offline | Contratos estables de PF-03, PF-07, PF-08, PF-14 y PF-15; preservar PF-01 sin reintentos automáticos de escrituras o caminos fiscales; la ayuda del constructor comienza después de estabilizar PF-03 | C |
 | PF-18 | Salidas masivas, distribución y evolución posterior | ZIP de PDFs, paquetes, actualizaciones, soporte, correo electrónico, integraciones y dashboard | Mejorar adopción sin desviar recursos del núcleo fiscal | PF-04, PF-10, PF-11 y madurez productiva | D |
-| PF-19 | Elegibilidad fiscal WSFE/RECE, rechazos globales excluyentes y cierre legacy seguro | Evidencia productiva de `v0.2.2`; manual WSFEv1 para `10005`; importación/sincronización genérica de Web Services y respuestas batch sin detalle | PF-19A cerró diseño, contención exacta e inventario de solo lectura. PF-19B cerró ledger fail-closed, atestación productiva, control integral y UI; PF-19C, incorporado por el candidato, cerró contrato global estricto, cierre atómico y plan/apply legacy. La CI Nivel 2 aprobó PostgreSQL real y Runtime Smoke en el SHA funcional; la aceptación PF-16G y el ensayo privado de backup/restauración/upgrade/rollback se cerraron el 10/08/2026 | PF-01 para estados e idempotencia; PF-02 permanece cerrado; PF-09 para fuentes del punto; PF-11 para backup; PF-14/PF-15 para contrato y exposición | A |
+| PF-19 | Elegibilidad fiscal WSFE/RECE, rechazos globales excluyentes y cierre legacy seguro | Evidencia productiva de `v0.2.2`; manual WSFEv1 para `10005`; importación/sincronización genérica de Web Services y respuestas batch sin detalle | PF-19A cerró diseño, contención exacta e inventario de solo lectura. PF-19B cerró ledger fail-closed, atestación productiva, control integral y UI; PF-19C, ya integrado en `main`, cerró contrato global estricto, cierre atómico y plan/apply legacy. La CI Nivel 2 aprobó PostgreSQL real y Runtime Smoke en el SHA funcional; la aceptación PF-16G y el ensayo privado de backup/restauración/upgrade/rollback se cerraron el 10/08/2026 | PF-01 para estados e idempotencia; PF-02 permanece cerrado; PF-09 para fuentes del punto; PF-11 para backup; PF-14/PF-15 para contrato y exposición | A |
 
 ## Relaciones que condicionan el orden
 

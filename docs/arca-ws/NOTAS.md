@@ -255,7 +255,8 @@ de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
 - PF-19B separa `verificado_rece`, `no_rece` y `no_verificado`, migra los datos
   existentes sin afirmar compatibilidad no demostrada y aplica la misma puerta
   en emisión individual, lotes, perfiles, reintentos y worker.
-- PF-19C, incorporado por el candidato, estructura los errores globales WSFE. Solo códigos que el
+- PF-19C, ya integrado en `main`, estructura los errores globales WSFE. Solo
+  códigos que el
   contrato oficial vigente identifique como rechazo excluyente preautorización
   pueden cerrar el intento como rechazo terminal; timeout, respuesta parcial o
   código desconocido conservan `requiere_reconciliacion`. El `autoreview` final
@@ -494,6 +495,6 @@ Los smokes históricos de homologación cubrieron emisión individual, lote y
 consulta posterior. Comprobantes, puntos, CAEs, cantidades y fechas exactas
 permanecen en evidencia privada y no se replican en este repositorio público.
 
-Este documento describe el estado objetivo de `main`. La release publicada y
-producción continúan en `v0.2.2`, sin PF-19A/B/C; release y despliegue requieren
-checkpoints separados.
+Este documento describe el estado actual de `main`. La release publicada y
+producción continúan en `v0.2.2`, que no incluye PF-19A/B/C; release y
+despliegue requieren checkpoints separados.

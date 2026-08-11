@@ -336,7 +336,7 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 - Tag desplegado e inmutable:
   `64629957ebff64ca60f474fcb44f054557e69ec0`.
 - La release quedó desplegada y aceptada el 23/07/2026.
-- El estado objetivo de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
+- El estado actual de `main` incorpora, además de `v0.2.2`, PF-02A, los tres
   cortes de PF-02B, PF-03A, PF-19A, la unidad completa PF-19B y PF-19C
   integrado en `main`. Todo ese tramo es posterior a
   `v0.2.2`: todavía no pertenece a una release publicada ni está desplegado.
@@ -398,7 +398,7 @@ con:
   Uvicorn en la instalación productiva actual;
 - PDFs bajo demanda y gestor administrativo de almacenamiento.
 
-En el estado objetivo de `main`, PF-19B agrega ledger y cabeza durable de elegibilidad RECE,
+En el estado actual de `main`, PF-19B agrega ledger y cabeza durable de elegibilidad RECE,
 atestación administrativa de constancia productiva fresca, sincronización
 técnica server-side sin promoción, badges/estados visibles y compuertas comunes
 en individual, lotes, worker, reintentos y stale. Esta capacidad todavía no

@@ -37,7 +37,7 @@ facturación individual y masiva con seguridad fiscal.
   privado de backup/restauración/upgrade/rollback quedaron aprobados el
   10/08/2026. Todo ese tramo es posterior a `v0.2.2`: todavía no
   pertenece a una release publicada ni está desplegado.
-- PF-19C, incorporado por el candidato, preserva el error global `10005`
+- PF-19C, ya integrado en `main`, preserva el error global `10005`
   como rechazo terminal solo bajo contrato oficial, detiene grupos no enviados
   y sanea historia legacy de forma auditada. Su ensayo privado de backup,
   restauración aislada, upgrade y rollback quedó aprobado.
@@ -89,10 +89,10 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-En el estado objetivo de `main`, PF-02, PF-03A, PF-19A y PF-19B están cerrados;
-PF-19C quedó incorporado por el candidato y PF-05 conserva separada la
-reconstrucción histórica opcional para informes. La siguiente unidad es integrar,
-publicar y desplegar `v0.3.0` mediante decisiones separadas; recién entonces
+En `main`, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados; PF-05
+conserva separada la reconstrucción histórica opcional para informes. La
+siguiente decisión es crear el tag y publicar `v0.3.0` y, por separado,
+autorizar su despliegue; recién entonces
 sigue PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos y valores
 no finitos. PF-19 no cambia numeración ni absorbe
 validaciones de ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
