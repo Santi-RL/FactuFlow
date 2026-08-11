@@ -18,7 +18,13 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-### Candidato v0.3.0 — notas congeladas para tag
+## [0.3.0] - 2026-08-11
+
+> Estado al cierre documental: contenido de release congelado. La creación del
+> tag, la publicación y el despliegue se registran mediante checkpoints
+> posteriores; producción permanecía en `v0.2.2`.
+
+### Alcance de la release
 
 - Se sincronizó la versión técnica y visible `0.3.0` en los manifiestos raíz,
   backend y frontend, la configuración/API y la barra lateral. El SHA funcional
@@ -29,9 +35,12 @@ Reglas vigentes desde 2026-05-22:
   El cierre documental post-merge `147693f232777e5d9cb5e9257c84802cbe359188`
   aprobó su recorrido Nivel 0 en
   [`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
-  El tag deberá apuntar al merge commit exacto de esta preparación después de
-  su propia CI Nivel 0; hasta entonces la última release publicada y producción
-  continúan en `v0.2.2`.
+  La preparación final `6fb2878479db84cfa9b3caada8de98ce9bfd009c`
+  aprobó también su recorrido Nivel 0 en
+  [`31462387733`](https://github.com/Santi-RL/FactuFlow/actions/runs/31462387733).
+  Al cerrar este contenido, la última release publicada y producción eran
+  `v0.2.2`; la creación del tag, su publicación y el despliegue se registran por
+  separado.
 - PF-19C en `c1dbd82` completó diseño, implementación y evidencia con dobles y SQLite.
   La suite backend registró `1049 passed`, `22 skipped`, `31 warnings` en
   `9m14s`; la cobertura total branch-aware fue `69.2278%` (líneas `73.6741%`,

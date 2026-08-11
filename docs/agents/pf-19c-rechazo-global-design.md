@@ -312,5 +312,5 @@ PF-19C quedó integrado en `main` con diseño, migración, rollback,
 tests y documentación. El `autoreview` final cerró limpio y la CI Nivel 2 del
 SHA funcional aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el
 ensayo privado de backup/restauración/upgrade/rollback quedaron aprobados el
-10/08/2026. El tag, la publicación y el despliegue de `v0.3.0` requieren
-autorizaciones posteriores separadas.
+10/08/2026. Al cerrar este diseño, tag, publicación y despliegue de `v0.3.0`
+requerían autorizaciones posteriores separadas.

@@ -1,15 +1,14 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 10/08/2026
+Última actualización: 11/08/2026
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
-Este manual describe el estado actual de `main`. La versión publicada y
-desplegada continúa siendo `v0.2.2`, validada el 23/07/2026. Ese estado incluye
-PF-02A, los tres cortes de PF-02B, PF-03A, PF-19A, PF-19B completo y PF-19C.
-Todo ese tramo es posterior a `v0.2.2`:
-todavía no pertenece a una release publicada ni está desplegado. No debe asumirse que una función
-posterior al tag productivo ya está operativa en una instalación concreta.
+Este manual describe el snapshot funcional congelado para `v0.3.0`. Al cerrar
+la preparación, la versión publicada y desplegada era `v0.2.2`, validada el
+23/07/2026. PF-02A/B, PF-03A y PF-19A/B/C pertenecen al nuevo corte; no debe
+asumirse que una función está operativa en una instalación concreta sin
+verificar el tag y el despliegue de ese entorno.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -835,8 +834,8 @@ Importante:
 La atestación vence operativamente a los siete días. Antes del vencimiento, un
 administrador debe obtener e importar una constancia productiva reciente. Esta
 ventana es una política conservadora de FactuFlow, no una vigencia fiscal
-declarada por ARCA. La release y producción `v0.2.2` todavía no incluyen este
-flujo. PF-19C, ya integrado en `main` pero aún sin release ni despliegue,
+declarada por ARCA. La instalación productiva `v0.2.2` al cierre todavía no
+incluía este flujo. PF-19C pertenece al snapshot funcional de `v0.3.0` y
 trata como terminal solo un `10005` global estrictamente corroborado; detiene
 los grupos no enviados y deja cualquier respuesta incompleta o legacy en
 reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA

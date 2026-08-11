@@ -220,9 +220,9 @@
   no se debe inventar estado ARCA activo: los puntos existentes conservan
   `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
   sincronizar con ARCA o revisarlos manualmente.
-- Este comportamiento describe el estado actual de `main`. La release publicada
-  y producción continúan en `v0.2.2`, que no incluye PF-19A/B/C; no confundir
-  código integrado en `main`, release y despliegue.
+- Este comportamiento describe el snapshot de `main` congelado para `v0.3.0`.
+  Al cerrar la preparación, la release publicada y producción eran `v0.2.2`,
+  que no incluye PF-19A/B/C; no confundir código integrado, release y despliegue.
 
 ### Constancias de emisores
 

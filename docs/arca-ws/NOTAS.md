@@ -262,8 +262,8 @@ de solo lectura. No reabre PF-02 ni modifica su regla de numeración.
   código desconocido conservan `requiere_reconciliacion`. El `autoreview` final
   cerró limpio y la CI Nivel 2 del SHA funcional aprobó PostgreSQL real y Runtime
   Smoke; la aceptación PF-16G y el ensayo privado de
-  backup/restauración/upgrade/rollback quedaron aprobados el 10/08/2026; la
-  producción continúa en `v0.2.2`.
+  backup/restauración/upgrade/rollback quedaron aprobados el 10/08/2026; al
+  cerrar el snapshot de `v0.3.0`, producción continuaba en `v0.2.2`.
 - El inventario PF-19A no consulta ARCA, no infiere el ambiente histórico y no
   sanea registros. La política de contraste y resolución pertenece a PF-19C;
   mientras tanto, los lotes legacy no se reparan mediante edición directa ni
@@ -495,6 +495,6 @@ Los smokes históricos de homologación cubrieron emisión individual, lote y
 consulta posterior. Comprobantes, puntos, CAEs, cantidades y fechas exactas
 permanecen en evidencia privada y no se replican en este repositorio público.
 
-Este documento describe el estado actual de `main`. La release publicada y
-producción continúan en `v0.2.2`, que no incluye PF-19A/B/C; release y
-despliegue requieren checkpoints separados.
+Este documento describe el snapshot de `main` congelado para `v0.3.0`. Al
+cerrarlo, la release publicada y producción eran `v0.2.2`, que no incluye
+PF-19A/B/C; tag, publicación y despliegue requieren checkpoints separados.

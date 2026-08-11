@@ -1,6 +1,6 @@
 # QA manual
 
-Última actualización: 10/08/2026
+Última actualización: 11/08/2026
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
@@ -22,10 +22,10 @@ fechadas de `docs/project/**`.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-`main` incluye PF-02A, los tres cortes de PF-02B, PF-03A y PF-19A; este último
-quedó integrado mediante el PR `#27` (merge `45c0704`). Todo ese tramo es
-posterior al tag productivo: todavía no pertenece a una release publicada ni
-está desplegado. Sus escenarios
+El snapshot de `main` congelado para `v0.3.0` incluye PF-02A, los tres cortes de
+PF-02B, PF-03A y PF-19A/B/C. Al cerrar la preparación, todo ese tramo era
+posterior al tag productivo `v0.2.2`: todavía no pertenecía a una release
+publicada ni estaba desplegado. Sus escenarios
 se validaron con datos sintéticos y dobles controlados, sin CAE reales ni
 llamadas ARCA de escritura.
 
@@ -381,15 +381,16 @@ datos fiscales reales.
 
 ## PF-19 — elegibilidad RECE y rechazo global excluyente
 
-Estado actual de `main`, 11/08/2026: PF-19A, PF-19B completo y PF-19C están
+Estado del snapshot de cierre, 11/08/2026: PF-19A, PF-19B completo y PF-19C están
 integrados; PF-19C ya tiene evidencia completa. El
 `autoreview` final cerró limpio, la CI Nivel 2 aprobó PostgreSQL real y Runtime
 Smoke, y la aceptación PF-16G y el ensayo privado de
 backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026. El merge
 funcional `2add308a` aprobó los siete checks completos y el cierre documental
-`147693f2` aprobó su recorrido Nivel 0. Las notas de `v0.3.0` están congeladas,
-pero el tag y la publicación siguen pendientes. La release publicada y producción
-continúan en `v0.2.2`, sin estos cortes. Toda ejecución previa al checkpoint de
+`147693f2` aprobó su recorrido Nivel 0 y la preparación final `6fb2878` aprobó
+el suyo en `31462387733`. Al cerrar el snapshot, tag y publicación todavía no se
+habían ejecutado y la release publicada y producción eran `v0.2.2`, sin estos
+cortes. Toda ejecución previa al checkpoint de
 release usa datos sintéticos y dobles de WSFE. Esta matriz no autoriza pedir CAE
 real para provocar errores ni editar registros fiscales.
 
@@ -537,12 +538,12 @@ release y despliegue continúan como decisiones separadas.
 
 PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
 `fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
-superó el despliegue y la verificación post-deploy. En el estado objetivo de
-`main`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
+superó el despliegue y la verificación post-deploy. En el snapshot de cierre de
+`v0.3.0`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
 superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
-lectura y autoridad RECE durable. Ese tramo todavía no pertenece a una release
-publicada ni está desplegado. PF-19C queda integrado en `main` con su ensayo
-privado cerrado; publicar y desplegar `v0.3.0` son decisiones separadas y
+lectura y autoridad RECE durable. Al congelarlo, ese tramo todavía no pertenecía
+a una release publicada ni estaba desplegado. PF-19C queda integrado en `main`
+con su ensayo privado cerrado; tag, publicación y despliegue son decisiones separadas y
 PF-03B queda después. No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
 UX de lotes ni las validaciones ya cerradas.
