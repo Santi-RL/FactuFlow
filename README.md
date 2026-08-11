@@ -8,7 +8,7 @@ Versión publicada más reciente: `v0.2.2`
 
 Versión productiva vigente: `v0.2.2`
 
-Versión técnica del candidato: `v0.3.0` (sin tag, publicación ni
+Versión técnica lista para tag: `v0.3.0` (sin tag, publicación ni
 despliegue).
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
@@ -50,9 +50,14 @@ completa el rechazo global estructurado y el cierre legacy auditado. El
 `e9c583a8174ea8edc6fe30845584033feab0394d` aprobó sus siete checks, incluido
 PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
 10/08/2026. El candidato `7f7b3808` aprobó también el ensayo privado de backup,
-restauración aislada, upgrade y rollback. Nada de este tramo
-posterior a `v0.2.2` está publicado ni desplegado
-en producción.
+restauración aislada, upgrade y rollback. El merge funcional `2add308a` aprobó
+la CI completa en la ejecución
+[`31446404345`](https://github.com/Santi-RL/FactuFlow/actions/runs/31446404345),
+y el cierre documental `147693f2` aprobó su recorrido Nivel 0 en
+[`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
+El tag deberá apuntar al merge commit exacto de esta preparación una vez verde
+su CI Nivel 0. Nada de este tramo posterior a `v0.2.2` está publicado ni
+desplegado en producción.
 
 Capacidades actuales:
 
