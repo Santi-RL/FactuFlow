@@ -959,8 +959,9 @@ commit, PR o dossier de release, según el tamaño de la unidad.
   documental `147693f2` aprobó su recorrido Nivel 0. La aceptación PF-16G, el
   ensayo privado de backup/restauración/upgrade/rollback y el `autoreview` con
   Codex `gpt-5.6-sol medium` están cerrados. La preparación final `6fb2878`
-  aprobó además su CI Nivel 0; tag, publicación y despliegue se registran como
-  decisiones separadas.
+  aprobó además su CI Nivel 0. El tag inmutable `v0.3.0` apunta a `39797d1` y
+  la GitHub Release fue publicada el 11/08/2026; el despliegue continúa como
+  decisión separada.
 - **Antes de ofrecer una release a terceros:** cerrar PF-16F en los núcleos
   críticos y completar PF-16H junto con PF-06/PF-07, PF-08/PF-09, PF-11,
   PF-15 y PF-18 que correspondan.
@@ -1155,6 +1156,10 @@ Objetivo: profesionalizar la entrega del producto.
 - [x] Despliegue productivo separado de `v0.2.2` completado el 2026-07-23 desde
   el tag exacto, con backup final, preflight inmediato, migración única y QA
   post-deploy aprobados, sin emisiones ni solicitudes de CAE
+- [x] Release `v0.3.0` publicada el 2026-08-11 desde el tag inmutable que apunta
+  a `39797d1ff9c698465255cf4f821240171c235cab`, con notas y CI final verdes
+- [ ] Despliegue productivo separado de `v0.3.0`, sujeto a autorización,
+  preflight inmediato, migración única y QA post-deploy
 
 #### Guía flexible de cortes
 
@@ -1169,9 +1174,10 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   de PF-01 y antes de PF-02. Agrupa la integridad fiscal, la frontera DB/FECAE,
   el endurecimiento de pool/worker y las correcciones de seguridad aceptadas,
   sin mezclar el cambio de política de numeración global.
-- **`v0.3.0`:** el alcance está congelado en PF-02, PF-03A y PF-19 con sus QA
-  fiscales. PF-02 cambia el contrato operativo de numeración y PF-19 cierra la
-  elegibilidad RECE y la semántica de rechazo descubiertas por evidencia
+- **`v0.3.0` publicado; despliegue pendiente:** el alcance está congelado en
+  PF-02, PF-03A y PF-19 con sus QA fiscales. PF-02 cambia el contrato operativo
+  de numeración y PF-19 cierra la elegibilidad RECE y la semántica de rechazo
+  descubiertas por evidencia
   productiva. PF-03B u otro trabajo solo pueden incorporarse si el desarrollador
   decide explícitamente reabrir el alcance; de lo contrario siguen después de
   `v0.3.0`.
@@ -1180,7 +1186,8 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   siete checks completos y `147693f2` acreditó el cierre documental Nivel 0.
   La preparación final `6fb2878` aprobó también su CI Nivel 0. Al cerrar ese
   snapshot no existían tag, publicación ni despliegue, y producción continuaba
-  en `v0.2.2`; los checkpoints posteriores se registran por separado.
+  en `v0.2.2`. El tag y la GitHub Release `v0.3.0` se publicaron después sobre
+  `39797d1`; producción aún no fue actualizada.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1224,13 +1231,12 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Completar el ciclo de `v0.3.0` sin ampliar su alcance: usar como objetivo del
-   tag únicamente el merge commit exacto de este cierre con CI Nivel 0 verde.
-   Registrar tag y publicación, y autorizar el despliegue por separado
-   mediante el flujo productivo. PF-16G, `autoreview`, PostgreSQL real y el
+1. Autorizar y ejecutar por separado el despliegue controlado de `v0.3.0`
+   desde el tag exacto ya publicado. PF-16G, `autoreview`, PostgreSQL real y el
    ensayo privado de backup/restauración/upgrade/rollback ya están aprobados.
-   No provocar un CAE ni `10005` real.
-2. Retomar PF-03 con PF-03B después de publicar y desplegar `v0.3.0`:
+   Repetir el preflight inmediato, aplicar la migración una sola vez y cerrar
+   la QA post-deploy sin provocar un CAE ni `10005` real.
+2. Retomar PF-03 con PF-03B después de desplegar `v0.3.0`:
    separar el DTO de ítem que serializa la UI, hacer estricto
    `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05

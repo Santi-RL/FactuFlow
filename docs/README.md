@@ -5,7 +5,9 @@ Este directorio agrupa la documentación del proyecto.
 ## Índice
 
 - Changelog y corte versionado actual: `CHANGELOG.md`
-- Release publicada y desplegada al cierre documental (`v0.2.2`):
+- Última release publicada:
+  [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
+- Versión productiva vigente (`v0.2.2`), publicada y desplegada el 23/07/2026:
   `docs/project/releases/v0.2.2-candidate.md`
 - Snapshot histórico de preparación de `v0.3.0` (11/08/2026, previo al tag):
   `docs/project/releases/v0.3.0-candidate.md`

@@ -2,17 +2,18 @@
 
 Sistema de facturación electrónica ARCA enfocado en usuarios administrativos no técnicos, con emisión individual y emisión masiva por lote.
 
-## Estado al cierre documental de v0.3.0
+## Estado actual de release y producción
 
-Este bloque registra el snapshot previo al tag congelado el 11/08/2026. Los
-estados posteriores de GitHub y producción se verifican en sus registros
-correspondientes.
+La GitHub Release [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
+se publicó el 11/08/2026 desde el tag inmutable `v0.3.0`, que apunta a
+`39797d1ff9c698465255cf4f821240171c235cab`. Publicarla no modificó la
+instalación productiva.
 
-Versión publicada más reciente: `v0.2.2`
+Versión publicada más reciente: `v0.3.0`
 
 Versión productiva vigente: `v0.2.2`
 
-Contenido de release congelado: `v0.3.0`.
+Versión aceptada en `main`: `v0.3.0`.
 
 En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
 fue validado en homologación y también se usó en producción real controlada. El

@@ -14,8 +14,11 @@ No reemplaza las fuentes canónicas:
 Un dossier no crea un tag ni autoriza producción. Los datos, comandos y
 evidencia de una instalación real permanecen en documentación privada.
 
-## Release productiva al cierre documental
+## Estado actual de releases
 
+- [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0),
+  publicada y marcada como `Latest` el 11/08/2026; despliegue productivo
+  pendiente
 - `v0.2.2`, publicada y desplegada el 2026-07-23:
   `docs/project/releases/v0.2.2-candidate.md`
 

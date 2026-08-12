@@ -1,14 +1,13 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 11/08/2026
+Última actualización: 12/08/2026
 
 Versión productiva cubierta por este manual: `v0.2.2`.
 
-Este manual describe el snapshot funcional congelado para `v0.3.0`. Al cerrar
-la preparación, la versión publicada y desplegada era `v0.2.2`, validada el
-23/07/2026. PF-02A/B, PF-03A y PF-19A/B/C pertenecen al nuevo corte; no debe
-asumirse que una función está operativa en una instalación concreta sin
-verificar el tag y el despliegue de ese entorno.
+La release publicada más reciente es `v0.3.0`; la instalación productiva
+continúa en `v0.2.2`, validada el 23/07/2026. PF-02A/B, PF-03A y PF-19A/B/C
+pertenecen a `v0.3.0`, pero no debe asumirse que una función está operativa en
+una instalación concreta sin verificar el tag efectivamente desplegado.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
@@ -834,8 +833,8 @@ Importante:
 La atestación vence operativamente a los siete días. Antes del vencimiento, un
 administrador debe obtener e importar una constancia productiva reciente. Esta
 ventana es una política conservadora de FactuFlow, no una vigencia fiscal
-declarada por ARCA. La instalación productiva `v0.2.2` al cierre todavía no
-incluía este flujo. PF-19C pertenece al snapshot funcional de `v0.3.0` y
+declarada por ARCA. La instalación productiva `v0.2.2` todavía no incluye este
+flujo. PF-19C pertenece a la release publicada `v0.3.0` y
 trata como terminal solo un `10005` global estrictamente corroborado; detiene
 los grupos no enviados y deja cualquier respuesta incompleta o legacy en
 reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA
@@ -1002,7 +1001,7 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 09/08/2026:
+Al 12/08/2026:
 
 - no existe todavía descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
@@ -1025,10 +1024,9 @@ Al 09/08/2026:
   descripción facturada, totales, backup/logs y confirmación irreversible
 - en el estado actual de `main`, PF-19B aporta elegibilidad RECE durable y
   fail-closed; homologación continúa sin una fuente probatoria positiva y, por
-eso, no permite solicitar CAE. `v0.2.2` no incluye esta capacidad. PF-19C ya
-completó evidencia local para el tratamiento estructurado de rechazos globales
-preautorización; no está publicado ni desplegado y conserva puertas externas de
-PostgreSQL real, CI, `autoreview` y ensayo de migración/restauración
+  eso, no permite solicitar CAE. `v0.2.2` no incluye esta capacidad. PF-19C está
+  publicado en `v0.3.0`, con PostgreSQL real, CI, `autoreview` y ensayo de
+  migración/restauración cerrados, pero todavía no está desplegado
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
   rápida y ficha para soporte; todavía faltan backup visible y trazabilidad

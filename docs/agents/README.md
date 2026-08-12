@@ -25,7 +25,9 @@
   `docs/agents/pf-06-08-permisos-multiemisor-design.md`
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
-- Snapshot de cierre de preparación v0.3.0:
+- Release publicada:
+  [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
+- Snapshot histórico de cierre de preparación v0.3.0:
   `docs/project/releases/v0.3.0-candidate.md`
 
 ## Fuente de verdad operativa
