@@ -1,12 +1,12 @@
 # QA manual
 
-Última actualización: 11/08/2026
+Última actualización: 12/08/2026
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
 fechadas de `docs/project/**`.
 
-## Último checkpoint aceptado
+## Último checkpoint productivo aceptado
 
 `v0.2.2` quedó validada en producción el 23/07/2026.
 
@@ -21,6 +21,10 @@ fechadas de `docs/project/**`.
 - No queda QA bloqueante para mantener `v0.2.2` en producción.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
+
+La GitHub Release `v0.3.0` fue publicada el 11/08/2026, pero todavía no fue
+desplegada ni tiene QA post-deploy. La versión productiva cubierta por este
+checkpoint continúa siendo `v0.2.2`.
 
 El snapshot de `main` congelado para `v0.3.0` incluye PF-02A, los tres cortes de
 PF-02B, PF-03A y PF-19A/B/C. Al cerrar la preparación, todo ese tramo era
@@ -531,8 +535,9 @@ backend fue `69.2278%` total branch-aware, `73.6741%` líneas y `55.1759%` ramas
 frontend aprobó `149` pruebas y registró cobertura `56.12/50.14/43.77/57.37`.
 La CI Nivel 2 ya aprobó PostgreSQL real y Runtime Smoke sobre el SHA funcional;
 la aceptación PF-16G y el ensayo privado de
-backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026. Tag,
-release y despliegue continúan como decisiones separadas.
+backup/restauración/upgrade/rollback quedaron cerrados el 10/08/2026. El tag y
+la release se publicaron el 11/08/2026; el despliegue continúa como decisión
+separada.
 
 ## Punto de reanudación de QA
 
@@ -542,9 +547,10 @@ superó el despliegue y la verificación post-deploy. En el snapshot de cierre d
 `v0.3.0`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
 superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
 lectura y autoridad RECE durable. Al congelarlo, ese tramo todavía no pertenecía
-a una release publicada ni estaba desplegado. PF-19C queda integrado en `main`
-con su ensayo privado cerrado; tag, publicación y despliegue son decisiones separadas y
-PF-03B queda después. No repetir
+a una release publicada ni estaba desplegado. Ahora pertenece a `v0.3.0`, pero
+producción continúa en `v0.2.2`. PF-19C queda integrado y publicado con su ensayo
+privado cerrado; el despliegue es una decisión separada y PF-03B queda después.
+No repetir
 como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
 UX de lotes ni las validaciones ya cerradas.
 

@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 11/08/2026
+Última actualización: 12/08/2026
 
 ## Qué es FactuFlow
 
@@ -8,12 +8,13 @@ FactuFlow es un sistema de facturación electrónica ARCA para Argentina orienta
 a personal administrativo no técnico. El foco es emitir, revisar y sostener
 facturación individual y masiva con seguridad fiscal.
 
-## Estado del cierre documental previo al tag
+## Estado actual de release y producción
 
-- Versión productiva vigente: `v0.2.2`, también última release publicada y
-  validada en producción al cerrar el snapshot el 11/08/2026.
-- Contenido de release congelado: `v0.3.0`; tag, publicación y despliegue son
-  checkpoints separados y se registran después de ejecutarse.
+- Release publicada más reciente: `v0.3.0`, desde el tag inmutable que apunta a
+  `39797d1ff9c698465255cf4f821240171c235cab`.
+- Versión productiva vigente: `v0.2.2`, validada en producción el 23/07/2026.
+- Publicar `v0.3.0` no modificó producción; el despliegue requiere autorización
+  y cierre operativo separados.
 - Backend FastAPI y frontend Vue operativos.
 - PostgreSQL es la base productiva; Alembic es el camino canónico de schema.
 - Emisión individual y masiva con WSAA/WSFE ya utilizada en producción.
@@ -89,11 +90,11 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-En `main`, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados; PF-05
-conserva separada la reconstrucción histórica opcional para informes. La
-el ciclo de `v0.3.0` exige registrar el tag y la publicación y, por separado,
-autorizar su despliegue; recién entonces
-sigue PF-03B sobre DTO de ítem, propiedades desconocidas, descuentos y valores
+En `main`, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados y publicados en
+`v0.3.0`; PF-05 conserva separada la reconstrucción histórica opcional para
+informes. El próximo checkpoint es autorizar y completar por separado el
+despliegue de `v0.3.0`; recién entonces sigue PF-03B sobre DTO de ítem,
+propiedades desconocidas, descuentos y valores
 no finitos. PF-19 no cambia numeración ni absorbe
 validaciones de ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
 

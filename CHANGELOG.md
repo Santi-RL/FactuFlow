@@ -18,6 +18,13 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Documentación
+
+- Se registró la publicación de la GitHub Release `v0.3.0` desde el tag
+  inmutable que apunta a `39797d1ff9c698465255cf4f821240171c235cab`.
+  Producción continúa en `v0.2.2`; la publicación no autoriza ni ejecuta el
+  despliegue.
+
 ## [0.3.0] - 2026-08-11
 
 > Estado al cierre documental: contenido de release congelado. La creación del
@@ -191,8 +198,8 @@ Reglas vigentes desde 2026-05-22:
   normal conserva la reserva durable y el segundo preflight. Los errores
   persistidos usan categorías sanitizadas y no exponen textos de excepción.
 - PF-05 mantiene separada la reconstrucción histórica opcional para informes.
-  PF-02, PF-03A, PF-19A y PF-19B son posteriores a `v0.2.2`: todavía no
-  pertenecen a una release publicada ni están desplegados.
+  PF-02, PF-03A y PF-19A/B/C pertenecen a la release publicada `v0.3.0`, pero
+  todavía no están desplegados en producción.
 
 ### Calidad y seguridad
 

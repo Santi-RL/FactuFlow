@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 11/08/2026
+Última actualización: 12/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -35,7 +35,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## PF-19 integrado en `main`; corte v0.3.0 congelado
+## PF-19 publicado en `v0.3.0`; producción continúa en `v0.2.2`
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -83,10 +83,10 @@ vigencia quedan visibles; perfiles, Excel y selectores usan el estado efectivo.
 Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. Al congelar el snapshot de `v0.3.0`,
-PF-19B y PF-19C todavía no pertenecían a una release ni estaban desplegados: la
-release publicada y producción eran `v0.2.2`. Hasta
-publicar y autorizar el despliegue no deben reintentarse lotes
-afectados ni sanearse registros legacy de forma manual.
+PF-19B y PF-19C todavía no pertenecían a una release ni estaban desplegados. El
+tag y la GitHub Release `v0.3.0` se publicaron el 11/08/2026; producción continúa
+en `v0.2.2`. Hasta autorizar y completar el despliegue no deben reintentarse
+lotes afectados ni sanearse registros legacy de forma manual.
 
 ## PF-03A — contrato superior estricto de emisión
 
@@ -329,7 +329,16 @@ posterior avanzó `main` hasta `4b4c210`, punto sincronizado con `origin/main`
 antes de iniciar PF-01A.1. Esos cambios no formaron una release independiente;
 quedaron incluidos en el corte productivo `v0.2.2`.
 
-## Snapshot de cierre de v0.3.0 — 11/08/2026
+## Estado actual de release y producción — 12/08/2026
+
+- Release publicada más reciente: `v0.3.0`, marcada como `Latest` en GitHub.
+- Tag inmutable `v0.3.0`:
+  `39797d1ff9c698465255cf4f821240171c235cab`.
+- Versión productiva vigente: `v0.2.2`.
+- El despliegue de `v0.3.0` no fue autorizado ni ejecutado. Requiere backup
+  final, preflight inmediato, migración única y QA post-deploy por separado.
+
+## Snapshot histórico de cierre de v0.3.0 — 11/08/2026
 
 - Versión productiva al cierre: `v0.2.2`.
 - Contenido de release congelado: `v0.3.0`.
@@ -402,7 +411,8 @@ En el estado actual de `main`, PF-19B agrega ledger y cabeza durable de elegibil
 atestación administrativa de constancia productiva fresca, sincronización
 técnica server-side sin promoción, badges/estados visibles y compuertas comunes
 en individual, lotes, worker, reintentos y stale. Esta capacidad todavía no
-pertenece a la release publicada ni está disponible en producción.
+está disponible en producción, aunque ya pertenece a la release publicada
+`v0.3.0`.
 
 Las reglas no negociables siguen en `VISION.md` y `AGENTS.md`. En particular:
 la fecha fiscal nunca se completa con la fecha actual, ninguna ruta puede pedir
@@ -460,18 +470,20 @@ El portafolio que integra estos hallazgos con el roadmap está en
 
 ## Riesgos y pendientes priorizados
 
-### P1 fiscal priorizado
+### Cierre del P1 fiscal PF-19
 
-PF-19 es el P1 fiscal activo por evidencia productiva. PF-19A cerró diseño,
+PF-19 fue priorizado por evidencia productiva y quedó cerrado y publicado en
+`v0.3.0`. PF-19A cerró diseño,
 contención explícita e inventario de solo lectura; PF-19B cerró la elegibilidad
 RECE durable end-to-end, incluida su autoridad administrativa y UI. Ninguno
 autoriza reintentos legacy ni ediciones directas de base. PF-19C completó su
 evidencia de rechazo global y saneamiento auditado; la CI Nivel 2 ya aprobó
 PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G y
 el ensayo privado de backup/restauración/upgrade/rollback quedaron cerrados el
-10/08/2026. El cierre de `v0.3.0` separa tag, publicación y despliegue; cada
-checkpoint se registra después de ejecutarse. PF-03B se retoma tras completar
-ese ciclo. Los párrafos siguientes conservan la evidencia histórica de PF-01 ya
+10/08/2026. El tag y la publicación de `v0.3.0` se completaron el 11/08/2026;
+el despliegue continúa pendiente y requiere autorización separada. PF-03B se
+retoma después de completar ese despliegue. Los párrafos siguientes conservan
+la evidencia histórica de PF-01 ya
 cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
@@ -611,10 +623,9 @@ Siguen pendientes:
     cerrado sin mezclar la reconstrucción histórica opcional de PF-05. PF-19A
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
     y PF-19C queda integrado en `main` con implementación, evidencia y ensayo
-    privado completos. Las notas de `v0.3.0` están versionadas; el único objetivo
-    válido del tag es el merge commit exacto de este cierre con CI Nivel 0 verde.
-    Registrar por separado tag/publicación y luego autorizar el
-    despliegue controlado; recién entonces PF-03B. No reabrir PF-02 ni mezclar
+    privado completos. `v0.3.0` está publicada desde el tag exacto
+    `39797d1ff9c698465255cf4f821240171c235cab`. Autorizar y ejecutar por separado
+    el despliegue controlado; recién entonces PF-03B. No reabrir PF-02 ni mezclar
     elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
