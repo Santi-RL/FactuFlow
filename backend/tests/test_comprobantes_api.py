@@ -1,5 +1,6 @@
 """Tests de endpoints de comprobantes."""
 
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -45,10 +46,43 @@ FECHA_FISCAL_PRUEBA = date(2026, 8, 9)
 AHORA_FISCAL_PRUEBA = datetime(2026, 8, 9, 12, 0, 0)
 
 
+class _FechaFiscalPrueba(date):
+    """Fecha inyectable que conserva fija la ventana ARCA del módulo."""
+
+    @classmethod
+    def today(cls) -> date:
+        """Devuelve la fecha fiscal canónica de estos casos."""
+        return FECHA_FISCAL_PRUEBA
+
+
 @pytest.fixture(autouse=True)
-def _configurar_ambiente_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fija el ambiente RECE requerido sin depender del entorno del runner."""
+def _configurar_contexto_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fija ambiente y reloj RECE sin depender del entorno ni de la fecha real."""
+    inicializar_original = ElegibilidadReceService.__init__
+
+    def inicializar_con_reloj_fiscal(
+        self: ElegibilidadReceService,
+        db: AsyncSession,
+        *,
+        hoy: date | Callable[[], date] | None = None,
+    ) -> None:
+        """Inyecta el reloj fiscal canónico cuando el test no define otro."""
+        inicializar_original(
+            self,
+            db,
+            hoy=FECHA_FISCAL_PRUEBA if hoy is None else hoy,
+        )
+
     monkeypatch.setattr(settings, "arca_env", "produccion")
+    monkeypatch.setattr(
+        "app.services.facturacion_service.date",
+        _FechaFiscalPrueba,
+    )
+    monkeypatch.setattr(
+        ElegibilidadReceService,
+        "__init__",
+        inicializar_con_reloj_fiscal,
+    )
 
 
 def _crear_error_db_temporal(

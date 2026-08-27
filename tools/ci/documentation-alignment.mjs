@@ -6,9 +6,20 @@ const VERSION_PATTERN = "v\\d+\\.\\d+\\.\\d+";
 const REQUIRED_DOCUMENTS = [
   "README.md",
   "CHANGELOG.md",
+  "docs/README.md",
+  "docs/agents/current-status.md",
   "docs/agents/overview.md",
   "docs/user-guide/README.md",
 ];
+const DEPLOYMENT_AUTHORITY_DOCUMENTS = [
+  "README.md",
+  "docs/README.md",
+  "docs/agents/current-status.md",
+  "docs/agents/overview.md",
+  "docs/user-guide/README.md",
+];
+const DEPLOYMENT_AUTHORITY_PATTERN =
+  /el estado desplegado autoritativo vive en el plano de control\s+`VPS Hostinger`\s*\/\s*`vps-admin`/iu;
 const LIVE_DOCUMENT_PREFIXES = [
   "docs/agents/",
   "docs/api/",
@@ -80,17 +91,6 @@ function findLabeledVersion(content, pattern) {
   return match?.groups?.version ?? null;
 }
 
-function compareVersions(left, right) {
-  const leftParts = left.slice(1).split(".").map(Number);
-  const rightParts = right.slice(1).split(".").map(Number);
-  for (let index = 0; index < 3; index += 1) {
-    if (leftParts[index] !== rightParts[index]) {
-      return leftParts[index] - rightParts[index];
-    }
-  }
-  return 0;
-}
-
 function error(path, message, line = null) {
   return { path, line, message };
 }
@@ -125,12 +125,7 @@ export function validateDocumentation(files) {
     `^Versi[oó]n publicada m[aá]s reciente:\\s*(?:\\x60)?(?<version>${VERSION_PATTERN})(?:\\x60)?\\s*$`,
     "imu",
   );
-  const productionPattern = new RegExp(
-    `^Versi[oó]n productiva vigente:\\s*(?:\\x60)?(?<version>${VERSION_PATTERN})(?:\\x60)?\\s*$`,
-    "imu",
-  );
   const publishedVersion = findLabeledVersion(readme, publishedPattern);
-  const productionVersion = findLabeledVersion(readme, productionPattern);
 
   if (!publishedVersion) {
     errors.push(
@@ -140,81 +135,14 @@ export function validateDocumentation(files) {
       ),
     );
   }
-  if (!productionVersion) {
-    errors.push(
-      error(
-        "README.md",
-        "no declara «Versión productiva vigente» con formato vX.Y.Z",
-      ),
-    );
-  }
-  if (
-    publishedVersion &&
-    productionVersion &&
-    compareVersions(productionVersion, publishedVersion) > 0
-  ) {
-    errors.push(
-      error(
-        "README.md",
-        `la versión productiva ${productionVersion} supera la publicada ${publishedVersion}`,
-      ),
-    );
-  }
 
-  if (productionVersion) {
-    const overview = normalizedFiles.get("docs/agents/overview.md");
-    const overviewPattern = new RegExp(
-      `^\\s*-\\s*(?:Release|Versi[oó]n) productiva vigente:\\s*(?:\\x60)?(?<version>${VERSION_PATTERN})(?:\\x60)?`,
-      "imu",
-    );
-    const overviewVersion = findLabeledVersion(overview, overviewPattern);
-    if (!overviewVersion) {
+  for (const path of DEPLOYMENT_AUTHORITY_DOCUMENTS) {
+    const content = normalizedFiles.get(path);
+    if (!DEPLOYMENT_AUTHORITY_PATTERN.test(content)) {
       errors.push(
         error(
-          "docs/agents/overview.md",
-          "no declara una versión productiva vigente con formato vX.Y.Z",
-        ),
-      );
-    } else if (overviewVersion !== productionVersion) {
-      errors.push(
-        error(
-          "docs/agents/overview.md",
-          `declara ${overviewVersion}, pero README.md define ${productionVersion} como productiva`,
-        ),
-      );
-    }
-
-    const userGuide = normalizedFiles.get("docs/user-guide/README.md");
-    const firstSectionIndex = userGuide.search(/^##\s+/mu);
-    const userGuideHeader = userGuide.slice(
-      0,
-      firstSectionIndex === -1 ? userGuide.length : firstSectionIndex,
-    );
-    const userGuidePatterns = [
-      new RegExp(
-        `Este manual describe\\s+(?:\\x60)?(?<version>${VERSION_PATTERN})(?:\\x60)?`,
-        "iu",
-      ),
-      new RegExp(
-        `Versi[oó]n productiva(?: vigente)?[^\\n:]*:\\s*(?:\\x60)?(?<version>${VERSION_PATTERN})(?:\\x60)?`,
-        "iu",
-      ),
-    ];
-    const userGuideVersion = userGuidePatterns
-      .map((pattern) => findLabeledVersion(userGuideHeader, pattern))
-      .find(Boolean);
-    if (!userGuideVersion) {
-      errors.push(
-        error(
-          "docs/user-guide/README.md",
-          "el encabezado no identifica la versión productiva cubierta",
-        ),
-      );
-    } else if (userGuideVersion !== productionVersion) {
-      errors.push(
-        error(
-          "docs/user-guide/README.md",
-          `el encabezado referencia ${userGuideVersion}, pero README.md define ${productionVersion} como productiva`,
+          path,
+          "no declara que el estado desplegado autoritativo vive en «VPS Hostinger» / «vps-admin»",
         ),
       );
     }
@@ -308,7 +236,8 @@ async function main() {
   const errors = validateDocumentation(files);
 
   console.log(
-    "Documentation alignment comprueba versiones y marcadores estructurales; " +
+    "Documentation alignment comprueba la release publicada, la autoridad " +
+      "del estado desplegado y marcadores estructurales; " +
       "no reemplaza la revisión semántica de la documentación.",
   );
   if (errors.length === 0) {

@@ -44,6 +44,15 @@ from app.services.lote_comprobantes_service import (
 )
 
 
+class _FechaContencionFija(date):
+    """Reloj determinista para la fecha fiscal de estos escenarios."""
+
+    @classmethod
+    def today(cls) -> date:
+        """Devuelve la fecha explícita usada por los fixtures PF-19."""
+        return cls(2026, 8, 8)
+
+
 def _bloqueo(
     *,
     ambiente: str = "produccion",
@@ -420,6 +429,7 @@ async def test_contencion_aborta_sin_arca_intentos_cae_ni_comprobantes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Los núcleos directos terminan antes de clientes ARCA y persistencia."""
+    monkeypatch.setattr("app.services.facturacion_service.date", _FechaContencionFija)
     punto = PuntoVenta(
         numero=7,
         nombre="Web Services sintético",

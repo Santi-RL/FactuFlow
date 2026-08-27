@@ -7,7 +7,10 @@ Este directorio agrupa la documentación del proyecto.
 - Changelog y corte versionado actual: `CHANGELOG.md`
 - Última release publicada:
   [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
-- Versión productiva vigente (`v0.2.2`), publicada y desplegada el 23/07/2026:
+- Estado desplegado:
+  el estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+  `vps-admin`; no se infiere desde este repositorio.
+- Dossier histórico de `v0.2.2`:
   `docs/project/releases/v0.2.2-candidate.md`
 - Snapshot histórico de preparación de `v0.3.0` (11/08/2026, previo al tag):
   `docs/project/releases/v0.3.0-candidate.md`
