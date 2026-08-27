@@ -613,7 +613,9 @@ async def test_cas_arca_rechaza_guarda_huerfana_de_la_misma_operacion(
     )
 
     with pytest.raises(ElegibilidadReceError, match="guardas RECE sin intentos"):
-        await ElegibilidadReceService(db_session).marcar_arca_iniciada(
+        await ElegibilidadReceService(
+            db_session, hoy=date(2026, 8, 8)
+        ).marcar_arca_iniciada(
             guarda=guarda,
             contexto=contexto,
             tipo_comprobante=6,
@@ -679,7 +681,9 @@ async def test_cas_arca_rechaza_owner_lote_adulterado_antes_de_fecae(
     )
 
     with pytest.raises(ElegibilidadReceError, match="operación propietaria"):
-        await ElegibilidadReceService(db_session).marcar_arca_iniciada(
+        await ElegibilidadReceService(
+            db_session, hoy=date(2026, 8, 8)
+        ).marcar_arca_iniciada(
             guarda=guarda,
             contexto=contexto,
             tipo_comprobante=6,

@@ -959,6 +959,7 @@ async def test_batch_revierte_aprobado_si_falla_cerrar_rechazado_post_arca(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un fallo post-ARCA vuelve incierto todo el sublote, sin éxito fantasma."""
+    _fijar_reloj_facturacion(monkeypatch)
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -1139,6 +1140,7 @@ async def test_dos_sublotes_recuperan_segunda_guarda_pre_arca_sin_segundo_fecae(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un FECAE previo no impide cerrar la guarda actual que nunca cruzó el CAS."""
+    _fijar_reloj_facturacion(monkeypatch)
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -1370,6 +1372,7 @@ async def test_fecae_observa_guarda_e_intentos_commiteados_en_otra_conexion(
     batch: bool,
 ) -> None:
     """FECAE solo comienza cuando otra conexión ya ve toda la frontera durable."""
+    _fijar_reloj_facturacion(monkeypatch)
     db_path = tmp_path / f"rece-observable-{int(batch)}.sqlite3"
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path.as_posix()}")
     event.listen(engine.sync_engine, "connect", _habilitar_foreign_keys_sqlite)
@@ -1615,6 +1618,7 @@ async def test_emitir_rehidrata_grafo_rece_despues_de_rollback(
     punto_fallo: str,
 ) -> None:
     """CAS y persistencia post-CAE recargan intento y guarda tras rollback."""
+    _fijar_reloj_facturacion(monkeypatch)
     llamadas_fecae = 0
 
     class FakeWSFEClient:
@@ -4145,6 +4149,7 @@ async def test_rechazo_global_10005_cierra_grafo_y_replay_sin_arca(
     batch: bool,
 ) -> None:
     """Individual y batch persisten el 10005 sanitario como terminal durable."""
+    _fijar_reloj_facturacion(monkeypatch)
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -4322,6 +4327,7 @@ async def test_codigo_10005_string_permanece_incierto_sin_json_terminal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un código SOAP coaccionable nunca se reatestigua como rechazo terminal."""
+    _fijar_reloj_facturacion(monkeypatch)
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
@@ -4422,6 +4428,7 @@ async def test_error_global_mixto_preserva_enteros_sanitarios_en_orden(
     monkeypatch,
 ):
     """Una mezcla no terminal conserva códigos enteros, nunca mensajes crudos."""
+    _fijar_reloj_facturacion(monkeypatch)
     punto_venta = PuntoVenta(
         numero=1,
         nombre="Principal",
