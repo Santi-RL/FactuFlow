@@ -1,10 +1,14 @@
 # Estado actual
 
-Última actualización: 12/08/2026
+Última actualización: 27/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
 lecciones de herramientas viven en `docs/project/**`.
+
+El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+`vps-admin`. Este documento no fija la versión, el SHA ni la salud actual de una
+instalación.
 
 ## Puerta documental reforzada
 
@@ -35,7 +39,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## PF-19 publicado en `v0.3.0`; producción continúa en `v0.2.2`
+## PF-19 publicado en `v0.3.0`
 
 Los diagnósticos privados del 07/08/2026 sobre `v0.2.2` no muestran un P0 ni
 comprobantes autorizados incorrectamente, pero sí un P1 fiscal nuevo. Un punto
@@ -84,9 +88,9 @@ Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. Al congelar el snapshot de `v0.3.0`,
 PF-19B y PF-19C todavía no pertenecían a una release ni estaban desplegados. El
-tag y la GitHub Release `v0.3.0` se publicaron el 11/08/2026; producción continúa
-en `v0.2.2`. Hasta autorizar y completar el despliegue no deben reintentarse
-lotes afectados ni sanearse registros legacy de forma manual.
+tag y la GitHub Release `v0.3.0` se publicaron el 11/08/2026. La situación de cada
+instalación debe comprobarse en `VPS Hostinger` / `vps-admin`; antes de cualquier
+reintento se debe reconciliar el estado incierto y seguir el flujo seguro vigente.
 
 ## PF-03A — contrato superior estricto de emisión
 
@@ -329,14 +333,14 @@ posterior avanzó `main` hasta `4b4c210`, punto sincronizado con `origin/main`
 antes de iniciar PF-01A.1. Esos cambios no formaron una release independiente;
 quedaron incluidos en el corte productivo `v0.2.2`.
 
-## Estado actual de release y producción — 12/08/2026
+## Release publicada y estado desplegado
 
 - Release publicada más reciente: `v0.3.0`, marcada como `Latest` en GitHub.
 - Tag inmutable `v0.3.0`:
   `39797d1ff9c698465255cf4f821240171c235cab`.
-- Versión productiva vigente: `v0.2.2`.
-- El despliegue de `v0.3.0` no fue autorizado ni ejecutado. Requiere backup
-  final, preflight inmediato, migración única y QA post-deploy por separado.
+- El estado desplegado no se fija en el repositorio. Consultar el plano de
+  control `VPS Hostinger` / `vps-admin` antes de decidir o repetir cualquier
+  operación productiva.
 
 ## Snapshot histórico de cierre de v0.3.0 — 11/08/2026
 
@@ -403,16 +407,15 @@ con:
   varios emisores y permitirá conceder el checkbox `Puede crear y editar
   emisores`; crear autoasignará el nuevo emisor y editar exigirá además acceso
   vigente, mientras borrado y administración global seguirán reservados;
-- worker embebido para lotes, con `BATCH_WORKER_ENABLED=true` y un único proceso
-  Uvicorn en la instalación productiva actual;
+- worker embebido para lotes; la topología de cada instalación se consulta en su
+  plano de control;
 - PDFs bajo demanda y gestor administrativo de almacenamiento.
 
 En el estado actual de `main`, PF-19B agrega ledger y cabeza durable de elegibilidad RECE,
 atestación administrativa de constancia productiva fresca, sincronización
 técnica server-side sin promoción, badges/estados visibles y compuertas comunes
-en individual, lotes, worker, reintentos y stale. Esta capacidad todavía no
-está disponible en producción, aunque ya pertenece a la release publicada
-`v0.3.0`.
+en individual, lotes, worker, reintentos y stale. Su disponibilidad en una
+instalación concreta se verifica en `VPS Hostinger` / `vps-admin`.
 
 Las reglas no negociables siguen en `VISION.md` y `AGENTS.md`. En particular:
 la fecha fiscal nunca se completa con la fecha actual, ninguna ruta puede pedir
@@ -598,8 +601,8 @@ Siguen pendientes:
 2. Leer `VISION.md`, este documento y las prioridades de `ROADMAP.md`.
 3. Revisar `git status --short --branch` y comparar con `origin/main` antes de
    editar.
-4. No repetir el despliegue, la configuración de certificados productivos ni
-   los cuatro cortes UX de carga masiva: están cerrados.
+4. Consultar `VPS Hostinger` / `vps-admin` antes de decidir o repetir una
+   operación productiva; este documento no acredita el estado desplegado.
 5. La adjudicación de los 36 `high` está completada. No repetirla ni usar
    `clawpatch fix`; consultar el portafolio y el reporte local si hace falta
    rastrear una decisión.
@@ -624,9 +627,9 @@ Siguen pendientes:
     cerró diseño, contención e inventario; PF-19B cerró sus cortes B.1+B.2+B.3
     y PF-19C queda integrado en `main` con implementación, evidencia y ensayo
     privado completos. `v0.3.0` está publicada desde el tag exacto
-    `39797d1ff9c698465255cf4f821240171c235cab`. Autorizar y ejecutar por separado
-    el despliegue controlado; recién entonces PF-03B. No reabrir PF-02 ni mezclar
-    elegibilidad RECE o errores
+    `39797d1ff9c698465255cf4f821240171c235cab`. Verificar en el plano de control
+    si existe una operación productiva pendiente antes de decidir el siguiente
+    paso. No reabrir PF-02 ni mezclar elegibilidad RECE o errores
     globales con ítems/importes. Después siguen
     PF-06/PF-07, PF-08 y PF-09 según el portafolio integrado.
     Al llegar a ese bloque, ejecutar primero la unidad integrada de permisos

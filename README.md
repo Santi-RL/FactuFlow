@@ -2,67 +2,15 @@
 
 Sistema de facturación electrónica ARCA enfocado en usuarios administrativos no técnicos, con emisión individual y emisión masiva por lote.
 
-## Estado actual de release y producción
-
-La GitHub Release [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
-se publicó el 11/08/2026 desde el tag inmutable `v0.3.0`, que apunta a
-`39797d1ff9c698465255cf4f821240171c235cab`. Publicarla no modificó la
-instalación productiva.
+## Release publicada y estado desplegado
 
 Versión publicada más reciente: `v0.3.0`
 
-Versión productiva vigente: `v0.2.2`
+El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
+de `docs/project/releases/`.
 
-Versión aceptada en `main`: `v0.3.0`.
-
-En este momento el proyecto está en una etapa post-piloto productivo: el MVP ya
-fue validado en homologación y también se usó en producción real controlada. El
-trabajo actual se concentra en robustecer operación, recuperación,
-observabilidad y mantenimiento sin perder las reglas fiscales críticas.
-
-La release `v0.2.2` del 2026-07-23 cierra PF-01 con pools/worker endurecidos y
-una migración fiscal nueva. El backup recuperable, la restauración aislada, el
-preflight y los smoke checks candidatos quedaron aprobados antes del tag.
-El despliegue productivo de `v0.2.2` se completó el mismo día desde el tag
-inmutable, con backup final validado, preflight fiscal en cero, migración única,
-constraints y smoke checks aprobados. No se solicitaron CAE ni se realizaron
-emisiones durante la actualización. El detalle se conserva en `CHANGELOG.md` y
-`docs/project/releases/v0.2.2-candidate.md`.
-
-Después de ese tag, `main` incorporó PF-02A y los tres cortes de PF-02B: la
-emisión individual, el procesamiento batch normal, los reintentos manuales y la
-recuperación stale pueden convivir con historia externa legítima usando la
-numeración global de ARCA. Los intentos propios activos o inciertos conservan
-prioridad y el procesamiento normal mantiene la reserva durable y el segundo
-preflight antes de FECAE. Los reintentos nunca degradan una autorización
-conocida a un estado reintentable; la recuperación stale no asigna números ni
-solicita CAE. Al cerrar este snapshot, esos cambios todavía no pertenecían a
-una release publicada ni estaban desplegados en producción.
-
-`main` también incorporó PF-03A, PF-19A y la unidad completa PF-19B. El contrato
-superior de emisión rechaza claves desconocidas; la contención PF-19A bloquea
-tuplas explícitas antes de FECAE; y PF-19B reemplaza Web Services genérico por
-elegibilidad RECE durable, versionada y fail-closed. Solo un administrador en
-un servidor productivo puede acreditar un punto mediante una constancia fresca,
-señal exacta y confirmación expresa. La sincronización WSFE server-side actualiza
-el estado técnico, pero nunca promueve RECE; homologación permanece cerrada sin
-una fuente probatoria específica. La UI muestra estados, procedencia y vigencia,
-y los caminos individual, masivo, worker y reintentos comparten snapshots y
-guardas antes de `FECAESolicitar`. PF-19C, ya integrado en `main`,
-completa el rechazo global estructurado y el cierre legacy auditado. El
-`autoreview` final autorizado cerró limpio y la CI Nivel 2 del SHA funcional
-`e9c583a8174ea8edc6fe30845584033feab0394d` aprobó sus siete checks, incluido
-PostgreSQL real y Runtime Smoke. La aceptación PF-16G fue registrada el
-10/08/2026. El snapshot `7f7b3808` aprobó también el ensayo privado de backup,
-restauración aislada, upgrade y rollback. El merge funcional `2add308a` aprobó
-la CI completa en la ejecución
-[`31446404345`](https://github.com/Santi-RL/FactuFlow/actions/runs/31446404345),
-y el cierre documental `147693f2` aprobó su recorrido Nivel 0 en
-[`31458109268`](https://github.com/Santi-RL/FactuFlow/actions/runs/31458109268).
-La preparación final `6fb2878` aprobó su recorrido Nivel 0 en
-[`31462387733`](https://github.com/Santi-RL/FactuFlow/actions/runs/31462387733).
-Al cerrar este contenido, el tramo posterior a `v0.2.2` aún no estaba publicado
-ni desplegado; tag, publicación y despliegue se registran por separado.
+El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+`vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
 
 Capacidades actuales:
 

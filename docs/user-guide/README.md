@@ -1,13 +1,13 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 12/08/2026
+Última actualización: 27/08/2026
 
-Versión productiva cubierta por este manual: `v0.2.2`.
+Este manual describe las capacidades aceptadas del producto, no el estado de una
+instalación concreta.
 
-La release publicada más reciente es `v0.3.0`; la instalación productiva
-continúa en `v0.2.2`, validada el 23/07/2026. PF-02A/B, PF-03A y PF-19A/B/C
-pertenecen a `v0.3.0`, pero no debe asumirse que una función está operativa en
-una instalación concreta sin verificar el tag efectivamente desplegado.
+El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+`vps-admin`. No debe asumirse que una capacidad está operativa en una instalación
+concreta a partir de este manual.
 
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.

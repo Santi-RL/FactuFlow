@@ -7,6 +7,9 @@ import {
   validateDocumentation,
 } from "./documentation-alignment.mjs";
 
+const DEPLOYMENT_AUTHORITY =
+  "El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` / `vps-admin`.";
+
 function alignedFiles(overrides = {}) {
   return new Map(
     Object.entries({
@@ -15,20 +18,23 @@ function alignedFiles(overrides = {}) {
         "",
         "Versión publicada más reciente: `v0.3.0`",
         "",
-        "Versión productiva vigente: `v0.2.2`",
+        DEPLOYMENT_AUTHORITY,
       ].join("\n"),
       "CHANGELOG.md": "# Changelog\n\n## [Unreleased]\n",
+      "docs/README.md": `# Documentación\n\n${DEPLOYMENT_AUTHORITY}\n`,
+      "docs/agents/current-status.md":
+        `# Estado actual\n\n${DEPLOYMENT_AUTHORITY}\n`,
       "docs/agents/overview.md": [
         "# Resumen",
         "",
         "## Estado actual",
         "",
-        "- Release productiva vigente: `v0.2.2`.",
+        DEPLOYMENT_AUTHORITY,
       ].join("\n"),
       "docs/user-guide/README.md": [
         "# Manual de usuario",
         "",
-        "Este manual describe `v0.2.2`, actualmente desplegada.",
+        DEPLOYMENT_AUTHORITY,
         "",
         "## Contenido",
       ].join("\n"),
@@ -53,17 +59,17 @@ test("normaliza rutas y excluye documentación histórica", () => {
   );
 });
 
-test("acepta versiones alineadas y una release publicada aún no desplegada", () => {
+test("acepta una release publicada sin fijar una versión productiva", () => {
   assert.deepEqual(validateDocumentation(alignedFiles()), []);
 });
 
-test("permite mencionar otra release si el manual etiqueta la productiva correcta", () => {
+test("permite conservar referencias históricas sin volverlas estado desplegado", () => {
   const files = alignedFiles({
     "docs/user-guide/README.md": [
       "# Manual de usuario",
       "",
-      "Versión productiva cubierta por este manual: `v0.2.2`.",
-      "La versión publicada `v0.3.0` todavía no fue desplegada.",
+      DEPLOYMENT_AUTHORITY,
+      "La versión `v0.2.2` tuvo un despliegue histórico documentado.",
       "",
       "## Contenido",
     ].join("\n"),
@@ -72,33 +78,37 @@ test("permite mencionar otra release si el manual etiqueta la productiva correct
   assert.deepEqual(validateDocumentation(files), []);
 });
 
-test("detecta divergencias de la versión productiva en overview y manual", () => {
-  const files = alignedFiles({
-    "docs/agents/overview.md": "- Release productiva vigente: `v0.2.1`.",
-    "docs/user-guide/README.md": [
-      "# Manual",
-      "",
-      "Este manual describe `v0.2.1`, actualmente desplegada.",
-      "",
-      "## Contenido",
-    ].join("\n"),
-  });
+test("exige el puntero autoritativo en cada documento operativo", () => {
+  const paths = [
+    "README.md",
+    "docs/README.md",
+    "docs/agents/current-status.md",
+    "docs/agents/overview.md",
+    "docs/user-guide/README.md",
+  ];
 
-  const errors = validateDocumentation(files);
-  assert.equal(errors.length, 2);
-  assert.match(errors[0].message, /v0\.2\.1.*v0\.2\.2/u);
-  assert.match(errors[1].message, /v0\.2\.1.*v0\.2\.2/u);
+  for (const path of paths) {
+    const content = alignedFiles().get(path).replace(
+      DEPLOYMENT_AUTHORITY,
+      "Sin puntero operativo.",
+    );
+    const errors = validateDocumentation(alignedFiles({ [path]: content }));
+
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].path, path);
+    assert.match(errors[0].message, /VPS Hostinger.*vps-admin/u);
+  }
 });
 
-test("rechaza una versión productiva superior a la publicada", () => {
+test("sigue exigiendo la versión publicada", () => {
   const files = alignedFiles({
-    "README.md": [
-      "Versión publicada más reciente: `v0.2.1`",
-      "Versión productiva vigente: `v0.2.2`",
-    ].join("\n"),
+    "README.md": `# FactuFlow\n\n${DEPLOYMENT_AUTHORITY}\n`,
   });
 
-  assert.match(validateDocumentation(files)[0].message, /supera la publicada/u);
+  assert.match(
+    validateDocumentation(files)[0].message,
+    /Versión publicada más reciente/u,
+  );
 });
 
 test("exige la sección Unreleased del changelog", () => {
@@ -115,6 +125,7 @@ test("detecta ramas y estados transitorios solo en documentación viva", () => {
     "docs/agents/current-status.md": [
       "## Implementación local en curso — PF-02B",
       "Rama `codex/pf-02b-numeracion-masiva`.",
+      DEPLOYMENT_AUTHORITY,
     ].join("\n"),
     "docs/agents/design.md":
       "Estado: primer corte implementado y validado localmente.",

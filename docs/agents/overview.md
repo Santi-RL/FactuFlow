@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 12/08/2026
+Última actualización: 27/08/2026
 
 ## Qué es FactuFlow
 
@@ -8,13 +8,12 @@ FactuFlow es un sistema de facturación electrónica ARCA para Argentina orienta
 a personal administrativo no técnico. El foco es emitir, revisar y sostener
 facturación individual y masiva con seguridad fiscal.
 
-## Estado actual de release y producción
+## Estado del código, las releases y el despliegue
 
 - Release publicada más reciente: `v0.3.0`, desde el tag inmutable que apunta a
   `39797d1ff9c698465255cf4f821240171c235cab`.
-- Versión productiva vigente: `v0.2.2`, validada en producción el 23/07/2026.
-- Publicar `v0.3.0` no modificó producción; el despliegue requiere autorización
-  y cierre operativo separados.
+- El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+  `vps-admin`. No se infiere desde este resumen, `main`, una release ni un tag.
 - Backend FastAPI y frontend Vue operativos.
 - PostgreSQL es la base productiva; Alembic es el camino canónico de schema.
 - Emisión individual y masiva con WSAA/WSFE ya utilizada en producción.
@@ -23,7 +22,6 @@ facturación individual y masiva con seguridad fiscal.
 - Varios emisores con uno activo explícito por vez.
 - Administradores con acceso operativo a todos los emisores; usuarios comunes
   limitados al emisor asignado.
-- VPS con Docker producción y HTTPS operativo.
 - La evidencia productiva concreta permanece fuera del repositorio público.
 - `main` incluye PF-02A, los tres cortes de PF-02B, PF-03A, PF-19A, PF-19B y
   PF-19C.
