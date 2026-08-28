@@ -825,6 +825,11 @@ Objetivo: que el proyecto soporte evolución sin deuda estructural peligrosa.
   documentando la versión recomendada para desarrollo local. El corte actualizó
   de forma compatible Vite, Vitest, ESLint y `vue-tsc`, y dejó auditorías npm de
   producción y desarrollo sin vulnerabilidades; no se usó `npm audit fix --force`.
+- [ ] Antes del siguiente release, alinear `frontend/Dockerfile` con Node.js
+  `24.15.0` y npm `11.12.1`, fijados en `frontend/package.json`, para eliminar la
+  advertencia `EBADENGINE` observada durante el build productivo de `v0.3.0`.
+  Validar dentro de la imagen resultante `npm ci`, `type-check`, `lint:check`,
+  `build` y `test:unit`.
 - [x] Reparaciones Clawpatch 2026-05-16/17 cerradas con
   backend/frontend/repo en `openFindings=0`
 - [x] Auditoría Clawpatch 2026-07-05 cerrada nuevamente con repo completo,
