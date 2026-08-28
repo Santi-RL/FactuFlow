@@ -111,6 +111,7 @@ async def _crear_contexto_rece_contenido(
     """Crea una cabeza RECE moderna para alcanzar el gate PF-19 probado."""
     ahora = datetime(2026, 8, 9, 12, 0, 0)
     punto.revision_fiscal = 1
+    punto.ultima_comprobacion_arca_en = ahora
     revision = PuntoVentaElegibilidadReceRevision(
         empresa_id=empresa.id,
         punto_venta_id=punto.id,

@@ -19,6 +19,7 @@ REVISION_ANTERIOR_INTEGRIDAD_FISCAL = "f7a8b9c0d1e2"
 REVISION_INTEGRIDAD_FISCAL = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
+REVISION_PDV_DURABLE = "d1e2f3a4b5c6"
 COLUMNAS_FORMATOS_LOTE = {
     "mapeo_usado_json",
     "headers_detectados_json",
@@ -917,6 +918,71 @@ def test_sqlite_pf19c_upgrade_downgrade_reupgrade_y_journal_append_only(
             conn.execute("DELETE FROM resoluciones_legacy_pf19_journal")
     output = _run_alembic_failure("downgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
     assert "no eliminar journal administrativo" in output
+
+
+def test_sqlite_pdv_durable_preserva_acreditacion_y_downgrade_rellena_vigencia(
+    tmp_path: Path,
+) -> None:
+    """El upgrade conserva positivos vencidos y el rollback restaura siete días."""
+    db_path = tmp_path / "pdv-durable.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    backup_env = _backup_env_pf19(db_path, tmp_path / "pdv-durable-pf19b.db")
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+    _run_alembic("upgrade", REVISION_PF19C_LEGACY, database_url)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE puntos_venta_elegibilidad_rece_revisiones SET "
+            "estado = 'verificado_rece', fuente = 'constancia_arca_atestada', "
+            "evidencia_tipo = 'rece_aplicativo_web_services_v1', "
+            "evidencia_sha256 = ?, clasificador_version = ?, "
+            "empresa_cuit_snapshot = ?, punto_venta_numero_snapshot = 41, "
+            "documento_emitido_en = '2026-08-01', "
+            "vigente_hasta = '2026-08-08', observado_en = ?, verificado_en = ?, "
+            "actor_usuario_id_snapshot = 1 "
+            "WHERE ambiente = 'produccion' AND punto_venta_id = 1",
+            (
+                "a" * 64,
+                "rece-v1-test",
+                "20000000001",
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+            ),
+        )
+
+    _run_alembic("upgrade", REVISION_PDV_DURABLE, database_url)
+
+    assert _alembic_version(db_path) == REVISION_PDV_DURABLE
+    assert "ultima_comprobacion_arca_en" in _table_columns(db_path, "puntos_venta")
+    with sqlite3.connect(db_path) as conn:
+        estado = conn.execute(
+            "SELECT estado, vigente_hasta FROM "
+            "puntos_venta_elegibilidad_rece_revisiones "
+            "WHERE ambiente = 'produccion' AND punto_venta_id = 1"
+        ).fetchone()
+        assert estado == ("verificado_rece", "2026-08-08")
+        conn.execute(
+            "UPDATE puntos_venta_elegibilidad_rece_revisiones "
+            "SET vigente_hasta = NULL "
+            "WHERE ambiente = 'produccion' AND punto_venta_id = 1"
+        )
+
+    _run_alembic("downgrade", REVISION_PF19C_LEGACY, database_url)
+
+    assert "ultima_comprobacion_arca_en" not in _table_columns(db_path, "puntos_venta")
+    with sqlite3.connect(db_path) as conn:
+        vigente_hasta = conn.execute(
+            "SELECT vigente_hasta FROM "
+            "puntos_venta_elegibilidad_rece_revisiones "
+            "WHERE ambiente = 'produccion' AND punto_venta_id = 1"
+        ).fetchone()
+    assert vigente_hasta == ("2026-08-08",)
 
 
 def test_sqlite_pf19c_downgrade_bloquea_evidencia_arca_estructurada(

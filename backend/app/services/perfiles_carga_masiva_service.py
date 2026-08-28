@@ -13,10 +13,7 @@ from app.core.config import settings
 from app.core.date_parsing import parse_fecha_input
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
-from app.services.elegibilidad_rece_service import (
-    ElegibilidadReceError,
-    ElegibilidadReceService,
-)
+from app.services.elegibilidad_rece_service import ElegibilidadReceService
 from app.services.formatos_importacion_service import FormatosImportacionService
 
 
@@ -335,10 +332,6 @@ class PerfilesCargaMasivaService:
             select(PuntoVenta).where(
                 PuntoVenta.empresa_id == empresa_id,
                 PuntoVenta.numero == numero,
-                PuntoVenta.activo.is_(True),
-                PuntoVenta.es_webservice.is_(True),
-                PuntoVenta.bloqueado.is_(False),
-                PuntoVenta.fecha_baja.is_(None),
             )
         )
         punto_venta = result.scalar_one_or_none()
@@ -347,14 +340,22 @@ class PerfilesCargaMasivaService:
                 "El punto de venta elegido no está habilitado para usar en FactuFlow. "
                 "Primero completá Puntos de venta para este emisor."
             )
-        try:
-            await ElegibilidadReceService(self.db).exigir_contexto_actual(
-                empresa_id=empresa_id,
-                punto_venta_id=int(punto_venta.id),
-                ambiente=settings.arca_env,
-            )
-        except ElegibilidadReceError as exc:
+        estado_rece = await ElegibilidadReceService(self.db).obtener_estado_visible(
+            punto_venta,
+            ambiente=settings.arca_env,
+        )
+        acreditado = estado_rece.estado_efectivo == "verificado_rece"
+        tecnico_habilitado = bool(
+            punto_venta.activo
+            and punto_venta.es_webservice
+            and not punto_venta.bloqueado
+            and not punto_venta.fecha_baja
+        )
+        puede_intentar = acreditado and (
+            tecnico_habilitado or punto_venta.ultima_comprobacion_arca_en is None
+        )
+        if not puede_intentar:
             raise PerfilCargaMasivaError(
-                "El punto de venta elegido no tiene una acreditación RECE vigente. "
-                "Actualizá la constancia de puntos de venta para este emisor."
-            ) from exc
+                "El punto de venta elegido no está acreditado o tiene una señal "
+                "negativa confirmada por ARCA. Revisalo en Puntos de venta."
+            )

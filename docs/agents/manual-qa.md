@@ -440,20 +440,23 @@ contenido fiscal sensible.
 
 1. Importar constancias PDF sintéticas completas, parciales, antiguas, futuras,
    ambiguas, con CUIT distinto y con señales exactas, genéricas o fuera de
-   allowlist. Solo administrador + servidor productivo + confirmación expresa +
-   documento de hasta siete días + una modalidad Web Services exacta admitida
+   allowlist. Solo administrador + servidor productivo + documento no futuro +
+   una modalidad Web Services exacta admitida
    para Responsable Inscripto, Exento en IVA o Monotributo puede crear
-   `verificado_rece`. Cubrir los encabezados sintéticos `PUNTO VENTA` y `P.VTA.`,
-   `ACTIVIDAD` opcional y repetición de encabezado en varias páginas. El PDF no
-   se persiste y homologación queda cerrada.
-2. Sincronizar WSFE desde el endpoint server-side. Debe crear, actualizar o
-   desactivar técnicamente en una transacción, sin promover RECE. Ediciones,
-   bajas, puntos ausentes y evidencia más nueva deben incrementar revisiones o
-   invalidar; una constancia anterior no puede reemplazar la autoridad vigente.
-3. Verificar DTO y UI: badges `Verificado RECE`, `No RECE` y `No verificado`,
-   estado efectivo vencido, causa, vigencia, procedencia y revisión. Selectores
-   individual/lote/perfil consumen `usable_factuflow` del servidor y no el texto
-   `Sistema`.
+   `verificado_rece`. Cubrir documentos de más de 7, 90 y 365 días aceptados, y
+   una fecha futura rechazada; incluir `PUNTO VENTA`, `P.VTA.`, `ACTIVIDAD` y
+   encabezados repetidos. La UI procesa una sola selección sin modal y el PDF
+   no se persiste. Homologación queda cerrada.
+2. Comprobar WSFE desde el endpoint server-side. Debe crear, actualizar o
+   desactivar técnicamente en una transacción, sin promover RECE y conservando
+   una acreditación positiva previa. Una primera importación sin ARCA queda
+   pendiente; una comprobación posterior la habilita sin otro PDF. Respuesta
+   vacía, inconsistente o fallida no modifica estados.
+3. Verificar DTO y UI: `Listo para emitir`, `Comprobación recomendada`,
+   `Pendiente de comprobar con ARCA` y `Requiere atención`, con causa,
+   procedencia, revisión y antigüedad técnica. Los selectores consumen
+   `puede_intentar_emision`: muestran acreditados pendientes con “se comprobará
+   al emitir” y deshabilitan señales negativas.
 4. Cambiar punto, ambiente o revisión después de validar/confirmar. El flujo
    individual, proceso batch, worker, fallback, reintento y recuperación stale
    deben abortar una continuación obsoleta antes de FECAE. Un replay terminal
@@ -463,25 +466,29 @@ contenido fiscal sensible.
    nuevos, y cero FECAE. WSAA o lecturas seguras como `FECompTotXRequest` y
    `FECompUltimoAutorizado` pueden haberse ejecutado: no exigir “cero contacto
    ARCA” en este caso.
-6. Ejecutar upgrade/downgrade SQLite solo con backup físico distinto y
+6. Forzar punto pendiente, exactamente 90 días y fresco. El fresco no consulta;
+   los otros consultan una sola vez por emisor. Si ARCA no responde, exigir
+   `503`, cero operaciones, intentos, reservas y `FECAESolicitar`; un replay
+   terminal mantiene su respuesta durable sin reevaluación.
+7. Ejecutar upgrade/downgrade SQLite solo con backup físico distinto y
    verificado; ante falla posterior a DDL, restaurarlo antes de reintentar. La
    matriz PostgreSQL se ejecuta en CI con el harness destructivo exacto; un skip
    local sin URL no acredita PostgreSQL.
-7. Con un emisor sintético sin dependencias y una constancia que crearía su
+8. Con un emisor sintético sin dependencias y una constancia que crearía su
    primer punto, intercalar cambio de CUIT y atestación en ambos órdenes. Si gana
    el update, debe quedar el CUIT nuevo y cero punto/evidencia de la constancia
    anterior. Si gana la atestación, deben quedar el CUIT original y su revisión
    positiva, mientras el update responde `409`. Nunca debe existir evidencia
    positiva asociada a otra identidad fiscal.
-8. Sobre un punto sintético, intercalar la atestación con `activo=false` y con
+9. Sobre un punto sintético, intercalar la atestación con `activo=false` y con
    `es_admin=false`, en ambos órdenes. Si gana la degradación, no debe crearse
    evidencia positiva; si gana la atestación, la revisión se confirma bajo la
    autoridad todavía válida y el cambio del actor continúa después. Estos casos
    requieren PostgreSQL real en CI; un collect/skip local no los acredita.
-9. Después de atestiguar, simular una divergencia legacy del CUIT y exigir el
+10. Después de atestiguar, simular una divergencia legacy del CUIT y exigir el
    contexto RECE. Debe fallar cerrado por `empresa_cuit_snapshot` obsoleto antes
    de `FECAESolicitar`; no reparar el ledger ni promover automáticamente.
-10. Demorar por separado formatos, perfiles y puntos de Lotes para el emisor A,
+11. Demorar por separado formatos, perfiles y puntos de Lotes para el emisor A,
     y cambiar a B o C entre esperas. Antes del primer `await` del watcher deben
     quedar vacías las tres colecciones; cada respuesta/error tardío se descarta y
     la cadena obsoleta no inicia el loader siguiente. Repetir en EmpresaConfig
@@ -490,8 +497,8 @@ contenido fiscal sensible.
     loading vigente. No exigir cancelación HTTP: alcanza con limpiar, revalidar
     después de cada espera y descartar el resultado.
 
-QA manual posterior a una release candidate: navegar los badges y el modal de
-importación con PDFs sintéticos; probar homologación únicamente mediante
+QA manual posterior a una release candidate: navegar los estados y la carga
+directa sin modal con PDFs sintéticos; probar homologación únicamente mediante
 conexión y lecturas seguras, sin solicitar CAE. Una constancia productiva real,
 sus identificadores y sus resultados pertenecen exclusivamente a evidencia
 operativa privada y requieren autorización separada.

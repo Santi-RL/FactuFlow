@@ -75,6 +75,7 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceError,
     ElegibilidadReceService,
 )
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
 from app.services.perfiles_carga_masiva_service import (
     PerfilCargaMasivaError,
     PerfilesCargaMasivaService,
@@ -292,6 +293,16 @@ async def _resolver_operacion_lote(
         )
         if existente is not None:
             return idempotencia, existente, False, None
+        puntos_ids = {
+            int(grupo["punto_venta_id"])
+            for grupo in list(material_rece.get("grupos") or [])
+            if grupo.get("punto_venta_id") is not None
+        }
+        await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
+            empresa_id=empresa_id,
+            puntos_venta_ids=puntos_ids,
+            actor_usuario_id=usuario_id,
+        )
         async with _contextos_rece_lote_bloqueados(
             db=db,
             lote_id=lote_id,
@@ -336,7 +347,7 @@ async def _resolver_operacion_lote(
 def _error_elegibilidad_lote(exc: ElegibilidadReceError) -> HTTPException:
     """Devuelve un conflicto fail-closed sin filtrar evidencia fiscal."""
     return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
+        status_code=exc.status_code,
         detail={
             "mensaje": exc.mensaje,
             "errores": ["No se solicitó CAE ni se consultó capacidad batch a ARCA."],
@@ -354,14 +365,27 @@ async def _resolver_contextos_rece_lote(
     operacion: OperacionIdempotente | None = None,
 ) -> list[ContextoElegibilidadRece]:
     """Resuelve contextos bajo locks durante toda la validación."""
-    async with _contextos_rece_lote_bloqueados(
-        db=db,
-        lote_id=lote_id,
-        empresa_id=empresa_id,
-        material_rece=material_rece,
-        operacion=operacion,
-    ) as contextos:
-        return contextos
+    try:
+        puntos_ids = {
+            int(grupo["punto_venta_id"])
+            for grupo in list(material_rece.get("grupos") or [])
+            if grupo.get("punto_venta_id") is not None
+        }
+        await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
+            empresa_id=empresa_id,
+            puntos_venta_ids=puntos_ids,
+            actor_usuario_id=None,
+        )
+        async with _contextos_rece_lote_bloqueados(
+            db=db,
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            material_rece=material_rece,
+            operacion=operacion,
+        ) as contextos:
+            return contextos
+    except ElegibilidadReceError as exc:
+        raise _error_elegibilidad_lote(exc) from exc
 
 
 @asynccontextmanager

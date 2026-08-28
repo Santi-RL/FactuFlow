@@ -691,7 +691,7 @@ solo si el usuario lo confirma y ARCA la admite para la fecha en que se solicita
 el CAE.
 
 Si el archivo observado informa que un punto no está habilitado, primero
-contrastá `Puntos de venta > Sincronizar con ARCA` para el emisor activo. Esa
+contrastá `Puntos de venta > Comprobar con ARCA` para el emisor activo. Esa
 acción solo actualiza señales técnicas. Si el badge sigue en `No verificado` o
 `No RECE`, un administrador debe aportar la evidencia admitida; cambiar el
 texto `Sistema` no habilita la emisión.
@@ -804,39 +804,39 @@ de cada punto del emisor activo.
 
 Importante:
 - el número debe coincidir con el punto habilitado en ARCA para el sistema usado
-- puedes usar `Sincronizar con ARCA` para contrastar lo local con el servicio;
+- puedes usar `Comprobar con ARCA` para contrastar lo local con el servicio;
   el backend aplica todos los cambios en una operación, pero esta consulta nunca
   acredita RECE
-- cada fila muestra uno de los badges `Verificado RECE`, `No RECE` o
-  `No verificado`, junto con causa, vigencia, procedencia, ambiente y revisión
-  fiscal. El badge usa el estado efectivo: una evidencia vencida aparece
-  bloqueada aunque el ledger conserve el estado histórico
+- cada fila resume el estado como `Listo para emitir`, `Comprobación
+  recomendada`, `Pendiente de comprobar con ARCA` o `Requiere atención`, junto
+  con causa, procedencia, ambiente, revisión fiscal y antigüedad de la última
+  comprobación
 - si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs y
   cierra cualquier editor pendiente del emisor anterior
-- puedes usar `Importar constancia` como administrador para cargar el PDF de
-  ARCA. Elegí `Importar sin acreditar RECE` si solo querés actualizar datos
-  técnicos, o `Importar y acreditar RECE` y marcá la confirmación expresa únicamente
-  cuando obtuviste esa constancia desde la gestión productiva del emisor activo
+- puedes usar `Importar constancia` como administrador para seleccionar el PDF
+  de ARCA. FactuFlow lo procesa inmediatamente por el único camino seguro, sin
+  opciones ni pantalla de confirmación intermedia
 - para acreditar, el servidor exige constancia completa, CUIT exacto, fecha
-  única no futura de hasta siete días y una modalidad Web Services exacta
+  única no futura —sin límite de antigüedad— y una modalidad Web Services exacta
   admitida para Responsable Inscripto, Exento en IVA o Monotributo. El parser
   acepta el encabezado histórico `PUNTO VENTA` y el actual `P.VTA.`, incluida
   la columna `ACTIVIDAD`. El PDF no se conserva. Una etiqueta genérica queda
   `No verificado`; homologación no se promueve con esta evidencia
-- si `Importar constancia` no puede consultar el estado técnico en ARCA,
-  conserva el estado local de los puntos existentes y deja inactivos los puntos
-  nuevos hasta sincronizar con ARCA o revisarlos manualmente
-- FactuFlow marca como usable solo un punto técnicamente válido y con estado
-  efectivo `Verificado RECE`; los demás quedan visibles, pero no aparecen en los
-  selectores de comprobantes, lotes ni perfiles fijos
+- si `Importar constancia` no puede consultar el estado técnico en ARCA, guarda
+  igualmente la acreditación y deja el punto `Pendiente de comprobar con ARCA`;
+  no hace falta volver a cargar el PDF
+- FactuFlow mantiene los puntos acreditados pendientes en los selectores con
+  “se comprobará al emitir”. Un bloqueo, baja o ausencia confirmados sí los
+  deshabilitan
 - los datos importados se pueden editar manualmente desde `Editar`
 
-La atestación vence operativamente a los siete días. Antes del vencimiento, un
-administrador debe obtener e importar una constancia productiva reciente. Esta
-ventana es una política conservadora de FactuFlow, no una vigencia fiscal
-declarada por ARCA. La instalación productiva `v0.2.2` todavía no incluye este
-flujo. PF-19C pertenece a la release publicada `v0.3.0` y
+La acreditación inicial no vence. Después de 90 días, FactuFlow recomienda
+`Comprobar con ARCA`, pero la acción es opcional: si intentas emitir con un
+estado pendiente o desactualizado, el servidor comprueba automáticamente. Si
+ARCA no responde, devuelve un error temporal y no inicia la emisión. La
+instalación productiva `v0.2.2` todavía no incluye este flujo. PF-19C pertenece
+a la release publicada `v0.3.0` y
 trata como terminal solo un `10005` global estrictamente corroborado; detiene
 los grupos no enviados y deja cualquier respuesta incompleta o legacy en
 reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA

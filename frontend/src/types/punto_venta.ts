@@ -1,9 +1,7 @@
 export type AmbienteArca = "homologacion" | "produccion";
 
 export type EstadoElegibilidadRece =
-  | "verificado_rece"
-  | "no_rece"
-  | "no_verificado";
+  "verificado_rece" | "no_rece" | "no_verificado";
 
 export interface ElegibilidadRece {
   ambiente: AmbienteArca;
@@ -31,6 +29,9 @@ export interface PuntoVenta {
   fuente: string | null;
   activo: boolean;
   usable_factuflow: boolean;
+  puede_intentar_emision: boolean;
+  ultima_comprobacion_arca_en: string | null;
+  comprobacion_arca_desactualizada: boolean;
   revision_fiscal: number;
   elegibilidad_rece: ElegibilidadRece;
   empresa_id: number;
@@ -76,14 +77,11 @@ export interface ImportarPuntosVentaResponse {
   omitidos: number;
   desactivados_ausentes: number;
   verificados_rece: number;
+  pendientes_comprobacion: number;
   no_verificados_rece: number;
   documento_emitido_en: string | null;
   vigente_hasta: string | null;
   warnings: string[];
-}
-
-export interface ImportarConstanciaPuntosVentaOptions {
-  confirmar_procedencia_produccion: boolean;
 }
 
 export interface SincronizarPuntosVentaResponse {
@@ -92,4 +90,5 @@ export interface SincronizarPuntosVentaResponse {
   existentes: number;
   actualizados: number;
   desactivados_ausentes: number;
+  comprobado_en: string;
 }

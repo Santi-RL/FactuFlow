@@ -44,10 +44,10 @@ from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
 CATEGORIA_ELEGIBILIDAD_RECE = "elegibilidad_rece_no_verificada"
 MENSAJE_ELEGIBILIDAD_RECE = (
-    "El punto de venta no tiene una acreditación RECE vigente para este ambiente."
+    "El punto de venta no tiene una acreditación RECE válida para este ambiente."
 )
 DETALLE_ELEGIBILIDAD_RECE = (
-    "Actualizá la constancia de puntos de venta antes de volver a solicitar CAE."
+    "Importá una constancia válida o comprobá el estado del punto con ARCA."
 )
 _ZONA_ARGENTINA = timezone(
     timedelta(hours=-3),
@@ -78,10 +78,12 @@ class ElegibilidadReceError(Exception):
         mensaje: str = MENSAJE_ELEGIBILIDAD_RECE,
         *,
         categoria: str = CATEGORIA_ELEGIBILIDAD_RECE,
+        status_code: int = 409,
     ) -> None:
         """Inicializa un error público sin evidencia fiscal privada."""
         self.mensaje = mensaje
         self.categoria = categoria
+        self.status_code = status_code
         super().__init__(mensaje)
 
 
@@ -138,8 +140,11 @@ class ElegibilidadReceService:
 
     DIGEST_VERSION = 1
     CLASIFICADOR_VERSION = CLASIFICADOR_RECE_VERSION
-    VIGENCIA_CONSTANCIA_DIAS = 7
+    COMPROBACION_ARCA_DIAS = 90
     CAMPOS_DESCRIPTIVOS = frozenset({"nombre", "domicilio", "nombre_fantasia"})
+    CAMPOS_SIN_REVISION = CAMPOS_DESCRIPTIVOS | frozenset(
+        {"ultima_comprobacion_arca_en"}
+    )
     CAMPOS_ATESTACION_CONSTANCIA = frozenset(
         {
             "nombre",
@@ -151,6 +156,7 @@ class ElegibilidadReceService:
             "fecha_baja",
             "fuente",
             "activo",
+            "ultima_comprobacion_arca_en",
         }
     )
 
@@ -159,8 +165,9 @@ class ElegibilidadReceService:
         db: AsyncSession,
         *,
         hoy: date | Callable[[], date] | None = None,
+        ahora: datetime | Callable[[], datetime] | None = None,
     ) -> None:
-        """Inicializa el servicio con reloj argentino inyectable."""
+        """Inicializa el servicio con relojes fiscal y técnico inyectables."""
         self.db = db
         if hoy is None:
             self._obtener_hoy = lambda: datetime.now(_ZONA_ARGENTINA).date()
@@ -168,6 +175,20 @@ class ElegibilidadReceService:
             self._obtener_hoy = hoy
         else:
             self._obtener_hoy = lambda hoy_fijo=hoy: hoy_fijo
+        if ahora is None:
+            self._obtener_ahora = datetime.utcnow
+        elif callable(ahora):
+            self._obtener_ahora = ahora
+        else:
+            self._obtener_ahora = lambda ahora_fijo=ahora: ahora_fijo
+
+    def comprobacion_arca_desactualizada(self, punto_venta: PuntoVenta) -> bool:
+        """Indica si corresponde refrescar la señal técnica antes de emitir."""
+        comprobado_en = punto_venta.ultima_comprobacion_arca_en
+        if comprobado_en is None:
+            return True
+        limite = self._obtener_ahora() - timedelta(days=self.COMPROBACION_ARCA_DIAS)
+        return comprobado_en <= limite
 
     @asynccontextmanager
     async def bloqueo_local_punto(
@@ -297,7 +318,7 @@ class ElegibilidadReceService:
             if hasattr(punto_venta, field) and getattr(punto_venta, field) != value
         }
         revision_requerida = forzar_revision or bool(
-            set(cambios_reales) - self.CAMPOS_DESCRIPTIVOS
+            set(cambios_reales) - self.CAMPOS_SIN_REVISION
         )
         if not revision_requerida:
             for field, value in cambios_reales.items():
@@ -375,8 +396,6 @@ class ElegibilidadReceService:
                     categoria="conflicto_guarda_rece_activa",
                 )
 
-            bloqueado_anterior = bool(locked_point.bloqueado)
-            fecha_baja_anterior = locked_point.fecha_baja
             revision_nueva = revision_anterior + 1
             values = {**cambios_reales, "revision_fiscal": revision_nueva}
             result = await self.db.execute(
@@ -411,34 +430,69 @@ class ElegibilidadReceService:
                     "El punto de venta tiene un contexto RECE incompleto."
                 )
 
-            solo_bloqueo_transitorio = (
-                set(cambios_reales) == {"bloqueado"}
-                and not bloqueado_anterior
-                and cambios_reales["bloqueado"] is True
-                and not fecha_baja_anterior
-            )
-            if solo_bloqueo_transitorio:
-                if commit:
-                    await self.db.commit()
-                    await self.db.refresh(punto_venta)
-                else:
-                    await self.db.flush()
-                return True
-
-            ahora = datetime.utcnow()
+            ahora = self._obtener_ahora()
             for head, revision_actual in heads:
+                preservar_acreditacion = (
+                    fuente == "sincronizacion_wsfe"
+                    and revision_actual.estado == "verificado_rece"
+                )
                 revision = PuntoVentaElegibilidadReceRevision(
                     empresa_id=empresa_id,
                     punto_venta_id=punto_venta_id,
                     ambiente=head.ambiente,
                     revision=revision_actual.revision + 1,
-                    estado="no_verificado",
-                    fuente=fuente,
-                    evidencia_tipo="sin_evidencia",
+                    estado=(
+                        "verificado_rece" if preservar_acreditacion else "no_verificado"
+                    ),
+                    fuente=(
+                        "constancia_arca_atestada" if preservar_acreditacion else fuente
+                    ),
+                    evidencia_tipo=(
+                        revision_actual.evidencia_tipo
+                        if preservar_acreditacion
+                        else "sin_evidencia"
+                    ),
+                    evidencia_sha256=(
+                        revision_actual.evidencia_sha256
+                        if preservar_acreditacion
+                        else None
+                    ),
+                    clasificador_version=(
+                        revision_actual.clasificador_version
+                        if preservar_acreditacion
+                        else None
+                    ),
+                    empresa_cuit_snapshot=(
+                        revision_actual.empresa_cuit_snapshot
+                        if preservar_acreditacion
+                        else None
+                    ),
+                    punto_venta_numero_snapshot=(
+                        int(punto_venta.numero) if preservar_acreditacion else None
+                    ),
                     punto_revision_fiscal=revision_nueva,
+                    documento_emitido_en=(
+                        revision_actual.documento_emitido_en
+                        if preservar_acreditacion
+                        else None
+                    ),
+                    vigente_hasta=None,
                     observado_en=ahora,
-                    creado_por_usuario_id=actor_usuario_id,
-                    actor_usuario_id_snapshot=actor_usuario_id,
+                    verificado_en=(
+                        revision_actual.verificado_en
+                        if preservar_acreditacion
+                        else None
+                    ),
+                    creado_por_usuario_id=(
+                        revision_actual.creado_por_usuario_id
+                        if preservar_acreditacion
+                        else actor_usuario_id
+                    ),
+                    actor_usuario_id_snapshot=(
+                        revision_actual.actor_usuario_id_snapshot
+                        if preservar_acreditacion
+                        else actor_usuario_id
+                    ),
                     created_at=ahora,
                 )
                 self.db.add(revision)
@@ -798,10 +852,6 @@ class ElegibilidadReceService:
             raise ElegibilidadReceError(
                 "La fecha documental de la constancia no puede ser futura."
             )
-        if antiguedad > self.VIGENCIA_CONSTANCIA_DIAS:
-            raise ElegibilidadReceError(
-                "La constancia tiene más de siete días y no puede acreditar RECE."
-            )
 
     async def _atestiguar_punto_bajo_lock(
         self,
@@ -911,9 +961,6 @@ class ElegibilidadReceService:
         estado_produccion: Literal["verificado_rece", "no_verificado"] = (
             "verificado_rece" if senal_rece_exacta else "no_verificado"
         )
-        vigente_hasta = documento_emitido_en + timedelta(
-            days=self.VIGENCIA_CONSTANCIA_DIAS
-        )
         for head, revision_actual in heads:
             es_produccion = head.ambiente == "produccion"
             estado = estado_produccion if es_produccion else "no_verificado"
@@ -939,7 +986,7 @@ class ElegibilidadReceService:
                 ),
                 punto_revision_fiscal=revision_nueva,
                 documento_emitido_en=(documento_emitido_en if es_produccion else None),
-                vigente_hasta=(vigente_hasta if estado == "verificado_rece" else None),
+                vigente_hasta=None,
                 observado_en=ahora,
                 verificado_en=(ahora if estado == "verificado_rece" else None),
                 creado_por_usuario_id=actor_usuario_id,
@@ -1020,12 +1067,6 @@ class ElegibilidadReceService:
         ):
             estado_efectivo = "no_verificado"
             motivo = "revision_fiscal_obsoleta"
-        elif revision.estado == "verificado_rece" and (
-            revision.vigente_hasta is None
-            or revision.vigente_hasta < self._obtener_hoy()
-        ):
-            estado_efectivo = "no_verificado"
-            motivo = "evidencia_rece_vencida"
         elif revision.estado == "no_rece":
             motivo = "punto_no_rece"
         elif revision.estado != "verificado_rece":
@@ -1057,7 +1098,7 @@ class ElegibilidadReceService:
             if hasattr(punto_venta, field) and getattr(punto_venta, field) != value
         }
         if not (
-            forzar_revision or bool(set(cambios_reales) - self.CAMPOS_DESCRIPTIVOS)
+            forzar_revision or bool(set(cambios_reales) - self.CAMPOS_SIN_REVISION)
         ):
             return
         revision_esperada = int(punto_venta.revision_fiscal)
@@ -1180,8 +1221,6 @@ class ElegibilidadReceService:
             revision.ambiente != "produccion"
             or revision.fuente != "constancia_arca_atestada"
             or revision.evidencia_tipo != "rece_aplicativo_web_services_v1"
-            or revision.vigente_hasta is None
-            or revision.vigente_hasta < self._obtener_hoy()
         ):
             raise ElegibilidadReceError()
         if (

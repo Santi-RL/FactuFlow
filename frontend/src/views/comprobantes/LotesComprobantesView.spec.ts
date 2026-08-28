@@ -185,6 +185,9 @@ const puntoVentaMock = (numero: number, empresaId: number): PuntoVenta => ({
   fuente: "arca",
   activo: true,
   usable_factuflow: true,
+  puede_intentar_emision: true,
+  ultima_comprobacion_arca_en: "2026-08-01T12:00:00Z",
+  comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
   elegibilidad_rece: {
     ambiente: "produccion",
@@ -195,7 +198,7 @@ const puntoVentaMock = (numero: number, empresaId: number): PuntoVenta => ({
     revision: 1,
     punto_revision_fiscal: 1,
     verificado_en: "2026-08-01T12:00:00Z",
-    vigente_hasta: "2026-09-01",
+    vigente_hasta: null,
     motivo: null,
   },
   empresa_id: empresaId,
@@ -450,9 +453,9 @@ describe("LotesComprobantesView", () => {
       perfilesCargaMasiva: PerfilCargaMasiva[];
       puntosVenta: PuntoVenta[];
     };
-    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
-      1,
-    ]);
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual(
+      [1],
+    );
     expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
       1,
     ]);
@@ -479,9 +482,9 @@ describe("LotesComprobantesView", () => {
       { ...formatoMock(), id: 20, empresa_id: 2, nombre: "Formato B" },
     ]);
     await flushPromises();
-    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
-      2,
-    ]);
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual(
+      [2],
+    );
     expect(vm.perfilesCargaMasiva).toEqual([]);
     expect(vm.puntosVenta).toEqual([]);
 
@@ -536,9 +539,9 @@ describe("LotesComprobantesView", () => {
     empresaStore.empresaActivaId = 3;
     await flushPromises();
 
-    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
-      3,
-    ]);
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual(
+      [3],
+    );
     expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([3]);
     expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
       3,
@@ -548,9 +551,9 @@ describe("LotesComprobantesView", () => {
       { ...formatoMock(), id: 20, empresa_id: 2, nombre: "Formato B" },
     ]);
     await flushPromises();
-    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
-      3,
-    ]);
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual(
+      [3],
+    );
     expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([3]);
     expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
       3,
@@ -592,13 +595,11 @@ describe("LotesComprobantesView", () => {
     empresaStore.empresaActivaId = 3;
     await flushPromises();
 
-    cargaPerfilB.resolve([
-      { ...perfilRelativoMock(), id: 20, empresa_id: 2 },
-    ]);
+    cargaPerfilB.resolve([{ ...perfilRelativoMock(), id: 20, empresa_id: 2 }]);
     await flushPromises();
-    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual([
-      3,
-    ]);
+    expect(vm.formatosImportacion.map((formato) => formato.empresa_id)).toEqual(
+      [3],
+    );
     expect(vm.puntosVenta.map((punto) => punto.empresa_id)).toEqual([3]);
     expect(vm.perfilesCargaMasiva.map((perfil) => perfil.empresa_id)).toEqual([
       3,
@@ -846,7 +847,9 @@ describe("LotesComprobantesView", () => {
       response: { status: 500, data: {} },
     });
 
-    await wrapper.get(`[data-testid="lote-reciente-${lote.id}"]`).trigger("click");
+    await wrapper
+      .get(`[data-testid="lote-reciente-${lote.id}"]`)
+      .trigger("click");
     await flushPromises();
 
     expect(notificationMock.showError).toHaveBeenCalledWith(
@@ -880,7 +883,9 @@ describe("LotesComprobantesView", () => {
     await flushPromises();
 
     expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledTimes(1);
-    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledWith(activo.id);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledWith(
+      activo.id,
+    );
     expect(mockedLotesDetalle.listar).not.toHaveBeenCalled();
     expect(mockedLotesDetalle.obtenerResumen).not.toHaveBeenCalled();
     expect(mockedLotesDetalle.obtenerGrupos).not.toHaveBeenCalled();
@@ -1012,7 +1017,9 @@ describe("LotesComprobantesView", () => {
 
     await vi.advanceTimersByTimeAsync(3000);
     await flushPromises();
-    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledWith(activo.id);
+    expect(mockedLotesDetalle.obtenerSeguimiento).toHaveBeenCalledWith(
+      activo.id,
+    );
     wrapper.unmount();
   });
 

@@ -36,6 +36,7 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceError,
     ElegibilidadReceService,
 )
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
 from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
     IdempotenciaFiscalError,
@@ -429,6 +430,11 @@ async def _resolver_operacion_emitir(
         )
         if existente is not None:
             return idempotencia, existente, False, None
+        await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
+            empresa_id=empresa_id,
+            puntos_venta_ids=[request.punto_venta_id],
+            actor_usuario_id=usuario_id,
+        )
         elegibilidad = ElegibilidadReceService(db)
         async with elegibilidad.bloqueo_local_punto(
             empresa_id=empresa_id,
@@ -478,7 +484,7 @@ async def _resolver_operacion_emitir(
 def _error_elegibilidad_rece(exc: ElegibilidadReceError) -> HTTPException:
     """Convierte un rechazo RECE/PF-19A en un conflicto público estable."""
     return HTTPException(
-        status_code=409,
+        status_code=exc.status_code,
         detail={
             "mensaje": exc.mensaje,
             "errores": [
@@ -499,6 +505,11 @@ async def _exigir_operacion_individual_continuable(
     """Revalida PF-19A, RECE y la asociación exacta antes de continuar."""
     elegibilidad = ElegibilidadReceService(db)
     try:
+        await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
+            empresa_id=empresa_id,
+            puntos_venta_ids=[request.punto_venta_id],
+            actor_usuario_id=None,
+        )
         async with elegibilidad.bloqueo_local_punto(
             empresa_id=empresa_id,
             punto_venta_id=request.punto_venta_id,
@@ -986,6 +997,16 @@ async def obtener_proximo_numero(
 
     if not pv:
         raise HTTPException(status_code=404, detail="Punto de venta no encontrado")
+
+    try:
+        await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
+            empresa_id=empresa_activa_id,
+            puntos_venta_ids=[pv.id],
+            actor_usuario_id=None,
+        )
+        await db.refresh(pv)
+    except ElegibilidadReceError as exc:
+        raise _error_elegibilidad_rece(exc) from exc
 
     if not pv.usable_factuflow:
         raise HTTPException(

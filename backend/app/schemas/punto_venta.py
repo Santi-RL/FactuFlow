@@ -58,6 +58,7 @@ class ImportarPuntosVentaResponse(BaseModel):
     omitidos: int
     desactivados_ausentes: int = 0
     verificados_rece: int = 0
+    pendientes_comprobacion: int = 0
     no_verificados_rece: int = 0
     documento_emitido_en: date | None = None
     vigente_hasta: date | None = None
@@ -72,6 +73,7 @@ class SincronizarPuntosVentaResponse(BaseModel):
     existentes: int
     actualizados: int
     desactivados_ausentes: int
+    comprobado_en: datetime
 
 
 class ElegibilidadReceResponse(BaseModel):
@@ -96,6 +98,9 @@ class PuntoVentaResponse(PuntoVentaBase):
     empresa_id: int
     activo: bool
     usable_factuflow: bool
+    puede_intentar_emision: bool
+    ultima_comprobacion_arca_en: datetime | None = None
+    comprobacion_arca_desactualizada: bool
     revision_fiscal: int
     elegibilidad_rece: ElegibilidadReceResponse
     created_at: datetime

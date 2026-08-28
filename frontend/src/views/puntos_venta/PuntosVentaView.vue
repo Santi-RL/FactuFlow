@@ -28,8 +28,6 @@ const empresaStore = useEmpresaStore();
 const authStore = useAuthStore();
 const { showSuccess, showError, showWarning } = useNotification();
 
-type ModoImportacionConstancia = "sin_acreditar" | "acreditar_rece";
-
 const tieneCertificadoDisponible = ref(false);
 const ambienteArcaActual = ref<"homologacion" | "produccion" | null>(null);
 const cargandoCertificados = ref(false);
@@ -39,10 +37,6 @@ const puntoEditandoEmpresaId = ref<number | null>(null);
 const guardandoEdicion = ref(false);
 const editForm = ref<PuntoVentaUpdate>({});
 const mostrarSoloElegibles = ref(false);
-const mostrarModalImportacion = ref(false);
-const constanciaPendiente = ref<File | null>(null);
-const modoImportacion = ref<ModoImportacionConstancia>("sin_acreditar");
-const confirmarProcedenciaProduccion = ref(false);
 let cargarDatosRequestId = 0;
 let cargarCertificadosRequestId = 0;
 
@@ -50,17 +44,6 @@ const esAdmin = computed(() => Boolean(authStore.user?.es_admin));
 const operacionAdministrativaEnCurso = computed(
   () => puntosVentaStore.syncing || puntosVentaStore.importing,
 );
-const puedeAcreditarRece = computed(
-  () => ambienteArcaActual.value === "produccion",
-);
-const puedeConfirmarImportacion = computed(
-  () =>
-    !!constanciaPendiente.value &&
-    !puntosVentaStore.importing &&
-    (modoImportacion.value === "sin_acreditar" ||
-      (puedeAcreditarRece.value && confirmarProcedenciaProduccion.value)),
-);
-
 const esSolicitudDelEmisorActual = (empresaIdSolicitada: number | null) =>
   empresaIdSolicitada !== null &&
   empresaStore.empresaActivaId === empresaIdSolicitada &&
@@ -73,7 +56,7 @@ const columns = [
   { key: "nombre_fantasia", label: "Nombre fantasía", sortable: false },
   {
     key: "elegibilidad_rece",
-    label: "Elegibilidad RECE",
+    label: "Estado para emitir",
     sortable: false,
   },
   { key: "activo", label: "Estado técnico", sortable: false },
@@ -81,7 +64,9 @@ const columns = [
 
 const puntosOrdenados = computed(() => {
   const puntos = mostrarSoloElegibles.value
-    ? puntosVentaStore.puntosVenta.filter((punto) => punto.usable_factuflow)
+    ? puntosVentaStore.puntosVenta.filter(
+        (punto) => punto.puede_intentar_emision,
+      )
     : puntosVentaStore.puntosVenta;
   return [...puntos].sort((a, b) => a.numero - b.numero);
 });
@@ -111,6 +96,28 @@ const estadoTecnicoPunto = (row: PuntoVenta) => {
     };
   }
 
+  if (
+    !row.ultima_comprobacion_arca_en &&
+    row.elegibilidad_rece.estado_efectivo === "verificado_rece"
+  ) {
+    return {
+      label: "Pendiente de ARCA",
+      detail: "Se comprobará automáticamente antes de emitir",
+      variant: "warning" as const,
+    };
+  }
+
+  if (
+    !row.activo &&
+    row.elegibilidad_rece.estado_efectivo === "verificado_rece"
+  ) {
+    return {
+      label: "Ausente en ARCA",
+      detail: "La última comprobación no encontró este punto de venta",
+      variant: "danger" as const,
+    };
+  }
+
   if (!row.activo) {
     return {
       label: "Inactivo",
@@ -126,28 +133,14 @@ const estadoTecnicoPunto = (row: PuntoVenta) => {
   };
 };
 
-const ESTADO_RECE_PRESENTACION = {
-  verificado_rece: {
-    label: "Verificado RECE",
-    variant: "success" as const,
-  },
-  no_rece: { label: "No RECE", variant: "danger" as const },
-  no_verificado: {
-    label: "No verificado",
-    variant: "warning" as const,
-  },
-};
-
 const MOTIVOS_RECE: Record<string, string> = {
   contexto_rece_ausente:
     "No existe evidencia RECE para el ambiente configurado.",
   revision_fiscal_obsoleta:
     "Los datos fiscales cambiaron después de la verificación.",
-  evidencia_rece_vencida:
-    "La evidencia RECE venció; importá una constancia productiva reciente.",
   punto_no_rece: "La evidencia vigente indica que el punto no es RECE.",
   elegibilidad_rece_no_verificada:
-    "Todavía no existe una acreditación RECE vigente.",
+    "Todavía no se importó una constancia válida para este punto.",
 };
 
 const FUENTES_RECE: Record<string, string> = {
@@ -166,8 +159,27 @@ const formatearFechaVisible = (value: string): string => {
   return formatearFecha(value);
 };
 
-const estadoRecePunto = (row: PuntoVenta) =>
-  ESTADO_RECE_PRESENTACION[row.elegibilidad_rece.estado_efectivo];
+const estadoUsoPunto = (row: PuntoVenta) => {
+  if (row.usable_factuflow && row.comprobacion_arca_desactualizada) {
+    return {
+      label: "Comprobación recomendada",
+      variant: "warning" as const,
+    };
+  }
+  if (row.usable_factuflow) {
+    return { label: "Listo para emitir", variant: "success" as const };
+  }
+  if (
+    row.elegibilidad_rece.estado_efectivo === "verificado_rece" &&
+    row.ultima_comprobacion_arca_en === null
+  ) {
+    return {
+      label: "Pendiente de comprobar con ARCA",
+      variant: "warning" as const,
+    };
+  }
+  return { label: "Requiere atención", variant: "danger" as const };
+};
 
 const causaRecePunto = (row: PuntoVenta): string => {
   const elegibilidad = row.elegibilidad_rece;
@@ -178,17 +190,27 @@ const causaRecePunto = (row: PuntoVenta): string => {
     );
   }
   return elegibilidad.estado_efectivo === "verificado_rece"
-    ? "La acreditación RECE está vigente para el ambiente configurado."
-    : "La acreditación RECE requiere revisión administrativa.";
+    ? "La constancia acredita este punto de venta sin vencimiento temporal."
+    : "Importá una constancia válida para habilitar este punto de venta.";
 };
 
-const vigenciaRecePunto = (row: PuntoVenta): string => {
-  const { motivo, vigente_hasta: vigenteHasta } = row.elegibilidad_rece;
-  if (!vigenteHasta) return "Sin vigencia RECE acreditada";
-  const fecha = formatearFechaVisible(vigenteHasta);
-  return motivo === "evidencia_rece_vencida"
-    ? `Evidencia vencida el ${fecha}`
-    : `Vigente hasta ${fecha}`;
+const comprobacionArcaPunto = (row: PuntoVenta): string => {
+  if (!row.ultima_comprobacion_arca_en) {
+    return "Todavía no se comprobó el estado técnico con ARCA.";
+  }
+  const instanteUtc = /(?:Z|[+-]\d{2}:\d{2})$/i.test(
+    row.ultima_comprobacion_arca_en,
+  )
+    ? row.ultima_comprobacion_arca_en
+    : `${row.ultima_comprobacion_arca_en}Z`;
+  const comprobadoEn = new Date(instanteUtc);
+  const dias = Math.max(
+    0,
+    Math.floor((Date.now() - comprobadoEn.getTime()) / 86_400_000),
+  );
+  const antiguedad =
+    dias === 0 ? "hoy" : `hace ${dias} día${dias === 1 ? "" : "s"}`;
+  return `Comprobado con ARCA ${antiguedad} · ${formatearFechaVisible(row.ultima_comprobacion_arca_en)}`;
 };
 
 const procedenciaRecePunto = (row: PuntoVenta): string => {
@@ -273,7 +295,7 @@ const sincronizar = async () => {
   if (!esAdmin.value) {
     showWarning(
       "Acción reservada",
-      "Solo un administrador puede sincronizar puntos de venta con ARCA.",
+      "Solo un administrador puede comprobar puntos de venta con ARCA.",
     );
     return;
   }
@@ -281,7 +303,7 @@ const sincronizar = async () => {
   if (!tieneCertificadoDisponible.value) {
     showWarning(
       "Certificado no disponible",
-      `Cargá un certificado o restaurá sus archivos para el ambiente ${ambienteArcaActual.value || "actual"} antes de sincronizar`,
+      `Cargá un certificado o restaurá sus archivos para el ambiente ${ambienteArcaActual.value || "actual"} antes de comprobar`,
     );
     return;
   }
@@ -293,14 +315,14 @@ const sincronizar = async () => {
     if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
 
     showSuccess(
-      "Sincronización completa",
+      "Comprobación completa",
       `Total en ARCA: ${resultado.total_arca}. Nuevos: ${resultado.nuevos}. Existentes: ${resultado.existentes}. Actualizados: ${resultado.actualizados}. Desactivados por ausencia: ${resultado.desactivados_ausentes}.`,
     );
   } catch (err: any) {
     if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
 
     const mensaje =
-      err.response?.data?.detail || "No se pudo sincronizar con ARCA";
+      err.response?.data?.detail || "No se pudo comprobar con ARCA";
     showError("Error", mensaje);
   }
 };
@@ -316,7 +338,7 @@ const seleccionarConstancia = () => {
   fileInputRef.value?.click();
 };
 
-const prepararImportacionConstancia = (event: Event) => {
+const prepararImportacionConstancia = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = "";
@@ -327,100 +349,31 @@ const prepararImportacionConstancia = (event: Event) => {
     return;
   }
 
-  constanciaPendiente.value = file;
-  modoImportacion.value = "sin_acreditar";
-  confirmarProcedenciaProduccion.value = false;
-  mostrarModalImportacion.value = true;
-};
-
-const cerrarModalImportacion = (forzar = false) => {
-  if (puntosVentaStore.importing && !forzar) return;
-  mostrarModalImportacion.value = false;
-  constanciaPendiente.value = null;
-  modoImportacion.value = "sin_acreditar";
-  confirmarProcedenciaProduccion.value = false;
-};
-
-const seleccionarModoImportacion = (modo: ModoImportacionConstancia) => {
-  if (modo === "acreditar_rece" && !puedeAcreditarRece.value) {
-    modoImportacion.value = "sin_acreditar";
-    confirmarProcedenciaProduccion.value = false;
+  if (ambienteArcaActual.value !== "produccion") {
     showWarning(
       "Acreditación no disponible",
       "La acreditación RECE mediante constancia solo está disponible en el ambiente de producción.",
-    );
-    return;
-  }
-  modoImportacion.value = modo;
-  if (modo === "sin_acreditar") {
-    confirmarProcedenciaProduccion.value = false;
-  }
-};
-
-const importarConstancia = async () => {
-  const file = constanciaPendiente.value;
-  if (!file || !esAdmin.value) return;
-
-  const empresaIdSolicitada = empresaStore.empresaActivaId;
-  if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
-
-  const acreditarRece = modoImportacion.value === "acreditar_rece";
-  if (acreditarRece && !puedeAcreditarRece.value) {
-    showWarning(
-      "Acreditación no disponible",
-      "La acreditación RECE mediante constancia solo está disponible en el ambiente de producción.",
-    );
-    return;
-  }
-  if (acreditarRece && !confirmarProcedenciaProduccion.value) {
-    showWarning(
-      "Confirmación requerida",
-      "Confirmá expresamente que la constancia proviene de la gestión productiva de ARCA.",
     );
     return;
   }
 
   try {
-    const resultado = await puntosVentaStore.importarConstancia(file, {
-      confirmar_procedencia_produccion:
-        acreditarRece && confirmarProcedenciaProduccion.value,
-    });
+    const resultado = await puntosVentaStore.importarConstancia(file);
     if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
-
-    if (acreditarRece && resultado.warnings.length > 0) {
-      showError(
-        "Resultado fiscal con observaciones",
-        `La acreditación no se presenta como exitosa porque el servidor devolvió observaciones. Revisá el estado efectivo de cada punto antes de emitir. ${resultado.warnings.join(" ")}`,
-      );
-      cerrarModalImportacion(true);
-      return;
-    }
 
     const fechaDocumento = resultado.documento_emitido_en
       ? ` Documento: ${formatearFechaVisible(resultado.documento_emitido_en)}.`
       : "";
     const detalleBase = `Detectados: ${resultado.total_constancia}. Creados: ${resultado.creados}. Actualizados: ${resultado.actualizados}. Omitidos: ${resultado.omitidos}. Desactivados por ausencia: ${resultado.desactivados_ausentes}.${fechaDocumento}`;
-    if (acreditarRece) {
-      const vigencia = resultado.vigente_hasta
-        ? ` Vigencia: ${formatearFechaVisible(resultado.vigente_hasta)}.`
-        : "";
-      showSuccess(
-        "Constancia productiva procesada",
-        `${detalleBase} Verificados RECE: ${resultado.verificados_rece}. Sin acreditar: ${resultado.no_verificados_rece}.${vigencia}`,
+    const resumen = `${detalleBase} Acreditados por constancia: ${resultado.verificados_rece}. Pendientes de comprobar con ARCA: ${resultado.pendientes_comprobacion}. No compatibles: ${resultado.no_verificados_rece}.`;
+    if (resultado.warnings.length > 0) {
+      showWarning(
+        "Constancia importada con observaciones",
+        `${resumen} ${resultado.warnings.join(" ")}`,
       );
     } else {
-      showSuccess(
-        "Constancia importada sin acreditar RECE",
-        `${detalleBase} Esta modalidad no acreditó RECE para ningún punto.`,
-      );
+      showSuccess("Constancia importada", resumen);
     }
-    if (!acreditarRece && resultado.warnings.length > 0) {
-      showWarning(
-        "Importación con observaciones",
-        resultado.warnings.join(" "),
-      );
-    }
-    cerrarModalImportacion(true);
   } catch (err: any) {
     if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
 
@@ -530,7 +483,6 @@ watch(
     if (empresaId === previousEmpresaId) return;
 
     cerrarEditor();
-    cerrarModalImportacion(true);
     guardandoEdicion.value = false;
     limpiarDatosContexto();
     if (empresaId && esSolicitudDelEmisorActual(empresaId)) {
@@ -550,12 +502,10 @@ watch(
       class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
-          Puntos de venta
-        </h1>
+        <h1 class="text-3xl font-bold text-gray-900">Puntos de venta</h1>
         <p class="mt-2 text-gray-600">
-          Administrá la disponibilidad técnica y la elegibilidad RECE del emisor
-          activo
+          Importá una constancia una sola vez y dejá que FactuFlow compruebe el
+          estado técnico con ARCA
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -572,14 +522,14 @@ watch(
           v-if="esAdmin"
           :disabled="
             !tieneCertificadoDisponible ||
-              operacionAdministrativaEnCurso ||
-              cargandoCertificados
+            operacionAdministrativaEnCurso ||
+            cargandoCertificados
           "
           :loading="puntosVentaStore.syncing"
           @click="sincronizar"
         >
           <ArrowDownTrayIcon class="h-5 w-5 mr-2" />
-          Sincronizar con ARCA
+          Comprobar con ARCA
         </BaseButton>
         <input
           v-if="esAdmin"
@@ -588,7 +538,7 @@ watch(
           class="hidden"
           accept=".pdf"
           @change="prepararImportacionConstancia"
-        >
+        />
         <BaseButton
           v-if="esAdmin"
           variant="secondary"
@@ -612,15 +562,11 @@ watch(
         class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <span>
-          Para sincronizar, el certificado activo del ambiente
+          Para comprobar con ARCA, el certificado activo del ambiente
           {{ ambienteArcaActual || "actual" }} debe conservar sus archivos
           locales.
         </span>
-        <BaseButton
-          variant="secondary"
-          size="sm"
-          @click="irACertificados"
-        >
+        <BaseButton variant="secondary" size="sm" @click="irACertificados">
           Ir a certificados
         </BaseButton>
       </div>
@@ -634,7 +580,7 @@ watch(
       class="mb-6"
     >
       Podés consultar los puntos de venta y actualizar su nombre, domicilio y
-      nombre fantasía. Solo un administrador puede sincronizar, importar
+      nombre fantasía. Solo un administrador puede comprobar con ARCA, importar
       constancias o modificar datos fiscales y técnicos.
     </BaseAlert>
 
@@ -646,10 +592,10 @@ watch(
           class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         >
           <p class="max-w-4xl">
-            Sincronizar con ARCA actualiza el estado técnico, pero no acredita
-            RECE. Al importar una constancia podés conservarla sin acreditar o
-            confirmar expresamente su procedencia productiva para acreditar
-            RECE.
+            Importá el PDF de puntos de venta descargado de ARCA para acreditar
+            el emisor activo. La constancia no vence; FactuFlow recomendará una
+            nueva comprobación técnica después de 90 días y la hará
+            automáticamente antes de emitir cuando sea necesario.
           </p>
           <label
             class="inline-flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-700"
@@ -658,7 +604,7 @@ watch(
               v-model="mostrarSoloElegibles"
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            >
+            />
             Solo elegibles para emitir
           </label>
         </div>
@@ -695,22 +641,15 @@ watch(
 
         <template #cell-elegibilidad_rece="{ row }">
           <div class="flex flex-wrap items-center gap-2">
-            <BaseBadge :variant="estadoRecePunto(row).variant">
-              {{ estadoRecePunto(row).label }}
-            </BaseBadge>
-            <BaseBadge :variant="row.usable_factuflow ? 'success' : 'default'">
-              {{
-                row.usable_factuflow
-                  ? "Elegible para emitir"
-                  : "No elegible para emitir"
-              }}
+            <BaseBadge :variant="estadoUsoPunto(row).variant">
+              {{ estadoUsoPunto(row).label }}
             </BaseBadge>
           </div>
           <p class="mt-1 max-w-72 whitespace-normal text-xs text-gray-700">
             {{ causaRecePunto(row) }}
           </p>
           <p class="mt-1 whitespace-normal text-xs text-gray-500">
-            {{ vigenciaRecePunto(row) }}
+            {{ comprobacionArcaPunto(row) }}
           </p>
           <p class="mt-1 whitespace-normal text-xs text-gray-500">
             {{ procedenciaRecePunto(row) }} · Revisión fiscal
@@ -769,30 +708,14 @@ watch(
         Tu permiso permite modificar solo nombre, domicilio y nombre fantasía.
       </BaseAlert>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <BaseInput
-          v-model="editForm.nombre"
-          label="Nombre"
-        />
-        <BaseInput
-          v-model="editForm.nombre_fantasia"
-          label="Nombre fantasía"
-        />
+        <BaseInput v-model="editForm.nombre" label="Nombre" />
+        <BaseInput v-model="editForm.nombre_fantasia" label="Nombre fantasía" />
         <div class="md:col-span-2">
-          <BaseInput
-            v-model="editForm.domicilio"
-            label="Domicilio"
-          />
+          <BaseInput v-model="editForm.domicilio" label="Domicilio" />
         </div>
         <template v-if="esAdmin">
-          <BaseInput
-            v-model="editForm.numero"
-            type="number"
-            label="Número"
-          />
-          <BaseInput
-            v-model="editForm.sistema"
-            label="Sistema"
-          />
+          <BaseInput v-model="editForm.numero" type="number" label="Número" />
+          <BaseInput v-model="editForm.sistema" label="Sistema" />
           <BaseInput
             v-model="editForm.fecha_baja"
             label="Fecha de baja (DD/MM/AAAA o AAAA-MM-DD)"
@@ -803,7 +726,7 @@ watch(
               v-model="editForm.es_webservice"
               type="checkbox"
               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            >
+            />
             Es punto Web Services
           </label>
           <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -811,7 +734,7 @@ watch(
               v-model="editForm.bloqueado"
               type="checkbox"
               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            >
+            />
             Bloqueado
           </label>
           <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -819,145 +742,18 @@ watch(
               v-model="editForm.activo"
               type="checkbox"
               class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            >
+            />
             Activo
           </label>
         </template>
       </div>
 
       <template #footer>
-        <BaseButton
-          variant="secondary"
-          @click="cerrarEditor"
-        >
+        <BaseButton variant="secondary" @click="cerrarEditor">
           Cancelar
         </BaseButton>
-        <BaseButton
-          :loading="guardandoEdicion"
-          @click="guardarEdicion"
-        >
+        <BaseButton :loading="guardandoEdicion" @click="guardarEdicion">
           Guardar cambios
-        </BaseButton>
-      </template>
-    </BaseModal>
-
-    <BaseModal
-      :show="mostrarModalImportacion"
-      title="Importar constancia de puntos de venta"
-      size="xl"
-      @close="cerrarModalImportacion()"
-    >
-      <p class="mb-4 text-sm text-gray-700">
-        Archivo seleccionado:
-        <span class="font-medium">{{ constanciaPendiente?.name }}</span>
-      </p>
-
-      <fieldset class="space-y-3">
-        <legend class="mb-2 text-sm font-semibold text-gray-900">
-          Elegí cómo procesar la constancia
-        </legend>
-        <label
-          class="flex cursor-pointer gap-3 rounded-lg border border-gray-200 p-4"
-        >
-          <input
-            :checked="modoImportacion === 'sin_acreditar'"
-            type="radio"
-            name="modo-importacion-constancia"
-            value="sin_acreditar"
-            class="mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
-            @change="seleccionarModoImportacion('sin_acreditar')"
-          >
-          <span>
-            <span class="block text-sm font-medium text-gray-900">
-              Importar sin acreditar RECE
-            </span>
-            <span class="mt-1 block text-sm text-gray-600">
-              Actualiza los datos disponibles y mantiene todos los puntos sin
-              elegibilidad RECE acreditada por este documento.
-            </span>
-          </span>
-        </label>
-        <label
-          class="flex gap-3 rounded-lg border border-gray-200 p-4"
-          :class="
-            puedeAcreditarRece
-              ? 'cursor-pointer'
-              : 'cursor-not-allowed opacity-60'
-          "
-        >
-          <input
-            :checked="modoImportacion === 'acreditar_rece'"
-            :disabled="!puedeAcreditarRece"
-            type="radio"
-            name="modo-importacion-constancia"
-            value="acreditar_rece"
-            class="mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
-            @change="seleccionarModoImportacion('acreditar_rece')"
-          >
-          <span>
-            <span class="block text-sm font-medium text-gray-900">
-              Importar y acreditar RECE
-            </span>
-            <span class="mt-1 block text-sm text-gray-600">
-              Requiere una confirmación expresa de procedencia productiva.
-            </span>
-            <span
-              v-if="!puedeAcreditarRece"
-              class="mt-1 block text-sm font-medium text-amber-700"
-            >
-              No disponible en homologación: podés importar sin acreditar RECE.
-            </span>
-          </span>
-        </label>
-      </fieldset>
-
-      <div
-        v-if="modoImportacion === 'acreditar_rece'"
-        class="mt-5 space-y-4"
-      >
-        <BaseAlert
-          type="warning"
-          title="Confirmación fiscal requerida"
-          :dismissible="false"
-        >
-          Acreditá RECE solo si descargaste este PDF desde la gestión productiva
-          de ARCA para el emisor activo. FactuFlow no puede verificar
-          criptográficamente el origen del PDF. El servidor validará la
-          modalidad Web Services exacta admitida, el CUIT y la vigencia del
-          documento; homologación no se promueve mediante esta confirmación.
-        </BaseAlert>
-        <label class="flex items-start gap-3 text-sm text-gray-800">
-          <input
-            v-model="confirmarProcedenciaProduccion"
-            type="checkbox"
-            class="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          >
-          <span>
-            Confirmo que descargué esta constancia desde la gestión productiva
-            de ARCA para el emisor activo y que deseo usarla para acreditar
-            RECE.
-          </span>
-        </label>
-      </div>
-
-      <template #footer>
-        <BaseButton
-          variant="secondary"
-          :disabled="puntosVentaStore.importing"
-          @click="cerrarModalImportacion()"
-        >
-          Cancelar
-        </BaseButton>
-        <BaseButton
-          :disabled="!puedeConfirmarImportacion"
-          :loading="puntosVentaStore.importing"
-          @click="importarConstancia"
-        >
-          {{
-            modoImportacion === "acreditar_rece"
-              ? "Importar y acreditar RECE"
-              : "Importar sin acreditar RECE"
-          }}
         </BaseButton>
       </template>
     </BaseModal>

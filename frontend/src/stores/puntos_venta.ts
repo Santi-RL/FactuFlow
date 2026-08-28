@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import type {
-  ImportarConstanciaPuntosVentaOptions,
   PuntoVenta,
   PuntoVentaCreate,
   PuntoVentaUpdate,
@@ -122,10 +121,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     }
   };
 
-  const importarConstancia = async (
-    file: File,
-    options: ImportarConstanciaPuntosVentaOptions,
-  ) => {
+  const importarConstancia = async (file: File) => {
     const requestId = ++importarConstanciaRequestId;
     const empresaStore = useEmpresaStore();
     const empresaIdSolicitada = empresaStore.empresaActivaId;
@@ -150,10 +146,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     }
 
     try {
-      const resultado = await puntosVentaService.importarConstancia(
-        file,
-        options,
-      );
+      const resultado = await puntosVentaService.importarConstancia(file);
       if (!isCurrentRequest()) return resultado;
 
       await fetchPuntosVenta();
@@ -189,6 +182,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
       existentes: 0,
       actualizados: 0,
       desactivados_ausentes: 0,
+      comprobado_en: new Date(0).toISOString(),
     };
 
     syncing.value = true;
@@ -213,7 +207,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
       }
 
       error.value =
-        err.response?.data?.detail || "Error al sincronizar puntos de venta";
+        err.response?.data?.detail || "Error al comprobar puntos de venta";
       throw err;
     } finally {
       if (requestId === syncFromArcaRequestId) {

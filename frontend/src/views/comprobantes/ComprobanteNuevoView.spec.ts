@@ -84,6 +84,9 @@ const puntoVentaMock = (
   fuente: "arca_wsfe",
   activo: true,
   usable_factuflow: true,
+  puede_intentar_emision: true,
+  ultima_comprobacion_arca_en: "2026-05-20T15:00:00Z",
+  comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
   elegibilidad_rece: {
     ambiente: "produccion",
@@ -94,7 +97,7 @@ const puntoVentaMock = (
     revision: 1,
     punto_revision_fiscal: 1,
     verificado_en: "2026-05-20T12:00:00-03:00",
-    vigente_hasta: "2026-05-26",
+    vigente_hasta: null,
     motivo: null,
   },
   empresa_id: 1,
@@ -378,6 +381,7 @@ describe("ComprobanteNuevoView", () => {
     mockedPuntosVentaService.getAll.mockResolvedValue([
       puntoVentaMock(1, 1, {
         usable_factuflow: false,
+        puede_intentar_emision: false,
         elegibilidad_rece: {
           ...puntoVentaMock(1, 1).elegibilidad_rece,
           estado: "no_verificado",
@@ -414,6 +418,40 @@ describe("ComprobanteNuevoView", () => {
     expect(vm.formData.punto_venta_id).toBe(2);
     expect(mockedComprobantesService.proximoNumero).toHaveBeenCalledWith(6, 6);
     expect(vm.proximoNumero).toBe(42);
+  });
+
+  it("mantiene seleccionable un punto acreditado pendiente de comprobar", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock();
+    empresaStore.empresaActivaId = 1;
+    mockedPuntosVentaService.getAll.mockResolvedValue([
+      puntoVentaMock(1, 1, {
+        activo: false,
+        usable_factuflow: false,
+        puede_intentar_emision: true,
+        ultima_comprobacion_arca_en: null,
+        comprobacion_arca_desactualizada: true,
+      }),
+    ]);
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(42),
+    );
+
+    const wrapper = mount(ComprobanteNuevoView, {
+      global: {
+        plugins: [pinia],
+        stubs: { RouterLink: { template: "<a><slot /></a>" } },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("se comprobará al emitir");
+    expect(
+      (wrapper.vm as unknown as { formData: { punto_venta_id: number } })
+        .formData.punto_venta_id,
+    ).toBe(1);
   });
 
   it("mantiene invalida una Factura A con receptor no CUIT", async () => {

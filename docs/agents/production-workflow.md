@@ -247,10 +247,11 @@ CAE encuentre una revisión durable cuyo estado efectivo sea
 `verificado_rece` para el ambiente actual. La sincronización técnica
 `FEParamGetPtosVenta`, la marca legacy `Usable` y el texto editable `Sistema` no
 promueven elegibilidad. Solo un administrador, en un servidor configurado en
-`produccion`, puede atestar una constancia productiva completa, reciente y no
+`produccion`, puede atestar una constancia productiva completa, no futura y no
 ambigua; únicamente una modalidad Web Services exacta de la allowlist versionada
 para Responsable Inscripto, Exento en IVA o Monotributo produce el estado
-positivo, con vigencia operativa de siete días. El PDF no se persiste.
+positivo durable. El PDF no se persiste. La comprobación técnica es independiente
+y se considera desactualizada a los 90 días.
 Homologación permanece bloqueada hasta contar con una fuente probatoria
 específica y no hereda evidencia productiva.
 
@@ -262,8 +263,10 @@ nunca al repositorio ni a evidencias públicas. Los logs privados pueden
 conservar identificadores operativos mínimos para correlación, pero nunca
 secretos ni contenido fiscal sensible.
 
-La compuerta PF-19B aborta antes de crear una operación o intento nuevo y antes
-de WSAA/WSFE cuando el contexto ya es inválido. Un replay terminal durable se
+La compuerta PF-19B aborta antes de crear una operación o intento nuevo cuando
+el contexto es inválido. Para un punto acreditado pendiente o desactualizado,
+consulta `FEParamGetPtosVenta` antes de crear estado fiscal y devuelve `503` si
+no obtiene una respuesta completa. Un replay terminal durable se
 puede devolver sin reevaluar el estado actual; cualquier continuación legacy,
 obsoleta o sin snapshot se bloquea. Retirar una regla PF-19A sigue siendo una
 decisión fiscal explícita. Un rollback técnico a una versión que ignore PF-19B
