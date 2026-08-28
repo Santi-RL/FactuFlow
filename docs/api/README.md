@@ -255,10 +255,17 @@ decisión desde `sistema` ni desde la marca técnica.
 form booleano `confirmar_procedencia_produccion`. Sin confirmación importa y
 sincroniza datos técnicos, pero no acredita RECE. Con confirmación solo acepta
 un administrador, servidor con `ARCA_ENV=produccion`, CUIT exacto, documento
-completo y no ambiguo, fecha única no futura de hasta siete días y señal exacta
-`RECE para aplicativo y web services`. Persiste hash SHA-256, clasificador,
-actor y snapshots mínimos; no guarda el PDF ni su texto completo. Una señal
-genérica o fuera de allowlist queda `no_verificado`, nunca se infiere
+completo y no ambiguo, fecha única no futura de hasta siete días y una modalidad
+Web Services de la allowlist exacta versionada: `RECE para aplicativo y web
+services`, `Factura Electrónica - RI IVA - Aplicativo y Web Services`, `Factura
+Electrónica - Exento en IVA - Web Services` o `Factura Electrónica -
+Monotributo - Web Services`. La versión `rece_constancia_v2` normaliza solo
+espacios, mayúsculas, variantes de guion y la escritura `Webservices`; no acepta
+coincidencias parciales. El parser reconoce `PUNTO VENTA` y `P.VTA.`, con
+`ACTIVIDAD` opcional y encabezados repetidos en documentos de varias páginas.
+Persiste hash SHA-256, clasificador, actor y snapshots mínimos; no guarda el PDF
+ni su texto completo. Una señal genérica o fuera de allowlist queda
+`no_verificado`, nunca se infiere
 `no_rece`. Evidencia más antigua que la vigente se rechaza. La respuesta agrega
 `verificados_rece`, `no_verificados_rece`, `documento_emitido_en`,
 `vigente_hasta` y warnings sanitizados.

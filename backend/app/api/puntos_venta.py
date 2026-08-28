@@ -435,8 +435,8 @@ async def importar_constancia_puntos_venta(
         no_verificados_rece = len(resultados) - verificados_rece
         if no_verificados_rece:
             warnings.append(
-                f"{no_verificados_rece} punto(s) no coincidieron con la señal "
-                "RECE exacta y quedaron sin acreditar."
+                f"{no_verificados_rece} punto(s) no coincidieron con una modalidad "
+                "Web Services exacta admitida y quedaron sin acreditar."
             )
     else:
         verificados_rece = 0

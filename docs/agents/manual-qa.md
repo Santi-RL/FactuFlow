@@ -441,8 +441,11 @@ contenido fiscal sensible.
 1. Importar constancias PDF sintéticas completas, parciales, antiguas, futuras,
    ambiguas, con CUIT distinto y con señales exactas, genéricas o fuera de
    allowlist. Solo administrador + servidor productivo + confirmación expresa +
-   documento de hasta siete días + `RECE para aplicativo y web services` puede
-   crear `verificado_rece`. El PDF no se persiste y homologación queda cerrada.
+   documento de hasta siete días + una modalidad Web Services exacta admitida
+   para Responsable Inscripto, Exento en IVA o Monotributo puede crear
+   `verificado_rece`. Cubrir los encabezados sintéticos `PUNTO VENTA` y `P.VTA.`,
+   `ACTIVIDAD` opcional y repetición de encabezado en varias páginas. El PDF no
+   se persiste y homologación queda cerrada.
 2. Sincronizar WSFE desde el endpoint server-side. Debe crear, actualizar o
    desactivar técnicamente en una transacción, sin promover RECE. Ediciones,
    bajas, puntos ausentes y evidencia más nueva deben incrementar revisiones o

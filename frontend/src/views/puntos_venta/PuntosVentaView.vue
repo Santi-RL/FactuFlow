@@ -922,9 +922,9 @@ watch(
         >
           Acreditá RECE solo si descargaste este PDF desde la gestión productiva
           de ARCA para el emisor activo. FactuFlow no puede verificar
-          criptográficamente el origen del PDF. El servidor validará la señal
-          exacta, el CUIT y la vigencia del documento; homologación no se
-          promueve mediante esta confirmación.
+          criptográficamente el origen del PDF. El servidor validará la
+          modalidad Web Services exacta admitida, el CUIT y la vigencia del
+          documento; homologación no se promueve mediante esta confirmación.
         </BaseAlert>
         <label class="flex items-start gap-3 text-sm text-gray-800">
           <input

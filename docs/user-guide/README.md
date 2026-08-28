@@ -819,9 +819,11 @@ Importante:
   técnicos, o `Importar y acreditar RECE` y marcá la confirmación expresa únicamente
   cuando obtuviste esa constancia desde la gestión productiva del emisor activo
 - para acreditar, el servidor exige constancia completa, CUIT exacto, fecha
-  única no futura de hasta siete días y la frase exacta
-  `RECE para aplicativo y web services`. El PDF no se conserva. Una etiqueta
-  genérica queda `No verificado`; homologación no se promueve con esta evidencia
+  única no futura de hasta siete días y una modalidad Web Services exacta
+  admitida para Responsable Inscripto, Exento en IVA o Monotributo. El parser
+  acepta el encabezado histórico `PUNTO VENTA` y el actual `P.VTA.`, incluida
+  la columna `ACTIVIDAD`. El PDF no se conserva. Una etiqueta genérica queda
+  `No verificado`; homologación no se promueve con esta evidencia
 - si `Importar constancia` no puede consultar el estado técnico en ARCA,
   conserva el estado local de los puntos existentes y deja inactivos los puntos
   nuevos hasta sincronizar con ARCA o revisarlos manualmente

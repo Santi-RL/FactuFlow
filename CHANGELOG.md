@@ -18,6 +18,21 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Correcciones
+
+- Se prepara `0.3.1` como parche compatible de `0.3.0`: el importador de
+  constancias reconoce tanto el encabezado histórico `PUNTO VENTA` como el
+  formato vigente `P.VTA.` con columna `ACTIVIDAD`, y procesa de forma segura
+  encabezados repetidos en documentos multipágina.
+- El clasificador probatorio sube a `rece_constancia_v2` y mantiene una
+  allowlist exacta de las modalidades Web Services de régimen general
+  documentadas por ARCA para Responsables Inscriptos, Exentos en IVA y
+  Monotributistas. Las coincidencias parciales, Comprobantes en Línea,
+  Factuweb, Controlador Fiscal y `Web Services` genérico continúan cerradas.
+- La versión técnica y visible queda sincronizada en `0.3.1`. El parche no
+  incorpora datos, PDFs ni identificadores reales y no implica tag,
+  publicación ni despliegue.
+
 ### Documentación
 
 - Se registró la publicación de la GitHub Release `v0.3.0` desde el tag

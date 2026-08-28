@@ -36,6 +36,7 @@ from app.services.elegibilidad_rece_service import (
 
 HOY_RECE_PRUEBA = date(2026, 8, 9)
 SENAL_RECE_EXACTA = "RECE para aplicativo y web services"
+SENAL_EXENTO_WEBSERVICE_EXACTA = "Factura Electrónica - Exento en IVA - Web Services"
 EVIDENCIA_PRIVADA_RECE = {
     "evidencia_sha256",
     "clasificador_version",
@@ -821,24 +822,26 @@ async def test_atestacion_productiva_exacta_es_visible_y_monotonica(
 
 
 @pytest.mark.asyncio
-async def test_pdf_real_atestigua_ledger_rece_con_hash_del_archivo(
+async def test_pdf_actual_exento_atestigua_ledger_rece_con_hash_del_archivo(
     client: AsyncClient,
     admin_auth_headers: dict[str, str],
     db_session: AsyncSession,
     test_empresa: Empresa,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Integra PDF, parser, API y ledger sin reemplazar la evidencia documental."""
+    """Integra el formato ARCA actual para Exento con parser, API y ledger."""
     from app.api import puntos_venta as puntos_venta_api
 
     _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
+    test_empresa.condicion_iva = "Exento"
+    await db_session.commit()
     contenido = HTML(
         string=f"""
             <pre>
             CONSTANCIA DE PUNTOS DE VENTA / EMISIÓN Y DOMICILIOS
             CUIT: EMISOR SINTÉTICO SIN DATOS REALES {test_empresa.cuit}
-            PUNTO VENTA SISTEMA DOMICILIO NOMBRE FANTASIA
-            00062 {SENAL_RECE_EXACTA}
+            P.VTA. SISTEMA DOMICILIO NOMBRE FANTASIA ACTIVIDAD
+            00062 {SENAL_EXENTO_WEBSERVICE_EXACTA}
             FISCAL - 0001 - CALLE SINTÉTICA 123 - BUENOS AIRES LABORATORIO
             09/08/2026
             </pre>

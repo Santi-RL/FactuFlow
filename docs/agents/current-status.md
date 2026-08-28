@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 27/08/2026
+Última actualización: 28/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -38,6 +38,23 @@ El cierre aprobó `npm run docs:check`, `16` pruebas de scripts y la matriz loca
 completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
+
+## Patch compatible `0.3.1`
+
+`main` corrige dos incompatibilidades de `0.3.0` con las constancias actuales
+de `Administración de Puntos de Venta y Domicilios`: acepta el encabezado
+`P.VTA.` con la columna `ACTIVIDAD` sin perder el formato histórico, y versiona
+una allowlist exacta de modalidades Web Services para Responsable Inscripto,
+Exento en IVA y Monotributo. El clasificador continúa fail-closed: no promueven
+las coincidencias parciales, `Web Services` genérico, Comprobantes en Línea,
+Factuweb ni Controlador Fiscal.
+
+El parche no modifica fecha fiscal, numeración, payloads, idempotencia,
+reintentos, reconciliación ni el orden previo a `FECAESolicitar`. Conserva
+administrador activo, servidor productivo, CUIT coincidente, documento completo
+de hasta siete días, confirmación expresa, hash y ledger versionado. La
+evidencia privada que motivó la compatibilidad no se versiona; las pruebas usan
+PDFs y datos sintéticos.
 
 ## PF-19 publicado en `v0.3.0`
 

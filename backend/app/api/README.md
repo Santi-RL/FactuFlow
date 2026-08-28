@@ -66,8 +66,10 @@ actual antes de crear una operación o intento nuevo y antes de
 `FECAESolicitar`. Las lecturas WSFE seguras de la capa exterior batch no
 autorizan ni eluden esa compuerta. La
 importación positiva requiere administrador, servidor en `produccion`,
-confirmación explícita de procedencia y constancia completa/reciente con señal
-exacta `RECE para aplicativo y web services`; el PDF no se persiste.
+confirmación explícita de procedencia y constancia completa/reciente con una
+modalidad Web Services exacta admitida para Responsable Inscripto, Exento en IVA
+o Monotributo. El parser acepta los encabezados `PUNTO VENTA` y `P.VTA.`, con
+`ACTIVIDAD` opcional y repetición por página; el PDF no se persiste.
 Homologación permanece bloqueada hasta una fuente probatoria específica.
 `POST /api/puntos-venta/sincronizar-arca` actualiza solo el estado técnico y
 nunca promueve RECE.

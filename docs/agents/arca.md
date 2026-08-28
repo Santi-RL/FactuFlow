@@ -180,8 +180,10 @@
   el ambiente actual habilita un punto técnica y fiscalmente válido. Una
   atestación positiva exige administrador, servidor en `produccion`,
   confirmación de procedencia, constancia completa con CUIT/fecha exactos, hasta
-  siete días de antigüedad y señal exacta
-  `RECE para aplicativo y web services`. Se persisten hash, fuente, versión,
+  siete días de antigüedad y una modalidad Web Services exacta de la allowlist
+  versionada para Responsable Inscripto, Exento en IVA o Monotributo. El parser
+  admite tanto `PUNTO VENTA` como `P.VTA.`, la columna `ACTIVIDAD` y encabezados
+  repetidos en varias páginas. Se persisten hash, fuente, versión,
   actor y snapshots mínimos, nunca el PDF ni su texto probatorio completo.
 - La importación confirmada termina primero PDF, WSAA y
   `FEParamGetPtosVenta`. Antes de cualquier `db.add` o `flush` de Punto/cabezas,
