@@ -39,7 +39,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## Patch compatible `0.3.1`
+## Candidato compatible `0.3.1`
 
 `main` corrige dos incompatibilidades de `0.3.0` con las constancias actuales
 de `Administración de Puntos de Venta y Domicilios`: acepta el encabezado
@@ -58,6 +58,20 @@ antes de una emisión si está pendiente o desactualizada. Si ARCA no responde,
 el flujo devuelve `503` antes de crear operación, intento, reserva o solicitud
 de CAE. La evidencia privada no se versiona; las pruebas usan PDFs y datos
 sintéticos.
+
+El alcance funcional quedó integrado en `main` mediante los PR `#37` y `#38`.
+El merge funcional final
+`e49a8bafc07e7097737550392b444eb67fda034b` aprobó los siete checks obligatorios
+en la ejecución
+[`33201615030`](https://github.com/Santi-RL/FactuFlow/actions/runs/33201615030):
+Backend Tests, Change Scope, E2E Tests, Frontend Build, Repository Checks,
+Runtime Smoke y Security Audit. El `autoreview` final con Codex
+`gpt-5.6-sol medium` cerró limpio y la versión técnica y visible está alineada
+en `0.3.1`.
+
+El contenido de la release quedó congelado el 28/08/2026. El tag, la GitHub
+Release y el despliegue permanecen como checkpoints separados; el estado real
+de cada instalación se consulta únicamente en `VPS Hostinger` / `vps-admin`.
 
 ## PF-19 publicado en `v0.3.0`
 
@@ -430,7 +444,7 @@ con:
 - evolución de permisos multiemisor aceptada pero todavía no implementada:
   PF-06/PF-07/PF-08 reemplazará la asignación singular por accesos explícitos a
   varios emisores y permitirá conceder el checkbox `Puede crear y editar
-  emisores`; crear autoasignará el nuevo emisor y editar exigirá además acceso
+emisores`; crear autoasignará el nuevo emisor y editar exigirá además acceso
   vigente, mientras borrado y administración global seguirán reservados;
 - worker embebido para lotes; la topología de cada instalación se consulta en su
   plano de control;
@@ -510,10 +524,10 @@ evidencia de rechazo global y saneamiento auditado; la CI Nivel 2 ya aprobó
 PostgreSQL real y Runtime Smoke sobre el SHA funcional. La aceptación PF-16G y
 el ensayo privado de backup/restauración/upgrade/rollback quedaron cerrados el
 10/08/2026. El tag y la publicación de `v0.3.0` se completaron el 11/08/2026;
-el despliegue continúa pendiente y requiere autorización separada. PF-03B se
-retoma después de completar ese despliegue. Los párrafos siguientes conservan
-la evidencia histórica de PF-01 ya
-cerrada y no cambian ese orden.
+el estado desplegado posterior se consulta en el plano de control. El parche
+`v0.3.1` queda delante de PF-03B por la incompatibilidad operativa detectada en
+puntos de venta. Los párrafos siguientes conservan la evidencia histórica de
+PF-01 ya cerrada y no cambian ese orden.
 
 No apareció un P0. PF-01A.1, PF-01A.2 y PF-01A.3 ya están publicados en
 `origin/main`. La UI de emisión individual
@@ -695,6 +709,7 @@ Siguen pendientes:
 - Flujo productivo: `docs/agents/production-workflow.md`
 - Dossier v0.2.2: `docs/project/releases/v0.2.2-candidate.md`
 - Dossier v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
+- Dossier v0.3.1: `docs/project/releases/v0.3.1-candidate.md`
 - Checklist fiscal: `docs/agents/fiscal-change-checklist.md`
 - Clawpatch: `docs/project/audits/clawpatch/README.md`
 - Cierre v0.2.1:

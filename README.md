@@ -6,10 +6,13 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 Versión publicada más reciente: `v0.3.0`
 
-`main` identifica el siguiente parche como `0.3.1`, con compatibilidad para el
-formato vigente de constancias de puntos de venta y modalidades Web Services
-exactas por condición fiscal. Integrarlo no crea por sí solo un tag, una GitHub
-Release ni un despliegue.
+Candidato de release congelado: `v0.3.1`.
+
+El candidato incorpora compatibilidad con el formato vigente de constancias de
+puntos de venta, modalidades Web Services exactas por condición fiscal y una
+acreditación inicial durable separada de la comprobación técnica periódica con
+ARCA. El tag, la GitHub Release y el despliegue se registran como checkpoints
+separados.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
@@ -27,9 +30,9 @@ Capacidades actuales:
   lote y archivo observado
 - diagnóstico administrativo sanitizado de worker y pools en `Sistema > Estado`
 - certificados por empresa y ambiente
-- elegibilidad RECE visible con estados `Verificado RECE`, `No RECE` y
-  `No verificado`; perfiles y selectores excluyen puntos sin acreditación
-  vigente
+- elegibilidad RECE visible con estados comprensibles; la acreditación inicial
+  no vence por tiempo, la comprobación técnica se recomienda cada 90 días y los
+  puntos sin constancia o con una señal negativa confirmada no pueden emitir
 - PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información
