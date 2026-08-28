@@ -33,6 +33,7 @@ from tests.test_pf19_legacy_resolution import _sembrar, _solicitud_apply
 
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
+REVISION_ACREDITACION_DURABLE = "d1e2f3a4b5c6"
 
 
 @pytest.mark.integration
@@ -276,7 +277,7 @@ async def test_postgresql_pf19c_dos_apply_dejan_un_cierre_y_un_replay() -> None:
     """Locks y journal serializan dos apply sin doble consulta ni doble mutación."""
     database_url = _postgres_url()
     await _reset_schema(database_url)
-    _run_alembic("upgrade", REVISION_PF19C_LEGACY, database_url)
+    _run_alembic("upgrade", REVISION_ACREDITACION_DURABLE, database_url)
     engine = create_async_engine(database_url)
     try:
         intento_id, empresa_id, admin_id = await _sembrar(engine)
