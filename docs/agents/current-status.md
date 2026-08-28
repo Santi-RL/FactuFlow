@@ -39,7 +39,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## Candidato compatible `0.3.1`
+## Parche publicado `v0.3.1`
 
 `main` corrige dos incompatibilidades de `0.3.0` con las constancias actuales
 de `Administración de Puntos de Venta y Domicilios`: acepta el encabezado
@@ -69,8 +69,10 @@ Runtime Smoke y Security Audit. El `autoreview` final con Codex
 `gpt-5.6-sol medium` cerró limpio y la versión técnica y visible está alineada
 en `0.3.1`.
 
-El contenido de la release quedó congelado el 28/08/2026. El tag, la GitHub
-Release y el despliegue permanecen como checkpoints separados; el estado real
+El contenido de la release quedó congelado y publicado el 28/08/2026. El tag
+inmutable `v0.3.1` apunta a
+`7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7` y la GitHub Release está marcada
+como `Latest`. El despliegue permanece como checkpoint separado; el estado real
 de cada instalación se consulta únicamente en `VPS Hostinger` / `vps-admin`.
 
 ## PF-19 publicado en `v0.3.0`
@@ -374,9 +376,9 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 
 ## Release publicada y estado desplegado
 
-- Release publicada más reciente: `v0.3.0`, marcada como `Latest` en GitHub.
-- Tag inmutable `v0.3.0`:
-  `39797d1ff9c698465255cf4f821240171c235cab`.
+- Release publicada más reciente: `v0.3.1`, marcada como `Latest` en GitHub.
+- Tag inmutable `v0.3.1`:
+  `7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`.
 - El estado desplegado no se fija en el repositorio. Consultar el plano de
   control `VPS Hostinger` / `vps-admin` antes de decidir o repetir cualquier
   operación productiva.
