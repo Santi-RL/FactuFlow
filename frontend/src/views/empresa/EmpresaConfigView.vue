@@ -209,7 +209,7 @@ const formatosOptions = computed(() => [
     })),
 ]);
 const puntosVentaFactuflow = computed(() =>
-  puntosVenta.value.filter((punto) => punto.usable_factuflow),
+  puntosVenta.value.filter((punto) => punto.puede_intentar_emision),
 );
 const puntoVentaPerfilOptions = computed(() => [
   { value: "archivo", label: "Utilizar punto de venta definido en el archivo" },
@@ -217,7 +217,7 @@ const puntoVentaPerfilOptions = computed(() => [
     value: `fijo:${punto.numero}`,
     label: `${String(punto.numero).padStart(4, "0")}${
       punto.nombre ? ` - ${punto.nombre}` : ""
-    }`,
+    }${punto.usable_factuflow ? "" : " (se comprobará al emitir)"}`,
   })),
 ]);
 const perfilPuntoVentaSeleccionado = computed({
@@ -395,7 +395,8 @@ const columnasDesdeConfiguracion = (
           ? String(detalle.encabezados[0])
           : campo.replace(/_/g, " "),
       campo_destino: campo,
-      origen: (String(detalle.origen || "header") as PlantillaOrigen) || "header",
+      origen:
+        (String(detalle.origen || "header") as PlantillaOrigen) || "header",
       valor: String(detalle.valor ?? ""),
       transformacion: String(detalle.transformacion || ""),
       requerido: Boolean(detalle.requerido),
@@ -406,14 +407,14 @@ const columnasDesdeConfiguracion = (
           : String(detalle.indice_columna),
     });
   const plantilla = configuracion.plantilla as
-    | { columnas?: Array<Record<string, unknown>> }
-    | undefined;
+    { columnas?: Array<Record<string, unknown>> } | undefined;
   if (Array.isArray(plantilla?.columnas)) {
     const columnas = plantilla.columnas.map((columna) =>
       crearColumnaPlantilla({
         etiqueta: String(columna.etiqueta || ""),
         campo_destino: String(columna.campo_destino || ""),
-        origen: (String(columna.origen || "header") as PlantillaOrigen) || "header",
+        origen:
+          (String(columna.origen || "header") as PlantillaOrigen) || "header",
         valor: String(columna.valor ?? ""),
         transformacion: String(columna.transformacion || ""),
         requerido: Boolean(columna.requerido),
@@ -425,7 +426,9 @@ const columnasDesdeConfiguracion = (
             : String(columna.indice_columna),
       }),
     );
-    const camposVisuales = new Set(columnas.map((columna) => columna.campo_destino));
+    const camposVisuales = new Set(
+      columnas.map((columna) => columna.campo_destino),
+    );
     for (const [campo, detalle] of Object.entries(campos)) {
       if (!camposVisuales.has(campo)) {
         columnas.push(crearDesdeDetalle(campo, detalle));
@@ -478,12 +481,14 @@ const construirConfiguracionPlantilla = (): Record<string, unknown> => {
         origen: columna.origen,
         requerido: columna.requerido,
       };
-      if (columna.transformacion) detalle.transformacion = columna.transformacion;
+      if (columna.transformacion)
+        detalle.transformacion = columna.transformacion;
       if (columna.origen === "header") {
         detalle.encabezados = [columna.etiqueta];
       }
       if (columna.origen === "columna") {
-        if (columna.letra_columna) detalle.letra_columna = columna.letra_columna;
+        if (columna.letra_columna)
+          detalle.letra_columna = columna.letra_columna;
         if (columna.indice_columna !== undefined) {
           detalle.indice_columna = columna.indice_columna;
         }
@@ -543,8 +548,7 @@ const crearPayloadPerfil = (): PerfilCargaMasivaPayload => ({
       null,
     punto_venta: {
       modo: perfilForm.configuracion.punto_venta?.modo || "archivo",
-      numero:
-        Number(perfilForm.configuracion.punto_venta?.numero || 0) || null,
+      numero: Number(perfilForm.configuracion.punto_venta?.numero || 0) || null,
     },
     descripcion_item_fija:
       perfilForm.configuracion.descripcion_item_fija?.trim() || "",
@@ -579,17 +583,14 @@ const descripcionPlantilla = (formato: FormatoImportacion) => {
   const version = formato.version_vigente;
   const columnas = (
     version?.configuracion_json?.plantilla as
-      | { columnas?: Array<Record<string, unknown>> }
-      | undefined
+      { columnas?: Array<Record<string, unknown>> } | undefined
   )?.columnas;
   const campos = version?.configuracion_json?.campos;
   const cantidadCampos =
     campos && typeof campos === "object" && !Array.isArray(campos)
       ? Object.keys(campos).length
       : 0;
-  const cantidad = Array.isArray(columnas)
-    ? columnas.length
-    : cantidadCampos;
+  const cantidad = Array.isArray(columnas) ? columnas.length : cantidadCampos;
   const protegida = esPlantillaProtegida(formato) ? " · Sistema protegido" : "";
   return `Versión ${version?.version || "-"} · ${cantidad} campos · ${etiquetaAlcancePlantilla(formato)}${protegida}`;
 };
@@ -627,13 +628,16 @@ const origenesPlantillaOptionsPara = (columna: PlantillaColumnaForm) => {
   );
 };
 
-const transformacionesPlantillaOptionsPara = (columna: PlantillaColumnaForm) => {
+const transformacionesPlantillaOptionsPara = (
+  columna: PlantillaColumnaForm,
+) => {
   const campo = catalogoCampos.value.find(
     (item) => item.codigo === columna.campo_destino,
   );
   const permitidas = campo?.transformaciones || [];
   return transformacionPlantillaOptions.filter(
-    (option) => option.value === "" || permitidas.includes(String(option.value)),
+    (option) =>
+      option.value === "" || permitidas.includes(String(option.value)),
   );
 };
 
@@ -758,9 +762,10 @@ const guardarPlantilla = async () => {
   savingPlantilla.value = true;
   try {
     const payload = crearPayloadPlantilla();
-    const compatibilidad = await formatosImportacionService.evaluarCompatibilidad(
-      payload.configuracion_json,
-    );
+    const compatibilidad =
+      await formatosImportacionService.evaluarCompatibilidad(
+        payload.configuracion_json,
+      );
     compatibilidadPlantilla.value = compatibilidad;
     if (compatibilidad.estado === "incompatible") {
       showError(
@@ -905,8 +910,7 @@ const cargarConfiguracionCargaMasiva = async () => {
     if (!sigueVigente()) return;
     showError(
       "No se pudo cargar la configuración de carga masiva",
-      error.response?.data?.detail ||
-        "Revisa tu sesión e intenta nuevamente.",
+      error.response?.data?.detail || "Revisa tu sesión e intenta nuevamente.",
     );
   } finally {
     if (sigueVigente()) {
@@ -1147,24 +1151,15 @@ onMounted(async () => {
       class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
-          Emisores
-        </h1>
+        <h1 class="text-3xl font-bold text-gray-900">Emisores</h1>
         <p class="mt-2 max-w-3xl text-gray-600">
           Administra los datos fiscales de las personas o razones sociales que
           emiten comprobantes.
         </p>
       </div>
 
-      <div
-        v-if="puedeAdministrarEmisor"
-        class="flex flex-wrap gap-3"
-      >
-        <BaseButton
-          variant="secondary"
-          class="gap-2"
-          @click="abrirCrearEmisor"
-        >
+      <div v-if="puedeAdministrarEmisor" class="flex flex-wrap gap-3">
+        <BaseButton variant="secondary" class="gap-2" @click="abrirCrearEmisor">
           <PlusIcon class="h-5 w-5" />
           Agregar emisor
         </BaseButton>
@@ -1178,26 +1173,17 @@ onMounted(async () => {
       </div>
     </div>
 
-    <BaseAlert
-      v-if="puedeAdministrarEmisor"
-      type="info"
-    >
+    <BaseAlert v-if="puedeAdministrarEmisor" type="info">
       Los cambios impactan en el emisor activo seleccionado y se reflejan en la
       operatoria diaria.
     </BaseAlert>
-    <BaseAlert
-      v-else
-      type="info"
-    >
+    <BaseAlert v-else type="info">
       Puedes consultar los datos del emisor activo. Solo un administrador puede
       modificarlos o agregar otro emisor.
     </BaseAlert>
 
     <div class="border-b border-gray-200">
-      <nav
-        class="-mb-px flex gap-6"
-        aria-label="Secciones de emisor"
-      >
+      <nav class="-mb-px flex gap-6" aria-label="Secciones de emisor">
         <button
           type="button"
           :class="[
@@ -1225,10 +1211,7 @@ onMounted(async () => {
       </nav>
     </div>
 
-    <div
-      v-if="loading"
-      class="flex justify-center py-16"
-    >
+    <div v-if="loading" class="flex justify-center py-16">
       <BaseSpinner size="lg" />
     </div>
 
@@ -1324,9 +1307,7 @@ onMounted(async () => {
                   <BuildingOffice2Icon class="h-5 w-5" />
                 </div>
                 <div>
-                  <p class="text-sm text-gray-500">
-                    Emisor activo
-                  </p>
+                  <p class="text-sm text-gray-500">Emisor activo</p>
                   <p class="font-semibold text-gray-900">
                     {{ empresaActiva.razon_social }}
                   </p>
@@ -1338,9 +1319,7 @@ onMounted(async () => {
                   <IdentificationIcon class="h-5 w-5" />
                 </div>
                 <div>
-                  <p class="text-sm text-gray-500">
-                    CUIT
-                  </p>
+                  <p class="text-sm text-gray-500">CUIT</p>
                   <p class="font-semibold text-gray-900">
                     {{ empresaActiva.cuit }}
                   </p>
@@ -1352,9 +1331,7 @@ onMounted(async () => {
                   <CalendarDaysIcon class="h-5 w-5" />
                 </div>
                 <div>
-                  <p class="text-sm text-gray-500">
-                    Última actualización
-                  </p>
+                  <p class="text-sm text-gray-500">Última actualización</p>
                   <p class="font-semibold text-gray-900">
                     {{
                       new Date(empresaActiva.updated_at).toLocaleString("es-AR")
@@ -1388,11 +1365,10 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div
-        v-else
-        class="space-y-6"
-      >
-        <div class="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-1">
+      <div v-else class="space-y-6">
+        <div
+          class="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-white p-1"
+        >
           <button
             type="button"
             :class="[
@@ -1424,24 +1400,20 @@ onMounted(async () => {
           class="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]"
         >
           <BaseCard title="Perfiles de carga masiva">
-            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div
+              class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+            >
               <p class="text-sm text-gray-600">
                 Configura valores habituales para precargar Emisión masiva. El
                 usuario siempre podrá revisar y editar todo antes de validar.
               </p>
-              <BaseButton
-                class="gap-2"
-                @click="abrirCrearPerfil"
-              >
+              <BaseButton class="gap-2" @click="abrirCrearPerfil">
                 <PlusIcon class="h-5 w-5" />
                 Nuevo perfil
               </BaseButton>
             </div>
 
-            <div
-              v-if="loadingPerfiles"
-              class="flex justify-center py-10"
-            >
+            <div v-if="loadingPerfiles" class="flex justify-center py-10">
               <BaseSpinner />
             </div>
 
@@ -1504,11 +1476,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <BaseAlert
-              v-else
-              type="info"
-              class="mt-5"
-            >
+            <BaseAlert v-else type="info" class="mt-5">
               Todavía no hay perfiles de carga masiva para este emisor. Cuando
               crees uno, Emisión masiva podrá aplicarlo automáticamente.
             </BaseAlert>
@@ -1536,12 +1504,11 @@ onMounted(async () => {
           </BaseCard>
         </div>
 
-        <div
-          v-else
-          class="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]"
-        >
+        <div v-else class="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
           <BaseCard title="Plantillas de carga masiva">
-            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div
+              class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+            >
               <p class="text-sm text-gray-600">
                 Crea archivos Excel simples para cada emisor. Los
                 administradores también pueden definir plantillas globales. Las
@@ -1557,10 +1524,7 @@ onMounted(async () => {
                   <DocumentArrowUpIcon class="h-5 w-5" />
                   Desde Excel
                 </BaseButton>
-                <BaseButton
-                  class="gap-2"
-                  @click="abrirCrearPlantilla"
-                >
+                <BaseButton class="gap-2" @click="abrirCrearPlantilla">
                   <PlusIcon class="h-5 w-5" />
                   Nueva plantilla
                 </BaseButton>
@@ -1571,13 +1535,10 @@ onMounted(async () => {
                 type="file"
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 @change="procesarExcelPlantilla"
-              >
+              />
             </div>
 
-            <div
-              v-if="loadingPerfiles"
-              class="flex justify-center py-10"
-            >
+            <div v-if="loadingPerfiles" class="flex justify-center py-10">
               <BaseSpinner />
             </div>
 
@@ -1595,7 +1556,9 @@ onMounted(async () => {
                     <p class="font-semibold text-gray-900">
                       {{ plantilla.nombre }}
                     </p>
-                    <span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+                    <span
+                      class="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700"
+                    >
                       {{ etiquetaAlcancePlantilla(plantilla) }}
                     </span>
                     <span
@@ -1606,7 +1569,9 @@ onMounted(async () => {
                     </span>
                   </div>
                   <p class="mt-1 text-sm text-gray-600">
-                    {{ plantilla.descripcion || descripcionPlantilla(plantilla) }}
+                    {{
+                      plantilla.descripcion || descripcionPlantilla(plantilla)
+                    }}
                   </p>
                   <p class="mt-1 text-xs text-gray-500">
                     {{ descripcionPlantilla(plantilla) }}
@@ -1652,11 +1617,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <BaseAlert
-              v-else
-              type="info"
-              class="mt-5"
-            >
+            <BaseAlert v-else type="info" class="mt-5">
               Todavía no hay plantillas configuradas. Puedes empezar desde cero
               o subir un Excel de ejemplo para tomar sus encabezados.
             </BaseAlert>
@@ -1686,10 +1647,7 @@ onMounted(async () => {
       </div>
     </template>
 
-    <BaseAlert
-      v-else
-      type="warning"
-    >
+    <BaseAlert v-else type="warning">
       No hay un emisor seleccionado. Agrega un emisor para empezar a configurar
       certificados, puntos de venta y comprobantes.
     </BaseAlert>
@@ -1700,10 +1658,7 @@ onMounted(async () => {
       size="xl"
       @close="cerrarCrearEmisor"
     >
-      <form
-        class="space-y-5"
-        @submit.prevent="crearEmisor"
-      >
+      <form class="space-y-5" @submit.prevent="crearEmisor">
         <BaseAlert type="info">
           Agrega una persona o razon social que va a emitir comprobantes. Puedes
           cargar una constancia ARCA para completar los datos principales y
@@ -1742,21 +1697,13 @@ onMounted(async () => {
             type="file"
             accept="application/pdf,.pdf"
             @change="procesarConstancia"
-          >
+          />
         </div>
 
-        <BaseAlert
-          v-if="extractionWarnings.length > 0"
-          type="warning"
-        >
-          <p class="mb-2 font-medium">
-            Revisa estos datos manualmente:
-          </p>
+        <BaseAlert v-if="extractionWarnings.length > 0" type="warning">
+          <p class="mb-2 font-medium">Revisa estos datos manualmente:</p>
           <ul class="list-disc space-y-1 pl-5">
-            <li
-              v-for="warning in extractionWarnings"
-              :key="warning"
-            >
+            <li v-for="warning in extractionWarnings" :key="warning">
               {{ warning }}
             </li>
           </ul>
@@ -1836,10 +1783,7 @@ onMounted(async () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton
-            type="submit"
-            :loading="creating"
-          >
+          <BaseButton type="submit" :loading="creating">
             Agregar y seleccionar emisor
           </BaseButton>
         </div>
@@ -1856,10 +1800,7 @@ onMounted(async () => {
       size="xl"
       @close="cerrarPerfilModal"
     >
-      <form
-        class="space-y-5"
-        @submit.prevent="guardarPerfil"
-      >
+      <form class="space-y-5" @submit.prevent="guardarPerfil">
         <BaseAlert type="info">
           El perfil solo precarga la pantalla de Emisión masiva. Las fechas,
           punto de venta, concepto fiscal ARCA y descripción facturada quedan
@@ -1867,11 +1808,7 @@ onMounted(async () => {
         </BaseAlert>
 
         <div class="grid gap-4 md:grid-cols-2">
-          <BaseInput
-            v-model="perfilForm.nombre"
-            label="Nombre"
-            required
-          />
+          <BaseInput v-model="perfilForm.nombre" label="Nombre" required />
           <BaseSelect
             v-model="perfilFormatoImportacionVersionId"
             :options="formatosOptions"
@@ -1893,8 +1830,8 @@ onMounted(async () => {
             type="warning"
             class="md:col-span-2"
           >
-            Para elegir un punto de venta fijo, primero cargá los puntos de
-            venta elegibles para emitir en la pantalla Puntos de venta.
+            Para elegir un punto de venta fijo, primero importá una constancia
+            válida en la pantalla Puntos de venta.
           </BaseAlert>
           <BaseSelect
             v-model="perfilForm.configuracion.concepto_modo"
@@ -1925,7 +1862,9 @@ onMounted(async () => {
             label="Fecha de emisión"
           />
           <BaseInput
-            v-if="perfilForm.configuracion.fecha_emision.modo === 'personalizada'"
+            v-if="
+              perfilForm.configuracion.fecha_emision.modo === 'personalizada'
+            "
             v-model="perfilForm.configuracion.fecha_emision.fecha"
             type="date"
             label="Fecha personalizada"
@@ -1936,13 +1875,17 @@ onMounted(async () => {
             label="Periodo de servicios"
           />
           <BaseInput
-            v-if="perfilForm.configuracion.periodo_servicio.modo === 'personalizado'"
+            v-if="
+              perfilForm.configuracion.periodo_servicio.modo === 'personalizado'
+            "
             v-model="perfilForm.configuracion.periodo_servicio.desde"
             type="date"
             label="Desde"
           />
           <BaseInput
-            v-if="perfilForm.configuracion.periodo_servicio.modo === 'personalizado'"
+            v-if="
+              perfilForm.configuracion.periodo_servicio.modo === 'personalizado'
+            "
             v-model="perfilForm.configuracion.periodo_servicio.hasta"
             type="date"
             label="Hasta"
@@ -1953,14 +1896,19 @@ onMounted(async () => {
             label="Vencimiento de pago"
           />
           <BaseInput
-            v-if="perfilForm.configuracion.fecha_vto_pago.modo === 'emision_mas_dias'"
+            v-if="
+              perfilForm.configuracion.fecha_vto_pago.modo ===
+              'emision_mas_dias'
+            "
             v-model="perfilForm.configuracion.fecha_vto_pago.dias"
             type="number"
             min="0"
             label="Días desde emisión"
           />
           <BaseInput
-            v-if="perfilForm.configuracion.fecha_vto_pago.modo === 'personalizada'"
+            v-if="
+              perfilForm.configuracion.fecha_vto_pago.modo === 'personalizada'
+            "
             v-model="perfilForm.configuracion.fecha_vto_pago.fecha"
             type="date"
             label="Fecha de vencimiento"
@@ -1972,7 +1920,7 @@ onMounted(async () => {
             v-model="perfilForm.es_predeterminado"
             type="checkbox"
             class="h-4 w-4 rounded border-gray-300 text-primary-600"
-          >
+          />
           Usar como perfil de carga masiva predeterminado del emisor
         </label>
 
@@ -1984,10 +1932,7 @@ onMounted(async () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton
-            type="submit"
-            :loading="savingPerfil"
-          >
+          <BaseButton type="submit" :loading="savingPerfil">
             Guardar perfil
           </BaseButton>
         </div>
@@ -2000,10 +1945,7 @@ onMounted(async () => {
       size="full"
       @close="cerrarPlantillaModal"
     >
-      <form
-        class="space-y-5"
-        @submit.prevent="guardarPlantilla"
-      >
+      <form class="space-y-5" @submit.prevent="guardarPlantilla">
         <BaseAlert type="info">
           La plantilla solo define el Excel y su lectura. La emisión masiva
           seguirá mostrando perfil, punto de venta, concepto, fechas y
@@ -2022,10 +1964,7 @@ onMounted(async () => {
             label="Alcance"
             :disabled="Boolean(plantillaEditando)"
           />
-          <p
-            v-if="plantillaEditando"
-            class="self-end text-sm text-gray-500"
-          >
+          <p v-if="plantillaEditando" class="self-end text-sm text-gray-500">
             Para cambiar el alcance, cloná la plantilla.
           </p>
           <div class="md:col-span-3">
@@ -2038,11 +1977,11 @@ onMounted(async () => {
 
         <div class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
           <div class="min-w-0 space-y-3">
-            <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div
+              class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+            >
               <div>
-                <p class="font-semibold text-gray-900">
-                  Columnas y valores
-                </p>
+                <p class="font-semibold text-gray-900">Columnas y valores</p>
                 <p class="text-sm text-gray-600">
                   Ordena las filas como quieras que aparezcan en el Excel.
                 </p>
@@ -2059,7 +1998,9 @@ onMounted(async () => {
               </BaseButton>
             </div>
 
-            <div class="max-h-[48vh] overflow-auto rounded-lg border border-gray-200 bg-white">
+            <div
+              class="max-h-[48vh] overflow-auto rounded-lg border border-gray-200 bg-white"
+            >
               <table class="min-w-[980px] divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                   <tr>
@@ -2109,7 +2050,9 @@ onMounted(async () => {
                         <button
                           type="button"
                           class="rounded-md p-1 text-gray-500 hover:bg-gray-100"
-                          :disabled="index === plantillaForm.columnas.length - 1"
+                          :disabled="
+                            index === plantillaForm.columnas.length - 1
+                          "
                           title="Bajar"
                           @click="moverColumnaPlantilla(index, 1)"
                         >
@@ -2122,7 +2065,7 @@ onMounted(async () => {
                         v-model="columna.etiqueta"
                         class="w-full rounded-md border border-gray-300 px-2 py-1"
                         placeholder="Ej.: Fecha emisión"
-                      >
+                      />
                     </td>
                     <td class="min-w-[190px] px-3 py-2">
                       <select
@@ -2145,7 +2088,9 @@ onMounted(async () => {
                         class="w-full rounded-md border border-gray-300 px-2 py-1"
                       >
                         <option
-                          v-for="option in origenesPlantillaOptionsPara(columna)"
+                          v-for="option in origenesPlantillaOptionsPara(
+                            columna,
+                          )"
                           :key="option.value"
                           :value="option.value"
                         >
@@ -2159,23 +2104,20 @@ onMounted(async () => {
                         v-model="columna.valor"
                         class="w-full rounded-md border border-gray-300 px-2 py-1"
                         placeholder="Valor fijo"
-                      >
+                      />
                       <input
                         v-else-if="columna.origen === 'columna'"
                         v-model="columna.letra_columna"
                         class="w-full rounded-md border border-gray-300 px-2 py-1"
                         placeholder="Ej.: A"
-                      >
+                      />
                       <span
                         v-else-if="columna.origen === 'empresa'"
                         class="text-xs text-gray-500"
                       >
                         Se toma del emisor activo
                       </span>
-                      <span
-                        v-else
-                        class="text-xs text-gray-500"
-                      >
+                      <span v-else class="text-xs text-gray-500">
                         Usa la etiqueta visible
                       </span>
                     </td>
@@ -2185,7 +2127,9 @@ onMounted(async () => {
                         class="w-full rounded-md border border-gray-300 px-2 py-1"
                       >
                         <option
-                          v-for="option in transformacionesPlantillaOptionsPara(columna)"
+                          v-for="option in transformacionesPlantillaOptionsPara(
+                            columna,
+                          )"
                           :key="option.value"
                           :value="option.value"
                         >
@@ -2198,14 +2142,14 @@ onMounted(async () => {
                         v-model="columna.requerido"
                         type="checkbox"
                         class="h-4 w-4 rounded border-gray-300 text-primary-600"
-                      >
+                      />
                     </td>
                     <td class="min-w-[120px] px-3 py-2">
                       <input
                         v-model="columna.ejemplo"
                         class="w-full rounded-md border border-gray-300 px-2 py-1"
                         placeholder="Ejemplo"
-                      >
+                      />
                     </td>
                     <td class="px-3 py-2">
                       <button
@@ -2223,11 +2167,11 @@ onMounted(async () => {
             </div>
           </div>
 
-          <aside class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 xl:max-h-[48vh] xl:overflow-y-auto">
+          <aside
+            class="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 xl:max-h-[48vh] xl:overflow-y-auto"
+          >
             <div class="flex items-center justify-between gap-3">
-              <p class="font-semibold text-gray-900">
-                Compatibilidad
-              </p>
+              <p class="font-semibold text-gray-900">Compatibilidad</p>
               <BaseButton
                 type="button"
                 size="sm"
@@ -2239,10 +2183,7 @@ onMounted(async () => {
               </BaseButton>
             </div>
 
-            <div
-              v-if="compatibilidadPlantilla"
-              class="space-y-3"
-            >
+            <div v-if="compatibilidadPlantilla" class="space-y-3">
               <div
                 :class="[
                   'flex items-start gap-2 rounded-md px-3 py-2 text-sm',
@@ -2257,10 +2198,7 @@ onMounted(async () => {
                   v-if="compatibilidadPlantilla.estado !== 'compatible'"
                   class="mt-0.5 h-5 w-5 flex-none"
                 />
-                <CheckCircleIcon
-                  v-else
-                  class="mt-0.5 h-5 w-5 flex-none"
-                />
+                <CheckCircleIcon v-else class="mt-0.5 h-5 w-5 flex-none" />
                 <span>
                   {{
                     compatibilidadPlantilla.estado === "compatible"
@@ -2274,15 +2212,29 @@ onMounted(async () => {
 
               <div
                 v-for="grupo in [
-                  { titulo: 'Conflictos', items: compatibilidadPlantilla.conflictos },
-                  { titulo: 'Faltantes', items: compatibilidadPlantilla.faltantes },
-                  { titulo: 'Advertencias', items: compatibilidadPlantilla.advertencias },
-                  { titulo: 'Omitibles', items: compatibilidadPlantilla.omitibles },
+                  {
+                    titulo: 'Conflictos',
+                    items: compatibilidadPlantilla.conflictos,
+                  },
+                  {
+                    titulo: 'Faltantes',
+                    items: compatibilidadPlantilla.faltantes,
+                  },
+                  {
+                    titulo: 'Advertencias',
+                    items: compatibilidadPlantilla.advertencias,
+                  },
+                  {
+                    titulo: 'Omitibles',
+                    items: compatibilidadPlantilla.omitibles,
+                  },
                 ]"
                 :key="grupo.titulo"
               >
                 <div v-if="grupo.items.length > 0">
-                  <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <p
+                    class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500"
+                  >
                     {{ grupo.titulo }}
                   </p>
                   <ul class="space-y-1 text-sm text-gray-700">
@@ -2298,10 +2250,7 @@ onMounted(async () => {
               </div>
             </div>
 
-            <BaseAlert
-              v-else
-              type="info"
-            >
+            <BaseAlert v-else type="info">
               Asigna campos FactuFlow para ver qué falta o qué puede omitirse
               según el emisor activo.
             </BaseAlert>
@@ -2316,10 +2265,7 @@ onMounted(async () => {
           >
             Cancelar
           </BaseButton>
-          <BaseButton
-            type="submit"
-            :loading="savingPlantilla"
-          >
+          <BaseButton type="submit" :loading="savingPlantilla">
             Guardar plantilla
           </BaseButton>
         </div>

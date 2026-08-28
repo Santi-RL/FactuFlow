@@ -75,6 +75,7 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceError,
     ElegibilidadReceService,
 )
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
 
 logger = logging.getLogger(__name__)
 
@@ -4119,6 +4120,20 @@ class LoteComprobantesService:
             raise LoteComprobanteError(
                 "El lote no conserva el material RECE confirmado y debe revalidarse."
             )
+
+        puntos_ids = {
+            int(grupo["punto_venta_id"])
+            for grupo in list(material_rece_confirmado["grupos"])
+            if grupo.get("punto_venta_id") is not None
+        }
+        try:
+            await PuntosVentaArcaService(self.db).asegurar_comprobacion_reciente(
+                empresa_id=empresa_id,
+                puntos_venta_ids=puntos_ids,
+                actor_usuario_id=usuario_id,
+            )
+        except ElegibilidadReceError as exc:
+            raise LoteComprobanteError(exc.mensaje) from exc
 
         grupos_confirmados = await self._obtener_grupos_emitibles(lote_id)
         contextos_rece = await self._exigir_contextos_rece_grupos(

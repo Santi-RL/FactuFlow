@@ -115,6 +115,9 @@ const puntoVentaMock = (
   fuente: "arca_wsfe",
   activo: true,
   usable_factuflow: true,
+  puede_intentar_emision: true,
+  ultima_comprobacion_arca_en: "2026-08-09T15:00:00Z",
+  comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
   elegibilidad_rece: elegibilidadReceMock(),
   empresa_id: empresaId,
@@ -160,6 +163,7 @@ const syncResponseMock = (): SincronizarPuntosVentaResponse => ({
   existentes: 1,
   actualizados: 1,
   desactivados_ausentes: 1,
+  comprobado_en: "2026-08-28T12:00:00Z",
 });
 
 const importResponseMock = (): ImportarPuntosVentaResponse => ({
@@ -169,9 +173,10 @@ const importResponseMock = (): ImportarPuntosVentaResponse => ({
   omitidos: 0,
   desactivados_ausentes: 1,
   verificados_rece: 1,
+  pendientes_comprobacion: 0,
   no_verificados_rece: 1,
   documento_emitido_en: "2026-08-09",
-  vigente_hasta: "2026-08-15",
+  vigente_hasta: null,
   warnings: [],
 });
 
@@ -247,13 +252,11 @@ describe("PuntosVentaView", () => {
       value: [new File(["PDF"], "constancia.pdf", { type: "application/pdf" })],
     });
     const vm = wrapper.vm as unknown as {
-      prepararImportacionConstancia: (event: Event) => void;
-      importarConstancia: () => Promise<void>;
+      prepararImportacionConstancia: (event: Event) => Promise<void>;
     };
-    vm.prepararImportacionConstancia({
+    const importacion = vm.prepararImportacionConstancia({
       target: input,
     } as unknown as Event);
-    const importacion = vm.importarConstancia();
 
     empresaStore.empresa = empresaMock(2);
     empresaStore.empresaActivaId = 2;
@@ -266,7 +269,7 @@ describe("PuntosVentaView", () => {
     expect(input.value).toBe("");
   });
 
-  it("muestra estado efectivo, causa y vigencia RECE y filtra solo elegibles", async () => {
+  it("muestra acreditación durable, frescura técnica y filtra solo listos", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     useAuthStore().user = usuarioMock(true);
@@ -280,6 +283,7 @@ describe("PuntosVentaView", () => {
       numero: 2,
       nombre: "Punto no RECE",
       usable_factuflow: false,
+      puede_intentar_emision: false,
       elegibilidad_rece: elegibilidadReceMock({
         estado: "no_rece",
         estado_efectivo: "no_rece",
@@ -289,17 +293,30 @@ describe("PuntosVentaView", () => {
         motivo: "punto_no_rece",
       }),
     });
-    const vencido = puntoVentaMock(1, {
+    const desactualizado = puntoVentaMock(1, {
       id: 13,
       numero: 3,
-      nombre: "Punto vencido",
+      nombre: "Punto desactualizado",
+      comprobacion_arca_desactualizada: true,
+      ultima_comprobacion_arca_en: "2026-05-01T12:00:00Z",
+    });
+    const pendiente = puntoVentaMock(1, {
+      id: 14,
+      numero: 4,
+      nombre: "Punto pendiente",
+      activo: false,
       usable_factuflow: false,
-      elegibilidad_rece: elegibilidadReceMock({
-        estado: "verificado_rece",
-        estado_efectivo: "no_verificado",
-        vigente_hasta: "20260808",
-        motivo: "evidencia_rece_vencida",
-      }),
+      puede_intentar_emision: true,
+      ultima_comprobacion_arca_en: null,
+      comprobacion_arca_desactualizada: true,
+    });
+    const ausente = puntoVentaMock(1, {
+      id: 15,
+      numero: 5,
+      nombre: "Punto ausente",
+      activo: false,
+      usable_factuflow: false,
+      puede_intentar_emision: false,
     });
     mockedArcaService.getStatus.mockResolvedValue(
       statusMock("produccion", true),
@@ -307,7 +324,9 @@ describe("PuntosVentaView", () => {
     mockedPuntosVentaService.getAll.mockResolvedValue([
       verificado,
       noRece,
-      vencido,
+      desactualizado,
+      pendiente,
+      ausente,
     ]);
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
@@ -319,15 +338,20 @@ describe("PuntosVentaView", () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Verificado RECE");
-    expect(wrapper.text()).toContain("No RECE");
-    expect(wrapper.text()).toContain("No verificado");
+    expect(wrapper.text()).toContain("Listo para emitir");
+    expect(wrapper.text()).toContain("Requiere atención");
+    expect(wrapper.text()).toContain("Comprobación recomendada");
+    expect(wrapper.text()).toContain("Pendiente de comprobar con ARCA");
+    expect(wrapper.text()).toContain("Pendiente de ARCA");
+    expect(wrapper.text()).toContain("Ausente en ARCA");
     expect(wrapper.text()).toContain(
       "La evidencia vigente indica que el punto no es RECE.",
     );
-    expect(wrapper.text()).toContain("Vigente hasta 15/08/2026");
-    expect(wrapper.text()).toContain("Evidencia vencida el 08/08/2026");
-    expect(wrapper.findAll("tbody tr")).toHaveLength(3);
+    expect(wrapper.text()).toContain(
+      "La constancia acredita este punto de venta sin vencimiento temporal.",
+    );
+    expect(wrapper.text()).not.toContain("Vigente hasta");
+    expect(wrapper.findAll("tbody tr")).toHaveLength(5);
 
     const filtro = wrapper
       .findAll("label")
@@ -335,13 +359,15 @@ describe("PuntosVentaView", () => {
     expect(filtro).toBeDefined();
     await filtro!.get('input[type="checkbox"]').setValue(true);
 
-    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
+    expect(wrapper.findAll("tbody tr")).toHaveLength(3);
     expect(wrapper.text()).toContain("0001");
     expect(wrapper.text()).not.toContain("0002");
-    expect(wrapper.text()).not.toContain("0003");
+    expect(wrapper.text()).toContain("0003");
+    expect(wrapper.text()).toContain("0004");
+    expect(wrapper.text()).not.toContain("0005");
   });
 
-  it("exige atestación expresa para acreditar y permite importar sin acreditar", async () => {
+  it("procesa una sola carga segura sin modal intermedio", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     useAuthStore().user = usuarioMock(true);
@@ -351,13 +377,12 @@ describe("PuntosVentaView", () => {
     mockedPuntosVentaService.getAll.mockResolvedValue([]);
     const warningTecnico =
       "No se desactivaron puntos ausentes porque la constancia no pudo validarse como completa.";
-    mockedPuntosVentaService.importarConstancia
-      .mockResolvedValueOnce({
-        ...importResponseMock(),
-        desactivados_ausentes: 0,
-        warnings: [warningTecnico],
-      })
-      .mockResolvedValue(importResponseMock());
+    mockedPuntosVentaService.importarConstancia.mockResolvedValueOnce({
+      ...importResponseMock(),
+      desactivados_ausentes: 0,
+      pendientes_comprobacion: 1,
+      warnings: [warningTecnico],
+    });
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -368,114 +393,39 @@ describe("PuntosVentaView", () => {
     await flushPromises();
 
     const vm = wrapper.vm as unknown as {
-      prepararImportacionConstancia: (event: Event) => void;
-      seleccionarModoImportacion: (
-        modo: "sin_acreditar" | "acreditar_rece",
-      ) => void;
-      importarConstancia: () => Promise<void>;
-      confirmarProcedenciaProduccion: boolean;
-      puedeConfirmarImportacion: boolean;
+      prepararImportacionConstancia: (event: Event) => Promise<void>;
     };
-    const prepararArchivo = () => {
-      const input = document.createElement("input");
-      input.type = "file";
-      Object.defineProperty(input, "files", {
-        value: [
-          new File(["PDF"], "constancia.pdf", {
-            type: "application/pdf",
-          }),
-        ],
-      });
-      vm.prepararImportacionConstancia({
-        target: input,
-      } as unknown as Event);
-    };
-
-    prepararArchivo();
-    await flushPromises();
-    expect(document.body.textContent).toContain("Importar sin acreditar RECE");
-    expect(document.body.textContent).toContain("Importar y acreditar RECE");
-    expect(vm.puedeConfirmarImportacion).toBe(true);
-    await vm.importarConstancia();
-    expect(
-      mockedPuntosVentaService.importarConstancia,
-    ).toHaveBeenLastCalledWith(expect.any(File), {
-      confirmar_procedencia_produccion: false,
+    const input = document.createElement("input");
+    input.type = "file";
+    const file = new File(["PDF"], "constancia.pdf", {
+      type: "application/pdf",
     });
-    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
-      "Constancia importada sin acreditar RECE",
-      expect.stringContaining("Esta modalidad no acreditó RECE"),
+    Object.defineProperty(input, "files", { value: [file] });
+
+    await vm.prepararImportacionConstancia({
+      target: input,
+    } as unknown as Event);
+
+    expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledOnce();
+    expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledWith(
+      file,
+    );
+    expect(document.body.textContent).not.toContain(
+      "Importar sin acreditar RECE",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Importar y acreditar RECE",
     );
     expect(notificationMocks.showWarning).toHaveBeenCalledWith(
-      "Importación con observaciones",
-      warningTecnico,
+      "Constancia importada con observaciones",
+      expect.stringMatching(
+        /Acreditados por constancia: 1.*Pendientes de comprobar con ARCA: 1.*No compatibles: 1.*No se desactivaron puntos ausentes/,
+      ),
     );
-
-    prepararArchivo();
-    vm.seleccionarModoImportacion("acreditar_rece");
-    await flushPromises();
-    expect(document.body.textContent).toContain(
-      "FactuFlow no puede verificar criptográficamente el origen del PDF",
-    );
-    expect(document.body.textContent).toContain(
-      "modalidad Web Services exacta admitida",
-    );
-    expect(document.body.textContent).toContain(
-      "Confirmo que descargué esta constancia desde la gestión productiva de ARCA",
-    );
-    expect(vm.puedeConfirmarImportacion).toBe(false);
-    await vm.importarConstancia();
-    expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(notificationMocks.showWarning).toHaveBeenCalledWith(
-      "Confirmación requerida",
-      expect.stringContaining("Confirmá expresamente"),
-    );
-
-    vm.confirmarProcedenciaProduccion = true;
-    await vm.importarConstancia();
-    expect(
-      mockedPuntosVentaService.importarConstancia,
-    ).toHaveBeenLastCalledWith(expect.any(File), {
-      confirmar_procedencia_produccion: true,
-    });
-    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
-      "Constancia productiva procesada",
-      expect.stringContaining("Desactivados por ausencia: 1"),
-    );
-    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
-      "Constancia productiva procesada",
-      expect.stringContaining("Documento: 09/08/2026"),
-    );
-    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
-      "Constancia productiva procesada",
-      expect.stringContaining("Verificados RECE: 1"),
-    );
-    expect(notificationMocks.showSuccess).toHaveBeenLastCalledWith(
-      "Constancia productiva procesada",
-      expect.stringContaining("Vigencia: 15/08/2026"),
-    );
-
-    notificationMocks.showSuccess.mockClear();
-    notificationMocks.showError.mockClear();
-    mockedPuntosVentaService.importarConstancia.mockResolvedValueOnce({
-      ...importResponseMock(),
-      warnings: ["Observación fiscal inesperada."],
-    });
-    prepararArchivo();
-    vm.seleccionarModoImportacion("acreditar_rece");
-    vm.confirmarProcedenciaProduccion = true;
-    await vm.importarConstancia();
-
     expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
-    expect(notificationMocks.showError).toHaveBeenCalledWith(
-      "Resultado fiscal con observaciones",
-      expect.stringContaining("no se presenta como exitosa"),
-    );
   });
 
-  it("bloquea la acreditación RECE en homologación y conserva la importación técnica", async () => {
+  it("bloquea la acreditación por constancia fuera de producción", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     useAuthStore().user = usuarioMock(true);
@@ -498,30 +448,12 @@ describe("PuntosVentaView", () => {
       value: [new File(["PDF"], "constancia.pdf", { type: "application/pdf" })],
     });
     const vm = wrapper.vm as unknown as {
-      prepararImportacionConstancia: (event: Event) => void;
-      seleccionarModoImportacion: (
-        modo: "sin_acreditar" | "acreditar_rece",
-      ) => void;
-      importarConstancia: () => Promise<void>;
-      modoImportacion: "sin_acreditar" | "acreditar_rece";
-      confirmarProcedenciaProduccion: boolean;
-      puedeAcreditarRece: boolean;
-      puedeConfirmarImportacion: boolean;
+      prepararImportacionConstancia: (event: Event) => Promise<void>;
     };
-    vm.prepararImportacionConstancia({ target: input } as unknown as Event);
-    await flushPromises();
+    await vm.prepararImportacionConstancia({
+      target: input,
+    } as unknown as Event);
 
-    expect(vm.puedeAcreditarRece).toBe(false);
-    const opcionAcreditar = document.body.querySelector<HTMLInputElement>(
-      'input[value="acreditar_rece"]',
-    );
-    expect(opcionAcreditar).not.toBeNull();
-    expect(opcionAcreditar?.disabled).toBe(true);
-    expect(document.body.textContent).toContain(
-      "No disponible en homologación",
-    );
-    vm.seleccionarModoImportacion("acreditar_rece");
-    expect(vm.modoImportacion).toBe("sin_acreditar");
     expect(notificationMocks.showWarning).toHaveBeenCalledWith(
       "Acreditación no disponible",
       expect.stringContaining(
@@ -529,10 +461,6 @@ describe("PuntosVentaView", () => {
       ),
     );
 
-    vm.modoImportacion = "acreditar_rece";
-    vm.confirmarProcedenciaProduccion = true;
-    expect(vm.puedeConfirmarImportacion).toBe(false);
-    await vm.importarConstancia();
     expect(mockedPuntosVentaService.importarConstancia).not.toHaveBeenCalled();
   });
 
@@ -565,7 +493,9 @@ describe("PuntosVentaView", () => {
       .map((button) => button.text().trim());
     expect(botonesVisibles).not.toContain("Sincronizar con ARCA");
     expect(botonesVisibles).not.toContain("Importar constancia");
-    expect(wrapper.text()).toContain("Solo un administrador puede sincronizar");
+    expect(wrapper.text()).toContain(
+      "Solo un administrador puede comprobar con ARCA",
+    );
 
     const vm = wrapper.vm as unknown as {
       editarPunto: (punto: PuntoVenta) => void;
@@ -656,7 +586,7 @@ describe("PuntosVentaView", () => {
 
     const sincronizarButton = wrapper
       .findAll("button")
-      .find((button) => button.text().includes("Sincronizar con ARCA"));
+      .find((button) => button.text().includes("Comprobar con ARCA"));
     expect(sincronizarButton).toBeDefined();
     expect(sincronizarButton?.attributes("disabled")).toBeDefined();
     const vm = wrapper.vm as unknown as {

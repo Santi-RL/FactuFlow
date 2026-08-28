@@ -50,11 +50,14 @@ las coincidencias parciales, `Web Services` genérico, Comprobantes en Línea,
 Factuweb ni Controlador Fiscal.
 
 El parche no modifica fecha fiscal, numeración, payloads, idempotencia,
-reintentos, reconciliación ni el orden previo a `FECAESolicitar`. Conserva
-administrador activo, servidor productivo, CUIT coincidente, documento completo
-de hasta siete días, confirmación expresa, hash y ledger versionado. La
-evidencia privada que motivó la compatibilidad no se versiona; las pruebas usan
-PDFs y datos sintéticos.
+reintentos ni reconciliación. Conserva administrador activo, servidor
+productivo, CUIT coincidente, documento completo/no ambiguo/no futuro, hash y
+ledger versionado. La acreditación inicial deja de vencer por tiempo; la
+comprobación técnica se recomienda cada 90 días y se ejecuta automáticamente
+antes de una emisión si está pendiente o desactualizada. Si ARCA no responde,
+el flujo devuelve `503` antes de crear operación, intento, reserva o solicitud
+de CAE. La evidencia privada no se versiona; las pruebas usan PDFs y datos
+sintéticos.
 
 ## PF-19 publicado en `v0.3.0`
 
@@ -89,18 +92,23 @@ La causa raíz queda en PF-19, separada de líneas ya cerradas o planificadas:
   trazabilidad que distingue aborto pre-FECAE, rechazo e incertidumbre real.
 
 PF-19B queda cerrado en `main`: cada punto posee elegibilidad versionada por
-ambiente y solo una cabeza efectiva `verificado_rece` puede avanzar hacia CAE.
+ambiente y solo una cabeza efectiva `verificado_rece` puede intentar avanzar
+hacia CAE.
 Los puntos legacy migran como
 `no_verificado`; Web Services genérico y `FEParamGetPtosVenta` no acreditan
-RECE. La sincronización se resuelve en el servidor y modifica únicamente estado
-técnico. Solo un administrador activo en un servidor productivo puede promover
-producción mediante una constancia de hasta siete días, señal exacta y
-confirmación expresa de procedencia; FactuFlow conserva hash y metadatos
-probatorios mínimos, no el PDF. Homologación permanece fail-closed porque no
-existe una fuente probatoria específica.
+RECE. La comprobación se resuelve en el servidor, modifica únicamente estado
+técnico y traslada la acreditación inicial a la revisión sucesora. Solo un
+administrador activo en un servidor productivo puede promover producción
+mediante una constancia completa, no futura y con señal exacta; FactuFlow
+conserva hash y metadatos probatorios mínimos, no el PDF. La acreditación es
+durable y `ultima_comprobacion_arca_en` separa su autoridad de la frescura
+técnica. Homologación permanece fail-closed porque no existe una fuente
+probatoria específica.
 
-Los badges `Verificado RECE`, `No RECE` y `No verificado`, la procedencia y la
-vigencia quedan visibles; perfiles, Excel y selectores usan el estado efectivo.
+La UI presenta `Listo para emitir`, `Comprobación recomendada`, `Pendiente de
+comprobar con ARCA` y `Requiere atención`; oculta la antigua vigencia y permite
+seleccionar un punto acreditado pendiente con la aclaración de que se comprobará
+al emitir. Perfiles, Excel y selectores usan `puede_intentar_emision`.
 Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. Al congelar el snapshot de `v0.3.0`,
@@ -428,11 +436,12 @@ con:
   plano de control;
 - PDFs bajo demanda y gestor administrativo de almacenamiento.
 
-En el estado actual de `main`, PF-19B agrega ledger y cabeza durable de elegibilidad RECE,
-atestación administrativa de constancia productiva fresca, sincronización
-técnica server-side sin promoción, badges/estados visibles y compuertas comunes
-en individual, lotes, worker, reintentos y stale. Su disponibilidad en una
-instalación concreta se verifica en `VPS Hostinger` / `vps-admin`.
+En el estado actual de `main`, PF-19B agrega ledger y cabeza durable de
+elegibilidad RECE, atestación administrativa de constancia productiva válida y
+no futura, sincronización técnica server-side sin promoción, badges/estados
+visibles y compuertas comunes en individual, lotes, worker, reintentos y stale.
+Su disponibilidad en una instalación concreta se verifica en `VPS Hostinger` /
+`vps-admin`.
 
 Las reglas no negociables siguen en `VISION.md` y `AGENTS.md`. En particular:
 la fecha fiscal nunca se completa con la fecha actual, ninguna ruta puede pedir

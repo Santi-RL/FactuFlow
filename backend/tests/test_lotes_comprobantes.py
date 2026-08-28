@@ -670,6 +670,7 @@ async def _crear_punto_venta_rece_verificado(
         activo=True,
         es_webservice=True,
         empresa_id=empresa.id,
+        ultima_comprobacion_arca_en=observado_en,
         revision_fiscal=1,
     )
     db_session.add(punto)

@@ -105,7 +105,9 @@ const requireMultipartFields = (
   fields: Record<string, string>,
 ) => {
   return Object.entries(fields)
-    .filter(([field, expected]) => multipartFieldValue(route, field) !== expected)
+    .filter(
+      ([field, expected]) => multipartFieldValue(route, field) !== expected,
+    )
     .map(([field]) => field);
 };
 
@@ -134,6 +136,22 @@ export const mockApi = async (page: Page) => {
         fuente: "arca_wsfe",
         activo: true,
         usable_factuflow: true,
+        puede_intentar_emision: true,
+        ultima_comprobacion_arca_en: now,
+        comprobacion_arca_desactualizada: false,
+        revision_fiscal: 1,
+        elegibilidad_rece: {
+          ambiente: "produccion",
+          estado: "verificado_rece",
+          estado_efectivo: "verificado_rece",
+          fuente: "constancia_arca_atestada",
+          revision_id: 1,
+          revision: 1,
+          punto_revision_fiscal: 1,
+          verificado_en: now,
+          vigente_hasta: null,
+          motivo: null,
+        },
         empresa_id: 1,
         created_at: now,
         updated_at: now,
@@ -893,7 +911,10 @@ export const mockApi = async (page: Page) => {
   await page.route("**/api/**", handler);
   // Endpoints legacy sin /api (ej: /comprobantes/*). No interceptar módulos
   // de Vite como /src/services/comprobantes.service.ts.
-  await page.route(/^https?:\/\/[^/]+\/comprobantes(?:\/.*)?(?:\?.*)?$/, handler);
+  await page.route(
+    /^https?:\/\/[^/]+\/comprobantes(?:\/.*)?(?:\?.*)?$/,
+    handler,
+  );
 };
 
 export const loginAsAdmin = async (page: Page) => {
@@ -904,7 +925,9 @@ export const loginAsAdmin = async (page: Page) => {
   await page.getByLabel(/correo electrónico/i).fill(adminCredentials.email);
   await page.getByLabel(/contraseña/i).fill(adminCredentials.password);
   await Promise.all([
-    page.waitForURL((url) => url.pathname === "/" || url.pathname === "/dashboard"),
+    page.waitForURL(
+      (url) => url.pathname === "/" || url.pathname === "/dashboard",
+    ),
     page.getByRole("button", { name: /ingresar/i }).click(),
   ]);
 };

@@ -95,7 +95,7 @@ const errorProximoNumero = ref("");
 let proximoNumeroRequestId = 0;
 const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
 const puntosVentaUsables = computed(() =>
-  puntosVenta.value.filter((puntoVenta) => puntoVenta.usable_factuflow),
+  puntosVenta.value.filter((puntoVenta) => puntoVenta.puede_intentar_emision),
 );
 const empresaId = computed(() => empresaStore.empresaActivaId || 0);
 const empresaActiva = computed(() => empresaStore.empresaActiva);
@@ -586,7 +586,7 @@ const actualizarProximoNumero = async () => {
 
   try {
     const puntoVenta = puntosVenta.value.find((pv) => pv.id === puntoVentaId);
-    if (!puntoVenta?.usable_factuflow) {
+    if (!puntoVenta?.puede_intentar_emision) {
       errorProximoNumero.value =
         "El punto de venta seleccionado no está disponible para emitir.";
       return;
@@ -1047,14 +1047,17 @@ const confirmarCancelacion = () => {
               >
                 {{ String(pv.numero).padStart(4, "0") }} -
                 {{ pv.nombre || "Sin nombre" }}
+                <template v-if="!pv.usable_factuflow">
+                  (se comprobará al emitir)
+                </template>
               </option>
             </select>
             <p
               v-if="puntosVentaUsables.length === 0"
               class="mt-1 text-sm text-red-600"
             >
-              No hay puntos de venta con elegibilidad RECE vigente y estado
-              técnico disponible para emitir.
+              No hay puntos de venta acreditados que puedan comprobarse para
+              emitir.
             </p>
           </div>
 

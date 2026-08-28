@@ -66,13 +66,14 @@ actual antes de crear una operación o intento nuevo y antes de
 `FECAESolicitar`. Las lecturas WSFE seguras de la capa exterior batch no
 autorizan ni eluden esa compuerta. La
 importación positiva requiere administrador, servidor en `produccion`,
-confirmación explícita de procedencia y constancia completa/reciente con una
-modalidad Web Services exacta admitida para Responsable Inscripto, Exento en IVA
-o Monotributo. El parser acepta los encabezados `PUNTO VENTA` y `P.VTA.`, con
-`ACTIVIDAD` opcional y repetición por página; el PDF no se persiste.
-Homologación permanece bloqueada hasta una fuente probatoria específica.
-`POST /api/puntos-venta/sincronizar-arca` actualiza solo el estado técnico y
-nunca promueve RECE.
+constancia completa y no futura con una modalidad Web Services exacta admitida
+para Responsable Inscripto, Exento en IVA o Monotributo. El parser acepta los
+encabezados `PUNTO VENTA` y `P.VTA.`, con `ACTIVIDAD` opcional y repetición por
+página; el PDF no se persiste. La acreditación no vence por tiempo y la UI usa
+siempre este camino seguro sin modal intermedio. Homologación permanece
+bloqueada hasta una fuente probatoria específica. `POST
+/api/puntos-venta/sincronizar-arca` actualiza solo el estado técnico, conserva
+una acreditación previa y nunca promueve RECE.
 
 Regla de almacenamiento: las rutas `/api/almacenamiento` solo pueden escanear
 rutas administradas por FactuFlow y tablas conocidas. No deben devolver rutas

@@ -1,6 +1,6 @@
 # PF-19B — Elegibilidad RECE durable y fail-closed
 
-Fecha de diseño: 08/08/2026
+Fecha de diseño: 08/08/2026. Actualizado para el parche `0.3.1`: 28/08/2026.
 
 Estado objetivo al integrar: PF-19B.1, PF-19B.2 y PF-19B.3 forman una única
 unidad completa aceptada en `main`. La última release publicada y la versión
@@ -57,7 +57,7 @@ productiva hacia homologación y nunca usa `FEParamGetPtosVenta` como promoción
 La frase ya observada en la constancia es una señal textual, no autoridad por sí
 sola. El PDF llega desde el cliente y no tiene autenticidad criptográfica
 verificable por FactuFlow. Por eso solo se vuelve evidencia durable mediante una
-atestación explícita de un administrador, al procesar un documento reciente del
+atestación de un administrador, al procesar un documento válido del
 emisor activo con CUIT y punto exactos, clasificador versionado, hash, fecha y
 actor, bajo las restricciones siguientes.
 
@@ -68,13 +68,12 @@ actor, bajo las restricciones siguientes.
 2. `es_webservice`, `activo`, `bloqueado`, `fecha_baja`, `sistema`, `fuente` y
    `usable_factuflow` dejan de ser autoridad RECE por separado.
 3. Una constancia puede crear evidencia durable únicamente para `produccion`,
-   cuando el servidor tiene `ARCA_ENV=produccion`, el actor es administrador y
-   confirma expresamente que la descargó de la gestión productiva de ARCA. La
-   fecha del documento debe parsearse sin ambigüedad, no ser futura y tener como
-   máximo siete días según `America/Argentina/Buenos_Aires`. El documento no se
-   reutiliza como acreditación de homologación. Esta es además una vigencia
-   efectiva: la revisión positiva vence al final del séptimo día y se comprueba
-   nuevamente antes de cada FECAE.
+   cuando el servidor tiene `ARCA_ENV=produccion` y el actor es administrador.
+   La fecha del documento debe parsearse sin ambigüedad y no ser futura; no hay
+   límite máximo de antigüedad. El documento no se reutiliza como acreditación
+   de homologación. La revisión positiva no vence por tiempo. La comprobación
+   técnica es otra dimensión: se considera desactualizada a los 90 días y se
+   renueva opcionalmente desde la UI o automáticamente antes de emitir.
 4. La señal administrativa normalizada debe coincidir exactamente con una
    allowlist versionada. `rece_constancia_v1` solo admitía
    `RECE para aplicativo y web services`. El parche `0.3.1` introduce
@@ -104,7 +103,7 @@ actor, bajo las restricciones siguientes.
     en respuestas o logs ordinarios.
 
 No queda una decisión funcional bloqueante para el camino productivo: se adopta
-la promoción exclusiva por atestación administrativa, constancia reciente,
+la promoción exclusiva por atestación administrativa, constancia válida,
 señal exacta y servidor en producción. Homologación permanece deliberadamente
 `no_verificado` hasta que
 exista una fuente probatoria específica; no se la habilita mediante una
@@ -120,13 +119,17 @@ inicial `1`. La fila usa control optimista de versión: cada modificación fisca
 relevante incrementa la revisión y una actualización concurrente obsoleta falla
 en vez de sobrescribir silenciosamente.
 
+El parche `0.3.1` agrega además `ultima_comprobacion_arca_en`, nullable y UTC.
+Una marca nula o con al menos 90 días exige preflight técnico antes de emitir,
+pero no degrada la acreditación inicial.
+
 La revisión cambia ante hechos fiscalmente relevantes:
 
 - número, sistema, procedencia o marca Web Services;
 - alta, baja, activación, bloqueo o fecha de baja;
 - nueva observación de elegibilidad que cambie estado, fuente o evidencia;
 - cualquier edición que altere la selección o el significado fiscal del punto;
-- toda constancia fresca procesada, incluso cuando su hash y resultado coincidan
+- toda constancia válida procesada, incluso cuando su hash y resultado coincidan
   con la revisión anterior, para que una observación posterior invalide
   confirmaciones previas.
 
@@ -135,11 +138,12 @@ RECE y no incrementan `revision_fiscal`. Una sincronización idéntica tampoco
 crea una revisión nueva.
 
 `punto_revision_fiscal` en la evidencia registra cuándo fue observada; cada
-operación snapshottea además la revisión actual del punto. Un bloqueo técnico
-puede dejar la cabeza positiva y, al cambiar la revisión actual, invalida toda
-confirmación previa. Número, sistema, procedencia, baja, desactivación,
-desaparición o recreación nunca dependen solo de ese mismatch: escriben
-atómicamente una nueva cabeza `no_verificado`.
+operación snapshottea además la revisión actual del punto. Bloqueo, baja,
+desactivación o ausencia obtenidos de ARCA crean una revisión sucesora que
+traslada la acreditación positiva y, al cambiar la revisión actual, invalidan
+toda confirmación de emisión previa. Número, CUIT, emisor, una señal RECE
+contradictoria o una edición local fiscal nunca dependen solo de ese mismatch:
+escriben atómicamente una nueva cabeza `no_verificado`.
 
 ### Ledger de elegibilidad
 
@@ -173,7 +177,7 @@ Campos de la revisión:
 | `punto_venta_numero_snapshot` | Número exacto validado en la evidencia |
 | `punto_revision_fiscal` | Revisión del punto al registrar la evidencia |
 | `documento_emitido_en` | Fecha argentina parseada del documento, si aplica |
-| `vigente_hasta` | Último día argentino de validez de una evidencia positiva |
+| `vigente_hasta` | Campo histórico compatible; no participa en elegibilidad y las revisiones nuevas pueden guardarlo nulo |
 | `observado_en` | Fecha/hora UTC del hecho observado |
 | `verificado_en` | Fecha/hora UTC solo cuando existe acreditación positiva |
 | `creado_por_usuario_id` | Usuario autenticado o nulo para migración |
@@ -195,14 +199,14 @@ Constraints e índices:
 - FK del usuario con `SET NULL`, snapshot durable de actor y FK del punto con
   `RESTRICT`;
 - ninguna revisión `verificado_rece` puede carecer de fuente, hash, versión de
-  clasificador, snapshots fiscales, ambiente, fechas, vigencia, actor o revisión
-  fiscal del punto;
+  clasificador, snapshots fiscales, ambiente, fecha documental, actor o revisión
+  fiscal del punto; `vigente_hasta` puede ser nulo;
 - `verificado_rece` implica `produccion`, fuente
   `constancia_arca_atestada` y evidencia
   `rece_aplicativo_web_services_v1`;
 - migración, alta, WSFE y edición no admiten estado positivo;
-- `verificado_en` y `vigente_hasta` solo existen en evidencia positiva. La
-  comparación con el reloj futuro pertenece al servicio y no a un check.
+- `verificado_en` solo existe en evidencia positiva. `vigente_hasta` queda como
+  historial compatible y no se compara para decidir elegibilidad.
 
 Para que las FKs compuestas sean portables, `puntos_venta` declara además el
 unique redundante `(id, empresa_id)`; la revisión declara
@@ -266,7 +270,7 @@ Las fases son `pre_arca`, `arca_iniciada`, `requiere_reconciliacion`,
 filas cerradas permanecen como auditoría y no bloquean una guarda posterior.
 
 La guarda se crea atómicamente con el primer intento del sublote después de
-bloquear brevemente punto y cabeza, y revalidar estado, vigencia temporal,
+bloquear brevemente punto y cabeza, y revalidar acreditación, estado técnico,
 revisión fiscal y PF-19A. Mientras existe:
 
 - otra emisión nueva para esa tupla falla antes de FECAE. Si pierde el CAS
@@ -278,7 +282,7 @@ revisión fiscal y PF-19A. Mientras existe:
 - solo se cierra en la misma transacción que deja todos sus intentos en un
   resultado terminal conocido;
 - inmediatamente antes de FECAE pasa a `arca_iniciada` mediante CAS y commit;
-- ese CAS comprueba nuevamente propiedad, snapshots y `vigente_hasta`;
+- ese CAS comprueba nuevamente propiedad, snapshots y revisión fiscal;
 - un timeout, caída o resultado incierto pasa o permanece en
   `requiere_reconciliacion` hasta resolución segura. No existe vencimiento que
   la cierre automáticamente.
@@ -334,12 +338,12 @@ apunten a su revisión inicial o conteos inconsistentes.
 | Migración legacy | `no_verificado` | ambos | inicial `1` |
 | Alta manual | `no_verificado` | ambos | crea contexto inicial |
 | Sincronización `FEParamGetPtosVenta` | nunca promueve; punto nuevo `no_verificado` | contexto actual y contraparte cerrada | incrementa solo si cambia estado técnico relevante |
-| Atestación admin con constancia reciente y modalidad exacta de la allowlist | `verificado_rece` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
+| Atestación admin con constancia válida y modalidad exacta de la allowlist | `verificado_rece` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
 | Atestación admin con Web Services genérico | `no_verificado` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
 | Atestación admin con sistema no allowlist | `no_verificado` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
 | Edición de número/sistema/Web Services/fuente | `no_verificado` | ambos | nueva revisión ledger y fiscal |
-| Baja, fecha de baja, desactivación, desaparición o recreación | `no_verificado` | ambos | nueva revisión ledger y fiscal |
-| Bloqueo técnico transitorio | conserva estado hasta su vencimiento, pero no usabilidad | ambos | incrementa revisión fiscal |
+| Baja, bloqueo, desactivación o ausencia informada por ARCA | conserva acreditación, pero no usabilidad | ambos | nueva revisión ledger y fiscal |
+| Edición local fiscal, identidad contradictoria o recreación | `no_verificado` | ambos | nueva revisión ledger y fiscal |
 
 La importación confirmada completa primero el procesamiento del PDF y las
 consultas técnicas WSAA/`FEParamGetPtosVenta`, sin escrituras de puntos o
@@ -357,19 +361,21 @@ si gana la atestación, publica evidencia bajo la autoridad todavía válida y l
 mutación competidora continúa después. Ningún desenlace mezcla evidencia de una
 identidad o autoridad obsoletas.
 
-La constancia más nueva reemplaza como autoridad vigente solo al crear una
+La constancia más nueva reemplaza como autoridad solo al crear una
 revisión posterior; las revisiones previas permanecen auditables. Ningún merge
 entre fuentes puede producir un estado más permisivo que la evidencia exacta.
 
-El vencimiento no reescribe el ledger al cambiar el día. Una cabeza
-`verificado_rece` vencida conserva su valor histórico, pero el servicio y el DTO
-la exponen como estado efectivo `no_verificado`, motivo
-`evidencia_rece_vencida`, y bloquean todos los consumidores hasta una nueva
-atestación.
+El paso del tiempo no reescribe ni degrada el ledger. Una cabeza
+`verificado_rece` conserva su autoridad; la UI sólo advierte cuando la última
+comprobación técnica tiene 90 días. Si está pendiente o desactualizada, el
+servidor consulta `FEParamGetPtosVenta` una vez por emisor antes de crear estado
+fiscal. Una falla, respuesta vacía o inconsistente produce `503` y cero
+operaciones, intentos, reservas o solicitudes CAE nuevas.
 
 ## Invariantes verificables
 
-1. Solo `verificado_rece` no vencido para `ARCA_ENV` puede avanzar hacia CAE.
+1. Solo `verificado_rece` para `ARCA_ENV`, con señal técnica activa confirmada,
+   puede avanzar hacia CAE.
 2. `no_rece`, `no_verificado`, revisión ausente, ambiente distinto o evidencia
    inexistente fallan cerrado.
 3. La presencia en `FEParamGetPtosVenta` no cambia el estado RECE.
@@ -384,8 +390,8 @@ atestación.
 9. Cada operación individual nueva captura evidencia y revisión antes de crear
    la fila idempotente y su asociación normalizada.
 10. Cada intento y cada grupo nuevo capturan el mismo contexto autorizado.
-11. La elegibilidad y su fecha `vigente_hasta` se revalidan bajo el lock fiscal
-    y otra vez inmediatamente antes de `FECAESolicitar`.
+11. La acreditación, el estado técnico y sus revisiones se revalidan bajo el
+    lock fiscal y otra vez inmediatamente antes de `FECAESolicitar`.
 12. Guarda e intentos nacen atómicamente; FECAE solo ocurre después de persistir
     `arca_iniciada` y una guarda incierta nunca se cierra por TTL.
 13. Cambiar y restaurar un punto no revive una confirmación anterior: la
@@ -523,9 +529,10 @@ filtra silenciosamente ese grupo para emitir el resto.
 | cualquiera | constancia genérica o no allowlist | `no_verificado` de producción | no |
 | cualquiera | señal negativa oficial futura y versionada | `no_rece` | no |
 | `verificado_rece` | cambio de identidad/señal | `no_verificado` | no |
-| cualquiera | baja/desactivación/desaparición | `no_verificado` | no |
-| `verificado_rece` | bloqueo técnico transitorio | mismo estado, revisión mayor | no mientras siga bloqueado |
-| `verificado_rece` | cambio y restauración técnica | mismo estado, revisión mayor | solo con confirmación nueva |
+| cualquiera | baja/desactivación/ausencia confirmada por ARCA | conserva acreditación; revisión mayor | no mientras siga la señal negativa |
+| `verificado_rece` | bloqueo técnico confirmado por ARCA | mismo estado, revisión mayor | no mientras siga bloqueado |
+| `verificado_rece` | señal ARCA vuelve a activa | mismo estado, revisión mayor | sí; no requiere otro PDF |
+| cualquiera | edición local fiscal o identidad contradictoria | `no_verificado` | no |
 
 Las transiciones agregan filas; nunca reescriben evidencia anterior.
 
@@ -580,17 +587,16 @@ hybrid ORM por sí solo como autoridad RECE.
 
 ### Productores y API
 
-- constancia con modalidad exacta admitida, actor admin, confirmación explícita y fecha documental
-  argentina válida/no futura/de hasta siete días;
-- usuario común, falta de confirmación, fecha ausente, inválida, futura o vencida
-  nunca promueven;
+- constancia con modalidad exacta admitida, actor admin y fecha documental
+  argentina válida/no futura; cubrir antigüedades de 8, 90 y 365 días;
+- usuario común, fecha ausente, inválida o futura nunca promueven;
 - promoción solo con administrador, atestación y servidor productivo;
   homologación y ambiente inválido fallan cerrado;
 - Web Services genérico, sistema no allowlist, vacío y contradictorio quedan
   `no_verificado`, nunca `no_rece` por inferencia;
-- dos cargas frescas idénticas crean revisiones monotónicas distintas;
-- reloj inyectable: bordes del día 7/8 y vencimiento entre confirmación, guarda
-  y FECAE;
+- dos cargas idénticas crean revisiones monotónicas distintas;
+- reloj inyectable: bordes de 89/90 días para la comprobación técnica sin
+  degradar la acreditación;
 - CUIT de otro emisor sigue rechazado;
 - CUIT cambiado antes de la frontera aborta la atestación antes de cualquier
   `db.add` o `flush` de Punto/cabezas;
@@ -624,7 +630,8 @@ hybrid ORM por sí solo como autoridad RECE.
 
 ### Lotes, worker y stale
 
-- punto fijo, punto desde archivo y perfil solo aceptan estado verificado;
+- punto fijo, punto desde archivo y perfil aceptan acreditados listos o
+  pendientes; una señal negativa confirmada queda deshabilitada;
 - grupo guarda evidencia y revisión;
 - grupo guarda identidad durable del punto y la operación normaliza snapshots
   de múltiples puntos;
@@ -642,10 +649,12 @@ hybrid ORM por sí solo como autoridad RECE.
 
 ### Frontend
 
-- badges y texto para los tres estados;
+- textos `Listo para emitir`, `Comprobación recomendada`, `Pendiente de
+  comprobar con ARCA` y `Requiere atención`;
 - sync crea/mantiene puntos no verificados;
 - importación refresca evidencia;
-- selectores ocultan estados no elegibles;
+- selectores mantienen acreditados pendientes con “se comprobará al emitir” y
+  ocultan señales negativas o puntos sin constancia;
 - cambio de emisor o revisión invalida selección, confirmación y clave;
 - el watcher de Lotes invalida generaciones y vacía formatos, perfiles y puntos
   antes del primer `await` de un cambio de emisor;
@@ -661,9 +670,10 @@ hybrid ORM por sí solo como autoridad RECE.
   otros loaders;
 - lote exige token nuevo después de revalidación.
 
-El listado usa el estado efectivo calculado por el servidor y muestra fuente,
-revisión y vigencia. La sincronización técnica se ejecuta en una única operación
-server-side; el navegador no encadena escrituras punto por punto.
+El listado usa el estado efectivo calculado por el servidor, muestra fuente,
+revisión y frescura técnica, y oculta la vigencia histórica. La comprobación
+técnica se ejecuta en una única operación server-side; el navegador no encadena
+escrituras punto por punto.
 
 Cada caso ARCA usa dobles. No se justifica excluir ningún invariante capaz de
 habilitar FECAE; los tests PostgreSQL pueden omitirse solo cuando falte la URL
@@ -672,24 +682,23 @@ desechable explícita y deben ejecutarse en CI o antes del release candidate.
 ## Rollout y rollback operativo
 
 1. Mantener la lista PF-19A durante todo el rollout.
-2. Un administrador obtiene una constancia de hasta siete días desde la gestión
-   productiva de ARCA y la conserva únicamente en evidencia privada.
+2. Un administrador obtiene una constancia desde la gestión productiva de ARCA;
+   FactuFlow procesa el archivo sin conservarlo.
 3. Ensayar migración sobre PostgreSQL desechable o restauración aislada.
 4. Confirmar backup recuperable y conteos preflight.
 5. Migrar: todos los puntos quedan cerrados por defecto.
-6. Iniciar la aplicación con `ARCA_ENV=produccion`; el administrador importa la
-   constancia y confirma expresamente su procedencia. Homologación permanece
-   cerrada en este corte.
-7. Verificar por UI/API que solo la señal exacta aparezca `Verificado RECE` y
-   que perfiles/selectores excluyan el resto.
+6. Iniciar la aplicación con `ARCA_ENV=produccion`; el administrador selecciona
+   la constancia y la importación sigue directamente el camino seguro.
+   Homologación permanece cerrada en este corte.
+7. Verificar por UI/API que solo la señal exacta quede acreditada, que los
+   pendientes sigan seleccionables y que señales negativas queden excluidas.
 8. Ejecutar QA post-deploy sin solicitar CAE.
 9. Retirar una regla PF-19A solo mediante una decisión operativa posterior,
    contra evidencia exacta y nunca dentro de la migración.
 
-La UI muestra la fecha `Vigente hasta` y bloquea al vencer. Mientras no exista una
-fuente ARCA verificable automáticamente, el administrador renueva la atestación
-con una constancia reciente al menos cada siete días; es una limitación
-operativa deliberada, no una vigencia fiscal declarada por ARCA.
+La UI no muestra `Vigente hasta`. A los 90 días recomienda `Comprobar con ARCA`,
+pero la acción es opcional: cualquier emisión pendiente ejecuta el mismo
+preflight automáticamente y falla cerrado si ARCA no puede confirmar el estado.
 
 El rollback de código conserva el ledger. Volver a un binario que ignore PF-19B
 podría reabrir puntos y no es seguro sin restaurar una contención equivalente;
@@ -713,6 +722,38 @@ emisión porque no tendría un productor runtime de `verificado_rece`; B.2 agreg
 la única atestación positiva admitida y B.3 alinea los consumidores visibles.
 No se publica ni se despliega un corte parcial.
 
+## Aplicación del checklist fiscal Nivel 2 para 0.3.1
+
+- **Alcance y consumidores:** se revisaron importación y listado de puntos,
+  perfiles, selectores, emisión individual, lotes nuevos, continuaciones,
+  worker, reintentos e idempotencia. No cambian fecha fiscal, numeración,
+  receptor, importes, comprobantes asociados ni persistencia de CAE.
+- **Contrato externo:** la única lectura nueva es `FEParamGetPtosVenta`; una
+  respuesta fallida, vacía, duplicada o fuera de contrato se considera no
+  disponible. Las pruebas usan dobles y nunca consultan ARCA real.
+- **Orden fiscal:** un replay terminal se devuelve primero. Para trabajo nuevo o
+  continuable, la comprobación pendiente/desactualizada ocurre antes de crear
+  operación, intento, reserva o guarda; luego se toman los locks RECE y se
+  ejecutan los compare-and-swap existentes antes de `FECAESolicitar`.
+- **Invariantes:** sólo una constancia exacta acredita; la sincronización nunca
+  promueve. El tiempo no degrada la acreditación. Bloqueo, baja o ausencia
+  confirmados impiden emitir. Un cambio de identidad o una señal RECE
+  contradictoria invalida. Cada emisor usa como máximo un snapshot técnico por
+  preflight.
+- **Fallos y recuperación:** indisponibilidad técnica devuelve `503` sin estado
+  fiscal nuevo. Una continuación conserva su estado recuperable. Una carrera
+  posterior se detecta por la revisión fiscal; si ARCA pudo autorizar, siguen
+  rigiendo las guardas inciertas y la reconciliación, sin reintento automático.
+- **Atomicidad y base:** el snapshot técnico completo se valida antes de escribir
+  y se aplica con un único commit. La migración preserva acreditaciones positivas
+  y el downgrade rellena vigencias nulas antes de restaurar la constraint de
+  siete días. SQLite cubre upgrade/downgrade/re-upgrade; PostgreSQL se ejecuta
+  mediante su harness desechable en CI.
+- **Matriz y privacidad:** se cubren 8/90/365 días, fecha futura, primera carga
+  sin ARCA, recuperación posterior, borde 89/90, varios puntos por emisor,
+  señales negativas, `503` sin operación y la UI sin modal. No se versionan PDF,
+  CUIT, certificados, CAE ni evidencia real.
+
 ## Puertas de cierre
 
 - matriz backend/frontend completa; PostgreSQL desechable debe quedar probado
@@ -724,4 +765,4 @@ No se publica ni se despliega un corte parcial.
 - clasificación explícita de cada hallazgo;
 - PR Nivel 2, CI verde y verificación posterior al merge;
 - release y despliegue solo mediante el checkpoint separado, con backup,
-  migración ensayada, constancia fresca y autorización explícita.
+  migración ensayada, constancia válida y autorización explícita.

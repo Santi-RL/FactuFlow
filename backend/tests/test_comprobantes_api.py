@@ -35,7 +35,11 @@ from app.schemas.comprobante import (
     EmitirComprobanteResponse,
 )
 from app.services.facturacion_service import FacturacionService
-from app.services.elegibilidad_rece_service import ElegibilidadReceService
+from app.services.elegibilidad_rece_service import (
+    ElegibilidadReceError,
+    ElegibilidadReceService,
+)
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
 from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
     IdempotenciaFiscalService,
@@ -65,12 +69,14 @@ def _configurar_contexto_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> Non
         db: AsyncSession,
         *,
         hoy: date | Callable[[], date] | None = None,
+        ahora: datetime | Callable[[], datetime] | None = None,
     ) -> None:
         """Inyecta el reloj fiscal canónico cuando el test no define otro."""
         inicializar_original(
             self,
             db,
             hoy=FECHA_FISCAL_PRUEBA if hoy is None else hoy,
+            ahora=AHORA_FISCAL_PRUEBA if ahora is None else ahora,
         )
 
     monkeypatch.setattr(settings, "arca_env", "produccion")
@@ -145,6 +151,7 @@ async def _crear_punto_rece_verificado_para_api(
         activo=True,
         es_webservice=True,
         bloqueado=False,
+        ultima_comprobacion_arca_en=ahora,
         revision_fiscal=1,
         empresa_id=empresa.id,
     )
@@ -213,6 +220,53 @@ async def _request_emitir_rece(
     payload = _request_emitir_base(empresa)
     payload["punto_venta_id"] = punto.id
     return payload, punto
+
+
+@pytest.mark.asyncio
+async def test_preflight_arca_no_disponible_devuelve_503_sin_estado_fiscal(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    db_session: AsyncSession,
+    test_empresa,
+    test_user,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Una acreditación pendiente falla antes de operación, intento, reserva o CAE."""
+    payload, punto = await _request_emitir_rece(
+        db_session,
+        empresa=test_empresa,
+        usuario_id=int(test_user.id),
+    )
+    punto.ultima_comprobacion_arca_en = None
+    await db_session.commit()
+    consultas = 0
+
+    async def fallar_comprobacion(self, **_kwargs):
+        nonlocal consultas
+        consultas += 1
+        raise ElegibilidadReceError(
+            "ARCA no está disponible temporalmente para comprobar el punto.",
+            categoria="comprobacion_arca_no_disponible",
+            status_code=503,
+        )
+
+    monkeypatch.setattr(PuntosVentaArcaService, "sincronizar", fallar_comprobacion)
+
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("preflight-503-sin-estado")},
+        json=payload,
+    )
+
+    assert response.status_code == 503, response.text
+    assert response.json()["detail"]["categoria_error"] == (
+        "comprobacion_arca_no_disponible"
+    )
+    assert consultas == 1
+    assert await db_session.scalar(select(OperacionIdempotente.id)) is None
+    assert await db_session.scalar(select(IntentoEmisionFiscal.id)) is None
+    assert await db_session.scalar(select(Comprobante.id)) is None
+    assert await db_session.scalar(select(PuntoVentaGuardaEmisionRece.id)) is None
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 """Tests de puntos de venta y autoridad RECE."""
 
 import hashlib
-from datetime import date
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -32,6 +32,7 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceError,
     ElegibilidadReceService,
 )
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
 
 
 HOY_RECE_PRUEBA = date(2026, 8, 9)
@@ -57,6 +58,128 @@ CLAVES_PUBLICAS_ELEGIBILIDAD_RECE = {
     "vigente_hasta",
     "motivo",
 }
+
+
+@pytest.mark.parametrize(
+    ("antiguedad_dias", "esperada"),
+    [(89, False), (90, True)],
+)
+@pytest.mark.asyncio
+async def test_comprobacion_arca_se_desactualiza_al_cumplir_90_dias(
+    db_session: AsyncSession,
+    antiguedad_dias: int,
+    esperada: bool,
+) -> None:
+    """La recomendación usa el borde inclusivo acordado de 90 días."""
+    ahora = datetime(2026, 8, 28, 12, 0, 0)
+    punto = PuntoVenta(
+        numero=1,
+        empresa_id=1,
+        ultima_comprobacion_arca_en=ahora - timedelta(days=antiguedad_dias),
+    )
+
+    assert (
+        ElegibilidadReceService(
+            db_session,
+            ahora=ahora,
+        ).comprobacion_arca_desactualizada(punto)
+        is esperada
+    )
+
+
+@pytest.mark.asyncio
+async def test_preflight_agrupa_varios_puntos_en_una_comprobacion_por_emisor(
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+    test_admin: Usuario,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dos puntos desactualizados disparan un único snapshot técnico completo."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "arca_env", "produccion")
+    ahora = datetime(2026, 8, 28, 12, 0, 0)
+    servicio_rece = ElegibilidadReceService(
+        db_session,
+        hoy=HOY_RECE_PRUEBA,
+        ahora=ahora,
+    )
+    puntos: list[PuntoVenta] = []
+    for numero in (2, 3):
+        punto = PuntoVenta(
+            numero=numero,
+            nombre=f"PV {numero}",
+            sistema=SENAL_RECE_EXACTA,
+            es_webservice=True,
+            activo=True,
+            bloqueado=False,
+            empresa_id=test_empresa.id,
+            ultima_comprobacion_arca_en=ahora - timedelta(days=89),
+        )
+        db_session.add(punto)
+        await servicio_rece.crear_contextos_iniciales_no_verificados(
+            punto,
+            creado_por_usuario_id=int(test_admin.id),
+        )
+        puntos.append(punto)
+    await db_session.commit()
+    await servicio_rece.atestiguar_constancia_productiva(
+        [
+            AtestacionPuntoRece(
+                punto_venta=punto,
+                cambios={"sistema": SENAL_RECE_EXACTA},
+                sistema_constancia=SENAL_RECE_EXACTA,
+            )
+            for punto in puntos
+        ],
+        empresa_id=int(test_empresa.id),
+        empresa_cuit=test_empresa.cuit,
+        evidencia_sha256="d" * 64,
+        documento_emitido_en=HOY_RECE_PRUEBA,
+        actor_usuario_id=int(test_admin.id),
+    )
+    comprobaciones: list[dict[str, object]] = []
+
+    async def contar_comprobacion(
+        self: PuntosVentaArcaService,
+        **kwargs: object,
+    ) -> dict[str, int | datetime]:
+        comprobaciones.append(kwargs)
+        return {
+            "total_arca": 2,
+            "nuevos": 0,
+            "existentes": 2,
+            "actualizados": 0,
+            "desactivados_ausentes": 0,
+            "comprobado_en": ahora,
+        }
+
+    monkeypatch.setattr(PuntosVentaArcaService, "sincronizar", contar_comprobacion)
+
+    preflight = PuntosVentaArcaService(
+        db_session,
+        ahora=ahora,
+    )
+    fresca = await preflight.asegurar_comprobacion_reciente(
+        empresa_id=int(test_empresa.id),
+        puntos_venta_ids={int(punto.id) for punto in puntos},
+        actor_usuario_id=int(test_admin.id),
+    )
+    assert fresca is False
+    assert comprobaciones == []
+
+    for punto in puntos:
+        punto.ultima_comprobacion_arca_en = ahora - timedelta(days=90)
+    await db_session.commit()
+    refrescada = await preflight.asegurar_comprobacion_reciente(
+        empresa_id=int(test_empresa.id),
+        puntos_venta_ids={int(punto.id) for punto in puntos},
+        actor_usuario_id=int(test_admin.id),
+    )
+
+    assert refrescada is True
+    assert len(comprobaciones) == 1
+    assert comprobaciones[0]["empresa_id"] == int(test_empresa.id)
 
 
 def _headers_admin_emisor(
@@ -462,7 +585,7 @@ async def test_edicion_fiscal_incrementa_revision_e_invalida_heads(
             ).scalars()
         )
     )
-    assert cantidad_tras_bloqueo == 4
+    assert cantidad_tras_bloqueo == 6
 
     desactivacion = await client.put(
         f"/api/puntos-venta/{punto_id}",
@@ -483,7 +606,7 @@ async def test_edicion_fiscal_incrementa_revision_e_invalida_heads(
             ).scalars()
         )
     )
-    assert cantidad_tras_desactivacion == 6
+    assert cantidad_tras_desactivacion == 8
 
 
 @pytest.mark.asyncio
@@ -650,6 +773,146 @@ async def test_importar_constancia_preserva_estado_si_falla_estado_arca(
 
 
 @pytest.mark.asyncio
+async def test_primera_acreditacion_sin_arca_queda_pendiente_y_sync_habilita(
+    client: AsyncClient,
+    admin_auth_headers: dict[str, str],
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La constancia queda durable aunque la primera comprobación no responda."""
+    from app.api import puntos_venta as puntos_venta_api
+
+    _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
+    _configurar_constancia_sintetica(
+        monkeypatch,
+        DatosConstanciaPuntosVenta(
+            cuit=test_empresa.cuit,
+            documento_emitido_en=HOY_RECE_PRUEBA - timedelta(days=365),
+            puntos_venta=[
+                PuntoVentaConstancia(
+                    numero=58,
+                    sistema=SENAL_RECE_EXACTA,
+                    es_webservice=True,
+                )
+            ],
+        ),
+        estado_arca=None,
+    )
+    headers = _headers_admin_emisor(admin_auth_headers, test_empresa)
+
+    importacion = await client.post(
+        "/api/puntos-venta/importar-constancia",
+        headers=headers,
+        data={"confirmar_procedencia_produccion": "true"},
+        files={"file": ("constancia.pdf", b"%PDF", "application/pdf")},
+    )
+
+    assert importacion.status_code == 200, importacion.text
+    assert importacion.json()["pendientes_comprobacion"] == 1
+    listado = await client.get("/api/puntos-venta", headers=headers)
+    pendiente = next(item for item in listado.json() if item["numero"] == 58)
+    assert pendiente["elegibilidad_rece"]["estado_efectivo"] == "verificado_rece"
+    assert pendiente["ultima_comprobacion_arca_en"] is None
+    assert pendiente["comprobacion_arca_desactualizada"] is True
+    assert pendiente["usable_factuflow"] is False
+    assert pendiente["puede_intentar_emision"] is True
+
+    class ClienteWsfeActivo:
+        async def fe_param_get_ptos_venta(self) -> list[SimpleNamespace]:
+            return [
+                SimpleNamespace(
+                    numero=58,
+                    emision_tipo="CAE - RECE",
+                    bloqueado="N",
+                    fecha_baja=None,
+                )
+            ]
+
+    async def fake_get_wsfe_client(*_args: Any, **_kwargs: Any) -> ClienteWsfeActivo:
+        return ClienteWsfeActivo()
+
+    monkeypatch.setattr(puntos_venta_api, "get_wsfe_client", fake_get_wsfe_client)
+    comprobacion = await client.post(
+        "/api/puntos-venta/sincronizar-arca",
+        headers=headers,
+    )
+
+    assert comprobacion.status_code == 200, comprobacion.text
+    listado = await client.get("/api/puntos-venta", headers=headers)
+    habilitado = next(item for item in listado.json() if item["numero"] == 58)
+    assert habilitado["elegibilidad_rece"]["estado_efectivo"] == "verificado_rece"
+    assert habilitado["ultima_comprobacion_arca_en"] is not None
+    assert habilitado["usable_factuflow"] is True
+    assert habilitado["puede_intentar_emision"] is True
+
+
+@pytest.mark.asyncio
+async def test_reimportacion_sin_arca_conserva_comprobacion_tecnica_previa(
+    client: AsyncClient,
+    admin_auth_headers: dict[str, str],
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Una falla de lectura no degrada un snapshot técnico ya confirmado."""
+    _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
+    comprobado_en = datetime(2026, 8, 1, 12, 0, 0)
+    punto = PuntoVenta(
+        numero=59,
+        nombre="PV comprobado",
+        sistema=SENAL_RECE_EXACTA,
+        es_webservice=True,
+        bloqueado=False,
+        activo=True,
+        fuente="arca_wsfe",
+        empresa_id=test_empresa.id,
+        ultima_comprobacion_arca_en=comprobado_en,
+    )
+    db_session.add(punto)
+    await ElegibilidadReceService(db_session).crear_contextos_iniciales_no_verificados(
+        punto,
+        creado_por_usuario_id=None,
+    )
+    await db_session.commit()
+    await db_session.refresh(punto)
+
+    _configurar_constancia_sintetica(
+        monkeypatch,
+        DatosConstanciaPuntosVenta(
+            cuit=test_empresa.cuit,
+            documento_emitido_en=HOY_RECE_PRUEBA - timedelta(days=365),
+            puntos_venta=[
+                PuntoVentaConstancia(
+                    numero=59,
+                    sistema=SENAL_RECE_EXACTA,
+                    es_webservice=True,
+                )
+            ],
+        ),
+        estado_arca=None,
+    )
+
+    response = await client.post(
+        "/api/puntos-venta/importar-constancia",
+        headers=_headers_admin_emisor(admin_auth_headers, test_empresa),
+        data={"confirmar_procedencia_produccion": "true"},
+        files={"file": ("constancia.pdf", b"%PDF", "application/pdf")},
+    )
+
+    assert response.status_code == 200, response.text
+    await db_session.refresh(punto)
+    assert punto.activo is True
+    assert punto.bloqueado is False
+    assert punto.ultima_comprobacion_arca_en == comprobado_en
+    visible = await ElegibilidadReceService(db_session).obtener_estado_visible(
+        punto,
+        ambiente="produccion",
+    )
+    assert visible.estado_efectivo == "verificado_rece"
+
+
+@pytest.mark.asyncio
 async def test_importar_constancia_rechaza_numero_fuera_de_rango_antes_de_arca(
     client: AsyncClient,
     admin_auth_headers: dict[str, str],
@@ -760,9 +1023,10 @@ async def test_atestacion_productiva_exacta_es_visible_y_monotonica(
         respuestas.append(response)
 
     assert respuestas[0].json()["verificados_rece"] == 1
+    assert respuestas[0].json()["pendientes_comprobacion"] == 0
     assert respuestas[0].json()["no_verificados_rece"] == 0
     assert respuestas[0].json()["documento_emitido_en"] == "2026-08-09"
-    assert respuestas[0].json()["vigente_hasta"] == "2026-08-16"
+    assert respuestas[0].json()["vigente_hasta"] is None
 
     listado = await client.get("/api/puntos-venta", headers=admin_headers)
     assert listado.status_code == 200, listado.text
@@ -770,6 +1034,9 @@ async def test_atestacion_productiva_exacta_es_visible_y_monotonica(
     elegibilidad = dto["elegibilidad_rece"]
     assert dto["revision_fiscal"] == 3
     assert dto["usable_factuflow"] is True
+    assert dto["puede_intentar_emision"] is True
+    assert dto["ultima_comprobacion_arca_en"] is not None
+    assert dto["comprobacion_arca_desactualizada"] is False
     assert elegibilidad["ambiente"] == "produccion"
     assert elegibilidad["estado"] == "verificado_rece"
     assert elegibilidad["estado_efectivo"] == "verificado_rece"
@@ -1562,10 +1829,9 @@ async def test_importacion_sin_autoridad_exacta_no_promueve_rece(
     [
         ("produccion", None, 400, "fecha documental válida"),
         ("produccion", date(2026, 8, 10), 409, "no puede ser futura"),
-        ("produccion", date(2026, 8, 1), 409, "más de siete días"),
         ("homologacion", HOY_RECE_PRUEBA, 409, "servidor configurado para producción"),
     ],
-    ids=["fecha-ausente", "fecha-futura", "fecha-vencida", "homologacion"],
+    ids=["fecha-ausente", "fecha-futura", "homologacion"],
 )
 @pytest.mark.asyncio
 async def test_atestacion_invalida_falla_cerrado_sin_escrituras(
@@ -1579,7 +1845,7 @@ async def test_atestacion_invalida_falla_cerrado_sin_escrituras(
     status_esperado: int,
     detalle: str,
 ) -> None:
-    """Fecha ausente/futura/vencida o homologación no alteran punto ni ledger."""
+    """Fecha ausente/futura u homologación no alteran punto ni ledger."""
     _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente=ambiente)
     admin_headers = _headers_admin_emisor(admin_auth_headers, test_empresa)
     creada = await client.post(
@@ -1624,6 +1890,52 @@ async def test_atestacion_invalida_falla_cerrado_sin_escrituras(
     revisiones = await _revisiones_punto(db_session, punto_id)
     assert len(revisiones) == 2
     assert {revision.estado for revision in revisiones} == {"no_verificado"}
+
+
+@pytest.mark.parametrize("antiguedad_dias", [8, 90, 365])
+@pytest.mark.asyncio
+async def test_atestacion_acepta_constancias_antiguas_sin_vencimiento(
+    client: AsyncClient,
+    admin_auth_headers: dict[str, str],
+    test_empresa: Empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    antiguedad_dias: int,
+) -> None:
+    """El paso del tiempo no invalida una constancia productiva válida."""
+    _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
+    admin_headers = _headers_admin_emisor(admin_auth_headers, test_empresa)
+    creada = await client.post(
+        "/api/puntos-venta",
+        headers=admin_headers,
+        json={"numero": 63, "nombre": "Punto durable"},
+    )
+    assert creada.status_code == 201, creada.text
+    _configurar_constancia_sintetica(
+        monkeypatch,
+        DatosConstanciaPuntosVenta(
+            cuit=test_empresa.cuit,
+            documento_emitido_en=HOY_RECE_PRUEBA - timedelta(days=antiguedad_dias),
+            puntos_venta=[
+                PuntoVentaConstancia(
+                    numero=63,
+                    sistema=SENAL_RECE_EXACTA,
+                    es_webservice=True,
+                )
+            ],
+        ),
+        estado_arca={63: {"bloqueado": False, "fecha_baja": None}},
+    )
+
+    response = await client.post(
+        "/api/puntos-venta/importar-constancia",
+        headers=admin_headers,
+        data={"confirmar_procedencia_produccion": "true"},
+        files={"file": ("constancia.pdf", b"%PDF", "application/pdf")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["verificados_rece"] == 1
+    assert response.json()["vigente_hasta"] is None
 
 
 @pytest.mark.asyncio
@@ -1895,7 +2207,10 @@ async def test_sincronizacion_arca_es_admin_fail_closed_y_monotonica(
     )
 
     assert response.status_code == 200, response.text
-    assert response.json() == {
+    payload = response.json()
+    comprobado_en = payload.pop("comprobado_en")
+    assert datetime.fromisoformat(comprobado_en)
+    assert payload == {
         "total_arca": 2,
         "nuevos": 1,
         "existentes": 1,
@@ -1937,7 +2252,7 @@ async def test_sincronizacion_arca_es_admin_fail_closed_y_monotonica(
     assert [revision.estado for revision in productivas_ausentes] == [
         "no_verificado",
         "verificado_rece",
-        "no_verificado",
+        "verificado_rece",
     ]
     assert {
         revision.estado
@@ -1980,7 +2295,7 @@ async def test_sincronizacion_arca_vacia_no_desactiva_puntos_locales(
         headers=admin_headers,
     )
 
-    assert response.status_code == 409, response.text
+    assert response.status_code == 503, response.text
     assert "no informó puntos de venta" in response.json()["detail"]
     punto = await db_session.get(PuntoVenta, punto_id)
     assert punto is not None

@@ -498,7 +498,7 @@ async def test_perfil_rechaza_punto_tecnico_sin_acreditacion_rece(
     )
 
     assert response.status_code == 400
-    assert "acreditación RECE vigente" in response.json()["detail"]
+    assert "no está acreditado" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

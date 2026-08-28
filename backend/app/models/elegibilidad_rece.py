@@ -107,7 +107,6 @@ class PuntoVentaElegibilidadReceRevision(Base):
             "AND empresa_cuit_snapshot IS NOT NULL "
             "AND punto_venta_numero_snapshot IS NOT NULL "
             "AND documento_emitido_en IS NOT NULL "
-            "AND vigente_hasta IS NOT NULL "
             "AND verificado_en IS NOT NULL "
             "AND actor_usuario_id_snapshot IS NOT NULL) "
             "OR (estado <> 'verificado_rece' "

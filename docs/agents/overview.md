@@ -83,9 +83,10 @@ El estado detallado y el punto de reanudación viven en
 - Elegibilidad RECE: ledger append-only y cabeza transaccional por punto y
   ambiente, revisión fiscal monotónica, snapshots y guardas durables antes de
   ARCA. La sincronización WSFE server-side solo actualiza estado técnico; una
-  acreditación positiva exige administrador, constancia productiva fresca,
-  modalidad Web Services exacta de la allowlist versionada y confirmación
-  expresa.
+  acreditación positiva exige administrador, constancia productiva completa y
+  no futura, y modalidad Web Services exacta de la allowlist versionada. La
+  acreditación no vence; a los 90 días se recomienda renovar la comprobación
+  técnica y el servidor la ejecuta antes de emitir si hace falta.
 - Observabilidad: `Sistema > Estado` consulta un health administrativo
   sanitizado de worker/pools, además de señales operativas simples, soporte,
   backups y trazabilidad

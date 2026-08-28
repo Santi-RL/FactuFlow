@@ -179,12 +179,17 @@
 - PF-19B falla cerrado para toda omisión: solo `verificado_rece` efectivo para
   el ambiente actual habilita un punto técnica y fiscalmente válido. Una
   atestación positiva exige administrador, servidor en `produccion`,
-  confirmación de procedencia, constancia completa con CUIT/fecha exactos, hasta
-  siete días de antigüedad y una modalidad Web Services exacta de la allowlist
+  constancia completa con CUIT/fecha exactos, fecha no futura sin límite de
+  antigüedad y una modalidad Web Services exacta de la allowlist
   versionada para Responsable Inscripto, Exento en IVA o Monotributo. El parser
   admite tanto `PUNTO VENTA` como `P.VTA.`, la columna `ACTIVIDAD` y encabezados
   repetidos en varias páginas. Se persisten hash, fuente, versión,
   actor y snapshots mínimos, nunca el PDF ni su texto probatorio completo.
+- La acreditación positiva no vence. `ultima_comprobacion_arca_en` registra una
+  dimensión técnica distinta: a los 90 días se recomienda comprobar y cualquier
+  emisión pendiente/desactualizada consulta automáticamente antes de crear
+  estado fiscal. Una falla, respuesta vacía o inconsistente devuelve `503` y no
+  crea operación, intento, reserva ni solicitud CAE.
 - La importación confirmada termina primero PDF, WSAA y
   `FEParamGetPtosVenta`. Antes de cualquier `db.add` o `flush` de Punto/cabezas,
   toma `Usuario administrador -> Empresa` con `FOR UPDATE`,

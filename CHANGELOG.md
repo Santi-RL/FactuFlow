@@ -29,6 +29,21 @@ Reglas vigentes desde 2026-05-22:
   documentadas por ARCA para Responsables Inscriptos, Exentos en IVA y
   Monotributistas. Las coincidencias parciales, Comprobantes en Línea,
   Factuweb, Controlador Fiscal y `Web Services` genérico continúan cerradas.
+- La acreditación inicial obtenida de una constancia válida pasa a ser durable:
+  no vence por el transcurso de siete días ni obliga a cargar otro PDF. La
+  fecha documental continúa siendo obligatoria, no ambigua y no futura.
+- Se separa la acreditación de la comprobación técnica con ARCA. Cada punto
+  registra `ultima_comprobacion_arca_en`; después de 90 días la UI recomienda
+  comprobar, pero no invalida la constancia. Un punto acreditado pendiente o
+  desactualizado se comprueba automáticamente antes de una emisión capaz de
+  alcanzar CAE.
+- Si esa comprobación automática no obtiene una respuesta completa y coherente,
+  el servidor devuelve `503` antes de crear operación, intento, reserva o
+  solicitud de CAE. Bloqueo, baja o ausencia confirmados impiden emitir; una
+  comprobación activa posterior rehabilita el punto sin otro PDF.
+- La importación de constancias ya no muestra opciones ni confirmación
+  intermedia: seleccionar el PDF ejecuta siempre el camino seguro. La acción
+  manual se denomina `Comprobar con ARCA` y permanece opcional.
 - La versión técnica y visible queda sincronizada en `0.3.1`. El parche no
   incorpora datos, PDFs ni identificadores reales y no implica tag,
   publicación ni despliegue.

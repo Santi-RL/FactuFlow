@@ -43,6 +43,7 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 
 REVISION_ANTERIOR = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
+REVISION_ACREDITACION_DURABLE = "d1e2f3a4b5c6"
 FECHA_SINTETICA = date(2026, 8, 9)
 
 
@@ -50,8 +51,9 @@ async def _preparar_pf19b(
     database_url: str,
     *,
     intento_legacy: bool = False,
+    revision_objetivo: str = REVISION_ACREDITACION_DURABLE,
 ) -> AsyncEngine:
-    """Resetea la base guardada y aplica PF-19B sobre un punto legacy."""
+    """Resetea la base y aplica PF-19B hasta la revisión solicitada."""
     await _reset_schema(database_url)
     _run_alembic("upgrade", REVISION_ANTERIOR, database_url)
     engine = create_async_engine(database_url)
@@ -60,6 +62,8 @@ async def _preparar_pf19b(
         await _insertar_intento(engine, 1, "fallido_verificado", None)
     await engine.dispose()
     _run_alembic("upgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
+    if revision_objetivo != REVISION_ELEGIBILIDAD_RECE:
+        _run_alembic("upgrade", revision_objetivo, database_url)
     return create_async_engine(database_url)
 
 
@@ -292,7 +296,11 @@ async def _assert_attempt_rejected(
 async def test_postgresql_pf19b_backfill_downgrade_reupgrade() -> None:
     """PF-19B crea dos cabezas legacy y revierte/reinstala sin residuos."""
     database_url = _postgres_url()
-    engine = await _preparar_pf19b(database_url, intento_legacy=True)
+    engine = await _preparar_pf19b(
+        database_url,
+        intento_legacy=True,
+        revision_objetivo=REVISION_ELEGIBILIDAD_RECE,
+    )
     expected_ledger = [
         (
             "homologacion",
@@ -1070,7 +1078,7 @@ async def test_postgresql_pf19b_downgrade_bloquea_evidencia_runtime() -> None:
 
     engine = create_async_engine(database_url)
     try:
-        assert await _alembic_version(engine) == REVISION_ELEGIBILIDAD_RECE
+        assert await _alembic_version(engine) == REVISION_ACREDITACION_DURABLE
         assert await _ledger_rows(engine) == ledger_before
         async with engine.connect() as connection:
             point_after = tuple(

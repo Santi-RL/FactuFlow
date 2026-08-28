@@ -58,6 +58,9 @@ const puntoVentaMock = (empresaId: number, numero: number): PuntoVenta => ({
   fuente: "arca_wsfe",
   activo: true,
   usable_factuflow: true,
+  puede_intentar_emision: true,
+  ultima_comprobacion_arca_en: "2026-08-09T15:00:00Z",
+  comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
   elegibilidad_rece: {
     ambiente: "produccion",
@@ -68,7 +71,7 @@ const puntoVentaMock = (empresaId: number, numero: number): PuntoVenta => ({
     revision: 1,
     punto_revision_fiscal: 1,
     verificado_en: "2026-08-09T12:00:00-03:00",
-    vigente_hasta: "2026-08-15",
+    vigente_hasta: null,
     motivo: null,
   },
   empresa_id: empresaId,
@@ -99,6 +102,7 @@ const syncResponseMock = (): SincronizarPuntosVentaResponse => ({
   existentes: 1,
   actualizados: 1,
   desactivados_ausentes: 1,
+  comprobado_en: "2026-08-28T12:00:00Z",
 });
 
 const importResponseMock = (): ImportarPuntosVentaResponse => ({
@@ -108,9 +112,10 @@ const importResponseMock = (): ImportarPuntosVentaResponse => ({
   omitidos: 0,
   desactivados_ausentes: 1,
   verificados_rece: 1,
+  pendientes_comprobacion: 0,
   no_verificados_rece: 1,
   documento_emitido_en: "2026-08-09",
-  vigente_hasta: "2026-08-15",
+  vigente_hasta: null,
   warnings: [],
 });
 
@@ -187,6 +192,7 @@ describe("puntos venta store", () => {
       existentes: 0,
       actualizados: 0,
       desactivados_ausentes: 0,
+      comprobado_en: new Date(0).toISOString(),
     });
     expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
@@ -218,6 +224,7 @@ describe("puntos venta store", () => {
       existentes: 0,
       actualizados: 0,
       desactivados_ausentes: 0,
+      comprobado_en: new Date(0).toISOString(),
     });
     expect(mockedPuntosVentaService.getAll).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.create).not.toHaveBeenCalled();
@@ -250,12 +257,13 @@ describe("puntos venta store", () => {
       existentes: 0,
       actualizados: 0,
       desactivados_ausentes: 0,
+      comprobado_en: new Date(0).toISOString(),
     });
     expect(store.error).toBeNull();
     expect(store.syncing).toBe(false);
   });
 
-  it("importa una constancia con confirmación explícita y refresca el listado", async () => {
+  it("importa una constancia por el camino seguro y refresca el listado", async () => {
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -271,15 +279,12 @@ describe("puntos venta store", () => {
     mockedPuntosVentaService.getAll.mockResolvedValue(puntosActualizados);
     const store = usePuntosVentaStore();
 
-    await expect(
-      store.importarConstancia(file, {
-        confirmar_procedencia_produccion: true,
-      }),
-    ).resolves.toEqual(resultadoEsperado);
+    await expect(store.importarConstancia(file)).resolves.toEqual(
+      resultadoEsperado,
+    );
 
     expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledWith(
       file,
-      { confirmar_procedencia_produccion: true },
     );
     expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
     expect(store.puntosVenta).toEqual(puntosActualizados);
@@ -301,7 +306,6 @@ describe("puntos venta store", () => {
 
     const importacion = store.importarConstancia(
       new File(["PDF"], "constancia.pdf", { type: "application/pdf" }),
-      { confirmar_procedencia_produccion: false },
     );
     empresaStore.empresa = empresaMock(2);
     empresaStore.empresaActivaId = 2;

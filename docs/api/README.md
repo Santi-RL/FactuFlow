@@ -243,19 +243,26 @@ DELETE /api/puntos-venta/{punto_venta_id}
 administrador. Un usuario común solo puede editar campos descriptivos; cambiar
 identidad o estado fiscal/técnico requiere administrador.
 
-Cada `PuntoVentaResponse` expone `revision_fiscal`, `usable_factuflow` y el
+Cada `PuntoVentaResponse` expone `revision_fiscal`, `usable_factuflow`,
+`puede_intentar_emision`, `ultima_comprobacion_arca_en`,
+`comprobacion_arca_desactualizada` y el
 objeto `elegibilidad_rece` con `ambiente`, `estado`, `estado_efectivo`, `fuente`,
 `revision_id`, `revision`, `punto_revision_fiscal`, `verificado_en`,
-`vigente_hasta` y `motivo`. El servidor calcula `usable_factuflow`: exige el
+`vigente_hasta` y `motivo`. `vigente_hasta` se conserva por compatibilidad y no
+participa en la decisión. El servidor calcula `usable_factuflow`: exige el
 filtro técnico (activo, Web Services, no bloqueado y sin baja) y estado efectivo
 `verificado_rece` para el ambiente actual. El cliente no debe reconstruir esa
-decisión desde `sistema` ni desde la marca técnica.
+decisión desde `sistema` ni desde la marca técnica. `puede_intentar_emision`
+permite seleccionar un punto acreditado pendiente para que el servidor lo
+compruebe antes de emitir; nunca habilita falta de constancia ni una señal
+negativa confirmada.
 
-`POST /api/puntos-venta/importar-constancia` recibe PDF de hasta `5 MB` y el
-form booleano `confirmar_procedencia_produccion`. Sin confirmación importa y
-sincroniza datos técnicos, pero no acredita RECE. Con confirmación solo acepta
-un administrador, servidor con `ARCA_ENV=produccion`, CUIT exacto, documento
-completo y no ambiguo, fecha única no futura de hasta siete días y una modalidad
+`POST /api/puntos-venta/importar-constancia` recibe PDF de hasta `5 MB`. El form
+booleano `confirmar_procedencia_produccion` continúa aceptándose en `0.3.1` por
+compatibilidad, pero está deprecado; la UI siempre envía el camino seguro. La
+acreditación solo acepta un administrador, servidor con
+`ARCA_ENV=produccion`, CUIT exacto, documento completo y no ambiguo, fecha única
+no futura —sin límite de antigüedad— y una modalidad
 Web Services de la allowlist exacta versionada: `RECE para aplicativo y web
 services`, `Factura Electrónica - RI IVA - Aplicativo y Web Services`, `Factura
 Electrónica - Exento en IVA - Web Services` o `Factura Electrónica -
@@ -266,16 +273,21 @@ coincidencias parciales. El parser reconoce `PUNTO VENTA` y `P.VTA.`, con
 Persiste hash SHA-256, clasificador, actor y snapshots mínimos; no guarda el PDF
 ni su texto completo. Una señal genérica o fuera de allowlist queda
 `no_verificado`, nunca se infiere
-`no_rece`. Evidencia más antigua que la vigente se rechaza. La respuesta agrega
-`verificados_rece`, `no_verificados_rece`, `documento_emitido_en`,
-`vigente_hasta` y warnings sanitizados.
+`no_rece`. La acreditación no vence por tiempo. La respuesta agrega
+`verificados_rece`, `pendientes_comprobacion`, `no_verificados_rece`,
+`documento_emitido_en`,
+`vigente_hasta` —nulo para revisiones nuevas— y warnings sanitizados.
 
 La importación aplica en una transacción los puntos existentes, nuevos y —solo
 si la constancia es completa— ausentes. Además consulta el estado técnico WSFE
 en el servidor. `POST /api/puntos-venta/sincronizar-arca` ofrece esa
-sincronización sin PDF: crea/actualiza/desactiva técnicamente en una sola
-operación y nunca promueve RECE. Homologación no admite atestación positiva y
-permanece cerrada hasta una fuente probatoria específica.
+comprobación sin PDF: crea/actualiza/desactiva técnicamente en una sola
+operación y nunca promueve RECE, aunque conserva una acreditación inicial ya
+existente. La respuesta agrega una marca común `comprobado_en`. Si un punto
+acreditado está pendiente o tiene 90 días, los bordes individual/lote/worker
+hacen esta consulta automáticamente. Una falla o respuesta vacía/inconsistente
+devuelve `503` antes de crear estado fiscal. Homologación no admite atestación
+positiva y permanece cerrada hasta una fuente probatoria específica.
 
 ## Certificados
 

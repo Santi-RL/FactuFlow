@@ -52,6 +52,7 @@ class PuntoVenta(Base):
     fuente = Column(String(50), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
     revision_fiscal = Column(Integer, default=1, nullable=False)
+    ultima_comprobacion_arca_en = Column(DateTime, nullable=True)
 
     # Relación con empresa
     empresa_id = Column(

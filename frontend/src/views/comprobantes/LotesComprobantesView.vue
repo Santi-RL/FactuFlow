@@ -224,7 +224,7 @@ const perfilesOptions = computed(() => [
   })),
 ]);
 const puntosVentaFactuflow = computed(() =>
-  puntosVenta.value.filter((punto) => punto.usable_factuflow),
+  puntosVenta.value.filter((punto) => punto.puede_intentar_emision),
 );
 const puntoVentaOptions = computed(() => [
   { value: "", label: "Seleccioná un punto de venta" },
@@ -232,7 +232,7 @@ const puntoVentaOptions = computed(() => [
     value: punto.numero,
     label: `${String(punto.numero).padStart(4, "0")}${
       punto.nombre ? ` - ${punto.nombre}` : ""
-    }`,
+    }${punto.usable_factuflow ? "" : " (se comprobará al emitir)"}`,
   })),
 ]);
 const estadosGruposOptions = computed(() => [
@@ -362,7 +362,8 @@ const requisitosValidacion = computed(() => [
   {
     label: "Emisor activo",
     detalle:
-      empresaActiva.value?.razon_social || "Seleccioná el emisor antes de cargar.",
+      empresaActiva.value?.razon_social ||
+      "Seleccioná el emisor antes de cargar.",
     completo: !!empresaActivaId.value,
   },
   {
@@ -407,7 +408,8 @@ const requisitosValidacion = computed(() => [
       descripcionItemModo.value === "archivo"
         ? "Se usará la descripción del archivo."
         : descripcionItemModo.value === "fija"
-          ? descripcionItemFija.value.trim() || "Falta completar la descripción fija."
+          ? descripcionItemFija.value.trim() ||
+            "Falta completar la descripción fija."
           : "Falta definir origen o texto fijo.",
     completo: descripcionItemCompleta.value,
   },
@@ -420,9 +422,12 @@ const requisitosValidacion = computed(() => [
   },
 ]);
 const requisitosCompletosValidacion = computed(
-  () => requisitosValidacion.value.filter((requisito) => requisito.completo).length,
+  () =>
+    requisitosValidacion.value.filter((requisito) => requisito.completo).length,
 );
-const totalRequisitosValidacion = computed(() => requisitosValidacion.value.length);
+const totalRequisitosValidacion = computed(
+  () => requisitosValidacion.value.length,
+);
 const requisitosPendientesValidacion = computed(
   () => totalRequisitosValidacion.value - requisitosCompletosValidacion.value,
 );
@@ -735,7 +740,10 @@ const paginaGruposInicio = computed(() => {
 });
 
 const paginaGruposFin = computed(() =>
-  Math.min(gruposLotePage.value * gruposLotePerPage.value, gruposLoteTotal.value),
+  Math.min(
+    gruposLotePage.value * gruposLotePerPage.value,
+    gruposLoteTotal.value,
+  ),
 );
 
 const resumenPaginacionGrupos = computed(() => {
@@ -1203,8 +1211,7 @@ const esErrorSeguimientoTemporal = (error: any): boolean => {
     return true;
   }
 
-  const code =
-    typeof error?.code === "string" ? error.code.toUpperCase() : "";
+  const code = typeof error?.code === "string" ? error.code.toUpperCase() : "";
   const message =
     typeof error?.message === "string" ? error.message.toLowerCase() : "";
   return (
@@ -1301,7 +1308,11 @@ const cargarDetalleLote = async (
     const resumen = await lotesComprobantesService.obtenerResumen(loteId);
     if (!sigueVigente()) return false;
     loteActual.value = resumen;
-    await cargarGruposLote(loteId, esNuevoLote ? 1 : gruposLotePage.value, true);
+    await cargarGruposLote(
+      loteId,
+      esNuevoLote ? 1 : gruposLotePage.value,
+      true,
+    );
     return sigueVigente();
   } catch (error: any) {
     if (!sigueVigente()) return false;
@@ -1612,7 +1623,11 @@ const descartarGruposVisibles = async () => {
 const reconciliarExterno = async () => {
   if (!loteActual.value || !grupoExternoSeleccionado.value) return;
   const grupo = grupoExternoSeleccionado.value;
-  if (!grupo.tipo_comprobante || !grupo.punto_venta_numero || !grupo.fecha_emision) {
+  if (
+    !grupo.tipo_comprobante ||
+    !grupo.punto_venta_numero ||
+    !grupo.fecha_emision
+  ) {
     showWarning(
       "Datos incompletos",
       "El comprobante seleccionado no tiene tipo, punto de venta o fecha fiscal para reconciliar.",
@@ -1697,7 +1712,10 @@ const eliminarLote = async () => {
   const loteId = loteActual.value.id;
   resolviendoLote.value = "eliminar";
   try {
-    await lotesComprobantesService.eliminar(loteId, motivoEliminar.value.trim());
+    await lotesComprobantesService.eliminar(
+      loteId,
+      motivoEliminar.value.trim(),
+    );
     motivoEliminar.value = "";
     loteActual.value = null;
     gruposLote.value = [];
@@ -1758,7 +1776,10 @@ const descargarObservado = async () => {
   }
 };
 
-const contextoPollingVigente = (generation: number, empresaId: number): boolean =>
+const contextoPollingVigente = (
+  generation: number,
+  empresaId: number,
+): boolean =>
   !componenteDesmontado &&
   pollingGeneration === generation &&
   empresaActivaId.value === empresaId;
@@ -1844,8 +1865,9 @@ const ejecutarCicloPolling = async (generation: number, empresaId: number) => {
   prepararContextoPolling(lote.id);
   pollingSeguimientoEnCurso.value = true;
   try {
-    const seguimiento =
-      await lotesComprobantesService.obtenerSeguimiento(lote.id);
+    const seguimiento = await lotesComprobantesService.obtenerSeguimiento(
+      lote.id,
+    );
     if (!contextoPollingVigente(generation, empresaId)) return;
     pollingErroresTemporales = 0;
     aplicarSeguimientoLote(seguimiento);
@@ -2035,9 +2057,7 @@ onBeforeUnmount(() => {
       class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">
-          Emisión masiva
-        </h1>
+        <h1 class="text-3xl font-bold text-gray-900">Emisión masiva</h1>
         <p class="mt-2 max-w-3xl text-gray-600">
           Carga un Excel, revisa errores antes de emitir y sigue el resultado
           del lote sin perder contexto técnico.
@@ -2047,22 +2067,17 @@ onBeforeUnmount(() => {
       <div
         class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm"
       >
-        <p class="font-semibold text-gray-900">
-          Emisor activo
-        </p>
+        <p class="font-semibold text-gray-900">Emisor activo</p>
         <p>
           {{
             empresaActiva?.razon_social ||
-              "Selecciona una empresa para empezar."
+            "Selecciona una empresa para empezar."
           }}
         </p>
       </div>
     </div>
 
-    <BaseAlert
-      v-if="!empresaActivaId"
-      type="warning"
-    >
+    <BaseAlert v-if="!empresaActivaId" type="warning">
       Selecciona un emisor activo antes de descargar la plantilla o subir el
       archivo.
     </BaseAlert>
@@ -2108,17 +2123,11 @@ onBeforeUnmount(() => {
                 : "Sin perfil de carga masiva aplicado"
             }}
           </p>
-          <p
-            v-if="configuracionModificada"
-            class="mt-1 text-amber-700"
-          >
+          <p v-if="configuracionModificada" class="mt-1 text-amber-700">
             Configuración modificada en esta carga. Se validará sin snapshot de
             perfil de carga masiva.
           </p>
-          <p
-            v-else
-            class="mt-1 text-gray-500"
-          >
+          <p v-else class="mt-1 text-gray-500">
             {{
               perfilesCargaMasiva.length
                 ? "Puedes cambiarlo antes de validar."
@@ -2130,7 +2139,9 @@ onBeforeUnmount(() => {
     </BaseCard>
 
     <BaseCard>
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div
+        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+      >
         <div>
           <p class="text-sm font-semibold uppercase text-brand-teal">
             Guía rápida
@@ -2193,8 +2204,8 @@ onBeforeUnmount(() => {
             3. Revisá antes de emitir
           </p>
           <p class="mt-2 text-sm text-brand-slate">
-            La validación solo prepara el lote. La emisión sigue separada y exige
-            confirmación fiscal irreversible.
+            La validación solo prepara el lote. La emisión sigue separada y
+            exige confirmación fiscal irreversible.
           </p>
         </div>
       </div>
@@ -2204,13 +2215,11 @@ onBeforeUnmount(() => {
         <div>
           <div class="flex items-center gap-2">
             <CloudArrowUpIcon class="h-5 w-5 text-primary-600" />
-            <h2 class="text-lg font-semibold text-gray-900">
-              Validar archivo
-            </h2>
+            <h2 class="text-lg font-semibold text-gray-900">Validar archivo</h2>
           </div>
           <p class="mt-2 text-sm text-gray-600">
-            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma
-            la plantilla/formato antes de validar.
+            Sube la plantilla oficial o un archivo `.xlsx` externo y confirma la
+            plantilla/formato antes de validar.
           </p>
 
           <div
@@ -2222,7 +2231,7 @@ onBeforeUnmount(() => {
               accept=".xlsx"
               class="hidden"
               @change="handleArchivoSeleccionado"
-            >
+            />
 
             <div
               class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
@@ -2231,7 +2240,7 @@ onBeforeUnmount(() => {
                 <p class="font-medium text-gray-900">
                   {{
                     archivoSeleccionado?.name ||
-                      "Todavía no seleccionaste ningún archivo."
+                    "Todavía no seleccionaste ningún archivo."
                   }}
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
@@ -2244,10 +2253,7 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="flex flex-wrap gap-3">
-                <BaseButton
-                  variant="secondary"
-                  @click="triggerFileSelection"
-                >
+                <BaseButton variant="secondary" @click="triggerFileSelection">
                   <DocumentDuplicateIcon class="mr-2 h-5 w-5" />
                   Elegir archivo
                 </BaseButton>
@@ -2302,23 +2308,17 @@ onBeforeUnmount(() => {
               />
 
               <div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                <p class="font-medium text-gray-900">
-                  Columnas detectadas
-                </p>
+                <p class="font-medium text-gray-900">Columnas detectadas</p>
                 <p class="mt-1 break-words">
                   {{
                     deteccionFormato?.headers_detectados.join(", ") ||
-                      "Todavía no se analizaron encabezados."
+                    "Todavía no se analizaron encabezados."
                   }}
                 </p>
               </div>
             </div>
 
-            <BaseAlert
-              v-if="requiereElegirFormato"
-              type="warning"
-              class="mt-4"
-            >
+            <BaseAlert v-if="requiereElegirFormato" type="warning" class="mt-4">
               <div
                 class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
@@ -2355,7 +2355,7 @@ onBeforeUnmount(() => {
                     :loading="detectandoFormato"
                     @click="
                       archivoSeleccionado &&
-                        detectarFormatoArchivo(archivoSeleccionado)
+                      detectarFormatoArchivo(archivoSeleccionado)
                     "
                   >
                     Analizar encabezados
@@ -2408,7 +2408,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  >
+                  />
                   Utilizar punto de venta definido en el archivo
                 </span>
               </label>
@@ -2420,7 +2420,7 @@ onBeforeUnmount(() => {
                     value="fijo"
                     class="h-4 w-4 text-primary-600"
                     :disabled="puntosVentaFactuflow.length === 0"
-                  >
+                  />
                   Utilizar punto de venta del emisor
                 </span>
                 <BaseSelect
@@ -2430,7 +2430,7 @@ onBeforeUnmount(() => {
                   :options="puntoVentaOptions"
                   :disabled="
                     puntoVentaModo !== 'fijo' ||
-                      puntosVentaFactuflow.length === 0
+                    puntosVentaFactuflow.length === 0
                   "
                 />
               </label>
@@ -2441,8 +2441,8 @@ onBeforeUnmount(() => {
               type="warning"
               class="mt-4"
             >
-              Para elegir un punto de venta fijo, primero completá los puntos de
-              venta elegibles para emitir en la pantalla Puntos de venta.
+              Para elegir un punto de venta fijo, primero importá una constancia
+              válida en la pantalla Puntos de venta.
             </BaseAlert>
             <BaseAlert
               v-else-if="puntoVentaModo === 'fijo' && !puntoVentaNumero"
@@ -2480,7 +2480,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="productos"
                     class="h-4 w-4 text-primary-600"
-                  >
+                  />
                   Productos
                 </span>
               </label>
@@ -2491,7 +2491,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="servicios"
                     class="h-4 w-4 text-primary-600"
-                  >
+                  />
                   Servicios
                 </span>
               </label>
@@ -2502,7 +2502,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  >
+                  />
                   Definido por el archivo
                 </span>
                 <span class="mt-2 block text-xs text-gray-600">
@@ -2512,11 +2512,7 @@ onBeforeUnmount(() => {
               </label>
             </div>
 
-            <BaseAlert
-              v-if="!conceptoModo"
-              type="warning"
-              class="mt-4"
-            >
+            <BaseAlert v-if="!conceptoModo" type="warning" class="mt-4">
               Elegí el tipo de concepto fiscal ARCA antes de validar. Sin esta
               confirmación el lote no puede quedar listo para emitir.
             </BaseAlert>
@@ -2549,7 +2545,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  >
+                  />
                   Utilizar la descripción del archivo
                 </span>
                 <span class="mt-2 block text-xs text-gray-600">
@@ -2564,7 +2560,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="fija"
                     class="h-4 w-4 text-primary-600"
-                  >
+                  />
                   Utilizar esta descripción para todo el lote
                 </span>
                 <input
@@ -2573,7 +2569,7 @@ onBeforeUnmount(() => {
                   :disabled="descripcionItemModo !== 'fija'"
                   placeholder="Ej.: Honorarios profesionales"
                   class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                >
+                />
               </label>
             </div>
 
@@ -2618,7 +2614,7 @@ onBeforeUnmount(() => {
                       type="radio"
                       value="archivo"
                       class="h-4 w-4 text-primary-600"
-                    >
+                    />
                     Utilizar la fecha del archivo
                   </label>
                   <label class="flex flex-wrap items-center gap-2">
@@ -2627,14 +2623,14 @@ onBeforeUnmount(() => {
                       type="radio"
                       value="fija"
                       class="h-4 w-4 text-primary-600"
-                    >
+                    />
                     Utilizar esta fecha para todos
                     <input
                       v-model="fechaEmisionFija"
                       type="date"
                       :disabled="fechaEmisionModo !== 'fija'"
                       class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                    >
+                    />
                   </label>
                 </div>
               </div>
@@ -2645,16 +2641,14 @@ onBeforeUnmount(() => {
                 </p>
                 <div class="mt-3 space-y-4 text-sm text-gray-700">
                   <div>
-                    <p class="font-medium text-gray-800">
-                      Desde
-                    </p>
+                    <p class="font-medium text-gray-800">Desde</p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaServicioDesdeModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      >
+                      />
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -2663,28 +2657,26 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      >
+                      />
                       Fijar
                       <input
                         v-model="fechaServicioDesdeFija"
                         type="date"
                         :disabled="fechaServicioDesdeModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      >
+                      />
                     </label>
                   </div>
 
                   <div>
-                    <p class="font-medium text-gray-800">
-                      Hasta
-                    </p>
+                    <p class="font-medium text-gray-800">Hasta</p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaServicioHastaModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      >
+                      />
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -2693,28 +2685,26 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      >
+                      />
                       Fijar
                       <input
                         v-model="fechaServicioHastaFija"
                         type="date"
                         :disabled="fechaServicioHastaModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      >
+                      />
                     </label>
                   </div>
 
                   <div>
-                    <p class="font-medium text-gray-800">
-                      Vencimiento de pago
-                    </p>
+                    <p class="font-medium text-gray-800">Vencimiento de pago</p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaVtoPagoModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      >
+                      />
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -2723,14 +2713,14 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      >
+                      />
                       Fijar
                       <input
                         v-model="fechaVtoPagoFija"
                         type="date"
                         :disabled="fechaVtoPagoModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      >
+                      />
                     </label>
                   </div>
                 </div>
@@ -2751,7 +2741,9 @@ onBeforeUnmount(() => {
             v-if="archivoSeleccionado"
             class="mt-4 rounded-xl border border-border-subtle bg-surface-page p-4"
           >
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div>
                 <p class="text-sm font-semibold text-brand-ink">
                   {{ resumenRequisitosValidacion }}
@@ -2779,7 +2771,9 @@ onBeforeUnmount(() => {
           class="rounded-xl border border-border-subtle bg-surface-page p-4"
         >
           <div class="flex items-start gap-3">
-            <ExclamationTriangleIcon class="mt-0.5 h-5 w-5 text-status-warning" />
+            <ExclamationTriangleIcon
+              class="mt-0.5 h-5 w-5 text-status-warning"
+            />
             <div>
               <h3 class="font-semibold text-brand-ink">
                 Checklist de validación
@@ -2892,11 +2886,7 @@ onBeforeUnmount(() => {
               </span>
             </BaseAlert>
 
-            <BaseAlert
-              v-if="loteActual.compactado_at"
-              type="info"
-              class="mt-6"
-            >
+            <BaseAlert v-if="loteActual.compactado_at" type="info" class="mt-6">
               Este lote fue compactado el
               {{ formatDateTime(loteActual.compactado_at) }}. Se conserva el
               resumen fiscal y los comprobantes agrupados, pero ya no está
@@ -2924,7 +2914,9 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                <div
+                  class="rounded-lg border border-border-subtle bg-surface-card p-3"
+                >
                   <p class="text-xs font-medium uppercase text-brand-slate">
                     Neto
                   </p>
@@ -2932,7 +2924,9 @@ onBeforeUnmount(() => {
                     {{ formatMoney(totalesListosParaEmitir.neto) }}
                   </p>
                 </div>
-                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                <div
+                  class="rounded-lg border border-border-subtle bg-surface-card p-3"
+                >
                   <p class="text-xs font-medium uppercase text-brand-slate">
                     IVA 21%
                   </p>
@@ -2940,7 +2934,9 @@ onBeforeUnmount(() => {
                     {{ formatMoney(totalesListosParaEmitir.iva21) }}
                   </p>
                 </div>
-                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                <div
+                  class="rounded-lg border border-border-subtle bg-surface-card p-3"
+                >
                   <p class="text-xs font-medium uppercase text-brand-slate">
                     IVA 10,5%
                   </p>
@@ -2948,7 +2944,9 @@ onBeforeUnmount(() => {
                     {{ formatMoney(totalesListosParaEmitir.iva105) }}
                   </p>
                 </div>
-                <div class="rounded-lg border border-border-subtle bg-surface-card p-3">
+                <div
+                  class="rounded-lg border border-border-subtle bg-surface-card p-3"
+                >
                   <p class="text-xs font-medium uppercase text-brand-slate">
                     Total
                   </p>
@@ -2968,7 +2966,9 @@ onBeforeUnmount(() => {
               </BaseAlert>
             </div>
 
-            <div class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4">
+            <div
+              class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4"
+            >
               <div
                 class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
               >
@@ -3024,7 +3024,9 @@ onBeforeUnmount(() => {
             <details
               class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4"
             >
-              <summary class="cursor-pointer text-sm font-semibold text-brand-ink">
+              <summary
+                class="cursor-pointer text-sm font-semibold text-brand-ink"
+              >
                 Resumen operativo completo
               </summary>
               <p class="mt-2 text-sm text-brand-slate">
@@ -3053,8 +3055,7 @@ onBeforeUnmount(() => {
             </details>
             <details
               v-if="
-                totalPendientesResolucion > 0 ||
-                  hayPendientesResolucionVisibles
+                totalPendientesResolucion > 0 || hayPendientesResolucionVisibles
               "
               data-testid="resolucion-pendientes-lote"
               :open="resolucionPendientesAbierta"
@@ -3086,7 +3087,8 @@ onBeforeUnmount(() => {
                     >
                       {{
                         resolucionPendientesAbierta ? "Cerrar" : "Abrir"
-                      }} resolución
+                      }}
+                      resolución
                     </span>
                   </div>
                 </div>
@@ -3094,13 +3096,15 @@ onBeforeUnmount(() => {
 
               <p class="mt-4 text-sm text-amber-900">
                 Reintenta fallidos cuando quieras emitirlos desde FactuFlow.
-                Reconcilia solo comprobantes que ya verificaste como
-                autorizados en ARCA Web. Descarta únicamente los que no deben
-                emitirse desde este lote.
+                Reconcilia solo comprobantes que ya verificaste como autorizados
+                en ARCA Web. Descarta únicamente los que no deben emitirse desde
+                este lote.
               </p>
 
               <BaseAlert
-                v-if="hayPendientesResolucionVisibles && !detalleComprobantesAbierto"
+                v-if="
+                  hayPendientesResolucionVisibles && !detalleComprobantesAbierto
+                "
                 type="warning"
                 class="mt-4"
               >
@@ -3144,7 +3148,9 @@ onBeforeUnmount(() => {
                     rows="3"
                     class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
                     placeholder="Motivo operativo"
-                    :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
+                    :disabled="
+                      !detalleComprobantesAbierto || resolviendoLote !== null
+                    "
                   />
                   <BaseButton
                     class="mt-3 w-full"
@@ -3174,7 +3180,9 @@ onBeforeUnmount(() => {
                       v-model="externoGrupoId"
                       label="Comprobante visible"
                       :options="grupoExternoOptions"
-                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
+                      :disabled="
+                        !detalleComprobantesAbierto || resolviendoLote !== null
+                      "
                     />
                     <BaseInput
                       v-model="externoNumero"
@@ -3182,20 +3190,26 @@ onBeforeUnmount(() => {
                       min="1"
                       label="Número autorizado"
                       placeholder="Ej. 1234"
-                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
+                      :disabled="
+                        !detalleComprobantesAbierto || resolviendoLote !== null
+                      "
                     />
                     <BaseInput
                       v-model="externoCae"
                       label="CAE informado"
                       placeholder="Opcional"
-                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
+                      :disabled="
+                        !detalleComprobantesAbierto || resolviendoLote !== null
+                      "
                     />
                     <textarea
                       v-model="externoMotivo"
                       rows="3"
                       class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
                       placeholder="Motivo operativo"
-                      :disabled="!detalleComprobantesAbierto || resolviendoLote !== null"
+                      :disabled="
+                        !detalleComprobantesAbierto || resolviendoLote !== null
+                      "
                     />
                   </div>
                   <BaseButton
@@ -3272,7 +3286,7 @@ onBeforeUnmount(() => {
                     :loading="resolviendoLote === 'eliminar'"
                     :disabled="
                       motivoEliminar.trim().length < 3 ||
-                        resolviendoLote !== null
+                      resolviendoLote !== null
                     "
                     @click="eliminarLote"
                   >
@@ -3283,11 +3297,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <BaseAlert
-              v-if="necesitaCorreccion"
-              type="warning"
-              class="mt-6"
-            >
+            <BaseAlert v-if="necesitaCorreccion" type="warning" class="mt-6">
               Hay comprobantes observados. Descargá el archivo observado para
               ver fila por fila qué debés corregir antes de volver a subir el
               Excel.
@@ -3299,11 +3309,14 @@ onBeforeUnmount(() => {
               class="mt-6 rounded-xl border border-border-subtle bg-surface-page p-4"
               @toggle="actualizarDetalleComprobantesAbierto"
             >
-              <summary class="cursor-pointer text-sm font-semibold text-brand-ink">
+              <summary
+                class="cursor-pointer text-sm font-semibold text-brand-ink"
+              >
                 Detalle de comprobantes
               </summary>
               <p class="mt-2 text-sm text-brand-slate">
-                Abrí este detalle para revisar comprobantes, filtros y observaciones por comprobante.
+                Abrí este detalle para revisar comprobantes, filtros y
+                observaciones por comprobante.
               </p>
               <div
                 class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between"
@@ -3393,7 +3406,9 @@ onBeforeUnmount(() => {
                       </td>
                       <td class="px-4 py-3 text-sm text-gray-700">
                         <p>
-                          {{ grupo.cliente_razon_social || "A consumidor final" }}
+                          {{
+                            grupo.cliente_razon_social || "A consumidor final"
+                          }}
                         </p>
                         <p class="text-xs text-gray-500">
                           {{ grupo.cliente_documento || "Sin documento" }}
@@ -3413,11 +3428,12 @@ onBeforeUnmount(() => {
                         <p
                           v-if="
                             grupo.fecha_servicio_desde ||
-                              grupo.fecha_servicio_hasta
+                            grupo.fecha_servicio_hasta
                           "
                           class="text-xs text-gray-500"
                         >
-                          Servicio {{ formatDate(grupo.fecha_servicio_desde) }} -
+                          Servicio
+                          {{ formatDate(grupo.fecha_servicio_desde) }} -
                           {{ formatDate(grupo.fecha_servicio_hasta) }}
                         </p>
                       </td>
@@ -3437,7 +3453,9 @@ onBeforeUnmount(() => {
                               'bg-gray-50 text-gray-700',
                           ]"
                         >
-                          {{ ESTADOS_GRUPO_NOMBRES[grupo.estado] || grupo.estado }}
+                          {{
+                            ESTADOS_GRUPO_NOMBRES[grupo.estado] || grupo.estado
+                          }}
                         </span>
                       </td>
                       <td class="px-4 py-3 text-sm text-gray-600">
@@ -3456,10 +3474,7 @@ onBeforeUnmount(() => {
                 />
               </div>
 
-              <div
-                v-else
-                class="mt-6"
-              >
+              <div v-else class="mt-6">
                 <BaseEmpty
                   title="Sin comprobantes para mostrar"
                   message="Cambiá el filtro de estado para revisar otros comprobantes del lote."

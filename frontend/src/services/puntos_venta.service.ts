@@ -1,6 +1,5 @@
 import apiClient from "./api";
 import type {
-  ImportarConstanciaPuntosVentaOptions,
   ImportarPuntosVentaResponse,
   PuntoVenta,
   PuntoVentaCreate,
@@ -34,16 +33,10 @@ export const puntosVentaService = {
     await apiClient.delete(`/api/puntos-venta/${id}`);
   },
 
-  async importarConstancia(
-    file: File,
-    options: ImportarConstanciaPuntosVentaOptions,
-  ): Promise<ImportarPuntosVentaResponse> {
+  async importarConstancia(file: File): Promise<ImportarPuntosVentaResponse> {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append(
-      "confirmar_procedencia_produccion",
-      String(options.confirmar_procedencia_produccion),
-    );
+    formData.append("confirmar_procedencia_produccion", "true");
     const response = await apiClient.post<ImportarPuntosVentaResponse>(
       "/api/puntos-venta/importar-constancia",
       formData,
