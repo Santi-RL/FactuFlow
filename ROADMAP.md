@@ -1195,8 +1195,9 @@ Objetivo: profesionalizar la entrega del producto.
       a `39797d1ff9c698465255cf4f821240171c235cab`, con notas y CI final verdes
 - [x] El estado desplegado dejó de fijarse en este roadmap; antes de cualquier
       operación se comprueba en `VPS Hostinger` / `vps-admin`
-- [ ] Release `v0.3.1`: candidato congelado con versión alineada, CI Nivel 2 y
-      `autoreview` verdes; faltan tag y publicación como checkpoints separados
+- [x] Release `v0.3.1` publicada el 28/08/2026 desde el tag inmutable que apunta
+      a `7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`, con notas, CI Nivel 2 y
+      `autoreview` verdes
 - [ ] Despliegue productivo separado de `v0.3.1`, sujeto a comprobar el tag/SHA
       observado, aplicar una única migración y cerrar QA post-deploy sin CAE
 
@@ -1227,10 +1228,11 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   snapshot no existían tag, publicación ni despliegue, y producción continuaba
   en `v0.2.2`. El tag y la GitHub Release `v0.3.0` se publicaron después sobre
   `39797d1`; el estado desplegado posterior se consulta en el plano de control.
-- **`v0.3.1` candidato congelado:** parche compatible para las constancias ARCA
+- **`v0.3.1` publicado:** parche compatible para las constancias ARCA
   vigentes y la acreditación durable de puntos de venta. El merge funcional
   `e49a8baf` aprobó los siete checks y el `autoreview` final cerró limpio. El
-  tag, la publicación y el despliegue permanecen pendientes y separados.
+  tag `7afba87b` y la GitHub Release se publicaron el 28/08/2026; el despliegue
+  permanece como checkpoint separado.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1276,10 +1278,9 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Publicar `v0.3.1` desde el merge exacto de su cierre documental y desplegar
-   después ese tag mediante `vps-admin`. Confirmar el origen observado, Alembic
-   `c0d1e2f3a4b -> d1e2f3a4b5c6`, la reutilización explícita del backup y la QA
-   post-deploy sin provocar CAE.
+1. Desplegar el tag exacto `v0.3.1` mediante `vps-admin`. Confirmar el origen
+   observado, Alembic `c0d1e2f3a4b -> d1e2f3a4b5c6`, la reutilización explícita
+   del backup y la QA post-deploy sin provocar CAE.
 2. Retomar PF-03 con PF-03B después de desplegar `v0.3.1`:
    separar el DTO de ítem que serializa la UI, hacer estricto
    `ItemComprobanteCreate` y rechazar descuentos

@@ -4,15 +4,16 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-Versión publicada más reciente: `v0.3.0`
+Versión publicada más reciente: `v0.3.1`
 
-Candidato de release congelado: `v0.3.1`.
+[GitHub Release v0.3.1](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.1)
 
-El candidato incorpora compatibilidad con el formato vigente de constancias de
+`v0.3.1` incorpora compatibilidad con el formato vigente de constancias de
 puntos de venta, modalidades Web Services exactas por condición fiscal y una
 acreditación inicial durable separada de la comprobación técnica periódica con
-ARCA. El tag, la GitHub Release y el despliegue se registran como checkpoints
-separados.
+ARCA. El tag inmutable apunta a
+`7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`; la publicación no determina ni
+modifica el estado desplegado.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.

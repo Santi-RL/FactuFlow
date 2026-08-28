@@ -18,6 +18,13 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Documentación
+
+- Se registró la publicación de la GitHub Release `v0.3.1`, marcada como
+  `Latest`, desde el tag inmutable que apunta a
+  `7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`. El despliegue continúa como un
+  checkpoint separado y su estado vive en `VPS Hostinger` / `vps-admin`.
+
 ## [0.3.1] - 2026-08-28
 
 ### Correcciones

@@ -6,7 +6,7 @@ Este directorio agrupa la documentación del proyecto.
 
 - Changelog y corte versionado actual: `CHANGELOG.md`
 - Última release publicada:
-  [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
+  [`v0.3.1`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.1)
 - Estado desplegado:
   el estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
   `vps-admin`; no se infiere desde este repositorio.
@@ -14,7 +14,7 @@ Este directorio agrupa la documentación del proyecto.
   `docs/project/releases/v0.2.2-candidate.md`
 - Snapshot histórico de preparación de `v0.3.0` (11/08/2026, previo al tag):
   `docs/project/releases/v0.3.0-candidate.md`
-- Candidato congelado de `v0.3.1`:
+- Snapshot de cierre de `v0.3.1`:
   `docs/project/releases/v0.3.1-candidate.md`
 - Instalación y setup: `docs/setup/README.md`
 - Migración local a VPS: `docs/setup/vps-migration.md`
