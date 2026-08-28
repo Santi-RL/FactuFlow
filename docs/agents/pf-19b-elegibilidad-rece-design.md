@@ -76,10 +76,13 @@ actor, bajo las restricciones siguientes.
    efectiva: la revisión positiva vence al final del séptimo día y se comprueba
    nuevamente antes de cada FECAE.
 4. La señal administrativa normalizada debe coincidir exactamente con una
-   allowlist versionada. La versión inicial solo admite
-   `RECE para aplicativo y web services`; coincidencias parciales, sinónimos o
-   cambios futuros del formulario fallan cerrado hasta actualizar clasificador
-   y tests.
+   allowlist versionada. `rece_constancia_v1` solo admitía
+   `RECE para aplicativo y web services`. El parche `0.3.1` introduce
+   `rece_constancia_v2` y agrega las modalidades oficiales exactas para
+   Responsable Inscripto, Exento en IVA y Monotributo. Solo se normalizan
+   espacios, mayúsculas, variantes de guion y la escritura `Webservices`;
+   coincidencias parciales, sinónimos o cambios futuros del formulario fallan
+   cerrado hasta actualizar clasificador y tests.
 5. Una descripción genérica que solo dice `Web Service` o `Web Services` queda
    `no_verificado`; no se completa por semejanza ni por presencia en WSFE.
 6. Un sistema distinto, vacío, ilegible o contradictorio queda
@@ -331,7 +334,7 @@ apunten a su revisión inicial o conteos inconsistentes.
 | Migración legacy | `no_verificado` | ambos | inicial `1` |
 | Alta manual | `no_verificado` | ambos | crea contexto inicial |
 | Sincronización `FEParamGetPtosVenta` | nunca promueve; punto nuevo `no_verificado` | contexto actual y contraparte cerrada | incrementa solo si cambia estado técnico relevante |
-| Atestación admin con constancia reciente y señal RECE exacta | `verificado_rece` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
+| Atestación admin con constancia reciente y modalidad exacta de la allowlist | `verificado_rece` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
 | Atestación admin con Web Services genérico | `no_verificado` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
 | Atestación admin con sistema no allowlist | `no_verificado` | solo producción y servidor productivo | siempre crea revisión ledger y fiscal |
 | Edición de número/sistema/Web Services/fuente | `no_verificado` | ambos | nueva revisión ledger y fiscal |
@@ -490,7 +493,7 @@ filtra silenciosamente ese grupo para emitir el resto.
 |---|---|
 | Configuración | `ARCA_ENV` enum estricto; un valor inválido impide iniciar |
 | Modelo y Alembic | ledger, revisión fiscal, snapshots y constraints |
-| Constancia PDF | clasificador exacto, hash y versión; sin texto probatorio persistido |
+| Constancia PDF | encabezados histórico/actual y repetidos por página; clasificador exacto, hash y versión; sin texto probatorio persistido |
 | Importación | admin, atestación/fecha y escritura atómica de punto + revisión |
 | Sincronización WSFE | conserva solo estado técnico; nunca promueve RECE |
 | Alta/edición/baja | estado inicial cerrado e invalidación monotónica |
@@ -516,7 +519,7 @@ filtra silenciosamente ese grupo para emitir el resto.
 |---|---|---|---|
 | ausencia legacy | migración | `no_verificado` | no |
 | `no_verificado` | sync WSFE | `no_verificado` | no |
-| cualquiera | constancia RECE exacta en servidor productivo | `verificado_rece` de producción | sí, si técnica y contextualmente válido |
+| cualquiera | constancia con modalidad exacta admitida en servidor productivo | `verificado_rece` de producción | sí, si técnica y contextualmente válido |
 | cualquiera | constancia genérica o no allowlist | `no_verificado` de producción | no |
 | cualquiera | señal negativa oficial futura y versionada | `no_rece` | no |
 | `verificado_rece` | cambio de identidad/señal | `no_verificado` | no |
@@ -577,7 +580,7 @@ hybrid ORM por sí solo como autoridad RECE.
 
 ### Productores y API
 
-- constancia RECE exacta, actor admin, confirmación explícita y fecha documental
+- constancia con modalidad exacta admitida, actor admin, confirmación explícita y fecha documental
   argentina válida/no futura/de hasta siete días;
 - usuario común, falta de confirmación, fecha ausente, inválida, futura o vencida
   nunca promueven;

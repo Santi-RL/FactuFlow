@@ -88,6 +88,13 @@ explícita omite esas pruebas: ese skip no constituye evidencia PostgreSQL. En
 este corte no se afirma una ejecución PostgreSQL local; la evidencia real debe
 provenir del job de CI. Ninguna prueba solicita CAE ni usa certificados reales.
 
+El parche `0.3.1` agrega cobertura sintética para constancias con los encabezados
+histórico `PUNTO VENTA` y actual `P.VTA.`, la columna `ACTIVIDAD`, encabezados
+repetidos en múltiples páginas y las modalidades Web Services exactas de
+Responsable Inscripto, Exento en IVA y Monotributo. Mantiene negativos genéricos,
+parciales y fuera de allowlist para demostrar que el clasificador continúa
+fallando cerrado. No se usa ni se persiste documentación fiscal real.
+
 PF-19C se valida con respuestas WSFE simuladas: `10005` solo es terminal si es
 un entero exacto con cabecera global estrictamente correlacionada y sin detalle
 ni CAE. Todas las variantes desconocidas, mixtas, parciales o de transporte se

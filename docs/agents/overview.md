@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 27/08/2026
+Última actualización: 28/08/2026
 
 ## Qué es FactuFlow
 
@@ -42,6 +42,10 @@ facturación individual y masiva con seguridad fiscal.
   restauración aislada, upgrade y rollback quedó aprobado.
   Web Services genérico ya no acredita RECE en `main`; homologación permanece
   fail-closed mientras no exista una fuente probatoria específica.
+- `main` prepara el parche visible `0.3.1`: el parser acepta la constancia ARCA
+  vigente con encabezado `P.VTA.` y `ACTIVIDAD`, y el clasificador probatorio
+  v2 admite únicamente las modalidades Web Services exactas documentadas para
+  Responsable Inscripto, Exento en IVA y Monotributo.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -80,7 +84,8 @@ El estado detallado y el punto de reanudación viven en
   ambiente, revisión fiscal monotónica, snapshots y guardas durables antes de
   ARCA. La sincronización WSFE server-side solo actualiza estado técnico; una
   acreditación positiva exige administrador, constancia productiva fresca,
-  señal exacta y confirmación expresa.
+  modalidad Web Services exacta de la allowlist versionada y confirmación
+  expresa.
 - Observabilidad: `Sistema > Estado` consulta un health administrativo
   sanitizado de worker/pools, además de señales operativas simples, soporte,
   backups y trazabilidad

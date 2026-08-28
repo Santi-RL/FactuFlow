@@ -248,10 +248,11 @@ CAE encuentre una revisión durable cuyo estado efectivo sea
 `FEParamGetPtosVenta`, la marca legacy `Usable` y el texto editable `Sistema` no
 promueven elegibilidad. Solo un administrador, en un servidor configurado en
 `produccion`, puede atestar una constancia productiva completa, reciente y no
-ambigua; únicamente la señal exacta `RECE para aplicativo y web services`
-produce el estado positivo, con vigencia operativa de siete días. El PDF no se
-persiste. Homologación permanece bloqueada hasta contar con una fuente
-probatoria específica y no hereda evidencia productiva.
+ambigua; únicamente una modalidad Web Services exacta de la allowlist versionada
+para Responsable Inscripto, Exento en IVA o Monotributo produce el estado
+positivo, con vigencia operativa de siete días. El PDF no se persiste.
+Homologación permanece bloqueada hasta contar con una fuente probatoria
+específica y no hereda evidencia productiva.
 
 La variable privada `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` conserva PF-19A
 como denegación adicional por combinación exacta de ambiente, emisor,
@@ -276,10 +277,10 @@ transacción completa: quedan cero guardas, intentos y reservas nuevos, y cero
 llamadas `FECAESolicitar`. Esas lecturas seguras previas no convierten el fallo
 en una solicitud de CAE ni habilitan un reintento automático.
 
-Este comportamiento describe el estado de `main` congelado para `v0.3.0`. Al
-cerrar esa preparación, la última release publicada y el despliegue real eran
-`v0.2.2`, que no incluye PF-19B; tag, publicación y despliegue son checkpoints
-separados y su ejecución se registra posteriormente.
+Este comportamiento pertenece a `v0.3.0`; `main` prepara el parche compatible
+`0.3.1` para reconocer el formulario actual y las modalidades exactas oficiales.
+Tag, publicación y despliegue siguen siendo checkpoints separados y su ejecución
+se registra en el plano de control operativo.
 
 El inventario legacy se ejecuta solo con autorización sobre una fuente
 identificada y con `DATABASE_URL` configurada de forma privada:

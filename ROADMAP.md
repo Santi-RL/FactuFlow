@@ -296,6 +296,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
     nunca promueve RECE. API, badges, perfiles, Excel y selectores consumen el
     estado efectivo e invalidan confirmaciones obsoletas. Homologación permanece
     cerrada mientras no exista una fuente probatoria específica.
+    El patch compatible `0.3.1` actualiza el parser para `P.VTA.` + `ACTIVIDAD`
+    y eleva el clasificador a una allowlist exacta de modalidades Web Services
+    para Responsable Inscripto, Exento en IVA y Monotributo, sin admitir
+    coincidencias genéricas ni cambiar las guardas previas al CAE.
   - [x] **PF-19C — rechazo global y saneamiento legacy:** implementación, diseño
     y evidencia completos; la CI Nivel 2 aprobó PostgreSQL real, Runtime Smoke y
     los siete checks. La aceptación PF-16G fue registrada el 10/08/2026 y el

@@ -11,8 +11,22 @@ import unicodedata
 from pypdf import PdfReader
 
 
-CLASIFICADOR_RECE_VERSION = "rece_constancia_v1"
+CLASIFICADOR_RECE_VERSION = "rece_constancia_v2"
 SENAL_RECE_EXACTA = "RECE para aplicativo y web services"
+SENALES_RECE_EXACTAS = (
+    SENAL_RECE_EXACTA,
+    "Factura Electrónica - RI IVA - Aplicativo y Web Services",
+    "Factura Electrónica - Exento en IVA - Web Services",
+    "Factura Electrónica - Monotributo - Web Services",
+)
+
+_ENCABEZADO_TABLA = re.compile(
+    r"(?:PUNTO\s+VENTA|P\.VTA\.)\s+"
+    r"SISTEMA\s+DOMICILIO\s+NOMBRE\s+FANTASIA"
+    r"(?:\s+ACTIVIDAD)?",
+    re.IGNORECASE,
+)
+_FECHA_ARGENTINA = re.compile(r"\b\d{1,2}/\d{1,2}/\d{4}\b")
 
 
 class ConstanciaPuntosVentaError(ValueError):
@@ -120,8 +134,10 @@ def parsear_constancia_puntos_venta(texto: str) -> DatosConstanciaPuntosVenta:
 
 def es_senal_rece_exacta(sistema: str) -> bool:
     """Clasifica solo la señal administrativa allowlist de PF-19B."""
-    normalizado = " ".join(unicodedata.normalize("NFKC", sistema).split())
-    return normalizado.casefold() == SENAL_RECE_EXACTA.casefold()
+    normalizado = _normalizar_senal_rece(sistema)
+    return any(
+        normalizado == _normalizar_senal_rece(senal) for senal in SENALES_RECE_EXACTAS
+    )
 
 
 def _extraer_fecha_documento(texto: str) -> date | None:
@@ -158,12 +174,25 @@ def _extraer_razon_social(texto: str) -> str | None:
 
 
 def _extraer_bloque_tabla(texto: str) -> str:
-    start = re.search(r"PUNTO VENTA\s+SISTEMA\s+DOMICILIO\s+NOMBRE FANTASIA", texto)
-    if not start:
+    encabezados = list(_ENCABEZADO_TABLA.finditer(texto))
+    if not encabezados:
         raise ConstanciaPuntosVentaError("No se encontró la tabla de puntos de venta.")
-    bloque = texto[start.end() :]
-    end = re.search(r"\d{1,2}/\d{1,2}/\d{4}", bloque)
-    return bloque[: end.start()] if end else bloque
+
+    bloques: list[str] = []
+    for indice, encabezado in enumerate(encabezados):
+        fin_seccion = (
+            encabezados[indice + 1].start()
+            if indice + 1 < len(encabezados)
+            else len(texto)
+        )
+        bloque = texto[encabezado.end() : fin_seccion]
+        pie_pagina = _FECHA_ARGENTINA.search(bloque)
+        if pie_pagina:
+            bloque = bloque[: pie_pagina.start()]
+        if bloque.strip():
+            bloques.append(bloque)
+
+    return "\n".join(bloques)
 
 
 def _parsear_fila(row: str) -> PuntoVentaConstancia:
@@ -217,6 +246,19 @@ def _separar_domicilio_y_fantasia(value: str) -> tuple[str | None, str | None]:
 def _es_webservice(sistema: str) -> bool:
     compact = re.sub(r"[^A-Z]", "", sistema.upper())
     return "WEBSERVICE" in compact or "WEBSERVICES" in compact
+
+
+def _normalizar_senal_rece(value: str) -> str:
+    """Normaliza solo diferencias tipográficas admitidas por el clasificador."""
+    normalizado = unicodedata.normalize("NFKC", value)
+    normalizado = re.sub(r"[\u2010-\u2015\u2212]", "-", normalizado)
+    normalizado = re.sub(
+        r"\bweb\s*services\b",
+        "web services",
+        normalizado,
+        flags=re.IGNORECASE,
+    )
+    return " ".join(normalizado.split()).casefold()
 
 
 def _normalizar(value: str) -> str:

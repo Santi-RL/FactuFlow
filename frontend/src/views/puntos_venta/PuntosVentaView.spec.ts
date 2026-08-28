@@ -418,6 +418,9 @@ describe("PuntosVentaView", () => {
       "FactuFlow no puede verificar criptográficamente el origen del PDF",
     );
     expect(document.body.textContent).toContain(
+      "modalidad Web Services exacta admitida",
+    );
+    expect(document.body.textContent).toContain(
       "Confirmo que descargué esta constancia desde la gestión productiva de ARCA",
     );
     expect(vm.puedeConfirmarImportacion).toBe(false);

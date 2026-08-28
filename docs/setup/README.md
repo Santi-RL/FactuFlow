@@ -407,7 +407,7 @@ Después de la instalación:
    específica; no reutiliza evidencia productiva.
 5. Pasar a producción solo con certificado/autorización `wsfe`, backup/logs,
    fecha fiscal explícita y una atestación administrativa vigente desde una
-   constancia productiva completa. Solo la señal exacta
-   `RECE para aplicativo y web services` puede producir
-   `verificado_rece`; `Web Services` genérico no autoriza. Mantener además las
-   reglas privadas PF-19A como denegación complementaria.
+   constancia productiva completa. Solo una modalidad Web Services exacta de la
+   allowlist versionada para Responsable Inscripto, Exento en IVA o Monotributo
+   puede producir `verificado_rece`; `Web Services` genérico no autoriza.
+   Mantener además las reglas privadas PF-19A como denegación complementaria.

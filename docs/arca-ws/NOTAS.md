@@ -34,9 +34,15 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
   `FEParamGetPtosVenta` no acreditan RECE. PF-19B exige una cabeza durable con
   estado efectivo `verificado_rece`; PF-19A queda como denegación adicional.
 - Solo un administrador en servidor productivo puede atestar una constancia
-  completa, no ambigua y de hasta siete días. Únicamente la señal exacta
-  `RECE para aplicativo y web services` promueve el ambiente `produccion`.
-  Homologación no hereda esa evidencia.
+  completa, no ambigua y de hasta siete días. El clasificador
+  `rece_constancia_v2` admite únicamente las modalidades Web Services exactas
+  documentadas para Responsable Inscripto, Exento en IVA y Monotributo; una
+  descripción genérica sigue fallando cerrado. El parser tolera el encabezado
+  histórico `PUNTO VENTA` y el actual `P.VTA.`, con `ACTIVIDAD` opcional y
+  encabezados repetidos por página. Homologación no hereda esa evidencia.
+- La nomenclatura se contrastó con el
+  [manual WSLSP de ARCA](https://arca.gob.ar/ws/WSLSP/manual-wslsp-2.0.4.pdf) y
+  la [guía oficial de puntos de venta](https://afip.gob.ar/facturacion/documentos/puntos-de-venta.pdf).
 
 ### 3. `FEParamGetPtosVenta`
 

@@ -20,7 +20,7 @@ def test_extraer_y_parsear_constancia_puntos_pdf_real_sintetico() -> None:
             <pre>
             CONSTANCIA DE PUNTOS DE VENTA / EMISIÓN Y DOMICILIOS
             CUIT: ENTIDAD DE PRUEBA SIN DATOS REALES 30123456789
-            PUNTO VENTA SISTEMA DOMICILIO NOMBRE FANTASIA
+            P.VTA. SISTEMA DOMICILIO NOMBRE FANTASIA ACTIVIDAD
             00006 Factura Electrónica - Exento en IVA - Web Services
             LOCALES Y ESTABLECIMIENTOS - 0002 - CALLE FALSA 123 -
             CIUDAD DE PRUEBA - BUENOS AIRES ESTABLECIMIENTO QA
@@ -36,6 +36,7 @@ def test_extraer_y_parsear_constancia_puntos_pdf_real_sintetico() -> None:
     assert len(datos.puntos_venta) == 1
     assert datos.puntos_venta[0].numero == 6
     assert datos.puntos_venta[0].es_webservice is True
+    assert es_senal_rece_exacta(datos.puntos_venta[0].sistema) is True
     assert datos.documento_emitido_en == date(2026, 5, 4)
 
 
@@ -128,18 +129,51 @@ def test_parsear_constancia_omite_punto_cero_con_warning() -> None:
     assert "entre 1 y 99999" in datos.warnings[0]
 
 
+def test_parsear_constancia_multipagina_con_encabezado_actual() -> None:
+    """Cada página conserva sus filas sin incorporar encabezados ni pies."""
+    texto = """
+    CONSTANCIA DE PUNTOS DE VENTA / EMISION Y DOMICILIOS
+    CUIT: ENTIDAD DE PRUEBA 30123456789
+    P.VTA. SISTEMA DOMICILIO NOMBRE FANTASIA ACTIVIDAD
+    00006 Factura Electrónica - Exento en IVA - Web Services
+    FISCAL - 0001 - CALLE UNO 100 - BUENOS AIRES SEDE UNO
+    09/08/2026 Página 1 de 2
+    CONSTANCIA DE PUNTOS DE VENTA / EMISION Y DOMICILIOS
+    P.VTA. SISTEMA DOMICILIO NOMBRE FANTASIA ACTIVIDAD
+    00007 Factura Electrónica - Monotributo - Webservices
+    FISCAL - 0002 - CALLE DOS 200 - BUENOS AIRES SEDE DOS
+    09/08/2026 Página 2 de 2
+    """
+
+    datos = parsear_constancia_puntos_venta(texto)
+
+    assert [punto.numero for punto in datos.puntos_venta] == [6, 7]
+    assert [punto.nombre_fantasia for punto in datos.puntos_venta] == [
+        "SEDE UNO",
+        "SEDE DOS",
+    ]
+    assert all(es_senal_rece_exacta(punto.sistema) for punto in datos.puntos_venta)
+    assert datos.documento_emitido_en == date(2026, 8, 9)
+
+
 @pytest.mark.parametrize(
     ("sistema", "esperado"),
     [
         ("RECE para aplicativo y web services", True),
         ("  RECE   para aplicativo y web services  ", True),
+        ("Factura Electrónica - RI IVA - Aplicativo y Webservices", True),
+        ("Factura Electrónica - Exento en IVA - Web Services", True),
+        ("Factura Electrónica – Monotributo – Web Services", True),
         ("Web Services", False),
         ("Factura electrónica - Web Services", False),
+        ("Factura Electrónica - Exento en IVA - Comprobantes en Línea", False),
+        ("Factuweb (Imprenta) - Exento en IVA", False),
+        ("Controlador Fiscal", False),
         ("RECE para aplicativo y web services adicional", False),
         ("", False),
     ],
 )
-def test_clasificador_rece_solo_admite_senal_exacta(
+def test_clasificador_rece_solo_admite_senales_exactas_versionadas(
     sistema: str,
     esperado: bool,
 ) -> None:

@@ -6,6 +6,11 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 Versión publicada más reciente: `v0.3.0`
 
+`main` identifica el siguiente parche como `0.3.1`, con compatibilidad para el
+formato vigente de constancias de puntos de venta y modalidades Web Services
+exactas por condición fiscal. Integrarlo no crea por sí solo un tag, una GitHub
+Release ni un despliegue.
+
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
