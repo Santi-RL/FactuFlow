@@ -18,9 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-08-28
+
 ### Correcciones
 
-- Se prepara `0.3.1` como parche compatible de `0.3.0`: el importador de
+- `0.3.1` es un parche compatible de `0.3.0`: el importador de
   constancias reconoce tanto el encabezado histórico `PUNTO VENTA` como el
   formato vigente `P.VTA.` con columna `ACTIVIDAD`, y procesa de forma segura
   encabezados repetidos en documentos multipágina.
@@ -45,8 +47,8 @@ Reglas vigentes desde 2026-05-22:
   intermedia: seleccionar el PDF ejecuta siempre el camino seguro. La acción
   manual se denomina `Comprobar con ARCA` y permanece opcional.
 - La versión técnica y visible queda sincronizada en `0.3.1`. El parche no
-  incorpora datos, PDFs ni identificadores reales y no implica tag,
-  publicación ni despliegue.
+  incorpora datos, PDFs ni identificadores reales. El tag, la publicación y el
+  despliegue se ejecutan y registran como checkpoints separados.
 
 ### Documentación
 
@@ -449,6 +451,7 @@ y ajustes del compose productivo.
   `docs/project/audits/clawpatch/2026-07-05-cierre-auditoria.md`.
 - Validaciones: tests frontend enfocados y completos, Clawpatch revalidate,
   `autoreview` Codex/GPT-5.5 alto por commit y GitHub Actions remoto aprobado.
+
 ### UX de carga masiva
 
 - Se implementó el Corte 1 del rediseño de `/comprobantes/lotes`: guía rápida
@@ -459,10 +462,10 @@ y ajustes del compose productivo.
   detalle de comprobantes pasan a secciones plegables. Las acciones sobre
   comprobantes visibles quedan habilitadas solo con el detalle abierto.
 - Se implementó el Corte 3 del rediseño de `/comprobantes/lotes`: `Resolver
-  pendientes` pasa a ser un modo desplegable que agrupa reintento de fallidos,
+pendientes` pasa a ser un modo desplegable que agrupa reintento de fallidos,
   descarte de visibles y reconciliación ARCA Web para casos excepcionales.
 - Se implementó el Corte 4 del rediseño de `/comprobantes/lotes`: `Lotes
-  recientes` queda como navegación compacta con estado, fecha, métrica principal
+recientes` queda como navegación compacta con estado, fecha, métrica principal
   y lote activo resaltado.
 - Los cambios son frontend-only y mantienen intactos backend, ARCA, emisión,
   servicios, stores, rutas, payloads y contratos.

@@ -29,6 +29,8 @@
   [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0)
 - Snapshot histórico de cierre de preparación v0.3.0:
   `docs/project/releases/v0.3.0-candidate.md`
+- Candidato congelado v0.3.1:
+  `docs/project/releases/v0.3.1-candidate.md`
 
 ## Fuente de verdad operativa
 
