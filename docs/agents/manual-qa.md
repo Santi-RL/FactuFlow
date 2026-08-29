@@ -26,10 +26,10 @@ checkpoint de `v0.2.2`, validado el 23/07/2026:
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-El candidato `v0.3.2` agrega la comprobación previa a la selección y la matriz
-UX simple de puntos de venta. Su QA usa datos sintéticos y dobles controlados,
-sin CAE reales ni llamadas ARCA de escritura; la QA productiva posterior se
-registra únicamente en el plano de control.
+La release publicada `v0.3.2` agrega la comprobación previa a la selección y la
+matriz UX simple de puntos de venta. Su QA usa datos sintéticos y dobles
+controlados, sin CAE reales ni llamadas ARCA de escritura; la QA productiva
+posterior se registra únicamente en el plano de control.
 
 ## Preparación local
 
@@ -563,10 +563,10 @@ separada.
 ## Punto de reanudación de QA
 
 PF-01, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados en el código
-aceptado. El candidato `v0.3.2` agrega la selección estricta posterior a la
+aceptado. La release `v0.3.2` publica la selección estricta posterior a la
 comprobación y la UX simplificada de puntos de venta; sus pruebas funcionales,
-QA visual y `autoreview` están aprobados. El checkpoint siguiente es publicar el
-tag inmutable y ejecutar el despliegue por SHA exacto desde `vps-admin`, sin CAE.
+QA visual y `autoreview` están aprobados. El checkpoint siguiente es ejecutar el
+despliegue por SHA exacto desde `vps-admin`, sin CAE.
 El estado productivo efectivo se consulta exclusivamente en ese plano de
 control; no se fija en este documento. PF-03B queda después de `v0.3.2`.
 

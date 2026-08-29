@@ -26,12 +26,12 @@
 - QA manual, cuando la tarea lo requiera: `docs/agents/manual-qa.md`
 - Changelog y corte versionado actual: `CHANGELOG.md`
 - Release publicada:
-  [`v0.3.1`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.1)
+  [`v0.3.2`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.2)
 - Snapshot histórico de cierre de preparación v0.3.0:
   `docs/project/releases/v0.3.0-candidate.md`
 - Snapshot de cierre v0.3.1:
   `docs/project/releases/v0.3.1-candidate.md`
-- Candidato congelado v0.3.2:
+- Snapshot de cierre v0.3.2:
   `docs/project/releases/v0.3.2-candidate.md`
 
 ## Fuente de verdad operativa

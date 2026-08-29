@@ -1203,9 +1203,11 @@ Objetivo: profesionalizar la entrega del producto.
       `autoreview` verdes
 - [x] Despliegue productivo separado de `v0.3.1` registrado en el plano de
       control, con SHA exacto, Alembic `d1e2f3a4b5c6` y QA post-deploy sin CAE
-- [~] Release `v0.3.2`: candidato congelado con selección estricta posterior a
-      comprobación, UX simple, siete checks y `autoreview` verdes; faltan tag,
-      publicación y despliegue por SHA exacto sin cambios de base
+- [x] Release `v0.3.2` publicada el 29/08/2026 desde el tag inmutable que apunta
+      a `9c0310d397001a331dc40353815ef9b2359d80de`, con selección estricta,
+      UX simple, siete checks y `autoreview` verdes
+- [ ] Despliegue productivo separado de `v0.3.2` por SHA exacto, sin cambios de
+      base y con QA post-deploy sin CAE registrada en `vps-admin`
 
 #### Guía flexible de cortes
 
@@ -1239,11 +1241,11 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   `e49a8baf` aprobó los siete checks y el `autoreview` final cerró limpio. El
   tag `7afba87b` y la GitHub Release se publicaron el 28/08/2026; el despliegue
   posterior quedó registrado en el plano de control `vps-admin`.
-- **`v0.3.2` candidato congelado:** comprobación previa a la selección y matriz
+- **`v0.3.2` publicado:** comprobación previa a la selección y matriz
   UX simple de puntos de venta. El merge funcional `3184187d` aprobó los siete
-  checks y el `autoreview` final cerró limpio. No incorpora cambios de base,
-  dependencias ni configuración; tag, publicación y despliegue siguen como
-  checkpoints separados.
+  checks y el `autoreview` final cerró limpio. El tag `9c0310d3` y la GitHub
+  Release se publicaron el 29/08/2026. No incorpora cambios de base,
+  dependencias ni configuración; el despliegue sigue como checkpoint separado.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1289,10 +1291,9 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Publicar el tag inmutable `v0.3.2` desde el cierre exacto del candidato y
-   desplegar por `vps-admin` únicamente si el preflight confirma ausencia de
-   cambios de base, dependencias, configuración u operaciones fiscales nuevas
-   que obliguen a renovar el backup.
+1. Desplegar el tag inmutable `v0.3.2` por `vps-admin` únicamente si el preflight
+   confirma ausencia de cambios de base, dependencias, configuración u
+   operaciones fiscales nuevas que obliguen a renovar el backup.
 2. Retomar PF-03 con PF-03B después de `v0.3.2`:
    separar el DTO de ítem que serializa la UI, hacer estricto
    `ItemComprobanteCreate` y rechazar descuentos
