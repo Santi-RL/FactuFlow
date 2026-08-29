@@ -35,15 +35,17 @@ evidencia vigente, hay que actualizar o justificar esos documentos por separado.
 
 | Área revisada | Archivos actualizados o motivo de `No aplica` |
 |---|---|
-| Estado, roadmap y portafolio | |
+| Prioridades y horizonte (`ROADMAP.md`) | |
+| Estado aceptado y handoff (`current-status.md`) | |
+| Portafolio, dependencias y diseño dueño | |
 | `CHANGELOG.md > Unreleased` | |
 | README y manual de usuario | |
 | Resumen, arquitectura e índices | |
-| QA y diseño del corte | |
-| Testing y evidencia de validación | |
+| QA y procedimientos reutilizables | |
+| Testing: comandos y políticas | |
 | API y documentación de dominio | |
 | ARCA, si corresponde | |
-| Versión publicada, producción, setup y releases | |
+| Release, setup y producción, sin inferir estado desplegado | |
 | Índices y fechas/estados documentales | |
 
 - [ ] Releí las secciones afectadas completas; no solo confirmé que el archivo
@@ -54,6 +56,8 @@ evidencia vigente, hay que actualizar o justificar esos documentos por separado.
 - [ ] Revisé todos los consumidores de servicios o contratos compartidos.
 - [ ] Busqué afirmaciones anteriores que presenten como pendiente una capacidad
       cerrada por este PR, incluso fuera de los archivos inicialmente previstos.
+- [ ] Apliqué `docs/agents/documentation-governance.md`: la evidencia fechada
+      quedó en el PR, dossier o archivo histórico, no en un runbook vivo.
 
 ## Seguridad y privacidad
 

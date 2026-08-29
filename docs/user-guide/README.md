@@ -179,12 +179,12 @@ En `Comprobantes` puedes:
 - crear un comprobante puntual
 - abrir el detalle de un comprobante autorizado
 
-Al crear un comprobante puntual, el selector solo ofrece puntos con
-`usable_factuflow=true`: además del estado técnico, el servidor exige una
-acreditación RECE vigente para el ambiente actual. Un punto `No verificado`,
-`No RECE` o con evidencia vencida no puede seleccionarse. La API revalida el
-snapshot antes de solicitar CAE y bloquea si cambió, aunque la pantalla hubiera
-quedado abierta.
+Al crear un comprobante puntual, el selector sólo ofrece puntos `Listos para
+emitir`: el servidor exige validación inicial, estado activo y una comprobación
+con ARCA de menos de 90 días. La validación inicial no vence por tiempo. Un
+punto pendiente, bloqueado, dado de baja, ausente o sin validar no puede
+seleccionarse. El servidor vuelve a comprobar el estado antes de solicitar CAE
+y bloquea si cambió, aunque la pantalla hubiera quedado abierta.
 
 Cuando confirmás la emisión final, FactuFlow genera una clave interna de
 idempotencia para esa operación. Si la conexión se corta o repetís el intento
@@ -527,9 +527,10 @@ permite procesarlos sin una política de concepto fiscal guardada.
 
 Regla de punto de venta en lotes: podés usar el punto definido en el archivo o
 fijar uno del emisor. En ambos modos, cada grupo debe resolver un punto cargado
-con acreditación RECE vigente; no alcanza con que sea técnicamente Web Services.
-Si el emisor no tiene puntos elegibles, la pantalla lo informa y el lote no se
-puede validar ni emitir hasta renovar o completar la acreditación.
+con acreditación RECE y una comprobación técnica positiva; no alcanza con que
+su nombre indique Web Services. Si el emisor no tiene puntos elegibles, la
+pantalla indica si corresponde importar una constancia, comprobar con ARCA o
+regularizar el punto antes de validar o emitir.
 
 Al emitir, FactuFlow vuelve a verificar en backend que el punto de venta y un
 cliente precargado opcional pertenezcan al emisor activo.
@@ -575,10 +576,10 @@ calendarios inválidos como `31/02/2026` y guarda internamente la fecha
 normalizada.
 
 Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
-`Puntos de venta` para ese emisor y tener acreditación RECE vigente. El perfil
-no crea ni extiende evidencia: al validar el lote, FactuFlow vuelve a comprobar
-el estado efectivo. Si todavía no hay un punto elegible, completá primero la
-atestación desde esa pantalla.
+`Puntos de venta` para ese emisor, contar con acreditación RECE y estar
+comprobado con ARCA. El perfil no crea ni extiende evidencia: al validar el
+lote, FactuFlow vuelve a comprobar el estado efectivo. Si todavía no hay un
+punto elegible, seguí la acción indicada en `Puntos de venta`.
 
 ### Plantillas de carga masiva
 
@@ -690,14 +691,15 @@ fecha del extracto puede usarse como fecha de emisión o como base del período
 solo si el usuario lo confirma y ARCA la admite para la fecha en que se solicita
 el CAE.
 
-Si el archivo observado informa que un punto no está habilitado, primero
-contrastá `Puntos de venta > Comprobar con ARCA` para el emisor activo. Esa
-acción solo actualiza señales técnicas. Si el badge sigue en `No verificado` o
-`No RECE`, un administrador debe aportar la evidencia admitida; cambiar el
-texto `Sistema` no habilita la emisión.
+Si el archivo observado informa que un punto no está habilitado, primero usá
+`Puntos de venta > Comprobar con ARCA` para el emisor activo. Esa acción solo
+actualiza la disponibilidad técnica. Si el estado indica `Falta validar`, un
+administrador debe importar la constancia admitida; si indica que el punto no
+está disponible, hay que regularizarlo en ARCA o elegir otro. Editar el texto
+`Sistema` no habilita la emisión.
 
 Si el archivo externo trae una columna para distinguir productos y servicios,
-usa `Definido por archivo` solo cuando todas las filas esten completas con
+usa `Definido por archivo` solo cuando todas las filas estén completas con
 `Producto` o `Servicio`. No cargues el archivo esperando que FactuFlow decida el
 concepto por defecto.
 
@@ -942,9 +944,9 @@ puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La gu�
 rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
 autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.
 
-La separación `4+1` fue verificada con una prueba PostgreSQL efímera que no creó
-lotes ni llamó a ARCA y forma parte de `v0.2.2`. Para una instalación concreta,
-soporte debe confirmar siempre el commit o tag activo.
+La separación `4+1` forma parte del contrato aceptado y fue verificada con una
+prueba PostgreSQL efímera que no creó lotes ni llamó a ARCA. Para una instalación
+concreta, soporte debe confirmar siempre el commit o tag activo.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -999,8 +1001,6 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-Al 12/08/2026:
-
 - no existe todavía descarga masiva de PDFs desde el listado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
   servidor cuando la instalación corre en VPS
@@ -1017,14 +1017,14 @@ Al 12/08/2026:
   ese ambiente
 - el launcher local de Windows es manual y está orientado a desarrollo/QA; no
   es todavía un instalador ni configura inicio automático con Windows
-- la producción real ya fue operada; antes de cada nueva emisión productiva hay
-  que revisar punto de venta, fecha fiscal, formato, concepto fiscal ARCA,
-  descripción facturada, totales, backup/logs y confirmación irreversible
-- en el estado actual de `main`, PF-19B aporta elegibilidad RECE durable y
-  fail-closed; homologación continúa sin una fuente probatoria positiva y, por
-  eso, no permite solicitar CAE. `v0.2.2` no incluye esta capacidad. PF-19C está
-  publicado en `v0.3.0`, con PostgreSQL real, CI, `autoreview` y ensayo de
-  migración/restauración cerrados, pero todavía no está desplegado
+- antes de cada emisión productiva hay que revisar punto de venta, fecha fiscal,
+  formato, concepto fiscal ARCA, descripción facturada, totales y confirmación
+  irreversible; backup, logs y salud desplegada se verifican en el plano de
+  control cuando el procedimiento operativo lo requiera
+- PF-19B aporta acreditación RECE durable y una guarda fail-closed; homologación
+  continúa sin una fuente probatoria positiva y, por eso, no permite solicitar
+  CAE. La disponibilidad concreta de estas capacidades en una instalación no se
+  infiere desde este manual
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
   rápida y ficha para soporte; todavía faltan backup visible y trazabilidad
@@ -1033,9 +1033,9 @@ Al 12/08/2026:
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica
   para soporte
-- en este corte, el seguimiento liviano evita polling solapado y usa
+- el seguimiento liviano evita polling solapado y usa
   intervalos adaptativos; PostgreSQL separa el pool API del worker y el contrato
-  `4+1` fue probado en una instancia efímera, pero aún debe confirmarse el
-  despliegue y la prueba controlada del entorno operativo antes de ampliar
-  volumen; no ejecutes varios lotes grandes en paralelo ni reintentes uno
-  demorado sin revisar antes su estado
+  `4+1` fue probado en una instancia efímera. Antes de ampliar volumen debe
+  verificarse la instalación real en su plano de control; no ejecutes varios
+  lotes grandes en paralelo ni reintentes uno demorado sin revisar antes su
+  estado

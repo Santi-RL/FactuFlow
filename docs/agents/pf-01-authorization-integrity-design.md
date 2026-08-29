@@ -1,8 +1,10 @@
 # Diseño PF-01A: integridad de autorización y estado incierto
 
-Última actualización: 2026-07-13
+Fecha de diseño y cierre: 2026-07-13
+Última revisión documental: 2026-08-29
 
-Estado: COMPLETADO. PF-01A CERRADO; PF-01B QUEDA COMO CORTE POSTERIOR SEPARADO.
+Estado: CERRADO. PF-01B se implementó después como una unidad separada y también
+está cerrado.
 
 ## Objetivo
 

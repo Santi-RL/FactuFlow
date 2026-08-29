@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 09/08/2026
+Última actualización: 29/08/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -222,13 +222,13 @@ Listado:
 
 - `page`: página, default `1`
 - `per_page`: filas por página
-- `search`: busqueda por razon social o documento
+- `search`: búsqueda por razón social o documento
 - `activo`: filtro opcional
 
 La respuesta de listado es paginada con `items`, `total`, `page`, `per_page` y
 `pages`.
 
-## Puntos De Venta
+## Puntos de venta
 
 ```http
 GET /api/puntos-venta
@@ -776,8 +776,9 @@ posteriores como `no_enviado_por_rechazo_global`. Código desconocido o mezclado
 tipos no exactos, respuesta parcial, timeout, transporte, CAE o detalle dejan
 la operación en `requiere_reconciliacion`; el replay de la misma clave devuelve
 su estado durable sin realizar WSAA, WSFE ni una nueva FECAE. El contrato
-completó evidencia local, pero PostgreSQL real, CI, `autoreview` y ensayo de
-migración/restauración siguen pendientes; no pertenece a `v0.2.2`.
+forma parte del estado aceptado del repositorio. La evidencia de su cierre vive
+en el dossier correspondiente; su disponibilidad en una instalación se
+consulta en el plano de control.
 
 La recuperación stale del worker conserva una puerta previa más estricta: solo
 reencola grupos intactos, sin intento, CAE, número, comprobante vinculado ni
@@ -836,7 +837,7 @@ POST /api/perfiles-carga-masiva/{perfil_id}/predeterminado
 
 Los perfiles de carga masiva pertenecen al emisor activo resuelto por JWT y
 `X-Empresa-Id`. Permiten guardar una configuración visible para precargar
-`Emision masiva`: plantilla/formato opcional, punto de venta, concepto fiscal
+`Emisión masiva`: plantilla/formato opcional, punto de venta, concepto fiscal
 ARCA, descripción facturada y reglas de fechas.
 
 El payload usa `configuracion_json` versionado. Valores principales:

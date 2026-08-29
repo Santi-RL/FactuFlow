@@ -148,6 +148,23 @@ La rama temporal no es una versión ni se despliega. Las versiones se identifica
 Nivel 0 usan una CI liviana, pero conservan PR, merge y eliminación para que
 `main` nunca reciba cambios sin una verificación previa.
 
+La documentación se mantiene según
+[`docs/agents/documentation-governance.md`](docs/agents/documentation-governance.md):
+
+- `ROADMAP.md` cambia sólo cuando cambia una prioridad, horizonte o resultado
+  macro;
+- `docs/agents/current-status.md` contiene el estado aceptado y el punto de
+  reanudación, no cronologías;
+- `docs/agents/development-portfolio.md` conserva el inventario activo y sus
+  dependencias;
+- los diseños contienen el detalle de una unidad viva;
+- testing y QA conservan procedimientos reutilizables;
+- resultados fechados, CI y evidencia terminada pertenecen al PR, changelog,
+  dossier o archivo histórico.
+
+No se consulta por defecto todo el archivo histórico ni todos los diseños. El
+índice de `docs/agents/README.md` indica el conjunto mínimo para cada tarea.
+
 Antes de empezar:
 
 ```bash

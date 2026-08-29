@@ -5,25 +5,45 @@
 - Esta guía rige el repositorio `FactuFlow`; las reglas compartidas de
   `C:\Users\SANTI\Documents\Proyectos\AGENTS.md` se aplican cuando no haya
   conflicto.
-- Antes de empezar, leer `docs/agents/alignment-pending.md`. Si tiene pendientes,
-  avisarlo; si está `COMPLETADO`, no inventar conflictos.
 - `VISION.md` es la fuente canónica y protegida de la visión. Solo se modifica por
   pedido explícito del usuario; si un cambio la contradice, detenerse hasta que
   el usuario autorice cambiar primero la visión.
-- `ROADMAP.md` define prioridades; `docs/agents/current-status.md` resume el
-  estado aceptado en el repositorio; `CHANGELOG.md`, tags y dossiers conservan
-  el historial de releases.
+- `ROADMAP.md` contiene únicamente prioridades futuras;
+  `docs/agents/current-status.md` resume el estado aceptado y el handoff;
+  `docs/agents/development-portfolio.md` conserva el inventario activo;
+  `CHANGELOG.md`, dossiers y `docs/project/history/` conservan la historia.
 - El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
   `vps-admin`. No inferirlo desde `main`, una release, un tag ni estos documentos.
-- `docs/agents/README.md` es el índice de runbooks. Para QA, seguridad, cambios
-  fiscales y despliegue usar, según corresponda, `docs/agents/manual-qa.md`,
-  `docs/agents/security.md`, `docs/agents/fiscal-change-checklist.md` y
+- `docs/agents/README.md` enruta cada tarea al mínimo de documentos necesario.
+  No leer por defecto auditorías, snapshots ni todos los diseños cerrados. Para
+  QA, seguridad, cambios fiscales y despliegue usar, según corresponda,
+  `docs/agents/manual-qa.md`, `docs/agents/security.md`,
+  `docs/agents/fiscal-change-checklist.md` y
   `docs/agents/production-workflow.md`.
+- `docs/agents/documentation-governance.md` define responsabilidades, archivo y
+  reglas para evitar duplicación documental.
 - Cada unidad debe tener un objetivo concreto. No ampliar el alcance ni sumar un
   fix distinto sin decisión explícita. Un bloqueo que impida ejecutar o demostrar
   el objetivo de forma segura se informa antes de continuar.
 - Usar ARCA en UI y documentación nueva. AFIP queda únicamente como nomenclatura
   técnica legacy cuando la compatibilidad existente lo requiera.
+
+## Simplicidad segura y decisiones de producto
+
+- La aplicación está dirigida a personal administrativo y contable no técnico.
+  El sistema debe absorber detalles técnicos y mostrar sólo información útil y
+  accionable.
+- No agregar pasos, confirmaciones, bloqueos, vencimientos, comprobaciones
+  recurrentes o jerga técnica sólo porque parezcan más seguros. Identificar el
+  riesgo concreto y usar la menor carga operativa razonable.
+- No reducir validaciones fiscales, trazabilidad, aislamiento, idempotencia,
+  reconciliación o confirmaciones irreversibles para simplificar la interfaz.
+- Si una alternativa aumenta fricción o reduce una protección vigente, explicar
+  opciones y consecuencias y pedir una decisión explícita del usuario. El agente
+  no elige unilateralmente ese intercambio.
+- Mientras falte la decisión, preservar el comportamiento vigente. Un bloqueo
+  fail-closed ante riesgo inmediato no autoriza a diseñar una política permanente
+  ni ampliar el alcance por cuenta propia.
 
 ## Invariantes fiscales
 

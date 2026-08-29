@@ -1,5 +1,7 @@
 # Integración ARCA
 
+Última revisión: 29/08/2026
+
 ## Nomenclatura
 
 - ARCA es el nombre actual y debe usarse en UI, documentación nueva y textos de soporte.
@@ -7,9 +9,9 @@
 
 ## Módulos relevantes
 
-- `backend/app/arca/wsaa.py`: autenticacion WSAA
+- `backend/app/arca/wsaa.py`: autenticación WSAA
 - `backend/app/arca/wsfev1.py`: integración WSFEv1
-- `backend/app/arca/crypto.py`: firmado y utilidades criptograficas
+- `backend/app/arca/crypto.py`: firmado y utilidades criptográficas
 - `backend/app/arca/cache.py`: cache de tickets WSAA
 - `backend/app/arca/models.py`: modelos de request/response
 - `backend/app/services/facturacion_service.py`: orquestacion de emisión real
@@ -59,12 +61,12 @@
 ### Certificados en producción
 
 - En producción no alcanza con cargar el certificado emitido por ARCA.
-- Después de generar el certificado en `Administracion de Certificados Digitales`,
+- Después de generar el certificado en `Administración de Certificados Digitales`,
   el administrador/representante debe asociar el alias del computador al servicio
   `wsfe` desde `Administrador de Relaciones de Clave Fiscal`.
 - Si falta esa autorización, WSAA responde `Computador no autorizado a acceder
   al servicio`, aunque el certificado y la clave privada coincidan.
-- El wizard de FactuFlow tiene un paso previo a `Probar conexion` para confirmar
+- El wizard de FactuFlow tiene un paso previo a `Probar conexión` para confirmar
   esta asociación.
 - Antes de mover la operación a VPS, usar el runbook
   `docs/setup/vps-migration.md`. La decisión operativa vigente es migrar
@@ -143,6 +145,11 @@
 
 ### Puntos de venta
 
+- **Contrato vigente hasta `v0.3.2`:** PF-19B exige constancia para acreditar
+  RECE y `FEParamGetPtosVenta` sólo actualiza estado técnico. PF-19D está
+  aceptado, pero no implementado; sustituirá esa autoridad hacia adelante según
+  `pf-19d-puntos-venta-authority-design.md`. No describirlo como capacidad
+  disponible antes de integrar su unidad Nivel 2.
 - No se detectó una pantalla separada en el portal que diga "homologación" para los puntos de venta de WSFEv1.
 - En la práctica se revisa la misma pantalla `A/B/M de puntos de venta / emisión`.
 - PF-19B separa el estado técnico de la autoridad RECE. La columna editable
@@ -154,7 +161,7 @@
   booleano directo. La evidencia productiva detallada, incluidos
   identificadores, conteos y numeración, permanece en el entorno operativo
   privado; este documento conserva únicamente la invariante técnica validada.
-- `FEParamGetPtosVenta` no devuelve domicilio ni nombre fantasia. Esos datos se
+- `FEParamGetPtosVenta` no devuelve domicilio ni nombre de fantasía. Esos datos se
   importan desde la constancia PDF de `Administración de Puntos de Venta y
   Domicilios`.
 - `GET /api/arca/status` informa el ambiente ARCA actual, conserva
@@ -203,10 +210,10 @@
   compara `empresa_cuit_snapshot` con el CUIT actual y falla cerrado ante una
   divergencia.
 - Homologación permanece `no_verificado` hasta disponer de una fuente probatoria
-  específica; no reutiliza una constancia productiva. Evidencia vencida degrada
-  el estado efectivo a `no_verificado`. La API/UI expone badge, causa, vigencia,
-  procedencia y revisión fiscal, y los selectores usan `usable_factuflow`
-  calculado por el servidor.
+  específica; no reutiliza una constancia productiva. La acreditación positiva
+  ya no vence por tiempo. La API conserva campos legacy por compatibilidad y
+  agrega frescura técnica; en `0.3.2` la UI oculta vigencia, procedencia y
+  revisión fiscal, y los selectores usan `seleccionable_para_emision`.
 - Al cambiar de emisor, Lotes invalida generaciones y vacía formatos, perfiles y
   puntos antes del primer `await`. Sus tres loaders capturan `empresa_id` y una
   generación propia, descartan éxito/error obsoleto y la cadena revalida el
@@ -227,14 +234,14 @@
   no se debe inventar estado ARCA activo: los puntos existentes conservan
   `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
   sincronizar con ARCA o revisarlos manualmente.
-- Este comportamiento describe el snapshot de `main` congelado para `v0.3.0`.
-  Al cerrar la preparación, la release publicada y producción eran `v0.2.2`,
-  que no incluye PF-19A/B/C; no confundir código integrado, release y despliegue.
+- La disponibilidad de este contrato en una instalación concreta se comprueba
+  exclusivamente en su plano de control; no se infiere desde `main` o una
+  release.
 
 ### Constancias de emisores
 
 - El alta de emisores soporta constancias de inscripción de persona jurídica,
-  constancias de inscripcion de persona fisica y constancias de opcion de
+  constancias de inscripción de persona física y constancias de opción de
   Monotributo.
 - El parser debe validar provincia contra el catálogo argentino antes de
   completar el formulario. Líneas técnicas como `IMPUESTOS/REGIMENES`,
@@ -258,14 +265,14 @@
   `FECAESolicitar` sigue siendo un resultado potencialmente incierto: no se
   reintenta automáticamente y se revisan intento fiscal, idempotencia y ARCA.
 
-### Verificacion de comprobantes
+### Verificación de comprobantes
 
 - La forma confiable de verificar comprobantes de homologación es `FECompConsultar`.
 - La consulta usa `CbteNro` cuando ARCA lo devuelve y solo recurre a
   `CbteDesde` si el primero está ausente. Si faltan ambos, debe fallar
   explícitamente en vez de inventar o perder el número.
 - El QR sirve para comprobantes reales, pero no se tomó como mecanismo de validación de homologación.
-- El QR del PDF se arma segun la especificacion ARCA con una URL
+- El QR del PDF se arma según la especificación ARCA con una URL
   `https://www.afip.gob.ar/fe/qr/?p={base64}`. El payload testeado incluye
   `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`,
   `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut` y `codAut`.
@@ -286,13 +293,12 @@ ambiente histórico es indeterminado consulta producción y homologación. `appl
 usa `FECompUltimoAutorizado` y solo `FECompConsultar` si el último alcanza el
 número planificado. Autorización, fallo o duda conserva reconciliación. La
 migración `c0d1e2f3a4b` guarda el cierre en journal append-only hasheado; el
-paquete VPS valida y omite esa evidencia terminal, sin recrearla. El
-`autoreview` final cerró limpio y la CI Nivel 2 del SHA funcional aprobó
-PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el ensayo privado de
-backup/restauración/upgrade/rollback quedaron aprobados el 10/08/2026;
-`v0.2.2` no incorpora PF-19C.
+paquete VPS valida y omite esa evidencia terminal, sin recrearla. La evidencia
+de CI y del ensayo privado de
+backup/restauración/upgrade/rollback se conserva en el dossier de `v0.3.0`, no
+en este contrato vivo.
 
-Estado de implementación 2026-07-13: PF-01A.1 valida en el cliente WSFE que
+PF-01A.1 valida en el cliente WSFE que
 `Resultado=A` incluya un CAE ASCII de 14 dígitos y un vencimiento calendario
 válido `YYYYMMDD`. Rechaza `P`, resultados desconocidos, errores globales y
 cardinalidades o rangos ambiguos; un `R` completo se conserva como rechazo
@@ -463,7 +469,7 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
 - El código actual tolera ese caso solo en homologación y no bloquea la emisión si el resto de las validaciones da bien.
 - En la QA del 2026-04-10 también se verificó que la sincronización de puntos de venta desde UI ya no usa el CUIT incorrecto.
 
-### RG 5616 / Condicion frente al IVA del receptor
+### RG 5616 / Condición frente al IVA del receptor
 
 - En homologación ARCA exigió `CondicionIVAReceptorId`.
 - Mapping implementado:
@@ -481,8 +487,8 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   `$10.000.000`.
 - FactuFlow aplica esto en emisión masiva para comprobantes B/C:
   - bajo ese umbral acepta documento y nombre vacíos desde Excel
-  - normaliza a tipo documento `99`, número `0`, razon social
-    `A CONSUMIDOR FINAL` y condicion IVA `CF`
+  - normaliza a tipo documento `99`, número `0`, razón social
+    `A CONSUMIDOR FINAL` y condición IVA `CF`
   - desde ese umbral exige documento
 - Para comprobantes tipo A se mantiene obligatorio CUIT válido del receptor.
 
@@ -596,7 +602,7 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   - `Iva: { AlicIva: [...] }`
   - `Tributos: { Tributo: [...] }`
 - El proyecto ya contempla esas estructuras correctas.
-- Excepcion importante: para comprobantes tipo C (`11`, `12`, `13`) no se debe
+- Excepción importante: para comprobantes tipo C (`11`, `12`, `13`) no se debe
   informar el objeto `Iva`. ARCA rechaza esos comprobantes con código `10071`
   aunque la alícuota enviada sea 0.
 - FactuFlow también bloquea antes del WSFE los ítems tipo C con IVA distinto

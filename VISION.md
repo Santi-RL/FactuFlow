@@ -1,6 +1,6 @@
 # Visión de FactuFlow
 
-Última actualización: 2026-06-03
+Última actualización: 2026-08-29
 
 Estado: canónico y protegido.
 
@@ -49,6 +49,34 @@ FactuFlow está pensado para:
 - contadores independientes y estudios chicos que operan varios emisores
 - equipos que necesitan facturación individual, emisión masiva por Excel,
   PDFs, reportes operativos y trazabilidad clara
+
+## Simplicidad segura y autoridad de decisión
+
+FactuFlow debe absorber la complejidad técnica siempre que pueda hacerlo sin
+reducir seguridad, confiabilidad ni trazabilidad. La persona usuaria necesita
+saber qué puede hacer, qué acción se requiere y cuál fue el resultado; no debe
+comprender Web Services, estados internos, revisiones fiscales o detalles de
+implementación para completar una tarea administrativa normal.
+
+Más controles visibles no significan automáticamente mayor seguridad. Un paso,
+confirmación, bloqueo, vencimiento, comprobación periódica o mensaje técnico sólo
+se justifica si mitiga un riesgo concreto y proporcional. Del mismo modo, menos
+fricción nunca autoriza a omitir validaciones fiscales, aislamiento, evidencia o
+confirmaciones irreversibles.
+
+Cuando simplicidad y seguridad parezcan entrar en tensión, el agente no puede
+elegir unilateralmente. Debe explicar el riesgo, las alternativas y sus
+consecuencias, y obtener una decisión explícita del usuario antes de:
+
+- agregar acciones obligatorias o recurrentes;
+- bloquear una operatoria que hasta entonces era válida;
+- exponer conceptos técnicos como requisito de uso;
+- reducir, postergar o eliminar una protección vigente.
+
+Mientras la decisión esté abierta, se preserva el comportamiento vigente. Una
+contención fail-closed en la frontera irreversible puede ser necesaria ante un
+riesgo inmediato, pero no se convierte por sí sola en una política o interfaz
+permanente.
 
 ## Modelo de instalación y recursos
 
@@ -136,6 +164,10 @@ visión de forma explícita.
   generarse bajo demanda y limpiarse después de usarse.
 - Los cambios deben mejorar o preservar la capacidad de facturar con seguridad.
 - No se aceptan cambios que disminuyan la seguridad del producto.
+- La seguridad debe implementarse con la menor carga operativa razonable para
+  usuarios administrativos no técnicos.
+- Los agentes no resuelven por sí solos intercambios entre fricción y seguridad;
+  esos cambios requieren decisión explícita del usuario.
 
 ## Filtro de decisión
 
@@ -154,6 +186,10 @@ arquitectura o actualizar documentación, verificar:
    una instalación local o un VPS pequeño?
 10. ¿Evita guardar de forma permanente artefactos no vitales, especialmente en
     VPS?
+11. ¿El sistema absorbe la complejidad técnica en lugar de trasladarla al
+    usuario?
+12. Si agrega fricción o modifica una protección, ¿existe una autorización
+    explícita del usuario para ese intercambio?
 
 Si la respuesta a alguna pregunta crítica es no, el cambio debe detenerse hasta
 resolver la contradicción con el usuario.

@@ -1,45 +1,33 @@
-# Documentación interna del proyecto
+# Documentación histórica del proyecto
 
-Documentos históricos y/o de trabajo (resúmenes de implementación, auditorías, notas de seguridad).
+Estado: HISTÓRICO; NO AUTORITATIVO.
 
-Importante: estos documentos pueden quedar desactualizados. La documentación canónica para uso diario está indexada en `docs/README.md`.
+Este directorio conserva evidencia, auditorías, dossiers y snapshots. Puede
+contener versiones, endpoints, prioridades o instrucciones correspondientes a
+la fecha de cada documento.
 
-Desde el corte `0.2.0-mvp` del 2026-05-22, el historial del producto debe
-resumirse principalmente en `CHANGELOG.md`. Evitar agregar nuevos snapshots
-largos en este directorio salvo que sean auditorías puntuales o evidencia
-técnica que no pueda resumirse sin perder trazabilidad.
-
-Regla de lectura:
-- No usar estos archivos para decidir el estado actual del producto sin
-  contrastar antes `docs/agents/current-status.md`, `ROADMAP.md`,
-  `CHANGELOG.md` y el código.
-- Las menciones a versiones, endpoints, pendientes o "producción" reflejan el
-  momento en que se escribió cada documento.
-- Si un documento histórico contiene una instrucción peligrosa o datos privados
-  versionados, se puede corregir o redactar sin borrar el valor histórico del
-  hallazgo.
-- Si un snapshot viejo ya está resumido en `CHANGELOG.md` y no aporta valor
-  operativo, puede eliminarse en una limpieza documental dedicada, revisando
-  antes que no contenga instrucciones vigentes ni datos privados que deban
-  redactarse.
+Para trabajo actual comenzar en [`../README.md`](../README.md), no aquí.
 
 ## Índice
 
-- Releases / fases:
-  - Los resúmenes de fases antiguas quedaron consolidados en `CHANGELOG.md`.
-    No mantener nuevos archivos de fase salvo que haya una razón operativa
-    concreta.
-  - Dossier de la release `v0.2.2`, publicada y desplegada:
-    `docs/project/releases/v0.2.2-candidate.md`.
-- Auditorías:
-  - Verificación del proyecto: `docs/project/audits/VERIFICACION_PROYECTO.md`
-  - Clawpatch: `docs/project/audits/clawpatch/README.md`
-  - Cierre del ciclo `v0.2.1`:
-    `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`
-- Seguridad:
-  - Update de dependencias (security patch): `docs/project/security/SECURITY_UPDATE.md`
-- Notas:
-  - Sesión histórica 2026-03-09:
-    `docs/project/notes/SESSION_2026-03-09.md`
-  - Las bitácoras extensas de estado/QA previas a la normalización del
-    2026-07-10 se consultan, solo como historia, en el commit `ece2bdf`.
+- Snapshots y documentos retirados de la lectura diaria:
+  [`history/`](history/README.md)
+- Dossiers de release: [`releases/`](releases/README.md)
+- Auditorías Clawpatch: [`audits/clawpatch/`](audits/clawpatch/README.md)
+- Verificación histórica inicial:
+  [`audits/VERIFICACION_PROYECTO.md`](audits/VERIFICACION_PROYECTO.md)
+- Nota de sesión histórica:
+  [`notes/SESSION_2026-03-09.md`](notes/SESSION_2026-03-09.md)
+- Actualización de seguridad histórica:
+  [`security/SECURITY_UPDATE.md`](security/SECURITY_UPDATE.md)
+
+## Reglas
+
+- No usar estos archivos para determinar estado, prioridad o producción.
+- Contrastar cualquier decisión con `VISION.md`, `ROADMAP.md` y documentación
+  viva.
+- No agregar nuevas bitácoras extensas si la información cabe en changelog,
+  diseño o dossier.
+- La evidencia privada y productiva permanece fuera del repositorio.
+- Un archivo histórico sólo se corrige para redactar datos sensibles o una
+  instrucción peligrosa; no se moderniza para que parezca vigente.

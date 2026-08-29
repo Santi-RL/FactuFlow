@@ -92,18 +92,17 @@ Para una PC local de desarrollo o QA, usar:
 ```
 
 El launcher inicia backend y frontend en segundo plano sin dejar una ventana de
-PowerShell abierta, muestra un icono junto al reloj de Windows y abre
-`http://localhost:8080` cuando FactuFlow esta listo. El menu del icono permite
+PowerShell abierta, muestra un ícono junto al reloj de Windows y abre
+`http://localhost:8080` cuando FactuFlow está listo. El menú del ícono permite
 abrir la app, consultar estado, reiniciar o detener servicios y abrir los logs
 locales en `.tmp/local-launcher/`. El acceso `FactuFlow Local.cmd` queda como
 compatibilidad y delega en el mismo launcher oculto.
 
 Esta opción no es un instalador ni configura inicio automático con Windows.
 El uso local con launcher ya está implementado y testeado hasta nivel
-desarrollo/QA. La primera instalación privada en VPS con Docker producción,
-PostgreSQL y HTTPS quedó validada el 2026-06-09. La actualización a `v0.2.1` quedó
-desplegada y aceptada el 2026-07-10; `v0.2.2` quedó desplegada y aceptada el
-2026-07-23.
+desarrollo/QA. Para instalar o actualizar un VPS se usa el runbook de producción
+y un tag o SHA exacto. El estado de cada instalación se consulta únicamente en
+su plano de control.
 
 ### Docker
 
@@ -208,11 +207,13 @@ Se mantiene compatibilidad con variables legacy `AFIP_*` cuando todavía existan
 
 ## Documentación
 
+- [Visión y principios de producto](VISION.md)
+- [Roadmap de próximas prioridades](ROADMAP.md)
+- [Estado aceptado y punto de reanudación](docs/agents/current-status.md)
 - [docs/README.md](docs/README.md)
 - [docs/agents/README.md](docs/agents/README.md)
 - [backend/README.md](backend/README.md)
 - [CHANGELOG.md](CHANGELOG.md)
-- [ROADMAP.md](ROADMAP.md)
 
 ## Licencia
 

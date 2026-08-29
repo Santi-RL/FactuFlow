@@ -72,13 +72,13 @@ puede iniciar FactuFlow con doble click en:
 .\FactuFlow Local.vbs
 ```
 
-El launcher inicia backend y frontend si estan cerrados sin dejar una ventana
-de PowerShell abierta, muestra un icono de estado junto al reloj de Windows y
+El launcher inicia backend y frontend si están cerrados sin dejar una ventana
+de PowerShell abierta, muestra un ícono de estado junto al reloj de Windows y
 abre `http://localhost:8080` cuando el sistema queda listo. Los logs quedan en
 `.tmp/local-launcher/`. `FactuFlow Local.cmd` se conserva como acceso de
 compatibilidad y delega en el launcher oculto.
 
-Esta opcion no instala dependencias del sistema, no empaqueta la aplicacion y no
+Esta opción no instala dependencias del sistema, no empaqueta la aplicación y no
 configura inicio automático con Windows.
 
 ### Requisitos Previos
@@ -175,12 +175,10 @@ configura inicio automático con Windows.
 
 ## Instalación en VPS (Producción)
 
-La primera instalación privada en VPS quedó publicada el 2026-06-09 con Docker
-producción, PostgreSQL y reverse proxy HTTPS. El tag `v0.2.1` quedó desplegado y
-aceptado el 2026-07-10; `v0.2.2` quedó desplegado y aceptado el 2026-07-23. Las
-instalaciones nuevas deben aplicar todas las migraciones hasta el head de la
-versión elegida y nunca desplegar directamente un `main` posterior al último
-tag aprobado.
+Esta guía no declara la versión ni la salud de una instalación concreta. Esos
+datos se consultan en `VPS Hostinger` / `vps-admin`. Las instalaciones nuevas
+deben aplicar todas las migraciones hasta el head de la versión elegida y nunca
+desplegar directamente un `main` posterior al último tag aprobado.
 
 Para una instalación nueva o una reinstalación, seguir este mismo criterio: base
 PostgreSQL limpia, Alembic en `head`, paquete privado validado, certificados en
@@ -406,7 +404,7 @@ Después de la instalación:
    mantiene la emisión bloqueada allí hasta incorporar una fuente probatoria
    específica; no reutiliza evidencia productiva.
 5. Pasar a producción solo con certificado/autorización `wsfe`, backup/logs,
-   fecha fiscal explícita y una atestación administrativa vigente desde una
+   fecha fiscal explícita y una acreditación RECE efectiva obtenida desde una
    constancia productiva completa. Solo una modalidad Web Services exacta de la
    allowlist versionada para Responsable Inscripto, Exento en IVA o Monotributo
    puede producir `verificado_rece`; `Web Services` genérico no autoriza.

@@ -1,12 +1,12 @@
 # Changelog
 
-Este archivo es la fuente principal para entender de dónde viene FactuFlow y
-hacia dónde avanza.
+Este archivo resume qué cambió en FactuFlow y en qué versión. Las prioridades
+futuras viven únicamente en `ROADMAP.md`.
 
 Reglas vigentes desde 2026-05-22:
 
-- El estado operativo actual se consulta en `README.md`,
-  `docs/agents/current-status.md` y `ROADMAP.md`.
+- El estado aceptado del repositorio se consulta en
+  `docs/agents/current-status.md`; las prioridades, en `ROADMAP.md`.
 - El historial versionado se resume acá. Evitar crear nuevos snapshots largos
   de documentación si el cambio puede quedar explicado en este changelog, el
   roadmap y la documentación viva.
@@ -20,10 +20,19 @@ Reglas vigentes desde 2026-05-22:
 
 ### Documentación
 
+- Se reorganizó la arquitectura documental: roadmap prospectivo, handoff breve,
+  portafolio activo, runbooks reutilizables y snapshots fieles, anonimizados y
+  con hashes en
+  `docs/project/history/`.
+- Se incorporó la regla canónica de simplicidad segura: los agentes no pueden
+  aumentar fricción operativa ni reducir protecciones sin una decisión explícita
+  del usuario.
+- PF-19D conserva su especificación aceptada en un diseño propio, sin presentar
+  esa conducta futura como funcionalidad disponible en `v0.3.2`.
 - Se registró la publicación de la GitHub Release `v0.3.2`, marcada como
   `Latest`, desde el tag inmutable que apunta a
-  `9c0310d397001a331dc40353815ef9b2359d80de`. El despliegue continúa como un
-  checkpoint separado y su estado vive en `VPS Hostinger` / `vps-admin`.
+  `9c0310d397001a331dc40353815ef9b2359d80de`. El estado desplegado se consulta
+  exclusivamente en `VPS Hostinger` / `vps-admin`.
 
 ## [0.3.2] - 2026-08-29
 
@@ -604,7 +613,7 @@ antiguas a versiones previas como fuente de estado operativo.
   largos.
 - Selector de emisor activo y scoping por emisor en operaciones sensibles.
 - PDFs bajo demanda y reportes básicos.
-- Launcher local Windows con icono en tray para desarrollo/QA.
+- Launcher local Windows con ícono en tray para desarrollo/QA.
 
 ### Seguridad y operación
 
@@ -631,7 +640,7 @@ antiguas a versiones previas como fuente de estado operativo.
 ### Base inicial
 
 - Se construyo la base técnica con FastAPI, Vue, Pinia, Router, SQLAlchemy,
-  Pydantic, autenticacion, setup inicial y estructura modular.
+  Pydantic, autenticación, setup inicial y estructura modular.
 - Se incorporaron empresas, clientes, puntos de venta, certificados,
   comprobantes, PDFs y reportes.
 - Se documento la primera visión de FactuFlow como sistema de facturación
@@ -643,7 +652,7 @@ antiguas a versiones previas como fuente de estado operativo.
 - Se agregaron certificados por ambiente, wizard de carga/verificación y
   validaciones de autorización `wsfe`.
 - Se completo emisión individual, vista previa, guardado de comprobantes,
-  consulta posterior y generacion de PDFs.
+  consulta posterior y generación de PDFs.
 - Se corrigieron reglas fiscales críticas: fecha fiscal explícita, concepto
   fiscal ARCA explícito, punto de venta usable y confirmación irreversible.
 
@@ -660,7 +669,7 @@ antiguas a versiones previas como fuente de estado operativo.
 ### Producción real y endurecimiento
 
 - Se verificó homologación y luego se operó producción real controlada.
-- Se ajusto numeración, locking, idempotencia, reconciliacion y scoping por
+- Se ajustó numeración, locking, idempotencia, reconciliación y scoping por
   emisor.
 - Se agregó launcher local Windows para desarrollo/QA y mejores mensajes cuando
   el backend local no está disponible.

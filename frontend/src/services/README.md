@@ -17,8 +17,8 @@ services/
 ├── sistema.service.ts        # Health de aplicación y base para Estado del sistema
 ├── almacenamiento.service.ts # Gestor administrativo de almacenamiento
 ├── comprobantes.service.ts   # Comprobantes
-├── formatos-importacion.service.ts # Plantillas/formato configurables de importacion
-├── lotes-comprobantes.service.ts # Emision masiva por Excel
+├── formatos-importacion.service.ts # Plantillas/formato configurables de importación
+├── lotes-comprobantes.service.ts # Emisión masiva por Excel
 ├── perfiles-carga-masiva.service.ts # Perfiles de carga masiva por emisor
 ├── pdf.service.ts            # PDFs
 └── reportes.service.ts       # Reportes

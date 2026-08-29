@@ -1,8 +1,8 @@
 # PF-19A — Diseño fiscal, contención RECE e inventario legacy
 
 Fecha de diseño e implementación: 08/08/2026
-Estado objetivo de `main`: cerrado en código y documentación al integrar este
-corte; posterior a `v0.2.2`, todavía sin release ni despliegue productivo.
+Estado: CERRADO e integrado. La evidencia de release vive en el dossier de
+`v0.3.0`; el estado desplegado se consulta en el plano de control.
 
 ## Objetivo y límites
 

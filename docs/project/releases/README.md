@@ -1,41 +1,25 @@
-# Preparación de releases
+# Dossiers de releases
 
-Esta carpeta conserva dossiers operativos de candidatos concretos cuando una
-release necesita inventario, migración, rollback y puertas verificables que no
-entran de forma clara en el changelog.
+Estado: HISTÓRICO Y OPERATIVO POR CANDIDATO.
 
-No reemplaza las fuentes canónicas:
+Esta carpeta conserva inventario, migración, rollback y evidencia de candidatos
+concretos. Un dossier no crea una release, no acredita un despliegue y no
+autoriza producción.
 
-- `CHANGELOG.md` resume cambios;
-- `ROADMAP.md` decide cortes flexibles;
-- `docs/agents/current-status.md` indica el punto de reanudación;
-- `docs/agents/production-workflow.md` define cómo desplegar.
+- `CHANGELOG.md` resume cambios publicados.
+- `ROADMAP.md` ordena trabajo futuro.
+- `docs/agents/current-status.md` contiene el handoff del repositorio.
+- `docs/agents/production-workflow.md` define el procedimiento reutilizable.
+- El estado desplegado vive exclusivamente en `VPS Hostinger` / `vps-admin`.
 
-Un dossier no crea un tag ni autoriza producción. Los datos, comandos y
-evidencia de una instalación real permanecen en documentación privada.
+## Índice
 
-## Estado actual de releases
+- [`v0.3.2-candidate.md`](v0.3.2-candidate.md): snapshot de cierre y publicación
+  de `v0.3.2`.
+- [`v0.3.2-design-qa.md`](v0.3.2-design-qa.md): evidencia visual asociada.
+- [`v0.3.1-candidate.md`](v0.3.1-candidate.md): cierre de `v0.3.1`.
+- [`v0.3.0-candidate.md`](v0.3.0-candidate.md): preparación de `v0.3.0`.
+- [`v0.2.2-candidate.md`](v0.2.2-candidate.md): dossier de `v0.2.2`.
 
-- [`v0.3.2`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.2),
-  publicada y marcada como `Latest` el 29/08/2026; el despliegue permanece como
-  checkpoint separado:
-  `docs/project/releases/v0.3.2-candidate.md`
-- [`v0.3.1`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.1),
-  publicada y marcada como `Latest` el 28/08/2026; el despliegue permanece como
-  checkpoint separado:
-  `docs/project/releases/v0.3.1-candidate.md`
-- [`v0.3.0`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.0),
-  publicada el 11/08/2026; el estado desplegado actual se consulta en
-  `VPS Hostinger` / `vps-admin`
-- `v0.2.2`, publicada y desplegada el 2026-07-23:
-  `docs/project/releases/v0.2.2-candidate.md`
-
-## Snapshot de cierre de preparación de v0.3.0
-
-- `v0.3.0`: alcance y notas versionados. Al cerrar el snapshot el 11/08/2026
-  todavía no se habían ejecutado tag, publicación ni despliegue. El
-  `autoreview`, PF-16G, PostgreSQL/Runtime Smoke y el ensayo privado están
-  cerrados. El merge funcional `2add308a` aprobó los siete checks; el cierre
-  documental `147693f2` y la preparación final `6fb2878` aprobaron sus recorridos
-  Nivel 0. Los checkpoints posteriores se registran por separado:
-  `docs/project/releases/v0.3.0-candidate.md`
+Los estados como “despliegue pendiente” dentro de un dossier reflejan el
+momento en que fue congelado; no describen la instalación actual.

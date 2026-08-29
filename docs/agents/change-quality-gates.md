@@ -1,8 +1,8 @@
 # Puertas de calidad y evidencia de cambios
 
-Última actualización: 2026-08-09
+Última actualización: 2026-08-29
 
-Estado: VIGENTE para todo cambio nuevo después de `v0.2.2`.
+Estado: VIGENTE para todo cambio nuevo.
 
 ## Objetivo
 
@@ -78,15 +78,17 @@ Matriz mínima por impacto:
 
 | Impacto | Documentación que debe revisarse |
 |---|---|
-| Todo cambio funcional aceptado | `CHANGELOG.md > Unreleased`, `ROADMAP.md`, `docs/agents/current-status.md` y `docs/agents/manual-qa.md` |
-| Estado de `main`, capacidades o próximo paso | `README.md`, `docs/agents/overview.md`, `ROADMAP.md` y `docs/agents/development-portfolio.md` |
+| Todo cambio funcional aceptado | `CHANGELOG.md > Unreleased` y el contrato o diseño dueño del comportamiento |
+| Cambio de prioridad u horizonte | `ROADMAP.md`; no actualizarlo por cada detalle implementado |
+| Estado aceptado o punto de handoff | `docs/agents/current-status.md`; actualizar `README.md` sólo si cambia el resumen público |
+| Inventario, dependencia o cierre de una línea | `docs/agents/development-portfolio.md` y el diseño correspondiente |
 | Pantallas o pasos visibles | `docs/user-guide/README.md` y manuales del flujo |
 | Conducta de un endpoint o servicio | `docs/api/README.md` y documentación de dominio, aunque rutas, schemas y status HTTP no cambien |
 | ARCA, CAE, numeración, lotes o reconciliación | diseño fiscal, `docs/agents/arca.md`, `docs/arca-ws/NOTAS.md` y matriz de QA |
-| Tests, CI o evidencia de validación | `docs/agents/testing.md`, aunque los comandos de ejecución no cambien |
+| Comandos, entornos o política de pruebas | `docs/agents/testing.md`; los conteos y resultados quedan en el PR o dossier |
+| Procedimiento manual reutilizable | `docs/agents/manual-qa.md`; la evidencia de una corrida queda fuera del runbook |
 | Arquitectura o tooling | `docs/agents/overview.md`, `CONTRIBUTING.md` e índices aplicables |
 | Release, despliegue o instalación | README, changelog, estado, manual, setup, dossier e índices de releases |
-| Avance de una línea PF | `docs/agents/development-portfolio.md` y estado del documento de diseño |
 
 No se exige editar todos esos archivos indiscriminadamente. Se exige revisarlos
 y registrar en el PR cuáles cambiaron y por qué los restantes no aplican. Una
@@ -94,10 +96,11 @@ casilla genérica o la mera presencia del archivo en el diff no constituyen
 evidencia.
 
 Un contrato HTTP sin cambios no vuelve irrelevante la guía API si cambió la
-semántica del endpoint. Del mismo modo, comandos de test estables no justifican
-omitir `docs/agents/testing.md` cuando el PR agrega una matriz, nuevos conteos o
-un checkpoint de CI. Si cambia qué contiene `main` o cuál es el siguiente paso,
-`docs/agents/overview.md` debe revisarse aunque la arquitectura no cambie.
+semántica del endpoint. Del mismo modo, nuevos conteos de tests no justifican
+editar la guía si sus comandos y políticas siguen iguales. `overview.md`
+describe arquitectura estable; el próximo paso pertenece al roadmap y al
+handoff. Aplicar siempre
+[`documentation-governance.md`](documentation-governance.md).
 
 Los documentos canónicos incluidos en el PR describen cómo quedará `main` al
 integrarse; no deben contener nombres de ramas temporales ni estados como
@@ -166,6 +169,6 @@ residual; nunca se usa `--force` para silenciarlas.
 
 Una CI verde permite integrar una unidad, pero no convierte automáticamente el
 commit en release. Una versión candidata destinada a producción o a terceros
-debe completar además las puertas de `ROADMAP.md > PF-16`, el checklist fiscal
-cuando corresponda, el dossier de release, backup/restauración, migraciones y QA
+debe completar además la línea PF-16 del portafolio, el checklist fiscal cuando
+corresponda, el dossier de release, backup/restauración, migraciones y QA
 contable del rango completo.

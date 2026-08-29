@@ -98,12 +98,12 @@ producción, el deploy debe decidirse explícitamente.
 
 ### Decidir un corte de release
 
-La guía de candidatos vive en `ROADMAP.md > Guía flexible de cortes`. Es una
-orientación revisable, no un calendario. El alcance de un release solo cambia
-por decisión explícita del desarrollador: un problema que impida un cierre
-seguro detiene el corte y se consulta; un hallazgo no bloqueante se registra en
-el roadmap y no demora automáticamente la unidad vigente. No es necesario
-terminar todo el roadmap.
+`ROADMAP.md` define el orden de iniciativas, no el expediente de una release.
+Cuando se decide un corte, su alcance, evidencia y rollback viven en un dossier
+de `docs/project/releases/`. Un problema que impida un cierre seguro detiene el
+corte y se consulta; un hallazgo no bloqueante se adjudica al portafolio sin
+ampliar automáticamente la unidad vigente. No es necesario terminar todo el
+roadmap.
 
 Antes de declarar un candidato listo:
 
@@ -115,16 +115,9 @@ Antes de declarar un candidato listo:
 5. verificar backup/restauración, notas de release, upgrade y smoke;
 6. decidir por separado si se crea el tag y si se despliega.
 
-El roadmap utilizó `v0.2.2` como estabilización posterior a PF-01 y anterior a
-PF-02. El alcance de `v0.3.0`, detallado en su dossier, quedó congelado en PF-02,
-PF-03A y PF-19; PF-16C/D/E aportan sus puertas de calidad. Al cerrar la
-preparación el 11/08/2026 todavía no existían tag, publicación ni despliegue; la
-última release publicada y producción eran `v0.2.2`. El `autoreview` final cerró limpio,
-la CI Nivel 2 aprobó PostgreSQL real y Runtime Smoke, y la aceptación PF-16G fue
-registrada el 10/08/2026. El candidato `7f7b3808b3d4b8d5a129c193724955789a6ed4f2`
-aprobó además el ensayo privado de backup, restauración aislada, upgrade y
-rollback. La firma externa de manifests VPS es P2 posterior y no bloquea este
-corte.
+Los cierres de `v0.2.2` a `v0.3.2` se conservan en sus dossiers y en el
+changelog. No copiar aquí sus SHAs, conteos o estado de despliegue: este runbook
+debe seguir siendo reutilizable para versiones futuras.
 
 ## Antes de desplegar
 
