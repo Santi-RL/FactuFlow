@@ -39,7 +39,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## Parche `0.3.2` en preparación
+## Candidato `0.3.2`
 
 El parche simplifica la experiencia de puntos de venta sin debilitar PF-19B.
 Agrega `seleccionable_para_emision`, que exige acreditación durable, estado
@@ -56,9 +56,17 @@ disponible en FactuFlow` / `Otro sistema`. Los errores indican la acción concre
 y dejan de exponer procedencia, ambiente o revisión fiscal. El preflight final
 del servidor permanece intacto antes de crear estado fiscal o alcanzar CAE.
 
-El alcance no agrega migraciones, dependencias ni configuración productiva. Su
-integración, publicación y despliegue requieren completar las puertas Nivel 2,
-el `autoreview` final, los siete checks y los checkpoints por SHA exacto.
+El alcance funcional quedó integrado en `main` mediante el PR `#41`. El merge
+`3184187ded0b0941e5240c1b1cc8f88f6d818c93` aprobó los siete checks obligatorios
+en la ejecución
+[`33236638734`](https://github.com/Santi-RL/FactuFlow/actions/runs/33236638734).
+El `autoreview` final con Codex `gpt-5.6-sol medium` cerró limpio, la QA visual
+contra Figma quedó aprobada y la versión técnica y visible está alineada en
+`0.3.2`.
+
+El alcance no agrega migraciones, dependencias ni configuración productiva. El
+contenido está congelado; tag, GitHub Release y despliegue permanecen como
+checkpoints separados por SHA exacto.
 
 ## Parche publicado `v0.3.1`
 
@@ -733,6 +741,7 @@ Siguen pendientes:
 - Dossier v0.2.2: `docs/project/releases/v0.2.2-candidate.md`
 - Dossier v0.3.0: `docs/project/releases/v0.3.0-candidate.md`
 - Dossier v0.3.1: `docs/project/releases/v0.3.1-candidate.md`
+- Dossier v0.3.2: `docs/project/releases/v0.3.2-candidate.md`
 - Checklist fiscal: `docs/agents/fiscal-change-checklist.md`
 - Clawpatch: `docs/project/audits/clawpatch/README.md`
 - Cierre v0.2.1:

@@ -1203,8 +1203,9 @@ Objetivo: profesionalizar la entrega del producto.
       `autoreview` verdes
 - [x] Despliegue productivo separado de `v0.3.1` registrado en el plano de
       control, con SHA exacto, Alembic `d1e2f3a4b5c6` y QA post-deploy sin CAE
-- [ ] Release `v0.3.2`: selección estricta posterior a comprobación, UX simple,
-      siete checks, publicación y despliegue por SHA exacto sin cambios de base
+- [~] Release `v0.3.2`: candidato congelado con selección estricta posterior a
+      comprobación, UX simple, siete checks y `autoreview` verdes; faltan tag,
+      publicación y despliegue por SHA exacto sin cambios de base
 
 #### Guía flexible de cortes
 
@@ -1238,6 +1239,11 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   `e49a8baf` aprobó los siete checks y el `autoreview` final cerró limpio. El
   tag `7afba87b` y la GitHub Release se publicaron el 28/08/2026; el despliegue
   posterior quedó registrado en el plano de control `vps-admin`.
+- **`v0.3.2` candidato congelado:** comprobación previa a la selección y matriz
+  UX simple de puntos de venta. El merge funcional `3184187d` aprobó los siete
+  checks y el `autoreview` final cerró limpio. No incorpora cambios de base,
+  dependencias ni configuración; tag, publicación y despliegue siguen como
+  checkpoints separados.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1283,9 +1289,10 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Completar `v0.3.2`: integrar la UX aprobada, publicar el tag inmutable y
-   desplegar por `vps-admin` únicamente si los siete checks y el preflight
-   confirman ausencia de cambios de base, dependencias o configuración.
+1. Publicar el tag inmutable `v0.3.2` desde el cierre exacto del candidato y
+   desplegar por `vps-admin` únicamente si el preflight confirma ausencia de
+   cambios de base, dependencias, configuración u operaciones fiscales nuevas
+   que obliguen a renovar el backup.
 2. Retomar PF-03 con PF-03B después de `v0.3.2`:
    separar el DTO de ítem que serializa la UI, hacer estricto
    `ItemComprobanteCreate` y rechazar descuentos

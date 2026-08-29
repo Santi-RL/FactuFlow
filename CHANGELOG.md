@@ -18,6 +18,8 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-08-29
+
 ### Correcciones
 
 - Los selectores de nueva factura, lotes y perfiles ya no ofrecen puntos con el
@@ -36,6 +38,9 @@ Reglas vigentes desde 2026-05-22:
   ambiente, revisión fiscal y explicaciones técnicas de los estados normales.
 - El resumen de importación informa tres cantidades mutuamente excluyentes:
   listos para emitir, no disponibles en FactuFlow y requieren revisión.
+- La versión técnica y visible queda sincronizada en `0.3.2`. Este parche no
+  agrega migraciones, dependencias, cambios de Docker ni configuración
+  productiva.
 
 ### Seguridad fiscal
 

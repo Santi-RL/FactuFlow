@@ -31,6 +31,8 @@
   `docs/project/releases/v0.3.0-candidate.md`
 - Snapshot de cierre v0.3.1:
   `docs/project/releases/v0.3.1-candidate.md`
+- Candidato congelado v0.3.2:
+  `docs/project/releases/v0.3.2-candidate.md`
 
 ## Fuente de verdad operativa
 
