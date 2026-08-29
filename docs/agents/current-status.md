@@ -39,7 +39,7 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
-## Candidato `0.3.2`
+## Parche publicado `v0.3.2`
 
 El parche simplifica la experiencia de puntos de venta sin debilitar PF-19B.
 Agrega `seleccionable_para_emision`, que exige acreditación durable, estado
@@ -64,9 +64,15 @@ El `autoreview` final con Codex `gpt-5.6-sol medium` cerró limpio, la QA visual
 contra Figma quedó aprobada y la versión técnica y visible está alineada en
 `0.3.2`.
 
-El alcance no agrega migraciones, dependencias ni configuración productiva. El
-contenido está congelado; tag, GitHub Release y despliegue permanecen como
-checkpoints separados por SHA exacto.
+El cierre de versión quedó integrado mediante el PR `#42`; sus siete checks
+aprobaron en la ejecución
+[`33238812827`](https://github.com/Santi-RL/FactuFlow/actions/runs/33238812827).
+El tag inmutable `v0.3.2` y la GitHub Release marcada como `Latest` apuntan a
+`9c0310d397001a331dc40353815ef9b2359d80de`.
+
+El alcance no agrega migraciones, dependencias ni configuración productiva. La
+publicación está cerrada; el despliegue permanece como checkpoint separado por
+SHA exacto y su estado vive exclusivamente en `VPS Hostinger` / `vps-admin`.
 
 ## Parche publicado `v0.3.1`
 
@@ -405,9 +411,9 @@ quedaron incluidos en el corte productivo `v0.2.2`.
 
 ## Release publicada y estado desplegado
 
-- Release publicada más reciente: `v0.3.1`, marcada como `Latest` en GitHub.
-- Tag inmutable `v0.3.1`:
-  `7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`.
+- Release publicada más reciente: `v0.3.2`, marcada como `Latest` en GitHub.
+- Tag inmutable `v0.3.2`:
+  `9c0310d397001a331dc40353815ef9b2359d80de`.
 - El estado desplegado no se fija en el repositorio. Consultar el plano de
   control `VPS Hostinger` / `vps-admin` antes de decidir o repetir cualquier
   operación productiva.
