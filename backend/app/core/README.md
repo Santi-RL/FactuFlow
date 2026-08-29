@@ -4,9 +4,9 @@ Esta carpeta contiene la configuración central y utilidades compartidas.
 
 ## Archivos
 
-- `config.py` - Settings de la aplicacion (Pydantic Settings).
+- `config.py` - Settings de la aplicación (Pydantic Settings).
 - `database.py` - Configuración de SQLAlchemy async (engine, session, Base).
-- `security.py` - Autenticacion (JWT), hashing y dependencias asociadas.
+- `security.py` - Autenticación (JWT), hashing y dependencias asociadas.
 
 Las variables de entorno estan documentadas en `.env.example` (raíz del repo) y se cargan via `app.core.config.settings`.
 

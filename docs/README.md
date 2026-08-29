@@ -1,49 +1,55 @@
-# Documentación
+# Documentación de FactuFlow
 
-Este directorio agrupa la documentación del proyecto.
+Última revisión: 29/08/2026
 
-## Índice
+Elegí el recorrido según la audiencia; no es necesario leer todo el repositorio.
 
-- Changelog y corte versionado actual: `CHANGELOG.md`
+## Producto y continuidad
+
+- Visión canónica: [`../VISION.md`](../VISION.md)
+- Próximas prioridades: [`../ROADMAP.md`](../ROADMAP.md)
+- Estado aceptado del repositorio:
+  [`agents/current-status.md`](agents/current-status.md)
+- Historial de versiones: [`../CHANGELOG.md`](../CHANGELOG.md)
 - Última release publicada:
   [`v0.3.2`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.2)
-- Estado desplegado:
-  el estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
-  `vps-admin`; no se infiere desde este repositorio.
-- Dossier histórico de `v0.2.2`:
-  `docs/project/releases/v0.2.2-candidate.md`
-- Snapshot histórico de preparación de `v0.3.0` (11/08/2026, previo al tag):
-  `docs/project/releases/v0.3.0-candidate.md`
-- Snapshot de cierre de `v0.3.1`:
-  `docs/project/releases/v0.3.1-candidate.md`
-- Snapshot de cierre de `v0.3.2`:
-  `docs/project/releases/v0.3.2-candidate.md`
-- Instalación y setup: `docs/setup/README.md`
-- Migración local a VPS: `docs/setup/vps-migration.md`
-- Manual de usuario: `docs/user-guide/README.md`
-- API REST (referencia y ejemplos): `docs/api/README.md`
-- Certificados ARCA (guía): `docs/certificates/README.md`
-- Wizard de certificados (doc técnica): `docs/certificados-wizard.md`
-- Integración ARCA histórica/técnica inicial: `docs/arca-integration.md`
-- Integración ARCA operativa vigente: `docs/agents/arca.md` y `docs/arca-ws/NOTAS.md`
-- Diseño fiscal PF-19B de elegibilidad RECE durable y fail-closed:
-  `docs/agents/pf-19b-elegibilidad-rece-design.md`
-- PDFs y reportes (documento técnico histórico de fase): `docs/FASE_6_PDF_REPORTES.md`
-- Documentación para agentes (operativa del repo): `docs/agents/README.md`
-- Estado actual y continuidad: `docs/agents/current-status.md`
-- QA manual vigente y pendientes accionables: `docs/agents/manual-qa.md`
-- Cierre metodológico Clawpatch/v0.2.1:
-  `docs/project/audits/clawpatch/2026-07-10-cierre-ciclo-v0.2.1.md`
-- Observabilidad operativa estándar: `docs/agents/operational-observability.md`
-- Documentación interna del proyecto (auditorías y notas históricas puntuales): `docs/project/README.md`
 
-## Notas
+El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+`vps-admin`; no se infiere desde este repositorio.
 
-- Textos públicos y documentación nueva: usar **ARCA**. "AFIP" queda para nomenclatura legacy (URLs/variables existentes).
-- Si estás buscando "dónde está X en el código", empezá por `docs/agents/structure.md`.
-- Los documentos de `docs/project/` son históricos o de trabajo: pueden
-  contener decisiones, versiones o endpoints de su fecha. Para estado actual,
-  usar primero `docs/agents/current-status.md` y `ROADMAP.md`.
-- Desde el corte `0.2.0-mvp` del 2026-05-22, evitar nuevos snapshots largos de
-  documentación. El avance histórico debe resumirse en `CHANGELOG.md` y las
-  instrucciones vigentes deben vivir en los documentos canónicos.
+## Para usuarios
+
+- Manual: [`user-guide/README.md`](user-guide/README.md)
+- Instalación: [`setup/README.md`](setup/README.md)
+- Certificados ARCA: [`certificates/README.md`](certificates/README.md)
+
+## Para integración y desarrollo
+
+- API REST: [`api/README.md`](api/README.md)
+- Agentes y runbooks: [`agents/README.md`](agents/README.md)
+- Arquitectura: [`agents/overview.md`](agents/overview.md)
+- Estructura del repositorio: [`agents/structure.md`](agents/structure.md)
+- Referencia ARCA WS: [`arca-ws/README.md`](arca-ws/README.md)
+
+## Diseños y operación
+
+- Portafolio activo:
+  [`agents/development-portfolio.md`](agents/development-portfolio.md)
+- Checklist fiscal:
+  [`agents/fiscal-change-checklist.md`](agents/fiscal-change-checklist.md)
+- Testing y QA: [`agents/testing.md`](agents/testing.md) y
+  [`agents/manual-qa.md`](agents/manual-qa.md)
+- Seguridad: [`agents/security.md`](agents/security.md)
+- Producción: [`agents/production-workflow.md`](agents/production-workflow.md)
+- Gobierno documental:
+  [`agents/documentation-governance.md`](agents/documentation-governance.md)
+
+## Historia y evidencia
+
+- Dossiers de release: [`project/releases/`](project/releases/README.md)
+- Auditorías y notas históricas: [`project/`](project/README.md)
+- Snapshots retirados de documentación viva:
+  [`project/history/`](project/history/README.md)
+
+Los documentos históricos reflejan su fecha y no gobiernan decisiones actuales.
+Los datos y evidencias concretas de producción permanecen fuera del repositorio.

@@ -2,7 +2,7 @@
 
 Estado: decisión vigente desde 2026-05-22.
 
-Última actualización: 2026-08-07.
+Última actualización: 2026-08-29.
 
 ## Objetivo
 
@@ -30,16 +30,16 @@ simple y accionable para usuarios administrativos, soporte y desarrollo.
 
 ### 1. Registro claro de operaciones críticas
 
-Cada operación importante debe dejar una pista suficiente para reconstruir que
-ocurrio:
+Cada operación importante debe dejar una pista suficiente para reconstruir qué
+ocurrió:
 
-- usuario que inicio la acción
+- usuario que inició la acción
 - emisor activo usado
 - lote, comprobante o recurso afectado
 - punto de venta cuando aplique
 - fecha fiscal cuando aplique
 - estado inicial y estado final
-- si el error ocurrio antes de llamar a ARCA, durante la llamada o después de
+- si el error ocurrió antes de llamar a ARCA, durante la llamada o después de
   una respuesta de ARCA
 - código o identificador de seguimiento para soporte
 
@@ -53,7 +53,7 @@ Los lotes deben mostrar estados entendibles:
 - completado
 - completado parcial
 - fallido
-- requiere reconciliacion
+- requiere reconciliación
 
 Cuando un lote quede en error, el usuario debe poder entender si puede corregir
 el archivo, reintentar, esperar al worker o pedir soporte. Si existe
@@ -140,7 +140,7 @@ define el contrato futuro; no declara que la capacidad esté implementada.
 
 Este trabajo pertenece a la banda C del portafolio y depende de los contratos
 de errores de PF-14, las señales sanitizadas de PF-15 y las garantías fiscales
-de PF-01. No desplaza las prioridades inmediatas vigentes.
+de PF-01. Su prioridad relativa se consulta únicamente en `ROADMAP.md`.
 
 ### 4. Backups y restauración probados
 
@@ -150,7 +150,7 @@ Antes de ampliar volumen productivo, debe existir un procedimiento probado para:
 - backup de certificados y claves
 - backup de configuración productiva
 - restauración en entorno controlado
-- verificacion posterior de que la aplicacion levanta y puede consultar datos
+- verificación posterior de que la aplicación inicia y puede consultar datos
 
 La documentación debe explicar el procedimiento paso a paso y con advertencias
 claras sobre datos privados.
@@ -166,14 +166,14 @@ Deben permitir correlacionar una operación con:
 - job o worker involucrado
 - error local o error ARCA
 
-Los logs privados quedan fuera de Git. La documentación versionada solo debe
-describir donde se generan y como usarlos de forma segura.
+Los logs privados quedan fuera de Git. La documentación versionada sólo debe
+describir dónde se generan y cómo usarlos de forma segura.
 
-### 6. Runbook de diagnostico
+### 6. Runbook de diagnóstico
 
-Debe existir una guia de soporte con casos comunes:
+Debe existir una guía de soporte con casos comunes:
 
-- la aplicacion no inicia
+- la aplicación no inicia
 - no se puede iniciar sesión
 - ARCA no responde
 - certificado vencido o no autorizado
@@ -207,17 +207,17 @@ Estas herramientas pueden venir después, pero no son requisito de esta etapa:
 - alertas automáticas externas
 - monitoreo distribuido
 - trazas distribuidas
-- centralizacion completa de logs
+- centralización completa de logs
 
 ## Criterio de completado
 
 La observabilidad operativa estándar queda lista cuando una persona de soporte o
 un usuario administrativo puede responder, desde la interfaz y la documentación:
 
-1. Que emisor estaba activo.
-2. Que lote o comprobante se intento operar.
-3. Que estado tiene ahora.
+1. Qué emisor estaba activo.
+2. Qué lote o comprobante se intentó operar.
+3. Qué estado tiene ahora.
 4. Si ARCA fue llamada o no.
 5. Si hay incertidumbre fiscal o no.
-6. Donde mirar el detalle seguro.
-7. Que acción corresponde hacer ahora.
+6. Dónde mirar el detalle seguro.
+7. Qué acción corresponde hacer ahora.

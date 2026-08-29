@@ -1,8 +1,10 @@
 # Diseño PF-01B — integridad persistente de estados, CAE y reservas
 
-Última actualización: 2026-07-13
+Fecha de diseño y cierre: 2026-07-13
+Última revisión documental: 2026-08-29
 
-Estado: PF-01B.3 COMPLETADO. CHECKPOINT CLAWPATCH PENDIENTE.
+Estado: CERRADO, incluido su checkpoint Clawpatch. La evidencia se conserva en
+[`docs/project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01b.md`](../project/audits/clawpatch/2026-07-13-cierre-checkpoint-pf-01b.md).
 
 ## Objetivo
 

@@ -6,7 +6,7 @@ Stores de Pinia para estado global.
 
 ```
 stores/
-├── auth.ts           # Autenticacion y usuario actual
+├── auth.ts           # Autenticación y usuario actual
 ├── empresa.ts        # Empresa activa
 ├── clientes.ts       # Estado de clientes
 ├── puntos_venta.ts   # Puntos de venta

@@ -60,7 +60,7 @@ El código QR contiene una URL a ARCA con los datos del comprobante codificados 
 {
   "ver": 1,
   "fecha": "2026-02-03",
-  "cuit": 30123456789,
+  "cuit": "CUIT_EMISOR_EJEMPLO",
   "ptoVta": 1,
   "tipoCmp": 6,
   "nroCmp": 127,
@@ -68,9 +68,9 @@ El código QR contiene una URL a ARCA con los datos del comprobante codificados 
   "moneda": "PES",
   "ctz": 1,
   "tipoDocRec": 80,
-  "nroDocRec": 20987654321,
+  "nroDocRec": "DOCUMENTO_RECEPTOR_EJEMPLO",
   "tipoCodAut": "E",
-  "codAut": 74123456789012
+  "codAut": "CODIGO_AUTORIZACION_EJEMPLO"
 }
 ```
 

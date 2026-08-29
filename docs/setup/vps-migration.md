@@ -1,12 +1,17 @@
 # Migración local a VPS
 
-Última actualización: 2026-08-09
+Última actualización: 2026-08-29
+
+Estado: referencia técnica reutilizable. No describe el estado desplegado de
+ninguna instalación.
 
 Este runbook prepara una migración privada y repetible desde una instalación
-local SQLite hacia PostgreSQL. No despliega por sí mismo. La primera instalación
-productiva y las actualizaciones `v0.2.1` y `v0.2.2` ya fueron completadas;
-usar este procedimiento para nuevas instalaciones, reinstalaciones o ensayos
-controlados.
+local SQLite hacia PostgreSQL. No despliega por sí mismo. Para una instalación
+real, la versión, el SHA, la topología y la evidencia se obtienen del plano de
+control `VPS Hostinger` / `vps-admin`, y toda mutación sigue
+[`docs/agents/production-workflow.md`](../agents/production-workflow.md).
+Usar este procedimiento sólo para nuevas instalaciones, reinstalaciones o
+ensayos controlados autorizados.
 
 La primera restauración debe ensayarse en PostgreSQL local o en un entorno de
 prueba descartable. No se solicita CAE, no se emite ningún comprobante y no se
@@ -226,7 +231,7 @@ Verificar desde UI o API:
 5. `proximo-numero` solo como verificación segura de numeración, sin emitir CAE
    y sin ejecutar flujos de emisión.
 6. Elegibilidad RECE efectiva: homologación continúa bloqueada; producción solo
-   muestra como usable una atestación administrativa vigente.
+   muestra como usable una acreditación RECE efectiva.
 
 ## Bloqueos de seguridad
 

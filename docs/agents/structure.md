@@ -121,19 +121,27 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `frontend/src/assets/`: estáticos.
 
 ## Documentación
-- `docs/agents/`: instrucciones operativas para agentes.
-- `docs/agents/README.md`: índice de documentación y guía de búsqueda.
-- `docs/agents/overview.md`: resumen y arquitectura.
+
+- `VISION.md`: propósito y límites canónicos.
+- `ROADMAP.md`: prioridades prospectivas.
+- `CHANGELOG.md`: historia versionada.
+- `docs/README.md`: entrada por audiencia.
+- `docs/agents/README.md`: enrutador de tareas para agentes.
+- `docs/agents/current-status.md`: handoff breve del repositorio.
+- `docs/agents/development-portfolio.md`: inventario de trabajo activo.
+- `docs/agents/overview.md`: arquitectura estable, sin prioridades ni historia.
+- `docs/agents/documentation-governance.md`: responsabilidades y archivo.
+- `docs/agents/pf-*.md`: diseños activos o cerrados, leídos según la tarea.
 - `docs/agents/arca.md`: integración ARCA y nomenclatura legacy.
-- `docs/agents/pf-19b-elegibilidad-rece-design.md`: diseño fiscal de autoridad
-  RECE durable, fail-closed y rollout.
-- `docs/agents/pf-19c-rechazo-global-design.md`: contrato estricto de rechazo
-  global WSFE y resolución legacy auditada.
-- `docs/arca-ws/`: descargas locales de documentación oficial ARCA WS (gitignored).
-- `docs/api/`: referencia de API REST.
+- `docs/agents/*runbook*.md`, `testing.md`, `manual-qa.md` y `security.md`:
+  procedimientos reutilizables.
+- `docs/arca-ws/`: documentación oficial o de referencia ARCA WS.
+- `docs/api/`: contrato de API REST.
 - `docs/certificates/`: manejo de certificados.
 - `docs/setup/`: instalación y puesta en marcha.
 - `docs/user-guide/`: manual de usuario.
-- `docs/arca-integration.md`: integración ARCA detallada.
-- `docs/certificados-wizard.md`: wizard de certificados.
-- `docs/FASE_6_PDF_REPORTES.md`: PDFs y reportes.
+- `docs/project/releases/`: dossiers y evidencia de versiones.
+- `docs/project/audits/`: auditorías fechadas.
+- `docs/project/history/`: snapshots y documentos retirados de la lectura
+  diaria; nunca son fuente de estado actual.
+- `docs/certificados-wizard.md`: diseño técnico del wizard de certificados.

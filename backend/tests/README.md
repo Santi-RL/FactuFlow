@@ -11,9 +11,9 @@ tests/
 ├── test_clientes.py         # Clientes
 ├── test_certificados.py     # Certificados
 ├── test_health.py           # Health checks
-├── test_pdf_service.py      # PDF service (generacion, QR, etc.)
+├── test_pdf_service.py      # PDF service (generación, QR, etc.)
 ├── test_reportes_service.py # Reportes service
-└── test_arca/               # Tests de integracion ARCA (con mocks)
+└── test_arca/               # Tests de integración ARCA (con mocks)
 ```
 
 ## Ejecutar Tests

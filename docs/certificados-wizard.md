@@ -165,7 +165,7 @@ El Wizard de Certificados ARCA es una funcionalidad completa que guía al usuari
    - `/certificados/:id/exito` - Página de éxito
 
 2. **Sidebar (`Sidebar.vue`)**
-   - Ítem "Certificados" con icono de llave (KeyIcon)
+   - Ítem "Certificados" con ícono de llave (KeyIcon)
    - Badge rojo con número de certificados por vencer
    - Recarga automática cada 5 minutos
 

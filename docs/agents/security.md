@@ -131,7 +131,7 @@
 
 ## Checklist antes de commit
 
-Ejecutar una revision mínima:
+Ejecutar una revisión mínima:
 
 ```bash
 git status --short --untracked-files=all

@@ -16,7 +16,7 @@ Datos fiscales del emisor de comprobantes:
 Puntos de venta habilitados en ARCA:
 - Número de punto de venta
 - Descripción/alias
-- Sistema, domicilio y nombre fantasia importados desde constancia ARCA
+- Sistema, domicilio y nombre de fantasía importados desde constancia ARCA
 - Estado Web Services, bloqueado, fecha de baja y usabilidad FactuFlow
 - Revisión fiscal monotónica; la usabilidad efectiva exige una cabeza RECE
   vigente para el ambiente actual
@@ -113,7 +113,7 @@ Perfiles de carga masiva por emisor:
 - Nombre único dentro de cada Empresa
 - Configuración JSON versionada con formato opcional, concepto fiscal ARCA,
   descripción facturada y reglas de fechas relativas
-- Marca de predeterminado para precargar `Emision masiva`
+- Marca de predeterminado para precargar `Emisión masiva`
 - Trazabilidad desde `LoteComprobante.metadata_json` cuando un lote se valida
   con un perfil aplicado
 

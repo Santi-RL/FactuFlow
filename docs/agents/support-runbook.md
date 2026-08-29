@@ -50,7 +50,7 @@ ejecuta el commit o tag que los contiene; este documento no declara despliegue.
 
 Qué revisar:
 
-- En local, el icono del launcher junto al reloj y la pantalla de login.
+- En local, el ícono del launcher junto al reloj y la pantalla de login.
 - En la UI, `Sistema > Estado`: `Aplicación`, `Base de datos` y `Worker de
   lotes`.
 - Si la base devolvió `503`, esperar unos segundos antes de repetir una consulta

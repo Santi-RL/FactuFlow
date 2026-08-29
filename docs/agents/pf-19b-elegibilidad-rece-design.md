@@ -2,9 +2,15 @@
 
 Fecha de diseño: 08/08/2026. Actualizado para el parche `0.3.2`: 29/08/2026.
 
-Estado objetivo al integrar: PF-19B.1, PF-19B.2 y PF-19B.3 forman una única
+Estado: CERRADO e integrado. PF-19B.1, PF-19B.2 y PF-19B.3 forman una única
 unidad completa aceptada. La versión desplegada se consulta exclusivamente en
 el plano de control `VPS Hostinger` / `vps-admin`.
+
+PF-19B describe el contrato aceptado hasta `v0.3.2`. La evolución PF-19D está
+aceptada pero no implementada; su diseño vive en
+[`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md).
+No interpretar PF-19D como conducta disponible hasta que una unidad posterior
+la integre en `main`.
 
 ## Ajuste UX y selección estricta en 0.3.2
 

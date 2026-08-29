@@ -99,4 +99,6 @@ services/
   `500`; nunca trunca silenciosamente. En producción debe filtrarse por el
   incidente, y un barrido amplio solo corresponde sobre una restauración
   aislada y descartable.
-- PDF/reportes: ver `docs/FASE_6_PDF_REPORTES.md`.
+- PDF/reportes: el diseño histórico se conserva en
+  `docs/project/history/fase-6-pdf-reportes.md`; para contratos vigentes usar la
+  API, el manual y este índice.

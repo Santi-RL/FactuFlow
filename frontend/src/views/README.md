@@ -8,10 +8,10 @@ Esta carpeta contiene las vistas/páginas de la app (rutas).
 views/
 ├── auth/            # Login y setup inicial
 ├── dashboard/       # Dashboard
-├── empresa/         # Configuracion de empresa
+├── empresa/         # Configuración de empresa
 ├── puntos_venta/    # Puntos de venta
 ├── clientes/        # CRUD clientes
-├── comprobantes/    # Emision, consulta y lotes de comprobantes
+├── comprobantes/    # Emisión, consulta y lotes de comprobantes
 ├── certificados/    # Listado + wizard de certificados
 ├── reportes/        # Reportes
 ├── usuarios/        # Administración de usuarios
