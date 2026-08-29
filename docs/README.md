@@ -16,6 +16,8 @@ Este directorio agrupa la documentación del proyecto.
   `docs/project/releases/v0.3.0-candidate.md`
 - Snapshot de cierre de `v0.3.1`:
   `docs/project/releases/v0.3.1-candidate.md`
+- Candidato congelado de `v0.3.2`:
+  `docs/project/releases/v0.3.2-candidate.md`
 - Instalación y setup: `docs/setup/README.md`
 - Migración local a VPS: `docs/setup/vps-migration.md`
 - Manual de usuario: `docs/user-guide/README.md`

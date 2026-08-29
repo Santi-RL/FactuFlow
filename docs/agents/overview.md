@@ -1,6 +1,6 @@
 # Resumen del proyecto
 
-Última actualización: 28/08/2026
+Última actualización: 29/08/2026
 
 ## Qué es FactuFlow
 
@@ -10,8 +10,8 @@ facturación individual y masiva con seguridad fiscal.
 
 ## Estado del código, las releases y el despliegue
 
-- Release publicada más reciente: `v0.3.0`, desde el tag inmutable que apunta a
-  `39797d1ff9c698465255cf4f821240171c235cab`.
+- Release publicada más reciente: `v0.3.1`, desde el tag inmutable que apunta a
+  `7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`.
 - El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
   `vps-admin`. No se infiere desde este resumen, `main`, una release ni un tag.
 - Backend FastAPI y frontend Vue operativos.
@@ -42,10 +42,11 @@ facturación individual y masiva con seguridad fiscal.
   restauración aislada, upgrade y rollback quedó aprobado.
   Web Services genérico ya no acredita RECE en `main`; homologación permanece
   fail-closed mientras no exista una fuente probatoria específica.
-- `main` prepara el parche visible `0.3.1`: el parser acepta la constancia ARCA
-  vigente con encabezado `P.VTA.` y `ACTIVIDAD`, y el clasificador probatorio
-  v2 admite únicamente las modalidades Web Services exactas documentadas para
-  Responsable Inscripto, Exento en IVA y Monotributo.
+- `main` contiene el candidato `0.3.2`: antes de habilitar selectores comprueba
+  los puntos acreditados pendientes o con 90 días, conserva disponibles los
+  puntos frescos si ARCA falla y muestra una UX breve con acciones concretas.
+  La selección estricta se suma al preflight final existente y no modifica la
+  acreditación durable, las migraciones ni el contrato externo de ARCA.
 
 El estado detallado y el punto de reanudación viven en
 `docs/agents/current-status.md`.
@@ -94,13 +95,12 @@ El estado detallado y el punto de reanudación viven en
 
 ## Próximo hito
 
-En `main`, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados y publicados en
-`v0.3.0`; PF-05 conserva separada la reconstrucción histórica opcional para
-informes. El próximo checkpoint es autorizar y completar por separado el
-despliegue de `v0.3.0`; recién entonces sigue PF-03B sobre DTO de ítem,
-propiedades desconocidas, descuentos y valores
-no finitos. PF-19 no cambia numeración ni absorbe
-validaciones de ítems; PF-14/PF-15 consumen su contrato de error y trazabilidad.
+En `main`, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados. El próximo
+checkpoint es publicar y desplegar `v0.3.2` por su SHA exacto, sin cambios de
+base ni solicitudes de CAE. Después sigue PF-03B sobre DTO de ítem, propiedades
+desconocidas, descuentos y valores no finitos. PF-19 no cambia numeración ni
+absorbe validaciones de ítems; PF-14/PF-15 consumen su contrato de error y
+trazabilidad.
 
 ## Principios de trabajo
 

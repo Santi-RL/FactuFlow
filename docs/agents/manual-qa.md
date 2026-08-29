@@ -1,14 +1,19 @@
 # QA manual
 
-Última actualización: 12/08/2026
+Última actualización: 29/08/2026
 
 Este documento conserva únicamente el checkpoint vigente y la QA todavía
 accionable. El historial técnico está en `CHANGELOG.md` y en las auditorías
 fechadas de `docs/project/**`.
 
-## Último checkpoint productivo aceptado
+## Estado productivo y referencia pública
 
-`v0.2.2` quedó validada en producción el 23/07/2026.
+El estado desplegado actual se consulta exclusivamente en el plano de control
+`VPS Hostinger` / `vps-admin`. El despliegue de `v0.3.1` quedó registrado allí;
+este documento no fija su SHA ni reemplaza esa evidencia privada.
+
+La última evidencia productiva pública detallada conserva como referencia el
+checkpoint de `v0.2.2`, validado el 23/07/2026:
 
 - El ciclo verificó previamente backup recuperable y restauración aislada; bajo
   mantenimiento repitió backup final, preflight, Alembic, constraints,
@@ -18,20 +23,13 @@ fechadas de `docs/project/**`.
 - No se solicitaron CAE ni se realizaron emisiones o reintentos fiscales
   durante el despliegue. La emisión fiscal real ya había sido validada en el
   checkpoint productivo de `v0.2.1`.
-- No queda QA bloqueante para mantener `v0.2.2` en producción.
 - Los datos fiscales y la evidencia detallada permanecen en el entorno operativo
   privado.
 
-La GitHub Release `v0.3.0` fue publicada el 11/08/2026, pero todavía no fue
-desplegada ni tiene QA post-deploy. La versión productiva cubierta por este
-checkpoint continúa siendo `v0.2.2`.
-
-El snapshot de `main` congelado para `v0.3.0` incluye PF-02A, los tres cortes de
-PF-02B, PF-03A y PF-19A/B/C. Al cerrar la preparación, todo ese tramo era
-posterior al tag productivo `v0.2.2`: todavía no pertenecía a una release
-publicada ni estaba desplegado. Sus escenarios
-se validaron con datos sintéticos y dobles controlados, sin CAE reales ni
-llamadas ARCA de escritura.
+El candidato `v0.3.2` agrega la comprobación previa a la selección y la matriz
+UX simple de puntos de venta. Su QA usa datos sintéticos y dobles controlados,
+sin CAE reales ni llamadas ARCA de escritura; la QA productiva posterior se
+registra únicamente en el plano de control.
 
 ## Preparación local
 
@@ -564,18 +562,13 @@ separada.
 
 ## Punto de reanudación de QA
 
-PF-01 está publicado y cerrado con CI verde: R02/B03/B04/B24/B10/B17 quedaron
-`fixed` en Clawpatch. `v0.2.2` completó sus puertas privadas, quedó publicada y
-superó el despliegue y la verificación post-deploy. En el snapshot de cierre de
-`v0.3.0`, PF-02 está cerrado con dobles controlados, PF-03A cierra el contrato
-superior y PF-19A/PF-19B cierran contención adicional, inventario de solo
-lectura y autoridad RECE durable. Al congelarlo, ese tramo todavía no pertenecía
-a una release publicada ni estaba desplegado. Ahora pertenece a `v0.3.0`, pero
-producción continúa en `v0.2.2`. PF-19C queda integrado y publicado con su ensayo
-privado cerrado; el despliegue es una decisión separada y PF-03B queda después.
-No repetir
-como pendiente el setup productivo inicial, el despliegue `v0.2.2`, el rediseño
-UX de lotes ni las validaciones ya cerradas.
+PF-01, PF-02, PF-03A, PF-19A, PF-19B y PF-19C están cerrados en el código
+aceptado. El candidato `v0.3.2` agrega la selección estricta posterior a la
+comprobación y la UX simplificada de puntos de venta; sus pruebas funcionales,
+QA visual y `autoreview` están aprobados. El checkpoint siguiente es publicar el
+tag inmutable y ejecutar el despliegue por SHA exacto desde `vps-admin`, sin CAE.
+El estado productivo efectivo se consulta exclusivamente en ese plano de
+control; no se fija en este documento. PF-03B queda después de `v0.3.2`.
 
 Para conocer el estado de desarrollo y el orden exacto, usar
 `docs/agents/current-status.md` y `ROADMAP.md`.

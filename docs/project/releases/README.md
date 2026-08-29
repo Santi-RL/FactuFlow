@@ -16,6 +16,9 @@ evidencia de una instalación real permanecen en documentación privada.
 
 ## Estado actual de releases
 
+- `v0.3.2`: candidato congelado el 29/08/2026; tag, publicación y despliegue
+  permanecen como checkpoints separados:
+  `docs/project/releases/v0.3.2-candidate.md`
 - [`v0.3.1`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.1),
   publicada y marcada como `Latest` el 28/08/2026; el despliegue permanece como
   checkpoint separado:

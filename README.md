@@ -8,12 +8,13 @@ Versión publicada más reciente: `v0.3.1`
 
 [GitHub Release v0.3.1](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.1)
 
-`v0.3.1` incorpora compatibilidad con el formato vigente de constancias de
-puntos de venta, modalidades Web Services exactas por condición fiscal y una
-acreditación inicial durable separada de la comprobación técnica periódica con
-ARCA. El tag inmutable apunta a
-`7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`; la publicación no determina ni
-modifica el estado desplegado.
+Candidato de release congelado: `v0.3.2`.
+
+El candidato simplifica la selección de puntos de venta: comprueba con ARCA
+antes de habilitar opciones pendientes o desactualizadas, muestra estados
+breves y conserva intactas la acreditación durable y las guardas fiscales
+previas al CAE. La versión técnica y visible está alineada en `0.3.2`; el tag,
+la GitHub Release y el despliegue se ejecutan como checkpoints separados.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.

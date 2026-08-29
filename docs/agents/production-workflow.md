@@ -280,10 +280,11 @@ transacción completa: quedan cero guardas, intentos y reservas nuevos, y cero
 llamadas `FECAESolicitar`. Esas lecturas seguras previas no convierten el fallo
 en una solicitud de CAE ni habilitan un reintento automático.
 
-Este comportamiento pertenece a `v0.3.0`; `main` prepara el parche compatible
-`0.3.1` para reconocer el formulario actual y las modalidades exactas oficiales.
-Tag, publicación y despliegue siguen siendo checkpoints separados y su ejecución
-se registra en el plano de control operativo.
+Este comportamiento pertenece a PF-19 y continúa vigente en el candidato
+`v0.3.2`. La acreditación es durable, la comprobación técnica tiene un umbral de
+90 días y los puntos pendientes o desactualizados se comprueban antes de quedar
+seleccionables. Tag, publicación y despliegue siguen siendo checkpoints
+separados y su ejecución se registra en el plano de control operativo.
 
 El inventario legacy se ejecuta solo con autorización sobre una fuente
 identificada y con `DATABASE_URL` configurada de forma privada:
