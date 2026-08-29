@@ -340,9 +340,9 @@ class PerfilesCargaMasivaService:
                 "El punto de venta elegido no está habilitado para usar en FactuFlow. "
                 "Primero completá Puntos de venta para este emisor."
             )
-        estado_rece = await ElegibilidadReceService(self.db).obtener_estado_visible(
-            punto_venta,
-            ambiente=settings.arca_env,
+        elegibilidad_service = ElegibilidadReceService(self.db)
+        estado_rece = await elegibilidad_service.obtener_estado_visible(
+            punto_venta, ambiente=settings.arca_env
         )
         acreditado = estado_rece.estado_efectivo == "verificado_rece"
         tecnico_habilitado = bool(
@@ -351,11 +351,13 @@ class PerfilesCargaMasivaService:
             and not punto_venta.bloqueado
             and not punto_venta.fecha_baja
         )
-        puede_intentar = acreditado and (
-            tecnico_habilitado or punto_venta.ultima_comprobacion_arca_en is None
+        seleccionable = (
+            acreditado
+            and tecnico_habilitado
+            and not elegibilidad_service.comprobacion_arca_desactualizada(punto_venta)
         )
-        if not puede_intentar:
+        if not seleccionable:
             raise PerfilCargaMasivaError(
-                "El punto de venta elegido no está acreditado o tiene una señal "
-                "negativa confirmada por ARCA. Revisalo en Puntos de venta."
+                "El punto de venta elegido no está listo para emitir. "
+                "Comprobalo con ARCA desde Puntos de venta y volvé a intentarlo."
             )

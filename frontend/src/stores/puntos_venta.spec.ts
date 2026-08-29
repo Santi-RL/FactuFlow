@@ -59,6 +59,7 @@ const puntoVentaMock = (empresaId: number, numero: number): PuntoVenta => ({
   activo: true,
   usable_factuflow: true,
   puede_intentar_emision: true,
+  seleccionable_para_emision: true,
   ultima_comprobacion_arca_en: "2026-08-09T15:00:00Z",
   comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
@@ -114,6 +115,9 @@ const importResponseMock = (): ImportarPuntosVentaResponse => ({
   verificados_rece: 1,
   pendientes_comprobacion: 0,
   no_verificados_rece: 1,
+  listos_para_emitir: 1,
+  no_disponibles_factuflow: 1,
+  requieren_revision: 0,
   documento_emitido_en: "2026-08-09",
   vigente_hasta: null,
   warnings: [],
@@ -165,6 +169,82 @@ describe("puntos venta store", () => {
     expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
     expect(store.puntosVenta).toEqual(puntosActualizados);
     expect(store.syncing).toBe(false);
+  });
+
+  it("no consulta ARCA cuando todos los puntos acreditados están vigentes", async () => {
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    mockedPuntosVentaService.getAll.mockResolvedValue([puntoVentaMock(1, 1)]);
+    const store = usePuntosVentaStore();
+
+    await expect(store.prepareForSelection()).resolves.toBe(true);
+
+    expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
+    expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
+    expect(store.preparationError).toBeNull();
+  });
+
+  it("deduplica la comprobación previa y recarga puntos desactualizados", async () => {
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const desactualizado = {
+      ...puntoVentaMock(1, 1),
+      seleccionable_para_emision: false,
+      comprobacion_arca_desactualizada: true,
+    };
+    const actualizado = puntoVentaMock(1, 1);
+    mockedPuntosVentaService.getAll
+      .mockResolvedValueOnce([desactualizado])
+      .mockResolvedValueOnce([actualizado]);
+    mockedPuntosVentaService.sincronizarArca.mockResolvedValue(
+      syncResponseMock(),
+    );
+    const store = usePuntosVentaStore();
+
+    const preparacionA = store.prepareForSelection();
+    const preparacionB = store.prepareForSelection();
+    await expect(Promise.all([preparacionA, preparacionB])).resolves.toEqual([
+      true,
+      true,
+    ]);
+
+    expect(mockedPuntosVentaService.sincronizarArca).toHaveBeenCalledTimes(1);
+    expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(2);
+    expect(store.puntosVenta).toEqual([actualizado]);
+  });
+
+  it("conserva los puntos frescos y muestra una acción cuando ARCA falla", async () => {
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const fresco = puntoVentaMock(1, 1);
+    const pendiente = {
+      ...puntoVentaMock(1, 2),
+      activo: false,
+      usable_factuflow: false,
+      seleccionable_para_emision: false,
+      ultima_comprobacion_arca_en: null,
+      comprobacion_arca_desactualizada: true,
+    };
+    mockedPuntosVentaService.getAll.mockResolvedValue([fresco, pendiente]);
+    mockedPuntosVentaService.sincronizarArca.mockRejectedValue({
+      response: { status: 503, data: { detail: "ARCA no disponible" } },
+    });
+    const store = usePuntosVentaStore();
+
+    await expect(store.prepareForSelection()).resolves.toBe(false);
+
+    expect(store.puntosVenta).toEqual([fresco, pendiente]);
+    expect(store.puntosVenta[0].seleccionable_para_emision).toBe(true);
+    expect(store.puntosVenta[1].seleccionable_para_emision).toBe(false);
+    expect(store.preparationError).toBe(
+      "No pudimos comprobar algunos puntos. Seleccioná Comprobar con ARCA para volver a intentar.",
+    );
   });
 
   it("ignora sincronizaciones ARCA obsoletas cuando cambia el emisor activo", async () => {

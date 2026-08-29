@@ -426,6 +426,7 @@ async def test_perfil_acepta_punto_venta_habilitado(
         activo=True,
         es_webservice=True,
         bloqueado=False,
+        ultima_comprobacion_arca_en=datetime(2026, 8, 9, 15, 0, 0),
     )
     db_session.add(punto)
     service = ElegibilidadReceService(db_session, hoy=date(2026, 8, 9))
@@ -498,7 +499,7 @@ async def test_perfil_rechaza_punto_tecnico_sin_acreditacion_rece(
     )
 
     assert response.status_code == 400
-    assert "no está acreditado" in response.json()["detail"]
+    assert "no está listo para emitir" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

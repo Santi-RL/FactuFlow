@@ -186,6 +186,7 @@ const puntoVentaMock = (numero: number, empresaId: number): PuntoVenta => ({
   activo: true,
   usable_factuflow: true,
   puede_intentar_emision: true,
+  seleccionable_para_emision: true,
   ultima_comprobacion_arca_en: "2026-08-01T12:00:00Z",
   comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,

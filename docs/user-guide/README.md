@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 27/08/2026
+Última actualización: 29/08/2026
 
 Este manual describe las capacidades aceptadas del producto, no el estado de una
 instalación concreta.
@@ -799,18 +799,17 @@ de sincronizar.
 
 ## 9. Puntos de venta
 
-En `Puntos de venta` podés ver el estado técnico y la elegibilidad RECE efectiva
-de cada punto del emisor activo.
+En `Puntos de venta` podés ver cuáles puntos del emisor activo están disponibles
+para facturar.
 
 Importante:
 - el número debe coincidir con el punto habilitado en ARCA para el sistema usado
-- puedes usar `Comprobar con ARCA` para contrastar lo local con el servicio;
-  el backend aplica todos los cambios en una operación, pero esta consulta nunca
-  acredita RECE
-- cada fila resume el estado como `Listo para emitir`, `Comprobación
-  recomendada`, `Pendiente de comprobar con ARCA` o `Requiere atención`, junto
-  con causa, procedencia, ambiente, revisión fiscal y antigüedad de la última
-  comprobación
+- cualquier usuario autorizado puede usar `Comprobar con ARCA`; esta acción
+  actualiza la disponibilidad, pero nunca reemplaza la constancia inicial
+- los estados normales son breves: `Listo para emitir` / `Web Services activo`
+  o `No disponible en FactuFlow` / `Otro sistema`
+- cuando hace falta intervenir, FactuFlow muestra la acción concreta: importar
+  una constancia, regularizar el punto en ARCA o volver a comprobar
 - si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs y
   cierra cualquier editor pendiente del emisor anterior
@@ -824,25 +823,22 @@ Importante:
   la columna `ACTIVIDAD`. El PDF no se conserva. Una etiqueta genérica queda
   `No verificado`; homologación no se promueve con esta evidencia
 - si `Importar constancia` no puede consultar el estado técnico en ARCA, guarda
-  igualmente la acreditación y deja el punto `Pendiente de comprobar con ARCA`;
+  igualmente la acreditación y deja el punto pendiente;
   no hace falta volver a cargar el PDF
-- FactuFlow mantiene los puntos acreditados pendientes en los selectores con
-  “se comprobará al emitir”. Un bloqueo, baja o ausencia confirmados sí los
-  deshabilitan
+- antes de mostrar opciones de punto de venta, FactuFlow comprueba una sola vez
+  los acreditados pendientes o con 90 días y recarga la lista. Durante ese paso
+  muestra `Comprobando con ARCA…` y no preselecciona ninguna opción
+- si ARCA no responde, los puntos todavía vigentes continúan disponibles y los
+  pendientes quedan excluidos. Usá `Comprobar con ARCA` para reintentar
+- un punto bloqueado, dado de baja o ausente queda deshabilitado hasta
+  regularizarlo en ARCA y volver a comprobar
 - los datos importados se pueden editar manualmente desde `Editar`
 
-La acreditación inicial no vence. Después de 90 días, FactuFlow recomienda
-`Comprobar con ARCA`, pero la acción es opcional: si intentas emitir con un
-estado pendiente o desactualizado, el servidor comprueba automáticamente. Si
-ARCA no responde, devuelve un error temporal y no inicia la emisión. La
-instalación productiva `v0.2.2` todavía no incluye este flujo. PF-19C pertenece
-a la release publicada `v0.3.0` y
-trata como terminal solo un `10005` global estrictamente corroborado; detiene
-los grupos no enviados y deja cualquier respuesta incompleta o legacy en
-reconciliación. El `autoreview` final cerró limpio y la CI Nivel 2 del SHA
-funcional aprobó PostgreSQL real y Runtime Smoke. La aceptación PF-16G y el
-ensayo privado de backup/restauración/upgrade/rollback quedaron aprobados el
-10/08/2026. Un `10005` legacy no habilita reemisión ciega ni edición manual.
+La acreditación inicial no vence. La comprobación técnica se renueva antes de
+permitir la selección cuando está pendiente o cumplió 90 días. El servidor
+mantiene una segunda guarda inmediatamente antes del flujo fiscal para cubrir
+clientes API, sesiones largas y carreras. Si ARCA no responde en esa guarda,
+devuelve un error temporal y no inicia una emisión nueva.
 
 ## 10. Emisores
 

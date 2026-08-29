@@ -13,6 +13,14 @@ const adminUser = {
   ultimo_login: null,
 };
 
+const commonUser = {
+  ...adminUser,
+  id: 2,
+  email: "usuario.local@example.test",
+  nombre: "Usuario",
+  es_admin: false,
+};
+
 const empresa = {
   id: 1,
   razon_social: "Empresa Test S.A.",
@@ -50,6 +58,11 @@ const empresaSecundaria = {
 export const adminCredentials = {
   email: adminUser.email,
   password: "E2E_PASSWORD_PLACEHOLDER",
+};
+
+export const userCredentials = {
+  email: commonUser.email,
+  password: "E2E_USER_PASSWORD_PLACEHOLDER",
 };
 
 const corsHeaders = {
@@ -137,6 +150,7 @@ export const mockApi = async (page: Page) => {
         activo: true,
         usable_factuflow: true,
         puede_intentar_emision: true,
+        seleccionable_para_emision: true,
         ultima_comprobacion_arca_en: now,
         comprobacion_arca_desactualizada: false,
         revision_fiscal: 1,
@@ -233,6 +247,16 @@ export const mockApi = async (page: Page) => {
           user: adminUser,
         });
       }
+      if (
+        body.email === userCredentials.email &&
+        body.password === userCredentials.password
+      ) {
+        return jsonResponse(route, 200, {
+          access_token: "e2e-user-token",
+          token_type: "bearer",
+          user: commonUser,
+        });
+      }
       return jsonResponse(route, 401, {
         detail: "Email o contraseña incorrectos",
       });
@@ -240,7 +264,12 @@ export const mockApi = async (page: Page) => {
 
     if (path === "/api/auth/me" && method === "GET") {
       if (!hasAuthHeader(route)) return unauthorized(route);
-      return jsonResponse(route, 200, adminUser);
+      const authorization = route.request().headers()["authorization"] || "";
+      return jsonResponse(
+        route,
+        200,
+        authorization.includes("e2e-user-token") ? commonUser : adminUser,
+      );
     }
 
     // Empresa
@@ -263,6 +292,30 @@ export const mockApi = async (page: Page) => {
     if (path === "/api/puntos-venta" && method === "GET") {
       if (!hasAuthHeader(route)) return unauthorized(route);
       return jsonResponse(route, 200, state.puntosVenta);
+    }
+
+    if (path === "/api/puntos-venta/sincronizar-arca" && method === "POST") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      return jsonResponse(route, 200, {
+        total_arca: state.puntosVenta.length,
+        nuevos: 0,
+        existentes: state.puntosVenta.length,
+        actualizados: 0,
+        desactivados_ausentes: 0,
+        comprobado_en: now,
+      });
+    }
+
+    if (path === "/api/arca/status" && method === "GET") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      return jsonResponse(route, 200, {
+        ambiente: "produccion",
+        certificado_activo: true,
+        certificado_disponible: true,
+        certificado_id: 1,
+        certificado_nombre: "Certificado E2E",
+        certificado_vencimiento: "2027-12-31",
+      });
     }
 
     // Certificados
@@ -924,6 +977,21 @@ export const loginAsAdmin = async (page: Page) => {
   await page.goto("/login");
   await page.getByLabel(/correo electrónico/i).fill(adminCredentials.email);
   await page.getByLabel(/contraseña/i).fill(adminCredentials.password);
+  await Promise.all([
+    page.waitForURL(
+      (url) => url.pathname === "/" || url.pathname === "/dashboard",
+    ),
+    page.getByRole("button", { name: /ingresar/i }).click(),
+  ]);
+};
+
+export const loginAsUser = async (page: Page) => {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("empresa_activa_id");
+  });
+  await page.goto("/login");
+  await page.getByLabel(/correo electrónico/i).fill(userCredentials.email);
+  await page.getByLabel(/contraseña/i).fill(userCredentials.password);
   await Promise.all([
     page.waitForURL(
       (url) => url.pathname === "/" || url.pathname === "/dashboard",

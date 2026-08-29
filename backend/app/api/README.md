@@ -56,11 +56,13 @@ política de lote confirmada antes de validar.
 
 Regla de usuarios: `es_admin` significa administrar usuarios y operar cualquier
 emisor configurado. Los usuarios comunes activos solo pueden operar el emisor
-asignado en su cuenta. Además de `/api/usuarios` y `/api/almacenamiento`, crear,
-importar/atestar y sincronizar puntos de venta son acciones administrativas.
+asignado en su cuenta. Además de `/api/usuarios` y `/api/almacenamiento`, crear e
+importar/atestar puntos de venta son acciones administrativas. Comprobar con
+ARCA está disponible para cualquier usuario autorizado del emisor activo.
 
 Regla crítica PF-19B: el DTO de puntos expone `revision_fiscal`,
-`elegibilidad_rece` y `usable_factuflow`, calculado por el servidor. Un endpoint
+`elegibilidad_rece`, `usable_factuflow` y `seleccionable_para_emision`,
+calculados por el servidor. Un endpoint
 capaz de solicitar CAE exige estado efectivo `verificado_rece` para el ambiente
 actual antes de crear una operación o intento nuevo y antes de
 `FECAESolicitar`. Las lecturas WSFE seguras de la capa exterior batch no
@@ -73,7 +75,9 @@ página; el PDF no se persiste. La acreditación no vence por tiempo y la UI usa
 siempre este camino seguro sin modal intermedio. Homologación permanece
 bloqueada hasta una fuente probatoria específica. `POST
 /api/puntos-venta/sincronizar-arca` actualiza solo el estado técnico, conserva
-una acreditación previa y nunca promueve RECE.
+una acreditación previa y nunca promueve RECE. Los selectores preparan la lista
+antes de ofrecer puntos pendientes o con 90 días y usan únicamente el campo
+estricto de selección.
 
 Regla de almacenamiento: las rutas `/api/almacenamiento` solo pueden escanear
 rutas administradas por FactuFlow y tablas conocidas. No deben devolver rutas

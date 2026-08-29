@@ -85,6 +85,7 @@ const puntoVentaMock = (
   activo: true,
   usable_factuflow: true,
   puede_intentar_emision: true,
+  seleccionable_para_emision: true,
   ultima_comprobacion_arca_en: "2026-05-20T15:00:00Z",
   comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
@@ -382,6 +383,7 @@ describe("ComprobanteNuevoView", () => {
       puntoVentaMock(1, 1, {
         usable_factuflow: false,
         puede_intentar_emision: false,
+        seleccionable_para_emision: false,
         elegibilidad_rece: {
           ...puntoVentaMock(1, 1).elegibilidad_rece,
           estado: "no_verificado",
@@ -420,7 +422,7 @@ describe("ComprobanteNuevoView", () => {
     expect(vm.proximoNumero).toBe(42);
   });
 
-  it("mantiene seleccionable un punto acreditado pendiente de comprobar", async () => {
+  it("excluye un punto pendiente cuando la comprobación automática falla", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const empresaStore = useEmpresaStore();
@@ -431,6 +433,7 @@ describe("ComprobanteNuevoView", () => {
         activo: false,
         usable_factuflow: false,
         puede_intentar_emision: true,
+        seleccionable_para_emision: false,
         ultima_comprobacion_arca_en: null,
         comprobacion_arca_desactualizada: true,
       }),
@@ -447,11 +450,11 @@ describe("ComprobanteNuevoView", () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("se comprobará al emitir");
+    expect(wrapper.text()).not.toContain("se comprobará al emitir");
     expect(
       (wrapper.vm as unknown as { formData: { punto_venta_id: number } })
         .formData.punto_venta_id,
-    ).toBe(1);
+    ).toBe(0);
   });
 
   it("mantiene invalida una Factura A con receptor no CUIT", async () => {

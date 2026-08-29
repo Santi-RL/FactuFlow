@@ -817,6 +817,10 @@ async def test_primera_acreditacion_sin_arca_queda_pendiente_y_sync_habilita(
     assert pendiente["comprobacion_arca_desactualizada"] is True
     assert pendiente["usable_factuflow"] is False
     assert pendiente["puede_intentar_emision"] is True
+    assert pendiente["seleccionable_para_emision"] is False
+    assert importacion.json()["listos_para_emitir"] == 0
+    assert importacion.json()["no_disponibles_factuflow"] == 0
+    assert importacion.json()["requieren_revision"] == 1
 
     class ClienteWsfeActivo:
         async def fe_param_get_ptos_venta(self) -> list[SimpleNamespace]:
@@ -845,6 +849,62 @@ async def test_primera_acreditacion_sin_arca_queda_pendiente_y_sync_habilita(
     assert habilitado["ultima_comprobacion_arca_en"] is not None
     assert habilitado["usable_factuflow"] is True
     assert habilitado["puede_intentar_emision"] is True
+    assert habilitado["seleccionable_para_emision"] is True
+
+
+@pytest.mark.asyncio
+async def test_importacion_clasifica_tres_conteos_mutuamente_excluyentes(
+    client: AsyncClient,
+    admin_auth_headers: dict[str, str],
+    test_empresa: Empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El resumen separa listos, otros sistemas y puntos a revisar."""
+    _configurar_reloj_y_ambiente_rece(monkeypatch, ambiente="produccion")
+    _configurar_constancia_sintetica(
+        monkeypatch,
+        DatosConstanciaPuntosVenta(
+            cuit=test_empresa.cuit,
+            documento_emitido_en=HOY_RECE_PRUEBA,
+            puntos_venta=[
+                PuntoVentaConstancia(
+                    numero=158,
+                    sistema=SENAL_RECE_EXACTA,
+                    es_webservice=True,
+                ),
+                PuntoVentaConstancia(
+                    numero=159,
+                    sistema="Factuweb (Imprenta) - Exento en IVA",
+                    es_webservice=False,
+                ),
+                PuntoVentaConstancia(
+                    numero=160,
+                    sistema=SENAL_RECE_EXACTA,
+                    es_webservice=True,
+                ),
+            ],
+        ),
+        estado_arca={158: {"bloqueado": False, "fecha_baja": None}},
+    )
+
+    response = await client.post(
+        "/api/puntos-venta/importar-constancia",
+        headers=_headers_admin_emisor(admin_auth_headers, test_empresa),
+        data={"confirmar_procedencia_produccion": "true"},
+        files={"file": ("constancia.pdf", b"%PDF", "application/pdf")},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["listos_para_emitir"] == 1
+    assert payload["no_disponibles_factuflow"] == 1
+    assert payload["requieren_revision"] == 1
+    assert (
+        payload["listos_para_emitir"]
+        + payload["no_disponibles_factuflow"]
+        + payload["requieren_revision"]
+        == payload["total_constancia"]
+    )
 
 
 @pytest.mark.asyncio
@@ -1025,6 +1085,9 @@ async def test_atestacion_productiva_exacta_es_visible_y_monotonica(
     assert respuestas[0].json()["verificados_rece"] == 1
     assert respuestas[0].json()["pendientes_comprobacion"] == 0
     assert respuestas[0].json()["no_verificados_rece"] == 0
+    assert respuestas[0].json()["listos_para_emitir"] == 1
+    assert respuestas[0].json()["no_disponibles_factuflow"] == 0
+    assert respuestas[0].json()["requieren_revision"] == 0
     assert respuestas[0].json()["documento_emitido_en"] == "2026-08-09"
     assert respuestas[0].json()["vigente_hasta"] is None
 
@@ -1035,6 +1098,7 @@ async def test_atestacion_productiva_exacta_es_visible_y_monotonica(
     assert dto["revision_fiscal"] == 3
     assert dto["usable_factuflow"] is True
     assert dto["puede_intentar_emision"] is True
+    assert dto["seleccionable_para_emision"] is True
     assert dto["ultima_comprobacion_arca_en"] is not None
     assert dto["comprobacion_arca_desactualizada"] is False
     assert elegibilidad["ambiente"] == "produccion"
@@ -1429,7 +1493,6 @@ async def test_constancia_completa_invalida_ausente_previamente_verificado(
         documento_emitido_en=HOY_RECE_PRUEBA,
         actor_usuario_id=int(test_admin.id),
     )
-
     _configurar_constancia_sintetica(
         monkeypatch,
         DatosConstanciaPuntosVenta(
@@ -2111,12 +2174,12 @@ async def test_feparam_omite_punto_de_constancia_y_lo_deja_inactivo(
 
 
 @pytest.mark.asyncio
-async def test_sincronizacion_arca_es_admin_fail_closed_y_monotonica(
+async def test_sincronizacion_arca_admite_operador_y_es_fail_closed_y_monotonica(
     client: AsyncClient,
     auth_headers: dict[str, str],
-    admin_auth_headers: dict[str, str],
     db_session: AsyncSession,
     test_empresa: Empresa,
+    segundo_emisor: Empresa,
     test_admin: Usuario,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -2167,6 +2230,22 @@ async def test_sincronizacion_arca_es_admin_fail_closed_y_monotonica(
         actor_usuario_id=int(test_admin.id),
     )
 
+    punto_otro_emisor = PuntoVenta(
+        numero=69,
+        nombre="Mismo número en otro emisor",
+        sistema=SENAL_RECE_EXACTA,
+        es_webservice=True,
+        bloqueado=False,
+        activo=True,
+        empresa_id=segundo_emisor.id,
+    )
+    db_session.add(punto_otro_emisor)
+    await ElegibilidadReceService(
+        db_session,
+        hoy=HOY_RECE_PRUEBA,
+    ).crear_contextos_iniciales_no_verificados(punto_otro_emisor)
+    await db_session.commit()
+
     class ClienteWsfeSintetico:
         """Doble mínimo de la lectura técnica de puntos ARCA."""
 
@@ -2198,16 +2277,8 @@ async def test_sincronizacion_arca_es_admin_fail_closed_y_monotonica(
         "/api/puntos-venta/sincronizar-arca",
         headers=auth_headers,
     )
-    assert operador.status_code == 403
-    assert consultas == 0
-
-    response = await client.post(
-        "/api/puntos-venta/sincronizar-arca",
-        headers=_headers_admin_emisor(admin_auth_headers, test_empresa),
-    )
-
-    assert response.status_code == 200, response.text
-    payload = response.json()
+    assert operador.status_code == 200, operador.text
+    payload = operador.json()
     comprobado_en = payload.pop("comprobado_en")
     assert datetime.fromisoformat(comprobado_en)
     assert payload == {
@@ -2224,6 +2295,9 @@ async def test_sincronizacion_arca_es_admin_fail_closed_y_monotonica(
     assert puntos[69].revision_fiscal == 2
     assert puntos[70].activo is False
     assert puntos[70].revision_fiscal == 3
+    await db_session.refresh(punto_otro_emisor)
+    assert punto_otro_emisor.activo is True
+    assert punto_otro_emisor.revision_fiscal == 1
     nuevo = (
         await db_session.execute(
             select(PuntoVenta).where(

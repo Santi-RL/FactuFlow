@@ -116,6 +116,7 @@ const puntoVentaMock = (
   activo: true,
   usable_factuflow: true,
   puede_intentar_emision: true,
+  seleccionable_para_emision: true,
   ultima_comprobacion_arca_en: "2026-08-09T15:00:00Z",
   comprobacion_arca_desactualizada: false,
   revision_fiscal: 1,
@@ -175,6 +176,9 @@ const importResponseMock = (): ImportarPuntosVentaResponse => ({
   verificados_rece: 1,
   pendientes_comprobacion: 0,
   no_verificados_rece: 1,
+  listos_para_emitir: 1,
+  no_disponibles_factuflow: 1,
+  requieren_revision: 0,
   documento_emitido_en: "2026-08-09",
   vigente_hasta: null,
   warnings: [],
@@ -284,6 +288,7 @@ describe("PuntosVentaView", () => {
       nombre: "Punto no RECE",
       usable_factuflow: false,
       puede_intentar_emision: false,
+      seleccionable_para_emision: false,
       elegibilidad_rece: elegibilidadReceMock({
         estado: "no_rece",
         estado_efectivo: "no_rece",
@@ -298,6 +303,7 @@ describe("PuntosVentaView", () => {
       numero: 3,
       nombre: "Punto desactualizado",
       comprobacion_arca_desactualizada: true,
+      seleccionable_para_emision: false,
       ultima_comprobacion_arca_en: "2026-05-01T12:00:00Z",
     });
     const pendiente = puntoVentaMock(1, {
@@ -307,6 +313,7 @@ describe("PuntosVentaView", () => {
       activo: false,
       usable_factuflow: false,
       puede_intentar_emision: true,
+      seleccionable_para_emision: false,
       ultima_comprobacion_arca_en: null,
       comprobacion_arca_desactualizada: true,
     });
@@ -317,6 +324,39 @@ describe("PuntosVentaView", () => {
       activo: false,
       usable_factuflow: false,
       puede_intentar_emision: false,
+      seleccionable_para_emision: false,
+    });
+    const otroSistema = puntoVentaMock(1, {
+      id: 16,
+      numero: 6,
+      nombre: "Punto de imprenta",
+      sistema: "Factuweb (Imprenta) - Exento en IVA",
+      es_webservice: false,
+      activo: false,
+      usable_factuflow: false,
+      puede_intentar_emision: false,
+      seleccionable_para_emision: false,
+      elegibilidad_rece: elegibilidadReceMock({
+        estado: "no_rece",
+        estado_efectivo: "no_rece",
+        motivo: "punto_no_rece",
+      }),
+    });
+    const noVerificado = puntoVentaMock(1, {
+      id: 17,
+      numero: 7,
+      nombre: "Punto sin constancia",
+      usable_factuflow: false,
+      puede_intentar_emision: false,
+      seleccionable_para_emision: false,
+      elegibilidad_rece: elegibilidadReceMock({
+        estado: "no_verificado",
+        estado_efectivo: "no_verificado",
+        fuente: null,
+        verificado_en: null,
+        vigente_hasta: null,
+        motivo: "sin_constancia",
+      }),
     });
     mockedArcaService.getStatus.mockResolvedValue(
       statusMock("produccion", true),
@@ -327,6 +367,8 @@ describe("PuntosVentaView", () => {
       desactualizado,
       pendiente,
       ausente,
+      otroSistema,
+      noVerificado,
     ]);
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
@@ -339,32 +381,30 @@ describe("PuntosVentaView", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Listo para emitir");
-    expect(wrapper.text()).toContain("Requiere atención");
-    expect(wrapper.text()).toContain("Comprobación recomendada");
-    expect(wrapper.text()).toContain("Pendiente de comprobar con ARCA");
-    expect(wrapper.text()).toContain("Pendiente de ARCA");
+    expect(wrapper.text()).toContain("Falta validar");
+    expect(wrapper.text()).toContain("Comprobación necesaria");
+    expect(wrapper.text()).toContain("Pendiente de comprobar");
     expect(wrapper.text()).toContain("Ausente en ARCA");
-    expect(wrapper.text()).toContain(
-      "La evidencia vigente indica que el punto no es RECE.",
-    );
-    expect(wrapper.text()).toContain(
-      "La constancia acredita este punto de venta sin vencimiento temporal.",
-    );
+    expect(wrapper.text()).toContain("No disponible en FactuFlow");
+    expect(wrapper.text()).toContain("Otro sistema");
+    expect(wrapper.text()).not.toContain("Requiere atención");
+    expect(wrapper.text()).not.toContain("Revisión fiscal");
     expect(wrapper.text()).not.toContain("Vigente hasta");
-    expect(wrapper.findAll("tbody tr")).toHaveLength(5);
+    expect(wrapper.findAll("tbody tr")).toHaveLength(7);
 
     const filtro = wrapper
       .findAll("label")
-      .find((label) => label.text().includes("Solo elegibles para emitir"));
+      .find((label) => label.text().includes("Mostrar sólo los disponibles"));
     expect(filtro).toBeDefined();
     await filtro!.get('input[type="checkbox"]').setValue(true);
 
-    expect(wrapper.findAll("tbody tr")).toHaveLength(3);
+    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
     expect(wrapper.text()).toContain("0001");
     expect(wrapper.text()).not.toContain("0002");
-    expect(wrapper.text()).toContain("0003");
-    expect(wrapper.text()).toContain("0004");
+    expect(wrapper.text()).not.toContain("0003");
+    expect(wrapper.text()).not.toContain("0004");
     expect(wrapper.text()).not.toContain("0005");
+    expect(wrapper.text()).not.toContain("0007");
   });
 
   it("procesa una sola carga segura sin modal intermedio", async () => {
@@ -418,9 +458,7 @@ describe("PuntosVentaView", () => {
     );
     expect(notificationMocks.showWarning).toHaveBeenCalledWith(
       "Constancia importada con observaciones",
-      expect.stringMatching(
-        /Acreditados por constancia: 1.*Pendientes de comprobar con ARCA: 1.*No compatibles: 1.*No se desactivaron puntos ausentes/,
-      ),
+      "Listos para emitir: 1. No disponibles en FactuFlow: 1. Requieren revisión: 0. Revisá los puntos que requieren una acción.",
     );
     expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
   });
@@ -493,9 +531,8 @@ describe("PuntosVentaView", () => {
       .map((button) => button.text().trim());
     expect(botonesVisibles).not.toContain("Sincronizar con ARCA");
     expect(botonesVisibles).not.toContain("Importar constancia");
-    expect(wrapper.text()).toContain(
-      "Solo un administrador puede comprobar con ARCA",
-    );
+    expect(wrapper.text()).toContain("Podés consultar y comprobar");
+    expect(botonesVisibles).toContain("Comprobar con ARCA");
 
     const vm = wrapper.vm as unknown as {
       editarPunto: (punto: PuntoVenta) => void;

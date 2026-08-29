@@ -10,10 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.arca import get_wsfe_client
-from app.api.deps import get_current_empresa_id
+from app.api.deps import get_current_empresa_id, get_current_empresa_user
 from app.core.config import settings
 from app.core.database import get_db
-from app.api.deps import get_current_empresa_user
 from app.core.security import get_current_admin_user
 from app.models.empresa import Empresa
 from app.models.usuario import Usuario
@@ -76,6 +75,7 @@ async def _serializar_punto_venta(
                 or punto_venta.ultima_comprobacion_arca_en is None
             )
         ),
+        seleccionable_para_emision=bool(usable and not comprobacion_desactualizada),
         ultima_comprobacion_arca_en=punto_venta.ultima_comprobacion_arca_en,
         comprobacion_arca_desactualizada=comprobacion_desactualizada,
         revision_fiscal=int(punto_venta.revision_fiscal),
@@ -486,6 +486,26 @@ async def importar_constancia_puntos_venta(
             "la consulta técnica WSFE y quedaron inactivos."
         )
 
+    puntos_importados_result = await db.execute(
+        select(PuntoVenta).where(
+            PuntoVenta.empresa_id == empresa_id,
+            PuntoVenta.numero.in_(numeros_constancia),
+        )
+    )
+    puntos_importados = list(puntos_importados_result.scalars().all())
+    respuestas_importadas = [
+        await _serializar_punto_venta(db, punto) for punto in puntos_importados
+    ]
+    listos_para_emitir = sum(
+        punto.seleccionable_para_emision for punto in respuestas_importadas
+    )
+    no_disponibles_factuflow = sum(
+        not punto.es_webservice for punto in puntos_importados
+    )
+    requieren_revision = (
+        len(datos.puntos_venta) - listos_para_emitir - no_disponibles_factuflow
+    )
+
     return ImportarPuntosVentaResponse(
         total_constancia=len(datos.puntos_venta),
         creados=creados,
@@ -495,6 +515,9 @@ async def importar_constancia_puntos_venta(
         verificados_rece=verificados_rece,
         pendientes_comprobacion=pendientes_comprobacion,
         no_verificados_rece=no_verificados_rece,
+        listos_para_emitir=listos_para_emitir,
+        no_disponibles_factuflow=no_disponibles_factuflow,
+        requieren_revision=requieren_revision,
         documento_emitido_en=datos.documento_emitido_en,
         vigente_hasta=None,
         warnings=warnings,
@@ -545,7 +568,7 @@ async def _obtener_estado_puntos_arca(
 @router.post("/sincronizar-arca", response_model=SincronizarPuntosVentaResponse)
 async def sincronizar_puntos_venta_arca(
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_admin_user),
+    current_user: Usuario = Depends(get_current_empresa_user),
     empresa_id: int = Depends(get_current_empresa_id),
 ) -> SincronizarPuntosVentaResponse:
     """Comprueba el estado técnico WSFE sin promover elegibilidad RECE."""

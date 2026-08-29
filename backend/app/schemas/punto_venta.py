@@ -60,6 +60,9 @@ class ImportarPuntosVentaResponse(BaseModel):
     verificados_rece: int = 0
     pendientes_comprobacion: int = 0
     no_verificados_rece: int = 0
+    listos_para_emitir: int = 0
+    no_disponibles_factuflow: int = 0
+    requieren_revision: int = 0
     documento_emitido_en: date | None = None
     vigente_hasta: date | None = None
     warnings: list[str] = Field(default_factory=list)
@@ -99,6 +102,7 @@ class PuntoVentaResponse(PuntoVentaBase):
     activo: bool
     usable_factuflow: bool
     puede_intentar_emision: bool
+    seleccionable_para_emision: bool
     ultima_comprobacion_arca_en: datetime | None = None
     comprobacion_arca_desactualizada: bool
     revision_fiscal: int

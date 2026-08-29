@@ -298,8 +298,10 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
         futura y con señal exacta; la sincronización WSFE server-side nunca promueve
         RECE. En `0.3.1` la acreditación inicial es durable y se separa de la
         comprobación técnica recomendada cada 90 días. API, badges, perfiles, Excel
-        y selectores consumen el estado efectivo; un punto pendiente o
-        desactualizado se comprueba automáticamente antes de emitir. Homologación
+        y selectores consumen el estado efectivo. En `0.3.2` un punto pendiente
+        o desactualizado se comprueba antes de habilitar la selección y permanece
+        excluido si ARCA no responde; la guarda final previa a CAE se conserva.
+        Homologación
         permanece cerrada mientras no exista una fuente probatoria específica.
         El parche actualiza además el parser para `P.VTA.` + `ACTIVIDAD` y eleva el
         clasificador a una allowlist exacta de modalidades Web Services para
@@ -435,10 +437,11 @@ Consolidar el MVP después del uso productivo real controlado, centrado en:
       confirmado y cierran borrados/editores pendientes al cambiar de CUIT
 - [x] Importación de constancias descarta notificaciones obsoletas al cambiar de
       emisor; la verificación de certificado bloquea reintentos concurrentes
-- [x] Puntos de venta muestra badges `Verificado RECE`, `No RECE` y
-      `No verificado`, procedencia y vigencia. La importación permite conservar la
-      constancia sin acreditar o atestiguar expresamente su procedencia productiva;
-      sincronizar con WSFE actualiza solo disponibilidad técnica
+- [x] Puntos de venta muestra estados simples y accionables: `Listo para emitir`,
+      `No disponible en FactuFlow`, `Comprobación necesaria`, `Falta validar` y
+      `No disponible para emitir`. Los estados normales no exponen procedencia,
+      ambiente ni revisión fiscal; comprobar con ARCA actualiza solo
+      disponibilidad técnica
 - [x] El selector de clientes cierra resultados anteriores cuando la búsqueda
       queda por debajo del mínimo o cambia mientras una request está en curso
 - [x] Autodetección asistida de formato al subir Excel externo para emisión masiva
@@ -1198,8 +1201,10 @@ Objetivo: profesionalizar la entrega del producto.
 - [x] Release `v0.3.1` publicada el 28/08/2026 desde el tag inmutable que apunta
       a `7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7`, con notas, CI Nivel 2 y
       `autoreview` verdes
-- [ ] Despliegue productivo separado de `v0.3.1`, sujeto a comprobar el tag/SHA
-      observado, aplicar una única migración y cerrar QA post-deploy sin CAE
+- [x] Despliegue productivo separado de `v0.3.1` registrado en el plano de
+      control, con SHA exacto, Alembic `d1e2f3a4b5c6` y QA post-deploy sin CAE
+- [ ] Release `v0.3.2`: selección estricta posterior a comprobación, UX simple,
+      siete checks, publicación y despliegue por SHA exacto sin cambios de base
 
 #### Guía flexible de cortes
 
@@ -1232,7 +1237,7 @@ release: cada corte debe ser coherente, desplegable y reversible por sí mismo.
   vigentes y la acreditación durable de puntos de venta. El merge funcional
   `e49a8baf` aprobó los siete checks y el `autoreview` final cerró limpio. El
   tag `7afba87b` y la GitHub Release se publicaron el 28/08/2026; el despliegue
-  permanece como checkpoint separado.
+  posterior quedó registrado en el plano de control `vps-admin`.
 - **P2 posterior a `v0.3.0` — autenticidad de manifests VPS reatestiguados
   coordinadamente:** diseñar una firma externa verificable de manifests y la
   coordinación de la reatestación entre origen/destino. No se implementa en
@@ -1278,10 +1283,10 @@ Objetivo: ampliar valor más allá del MVP.
 
 ## Prioridades inmediatas
 
-1. Desplegar el tag exacto `v0.3.1` mediante `vps-admin`. Confirmar el origen
-   observado, Alembic `c0d1e2f3a4b -> d1e2f3a4b5c6`, la reutilización explícita
-   del backup y la QA post-deploy sin provocar CAE.
-2. Retomar PF-03 con PF-03B después de desplegar `v0.3.1`:
+1. Completar `v0.3.2`: integrar la UX aprobada, publicar el tag inmutable y
+   desplegar por `vps-admin` únicamente si los siete checks y el preflight
+   confirman ausencia de cambios de base, dependencias o configuración.
+2. Retomar PF-03 con PF-03B después de `v0.3.2`:
    separar el DTO de ítem que serializa la UI, hacer estricto
    `ItemComprobanteCreate` y rechazar descuentos
    o valores no finitos antes de calcular totales. PF-03A está cerrado y PF-05
