@@ -95,7 +95,9 @@ const errorProximoNumero = ref("");
 let proximoNumeroRequestId = 0;
 const puntosVenta = computed(() => puntosVentaStore.puntosVenta);
 const puntosVentaUsables = computed(() =>
-  puntosVenta.value.filter((puntoVenta) => puntoVenta.puede_intentar_emision),
+  puntosVenta.value.filter(
+    (puntoVenta) => puntoVenta.seleccionable_para_emision,
+  ),
 );
 const empresaId = computed(() => empresaStore.empresaActivaId || 0);
 const empresaActiva = computed(() => empresaStore.empresaActiva);
@@ -323,7 +325,8 @@ const normalizarClienteParaTipoComprobante = () => {
 
 const cargarDatosEmisorActivo = async () => {
   try {
-    await puntosVentaStore.fetchPuntosVenta();
+    formData.value.punto_venta_id = 0;
+    await puntosVentaStore.prepareForSelection();
   } catch (error) {
     console.error("Error al cargar puntos de venta:", error);
   }
@@ -586,7 +589,7 @@ const actualizarProximoNumero = async () => {
 
   try {
     const puntoVenta = puntosVenta.value.find((pv) => pv.id === puntoVentaId);
-    if (!puntoVenta?.puede_intentar_emision) {
+    if (!puntoVenta?.seleccionable_para_emision) {
       errorProximoNumero.value =
         "El punto de venta seleccionado no está disponible para emitir.";
       return;
@@ -1037,9 +1040,17 @@ const confirmarCancelacion = () => {
               id="punto-venta"
               v-model="formData.punto_venta_id"
               required
+              :disabled="puntosVentaStore.preparingForSelection"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @change="actualizarProximoNumero"
             >
+              <option :value="0" disabled>
+                {{
+                  puntosVentaStore.preparingForSelection
+                    ? "Comprobando con ARCA…"
+                    : "Seleccioná un punto de venta"
+                }}
+              </option>
               <option
                 v-for="pv in puntosVentaUsables"
                 :key="pv.id"
@@ -1047,17 +1058,23 @@ const confirmarCancelacion = () => {
               >
                 {{ String(pv.numero).padStart(4, "0") }} -
                 {{ pv.nombre || "Sin nombre" }}
-                <template v-if="!pv.usable_factuflow">
-                  (se comprobará al emitir)
-                </template>
               </option>
             </select>
             <p
-              v-if="puntosVentaUsables.length === 0"
+              v-if="puntosVentaStore.preparationError"
+              class="mt-1 text-sm text-amber-700"
+            >
+              {{ puntosVentaStore.preparationError }}
+            </p>
+            <p
+              v-else-if="
+                !puntosVentaStore.preparingForSelection &&
+                puntosVentaUsables.length === 0
+              "
               class="mt-1 text-sm text-red-600"
             >
-              No hay puntos de venta acreditados que puedan comprobarse para
-              emitir.
+              No hay puntos de venta listos para emitir. Revisalos en Puntos de
+              venta.
             </p>
           </div>
 

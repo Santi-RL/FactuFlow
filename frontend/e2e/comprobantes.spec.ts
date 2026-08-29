@@ -71,7 +71,7 @@ test.describe("Emisión de Comprobantes", () => {
 
     // Completar tipo de comprobante
     await page.getByLabel(/tipo de comprobante/i).selectOption("1");
-    await page.getByLabel(/punto de venta/i).selectOption({ index: 0 });
+    await page.getByLabel(/punto de venta/i).selectOption("1");
 
     // Agregar un item con valores
     await page
@@ -142,7 +142,7 @@ test.describe("Emisión de Comprobantes", () => {
     ]);
 
     await page.getByLabel(/tipo de comprobante/i).selectOption("6"); // Factura B
-    await page.getByLabel(/punto de venta/i).selectOption({ index: 0 });
+    await page.getByLabel(/punto de venta/i).selectOption("1");
     await page.getByLabel(/concepto/i).selectOption("1");
     await page.locator('input[type="date"]').first().fill("2026-03-09");
 
@@ -242,7 +242,7 @@ test.describe("Emisión de Comprobantes", () => {
     ]);
 
     await page.getByLabel(/tipo de comprobante/i).selectOption("6");
-    await page.getByLabel(/punto de venta/i).selectOption({ index: 0 });
+    await page.getByLabel(/punto de venta/i).selectOption("1");
     await page.getByLabel(/concepto/i).selectOption("1");
     await page.locator('input[type="date"]').first().fill("2026-03-09");
     await page.getByTestId("cliente-nuevo-manual").click();

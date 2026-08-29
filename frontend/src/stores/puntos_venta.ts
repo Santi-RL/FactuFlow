@@ -14,16 +14,23 @@ const EMISOR_ACTIVO_REQUERIDO =
   "Seleccioná un emisor activo antes de sincronizar puntos de venta con ARCA";
 const EMISOR_ACTIVO_IMPORTACION_REQUERIDO =
   "Seleccioná un emisor activo antes de importar una constancia de ARCA";
+const ERROR_PREPARACION_PUNTOS =
+  "No pudimos comprobar algunos puntos. Seleccioná Comprobar con ARCA para volver a intentar.";
 
 export const usePuntosVentaStore = defineStore("puntosVenta", () => {
   const puntosVenta = ref<PuntoVenta[]>([]);
   const loading = ref(false);
   const syncing = ref(false);
   const importing = ref(false);
+  const preparingForSelection = ref(false);
+  const preparationError = ref<string | null>(null);
   const error = ref<string | null>(null);
   let fetchPuntosVentaRequestId = 0;
   let syncFromArcaRequestId = 0;
   let importarConstanciaRequestId = 0;
+  let prepareForSelectionRequestId = 0;
+  let preparationPromise: Promise<boolean> | null = null;
+  let preparationEmpresaId: number | null = null;
 
   const fetchPuntosVenta = async () => {
     const requestId = ++fetchPuntosVentaRequestId;
@@ -150,6 +157,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
       if (!isCurrentRequest()) return resultado;
 
       await fetchPuntosVenta();
+      preparationError.value = null;
       return resultado;
     } catch (err: any) {
       if (isCurrentRequest()) {
@@ -160,6 +168,66 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     } finally {
       if (requestId === importarConstanciaRequestId) {
         importing.value = false;
+      }
+    }
+  };
+
+  const prepareForSelection = async (): Promise<boolean> => {
+    const empresaStore = useEmpresaStore();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
+    if (preparationPromise && preparationEmpresaId === empresaIdSolicitada) {
+      return preparationPromise;
+    }
+
+    const requestId = ++prepareForSelectionRequestId;
+    const empresaIdConfirmadaSolicitada = empresaIdSolicitada
+      ? String(empresaIdSolicitada)
+      : null;
+    const isCurrentRequest = () =>
+      requestId === prepareForSelectionRequestId &&
+      empresaStore.empresaActivaId === empresaIdSolicitada &&
+      empresaIdConfirmadaSolicitada !== null &&
+      getEmpresaActivaIdForRequest() === empresaIdConfirmadaSolicitada;
+
+    const runPreparation = async (): Promise<boolean> => {
+      preparingForSelection.value = true;
+      preparationError.value = null;
+      try {
+        await fetchPuntosVenta();
+        if (!isCurrentRequest()) return false;
+
+        const requiereComprobacion = puntosVenta.value.some(
+          (punto) =>
+            punto.elegibilidad_rece.estado_efectivo === "verificado_rece" &&
+            punto.comprobacion_arca_desactualizada,
+        );
+        if (!requiereComprobacion) return true;
+
+        try {
+          await syncFromArca();
+        } catch {
+          if (isCurrentRequest()) {
+            preparationError.value = ERROR_PREPARACION_PUNTOS;
+          }
+          return false;
+        }
+        return isCurrentRequest();
+      } finally {
+        if (requestId === prepareForSelectionRequestId) {
+          preparingForSelection.value = false;
+        }
+      }
+    };
+
+    preparationEmpresaId = empresaIdSolicitada;
+    const promise = runPreparation();
+    preparationPromise = promise;
+    try {
+      return await promise;
+    } finally {
+      if (preparationPromise === promise) {
+        preparationPromise = null;
+        preparationEmpresaId = null;
       }
     }
   };
@@ -200,6 +268,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
       if (!isCurrentRequest()) return emptyResult;
 
       await fetchPuntosVenta();
+      preparationError.value = null;
       return resultado;
     } catch (err: any) {
       if (!isCurrentRequest()) {
@@ -221,6 +290,8 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     loading,
     syncing,
     importing,
+    preparingForSelection,
+    preparationError,
     error,
     fetchPuntosVenta,
     createPuntoVenta,
@@ -228,5 +299,6 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     deletePuntoVenta,
     importarConstancia,
     syncFromArca,
+    prepareForSelection,
   };
 });

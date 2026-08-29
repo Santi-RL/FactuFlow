@@ -452,11 +452,13 @@ contenido fiscal sensible.
    una acreditación positiva previa. Una primera importación sin ARCA queda
    pendiente; una comprobación posterior la habilita sin otro PDF. Respuesta
    vacía, inconsistente o fallida no modifica estados.
-3. Verificar DTO y UI: `Listo para emitir`, `Comprobación recomendada`,
-   `Pendiente de comprobar con ARCA` y `Requiere atención`, con causa,
-   procedencia, revisión y antigüedad técnica. Los selectores consumen
-   `puede_intentar_emision`: muestran acreditados pendientes con “se comprobará
-   al emitir” y deshabilitan señales negativas.
+3. Verificar DTO y UI: los selectores consumen exclusivamente
+   `seleccionable_para_emision`. Los estados normales muestran solo `Listo para
+   emitir` / `Web Services activo` o `No disponible en FactuFlow` / `Otro
+   sistema`. Los estados de error muestran `Comprobación necesaria`, `Falta
+   validar` o `No disponible para emitir` con una acción concreta. No aparecen
+   `Requiere atención`, “se comprobará al emitir”, procedencia, ambiente ni
+   revisión fiscal.
 4. Cambiar punto, ambiente o revisión después de validar/confirmar. El flujo
    individual, proceso batch, worker, fallback, reintento y recuperación stale
    deben abortar una continuación obsoleta antes de FECAE. Un replay terminal
@@ -466,29 +468,40 @@ contenido fiscal sensible.
    nuevos, y cero FECAE. WSAA o lecturas seguras como `FECompTotXRequest` y
    `FECompUltimoAutorizado` pueden haberse ejecutado: no exigir “cero contacto
    ARCA” en este caso.
-6. Forzar punto pendiente, exactamente 90 días y fresco. El fresco no consulta;
-   los otros consultan una sola vez por emisor. Si ARCA no responde, exigir
-   `503`, cero operaciones, intentos, reservas y `FECAESolicitar`; un replay
-   terminal mantiene su respuesta durable sin reevaluación.
-7. Ejecutar upgrade/downgrade SQLite solo con backup físico distinto y
+6. Forzar punto pendiente, exactamente 90 días y fresco. Al abrir nueva factura,
+   lotes y perfiles, el fresco no consulta; los otros consultan como máximo una
+   vez por emisor, recargan el listado y recién entonces habilitan el selector.
+   Durante la espera debe verse `Comprobando con ARCA…` sin preselección. Si ARCA
+   no responde, conservar los puntos frescos, excluir pendientes y mostrar la
+   acción de reintento. La guarda final debe devolver `503` con cero operaciones,
+   intentos, reservas y `FECAESolicitar`; un replay terminal mantiene su
+   respuesta durable sin reevaluación.
+7. Ingresar como usuario común autorizado: `Comprobar con ARCA` debe estar
+   disponible, mientras `Importar constancia` y la edición fiscal siguen
+   reservadas al administrador. Repetir con dos emisores y confirmar que una
+   respuesta tardía nunca reemplaza el listado del emisor actual.
+8. Importar una constancia sintética con un punto listo, otro sistema y uno que
+   requiere revisión. El resumen debe informar exactamente esas tres cantidades,
+   ser mutuamente excluyente y no exponer warnings técnicos internos.
+9. Ejecutar upgrade/downgrade SQLite solo con backup físico distinto y
    verificado; ante falla posterior a DDL, restaurarlo antes de reintentar. La
    matriz PostgreSQL se ejecuta en CI con el harness destructivo exacto; un skip
    local sin URL no acredita PostgreSQL.
-8. Con un emisor sintético sin dependencias y una constancia que crearía su
+10. Con un emisor sintético sin dependencias y una constancia que crearía su
    primer punto, intercalar cambio de CUIT y atestación en ambos órdenes. Si gana
    el update, debe quedar el CUIT nuevo y cero punto/evidencia de la constancia
    anterior. Si gana la atestación, deben quedar el CUIT original y su revisión
    positiva, mientras el update responde `409`. Nunca debe existir evidencia
    positiva asociada a otra identidad fiscal.
-9. Sobre un punto sintético, intercalar la atestación con `activo=false` y con
+11. Sobre un punto sintético, intercalar la atestación con `activo=false` y con
    `es_admin=false`, en ambos órdenes. Si gana la degradación, no debe crearse
    evidencia positiva; si gana la atestación, la revisión se confirma bajo la
    autoridad todavía válida y el cambio del actor continúa después. Estos casos
    requieren PostgreSQL real en CI; un collect/skip local no los acredita.
-10. Después de atestiguar, simular una divergencia legacy del CUIT y exigir el
+12. Después de atestiguar, simular una divergencia legacy del CUIT y exigir el
    contexto RECE. Debe fallar cerrado por `empresa_cuit_snapshot` obsoleto antes
    de `FECAESolicitar`; no reparar el ledger ni promover automáticamente.
-11. Demorar por separado formatos, perfiles y puntos de Lotes para el emisor A,
+13. Demorar por separado formatos, perfiles y puntos de Lotes para el emisor A,
     y cambiar a B o C entre esperas. Antes del primer `await` del watcher deben
     quedar vacías las tres colecciones; cada respuesta/error tardío se descarta y
     la cadena obsoleta no inicia el loader siguiente. Repetir en EmpresaConfig

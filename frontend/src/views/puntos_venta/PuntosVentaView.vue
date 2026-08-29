@@ -7,7 +7,6 @@ import { useAuthStore } from "@/stores/auth";
 import { useNotification } from "@/composables/useNotification";
 import { arcaService } from "@/services/arca.service";
 import type { PuntoVenta, PuntoVentaUpdate } from "@/types/punto_venta";
-import { formatearFecha } from "@/composables/useFormatters";
 import { getEmpresaActivaIdForRequest } from "@/utils/empresa-activa-storage";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -16,11 +15,7 @@ import BaseModal from "@/components/ui/BaseModal.vue";
 import BaseTable from "@/components/ui/BaseTable.vue";
 import BaseBadge from "@/components/ui/BaseBadge.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
-import {
-  ArrowPathIcon,
-  ArrowDownTrayIcon,
-  PencilSquareIcon,
-} from "@heroicons/vue/24/outline";
+import { ArrowDownTrayIcon, PencilSquareIcon } from "@heroicons/vue/24/outline";
 
 const router = useRouter();
 const puntosVentaStore = usePuntosVentaStore();
@@ -42,7 +37,10 @@ let cargarCertificadosRequestId = 0;
 
 const esAdmin = computed(() => Boolean(authStore.user?.es_admin));
 const operacionAdministrativaEnCurso = computed(
-  () => puntosVentaStore.syncing || puntosVentaStore.importing,
+  () =>
+    puntosVentaStore.syncing ||
+    puntosVentaStore.importing ||
+    puntosVentaStore.preparingForSelection,
 );
 const esSolicitudDelEmisorActual = (empresaIdSolicitada: number | null) =>
   empresaIdSolicitada !== null &&
@@ -65,17 +63,25 @@ const columns = [
 const puntosOrdenados = computed(() => {
   const puntos = mostrarSoloElegibles.value
     ? puntosVentaStore.puntosVenta.filter(
-        (punto) => punto.puede_intentar_emision,
+        (punto) => punto.seleccionable_para_emision,
       )
     : puntosVentaStore.puntosVenta;
   return [...puntos].sort((a, b) => a.numero - b.numero);
 });
 
 const estadoTecnicoPunto = (row: PuntoVenta) => {
+  if (!row.es_webservice) {
+    return {
+      label: "Otro sistema",
+      detail: "",
+      variant: "default" as const,
+    };
+  }
+
   if (row.bloqueado) {
     return {
       label: "Bloqueado en ARCA",
-      detail: "El estado técnico impide emitir",
+      detail: "Regularizá el punto en ARCA y seleccioná Comprobar con ARCA.",
       variant: "danger" as const,
     };
   }
@@ -83,26 +89,18 @@ const estadoTecnicoPunto = (row: PuntoVenta) => {
   if (row.fecha_baja) {
     return {
       label: "Dado de baja",
-      detail: `Baja informada: ${formatearFechaVisible(row.fecha_baja)}`,
+      detail: "Reactivá el punto en ARCA o elegí otro y volvé a comprobar.",
       variant: "danger" as const,
     };
   }
 
-  if (!row.es_webservice) {
-    return {
-      label: "Otro sistema",
-      detail: row.sistema || "No disponible mediante Web Services",
-      variant: "default" as const,
-    };
-  }
-
   if (
-    !row.ultima_comprobacion_arca_en &&
-    row.elegibilidad_rece.estado_efectivo === "verificado_rece"
+    row.elegibilidad_rece.estado_efectivo === "verificado_rece" &&
+    row.comprobacion_arca_desactualizada
   ) {
     return {
-      label: "Pendiente de ARCA",
-      detail: "Se comprobará automáticamente antes de emitir",
+      label: "Pendiente de comprobar",
+      detail: "Seleccioná Comprobar con ARCA para volver a intentar.",
       variant: "warning" as const,
     };
   }
@@ -113,7 +111,7 @@ const estadoTecnicoPunto = (row: PuntoVenta) => {
   ) {
     return {
       label: "Ausente en ARCA",
-      detail: "La última comprobación no encontró este punto de venta",
+      detail: "Verificá el punto en ARCA y seleccioná Comprobar con ARCA.",
       variant: "danger" as const,
     };
   }
@@ -121,106 +119,63 @@ const estadoTecnicoPunto = (row: PuntoVenta) => {
   if (!row.activo) {
     return {
       label: "Inactivo",
-      detail: "El estado técnico impide emitir",
+      detail: "Habilitá el punto en ARCA y volvé a comprobar.",
       variant: "default" as const,
     };
   }
 
   return {
     label: "Web Services activo",
-    detail: "Estado técnico disponible; RECE se valida por separado",
+    detail: "",
     variant: "success" as const,
   };
 };
 
-const MOTIVOS_RECE: Record<string, string> = {
-  contexto_rece_ausente:
-    "No existe evidencia RECE para el ambiente configurado.",
-  revision_fiscal_obsoleta:
-    "Los datos fiscales cambiaron después de la verificación.",
-  punto_no_rece: "La evidencia vigente indica que el punto no es RECE.",
-  elegibilidad_rece_no_verificada:
-    "Todavía no se importó una constancia válida para este punto.",
-};
-
-const FUENTES_RECE: Record<string, string> = {
-  migracion_legacy: "Migración de datos anteriores",
-  alta_manual: "Alta manual",
-  sincronizacion_wsfe: "Sincronización técnica con ARCA",
-  constancia_arca_atestada: "Constancia productiva atestada",
-  edicion: "Edición del punto de venta",
-};
-
-const formatearFechaVisible = (value: string): string => {
-  const fechaArca = /^(\d{4})(\d{2})(\d{2})$/.exec(value.trim());
-  if (fechaArca) {
-    return formatearFecha(`${fechaArca[1]}-${fechaArca[2]}-${fechaArca[3]}`);
-  }
-  return formatearFecha(value);
-};
-
 const estadoUsoPunto = (row: PuntoVenta) => {
-  if (row.usable_factuflow && row.comprobacion_arca_desactualizada) {
+  if (!row.es_webservice) {
     return {
-      label: "Comprobación recomendada",
-      variant: "warning" as const,
+      label: "No disponible en FactuFlow",
+      variant: "default" as const,
     };
   }
-  if (row.usable_factuflow) {
+  if (row.seleccionable_para_emision) {
     return { label: "Listo para emitir", variant: "success" as const };
   }
-  if (
-    row.elegibilidad_rece.estado_efectivo === "verificado_rece" &&
-    row.ultima_comprobacion_arca_en === null
-  ) {
+  if (row.elegibilidad_rece.estado_efectivo === "no_rece") {
+    return { label: "No disponible para emitir", variant: "danger" as const };
+  }
+  if (row.elegibilidad_rece.estado_efectivo !== "verificado_rece") {
     return {
-      label: "Pendiente de comprobar con ARCA",
+      label: "Falta validar",
       variant: "warning" as const,
     };
   }
-  return { label: "Requiere atención", variant: "danger" as const };
+  if (row.bloqueado || row.fecha_baja) {
+    return { label: "No disponible para emitir", variant: "danger" as const };
+  }
+  if (row.comprobacion_arca_desactualizada) {
+    return { label: "Comprobación necesaria", variant: "warning" as const };
+  }
+  if (!row.activo) {
+    return { label: "No disponible para emitir", variant: "danger" as const };
+  }
+  return { label: "Comprobación necesaria", variant: "warning" as const };
 };
 
 const causaRecePunto = (row: PuntoVenta): string => {
-  const elegibilidad = row.elegibilidad_rece;
-  if (elegibilidad.motivo) {
-    return (
-      MOTIVOS_RECE[elegibilidad.motivo] ||
-      "La acreditación RECE requiere revisión administrativa."
-    );
+  if (
+    row.es_webservice &&
+    row.elegibilidad_rece.estado_efectivo === "no_rece"
+  ) {
+    return "Regularizá el punto en ARCA e importá una nueva constancia.";
   }
-  return elegibilidad.estado_efectivo === "verificado_rece"
-    ? "La constancia acredita este punto de venta sin vencimiento temporal."
-    : "Importá una constancia válida para habilitar este punto de venta.";
-};
-
-const comprobacionArcaPunto = (row: PuntoVenta): string => {
-  if (!row.ultima_comprobacion_arca_en) {
-    return "Todavía no se comprobó el estado técnico con ARCA.";
+  if (
+    row.es_webservice &&
+    row.elegibilidad_rece.estado_efectivo !== "verificado_rece"
+  ) {
+    return "Importá una constancia de puntos de venta de ARCA.";
   }
-  const instanteUtc = /(?:Z|[+-]\d{2}:\d{2})$/i.test(
-    row.ultima_comprobacion_arca_en,
-  )
-    ? row.ultima_comprobacion_arca_en
-    : `${row.ultima_comprobacion_arca_en}Z`;
-  const comprobadoEn = new Date(instanteUtc);
-  const dias = Math.max(
-    0,
-    Math.floor((Date.now() - comprobadoEn.getTime()) / 86_400_000),
-  );
-  const antiguedad =
-    dias === 0 ? "hoy" : `hace ${dias} día${dias === 1 ? "" : "s"}`;
-  return `Comprobado con ARCA ${antiguedad} · ${formatearFechaVisible(row.ultima_comprobacion_arca_en)}`;
-};
-
-const procedenciaRecePunto = (row: PuntoVenta): string => {
-  const { fuente, ambiente } = row.elegibilidad_rece;
-  const fuenteVisible = fuente
-    ? FUENTES_RECE[fuente] || "Procedencia administrativa"
-    : "Sin procedencia registrada";
-  const ambienteVisible =
-    ambiente === "produccion" ? "Producción" : "Homologación";
-  return `${fuenteVisible} · ${ambienteVisible}`;
+  return "";
 };
 
 const cargarCertificados = async (
@@ -274,7 +229,7 @@ const cargarDatos = async () => {
 
   try {
     await Promise.all([
-      puntosVentaStore.fetchPuntosVenta(),
+      puntosVentaStore.prepareForSelection(),
       cargarCertificados(empresaIdSolicitada),
     ]);
   } catch (err: any) {
@@ -292,14 +247,6 @@ const irACertificados = () => {
 };
 
 const sincronizar = async () => {
-  if (!esAdmin.value) {
-    showWarning(
-      "Acción reservada",
-      "Solo un administrador puede comprobar puntos de venta con ARCA.",
-    );
-    return;
-  }
-
   if (!tieneCertificadoDisponible.value) {
     showWarning(
       "Certificado no disponible",
@@ -361,15 +308,11 @@ const prepararImportacionConstancia = async (event: Event) => {
     const resultado = await puntosVentaStore.importarConstancia(file);
     if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
 
-    const fechaDocumento = resultado.documento_emitido_en
-      ? ` Documento: ${formatearFechaVisible(resultado.documento_emitido_en)}.`
-      : "";
-    const detalleBase = `Detectados: ${resultado.total_constancia}. Creados: ${resultado.creados}. Actualizados: ${resultado.actualizados}. Omitidos: ${resultado.omitidos}. Desactivados por ausencia: ${resultado.desactivados_ausentes}.${fechaDocumento}`;
-    const resumen = `${detalleBase} Acreditados por constancia: ${resultado.verificados_rece}. Pendientes de comprobar con ARCA: ${resultado.pendientes_comprobacion}. No compatibles: ${resultado.no_verificados_rece}.`;
+    const resumen = `Listos para emitir: ${resultado.listos_para_emitir}. No disponibles en FactuFlow: ${resultado.no_disponibles_factuflow}. Requieren revisión: ${resultado.requieren_revision}.`;
     if (resultado.warnings.length > 0) {
       showWarning(
         "Constancia importada con observaciones",
-        `${resumen} ${resultado.warnings.join(" ")}`,
+        `${resumen} Revisá los puntos que requieren una acción.`,
       );
     } else {
       showSuccess("Constancia importada", resumen);
@@ -504,33 +447,10 @@ watch(
       <div>
         <h1 class="text-3xl font-bold text-gray-900">Puntos de venta</h1>
         <p class="mt-2 text-gray-600">
-          Importá una constancia una sola vez y dejá que FactuFlow compruebe el
-          estado técnico con ARCA
+          Elegí un punto que figure como listo para emitir.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <BaseButton
-          variant="secondary"
-          :loading="puntosVentaStore.loading"
-          :disabled="operacionAdministrativaEnCurso"
-          @click="cargarDatos"
-        >
-          <ArrowPathIcon class="h-5 w-5 mr-2" />
-          Actualizar
-        </BaseButton>
-        <BaseButton
-          v-if="esAdmin"
-          :disabled="
-            !tieneCertificadoDisponible ||
-            operacionAdministrativaEnCurso ||
-            cargandoCertificados
-          "
-          :loading="puntosVentaStore.syncing"
-          @click="sincronizar"
-        >
-          <ArrowDownTrayIcon class="h-5 w-5 mr-2" />
-          Comprobar con ARCA
-        </BaseButton>
         <input
           v-if="esAdmin"
           ref="fileInputRef"
@@ -548,11 +468,23 @@ watch(
         >
           Importar constancia
         </BaseButton>
+        <BaseButton
+          :disabled="
+            !tieneCertificadoDisponible ||
+            operacionAdministrativaEnCurso ||
+            cargandoCertificados
+          "
+          :loading="puntosVentaStore.syncing"
+          @click="sincronizar"
+        >
+          <ArrowDownTrayIcon class="h-5 w-5 mr-2" />
+          Comprobar con ARCA
+        </BaseButton>
       </div>
     </div>
 
     <BaseAlert
-      v-if="esAdmin && !cargandoCertificados && !tieneCertificadoDisponible"
+      v-if="!cargandoCertificados && !tieneCertificadoDisponible"
       type="warning"
       title="Certificado no disponible"
       :dismissible="false"
@@ -566,7 +498,12 @@ watch(
           {{ ambienteArcaActual || "actual" }} debe conservar sus archivos
           locales.
         </span>
-        <BaseButton variant="secondary" size="sm" @click="irACertificados">
+        <BaseButton
+          v-if="esAdmin"
+          variant="secondary"
+          size="sm"
+          @click="irACertificados"
+        >
           Ir a certificados
         </BaseButton>
       </div>
@@ -579,9 +516,17 @@ watch(
       :dismissible="false"
       class="mb-6"
     >
-      Podés consultar los puntos de venta y actualizar su nombre, domicilio y
-      nombre fantasía. Solo un administrador puede comprobar con ARCA, importar
-      constancias o modificar datos fiscales y técnicos.
+      Podés consultar y comprobar puntos de venta con ARCA. Solo un
+      administrador puede importar constancias o modificar datos fiscales.
+    </BaseAlert>
+
+    <BaseAlert
+      v-if="puntosVentaStore.preparationError"
+      type="warning"
+      :dismissible="false"
+      class="mb-6"
+    >
+      {{ puntosVentaStore.preparationError }}
     </BaseAlert>
 
     <BaseCard>
@@ -591,11 +536,13 @@ watch(
         <div
           class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <p class="max-w-4xl">
-            Importá el PDF de puntos de venta descargado de ARCA para acreditar
-            el emisor activo. La constancia no vence; FactuFlow recomendará una
-            nueva comprobación técnica después de 90 días y la hará
-            automáticamente antes de emitir cuando sea necesario.
+          <p class="font-semibold text-gray-900">
+            {{ puntosVentaStore.puntosVenta.length }}
+            {{
+              puntosVentaStore.puntosVenta.length === 1
+                ? "punto de venta"
+                : "puntos de venta"
+            }}
           </p>
           <label
             class="inline-flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-700"
@@ -605,14 +552,16 @@ watch(
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            Solo elegibles para emitir
+            Mostrar sólo los disponibles
           </label>
         </div>
       </div>
       <BaseTable
         :columns="columns"
         :data="puntosOrdenados"
-        :loading="puntosVentaStore.loading"
+        :loading="
+          puntosVentaStore.loading || puntosVentaStore.preparingForSelection
+        "
         empty-text="No hay puntos de venta registrados"
       >
         <template #cell-numero="{ value }">
@@ -645,15 +594,11 @@ watch(
               {{ estadoUsoPunto(row).label }}
             </BaseBadge>
           </div>
-          <p class="mt-1 max-w-72 whitespace-normal text-xs text-gray-700">
+          <p
+            v-if="causaRecePunto(row)"
+            class="mt-1 max-w-72 whitespace-normal text-xs text-gray-700"
+          >
             {{ causaRecePunto(row) }}
-          </p>
-          <p class="mt-1 whitespace-normal text-xs text-gray-500">
-            {{ comprobacionArcaPunto(row) }}
-          </p>
-          <p class="mt-1 whitespace-normal text-xs text-gray-500">
-            {{ procedenciaRecePunto(row) }} · Revisión fiscal
-            {{ row.revision_fiscal }}
           </p>
         </template>
 
@@ -661,7 +606,10 @@ watch(
           <BaseBadge :variant="estadoTecnicoPunto(row).variant">
             {{ estadoTecnicoPunto(row).label }}
           </BaseBadge>
-          <p class="mt-1 text-xs text-gray-500 max-w-48 whitespace-normal">
+          <p
+            v-if="estadoTecnicoPunto(row).detail"
+            class="mt-1 text-xs text-gray-500 max-w-48 whitespace-normal"
+          >
             {{ estadoTecnicoPunto(row).detail }}
           </p>
         </template>

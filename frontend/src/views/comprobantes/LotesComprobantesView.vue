@@ -14,8 +14,8 @@ import { useNotification } from "@/composables/useNotification";
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import lotesComprobantesService from "@/services/lotes-comprobantes.service";
 import perfilesCargaMasivaService from "@/services/perfiles-carga-masiva.service";
-import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useEmpresaStore } from "@/stores/empresa";
+import { usePuntosVentaStore } from "@/stores/puntos_venta";
 import type {
   FormatoImportacion,
   FormatoImportacionCandidato,
@@ -54,6 +54,7 @@ import {
 } from "@heroicons/vue/24/outline";
 
 const empresaStore = useEmpresaStore();
+const puntosVentaStore = usePuntosVentaStore();
 const { showError, showInfo, showSuccess, showWarning } = useNotification();
 const GRUPOS_LOTE_PER_PAGE = 100;
 const POLLING_SEGUIMIENTO_INICIAL_MS = 3000;
@@ -224,15 +225,20 @@ const perfilesOptions = computed(() => [
   })),
 ]);
 const puntosVentaFactuflow = computed(() =>
-  puntosVenta.value.filter((punto) => punto.puede_intentar_emision),
+  puntosVenta.value.filter((punto) => punto.seleccionable_para_emision),
 );
 const puntoVentaOptions = computed(() => [
-  { value: "", label: "Seleccioná un punto de venta" },
+  {
+    value: "",
+    label: puntosVentaStore.preparingForSelection
+      ? "Comprobando con ARCA…"
+      : "Seleccioná un punto de venta",
+  },
   ...puntosVentaFactuflow.value.map((punto) => ({
     value: punto.numero,
     label: `${String(punto.numero).padStart(4, "0")}${
       punto.nombre ? ` - ${punto.nombre}` : ""
-    }${punto.usable_factuflow ? "" : " (se comprobará al emitir)"}`,
+    }`,
   })),
 ]);
 const estadosGruposOptions = computed(() => [
@@ -351,6 +357,7 @@ const puedeValidar = computed(
   () =>
     !!archivoSeleccionado.value &&
     !!empresaActivaId.value &&
+    !puntosVentaStore.preparingForSelection &&
     !detectandoFormato.value &&
     !requiereElegirFormato.value &&
     (puntoVentaModo.value === "archivo" || !!puntoVentaNumero.value) &&
@@ -1123,9 +1130,9 @@ const cargarPuntosVenta = async () => {
   if (!empresaId || componenteDesmontado) return;
 
   try {
-    const nuevosPuntosVenta = await puntosVentaService.getAll();
+    await puntosVentaStore.prepareForSelection();
     if (!sigueVigente()) return;
-    puntosVenta.value = nuevosPuntosVenta;
+    puntosVenta.value = [...puntosVentaStore.puntosVenta];
   } catch (error: any) {
     if (!sigueVigente()) return;
     showError(
@@ -2419,7 +2426,10 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="fijo"
                     class="h-4 w-4 text-primary-600"
-                    :disabled="puntosVentaFactuflow.length === 0"
+                    :disabled="
+                      puntosVentaFactuflow.length === 0 ||
+                      puntosVentaStore.preparingForSelection
+                    "
                   />
                   Utilizar punto de venta del emisor
                 </span>
@@ -2430,14 +2440,25 @@ onBeforeUnmount(() => {
                   :options="puntoVentaOptions"
                   :disabled="
                     puntoVentaModo !== 'fijo' ||
-                    puntosVentaFactuflow.length === 0
+                    puntosVentaFactuflow.length === 0 ||
+                    puntosVentaStore.preparingForSelection
                   "
                 />
               </label>
             </div>
 
             <BaseAlert
-              v-if="puntosVentaFactuflow.length === 0"
+              v-if="puntosVentaStore.preparationError"
+              type="warning"
+              class="mt-4"
+            >
+              {{ puntosVentaStore.preparationError }}
+            </BaseAlert>
+            <BaseAlert
+              v-else-if="
+                !puntosVentaStore.preparingForSelection &&
+                puntosVentaFactuflow.length === 0
+              "
               type="warning"
               class="mt-4"
             >
@@ -3085,9 +3106,7 @@ onBeforeUnmount(() => {
                     <span
                       class="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-950"
                     >
-                      {{
-                        resolucionPendientesAbierta ? "Cerrar" : "Abrir"
-                      }}
+                      {{ resolucionPendientesAbierta ? "Cerrar" : "Abrir" }}
                       resolución
                     </span>
                   </div>

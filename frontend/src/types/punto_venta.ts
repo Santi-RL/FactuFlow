@@ -30,6 +30,7 @@ export interface PuntoVenta {
   activo: boolean;
   usable_factuflow: boolean;
   puede_intentar_emision: boolean;
+  seleccionable_para_emision: boolean;
   ultima_comprobacion_arca_en: string | null;
   comprobacion_arca_desactualizada: boolean;
   revision_fiscal: number;
@@ -79,6 +80,9 @@ export interface ImportarPuntosVentaResponse {
   verificados_rece: number;
   pendientes_comprobacion: number;
   no_verificados_rece: number;
+  listos_para_emitir: number;
+  no_disponibles_factuflow: number;
+  requieren_revision: number;
   documento_emitido_en: string | null;
   vigente_hasta: string | null;
   warnings: string[];

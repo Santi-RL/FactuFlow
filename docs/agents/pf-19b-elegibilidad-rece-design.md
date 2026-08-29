@@ -1,11 +1,44 @@
 # PF-19B — Elegibilidad RECE durable y fail-closed
 
-Fecha de diseño: 08/08/2026. Actualizado para el parche `0.3.1`: 28/08/2026.
+Fecha de diseño: 08/08/2026. Actualizado para el parche `0.3.2`: 29/08/2026.
 
 Estado objetivo al integrar: PF-19B.1, PF-19B.2 y PF-19B.3 forman una única
-unidad completa aceptada en `main`. La última release publicada y la versión
-desplegada continúan siendo `v0.2.2`, que no incluyen PF-19B. La publicación y
-el despliegue requieren un checkpoint posterior explícito.
+unidad completa aceptada. La versión desplegada se consulta exclusivamente en
+el plano de control `VPS Hostinger` / `vps-admin`.
+
+## Ajuste UX y selección estricta en 0.3.2
+
+`0.3.2` no cambia la autoridad RECE, el umbral de 90 días ni las guardas finales
+antes de CAE. Cambia el momento en que la UI resuelve un estado pendiente:
+
+1. carga la lista del emisor activo;
+2. si existe un punto acreditado pendiente o desactualizado, ejecuta como máximo
+   un `FEParamGetPtosVenta` completo;
+3. recarga la lista y recién entonces habilita la selección;
+4. si ARCA falla, conserva seleccionables los puntos frescos y excluye los
+   pendientes, con una acción manual de reintento.
+
+El campo aditivo `seleccionable_para_emision` exige simultáneamente acreditación
+RECE efectiva, estado técnico positivo y una comprobación con menos de 90 días.
+`puede_intentar_emision` se conserva por compatibilidad, pero ningún selector de
+la UI lo consume. `Comprobar con ARCA` queda disponible para cualquier usuario
+autorizado del emisor; importar una constancia y editar datos fiscales continúa
+reservado al administrador. La sincronización nunca promueve RECE.
+
+La matriz visible omite implementación y evidencia interna en estados normales:
+
+| Estado para emitir | Estado técnico | Acción visible |
+|---|---|---|
+| `Listo para emitir` | `Web Services activo` | Ninguna |
+| `No disponible en FactuFlow` | `Otro sistema` | Ninguna |
+| `Comprobación necesaria` | `Pendiente de comprobar` | Volver a comprobar con ARCA |
+| `Falta validar` | Estado técnico observado | Importar una constancia de ARCA |
+| `No disponible para emitir` | Bloqueo, baja o ausencia específica | Regularizar en ARCA y volver a comprobar |
+
+El preflight server-side permanece antes de crear operaciones, intentos,
+reservas o solicitudes CAE. Por eso clientes API, sesiones largas, lotes,
+continuaciones, worker y carreras siguen protegidos aunque la UI ya haya hecho
+la preparación previa.
 
 ## Objetivo y frontera
 
@@ -73,7 +106,8 @@ actor, bajo las restricciones siguientes.
    límite máximo de antigüedad. El documento no se reutiliza como acreditación
    de homologación. La revisión positiva no vence por tiempo. La comprobación
    técnica es otra dimensión: se considera desactualizada a los 90 días y se
-   renueva opcionalmente desde la UI o automáticamente antes de emitir.
+   renueva manualmente o automáticamente antes de habilitar la selección. El
+   servidor vuelve a comprobarla en el borde fiscal cuando corresponde.
 4. La señal administrativa normalizada debe coincidir exactamente con una
    allowlist versionada. `rece_constancia_v1` solo admitía
    `RECE para aplicativo y web services`. El parche `0.3.1` introduce
@@ -649,12 +683,13 @@ hybrid ORM por sí solo como autoridad RECE.
 
 ### Frontend
 
-- textos `Listo para emitir`, `Comprobación recomendada`, `Pendiente de
-  comprobar con ARCA` y `Requiere atención`;
+- textos y acciones de la matriz 0.3.2, sin procedencia, ambiente ni revisión
+  fiscal en estados normales;
 - sync crea/mantiene puntos no verificados;
 - importación refresca evidencia;
-- selectores mantienen acreditados pendientes con “se comprobará al emitir” y
-  ocultan señales negativas o puntos sin constancia;
+- selectores usan `seleccionable_para_emision`, esperan la preparación previa y
+  excluyen pendientes, desactualizados, señales negativas y puntos sin
+  constancia;
 - cambio de emisor o revisión invalida selección, confirmación y clave;
 - el watcher de Lotes invalida generaciones y vacía formatos, perfiles y puntos
   antes del primer `await` de un cambio de emisor;
@@ -691,14 +726,16 @@ desechable explícita y deben ejecutarse en CI o antes del release candidate.
    la constancia y la importación sigue directamente el camino seguro.
    Homologación permanece cerrada en este corte.
 7. Verificar por UI/API que solo la señal exacta quede acreditada, que los
-   pendientes sigan seleccionables y que señales negativas queden excluidas.
+   pendientes queden excluidos hasta una comprobación positiva y que señales
+   negativas permanezcan excluidas.
 8. Ejecutar QA post-deploy sin solicitar CAE.
 9. Retirar una regla PF-19A solo mediante una decisión operativa posterior,
    contra evidencia exacta y nunca dentro de la migración.
 
-La UI no muestra `Vigente hasta`. A los 90 días recomienda `Comprobar con ARCA`,
-pero la acción es opcional: cualquier emisión pendiente ejecuta el mismo
-preflight automáticamente y falla cerrado si ARCA no puede confirmar el estado.
+La UI no muestra `Vigente hasta`. A los 90 días prepara nuevamente la lista
+antes de habilitar una selección y conserva `Comprobar con ARCA` como reintento
+manual. El borde fiscal ejecuta además su preflight y falla cerrado si ARCA no
+puede confirmar el estado.
 
 El rollback de código conserva el ledger. Volver a un binario que ignore PF-19B
 podría reabrir puntos y no es seguro sin restaurar una contención equivalente;
@@ -766,3 +803,29 @@ No se publica ni se despliega un corte parcial.
 - PR Nivel 2, CI verde y verificación posterior al merge;
 - release y despliegue solo mediante el checkpoint separado, con backup,
   migración ensayada, constancia válida y autorización explícita.
+
+## Aplicación del checklist fiscal Nivel 2 para 0.3.2
+
+- **Alcance y consumidores:** cambia el contrato aditivo de listado/importación,
+  el permiso de comprobación, el store y los selectores de emisión individual,
+  lotes y perfiles. Se revisan además API, worker, continuaciones, reintentos y
+  replays para confirmar que sus guardas finales no se debilitan.
+- **Orden:** la preparación UI es lectura, una comprobación técnica opcional y
+  una recarga. No crea estado fiscal. El orden server-side previo a
+  `FECAESolicitar`, sus locks, snapshots, idempotencia y compare-and-swap no
+  cambian.
+- **Invariantes:** la sincronización nunca acredita RECE; solo opera sobre el
+  emisor activo; una respuesta vacía, inconsistente o fallida no escribe; un
+  punto pendiente o con 90 días no es seleccionable; un punto fresco sí; una
+  acreditación no vence por tiempo.
+- **Fallos y carreras:** un `503` de preparación conserva opciones frescas y
+  excluye pendientes. Un cambio de emisor descarta el resultado tardío. La
+  guarda fiscal final sigue dejando cero operaciones, intentos, reservas y CAE
+  nuevos si no logra comprobar el punto.
+- **Compatibilidad:** `usable_factuflow` y `puede_intentar_emision` permanecen;
+  `seleccionable_para_emision` y los tres conteos son aditivos. No hay migración,
+  dependencia, Docker ni configuración nueva.
+- **Pruebas:** permisos de usuario común, aislamiento multiemisor, clasificación
+  excluyente, deduplicación, fresco/pendiente/90 días, `503`, selección estricta,
+  UI sin textos internos, individual, lote, perfil, worker, reintento y replay
+  terminal. Todas las llamadas ARCA automatizadas usan dobles.

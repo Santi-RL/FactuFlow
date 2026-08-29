@@ -17,9 +17,9 @@ import {
 } from "@/constants/provincias";
 import formatosImportacionService from "@/services/formatos-importacion.service";
 import perfilesCargaMasivaService from "@/services/perfiles-carga-masiva.service";
-import { puntosVentaService } from "@/services/puntos_venta.service";
 import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
+import { usePuntosVentaStore } from "@/stores/puntos_venta";
 import type {
   FormatoImportacion,
   FormatoImportacionCampoCatalogo,
@@ -54,6 +54,7 @@ import { empresaService } from "@/services/empresa.service";
 
 const authStore = useAuthStore();
 const empresaStore = useEmpresaStore();
+const puntosVentaStore = usePuntosVentaStore();
 const { showError, showSuccess } = useNotification();
 
 type PlantillaOrigen = "header" | "columna" | "constante" | "empresa";
@@ -209,7 +210,7 @@ const formatosOptions = computed(() => [
     })),
 ]);
 const puntosVentaFactuflow = computed(() =>
-  puntosVenta.value.filter((punto) => punto.puede_intentar_emision),
+  puntosVenta.value.filter((punto) => punto.seleccionable_para_emision),
 );
 const puntoVentaPerfilOptions = computed(() => [
   { value: "archivo", label: "Utilizar punto de venta definido en el archivo" },
@@ -217,7 +218,7 @@ const puntoVentaPerfilOptions = computed(() => [
     value: `fijo:${punto.numero}`,
     label: `${String(punto.numero).padStart(4, "0")}${
       punto.nombre ? ` - ${punto.nombre}` : ""
-    }${punto.usable_factuflow ? "" : " (se comprobará al emitir)"}`,
+    }`,
   })),
 ]);
 const perfilPuntoVentaSeleccionado = computed({
@@ -898,7 +899,9 @@ const cargarConfiguracionCargaMasiva = async () => {
     const [perfiles, formatos, puntos, campos] = await Promise.all([
       perfilesCargaMasivaService.listar(),
       formatosImportacionService.listar(),
-      puntosVentaService.getAll(),
+      puntosVentaStore
+        .prepareForSelection()
+        .then(() => [...puntosVentaStore.puntosVenta]),
       formatosImportacionService.catalogoCampos(),
     ]);
     if (!sigueVigente()) return;
@@ -1818,7 +1821,15 @@ onMounted(async () => {
             v-model="perfilPuntoVentaSeleccionado"
             :options="puntoVentaPerfilOptions"
             label="Punto de venta"
+            :disabled="puntosVentaStore.preparingForSelection"
           />
+          <BaseAlert
+            v-if="puntosVentaStore.preparationError"
+            type="warning"
+            class="md:col-span-2"
+          >
+            {{ puntosVentaStore.preparationError }}
+          </BaseAlert>
           <div class="md:col-span-2">
             <BaseInput
               v-model="perfilForm.descripcion"

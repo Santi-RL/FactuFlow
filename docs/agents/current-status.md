@@ -1,6 +1,6 @@
 # Estado actual
 
-Última actualización: 28/08/2026
+Última actualización: 29/08/2026
 
 Este documento es el handoff operativo canónico y deliberadamente breve. El
 historial de versiones vive en `CHANGELOG.md`; las auditorías fechadas y las
@@ -39,6 +39,27 @@ completa: `539` backend con `4` omisiones configuradas, `131` frontend y `33`
 E2E, además de lint, formato, tipos, build y auditorías productivas. No hubo
 operaciones fiscales reales ni llamadas ARCA de escritura.
 
+## Parche `0.3.2` en preparación
+
+El parche simplifica la experiencia de puntos de venta sin debilitar PF-19B.
+Agrega `seleccionable_para_emision`, que exige acreditación durable, estado
+técnico positivo y una comprobación con menos de 90 días. Nueva factura, lotes
+y perfiles cargan el emisor activo, hacen como máximo una comprobación completa
+si existe un punto pendiente o desactualizado, recargan y recién entonces
+habilitan opciones. Un fallo conserva puntos frescos, excluye pendientes y
+muestra una acción de reintento.
+
+`Comprobar con ARCA` queda disponible para todo usuario autorizado; importar
+constancias y editar datos fiscales sigue reservado al administrador. Los
+estados normales se reducen a `Listo para emitir` / `Web Services activo` o `No
+disponible en FactuFlow` / `Otro sistema`. Los errores indican la acción concreta
+y dejan de exponer procedencia, ambiente o revisión fiscal. El preflight final
+del servidor permanece intacto antes de crear estado fiscal o alcanzar CAE.
+
+El alcance no agrega migraciones, dependencias ni configuración productiva. Su
+integración, publicación y despliegue requieren completar las puertas Nivel 2,
+el `autoreview` final, los siete checks y los checkpoints por SHA exacto.
+
 ## Parche publicado `v0.3.1`
 
 `main` corrige dos incompatibilidades de `0.3.0` con las constancias actuales
@@ -71,9 +92,9 @@ en `0.3.1`.
 
 El contenido de la release quedó congelado y publicado el 28/08/2026. El tag
 inmutable `v0.3.1` apunta a
-`7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7` y la GitHub Release está marcada
-como `Latest`. El despliegue permanece como checkpoint separado; el estado real
-de cada instalación se consulta únicamente en `VPS Hostinger` / `vps-admin`.
+`7afba87b1b56509ffafb7bfefa0dcd23cd2e45a7` y la GitHub Release quedó marcada
+como `Latest`. El estado real de cada instalación se consulta únicamente en
+`VPS Hostinger` / `vps-admin`.
 
 ## PF-19 publicado en `v0.3.0`
 
@@ -121,10 +142,10 @@ durable y `ultima_comprobacion_arca_en` separa su autoridad de la frescura
 técnica. Homologación permanece fail-closed porque no existe una fuente
 probatoria específica.
 
-La UI presenta `Listo para emitir`, `Comprobación recomendada`, `Pendiente de
-comprobar con ARCA` y `Requiere atención`; oculta la antigua vigencia y permite
-seleccionar un punto acreditado pendiente con la aclaración de que se comprobará
-al emitir. Perfiles, Excel y selectores usan `puede_intentar_emision`.
+En `0.3.2` la UI presenta estados breves y accionables; oculta la antigua
+vigencia, la procedencia y la revisión fiscal. Perfiles, Excel y selectores usan
+`seleccionable_para_emision`, por lo que un punto pendiente o desactualizado no
+se ofrece hasta una comprobación positiva.
 Individual, lotes, worker, fallback, reintentos y stale comparten snapshots,
 revalidaciones y guardas durables antes de `FECAESolicitar`. PF-19A continúa como denegación
 adicional y no puede promover un punto. Al congelar el snapshot de `v0.3.0`,

@@ -239,12 +239,14 @@ PUT /api/puntos-venta/{punto_venta_id}
 DELETE /api/puntos-venta/{punto_venta_id}
 ```
 
-`POST /api/puntos-venta`, `importar-constancia`, `sincronizar-arca` y `DELETE` requieren
-administrador. Un usuario común solo puede editar campos descriptivos; cambiar
-identidad o estado fiscal/técnico requiere administrador.
+`POST /api/puntos-venta`, `importar-constancia` y `DELETE` requieren
+administrador. `sincronizar-arca` está disponible para cualquier usuario
+autorizado del emisor activo. Un usuario común solo puede editar campos
+descriptivos; cambiar identidad o estado fiscal/técnico requiere administrador.
 
 Cada `PuntoVentaResponse` expone `revision_fiscal`, `usable_factuflow`,
-`puede_intentar_emision`, `ultima_comprobacion_arca_en`,
+`puede_intentar_emision`, `seleccionable_para_emision`,
+`ultima_comprobacion_arca_en`,
 `comprobacion_arca_desactualizada` y el
 objeto `elegibilidad_rece` con `ambiente`, `estado`, `estado_efectivo`, `fuente`,
 `revision_id`, `revision`, `punto_revision_fiscal`, `verificado_en`,
@@ -252,13 +254,14 @@ objeto `elegibilidad_rece` con `ambiente`, `estado`, `estado_efectivo`, `fuente`
 participa en la decisión. El servidor calcula `usable_factuflow`: exige el
 filtro técnico (activo, Web Services, no bloqueado y sin baja) y estado efectivo
 `verificado_rece` para el ambiente actual. El cliente no debe reconstruir esa
-decisión desde `sistema` ni desde la marca técnica. `puede_intentar_emision`
-permite seleccionar un punto acreditado pendiente para que el servidor lo
-compruebe antes de emitir; nunca habilita falta de constancia ni una señal
-negativa confirmada.
+decisión desde `sistema` ni desde la marca técnica.
+`seleccionable_para_emision` es el contrato estricto para selectores: exige
+acreditación RECE, estado técnico positivo y una comprobación con menos de 90
+días. `puede_intentar_emision` se conserva por compatibilidad, pero la UI no lo
+usa para ofrecer opciones.
 
 `POST /api/puntos-venta/importar-constancia` recibe PDF de hasta `5 MB`. El form
-booleano `confirmar_procedencia_produccion` continúa aceptándose en `0.3.1` por
+booleano `confirmar_procedencia_produccion` continúa aceptándose en `0.3.2` por
 compatibilidad, pero está deprecado; la UI siempre envía el camino seguro. La
 acreditación solo acepta un administrador, servidor con
 `ARCA_ENV=produccion`, CUIT exacto, documento completo y no ambiguo, fecha única
@@ -275,6 +278,9 @@ ni su texto completo. Una señal genérica o fuera de allowlist queda
 `no_verificado`, nunca se infiere
 `no_rece`. La acreditación no vence por tiempo. La respuesta agrega
 `verificados_rece`, `pendientes_comprobacion`, `no_verificados_rece`,
+`listos_para_emitir`, `no_disponibles_factuflow` y `requieren_revision`. Los
+tres últimos son mutuamente excluyentes y resumen todos los puntos detectados.
+También conserva
 `documento_emitido_en`,
 `vigente_hasta` —nulo para revisiones nuevas— y warnings sanitizados.
 
@@ -284,10 +290,13 @@ en el servidor. `POST /api/puntos-venta/sincronizar-arca` ofrece esa
 comprobación sin PDF: crea/actualiza/desactiva técnicamente en una sola
 operación y nunca promueve RECE, aunque conserva una acreditación inicial ya
 existente. La respuesta agrega una marca común `comprobado_en`. Si un punto
-acreditado está pendiente o tiene 90 días, los bordes individual/lote/worker
-hacen esta consulta automáticamente. Una falla o respuesta vacía/inconsistente
-devuelve `503` antes de crear estado fiscal. Homologación no admite atestación
-positiva y permanece cerrada hasta una fuente probatoria específica.
+acreditado está pendiente o tiene 90 días, la UI hace como máximo una consulta
+completa antes de habilitar selectores y luego recarga el listado. Si falla,
+conserva seleccionables únicamente los puntos todavía vigentes. Los bordes
+individual/lote/worker mantienen además el preflight final: una falla o
+respuesta vacía/inconsistente devuelve `503` antes de crear estado fiscal.
+Homologación no admite atestación positiva y permanece cerrada hasta una fuente
+probatoria específica.
 
 ## Certificados
 

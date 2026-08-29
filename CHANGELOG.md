@@ -18,6 +18,32 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Correcciones
+
+- Los selectores de nueva factura, lotes y perfiles ya no ofrecen puntos con el
+  estado “se comprobará al emitir”. FactuFlow prepara la lista con una única
+  comprobación cuando hay acreditados pendientes o con 90 días, recarga y solo
+  habilita puntos confirmados.
+- El contrato agrega `seleccionable_para_emision` sin retirar
+  `usable_factuflow` ni `puede_intentar_emision`. La guarda final del servidor
+  antes de crear estado fiscal o solicitar CAE permanece intacta.
+- `Comprobar con ARCA` queda disponible para cualquier usuario autorizado del
+  emisor activo. La consulta continúa siendo atómica, aislada por emisor y sin
+  capacidad para acreditar RECE.
+- La pantalla de puntos de venta aplica la matriz UX aprobada: los estados
+  normales son breves, los puntos de otros sistemas no sugieren una acción y
+  los errores indican exactamente cómo resolverlos. Se eliminan procedencia,
+  ambiente, revisión fiscal y explicaciones técnicas de los estados normales.
+- El resumen de importación informa tres cantidades mutuamente excluyentes:
+  listos para emitir, no disponibles en FactuFlow y requieren revisión.
+
+### Seguridad fiscal
+
+- Una falla de preparación conserva disponibles los puntos todavía vigentes y
+  excluye los pendientes. El preflight server-side sigue devolviendo `503` con
+  cero operaciones, intentos, reservas y solicitudes CAE nuevas cuando ARCA no
+  puede confirmar el estado.
+
 ### Documentación
 
 - Se registró la publicación de la GitHub Release `v0.3.1`, marcada como
