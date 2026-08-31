@@ -13,7 +13,7 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.2`.
+- La release publicada más reciente es `v0.3.3`.
 - El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
   de esquema para PostgreSQL.
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
@@ -22,14 +22,15 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - Las operaciones fiscales preservan fecha explícita, confirmación irreversible,
   idempotencia, intentos durables y reconciliación cuando ARCA pudo autorizar.
 - PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C están cerrados.
-- El contrato de ítems es estricto en emisión e importación: rechaza campos
-  desconocidos e importes inválidos sin crear estado fiscal. Los snapshots
-  canónicos válidos y sus hashes conservan compatibilidad.
-- `v0.3.2` comprueba puntos acreditados pendientes o desactualizados antes de
-  habilitar selectores y conserva el preflight final del servidor.
+- `v0.3.3` aplica un contrato estricto de ítems en emisión e importación:
+  rechaza campos desconocidos e importes inválidos sin crear estado fiscal. Los
+  snapshots canónicos válidos y sus hashes conservan compatibilidad.
+- La conducta preservada desde `v0.3.2` comprueba puntos acreditados pendientes
+  o desactualizados antes de habilitar selectores y conserva el preflight final
+  del servidor.
 
-La conducta vigente de puntos de venta todavía corresponde a `v0.3.2`: una
-constancia válida acredita RECE y `FEParamGetPtosVenta` actualiza el estado
+La conducta vigente de puntos de venta, preservada en `v0.3.3`, establece que
+una constancia válida acredita RECE y `FEParamGetPtosVenta` actualiza el estado
 técnico. PF-19D está aceptado y planificado, pero aún no está implementado.
 
 ## Trabajo aceptado pendiente
