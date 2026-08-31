@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 29/08/2026
+Última revisión: 31/08/2026
 
 Estado: VIGENTE.
 
@@ -21,7 +21,10 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - El modelo actual mantiene un emisor activo explícito por vez.
 - Las operaciones fiscales preservan fecha explícita, confirmación irreversible,
   idempotencia, intentos durables y reconciliación cuando ARCA pudo autorizar.
-- PF-01, PF-02, PF-03A y PF-19A/PF-19B/PF-19C están cerrados.
+- PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C están cerrados.
+- El contrato de ítems es estricto en emisión e importación: rechaza campos
+  desconocidos e importes inválidos sin crear estado fiscal. Los snapshots
+  canónicos válidos y sus hashes conservan compatibilidad.
 - `v0.3.2` comprueba puntos acreditados pendientes o desactualizados antes de
   habilitar selectores y conserva el preflight final del servidor.
 
@@ -31,11 +34,10 @@ técnico. PF-19D está aceptado y planificado, pero aún no está implementado.
 
 ## Trabajo aceptado pendiente
 
-1. **PF-03B:** contrato estricto de ítems, descuentos y valores no finitos.
-2. **PF-19D:** autoridad WSFE, constancia opcional y preferencia
+1. **PF-19D:** autoridad WSFE, constancia opcional y preferencia
    `Usar en FactuFlow`.
-3. **PF-06/PF-07/PF-08:** unidad integrada de permisos multiemisor.
-4. Recuperación, trazabilidad, evidencia histórica y robustez según el orden de
+2. **PF-06/PF-07/PF-08:** unidad integrada de permisos multiemisor.
+3. Recuperación, trazabilidad, evidencia histórica y robustez según el orden de
    `ROADMAP.md`.
 
 El orden y alcance macro se consultan exclusivamente en

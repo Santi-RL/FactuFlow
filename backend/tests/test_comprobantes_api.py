@@ -1,11 +1,14 @@
 """Tests de endpoints de comprobantes."""
 
 from collections.abc import Callable
+import asyncio
+import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -428,15 +431,97 @@ async def test_emitir_comprobante_rechaza_claves_superiores_desconocidas(
     )
 
 
-def test_emitir_request_preserva_compatibilidad_transitoria_del_item_ui() -> None:
-    """PF-03A no hace estricto el ítem que la UI aún envía con subtotal."""
+def test_pf03b_rechaza_campos_derivados_del_item_ui() -> None:
+    """La UI debe enviar el DTO fiscal, no campos de edición/respuesta."""
     payload = _request_emitir_base(SimpleNamespace(id=1))
     payload["items"][0]["subtotal"] = 1000
 
-    request = EmitirComprobanteRequest.model_validate(payload)
+    with pytest.raises(PydanticValidationError) as error:
+        EmitirComprobanteRequest.model_validate(payload)
+    assert error.value.errors()[0]["type"] == "extra_forbidden"
 
-    assert request.items[0].descripcion == "Servicio"
-    assert "subtotal" not in request.items[0].model_dump()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("descuentoo_porcentaje", 15),
+        ("subtotal", 100),
+        ("id", 7),
+        ("comprobante_id", 8),
+        ("descuento_porcentaje", -1),
+        ("descuento_porcentaje", 101),
+        ("descuento_porcentaje", "ilegible"),
+        ("cantidad", "1e999999"),
+        ("precio_unitario", "1e30"),
+    ]
+    + [
+        (campo, valor)
+        for campo in (
+            "cantidad",
+            "precio_unitario",
+            "descuento_porcentaje",
+            "iva_porcentaje",
+        )
+        for valor in ("NaN", "Infinity", "-Infinity", float("nan"), float("inf"))
+    ],
+)
+async def test_pf03b_api_rechaza_items_antes_de_estado_fiscal(
+    client,
+    auth_headers,
+    db_session,
+    test_empresa,
+    monkeypatch,
+    campo,
+    valor,
+) -> None:
+    """Incluye JSON no estándar: el 422 no debe fallar reflejando NaN/Infinity."""
+
+    async def prohibido(*args, **kwargs):
+        pytest.fail("Un ítem inválido no puede alcanzar el servicio fiscal")
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", prohibido)
+    payload = _request_emitir_base(test_empresa)
+    payload["items"][0][campo] = valor
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("pf03b-invalido")},
+        content=json.dumps(payload, allow_nan=True),
+    )
+    assert response.status_code == 422, response.text
+    for error in response.json()["detail"]:
+        assert set(error) == {"loc", "msg", "type"}
+    for model in (
+        OperacionIdempotente,
+        IntentoEmisionFiscal,
+        PuntoVentaGuardaEmisionRece,
+        Comprobante,
+    ):
+        assert (await db_session.scalars(select(model))).all() == []
+
+
+@pytest.mark.asyncio
+async def test_pf03b_requests_invalidos_concurrentes_no_crean_operaciones(
+    client,
+    auth_headers,
+    db_session,
+    test_empresa,
+) -> None:
+    payload = _request_emitir_base(test_empresa)
+    payload["items"][0]["descuentoo_porcentaje"] = 15
+    responses = await asyncio.gather(
+        *[
+            client.post(
+                "/api/comprobantes/emitir",
+                json=payload,
+                headers={**auth_headers, **_idempotency_header("pf03b-concurrente")},
+            )
+            for _ in range(2)
+        ]
+    )
+    assert [response.status_code for response in responses] == [422, 422]
+    assert (await db_session.scalars(select(OperacionIdempotente))).all() == []
+    assert (await db_session.scalars(select(IntentoEmisionFiscal))).all() == []
 
 
 @pytest.mark.asyncio

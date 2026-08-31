@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
@@ -136,6 +138,24 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def fiscal_request_validation_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Evita reflejar valores fiscales o no finitos en errores de emisión."""
+    if request.url.path != "/api/comprobantes/emitir":
+        return await request_validation_exception_handler(request, exc)
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": [
+                {key: error[key] for key in ("type", "loc", "msg")}
+                for error in exc.errors()
+            ]
+        },
+    )
 
 
 async def database_temporarily_unavailable_handler(

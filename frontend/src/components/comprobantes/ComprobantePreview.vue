@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { XMarkIcon, CheckIcon } from "@heroicons/vue/24/outline";
 import { TIPOS_COMPROBANTE_NOMBRES } from "@/types/comprobante";
+import { subtotalItem } from "@/utils/comprobante-items";
 
 interface Props {
   formData: any;
@@ -25,7 +26,8 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const formatMonto = (monto: number) => {
+const formatMonto = (monto: number | null) => {
+  if (monto === null || !Number.isFinite(monto)) return "Revisá los importes";
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
@@ -172,11 +174,7 @@ const fechaEmision = computed(() => {
                   </td>
                   <td class="py-3 text-right font-mono">
                     {{
-                      formatMonto(
-                        item.cantidad *
-                          item.precio_unitario *
-                          (1 - item.descuento_porcentaje / 100),
-                      )
+                      formatMonto(subtotalItem(item))
                     }}
                   </td>
                 </tr>

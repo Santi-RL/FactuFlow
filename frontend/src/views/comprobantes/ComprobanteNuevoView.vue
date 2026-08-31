@@ -18,6 +18,11 @@ import ClienteSelector from "@/components/comprobantes/ClienteSelector.vue";
 import ItemsTable from "@/components/comprobantes/ItemsTable.vue";
 import TotalesPanel from "@/components/comprobantes/TotalesPanel.vue";
 import ComprobantePreview from "@/components/comprobantes/ComprobantePreview.vue";
+import {
+  calcularImportesItems,
+  crearItemsEmision,
+  mensajeErrorItemsApi,
+} from "@/utils/comprobante-items";
 import type {
   ItemComprobante,
   EmitirComprobanteRequest,
@@ -126,9 +131,6 @@ const limpiarClienteSeleccionado = () => {
   };
 };
 
-const normalizarOrdenItems = (items: ItemComprobante[]): ItemComprobante[] =>
-  items.map((item, index) => ({ ...item, orden: index }));
-
 const crearIdempotencyKey = (): string => {
   if (window.crypto?.randomUUID) {
     return window.crypto.randomUUID();
@@ -199,6 +201,8 @@ const crearSnapshotInmutable = (
 const resetearIdempotencyKeyEmision = (forzar = false) => {
   if (operacionIncierta.value && !forzar) return;
 
+  mostrarPreview.value = false;
+  mostrarConfirmacionFechaFiscal.value = false;
   idempotencyKeyEmision.value = null;
   confirmacionDuplicadoLogico.value = false;
   mostrarConfirmacionDuplicadoLogico.value = false;
@@ -448,37 +452,9 @@ watch(mostrarFechasServicios, (requiereFechas) => {
   formData.value.fecha_vto_pago = "";
 });
 
-const totales = computed(() => {
-  let subtotal = 0;
-  let iva21 = 0;
-  let iva105 = 0;
-  let iva27 = 0;
-
-  formData.value.items.forEach((item) => {
-    const itemSubtotal =
-      item.cantidad *
-      item.precio_unitario *
-      (1 - item.descuento_porcentaje / 100);
-    subtotal += itemSubtotal;
-
-    if (item.iva_porcentaje === 21) {
-      iva21 += itemSubtotal * 0.21;
-    } else if (item.iva_porcentaje === 10.5) {
-      iva105 += itemSubtotal * 0.105;
-    } else if (item.iva_porcentaje === 27) {
-      iva27 += itemSubtotal * 0.27;
-    }
-  });
-
-  const total = subtotal + iva21 + iva105 + iva27;
-
-  return {
-    subtotal,
-    iva21,
-    iva105,
-    iva27,
-    total,
-  };
+const importesItems = computed(() => calcularImportesItems(formData.value.items));
+const totales = computed(() => importesItems.value.totales ?? {
+  subtotal: 0, iva21: 0, iva105: 0, iva27: 0, total: 0,
 });
 
 const formularioValido = computed(() => {
@@ -494,6 +470,7 @@ const formularioValido = computed(() => {
     (!requiereClienteCuit.value ||
       formData.value.cliente.tipo_documento === TIPOS_DOCUMENTO.CUIT) &&
     formData.value.items.length > 0 &&
+    importesItems.value.error === null &&
     formData.value.items.every(
       (item) =>
         item.descripcion.length > 0 &&
@@ -678,7 +655,7 @@ const construirRequestEmision = (): EmitirComprobanteRequest => ({
   condicion_iva: formData.value.cliente.condicion_iva,
   domicilio: formData.value.cliente.domicilio,
   guardar_cliente: true,
-  items: normalizarOrdenItems(formData.value.items),
+  items: crearItemsEmision(formData.value.items),
   fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
   fecha_servicio_hasta: formData.value.fecha_servicio_hasta || undefined,
   fecha_vto_pago: formData.value.fecha_vto_pago || undefined,
@@ -827,10 +804,10 @@ const ejecutarEmision = async (
       return;
     }
 
-    const mensaje =
+    const mensaje = mensajeErrorItemsApi(detail) ?? (
       esRegistroDesconocido(detail) && typeof detail.mensaje === "string"
         ? detail.mensaje
-        : "Ocurrió un error inesperado. Revisá los datos e intentá nuevamente.";
+        : "Ocurrió un error inesperado. Revisá los datos e intentá nuevamente.");
     showError("Error al emitir comprobante", mensaje);
   } finally {
     loading.value = false;
@@ -839,6 +816,13 @@ const ejecutarEmision = async (
 
 const confirmarEmision = async () => {
   if (loading.value || formularioBloqueado.value) return;
+  if (!formularioValido.value) {
+    showWarning(
+      "Revisá los datos antes de emitir",
+      importesItems.value.error ?? "Completá los datos obligatorios y revisá la vista previa.",
+    );
+    return;
+  }
   const request = construirRequestEmision();
   await ejecutarEmision(request, obtenerIdempotencyKeyEmision(), false);
 };
@@ -1245,12 +1229,20 @@ const confirmarCancelacion = () => {
       <!-- Sección 4: Totales -->
       <BaseCard title="💰 Totales">
         <TotalesPanel
+          v-if="!importesItems.error"
           :subtotal="totales.subtotal"
           :iva21="totales.iva21"
           :iva105="totales.iva105"
           :iva27="totales.iva27"
           :total="totales.total"
         />
+        <p
+          v-else
+          role="alert"
+          class="text-sm text-red-700"
+        >
+          {{ importesItems.error }}
+        </p>
       </BaseCard>
 
       <!-- Sección 5: Observaciones -->

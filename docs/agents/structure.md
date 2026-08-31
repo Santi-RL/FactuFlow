@@ -41,6 +41,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/arca/`: integración ARCA (WSAA, WSFEv1, SOAP, crypto, cache, utils).
 - `backend/app/afip/`: legacy (mantener solo compatibilidad).
 - `backend/app/core/`: configuración, seguridad y utilidades base.
+- `backend/app/core/comprobante_totales.py`: cálculo decimal fiscal compartido
+  entre el contrato de entrada y el servicio de facturación.
 - `backend/app/core/database.py`: engines PostgreSQL separados por rol, sesiones
   API lazy, métricas sanitizadas y engine SQLite compartido por diseño.
 - `backend/app/models/`: modelos ORM.

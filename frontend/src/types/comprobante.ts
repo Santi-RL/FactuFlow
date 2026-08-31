@@ -2,8 +2,7 @@
  * Tipos TypeScript para Comprobantes
  */
 
-export interface ItemComprobante {
-  id?: number;
+export interface ItemComprobanteCreate {
   codigo?: string;
   descripcion: string;
   cantidad: number;
@@ -11,8 +10,12 @@ export interface ItemComprobante {
   precio_unitario: number;
   descuento_porcentaje: number;
   iva_porcentaje: number;
-  subtotal?: number;
   orden: number;
+}
+
+export interface ItemComprobante extends ItemComprobanteCreate {
+  id?: number;
+  subtotal?: number;
   comprobante_id?: number;
 }
 
@@ -35,7 +38,7 @@ export interface EmitirComprobanteRequest {
   guardar_cliente?: boolean;
 
   // Items
-  items: ItemComprobante[];
+  items: ItemComprobanteCreate[];
 
   // Servicios
   fecha_servicio_desde?: string;

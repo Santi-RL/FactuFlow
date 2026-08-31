@@ -95,6 +95,56 @@ def _xlsx_headers(headers: list[str]) -> bytes:
     return output.getvalue()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalidez", ["constante", "default", "transformacion"])
+async def test_pf03b_consumo_version_legacy_invalida_no_la_reescribe(
+    client,
+    auth_headers,
+    db_session,
+    test_empresa,
+    invalidez,
+):
+    config = _config_plantilla_basica(tipo_comprobante=6)
+    crear = await client.post(
+        "/api/formatos-importacion",
+        headers=auth_headers,
+        json={
+            "nombre": "PF03B legacy",
+            "alcance": "emisor",
+            "configuracion_json": config,
+        },
+    )
+    assert crear.status_code == 201, crear.text
+    version = await db_session.get(
+        FormatoImportacionVersion, crear.json()["version_vigente"]["id"]
+    )
+    legacy = deepcopy(version.configuracion_json)
+    campo = {
+        "origen": "header",
+        "encabezados": ["Descuento"],
+        "transformacion": "decimal",
+    }
+    if invalidez == "constante":
+        campo = {"origen": "constante", "valor": "NaN"}
+    elif invalidez == "default":
+        campo["default"] = 101
+    else:
+        campo["transformacion"] = "entero"
+    legacy["campos"]["item_descuento_porcentaje"] = campo
+    version.configuracion_json = legacy
+    await db_session.commit()
+    contenido = _xlsx_con_filas(
+        ["Fecha", "Descripción", "Importe", "Descuento"],
+        [["2026-05-31", "Prueba", 100, "100,9"]],
+    )
+    with pytest.raises(FormatoImportacionError, match="descuento"):
+        await FormatosImportacionService(db_session).importar_con_version(
+            contenido, test_empresa, version
+        )
+    await db_session.refresh(version)
+    assert version.configuracion_json == legacy
+
+
 def _xlsx_con_filas(headers: list[str], rows: list[list[object]]) -> bytes:
     """Genera un Excel simple con encabezados y filas de datos."""
     workbook = Workbook()
@@ -941,6 +991,51 @@ async def test_constantes_requeridas_vacias_no_resuelven_compatibilidad(
     )
     assert crear.status_code == 400
     assert "debe informar un valor constante" in crear.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "campo,valor",
+    [
+        ("item_cantidad", 0),
+        ("item_cantidad", "NaN"),
+        ("item_precio_unitario", -1),
+        ("item_precio_unitario", "Infinity"),
+        ("item_descuento_porcentaje", -1),
+        ("item_descuento_porcentaje", 101),
+        ("item_descuento_porcentaje", "ilegible"),
+        ("importe_total", "NaN"),
+    ],
+)
+@pytest.mark.parametrize("origen", ["constante", "header"])
+async def test_pf03b_constantes_y_defaults_invalidos_no_se_guardan(
+    client,
+    auth_headers,
+    campo,
+    valor,
+    origen,
+):
+    config = _config_plantilla_basica(tipo_comprobante=6)
+    columnas = config["plantilla"]["columnas"]
+    columnas[:] = [col for col in columnas if col["campo_destino"] != campo]
+    columnas.append(
+        {
+            "campo_destino": campo,
+            "etiqueta": "Importe PF03B",
+            "origen": origen,
+            ("valor" if origen == "constante" else "default"): valor,
+        }
+    )
+    response = await client.post(
+        "/api/formatos-importacion",
+        headers=auth_headers,
+        json={
+            "nombre": "Formato PF03B inválido",
+            "alcance": "emisor",
+            "configuracion_json": config,
+        },
+    )
+    assert response.status_code == 400, response.text
 
 
 @pytest.mark.asyncio

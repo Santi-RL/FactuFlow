@@ -5,12 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import unicodedata
 from collections import defaultdict
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, DecimalException, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO
 from typing import Any, Literal
 from zipfile import BadZipFile
@@ -407,7 +408,10 @@ class LoteComprobantesService:
             empresa=empresa,
             formato_version_id=formato_version_id,
         )
-        filas_excel = importacion["filas"]
+        filas_excel = [
+            {campo: self._valor_no_finito_json(valor) for campo, valor in row.items()}
+            for row in importacion["filas"]
+        ]
         if len(filas_excel) > settings.batch_max_rows:
             raise LoteComprobanteError(
                 f"El archivo supera el máximo permitido de {settings.batch_max_rows} filas"
@@ -3890,50 +3894,47 @@ class LoteComprobantesService:
             "valores_invalidos": 0,
         }
         for payload, _, total_estimado in filas:
-            payload = payload or {}
-            items = payload.get("items") if isinstance(payload, dict) else None
-            if not isinstance(items, list):
+            try:
+                request = EmitirComprobanteRequest.model_validate(payload)
+            except PydanticValidationError:
                 totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
                 continue
 
-            neto_grupo = Decimal("0")
-            iva21_grupo = Decimal("0")
-            iva105_grupo = Decimal("0")
-            for item in items:
-                if not isinstance(item, dict):
-                    totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
-                    continue
-                cantidad = self._parse_decimal(item.get("cantidad"), Decimal("0"))
-                precio = self._parse_decimal(item.get("precio_unitario"), Decimal("0"))
-                descuento = self._parse_decimal(
-                    item.get("descuento_porcentaje"), Decimal("0")
+            try:
+                estimado = self._parse_decimal(total_estimado)
+                if total_estimado is not None and (estimado is None or estimado < 0):
+                    raise InvalidOperation
+                neto_grupo = Decimal("0")
+                iva21_grupo = Decimal("0")
+                iva105_grupo = Decimal("0")
+                for item in request.items:
+                    bruto = item.cantidad * item.precio_unitario
+                    neto_item = bruto - bruto * (
+                        item.descuento_porcentaje / Decimal("100")
+                    )
+                    neto_grupo += neto_item
+                    if item.iva_porcentaje == Decimal("21"):
+                        iva21_grupo += neto_item * Decimal("0.21")
+                    elif item.iva_porcentaje == Decimal("10.5"):
+                        iva105_grupo += neto_item * Decimal("0.105")
+                total_grupo = estimado or self._round_money(
+                    neto_grupo + iva21_grupo + iva105_grupo
                 )
-                iva = self._parse_decimal(item.get("iva_porcentaje"), Decimal("0"))
-                if None in {cantidad, precio, descuento, iva}:
-                    totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
-                    continue
-                bruto = cantidad * precio
-                neto_item = bruto - bruto * (descuento / Decimal("100"))
-                neto_grupo += neto_item
-                if iva == Decimal("21"):
-                    iva21_grupo += neto_item * Decimal("0.21")
-                elif iva == Decimal("10.5"):
-                    iva105_grupo += neto_item * Decimal("0.105")
-
+                nuevos = {
+                    "neto": self._round_money(Decimal(totales["neto"]) + neto_grupo),
+                    "iva21": self._round_money(Decimal(totales["iva21"]) + iva21_grupo),
+                    "iva105": self._round_money(
+                        Decimal(totales["iva105"]) + iva105_grupo
+                    ),
+                    "total": self._round_money(Decimal(totales["total"]) + total_grupo),
+                }
+                if not all(valor.is_finite() for valor in nuevos.values()):
+                    raise InvalidOperation
+            except DecimalException:
+                totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
+                continue
+            totales.update(nuevos)
             totales["comprobantes"] = int(totales["comprobantes"]) + 1
-            totales["neto"] = self._round_money(Decimal(totales["neto"]) + neto_grupo)
-            totales["iva21"] = self._round_money(
-                Decimal(totales["iva21"]) + iva21_grupo
-            )
-            totales["iva105"] = self._round_money(
-                Decimal(totales["iva105"]) + iva105_grupo
-            )
-            total_grupo = total_estimado or self._round_money(
-                neto_grupo + iva21_grupo + iva105_grupo
-            )
-            totales["total"] = self._round_money(
-                Decimal(totales["total"]) + total_grupo
-            )
         return totales
 
     @staticmethod
@@ -5783,6 +5784,12 @@ class LoteComprobantesService:
                     f"El precio unitario del ítem '{descripcion}' en {comprobante_ref} es inválido"
                 )
                 continue
+            if descuento is None or not Decimal("0") <= descuento <= Decimal("100"):
+                mensajes.append(
+                    f"El descuento del ítem {index + 1} en {comprobante_ref} "
+                    "debe ser un número entre 0 y 100"
+                )
+                continue
             if iva is None or iva not in self.ALICUOTAS_IVA_PERMITIDAS:
                 mensajes.append(
                     f"La alícuota de IVA del ítem '{descripcion}' en {comprobante_ref} debe ser 0, 10.5, 21 o 27"
@@ -5797,27 +5804,36 @@ class LoteComprobantesService:
                 )
                 continue
 
-            items.append(
-                ItemComprobanteCreate(
-                    codigo=str(row.get("item_codigo", "")).strip() or None,
-                    descripcion=descripcion,
-                    cantidad=cantidad,
-                    unidad=str(row.get("item_unidad", "")).strip() or "unidad",
-                    precio_unitario=precio_unitario,
-                    descuento_porcentaje=descuento or Decimal("0"),
-                    iva_porcentaje=iva or Decimal("0"),
-                    orden=index,
+            try:
+                items.append(
+                    ItemComprobanteCreate(
+                        codigo=str(row.get("item_codigo", "")).strip() or None,
+                        descripcion=descripcion,
+                        cantidad=cantidad,
+                        unidad=str(row.get("item_unidad", "")).strip() or "unidad",
+                        precio_unitario=precio_unitario,
+                        descuento_porcentaje=descuento,
+                        iva_porcentaje=iva,
+                        orden=index,
+                    )
                 )
-            )
+            except PydanticValidationError:
+                mensajes.append(
+                    f"Revisá los datos del ítem {index + 1} en {comprobante_ref}"
+                )
 
         if not items:
             mensajes.append(f"El comprobante {comprobante_ref} no tiene ítems válidos")
         elif not mensajes:
-            total_archivo = self._total_informado_por_archivo(rows)
-            if total_archivo is not None:
+            try:
                 total_calculado = self.facturacion_service._calcular_totales(items)[
                     "total"
                 ]
+                total_archivo = self._total_informado_por_archivo(rows)
+            except (ValidationError, LoteComprobanteError) as exc:
+                mensajes.append(f"{comprobante_ref}: {exc}")
+                total_archivo = None
+            if total_archivo is not None:
                 diferencia = abs(total_calculado - total_archivo)
                 if diferencia > Decimal("0.01"):
                     mensajes.append(
@@ -5893,6 +5909,10 @@ class LoteComprobantesService:
                         items=items,
                     )
                 )
+            except PydanticValidationError:
+                mensajes.append(
+                    f"Revisá los datos fiscales del comprobante {comprobante_ref}"
+                )
             except ValidationError as exc:
                 mensajes.append(f"{comprobante_ref}: {exc}")
 
@@ -5949,9 +5969,19 @@ class LoteComprobantesService:
             if valor in (None, ""):
                 continue
             importe = self._parse_decimal(valor)
-            if importe is None:
-                continue
-            total += importe
+            if importe is None or importe < 0:
+                raise LoteComprobanteError(
+                    "El total informado en el archivo debe ser un número "
+                    "finito mayor o igual a cero"
+                )
+            try:
+                total += importe
+                if not total.quantize(Decimal("0.01")).is_finite():
+                    raise InvalidOperation
+            except DecimalException as exc:
+                raise LoteComprobanteError(
+                    "El total informado en el archivo no es calculable"
+                ) from exc
             encontrado = True
         return total if encontrado else None
 
@@ -6638,6 +6668,15 @@ class LoteComprobantesService:
     def _normalize_header(self, value: Any) -> str:
         return str(value or "").strip().lower()
 
+    @staticmethod
+    def _valor_no_finito_json(value: Any) -> Any:
+        """Conserva valores inválidos como texto diagnosticable y JSON válido."""
+        if isinstance(value, float) and not math.isfinite(value):
+            return str(value)
+        if isinstance(value, Decimal) and not value.is_finite():
+            return str(value)
+        return value
+
     def _normalize_cell_value(self, value: Any) -> Any:
         if value is None:
             return ""
@@ -6646,8 +6685,9 @@ class LoteComprobantesService:
         if isinstance(value, date):
             return value.isoformat()
         if isinstance(value, Decimal):
-            return float(value)
-        return value
+            converted = float(value)
+            return converted if math.isfinite(converted) else str(value)
+        return self._valor_no_finito_json(value)
 
     def _parse_int(self, value: Any) -> int | None:
         try:
@@ -6662,17 +6702,14 @@ class LoteComprobantesService:
     ) -> Decimal | None:
         if value in (None, ""):
             return default
-        if isinstance(value, Decimal):
-            return value
-        if isinstance(value, (int, float)):
-            return Decimal(str(value))
         text = str(value).strip().replace("$", "").replace(" ", "")
         if "," in text and "." in text:
             text = text.replace(".", "").replace(",", ".")
         elif "," in text:
             text = text.replace(",", ".")
         try:
-            return Decimal(text)
+            parsed = Decimal(text)
+            return parsed if parsed.is_finite() else None
         except (InvalidOperation, ValueError):
             return None
 

@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 29/08/2026
+Última revisión: 31/08/2026
 
 Estado: VIGENTE.
 
@@ -31,6 +31,19 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - ausencia de reintento automático si ARCA pudo autorizar;
 - reconciliación y mensajes sanitizados;
 - otro emisor, ambiente o punto no puede reutilizar el estado.
+
+### Ítems e importes
+
+- vaciar cantidad o precio: el mensaje identifica el campo y no muestra un
+  total inventado; corregirlo permite continuar;
+- precio cero y descuento 100 % explícitos conservan su significado;
+- editar datos tras revisar cierra la vista previa y la confirmación anterior;
+- comprobar fecha y punto en la confirmación irreversible;
+- verificar que un estado incierto reutiliza la solicitud y clave congeladas;
+- importar descuento vacío, decimal argentino, texto ilegible y fuera de rango
+  con formato oficial y personalizado: sólo las entradas válidas son emitibles;
+- un total informado inválido produce error, sin convertirse en ausencia;
+- los detalles de error no exponen el body ni datos privados.
 
 ### Lotes y worker
 

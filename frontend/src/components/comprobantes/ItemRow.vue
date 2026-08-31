@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import { TrashIcon } from "@heroicons/vue/24/outline";
 import type { ItemComprobante } from "@/types/comprobante";
 import { ALICUOTAS_IVA } from "@/types/comprobante";
+import { subtotalItem } from "@/utils/comprobante-items";
 
 interface Props {
   item: ItemComprobante;
@@ -26,19 +27,7 @@ const alicuotasDisponibles = computed(() => {
 });
 
 // Calcular subtotal automáticamente
-const subtotal = computed(() => {
-  const base = props.item.cantidad * props.item.precio_unitario;
-  const descuento = base * (props.item.descuento_porcentaje / 100);
-  return base - descuento;
-});
-
-// Actualizar item cuando cambia el subtotal
-watch(subtotal, (newSubtotal) => {
-  emit("update:item", {
-    ...props.item,
-    subtotal: newSubtotal,
-  });
-});
+const subtotal = computed(() => subtotalItem(props.item));
 
 // Handlers
 const updateField = (field: keyof ItemComprobante, value: any) => {
@@ -48,7 +37,8 @@ const updateField = (field: keyof ItemComprobante, value: any) => {
   });
 };
 
-const formatMonto = (monto: number) => {
+const formatMonto = (monto: number | null) => {
+  if (monto === null) return "Revisá los importes";
   return new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
@@ -93,7 +83,7 @@ const formatMonto = (monto: number) => {
       <input
         type="number"
         aria-label="Cantidad"
-        :value="item.cantidad"
+        :value="Number.isFinite(item.cantidad) ? item.cantidad : ''"
         placeholder="0"
         step="0.01"
         min="0"
@@ -102,7 +92,7 @@ const formatMonto = (monto: number) => {
         @input="
           updateField(
             'cantidad',
-            parseFloat(($event.target as HTMLInputElement).value) || 0,
+            ($event.target as HTMLInputElement).valueAsNumber,
           )
         "
       >
@@ -127,7 +117,7 @@ const formatMonto = (monto: number) => {
       <input
         type="number"
         aria-label="Precio Unitario"
-        :value="item.precio_unitario"
+        :value="Number.isFinite(item.precio_unitario) ? item.precio_unitario : ''"
         placeholder="0.00"
         step="0.01"
         min="0"
@@ -136,7 +126,7 @@ const formatMonto = (monto: number) => {
         @input="
           updateField(
             'precio_unitario',
-            parseFloat(($event.target as HTMLInputElement).value) || 0,
+            ($event.target as HTMLInputElement).valueAsNumber,
           )
         "
       >

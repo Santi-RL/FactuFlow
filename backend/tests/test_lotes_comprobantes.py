@@ -6,6 +6,8 @@ from decimal import Decimal
 import hashlib
 from io import BytesIO
 import json
+from zipfile import ZipFile
+from xml.etree import ElementTree
 from types import SimpleNamespace
 
 import pytest
@@ -1165,18 +1167,8 @@ async def test_obtener_resumen_y_grupos_paginados_lote(
     await db_session.flush()
 
     for index, estado in enumerate(["validado", "validado", "con_error"], start=1):
-        payload = {
-            "fecha_emision": "2026-05-20",
-            "concepto": 1,
-            "items": [
-                {
-                    "cantidad": 1,
-                    "precio_unitario": 1000,
-                    "descuento_porcentaje": 0,
-                    "iva_porcentaje": 21,
-                }
-            ],
-        }
+        payload = _payload_lote_basico(test_empresa.id, 1, date(2026, 5, 20))
+        payload["items"][0]["descripcion"] = f"Servicio {index}"
         grupo = LoteComprobanteGrupo(
             lote_id=lote.id,
             empresa_id=lote.empresa_id,
@@ -1386,6 +1378,222 @@ async def test_seguimiento_lote_respeta_scope_del_emisor(
 
     assert response.status_code == 403
     assert "permiso" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("con_perfil", [False, True])
+@pytest.mark.parametrize(
+    "campo,valor,valido",
+    [
+        ("item_descuento_porcentaje", None, True),
+        ("item_descuento_porcentaje", 0, True),
+        ("item_descuento_porcentaje", 100, True),
+        ("item_descuento_porcentaje", "10,5", True),
+        ("item_descuento_porcentaje", "ilegible", False),
+        ("item_descuento_porcentaje", -1, False),
+        ("item_descuento_porcentaje", 101, False),
+        ("item_descuento_porcentaje", "NaN", False),
+        ("item_descuento_porcentaje", "Infinity", False),
+        ("item_cantidad", "NaN", False),
+        ("item_precio_unitario", "Infinity", False),
+        ("item_precio_unitario", "1e30", False),
+        ("importe_total", "ilegible", False),
+        ("importe_total", "NaN", False),
+    ],
+)
+async def test_pf03b_importacion_rechaza_valores_sin_sustituirlos(
+    client,
+    auth_headers,
+    db_session,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    campo,
+    valor,
+    valido,
+    con_perfil,
+):
+    workbook = load_workbook(BytesIO(_build_lote_excel(test_empresa.cuit)))
+    sheet = workbook.active
+    headers = [cell.value for cell in sheet[1]]
+    if campo not in headers:
+        headers.append(campo)
+        sheet.cell(1, len(headers), campo)
+    sheet.cell(2, headers.index(campo) + 1).value = valor
+    output = BytesIO()
+    workbook.save(output)
+    opciones = _opciones_fechas()
+    if con_perfil:
+        campos = {
+            header: {"origen": "header", "encabezados": [header]} for header in headers
+        }
+        for nombre in (
+            "item_cantidad",
+            "item_precio_unitario",
+            "item_descuento_porcentaje",
+            "item_iva_porcentaje",
+            "importe_total",
+        ):
+            if nombre in campos:
+                campos[nombre]["transformacion"] = "decimal"
+        formato = await client.post(
+            "/api/formatos-importacion",
+            headers=auth_headers,
+            json={
+                "nombre": "PF03B formato con decimales",
+                "alcance": "emisor",
+                "configuracion_json": {
+                    "tipo": "pf03b",
+                    "header_row": 1,
+                    "campos": campos,
+                },
+            },
+        )
+        assert formato.status_code == 201, formato.text
+        perfil = await client.post(
+            "/api/perfiles-carga-masiva",
+            headers=auth_headers,
+            json={
+                "nombre": "PF03B perfil de importación",
+                "configuracion_json": {
+                    "version": 1,
+                    "formato_importacion_version_id": formato.json()["version_vigente"][
+                        "id"
+                    ],
+                    "concepto_modo": "productos",
+                    "descripcion_item_modo": "archivo",
+                    "fecha_emision": {"modo": "archivo"},
+                    "periodo_servicio": {"modo": "archivo"},
+                    "fecha_vto_pago": {"modo": "archivo"},
+                },
+            },
+        )
+        assert perfil.status_code == 201, perfil.text
+        opciones["perfil_carga_masiva_id"] = str(perfil.json()["id"])
+        opciones["formato_version_id"] = str(formato.json()["version_vigente"]["id"])
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=opciones,
+        files={
+            "archivo": (
+                "pf03b.xlsx",
+                output.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["puede_emitirse"] is valido
+    if con_perfil:
+        lote = await db_session.get(LoteComprobante, response.json()["lote"]["id"])
+        assert (
+            lote.formato_importacion_version_id
+            == formato.json()["version_vigente"]["id"]
+        )
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}",
+        headers=auth_headers,
+    )
+    assert detalle.status_code == 200, detalle.text
+    grupo = detalle.json()["grupos"][0]
+    assert grupo["estado"] == ("validado" if valido else "con_error")
+    if not valido:
+        assert grupo["total_estimado"] == "0.00"
+    assert (await db_session.scalars(select(IntentoEmisionFiscal))).all() == []
+    assert (await db_session.scalars(select(OperacionIdempotente))).all() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("configurable", [False, True])
+async def test_pf03b_xlsx_no_finito_numerico_conserva_json_y_error(
+    client,
+    auth_headers,
+    db_session,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    configurable,
+):
+    original = _build_lote_excel(test_empresa.cuit)
+    data = _opciones_fechas()
+    if configurable:
+        sheet = load_workbook(BytesIO(original)).active
+        campos = {
+            cell.value: {"origen": "header", "encabezados": [cell.value]}
+            for cell in sheet[1]
+        }
+        crear = await client.post(
+            "/api/formatos-importacion",
+            headers=auth_headers,
+            json={
+                "nombre": "Formato PF03B sin transformación",
+                "alcance": "emisor",
+                "configuracion_json": {
+                    "tipo": "pf03b",
+                    "header_row": 1,
+                    "campos": campos,
+                },
+            },
+        )
+        assert crear.status_code == 201, crear.text
+        data["formato_version_id"] = str(crear.json()["version_vigente"]["id"])
+    output = BytesIO()
+    with ZipFile(BytesIO(original)) as source, ZipFile(output, "w") as target:
+        for info in source.infolist():
+            content = source.read(info.filename)
+            if info.filename == "xl/worksheets/sheet1.xml":
+                root = ElementTree.fromstring(content)
+                ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+                root.find(".//s:c[@r='S2']/s:v", ns).text = "1e309"
+                content = ElementTree.tostring(root)
+            target.writestr(info, content)
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=data,
+        files={
+            "archivo": (
+                "pf03b-infinito.xlsx",
+                output.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["puede_emitirse"] is False
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}", headers=auth_headers
+    )
+    assert detalle.status_code == 200, detalle.text
+    filas = (await db_session.scalars(select(LoteComprobanteFila))).all()
+    assert isinstance(filas[0].datos_json["item_precio_unitario"], str)
+    assert filas[0].datos_json["item_precio_unitario"]
+    json.dumps(filas[0].datos_json, allow_nan=False)
+    assert (await db_session.scalars(select(IntentoEmisionFiscal))).all() == []
+    assert (await db_session.scalars(select(OperacionIdempotente))).all() == []
+
+
+@pytest.mark.parametrize(
+    "invalidez", ["extra", "descuento", "estimado_nan", "estimado_negativo"]
+)
+def test_pf03b_resumen_no_totaliza_snapshot_invalido(invalidez):
+    valido = _payload_lote_basico(1, 1, FECHA_FISCAL_CONTROLADA_PF19B)
+    invalido = deepcopy(valido)
+    estimado = Decimal("1210")
+    if invalidez == "extra":
+        invalido["items"][0]["subtotal"] = 999
+    elif invalidez == "descuento":
+        invalido["items"][0]["descuento_porcentaje"] = 101
+    else:
+        estimado = Decimal("NaN" if invalidez == "estimado_nan" else "-1")
+    service = LoteComprobantesService(None)
+    result = service._calcular_totales_payloads(
+        [(valido, 1, Decimal("1210")), (invalido, 1, estimado)]
+    )
+    assert result["valores_invalidos"] == 1
+    assert result["comprobantes"] == 1
+    assert result["total"] == Decimal("1210.00")
 
 
 @pytest.mark.asyncio
@@ -3076,6 +3284,7 @@ async def test_procesar_lote_sync_actualiza_resultados(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("anidado", [False, True])
 async def test_procesar_lote_sanitiza_payload_con_clave_desconocida(
     client: AsyncClient,
     auth_headers: dict,
@@ -3084,6 +3293,7 @@ async def test_procesar_lote_sanitiza_payload_con_clave_desconocida(
     test_empresa,
     test_punto_venta,
     test_certificado,
+    anidado,
 ) -> None:
     """El procesamiento no debe exponer el valor de un payload no canónico."""
     lote_id = await _crear_lote_validado_por_api(
@@ -3095,8 +3305,9 @@ async def test_procesar_lote_sanitiza_payload_con_clave_desconocida(
     grupos = await _marcar_grupos_lote(db_session, lote_id, ["validado"])
     grupo = grupos[0]
     valor_no_publicable = "dato-sintetico-no-publicable"
-    payload = dict(grupo.payload_json or {})
-    payload["instruccion_fiscal_desconocida"] = valor_no_publicable
+    payload = deepcopy(grupo.payload_json or {})
+    destino = payload["items"][0] if anidado else payload
+    destino["instruccion_fiscal_desconocida"] = valor_no_publicable
     grupo.payload_json = payload
     await db_session.commit()
     llamadas_emision = 0
@@ -5391,6 +5602,7 @@ async def test_reintentar_fallidos_segunda_key_pierde_cas_y_conserva_owner_previ
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("anidado", [False, True])
 async def test_reintentar_fallidos_bloquea_payload_con_clave_desconocida(
     client: AsyncClient,
     auth_headers: dict,
@@ -5399,6 +5611,7 @@ async def test_reintentar_fallidos_bloquea_payload_con_clave_desconocida(
     test_empresa,
     test_punto_venta,
     test_certificado,
+    anidado,
 ) -> None:
     """Un reintento no debe emitir si el snapshot fiscal no es canónico."""
     lote_id = await _crear_lote_validado_por_api(
@@ -5409,8 +5622,9 @@ async def test_reintentar_fallidos_bloquea_payload_con_clave_desconocida(
     )
     grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido"])
     grupo = grupos[0]
-    payload = dict(grupo.payload_json or {})
-    payload["cotizaccion"] = "2"
+    payload = deepcopy(grupo.payload_json or {})
+    destino = payload["items"][0] if anidado else payload
+    destino["cotizaccion"] = "2"
     grupo.payload_json = payload
     await db_session.commit()
     llamadas_emision = 0
@@ -8345,11 +8559,13 @@ async def test_preflight_stale_exige_todas_las_combinaciones_seguras(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("anidado", [False, True])
 async def test_preflight_stale_bloquea_payload_con_clave_superior_desconocida(
     db_session: AsyncSession,
     test_empresa,
     test_user,
     test_punto_venta,
+    anidado,
 ) -> None:
     """Un payload no canónico bloquea todo el conjunto antes del preflight."""
     fecha_fiscal = date(2026, 8, 5)
@@ -8372,7 +8588,8 @@ async def test_preflight_stale_bloquea_payload_con_clave_superior_desconocida(
         fecha_fiscal,
         razon_social="Cliente con payload no canónico SA",
     )
-    payload_invalido["monedaa"] = "USD"
+    destino = payload_invalido["items"][0] if anidado else payload_invalido
+    destino["monedaa"] = "USD"
     lote, grupos = await _crear_lote_stale_moderno_intacto(
         db_session,
         test_empresa,

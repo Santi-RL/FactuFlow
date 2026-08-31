@@ -168,12 +168,32 @@ test.describe("Emisión de Comprobantes", () => {
       .first()
       .fill("1000");
 
+    // Un precio vacío requiere corrección; no se convierte en cero.
+    await page
+      .getByLabel(/precio unitario/i)
+      .first()
+      .fill("");
+    await expect(page.getByTestId("comprobante-vista-previa")).toBeDisabled();
+    await expect(page.getByRole("alert")).toContainText("precio unitario");
+    await page.screenshot({
+      path: "../output/playwright/pf03b-importe-invalido.png",
+      fullPage: true,
+    });
+    await page
+      .getByLabel(/precio unitario/i)
+      .first()
+      .fill("1000");
+
     // Abrir preview y confirmar
     await page.getByTestId("comprobante-vista-previa").click();
     await expect(
       page.getByTestId("comprobante-confirmar-emitir"),
     ).toBeVisible();
 
+    await page.screenshot({
+      path: "../output/playwright/pf03b-vista-previa.png",
+      fullPage: true,
+    });
     await page.getByTestId("comprobante-confirmar-emitir").click();
     await expect(
       page.getByRole("button", { name: /emitir con esta fecha/i }),
@@ -191,6 +211,22 @@ test.describe("Emisión de Comprobantes", () => {
       page.getByRole("button", { name: /emitir con esta fecha/i }).click(),
       emitirRequest,
     ]);
+    const request = await emitirRequest;
+    expect(request.postDataJSON().items).toEqual([
+      {
+        codigo: "",
+        descripcion: "Servicio de prueba",
+        cantidad: 1,
+        unidad: "unidades",
+        precio_unitario: 1000,
+        descuento_porcentaje: 0,
+        iva_porcentaje: 21,
+        orden: 0,
+      },
+    ]);
+    expect(request.headers()["x-idempotency-key"]).toBeTruthy();
+    expect(request.postDataJSON().fecha_emision).toBe("2026-03-09");
+    expect(request.postDataJSON().confirmacion_fecha_fiscal).toBe(true);
 
     // Debe volver al listado
     await expect(page).toHaveURL(/comprobantes$/);
