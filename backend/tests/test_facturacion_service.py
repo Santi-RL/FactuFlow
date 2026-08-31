@@ -5094,10 +5094,12 @@ async def test_intento_stale_no_libera_numero_con_error_arca_ambiguo(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("anidado", [False, True])
 async def test_intento_stale_autorizado_preserva_cae_con_payload_no_canonico(
     db_session: AsyncSession,
     test_empresa,
     caplog: pytest.LogCaptureFixture,
+    anidado,
 ) -> None:
     """Una autorización conocida no se pierde ni reconstruye con payload inválido."""
     fecha_fiscal = date(2026, 8, 5)
@@ -5141,7 +5143,8 @@ async def test_intento_stale_autorizado_preserva_cae_con_payload_no_canonico(
         ],
     )
     payload = request.model_dump(mode="json")
-    payload["instruccion_fiscal_desconocida"] = "valor-sintetico"
+    destino = payload["items"][0] if anidado else payload
+    destino["instruccion_fiscal_desconocida"] = "valor-sintetico"
     grupo = LoteComprobanteGrupo(
         lote_id=lote.id,
         empresa_id=test_empresa.id,

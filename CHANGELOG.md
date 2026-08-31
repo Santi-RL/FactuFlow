@@ -18,6 +18,20 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Correcciones
+
+- PF-03B cierra el contrato de ítems: campos desconocidos, descuentos inválidos
+  y valores no finitos o no calculables se rechazan antes de crear estado fiscal.
+- La UI envía únicamente datos de creación, distingue un campo vacío de un cero
+  explícito, informa errores accionables y exige revisar nuevamente al editar
+  importes. Las verificaciones inciertas conservan solicitud y clave originales.
+- La importación oficial y personalizada conserva entradas inválidas para
+  informar su error; no sustituye descuentos ilegibles por cero ni ignora un
+  total informado inválido. Constantes y valores predeterminados se validan al
+  guardar y al consumir formatos, incluidos los seleccionados desde perfiles.
+- Lotes, worker, reintentos y reconciliación comparten el contrato estricto.
+  Los snapshots válidos mantienen contenido y hash; no hay migración de base.
+
 ### Documentación
 
 - Se reorganizó la arquitectura documental: roadmap prospectivo, handoff breve,

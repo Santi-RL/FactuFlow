@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 29/08/2026
+Última revisión: 31/08/2026
 
 Estado: VIGENTE.
 
@@ -30,24 +30,9 @@ solo cuando el usuario aprueba un corte concreto.
 
 ## Ahora
 
-### 1. PF-03B — validación estricta de ítems e importes
+### 1. PF-19D — autoridad WSFE y uso operativo de puntos de venta
 
-**Prioridad:** P1 fiscal, Nivel 2.
-
-Separar el DTO que la interfaz usa para editar ítems del contrato que recibe el
-backend. Rechazar propiedades desconocidas, descuentos inválidos y valores no
-finitos antes de crear operaciones, reservas, intentos o solicitudes de CAE.
-
-**Resultado esperado:** emisión individual, lotes, perfiles, worker, reintentos
-y recuperación stale comparten un contrato estricto sin romper archivos ni
-perfiles válidos existentes.
-
-**Diseño:**
-[`docs/agents/pf-03-validacion-fiscal-design.md`](docs/agents/pf-03-validacion-fiscal-design.md).
-
-### 2. PF-19D — autoridad WSFE y uso operativo de puntos de venta
-
-**Prioridad:** P1 fiscal-operativa, Nivel 2. Depende de cerrar PF-03B.
+**Prioridad:** P1 fiscal-operativa, Nivel 2. PF-03B cerrado.
 
 Usar `FEParamGetPtosVenta` como autoridad técnica autenticada para descubrir y
 validar puntos compatibles con el flujo CAE. Separar esa disponibilidad de la

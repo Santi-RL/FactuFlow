@@ -574,6 +574,85 @@ describe("ComprobanteNuevoView", () => {
     }
   });
 
+  it.each([
+    { descuento_porcentaje: -1 },
+    { descuento_porcentaje: 101 },
+    { descuento_porcentaje: NaN },
+    { precio_unitario: Infinity },
+    { cantidad: Infinity },
+    { cantidad: 1e308, precio_unitario: 1e308 },
+  ])(
+    "PF03B impide enviar importes inválidos y permite corregirlos %j",
+    async (cambio) => {
+      mockedComprobantesService.proximoNumero.mockResolvedValue(
+        diagnosticoNumeracionMock(100),
+      );
+      mockedComprobantesService.emitir.mockResolvedValue(respuestaFinal());
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      const original = { ...vm.formData.items[0] };
+      Object.assign(vm.formData.items[0], cambio);
+      await flushPromises();
+      expect(
+        wrapper
+          .get('[data-testid="comprobante-vista-previa"]')
+          .attributes("disabled"),
+      ).toBeDefined();
+      expect(wrapper.get('[role="alert"]').text()).toContain("Ítem 1");
+      await vm.confirmarEmision();
+      expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+      expect(vm.idempotencyKeyEmision).toBeNull();
+      vm.formData.items = [original];
+      await flushPromises();
+      await vm.confirmarEmision();
+      expect(mockedComprobantesService.emitir).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("PF03B envía y congela solo campos fiscales, conservando descuento y replay", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
+    mockedComprobantesService.emitir.mockRejectedValue(errorReconciliacion());
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      Object.assign(vm.formData.items[0], {
+        subtotal: 999,
+        id: 8,
+        comprobante_id: 9,
+        descuento_porcentaje: 10,
+        orden: 8,
+      });
+      await flushPromises();
+      await vm.confirmarEmision();
+      const [request, key] = mockedComprobantesService.emitir.mock.calls[0];
+      expect(request.items[0]).toEqual({
+        codigo: undefined,
+        descripcion: "Servicio",
+        cantidad: 1,
+        unidad: "unidad",
+        precio_unitario: 100,
+        descuento_porcentaje: 10,
+        iva_porcentaje: 21,
+        orden: 0,
+      });
+      expect(vm.operacionIncierta?.request).toEqual(request);
+      vm.formData.items[0].precio_unitario = NaN;
+      await flushPromises();
+      await vm.verificarEstado();
+      expect(mockedComprobantesService.emitir.mock.calls[1]).toEqual([
+        request,
+        key,
+      ]);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("envia una clave de idempotencia al confirmar la emision", async () => {
     mockedComprobantesService.proximoNumero.mockResolvedValue(
       diagnosticoNumeracionMock(100),
@@ -637,6 +716,7 @@ describe("ComprobanteNuevoView", () => {
       },
     ];
 
+    await flushPromises();
     await vm.confirmarEmision();
 
     expect(mockedComprobantesService.emitir).toHaveBeenCalledWith(
@@ -646,6 +726,27 @@ describe("ComprobanteNuevoView", () => {
       expect.any(String),
     );
   });
+  it("invalida la vista previa, la confirmación y la clave al editar importes", async () => {
+    const wrapper = await mountView();
+    const vm = (await completarFormulario(
+      wrapper,
+    )) as ComprobanteNuevoViewModel & {
+      mostrarPreview: boolean;
+      mostrarConfirmacionFechaFiscal: boolean;
+    };
+    await flushPromises();
+    vm.mostrarPreview = true;
+    vm.mostrarConfirmacionFechaFiscal = true;
+    vm.idempotencyKeyEmision = "clave-sintetica-anterior";
+    vm.formData.items[0].precio_unitario = 200;
+    await flushPromises();
+
+    expect(vm.mostrarPreview).toBe(false);
+    expect(vm.mostrarConfirmacionFechaFiscal).toBe(false);
+    expect(vm.idempotencyKeyEmision).toBeNull();
+    expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+  });
+
   it("invalida numero y clave si ARCA cambia antes de solicitar CAE", async () => {
     const consoleError = vi
       .spyOn(console, "error")

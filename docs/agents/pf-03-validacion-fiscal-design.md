@@ -2,6 +2,10 @@
 
 Última actualización: 2026-08-08
 
+Este documento conserva el diseño y cierre histórico de PF-03A. La tolerancia
+transitoria de ítems descrita aquí fue reemplazada por
+[`PF-03B`](pf-03b-items-importes-design.md), autoridad vigente para ítems e importes.
+
 ## Objetivo y secuencia de cortes
 
 PF-03 evita que FactuFlow interprete silenciosamente una entrada distinta de la

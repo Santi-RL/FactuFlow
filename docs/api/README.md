@@ -396,9 +396,22 @@ El objeto superior del body es cerrado. Una clave no documentada devuelve
 reservar numeración o alcanzar el servicio fiscal. Esto incluye erratas de
 campos con defaults como `moneda`, `cotizacion`, `guardar_cliente` y las
 confirmaciones: el backend no elimina la clave ni completa silenciosamente otro
-significado. PF-03A conserva de forma transitoria la tolerancia de propiedades
-derivadas dentro de `items`; los clientes deben enviar solo los campos de ítem
-documentados y PF-03B cerrará ese contrato después de separar el DTO de la UI.
+significado. Cada objeto de `items` también es cerrado: admite únicamente
+`codigo`, `descripcion`, `cantidad`, `unidad`, `precio_unitario`,
+`descuento_porcentaje`, `iva_porcentaje` y `orden`. No enviar `subtotal`, `id`,
+`comprobante_id` ni auxiliares de interfaz.
+
+Cantidad positiva, precio no negativo y descuento de 0 a 100 inclusive deben
+ser números finitos. Un descuento omitido conserva cero; un descuento inválido
+no se sustituye. Los totales deben ser calculables con la aritmética decimal
+vigente. Un error devuelve `422` sin crear operaciones, intentos ni reservas.
+Los detalles de validación exponen solo `type`, `loc` y `msg`, sin eco del body.
+Los clientes deben asociar el error a `loc` y corregir el dato antes de emitir.
+
+La importación aplica estas reglas a formatos oficiales y personalizados.
+Rechaza constantes o defaults numéricos inválidos al consumir versiones
+existentes; conserva filas inválidas como trabajo administrativo sin payload
+emitible. Un total informado inválido no equivale a ausencia de total.
 
 Si la tupla exacta está incluida en
 `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION`, la emisión aborta localmente con

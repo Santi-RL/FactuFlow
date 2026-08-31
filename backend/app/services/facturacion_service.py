@@ -25,6 +25,7 @@ from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
 from app.core.config import settings
+from app.core.comprobante_totales import calcular_totales
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
@@ -2079,58 +2080,11 @@ class FacturacionService:
         )
 
     def _calcular_totales(self, items: list[ItemComprobanteCreate]) -> dict:
-        """
-        Calcula subtotal, IVA y total.
-
-        Returns:
-            Dict con subtotal, iva_21, iva_10_5, iva_27, total
-        """
-        subtotal = Decimal("0")
-        base_21 = Decimal("0")
-        base_10_5 = Decimal("0")
-        base_27 = Decimal("0")
-        base_0 = Decimal("0")
-        iva_21 = Decimal("0")
-        iva_10_5 = Decimal("0")
-        iva_27 = Decimal("0")
-
-        for item in items:
-            # Calcular subtotal del item
-            item_subtotal = item.cantidad * item.precio_unitario
-
-            # Aplicar descuento si hay
-            if item.descuento_porcentaje > 0:
-                descuento = item_subtotal * (item.descuento_porcentaje / 100)
-                item_subtotal -= descuento
-
-            subtotal += item_subtotal
-
-            # Calcular IVA según alícuota
-            if item.iva_porcentaje == Decimal("21"):
-                base_21 += item_subtotal
-                iva_21 += item_subtotal * Decimal("0.21")
-            elif item.iva_porcentaje == Decimal("10.5"):
-                base_10_5 += item_subtotal
-                iva_10_5 += item_subtotal * Decimal("0.105")
-            elif item.iva_porcentaje == Decimal("27"):
-                base_27 += item_subtotal
-                iva_27 += item_subtotal * Decimal("0.27")
-            else:
-                base_0 += item_subtotal
-
-        total = subtotal + iva_21 + iva_10_5 + iva_27
-
-        return {
-            "subtotal": subtotal.quantize(Decimal("0.01")),
-            "base_21": base_21.quantize(Decimal("0.01")),
-            "base_10_5": base_10_5.quantize(Decimal("0.01")),
-            "base_27": base_27.quantize(Decimal("0.01")),
-            "base_0": base_0.quantize(Decimal("0.01")),
-            "iva_21": iva_21.quantize(Decimal("0.01")),
-            "iva_10_5": iva_10_5.quantize(Decimal("0.01")),
-            "iva_27": iva_27.quantize(Decimal("0.01")),
-            "total": total.quantize(Decimal("0.01")),
-        }
+        """Calcula con la misma autoridad decimal usada al validar el request."""
+        try:
+            return calcular_totales(items)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
 
     async def _validar_datos(self, request: EmitirComprobanteRequest):
         """

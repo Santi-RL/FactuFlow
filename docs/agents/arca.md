@@ -417,7 +417,7 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
 - PF-02A no consulta ni importa comprobantes anteriores. Esa reconstrucción
   opcional corresponde a PF-05.
 
-### PF-03A: contrato de entrada cerrado antes de ARCA
+### PF-03A/PF-03B: contrato de entrada cerrado antes de ARCA
 
 - `EmitirComprobanteRequest` rechaza toda clave superior desconocida con
   `422 extra_forbidden` antes de crear idempotencia, intentos o reservas y antes
@@ -432,9 +432,14 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   cerrado. No se elimina el campo porque podría representar una instrucción
   fiscal que FactuFlow no comprende; si existe evidencia de autorización, se
   preserva y no se habilita reemisión.
-- PF-03A no modifica el payload SOAP, la numeración, el segundo preflight ni los
-  estados fiscales. Los ítems anidados continúan transitoriamente compatibles
-  con el `subtotal` derivado que hoy serializa la UI; PF-03B cerrará esa frontera.
+- PF-03B cierra también cada ítem: rechaza propiedades desconocidas, descuentos
+  inválidos e importes no finitos o no calculables. La UI envía sólo los ocho
+  campos del contrato de creación, sin `subtotal` ni IDs de respuesta.
+- El cálculo fiscal conserva orden y redondeo; los snapshots válidos conservan
+  contenido y hash. La importación y el resumen de lotes no convierten valores
+  inválidos en cero ni generan totales parciales engañosos.
+- No cambian el payload SOAP, la numeración, el segundo preflight ni los estados
+  fiscales. Contrato y matriz: [`PF-03B`](pf-03b-items-importes-design.md).
 
 ### Reconciliación externa de lotes
 

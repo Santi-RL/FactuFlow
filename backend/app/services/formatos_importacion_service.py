@@ -1308,6 +1308,7 @@ class FormatosImportacionService:
         version: FormatoImportacionVersion,
     ) -> ImportacionNormalizada:
         """Convierte un Excel externo al formato interno de lote."""
+        self._validar_configuracion_formato(version.configuracion_json)
         sheet, headers = self._leer_sheet_y_headers(file_bytes, version)
         mapeo = self._resolver_mapeo(headers, version.configuracion_json)
         faltantes = [
@@ -1512,6 +1513,27 @@ class FormatosImportacionService:
             if iva not in ALICUOTAS_IVA_PERMITIDAS:
                 raise FormatoImportacionError(
                     "La alícuota de IVA fija debe ser 0, 10.5, 21 o 27"
+                )
+        elif campo in {
+            "item_cantidad",
+            "item_precio_unitario",
+            "item_descuento_porcentaje",
+            "importe_total",
+        }:
+            importe = self._parse_decimal(valor)
+            if importe is None:
+                raise FormatoImportacionError(
+                    f"El valor fijo de {campo} debe ser un número finito"
+                )
+            if campo == "item_cantidad" and importe <= 0:
+                raise FormatoImportacionError("La cantidad fija debe ser mayor a cero")
+            if campo == "item_descuento_porcentaje" and not 0 <= importe <= 100:
+                raise FormatoImportacionError(
+                    "El descuento fijo debe estar entre 0 y 100"
+                )
+            if importe < 0:
+                raise FormatoImportacionError(
+                    f"El valor fijo de {campo} debe ser mayor o igual a cero"
                 )
 
     def _campo_resuelto_por_perfil(
@@ -1821,6 +1843,8 @@ class FormatosImportacionService:
                 )
             if origen == "constante":
                 self._validar_constante_fiscal(campo_destino, config.get("valor"))
+            if "default" in config:
+                self._validar_constante_fiscal(campo_destino, config["default"])
 
             origenes_permitidos = ORIGENES_PERMITIDOS_POR_CAMPO.get(str(campo_destino))
             if origenes_permitidos is not None and origen not in origenes_permitidos:
@@ -2223,7 +2247,8 @@ class FormatosImportacionService:
             return ""
         if transformacion == "decimal":
             parsed = self._parse_decimal(value)
-            return str(parsed) if parsed is not None else ""
+            # Un dato inválido no debe degradarse a un campo opcional ausente.
+            return str(parsed) if parsed is not None else str(value)
         if transformacion == "entero":
             try:
                 return int(Decimal(str(self._parse_decimal(value) or value)))
@@ -2238,10 +2263,6 @@ class FormatosImportacionService:
         return value
 
     def _parse_decimal(self, value: Any) -> Decimal | None:
-        if isinstance(value, Decimal):
-            return value
-        if isinstance(value, (int, float)):
-            return Decimal(str(value))
         text = str(value).strip()
         if not text:
             return None
@@ -2251,7 +2272,8 @@ class FormatosImportacionService:
         elif "," in text:
             text = text.replace(",", ".")
         try:
-            return Decimal(text)
+            parsed = Decimal(text)
+            return parsed if parsed.is_finite() else None
         except (InvalidOperation, ValueError):
             return None
 

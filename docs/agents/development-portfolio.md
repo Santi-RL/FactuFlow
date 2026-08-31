@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 29/08/2026
+Última revisión: 31/08/2026
 
 Estado: VIGENTE.
 
@@ -21,8 +21,7 @@ producto.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-03B | Ahora 1 | P1 fiscal | Contrato estricto de ítems, descuentos y valores finitos en todos los caminos de emisión | PF-03A cerrado; `pf-03-validacion-fiscal-design.md` |
-| PF-19D | Ahora 2 | P1 fiscal-operativa | WSFE como autoridad técnica de puntos CAE, constancia opcional y preferencia de uso local | PF-03B; `pf-19d-puntos-venta-authority-design.md` |
+| PF-19D | Ahora 1 | P1 fiscal-operativa | WSFE como autoridad técnica de puntos CAE, constancia opcional y preferencia de uso local | PF-03B cerrado; `pf-19d-puntos-venta-authority-design.md` |
 | PF-06/PF-07/PF-08 | Después 1 | P1 | Operadores multiemisor, autorización por objeto y cambio de emisor seguro | PF-19D; diseño integrado PF-06/07/08 |
 | PF-11/PF-15 | Después 2 | P1/P2 | Backups trazables, recuperación, logs y soporte comprensible | Plano de control externo; observabilidad vigente |
 | PF-04 | Después 3 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
@@ -37,14 +36,6 @@ producto.
 | PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard | Madurez operativa y almacenamiento seguro |
 
 ## Trabajo agrupado por línea
-
-### PF-03B
-
-- Separar DTO editable de contrato fiscal.
-- Rechazar claves anidadas desconocidas, descuentos inválidos, `NaN` e
-  infinitos antes de crear estado fiscal.
-- Cubrir individual, lotes, perfiles, worker, reintentos, stale y migración de
-  snapshots compatibles.
 
 ### PF-19D
 
@@ -105,7 +96,9 @@ producto.
 
 ## Líneas cerradas
 
-PF-01, PF-02, PF-03A y PF-19A/PF-19B/PF-19C están cerrados. Su evidencia vive
+PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C están cerrados. El contrato
+de PF-03B vive en [`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
+Su evidencia vive
 en sus diseños, `CHANGELOG.md`, dossiers y auditorías. No se incluyen aquí sus
 conteos de pruebas, SHAs ni cronología.
 

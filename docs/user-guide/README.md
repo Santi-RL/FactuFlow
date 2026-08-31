@@ -217,6 +217,19 @@ sí sola la emisión, pero exige una confirmación adicional antes de solicitar
 CAE. Revisá especialmente receptor, fecha fiscal, punto de venta, total,
 ítems y comprobantes asociados antes de continuar.
 
+### Validación de ítems e importes
+
+Antes de emitir, la cantidad debe ser mayor a cero, el precio no negativo y el
+descuento estar entre 0 y 100 inclusive. Un precio vacío exige corregir el campo;
+para usar cero, escribilo explícitamente. Si un importe no es válido, FactuFlow
+identifica el ítem y bloquea la vista previa hasta que lo corrijas. Editar datos
+después de revisar exige abrir nuevamente la vista previa y confirmar.
+
+En un Excel, un descuento ausente significa cero. Un descuento ilegible, fuera
+de rango o un total informado inválido genera un error del grupo: corregí el
+archivo o la plantilla y volvé a validar. La aplicación no inventa un importe
+para continuar.
+
 ### Detalle de comprobante
 
 El detalle muestra:

@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 29/08/2026
+Última revisión: 31/08/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -64,8 +64,6 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
-- PF-03B:
-  [`pf-03-validacion-fiscal-design.md`](pf-03-validacion-fiscal-design.md)
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)
 - PF-06/PF-07/PF-08:
@@ -73,7 +71,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - Rediseño de lotes diferido:
   [`lotes-ux-redesign.md`](lotes-ux-redesign.md)
 
-PF-01, PF-02 y PF-19A/B/C están cerrados. Sus diseños se consultan sólo para
+PF-01, PF-02, PF-03A/B y PF-19A/B/C están cerrados. El contrato de ítems vive en
+[`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
+Sus diseños se consultan sólo para
 preservar invariantes o rastrear decisiones.
 
 ## Runbooks

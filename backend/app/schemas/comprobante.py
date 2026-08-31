@@ -6,6 +6,7 @@ from typing import Any, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.date_parsing import parse_fecha_input
+from app.core.comprobante_totales import calcular_totales
 
 # ==================== Items ====================
 
@@ -26,7 +27,9 @@ class ItemComprobanteBase(BaseModel):
 class ItemComprobanteCreate(ItemComprobanteBase):
     """Schema para crear Item de Comprobante."""
 
-    pass
+    model_config = ConfigDict(
+        extra="forbid", allow_inf_nan=False, hide_input_in_errors=True
+    )
 
 
 class ComprobanteAsociadoCreate(BaseModel):
@@ -76,7 +79,7 @@ class EmitirComprobanteRequest(ComprobanteBase):
     el comprobante y solicitar el CAE a ARCA.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     empresa_id: int
     punto_venta_id: int
@@ -142,6 +145,7 @@ class EmitirComprobanteRequest(ComprobanteBase):
     def validate_items(cls, v):
         if not v or len(v) == 0:
             raise ValueError("Debe incluir al menos un ítem")
+        calcular_totales(v)
         return v
 
     @field_validator("fecha_servicio_hasta")
