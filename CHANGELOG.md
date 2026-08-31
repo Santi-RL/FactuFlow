@@ -18,6 +18,8 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-08-31
+
 ### Correcciones
 
 - PF-03B cierra el contrato de ítems: campos desconocidos, descuentos inválidos
@@ -47,6 +49,10 @@ Reglas vigentes desde 2026-05-22:
   `Latest`, desde el tag inmutable que apunta a
   `9c0310d397001a331dc40353815ef9b2359d80de`. El estado desplegado se consulta
   exclusivamente en `VPS Hostinger` / `vps-admin`.
+- Se publicó la GitHub Release `v0.3.3`, marcada como `Latest`, desde el tag
+  inmutable que apunta a `3d12c43fc2406b83ab8390e76f5cb1804e5827a4`.
+  Sus siete controles de CI aprobaron, incluido Runtime Smoke. La publicación
+  no desplegó ni modificó el VPS.
 
 ## [0.3.2] - 2026-08-29
 
