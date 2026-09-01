@@ -79,23 +79,35 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - ningún documento vivo presenta historia o producción como estado actual;
 - enlaces, idioma, privacidad y nomenclatura ARCA correctos.
 
-## Puntos de venta vigentes en v0.3.2
+## Puntos de venta desde PF-19D
 
-Hasta implementar PF-19D, verificar:
+Para un cambio que toque autoridad, preferencias o consumidores, verificar con
+datos sintéticos y sin solicitudes CAE reales:
 
-- importación de constancia válida con resumen claro;
-- comprobación técnica previa a los selectores cuando corresponde;
-- puntos frescos conservados si ARCA no responde;
-- pendientes y desactualizados no seleccionables;
-- estados normales `Listo para emitir` / `Web Services activo` y
-  `No disponible en FactuFlow` / `Otro sistema`;
-- errores con una acción concreta;
-- usuario autorizado puede ejecutar `Comprobar con ARCA`;
-- no se crean operaciones, intentos, reservas ni CAE ante un fallo preflight.
+- primera comprobación manual con un punto `CAE - …`, otro sistema, un bloqueado
+  y un dado de baja;
+- puntos nuevos compatibles con uso habilitado por defecto, incluidos los
+  temporalmente bloqueados o dados de baja;
+- ausencia y reaparición sin perder ni reactivar una preferencia deshabilitada;
+- rechazo atómico de respuesta vacía, duplicada, inconsistente, sin tipo o con
+  timeout;
+- aislamiento entre emisores y entre homologación y producción;
+- usuario común y administrador pueden editar descripciones y uso, pero ninguno
+  puede cambiar número, sistema, presencia, bloqueo o baja;
+- confirmación explícita al cambiar `Usar en FactuFlow`, sin borrar formularios,
+  perfiles ni lotes recuperables;
+- constancia opcional que sobrescribe sólo descripciones presentes, muestra su
+  procedencia, no consulta WSFE y no cambia elegibilidad ni revisión fiscal;
+- vista habitual, `Mostrar todos`, contador y estados breves coherentes;
+- individual, perfiles, lotes, worker, reintentos y continuaciones consumen
+  `seleccionable_para_emision`;
+- preflight agrupado al cumplir 90 días y guarda final antes del borde ARCA;
+- cero operaciones, intentos, reservas y llamadas CAE ante un aborto previo;
+- upgrade, rollback y reupgrade en SQLite y PostgreSQL; si existe evidencia WSFE
+  nueva, el downgrade debe fallar cerrado.
 
-PF-19D cambiará la autoridad y el uso local. Su QA se ejecutará contra el
-[`diseño aceptado`](pf-19d-puntos-venta-authority-design.md) cuando se implemente;
-no debe presentarse hoy como funcionalidad disponible.
+El contrato completo vive en el
+[`diseño PF-19D`](pf-19d-puntos-venta-authority-design.md).
 
 ## Smoke local de aplicación
 

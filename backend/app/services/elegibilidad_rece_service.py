@@ -47,8 +47,10 @@ MENSAJE_ELEGIBILIDAD_RECE = (
     "El punto de venta no tiene una acreditación RECE válida para este ambiente."
 )
 DETALLE_ELEGIBILIDAD_RECE = (
-    "Importá una constancia válida o comprobá el estado del punto con ARCA."
+    "Comprobá el estado del punto con ARCA y verificá que esté habilitado "
+    "para usar en FactuFlow."
 )
+CLASIFICADOR_WSFE_VERSION = "wsfe_emision_tipo_cae_v1"
 _ZONA_ARGENTINA = timezone(
     timedelta(hours=-3),
     name="America/Argentina/Buenos_Aires",
@@ -141,7 +143,15 @@ class ElegibilidadReceService:
     DIGEST_VERSION = 1
     CLASIFICADOR_VERSION = CLASIFICADOR_RECE_VERSION
     COMPROBACION_ARCA_DIAS = 90
-    CAMPOS_DESCRIPTIVOS = frozenset({"nombre", "domicilio", "nombre_fantasia"})
+    CAMPOS_DESCRIPTIVOS = frozenset(
+        {
+            "nombre",
+            "domicilio",
+            "domicilio_fuente",
+            "nombre_fantasia",
+            "nombre_fantasia_fuente",
+        }
+    )
     CAMPOS_SIN_REVISION = CAMPOS_DESCRIPTIVOS | frozenset(
         {"ultima_comprobacion_arca_en"}
     )
@@ -433,8 +443,9 @@ class ElegibilidadReceService:
             ahora = self._obtener_ahora()
             for head, revision_actual in heads:
                 preservar_acreditacion = (
-                    fuente == "sincronizacion_wsfe"
-                    and revision_actual.estado == "verificado_rece"
+                    revision_actual.estado == "verificado_rece"
+                    and set(cambios_reales)
+                    <= self.CAMPOS_DESCRIPTIVOS | {"usar_en_factuflow"}
                 )
                 revision = PuntoVentaElegibilidadReceRevision(
                     empresa_id=empresa_id,
@@ -445,7 +456,7 @@ class ElegibilidadReceService:
                         "verificado_rece" if preservar_acreditacion else "no_verificado"
                     ),
                     fuente=(
-                        "constancia_arca_atestada" if preservar_acreditacion else fuente
+                        revision_actual.fuente if preservar_acreditacion else fuente
                     ),
                     evidencia_tipo=(
                         revision_actual.evidencia_tipo
@@ -518,6 +529,163 @@ class ElegibilidadReceService:
             else:
                 await self.db.flush()
             return True
+
+    async def aplicar_snapshot_wsfe_atomico(
+        self,
+        acciones: list[tuple[PuntoVenta, dict[str, object], bool, bool]],
+        *,
+        empresa_id: int,
+        empresa_cuit: str,
+        ambiente: Literal["homologacion", "produccion"],
+        actor_usuario_id: int,
+    ) -> None:
+        """Aplica un snapshot WSFE completo y mueve sus heads en un commit."""
+        if ambiente not in {"homologacion", "produccion"}:
+            raise ElegibilidadReceError("El ambiente ARCA configurado no es válido.")
+        if len(empresa_cuit) != 11 or actor_usuario_id <= 0:
+            raise ElegibilidadReceError(
+                "No se pudo acreditar la identidad del emisor o del usuario."
+            )
+        if not acciones:
+            raise ElegibilidadReceError(
+                "ARCA no informó puntos de venta; no se aplicaron cambios.",
+                categoria="comprobacion_arca_no_disponible",
+                status_code=503,
+            )
+        ids = [
+            int(punto.id or 0) for punto, _cambios, _compatible, _presente in acciones
+        ]
+        if (
+            any(punto_id <= 0 for punto_id in ids)
+            or len(set(ids)) != len(ids)
+            or any(int(punto.empresa_id or 0) != empresa_id for punto, *_ in acciones)
+        ):
+            raise ElegibilidadReceError(
+                "La comprobación ARCA contiene puntos locales inconsistentes."
+            )
+
+        ordenadas = sorted(acciones, key=lambda item: int(item[0].id))
+        try:
+            async with AsyncExitStack() as locks:
+                for punto, _cambios, _compatible, _presente in ordenadas:
+                    await locks.enter_async_context(
+                        self.bloqueo_local_punto(
+                            empresa_id=empresa_id,
+                            punto_venta_id=int(punto.id),
+                        )
+                    )
+                for punto, cambios, _compatible, _presente in ordenadas:
+                    await self._prevalidar_cambio_punto(
+                        punto,
+                        cambios,
+                        forzar_revision=False,
+                    )
+                for punto, cambios, compatible, presente in ordenadas:
+                    await self.aplicar_cambios_punto(
+                        punto,
+                        cambios,
+                        fuente="sincronizacion_wsfe",
+                        actor_usuario_id=actor_usuario_id,
+                        commit=False,
+                        _lock_adquirido=True,
+                    )
+                    await self._registrar_revision_wsfe_bajo_lock(
+                        punto,
+                        ambiente=ambiente,
+                        empresa_cuit=empresa_cuit,
+                        actor_usuario_id=actor_usuario_id,
+                        compatible=compatible,
+                        presente=presente,
+                    )
+                await self.db.commit()
+                for punto, _cambios, _compatible, _presente in ordenadas:
+                    await self.db.refresh(punto)
+        except Exception:
+            await self.db.rollback()
+            raise
+
+    async def _registrar_revision_wsfe_bajo_lock(
+        self,
+        punto: PuntoVenta,
+        *,
+        ambiente: Literal["homologacion", "produccion"],
+        empresa_cuit: str,
+        actor_usuario_id: int,
+        compatible: bool,
+        presente: bool,
+    ) -> None:
+        """Registra la observación WSFE con el lock local ya retenido."""
+        row = (
+            await self.db.execute(
+                select(
+                    PuntoVentaElegibilidadReceActual,
+                    PuntoVentaElegibilidadReceRevision,
+                )
+                .join(
+                    PuntoVentaElegibilidadReceRevision,
+                    PuntoVentaElegibilidadReceRevision.id
+                    == PuntoVentaElegibilidadReceActual.revision_actual_id,
+                )
+                .where(
+                    PuntoVentaElegibilidadReceActual.empresa_id == punto.empresa_id,
+                    PuntoVentaElegibilidadReceActual.punto_venta_id == punto.id,
+                    PuntoVentaElegibilidadReceActual.ambiente == ambiente,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).one_or_none()
+        if row is None:
+            raise ElegibilidadReceError(
+                "El punto de venta tiene un contexto RECE incompleto."
+            )
+        head, revision_actual = row
+        ahora = self._obtener_ahora()
+        verificado = bool(presente and compatible)
+        estado = (
+            "verificado_rece"
+            if verificado
+            else ("no_rece" if presente else "no_verificado")
+        )
+        revision = PuntoVentaElegibilidadReceRevision(
+            empresa_id=int(punto.empresa_id),
+            punto_venta_id=int(punto.id),
+            ambiente=ambiente,
+            revision=int(revision_actual.revision) + 1,
+            estado=estado,
+            fuente="sincronizacion_wsfe",
+            evidencia_tipo=(
+                "wsfe_param_get_ptos_venta_v1" if verificado else "sin_evidencia"
+            ),
+            evidencia_sha256=None,
+            clasificador_version=(CLASIFICADOR_WSFE_VERSION if verificado else None),
+            empresa_cuit_snapshot=(empresa_cuit if verificado else None),
+            punto_venta_numero_snapshot=(int(punto.numero) if verificado else None),
+            punto_revision_fiscal=int(punto.revision_fiscal),
+            documento_emitido_en=None,
+            vigente_hasta=None,
+            observado_en=ahora,
+            verificado_en=(ahora if verificado else None),
+            creado_por_usuario_id=actor_usuario_id,
+            actor_usuario_id_snapshot=(actor_usuario_id if verificado else None),
+            created_at=ahora,
+        )
+        self.db.add(revision)
+        await self.db.flush()
+        moved = await self.db.execute(
+            update(PuntoVentaElegibilidadReceActual)
+            .where(
+                PuntoVentaElegibilidadReceActual.id == head.id,
+                PuntoVentaElegibilidadReceActual.revision_actual_id
+                == revision_actual.id,
+            )
+            .values(revision_actual_id=revision.id, updated_at=ahora)
+        )
+        if moved.rowcount != 1:
+            raise ElegibilidadReceError(
+                "La elegibilidad RECE cambió de forma concurrente.",
+                categoria="conflicto_revision_fiscal",
+            )
 
     async def aplicar_cambios_puntos_atomicos(
         self,
@@ -1211,17 +1379,24 @@ class ElegibilidadReceService:
             and punto.es_webservice
             and not punto.bloqueado
             and not punto.fecha_baja
+            and punto.usar_en_factuflow
         ):
             raise ElegibilidadReceError(
-                "El punto de venta no está técnicamente habilitado para emitir."
+                "El punto de venta no está disponible para usar en FactuFlow."
             )
         if revision.estado != "verificado_rece":
             raise ElegibilidadReceError()
-        if (
-            revision.ambiente != "produccion"
-            or revision.fuente != "constancia_arca_atestada"
-            or revision.evidencia_tipo != "rece_aplicativo_web_services_v1"
-        ):
+        evidencia_wsfe = (
+            revision.ambiente == ambiente
+            and revision.fuente == "sincronizacion_wsfe"
+            and revision.evidencia_tipo == "wsfe_param_get_ptos_venta_v1"
+        )
+        evidencia_constancia_legacy = (
+            revision.ambiente == "produccion"
+            and revision.fuente == "constancia_arca_atestada"
+            and revision.evidencia_tipo == "rece_aplicativo_web_services_v1"
+        )
+        if not (evidencia_wsfe or evidencia_constancia_legacy):
             raise ElegibilidadReceError()
         if (
             revision.punto_revision_fiscal != punto.revision_fiscal

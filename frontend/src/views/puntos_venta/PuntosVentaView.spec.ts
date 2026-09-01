@@ -108,12 +108,15 @@ const puntoVentaMock = (
   nombre: `Punto ${empresaId}`,
   sistema: "Factura Electronica - Web Services",
   domicilio: null,
+  domicilio_fuente: null,
   nombre_fantasia: null,
+  nombre_fantasia_fuente: null,
   es_webservice: true,
   bloqueado: false,
   fecha_baja: null,
   fuente: "arca_wsfe",
   activo: true,
+  usar_en_factuflow: true,
   usable_factuflow: true,
   puede_intentar_emision: true,
   seleccionable_para_emision: true,
@@ -273,7 +276,7 @@ describe("PuntosVentaView", () => {
     expect(input.value).toBe("");
   });
 
-  it("muestra acreditación durable, frescura técnica y filtra solo listos", async () => {
+  it("muestra autoridad WSFE y filtra por uso compartido", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     useAuthStore().user = usuarioMock(true);
@@ -289,6 +292,8 @@ describe("PuntosVentaView", () => {
       usable_factuflow: false,
       puede_intentar_emision: false,
       seleccionable_para_emision: false,
+      es_webservice: false,
+      usar_en_factuflow: false,
       elegibilidad_rece: elegibilidadReceMock({
         estado: "no_rece",
         estado_efectivo: "no_rece",
@@ -336,6 +341,7 @@ describe("PuntosVentaView", () => {
       usable_factuflow: false,
       puede_intentar_emision: false,
       seleccionable_para_emision: false,
+      usar_en_factuflow: false,
       elegibilidad_rece: elegibilidadReceMock({
         estado: "no_rece",
         estado_efectivo: "no_rece",
@@ -381,30 +387,27 @@ describe("PuntosVentaView", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Listo para emitir");
-    expect(wrapper.text()).toContain("Falta validar");
     expect(wrapper.text()).toContain("Comprobación necesaria");
     expect(wrapper.text()).toContain("Pendiente de comprobar");
     expect(wrapper.text()).toContain("Ausente en ARCA");
-    expect(wrapper.text()).toContain("No disponible en FactuFlow");
-    expect(wrapper.text()).toContain("Otro sistema");
     expect(wrapper.text()).not.toContain("Requiere atención");
     expect(wrapper.text()).not.toContain("Revisión fiscal");
     expect(wrapper.text()).not.toContain("Vigente hasta");
-    expect(wrapper.findAll("tbody tr")).toHaveLength(7);
+    expect(wrapper.findAll("tbody tr")).toHaveLength(5);
+    expect(wrapper.text()).not.toContain("Importá una constancia");
 
     const filtro = wrapper
       .findAll("label")
-      .find((label) => label.text().includes("Mostrar sólo los disponibles"));
+      .find((label) => label.text().includes("Mostrar todos"));
     expect(filtro).toBeDefined();
     await filtro!.get('input[type="checkbox"]').setValue(true);
 
-    expect(wrapper.findAll("tbody tr")).toHaveLength(1);
+    expect(wrapper.findAll("tbody tr")).toHaveLength(7);
     expect(wrapper.text()).toContain("0001");
-    expect(wrapper.text()).not.toContain("0002");
-    expect(wrapper.text()).not.toContain("0003");
-    expect(wrapper.text()).not.toContain("0004");
-    expect(wrapper.text()).not.toContain("0005");
-    expect(wrapper.text()).not.toContain("0007");
+    expect(wrapper.text()).toContain("0002");
+    expect(wrapper.text()).toContain("0006");
+    expect(wrapper.text()).toContain("No disponible en FactuFlow");
+    expect(wrapper.text()).toContain("Otro sistema");
   });
 
   it("procesa una sola carga segura sin modal intermedio", async () => {
@@ -463,7 +466,7 @@ describe("PuntosVentaView", () => {
     expect(notificationMocks.showSuccess).not.toHaveBeenCalled();
   });
 
-  it("bloquea la acreditación por constancia fuera de producción", async () => {
+  it("permite la constancia descriptiva también fuera de producción", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     useAuthStore().user = usuarioMock(true);
@@ -471,6 +474,9 @@ describe("PuntosVentaView", () => {
       statusMock("homologacion", true),
     );
     mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    mockedPuntosVentaService.importarConstancia.mockResolvedValue(
+      importResponseMock(),
+    );
     const empresaStore = useEmpresaStore();
     empresaStore.empresa = empresaMock(1);
     empresaStore.empresaActivaId = 1;
@@ -492,14 +498,11 @@ describe("PuntosVentaView", () => {
       target: input,
     } as unknown as Event);
 
-    expect(notificationMocks.showWarning).toHaveBeenCalledWith(
-      "Acreditación no disponible",
-      expect.stringContaining(
-        "solo está disponible en el ambiente de producción",
-      ),
+    expect(mockedPuntosVentaService.importarConstancia).toHaveBeenCalledOnce();
+    expect(notificationMocks.showSuccess).toHaveBeenCalledWith(
+      "Constancia importada",
+      expect.stringContaining("Listos para emitir"),
     );
-
-    expect(mockedPuntosVentaService.importarConstancia).not.toHaveBeenCalled();
   });
 
   it("oculta acciones administrativas y limita la edición operativa a datos descriptivos", async () => {
@@ -531,7 +534,7 @@ describe("PuntosVentaView", () => {
       .map((button) => button.text().trim());
     expect(botonesVisibles).not.toContain("Sincronizar con ARCA");
     expect(botonesVisibles).not.toContain("Importar constancia");
-    expect(wrapper.text()).toContain("Podés consultar y comprobar");
+    expect(wrapper.text()).toContain("Podés comprobar puntos con ARCA");
     expect(botonesVisibles).toContain("Comprobar con ARCA");
 
     const vm = wrapper.vm as unknown as {
@@ -541,9 +544,7 @@ describe("PuntosVentaView", () => {
     };
     vm.editarPunto(punto);
     await flushPromises();
-    expect(document.body.textContent).toContain(
-      "Editar datos descriptivos del punto",
-    );
+    expect(document.body.textContent).toContain("Editar punto de venta");
     expect(document.body.textContent).not.toContain(
       "Fecha de baja (DD/MM/AAAA o AAAA-MM-DD)",
     );
@@ -560,6 +561,7 @@ describe("PuntosVentaView", () => {
       nombre: "Nombre operativo",
       domicilio: "Domicilio operativo",
       nombre_fantasia: "Fantasía operativa",
+      usar_en_factuflow: true,
     });
     expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
     expect(mockedPuntosVentaService.importarConstancia).not.toHaveBeenCalled();
@@ -641,6 +643,53 @@ describe("PuntosVentaView", () => {
     );
   });
 
+  it("confirma antes de cambiar el uso compartido del punto", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useAuthStore().user = usuarioMock(false);
+    const punto = puntoVentaMock(1);
+    mockedArcaService.getStatus.mockResolvedValue(
+      statusMock("produccion", true),
+    );
+    mockedPuntosVentaService.getAll.mockResolvedValue([punto]);
+    mockedPuntosVentaService.update.mockResolvedValue({
+      ...punto,
+      usar_en_factuflow: false,
+      seleccionable_para_emision: false,
+    });
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    const wrapper = mount(PuntosVentaView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+    const vm = wrapper.vm as unknown as {
+      editarPunto: (punto: PuntoVenta) => void;
+      guardarEdicion: () => Promise<void>;
+      confirmarCambioUso: () => Promise<void>;
+      editForm: Record<string, unknown>;
+    };
+
+    vm.editarPunto(punto);
+    vm.editForm.usar_en_factuflow = false;
+    await vm.guardarEdicion();
+    await flushPromises();
+
+    expect(mockedPuntosVentaService.update).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Dejar de usar este punto");
+    expect(document.body.textContent).toContain(
+      "Los borradores y perfiles se conservarán",
+    );
+
+    await vm.confirmarCambioUso();
+    expect(mockedPuntosVentaService.update).toHaveBeenCalledWith(
+      punto.id,
+      expect.objectContaining({ usar_en_factuflow: false }),
+    );
+  });
+
   it("cierra el editor pendiente al cambiar de emisor", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -669,10 +718,10 @@ describe("PuntosVentaView", () => {
     vm.editarPunto(punto);
     await flushPromises();
     expect(vm.puntoEditando?.id).toBe(punto.id);
-    expect(document.body.textContent).toContain("Cambio fiscal");
     expect(document.body.textContent).toContain(
-      "Fecha de baja (DD/MM/AAAA o AAAA-MM-DD)",
+      "Datos administrados por FactuFlow",
     );
+    expect(document.body.textContent).not.toContain("Fecha de baja");
 
     mockedPuntosVentaService.getAll.mockResolvedValue([]);
     empresaStore.empresa = empresaMock(2);

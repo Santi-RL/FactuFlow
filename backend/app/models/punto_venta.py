@@ -37,6 +37,16 @@ class PuntoVenta(Base):
             "revision_fiscal > 0",
             name="ck_puntos_venta_revision_fiscal_positiva",
         ),
+        CheckConstraint(
+            "domicilio_fuente IS NULL OR "
+            "domicilio_fuente IN ('manual', 'constancia_arca')",
+            name="ck_puntos_venta_domicilio_fuente",
+        ),
+        CheckConstraint(
+            "nombre_fantasia_fuente IS NULL OR "
+            "nombre_fantasia_fuente IN ('manual', 'constancia_arca')",
+            name="ck_puntos_venta_nombre_fantasia_fuente",
+        ),
         Index("ix_puntos_venta_empresa_numero", "empresa_id", "numero"),
     )
 
@@ -45,12 +55,18 @@ class PuntoVenta(Base):
     nombre = Column(String(255), nullable=True)  # ej: "Sucursal Centro"
     sistema = Column(String(255), nullable=True)
     domicilio = Column(String(500), nullable=True)
+    domicilio_fuente = Column(String(30), nullable=True)
     nombre_fantasia = Column(String(255), nullable=True)
+    nombre_fantasia_fuente = Column(String(30), nullable=True)
     es_webservice = Column(Boolean, default=False, nullable=False)
     bloqueado = Column(Boolean, default=False, nullable=False)
     fecha_baja = Column(String(20), nullable=True)
     fuente = Column(String(50), nullable=True)
     activo = Column(Boolean, default=True, nullable=False)
+    # El default Python conserva construcciones legacy internas y fixtures que
+    # representan filas migradas. Los productores runtime PF-19D declaran el
+    # valor explícitamente; la migración y el default del schema son fail-closed.
+    usar_en_factuflow = Column(Boolean, default=True, nullable=False)
     revision_fiscal = Column(Integer, default=1, nullable=False)
     ultima_comprobacion_arca_en = Column(DateTime, nullable=True)
 
@@ -74,6 +90,7 @@ class PuntoVenta(Base):
             and self.es_webservice
             and not self.bloqueado
             and not self.fecha_baja
+            and self.usar_en_factuflow
         )
 
     def __repr__(self) -> str:

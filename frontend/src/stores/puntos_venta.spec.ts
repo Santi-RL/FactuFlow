@@ -51,12 +51,15 @@ const puntoVentaMock = (empresaId: number, numero: number): PuntoVenta => ({
   nombre: `PV ${numero}`,
   sistema: "Factura Electronica - Web Services",
   domicilio: null,
+  domicilio_fuente: null,
   nombre_fantasia: null,
+  nombre_fantasia_fuente: null,
   es_webservice: true,
   bloqueado: false,
   fecha_baja: null,
   fuente: "arca_wsfe",
   activo: true,
+  usar_en_factuflow: true,
   usable_factuflow: true,
   puede_intentar_emision: true,
   seleccionable_para_emision: true,
@@ -184,6 +187,20 @@ describe("puntos venta store", () => {
     expect(mockedPuntosVentaService.getAll).toHaveBeenCalledTimes(1);
     expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
     expect(store.preparationError).toBeNull();
+  });
+
+  it("deja la primera comprobación en manos del usuario", async () => {
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    setEmpresaActivaIdStorage(1);
+    mockedPuntosVentaService.getAll.mockResolvedValue([]);
+    const store = usePuntosVentaStore();
+
+    await expect(store.prepareForSelection()).resolves.toBe(true);
+
+    expect(mockedPuntosVentaService.getAll).toHaveBeenCalledOnce();
+    expect(mockedPuntosVentaService.sincronizarArca).not.toHaveBeenCalled();
   });
 
   it("deduplica la comprobación previa y recarga puntos desactualizados", async () => {

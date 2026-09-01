@@ -1,9 +1,5 @@
 """Endpoints de Puntos de Venta."""
 
-import hashlib
-from contextlib import AsyncExitStack
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -31,7 +27,6 @@ from app.services.constancia_puntos_venta_service import (
     parsear_constancia_puntos_venta,
 )
 from app.services.elegibilidad_rece_service import (
-    AtestacionPuntoRece,
     ElegibilidadReceError,
     ElegibilidadReceService,
 )
@@ -60,21 +55,18 @@ async def _serializar_punto_venta(
         nombre=punto_venta.nombre,
         sistema=punto_venta.sistema,
         domicilio=punto_venta.domicilio,
+        domicilio_fuente=punto_venta.domicilio_fuente,
         nombre_fantasia=punto_venta.nombre_fantasia,
+        nombre_fantasia_fuente=punto_venta.nombre_fantasia_fuente,
         es_webservice=bool(punto_venta.es_webservice),
         bloqueado=bool(punto_venta.bloqueado),
         fecha_baja=punto_venta.fecha_baja,
         fuente=punto_venta.fuente,
         empresa_id=int(punto_venta.empresa_id),
         activo=bool(punto_venta.activo),
+        usar_en_factuflow=bool(punto_venta.usar_en_factuflow),
         usable_factuflow=usable,
-        puede_intentar_emision=bool(
-            acreditado
-            and (
-                punto_venta.usable_factuflow
-                or punto_venta.ultima_comprobacion_arca_en is None
-            )
-        ),
+        puede_intentar_emision=bool(acreditado and punto_venta.usable_factuflow),
         seleccionable_para_emision=bool(usable and not comprobacion_desactualizada),
         ultima_comprobacion_arca_en=punto_venta.ultima_comprobacion_arca_en,
         comprobacion_arca_desactualizada=comprobacion_desactualizada,
@@ -139,50 +131,14 @@ async def create_punto_venta(
     Raises:
         HTTPException: Si ya existe un punto de venta con ese número
     """
-    # Verificar que no exista otro punto de venta con ese número en la empresa
-    result = await db.execute(
-        select(PuntoVenta).where(
-            PuntoVenta.empresa_id == empresa_id,
-            PuntoVenta.numero == punto_venta_data.numero,
-        )
+    del punto_venta_data, db, admin, empresa_id
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=(
+            "Los puntos de venta técnicos se incorporan con Comprobar con ARCA. "
+            "No se pueden crear manualmente."
+        ),
     )
-    existing = result.scalar_one_or_none()
-
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ya existe un punto de venta con el número {punto_venta_data.numero}",
-        )
-
-    # Crear punto de venta
-    nuevo_punto_venta = PuntoVenta(
-        **punto_venta_data.model_dump(), empresa_id=empresa_id
-    )
-
-    db.add(nuevo_punto_venta)
-    try:
-        await ElegibilidadReceService(db).crear_contextos_iniciales_no_verificados(
-            nuevo_punto_venta,
-            creado_por_usuario_id=admin.id,
-        )
-        await db.commit()
-        await db.refresh(nuevo_punto_venta)
-    except ElegibilidadReceError as exc:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(exc),
-        ) from exc
-    except IntegrityError as exc:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "El punto de venta ya existe o cambió de forma concurrente. "
-                "Recargá y volvé a intentarlo."
-            ),
-        ) from exc
-    return await _serializar_punto_venta(db, nuevo_punto_venta)
 
 
 @router.post("/importar-constancia", response_model=ImportarPuntosVentaResponse)
@@ -191,14 +147,14 @@ async def importar_constancia_puntos_venta(
     confirmar_procedencia_produccion: bool = Form(
         False,
         deprecated=True,
-        description="Parámetro de compatibilidad deprecado; la UI usa siempre true.",
+        description="Parámetro de compatibilidad sin efecto desde PF-19D.",
     ),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_admin_user),
     empresa_id: int = Depends(get_current_empresa_id),
 ):
-    """Importar detalle de puntos de venta desde constancia ARCA."""
-
+    """Importa únicamente datos descriptivos desde una constancia opcional."""
+    del confirmar_procedencia_produccion
     if file.content_type not in {
         "application/pdf",
         "application/x-pdf",
@@ -206,7 +162,7 @@ async def importar_constancia_puntos_venta(
     }:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Sube una constancia en formato PDF.",
+            detail="Subí una constancia en formato PDF.",
         )
 
     contenido = await file.read()
@@ -217,29 +173,28 @@ async def importar_constancia_puntos_venta(
         )
 
     empresa = await db.get(Empresa, empresa_id)
-    if not empresa:
+    if empresa is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Emisor no encontrado",
         )
-
     try:
-        texto = extraer_texto_constancia_puntos_pdf(contenido)
-        datos = parsear_constancia_puntos_venta(texto)
+        datos = parsear_constancia_puntos_venta(
+            extraer_texto_constancia_puntos_pdf(contenido)
+        )
     except ConstanciaPuntosVentaError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
 
-    warnings = list(datos.warnings)
-    numeros_constancia = [punto.numero for punto in datos.puntos_venta]
-    if any(numero < 1 or numero > 99999 for numero in numeros_constancia):
+    numeros = [punto.numero for punto in datos.puntos_venta]
+    if any(numero < 1 or numero > 99999 for numero in numeros):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La constancia contiene un número de punto de venta inválido.",
         )
-    if len(set(numeros_constancia)) != len(numeros_constancia):
+    if len(set(numeros)) != len(numeros):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La constancia contiene puntos de venta duplicados.",
@@ -249,192 +204,75 @@ async def importar_constancia_puntos_venta(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La constancia no corresponde al CUIT del emisor activo.",
         )
-    elegibilidad_service = ElegibilidadReceService(db)
-    evidencia_sha256: str | None = None
-    if confirmar_procedencia_produccion:
-        if datos.warnings:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "La constancia no pudo interpretarse de forma completa y no "
-                    "puede acreditar RECE."
-                ),
-            )
-        if datos.cuit is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "La constancia no contiene el CUIT necesario para acreditar RECE."
-                ),
-            )
-        if datos.documento_emitido_en is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "La constancia no contiene una fecha documental válida para "
-                    "acreditar RECE."
-                ),
-            )
-        evidencia_sha256 = hashlib.sha256(contenido).hexdigest()
-        try:
-            elegibilidad_service.validar_documento_constancia_productiva(
-                empresa_id=empresa_id,
-                empresa_cuit=empresa.cuit,
-                evidencia_sha256=evidencia_sha256,
-                documento_emitido_en=datos.documento_emitido_en,
-                actor_usuario_id=current_user.id,
-            )
-        except ElegibilidadReceError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=str(exc),
-            ) from exc
 
-    estado_arca = await _obtener_estado_puntos_arca(db, current_user, empresa_id)
-    estado_arca_disponible = estado_arca is not None
-    comprobado_en = datetime.utcnow() if estado_arca_disponible else None
-    if not estado_arca_disponible:
-        estado_arca = {}
-        warnings.append(
-            "No se pudo consultar el estado técnico de puntos de venta en ARCA. "
-            "Se conservaron los estados existentes y los puntos nuevos quedaron "
-            "inactivos hasta comprobar con ARCA."
+    existentes = {
+        int(punto.numero): punto
+        for punto in (
+            await db.execute(
+                select(PuntoVenta).where(PuntoVenta.empresa_id == empresa_id)
+            )
         )
-
-    result = await db.execute(
-        select(PuntoVenta).where(PuntoVenta.empresa_id == empresa_id)
-    )
-    existentes = {pv.numero: pv for pv in result.scalars().all()}
-    numeros_presentes = set(numeros_constancia)
-    constancia_completa = datos.cuit is not None and not datos.warnings
-    ausentes = (
-        [
-            punto
-            for numero, punto in existentes.items()
-            if numero not in numeros_presentes
-        ]
-        if constancia_completa
-        else []
-    )
-    invalidaciones_ausentes = [(punto, {"activo": False}) for punto in ausentes]
-
+        .scalars()
+        .all()
+    }
+    elegibilidad = ElegibilidadReceService(db)
+    cambios: list[tuple[PuntoVenta, dict[str, object]]] = []
+    importados: list[PuntoVenta] = []
     creados = 0
     actualizados = 0
-    omitidos = len(datos.warnings)
-    no_informados_por_wsfe = 0
-    cambios_existentes: list[tuple[PuntoVenta, dict[str, object]]] = []
-    atestaciones: list[AtestacionPuntoRece] = []
-    resultados: dict[int, str] = {}
+
     try:
-        async with AsyncExitStack() as stack:
-            if confirmar_procedencia_produccion:
-                await stack.enter_async_context(
-                    elegibilidad_service.bloquear_frontera_atestacion_productiva(
-                        empresa_id=empresa_id,
-                        empresa_cuit=empresa.cuit,
-                        actor_usuario_id=current_user.id,
-                    )
+        for detalle in datos.puntos_venta:
+            punto = existentes.get(detalle.numero)
+            descriptivos: dict[str, object] = {}
+            if detalle.domicilio:
+                descriptivos.update(
+                    domicilio=detalle.domicilio,
+                    domicilio_fuente="constancia_arca",
                 )
-
-            for punto in datos.puntos_venta:
-                pv = existentes.get(punto.numero)
-                arca_status = estado_arca.get(punto.numero)
-                if arca_status is not None:
-                    bloqueado = bool(arca_status.get("bloqueado", False))
-                    fecha_baja = arca_status.get("fecha_baja")
-                    activo = not bloqueado and not fecha_baja
-                elif estado_arca_disponible:
-                    bloqueado = bool(pv.bloqueado) if pv else False
-                    fecha_baja = pv.fecha_baja if pv else None
-                    activo = False
-                    no_informados_por_wsfe += 1
-                elif pv:
-                    bloqueado = pv.bloqueado
-                    fecha_baja = pv.fecha_baja
-                    activo = pv.activo
-                else:
-                    bloqueado = False
-                    fecha_baja = None
-                    activo = estado_arca_disponible
-                nombre = punto.nombre_fantasia or punto.sistema
-
-                payload = {
-                    "nombre": nombre,
-                    "sistema": punto.sistema,
-                    "domicilio": punto.domicilio,
-                    "nombre_fantasia": punto.nombre_fantasia,
-                    "es_webservice": punto.es_webservice,
-                    "bloqueado": bloqueado,
-                    "fecha_baja": fecha_baja,
-                    "fuente": "constancia_arca",
-                    "activo": activo,
-                    "ultima_comprobacion_arca_en": (
-                        comprobado_en
-                        if estado_arca_disponible
-                        else (
-                            pv.ultima_comprobacion_arca_en if pv is not None else None
-                        )
-                    ),
-                }
-
-                if pv:
-                    if confirmar_procedencia_produccion:
-                        atestaciones.append(
-                            AtestacionPuntoRece(
-                                punto_venta=pv,
-                                cambios=payload,
-                                sistema_constancia=punto.sistema,
-                            )
-                        )
-                    else:
-                        cambios_existentes.append((pv, payload))
-                    actualizados += 1
-                    continue
-
-                nuevo_punto = PuntoVenta(
-                    numero=punto.numero,
+            if detalle.nombre_fantasia:
+                descriptivos.update(
+                    nombre_fantasia=detalle.nombre_fantasia,
+                    nombre_fantasia_fuente="constancia_arca",
+                )
+            if punto is None:
+                punto = PuntoVenta(
+                    numero=detalle.numero,
+                    sistema=detalle.sistema,
+                    fuente="constancia_arca",
+                    es_webservice=False,
+                    activo=False,
+                    usar_en_factuflow=False,
                     empresa_id=empresa_id,
-                    **payload,
+                    **descriptivos,
                 )
-                db.add(nuevo_punto)
-                await elegibilidad_service.crear_contextos_iniciales_no_verificados(
-                    nuevo_punto,
-                    creado_por_usuario_id=current_user.id,
-                    fuente="sincronizacion_wsfe",
+                db.add(punto)
+                await elegibilidad.crear_contextos_iniciales_no_verificados(
+                    punto,
+                    creado_por_usuario_id=int(current_user.id),
                 )
-                if confirmar_procedencia_produccion:
-                    atestaciones.append(
-                        AtestacionPuntoRece(
-                            punto_venta=nuevo_punto,
-                            cambios=payload,
-                            sistema_constancia=punto.sistema,
-                        )
-                    )
                 creados += 1
-
-            if confirmar_procedencia_produccion:
-                assert datos.documento_emitido_en is not None
-                assert evidencia_sha256 is not None
-                resultados = (
-                    await elegibilidad_service.atestiguar_constancia_productiva(
-                        atestaciones,
-                        invalidaciones_ausentes=invalidaciones_ausentes,
-                        empresa_id=empresa_id,
-                        empresa_cuit=empresa.cuit,
-                        evidencia_sha256=evidencia_sha256,
-                        documento_emitido_en=datos.documento_emitido_en,
-                        actor_usuario_id=current_user.id,
-                    )
-                )
-            elif cambios_existentes or invalidaciones_ausentes:
-                await elegibilidad_service.aplicar_cambios_puntos_atomicos(
-                    cambios_existentes + invalidaciones_ausentes,
-                    fuente="edicion",
-                    actor_usuario_id=current_user.id,
-                    forzar_revision_ids={int(punto.id) for punto in ausentes},
-                )
             else:
-                await db.commit()
+                cambios_reales = {
+                    campo: valor
+                    for campo, valor in descriptivos.items()
+                    if getattr(punto, campo) != valor
+                }
+                if cambios_reales:
+                    cambios.append((punto, cambios_reales))
+                    actualizados += 1
+            importados.append(punto)
+
+        if cambios:
+            await elegibilidad.aplicar_cambios_puntos_atomicos(
+                cambios,
+                fuente="edicion",
+                actor_usuario_id=int(current_user.id),
+            )
+        else:
+            await db.commit()
+        for punto in importados:
+            await db.refresh(punto)
     except ElegibilidadReceError as exc:
         await db.rollback()
         raise HTTPException(
@@ -451,118 +289,38 @@ async def importar_constancia_puntos_venta(
             ),
         ) from exc
 
-    if confirmar_procedencia_produccion:
-        verificados_rece = sum(
-            estado == "verificado_rece" for estado in resultados.values()
-        )
-        pendientes_comprobacion = sum(
-            resultados.get(int(atestacion.punto_venta.id)) == "verificado_rece"
-            and atestacion.punto_venta.ultima_comprobacion_arca_en is None
-            for atestacion in atestaciones
-        )
-        no_verificados_rece = len(resultados) - verificados_rece
-        if no_verificados_rece:
-            warnings.append(
-                f"{no_verificados_rece} punto(s) no coincidieron con una modalidad "
-                "Web Services exacta admitida y quedaron sin acreditar."
-            )
-    else:
-        verificados_rece = 0
-        pendientes_comprobacion = 0
-        no_verificados_rece = len(datos.puntos_venta)
-    if ausentes:
+    respuestas = [await _serializar_punto_venta(db, punto) for punto in importados]
+    verificados = sum(
+        punto.elegibilidad_rece.estado_efectivo == "verificado_rece"
+        for punto in respuestas
+    )
+    listos = sum(punto.seleccionable_para_emision for punto in respuestas)
+    no_disponibles = sum(
+        not punto.es_webservice or not punto.usar_en_factuflow for punto in respuestas
+    )
+    requieren_revision = max(0, len(respuestas) - listos - no_disponibles)
+    warnings = list(datos.warnings)
+    if creados:
         warnings.append(
-            f"{len(ausentes)} punto(s) existentes no figuraron en la constancia "
-            "completa y quedaron inactivos y sin acreditación RECE."
+            f"{creados} punto(s) de otros sistemas quedaron sólo como información."
         )
-    elif not constancia_completa:
-        warnings.append(
-            "No se desactivaron puntos ausentes porque la constancia no pudo "
-            "validarse como completa."
-        )
-    if no_informados_por_wsfe:
-        warnings.append(
-            f"{no_informados_por_wsfe} punto(s) de la constancia no figuraron en "
-            "la consulta técnica WSFE y quedaron inactivos."
-        )
-
-    puntos_importados_result = await db.execute(
-        select(PuntoVenta).where(
-            PuntoVenta.empresa_id == empresa_id,
-            PuntoVenta.numero.in_(numeros_constancia),
-        )
-    )
-    puntos_importados = list(puntos_importados_result.scalars().all())
-    respuestas_importadas = [
-        await _serializar_punto_venta(db, punto) for punto in puntos_importados
-    ]
-    listos_para_emitir = sum(
-        punto.seleccionable_para_emision for punto in respuestas_importadas
-    )
-    no_disponibles_factuflow = sum(
-        not punto.es_webservice for punto in puntos_importados
-    )
-    requieren_revision = (
-        len(datos.puntos_venta) - listos_para_emitir - no_disponibles_factuflow
-    )
 
     return ImportarPuntosVentaResponse(
         total_constancia=len(datos.puntos_venta),
         creados=creados,
         actualizados=actualizados,
-        omitidos=omitidos,
-        desactivados_ausentes=len(ausentes),
-        verificados_rece=verificados_rece,
-        pendientes_comprobacion=pendientes_comprobacion,
-        no_verificados_rece=no_verificados_rece,
-        listos_para_emitir=listos_para_emitir,
-        no_disponibles_factuflow=no_disponibles_factuflow,
+        omitidos=len(datos.warnings),
+        desactivados_ausentes=0,
+        verificados_rece=verificados,
+        pendientes_comprobacion=0,
+        no_verificados_rece=len(respuestas) - verificados,
+        listos_para_emitir=listos,
+        no_disponibles_factuflow=no_disponibles,
         requieren_revision=requieren_revision,
         documento_emitido_en=datos.documento_emitido_en,
         vigente_hasta=None,
         warnings=warnings,
     )
-
-
-async def _obtener_estado_puntos_arca(
-    db: AsyncSession,
-    current_user: Usuario,
-    empresa_id: int,
-) -> dict[int, dict[str, str | bool | None]] | None:
-    """Obtener estado tecnico ARCA de puntos webservice si esta disponible."""
-
-    try:
-        wsfe_client = await get_wsfe_client(db, current_user, empresa_id)
-        puntos = list(await wsfe_client.fe_param_get_ptos_venta())
-    except Exception:
-        return None
-    if not puntos:
-        return None
-
-    try:
-        numeros = [int(punto.numero) for punto in puntos]
-        bloqueos = [str(punto.bloqueado).strip().upper() for punto in puntos]
-    except (AttributeError, TypeError, ValueError):
-        return None
-    if (
-        len(set(numeros)) != len(numeros)
-        or any(numero < 1 or numero > 99999 for numero in numeros)
-        or any(bloqueo not in {"S", "N"} for bloqueo in bloqueos)
-    ):
-        return None
-
-    return {
-        int(punto.numero): {
-            "bloqueado": str(punto.bloqueado).strip().upper() == "S",
-            "fecha_baja": (
-                None
-                if not (punto.fecha_baja or "").strip()
-                or (punto.fecha_baja or "").strip().upper() == "NULL"
-                else (punto.fecha_baja or "").strip()
-            ),
-        }
-        for punto in puntos
-    }
 
 
 @router.post("/sincronizar-arca", response_model=SincronizarPuntosVentaResponse)
@@ -571,7 +329,7 @@ async def sincronizar_puntos_venta_arca(
     current_user: Usuario = Depends(get_current_empresa_user),
     empresa_id: int = Depends(get_current_empresa_id),
 ) -> SincronizarPuntosVentaResponse:
-    """Comprueba el estado técnico WSFE sin promover elegibilidad RECE."""
+    """Comprueba y acredita la autoridad técnica autenticada de WSFE."""
     try:
         wsfe_client = await get_wsfe_client(db, current_user, empresa_id)
         resultado = await PuntosVentaArcaService(db).sincronizar(
@@ -635,34 +393,38 @@ async def update_punto_venta(
             detail="No tienes permiso para actualizar este punto de venta",
         )
 
-    # Actualizar campos
     update_data = punto_venta_data.model_dump(exclude_unset=True)
-    if not current_user.es_admin and (
-        set(update_data) - ElegibilidadReceService.CAMPOS_DESCRIPTIVOS
-    ):
+    campos_tecnicos = {
+        "numero",
+        "sistema",
+        "es_webservice",
+        "bloqueado",
+        "fecha_baja",
+        "fuente",
+        "activo",
+    }
+    if set(update_data).intersection(campos_tecnicos):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Solo un administrador puede cambiar los datos fiscales o "
-                "técnicos de un punto de venta."
+                "Los datos técnicos del punto los informa ARCA y no se pueden "
+                "editar manualmente. Seleccioná Comprobar con ARCA para actualizarlos."
             ),
         )
-    if "numero" in update_data and update_data["numero"] != punto_venta.numero:
-        result = await db.execute(
-            select(PuntoVenta).where(
-                PuntoVenta.empresa_id == empresa_id,
-                PuntoVenta.numero == update_data["numero"],
-                PuntoVenta.id != punto_venta.id,
-            )
+    if update_data.get("usar_en_factuflow") is True and not punto_venta.es_webservice:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "ARCA no informa este punto como compatible con CAE. "
+                "No se puede habilitar para usar en FactuFlow."
+            ),
         )
-        if result.scalar_one_or_none() is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Ya existe un punto de venta con el número "
-                    f"{update_data['numero']}"
-                ),
-            )
+    if "domicilio" in update_data:
+        update_data["domicilio_fuente"] = "manual" if update_data["domicilio"] else None
+    if "nombre_fantasia" in update_data:
+        update_data["nombre_fantasia_fuente"] = (
+            "manual" if update_data["nombre_fantasia"] else None
+        )
 
     try:
         await ElegibilidadReceService(db).aplicar_cambios_punto(
@@ -686,9 +448,6 @@ async def update_punto_venta(
                 "Recargá y volvé a intentarlo."
             ),
         ) from exc
-
-    await db.commit()
-    await db.refresh(punto_venta)
 
     return await _serializar_punto_venta(db, punto_venta)
 
@@ -726,11 +485,11 @@ async def delete_punto_venta(
             detail="No tienes permiso para eliminar este punto de venta",
         )
 
-    # Desactivar
+    # Compatibilidad: eliminar equivale a dejar de usar, sin borrar ni alterar ARCA.
     try:
         await ElegibilidadReceService(db).aplicar_cambios_punto(
             punto_venta,
-            {"activo": False},
+            {"usar_en_factuflow": False},
             fuente="edicion",
             actor_usuario_id=current_user.id,
         )
@@ -740,4 +499,3 @@ async def delete_punto_venta(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
-    await db.commit()

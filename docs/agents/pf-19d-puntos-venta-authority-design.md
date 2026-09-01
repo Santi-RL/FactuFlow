@@ -2,7 +2,7 @@
 
 Fecha de decisión: 29/08/2026
 
-Estado: ACEPTADO; NO IMPLEMENTADO.
+Estado: IMPLEMENTADO; CANDIDATO `v0.3.4`.
 
 Prioridad: P1 fiscal-operativa, Nivel 2. Se implementa después de PF-03B y antes
 de PF-06/PF-07/PF-08.
@@ -174,3 +174,64 @@ mantendrán en PF-17 y no ampliarán esta unidad.
 - consulta automática de numeración por cada punto y tipo;
 - cambios de fecha fiscal, numeración, CAE o reconciliación;
 - release o despliegue dentro de la misma decisión de diseño.
+
+## Contrato implementado
+
+La implementación usa estos nombres persistentes y públicos:
+
+- `puntos_venta.usar_en_factuflow`: preferencia compartida por emisor;
+- `domicilio_fuente` y `nombre_fantasia_fuente`: `manual`,
+  `constancia_arca` o ausencia de información;
+- evidencia `wsfe_param_get_ptos_venta_v1` y clasificador
+  `wsfe_emision_tipo_cae_v1` en el ledger PF-19B;
+- `seleccionable_para_emision`: continúa siendo el contrato único de los
+  selectores y ahora incluye la preferencia.
+
+El clasificador acepta únicamente un `EmisionTipo` explícito con forma
+`CAE - …`. Una respuesta completa crea una revisión WSFE para el ambiente
+consultado. Los puntos compatibles nuevos quedan habilitados para uso aun si
+están bloqueados o dados de baja; los de otras modalidades quedan informativos
+y deshabilitados. Una ausencia invalida la disponibilidad técnica sin borrar la
+preferencia.
+
+`PUT /api/puntos-venta/{id}` admite nombre interno, domicilio, nombre de
+fantasía y `usar_en_factuflow` para cualquier usuario del emisor. Rechaza número,
+sistema, bloqueo, baja, presencia y demás campos técnicos aun para un
+administrador. El `POST` legacy se conserva como ruta, pero responde conflicto
+porque el alta técnica debe provenir de ARCA. El `DELETE` legacy equivale a
+deshabilitar el uso, sin borrar ni falsear el estado técnico.
+
+La constancia no llama a WSFE, no crea acreditaciones ni invalida ausentes.
+Sobrescribe sólo los datos descriptivos presentes y puede crear filas
+informativas de otros sistemas con uso deshabilitado. No conserva el PDF.
+
+La migración `e3f4a5b6c7d8` habilita inicialmente los puntos Web Services legacy,
+mantiene fuera los demás y conserva ledger, revisiones y comprobaciones. El
+rollback es exacto mientras no exista evidencia WSFE nueva; después bloquea el
+downgrade y exige conservar el esquema o restaurar un backup anterior.
+
+## Cierre del checklist fiscal
+
+- **Alcance:** API, UI, sincronización WSFE, migración, emisión individual,
+  perfiles, lotes, worker, reintentos y continuaciones consumen la misma
+  elegibilidad. No cambian fecha, numeración, payload FECAE ni reconciliación.
+- **Orden:** autenticar emisor y ambiente, leer y validar el snapshot completo,
+  tomar locks por punto, aplicar cambios con compare-and-swap, mover heads WSFE
+  y confirmar una única transacción. Un fallo revierte altas y cambios.
+- **Concurrencia:** los cambios técnicos o de preferencia rechazan guardas
+  `pre_arca`, `arca_iniciada` o `requiere_reconciliacion`. Una actualización
+  puramente descriptiva no cambia la revisión fiscal.
+- **Fallos:** vacío, duplicado, `EmisionTipo` ausente, timeout o respuesta
+  inconsistente producen `503`, sin operaciones, intentos, reservas ni CAE.
+- **Replays:** las respuestas terminales y estados inciertos conservan sus
+  snapshots inmutables; no se reevalúan contra una preferencia posterior.
+- **Aislamiento:** toda lectura, escritura y preferencia está limitada por
+  `empresa_id`; se cubren usuario común, administrador y dos emisores.
+- **Migración:** upgrade, rollback sin evidencia y bloqueo fail-closed con
+  evidencia se prueban en SQLite; el recorrido PostgreSQL desechable cubre
+  upgrade, rollback y reupgrade.
+- **Pruebas externas:** todas las respuestas ARCA son sintéticas. Ninguna prueba
+  automatizada usa certificados reales ni solicita CAE.
+
+El despliegue productivo permanece fuera de este cierre y requiere el flujo
+separado mediante `vps-admin`.

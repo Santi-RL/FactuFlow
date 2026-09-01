@@ -180,11 +180,11 @@ En `Comprobantes` puedes:
 - abrir el detalle de un comprobante autorizado
 
 Al crear un comprobante puntual, el selector sólo ofrece puntos `Listos para
-emitir`: el servidor exige validación inicial, estado activo y una comprobación
-con ARCA de menos de 90 días. La validación inicial no vence por tiempo. Un
-punto pendiente, bloqueado, dado de baja, ausente o sin validar no puede
-seleccionarse. El servidor vuelve a comprobar el estado antes de solicitar CAE
-y bloquea si cambió, aunque la pantalla hubiera quedado abierta.
+emitir`: ARCA debe informarlos como compatibles con CAE, deben estar presentes,
+activos, sin bloqueo ni baja, con una comprobación de menos de 90 días y con
+`Usar en FactuFlow` habilitado. El servidor vuelve a comprobar el estado antes
+de solicitar CAE y bloquea si cambió, aunque la pantalla hubiera quedado
+abierta.
 
 Cuando confirmás la emisión final, FactuFlow genera una clave interna de
 idempotencia para esa operación. Si la conexión se corta o repetís el intento
@@ -539,11 +539,11 @@ Los lotes viejos validados antes de esta regla deben revalidarse. FactuFlow no
 permite procesarlos sin una política de concepto fiscal guardada.
 
 Regla de punto de venta en lotes: podés usar el punto definido en el archivo o
-fijar uno del emisor. En ambos modos, cada grupo debe resolver un punto cargado
-con acreditación RECE y una comprobación técnica positiva; no alcanza con que
-su nombre indique Web Services. Si el emisor no tiene puntos elegibles, la
-pantalla indica si corresponde importar una constancia, comprobar con ARCA o
-regularizar el punto antes de validar o emitir.
+fijar uno del emisor. En ambos modos, cada grupo debe resolver un punto que ARCA
+informe como compatible con CAE, disponible y habilitado para usar en FactuFlow;
+no alcanza con que su nombre indique Web Services. Si el emisor no tiene puntos
+elegibles, usá `Comprobar con ARCA`, habilitá uno desde `Puntos de venta` o
+regularizalo en ARCA antes de validar o emitir.
 
 Al emitir, FactuFlow vuelve a verificar en backend que el punto de venta y un
 cliente precargado opcional pertenezcan al emisor activo.
@@ -588,9 +588,9 @@ ser fechas reales en `DD/MM/AAAA`. FactuFlow rechaza valores vacíos o
 calendarios inválidos como `31/02/2026` y guarda internamente la fecha
 normalizada.
 
-Para guardar un perfil con punto de venta fijo, el punto debe estar cargado en
-`Puntos de venta` para ese emisor, contar con acreditación RECE y estar
-comprobado con ARCA. El perfil no crea ni extiende evidencia: al validar el
+Para guardar un perfil con punto de venta fijo, el punto debe pertenecer al
+emisor, estar informado por ARCA como compatible con CAE y tener `Usar en
+FactuFlow` habilitado. El perfil no cambia esa disponibilidad: al validar el
 lote, FactuFlow vuelve a comprobar el estado efectivo. Si todavía no hay un
 punto elegible, seguí la acción indicada en `Puntos de venta`.
 
@@ -706,10 +706,10 @@ el CAE.
 
 Si el archivo observado informa que un punto no está habilitado, primero usá
 `Puntos de venta > Comprobar con ARCA` para el emisor activo. Esa acción solo
-actualiza la disponibilidad técnica. Si el estado indica `Falta validar`, un
-administrador debe importar la constancia admitida; si indica que el punto no
-está disponible, hay que regularizarlo en ARCA o elegir otro. Editar el texto
-`Sistema` no habilita la emisión.
+actualiza la disponibilidad informada por ARCA. Si el punto está disponible pero
+no se usa en FactuFlow, habilitalo desde su editor; si ARCA lo informa bloqueado,
+dado de baja, ausente o de otro sistema, regularizalo allí o elegí otro. Los
+campos técnicos no se pueden editar manualmente.
 
 Si el archivo externo trae una columna para distinguir productos y servicios,
 usa `Definido por archivo` solo cuando todas las filas estén completas con
@@ -760,12 +760,12 @@ no distingue otro subtipo fiscal para esa alícuota.
 
 ## 8. Certificados
 
-En `Certificados` gestiónás los certificados de ARCA por ambiente.
+En `Certificados` gestionás los certificados de ARCA por ambiente.
 
 Uso recomendado:
 - en homologación, probar certificado, conexión y lecturas seguras sin
-  solicitar CAE: PF-19B bloquea la emisión hasta contar con una fuente probatoria
-  específica para ese ambiente
+  solicitar CAE; después usar `Comprobar con ARCA` para registrar el snapshot
+  WSFE propio de ese ambiente
 - verificar vigencia del certificado antes de emitir
 - mantener un solo certificado activo por empresa y ambiente
 
@@ -820,40 +820,46 @@ para facturar.
 Importante:
 - el número debe coincidir con el punto habilitado en ARCA para el sistema usado
 - cualquier usuario autorizado puede usar `Comprobar con ARCA`; esta acción
-  actualiza la disponibilidad, pero nunca reemplaza la constancia inicial
+  consulta el listado técnico del emisor y actualiza los puntos en una sola
+  operación
+- la vista habitual muestra sólo los puntos marcados `Usar en FactuFlow`;
+  `Mostrar todos` permite revisar también los demás y el contador sigue el filtro
+- los puntos CAE compatibles nuevos quedan habilitados para uso por defecto,
+  incluso si un bloqueo o una baja temporal impide seleccionarlos en ese momento
+- cualquier usuario autorizado puede editar nombre interno, domicilio, nombre de
+  fantasía y la preferencia `Usar en FactuFlow`; deshabilitarla exige confirmar
+  la acción y no borra el punto ni el trabajo cargado
+- número, sistema, presencia, bloqueo y baja provienen de ARCA y no se pueden
+  editar manualmente, tampoco por un administrador
 - los estados normales son breves: `Listo para emitir` / `Web Services activo`
   o `No disponible en FactuFlow` / `Otro sistema`
-- cuando hace falta intervenir, FactuFlow muestra la acción concreta: importar
-  una constancia, regularizar el punto en ARCA o volver a comprobar
+- cuando hace falta intervenir, FactuFlow muestra la acción concreta: habilitar
+  el uso local, regularizar el punto en ARCA o volver a comprobar
 - si cambias el emisor activo mientras la pantalla está cargando, FactuFlow
   descarta la respuesta anterior para no mezclar puntos de venta entre CUITs y
   cierra cualquier editor pendiente del emisor anterior
-- puedes usar `Importar constancia` como administrador para seleccionar el PDF
-  de ARCA. FactuFlow lo procesa inmediatamente por el único camino seguro, sin
-  opciones ni pantalla de confirmación intermedia
-- para acreditar, el servidor exige constancia completa, CUIT exacto, fecha
-  única no futura —sin límite de antigüedad— y una modalidad Web Services exacta
-  admitida para Responsable Inscripto, Exento en IVA o Monotributo. El parser
-  acepta el encabezado histórico `PUNTO VENTA` y el actual `P.VTA.`, incluida
-  la columna `ACTIVIDAD`. El PDF no se conserva. Una etiqueta genérica queda
-  `No verificado`; homologación no se promueve con esta evidencia
-- si `Importar constancia` no puede consultar el estado técnico en ARCA, guarda
-  igualmente la acreditación y deja el punto pendiente;
-  no hace falta volver a cargar el PDF
-- antes de mostrar opciones de punto de venta, FactuFlow comprueba una sola vez
-  los acreditados pendientes o con 90 días y recarga la lista. Durante ese paso
+- `Importar constancia` es opcional y está disponible para administradores. El
+  PDF puede completar domicilio, nombre de fantasía y puntos informativos de
+  otros sistemas; no habilita emisiones, no consulta WSFE y no se conserva
+- una constancia posterior sobrescribe los datos descriptivos coincidentes. La
+  pantalla identifica discretamente si cada dato fue informado por la constancia,
+  ingresado manualmente o todavía no está disponible
+- antes de mostrar opciones, FactuFlow comprueba una sola vez los puntos
+  seleccionables que cumplieron 90 días y recarga la lista. Durante ese paso
   muestra `Comprobando con ARCA…` y no preselecciona ninguna opción
-- si ARCA no responde, los puntos todavía vigentes continúan disponibles y los
-  pendientes quedan excluidos. Usá `Comprobar con ARCA` para reintentar
+- si ARCA no responde cuando hace falta renovar la comprobación, la acción queda
+  pendiente y no se inicia una emisión nueva. Usá `Comprobar con ARCA` para
+  reintentar
 - un punto bloqueado, dado de baja o ausente queda deshabilitado hasta
   regularizarlo en ARCA y volver a comprobar
-- los datos importados se pueden editar manualmente desde `Editar`
+- una deshabilitación local se conserva aunque ARCA bloquee, desbloquee o vuelva
+  a informar el punto
 
-La acreditación inicial no vence. La comprobación técnica se renueva antes de
-permitir la selección cuando está pendiente o cumplió 90 días. El servidor
-mantiene una segunda guarda inmediatamente antes del flujo fiscal para cubrir
-clientes API, sesiones largas y carreras. Si ARCA no responde en esa guarda,
-devuelve un error temporal y no inicia una emisión nueva.
+La autoridad inicial proviene de una comprobación WSFE completa. La comprobación
+se renueva al cumplir 90 días y el servidor mantiene una segunda guarda
+inmediatamente antes del flujo fiscal para cubrir clientes API, sesiones largas
+y carreras. Si ARCA no responde en esa guarda, devuelve un error temporal y no
+inicia una emisión nueva.
 
 ## 10. Emisores
 
@@ -1025,19 +1031,18 @@ limpiables.
   huérfanos; todavía no reemplaza una política completa de backup y
   restauración
 - los reportes son de consulta, no de exportación
-- certificado, conexión y lecturas de homologación se validan por webservice,
-  no por QR; la elegibilidad RECE positiva sigue sin una fuente probatoria para
-  ese ambiente
+- certificado, conexión y puntos de homologación se validan por webservice, no
+  por QR; la evidencia WSFE queda separada por ambiente y nunca se reutiliza en
+  producción
 - el launcher local de Windows es manual y está orientado a desarrollo/QA; no
   es todavía un instalador ni configura inicio automático con Windows
 - antes de cada emisión productiva hay que revisar punto de venta, fecha fiscal,
   formato, concepto fiscal ARCA, descripción facturada, totales y confirmación
   irreversible; backup, logs y salud desplegada se verifican en el plano de
   control cuando el procedimiento operativo lo requiera
-- PF-19B aporta acreditación RECE durable y una guarda fail-closed; homologación
-  continúa sin una fuente probatoria positiva y, por eso, no permite solicitar
-  CAE. La disponibilidad concreta de estas capacidades en una instalación no se
-  infiere desde este manual
+- PF-19D usa la consulta WSFE como autoridad técnica por ambiente y conserva las
+  guardas fail-closed de PF-19B antes de solicitar CAE. La disponibilidad concreta
+  de estas capacidades en una instalación no se infiere desde este manual
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
   rápida y ficha para soporte; todavía faltan backup visible y trazabilidad

@@ -44,6 +44,7 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 REVISION_ANTERIOR = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_ACREDITACION_DURABLE = "d1e2f3a4b5c6"
+REVISION_AUTORIDAD_WSFE = "e3f4a5b6c7d8"
 FECHA_SINTETICA = date(2026, 8, 9)
 
 
@@ -51,9 +52,9 @@ async def _preparar_pf19b(
     database_url: str,
     *,
     intento_legacy: bool = False,
-    revision_objetivo: str = REVISION_ACREDITACION_DURABLE,
+    revision_objetivo: str = REVISION_AUTORIDAD_WSFE,
 ) -> AsyncEngine:
-    """Resetea la base y aplica PF-19B hasta la revisión solicitada."""
+    """Resetea la base y aplica PF-19B hasta la revisión solicitada o el head."""
     await _reset_schema(database_url)
     _run_alembic("upgrade", REVISION_ANTERIOR, database_url)
     engine = create_async_engine(database_url)
@@ -1078,7 +1079,9 @@ async def test_postgresql_pf19b_downgrade_bloquea_evidencia_runtime() -> None:
 
     engine = create_async_engine(database_url)
     try:
-        assert await _alembic_version(engine) == REVISION_ACREDITACION_DURABLE
+        # PostgreSQL revierte toda la orden de downgrade cuando PF-19B bloquea;
+        # por eso también conserva la migración PF-19D que la precedía.
+        assert await _alembic_version(engine) == REVISION_AUTORIDAD_WSFE
         assert await _ledger_rows(engine) == ledger_before
         async with engine.connect() as connection:
             point_after = tuple(

@@ -2462,8 +2462,8 @@ onBeforeUnmount(() => {
               type="warning"
               class="mt-4"
             >
-              Para elegir un punto de venta fijo, primero importá una constancia
-              válida en la pantalla Puntos de venta.
+              Para elegir un punto fijo, comprobalo con ARCA y habilitalo desde
+              Puntos de venta.
             </BaseAlert>
             <BaseAlert
               v-else-if="puntoVentaModo === 'fijo' && !puntoVentaNumero"

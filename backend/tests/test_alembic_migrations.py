@@ -20,6 +20,7 @@ REVISION_INTEGRIDAD_FISCAL = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
 REVISION_PDV_DURABLE = "d1e2f3a4b5c6"
+REVISION_PF19D = "e3f4a5b6c7d8"
 COLUMNAS_FORMATOS_LOTE = {
     "mapeo_usado_json",
     "headers_detectados_json",
@@ -983,6 +984,95 @@ def test_sqlite_pdv_durable_preserva_acreditacion_y_downgrade_rellena_vigencia(
             "WHERE ambiente = 'produccion' AND punto_venta_id = 1"
         ).fetchone()
     assert vigente_hasta == ("2026-08-08",)
+
+
+def test_sqlite_pf19d_backfill_y_rollback_vacio(tmp_path: Path) -> None:
+    """PF-19D habilita WS legacy, conserva evidencia y revierte sin runtime."""
+    db_path = tmp_path / "pf19d-backfill.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    backup_env = _backup_env_pf19(db_path, tmp_path / "pf19d-pf19b.db")
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+    _run_alembic("upgrade", REVISION_PF19D, database_url)
+
+    columnas = _table_columns(db_path, "puntos_venta")
+    assert {
+        "usar_en_factuflow",
+        "domicilio_fuente",
+        "nombre_fantasia_fuente",
+    } <= columnas
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute(
+            "SELECT usar_en_factuflow FROM puntos_venta WHERE id = 1"
+        ).fetchone() == (1,)
+        ddl = _table_sql(
+            db_path,
+            "puntos_venta_elegibilidad_rece_revisiones",
+        )
+        assert "wsfe_param_get_ptos_venta_v1" in ddl
+
+    _run_alembic("downgrade", REVISION_PDV_DURABLE, database_url)
+    assert "usar_en_factuflow" not in _table_columns(db_path, "puntos_venta")
+    _run_alembic("upgrade", REVISION_PF19D, database_url)
+    assert _alembic_version(db_path) == REVISION_PF19D
+
+
+def test_sqlite_pf19d_downgrade_bloquea_evidencia_wsfe(tmp_path: Path) -> None:
+    """Un rollback no descarta el nuevo productor de autoridad en runtime."""
+    db_path = tmp_path / "pf19d-runtime.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    backup_env = _backup_env_pf19(db_path, tmp_path / "pf19d-runtime-pf19b.db")
+    _run_alembic(
+        "upgrade",
+        REVISION_ELEGIBILIDAD_RECE,
+        database_url,
+        extra_env=backup_env,
+    )
+    _run_alembic("upgrade", REVISION_PF19D, database_url)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO puntos_venta_elegibilidad_rece_revisiones (
+                empresa_id, punto_venta_id, ambiente, revision, estado,
+                fuente, evidencia_tipo, clasificador_version,
+                empresa_cuit_snapshot, punto_venta_numero_snapshot,
+                punto_revision_fiscal, observado_en, verificado_en,
+                actor_usuario_id_snapshot, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                1,
+                "produccion",
+                2,
+                "verificado_rece",
+                "sincronizacion_wsfe",
+                "wsfe_param_get_ptos_venta_v1",
+                "wsfe_emision_tipo_cae_v1",
+                "20000000001",
+                41,
+                1,
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+                1,
+                FECHA_HORA_SINTETICA,
+            ),
+        )
+
+    output = _run_alembic_failure(
+        "downgrade",
+        REVISION_PDV_DURABLE,
+        database_url,
+    )
+    assert "PF-19D bloqueó el downgrade" in output
 
 
 def test_sqlite_pf19c_downgrade_bloquea_evidencia_arca_estructurada(

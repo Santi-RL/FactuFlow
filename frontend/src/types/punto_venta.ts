@@ -22,12 +22,15 @@ export interface PuntoVenta {
   nombre: string | null;
   sistema: string | null;
   domicilio: string | null;
+  domicilio_fuente: "manual" | "constancia_arca" | null;
   nombre_fantasia: string | null;
+  nombre_fantasia_fuente: "manual" | "constancia_arca" | null;
   es_webservice: boolean;
   bloqueado: boolean;
   fecha_baja: string | null;
   fuente: string | null;
   activo: boolean;
+  usar_en_factuflow: boolean;
   usable_factuflow: boolean;
   puede_intentar_emision: boolean;
   seleccionable_para_emision: boolean;
@@ -62,6 +65,7 @@ export interface PuntoVentaUpdate {
   fecha_baja?: string | null;
   fuente?: string | null;
   activo?: boolean;
+  usar_en_factuflow?: boolean;
 }
 
 export interface PuntoVentaArca {
