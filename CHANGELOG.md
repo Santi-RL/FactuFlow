@@ -56,6 +56,10 @@ Reglas vigentes desde 2026-05-22:
 - Se actualizaron contrato API, guía de usuario, notas ARCA, QA manual, estado,
   portafolio, roadmap y dossier de release para reflejar PF-19D sin inferir el
   estado de ninguna instalación productiva.
+- Se publicó la GitHub Release `v0.3.4`, marcada como `Latest`, desde el tag
+  inmutable que apunta a `38cb4d6dc4faba819292ed8da9b833c68d9b8968`.
+  Sus siete controles de CI aprobaron, incluido Runtime Smoke. La publicación
+  no desplegó ni modificó el VPS.
 
 ## [0.3.3] - 2026-08-31
 

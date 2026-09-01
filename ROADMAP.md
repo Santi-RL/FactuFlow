@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 31/08/2026
+Última revisión: 01/09/2026
 
 Estado: VIGENTE.
 
@@ -102,8 +102,8 @@ El detalle, dependencias y adjudicación de estos temas viven en el
 
 ## Completado recientemente
 
-- **PF-19D:** WSFE como autoridad de puntos CAE, preferencia compartida de uso
-  y constancia descriptiva opcional, con guardas y migración conservadas.
+- **v0.3.4 / PF-19D:** WSFE como autoridad de puntos CAE, preferencia compartida
+  de uso y constancia descriptiva opcional, con guardas y migración conservadas.
 - **v0.3.2:** selección estricta y UX breve de puntos de venta.
 - **v0.3.1:** acreditación durable y compatibilidad con constancias ARCA.
 - **v0.3.0:** numeración compatible con historia externa, validación superior y
