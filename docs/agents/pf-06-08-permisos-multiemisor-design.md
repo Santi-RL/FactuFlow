@@ -1,8 +1,8 @@
 # Diseño PF-06/PF-07/PF-08 — permisos operativos multiemisor
 
-Última actualización: 2026-08-08
+Última actualización: 2026-09-01
 
-Estado: DISEÑADO Y PRIORIZADO; NO IMPLEMENTADO
+Estado: CERRADO EN `v0.3.5`; PUBLICACIÓN Y DESPLIEGUE PENDIENTES
 
 ## Objetivo
 
@@ -125,7 +125,11 @@ expuesto automáticamente a operadores existentes.
 4. Crear el emisor y conceder acceso al creador es una única transacción: o se
    confirman ambos efectos y su evento de auditoría, o no se confirma ninguno.
 5. La revocación elimina la autoridad efectiva desde el siguiente control
-   backend. No se confían permisos guardados en Pinia, almacenamiento web o JWT.
+   backend para iniciar nuevas acciones. No se confían permisos guardados en
+   Pinia, almacenamiento web o JWT. Una solicitud individual ya aceptada o un
+   lote ya confirmado y encolado conserva su autorización original y puede
+   terminar; reiniciar el worker es continuación del mismo trabajo, no una nueva
+   concesión.
 6. Los administradores conservan acceso implícito a todos los emisores. Sus
    asignaciones explícitas, si existen, no limitan ese rol.
 7. Al degradar un administrador a operador, solo conserva los accesos explícitos
@@ -241,12 +245,15 @@ Cuando se revoca el emisor activo de una sesión abierta:
 - nunca reutiliza clientes, puntos de venta, certificados o borradores del
   emisor anterior.
 
-Para lotes o trabajos diferidos, la autorización debe validarse al crear o
-confirmar el trabajo y nuevamente antes de una nueva transición que todavía
-pueda alcanzar ARCA. Si el acceso fue revocado antes de esa frontera, el trabajo
-se bloquea sin solicitar CAE. Si ARCA ya pudo haber sido llamada, la revocación
-no reescribe el resultado: se aplican los estados e invariantes de PF-01 y la
-reconciliación existente.
+Para lotes o trabajos diferidos, la autorización se valida al crear y confirmar
+el trabajo. Después de la confirmación durable, el lote encolado puede completar
+su procesamiento aunque el acceso del actor se revoque; una recuperación segura
+del worker conserva esa misma autorización. La revocación sí bloquea nuevas
+cargas, confirmaciones, reintentos, descartes o reconciliaciones iniciadas por el
+usuario y le impide consultar el resultado sin una asignación vigente. Si ARCA
+pudo haber sido llamada, la revocación nunca reescribe el resultado: se aplican
+los estados e invariantes de PF-01 y la reconciliación existente. La pantalla
+administrativa debe advertir esta continuidad antes de confirmar una revocación.
 
 ## Migración y compatibilidad
 
@@ -260,12 +267,20 @@ Aplicar un patrón expandir-migrar-contraer:
    exportación/importación VPS y fixtures para usar la tabla como única
    autoridad;
 5. mantener temporalmente `empresa_id` solo como compatibilidad explícita, sin
-   permitir que conceda acceso por sí mismo;
+   permitir que conceda acceso por sí mismo; contiene la asignación cuando hay
+   exactamente una y queda en `NULL` con cero o varias;
 6. retirar o renombrar la columna en un corte posterior cuando no queden
    consumidores y el rollback esté ensayado.
 
 No deben coexistir dos fuentes autoritativas. Durante compatibilidad, una fila
 legacy sin asignación en la nueva tabla no habilita al usuario.
+
+El downgrade a la versión singular conserva para cada usuario la asignación más
+antigua por `otorgado_en`, con desempate por `empresa_id`, la copia a
+`usuarios.empresa_id` y descarta las restantes al retirar la tabla. Debe registrar
+de forma sanitizada la cantidad de accesos eliminados. Esta pérdida controlada
+fue aceptada para el rollback de emergencia; un backup previo continúa siendo la
+única forma de preservar toda la configuración multiemisor.
 
 ## Consumidores que deben revisarse
 
@@ -316,8 +331,10 @@ legacy sin asignación en la nueva tabla no habilita al usuario.
 
 - cliente, certificado y punto de venta de C no pueden usarse al emitir en A;
 - listados, detalle, PDF, reportes, formatos y lotes no exponen datos ajenos;
-- revocación antes de la frontera ARCA bloquea el trabajo sin CAE;
-- revocación posterior no inventa rollback y conserva reconciliación;
+- lote confirmado y encolado antes de la revocación puede terminar, incluido un
+  reinicio seguro del worker;
+- nuevas acciones del usuario revocado se bloquean y los resultados fiscales no
+  se reescriben;
 - idempotencia, fecha fiscal explícita y confirmación irreversible no cambian;
 - todas las pruebas automatizadas usan dobles y datos sintéticos, sin llamadas
   reales de escritura a ARCA.

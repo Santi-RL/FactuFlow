@@ -30,26 +30,6 @@ solo cuando el usuario aprueba un corte concreto.
 
 ## Ahora
 
-### 1. PF-06/PF-07/PF-08 — permisos operativos multiemisor
-
-**Prioridad:** P1 de aislamiento y autorización, Nivel 2. PF-19D cerrado.
-
-Implementar como una sola unidad la relación de operadores con varios emisores,
-la creación o edición delegada y el cambio de emisor seguro. No introducir
-permisos finos por punto de venta ni administración multiempresa compleja.
-
-**Resultado esperado:** cada operador puede trabajar únicamente con sus emisores
-autorizados, cambiar de contexto sin mezclar respuestas tardías y completar las
-altas o ediciones delegadas permitidas sin obtener capacidades globales.
-
-**Diseño:**
-[`docs/agents/pf-06-08-permisos-multiemisor-design.md`](docs/agents/pf-06-08-permisos-multiemisor-design.md).
-
-## Después
-
-El orden de esta sección también es vinculante salvo nueva evidencia o decisión
-explícita del usuario.
-
 ### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1/P2 operativa.
@@ -59,7 +39,12 @@ intermedias; mostrar señales administrativas útiles; completar logs y soporte
 sin exponer evidencia privada. El estado concreto de una instalación permanece
 en `VPS Hostinger` / `vps-admin`.
 
-### 2. PF-04/PF-05 — evidencia e historia fiscal externa
+## Después
+
+El orden de esta sección también es vinculante salvo nueva evidencia o decisión
+explícita del usuario.
+
+### 1. PF-04/PF-05 — evidencia e historia fiscal externa
 
 **Prioridad:** P2 fiscal.
 
@@ -67,7 +52,7 @@ Primero preservar instantáneas históricas correctas en comprobantes, PDFs e
 informes. Después diseñar una reconstrucción opcional, reanudable y con
 procedencia desde ARCA. La historia externa nunca será requisito para emitir.
 
-### 3. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
+### 2. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
 
 **Prioridad:** P2, elevable por evidencia.
 
@@ -102,6 +87,9 @@ El detalle, dependencias y adjudicación de estos temas viven en el
 
 ## Completado recientemente
 
+- **v0.3.5 / PF-06/PF-07/PF-08:** asignaciones explícitas multiemisor,
+  capacidad delegada para crear y editar y cambio de contexto seguro. La
+  publicación y el despliegue permanecen pendientes.
 - **v0.3.4 / PF-19D:** WSFE como autoridad de puntos CAE, preferencia compartida
   de uso y constancia descriptiva opcional, con guardas y migración conservadas.
 - **v0.3.2:** selección estricta y UX breve de puntos de venta.

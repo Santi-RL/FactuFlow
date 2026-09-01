@@ -23,6 +23,8 @@ const usuarioMock: Usuario = {
   email: "admin@example.com",
   nombre: "Admin",
   empresa_id: 1,
+  empresa_ids: [1],
+  puede_crear_editar_emisores: false,
   activo: true,
   es_admin: true,
   created_at: "2024-01-01T00:00:00",
@@ -67,7 +69,9 @@ describe("auth store", () => {
 
   it("limpia la sesión local aunque falle el servicio de logout", async () => {
     prepararSesionPersistida();
-    mockedAuthService.logout.mockRejectedValue(new Error("backend no disponible"));
+    mockedAuthService.logout.mockRejectedValue(
+      new Error("backend no disponible"),
+    );
     const authStore = useAuthStore();
     authStore.init();
 

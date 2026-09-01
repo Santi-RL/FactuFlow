@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 31/08/2026
+Última revisión: 01/09/2026
 
 Estado: VIGENTE.
 
@@ -21,13 +21,12 @@ producto.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-06/PF-07/PF-08 | Ahora 1 | P1 | Operadores multiemisor, autorización por objeto y cambio de emisor seguro | PF-19D cerrado; diseño integrado PF-06/07/08 |
-| PF-11/PF-15 | Después 1 | P1/P2 | Backups trazables, recuperación, logs y soporte comprensible | Plano de control externo; observabilidad vigente |
-| PF-04 | Después 2 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
-| PF-05 | Después 2 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
-| PF-09 | Después 3 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
-| PF-12 | Después 3 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
-| PF-14 | Después 3 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
+| PF-11/PF-15 | Ahora 1 | P1/P2 | Backups trazables, recuperación, logs y soporte comprensible | Plano de control externo; observabilidad vigente |
+| PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
+| PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
+| PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
+| PF-12 | Después 2 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
+| PF-14 | Después 2 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
 | PF-13 | Más adelante | P2 | Lotes, formatos, perfiles y procesos largos robustos y eficientes | PF-03, PF-12 y límites de VPS pequeño |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
@@ -35,13 +34,6 @@ producto.
 | PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard | Madurez operativa y almacenamiento seguro |
 
 ## Trabajo agrupado por línea
-
-### PF-06/PF-07/PF-08
-
-- Relación explícita entre operadores y varios emisores.
-- Capacidad acotada para crear y editar emisores autorizados.
-- Revalidación de sesiones y respuestas tardías al cambiar o revocar emisor.
-- Mantener administración global y borrado reservados a administradores.
 
 ### PF-11/PF-15
 
@@ -87,8 +79,11 @@ producto.
 
 ## Líneas cerradas
 
-PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C/PF-19D están cerrados. El contrato
+PF-01, PF-02, PF-03A/PF-03B, PF-06/PF-07/PF-08 y
+PF-19A/PF-19B/PF-19C/PF-19D están cerrados. El contrato
 de PF-03B vive en [`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
+El cierre multiemisor vive en
+[`pf-06-08-permisos-multiemisor-design.md`](pf-06-08-permisos-multiemisor-design.md).
 El cierre de PF-19D vive en
 [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md).
 Su evidencia vive

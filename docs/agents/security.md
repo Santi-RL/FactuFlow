@@ -85,20 +85,25 @@
 
 ## Administración de emisores
 
-- Los usuarios activos pueden consultar y operar el emisor que tienen
-  autorizado, pero solo los administradores pueden crear, editar o eliminar
-  emisores una vez completado el setup inicial.
+- Los administradores operan todos los emisores. Los operadores solo pueden
+  consultar y operar los incluidos en `usuario_emisor_acceso`; el campo legacy
+  `usuarios.empresa_id`, el JWT, Pinia y el almacenamiento web nunca conceden
+  autoridad.
+- Un operador con `puede_crear_editar_emisores=true` puede crear un emisor y
+  recibe su asignación en la misma transacción. Para editar necesita además una
+  asignación vigente. El borrado, los usuarios, `Sistema`, almacenamiento y las
+  plantillas globales permanecen reservados a administradores.
 - La creación sin autenticación existe únicamente para el bootstrap, cuando no
-  hay usuarios. Después de ese punto, el backend debe exigir
-  `es_admin=true`; ocultar controles en frontend no reemplaza esa autorización.
+  hay usuarios. Ocultar controles en frontend no reemplaza la autorización del
+  backend.
 - La edición de identidad fiscal sigue bloqueada cuando existe historial
   operativo o fiscal, incluso para administradores.
-- Existe un diseño aceptado, todavía no implementado, para permitir que un
-  operador tenga varios emisores y reciba la capacidad acotada de crear y editar
-  emisores. Hasta cerrar PF-06/PF-07/PF-08, las reglas anteriores describen el
-  runtime vigente. El contrato futuro, sus invariantes y la matriz de pruebas
-  están en `docs/agents/pf-06-08-permisos-multiemisor-design.md`; la capacidad
-  no incluirá borrado ni permitirá editar emisores no asignados.
+- Una revocación se aplica desde el siguiente control backend. Las solicitudes
+  individuales ya aceptadas y los lotes ya confirmados o encolados pueden
+  terminar; no habilita nuevas cargas, confirmaciones, reintentos,
+  reconciliaciones ni consultas sin acceso vigente.
+- El contrato completo, concurrencia, rollback y matriz de pruebas están en
+  `docs/agents/pf-06-08-permisos-multiemisor-design.md`.
 
 ## Errores HTTP y logs
 

@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 import BaseSelect from "@/components/ui/BaseSelect.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useNotification } from "@/composables/useNotification";
+import { EMPRESA_ACCESO_REVALIDAR_EVENT } from "@/services/api";
 import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
@@ -13,10 +15,12 @@ import {
 const authStore = useAuthStore();
 const empresaStore = useEmpresaStore();
 const { logout } = useAuth();
+const { showWarning } = useNotification();
 
 const showDropdown = ref(false);
 const loadingEmpresas = ref(false);
 const dropdownRef = ref<HTMLElement | null>(null);
+let revalidandoAccesos = false;
 
 const empresasOptions = computed(() =>
   empresaStore.empresas.map((empresa) => ({
@@ -34,8 +38,30 @@ const handleDocumentClick = (event: MouseEvent) => {
   }
 };
 
+const handleRevalidarAccesos = async () => {
+  if (revalidandoAccesos || !authStore.isAuthenticated) return;
+  revalidandoAccesos = true;
+  try {
+    const sesionVigente = await authStore.checkAuth();
+    if (!sesionVigente) return;
+    const accesoRevocado = await empresaStore.revalidarAccesos();
+    if (accesoRevocado) {
+      showWarning(
+        "Acceso al emisor revocado",
+        "La selección y los datos abiertos de ese emisor se descartaron. Elegí otro emisor habilitado para continuar.",
+      );
+    }
+  } finally {
+    revalidandoAccesos = false;
+  }
+};
+
 onMounted(async () => {
   document.addEventListener("click", handleDocumentClick);
+  window.addEventListener(
+    EMPRESA_ACCESO_REVALIDAR_EVENT,
+    handleRevalidarAccesos,
+  );
 
   if (!authStore.isAuthenticated) return;
 
@@ -49,6 +75,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.removeEventListener("click", handleDocumentClick);
+  window.removeEventListener(
+    EMPRESA_ACCESO_REVALIDAR_EVENT,
+    handleRevalidarAccesos,
+  );
 });
 
 const handleLogout = async () => {
@@ -83,25 +113,39 @@ const handleEmpresaChange = async (value: string | number) => {
           @update:model-value="handleEmpresaChange"
         />
         <p
-          v-if="empresasOptions.length > 0"
+          v-if="empresaStore.avisoAcceso"
+          class="mt-1 text-xs font-medium text-status-danger"
+        >
+          {{ empresaStore.avisoAcceso }}
+        </p>
+        <p
+          v-else-if="empresasOptions.length > 0 && empresaStore.empresaActivaId"
           class="mt-1 text-xs text-brand-slate"
         >
           Todo lo que hagas en comprobantes, emisión masiva, certificados y
           reportes se aplicará a este emisor.
         </p>
         <p
-          v-else
+          v-else-if="empresasOptions.length > 1"
+          class="mt-1 text-xs font-medium text-status-warning"
+        >
+          Elegí explícitamente un emisor para comenzar. No se cambiará la
+          selección de forma automática.
+        </p>
+        <p
+          v-else-if="authStore.user?.puede_crear_editar_emisores"
           class="mt-1 text-xs text-brand-slate"
         >
-          Creá un emisor para empezar a trabajar.
+          No tenés emisores habilitados. Podés crear uno desde Emisor.
+        </p>
+        <p v-else class="mt-1 text-xs text-brand-slate">
+          No tenés emisores habilitados. Pedile a un administrador que te asigne
+          acceso.
         </p>
       </div>
     </div>
 
-    <div
-      ref="dropdownRef"
-      class="relative flex-shrink-0 self-end lg:self-auto"
-    >
+    <div ref="dropdownRef" class="relative flex-shrink-0 self-end lg:self-auto">
       <button
         class="flex items-center gap-2 rounded-control px-3 py-2 text-sm font-medium text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
         @click="showDropdown = !showDropdown"

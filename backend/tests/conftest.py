@@ -11,6 +11,7 @@ from app.main import app
 from app.core.database import Base, _habilitar_foreign_keys_sqlite, get_db
 from app.core.security import get_password_hash
 from app.models.usuario import Usuario
+from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 from app.models.empresa import Empresa
 
 # Test database URL
@@ -113,6 +114,15 @@ async def test_user(db_session: AsyncSession, test_empresa: Empresa) -> Usuario:
     )
 
     db_session.add(user)
+    await db_session.flush()
+    db_session.add(
+        UsuarioEmisorAcceso(
+            usuario_id=user.id,
+            empresa_id=test_empresa.id,
+            otorgado_por_usuario_id=None,
+            origen="migracion_legacy",
+        )
+    )
     await db_session.commit()
     await db_session.refresh(user)
 

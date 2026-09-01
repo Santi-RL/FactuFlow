@@ -33,7 +33,7 @@ from tests.test_pf19_legacy_resolution import _sembrar, _solicitud_apply
 
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
-REVISION_AUTORIDAD_WSFE = "e3f4a5b6c7d8"
+REVISION_MULTIEMISOR = "f4a5b6c7d8e9"
 
 
 @pytest.mark.integration
@@ -279,7 +279,7 @@ async def test_postgresql_pf19c_dos_apply_dejan_un_cierre_y_un_replay() -> None:
     await _reset_schema(database_url)
     # Este escenario usa el ORM y los servicios actuales; los recorridos
     # históricos de migración de este archivo conservan sus revisiones exactas.
-    _run_alembic("upgrade", REVISION_AUTORIDAD_WSFE, database_url)
+    _run_alembic("upgrade", REVISION_MULTIEMISOR, database_url)
     engine = create_async_engine(database_url)
     try:
         intento_id, empresa_id, admin_id = await _sembrar(engine)

@@ -69,6 +69,10 @@ Para cada transición, responder:
 - ¿Qué pasa si falla después de ARCA pero antes de persistir?
 - ¿Qué estado queda si el proceso se corta a mitad?
 - ¿Puede reanudarse? ¿Debe reconciliarse antes?
+- Si se revoca el acceso al emisor, ¿qué trabajos ya aceptados conservan su
+  autorización y qué nuevas acciones quedan bloqueadas? La política debe ser
+  explícita, visible para quien revoca y demostrada sin reinterpretar resultados
+  que ARCA pudo haber autorizado.
 
 ## 4. Orden de operaciones
 

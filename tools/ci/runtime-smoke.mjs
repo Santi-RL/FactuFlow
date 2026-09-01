@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +43,18 @@ const SENSITIVE_ARGUMENT_PATTERN = new RegExp(
 /** Devuelve el ejecutable npm portable sin habilitar un shell para el proceso. */
 export function resolveNpmCommand(platform = process.platform) {
   return platform === "win32" ? "npm.cmd" : "npm";
+}
+
+/** Usa el entorno virtual del backend cuando está disponible. */
+export function resolveBackendPython(
+  backendDirectory,
+  { platform = process.platform, pathExists = existsSync } = {},
+) {
+  const virtualenvPython = resolve(
+    backendDirectory,
+    platform === "win32" ? ".venv/Scripts/python.exe" : ".venv/bin/python",
+  );
+  return pathExists(virtualenvPython) ? virtualenvPython : "python";
 }
 
 /** Construye la invocación npm sin activar `shell:true`. */
@@ -341,6 +354,7 @@ export async function runRuntimeSmoke({
   const backendDirectory = resolve(repositoryRoot, "backend");
   const frontendDirectory = resolve(repositoryRoot, "frontend");
   const env = buildRuntimeEnvironment(environment);
+  const pythonCommand = resolveBackendPython(backendDirectory);
   const sensitiveValues = collectSensitiveValues(env);
   const logs = createLogCapture(LOG_TAIL_LENGTH, sensitiveValues);
   let apiProcess;
@@ -350,7 +364,7 @@ export async function runRuntimeSmoke({
     console.log("Runtime smoke: aplicando migraciones Alembic.");
     await runCommand({
       label: "alembic-upgrade",
-      command: "python",
+      command: pythonCommand,
       args: ["-m", "alembic", "upgrade", "head"],
       cwd: backendDirectory,
       env,
@@ -358,7 +372,7 @@ export async function runRuntimeSmoke({
     });
     const current = await runCommand({
       label: "alembic-current",
-      command: "python",
+      command: pythonCommand,
       args: ["-m", "alembic", "current"],
       cwd: backendDirectory,
       env,
@@ -366,7 +380,7 @@ export async function runRuntimeSmoke({
     });
     const heads = await runCommand({
       label: "alembic-heads",
-      command: "python",
+      command: pythonCommand,
       args: ["-m", "alembic", "heads"],
       cwd: backendDirectory,
       env,
@@ -377,7 +391,7 @@ export async function runRuntimeSmoke({
     console.log("Runtime smoke: iniciando FastAPI y verificando salud real.");
     apiProcess = startProcess({
       label: "fastapi",
-      command: "python",
+      command: pythonCommand,
       args: [
         "-m",
         "uvicorn",

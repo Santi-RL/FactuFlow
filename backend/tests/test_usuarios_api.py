@@ -34,6 +34,8 @@ async def test_admin_crea_usuario_operativo(
     assert data["es_admin"] is False
     assert data["activo"] is True
     assert data["empresa_id"] == test_empresa.id
+    assert data["empresa_ids"] == [test_empresa.id]
+    assert data["puede_crear_editar_emisores"] is False
     assert "hashed_password" not in data
 
     login_response = await client.post(
@@ -241,3 +243,88 @@ async def test_admin_resetea_password_de_usuario(
     assert old_token_response.status_code == 401
     assert old_password_response.status_code == 401
     assert new_login_response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_asigna_varios_emisores_y_revoca_sin_renovar_jwt(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+    auth_headers: dict,
+    test_user: Usuario,
+    test_empresa: Empresa,
+    db_session,
+):
+    """La tabla de accesos es la autoridad efectiva desde el siguiente request."""
+    from datetime import date
+
+    segunda = Empresa(
+        razon_social="Segundo Emisor S.A.",
+        cuit="30777777778",
+        condicion_iva="RI",
+        domicilio="Av. Segunda 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2024, 1, 1),
+    )
+    db_session.add(segunda)
+    await db_session.commit()
+
+    asignar = await client.put(
+        f"/api/usuarios/{test_user.id}",
+        headers=admin_auth_headers,
+        json={"empresa_ids": [test_empresa.id, segunda.id]},
+    )
+    assert asignar.status_code == 200
+    assert asignar.json()["empresa_ids"] == [test_empresa.id, segunda.id]
+    assert asignar.json()["empresa_id"] is None
+
+    permitido = await client.get(
+        "/api/clientes",
+        headers={**auth_headers, "X-Empresa-Id": str(segunda.id)},
+    )
+    assert permitido.status_code == 200
+
+    revocar = await client.put(
+        f"/api/usuarios/{test_user.id}",
+        headers=admin_auth_headers,
+        json={"empresa_ids": [test_empresa.id]},
+    )
+    assert revocar.status_code == 200
+
+    bloqueado = await client.get(
+        "/api/clientes",
+        headers={**auth_headers, "X-Empresa-Id": str(segunda.id)},
+    )
+    assert bloqueado.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_contrato_multiemisor_rechaza_duplicados_y_doble_formato(
+    client: AsyncClient,
+    admin_auth_headers: dict,
+    test_empresa: Empresa,
+):
+    """La API no normaliza entradas administrativas ambiguas."""
+    base = {
+        "email": "contrato@test.com",
+        "nombre": "Contrato",
+        "password": "password123",
+    }
+    duplicados = await client.post(
+        "/api/usuarios",
+        headers=admin_auth_headers,
+        json={**base, "empresa_ids": [test_empresa.id, test_empresa.id]},
+    )
+    ambos = await client.post(
+        "/api/usuarios",
+        headers=admin_auth_headers,
+        json={
+            **base,
+            "email": "ambos@test.com",
+            "empresa_id": test_empresa.id,
+            "empresa_ids": [test_empresa.id],
+        },
+    )
+    assert duplicados.status_code == 422
+    assert ambos.status_code == 422

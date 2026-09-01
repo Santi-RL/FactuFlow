@@ -16,7 +16,10 @@ export const useEmpresaStore = defineStore("empresa", () => {
   const empresaActivaId = ref<number | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const avisoAcceso = ref<string | null>(null);
   let solicitudEmpresaActivaId = 0;
+  let solicitudListadoId = 0;
+  let inicializacionEnCurso: Promise<void> | null = null;
 
   const empresaActiva = computed(() => {
     if (!empresaActivaId.value) {
@@ -35,6 +38,14 @@ export const useEmpresaStore = defineStore("empresa", () => {
   const esSolicitudEmpresaActivaActual = (solicitudId: number) =>
     solicitudId === solicitudEmpresaActivaId;
 
+  const limpiarEmpresaActiva = (aviso: string | null = null) => {
+    solicitudEmpresaActivaId += 1;
+    empresa.value = null;
+    empresaActivaId.value = null;
+    avisoAcceso.value = aviso;
+    clearEmpresaActivaIdStorage();
+  };
+
   const cargarEmpresaPorId = async (id: number, solicitudId: number) => {
     loading.value = true;
     error.value = null;
@@ -45,6 +56,7 @@ export const useEmpresaStore = defineStore("empresa", () => {
       }
       empresa.value = empresaCargada;
       empresaActivaId.value = empresaCargada.id;
+      avisoAcceso.value = null;
       setEmpresaActivaIdStorage(empresaCargada.id);
     } catch (err: any) {
       if (!esSolicitudEmpresaActivaActual(solicitudId)) {
@@ -108,24 +120,32 @@ export const useEmpresaStore = defineStore("empresa", () => {
   };
 
   const cargarEmpresa = async () => {
-    const authStore = useAuthStore();
-    const empresaId = empresaActivaId.value || authStore.user?.empresa_id;
+    const empresaId =
+      empresaActivaId.value ||
+      (empresas.value.length === 1 ? empresas.value[0].id : null);
     if (!empresaId) return;
     await fetchEmpresa(empresaId);
   };
 
   const fetchEmpresas = async () => {
+    const solicitudId = ++solicitudListadoId;
     loading.value = true;
     error.value = null;
     try {
-      empresas.value = await empresaService.getAll();
+      const empresasAutorizadas = await empresaService.getAll();
+      if (solicitudId !== solicitudListadoId) {
+        return empresas.value;
+      }
+      empresas.value = empresasAutorizadas;
       return empresas.value;
     } catch (err: any) {
       error.value =
         err.response?.data?.detail || "Error al cargar las empresas";
       throw err;
     } finally {
-      loading.value = false;
+      if (solicitudId === solicitudListadoId) {
+        loading.value = false;
+      }
     }
   };
 
@@ -145,7 +165,7 @@ export const useEmpresaStore = defineStore("empresa", () => {
     }
   };
 
-  const inicializarEmpresaActiva = async () => {
+  const ejecutarInicializacionEmpresaActiva = async () => {
     const authStore = useAuthStore();
     if (!authStore.user) return;
 
@@ -162,22 +182,46 @@ export const useEmpresaStore = defineStore("empresa", () => {
       clearEmpresaActivaIdStorage();
     }
 
-    const empresaDelUsuario = authStore.user.empresa_id
-      ? empresas.value.find((item) => item.id === authStore.user?.empresa_id)
-      : null;
     const empresaId =
       empresaPreferida?.id ||
-      empresaDelUsuario?.id ||
-      empresas.value[0]?.id ||
-      null;
+      (empresas.value.length === 1 ? empresas.value[0].id : null);
 
     if (empresaId) {
       await setEmpresaActiva(empresaId);
     } else {
-      empresa.value = null;
-      empresaActivaId.value = null;
-      clearEmpresaActivaIdStorage();
+      limpiarEmpresaActiva();
     }
+  };
+
+  const inicializarEmpresaActiva = async () => {
+    if (inicializacionEnCurso) {
+      await inicializacionEnCurso;
+      return;
+    }
+
+    inicializacionEnCurso = ejecutarInicializacionEmpresaActiva();
+    try {
+      await inicializacionEnCurso;
+    } finally {
+      inicializacionEnCurso = null;
+    }
+  };
+
+  const revalidarAccesos = async () => {
+    const empresaAnteriorId = empresaActivaId.value;
+    await fetchEmpresas();
+
+    if (
+      empresaAnteriorId &&
+      !empresas.value.some((item) => item.id === empresaAnteriorId)
+    ) {
+      limpiarEmpresaActiva(
+        "Tu acceso al emisor activo fue revocado. Elegí otro emisor habilitado para continuar.",
+      );
+      return true;
+    }
+
+    return false;
   };
 
   return {
@@ -187,6 +231,7 @@ export const useEmpresaStore = defineStore("empresa", () => {
     empresaActivaId,
     loading,
     error,
+    avisoAcceso,
     fetchEmpresa,
     cargarEmpresa,
     createEmpresa,
@@ -194,5 +239,7 @@ export const useEmpresaStore = defineStore("empresa", () => {
     fetchEmpresas,
     setEmpresaActiva,
     inicializarEmpresaActiva,
+    limpiarEmpresaActiva,
+    revalidarAccesos,
   };
 });

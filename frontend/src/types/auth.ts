@@ -3,6 +3,8 @@ export interface Usuario {
   email: string;
   nombre: string;
   empresa_id: number | null;
+  empresa_ids: number[];
+  puede_crear_editar_emisores: boolean;
   activo: boolean;
   es_admin: boolean;
   created_at: string;
@@ -37,7 +39,8 @@ export interface UsuarioAdminCreate {
   password: string;
   es_admin: boolean;
   activo: boolean;
-  empresa_id?: number | null;
+  empresa_ids: number[];
+  puede_crear_editar_emisores: boolean;
 }
 
 export interface UsuarioAdminUpdate {
@@ -45,7 +48,8 @@ export interface UsuarioAdminUpdate {
   nombre?: string;
   es_admin?: boolean;
   activo?: boolean;
-  empresa_id?: number | null;
+  empresa_ids?: number[];
+  puede_crear_editar_emisores?: boolean;
 }
 
 export interface UsuarioPasswordReset {

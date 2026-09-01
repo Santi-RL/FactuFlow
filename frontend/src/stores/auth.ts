@@ -10,6 +10,16 @@ export const useAuthStore = defineStore("auth", () => {
   const isAuthenticated = ref(false);
   const loading = ref(false);
 
+  const normalizarUsuario = (usuario: Usuario): Usuario => ({
+    ...usuario,
+    empresa_ids: Array.isArray(usuario.empresa_ids)
+      ? usuario.empresa_ids
+      : usuario.empresa_id
+        ? [usuario.empresa_id]
+        : [],
+    puede_crear_editar_emisores: Boolean(usuario.puede_crear_editar_emisores),
+  });
+
   // Inicializar desde localStorage
   const init = () => {
     const storedToken = localStorage.getItem("token");
@@ -17,7 +27,7 @@ export const useAuthStore = defineStore("auth", () => {
 
     if (storedToken && storedUser) {
       token.value = storedToken;
-      user.value = JSON.parse(storedUser);
+      user.value = normalizarUsuario(JSON.parse(storedUser) as Usuario);
       isAuthenticated.value = true;
     }
   };
@@ -28,12 +38,12 @@ export const useAuthStore = defineStore("auth", () => {
       const response = await authService.login(credentials);
 
       token.value = response.access_token;
-      user.value = response.user;
+      user.value = normalizarUsuario(response.user);
       isAuthenticated.value = true;
 
       // Guardar en localStorage
       localStorage.setItem("token", response.access_token);
-      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("user", JSON.stringify(user.value));
 
       return response;
     } finally {
@@ -65,11 +75,11 @@ export const useAuthStore = defineStore("auth", () => {
 
     try {
       const userData = await authService.me();
-      user.value = userData;
+      user.value = normalizarUsuario(userData);
       isAuthenticated.value = true;
 
       // Actualizar en localStorage
-      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(user.value));
 
       return true;
     } catch (error) {

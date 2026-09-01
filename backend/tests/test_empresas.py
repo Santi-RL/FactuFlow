@@ -1,5 +1,6 @@
 """Tests de endpoints de emisores."""
 
+import asyncio
 from datetime import date
 from decimal import Decimal
 
@@ -18,6 +19,7 @@ from app.models.lote_comprobante import LoteComprobante
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
+from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 
 
 async def _crear_comprobante_autorizado(db_session, empresa_id: int) -> Comprobante:
@@ -81,9 +83,221 @@ async def test_usuario_comun_lista_solo_su_emisor_y_no_crea_emisores(
     )
 
     assert create_response.status_code == 403
-    assert (
-        create_response.json()["detail"] == "Solo un administrador puede crear emisores"
+    assert create_response.json()["detail"] == "No tenés permiso para crear emisores"
+
+
+@pytest.mark.asyncio
+async def test_operador_multiemisor_crea_edita_y_recibe_acceso_atomico(
+    client: AsyncClient,
+    auth_headers: dict,
+    admin_auth_headers: dict,
+    test_user: Usuario,
+    test_empresa: Empresa,
+    db_session,
+):
+    """La capacidad delegada no amplía el alcance fuera de las asignaciones."""
+    segunda = Empresa(
+        razon_social="Empresa Segunda S.A.",
+        cuit="30777777778",
+        condicion_iva="RI",
+        domicilio="Av. Segunda 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2024, 1, 1),
     )
+    ajena = Empresa(
+        razon_social="Empresa Ajena S.A.",
+        cuit="30666666667",
+        condicion_iva="RI",
+        domicilio="Av. Ajena 123",
+        localidad="CABA",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        inicio_actividades=date(2024, 1, 1),
+    )
+    db_session.add_all([segunda, ajena])
+    await db_session.commit()
+
+    acceso_response = await client.put(
+        f"/api/usuarios/{test_user.id}",
+        headers=admin_auth_headers,
+        json={
+            "empresa_ids": [test_empresa.id, segunda.id],
+            "puede_crear_editar_emisores": True,
+        },
+    )
+    assert acceso_response.status_code == 200
+    assert acceso_response.json()["empresa_ids"] == [test_empresa.id, segunda.id]
+    assert acceso_response.json()["empresa_id"] is None
+
+    lista = await client.get("/api/empresas", headers=auth_headers)
+    assert lista.status_code == 200
+    assert {item["id"] for item in lista.json()} == {test_empresa.id, segunda.id}
+
+    edicion = await client.put(
+        f"/api/empresas/{segunda.id}",
+        headers=auth_headers,
+        json={"email": "operador@example.com"},
+    )
+    intrusiva = await client.put(
+        f"/api/empresas/{ajena.id}",
+        headers=auth_headers,
+        json={"email": "intruso@example.com"},
+    )
+    assert edicion.status_code == 200
+    assert intrusiva.status_code == 403
+
+    creada = await client.post(
+        "/api/empresas",
+        headers=auth_headers,
+        json={
+            "razon_social": "Creada por Operador S.A.",
+            "cuit": "30555555556",
+            "condicion_iva": "RI",
+            "domicilio": "Av. Nueva 456",
+            "localidad": "CABA",
+            "provincia": "Buenos Aires",
+            "codigo_postal": "1000",
+            "inicio_actividades": date(2025, 1, 1).isoformat(),
+        },
+    )
+    assert creada.status_code == 201
+    lista_actualizada = await client.get("/api/empresas", headers=auth_headers)
+    assert creada.json()["id"] in {item["id"] for item in lista_actualizada.json()}
+
+    borrado = await client.delete(
+        f"/api/empresas/{creada.json()['id']}", headers=auth_headers
+    )
+    assert borrado.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_creacion_delegada_revierte_emisor_y_acceso_ante_fallo_intermedio(
+    monkeypatch: pytest.MonkeyPatch,
+    client: AsyncClient,
+    auth_headers: dict,
+    admin_auth_headers: dict,
+    test_user: Usuario,
+    test_empresa: Empresa,
+    db_session,
+):
+    """Empresa y autoasignación no sobreviven si falla la auditoría previa al commit."""
+    usuario_id = int(test_user.id)
+    empresa_original_id = int(test_empresa.id)
+    habilitar = await client.put(
+        f"/api/usuarios/{usuario_id}",
+        headers=admin_auth_headers,
+        json={
+            "empresa_ids": [empresa_original_id],
+            "puede_crear_editar_emisores": True,
+        },
+    )
+    assert habilitar.status_code == 200
+
+    def fallar_auditoria(*_args, **_kwargs) -> None:
+        raise RuntimeError("fallo sintético antes del commit")
+
+    monkeypatch.setattr(
+        "app.api.empresas.registrar_evento_autorizacion",
+        fallar_auditoria,
+    )
+
+    with pytest.raises(RuntimeError, match="fallo sintético"):
+        await client.post(
+            "/api/empresas",
+            headers=auth_headers,
+            json={
+                "razon_social": "Emisor con rollback S.A.",
+                "cuit": "30333333334",
+                "condicion_iva": "RI",
+                "domicilio": "Av. Sintética 789",
+                "localidad": "CABA",
+                "provincia": "Buenos Aires",
+                "codigo_postal": "1000",
+                "inicio_actividades": date(2025, 1, 1).isoformat(),
+            },
+        )
+
+    await db_session.rollback()
+    empresa_id = await db_session.scalar(
+        select(Empresa.id).where(Empresa.cuit == "30333333334")
+    )
+    acceso_id = await db_session.scalar(
+        select(UsuarioEmisorAcceso.empresa_id).where(
+            UsuarioEmisorAcceso.usuario_id == usuario_id,
+            UsuarioEmisorAcceso.empresa_id != empresa_original_id,
+        )
+    )
+    assert empresa_id is None
+    assert acceso_id is None
+
+
+@pytest.mark.asyncio
+async def test_revocacion_serializada_bloquea_creacion_delegada_posterior(
+    monkeypatch: pytest.MonkeyPatch,
+    client: AsyncClient,
+    auth_headers: dict,
+    admin_auth_headers: dict,
+    test_user: Usuario,
+    test_empresa: Empresa,
+):
+    """La revocación confirmada primero rige al entrar la creación al límite."""
+    habilitar = await client.put(
+        f"/api/usuarios/{test_user.id}",
+        headers=admin_auth_headers,
+        json={
+            "empresa_ids": [test_empresa.id],
+            "puede_crear_editar_emisores": True,
+        },
+    )
+    assert habilitar.status_code == 200
+
+    revocacion_dentro_del_limite = asyncio.Event()
+    permitir_revocacion = asyncio.Event()
+
+    async def detener_revocacion(_db) -> None:
+        revocacion_dentro_del_limite.set()
+        await permitir_revocacion.wait()
+
+    monkeypatch.setattr(
+        "app.api.usuarios.tomar_lock_admin_usuarios", detener_revocacion
+    )
+
+    revocacion_task = asyncio.create_task(
+        client.put(
+            f"/api/usuarios/{test_user.id}",
+            headers=admin_auth_headers,
+            json={
+                "empresa_ids": [],
+                "puede_crear_editar_emisores": False,
+            },
+        )
+    )
+    await revocacion_dentro_del_limite.wait()
+    creacion_task = asyncio.create_task(
+        client.post(
+            "/api/empresas",
+            headers=auth_headers,
+            json={
+                "razon_social": "Emisor posterior a revocación S.A.",
+                "cuit": "30444444445",
+                "condicion_iva": "RI",
+                "domicilio": "Av. Sintética 456",
+                "localidad": "CABA",
+                "provincia": "Buenos Aires",
+                "codigo_postal": "1000",
+                "inicio_actividades": date(2025, 1, 1).isoformat(),
+            },
+        )
+    )
+    permitir_revocacion.set()
+
+    revocacion, creacion = await asyncio.gather(revocacion_task, creacion_task)
+
+    assert revocacion.status_code == 200
+    assert creacion.status_code == 403
+    assert creacion.json()["detail"] == "No tenés permiso para crear emisores"
 
 
 @pytest.mark.asyncio

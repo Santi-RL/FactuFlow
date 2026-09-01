@@ -6,7 +6,9 @@ const adminUser = {
   id: 1,
   email: "admin.local@example.test",
   nombre: "Admin",
-  empresa_id: 1,
+  empresa_id: null,
+  empresa_ids: [1, 2],
+  puede_crear_editar_emisores: false,
   activo: true,
   es_admin: true,
   created_at: now,
@@ -974,10 +976,11 @@ export const mockApi = async (page: Page) => {
 };
 
 export const loginAsAdmin = async (page: Page) => {
-  await page.addInitScript(() => {
-    window.localStorage.removeItem("empresa_activa_id");
-  });
   await page.goto("/login");
+  await page.evaluate(() => {
+    window.localStorage.removeItem("empresa_activa_id");
+    window.sessionStorage.removeItem("empresa_activa_id");
+  });
   await page.getByLabel(/correo electrónico/i).fill(adminCredentials.email);
   await page.getByLabel(/contraseña/i).fill(adminCredentials.password);
   await Promise.all([
@@ -986,13 +989,30 @@ export const loginAsAdmin = async (page: Page) => {
     ),
     page.getByRole("button", { name: /ingresar/i }).click(),
   ]);
+  await page
+    .getByText(/Elegí explícitamente un emisor para comenzar/i)
+    .waitFor();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/empresas/1") && response.ok(),
+    ),
+    page.getByLabel(/emisor activo/i).selectOption("1"),
+  ]);
+  await page.waitForFunction(
+    () => window.sessionStorage.getItem("empresa_activa_id") === "1",
+  );
 };
 
-export const loginAsUser = async (page: Page) => {
-  await page.addInitScript(() => {
-    window.localStorage.removeItem("empresa_activa_id");
-  });
+export const loginAsUser = async (
+  page: Page,
+  seleccionarEmisor = true,
+) => {
   await page.goto("/login");
+  await page.evaluate(() => {
+    window.localStorage.removeItem("empresa_activa_id");
+    window.sessionStorage.removeItem("empresa_activa_id");
+  });
   await page.getByLabel(/correo electrónico/i).fill(userCredentials.email);
   await page.getByLabel(/contraseña/i).fill(userCredentials.password);
   await Promise.all([
@@ -1001,4 +1021,19 @@ export const loginAsUser = async (page: Page) => {
     ),
     page.getByRole("button", { name: /ingresar/i }).click(),
   ]);
+  if (seleccionarEmisor) {
+    await page
+      .getByText(/Elegí explícitamente un emisor para comenzar/i)
+      .waitFor();
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/empresas/1") && response.ok(),
+      ),
+      page.getByLabel(/emisor activo/i).selectOption("1"),
+    ]);
+    await page.waitForFunction(
+      () => window.sessionStorage.getItem("empresa_activa_id") === "1",
+    );
+  }
 };

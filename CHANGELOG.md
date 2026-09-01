@@ -18,6 +18,37 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Cambios
+
+- PF-06/PF-07/PF-08 incorpora asignaciones explícitas de cero, uno o varios
+  emisores por operador y la capacidad independiente `Puede crear y editar
+  emisores`. Crear un emisor como operador confirma en una sola transacción la
+  ficha, el acceso propio y el evento administrativo.
+- `Usuarios` permite seleccionar varios emisores, materializar todos los
+  actuales, advertir listas vacías y confirmar el alcance antes de una
+  degradación o revocación. Promover a administrador conserva asignaciones que
+  vuelven a regir al degradarlo.
+- El emisor activo se recupera por pestaña solo si continúa autorizado. Con uno
+  se selecciona automáticamente; con varios se exige elegir. Una revocación
+  abierta refresca permisos, limpia el contexto y descarta respuestas tardías
+  sin cambiar de emisor ni cerrar sesión.
+
+### Seguridad y migración
+
+- `usuario_emisor_acceso` pasa a ser la autoridad por objeto; el campo singular
+  queda como compatibilidad derivada y nunca concede permisos. El backend
+  consulta la base para operar, listar, crear y editar, y mantiene borrado,
+  usuarios, `Sistema`, almacenamiento y plantillas globales solo para
+  administradores.
+- La migración `f4a5b6c7d8e9` falla ante referencias legacy inconsistentes y su
+  downgrade conserva el acceso más antiguo, registra cuántos adicionales
+  descarta y permite reupgrade. El paquete privado VPS sube a versión 3 y
+  rechaza paquetes anteriores que no preservan estos accesos.
+- Una solicitud individual ya aceptada y un lote ya confirmado o encolado
+  pueden terminar tras una revocación. Las cargas, confirmaciones, reintentos,
+  reconciliaciones y consultas nuevas del usuario requieren una asignación
+  vigente; no cambian fecha fiscal, idempotencia ni confirmación irreversible.
+
 ## [0.3.4] - 2026-09-01
 
 ### Cambios

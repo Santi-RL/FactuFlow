@@ -21,6 +21,7 @@ REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
 REVISION_PDV_DURABLE = "d1e2f3a4b5c6"
 REVISION_PF19D = "e3f4a5b6c7d8"
+REVISION_MULTIEMISOR = "f4a5b6c7d8e9"
 COLUMNAS_FORMATOS_LOTE = {
     "mapeo_usado_json",
     "headers_detectados_json",
@@ -1149,3 +1150,135 @@ def test_sqlite_pf19c_downgrade_no_confunde_json_null_con_evidencia(
         db_path,
         "intentos_emision_fiscal",
     )
+
+
+def test_sqlite_multiemisor_upgrade_downgrade_y_reupgrade(tmp_path: Path) -> None:
+    """PF-06 migra accesos y el rollback conserva determinísticamente el primero."""
+    db_path = tmp_path / "multiemisor.db"
+    database_url = f"sqlite:///{db_path.as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    backup_env = _backup_env_pf19(db_path, tmp_path / "multiemisor-pf19b-backup.db")
+    _run_alembic("upgrade", REVISION_PF19D, database_url, extra_env=backup_env)
+
+    with sqlite3.connect(db_path) as conn:
+        for empresa_id, cuit in ((1, "20000000001"), (2, "20000000002")):
+            conn.execute(
+                """
+                INSERT INTO empresas (
+                    id, razon_social, cuit, condicion_iva, domicilio, localidad,
+                    provincia, codigo_postal, inicio_actividades, created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, 'RI', 'Domicilio', 'Localidad', 'Provincia',
+                          '1000', ?, ?, ?)
+                """,
+                (
+                    empresa_id,
+                    f"Emisor {empresa_id}",
+                    cuit,
+                    FECHA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                ),
+            )
+        conn.execute(
+            """
+            INSERT INTO usuarios (
+                id, email, hashed_password, nombre, activo, es_admin,
+                empresa_id, created_at, updated_at, ultimo_login,
+                password_changed_at
+            ) VALUES (1, 'operador@example.test', 'hash', 'Operador', 1, 0,
+                      1, ?, ?, NULL, NULL)
+            """,
+            (FECHA_HORA_SINTETICA, FECHA_HORA_SINTETICA),
+        )
+
+    _run_alembic("upgrade", REVISION_MULTIEMISOR, database_url)
+    assert "puede_crear_editar_emisores" in _table_columns(db_path, "usuarios")
+    assert _foreign_key_actions(
+        db_path, "usuario_emisor_acceso", "usuario_id", "usuarios"
+    ) == {"CASCADE"}
+    with sqlite3.connect(db_path) as conn:
+        acceso = conn.execute(
+            "SELECT usuario_id, empresa_id, origen FROM usuario_emisor_acceso"
+        ).fetchone()
+        assert acceso == (1, 1, "migracion_legacy")
+        conn.execute(
+            "UPDATE usuario_emisor_acceso SET otorgado_en = '2026-01-01 00:00:00'"
+        )
+        conn.execute(
+            """
+            INSERT INTO usuario_emisor_acceso (
+                usuario_id, empresa_id, otorgado_por_usuario_id, origen,
+                otorgado_en
+            ) VALUES (1, 2, NULL, 'asignacion_admin', '2026-02-01 00:00:00')
+            """
+        )
+        conn.execute(
+            "UPDATE usuarios SET empresa_id = NULL, "
+            "puede_crear_editar_emisores = 1 WHERE id = 1"
+        )
+
+    _run_alembic("downgrade", REVISION_PF19D, database_url)
+    assert "usuario_emisor_acceso" not in {
+        row[0]
+        for row in sqlite3.connect(db_path).execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }
+    assert "puede_crear_editar_emisores" not in _table_columns(db_path, "usuarios")
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute(
+            "SELECT empresa_id FROM usuarios WHERE id = 1"
+        ).fetchone() == (1,)
+        descripcion = conn.execute(
+            "SELECT descripcion FROM eventos_sistema "
+            "WHERE accion = 'downgrade_operadores_multiemisor'"
+        ).fetchone()
+        assert descripcion is not None
+        assert "descartó 1" in descripcion[0]
+
+    _run_alembic("upgrade", REVISION_MULTIEMISOR, database_url)
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute(
+            "SELECT usuario_id, empresa_id FROM usuario_emisor_acceso"
+        ).fetchall() == [(1, 1)]
+        assert conn.execute(
+            "SELECT puede_crear_editar_emisores FROM usuarios WHERE id = 1"
+        ).fetchone() == (0,)
+
+
+def test_sqlite_multiemisor_bloquea_referencia_legacy_inexistente(
+    tmp_path: Path,
+) -> None:
+    """El backfill no debe omitir silenciosamente una asignación inconsistente."""
+    db_path = tmp_path / "multiemisor-invalido.db"
+    database_url = f"sqlite:///{db_path.as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    backup_env = _backup_env_pf19(
+        db_path, tmp_path / "multiemisor-invalido-pf19b-backup.db"
+    )
+    _run_alembic("upgrade", REVISION_PF19D, database_url, extra_env=backup_env)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.execute(
+            """
+            INSERT INTO usuarios (
+                id, email, hashed_password, nombre, activo, es_admin,
+                empresa_id, created_at, updated_at, ultimo_login,
+                password_changed_at
+            ) VALUES (1, 'invalido@example.test', 'hash', 'Inválido', 1, 0,
+                      999, ?, ?, NULL, NULL)
+            """,
+            (FECHA_HORA_SINTETICA, FECHA_HORA_SINTETICA),
+        )
+
+    salida = _run_alembic_failure("upgrade", REVISION_MULTIEMISOR, database_url)
+
+    assert "emisor legacy inexistente" in salida
+    assert "usuario_emisor_acceso" not in {
+        row[0]
+        for row in sqlite3.connect(db_path).execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }

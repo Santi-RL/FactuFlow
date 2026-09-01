@@ -1,6 +1,7 @@
 """Models module - Modelos de SQLAlchemy."""
 
 from app.models.usuario import Usuario
+from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 from app.models.empresa import Empresa
 from app.models.punto_venta import PuntoVenta
 from app.models.certificado import Certificado
@@ -35,6 +36,7 @@ from app.models.elegibilidad_rece import (
 
 __all__ = [
     "Usuario",
+    "UsuarioEmisorAcceso",
     "Empresa",
     "PuntoVenta",
     "Certificado",

@@ -14,7 +14,7 @@ import pytest
 from httpx import AsyncClient
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import to_excel
-from sqlalchemy import JSON, func, select, update
+from sqlalchemy import JSON, delete, func, select, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +45,7 @@ from app.models.lote_comprobante import (
 )
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.punto_venta import PuntoVenta
+from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 from app.schemas.comprobante import EmitirComprobanteRequest, EmitirComprobanteResponse
 from app.schemas.lote_comprobante import (
     LoteComprobanteResponse,
@@ -10526,6 +10527,79 @@ async def test_worker_usa_factory_dedicada_e_instrumenta_sin_mutar_lote(
     assert not any("mensaje" in key for key in runtime)
     await db_session.refresh(lote)
     assert lote.updated_at == updated_at_antes
+
+
+@pytest.mark.asyncio
+async def test_lote_encolado_continua_tras_revocacion_y_bloquea_acciones_nuevas(
+    monkeypatch: pytest.MonkeyPatch,
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    db_session: AsyncSession,
+    test_empresa,
+    test_user,
+) -> None:
+    """La autorización aceptada por el worker es durable, no una sesión viva."""
+    lote = LoteComprobante(
+        nombre_archivo="lote-revocacion-sintetico.xlsx",
+        archivo_hash="hash-lote-revocacion-sintetico",
+        estado="en_cola",
+        modo_procesamiento="background",
+        procesamiento_async=True,
+        total_filas=1,
+        total_grupos=1,
+        grupos_validos=1,
+        empresa_id=test_empresa.id,
+        usuario_id=test_user.id,
+    )
+    db_session.add(lote)
+    await db_session.commit()
+
+    await db_session.execute(
+        delete(UsuarioEmisorAcceso).where(
+            UsuarioEmisorAcceso.usuario_id == test_user.id,
+            UsuarioEmisorAcceso.empresa_id == test_empresa.id,
+        )
+    )
+    test_user.empresa_id = None
+    await db_session.commit()
+
+    nueva_accion = await client.get("/api/clientes", headers=auth_headers)
+    assert nueva_accion.status_code == 403
+
+    class SessionFactory:
+        async def __aenter__(self):
+            return db_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    lotes_procesados: list[int] = []
+
+    async def fake_acquire(session: AsyncSession, role: str) -> None:
+        assert session is db_session
+        assert role == "worker"
+
+    async def fake_procesar(
+        self: LoteComprobantesService,
+        lote_id: int,
+        empresa_id: int,
+        **kwargs,
+    ) -> LoteComprobante:
+        assert empresa_id == test_empresa.id
+        assert kwargs.get("reanudar") is True
+        lotes_procesados.append(lote_id)
+        return await self.obtener_lote_resumen(lote_id, empresa_id)
+
+    monkeypatch.setattr("app.services.lote_worker.WorkerSessionLocal", SessionFactory)
+    monkeypatch.setattr(
+        "app.services.lote_worker.acquire_database_connection", fake_acquire
+    )
+    monkeypatch.setattr(LoteComprobantesService, "procesar_lote", fake_procesar)
+
+    resultado = await LoteWorker().procesar_pendientes()
+
+    assert lotes_procesados == [lote.id]
+    assert resultado.lotes_procesados == 1
 
 
 @pytest.mark.asyncio

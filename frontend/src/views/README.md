@@ -42,8 +42,8 @@ Las rutas se definen en `frontend/src/router/index.ts`.
   validan ni emiten automaticamente.
 - `usuarios/UsuariosView.vue`: administración de usuarios. Solo se muestra a
   administradores; permite crear, editar, desactivar/reactivar y resetear
-  contraseñas. Los usuarios comunes operan emisores, pero no acceden a esta
-  vista.
+  contraseñas, asignar varios emisores y delegar su creación y edición. Los
+  operadores no acceden a esta vista.
 - `sistema/SistemaView.vue`: sección administrativa reservada a
   administradores. La pestaña `Almacenamiento` muestra uso total, límite
   configurado, espacio libre real, categorías, desglose por emisor, lotes

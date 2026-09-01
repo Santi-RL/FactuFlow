@@ -38,6 +38,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 8080,
+    watch: {
+      ignored: ['**/coverage/**', '**/playwright-report/**', '**/test-results/**']
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://127.0.0.1:8000',

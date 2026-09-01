@@ -34,6 +34,12 @@ class Empresa(Base):
 
     # Relaciones
     usuarios = relationship("Usuario", back_populates="empresa", passive_deletes=True)
+    accesos_usuarios = relationship(
+        "UsuarioEmisorAcceso",
+        back_populates="empresa",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     clientes = relationship("Cliente", back_populates="empresa", passive_deletes=True)
     puntos_venta = relationship(
         "PuntoVenta", back_populates="empresa", passive_deletes=True

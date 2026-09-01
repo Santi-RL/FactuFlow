@@ -122,9 +122,20 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
                 "nombre": "Admin",
                 "activo": True,
                 "es_admin": True,
+                "puede_crear_editar_emisores": False,
                 "empresa_id": 10,
                 "created_at": datetime(2026, 6, 3, 12, 0, 0),
                 "updated_at": datetime(2026, 6, 3, 12, 0, 0),
+            },
+        )
+        conn.execute(
+            Base.metadata.tables["usuario_emisor_acceso"].insert(),
+            {
+                "usuario_id": 20,
+                "empresa_id": 10,
+                "otorgado_por_usuario_id": None,
+                "origen": "migracion_legacy",
+                "otorgado_en": datetime(2026, 6, 3, 12, 0, 0),
             },
         )
         conn.execute(
@@ -1369,6 +1380,21 @@ def test_export_requiere_confirmacion_explicita_de_fuente_quiescente(
         )
 
     assert not output_root.exists()
+
+
+def test_preflight_bloquea_compatibilidad_multiemisor_incoherente(
+    tmp_path: Path,
+) -> None:
+    """El paquete no debe perder una asignación por un singular desactualizado."""
+    db_path, certs_dir = _create_source_db(tmp_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("UPDATE usuarios SET empresa_id = NULL WHERE id = 20")
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="no coincide",
+    ):
+        vps_migration.run_preflight(db_path, certs_dir)
 
 
 @pytest.mark.parametrize(
@@ -3275,8 +3301,8 @@ def _load_package_into_sqlite_target(
     return engine, package_rows
 
 
-def test_manifest_v2_rechaza_clave_top_level_extra(tmp_path: Path) -> None:
-    """El loader v2 no admite extensiones de shape implícitas o desconocidas."""
+def test_manifest_v3_rechaza_clave_top_level_extra(tmp_path: Path) -> None:
+    """El loader v3 no admite extensiones de shape implícitas o desconocidas."""
     db_path, certs_dir = _create_source_db(tmp_path)
     package = vps_migration.export_package(
         source_db=db_path,
@@ -3335,11 +3361,11 @@ def test_manifest_v2_rechaza_clave_top_level_extra(tmp_path: Path) -> None:
         "certificate_casefold",
     ],
 )
-def test_manifest_v2_rechaza_mutaciones_de_shape_y_atestaciones(
+def test_manifest_v3_rechaza_mutaciones_de_shape_y_atestaciones(
     tmp_path: Path,
     mutation: str,
 ) -> None:
-    """Cada campo v2 es contractual y se valida contra datos reales/canónicos."""
+    """Cada campo v3 es contractual y se valida contra datos reales/canónicos."""
     db_path, certs_dir = _create_source_db(tmp_path)
     package = vps_migration.export_package(
         source_db=db_path,
@@ -3355,7 +3381,7 @@ def test_manifest_v2_rechaza_mutaciones_de_shape_y_atestaciones(
     elif mutation == "version":
         manifest["package_version"] = 1
     elif mutation == "version_float":
-        manifest["package_version"] = 2.0
+        manifest["package_version"] = 3.0
     elif mutation == "scope":
         manifest["scope"] = "otro_scope"
     elif mutation == "head":
@@ -3441,7 +3467,7 @@ def test_manifest_v2_rechaza_mutaciones_de_shape_y_atestaciones(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_convierte_json_invalido_en_error_funcional(tmp_path: Path) -> None:
+def test_manifest_v3_convierte_json_invalido_en_error_funcional(tmp_path: Path) -> None:
     """JSON truncado nunca escapa como JSONDecodeError/KeyError al operador."""
     db_path, certs_dir = _create_source_db(tmp_path)
     package = vps_migration.export_package(
@@ -3457,7 +3483,7 @@ def test_manifest_v2_convierte_json_invalido_en_error_funcional(tmp_path: Path) 
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
+def test_manifest_v3_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
     """Una clave repetida no puede colapsarse silenciosamente al parsear JSON."""
     db_path, certs_dir = _create_source_db(tmp_path)
     package = vps_migration.export_package(
@@ -3471,8 +3497,8 @@ def test_manifest_v2_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
     serialized = manifest_path.read_text(encoding="utf-8")
     manifest_path.write_text(
         serialized.replace(
-            '"package_version": 2,',
-            '"package_version": 2,\n  "package_version": 2,',
+            '"package_version": 3,',
+            '"package_version": 3,\n  "package_version": 3,',
             1,
         ),
         encoding="utf-8",
@@ -3491,7 +3517,7 @@ def test_manifest_v2_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
         ("archivo_key", "__same_as_crt__"),
     ],
 )
-def test_manifest_v2_rechaza_par_certificado_activo_no_canonico(
+def test_manifest_v3_rechaza_par_certificado_activo_no_canonico(
     tmp_path: Path,
     field_name: str,
     invalid_value: Any,
@@ -3520,7 +3546,7 @@ def test_manifest_v2_rechaza_par_certificado_activo_no_canonico(
 
 
 @pytest.mark.parametrize("mutation", ["missing", "wrong_lote", "duplicate"])
-def test_manifest_v2_reconstruye_pares_lote_normalizados(
+def test_manifest_v3_reconstruye_pares_lote_normalizados(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -3594,7 +3620,7 @@ def test_manifest_v2_reconstruye_pares_lote_normalizados(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_reconstruye_digest_rece_desde_asociaciones(
+def test_manifest_v3_reconstruye_digest_rece_desde_asociaciones(
     tmp_path: Path,
 ) -> None:
     """Eliminar una asociación moderna bloquea aunque se reatestigüe el JSONL."""
@@ -3619,7 +3645,7 @@ def test_manifest_v2_reconstruye_digest_rece_desde_asociaciones(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_incluye_asociaciones_en_barrera_idempotente(
+def test_manifest_v3_incluye_asociaciones_en_barrera_idempotente(
     tmp_path: Path,
 ) -> None:
     """Una asociación alterada conserva digest fiscal pero rompe la barrera exacta."""
@@ -3653,7 +3679,7 @@ def test_manifest_v2_incluye_asociaciones_en_barrera_idempotente(
         "empresa_inexistente",
     ],
 )
-def test_manifest_v2_rechaza_operacion_terminal_semanticamente_adulterada(
+def test_manifest_v3_rechaza_operacion_terminal_semanticamente_adulterada(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -3711,7 +3737,7 @@ def test_manifest_v2_rechaza_operacion_terminal_semanticamente_adulterada(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_cruza_replay_individual_con_comprobante_incluido(
+def test_manifest_v3_cruza_replay_individual_con_comprobante_incluido(
     tmp_path: Path,
 ) -> None:
     """Un DTO sintáctico con número fiscal adulterado no preserva autoridad."""
@@ -3764,7 +3790,7 @@ def test_manifest_v2_cruza_replay_individual_con_comprobante_incluido(
 
 
 @pytest.mark.parametrize("invalid_value", ["true", 2])
-def test_manifest_v2_rechaza_boolean_sqlite_no_canonico(
+def test_manifest_v3_rechaza_boolean_sqlite_no_canonico(
     tmp_path: Path,
     invalid_value: Any,
 ) -> None:
@@ -3788,7 +3814,7 @@ def test_manifest_v2_rechaza_boolean_sqlite_no_canonico(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_convierte_numeric_invalido_en_error_funcional(
+def test_manifest_v3_convierte_numeric_invalido_en_error_funcional(
     tmp_path: Path,
 ) -> None:
     """Un Decimal adulterado nunca escapa como InvalidOperation al operador."""
@@ -3811,7 +3837,7 @@ def test_manifest_v2_convierte_numeric_invalido_en_error_funcional(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_rechaza_mensaje_batch_negativo_no_textual(
+def test_manifest_v3_rechaza_mensaje_batch_negativo_no_textual(
     tmp_path: Path,
 ) -> None:
     """El replay de error batch conserva mensaje nulo o textual, nunca escalar."""
@@ -3853,7 +3879,7 @@ def test_manifest_v2_rechaza_mensaje_batch_negativo_no_textual(
 
 
 @pytest.mark.parametrize("mutation", ["numero_cero", "cae_vacio"])
-def test_manifest_v2_rechaza_exito_individual_coordinadamente_adulterado(
+def test_manifest_v3_rechaza_exito_individual_coordinadamente_adulterado(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -3923,7 +3949,7 @@ def test_manifest_v2_rechaza_exito_individual_coordinadamente_adulterado(
 
 
 @pytest.mark.parametrize("extra_location", ["root", "data", "certs"])
-def test_manifest_v2_rechaza_archivos_no_declarados(
+def test_manifest_v3_rechaza_archivos_no_declarados(
     tmp_path: Path,
     extra_location: str,
 ) -> None:
@@ -3943,7 +3969,7 @@ def test_manifest_v2_rechaza_archivos_no_declarados(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_rechaza_schema_jsonl_aunque_actualicen_hash(
+def test_manifest_v3_rechaza_schema_jsonl_aunque_actualicen_hash(
     tmp_path: Path,
 ) -> None:
     """Un JSONL sin todas las columnas falla aunque bytes/SHA se reatestigüen."""
@@ -3969,7 +3995,7 @@ def test_manifest_v2_rechaza_schema_jsonl_aunque_actualicen_hash(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v2_recalcula_barrera_idempotente_desde_jsonl(
+def test_manifest_v3_recalcula_barrera_idempotente_desde_jsonl(
     tmp_path: Path,
 ) -> None:
     """Cambiar una key y su SHA de archivo no alcanza sin la barrera semántica."""

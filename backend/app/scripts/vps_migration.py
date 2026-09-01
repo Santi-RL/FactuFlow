@@ -55,12 +55,13 @@ from app.schemas.lote_comprobante import (
 from app.services.resolucion_legacy_pf19_service import BackupLegacyPF19
 
 
-MIGRATION_PACKAGE_VERSION = 2
+MIGRATION_PACKAGE_VERSION = 3
 SCOPE = "operacion_futura_con_comprobantes"
 
 INCLUDED_TABLES = [
     "empresas",
     "usuarios",
+    "usuario_emisor_acceso",
     "clientes",
     "puntos_venta",
     "puntos_venta_elegibilidad_rece_revisiones",
@@ -93,6 +94,7 @@ EXCLUDED_TABLES = [
 OPERATIONAL_TARGET_EMPTY_TABLES = [
     "empresas",
     "usuarios",
+    "usuario_emisor_acceso",
     "clientes",
     "puntos_venta",
     "puntos_venta_elegibilidad_rece_revisiones",
@@ -405,6 +407,7 @@ def run_preflight_on_connection(
         )
 
     validate_rece_ledger_sqlite(conn)
+    validate_user_accesses_sqlite(conn)
     included_counts = count_tables(conn, INCLUDED_TABLES)
     excluded_counts = count_tables(conn, EXCLUDED_TABLES)
     safe_omitted = classify_safe_omissions(conn)
@@ -2769,7 +2772,14 @@ def reencrypt_private_key(
 
 def read_table_rows(conn: sqlite3.Connection, table_name: str) -> list[dict[str, Any]]:
     """Lee filas de una tabla incluida en orden estable."""
-    rows = conn.execute(f'SELECT * FROM "{table_name}" ORDER BY id')
+    table = Base.metadata.tables[table_name]
+    primary_key_columns = [column.name for column in table.primary_key.columns]
+    if not primary_key_columns:
+        raise MigrationError(
+            f"La tabla incluida {table_name} no tiene clave primaria para ordenar."
+        )
+    order_by = ", ".join(f'"{column_name}"' for column_name in primary_key_columns)
+    rows = conn.execute(f'SELECT * FROM "{table_name}" ORDER BY {order_by}')
     return [dict(row) for row in rows]
 
 
@@ -3368,6 +3378,52 @@ def _validate_packaged_foreign_keys(
                     )
 
 
+def _validate_packaged_user_accesses(
+    table_rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Valida que la compatibilidad singular derive de la autoridad explícita."""
+    users = {int(row["id"]): row for row in table_rows["usuarios"]}
+    accesses: dict[int, list[int]] = {user_id: [] for user_id in users}
+    identities: set[tuple[int, int]] = set()
+    for row in table_rows["usuario_emisor_acceso"]:
+        identity = (int(row["usuario_id"]), int(row["empresa_id"]))
+        if identity in identities:
+            raise MigrationError("El paquete duplica un acceso usuario-emisor")
+        identities.add(identity)
+        if row["origen"] not in {
+            "migracion_legacy",
+            "asignacion_admin",
+            "creacion_propia",
+        }:
+            raise MigrationError("El paquete contiene un origen de acceso inválido")
+        accesses.setdefault(identity[0], []).append(identity[1])
+
+    for user_id, user in users.items():
+        capability = user.get("puede_crear_editar_emisores")
+        if capability not in {0, 1, False, True}:
+            raise MigrationError("La capacidad multiemisor no es booleana")
+        assigned = sorted(accesses.get(user_id, []))
+        expected_legacy = assigned[0] if len(assigned) == 1 else None
+        legacy = user.get("empresa_id")
+        if legacy is not None:
+            legacy = int(legacy)
+        if legacy != expected_legacy:
+            raise MigrationError(
+                "usuarios.empresa_id no coincide con la asignación explícita"
+            )
+
+
+def validate_user_accesses_sqlite(conn: sqlite3.Connection) -> None:
+    """Valida el contrato multiemisor antes de exportar una fuente privada."""
+    rows = {
+        "usuarios": [dict(row) for row in conn.execute("SELECT * FROM usuarios")],
+        "usuario_emisor_acceso": [
+            dict(row) for row in conn.execute("SELECT * FROM usuario_emisor_acceso")
+        ],
+    }
+    _validate_packaged_user_accesses(rows)
+
+
 def _validate_packaged_terminal_operations(
     *,
     table_rows: dict[str, list[dict[str, Any]]],
@@ -3692,7 +3748,7 @@ def _validate_manifest_certificate_files(
 
 
 def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
-    """Carga y valida integralmente el contrato inmutable del paquete v2."""
+    """Carga y valida integralmente el contrato inmutable del paquete v3."""
     try:
         package_root = package_dir.resolve()
         if not package_root.is_dir():
@@ -3728,15 +3784,15 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
         ):
             raise MigrationError("created_at debe ser un timestamp UTC canónico")
         if manifest["included_tables"] != INCLUDED_TABLES:
-            raise MigrationError("included_tables no coincide con el contrato v2")
+            raise MigrationError("included_tables no coincide con el contrato v3")
         if manifest["excluded_tables"] != EXCLUDED_TABLES:
-            raise MigrationError("excluded_tables no coincide con el contrato v2")
+            raise MigrationError("excluded_tables no coincide con el contrato v3")
         if manifest["target_empty_tables"] != TARGET_EMPTY_TABLES:
-            raise MigrationError("target_empty_tables no coincide con el contrato v2")
+            raise MigrationError("target_empty_tables no coincide con el contrato v3")
         if manifest["required_env_keys"] != REQUIRED_ENV_KEYS:
-            raise MigrationError("required_env_keys no coincide con el contrato v2")
+            raise MigrationError("required_env_keys no coincide con el contrato v3")
         if manifest["notes"] != PACKAGE_NOTES:
-            raise MigrationError("notes no coincide con el contrato v2")
+            raise MigrationError("notes no coincide con el contrato v3")
 
         included_counts = _validate_count_map(
             manifest["included_counts"],
@@ -3905,6 +3961,7 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
             operation_rows=operation_rows,
         )
         _validate_packaged_foreign_keys(table_rows)
+        _validate_packaged_user_accesses(table_rows)
         _validate_packaged_rece_associations(table_rows)
         _validate_packaged_terminal_operations(
             table_rows=table_rows,
@@ -4375,6 +4432,7 @@ def validate_imported_database(
         operation_rows=actual_rows["operaciones_idempotentes"],
     )
     _validate_packaged_foreign_keys(actual_rows)
+    _validate_packaged_user_accesses(actual_rows)
     validate_rece_ledger_rows(actual_rows)
     _validate_packaged_rece_associations(actual_rows)
     _validate_packaged_terminal_operations(

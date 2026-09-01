@@ -19,17 +19,17 @@ describe("empresa-activa-storage", () => {
     window.sessionStorage.clear();
   });
 
-  it("prioriza el emisor activo de la pestaña", () => {
+  it("usa únicamente el emisor activo de la pestaña", () => {
     window.localStorage.setItem("empresa_activa_id", "10");
     window.sessionStorage.setItem("empresa_activa_id", "20");
 
     expect(getStorage()).toBe("20");
   });
 
-  it("usa localStorage solo como preferencia inicial", () => {
+  it("no hereda el emisor guardado por otra pestaña en localStorage", () => {
     window.localStorage.setItem("empresa_activa_id", "10");
 
-    expect(getStorage()).toBe("10");
+    expect(getStorage()).toBeNull();
     expect(getRequest()).toBeNull();
   });
 
@@ -37,7 +37,7 @@ describe("empresa-activa-storage", () => {
     setStorage(30);
 
     expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("30");
-    expect(window.localStorage.getItem("empresa_activa_id")).toBe("30");
+    expect(window.localStorage.getItem("empresa_activa_id")).toBeNull();
     expect(getRequest()).toBe("30");
 
     clearRequest();

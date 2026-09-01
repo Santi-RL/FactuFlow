@@ -10,13 +10,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.bootstrap import USER_ADMIN_LOCK, tomar_lock_admin_usuarios
 from app.core.database import get_db
 from app.core.security import get_current_admin_user, get_password_hash
-from app.models.empresa import Empresa
 from app.models.usuario import Usuario
 from app.schemas.usuario import (
     UsuarioAdminCreate,
     UsuarioAdminUpdate,
     UsuarioPasswordReset,
     UsuarioResponse,
+)
+from app.services.autorizacion_emisor_service import (
+    construir_usuario_response,
+    construir_usuario_response_con_ids,
+    mapear_empresa_ids_usuarios,
+    registrar_evento_autorizacion,
+    reemplazar_accesos_usuario,
 )
 
 router = APIRouter()
@@ -29,7 +35,12 @@ def _normalizar_email(email: str) -> str:
 
 async def _get_usuario_or_404(db: AsyncSession, usuario_id: int) -> Usuario:
     """Obtiene un usuario por ID o responde 404."""
-    result = await db.execute(select(Usuario).where(Usuario.id == usuario_id))
+    result = await db.execute(
+        select(Usuario)
+        .where(Usuario.id == usuario_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     usuario = result.scalar_one_or_none()
     if not usuario:
         raise HTTPException(
@@ -37,22 +48,6 @@ async def _get_usuario_or_404(db: AsyncSession, usuario_id: int) -> Usuario:
             detail="Usuario no encontrado",
         )
     return usuario
-
-
-async def _validar_empresa_opcional(
-    db: AsyncSession, empresa_id: int | None
-) -> int | None:
-    """Verifica que el emisor asignado exista cuando se informa."""
-    if empresa_id is None:
-        return None
-
-    result = await db.execute(select(Empresa.id).where(Empresa.id == empresa_id))
-    if result.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="La empresa asignada no existe",
-        )
-    return empresa_id
 
 
 async def _get_usuario_by_email(db: AsyncSession, email: str) -> Usuario | None:
@@ -70,6 +65,19 @@ async def _count_admins_activos(db: AsyncSession) -> int:
         )
     )
     return result.scalar() or 0
+
+
+def _empresa_ids_objetivo(
+    payload: UsuarioAdminCreate | UsuarioAdminUpdate,
+    *,
+    por_defecto: list[int] | None,
+) -> list[int] | None:
+    """Convierte el contrato legacy solo cuando el nuevo no fue informado."""
+    if "empresa_ids" in payload.model_fields_set:
+        return list(payload.empresa_ids or [])
+    if "empresa_id" in payload.model_fields_set:
+        return [] if payload.empresa_id is None else [int(payload.empresa_id)]
+    return por_defecto
 
 
 async def _validar_no_quitar_ultimo_admin(
@@ -105,20 +113,27 @@ async def list_usuarios(
     result = await db.execute(
         select(Usuario).order_by(Usuario.activo.desc(), Usuario.nombre.asc())
     )
-    return result.scalars().all()
+    usuarios = result.scalars().all()
+    empresa_ids = await mapear_empresa_ids_usuarios(
+        db, [int(usuario.id) for usuario in usuarios]
+    )
+    return [
+        construir_usuario_response_con_ids(usuario, empresa_ids[int(usuario.id)])
+        for usuario in usuarios
+    ]
 
 
 @router.post("", response_model=UsuarioResponse, status_code=status.HTTP_201_CREATED)
 async def create_usuario(
     usuario_data: UsuarioAdminCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: Usuario = Depends(get_current_admin_user),
+    admin: Usuario = Depends(get_current_admin_user),
 ):
     """
     Crear un usuario desde el menú de administración.
 
-    Los administradores pueden operar cualquier emisor configurado. Los usuarios
-    comunes solo pueden operar el emisor asignado en `empresa_id`.
+    Los administradores pueden operar cualquier emisor configurado. Los
+    operadores solo pueden usar sus asignaciones explícitas.
     """
     async with USER_ADMIN_LOCK:
         await tomar_lock_admin_usuarios(db)
@@ -129,19 +144,35 @@ async def create_usuario(
                 detail="Ya existe un usuario con ese email",
             )
 
-        empresa_id = await _validar_empresa_opcional(db, usuario_data.empresa_id)
         usuario = Usuario(
             email=email,
             hashed_password=get_password_hash(usuario_data.password),
             nombre=usuario_data.nombre,
             activo=usuario_data.activo,
             es_admin=usuario_data.es_admin,
-            empresa_id=empresa_id,
+            empresa_id=None,
+            puede_crear_editar_emisores=(usuario_data.puede_crear_editar_emisores),
             password_changed_at=datetime.utcnow(),
         )
 
         db.add(usuario)
         try:
+            await db.flush()
+            empresa_ids = _empresa_ids_objetivo(usuario_data, por_defecto=[])
+            altas, bajas = await reemplazar_accesos_usuario(
+                db,
+                usuario,
+                empresa_ids or [],
+                actor_usuario_id=admin.id,
+            )
+            registrar_evento_autorizacion(
+                db,
+                accion="crear_usuario_con_accesos",
+                actor_usuario_id=admin.id,
+                usuario_afectado_id=usuario.id,
+                altas=len(altas),
+                bajas=len(bajas),
+            )
             await db.commit()
         except IntegrityError as exc:
             await db.rollback()
@@ -150,7 +181,7 @@ async def create_usuario(
                 detail="Ya existe un usuario con ese email",
             ) from exc
         await db.refresh(usuario)
-        return usuario
+        return await construir_usuario_response(db, usuario)
 
 
 @router.put("/{usuario_id}", response_model=UsuarioResponse)
@@ -170,7 +201,13 @@ async def update_usuario(
         await tomar_lock_admin_usuarios(db)
         usuario = await _get_usuario_or_404(db, usuario_id)
         update_data = usuario_data.model_dump(exclude_unset=True)
-        for campo in ("email", "nombre", "es_admin", "activo"):
+        for campo in (
+            "email",
+            "nombre",
+            "es_admin",
+            "activo",
+            "puede_crear_editar_emisores",
+        ):
             if campo in update_data and update_data[campo] is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -218,18 +255,37 @@ async def update_usuario(
 
         if "nombre" in update_data:
             usuario.nombre = update_data["nombre"]
-        if "empresa_id" in update_data:
-            usuario.empresa_id = await _validar_empresa_opcional(
-                db, update_data["empresa_id"]
-            )
         if "es_admin" in update_data:
             usuario.es_admin = update_data["es_admin"]
         if "activo" in update_data:
             usuario.activo = update_data["activo"]
+        if "puede_crear_editar_emisores" in update_data:
+            usuario.puede_crear_editar_emisores = update_data[
+                "puede_crear_editar_emisores"
+            ]
+
+        empresa_ids = _empresa_ids_objetivo(usuario_data, por_defecto=None)
+        altas: list[int] = []
+        bajas: list[int] = []
+        if empresa_ids is not None:
+            altas, bajas = await reemplazar_accesos_usuario(
+                db,
+                usuario,
+                empresa_ids,
+                actor_usuario_id=admin.id,
+            )
+        registrar_evento_autorizacion(
+            db,
+            accion="actualizar_usuario_y_accesos",
+            actor_usuario_id=admin.id,
+            usuario_afectado_id=usuario.id,
+            altas=len(altas),
+            bajas=len(bajas),
+        )
 
         await db.commit()
         await db.refresh(usuario)
-        return usuario
+        return await construir_usuario_response(db, usuario)
 
 
 @router.post("/{usuario_id}/desactivar", response_model=UsuarioResponse)
@@ -257,7 +313,7 @@ async def desactivar_usuario(
         usuario.activo = False
         await db.commit()
         await db.refresh(usuario)
-        return usuario
+        return await construir_usuario_response(db, usuario)
 
 
 @router.post("/{usuario_id}/reactivar", response_model=UsuarioResponse)
@@ -267,11 +323,13 @@ async def reactivar_usuario(
     _admin: Usuario = Depends(get_current_admin_user),
 ):
     """Reactivar un usuario previamente desactivado."""
-    usuario = await _get_usuario_or_404(db, usuario_id)
-    usuario.activo = True
-    await db.commit()
-    await db.refresh(usuario)
-    return usuario
+    async with USER_ADMIN_LOCK:
+        await tomar_lock_admin_usuarios(db)
+        usuario = await _get_usuario_or_404(db, usuario_id)
+        usuario.activo = True
+        await db.commit()
+        await db.refresh(usuario)
+        return await construir_usuario_response(db, usuario)
 
 
 @router.post("/{usuario_id}/reset-password", response_model=UsuarioResponse)
@@ -287,4 +345,4 @@ async def reset_password_usuario(
     usuario.password_changed_at = datetime.utcnow()
     await db.commit()
     await db.refresh(usuario)
-    return usuario
+    return await construir_usuario_response(db, usuario)

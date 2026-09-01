@@ -45,6 +45,7 @@ REVISION_ANTERIOR = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_ACREDITACION_DURABLE = "d1e2f3a4b5c6"
 REVISION_AUTORIDAD_WSFE = "e3f4a5b6c7d8"
+REVISION_MULTIEMISOR = "f4a5b6c7d8e9"
 FECHA_SINTETICA = date(2026, 8, 9)
 
 
@@ -52,7 +53,7 @@ async def _preparar_pf19b(
     database_url: str,
     *,
     intento_legacy: bool = False,
-    revision_objetivo: str = REVISION_AUTORIDAD_WSFE,
+    revision_objetivo: str = REVISION_MULTIEMISOR,
 ) -> AsyncEngine:
     """Resetea la base y aplica PF-19B hasta la revisión solicitada o el head."""
     await _reset_schema(database_url)
@@ -698,6 +699,7 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
             await update_session.execute(text("SET LOCAL lock_timeout = '5s'"))
             admin = await update_session.get(Usuario, 20)
             assert admin is not None
+            intento_lock_actor = asyncio.Event()
             intento_lock_empresa = asyncio.Event()
             empresa_bloqueada = asyncio.Event()
             liberar_atestacion = asyncio.Event()
@@ -707,6 +709,10 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
                 """Instrumenta el lock del emisor sin crear hijos previamente."""
 
                 barrera_aplicada = False
+
+                async def _exigir_actor_admin(self, actor_usuario_id: int) -> None:
+                    intento_lock_actor.set()
+                    await super()._exigir_actor_admin(actor_usuario_id)
 
                 async def _exigir_empresa_cuit_actual(
                     self,
@@ -788,6 +794,15 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
             if ganador == "update":
                 await asyncio.wait_for(
                     update_session.execute(
+                        select(Usuario)
+                        .where(Usuario.id == 20)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    ),
+                    timeout=5,
+                )
+                await asyncio.wait_for(
+                    update_session.execute(
                         select(Empresa)
                         .where(Empresa.id == 2)
                         .with_for_update()
@@ -796,7 +811,7 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
                     timeout=5,
                 )
                 tarea_atestacion = asyncio.create_task(atestiguar())
-                await asyncio.wait_for(intento_lock_empresa.wait(), timeout=5)
+                await asyncio.wait_for(intento_lock_actor.wait(), timeout=5)
                 assert not any(
                     isinstance(objeto, PuntoVenta) for objeto in atestacion_session.new
                 )
@@ -1080,8 +1095,8 @@ async def test_postgresql_pf19b_downgrade_bloquea_evidencia_runtime() -> None:
     engine = create_async_engine(database_url)
     try:
         # PostgreSQL revierte toda la orden de downgrade cuando PF-19B bloquea;
-        # por eso también conserva la migración PF-19D que la precedía.
-        assert await _alembic_version(engine) == REVISION_AUTORIDAD_WSFE
+        # por eso también conserva las migraciones posteriores que la precedían.
+        assert await _alembic_version(engine) == REVISION_MULTIEMISOR
         assert await _ledger_rows(engine) == ledger_before
         async with engine.connect() as connection:
             point_after = tuple(

@@ -2,7 +2,18 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+
+def _normalizar_empresa_ids(value: list[int] | None) -> list[int] | None:
+    """Valida una lista explícita sin ocultar duplicados del cliente."""
+    if value is None:
+        return None
+    if any(empresa_id <= 0 for empresa_id in value):
+        raise ValueError("Los IDs de emisores deben ser positivos")
+    if len(value) != len(set(value)):
+        raise ValueError("La lista de emisores no puede contener duplicados")
+    return sorted(value)
 
 
 class UsuarioBase(BaseModel):
@@ -29,6 +40,18 @@ class UsuarioAdminCreate(BaseModel):
     es_admin: bool = False
     activo: bool = True
     empresa_id: Optional[int] = None
+    empresa_ids: Optional[list[int]] = None
+    puede_crear_editar_emisores: bool = False
+
+    _validar_empresa_ids = field_validator("empresa_ids")(_normalizar_empresa_ids)
+
+    @model_validator(mode="after")
+    def validar_contrato_empresas(self):
+        if "empresa_ids" in self.model_fields_set and self.empresa_ids is None:
+            raise ValueError("empresa_ids debe ser una lista")
+        if {"empresa_id", "empresa_ids"}.issubset(self.model_fields_set):
+            raise ValueError("No envíes empresa_id y empresa_ids al mismo tiempo")
+        return self
 
 
 class UsuarioUpdate(BaseModel):
@@ -49,6 +72,18 @@ class UsuarioAdminUpdate(BaseModel):
     es_admin: Optional[bool] = None
     activo: Optional[bool] = None
     empresa_id: Optional[int] = None
+    empresa_ids: Optional[list[int]] = None
+    puede_crear_editar_emisores: Optional[bool] = None
+
+    _validar_empresa_ids = field_validator("empresa_ids")(_normalizar_empresa_ids)
+
+    @model_validator(mode="after")
+    def validar_contrato_empresas(self):
+        if "empresa_ids" in self.model_fields_set and self.empresa_ids is None:
+            raise ValueError("empresa_ids debe ser una lista")
+        if {"empresa_id", "empresa_ids"}.issubset(self.model_fields_set):
+            raise ValueError("No envíes empresa_id y empresa_ids al mismo tiempo")
+        return self
 
 
 class UsuarioPasswordReset(BaseModel):
@@ -63,6 +98,8 @@ class UsuarioResponse(UsuarioBase):
     id: int
     activo: bool
     es_admin: bool
+    empresa_ids: list[int] = Field(default_factory=list)
+    puede_crear_editar_emisores: bool = False
     created_at: datetime
     ultimo_login: Optional[datetime] = None
 
