@@ -15,6 +15,7 @@ from app.core.security import (
     get_current_user,
 )
 from app.models.usuario import Usuario
+from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 from app.schemas.usuario import (
     SetupStatus,
     Token,
@@ -22,6 +23,7 @@ from app.schemas.usuario import (
     UsuarioLogin,
     UsuarioResponse,
 )
+from app.services.autorizacion_emisor_service import construir_usuario_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -98,11 +100,18 @@ async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
     access_token = create_access_token(data={"sub": user.email})
     logger.info("Login exitoso usuario_id=%s empresa_id=%s", user.id, user.empresa_id)
 
-    return {"access_token": access_token, "token_type": "bearer", "user": user}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": await construir_usuario_response(db, user),
+    }
 
 
 @router.get("/me", response_model=UsuarioResponse)
-async def get_me(current_user: Usuario = Depends(get_current_user)):
+async def get_me(
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Obtener datos del usuario actual.
 
@@ -112,7 +121,7 @@ async def get_me(current_user: Usuario = Depends(get_current_user)):
     Returns:
         Datos del usuario actual
     """
-    return current_user
+    return await construir_usuario_response(db, current_user)
 
 
 @router.get("/setup-status", response_model=SetupStatus)
@@ -173,8 +182,18 @@ async def setup_initial_user(
         )
 
         db.add(new_user)
+        await db.flush()
+        if user_data.empresa_id is not None:
+            db.add(
+                UsuarioEmisorAcceso(
+                    usuario_id=new_user.id,
+                    empresa_id=user_data.empresa_id,
+                    otorgado_por_usuario_id=new_user.id,
+                    origen="creacion_propia",
+                )
+            )
         await db.commit()
         await db.refresh(new_user)
     logger.info("Setup inicial completado con usuario admin id=%s", new_user.id)
 
-    return new_user
+    return await construir_usuario_response(db, new_user)

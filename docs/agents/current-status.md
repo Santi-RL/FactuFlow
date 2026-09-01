@@ -19,9 +19,13 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
   reportes, certificados, puntos de venta, perfiles y formatos de importación.
 - El modelo actual mantiene un emisor activo explícito por vez.
+- Los operadores tienen cero, uno o varios accesos explícitos por emisor. Una
+  capacidad separada permite crear y editar emisores asignados sin conceder
+  administración global ni borrado.
 - Las operaciones fiscales preservan fecha explícita, confirmación irreversible,
   idempotencia, intentos durables y reconciliación cuando ARCA pudo autorizar.
-- PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C/PF-19D están cerrados.
+- PF-01, PF-02, PF-03A/PF-03B, PF-06/PF-07/PF-08 y
+  PF-19A/PF-19B/PF-19C/PF-19D están cerrados.
 - `v0.3.4` usa WSFE como autoridad autenticada de puntos CAE por emisor y
   ambiente, separa su estado técnico de la preferencia compartida de uso y deja
   la constancia como complemento descriptivo opcional.
@@ -37,9 +41,8 @@ permanecen vigentes.
 
 ## Trabajo aceptado pendiente
 
-1. **PF-06/PF-07/PF-08:** unidad integrada de permisos multiemisor.
-2. Recuperación, trazabilidad, evidencia histórica y robustez según el orden de
-   `ROADMAP.md`.
+1. **PF-11/PF-15:** recuperación y trazabilidad operativa.
+2. Evidencia histórica y robustez según el orden de `ROADMAP.md`.
 
 El orden y alcance macro se consultan exclusivamente en
 [`ROADMAP.md`](../../ROADMAP.md). El detalle completo está en

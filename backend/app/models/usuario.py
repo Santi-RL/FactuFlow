@@ -18,12 +18,20 @@ class Usuario(Base):
     nombre = Column(String(255), nullable=False)
     activo = Column(Boolean, default=True, nullable=False)
     es_admin = Column(Boolean, default=False, nullable=False)
+    puede_crear_editar_emisores = Column(Boolean, default=False, nullable=False)
 
     # Relación con empresa (nullable para superadmin)
     empresa_id = Column(
         Integer, ForeignKey("empresas.id", ondelete="SET NULL"), nullable=True
     )
     empresa = relationship("Empresa", back_populates="usuarios")
+    accesos_emisores = relationship(
+        "UsuarioEmisorAcceso",
+        back_populates="usuario",
+        foreign_keys="UsuarioEmisorAcceso.usuario_id",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     lotes_comprobantes = relationship("LoteComprobante", back_populates="usuario")
 
     # Timestamps

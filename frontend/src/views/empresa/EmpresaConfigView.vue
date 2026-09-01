@@ -104,7 +104,9 @@ let configuracionCargaMasivaRequestId = 0;
 
 const empresaActiva = computed(() => empresaStore.empresaActiva);
 const puedeAdministrarEmisor = computed(() =>
-  Boolean(authStore.user?.es_admin),
+  Boolean(
+    authStore.user?.es_admin || authStore.user?.puede_crear_editar_emisores,
+  ),
 );
 const condicionIvaOptions = [
   { value: "RI", label: "Responsable Inscripto" },
@@ -1181,8 +1183,8 @@ onMounted(async () => {
       operatoria diaria.
     </BaseAlert>
     <BaseAlert v-else type="info">
-      Puedes consultar los datos del emisor activo. Solo un administrador puede
-      modificarlos o agregar otro emisor.
+      Podés consultar los datos del emisor activo. Un administrador debe
+      habilitarte para crear o editar emisores.
     </BaseAlert>
 
     <div class="border-b border-gray-200">

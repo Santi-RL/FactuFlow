@@ -15,7 +15,6 @@ import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseInput from "@/components/ui/BaseInput.vue";
 import BaseModal from "@/components/ui/BaseModal.vue";
-import BaseSelect from "@/components/ui/BaseSelect.vue";
 import BaseTable from "@/components/ui/BaseTable.vue";
 import { useNotification } from "@/composables/useNotification";
 import { usuariosService } from "@/services/usuarios.service";
@@ -42,6 +41,7 @@ const accionPendiente = ref<{
   usuario: Usuario;
   tipo: "desactivar" | "reactivar";
 } | null>(null);
+const confirmacionGuardado = ref<string | null>(null);
 
 const form = ref({
   nombre: "",
@@ -49,7 +49,8 @@ const form = ref({
   password: "",
   es_admin: false,
   activo: true,
-  empresa_id: "" as string | number,
+  empresa_ids: [] as number[],
+  puede_crear_editar_emisores: false,
 });
 
 const resetForm = ref({
@@ -61,7 +62,8 @@ const columns = [
   { key: "nombre", label: "Usuario" },
   { key: "rol", label: "Rol" },
   { key: "estado", label: "Estado" },
-  { key: "empresa", label: "Emisor preferido" },
+  { key: "empresa", label: "Emisores habilitados" },
+  { key: "capacidad_emisores", label: "Gestión de emisores" },
   { key: "ultimo_login", label: "Último ingreso" },
 ];
 
@@ -73,14 +75,6 @@ const usuariosOrdenados = computed(() =>
     return a.nombre.localeCompare(b.nombre);
   }),
 );
-
-const empresaOptions = computed(() => [
-  { value: "", label: "Sin preferencia" },
-  ...empresaStore.empresas.map((empresa) => ({
-    value: empresa.id,
-    label: `${empresa.razon_social} (${empresa.cuit})`,
-  })),
-]);
 
 const formTitle = computed(() =>
   usuarioEditando.value ? "Editar usuario" : "Crear usuario",
@@ -109,16 +103,24 @@ const accionVariant = computed(() =>
   accionPendiente.value?.tipo === "desactivar" ? "danger" : "primary",
 );
 
-const normalizarEmpresaId = (value: string | number): number | null => {
-  if (value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-};
-
-const nombreEmpresa = (empresaId: number | null) => {
-  if (!empresaId) return "Sin preferencia";
+const nombreEmpresa = (empresaId: number) => {
   const empresa = empresaStore.empresas.find((item) => item.id === empresaId);
   return empresa ? empresa.razon_social : `Emisor #${empresaId}`;
+};
+
+const nombresEmisores = (empresaIds: number[]) => {
+  if (empresaIds.length === 0) return "Sin emisores habilitados";
+  return empresaIds.map(nombreEmpresa).join(", ");
+};
+
+const seleccionarTodosLosEmisoresActuales = () => {
+  form.value.empresa_ids = empresaStore.empresas.map((empresa) => empresa.id);
+};
+
+const alternarEmisor = (empresaId: number) => {
+  form.value.empresa_ids = form.value.empresa_ids.includes(empresaId)
+    ? form.value.empresa_ids.filter((id) => id !== empresaId)
+    : [...form.value.empresa_ids, empresaId];
 };
 
 const formatDateTime = (value: string | null) => {
@@ -166,7 +168,8 @@ const abrirCrear = () => {
     password: "",
     es_admin: false,
     activo: true,
-    empresa_id: "",
+    empresa_ids: [],
+    puede_crear_editar_emisores: false,
   };
   showFormModal.value = true;
 };
@@ -180,7 +183,8 @@ const abrirEditar = (usuario: Usuario) => {
     password: "",
     es_admin: usuario.es_admin,
     activo: usuario.activo,
-    empresa_id: usuario.empresa_id || "",
+    empresa_ids: [...usuario.empresa_ids],
+    puede_crear_editar_emisores: usuario.puede_crear_editar_emisores,
   };
   showFormModal.value = true;
 };
@@ -191,21 +195,46 @@ const cerrarForm = () => {
   formError.value = "";
 };
 
-const guardarUsuario = async () => {
+const validarFormulario = () => {
   formError.value = "";
 
   if (!form.value.nombre.trim() || !form.value.email.trim()) {
     formError.value = "Completá nombre y correo electrónico.";
-    return;
+    return false;
   }
   if (!usuarioEditando.value && form.value.password.length < 6) {
     formError.value = "La contraseña debe tener al menos 6 caracteres.";
-    return;
+    return false;
   }
+  return true;
+};
+
+const solicitarGuardar = () => {
+  if (!validarFormulario()) return;
+
+  if (usuarioEditando.value) {
+    const emisoresRevocados = usuarioEditando.value.empresa_ids.filter(
+      (id) => !form.value.empresa_ids.includes(id),
+    );
+    if (usuarioEditando.value.es_admin && !form.value.es_admin) {
+      confirmacionGuardado.value = `${usuarioEditando.value.nombre} pasará a ser operador con acceso a: ${nombresEmisores(form.value.empresa_ids)}. Los lotes ya confirmados o encolados podrán terminar, pero las acciones nuevas requerirán una asignación vigente.`;
+      return;
+    }
+    if (emisoresRevocados.length > 0) {
+      confirmacionGuardado.value = `Se revocará el acceso de ${usuarioEditando.value.nombre} a: ${nombresEmisores(emisoresRevocados)}. Los lotes ya confirmados o encolados podrán terminar; las acciones nuevas quedarán bloqueadas.`;
+      return;
+    }
+  }
+
+  void guardarUsuario();
+};
+
+const guardarUsuario = async () => {
+  if (!validarFormulario()) return;
+  confirmacionGuardado.value = null;
 
   saving.value = true;
   try {
-    const empresaId = normalizarEmpresaId(form.value.empresa_id);
     if (usuarioEditando.value) {
       const usuarioActualizado = await usuariosService.update(
         usuarioEditando.value.id,
@@ -214,7 +243,8 @@ const guardarUsuario = async () => {
           email: form.value.email,
           es_admin: form.value.es_admin,
           activo: form.value.activo,
-          empresa_id: empresaId,
+          empresa_ids: [...form.value.empresa_ids],
+          puede_crear_editar_emisores: form.value.puede_crear_editar_emisores,
         },
       );
       actualizarUsuarioLocal(usuarioActualizado);
@@ -226,7 +256,8 @@ const guardarUsuario = async () => {
         password: form.value.password,
         es_admin: form.value.es_admin,
         activo: form.value.activo,
-        empresa_id: empresaId,
+        empresa_ids: [...form.value.empresa_ids],
+        puede_crear_editar_emisores: form.value.puede_crear_editar_emisores,
       });
       usuarios.value = [usuarioCreado, ...usuarios.value];
       showSuccess("Usuario creado");
@@ -323,9 +354,7 @@ onMounted(() => {
       class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-brand-ink">
-          Usuarios
-        </h1>
+        <h1 class="text-3xl font-bold text-brand-ink">Usuarios</h1>
         <p class="mt-2 text-brand-slate">
           Administrá altas, accesos y estado de inicio de sesión.
         </p>
@@ -377,8 +406,20 @@ onMounted(() => {
 
         <template #cell-empresa="{ row }">
           <span class="text-brand-slate">
-            {{ nombreEmpresa(row.empresa_id) }}
+            {{ nombresEmisores(row.empresa_ids) }}
           </span>
+        </template>
+
+        <template #cell-capacidad_emisores="{ row }">
+          <BaseBadge
+            :variant="row.puede_crear_editar_emisores ? 'success' : 'default'"
+          >
+            {{
+              row.puede_crear_editar_emisores
+                ? "Puede crear y editar"
+                : "Solo operar"
+            }}
+          </BaseBadge>
         </template>
 
         <template #cell-ultimo_login="{ value }">
@@ -445,11 +486,7 @@ onMounted(() => {
       />
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <BaseInput
-          v-model="form.nombre"
-          label="Nombre completo"
-          required
-        />
+        <BaseInput v-model="form.nombre" label="Nombre completo" required />
         <BaseInput
           v-model="form.email"
           type="email"
@@ -465,20 +502,73 @@ onMounted(() => {
           hint="Mínimo 6 caracteres"
           required
         />
-        <BaseSelect
-          v-model="form.empresa_id"
-          :class="{ 'md:col-span-2': usuarioEditando }"
-          label="Emisor preferido"
-          :options="empresaOptions"
-        />
+        <fieldset class="space-y-3 md:col-span-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <legend class="text-sm font-medium text-brand-ink">
+              Emisores habilitados
+            </legend>
+            <button
+              type="button"
+              class="rounded-control text-sm font-medium text-brand-flow hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
+              @click="seleccionarTodosLosEmisoresActuales"
+            >
+              Seleccionar todos los emisores actuales
+            </button>
+          </div>
+          <p class="text-xs text-brand-slate">
+            La selección total toma una copia de la lista actual. Los emisores
+            que se creen después no se asignarán automáticamente.
+          </p>
+          <div
+            v-if="empresaStore.empresas.length"
+            class="grid max-h-48 gap-2 overflow-y-auto rounded-control border border-border-subtle p-3 sm:grid-cols-2"
+          >
+            <label
+              v-for="empresa in empresaStore.empresas"
+              :key="empresa.id"
+              class="flex items-start gap-2 text-sm text-brand-slate"
+            >
+              <input
+                type="checkbox"
+                :checked="form.empresa_ids.includes(empresa.id)"
+                class="mt-0.5 h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
+                @change="alternarEmisor(empresa.id)"
+              />
+              <span>
+                <span class="block font-medium text-brand-ink">
+                  {{ empresa.razon_social }}
+                </span>
+                <span class="text-xs">CUIT {{ empresa.cuit }}</span>
+              </span>
+            </label>
+          </div>
+          <BaseAlert
+            v-if="form.empresa_ids.length === 0"
+            type="warning"
+            title="Operador sin emisores"
+            message="Podrá iniciar sesión, pero no podrá operar hasta que le asignes al menos un emisor."
+          />
+          <p v-if="form.es_admin" class="text-xs text-brand-slate">
+            Estas asignaciones se conservan mientras sea administrador y serán
+            efectivas si vuelve a ser operador.
+          </p>
+        </fieldset>
         <label class="flex items-center gap-2 text-sm text-brand-slate">
           <input
             v-model="form.es_admin"
             type="checkbox"
             class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
             :disabled="usuarioEditando?.id === authStore.user?.id"
-          >
+          />
           Puede administrar usuarios
+        </label>
+        <label class="flex items-center gap-2 text-sm text-brand-slate">
+          <input
+            v-model="form.puede_crear_editar_emisores"
+            type="checkbox"
+            class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
+          />
+          Puede crear y editar emisores
         </label>
         <label class="flex items-center gap-2 text-sm text-brand-slate">
           <input
@@ -486,22 +576,16 @@ onMounted(() => {
             type="checkbox"
             class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
             :disabled="usuarioEditando?.id === authStore.user?.id"
-          >
+          />
           Usuario activo
         </label>
       </div>
 
       <template #footer>
-        <BaseButton
-          variant="secondary"
-          @click="cerrarForm"
-        >
+        <BaseButton variant="secondary" @click="cerrarForm">
           Cancelar
         </BaseButton>
-        <BaseButton
-          :loading="saving"
-          @click="guardarUsuario"
-        >
+        <BaseButton :loading="saving" @click="solicitarGuardar">
           Guardar
         </BaseButton>
       </template>
@@ -541,20 +625,24 @@ onMounted(() => {
       </div>
 
       <template #footer>
-        <BaseButton
-          variant="secondary"
-          @click="cerrarReset"
-        >
+        <BaseButton variant="secondary" @click="cerrarReset">
           Cancelar
         </BaseButton>
-        <BaseButton
-          :loading="resetting"
-          @click="resetPassword"
-        >
+        <BaseButton :loading="resetting" @click="resetPassword">
           Actualizar
         </BaseButton>
       </template>
     </BaseModal>
+
+    <ConfirmDialog
+      :show="!!confirmacionGuardado"
+      title="Confirmar alcance del operador"
+      :message="confirmacionGuardado || ''"
+      confirm-text="Guardar cambios"
+      variant="danger"
+      @cancel="confirmacionGuardado = null"
+      @confirm="guardarUsuario"
+    />
 
     <ConfirmDialog
       :show="!!accionPendiente"

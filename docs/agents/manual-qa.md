@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 31/08/2026
+Última revisión: 01/09/2026
 
 Estado: VIGENTE.
 
@@ -56,11 +56,29 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ### Multiemisor
 
-- cambio explícito de emisor;
-- recursos, permisos y respuestas tardías aislados;
-- revocación durante una sesión;
-- perfiles, certificados, clientes, puntos y reportes no se mezclan;
-- mensajes identifican la acción sin revelar datos de otro emisor.
+- preparar un administrador, un operador asignado a A/B y un emisor C no
+  asignado, todos sintéticos;
+- comprobar cero, uno y varios accesos: login permitido sin accesos, selección
+  automática con uno y elección explícita con varios;
+- verificar A/B permitidos y C prohibido por header, query, body e ID directo;
+- activar y desactivar `Puede crear y editar emisores`: la creación se asigna al
+  creador en forma atómica y la edición requiere capacidad más acceso;
+- comprobar que el operador nunca puede borrar emisores, administrar usuarios,
+  entrar a `Sistema`, almacenamiento ni plantillas globales;
+- promover y degradar conservando asignaciones; antes de degradar, revisar el
+  alcance mostrado y confirmar conscientemente una lista vacía si corresponde;
+- revocar el emisor activo durante una sesión: el siguiente request recibe
+  `403`, se refresca la lista, se limpian selección y datos y no se cambia de
+  emisor ni se cierra sesión automáticamente;
+- cambiar o revocar mientras una respuesta está pendiente y confirmar que la
+  respuesta tardía no actualiza stores ni pantallas;
+- confirmar un lote sintético, encolarlo y revocar después: el worker puede
+  terminarlo, pero cargas, confirmaciones, reintentos y consultas nuevas quedan
+  bloqueadas;
+- comprobar que clientes, certificados, puntos, comprobantes, lotes, PDFs,
+  reportes, perfiles y formatos nunca cruzan emisores;
+- verificar mensajes accionables que no revelen datos de C y cero solicitudes
+  reales de CAE.
 
 ### UI administrativa
 

@@ -136,6 +136,14 @@ El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña 
 cambias de emisor, esa nueva selección no cambia silenciosamente una factura o
 un lote que ya estabas revisando en la pestaña anterior.
 
+Al iniciar, FactuFlow recupera la última selección de esa pestaña solo si sigue
+autorizada. Si tenés un único emisor, lo selecciona automáticamente; si tenés
+varios y no hay una selección válida, debés elegir uno. Un operador sin
+emisores puede iniciar sesión, pero debe pedir una asignación antes de operar.
+Si un administrador revoca el emisor activo, FactuFlow refresca la lista,
+descarta respuestas tardías y limpia la selección y los datos abiertos. No
+cambia a otro emisor ni cierra la sesión automáticamente.
+
 Como protección adicional, la emisión se bloquea si el punto de venta o el
 cliente seleccionado no pertenecen al emisor activo.
 La misma separación aplica a certificados, comprobantes, lotes, PDFs, reportes,
@@ -863,10 +871,13 @@ inicia una emisión nueva.
 
 ## 10. Emisores
 
-En `Emisores` puedes consultar los datos fiscales y generales del emisor
-activo asignado. Solo los administradores pueden editar y guardar esa ficha o
-agregar otro CUIT para operar. Si eres administrador, completa `Ingresos
-Brutos` para que ese dato salga informado en los PDFs.
+En `Emisores` podés consultar los datos fiscales y generales del emisor activo.
+Los administradores y los operadores con `Puede crear y editar emisores` pueden
+agregar otro CUIT. Para editar una ficha, un operador necesita además tener ese
+emisor entre sus asignaciones. La capacidad no permite eliminar emisores,
+administrar usuarios, entrar a `Sistema` ni modificar plantillas globales.
+Completá `Ingresos Brutos` cuando corresponda para que salga informado en los
+PDFs.
 
 La pantalla tiene dos secciones:
 - `Datos del emisor`: datos fiscales y de contacto.
@@ -884,8 +895,8 @@ usuarios administradores. El alcance de una plantilla existente no se cambia
 editándola; si necesitás otro alcance, cloná la plantilla y elegí el destino de
 la copia.
 
-Al agregar un emisor como administrador, puedes subir una constancia de inscripción ARCA en PDF o
-una constancia de opción de Monotributo. FactuFlow intenta completar
+Al agregar un emisor con autorización, podés subir una constancia de inscripción
+ARCA en PDF o una constancia de opción de Monotributo. FactuFlow intenta completar
 automáticamente nombre fiscal, CUIT, condición IVA, domicilio fiscal, localidad,
 provincia, código postal e inicio de actividades. Provincia se elige desde un
 catálogo cerrado de provincias argentinas; si la constancia no permite
@@ -904,23 +915,38 @@ Revisa especialmente:
 
 La pantalla `Usuarios` solo aparece para usuarios administradores.
 
-Desde esa pantalla puedes:
+Desde esa pantalla podés:
 - crear usuarios
-- editar nombre, email, estado, rol y emisor asignado
+- editar nombre, email, estado y rol
+- asignar cero, uno o varios `Emisores habilitados`
+- seleccionar todos los emisores actuales como asignaciones explícitas
+- habilitar `Puede crear y editar emisores`
 - desactivar usuarios
 - reactivar usuarios
 - restablecer contraseñas
 
-Un usuario común puede operar únicamente el emisor asignado en su cuenta:
-emitir comprobantes, administrar certificados, sincronizar puntos de venta, usar
-emisión masiva y consultar reportes dentro de ese emisor. Puede consultar la
-ficha del emisor, pero no modificarla. Si necesita operar otro emisor o cambiar
-sus datos, un administrador debe actualizar la asignación o realizar el cambio.
+Un operador puede emitir comprobantes, administrar certificados, sincronizar
+puntos de venta, usar emisión masiva y consultar reportes únicamente dentro de
+los emisores asignados. `Seleccionar todos` toma la lista actual: los emisores
+que se creen después no quedan asignados automáticamente. Dejar la lista vacía
+permite iniciar sesión, pero bloquea toda operación scopiada.
+
+La capacidad `Puede crear y editar emisores` no amplía por sí sola la lista
+visible. Permite crear un emisor, que se asigna automáticamente al creador, y
+editar fichas ya asignadas. Un administrador puede revocar tanto la capacidad
+como accesos concretos en una sola actualización.
 
 El rol `Administrador` significa que puede administrar usuarios, crear y
-editar emisores, y operar todos los emisores configurados. El borrado físico de
+editar emisores, y operar todos los emisores configurados. Sus asignaciones
+explícitas se conservan y vuelven a regir si pasa a ser operador; la pantalla
+muestra ese alcance antes de confirmar la degradación. El borrado físico de
 un emisor queda reservado a administradores porque puede afectar historial
 fiscal y relaciones internas.
+
+Al revocar un acceso, tené en cuenta que una solicitud individual ya aceptada y
+un lote ya confirmado o encolado pueden terminar. La revocación bloquea nuevas
+cargas, confirmaciones, reintentos y consultas de resultado del usuario sobre
+ese emisor.
 
 Desactivar un usuario impide que vuelva a iniciar sesión, pero no borra su
 historial. FactuFlow no permite que un administrador se desactive a sí mismo ni

@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 29/08/2026
+Última actualización: 01/09/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -35,7 +35,9 @@ Respuesta:
   "user": {
     "id": 1,
     "email": "admin.local@example.test",
-    "empresa_id": 1,
+    "empresa_id": null,
+    "empresa_ids": [1, 2],
+    "puede_crear_editar_emisores": false,
     "es_admin": true
   }
 }
@@ -47,7 +49,7 @@ Para endpoints protegidos:
 Authorization: Bearer {token}
 ```
 
-Para operar un emisor activo explícito, un administrador puede agregar:
+Para operar un emisor activo explícito, cualquier usuario autorizado agrega:
 
 ```http
 X-Empresa-Id: 2
@@ -55,9 +57,15 @@ X-Empresa-Id: 2
 
 También se conserva el query legacy `empresa_id` para compatibilidad. Si se
 envían `X-Empresa-Id` y `empresa_id` con valores distintos, la API rechaza el
-pedido. El campo `user.es_admin` permite administrar usuarios y emisores, y operar
-cualquier emisor configurado. Los usuarios comunes solo pueden consultar y
-operar el emisor asignado en su cuenta; no pueden modificar su ficha.
+pedido. `empresa_ids` informa las asignaciones explícitas actuales y
+`puede_crear_editar_emisores` la capacidad delegada, pero el servidor vuelve a
+consultar la base en cada autorización: no confía en el JWT ni en estos campos.
+`empresa_id` se conserva temporalmente para compatibilidad y solo contiene un
+valor cuando hay exactamente una asignación; nunca concede acceso.
+
+Un administrador opera cualquier emisor. Un operador sin asignaciones puede
+iniciar sesión, pero las rutas scopiadas responden `403`; con una asignación se
+resuelve automáticamente y con varias debe enviar una selección explícita.
 
 ## Health
 
@@ -116,6 +124,12 @@ usuarios no está expuesto: eliminar desde la interfaz significa desactivar
 administrador desactive o degrade su propia cuenta, y también impide cambiar el
 email propio desde la sesión actual porque el JWT vigente usa el email como
 identificador.
+
+Las altas y ediciones administrativas aceptan `empresa_ids: number[]` sin
+duplicados y `puede_crear_editar_emisores: boolean`. Los IDs deben existir. El
+campo legacy `empresa_id` se acepta únicamente si `empresa_ids` no fue enviado;
+enviar ambos formatos responde `422`. Promover a administrador conserva las
+asignaciones explícitas y al degradarlo vuelven a definir su alcance.
 
 ## Almacenamiento
 
@@ -189,16 +203,19 @@ DELETE /api/empresas/{empresa_id}
 `POST /api/empresas/extraer-constancia` recibe una constancia ARCA en PDF y
 devuelve datos fiscales detectados para precompletar el alta de emisor.
 
-Los usuarios activos pueden listar y consultar los emisores que tienen
-autorizados. Crear un emisor cuando ya existe una instalación configurada,
-editarlo y borrarlo requiere `es_admin=true`; la creación anónima solo se
-admite durante el bootstrap, cuando todavía no hay usuarios. El borrado físico
+`GET /api/empresas` devuelve todos los emisores a administradores y solo las
+asignaciones vigentes a operadores. Crear un emisor requiere `es_admin=true` o
+`puede_crear_editar_emisores=true`. Si lo crea un operador, emisor, asignación
+con origen `creacion_propia` y evento administrativo se confirman en una sola
+transacción. Editar exige además una asignación vigente sobre ese emisor. La
+creación anónima solo se admite durante el bootstrap, cuando todavía no hay
+usuarios. El borrado físico queda siempre reservado a administradores.
+
 `DELETE /api/empresas/{empresa_id}` solo se permite para emisores sin datos
 operativos o fiscales asociados. Si existen comprobantes, lotes, intentos
 fiscales, certificados, puntos de venta, clientes, perfiles o formatos de
-importación del emisor, la API responde `409` y conserva el historial. Si un
-usuario tenía ese emisor vacío como preferido, la API limpia esa preferencia
-antes de borrar el emisor; no borra la cuenta del usuario.
+importación del emisor, la API responde `409` y conserva el historial; borrar el
+emisor tampoco borra cuentas de usuario.
 
 Los emisores aceptan `ingresos_brutos` como campo opcional. Si está cargado, se
 usa en el PDF de comprobantes. Cuando un emisor ya tiene datos operativos o

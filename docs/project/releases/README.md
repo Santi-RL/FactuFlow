@@ -14,6 +14,8 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.5-candidate.md`](v0.3.5-candidate.md): candidato local de operadores
+  con permisos multiemisor PF-06/PF-07/PF-08.
 - [`v0.3.4-candidate.md`](v0.3.4-candidate.md): cierre y publicación de PF-19D,
   autoridad WSFE y preferencia operativa de puntos de venta.
 - [`v0.3.3-candidate.md`](v0.3.3-candidate.md): cierre y publicación del

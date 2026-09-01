@@ -77,6 +77,8 @@ const usuarioMock = (esAdmin: boolean): Usuario => ({
   email: "usuario@example.com",
   nombre: esAdmin ? "Administrador" : "Operador",
   empresa_id: 1,
+  empresa_ids: [1],
+  puede_crear_editar_emisores: false,
   activo: true,
   es_admin: esAdmin,
   created_at: "2024-01-01T00:00:00",

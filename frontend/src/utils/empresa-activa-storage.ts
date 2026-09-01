@@ -11,11 +11,7 @@ const getLocalStorage = (): Storage | null => {
 };
 
 export const getEmpresaActivaIdStorage = (): string | null => {
-  const sessionValue =
-    getSessionStorage()?.getItem(EMPRESA_ACTIVA_STORAGE_KEY) ?? null;
-  if (sessionValue) return sessionValue;
-
-  return getLocalStorage()?.getItem(EMPRESA_ACTIVA_STORAGE_KEY) ?? null;
+  return getSessionStorage()?.getItem(EMPRESA_ACTIVA_STORAGE_KEY) ?? null;
 };
 
 export const getEmpresaActivaIdForRequest = (): string | null => {
@@ -26,7 +22,7 @@ export const setEmpresaActivaIdStorage = (id: number): void => {
   const value = String(id);
   empresaActivaIdConfirmada = value;
   getSessionStorage()?.setItem(EMPRESA_ACTIVA_STORAGE_KEY, value);
-  getLocalStorage()?.setItem(EMPRESA_ACTIVA_STORAGE_KEY, value);
+  getLocalStorage()?.removeItem(EMPRESA_ACTIVA_STORAGE_KEY);
 };
 
 export const clearEmpresaActivaIdForRequest = (): void => {

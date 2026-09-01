@@ -13,6 +13,10 @@ from sqlalchemy.exc import IntegrityError
 from app.core.database import AsyncSessionLocal
 from app.core.security import get_password_hash
 from app.models.usuario import Usuario
+from app.services.autorizacion_emisor_service import (
+    registrar_evento_autorizacion,
+    reemplazar_accesos_usuario,
+)
 
 
 email_adapter = TypeAdapter(EmailStr)
@@ -123,6 +127,22 @@ async def _create_or_update_admin(args: argparse.Namespace) -> tuple[Usuario, bo
             created = False
 
         try:
+            await db.flush()
+            empresa_ids = [] if args.empresa_id is None else [args.empresa_id]
+            altas, bajas = await reemplazar_accesos_usuario(
+                db,
+                user,
+                empresa_ids,
+                actor_usuario_id=None,
+            )
+            registrar_evento_autorizacion(
+                db,
+                accion="crear_o_promover_admin_desde_consola",
+                actor_usuario_id=None,
+                usuario_afectado_id=user.id,
+                altas=len(altas),
+                bajas=len(bajas),
+            )
             await db.commit()
         except IntegrityError:
             await db.rollback()

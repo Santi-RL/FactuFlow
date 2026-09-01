@@ -485,7 +485,7 @@ El proyecto tuvo que corregir estas estructuras:
   un único proceso Uvicorn y `BATCH_WORKER_ENABLED=true` mientras el worker de
   lotes siga embebido.
 - Antes de mover la operación a VPS, preparar el paquete con
-  `python -m app.scripts.vps_migration`: el paquete v2 exige fuente quiescent,
+  `python -m app.scripts.vps_migration`: el paquete v3 exige fuente quiescent,
   manifest estricto, barrera de idempotencia y estados migrables; `preflight`
   bloquea certificados incompletos o estados no terminales/inciertos, `export`
   re-cifra claves y `import` exige PostgreSQL limpio en el head exacto.

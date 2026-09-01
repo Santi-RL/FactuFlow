@@ -43,6 +43,8 @@ const usuarioAdmin: Usuario = {
   email: "admin@example.com",
   nombre: "Admin",
   empresa_id: null,
+  empresa_ids: [],
+  puede_crear_editar_emisores: false,
   activo: true,
   es_admin: true,
   created_at: "2024-01-01T00:00:00",
@@ -54,6 +56,8 @@ const usuarioOperativo: Usuario = {
   email: "operativo@example.com",
   nombre: "Operativo",
   empresa_id: 1,
+  empresa_ids: [1],
+  puede_crear_editar_emisores: false,
   activo: true,
   es_admin: false,
   created_at: "2024-01-01T00:00:00",
@@ -84,13 +88,12 @@ describe("empresa store", () => {
     vi.clearAllMocks();
   });
 
-  it("valida la preferencia guardada antes de confirmarla para requests", async () => {
+  it("exige una selección explícita si la preferencia guardada ya no es válida", async () => {
     const empresaUno = empresaMock(1, "Emisor Uno");
     const empresaDos = empresaMock(2, "Emisor Dos");
-    window.localStorage.setItem("empresa_activa_id", "999");
+    window.sessionStorage.setItem("empresa_activa_id", "999");
 
     mockedEmpresaService.getAll.mockResolvedValue([empresaUno, empresaDos]);
-    mockedEmpresaService.getById.mockResolvedValue(empresaUno);
 
     const authStore = useAuthStore();
     authStore.user = usuarioAdmin;
@@ -100,15 +103,52 @@ describe("empresa store", () => {
 
     await empresaStore.inicializarEmpresaActiva();
 
+    expect(mockedEmpresaService.getById).not.toHaveBeenCalled();
+    expect(empresaStore.empresaActivaId).toBeNull();
+    expect(window.localStorage.getItem("empresa_activa_id")).toBeNull();
+    expect(window.sessionStorage.getItem("empresa_activa_id")).toBeNull();
+    expect(getEmpresaActivaIdForRequest()).toBeNull();
+  });
+
+  it("selecciona automáticamente el único emisor habilitado", async () => {
+    const empresaUno = empresaMock(1, "Emisor Uno");
+    mockedEmpresaService.getAll.mockResolvedValue([empresaUno]);
+    mockedEmpresaService.getById.mockResolvedValue(empresaUno);
+
+    const authStore = useAuthStore();
+    authStore.user = usuarioOperativo;
+    const empresaStore = useEmpresaStore();
+
+    await empresaStore.inicializarEmpresaActiva();
+
     expect(mockedEmpresaService.getById).toHaveBeenCalledWith(1);
     expect(empresaStore.empresaActivaId).toBe(1);
-    expect(window.localStorage.getItem("empresa_activa_id")).toBe("1");
-    expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("1");
     expect(getEmpresaActivaIdForRequest()).toBe("1");
   });
 
+  it("serializa inicializaciones concurrentes y conserva la selección de la pestaña", async () => {
+    const empresaUno = empresaMock(1, "Emisor Uno");
+    const empresaDos = empresaMock(2, "Emisor Dos");
+    window.sessionStorage.setItem("empresa_activa_id", "2");
+    mockedEmpresaService.getAll.mockResolvedValue([empresaUno, empresaDos]);
+    mockedEmpresaService.getById.mockResolvedValue(empresaDos);
+
+    const authStore = useAuthStore();
+    authStore.user = usuarioOperativo;
+    const empresaStore = useEmpresaStore();
+
+    await Promise.all([
+      empresaStore.inicializarEmpresaActiva(),
+      empresaStore.inicializarEmpresaActiva(),
+    ]);
+
+    expect(mockedEmpresaService.getAll).toHaveBeenCalledTimes(1);
+    expect(mockedEmpresaService.getById).toHaveBeenCalledTimes(1);
+    expect(empresaStore.empresaActivaId).toBe(2);
+    expect(getEmpresaActivaIdForRequest()).toBe("2");
+  });
+
   it("limpia el emisor guardado cuando no hay emisores validos", async () => {
-    window.localStorage.setItem("empresa_activa_id", "999");
     window.sessionStorage.setItem("empresa_activa_id", "999");
     mockedEmpresaService.getAll.mockResolvedValue([]);
 
@@ -128,7 +168,7 @@ describe("empresa store", () => {
   it("permite a un usuario operativo inicializar otro emisor guardado", async () => {
     const empresaUno = empresaMock(1, "Emisor Uno");
     const empresaDos = empresaMock(2, "Emisor Dos");
-    window.localStorage.setItem("empresa_activa_id", "2");
+    window.sessionStorage.setItem("empresa_activa_id", "2");
 
     mockedEmpresaService.getAll.mockResolvedValue([empresaUno, empresaDos]);
     mockedEmpresaService.getById.mockResolvedValue(empresaDos);
@@ -181,7 +221,6 @@ describe("empresa store", () => {
 
     expect(empresaStore.empresaActivaId).toBe(2);
     expect(empresaStore.empresa?.id).toBe(2);
-    expect(window.localStorage.getItem("empresa_activa_id")).toBe("2");
     expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("2");
     expect(getEmpresaActivaIdForRequest()).toBe("2");
 
@@ -190,7 +229,6 @@ describe("empresa store", () => {
 
     expect(empresaStore.empresaActivaId).toBe(2);
     expect(empresaStore.empresa?.id).toBe(2);
-    expect(window.localStorage.getItem("empresa_activa_id")).toBe("2");
     expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("2");
     expect(getEmpresaActivaIdForRequest()).toBe("2");
   });
@@ -220,8 +258,25 @@ describe("empresa store", () => {
     expect(empresaStore.empresaActivaId).toBe(2);
     expect(empresaStore.empresa?.id).toBe(2);
     expect(empresaStore.error).toBeNull();
-    expect(window.localStorage.getItem("empresa_activa_id")).toBe("2");
     expect(window.sessionStorage.getItem("empresa_activa_id")).toBe("2");
     expect(getEmpresaActivaIdForRequest()).toBe("2");
+  });
+
+  it("limpia el emisor activo cuando una revalidación confirma la revocación", async () => {
+    const empresaUno = empresaMock(1, "Emisor Uno");
+    const empresaDos = empresaMock(2, "Emisor Dos");
+    mockedEmpresaService.getById.mockResolvedValue(empresaUno);
+    mockedEmpresaService.getAll.mockResolvedValue([empresaDos]);
+
+    const empresaStore = useEmpresaStore();
+    await empresaStore.setEmpresaActiva(1);
+
+    await expect(empresaStore.revalidarAccesos()).resolves.toBe(true);
+
+    expect(empresaStore.empresaActivaId).toBeNull();
+    expect(empresaStore.empresa).toBeNull();
+    expect(empresaStore.empresas).toEqual([empresaDos]);
+    expect(empresaStore.avisoAcceso).toContain("revocado");
+    expect(getEmpresaActivaIdForRequest()).toBeNull();
   });
 });

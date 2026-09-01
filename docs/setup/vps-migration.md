@@ -1,6 +1,6 @@
 # Migración local a VPS
 
-Última actualización: 2026-08-29
+Última actualización: 2026-09-01
 
 Estado: referencia técnica reutilizable. No describe el estado desplegado de
 ninguna instalación.
@@ -22,7 +22,8 @@ hacen llamadas ARCA durante la exportación o importación.
 La migración conserva los datos necesarios para continuar operando desde el
 VPS sin perder continuidad fiscal local:
 
-- emisores, usuarios, clientes y puntos de venta
+- emisores, usuarios, accesos explícitos multiemisor y puntos de venta
+- clientes y la capacidad delegada para crear o editar emisores
 - revisiones y cabezas de elegibilidad RECE
 - operaciones idempotentes terminales y sus asociaciones/snapshots RECE
 - certificados activos y sus archivos `.crt` / `.key`
@@ -37,7 +38,7 @@ Quedan fuera del paquete:
 - eventos de sistema y exportaciones de almacenamiento
 - PDFs, XLSX, observados, temporales, cachés, logs y evidencia privada
 
-El scope v2 se identifica como `operacion_futura_con_comprobantes`. Las tablas
+El paquete v3 conserva el scope `operacion_futura_con_comprobantes`. Las tablas
 excluidas solo pueden omitirse cuando el preflight demuestra que no contienen
 estado no terminal, incierto, contradictorio ni necesario para continuar una
 operación. Cualquier caso dudoso bloquea la exportación. En operaciones
@@ -59,7 +60,7 @@ Subcomandos disponibles:
 - `preflight`: valida SQLite local, Alembic head, tablas esperadas, barrera de
   idempotencia, elegibilidad RECE, operaciones y certificados activos.
 - `export`: genera un paquete privado en `.tmp/vps-migration/<timestamp>/`.
-- `import`: restaura un paquete v2 sobre PostgreSQL limpio ya migrado con
+- `import`: restaura un paquete v3 sobre PostgreSQL limpio ya migrado con
   Alembic y bajo locks de tablas.
 - `validate`: compara manifest, datos, relaciones y disponibilidad básica; es
   obligatorio antes de operar.
@@ -91,6 +92,9 @@ El preflight debe bloquear si:
 - existe una operación, intento, guarda o lote no terminal, incierto o
   inconsistente que no puede migrarse u omitirse con seguridad
 - las asociaciones/snapshots RECE o la barrera de idempotencia no son coherentes
+- una asignación multiemisor está duplicada, referencia un usuario o emisor
+  inexistente, usa un origen inválido o no coincide con la compatibilidad
+  singular esperada
 
 Los hallazgos concretos de certificados, registros o conteos pertenecen a la
 evidencia operativa privada. Este runbook conserva únicamente las invariantes
@@ -122,7 +126,7 @@ $env:ARCA_MIGRATION_SOURCE_KEY_PASSWORD="<clave-local-actual>"
 
 El paquete generado incluye:
 
-- `manifest.json` versión `2` con scope exacto, Alembic head, conteos, hashes,
+- `manifest.json` versión `3` con scope exacto, Alembic head, conteos, hashes,
   rutas, shapes y tablas excluidas
 - `data/*.jsonl` con filas exportadas por tabla
 - `certs/*.crt` y `certs/*.key` de certificados activos
@@ -131,9 +135,10 @@ El paquete generado incluye:
 El paquete es material privado. No se debe commitear, copiar a tickets ni subir
 a servicios externos.
 
-El importador rechaza paquetes v1: deben regenerarse desde la fuente con la
-versión vigente. El manifest v2 se valida de forma estricta y cada hash, conteo,
-ruta, shape, FK y barrera de idempotencia debe coincidir.
+El importador rechaza paquetes anteriores a v3 porque no pueden preservar los
+accesos explícitos. Deben regenerarse desde la fuente con la versión vigente.
+El manifest v3 valida de forma estricta cada hash, conteo, ruta, shape, FK,
+asignación multiemisor y barrera de idempotencia.
 
 ## Ensayo en PostgreSQL local
 
@@ -213,6 +218,8 @@ Validaciones esperadas:
 - versión, scope, head, hashes, rutas, shapes y conteos coinciden con el manifest
 - tablas excluidas quedan vacías
 - FKs, asociaciones RECE y barrera de idempotencia son coherentes
+- `usuario_emisor_acceso`, `usuarios.empresa_id` y la capacidad delegada
+  conservan exactamente el alcance del paquete
 - claves privadas restauradas abren con `ARCA_PRIVATE_KEY_PASSWORD`
 - secuencias PostgreSQL quedan por encima del mayor ID restaurado
 - opcionalmente, `--api-url http://localhost:8000` verifica `/api/health`

@@ -31,6 +31,8 @@ const usuarioBase: Usuario = {
   email: "usuario@example.com",
   nombre: "Usuario",
   empresa_id: 1,
+  empresa_ids: [1],
+  puede_crear_editar_emisores: false,
   activo: true,
   es_admin: false,
   created_at: "2024-01-01T00:00:00",
@@ -83,7 +85,7 @@ describe("Sidebar", () => {
   it("muestra la versión del candidato local", () => {
     const wrapper = mountSidebar();
 
-    expect(wrapper.text()).toContain("FactuFlow v0.3.4");
+    expect(wrapper.text()).toContain("FactuFlow v0.3.5");
 
     wrapper.unmount();
   });
@@ -150,9 +152,9 @@ describe("Sidebar", () => {
     const wrapper = mountSidebar();
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="nav-comprobantes"]').classes()).toContain(
-      "bg-brand-mint",
-    );
+    expect(
+      wrapper.find('[data-testid="nav-comprobantes"]').classes(),
+    ).toContain("bg-brand-mint");
     expect(
       wrapper.find('[data-testid="nav-lotes-comprobantes"]').classes(),
     ).not.toContain("bg-brand-mint");

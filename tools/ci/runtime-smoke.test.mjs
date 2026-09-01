@@ -12,10 +12,31 @@ import {
   buildVitePreviewInvocation,
   cleanupProcesses,
   createLogCapture,
+  resolveBackendPython,
   resolveNpmCommand,
   sanitizeLog,
   stopProcess,
 } from "./runtime-smoke.mjs";
+
+test("prefiere el Python del entorno virtual del backend", () => {
+  const backendDirectory = resolve("fixtures", "backend");
+  const windowsPython = resolve(backendDirectory, ".venv/Scripts/python.exe");
+
+  assert.equal(
+    resolveBackendPython(backendDirectory, {
+      platform: "win32",
+      pathExists: (path) => path === windowsPython,
+    }),
+    windowsPython,
+  );
+  assert.equal(
+    resolveBackendPython(backendDirectory, {
+      platform: "linux",
+      pathExists: () => false,
+    }),
+    "python",
+  );
+});
 
 test("elige un launcher npm portable sin shell", () => {
   assert.equal(resolveNpmCommand("win32"), "npm.cmd");

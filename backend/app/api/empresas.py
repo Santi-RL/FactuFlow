@@ -5,7 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update
 
 from app.core.database import get_db
-from app.core.bootstrap import BOOTSTRAP_LOCK, tomar_lock_bootstrap
+from app.core.bootstrap import (
+    BOOTSTRAP_LOCK,
+    USER_ADMIN_LOCK,
+    tomar_lock_admin_usuarios,
+    tomar_lock_bootstrap,
+)
 from app.core.security import (
     get_current_admin_user,
     get_current_user,
@@ -21,6 +26,7 @@ from app.models.lote_comprobante import LoteComprobante
 from app.models.perfil_carga_masiva import PerfilCargaMasiva
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario import Usuario
+from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 from app.schemas.empresa import (
     ConstanciaArcaResponse,
     EmpresaCreate,
@@ -31,6 +37,13 @@ from app.services.constancia_arca_service import (
     ConstanciaArcaError,
     extraer_texto_constancia_pdf,
     parsear_constancia_arca,
+)
+from app.services.autorizacion_emisor_service import (
+    exigir_creacion_empresa,
+    exigir_edicion_empresa,
+    exigir_operacion_empresa,
+    registrar_evento_autorizacion,
+    reemplazar_accesos_usuario,
 )
 
 router = APIRouter()
@@ -86,24 +99,6 @@ def _campos_identidad_fiscal_modificados(
     )
 
 
-def _validar_usuario_puede_operar_empresa(
-    current_user: Usuario, empresa_id: int
-) -> None:
-    """Bloquea acceso directo a emisores no asignados al usuario común."""
-    if current_user.es_admin:
-        return
-    if current_user.empresa_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="El usuario no tiene un emisor asignado para operar",
-        )
-    if current_user.empresa_id != empresa_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No tenés permiso para operar el emisor seleccionado",
-        )
-
-
 @router.get("", response_model=list[EmpresaResponse])
 async def list_empresas(
     db: AsyncSession = Depends(get_db),
@@ -121,9 +116,11 @@ async def list_empresas(
     """
     stmt = select(Empresa)
     if not current_user.es_admin:
-        if current_user.empresa_id is None:
-            return []
-        stmt = stmt.where(Empresa.id == current_user.empresa_id)
+        stmt = stmt.join(
+            UsuarioEmisorAcceso,
+            UsuarioEmisorAcceso.empresa_id == Empresa.id,
+        ).where(UsuarioEmisorAcceso.usuario_id == current_user.id)
+    stmt = stmt.order_by(Empresa.razon_social, Empresa.id)
     result = await db.execute(stmt)
     empresas = result.scalars().all()
     return empresas
@@ -149,8 +146,9 @@ async def create_empresa(
     Raises:
         HTTPException: Si el CUIT ya existe
     """
-    async with BOOTSTRAP_LOCK:
+    async with BOOTSTRAP_LOCK, USER_ADMIN_LOCK:
         await tomar_lock_bootstrap(db)
+        await tomar_lock_admin_usuarios(db)
 
         # Permitir creación sin auth solo si no hay usuarios (setup inicial)
         result_users = await db.execute(select(func.count(Usuario.id)))
@@ -163,11 +161,14 @@ async def create_empresa(
                     detail="No se pudo validar las credenciales",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            if not current_user.es_admin:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Solo un administrador puede crear emisores",
-                )
+            result_user = await db.execute(
+                select(Usuario)
+                .where(Usuario.id == current_user.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            current_user = result_user.scalar_one()
+            exigir_creacion_empresa(current_user)
 
         # Verificar que el CUIT no exista
         result = await db.execute(
@@ -184,6 +185,31 @@ async def create_empresa(
         # Crear empresa
         nueva_empresa = Empresa(**empresa_data.model_dump())
         db.add(nueva_empresa)
+        await db.flush()
+        if current_user is not None and not current_user.es_admin:
+            actuales = await db.execute(
+                select(UsuarioEmisorAcceso.empresa_id).where(
+                    UsuarioEmisorAcceso.usuario_id == current_user.id
+                )
+            )
+            empresa_ids = [int(value) for value in actuales.scalars().all()]
+            empresa_ids.append(int(nueva_empresa.id))
+            await reemplazar_accesos_usuario(
+                db,
+                current_user,
+                empresa_ids,
+                actor_usuario_id=current_user.id,
+                origen="creacion_propia",
+            )
+        if current_user is not None:
+            registrar_evento_autorizacion(
+                db,
+                accion="crear_emisor_delegado",
+                actor_usuario_id=current_user.id,
+                usuario_afectado_id=current_user.id,
+                empresa_id=nueva_empresa.id,
+                altas=0 if current_user.es_admin else 1,
+            )
         await db.commit()
         await db.refresh(nueva_empresa)
 
@@ -193,7 +219,7 @@ async def create_empresa(
 @router.post("/extraer-constancia", response_model=ConstanciaArcaResponse)
 async def extraer_constancia_arca(
     file: UploadFile = File(...),
-    _current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """
     Extraer datos fiscales desde una constancia de inscripcion ARCA.
@@ -201,6 +227,7 @@ async def extraer_constancia_arca(
     El endpoint no crea ni actualiza emisores. Solo devuelve datos detectados
     para que el usuario los revise y complete antes de guardar.
     """
+    exigir_creacion_empresa(current_user)
     if file.content_type not in {
         "application/pdf",
         "application/x-pdf",
@@ -250,7 +277,7 @@ async def get_empresa(
     Raises:
         HTTPException: Si la empresa no existe
     """
-    _validar_usuario_puede_operar_empresa(current_user, empresa_id)
+    await exigir_operacion_empresa(db, current_user, empresa_id)
     result = await db.execute(select(Empresa).where(Empresa.id == empresa_id))
     empresa = result.scalar_one_or_none()
 
@@ -267,7 +294,7 @@ async def update_empresa(
     empresa_id: int,
     empresa_data: EmpresaUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_admin_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     """
     Actualizar una empresa.
@@ -284,45 +311,62 @@ async def update_empresa(
     Raises:
         HTTPException: Si la empresa no existe
     """
-    _validar_usuario_puede_operar_empresa(current_user, empresa_id)
-    result = await db.execute(
-        select(Empresa)
-        .where(Empresa.id == empresa_id)
-        .with_for_update()
-        .execution_options(populate_existing=True)
-    )
-    empresa = result.scalar_one_or_none()
-
-    if not empresa:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Empresa no encontrada"
+    async with USER_ADMIN_LOCK:
+        await tomar_lock_admin_usuarios(db)
+        result_user = await db.execute(
+            select(Usuario)
+            .where(Usuario.id == current_user.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
+        current_user = result_user.scalar_one()
+        await exigir_edicion_empresa(db, current_user, empresa_id)
+        result = await db.execute(
+            select(Empresa)
+            .where(Empresa.id == empresa_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        empresa = result.scalar_one_or_none()
 
-    # Actualizar campos
-    update_data = empresa_data.model_dump(exclude_unset=True)
-    campos_fiscales_modificados = _campos_identidad_fiscal_modificados(
-        empresa, update_data
-    )
-    if campos_fiscales_modificados:
-        dependencia = await _obtener_dependencia_bloqueante_empresa(db, empresa_id)
-        if dependencia is not None:
+        if not empresa:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "No se puede modificar la identidad fiscal de un emisor con "
-                    "datos operativos o fiscales asociados. Campos bloqueados: "
-                    f"{', '.join(campos_fiscales_modificados)}. "
-                    f"Se detectaron {dependencia}."
-                ),
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Empresa no encontrada",
             )
 
-    for field, value in update_data.items():
-        setattr(empresa, field, value)
+        update_data = empresa_data.model_dump(exclude_unset=True)
+        campos_fiscales_modificados = _campos_identidad_fiscal_modificados(
+            empresa, update_data
+        )
+        if campos_fiscales_modificados:
+            dependencia = await _obtener_dependencia_bloqueante_empresa(db, empresa_id)
+            if dependencia is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "No se puede modificar la identidad fiscal de un emisor con "
+                        "datos operativos o fiscales asociados. Campos bloqueados: "
+                        f"{', '.join(campos_fiscales_modificados)}. "
+                        f"Se detectaron {dependencia}."
+                    ),
+                )
 
-    await db.commit()
-    await db.refresh(empresa)
+        for field, value in update_data.items():
+            setattr(empresa, field, value)
 
-    return empresa
+        registrar_evento_autorizacion(
+            db,
+            accion="editar_emisor_delegado",
+            actor_usuario_id=current_user.id,
+            usuario_afectado_id=current_user.id,
+            empresa_id=empresa.id,
+        )
+
+        await db.commit()
+        await db.refresh(empresa)
+
+        return empresa
 
 
 @router.delete("/{empresa_id}", status_code=status.HTTP_204_NO_CONTENT)

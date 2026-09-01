@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, CanceledError } from "axios";
 import type { ApiError } from "@/types/api";
 import {
   clearEmpresaActivaIdStorage,
@@ -12,6 +12,24 @@ const apiClient = axios.create({
   },
 });
 
+export const EMPRESA_ACCESO_REVALIDAR_EVENT =
+  "factuflow:empresa-acceso-revalidar";
+
+const esRutaGlobalSinEmisor = (url = "") => {
+  const path = url.split("?", 1)[0].replace(/\/$/, "");
+  return /\/api\/(auth|usuarios)(\/|$)/.test(path) || path === "/api/empresas";
+};
+
+const getEmpresaIdDeRequest = (config?: AxiosError["config"]) => {
+  const headers = config?.headers;
+  if (!headers) return null;
+  const value =
+    typeof headers.get === "function"
+      ? headers.get("X-Empresa-Id")
+      : headers["X-Empresa-Id"];
+  return value ? String(value) : null;
+};
+
 // Request interceptor para agregar el token
 apiClient.interceptors.request.use(
   (config) => {
@@ -20,7 +38,7 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    if (empresaActivaId) {
+    if (empresaActivaId && !esRutaGlobalSinEmisor(config.url)) {
       config.headers["X-Empresa-Id"] = empresaActivaId;
     }
     return config;
@@ -32,8 +50,28 @@ apiClient.interceptors.request.use(
 
 // Response interceptor para manejar errores
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const empresaSolicitada = getEmpresaIdDeRequest(response.config);
+    const empresaActual = getEmpresaActivaIdForRequest();
+    if (empresaSolicitada && empresaSolicitada !== empresaActual) {
+      return Promise.reject(
+        new CanceledError(
+          "Se descartó una respuesta de un emisor que ya no está activo.",
+        ),
+      );
+    }
+    return response;
+  },
   (error: AxiosError<ApiError>) => {
+    const empresaSolicitada = getEmpresaIdDeRequest(error.config);
+    const empresaActual = getEmpresaActivaIdForRequest();
+    if (empresaSolicitada && empresaSolicitada !== empresaActual) {
+      return Promise.reject(
+        new CanceledError(
+          "Se descartó un error de un emisor que ya no está activo.",
+        ),
+      );
+    }
     // Si es 401, limpiar token y redirigir a login
     const requestUrl = error.config?.url || "";
     const isAuthLogin =
@@ -54,6 +92,13 @@ apiClient.interceptors.response.use(
       localStorage.removeItem("user");
       clearEmpresaActivaIdStorage();
       window.location.href = "/login";
+    }
+    if (
+      error.response?.status === 403 &&
+      empresaSolicitada &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new CustomEvent(EMPRESA_ACCESO_REVALIDAR_EVENT));
     }
     return Promise.reject(error);
   },

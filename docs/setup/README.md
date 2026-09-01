@@ -280,8 +280,9 @@ y sin solicitar CAE.
    Crear este usuario antes de operar una instalación nueva para tener acceso
    total. Después de esa primera alta, los usuarios adicionales se administran
    desde el menú `Usuarios`. Los administradores pueden operar todos los
-   emisores; los usuarios comunes solo pueden operar el emisor asignado en su
-   cuenta.
+   emisores; los operadores solo pueden usar sus asignaciones explícitas y,
+   cuando un administrador habilita la capacidad correspondiente, crear un
+   emisor o editar una ficha ya asignada.
 
 7. **Configurar reverse proxy y HTTPS**
 

@@ -1,6 +1,6 @@
 # Arquitectura estable de FactuFlow
 
-Última revisión: 29/08/2026
+Última revisión: 01/09/2026
 
 Estado: VIGENTE.
 
@@ -30,6 +30,10 @@ masiva, con evidencia, recuperación y mensajes comprensibles.
 ## Fronteras del dominio
 
 - Un emisor activo explícito gobierna cada operación.
+- Los administradores operan globalmente; los operadores se autorizan por
+  asignaciones explícitas en base y pueden tener cero, uno o varios emisores.
+- Crear o editar emisores puede delegarse como una capacidad única y acotada;
+  no concede borrado ni administración global.
 - Clientes, certificados, puntos de venta, comprobantes, lotes, reportes,
   perfiles y formatos se aíslan por emisor.
 - La fecha fiscal nunca se completa automáticamente con la fecha actual.
