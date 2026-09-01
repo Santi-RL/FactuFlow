@@ -1,6 +1,6 @@
 {
   "name": "factuflow-backend",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "scripts": {
     "test": ".\\.venv\\Scripts\\python.exe -m pytest tests -q",

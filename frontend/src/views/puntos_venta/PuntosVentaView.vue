@@ -31,7 +31,8 @@ const puntoEditando = ref<PuntoVenta | null>(null);
 const puntoEditandoEmpresaId = ref<number | null>(null);
 const guardandoEdicion = ref(false);
 const editForm = ref<PuntoVentaUpdate>({});
-const mostrarSoloElegibles = ref(false);
+const mostrarTodos = ref(false);
+const cambioUsoPendiente = ref<boolean | null>(null);
 let cargarDatosRequestId = 0;
 let cargarCertificadosRequestId = 0;
 
@@ -61,13 +62,21 @@ const columns = [
 ];
 
 const puntosOrdenados = computed(() => {
-  const puntos = mostrarSoloElegibles.value
-    ? puntosVentaStore.puntosVenta.filter(
-        (punto) => punto.seleccionable_para_emision,
-      )
-    : puntosVentaStore.puntosVenta;
+  const puntos = mostrarTodos.value
+    ? puntosVentaStore.puntosVenta
+    : puntosVentaStore.puntosVenta.filter(
+        (punto) => punto.usar_en_factuflow,
+      );
   return [...puntos].sort((a, b) => a.numero - b.numero);
 });
+
+const etiquetaProcedencia = (
+  fuente: PuntoVenta["domicilio_fuente"],
+): string => {
+  if (fuente === "constancia_arca") return "Informado por ARCA";
+  if (fuente === "manual") return "Ingresado manualmente";
+  return "Sin información";
+};
 
 const estadoTecnicoPunto = (row: PuntoVenta) => {
   if (!row.es_webservice) {
@@ -77,7 +86,6 @@ const estadoTecnicoPunto = (row: PuntoVenta) => {
       variant: "default" as const,
     };
   }
-
   if (row.bloqueado) {
     return {
       label: "Bloqueado en ARCA",
@@ -138,15 +146,18 @@ const estadoUsoPunto = (row: PuntoVenta) => {
       variant: "default" as const,
     };
   }
+  if (!row.usar_en_factuflow) {
+    return {
+      label: "No disponible en FactuFlow",
+      variant: "default" as const,
+    };
+  }
   if (row.seleccionable_para_emision) {
     return { label: "Listo para emitir", variant: "success" as const };
   }
-  if (row.elegibilidad_rece.estado_efectivo === "no_rece") {
-    return { label: "No disponible para emitir", variant: "danger" as const };
-  }
   if (row.elegibilidad_rece.estado_efectivo !== "verificado_rece") {
     return {
-      label: "Falta validar",
+      label: "Comprobación necesaria",
       variant: "warning" as const,
     };
   }
@@ -163,17 +174,14 @@ const estadoUsoPunto = (row: PuntoVenta) => {
 };
 
 const causaRecePunto = (row: PuntoVenta): string => {
-  if (
-    row.es_webservice &&
-    row.elegibilidad_rece.estado_efectivo === "no_rece"
-  ) {
-    return "Regularizá el punto en ARCA e importá una nueva constancia.";
+  if (row.es_webservice && !row.usar_en_factuflow) {
+    return "Abrí Editar para habilitar este punto cuando quieras usarlo.";
   }
   if (
     row.es_webservice &&
     row.elegibilidad_rece.estado_efectivo !== "verificado_rece"
   ) {
-    return "Importá una constancia de puntos de venta de ARCA.";
+    return "Seleccioná Comprobar con ARCA para actualizar este punto.";
   }
   return "";
 };
@@ -296,14 +304,6 @@ const prepararImportacionConstancia = async (event: Event) => {
     return;
   }
 
-  if (ambienteArcaActual.value !== "produccion") {
-    showWarning(
-      "Acreditación no disponible",
-      "La acreditación RECE mediante constancia solo está disponible en el ambiente de producción.",
-    );
-    return;
-  }
-
   try {
     const resultado = await puntosVentaStore.importarConstancia(file);
     if (!esSolicitudDelEmisorActual(empresaIdSolicitada)) return;
@@ -347,11 +347,7 @@ const editarPunto = (punto: PuntoVenta) => {
     sistema: punto.sistema,
     domicilio: punto.domicilio,
     nombre_fantasia: punto.nombre_fantasia,
-    es_webservice: punto.es_webservice,
-    bloqueado: punto.bloqueado,
-    fecha_baja: punto.fecha_baja,
-    fuente: punto.fuente,
-    activo: punto.activo,
+    usar_en_factuflow: punto.usar_en_factuflow,
   };
 };
 
@@ -359,9 +355,10 @@ const cerrarEditor = () => {
   puntoEditando.value = null;
   puntoEditandoEmpresaId.value = null;
   editForm.value = {};
+  cambioUsoPendiente.value = null;
 };
 
-const guardarEdicion = async () => {
+const persistirEdicion = async () => {
   const punto = puntoEditando.value;
   const empresaId = puntoEditandoEmpresaId.value;
   if (
@@ -379,19 +376,8 @@ const guardarEdicion = async () => {
       nombre: editForm.value.nombre,
       domicilio: editForm.value.domicilio,
       nombre_fantasia: editForm.value.nombre_fantasia,
+      usar_en_factuflow: editForm.value.usar_en_factuflow,
     };
-    if (esAdmin.value) {
-      Object.assign(payload, {
-        numero: editForm.value.numero
-          ? Number(editForm.value.numero)
-          : undefined,
-        sistema: editForm.value.sistema,
-        es_webservice: editForm.value.es_webservice,
-        bloqueado: editForm.value.bloqueado,
-        fecha_baja: editForm.value.fecha_baja,
-        activo: editForm.value.activo,
-      });
-    }
     await puntosVentaStore.updatePuntoVenta(punto.id, payload);
     if (!esSolicitudDelEmisorActual(empresaId)) return;
     showSuccess(
@@ -409,6 +395,23 @@ const guardarEdicion = async () => {
       guardandoEdicion.value = false;
     }
   }
+};
+
+const guardarEdicion = async () => {
+  if (
+    puntoEditando.value &&
+    editForm.value.usar_en_factuflow !==
+      puntoEditando.value.usar_en_factuflow
+  ) {
+    cambioUsoPendiente.value = Boolean(editForm.value.usar_en_factuflow);
+    return;
+  }
+  await persistirEdicion();
+};
+
+const confirmarCambioUso = async () => {
+  cambioUsoPendiente.value = null;
+  await persistirEdicion();
 };
 
 onMounted(async () => {
@@ -447,7 +450,7 @@ watch(
       <div>
         <h1 class="text-3xl font-bold text-gray-900">Puntos de venta</h1>
         <p class="mt-2 text-gray-600">
-          Elegí un punto que figure como listo para emitir.
+          Comprobá tus puntos con ARCA y elegí cuáles usar en FactuFlow.
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -516,8 +519,8 @@ watch(
       :dismissible="false"
       class="mb-6"
     >
-      Podés consultar y comprobar puntos de venta con ARCA. Solo un
-      administrador puede importar constancias o modificar datos fiscales.
+      Podés comprobar puntos con ARCA y elegir cuáles usar. Solo un
+      administrador puede importar una constancia descriptiva.
     </BaseAlert>
 
     <BaseAlert
@@ -537,9 +540,9 @@ watch(
           class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         >
           <p class="font-semibold text-gray-900">
-            {{ puntosVentaStore.puntosVenta.length }}
+            {{ puntosOrdenados.length }}
             {{
-              puntosVentaStore.puntosVenta.length === 1
+              puntosOrdenados.length === 1
                 ? "punto de venta"
                 : "puntos de venta"
             }}
@@ -548,11 +551,11 @@ watch(
             class="inline-flex items-center gap-2 whitespace-nowrap text-sm font-medium text-gray-700"
           >
             <input
-              v-model="mostrarSoloElegibles"
+              v-model="mostrarTodos"
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            Mostrar sólo los disponibles
+            Mostrar todos
           </label>
         </div>
       </div>
@@ -578,14 +581,20 @@ watch(
           <span class="text-gray-700">{{ value || "-" }}</span>
         </template>
 
-        <template #cell-domicilio="{ value }">
-          <span class="text-gray-700 whitespace-normal">{{
-            value || "-"
-          }}</span>
+        <template #cell-domicilio="{ value, row }">
+          <div class="whitespace-normal">
+            <span class="text-gray-700">{{ value || "-" }}</span>
+            <p class="mt-1 text-xs text-gray-500">
+              {{ etiquetaProcedencia(row.domicilio_fuente) }}
+            </p>
+          </div>
         </template>
 
-        <template #cell-nombre_fantasia="{ value }">
+        <template #cell-nombre_fantasia="{ value, row }">
           <span class="text-gray-700">{{ value || "-" }}</span>
+          <p class="mt-1 text-xs text-gray-500">
+            {{ etiquetaProcedencia(row.nombre_fantasia_fuente) }}
+          </p>
         </template>
 
         <template #cell-elegibilidad_rece="{ row }">
@@ -627,33 +636,21 @@ watch(
     </BaseCard>
 
     <BaseModal
-      :show="!!puntoEditando"
+      :show="!!puntoEditando && cambioUsoPendiente === null"
       :title="
-        esAdmin
-          ? 'Editar punto de venta'
-          : 'Editar datos descriptivos del punto'
+        'Editar punto de venta'
       "
       size="xl"
       @close="cerrarEditor"
     >
       <BaseAlert
-        v-if="esAdmin"
-        type="warning"
-        title="Cambio fiscal"
-        :dismissible="false"
-        class="mb-5"
-      >
-        Los cambios fiscales o técnicos invalidan la acreditación RECE vigente
-        hasta una nueva verificación.
-      </BaseAlert>
-      <BaseAlert
-        v-else
         type="info"
-        title="Edición descriptiva"
+        title="Datos administrados por FactuFlow"
         :dismissible="false"
         class="mb-5"
       >
-        Tu permiso permite modificar solo nombre, domicilio y nombre fantasía.
+        Podés cambiar el nombre interno, domicilio, nombre de fantasía y decidir
+        si este punto se usa. El número y el estado técnico los informa ARCA.
       </BaseAlert>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <BaseInput v-model="editForm.nombre" label="Nombre" />
@@ -661,39 +658,24 @@ watch(
         <div class="md:col-span-2">
           <BaseInput v-model="editForm.domicilio" label="Domicilio" />
         </div>
-        <template v-if="esAdmin">
-          <BaseInput v-model="editForm.numero" type="number" label="Número" />
-          <BaseInput v-model="editForm.sistema" label="Sistema" />
-          <BaseInput
-            v-model="editForm.fecha_baja"
-            label="Fecha de baja (DD/MM/AAAA o AAAA-MM-DD)"
+        <label
+          class="md:col-span-2 flex items-center gap-2 text-sm font-medium text-gray-700"
+        >
+          <input
+            v-model="editForm.usar_en_factuflow"
+            type="checkbox"
+            :disabled="!puntoEditando?.es_webservice"
+            class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <div class="hidden md:block" />
-          <label class="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              v-model="editForm.es_webservice"
-              type="checkbox"
-              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            Es punto Web Services
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              v-model="editForm.bloqueado"
-              type="checkbox"
-              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            Bloqueado
-          </label>
-          <label class="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              v-model="editForm.activo"
-              type="checkbox"
-              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            Activo
-          </label>
-        </template>
+          Usar en FactuFlow
+        </label>
+        <p
+          v-if="puntoEditando && !puntoEditando.es_webservice"
+          class="md:col-span-2 text-xs text-gray-600"
+        >
+          ARCA informa este punto como perteneciente a otro sistema; no se puede
+          habilitar para emitir desde FactuFlow.
+        </p>
       </div>
 
       <template #footer>
@@ -702,6 +684,36 @@ watch(
         </BaseButton>
         <BaseButton :loading="guardandoEdicion" @click="guardarEdicion">
           Guardar cambios
+        </BaseButton>
+      </template>
+    </BaseModal>
+
+    <BaseModal
+      :show="cambioUsoPendiente !== null"
+      :title="
+        cambioUsoPendiente
+          ? 'Habilitar punto en FactuFlow'
+          : 'Dejar de usar este punto'
+      "
+      size="md"
+      @close="cambioUsoPendiente = null"
+    >
+      <p class="text-sm text-gray-700">
+        <template v-if="cambioUsoPendiente">
+          El punto quedará disponible para todos los usuarios del emisor cuando
+          su estado en ARCA esté vigente.
+        </template>
+        <template v-else>
+          El punto dejará de estar disponible para nuevas emisiones y lotes. Los
+          borradores y perfiles se conservarán para que puedas corregirlos.
+        </template>
+      </p>
+      <template #footer>
+        <BaseButton variant="secondary" @click="cambioUsoPendiente = null">
+          Cancelar
+        </BaseButton>
+        <BaseButton :loading="guardandoEdicion" @click="confirmarCambioUso">
+          Confirmar cambio
         </BaseButton>
       </template>
     </BaseModal>

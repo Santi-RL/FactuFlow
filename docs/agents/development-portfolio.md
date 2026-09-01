@@ -21,14 +21,13 @@ producto.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-19D | Ahora 1 | P1 fiscal-operativa | WSFE como autoridad técnica de puntos CAE, constancia opcional y preferencia de uso local | PF-03B cerrado; `pf-19d-puntos-venta-authority-design.md` |
-| PF-06/PF-07/PF-08 | Después 1 | P1 | Operadores multiemisor, autorización por objeto y cambio de emisor seguro | PF-19D; diseño integrado PF-06/07/08 |
-| PF-11/PF-15 | Después 2 | P1/P2 | Backups trazables, recuperación, logs y soporte comprensible | Plano de control externo; observabilidad vigente |
-| PF-04 | Después 3 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
-| PF-05 | Después 3 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
-| PF-09 | Después 4 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
-| PF-12 | Después 4 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
-| PF-14 | Después 4 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
+| PF-06/PF-07/PF-08 | Ahora 1 | P1 | Operadores multiemisor, autorización por objeto y cambio de emisor seguro | PF-19D cerrado; diseño integrado PF-06/07/08 |
+| PF-11/PF-15 | Después 1 | P1/P2 | Backups trazables, recuperación, logs y soporte comprensible | Plano de control externo; observabilidad vigente |
+| PF-04 | Después 2 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
+| PF-05 | Después 2 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
+| PF-09 | Después 3 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
+| PF-12 | Después 3 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
+| PF-14 | Después 3 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
 | PF-13 | Más adelante | P2 | Lotes, formatos, perfiles y procesos largos robustos y eficientes | PF-03, PF-12 y límites de VPS pequeño |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
@@ -36,14 +35,6 @@ producto.
 | PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard | Madurez operativa y almacenamiento seguro |
 
 ## Trabajo agrupado por línea
-
-### PF-19D
-
-- Descubrir puntos CAE mediante una comprobación manual inicial con ARCA.
-- Mantener `Usar en FactuFlow` separado de bloqueo, baja o ausencia técnica.
-- Conservar deshabilitaciones expresas frente a sincronización y desbloqueo.
-- Hacer opcional la constancia y distinguir procedencia de datos descriptivos.
-- Preservar preflight final, revisión fiscal, idempotencia y reconciliación.
 
 ### PF-06/PF-07/PF-08
 
@@ -96,8 +87,10 @@ producto.
 
 ## Líneas cerradas
 
-PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C están cerrados. El contrato
+PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C/PF-19D están cerrados. El contrato
 de PF-03B vive en [`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
+El cierre de PF-19D vive en
+[`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md).
 Su evidencia vive
 en sus diseños, `CHANGELOG.md`, dossiers y auditorías. No se incluyen aquí sus
 conteos de pruebas, SHAs ni cronología.

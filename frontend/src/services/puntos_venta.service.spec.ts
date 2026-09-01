@@ -37,7 +37,7 @@ describe("puntosVentaService", () => {
     vi.clearAllMocks();
   });
 
-  it("usa siempre el camino seguro de acreditación productiva", async () => {
+  it("envía la constancia descriptiva sin solicitar acreditación", async () => {
     mockedApi.post.mockResolvedValue({ data: importResponseMock });
     const file = new File(["PDF"], "constancia.pdf", {
       type: "application/pdf",
@@ -55,7 +55,7 @@ describe("puntosVentaService", () => {
     expect(url).toBe("/api/puntos-venta/importar-constancia");
     expect(body).toBeInstanceOf(FormData);
     expect(body.get("file")).toBe(file);
-    expect(body.get("confirmar_procedencia_produccion")).toBe("true");
+    expect(body.has("confirmar_procedencia_produccion")).toBe(false);
     expect(config).toEqual({
       headers: { "Content-Type": "multipart/form-data" },
     });

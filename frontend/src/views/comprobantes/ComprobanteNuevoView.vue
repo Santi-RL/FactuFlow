@@ -1057,8 +1057,8 @@ const confirmarCancelacion = () => {
               "
               class="mt-1 text-sm text-red-600"
             >
-              No hay puntos de venta listos para emitir. Revisalos en Puntos de
-              venta.
+              No hay puntos listos para emitir. Seleccioná Comprobar con ARCA o
+              habilitá uno desde Puntos de venta.
             </p>
           </div>
 

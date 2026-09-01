@@ -39,11 +39,18 @@ class PuntoVentaUpdate(BaseModel):
     fecha_baja: Optional[str] = Field(None, max_length=20)
     fuente: Optional[str] = Field(None, max_length=50)
     activo: Optional[bool] = None
+    usar_en_factuflow: Optional[bool] = None
 
     @model_validator(mode="after")
     def rechazar_nulos_en_campos_no_nulos(self) -> "PuntoVentaUpdate":
         """Rechaza nulos explícitos que la base no puede representar."""
-        for campo in {"numero", "es_webservice", "bloqueado", "activo"}:
+        for campo in {
+            "numero",
+            "es_webservice",
+            "bloqueado",
+            "activo",
+            "usar_en_factuflow",
+        }:
             if campo in self.model_fields_set and getattr(self, campo) is None:
                 raise ValueError(f"El campo {campo} no puede ser nulo")
         return self
@@ -100,6 +107,9 @@ class PuntoVentaResponse(PuntoVentaBase):
     id: int
     empresa_id: int
     activo: bool
+    usar_en_factuflow: bool
+    domicilio_fuente: Literal["manual", "constancia_arca"] | None = None
+    nombre_fantasia_fuente: Literal["manual", "constancia_arca"] | None = None
     usable_factuflow: bool
     puede_intentar_emision: bool
     seleccionable_para_emision: bool

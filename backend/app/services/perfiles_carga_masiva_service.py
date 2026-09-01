@@ -350,6 +350,7 @@ class PerfilesCargaMasivaService:
             and punto_venta.es_webservice
             and not punto_venta.bloqueado
             and not punto_venta.fecha_baja
+            and punto_venta.usar_en_factuflow
         )
         seleccionable = (
             acreditado

@@ -31,9 +31,9 @@ Capacidades actuales:
   lote y archivo observado
 - diagnóstico administrativo sanitizado de worker y pools en `Sistema > Estado`
 - certificados por empresa y ambiente
-- elegibilidad RECE visible con estados comprensibles; la acreditación inicial
-  no vence por tiempo, la comprobación técnica se recomienda cada 90 días y los
-  puntos sin constancia o con una señal negativa confirmada no pueden emitir
+- puntos de venta descubiertos y validados con la autoridad WSFE del emisor;
+  sólo los CAE compatibles, disponibles, frescos y habilitados para usar en
+  FactuFlow pueden emitirse. La constancia PDF es descriptiva y opcional
 - PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información

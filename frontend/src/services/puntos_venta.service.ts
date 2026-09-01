@@ -36,7 +36,6 @@ export const puntosVentaService = {
   async importarConstancia(file: File): Promise<ImportarPuntosVentaResponse> {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("confirmar_procedencia_produccion", "true");
     const response = await apiClient.post<ImportarPuntosVentaResponse>(
       "/api/puntos-venta/importar-constancia",
       formData,

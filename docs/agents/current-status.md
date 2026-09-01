@@ -21,24 +21,24 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - El modelo actual mantiene un emisor activo explícito por vez.
 - Las operaciones fiscales preservan fecha explícita, confirmación irreversible,
   idempotencia, intentos durables y reconciliación cuando ARCA pudo autorizar.
-- PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C están cerrados.
+- PF-01, PF-02, PF-03A/PF-03B y PF-19A/PF-19B/PF-19C/PF-19D están cerrados.
 - `v0.3.3` aplica un contrato estricto de ítems en emisión e importación:
   rechaza campos desconocidos e importes inválidos sin crear estado fiscal. Los
   snapshots canónicos válidos y sus hashes conservan compatibilidad.
-- La conducta preservada desde `v0.3.2` comprueba puntos acreditados pendientes
-  o desactualizados antes de habilitar selectores y conserva el preflight final
-  del servidor.
+- La selección comprueba puntos WSFE desactualizados antes de habilitar opciones
+  y conserva el preflight final del servidor.
 
-La conducta vigente de puntos de venta, preservada en `v0.3.3`, establece que
-una constancia válida acredita RECE y `FEParamGetPtosVenta` actualiza el estado
-técnico. PF-19D está aceptado y planificado, pero aún no está implementado.
+La conducta aceptada de puntos de venta usa `FEParamGetPtosVenta` como autoridad
+técnica por emisor y ambiente. Los puntos CAE compatibles quedan separados de
+la preferencia compartida `Usar en FactuFlow`; la constancia es opcional y sólo
+completa domicilio, nombre de fantasía y puntos informativos de otros sistemas.
+La revisión fiscal, el preflight de 90 días, la idempotencia y la reconciliación
+permanecen vigentes.
 
 ## Trabajo aceptado pendiente
 
-1. **PF-19D:** autoridad WSFE, constancia opcional y preferencia
-   `Usar en FactuFlow`.
-2. **PF-06/PF-07/PF-08:** unidad integrada de permisos multiemisor.
-3. Recuperación, trazabilidad, evidencia histórica y robustez según el orden de
+1. **PF-06/PF-07/PF-08:** unidad integrada de permisos multiemisor.
+2. Recuperación, trazabilidad, evidencia histórica y robustez según el orden de
    `ROADMAP.md`.
 
 El orden y alcance macro se consultan exclusivamente en

@@ -29,7 +29,11 @@ FUENTES_ELEGIBILIDAD_RECE = (
     "constancia_arca_atestada",
     "edicion",
 )
-TIPOS_EVIDENCIA_RECE = ("sin_evidencia", "rece_aplicativo_web_services_v1")
+TIPOS_EVIDENCIA_RECE = (
+    "sin_evidencia",
+    "rece_aplicativo_web_services_v1",
+    "wsfe_param_get_ptos_venta_v1",
+)
 FASES_GUARDA_RECE = (
     "pre_arca",
     "arca_iniciada",
@@ -98,7 +102,7 @@ class PuntoVentaElegibilidadReceRevision(Base):
             name="ck_pv_rece_revision_vigencia",
         ),
         CheckConstraint(
-            "((estado = 'verificado_rece' "
+            "(((estado = 'verificado_rece' "
             "AND ambiente = 'produccion' "
             "AND fuente = 'constancia_arca_atestada' "
             "AND evidencia_tipo = 'rece_aplicativo_web_services_v1' "
@@ -109,14 +113,25 @@ class PuntoVentaElegibilidadReceRevision(Base):
             "AND documento_emitido_en IS NOT NULL "
             "AND verificado_en IS NOT NULL "
             "AND actor_usuario_id_snapshot IS NOT NULL) "
+            "OR (estado = 'verificado_rece' "
+            "AND fuente = 'sincronizacion_wsfe' "
+            "AND evidencia_tipo = 'wsfe_param_get_ptos_venta_v1' "
+            "AND evidencia_sha256 IS NULL "
+            "AND clasificador_version IS NOT NULL "
+            "AND empresa_cuit_snapshot IS NOT NULL "
+            "AND punto_venta_numero_snapshot IS NOT NULL "
+            "AND documento_emitido_en IS NULL "
+            "AND vigente_hasta IS NULL "
+            "AND verificado_en IS NOT NULL "
+            "AND actor_usuario_id_snapshot IS NOT NULL)) "
             "OR (estado <> 'verificado_rece' "
             "AND vigente_hasta IS NULL "
             "AND verificado_en IS NULL))",
             name="ck_pv_rece_revision_verificada_coherente",
         ),
         CheckConstraint(
-            "fuente NOT IN ('migracion_legacy', 'alta_manual', "
-            "'sincronizacion_wsfe', 'edicion') OR estado <> 'verificado_rece'",
+            "fuente NOT IN ('migracion_legacy', 'alta_manual', 'edicion') "
+            "OR estado <> 'verificado_rece'",
             name="ck_pv_rece_revision_fuente_no_promueve",
         ),
         UniqueConstraint(

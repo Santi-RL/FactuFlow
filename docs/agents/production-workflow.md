@@ -233,20 +233,19 @@ demuestran despliegue. La evidencia post-deploy debe registrar el commit o tag
 real y los resultados sanitizados del entorno, sin incluir credenciales ni
 rutas privadas.
 
-## Elegibilidad RECE PF-19B y contención adicional PF-19A
+## Autoridad PF-19D, elegibilidad PF-19B y contención PF-19A
 
-En el estado actual de `main`, PF-19B exige que toda ruta capaz de solicitar
-CAE encuentre una revisión durable cuyo estado efectivo sea
-`verificado_rece` para el ambiente actual. La sincronización técnica
-`FEParamGetPtosVenta`, la marca legacy `Usable` y el texto editable `Sistema` no
-promueven elegibilidad. Solo un administrador, en un servidor configurado en
-`produccion`, puede atestar una constancia productiva completa, no futura y no
-ambigua; únicamente una modalidad Web Services exacta de la allowlist versionada
-para Responsable Inscripto, Exento en IVA o Monotributo produce el estado
-positivo durable. El PDF no se persiste. La comprobación técnica es independiente
-y se considera desactualizada a los 90 días.
-Homologación permanece bloqueada hasta contar con una fuente probatoria
-específica y no hereda evidencia productiva.
+PF-19D usa `FEParamGetPtosVenta`, autenticado para el emisor y ambiente actuales,
+como autoridad de puntos de venta. Sólo una modalidad `CAE - …` explícita puede
+producir una revisión durable `verificado_rece`; número, sistema, presencia,
+bloqueo y baja no se editan manualmente. Homologación y producción tienen
+snapshots independientes. La constancia PDF es opcional y descriptiva: nunca
+habilita emisión ni sustituye el ledger.
+
+Toda ruta capaz de solicitar CAE exige además estado técnico positivo,
+`usar_en_factuflow=true` y una comprobación menor a 90 días. Una respuesta WSFE
+vacía, duplicada, inconsistente, sin tipo o con timeout falla cerrado sin aplicar
+cambios. Puntos presentes y ausentes se actualizan en una sola transacción.
 
 La variable privada `ARCA_PUNTOS_BLOQUEADOS_PREAUTORIZACION` conserva PF-19A
 como denegación adicional por combinación exacta de ambiente, emisor,
@@ -257,9 +256,9 @@ conservar identificadores operativos mínimos para correlación, pero nunca
 secretos ni contenido fiscal sensible.
 
 La compuerta PF-19B aborta antes de crear una operación o intento nuevo cuando
-el contexto es inválido. Para un punto acreditado pendiente o desactualizado,
-consulta `FEParamGetPtosVenta` antes de crear estado fiscal y devuelve `503` si
-no obtiene una respuesta completa. Un replay terminal durable se
+el contexto es inválido. Para un punto desactualizado, consulta
+`FEParamGetPtosVenta` antes de crear estado fiscal y devuelve `503` si no obtiene
+una respuesta completa. Un replay terminal durable se
 puede devolver sin reevaluar el estado actual; cualquier continuación legacy,
 obsoleta o sin snapshot se bloquea. Retirar una regla PF-19A sigue siendo una
 decisión fiscal explícita. Un rollback técnico a una versión que ignore PF-19B
@@ -273,11 +272,12 @@ transacción completa: quedan cero guardas, intentos y reservas nuevos, y cero
 llamadas `FECAESolicitar`. Esas lecturas seguras previas no convierten el fallo
 en una solicitud de CAE ni habilitan un reintento automático.
 
-Este comportamiento pertenece a PF-19 y continúa vigente en la release
-`v0.3.2`. La acreditación es durable, la comprobación técnica tiene un umbral de
-90 días y los puntos pendientes o desactualizados se comprueban antes de quedar
-seleccionables. El despliegue sigue siendo un checkpoint separado y su ejecución
-se registra en el plano de control operativo.
+Este comportamiento pertenece a PF-19. La autoridad WSFE es durable por revisión,
+la comprobación tiene un umbral de 90 días y los puntos desactualizados se
+comprueban antes de quedar seleccionables. Si existe evidencia PF-19D nueva, no
+se debe ejecutar un downgrade que elimine su schema: conservar la migración o
+restaurar un backup anterior comprobado. El despliegue sigue siendo un checkpoint
+separado y su ejecución se registra en el plano de control operativo.
 
 El inventario legacy se ejecuta solo con autorización sobre una fuente
 identificada y con `DATABASE_URL` configurada de forma privada:

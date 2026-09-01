@@ -239,44 +239,38 @@ PUT /api/puntos-venta/{punto_venta_id}
 DELETE /api/puntos-venta/{punto_venta_id}
 ```
 
-`POST /api/puntos-venta`, `importar-constancia` y `DELETE` requieren
-administrador. `sincronizar-arca` está disponible para cualquier usuario
-autorizado del emisor activo. Un usuario común solo puede editar campos
-descriptivos; cambiar identidad o estado fiscal/técnico requiere administrador.
+`importar-constancia` y `DELETE` requieren administrador. `sincronizar-arca` y
+`PUT` están disponibles para cualquier usuario autorizado del emisor activo.
+Número, sistema, presencia, bloqueo, baja y demás señales técnicas no se editan
+manualmente, tampoco por un administrador. El `POST` se conserva por
+compatibilidad de ruta, pero responde `409`: el alta técnica debe iniciarse con
+`Comprobar con ARCA`. `DELETE` no borra; deshabilita `usar_en_factuflow`.
 
 Cada `PuntoVentaResponse` expone `revision_fiscal`, `usable_factuflow`,
 `puede_intentar_emision`, `seleccionable_para_emision`,
-`ultima_comprobacion_arca_en`,
+`ultima_comprobacion_arca_en`, `usar_en_factuflow`, `domicilio_fuente`,
+`nombre_fantasia_fuente`,
 `comprobacion_arca_desactualizada` y el
 objeto `elegibilidad_rece` con `ambiente`, `estado`, `estado_efectivo`, `fuente`,
 `revision_id`, `revision`, `punto_revision_fiscal`, `verificado_en`,
 `vigente_hasta` y `motivo`. `vigente_hasta` se conserva por compatibilidad y no
 participa en la decisión. El servidor calcula `usable_factuflow`: exige el
-filtro técnico (activo, Web Services, no bloqueado y sin baja) y estado efectivo
-`verificado_rece` para el ambiente actual. El cliente no debe reconstruir esa
+filtro técnico (activo, CAE compatible, no bloqueado y sin baja), la preferencia
+de uso y estado efectivo `verificado_rece` para el ambiente actual. El cliente no debe reconstruir esa
 decisión desde `sistema` ni desde la marca técnica.
 `seleccionable_para_emision` es el contrato estricto para selectores: exige
-acreditación RECE, estado técnico positivo y una comprobación con menos de 90
-días. `puede_intentar_emision` se conserva por compatibilidad, pero la UI no lo
-usa para ofrecer opciones.
+autoridad WSFE, estado técnico positivo, preferencia habilitada y una
+comprobación con menos de 90 días. `puede_intentar_emision` se conserva por
+compatibilidad, pero la UI no lo usa para ofrecer opciones.
 
 `POST /api/puntos-venta/importar-constancia` recibe PDF de hasta `5 MB`. El form
-booleano `confirmar_procedencia_produccion` continúa aceptándose en `0.3.2` por
-compatibilidad, pero está deprecado; la UI siempre envía el camino seguro. La
-acreditación solo acepta un administrador, servidor con
-`ARCA_ENV=produccion`, CUIT exacto, documento completo y no ambiguo, fecha única
-no futura —sin límite de antigüedad— y una modalidad
-Web Services de la allowlist exacta versionada: `RECE para aplicativo y web
-services`, `Factura Electrónica - RI IVA - Aplicativo y Web Services`, `Factura
-Electrónica - Exento en IVA - Web Services` o `Factura Electrónica -
-Monotributo - Web Services`. La versión `rece_constancia_v2` normaliza solo
-espacios, mayúsculas, variantes de guion y la escritura `Webservices`; no acepta
-coincidencias parciales. El parser reconoce `PUNTO VENTA` y `P.VTA.`, con
-`ACTIVIDAD` opcional y encabezados repetidos en documentos de varias páginas.
-Persiste hash SHA-256, clasificador, actor y snapshots mínimos; no guarda el PDF
-ni su texto completo. Una señal genérica o fuera de allowlist queda
-`no_verificado`, nunca se infiere
-`no_rece`. La acreditación no vence por tiempo. La respuesta agrega
+booleano `confirmar_procedencia_produccion` continúa aceptándose por
+compatibilidad, pero está deprecado y no tiene efecto. La constancia es
+descriptiva: valida el CUIT cuando está presente, completa domicilio y nombre de
+fantasía y conserva puntos de otros sistemas como información. No consulta
+WSFE, no cambia elegibilidad, no invalida ausentes y no guarda el PDF. El parser
+reconoce `PUNTO VENTA` y `P.VTA.`, con `ACTIVIDAD` opcional y encabezados
+repetidos. La respuesta conserva por compatibilidad
 `verificados_rece`, `pendientes_comprobacion`, `no_verificados_rece`,
 `listos_para_emitir`, `no_disponibles_factuflow` y `requieren_revision`. Los
 tres últimos son mutuamente excluyentes y resumen todos los puntos detectados.
@@ -284,19 +278,18 @@ También conserva
 `documento_emitido_en`,
 `vigente_hasta` —nulo para revisiones nuevas— y warnings sanitizados.
 
-La importación aplica en una transacción los puntos existentes, nuevos y —solo
-si la constancia es completa— ausentes. Además consulta el estado técnico WSFE
-en el servidor. `POST /api/puntos-venta/sincronizar-arca` ofrece esa
-comprobación sin PDF: crea/actualiza/desactiva técnicamente en una sola
-operación y nunca promueve RECE, aunque conserva una acreditación inicial ya
-existente. La respuesta agrega una marca común `comprobado_en`. Si un punto
-acreditado está pendiente o tiene 90 días, la UI hace como máximo una consulta
-completa antes de habilitar selectores y luego recarga el listado. Si falla,
-conserva seleccionables únicamente los puntos todavía vigentes. Los bordes
-individual/lote/worker mantienen además el preflight final: una falla o
-respuesta vacía/inconsistente devuelve `503` antes de crear estado fiscal.
-Homologación no admite atestación positiva y permanece cerrada hasta una fuente
-probatoria específica.
+`POST /api/puntos-venta/sincronizar-arca` consulta
+`FEParamGetPtosVenta` con las credenciales del emisor y acredita para el
+ambiente configurado únicamente modalidades `CAE - …`. Crea, actualiza y marca
+ausentes en una sola transacción, con una marca común `comprobado_en`. Puntos
+nuevos compatibles quedan habilitados para uso por defecto; otras modalidades
+quedan fuera. Una sincronización posterior conserva toda deshabilitación local.
+
+Vacíos, duplicados, tipos ausentes, respuestas inconsistentes o timeouts
+devuelven `503` y no cambian ningún punto. Después de la primera comprobación
+manual, los puntos con 90 días pueden actualizarse antes de habilitar selectores
+y mantienen el preflight final en individual, lote y worker. Un fallo previo no
+crea operación, intento, reserva ni solicitud CAE.
 
 ## Certificados
 

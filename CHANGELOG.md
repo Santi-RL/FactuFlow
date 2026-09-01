@@ -18,6 +18,45 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-01
+
+### Cambios
+
+- PF-19D convierte `FEParamGetPtosVenta` en la autoridad autenticada para
+  descubrir y clasificar puntos de venta por emisor y ambiente. Sólo modalidades
+  `CAE - …` explícitas pueden quedar elegibles para el flujo implementado.
+- Se agrega la preferencia compartida `Usar en FactuFlow`. Los puntos CAE nuevos
+  quedan habilitados por defecto y toda deshabilitación explícita sobrevive a
+  bloqueos, ausencias, reapariciones y comprobaciones posteriores.
+- La pantalla muestra por defecto los puntos usados en FactuFlow, permite ver
+  todos, confirma los cambios de uso y conserva formularios, perfiles y lotes
+  recuperables cuando un punto deja de estar disponible.
+- Número, sistema, presencia, bloqueo y baja pasan a ser de sólo lectura. Los
+  usuarios autorizados pueden editar nombre interno, domicilio y nombre de
+  fantasía; la procedencia descriptiva distingue carga manual y constancia ARCA.
+- La constancia PDF queda como complemento opcional: no consulta WSFE, no
+  acredita elegibilidad, no invalida ausentes y no se almacena.
+
+### Seguridad fiscal
+
+- La sincronización valida el snapshot completo antes de escribir y aplica
+  puntos presentes, ausentes y cabezas de elegibilidad en una única transacción.
+  Vacíos, duplicados, respuestas inconsistentes y timeouts fallan con `503` sin
+  crear operaciones, intentos, reservas ni solicitudes CAE.
+- Individual, perfiles, lotes, worker, reintentos y continuaciones consumen el
+  mismo `seleccionable_para_emision`, que ahora incluye la preferencia. Se
+  conservan frescura de 90 días, preflight agrupado, revisión fiscal, locks,
+  compare-and-swap, idempotencia y reconciliación.
+- La migración `e3f4a5b6c7d8` incorpora preferencia y procedencia, conserva el
+  ledger PF-19B y aplica un backfill conservador. El rollback es exacto antes de
+  producir evidencia WSFE nueva y falla cerrado después.
+
+### Documentación
+
+- Se actualizaron contrato API, guía de usuario, notas ARCA, QA manual, estado,
+  portafolio, roadmap y dossier de release para reflejar PF-19D sin inferir el
+  estado de ninguna instalación productiva.
+
 ## [0.3.3] - 2026-08-31
 
 ### Correcciones

@@ -25,7 +25,7 @@ from app.services.elegibilidad_rece_service import (
 
 
 class PuntosVentaArcaService:
-    """Actualiza una señal técnica sin promover acreditaciones RECE."""
+    """Sincroniza la autoridad técnica autenticada de puntos de venta."""
 
     def __init__(self, db: AsyncSession, *, ahora: datetime | None = None) -> None:
         """Inicializa el servicio con un reloj UTC inyectable."""
@@ -100,6 +100,7 @@ class PuntosVentaArcaService:
         try:
             numeros = [int(punto.numero) for punto in puntos]
             bloqueos = [str(punto.bloqueado).strip().upper() for punto in puntos]
+            tipos_emision = [str(punto.emision_tipo or "").strip() for punto in puntos]
         except (AttributeError, TypeError, ValueError) as exc:
             raise ElegibilidadReceError(
                 "ARCA devolvió un estado técnico inconsistente.",
@@ -110,6 +111,7 @@ class PuntosVentaArcaService:
             len(set(numeros)) != len(numeros)
             or any(numero < 1 or numero > 99999 for numero in numeros)
             or any(bloqueo not in {"S", "N"} for bloqueo in bloqueos)
+            or any(not tipo for tipo in tipos_emision)
         ):
             raise ElegibilidadReceError(
                 "ARCA devolvió un estado técnico inconsistente.",
@@ -125,7 +127,7 @@ class PuntosVentaArcaService:
                     or str(punto.fecha_baja or "").strip().upper() == "NULL"
                     else str(punto.fecha_baja).strip()
                 ),
-                "emision_tipo": str(getattr(punto, "emision_tipo", "") or ""),
+                "emision_tipo": str(punto.emision_tipo or "").strip(),
             }
             for punto in puntos
         }
@@ -138,6 +140,18 @@ class PuntosVentaArcaService:
             return f"Factura Electrónica - {detalle} - Web Services"
         return "Factura Electrónica - Web Services"
 
+    @staticmethod
+    def _es_cae_compatible(emision_tipo: str) -> bool:
+        """Admite sólo modalidades CAE explícitas del flujo FECAE."""
+        return bool(re.fullmatch(r"CAE\s*-\s*.+", emision_tipo.strip(), flags=re.I))
+
+    @classmethod
+    def _sistema_arca(cls, emision_tipo: str, *, compatible: bool) -> str:
+        """Expone el tipo informado por ARCA sin inferencias manuales."""
+        if compatible:
+            return cls._sistema_webservice(emision_tipo)
+        return emision_tipo.strip()
+
     async def sincronizar(
         self,
         *,
@@ -146,6 +160,10 @@ class PuntosVentaArcaService:
         wsfe_client: WSFEv1Client | None = None,
     ) -> dict[str, int | datetime]:
         """Aplica un snapshot técnico completo con una única transacción."""
+        if actor_usuario_id is None or actor_usuario_id <= 0:
+            raise ElegibilidadReceError(
+                "No se pudo identificar al usuario que inició la comprobación."
+            )
         try:
             cliente = wsfe_client or await self._crear_cliente(empresa_id)
             remotos = self._normalizar_puntos_remotos(
@@ -163,6 +181,9 @@ class PuntosVentaArcaService:
             ) from exc
 
         comprobado_en = self._obtener_ahora()
+        empresa = await self.db.get(Empresa, empresa_id)
+        if empresa is None:
+            raise ElegibilidadReceError("El emisor activo no existe.")
         existentes = {
             int(punto.numero): punto
             for punto in (
@@ -174,7 +195,7 @@ class PuntosVentaArcaService:
             .all()
         }
         elegibilidad = ElegibilidadReceService(self.db, ahora=comprobado_en)
-        cambios: list[tuple[PuntoVenta, dict[str, object]]] = []
+        acciones: list[tuple[PuntoVenta, dict[str, object], bool, bool]] = []
         nuevos = 0
         existentes_en_arca = 0
         actualizados = 0
@@ -184,18 +205,23 @@ class PuntosVentaArcaService:
                 bloqueado = bool(remoto["bloqueado"])
                 fecha_baja = remoto["fecha_baja"]
                 activo = not bloqueado and not fecha_baja
-                sistema = self._sistema_webservice(str(remoto["emision_tipo"]))
+                emision_tipo = str(remoto["emision_tipo"])
+                compatible = self._es_cae_compatible(emision_tipo)
+                sistema = self._sistema_arca(
+                    emision_tipo,
+                    compatible=compatible,
+                )
                 punto = existentes.get(numero)
                 if punto is None:
                     punto = PuntoVenta(
                         numero=numero,
-                        nombre=sistema,
                         sistema=sistema,
-                        es_webservice=True,
+                        es_webservice=compatible,
                         bloqueado=bloqueado,
                         fecha_baja=fecha_baja,
                         fuente="arca_wsfe",
                         activo=activo,
+                        usar_en_factuflow=compatible,
                         empresa_id=empresa_id,
                         ultima_comprobacion_arca_en=comprobado_en,
                     )
@@ -205,26 +231,22 @@ class PuntosVentaArcaService:
                         creado_por_usuario_id=actor_usuario_id,
                         fuente="sincronizacion_wsfe",
                     )
+                    acciones.append((punto, {}, compatible, True))
                     nuevos += 1
                     continue
 
                 existentes_en_arca += 1
-                sistema_actual = (
-                    punto.sistema
-                    if punto.sistema
-                    and re.search(r"web\s*services?", punto.sistema, flags=re.I)
-                    else sistema
-                )
                 valores: dict[str, object] = {
-                    "nombre": punto.nombre or sistema_actual,
-                    "sistema": sistema_actual,
-                    "es_webservice": True,
+                    "sistema": sistema,
+                    "es_webservice": compatible,
                     "bloqueado": bloqueado,
                     "fecha_baja": fecha_baja,
-                    "fuente": punto.fuente or "arca_wsfe",
+                    "fuente": "arca_wsfe",
                     "activo": activo,
                     "ultima_comprobacion_arca_en": comprobado_en,
                 }
+                if not compatible:
+                    valores["usar_en_factuflow"] = False
                 cambios_tecnicos = {
                     campo: valor
                     for campo, valor in valores.items()
@@ -235,7 +257,7 @@ class PuntosVentaArcaService:
                     for campo, valor in cambios_tecnicos.items()
                 ):
                     actualizados += 1
-                cambios.append((punto, valores))
+                acciones.append((punto, valores, compatible, True))
 
             numeros_arca = set(remotos)
             ausentes = [
@@ -243,20 +265,24 @@ class PuntosVentaArcaService:
                 for numero, punto in existentes.items()
                 if numero not in numeros_arca
             ]
-            cambios.extend(
+            acciones.extend(
                 (
                     punto,
                     {
                         "activo": False,
                         "ultima_comprobacion_arca_en": comprobado_en,
                     },
+                    False,
+                    False,
                 )
                 for punto in ausentes
             )
-            if cambios:
-                await elegibilidad.aplicar_cambios_puntos_atomicos(
-                    cambios,
-                    fuente="sincronizacion_wsfe",
+            if acciones:
+                await elegibilidad.aplicar_snapshot_wsfe_atomico(
+                    acciones,
+                    empresa_id=empresa_id,
+                    empresa_cuit=empresa.cuit,
+                    ambiente=self._ambiente().value,
                     actor_usuario_id=actor_usuario_id,
                 )
             else:

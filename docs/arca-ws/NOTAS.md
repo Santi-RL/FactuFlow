@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 10/08/2026
+Última actualización: 31/08/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -11,12 +11,12 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 3. Crear DN y certificado en WSASS
 4. Crear autorización al servicio `wsfe` para el CUIT representado
 5. Verificar certificado, conexión y lecturas seguras
-6. No solicitar CAE: PF-19B mantiene homologación cerrada hasta contar con una
-   fuente probatoria específica para ese ambiente
+6. No solicitar CAE durante una prueba de conectividad; primero comprobar el
+   snapshot WSFE de homologación y recorrer las guardas con datos sintéticos
 
 ## Lo que aprendimos hoy
 
-### 1. Verificacion de homologación
+### 1. Verificación de homologación
 
 - No confiar en QR como validación de homologación.
 - El QR de PDF debe codificar la URL oficial heredada
@@ -24,25 +24,25 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
   Base64. En tests se decodifica el payload y se verifican campos ARCA:
   `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`,
   `ctz`, `tipoDocRec`, `nroDocRec`, `tipoCodAut`, `codAut`.
-- La verificacion correcta es por webservice, usando `FECompConsultar`.
+- La verificación correcta es por webservice, usando `FECompConsultar`.
 
 ### 2. Puntos de venta
 
 - En el portal no se detectó una pantalla separada de "puntos de venta homologación".
 - Hay que mirar la pantalla habitual `A/B/M de puntos de venta / emision`.
-- La columna editable `Sistema`, una clasificación genérica Web Services y
-  `FEParamGetPtosVenta` no acreditan RECE. PF-19B exige una cabeza durable con
-  estado efectivo `verificado_rece`; PF-19A queda como denegación adicional.
-- Solo un administrador en servidor productivo puede atestar una constancia
-  completa, no ambigua y no futura, sin límite de antigüedad. El clasificador
-  `rece_constancia_v2` admite únicamente las modalidades Web Services exactas
-  documentadas para Responsable Inscripto, Exento en IVA y Monotributo; una
-  descripción genérica sigue fallando cerrado. El parser tolera el encabezado
-  histórico `PUNTO VENTA` y el actual `P.VTA.`, con `ACTIVIDAD` opcional y
-  encabezados repetidos por página. Homologación no hereda esa evidencia.
-- La acreditación resultante es durable. La comprobación técnica se recomienda
-  a los 90 días y se ejecuta automáticamente antes de emitir si está pendiente
-  o desactualizada.
+- PF-19D usa `FEParamGetPtosVenta` como autoridad autenticada por emisor y
+  ambiente. El clasificador `wsfe_emision_tipo_cae_v1` admite únicamente un
+  `EmisionTipo` explícito con forma `CAE - …`; una descripción genérica Web
+  Services no basta. La evidencia queda en una cabeza durable y PF-19A conserva
+  su denegación adicional.
+- Número, tipo de emisión, presencia, bloqueo y baja provienen de ARCA y no son
+  editables. `usar_en_factuflow` es una preferencia local independiente: puede
+  deshabilitar disponibilidad, pero nunca superar una señal técnica negativa.
+- La constancia PDF es opcional y sólo aporta domicilio, nombre de fantasía y
+  puntos informativos de otros sistemas. No acredita, no llama a WSFE y no se
+  almacena.
+- La comprobación se renueva a los 90 días mediante un preflight agrupado y se
+  mantiene una guarda final antes de cualquier solicitud CAE.
 - La nomenclatura se contrastó con el
   [manual WSLSP de ARCA](https://arca.gob.ar/ws/WSLSP/manual-wslsp-2.0.4.pdf) y
   la [guía oficial de puntos de venta](https://afip.gob.ar/facturacion/documentos/puntos-de-venta.pdf).
@@ -50,26 +50,25 @@ Este archivo resume lo que conviene recordar rápido sin volver a abrir todos lo
 ### 3. `FEParamGetPtosVenta`
 
 - En homologación puede responder `602 - Sin Resultados`.
-- Eso no significa necesariamente que el punto de venta sea invalido.
+- Eso no significa necesariamente que el punto de venta sea inválido, pero no
+  constituye un snapshot completo y FactuFlow falla cerrado sin aplicar cambios.
 - En esta sesión `FECompUltimoAutorizado` y la emisión real sí funcionaron.
 - El campo `Bloqueado` llega como `N`/`S`. `N` significa no bloqueado; no debe
   evaluarse como booleano directo porque cualquier string no vacío es truthy en
   Python.
-- Si `FEParamGetPtosVenta` falla durante una importación de constancia, no usar
-  `{}` como si todos los puntos estuvieran activos: preservar el estado local de
-  puntos existentes y dejar inactivos los puntos nuevos hasta sincronizar o
-  revisar manualmente.
-- Si el usuario cambia de emisor mientras se importa una constancia, la UI no
-  debe mostrar el resultado bajo el nuevo contexto.
-- La evidencia operativa privada confirmó que un punto técnicamente Web
-  Services puede no pertenecer a RECE. Identificadores y fecha exacta quedan
-  fuera del repositorio; la invariante es que `FEParamGetPtosVenta` y
-  `Bloqueado=N` no prueban elegibilidad fiscal.
-- PF-19B exige estado efectivo `verificado_rece` antes de crear una operación o
-  intento nuevo y antes de `FECAESolicitar`. La capa exterior batch puede haber
-  autenticado WSAA o hecho una lectura WSFE segura de capacidad; eso no autoriza
-  ni permite saltear la compuerta. PF-19A mantiene la denegación adicional
-  para tuplas declaradas, pero nunca promueve elegibilidad.
+- Una respuesta vacía, duplicada, inconsistente, sin `EmisionTipo` o con timeout
+  no modifica puntos, cabezas ni preferencias. Nunca interpretar `{}` como un
+  snapshot válido.
+- Si el usuario cambia de emisor mientras sincroniza o importa una constancia,
+  la UI no debe mostrar el resultado bajo el nuevo contexto.
+- La evidencia operativa privada confirmó que una etiqueta genérica Web Services
+  no identifica por sí sola el flujo CAE compatible. Identificadores y fecha
+  exacta quedan fuera del repositorio; la invariante pública es clasificar el
+  `EmisionTipo` completo y conservar `Bloqueado=N` sólo como señal de ausencia de
+  bloqueo.
+- El estado efectivo `verificado_rece`, la frescura, la preferencia y el estado
+  técnico se exigen antes de crear una operación o intento nuevo y antes de
+  `FECAESolicitar`. Una lectura WSFE segura nunca permite saltear la compuerta.
 
 ### 4. `CondicionIVAReceptorId`
 
@@ -462,17 +461,17 @@ El proyecto tuvo que corregir estas estructuras:
   de homologación no sirven para producción.
 - Después de crear el certificado productivo, asociar el alias del computador al
   servicio `wsfe` desde `Administrador de Relaciones de Clave Fiscal`. Si falta
-  esa asociacion, WSAA devuelve `Computador no autorizado a acceder al servicio`.
-- Usar un punto de venta productivo cuya pertenencia a RECE haya sido revisada
-  administrativamente y mantener numeración correlativa. La descripción
-  genérica Web Services no basta. En PF-19B, el punto debe tener estado efectivo
-  `verificado_rece`; una atestación vencida o ausente falla cerrado.
-- La validación interpreta `Bloqueado=N` como señal técnica de punto no
-  bloqueado, pero no como autorización RECE. La evidencia productiva detallada,
+  esa asociación, WSAA devuelve `Computador no autorizado a acceder al servicio`.
+- Usar un punto de venta productivo que el snapshot WSFE del emisor informe con
+  una modalidad `CAE - …`, estado efectivo `verificado_rece`, comprobación fresca
+  y preferencia habilitada. Una descripción genérica Web Services no basta.
+- La validación interpreta `Bloqueado=N` como señal de punto no bloqueado dentro
+  del snapshot completo. La evidencia productiva detallada,
   incluidos organización, puntos, conteos y numeración, permanece en el entorno
   operativo privado.
-- La lista completa de puntos con sistema, domicilio y nombre fantasia no vino
-  por WSFEv1; se importo desde la constancia PDF de puntos de venta.
+- La lista completa de puntos con sistema, domicilio y nombre de fantasía no vino
+  por WSFEv1; domicilio y nombre de fantasía pueden completarse desde la
+  constancia PDF opcional o manualmente, sin afectar la autoridad fiscal.
 - El WSDL productivo de WSFEv1 requirio transporte TLS con `SECLEVEL=1` por
   compatibilidad con el handshake del endpoint.
 - El transporte debe configurar timeout para carga del WSDL y
