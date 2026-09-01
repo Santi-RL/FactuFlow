@@ -2,7 +2,7 @@
 
 Fecha de decisión: 29/08/2026
 
-Estado: IMPLEMENTADO; CANDIDATO `v0.3.4`.
+Estado: CERRADO; PUBLICADO EN `v0.3.4`.
 
 Prioridad: P1 fiscal-operativa, Nivel 2. Se implementa después de PF-03B y antes
 de PF-06/PF-07/PF-08.
