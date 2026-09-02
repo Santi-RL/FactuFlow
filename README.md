@@ -4,15 +4,14 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-Versión publicada más reciente: `v0.3.4`
+Versión publicada más reciente: `v0.3.5`
 
-[GitHub Release v0.3.4](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.4)
+[GitHub Release v0.3.5](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.5)
 
-`v0.3.4` usa WSFE como autoridad autenticada de puntos de venta CAE por emisor y
-ambiente, incorpora la preferencia compartida `Usar en FactuFlow` y deja la
-constancia PDF como complemento descriptivo opcional. El tag inmutable apunta a
-`38cb4d6dc4faba819292ed8da9b833c68d9b8968`; la publicación no determina ni
-modifica el estado desplegado.
+`v0.3.5` incorpora asignaciones explícitas de cero, uno o varios emisores por
+operador y la capacidad independiente `Puede crear y editar emisores`. El tag
+inmutable apunta a `ba8b7d0e5d9a2fd1c0a68a714e02f6a5aab0a655`; la publicación
+no determina ni modifica el estado desplegado.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
@@ -37,7 +36,8 @@ Capacidades actuales:
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información
 - administradores con acceso operativo a todos los emisores y gestión de
-  usuarios, emisores y `Sistema`; usuarios comunes limitados al emisor asignado
+  usuarios, emisores y `Sistema`; operadores limitados a sus emisores asignados
+  y, si reciben la capacidad específica, habilitados para crear y editar fichas
 - uso productivo real controlado con evidencia privada local; no se versionan
   CUITs, CAEs, comprobantes, Excels ni logs privados
 
@@ -53,9 +53,9 @@ del sistema.
 
 El modelo multiemisor vigente permite que una instalación administre varios
 emisores, siempre con uno activo explícito por vez. Los administradores pueden
-operarlos todos; los usuarios comunes solo el emisor asignado. No está
-planificada por ahora una administración central compleja con permisos finos,
-reportes globales y operación simultánea entre múltiples emisores.
+operarlos todos; los operadores tienen cero, uno o varios accesos explícitos.
+No está planificada por ahora una administración central compleja con permisos
+finos, reportes globales y operación simultánea entre múltiples emisores.
 
 La observabilidad operativa estándar es parte del alcance post-piloto: el
 sistema debe explicar con lenguaje simple qué pasó, qué impacto tiene y cuál es
