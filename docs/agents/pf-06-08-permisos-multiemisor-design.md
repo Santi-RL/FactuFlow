@@ -1,8 +1,8 @@
 # Diseño PF-06/PF-07/PF-08 — permisos operativos multiemisor
 
-Última actualización: 2026-09-01
+Última actualización: 2026-09-02
 
-Estado: CERRADO EN `v0.3.5`; PUBLICACIÓN Y DESPLIEGUE PENDIENTES
+Estado: CERRADO Y PUBLICADO EN `v0.3.5`; DESPLIEGUE PENDIENTE
 
 ## Objetivo
 

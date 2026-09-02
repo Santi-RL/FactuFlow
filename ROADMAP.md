@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 01/09/2026
+Última revisión: 02/09/2026
 
 Estado: VIGENTE.
 
@@ -89,7 +89,7 @@ El detalle, dependencias y adjudicación de estos temas viven en el
 
 - **v0.3.5 / PF-06/PF-07/PF-08:** asignaciones explícitas multiemisor,
   capacidad delegada para crear y editar y cambio de contexto seguro. La
-  publicación y el despliegue permanecen pendientes.
+  release está publicada; el despliegue permanece pendiente.
 - **v0.3.4 / PF-19D:** WSFE como autoridad de puntos CAE, preferencia compartida
   de uso y constancia descriptiva opcional, con guardas y migración conservadas.
 - **v0.3.2:** selección estricta y UX breve de puntos de venta.

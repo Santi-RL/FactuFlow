@@ -18,6 +18,8 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-09-02
+
 ### Cambios
 
 - PF-06/PF-07/PF-08 incorpora asignaciones explícitas de cero, uno o varios
@@ -48,6 +50,16 @@ Reglas vigentes desde 2026-05-22:
   pueden terminar tras una revocación. Las cargas, confirmaciones, reintentos,
   reconciliaciones y consultas nuevas del usuario requieren una asignación
   vigente; no cambian fecha fiscal, idempotencia ni confirmación irreversible.
+
+### Documentación
+
+- Se actualizaron contratos API, seguridad, guía de usuario, QA manual,
+  migración VPS, estado, portafolio, roadmap y dossier para reflejar el alcance
+  multiemisor y sus reglas de revocación y rollback.
+- Se publicó la GitHub Release `v0.3.5`, marcada como `Latest`, desde el tag
+  inmutable que apunta a `ba8b7d0e5d9a2fd1c0a68a714e02f6a5aab0a655`.
+  Sus siete controles de CI aprobaron, incluido Runtime Smoke. La publicación
+  no desplegó ni modificó el VPS.
 
 ## [0.3.4] - 2026-09-01
 

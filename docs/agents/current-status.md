@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 01/09/2026
+Última revisión: 02/09/2026
 
 Estado: VIGENTE.
 
@@ -13,7 +13,7 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.4`.
+- La release publicada más reciente es `v0.3.5`.
 - El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
   de esquema para PostgreSQL.
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
@@ -26,6 +26,9 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
   idempotencia, intentos durables y reconciliación cuando ARCA pudo autorizar.
 - PF-01, PF-02, PF-03A/PF-03B, PF-06/PF-07/PF-08 y
   PF-19A/PF-19B/PF-19C/PF-19D están cerrados.
+- `v0.3.5` incorpora accesos explícitos de cero, uno o varios emisores por
+  operador y separa la capacidad de crear y editar fichas de la administración
+  global del sistema.
 - `v0.3.4` usa WSFE como autoridad autenticada de puntos CAE por emisor y
   ambiente, separa su estado técnico de la preferencia compartida de uso y deja
   la constancia como complemento descriptivo opcional.
