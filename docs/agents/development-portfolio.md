@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 01/09/2026
+Última revisión: 04/09/2026
 
 Estado: VIGENTE.
 
@@ -28,7 +28,7 @@ producto.
 | PF-12 | Después 2 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
 | PF-14 | Después 2 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
-| PF-13 | Más adelante | P2 | Lotes, formatos, perfiles y procesos largos robustos y eficientes | PF-03, PF-12 y límites de VPS pequeño |
+| PF-13 | Más adelante | P2 fiscal/operativa | Plantillas contables con tipo y letra separados, receptor por fila, interpretación verificable y lotes eficientes | PF-01/PF-03, PF-12/PF-14, UX compartida con PF-17; [detalle](pf-13-plantillas-contables-design.md) |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
 | PF-17 | Más adelante | P2/P3 | UX administrativa, accesibilidad y recuperación de errores | PF-03, PF-07, PF-14 y PF-15 |
 | PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard | Madurez operativa y almacenamiento seguro |
@@ -57,6 +57,13 @@ producto.
 
 ### PF-10/PF-13/PF-16/PF-17/PF-18
 
+- PF-13, con PF-17: constructor de plantillas e importación contable con
+  `FC`/`NC`/`ND`, letra, CUIT y condición IVA por fila; requisitos condicionales,
+  vista de interpretación y mensajes que identifiquen fila y columna. El
+  [diseño de plantillas contables](pf-13-plantillas-contables-design.md)
+  adjudica los hallazgos de la auditoría y conserva versiones, perfiles,
+  importes, confirmación fiscal e idempotencia. No reabre el rediseño cerrado de
+  lotes ni incorpora una segunda línea de constructor.
 - ZIP de PDFs, selección múltiple y limpieza de temporales.
 - Jobs reanudables, trazabilidad de tareas masivas y límites de recursos.
 - Cobertura de reportes/PDF, smoke local y portabilidad de herramientas.

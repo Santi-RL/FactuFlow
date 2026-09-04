@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 02/09/2026
+Última revisión: 04/09/2026
 
 Estado: VIGENTE.
 
@@ -67,7 +67,18 @@ operativos confirmados:
 
 - **PF-10:** exportaciones, resguardo confirmado y liberación segura de
   almacenamiento.
-- **PF-13:** arquitectura de procesos largos, formatos y perfiles de lotes.
+- **PF-13 — plantillas contables e importación fiscal:** permitir una misma
+  plantilla con tipo (`FC`, `NC`, `ND`) y letra (`A`, `B`, `C`) en columnas
+  separadas, CUIT y condición IVA del receptor por fila. Anticipar requisitos
+  condicionales en el constructor y validarlos en el lote: los comprobantes A
+  requieren CUIT válido y condición compatible; las notas requieren su asociado.
+  Mostrar cómo se interpretará el Excel, con neto, IVA y total diferenciados,
+  sin exigir códigos técnicos. **P2 fiscal y de usabilidad**, sin desplazar el
+  orden vigente. Depende de conservar PF-01/PF-03 y el aislamiento multiemisor;
+  comparte claridad de uso con PF-17 y contratos con PF-14. Alcance, auditoría,
+  compatibilidad y aceptación en el
+  [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
+  PF-13 conserva además su línea de procesos largos y eficiencia de lotes.
 - **PF-16:** cobertura dirigida por riesgo, portabilidad de tooling y puerta
   previa a ofrecer FactuFlow a terceros.
 - **PF-17:** accesibilidad, conectividad visible, ayudas contextuales y
