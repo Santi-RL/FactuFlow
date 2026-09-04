@@ -41,6 +41,77 @@ sin programación, códigos internos ni nuevas confirmaciones rutinarias.
    completa datos fiscales.
 5. Detectar errores antes de la confirmación de emisión, con mensajes contables
    que indiquen fila, encabezado y corrección necesaria.
+6. Corregir las advertencias de duplicación en emisión masiva: repetir fecha e
+   importe entre consumidores finales anónimos es habitual y no debe generar
+   una advertencia. La coincidencia debe involucrar un receptor identificable,
+   conforme a la decisión de producto siguiente.
+
+## Decisión de producto: duplicados y receptor identificable
+
+El usuario confirmó que las ventas a consumidores finales por el mismo importe
+y con la misma fecha son frecuentes. Advertir por todas esas filas produce
+mensajes extensos y acostumbra a aceptar «Emitir igualmente» sin revisarlos.
+Esta decisión define el comportamiento futuro; no modifica el código vigente
+ni autoriza su implementación o despliegue.
+
+Para facturas comparables del mismo emisor, con la misma fecha de emisión y el
+mismo importe total, advertir si coincide **un nombre de cliente definido o un
+documento identificatorio**, sin exigir que coincidan ambos. Ser consumidor
+final no equivale a ser anónimo: puede existir un nombre o documento informado.
+Los ítems idénticos no sustituyen la identificación del receptor; una diferencia
+de descripción tampoco debe anular la coincidencia solicitada por el usuario.
+
+| Receptores de dos facturas con igual fecha e importe | Advertencia por esta regla |
+|---|---|
+| Ambos sin nombre definido ni documento, aunque los ítems coincidan | No |
+| Ambos figuran como «Consumidor final» o «A consumidor final», sin documento | No |
+| Nombres definidos distintos y ningún documento coincidente | No |
+| Mismo nombre definido, sin documento | Sí |
+| Mismo documento, aunque difieran o falten los nombres | Sí |
+| Mismo nombre definido y documentos distintos | Sí, por coincidencia de nombre; no afirmar que sean la misma persona |
+| Receptor coincidente, pero distinta fecha o distinto importe | No por esta regla |
+
+Los nombres genéricos, valores vacíos y el documento de relleno `0` no
+identifican a un cliente. Comparar documentos por su tipo y número normalizado;
+para nombres, ignorar mayúsculas y espacios redundantes sin introducir búsqueda
+aproximada ni unificar personas. Mantener el dato original para mostrar la
+coincidencia. Antes de implementar, definir la lista de etiquetas genéricas y
+el tratamiento de otras variantes sin exigir configuración técnica al usuario.
+
+La advertencia expresa una posibilidad, no demuestra una venta repetida ni
+justifica eliminar filas automáticamente. Suprimir el aviso de consumidores
+anónimos no debilita el bloqueo de la misma carga, la idempotencia, numeración,
+confirmación fiscal ni reconciliación de solicitudes inciertas.
+
+### Presentación y dependencias por resolver
+
+- Propuesta de presentación pendiente: resumen breve de receptores y
+  comprobantes afectados, con detalle desplegable. Evitar concatenar todas las
+  referencias en un cartel; no ocultar la advertencia detrás de «Listo para
+  emitir». No agregar nuevas aprobaciones o motivos obligatorios por esta decisión.
+- El código conserva nombres en el payload y en el comprobante, pero la huella
+  lógica actual no los compara. Además, el importador configurable puede
+  descartar documentos de consumidores finales: resolver la procedencia de la
+  identidad y su conservación para comparar, sin inventarla ni modificar por
+  esta decisión el dato fiscal que se envía a ARCA.
+- Separar el criterio de advertencia de los hashes durables utilizados también
+  por idempotencia y reconciliación. No reemplazar huellas históricas ni
+  reinterpretar solicitudes ya confirmadas o inciertas.
+- El caso aceptado es la coincidencia dentro de un lote. Cerrar expresamente
+  el alcance entre letras y puntos de venta, contra historia autorizada y otros
+  lotes pendientes, y su coordinación simultánea. La propuesta anterior de
+  prevención entre empleados no queda aceptada íntegramente por esta decisión.
+- Inventariar consumidores compartidos: validación, resumen, confirmación,
+  envío unitario/agrupado, worker y reintentos. Ninguno debe reintroducir por
+  otra vía el aviso de consumidores anónimos del lote; no extender silenciosamente
+  el cambio de política a emisión individual.
+
+La aceptación debe cubrir todos los casos de la tabla, mayúsculas/espacios,
+documentos con separadores, etiquetas genéricas y nombres conservados tras
+importar. También debe demostrar que modificar la descripción no oculta una
+coincidencia identificada y que las protecciones de carga, idempotencia y
+reconciliación permanecen intactas. Completar el checklist fiscal antes de
+implementar; esta actualización es sólo documental.
 
 ## Contrato contable
 

@@ -64,6 +64,11 @@ producto.
   adjudica los hallazgos de la auditoría y conserva versiones, perfiles,
   importes, confirmación fiscal e idempotencia. No reabre el rediseño cerrado de
   lotes ni incorpora una segunda línea de constructor.
+- PF-13/PF-17: advertencias de duplicación con receptor identificable, evitando
+  avisos por igual fecha e importe entre consumidores finales anónimos. La
+  regla aceptada y los límites pendientes viven en el mismo
+  [diseño PF-13](pf-13-plantillas-contables-design.md#decisión-de-producto-duplicados-y-receptor-identificable);
+  conservar las garantías fiscales de PF-01.
 - ZIP de PDFs, selección múltiple y limpieza de temporales.
 - Jobs reanudables, trazabilidad de tareas masivas y límites de recursos.
 - Cobertura de reportes/PDF, smoke local y portabilidad de herramientas.

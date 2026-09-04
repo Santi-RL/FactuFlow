@@ -78,6 +78,10 @@ operativos confirmados:
   comparte claridad de uso con PF-17 y contratos con PF-14. Alcance, auditoría,
   compatibilidad y aceptación en el
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
+  Afinar las advertencias de duplicados en lotes según nombre definido o
+  documento del receptor: igual fecha e importe entre consumidores finales
+  anónimos no debe generar avisos. El diseño distingue esta decisión aceptada
+  de las propuestas pendientes de coordinación entre empleados.
   PF-13 conserva además su línea de procesos largos y eficiencia de lotes.
 - **PF-16:** cobertura dirigida por riesgo, portabilidad de tooling y puerta
   previa a ofrecer FactuFlow a terceros.
