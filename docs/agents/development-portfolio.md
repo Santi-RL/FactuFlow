@@ -84,6 +84,9 @@ producto.
 - Cobertura de reportes/PDF, smoke local y portabilidad de herramientas.
 - Conectividad visible, ayuda contextual, estados vacíos, microcopy y
   accesibilidad.
+- PF-17: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
+  y rango personalizado. Conservar fechas visibles, generación explícita y
+  aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
 - Instalación simplificada, demo, compatibilidad, correo e integraciones
   posteriores.
 

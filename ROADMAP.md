@@ -91,6 +91,10 @@ operativos confirmados:
   previa a ofrecer FactuFlow a terceros.
 - **PF-17:** accesibilidad, conectividad visible, ayudas contextuales y
   recuperación comprensible para usuarios administrativos.
+  Facilitar el Reporte de ventas con «Mes actual», «Mes anterior» y selección
+  personalizada, completando Desde/Hasta y mostrando el rango calendario.
+  Alcance y aceptación en el
+  [diseño de períodos rápidos](docs/agents/pf-17-reportes-periodos-design.md).
 - **PF-18:** ZIP de PDFs, distribución, soporte, correo e integraciones.
   En el dashboard, mostrar cantidad y total en pesos del mes actual y anterior,
   según fecha del comprobante, con mes/año y alcance explícitos; descontar notas
