@@ -162,6 +162,11 @@ Acciones y comportamiento obligatorios:
 
 ### Usuario y fecha de la emisión anterior
 
+La consulta general de esa procedencia se diseña en
+[actividad de lotes PF-17/PF-15](pf-17-actividad-lotes-design.md). Compartir la
+fuente de atribución; su tarjeta resume la última emisión, mientras que esta
+advertencia debe identificar todos los actores pertinentes de las coincidencias.
+
 Mostrar el nombre del usuario que **solicitó la emisión**, aun cuando el worker
 la haya ejecutado. El creador del lote, último editor y usuario actual no son
 sustitutos válidos. Si hay emisiones parciales de varios usuarios, mostrar esa

@@ -70,7 +70,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - PF-18/PF-17, implementación futura:
   [dashboard mensual y fechas de emisión](pf-18-dashboard-mensual-design.md).
 - PF-17, implementación futura:
-  [períodos rápidos en Reporte de ventas](pf-17-reportes-periodos-design.md).
+  [períodos rápidos en Reporte de ventas](pf-17-reportes-periodos-design.md) y
+  [usuario e historial de actividad de lotes](pf-17-actividad-lotes-design.md),
+  este último con trazabilidad PF-15.
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)
 - PF-06/PF-07/PF-08:

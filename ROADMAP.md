@@ -95,6 +95,10 @@ operativos confirmados:
   personalizada, completando Desde/Hasta y mostrando el rango calendario.
   Alcance y aceptación en el
   [diseño de períodos rápidos](docs/agents/pf-17-reportes-periodos-design.md).
+  Con PF-15, mostrar en cada lote sólo el nombre del usuario de la última
+  emisión confirmada y desplegar la actividad histórica al seleccionarlo,
+  conservando la vista compacta. Ubicación, atribución y aceptación en el
+  [diseño de actividad de lotes](docs/agents/pf-17-actividad-lotes-design.md).
 - **PF-18:** ZIP de PDFs, distribución, soporte, correo e integraciones.
   En el dashboard, mostrar cantidad y total en pesos del mes actual y anterior,
   según fecha del comprobante, con mes/año y alcance explícitos; descontar notas

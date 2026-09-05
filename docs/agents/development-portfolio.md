@@ -87,6 +87,11 @@ producto.
 - PF-17: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
   y rango personalizado. Conservar fechas visibles, generación explícita y
   aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
+- PF-17, con trazabilidad PF-15: usuario de la última emisión confirmada visible
+  en la tarjeta y cabecera del lote; actividad histórica desplegada únicamente
+  al consultar ese lote. El [diseño de actividad](pf-17-actividad-lotes-design.md)
+  distingue carga, emisión y acciones posteriores, comparte procedencia con
+  PF-13 y conserva el historial compacto. No altera el corte «Ahora» de PF-15.
 - Instalación simplificada, demo, compatibilidad, correo e integraciones
   posteriores.
 
