@@ -20,6 +20,10 @@ constructor paralelo ni se retoma el rediseño de lotes cerrado en
 [`lotes-ux-redesign.md`](lotes-ux-redesign.md). Se mantienen el horizonte «Más
 adelante», P2 y las prioridades anteriores.
 
+La evolución posterior de la pantalla de carga se coordina con el
+[diseño de UI de lotes PF-17](pf-17-lotes-ui-design.md). Aquel organiza la
+presentación; este contrato conserva interpretación, precedencia y validación.
+
 La evidencia y las limitaciones están en la
 [`auditoría del proceso`](../project/audits/plantillas-2026-09-04.md).
 La propuesta respeta [`VISION.md`](../../VISION.md): conocimientos contables,

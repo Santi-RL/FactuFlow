@@ -22,6 +22,11 @@ La identidad leída del Excel se coordina con el
 de duplicados ni se reabre el rediseño de lotes cerrado. El horizonte y orden
 del roadmap permanecen vigentes; no se fijó una fecha de implementación.
 
+La evolución posterior de la distribución se define en el
+[diseño de UI de lotes PF-17](pf-17-lotes-ui-design.md). Compactar la pantalla
+o separar el historial no puede ocultar ni sustituir esta advertencia, su
+retorno principal, la excepción explícita o la revalidación previa a emitir.
+
 El [resumen mensual del dashboard](pf-18-dashboard-mensual-design.md), a cargo
 de PF-18/PF-17, aporta contexto previo: cantidades, importes y dos fechas del
 último comprobante. Es una señal informativa; no sustituye esta comparación

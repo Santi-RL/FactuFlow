@@ -73,11 +73,14 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   [períodos rápidos en Reporte de ventas](pf-17-reportes-periodos-design.md) y
   [usuario e historial de actividad de lotes](pf-17-actividad-lotes-design.md),
   este último con trazabilidad PF-15.
+- PF-17, implementación futura:
+  [UI compacta de emisión masiva](pf-17-lotes-ui-design.md), con revisión visual
+  del usuario en la aplicación local antes de publicar la implementación.
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)
 - PF-06/PF-07/PF-08:
   [`pf-06-08-permisos-multiemisor-design.md`](pf-06-08-permisos-multiemisor-design.md)
-- Rediseño de lotes diferido:
+- Antecedente de lotes, cortes cerrados; la evolución pendiente está en PF-17:
   [`lotes-ux-redesign.md`](lotes-ux-redesign.md)
 
 PF-01, PF-02, PF-03A/B y PF-19A/B/C están cerrados. El contrato de ítems vive en

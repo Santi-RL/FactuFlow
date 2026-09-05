@@ -18,7 +18,9 @@ de la actividad. El corte permanece en «Más adelante» junto con PF-17; no
 desplaza el trabajo vigente de recuperación/trazabilidad de «Ahora». Comparte
 la fuente del actor con el
 [diseño de duplicados PF-13](pf-13-duplicados-lotes-design.md), sin cambiar
-advertencias, permisos ni guardas fiscales. No reabre el rediseño general de lotes.
+advertencias, permisos ni guardas fiscales. La evolución general de la
+distribución se concentra en el [diseño de UI de lotes](pf-17-lotes-ui-design.md);
+este documento conserva la autoridad sobre atribución y apertura de actividad.
 
 ## Vista y comportamiento observados
 
@@ -39,6 +41,13 @@ En [LotesComprobantesView.vue](../../frontend/src/views/comprobantes/LotesCompro
   contiene el detalle fiscal. Ninguno muestra actualmente un historial de actores.
 
 ## Ubicación y apertura del detalle
+
+Las ubicaciones siguientes parten de la vista actual. Al implementar la
+evolución de UI, conservar su jerarquía: autor junto a los datos breves del lote
+y actividad después del resultado/avance, antes de los detalles operativos.
+La distribución exacta se revisa con el usuario en la aplicación local según
+el diseño de UI enlazado, sin cambiar la atribución ni exigir un segundo clic
+para abrir actividad.
 
 | Lugar | Cambio solicitado |
 |---|---|

@@ -99,6 +99,13 @@ operativos confirmados:
   emisión confirmada y desplegar la actividad histórica al seleccionarlo,
   conservando la vista compacta. Ubicación, atribución y aceptación en el
   [diseño de actividad de lotes](docs/agents/pf-17-actividad-lotes-design.md).
+  **P2 de usabilidad operativa:** compactar la preparación de emisión masiva,
+  mantener a la vista el resumen de requisitos y distinguir el archivo nuevo
+  del historial. Coordinar con plantillas y duplicados PF-13, actividad PF-15 y
+  almacenamiento PF-10. El diseño se revisará con el usuario en la aplicación
+  local y podrá ajustarse antes de subir la implementación al repositorio
+  remoto. Alcance y aceptación en el
+  [diseño de UI de emisión masiva](docs/agents/pf-17-lotes-ui-design.md).
 - **PF-18:** ZIP de PDFs, distribución, soporte, correo e integraciones.
   En el dashboard, mostrar cantidad y total en pesos del mes actual y anterior,
   según fecha del comprobante, con mes/año y alcance explícitos; descontar notas

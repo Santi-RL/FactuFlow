@@ -92,6 +92,13 @@ producto.
   al consultar ese lote. El [diseño de actividad](pf-17-actividad-lotes-design.md)
   distingue carga, emisión y acciones posteriores, comparte procedencia con
   PF-13 y conserva el historial compacto. No altera el corte «Ahora» de PF-15.
+- PF-17: preparación compacta de lotes, resumen de requisitos persistente y
+  separación entre archivo en preparación, resultado e historial. **P2 de
+  usabilidad operativa, Más adelante**; coordina con PF-13, PF-15 y PF-10 sin
+  desplazar el orden vigente. El [diseño de UI de lotes](pf-17-lotes-ui-design.md)
+  define una evolución nueva, conserva los cortes anteriores cerrados y exige
+  revisión del diseño con el usuario en la aplicación local antes de publicar
+  la implementación en el repositorio remoto.
 - Instalación simplificada, demo, compatibilidad, correo e integraciones
   posteriores.
 
