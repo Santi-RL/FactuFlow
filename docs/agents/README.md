@@ -64,6 +64,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-11/PF-15, implementación futura:
+  [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, implementación futura:
   [plantillas contables](pf-13-plantillas-contables-design.md) y
   [prevención de duplicados en lotes](pf-13-duplicados-lotes-design.md).
@@ -76,6 +78,13 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - PF-17, implementación futura:
   [UI compacta de emisión masiva](pf-17-lotes-ui-design.md), con revisión visual
   del usuario en la aplicación local antes de publicar la implementación.
+
+El [portafolio](development-portfolio.md) distingue alcance aceptado de
+contratos técnicos todavía por cerrar. Un diseño futuro no significa que la
+implementación esté autorizada o terminada.
+
+## Diseños cerrados de consulta
+
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)
 - PF-06/PF-07/PF-08:
@@ -83,7 +92,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - Antecedente de lotes, cortes cerrados; la evolución pendiente está en PF-17:
   [`lotes-ux-redesign.md`](lotes-ux-redesign.md)
 
-PF-01, PF-02, PF-03A/B y PF-19A/B/C están cerrados. El contrato de ítems vive en
+También están cerrados PF-01, PF-02, PF-03A/B y PF-19A/B/C. El contrato de ítems
+vive en
 [`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
 Sus diseños se consultan sólo para
 preservar invariantes o rastrear decisiones.

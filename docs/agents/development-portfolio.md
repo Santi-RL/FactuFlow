@@ -19,28 +19,38 @@ producto.
 
 ## Líneas activas
 
+Un PF puede contener cortes distintos: la prioridad corresponde al resultado
+concreto, y el horizonte no convierte toda la línea en una dependencia previa.
+La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
+
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-11/PF-15 | Ahora 1 | P1/P2 | Backups trazables, recuperación, logs y soporte comprensible | Plano de control externo; observabilidad vigente |
+| PF-11/PF-15, recuperación operativa | Ahora 1 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
 | PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
 | PF-12 | Después 2 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
 | PF-14 | Después 2 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
-| PF-13 | Más adelante | P2 fiscal/operativa | Plantillas contables, interpretación verificable, prevención de duplicados y lotes eficientes | PF-01/PF-03, PF-12/PF-14, UX con PF-17 y trazabilidad con PF-15; [plantillas](pf-13-plantillas-contables-design.md), [duplicados](pf-13-duplicados-lotes-design.md) |
+| PF-11/PF-15, automatización posterior | Más adelante | P2 | Backups cifrados automatizados, retención, alertas y recuperación hacia un VPS nuevo | Recuperación operativa; diseño específico al abrir el corte e instalación en el plano de control |
+| PF-13, plantillas y procesos largos | Más adelante | P2 fiscal/operativa | Interpretación contable verificable y lotes eficientes | PF-01/PF-03, garantías PF-12/PF-14 y UX PF-17; [plantillas](pf-13-plantillas-contables-design.md) |
+| PF-13/PF-17, duplicados | Más adelante | P2 | Prevención de doble emisión con evidencia y excepción consciente | Autoría mínima PF-15 y garantías PF-01/PF-03; [duplicados](pf-13-duplicados-lotes-design.md) |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
 | PF-17 | Más adelante | P2/P3 | UX administrativa, accesibilidad y recuperación de errores | PF-03, PF-07, PF-14 y PF-15 |
-| PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard con períodos e historial de emisión claros | Madurez operativa y almacenamiento seguro; PF-04/PF-15 para moneda e historia, PF-17 para UX; [dashboard](pf-18-dashboard-mensual-design.md) |
+| PF-18 | Más adelante | P2/P3 | P2: resumen mensual y cronología; P3: ícono de certificado, distribución e integraciones | PF-04/PF-15 para moneda e historia y PF-17 para UX; [dashboard](pf-18-dashboard-mensual-design.md); PF-10/PF-16 para distribución |
 
 ## Trabajo agrupado por línea
 
 ### PF-11/PF-15
 
-- Identidad inequívoca de backups preoperación y escrituras intermedias.
-- Automatización cifrada, retención, alertas y restauración hacia un VPS nuevo.
-- Señales visibles de backup, salud y trazabilidad sin datos privados.
-- QA controlada de almacenamiento, compactación y limpieza segura.
+- **Ahora:** identidad de backups preoperación y escrituras intermedias;
+  señales de recuperación y trazabilidad, sin datos privados, con aceptación
+  en el [diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md).
+- **Más adelante:** automatización cifrada, retención, alertas y recuperación
+  hacia un VPS nuevo. No es un requisito de automatización completo para cerrar
+  el corte actual; sí conserva las exigencias de respaldo de cada operación.
+- La QA de almacenamiento/compactación se coordina con PF-10 y los controles
+  vigentes; no crea una tercera política de limpieza.
 
 ### PF-04/PF-05
 
@@ -71,23 +81,26 @@ producto.
   con trazabilidad PF-15 y garantías PF-01. El
   [diseño de duplicados](pf-13-duplicados-lotes-design.md) concentra el contrato,
   las decisiones aceptadas y la matriz para implementar.
-- PF-18/PF-17: cantidad y total en pesos del mes actual y anterior por fecha
+- PF-18/PF-17, P2: cantidad y total en pesos del mes actual y anterior por fecha
   del comprobante, períodos explícitos y último comprobante con sus dos fechas.
   Las notas de crédito restan del importe, no de la cantidad. El
   [diseño del dashboard mensual](pf-18-dashboard-mensual-design.md) define
   cálculo, moneda, cronología, estados de consulta y pruebas; complementa
   PF-13 sin sustituir su control previo a emitir ni abrir otro motor de duplicados.
-  Incluye corregir la tarjeta de certificado: tilde de éxito para «Válido» e
-  ícono/color coherentes para los demás estados.
-- ZIP de PDFs, selección múltiple y limpieza de temporales.
-- Jobs reanudables, trazabilidad de tareas masivas y límites de recursos.
-- Cobertura de reportes/PDF, smoke local y portabilidad de herramientas.
-- Conectividad visible, ayuda contextual, estados vacíos, microcopy y
-  accesibilidad.
-- PF-17: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
+  El ajuste P3 del certificado es independiente: tilde de éxito para «Válido» e
+  ícono/color coherentes para los demás estados; no espera nuevos agregados.
+- PF-18, P3: ZIP de PDFs y selección múltiple; coordinar limpieza de temporales
+  y resguardo con PF-10, sin duplicar políticas de almacenamiento.
+- PF-13, P2: tareas reanudables, trazabilidad masiva y límites de recursos.
+- PF-16: cobertura de reportes/PDF y pruebas por riesgo (P2), verificación local
+  y portabilidad de herramientas (P3 salvo bloqueo comprobado).
+- PF-17: conectividad visible y recuperación/accesibilidad que afecten operación
+  (P2); ayuda contextual y ajustes de texto/presentación opcionales (P3).
+  [Observabilidad](operational-observability.md) conserva la señal de conexión.
+- PF-17, P3: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
   y rango personalizado. Conservar fechas visibles, generación explícita y
   aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
-- PF-17, con trazabilidad PF-15: usuario de la última emisión confirmada visible
+- PF-17, P2, con trazabilidad PF-15: usuario de la última emisión confirmada visible
   en la tarjeta y cabecera del lote; actividad histórica desplegada únicamente
   al consultar ese lote. El [diseño de actividad](pf-17-actividad-lotes-design.md)
   distingue carga, emisión y acciones posteriores, comparte procedencia con
@@ -99,8 +112,42 @@ producto.
   define una evolución nueva, conserva los cortes anteriores cerrados y exige
   revisión del diseño con el usuario en la aplicación local antes de publicar
   la implementación en el repositorio remoto.
-- Instalación simplificada, demo, compatibilidad, correo e integraciones
-  posteriores.
+- PF-17, P3: consulta opcional de último comprobante y próximo número dentro del
+  editor de punto de venta. Preservar PF-02/PF-19; definir tipos consultables,
+  estado de carga/error y alcance de `FECompUltimoAutorizado` antes de codificar.
+  Una consulta no reserva número ni garantiza el próximo frente a otra emisión;
+  no será una columna permanente ni un requisito previo a emitir.
+- PF-18, P3: instalación simplificada, demo, compatibilidad, correo e
+  integraciones, después de estabilidad operativa y la puerta para terceros
+  de PF-16. No ampliar funcionalidades del producto por la vía de packaging.
+
+## Preparación para abrir cada corte
+
+Los diseños específicos contienen decisiones de producto e invariantes, con
+matrices de aceptación. Sus apartados pendientes son trabajo previo a codificar,
+no capacidades ya implementadas. Las líneas generales necesitan delimitar una
+unidad antes de convertirse en una tarea ejecutable.
+
+| Corte | Fuente y preparación restante |
+|---|---|
+| Recuperación/trazabilidad | [Diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md): productor y cobertura de evidencia, escrituras posteriores y permisos; evidencia de instalación en el plano de control. |
+| Duplicados | [Diseño](pf-13-duplicados-lotes-design.md): normalización, alcance comparable, aceptación vinculada, coordinación atómica, historia compactada y transición. No espera toda la UI ni todo el constructor. |
+| Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): política de documento B/CF, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
+| Actividad de lotes | [Diseño](pf-17-actividad-lotes-design.md): fuente/orden de actor, cobertura histórica y consulta paginada. Reutiliza la procedencia mínima de duplicados, sin dependencia circular. |
+| Dashboard mensual | [Diseño](pf-18-dashboard-mensual-design.md): fuente temporal, moneda histórica, agregados y cobertura; el ícono tiene aceptación independiente. |
+| Reportes con períodos rápidos | [Diseño](pf-17-reportes-periodos-design.md): calendario e interacción definidos; verificar helper y consumidores al implementar. |
+| UI de lotes | [Diseño](pf-17-lotes-ui-design.md): distribución final y totales disponibles; revisión del usuario en la aplicación local antes del primer push de implementación. |
+| PF-04/PF-05 | Delimitar instantáneas, cobertura histórica y contratos de informes; después, diseño de importación externa opcional con procedencia, reanudación y aceptación. |
+| PF-09/PF-12/PF-14 | Delimitar por dominio certificados/ambiente, garantía de persistencia o contrato HTTP; migración, consumidores, error, concurrencia y rollback según el corte. No exigir completar una plataforma entera. |
+| Otras líneas generales | Automatización, distribución, eficiencia y consulta opcional: conservar alcance del inventario y cerrar diseño acotado, dependencias y aceptación antes de codificar. |
+
+## Decisión de prioridad pendiente
+
+La revisión del caso real de doble emisión justifica proponer que el corte de
+duplicados pase a P1 y a «Ahora». Queda pendiente la decisión del usuario sobre
+su posición respecto de recuperación/trazabilidad. Hasta esa decisión, el
+roadmap conserva su P2 y horizonte actuales; la recomendación no reordena por
+sí sola el trabajo ni incorpora el rediseño visual al corte urgente.
 
 ## Dependencias que no deben romperse
 
@@ -113,6 +160,10 @@ producto.
 6. PF-19D no reabre numeración PF-02 ni debilita las guardas PF-19 existentes.
 7. Un hallazgo nuevo P0/P1 puede alterar el orden sólo después de validación y
    decisión explícita.
+8. Duplicados, actividad y dashboard comparten autoría/cronología cuando aplique;
+   implementar la evidencia mínima con el primer consumidor, sin exigir que las
+   tres interfaces estén terminadas. El ícono y los atajos de fechas son cortes
+   independientes de los nuevos agregados.
 
 ## Líneas cerradas
 

@@ -12,7 +12,8 @@ El usuario pidió expresamente «Mes anterior», desde el primer día hasta el
 último de ese mes. La primera versión contempla los dos meses más próximos y
 mantiene la selección personalizada, sin agregar configuración ni confirmaciones.
 
-La mejora pertenece a PF-17 y conserva su horizonte en el roadmap. Comparte
+La mejora es P3 de conveniencia, pertenece a PF-17 y conserva su horizonte
+«Más adelante» en el roadmap. Comparte
 la definición de mes calendario del
 [dashboard mensual](pf-18-dashboard-mensual-design.md), pero no requiere ampliar
 el resumen del dashboard ni modificar los cálculos de ventas. Este corte se

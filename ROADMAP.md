@@ -14,7 +14,6 @@ la historia en [`CHANGELOG.md`](CHANGELOG.md).
 - **Ahora:** unidades aceptadas y ordenadas para los próximos cortes.
 - **Después:** trabajo aceptado cuya ejecución depende de cerrar «Ahora».
 - **Más adelante:** líneas válidas sin compromiso inmediato ni orden interno.
-- **Completado recientemente:** contexto mínimo; el detalle no vive aquí.
 
 Las prioridades expresan impacto, no tamaño:
 
@@ -28,16 +27,24 @@ Una mejora visual puede ascender si bloquea la operación. Una herramienta no
 decide prioridades por su severidad automática. Las fechas y versiones se fijan
 solo cuando el usuario aprueba un corte concreto.
 
+Cada PF identifica una línea, no una tarea indivisible. Sus cortes pueden tener
+prioridades y horizontes distintos. Una dependencia compartida exige la
+capacidad necesaria, no terminar toda la línea relacionada. La prioridad mide
+impacto; el orden de ejecución lo fijan «Ahora» y «Después».
+
 ## Ahora
 
 ### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
 
-**Prioridad:** P1/P2 operativa.
+**Prioridad:** P1 para recuperación; P2 para señales y soporte.
 
-Vincular cada backup preoperación con propósito, timestamp y escrituras
-intermedias; mostrar señales administrativas útiles; completar logs y soporte
+Vincular cada backup previo a una operación con propósito, fecha/hora y
+escrituras intermedias; mostrar señales administrativas útiles; completar
+registros operativos y soporte
 sin exponer evidencia privada. El estado concreto de una instalación permanece
 en `VPS Hostinger` / `vps-admin`.
+El [diseño de recuperación y trazabilidad](docs/agents/pf-11-15-recuperacion-trazabilidad-design.md)
+separa este corte de la automatización de backups de «Más adelante».
 
 ## Después
 
@@ -66,7 +73,8 @@ Estas líneas están aceptadas, pero no deben desplazar problemas fiscales u
 operativos confirmados:
 
 - **PF-10:** exportaciones, resguardo confirmado y liberación segura de
-  almacenamiento.
+  almacenamiento. **P2**; depende de preservación histórica PF-04 y recuperación
+  PF-11. Alcance en el [portafolio](docs/agents/development-portfolio.md).
 - **PF-13 — plantillas contables e importación fiscal:** permitir una misma
   plantilla con tipo (`FC`, `NC`, `ND`) y letra (`A`, `B`, `C`) en columnas
   separadas, CUIT y condición IVA del receptor por fila. Anticipar requisitos
@@ -78,7 +86,7 @@ operativos confirmados:
   comparte claridad de uso con PF-17 y contratos con PF-14. Alcance, auditoría,
   compatibilidad y aceptación en el
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
-  **Con PF-17, prevenir duplicados en emisión masiva:** silenciar repeticiones
+- **PF-13/PF-17 — prevención de duplicados, P2:** silenciar repeticiones
   anónimas internas y detectar coincidencias de contenido con lotes anteriores,
   incluso anónimos. Mostrar lote, archivo, cantidad, importe, fecha/hora y usuario
   de emisión anterior; dar mayor énfasis a «Volver a revisar». La excepción
@@ -86,61 +94,62 @@ operativos confirmados:
   de emitir y coordinar solicitudes simultáneas, conservando las guardas
   fiscales. Decisiones, compatibilidad y aceptación en el
   [diseño de prevención de duplicados](docs/agents/pf-13-duplicados-lotes-design.md).
-  PF-13 conserva además su línea de procesos largos y eficiencia de lotes.
-- **PF-16:** cobertura dirigida por riesgo, portabilidad de tooling y puerta
-  previa a ofrecer FactuFlow a terceros.
-- **PF-17:** accesibilidad, conectividad visible, ayudas contextuales y
-  recuperación comprensible para usuarios administrativos.
-  Facilitar el Reporte de ventas con «Mes actual», «Mes anterior» y selección
+  Comparte autoría PF-15 y garantías PF-01/PF-03; no depende del rediseño visual
+  ni de completar todo el constructor.
+- **PF-13 — procesos largos y eficiencia, P2:** límites de recursos y tareas
+  reanudables, conservando invariantes fiscales. Alcance en el
+  [portafolio](docs/agents/development-portfolio.md).
+- **PF-17 — períodos rápidos, P3:** facilitar el Reporte de ventas con
+  «Mes actual», «Mes anterior» y selección
   personalizada, completando Desde/Hasta y mostrando el rango calendario.
   Alcance y aceptación en el
   [diseño de períodos rápidos](docs/agents/pf-17-reportes-periodos-design.md).
-  Con PF-15, mostrar en cada lote sólo el nombre del usuario de la última
-  emisión confirmada y desplegar la actividad histórica al seleccionarlo,
-  conservando la vista compacta. Ubicación, atribución y aceptación en el
+- **PF-17/PF-15 — actividad de lotes, P2:** mostrar en cada lote el nombre del
+  usuario de la última emisión confirmada y desplegar la actividad histórica al
+  seleccionarlo, conservando la vista compacta. Ubicación, atribución y aceptación en el
   [diseño de actividad de lotes](docs/agents/pf-17-actividad-lotes-design.md).
-  **P2 de usabilidad operativa:** compactar la preparación de emisión masiva,
+- **PF-17 — UI de emisión masiva, P2:** compactar la preparación,
   mantener a la vista el resumen de requisitos y distinguir el archivo nuevo
   del historial. Coordinar con plantillas y duplicados PF-13, actividad PF-15 y
   almacenamiento PF-10. El diseño se revisará con el usuario en la aplicación
   local y podrá ajustarse antes de subir la implementación al repositorio
   remoto. Alcance y aceptación en el
   [diseño de UI de emisión masiva](docs/agents/pf-17-lotes-ui-design.md).
-- **PF-18:** ZIP de PDFs, distribución, soporte, correo e integraciones.
-  En el dashboard, mostrar cantidad y total en pesos del mes actual y anterior,
-  según fecha del comprobante, con mes/año y alcance explícitos; descontar notas
-  de crédito del importe. El último comprobante debe reflejar la emisión más
+- **PF-18/PF-17 — dashboard mensual, P2:** mostrar cantidad y total en pesos del
+  mes actual y anterior según fecha del comprobante, con mes/año y alcance
+  explícitos; descontar notas de crédito del importe. El último comprobante
+  debe reflejar la emisión más
   reciente e incluir fecha del comprobante y fecha/hora de emisión acreditada.
   Complementa la prevención de duplicados PF-13, con UX PF-17 y trazabilidad
   PF-15. Contrato, límites históricos y aceptación en el
   [diseño de resumen mensual](docs/agents/pf-18-dashboard-mensual-design.md).
-  Corregir también la señal visual del certificado: «Válido» debe mostrar un
+- **PF-18/PF-17 — estado del certificado, P3:** «Válido» debe mostrar un
   tilde de éxito; ícono y color deben acompañar cada estado, sin advertencia
-  fija para un certificado válido.
-- Backups cifrados automatizados, retención, alertas y recuperación ensayada
-  hacia un VPS nuevo.
-- Instalación simplificada, demo controlada y política de compatibilidad para
-  terceros, después de estabilizar operación y soporte.
-- Consulta opcional, dentro del editor de punto de venta y bajo demanda, del
+  fija para un certificado válido. Es independiente de los nuevos agregados
+  mensuales; comparte el [diseño del dashboard](docs/agents/pf-18-dashboard-mensual-design.md).
+- **PF-11/PF-15 — automatización de backups, P2:** cifrado, retención, alertas y
+  recuperación ensayada hacia un VPS nuevo, después de definir la evidencia
+  recuperable del corte operativo. El [diseño de recuperación](docs/agents/pf-11-15-recuperacion-trazabilidad-design.md)
+  delimita su alcance; la instalación se documenta en el plano de control.
+- **PF-16/PF-17 — calidad y uso administrativo, P2/P3:** cobertura dirigida por
+  riesgo y portabilidad de herramientas; accesibilidad, conectividad visible y
+  ayudas contextuales. Los cortes se priorizan por riesgo concreto en el
+  [portafolio](docs/agents/development-portfolio.md), sin refactor global.
+- **PF-18 — distribución e integraciones, P3:** ZIP de PDFs, soporte, correo e
+  integraciones; instalación simplificada y demo controlada para terceros tras
+  estabilizar operación y cumplir la puerta de calidad PF-16. Preservar
+  almacenamiento seguro PF-10. Alcance en el [portafolio](docs/agents/development-portfolio.md).
+- **PF-17 — consulta opcional de numeración, P3:** dentro del editor de punto de
+  venta y bajo demanda, consultar el
   último comprobante autorizado y el próximo número mediante
   `FECompUltimoAutorizado`. No será columna permanente ni requisito para emitir.
+  Preserva PF-02/PF-19; delimitar el corte en el
+  [portafolio](docs/agents/development-portfolio.md).
 
 El detalle, dependencias y adjudicación de estos temas viven en el
 [`portafolio de desarrollo`](docs/agents/development-portfolio.md).
 
-## Completado recientemente
-
-- **v0.3.5 / PF-06/PF-07/PF-08:** asignaciones explícitas multiemisor,
-  capacidad delegada para crear y editar y cambio de contexto seguro. La
-  release está publicada; el despliegue permanece pendiente.
-- **v0.3.4 / PF-19D:** WSFE como autoridad de puntos CAE, preferencia compartida
-  de uso y constancia descriptiva opcional, con guardas y migración conservadas.
-- **v0.3.2:** selección estricta y UX breve de puntos de venta.
-- **v0.3.1:** acreditación durable y compatibilidad con constancias ARCA.
-- **v0.3.0:** numeración compatible con historia externa, validación superior y
-  cierre PF-19A/PF-19B/PF-19C.
-
-Las notas, SHAs, CI y evidencia de esos cortes se consultan en
+Los cortes completados, releases y su evidencia se consultan en
 [`CHANGELOG.md`](CHANGELOG.md) y
 [`docs/project/releases/`](docs/project/releases/README.md). El estado
 desplegado no se infiere desde este repositorio.

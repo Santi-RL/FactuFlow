@@ -114,6 +114,29 @@ durante una auditoría. No sumar consultas externas por cada fila como requisito
 
 ### Importes y fechas
 
+Correspondencia del ejemplo contable aportado, sin datos personales ni filas
+reales. Las letras indican posiciones de ese ejemplo, no columnas obligatorias
+para todas las plantillas. Los encabezados efectivos se verifican al importar.
+
+| Posición | Dato | Interpretación |
+|---|---|---|
+| A | Fecha | Fecha fiscal del comprobante, si se eligió usar el archivo |
+| B | Razón social | Nombre del receptor; conservarlo para identificación y duplicados |
+| C | CUIT | Documento del receptor; obligatorio cuando lo exige el tipo/condición |
+| D | Tipo de comprobante | FC, NC o ND; resolver junto con la letra |
+| E | Letra | A, B o C, conforme al emisor y receptor |
+| F | Punto de venta | Usar el archivo o la opción fija explícita del lote |
+| G | Descripción | Texto del ítem o reemplazo fijo explícito del lote |
+| H | Importe neto | Base neta; confirmar el encabezado completo, truncado en la captura |
+| I | Total IVA | Importe de IVA para control, no porcentaje de alícuota |
+| J | Total final | Importe final informado para contrastar el cálculo canónico |
+
+Para admitir filas A, el archivo mixto agrega una columna de condición IVA del
+receptor. La alícuota del 21 % puede ser un valor fijo explícito de la plantilla
+aplicable al caso; no se deduce del importe de la columna I ni se generaliza
+a otros emisores. Las filas NC/ND requieren las columnas de asociado del
+contrato anterior. La ampliación de columnas se muestra en la plantilla generada.
+
 - H del ejemplo representa neto, I importe IVA y J total final. El nombre exacto
   del encabezado H debe leerse del archivo, no completarse desde una captura
   truncada. Admitir lectura por encabezado o posición con correspondencia visible.

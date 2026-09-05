@@ -18,7 +18,10 @@ PF-17 para claridad y accesibilidad; PF-04 aporta moneda e historia, y PF-15
 la procedencia temporal. Complementa el
 [control de duplicados PF-13](pf-13-duplicados-lotes-design.md), sin reemplazar
 sus comparaciones, checkbox, revalidación ni coordinación entre empleados.
-No cambia el orden o la prioridad vigentes ni agrega pasos obligatorios.
+Permanece en «Más adelante», sin agregar pasos obligatorios. El resumen mensual
+y la cronología son P2 de claridad operativa; el ajuste del ícono del certificado
+es P3 de presentación. Separar ambos alcances permite corregir el ícono sin
+esperar el contrato nuevo de agregados o alterar validaciones de certificados.
 
 ## Base comprobada en el código
 

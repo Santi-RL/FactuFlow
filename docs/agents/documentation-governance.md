@@ -1,6 +1,6 @@
 # Gobierno de la documentación
 
-Última revisión: 29/08/2026
+Última revisión: 05/09/2026
 
 Estado: VIGENTE.
 
@@ -53,7 +53,9 @@ sólo el dueño de cada hecho.
 
 ## Roadmap
 
-- Mantener `Ahora`, `Después`, `Más adelante` y un cierre reciente mínimo.
+- Mantener `Ahora`, `Después` y `Más adelante` sólo con trabajo futuro.
+  El cierre y las releases se consultan en changelog, dossier y estado; el
+  roadmap puede enlazarlos sin duplicar su historia ni fijar un despliegue.
 - No copiar matrices, SHAs, comandos, pruebas o cronologías.
 - Mover el detalle a un diseño y la historia a changelog/dossier/archivo.
 - No usar fechas o versiones como compromiso sin decisión explícita.

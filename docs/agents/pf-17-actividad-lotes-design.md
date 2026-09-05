@@ -8,19 +8,26 @@ documento prepara el cambio sin modificar código ni producción.
 ## Objetivo y alcance
 
 Identificar desde la aplicación quién realizó la emisión de un lote y consultar
-su historia cuando haga falta. La vista habitual agrega únicamente el nombre
-del usuario de la última emisión confirmada; el detalle histórico se despliega
+su historia cuando haga falta. Como dato nuevo de autoría, la vista habitual
+agrega únicamente el nombre del usuario de la última emisión confirmada;
+el detalle histórico se despliega
 al hacer clic en el lote. No añadir una tabla de auditoría permanente, otra
 pantalla, confirmaciones ni pasos para emitir.
 
 PF-17 es dueño de esta presentación y PF-15 de la procedencia y conservación
-de la actividad. El corte permanece en «Más adelante» junto con PF-17; no
-desplaza el trabajo vigente de recuperación/trazabilidad de «Ahora». Comparte
+de la actividad. Es P2 de trazabilidad administrativa. El corte permanece en
+«Más adelante» junto con PF-17; no desplaza el trabajo vigente de
+recuperación/trazabilidad de «Ahora». Comparte
 la fuente del actor con el
 [diseño de duplicados PF-13](pf-13-duplicados-lotes-design.md), sin cambiar
 advertencias, permisos ni guardas fiscales. La evolución general de la
 distribución se concentra en el [diseño de UI de lotes](pf-17-lotes-ui-design.md);
 este documento conserva la autoridad sobre atribución y apertura de actividad.
+
+El contrato mínimo de autoría que necesita la advertencia de duplicados puede
+implementarse con aquel corte; no depende de terminar esta lista de actividad.
+Reutilizar después esa misma procedencia, evitando una dependencia circular
+entre la advertencia y la pantalla de auditoría.
 
 ## Vista y comportamiento observados
 
@@ -151,7 +158,7 @@ leyó o ignoró un mensaje. Una cuenta compartida sólo identifica la cuenta usa
 
 | Caso sintético | Resultado requerido |
 |---|---|
-| Carga inicial automática; tarjetas recientes | Sólo el último actor como dato nuevo visible; historial plegado, sin lista permanente. |
+| Carga inicial automática; tarjetas recientes | Como dato nuevo de autoría, sólo el último actor; historial plegado, sin lista permanente. Los totales y la distribución pertenecen al diseño de UI. |
 | Clic en otro lote o en el ya seleccionado | Se abre su actividad en el panel existente con ese mismo clic; sin modal, nueva pantalla ni pérdida de la preparación. |
 | Actualización de progreso o listado | No abre actividad ni cambia foco; conserva el lote y la decisión de plegado del usuario. |
 | Carga por Usuario A y emisión por Usuario B, en primer plano o worker | Resumen muestra B; actividad distingue A/B sin atribuir la emisión al proceso automático. |

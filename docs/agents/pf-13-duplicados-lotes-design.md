@@ -17,6 +17,10 @@ irrelevantes y explicar la coincidencia que requiere una decisión contable.
 PF-13 es dueño de la comparación y del flujo masivo; PF-17, de la presentación
 y accesibilidad; PF-14/PF-12 acompañan contratos y garantías de concurrencia.
 PF-15 aporta trazabilidad. Se conservan PF-01/PF-03 y el aislamiento multiemisor.
+Implementar la procedencia mínima del actor y las garantías necesarias con este
+corte; no esperar el historial visual completo, la ampliación tipo/letra del
+constructor ni la totalidad de PF-12/PF-14/PF-15. Compartir sus contratos sin
+crear una dependencia circular.
 La identidad leída del Excel se coordina con el
 [diseño de plantillas](pf-13-plantillas-contables-design.md). No hay otro motor
 de duplicados ni se reabre el rediseño de lotes cerrado. El horizonte y orden
@@ -225,6 +229,12 @@ comportamiento aunque comparta helpers.
 - Conservar el bloqueo vigente de la misma carga, las reservas de numeración,
   aislamiento y confirmación irreversible. La excepción por similitud no
   permite volver a ejecutar una operación fiscal ya autorizada.
+  «Misma carga» se refiere a la huella compuesta de importación por emisor,
+  distinta de la similitud de comprobantes y de una solicitud fiscal repetida.
+  El control actual puede impedir registrar el segundo lote antes de llegar al
+  diálogo; este corte no ofrece el checkbox para eludir esa restricción. No
+  recomendar cambios artificiales al Excel para sortearla. Un futuro flujo de
+  nueva operación desde una carga idéntica requeriría una decisión específica.
 - El comparador es local: no necesita llamadas a ARCA ni conservar indefinidamente
   Excels/PDF. Los hashes de carga compuestos no prueban por sí solos igualdad
   binaria; registrar la procedencia suficiente sin prometer reconstruir archivos
@@ -232,6 +242,10 @@ comportamiento aunque comparta helpers.
 - Versionar el contrato de comparación/aceptación y definir transición para
   lotes existentes. Si faltan datos históricos, mostrar el límite; no inferir
   ausencia de duplicación o de confirmación por ausencia de registros.
+  Cubrir lotes compactados: la comparación y su evidencia deben sobrevivir con
+  una representación mínima verificable, sin conservar todo el Excel. En datos
+  antiguos sin esa representación, declarar cobertura parcial; no prometer
+  detección completa ni equiparar «No comprobable» a «Sin coincidencias».
 - La excepción no altera receptor, fecha, importes ni tipo del comprobante.
   Resolver la pérdida de documento en importación sin inventar identidad ni
   cambiar implícitamente la política fiscal de consumidor final.
