@@ -159,6 +159,25 @@ el flujo fiscal para reconstruirla durante la consulta.
   requisito de este corte; el resumen es informativo y no prueba ausencia de
   cambios posteriores ni sustituye la revalidación previa a emitir.
 
+### Estado del certificado: texto, ícono y color coherentes
+
+La tarjeta actual fija `ExclamationTriangleIcon` y los colores de advertencia
+en `DashboardView.vue`, incluso cuando el estado mostrado es «Válido». El usuario
+solicitó corregir esta contradicción visual en el mismo dashboard.
+
+| Estado | Presentación futura |
+|---|---|
+| Válido | Tilde dentro de un círculo (`CheckCircleIcon`) y color de éxito; sin triángulo ni color de advertencia. |
+| Por vencer | Ícono de advertencia y color de atención. |
+| Vencido | Ícono de error y color de error. |
+| Sin certificado | Ícono de ausencia o información, sin tilde de éxito. |
+| Cargando o estado no disponible | Indicador de carga o estado desconocido; no mostrar un tilde que sugiera validez confirmada. |
+
+Elegir texto, ícono y color desde el mismo estado, preservando la etiqueta
+visible para no depender sólo del color. Al cambiar de emisor, no conservar
+la señal de éxito del anterior. Es un ajuste de presentación: no cambia la
+validación del certificado ni las alertas y controles previos a emitir.
+
 ## Implementación futura y aceptación
 
 Preferir un resumen agregado en servidor, acotado e indexado por emisor,
@@ -184,6 +203,7 @@ SQLite/PostgreSQL; evaluar todos los consumidores si se comparte cálculo.
 | Fallo parcial, respuesta vieja, cambio rápido de emisor y recuperación de red | Sin ceros falsos ni mezcla de contexto; datos vigentes y reintento claro. |
 | Lote en curso por otro empleado mientras se consulta | Mostrar sólo lo confirmado al corte de consulta; no prometer datos en tiempo real ni un período completo. |
 | Volumen alto, pantalla estrecha, zoom y teclado | Consulta acotada y tarjetas legibles, sin descargar todos los comprobantes ni sumar pasos obligatorios. |
+| Certificado válido, por vencer, vencido, ausente y estado no disponible | Texto, ícono y color corresponden a la tabla; «Válido» tiene tilde de éxito. La carga y el cambio de emisor no muestran una validez anterior como vigente. |
 
 Antes de implementar, cerrar procedencia temporal, conversión, contrato del
 resumen y detalle visual. Actualizar manual/API/QA cuando cambie la conducta

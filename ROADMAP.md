@@ -99,6 +99,9 @@ operativos confirmados:
   Complementa la prevención de duplicados PF-13, con UX PF-17 y trazabilidad
   PF-15. Contrato, límites históricos y aceptación en el
   [diseño de resumen mensual](docs/agents/pf-18-dashboard-mensual-design.md).
+  Corregir también la señal visual del certificado: «Válido» debe mostrar un
+  tilde de éxito; ícono y color deben acompañar cada estado, sin advertencia
+  fija para un certificado válido.
 - Backups cifrados automatizados, retención, alertas y recuperación ensayada
   hacia un VPS nuevo.
 - Instalación simplificada, demo controlada y política de compatibilidad para

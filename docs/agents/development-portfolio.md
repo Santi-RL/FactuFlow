@@ -77,6 +77,8 @@ producto.
   [diseño del dashboard mensual](pf-18-dashboard-mensual-design.md) define
   cálculo, moneda, cronología, estados de consulta y pruebas; complementa
   PF-13 sin sustituir su control previo a emitir ni abrir otro motor de duplicados.
+  Incluye corregir la tarjeta de certificado: tilde de éxito para «Válido» e
+  ícono/color coherentes para los demás estados.
 - ZIP de PDFs, selección múltiple y limpieza de temporales.
 - Jobs reanudables, trazabilidad de tareas masivas y límites de recursos.
 - Cobertura de reportes/PDF, smoke local y portabilidad de herramientas.
