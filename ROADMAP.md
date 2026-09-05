@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 04/09/2026
+Última revisión: 05/09/2026
 
 Estado: VIGENTE.
 
@@ -91,8 +91,14 @@ operativos confirmados:
   previa a ofrecer FactuFlow a terceros.
 - **PF-17:** accesibilidad, conectividad visible, ayudas contextuales y
   recuperación comprensible para usuarios administrativos.
-- **PF-18:** ZIP de PDFs, distribución, soporte, correo, integraciones y
-  dashboard posterior.
+- **PF-18:** ZIP de PDFs, distribución, soporte, correo e integraciones.
+  En el dashboard, mostrar cantidad y total en pesos del mes actual y anterior,
+  según fecha del comprobante, con mes/año y alcance explícitos; descontar notas
+  de crédito del importe. El último comprobante debe reflejar la emisión más
+  reciente e incluir fecha del comprobante y fecha/hora de emisión acreditada.
+  Complementa la prevención de duplicados PF-13, con UX PF-17 y trazabilidad
+  PF-15. Contrato, límites históricos y aceptación en el
+  [diseño de resumen mensual](docs/agents/pf-18-dashboard-mensual-design.md).
 - Backups cifrados automatizados, retención, alertas y recuperación ensayada
   hacia un VPS nuevo.
 - Instalación simplificada, demo controlada y política de compatibilidad para

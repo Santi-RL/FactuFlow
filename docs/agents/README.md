@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 04/09/2026
+Última revisión: 05/09/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -67,6 +67,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - PF-13/PF-17, implementación futura:
   [plantillas contables](pf-13-plantillas-contables-design.md) y
   [prevención de duplicados en lotes](pf-13-duplicados-lotes-design.md).
+- PF-18/PF-17, implementación futura:
+  [dashboard mensual y fechas de emisión](pf-18-dashboard-mensual-design.md).
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)
 - PF-06/PF-07/PF-08:

@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 04/09/2026
+Última revisión: 05/09/2026
 
 Estado: VIGENTE.
 
@@ -31,7 +31,7 @@ producto.
 | PF-13 | Más adelante | P2 fiscal/operativa | Plantillas contables, interpretación verificable, prevención de duplicados y lotes eficientes | PF-01/PF-03, PF-12/PF-14, UX con PF-17 y trazabilidad con PF-15; [plantillas](pf-13-plantillas-contables-design.md), [duplicados](pf-13-duplicados-lotes-design.md) |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
 | PF-17 | Más adelante | P2/P3 | UX administrativa, accesibilidad y recuperación de errores | PF-03, PF-07, PF-14 y PF-15 |
-| PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard | Madurez operativa y almacenamiento seguro |
+| PF-18 | Más adelante | P3 | PDFs masivos, distribución, soporte, correo, integraciones y dashboard con períodos e historial de emisión claros | Madurez operativa y almacenamiento seguro; PF-04/PF-15 para moneda e historia, PF-17 para UX; [dashboard](pf-18-dashboard-mensual-design.md) |
 
 ## Trabajo agrupado por línea
 
@@ -71,6 +71,12 @@ producto.
   con trazabilidad PF-15 y garantías PF-01. El
   [diseño de duplicados](pf-13-duplicados-lotes-design.md) concentra el contrato,
   las decisiones aceptadas y la matriz para implementar.
+- PF-18/PF-17: cantidad y total en pesos del mes actual y anterior por fecha
+  del comprobante, períodos explícitos y último comprobante con sus dos fechas.
+  Las notas de crédito restan del importe, no de la cantidad. El
+  [diseño del dashboard mensual](pf-18-dashboard-mensual-design.md) define
+  cálculo, moneda, cronología, estados de consulta y pruebas; complementa
+  PF-13 sin sustituir su control previo a emitir ni abrir otro motor de duplicados.
 - ZIP de PDFs, selección múltiple y limpieza de temporales.
 - Jobs reanudables, trazabilidad de tareas masivas y límites de recursos.
 - Cobertura de reportes/PDF, smoke local y portabilidad de herramientas.

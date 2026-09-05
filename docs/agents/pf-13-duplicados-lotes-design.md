@@ -22,6 +22,11 @@ La identidad leída del Excel se coordina con el
 de duplicados ni se reabre el rediseño de lotes cerrado. El horizonte y orden
 del roadmap permanecen vigentes; no se fijó una fecha de implementación.
 
+El [resumen mensual del dashboard](pf-18-dashboard-mensual-design.md), a cargo
+de PF-18/PF-17, aporta contexto previo: cantidades, importes y dos fechas del
+último comprobante. Es una señal informativa; no sustituye esta comparación
+ni permite deducir que un período está completo o libre de duplicados.
+
 La investigación del caso productivo queda en la evidencia privada del plano
 de control. Los ejemplos de este documento son sintéticos. No copiar nombres,
 archivos, números, importes ni registros reales al repositorio público.
