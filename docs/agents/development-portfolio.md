@@ -25,7 +25,8 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-11/PF-15, recuperación operativa | Ahora 1 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-13/PF-17, duplicados | Ahora 1 | P1 | Prevención de doble emisión con evidencia y excepción consciente | Autoría mínima PF-15 y garantías PF-01/PF-03; [duplicados](pf-13-duplicados-lotes-design.md) |
+| PF-11/PF-15, recuperación operativa | Ahora 2 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
 | PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
@@ -34,7 +35,6 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
 | PF-11/PF-15, automatización posterior | Más adelante | P2 | Backups cifrados automatizados, retención, alertas y recuperación hacia un VPS nuevo | Recuperación operativa; diseño específico al abrir el corte e instalación en el plano de control |
 | PF-13, plantillas y procesos largos | Más adelante | P2 fiscal/operativa | Interpretación contable verificable y lotes eficientes | PF-01/PF-03, garantías PF-12/PF-14 y UX PF-17; [plantillas](pf-13-plantillas-contables-design.md) |
-| PF-13/PF-17, duplicados | Más adelante | P2 | Prevención de doble emisión con evidencia y excepción consciente | Autoría mínima PF-15 y garantías PF-01/PF-03; [duplicados](pf-13-duplicados-lotes-design.md) |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
 | PF-17 | Más adelante | P2/P3 | UX administrativa, accesibilidad y recuperación de errores | PF-03, PF-07, PF-14 y PF-15 |
 | PF-18 | Más adelante | P2/P3 | P2: resumen mensual y cronología; P3: ícono de certificado, distribución e integraciones | PF-04/PF-15 para moneda e historia y PF-17 para UX; [dashboard](pf-18-dashboard-mensual-design.md); PF-10/PF-16 para distribución |
@@ -74,8 +74,9 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   adjudica los hallazgos de la auditoría y conserva versiones, perfiles,
   importes, confirmación fiscal e idempotencia. No reabre el rediseño cerrado de
   lotes ni incorpora una segunda línea de constructor.
-- PF-13/PF-17: prevención de duplicados con receptor identificable dentro del
-  lote y comparación de contenido contra lotes anteriores, incluso anónimos.
+- PF-13/PF-17, **P1 — Ahora 1**: prevención de duplicados con receptor
+  identificable dentro del lote y comparación de contenido contra lotes
+  anteriores, incluso anónimos.
   Advertencia con evidencia y usuario de emisión anterior, retorno como acción
   principal y excepción con checkbox. Revalidación y coordinación simultánea,
   con trazabilidad PF-15 y garantías PF-01. El
@@ -141,13 +142,12 @@ unidad antes de convertirse en una tarea ejecutable.
 | PF-09/PF-12/PF-14 | Delimitar por dominio certificados/ambiente, garantía de persistencia o contrato HTTP; migración, consumidores, error, concurrencia y rollback según el corte. No exigir completar una plataforma entera. |
 | Otras líneas generales | Automatización, distribución, eficiencia y consulta opcional: conservar alcance del inventario y cerrar diseño acotado, dependencias y aceptación antes de codificar. |
 
-## Decisión de prioridad pendiente
+## Orden aceptado
 
-La revisión del caso real de doble emisión justifica proponer que el corte de
-duplicados pase a P1 y a «Ahora». Queda pendiente la decisión del usuario sobre
-su posición respecto de recuperación/trazabilidad. Hasta esa decisión, el
-roadmap conserva su P2 y horizonte actuales; la recomendación no reordena por
-sí sola el trabajo ni incorpora el rediseño visual al corte urgente.
+Por decisión del usuario, duplicados es P1 y ocupa el primer lugar de «Ahora»;
+recuperación/trazabilidad queda segundo. Se conservan los requisitos de
+respaldo y recuperación de cada operación. Esta prioridad no incorpora el
+rediseño visual completo ni la ampliación del constructor al corte urgente.
 
 ## Dependencias que no deben romperse
 

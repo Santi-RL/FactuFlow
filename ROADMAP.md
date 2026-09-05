@@ -34,7 +34,26 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
-### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 1. PF-13/PF-17 — prevención de duplicados en emisión masiva
+
+**Prioridad:** P1 fiscal y operativa, por decisión del usuario ante el caso real
+de doble emisión.
+
+Silenciar repeticiones anónimas internas y detectar coincidencias de contenido
+con lotes anteriores, incluso anónimos. Mostrar lote, archivo, cantidad,
+importe, fecha/hora y usuario de emisión anterior; dar mayor énfasis a
+«Volver a revisar». La excepción «Emitir como operaciones nuevas» exige un
+checkbox específico. Revalidar antes de emitir y coordinar solicitudes
+simultáneas, conservando las guardas fiscales. Decisiones, compatibilidad y
+aceptación en el
+[diseño de prevención de duplicados](docs/agents/pf-13-duplicados-lotes-design.md).
+
+Comparte autoría PF-15 y garantías PF-01/PF-03; no depende del rediseño visual
+ni de completar todo el constructor. Se conservan los requisitos de respaldo
+y recuperación aplicables a cada operación, aunque el corte de mejora
+operativa siguiente se implemente después.
+
+### 2. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 
@@ -86,16 +105,6 @@ operativos confirmados:
   comparte claridad de uso con PF-17 y contratos con PF-14. Alcance, auditoría,
   compatibilidad y aceptación en el
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
-- **PF-13/PF-17 — prevención de duplicados, P2:** silenciar repeticiones
-  anónimas internas y detectar coincidencias de contenido con lotes anteriores,
-  incluso anónimos. Mostrar lote, archivo, cantidad, importe, fecha/hora y usuario
-  de emisión anterior; dar mayor énfasis a «Volver a revisar». La excepción
-  «Emitir como operaciones nuevas» exige un checkbox específico. Revalidar antes
-  de emitir y coordinar solicitudes simultáneas, conservando las guardas
-  fiscales. Decisiones, compatibilidad y aceptación en el
-  [diseño de prevención de duplicados](docs/agents/pf-13-duplicados-lotes-design.md).
-  Comparte autoría PF-15 y garantías PF-01/PF-03; no depende del rediseño visual
-  ni de completar todo el constructor.
 - **PF-13 — procesos largos y eficiencia, P2:** límites de recursos y tareas
   reanudables, conservando invariantes fiscales. Alcance en el
   [portafolio](docs/agents/development-portfolio.md).

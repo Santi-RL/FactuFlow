@@ -1,6 +1,7 @@
 # PF-13/PF-17 — prevención de duplicados en emisión masiva
 
 Fecha: 04/09/2026.
+Última revisión: 05/09/2026.
 
 Estado: decisión de producto aceptada; implementación pendiente. Este diseño
 es la fuente del comportamiento futuro y de su aceptación. No describe una
@@ -23,8 +24,12 @@ constructor ni la totalidad de PF-12/PF-14/PF-15. Compartir sus contratos sin
 crear una dependencia circular.
 La identidad leída del Excel se coordina con el
 [diseño de plantillas](pf-13-plantillas-contables-design.md). No hay otro motor
-de duplicados ni se reabre el rediseño de lotes cerrado. El horizonte y orden
-del roadmap permanecen vigentes; no se fijó una fecha de implementación.
+de duplicados ni se reabre el rediseño de lotes cerrado.
+
+Por decisión del usuario, este corte tiene **prioridad P1 fiscal y operativa**
+y ocupa el **primer lugar de «Ahora»** en el [roadmap](../../ROADMAP.md), antes
+de recuperación/trazabilidad. Se mantienen los requisitos de respaldo y
+recuperación aplicables a cada operación. No se fijó una fecha de implementación.
 
 La evolución posterior de la distribución se define en el
 [diseño de UI de lotes PF-17](pf-17-lotes-ui-design.md). Compactar la pantalla
