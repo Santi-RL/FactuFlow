@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 02/09/2026
+Última revisión: 05/09/2026
 
 Estado: VIGENTE.
 
@@ -44,12 +44,13 @@ permanecen vigentes.
 
 ## Trabajo aceptado pendiente
 
-1. **PF-11/PF-15:** recuperación y trazabilidad operativa.
-2. Evidencia histórica y robustez según el orden de `ROADMAP.md`.
-
-El orden y alcance macro se consultan exclusivamente en
+El orden y alcance macro del trabajo pendiente se consultan exclusivamente en
 [`ROADMAP.md`](../../ROADMAP.md). El detalle completo está en
 [`development-portfolio.md`](development-portfolio.md) y los diseños enlazados.
+No duplicar aquí la secuencia: una línea puede tener varios cortes con
+prioridades y horizontes diferentes. Los diseños futuros no describen
+capacidades implementadas. La revisión visual local acordada para la UI de
+lotes permanece en su diseño y precede a la publicación de esa implementación.
 
 ## Punto de reanudación
 

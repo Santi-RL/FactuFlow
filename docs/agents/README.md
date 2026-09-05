@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 31/08/2026
+Última revisión: 05/09/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -64,14 +64,36 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-11/PF-15, implementación futura:
+  [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
+- PF-13/PF-17, implementación futura:
+  [plantillas contables](pf-13-plantillas-contables-design.md) y
+  [prevención de duplicados en lotes](pf-13-duplicados-lotes-design.md).
+- PF-18/PF-17, implementación futura:
+  [dashboard mensual y fechas de emisión](pf-18-dashboard-mensual-design.md).
+- PF-17, implementación futura:
+  [períodos rápidos en Reporte de ventas](pf-17-reportes-periodos-design.md) y
+  [usuario e historial de actividad de lotes](pf-17-actividad-lotes-design.md),
+  este último con trazabilidad PF-15.
+- PF-17, implementación futura:
+  [UI compacta de emisión masiva](pf-17-lotes-ui-design.md), con revisión visual
+  del usuario en la aplicación local antes de publicar la implementación.
+
+El [portafolio](development-portfolio.md) distingue alcance aceptado de
+contratos técnicos todavía por cerrar. Un diseño futuro no significa que la
+implementación esté autorizada o terminada.
+
+## Diseños cerrados de consulta
+
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)
 - PF-06/PF-07/PF-08:
   [`pf-06-08-permisos-multiemisor-design.md`](pf-06-08-permisos-multiemisor-design.md)
-- Rediseño de lotes diferido:
+- Antecedente de lotes, cortes cerrados; la evolución pendiente está en PF-17:
   [`lotes-ux-redesign.md`](lotes-ux-redesign.md)
 
-PF-01, PF-02, PF-03A/B y PF-19A/B/C están cerrados. El contrato de ítems vive en
+También están cerrados PF-01, PF-02, PF-03A/B y PF-19A/B/C. El contrato de ítems
+vive en
 [`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
 Sus diseños se consultan sólo para
 preservar invariantes o rastrear decisiones.
