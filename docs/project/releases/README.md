@@ -14,6 +14,8 @@ autoriza producción.
 
 ## Índice
 
+- [`pf13-duplicados-candidate.md`](pf13-duplicados-candidate.md): candidato de
+  prevención de duplicados PF-13/PF-17; versión y publicación pendientes.
 - [`v0.3.5-candidate.md`](v0.3.5-candidate.md): cierre y publicación de
   operadores con permisos multiemisor PF-06/PF-07/PF-08; despliegue pendiente.
 - [`v0.3.4-candidate.md`](v0.3.4-candidate.md): cierre y publicación de PF-19D,

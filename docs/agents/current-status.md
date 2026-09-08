@@ -61,8 +61,10 @@ coincidencias actuales quedan bloqueados para continuar o reintentar. Se
 conservan historia, replay terminal y reconciliación. El alcance preciso de
 compatibilidad y el contrato técnico viven en el
 [diseño de duplicados](pf-13-duplicados-lotes-design.md); los cambios de la
-unidad se consultan en `CHANGELOG.md > Unreleased`. Esto no acredita su
-publicación ni su despliegue.
+unidad se consultan en `CHANGELOG.md > Unreleased`. El corte está implementado
+y su [dossier](../project/releases/pf13-duplicados-candidate.md) reúne evidencia,
+migraciones y recuperación. La publicación de la release y el despliegue
+requieren sus decisiones correspondientes; no se acreditan desde este estado.
 
 ## Trabajo aceptado pendiente
 
@@ -75,6 +77,11 @@ capacidades implementadas. La revisión visual local acordada para la UI de
 lotes permanece en su diseño y precede a la publicación de esa implementación.
 
 ## Punto de reanudación
+
+Para cerrar la publicación de duplicados, consultar primero el dossier del
+candidato. No iniciar la siguiente unidad del roadmap como parte de ese cierre.
+La comprobación del origen realmente desplegado y del respaldo productivo
+corresponde a una fase autorizada en `vps-admin`.
 
 Para continuar desarrollo:
 

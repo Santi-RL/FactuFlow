@@ -26,10 +26,11 @@ La identidad leída del Excel se coordina con el
 [diseño de plantillas](pf-13-plantillas-contables-design.md). No hay otro motor
 de duplicados ni se reabre el rediseño de lotes cerrado.
 
-Por decisión del usuario, este corte tiene **prioridad P1 fiscal y operativa**
-y ocupa el **primer lugar de «Ahora»** en el [roadmap](../../ROADMAP.md), antes
-de recuperación/trazabilidad. Se mantienen los requisitos de respaldo y
-recuperación aplicables a cada operación. No se fijó una fecha de implementación.
+Este corte implementado responde a la **prioridad P1 fiscal y operativa**
+acordada por el usuario. Su evidencia y preparación de publicación viven en el
+[dossier del candidato](../project/releases/pf13-duplicados-candidate.md).
+El [roadmap](../../ROADMAP.md) conserva las próximas unidades; se mantienen los
+requisitos de respaldo y recuperación aplicables a cada operación.
 
 La evolución posterior de la distribución se define en el
 [diseño de UI de lotes PF-17](pf-17-lotes-ui-design.md). Compactar la pantalla

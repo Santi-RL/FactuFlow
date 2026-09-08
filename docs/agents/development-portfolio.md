@@ -25,8 +25,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-13/PF-17, duplicados | Ahora 1 | P1 | Prevención de doble emisión con evidencia y excepción consciente | Autoría mínima PF-15 y garantías PF-01/PF-03; [duplicados](pf-13-duplicados-lotes-design.md) |
-| PF-11/PF-15, recuperación operativa | Ahora 2 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-11/PF-15, recuperación operativa | Ahora 1 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
 | PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
@@ -74,15 +73,6 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   adjudica los hallazgos de la auditoría y conserva versiones, perfiles,
   importes, confirmación fiscal e idempotencia. No reabre el rediseño cerrado de
   lotes ni incorpora una segunda línea de constructor.
-- PF-13/PF-17, **P1 — Ahora 1**: prevención de duplicados con receptor
-  identificable dentro del lote y comparación de contenido contra lotes
-  anteriores, incluso anónimos.
-  Advertencia con evidencia y usuario de emisión anterior, retorno como acción
-  principal y excepción con checkbox. Revalidación y coordinación simultánea,
-  con trazabilidad PF-15 y garantías PF-01. El
-  [diseño de duplicados](pf-13-duplicados-lotes-design.md) concentra el contrato,
-  las decisiones aceptadas y la matriz normativa de implementación y aceptación;
-  los resultados de ejecución se conservan fuera del portafolio.
 - PF-18/PF-17, P2: cantidad y total en pesos del mes actual y anterior por fecha
   del comprobante, períodos explícitos y último comprobante con sus dos fechas.
   Las notas de crédito restan del importe, no de la cantidad. El
@@ -159,7 +149,6 @@ unidad antes de convertirse en una tarea ejecutable.
 | Corte | Fuente y preparación restante |
 |---|---|
 | Recuperación/trazabilidad | [Diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md): productor y cobertura de evidencia, escrituras posteriores y permisos; evidencia de instalación en el plano de control. |
-| Duplicados | [Contrato vigente](pf-13-duplicados-lotes-design.md): normalización, alcance comparable, aceptación vinculada, coordinación atómica, historia compactada y transición. El cierre de calidad y release preserva ese alcance; no espera toda la UI ni todo el constructor. |
 | Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): política de documento B/CF, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
 | Actividad de lotes | [Diseño](pf-17-actividad-lotes-design.md): fuente/orden de actor, cobertura histórica y consulta paginada. Reutiliza la procedencia mínima de duplicados, sin dependencia circular. |
 | Dashboard mensual | [Diseño](pf-18-dashboard-mensual-design.md): fuente temporal, moneda histórica, agregados y cobertura; el ícono tiene aceptación independiente. |
@@ -171,10 +160,11 @@ unidad antes de convertirse en una tarea ejecutable.
 
 ## Orden aceptado
 
-Por decisión del usuario, duplicados es P1 y ocupa el primer lugar de «Ahora»;
-recuperación/trazabilidad queda segundo. Se conservan los requisitos de
-respaldo y recuperación de cada operación. Esta prioridad no incorpora el
-rediseño visual completo ni la ampliación del constructor al corte urgente.
+Recuperación/trazabilidad es la siguiente unidad de desarrollo del roadmap.
+Se conservan los requisitos de respaldo y recuperación de cada operación.
+El cierre de publicación de duplicados se consulta en su dossier y no autoriza
+a iniciar otra unidad ni incorpora el rediseño visual completo o la ampliación
+del constructor.
 
 ## Dependencias que no deben romperse
 
@@ -193,6 +183,11 @@ rediseño visual completo ni la ampliación del constructor al corte urgente.
    independientes de los nuevos agregados.
 
 ## Líneas cerradas
+
+El corte de prevención de duplicados PF-13/PF-17 está implementado; su contrato
+vive en [duplicados](pf-13-duplicados-lotes-design.md) y su candidato en el
+[dossier](../project/releases/pf13-duplicados-candidate.md). Esto no cierra las
+otras unidades de PF-13/PF-17 ni acredita publicación o despliegue.
 
 PF-01, PF-02, PF-03A/PF-03B, PF-06/PF-07/PF-08 y
 PF-19A/PF-19B/PF-19C/PF-19D están cerrados. El contrato
