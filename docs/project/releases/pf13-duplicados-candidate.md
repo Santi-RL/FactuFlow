@@ -1,15 +1,15 @@
-# Candidato de prevención de duplicados PF-13/PF-17
+# Candidato v0.3.6 — prevención de duplicados PF-13/PF-17
 
 Fecha de corte de evidencia: 08/09/2026.
 
-Estado: **candidato técnico, publicación pendiente**. Este dossier conserva la evidencia del código y los requisitos de publicación; no asigna una versión, no crea un tag o release y no acredita despliegue. El estado de cualquier instalación se consulta únicamente en el plano de control operativo.
+Estado: **candidato v0.3.6, publicación pendiente**. Este dossier conserva la evidencia del código y los requisitos de publicación. No crea por sí solo un tag o release ni acredita despliegue. El estado de cualquier instalación se consulta únicamente en el plano de control operativo.
 
 ## Identificación del rango
 
 - Base de `main`: `80ac122052761ffe94184f5eb6cfbbce43ead6e1`.
 - Commit de código evaluado: `8f733772417938810ee477e716739722da5d5ea5`. El PR que integra este dossier conserva los ajustes documentales y los resultados de integración posteriores a ese corte.
-- Última release publicada al preparar este dossier: `v0.3.5`, cuyo tag apunta a `ba8b7d0e5d9a2fd1c0a68a714e02f6a5aab0a655`. El candidato no presupone el nombre de la siguiente versión.
-- El rango entre ese tag y la base `80ac122` contiene sólo cambios Markdown; el runtime nuevo de este candidato está íntegramente en `8f73377`.
+- Última release publicada al preparar este dossier: `v0.3.5`, cuyo tag apunta a `ba8b7d0e5d9a2fd1c0a68a714e02f6a5aab0a655`. El corte de publicación posterior corresponde a `v0.3.6`.
+- El rango entre ese tag y la base `80ac122` contiene sólo cambios Markdown; los cambios funcionales de este candidato están íntegramente en `8f73377`. El versionado posterior no altera ese comportamiento.
 
 ## Resultado incluido
 
@@ -30,7 +30,7 @@ También se actualiza `pypdf` a `6.16.1` para resolver avisos de seguridad en la
 - No convierte similitud en prueba de autorización de ARCA y el comparador no realiza llamadas externas.
 - No reduce la protección de misma importación, idempotencia, aislamiento por emisor/ambiente, confirmación irreversible, reservas, estados inciertos o reconciliación.
 - No incorpora las mejoras menores H6/H8 clasificadas como P3.
-- No incluye versión, tag, GitHub Release, migración de una instalación real, despliegue ni acceso a producción.
+- El alcance funcional no incluye migración de una instalación real, despliegue ni acceso a producción. El versionado, tag y GitHub Release se cierran por separado de esa operación productiva.
 
 ## Invariantes fiscales preservadas
 
@@ -75,10 +75,25 @@ Ante una falla de corte real, la recuperación debe detener productores y worker
 
 - La integración exige matriz documental completa, revisión del rango y los siete checks correctos sobre el PR. El resultado y el SHA se registran en ese PR y en GitHub Actions.
 - El cierre de integración exige comprobar el SHA resultante y la CI de `main`; una ejecución documental con runtime omitido no sustituye las pruebas del rango fiscal.
-- Decidir por separado versión, tag y publicación. Una CI verde de integración no crea una release.
+- La versión de publicación elegida es `v0.3.6`. El tag y la release requieren un SHA aceptado de `main` con CI verde; no se crean por el solo resultado de integración.
 - Antes de cualquier instalación real: preflight de remanentes v1, procesos, migración, backup/restauración y rollback sobre el entorno correspondiente.
 - Producción y despliegue permanecen fuera de esta fase.
 
 ## Dictamen al corte de evidencia
 
-No se observó una incoherencia que impida preparar el PR. Los límites reales son explícitos: la recuperación acreditada es sintética y previa a actividad v2; el corte no admite convivencia de workers v1/v2; la versión, publicación, preflight real, backup productivo y despliegue siguen pendientes.
+No se observó una incoherencia que impida preparar el PR. Los límites reales son explícitos: la recuperación acreditada es sintética y previa a actividad v2; el corte no admite convivencia de workers v1/v2; la publicación, preflight real, backup productivo y despliegue siguen sujetos a sus comprobaciones correspondientes.
+
+## Integración y preparación de v0.3.6
+
+El [PR #53](https://github.com/Santi-RL/FactuFlow/pull/53) integró la unidad en
+`7e15821f4d863aa0c9f7288dbb87a17c9192c19a`, con contenido idéntico al HEAD
+revisado. Los siete controles completos aprobaron tanto en el
+[PR](https://github.com/Santi-RL/FactuFlow/actions/runs/34214852658) como en
+[`main`](https://github.com/Santi-RL/FactuFlow/actions/runs/34216867368).
+
+La preparación de `v0.3.6` sólo alinea metadatos de backend/frontend, la versión
+visible y las expectativas existentes; no modifica lógica fiscal ni
+dependencias. La suite de scripts aprobó 28 casos y el spec del Sidebar, 7.
+El SHA de publicación será el commit integrado de ese versionado, comprobado
+por CI antes de crear el tag. Las notas y el cierre de publicación conservarán
+ese SHA exacto sin mover el tag posteriormente.
