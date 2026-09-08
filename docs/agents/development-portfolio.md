@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 05/09/2026
+Última revisión: 08/09/2026
 
 Estado: VIGENTE.
 
@@ -81,7 +81,8 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   principal y excepción con checkbox. Revalidación y coordinación simultánea,
   con trazabilidad PF-15 y garantías PF-01. El
   [diseño de duplicados](pf-13-duplicados-lotes-design.md) concentra el contrato,
-  las decisiones aceptadas y la matriz para implementar.
+  las decisiones aceptadas y la matriz normativa de implementación y aceptación;
+  los resultados de ejecución se conservan fuera del portafolio.
 - PF-18/PF-17, P2: cantidad y total en pesos del mes actual y anterior por fecha
   del comprobante, períodos explícitos y último comprobante con sus dos fechas.
   Las notas de crédito restan del importe, no de la cantidad. El
@@ -98,6 +99,20 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - PF-17: conectividad visible y recuperación/accesibilidad que afecten operación
   (P2); ayuda contextual y ajustes de texto/presentación opcionales (P3).
   [Observabilidad](operational-observability.md) conserva la señal de conexión.
+- PF-16/PF-17, P3, después del primer release de duplicados: completar las
+  comprobaciones adicionales de zoom real al 200 % y lector de pantalla del
+  diálogo, y corregir detalles visuales menores sin impacto operativo o fiscal.
+  Incluye aclarar el resumen y la atribución de emisiones coincidentes todavía
+  en curso, preservando su bloqueo.
+  También unificar el estado del DTO cuando coexisten una coincidencia
+  autorizada y una reserva ajena, sin alterar el bloqueo efectivo de API y UI;
+  corregir las advertencias de filas de la proyección anterior para que sólo
+  señalen grupos afectados, conservando el conteo y la evidencia v2 correctos.
+  La falta de esas comprobaciones no se presenta como una aprobación de
+  accesibilidad. Se conservan como puertas de salida la evidencia comprensible,
+  el retorno seguro, el checkbox específico y los controles fiscales del
+  [diseño de duplicados](pf-13-duplicados-lotes-design.md). Un defecto comprobado
+  que impida utilizar esos controles se atiende antes de publicar.
 - PF-17, P3: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
   y rango personalizado. Conservar fechas visibles, generación explícita y
   aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
@@ -122,6 +137,18 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   integraciones, después de estabilidad operativa y la puerta para terceros
   de PF-16. No ampliar funcionalidades del producto por la vía de packaging.
 
+## Hallazgos candidatos a delimitar
+
+Estos hallazgos no modifican el orden aceptado ni autorizan por sí solos una
+implementación. La corrección necesita una unidad y un alcance explícitos.
+
+| Candidato | Evidencia y alcance propuesto |
+|---|---|
+| Seguimiento de lectura PDF, PF-16 | La corrección aplicable a los lectores de constancias se incluye en `Unreleased` mediante `pypdf==6.16.1`. El [cambio de seguridad de 6.17.0](https://github.com/py-pdf/pypdf/pull/4047/files) afecta la conversión de etiquetas de página, que los lectores actuales no invocan. Reevaluar antes de incorporar `page_labels` o ante un aviso aplicable nuevo; una auditoría limpia no sustituye ese análisis. |
+| Alineación de guías de calidad y dominio | Contrastar el comando E2E de `testing.md` con los scripts reales de frontend; alinear la descripción de auditoría npm con el workflow efectivo y revisar el README de servicios frente al contrato cerrado PF-19D. Son correcciones documentales acotadas, sin reabrir reglas fiscales ni rebajar checks. |
+| Mensajes de validación al iniciar sesión | Una respuesta estructurada `422` puede mostrarse como `Error: [object Object]`. Delimitar un mensaje comprensible y pruebas con entradas inválidas, preservando la validación del servidor. |
+| Marcado de pruebas PostgreSQL, PF-16 | Las pruebas de migración de `test_multiemisor_postgresql.py` y `test_pf19d_postgresql.py` no tienen el marcador `integration`. Una selección por marcador puede omitirlas o incluirlas en la suite local hasta que el guard las salte. Alinear el marcado sin modificar la allowlist, el opt-in de reset ni las garantías de los ensayos; mientras tanto, seleccionar la carpeta de integración completa para su verificación física. |
+
 ## Preparación para abrir cada corte
 
 Los diseños específicos contienen decisiones de producto e invariantes, con
@@ -132,7 +159,7 @@ unidad antes de convertirse en una tarea ejecutable.
 | Corte | Fuente y preparación restante |
 |---|---|
 | Recuperación/trazabilidad | [Diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md): productor y cobertura de evidencia, escrituras posteriores y permisos; evidencia de instalación en el plano de control. |
-| Duplicados | [Diseño](pf-13-duplicados-lotes-design.md): normalización, alcance comparable, aceptación vinculada, coordinación atómica, historia compactada y transición. No espera toda la UI ni todo el constructor. |
+| Duplicados | [Contrato vigente](pf-13-duplicados-lotes-design.md): normalización, alcance comparable, aceptación vinculada, coordinación atómica, historia compactada y transición. El cierre de calidad y release preserva ese alcance; no espera toda la UI ni todo el constructor. |
 | Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): política de documento B/CF, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
 | Actividad de lotes | [Diseño](pf-17-actividad-lotes-design.md): fuente/orden de actor, cobertura histórica y consulta paginada. Reutiliza la procedencia mínima de duplicados, sin dependencia circular. |
 | Dashboard mensual | [Diseño](pf-18-dashboard-mensual-design.md): fuente temporal, moneda histórica, agregados y cobertura; el ícono tiene aceptación independiente. |

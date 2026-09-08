@@ -4,7 +4,7 @@ import asyncio
 import pytest
 from typing import AsyncGenerator
 from httpx import AsyncClient
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from app.main import app
@@ -53,8 +53,26 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
         await session.rollback()
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    # SQLite no puede ordenar el DROP de las dos FKs reales que cierran el ciclo
+    # operación→generación→operación. Se suspenden sólo durante el teardown,
+    # cuando la prueba y su sesión ya terminaron, y se reactivan en la misma
+    # conexión antes de devolverla al pool.
+    async with test_engine.connect() as conn:
+        await conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        await conn.commit()
+        try:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.commit()
+        finally:
+            if conn.in_transaction():
+                await conn.rollback()
+            await conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+            await conn.commit()
+            foreign_keys = await conn.scalar(text("PRAGMA foreign_keys"))
+            if foreign_keys != 1:
+                raise RuntimeError(
+                    "El teardown no pudo restaurar las claves foráneas de SQLite."
+                )
 
 
 @pytest.fixture

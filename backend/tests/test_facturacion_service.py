@@ -1,5 +1,6 @@
 """Tests del servicio de facturación."""
 
+from copy import deepcopy
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -35,7 +36,11 @@ from app.models.elegibilidad_rece import (
     PuntoVentaElegibilidadReceRevision,
     PuntoVentaGuardaEmisionRece,
 )
-from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
+from app.models.idempotencia_fiscal import (
+    IntentoEmisionFiscal,
+    LoteDuplicadoEvidencia,
+    OperacionIdempotente,
+)
 from app.models.lote_comprobante import (
     LoteComprobante,
     LoteComprobanteFila,
@@ -54,6 +59,10 @@ from app.services.facturacion_service import (
     FacturacionService,
     FaseSolicitudArca,
     ValidationError,
+)
+from app.services.duplicados_lotes_service import (
+    DuplicadosLotePreflightCambioError,
+    DuplicadosLotesService,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 from app.services.elegibilidad_rece_service import (
@@ -92,6 +101,39 @@ def _fijar_reloj_facturacion(monkeypatch: pytest.MonkeyPatch) -> None:
         "app.services.facturacion_service.date",
         _FechaFacturacionFija,
     )
+
+
+@pytest.mark.asyncio
+async def test_fallo_al_persistir_timestamp_no_marca_inicio_arca() -> None:
+    """Un flush fallido conserva la fase inequívocamente anterior a FECAE."""
+    llamadas_marca = 0
+
+    async def fallar_flush() -> None:
+        raise SQLAlchemyTimeoutError()
+
+    class ElegibilidadSintetica:
+        async def marcar_arca_iniciada(self, **kwargs) -> None:
+            nonlocal llamadas_marca
+            llamadas_marca += 1
+
+    intento = SimpleNamespace(solicitud_arca_at=None)
+    fase = FaseSolicitudArca()
+    service = FacturacionService(SimpleNamespace(flush=fallar_flush))
+
+    with pytest.raises(SQLAlchemyTimeoutError):
+        await service._marcar_solicitud_arca_iniciada(
+            elegibilidad=ElegibilidadSintetica(),
+            guarda=SimpleNamespace(),
+            contexto=SimpleNamespace(),
+            tipo_comprobante=6,
+            intentos=[intento],
+            fase_solicitud_arca=fase,
+        )
+
+    assert intento.solicitud_arca_at is not None
+    assert llamadas_marca == 0
+    assert fase.iniciada is False
+    assert fase.guarda_actual_iniciada is False
 
 
 def _crear_error_db_temporal(
@@ -226,6 +268,13 @@ async def _crear_operacion_rece_sintetica(
                 punto_venta_numero=punto_venta.numero,
                 total_estimado=Decimal("1000"),
                 payload_json=request.model_dump(mode="json"),
+                duplicados_version="duplicados_lotes/v2",
+                duplicados_cobertura="completa",
+                huella_fiscal_completa=f"{revision_id:032d}{indice:032d}",
+                fecha_emision_normalizada=request.fecha_emision,
+                moneda_duplicados=request.moneda,
+                cotizacion_duplicados=str(request.cotizacion),
+                total_centavos=100000,
                 punto_venta_id=punto_venta.id,
                 ambiente=ambiente,
                 punto_venta_elegibilidad_revision_id=revision_id,
@@ -266,8 +315,159 @@ async def _crear_operacion_rece_sintetica(
             "operacion_idempotente_id": operacion.id,
             "pf19b_rece_material": material_rece,
         }
+        grupos = list(
+            await db.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote.id)
+                .order_by(LoteComprobanteGrupo.id)
+            )
+        )
     await db.commit()
+    if batch:
+        control, acceptance_id, accepted = await DuplicadosLotesService(
+            db
+        ).evaluar_y_reservar(
+            operacion_id=int(operacion.id),
+            lote_id=int(operacion.lote_id),
+            empresa_id=int(empresa.id),
+            estados={"validado"},
+            grupo_ids=[int(group.id) for group in grupos],
+            aceptacion_recibida=None,
+            solicitante_nombre="Operador sintético",
+            reservar=False,
+            ambiente=ambiente,
+        )
+        assert control["estado"] == "sin_coincidencias"
+        assert acceptance_id is None
+        assert accepted is False
     return operacion, contexto, metadata
+
+
+@pytest.mark.asyncio
+async def test_segundo_preflight_nuevo_duplicado_bloquea_unitario_y_batch(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ambas vías frenan un testigo individual que no integró la aceptación v2."""
+    _fijar_reloj_facturacion(monkeypatch)
+    punto_venta = PuntoVenta(
+        numero=1,
+        nombre="Principal",
+        activo=True,
+        es_webservice=True,
+        empresa_id=test_empresa.id,
+        revision_fiscal=1,
+    )
+    certificado = Certificado(
+        nombre="Certificado sintético",
+        cuit=test_empresa.cuit,
+        fecha_emision=date(2026, 1, 1),
+        fecha_vencimiento=date(2027, 1, 1),
+        archivo_crt="sintetico.crt",
+        archivo_key="sintetico.key",
+        activo=True,
+        ambiente=settings.arca_env,
+        empresa_id=test_empresa.id,
+    )
+    db_session.add_all([punto_venta, certificado])
+    await db_session.commit()
+    request = EmitirComprobanteRequest(
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        tipo_comprobante=6,
+        concepto=1,
+        fecha_emision=FECHA_FISCAL_PRUEBA,
+        tipo_documento=96,
+        numero_documento="30000001",
+        razon_social="Persona Sintética",
+        condicion_iva="Consumidor Final",
+        guardar_cliente=False,
+        moneda="PES",
+        cotizacion=Decimal("1"),
+        items=[
+            ItemComprobanteCreate(
+                descripcion="Servicio sintético",
+                cantidad=Decimal("1"),
+                unidad="unidad",
+                precio_unitario=Decimal("1000"),
+                iva_porcentaje=Decimal("21"),
+            )
+        ],
+    )
+    operacion, contexto, metadata = await _crear_operacion_rece_sintetica(
+        db_session,
+        empresa=test_empresa,
+        punto_venta=punto_venta,
+        requests=[request],
+        batch=True,
+    )
+    contexto_unitario = metadata[0]
+    lote_id = int(contexto_unitario["lote_id"])
+    grupo_id = int(contexto_unitario["grupo_id"])
+    grupo_actual = await db_session.get(LoteComprobanteGrupo, grupo_id)
+    assert grupo_actual is not None
+    duplicado_nuevo = Comprobante(
+        tipo_comprobante=6,
+        concepto=1,
+        numero=77,
+        fecha_emision=FECHA_FISCAL_PRUEBA,
+        subtotal=Decimal("1000.00"),
+        descuento=Decimal("0.00"),
+        iva_21=Decimal("210.00"),
+        iva_10_5=Decimal("0.00"),
+        iva_27=Decimal("0.00"),
+        otros_impuestos=Decimal("0.00"),
+        total=Decimal("1210.00"),
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 8, 20),
+        estado="autorizado",
+        empresa_id=test_empresa.id,
+        punto_venta_id=punto_venta.id,
+        receptor_tipo_documento=96,
+        receptor_numero_documento="30000001",
+        receptor_razon_social="Persona Sintética",
+        receptor_condicion_iva="CF",
+    )
+    db_session.add(duplicado_nuevo)
+    await db_session.flush()
+    duplicado_nuevo_id = int(duplicado_nuevo.id)
+    await db_session.commit()
+
+    async def encontrar_nuevo(self, *_args, **_kwargs):
+        return [await self.db.get(Comprobante, duplicado_nuevo_id)]
+
+    tickets = 0
+
+    async def no_ticket(*_args, **_kwargs):
+        nonlocal tickets
+        tickets += 1
+        raise AssertionError("No debe llegar a WSAA")
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "buscar_duplicados_logicos_lote",
+        encontrar_nuevo,
+    )
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", no_ticket)
+    service = FacturacionService(db_session)
+    with pytest.raises(DuplicadosLotePreflightCambioError):
+        await service.emitir_comprobante(
+            request,
+            operacion_id=operacion.id,
+            lote_id=lote_id,
+            grupo_id=grupo_id,
+            contexto_rece=contexto,
+            contextos_operacion=[contexto],
+        )
+    await db_session.rollback()
+    with pytest.raises(DuplicadosLotePreflightCambioError):
+        await service.emitir_comprobantes_lote(
+            [request],
+            contextos=metadata,
+        )
+
+    assert tickets == 0
 
 
 @pytest.mark.asyncio
@@ -1009,7 +1209,7 @@ async def test_batch_revierte_aprobado_si_falla_cerrar_rechazado_post_arca(
         )
 
     requests = [crear_request("Cliente aprobado"), crear_request("Cliente rechazado")]
-    _operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
+    operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
         db_session,
         empresa=test_empresa,
         punto_venta=punto_venta,
@@ -2940,12 +3140,65 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
 
     _fijar_reloj_facturacion(monkeypatch)
     requests = [request_cliente("Cliente Uno"), request_cliente("Cliente Dos")]
-    _operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
+    operacion, _contexto, metadata = await _crear_operacion_rece_sintetica(
         db_session,
         empresa=test_empresa,
         punto_venta=punto_venta,
         requests=requests,
         batch=True,
+    )
+    generacion_1_id = int(operacion.duplicados_generacion_id)
+    durable_1 = deepcopy(operacion.control_duplicados_json)
+    duplicados_service = DuplicadosLotesService(db_session)
+    captured_preflight = await duplicados_service.revalidar_operacion_lote(
+        operacion_id=int(operacion.id),
+        lote_id=int(operacion.lote_id),
+        empresa_id=int(test_empresa.id),
+    )
+    await db_session.commit()
+    generation_1 = await db_session.get(LoteDuplicadoEvidencia, generacion_1_id)
+    snapshot_2 = {
+        **deepcopy(generation_1.control_snapshot_json),
+        "contexto_descriptivo_prueba": "segunda generación válida",
+    }
+    generation_2 = LoteDuplicadoEvidencia(
+        operacion_id=int(operacion.id),
+        empresa_id=int(test_empresa.id),
+        ambiente=generation_1.ambiente,
+        lote_id=int(operacion.lote_id),
+        generacion=int(generation_1.generacion) + 1,
+        formato=generation_1.formato,
+        evidencia_id=generation_1.evidencia_id,
+        snapshot_hash=duplicados_service._snapshot_hash({"_bloques": {}}, snapshot_2),
+        control_snapshot_json=snapshot_2,
+    )
+    db_session.add(generation_2)
+    await db_session.flush()
+    generacion_2_id = int(generation_2.id)
+    assert generacion_2_id != generacion_1_id
+    durable_2 = {
+        **deepcopy(durable_1),
+        "duplicados_generacion_id": generacion_2_id,
+        "duplicados_generacion": int(generation_2.generacion),
+    }
+    await db_session.commit()
+    preflight_calls = 0
+
+    async def preflight_con_avance_de_puntero(self, **kwargs):
+        nonlocal preflight_calls
+        preflight_calls += 1
+        if preflight_calls == 2:
+            current_operation = await self.db.get(
+                OperacionIdempotente, int(operacion.id)
+            )
+            current_operation.duplicados_generacion_id = generacion_2_id
+            current_operation.control_duplicados_json = deepcopy(durable_2)
+        return deepcopy(captured_preflight)
+
+    monkeypatch.setattr(
+        DuplicadosLotesService,
+        "revalidar_operacion_lote",
+        preflight_con_avance_de_puntero,
     )
     service = FacturacionService(db_session)
     resultados = await service.emitir_comprobantes_lote(
@@ -2976,6 +3229,13 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
         2,
     ]
     assert [comprobante.numero for comprobante in comprobantes] == [1, 2]
+    intentos = list(await db_session.scalars(select(IntentoEmisionFiscal)))
+    assert preflight_calls == 2
+    assert {intento.duplicados_generacion_id for intento in intentos} == {
+        generacion_1_id
+    }
+    await db_session.refresh(operacion)
+    assert operacion.duplicados_generacion_id == generacion_2_id
 
 
 async def _preparar_escenario_numeracion_batch(

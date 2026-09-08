@@ -47,6 +47,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     obtenerResumen: vi.fn(),
     obtenerSeguimiento: vi.fn(),
     obtenerGrupos: vi.fn(),
+    obtenerCoincidencias: vi.fn(),
     reintentarFallidos: vi.fn(),
     descartarGrupos: vi.fn(),
     descargarPlantilla: vi.fn(),
@@ -221,6 +222,7 @@ const mockedLotesDetalle = lotesComprobantesService as unknown as {
   obtenerResumen: Mock;
   obtenerSeguimiento: Mock;
   obtenerGrupos: Mock;
+  obtenerCoincidencias: Mock;
   procesar: Mock;
   reintentarFallidos: Mock;
   descartarGrupos: Mock;
@@ -268,6 +270,32 @@ const loteResumenMock = (): LoteComprobanteResumen => ({
   confirmacion_duplicado_logico: "",
   mensaje_confirmacion_duplicado_logico: "",
   cantidad_duplicados_logicos: 0,
+  control_duplicados: {
+    version: "duplicados_lotes/v2",
+    cobertura: "completa",
+    estado: "sin_coincidencias",
+    evidencia_id: null,
+    datos_hash: "datos-lote-12",
+    seleccion_hash: "seleccion-lote-12",
+    tipos_coincidencia: [],
+    cantidad_actual: 1432,
+    cantidad_afectada: 0,
+    importe_actual: "1732720.00",
+    importe_afectado: "0.00",
+    importes_actuales: {
+      por_moneda: [{ moneda: "PES", importe: "1732720.00", cantidad: 1432 }],
+      cantidad_sin_moneda_acreditada: 0,
+    },
+    importes_afectados: {
+      por_moneda: [],
+      cantidad_sin_moneda_acreditada: 0,
+    },
+    antecedentes_resumen: [],
+    aceptacion_requerida: false,
+    aceptacion_habilitada: false,
+    bloqueo_operacion_ajena: null,
+    detalle_url: null,
+  },
   fechas_emision_validas: ["2026-05-20"],
   puntos_venta_validos: [1],
   totales_listos_para_emitir: {
@@ -328,6 +356,7 @@ const mountView = async (
   resumen: LoteComprobanteResumen = loteResumenMock(),
   grupos: LoteComprobanteGruposPage = gruposPageMock(),
   puntosVentaIniciales: PuntoVenta[] | Promise<PuntoVenta[]> = [],
+  attachTo?: Element,
 ) => {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -345,12 +374,20 @@ const mountView = async (
   mockedLotesDetalle.obtenerResumen.mockResolvedValue(resumen);
   mockedLotesDetalle.obtenerSeguimiento.mockResolvedValue(resumen);
   mockedLotesDetalle.obtenerGrupos.mockResolvedValue(grupos);
+  mockedLotesDetalle.obtenerCoincidencias.mockResolvedValue({
+    items: [],
+    page: 1,
+    per_page: 50,
+    total: 0,
+    total_pages: 0,
+  });
   mockedPerfiles.listar.mockResolvedValue(perfiles);
   mockedPuntosVenta.getAll.mockReturnValue(
     Promise.resolve(puntosVentaIniciales),
   );
 
   const wrapper = mount(LotesComprobantesView, {
+    attachTo,
     global: {
       plugins: [pinia],
       stubs: {
@@ -369,6 +406,184 @@ describe("LotesComprobantesView", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    document.body.innerHTML = "";
+  });
+
+  it.each(["requiere_confirmacion", "operacion_en_curso"] as const)(
+    "presenta totales y filas de forma neutral con duplicados en estado %s sin impedir el primer POST",
+    async (estadoDuplicados) => {
+      const control = {
+        ...loteResumenMock().control_duplicados,
+        estado: estadoDuplicados,
+        evidencia_id: "v2.evidencia-mensajes",
+        tipos_coincidencia: ["historica_completa" as const],
+        cantidad_afectada: 1,
+        aceptacion_requerida: estadoDuplicados === "requiere_confirmacion",
+        aceptacion_habilitada: estadoDuplicados === "requiere_confirmacion",
+        bloqueo_operacion_ajena:
+          estadoDuplicados === "operacion_en_curso"
+            ? {
+                referencia: "seguimiento-opaco",
+                estado: "intento_en_curso" as const,
+                cantidad_afectada: 1,
+                detectado_at: null,
+              }
+            : null,
+        detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+      };
+      const lote = { ...loteResumenMock(), control_duplicados: control };
+      mockedLotesDetalle.procesar.mockRejectedValueOnce({
+        response: {
+          status: 409,
+          data: {
+            detail: {
+              categoria_error:
+                estadoDuplicados === "operacion_en_curso"
+                  ? "duplicado_operacion_en_curso"
+                  : "duplicado_logico_lote",
+              control_duplicados: control,
+              ...(estadoDuplicados === "requiere_confirmacion"
+                ? { aceptacion_id: "v2.aceptacion-mensajes" }
+                : {}),
+            },
+          },
+        },
+      });
+      const wrapper = await mountView([], [lote], lote, {
+        ...gruposPageMock(),
+        items: [{ ...grupoDetalleMock(), mensajes_json: [] }],
+      });
+
+      const totals = wrapper.get('[data-testid="totales-lote"]');
+      expect(totals.text()).toContain("Totales preparados para revisión");
+      expect(totals.text().replace(/\u00a0/g, " ")).toContain(
+        "$ 1.732.720,00",
+      );
+      expect(totals.classes()).not.toContain("bg-status-success-soft");
+      expect(wrapper.text()).not.toContain("Totales listos para emitir");
+      expect(wrapper.text()).not.toContain(
+        "El lote se validó correctamente y puede emitirse.",
+      );
+      expect(wrapper.text()).toContain(
+        "El lote se validó correctamente. La revisión de coincidencias sigue pendiente.",
+      );
+      expect(wrapper.text()).not.toContain("Sin observaciones");
+      expect(wrapper.text()).toContain(
+        "Sin errores de validación en este comprobante. La revisión general de coincidencias del lote sigue pendiente.",
+      );
+      expect(wrapper.get('[data-testid="lote-reciente-12"]').text()).toContain(
+        "1432 comprobantes validados",
+      );
+      expect(wrapper.get('[data-testid="lote-reciente-12"]').text()).not.toContain(
+        "1432 listos",
+      );
+
+      const emitButton = wrapper
+        .findAll("button")
+        .find((button) => button.text().includes("Emitir comprobantes válidos"));
+      expect(emitButton?.attributes("disabled")).toBeUndefined();
+      await emitButton?.trigger("click");
+      await flushPromises();
+      const fiscalConfirm = Array.from(
+        document.body.querySelectorAll("button"),
+      ).find((button) => button.textContent?.includes("Emitir con esta fecha"));
+      (fiscalConfirm as HTMLButtonElement).click();
+      await flushPromises();
+      expect(mockedLotesDetalle.procesar).toHaveBeenCalledTimes(1);
+
+      wrapper.unmount();
+    },
+  );
+
+  it("usa singular en el aviso y neutraliza la métrica lateral del lote actual pendiente", async () => {
+    const base = loteResumenMock();
+    const lote = {
+      ...base,
+      total_grupos: 1,
+      grupos_validos: 1,
+      control_duplicados: {
+        ...base.control_duplicados,
+        estado: "requiere_confirmacion" as const,
+        cantidad_actual: 1,
+        cantidad_afectada: 1,
+      },
+    };
+    const wrapper = await mountView([], [lote], lote);
+
+    expect(wrapper.get('[data-testid="resumen-control-duplicados"]').text()).toContain(
+      "1 de 1 comprobante:",
+    );
+    const actual = wrapper.get('[data-testid="lote-reciente-12"]');
+    expect(actual.text()).toContain("1 comprobante validado");
+    expect(actual.text()).not.toContain("1 listo");
+
+    wrapper.unmount();
+  });
+
+  it.each([
+    {
+      estado: "requiere_reconciliacion",
+      gruposConError: 1,
+      gruposFallidos: 1,
+      esperado: "3 pendientes",
+    },
+    {
+      estado: "con_errores",
+      gruposConError: 2,
+      gruposFallidos: 0,
+      esperado: "2 observados",
+    },
+    {
+      estado: "autorizado_parcial",
+      gruposConError: 1,
+      gruposFallidos: 0,
+      esperado: "2 pendientes",
+    },
+  ])(
+    "preserva la métrica operativa $estado aunque el control actual esté pendiente",
+    async ({ estado, gruposConError, gruposFallidos, esperado }) => {
+      const base = loteResumenMock();
+      const lote = {
+        ...base,
+        estado,
+        grupos_validos: 1,
+        grupos_con_error: gruposConError,
+        grupos_fallidos: gruposFallidos,
+        control_duplicados: {
+          ...base.control_duplicados,
+          estado: "requiere_confirmacion" as const,
+        },
+      };
+      const wrapper = await mountView([], [lote], lote);
+      const actual = wrapper.get('[data-testid="lote-reciente-12"]');
+
+      expect(actual.text()).toContain(esperado);
+      expect(actual.text()).not.toContain("comprobante validado");
+      expect(actual.text()).not.toContain("1 listo");
+
+      wrapper.unmount();
+    },
+  );
+
+  it("preserva los mensajes de lote listo y fila sin observaciones cuando no hay coincidencias", async () => {
+    const lote = loteResumenMock();
+    const wrapper = await mountView([], [lote], lote, {
+      ...gruposPageMock(),
+      items: [{ ...grupoDetalleMock(), mensajes_json: [] }],
+    });
+
+    const totals = wrapper.get('[data-testid="totales-lote"]');
+    expect(totals.text()).toContain("Totales listos para emitir");
+    expect(totals.classes()).toContain("bg-status-success-soft");
+    expect(wrapper.text()).toContain("Sin observaciones");
+    expect(wrapper.text()).toContain(
+      "El lote se validó correctamente y puede emitirse.",
+    );
+    expect(wrapper.text()).not.toContain(
+      "La revisión general de coincidencias del lote sigue pendiente.",
+    );
+
+    wrapper.unmount();
   });
 
   it("conserva los puntos del emisor B si la respuesta de A llega tarde", async () => {
@@ -698,6 +913,61 @@ describe("LotesComprobantesView", () => {
       null,
     );
   });
+
+  it.each([
+    {
+      estado: "requiere_confirmacion" as const,
+      esperado: "El lote se validó correctamente.",
+    },
+    {
+      estado: "operacion_en_curso" as const,
+      esperado: "El lote se validó correctamente.",
+    },
+    {
+      estado: "sin_coincidencias" as const,
+      esperado: "El lote se validó correctamente.",
+    },
+  ])(
+    "presenta el toast de validación según el control de duplicados $estado",
+    async ({ estado, esperado }) => {
+      const resumen = loteResumenMock();
+      resumen.control_duplicados = {
+        ...resumen.control_duplicados,
+        estado,
+      };
+      mockedLotesDetalle.validar.mockResolvedValueOnce({
+        lote: resumen,
+        mensaje: "El lote se validó correctamente y puede emitirse.",
+        requiere_background: false,
+      });
+      const wrapper = await mountView();
+      mockedLotesDetalle.obtenerResumen.mockResolvedValueOnce(resumen);
+      const vm = wrapper.vm as unknown as {
+        archivoSeleccionado: File;
+        formatoSeleccionadoId: number;
+        conceptoModo: string;
+        descripcionItemModo: string;
+        fechaEmisionModo: string;
+        validarArchivo: () => Promise<void>;
+      };
+      vm.archivoSeleccionado = new File(["demo"], "lote.xlsx", {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      vm.formatoSeleccionadoId = 10;
+      vm.conceptoModo = "productos";
+      vm.descripcionItemModo = "archivo";
+      vm.fechaEmisionModo = "archivo";
+      await flushPromises();
+
+      await vm.validarArchivo();
+
+      expect(notificationMock.showSuccess).toHaveBeenCalledWith(
+        "Archivo validado",
+        esperado,
+      );
+      wrapper.unmount();
+    },
+  );
   it("omite fechas de servicio al validar un lote de productos", async () => {
     mockedFormatos.detectar.mockResolvedValue(
       deteccionMock("Formato Base", 10, ["Fecha", "Importe"]),
@@ -1182,6 +1452,9 @@ describe("LotesComprobantesView", () => {
 
     expect(wrapper.text()).toContain("No hay comprobantes listos para emitir");
     expect(wrapper.text()).toContain("Pendientes visibles 1");
+    expect(wrapper.text()).toContain(
+      "El procesamiento quedó en estado incierto. No reintentes este lote.",
+    );
     expect(wrapper.text()).not.toContain(
       "Validado correctamente. Listo para emitir.",
     );
@@ -1409,5 +1682,438 @@ describe("LotesComprobantesView", () => {
     expect(primeraClave).toEqual(expect.any(String));
     expect(segundaClave).toEqual(expect.any(String));
     expect(segundaClave).not.toBe(primeraClave);
+  });
+
+  it("conserva clave y confirmación fiscal entre el POST 409 y la excepción explícita", async () => {
+    const control = {
+      ...loteResumenMock().control_duplicados,
+      estado: "requiere_confirmacion" as const,
+      evidencia_id: "v2.evidencia-post",
+      tipos_coincidencia: ["historica_completa" as const],
+      cantidad_actual: 1,
+      cantidad_afectada: 1,
+      importe_actual: "1210.00",
+      importe_afectado: "1210.00",
+      aceptacion_requerida: true,
+      aceptacion_habilitada: true,
+      detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+    };
+    const lote = { ...loteResumenMock(), control_duplicados: control };
+    mockedLotesDetalle.procesar.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: control,
+            aceptacion_id: "v2.aceptacion-post",
+            confirmacion_duplicado_logico: "v2.aceptacion-post",
+          },
+        },
+      },
+    });
+    const wrapper = await mountView([], [lote], lote);
+
+    const emitButton = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Emitir comprobantes válidos"));
+    await emitButton?.trigger("click");
+    await flushPromises();
+    const fiscalConfirm = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find((button) =>
+      button.textContent?.includes("Emitir con esta fecha"),
+    ) as HTMLButtonElement;
+    fiscalConfirm.click();
+    await flushPromises();
+
+    expect(document.body.textContent).toContain(
+      "Este lote coincide por completo con el contenido de otro lote",
+    );
+    const firstKey = mockedLotesDetalle.procesar.mock.calls[0][2];
+    const review = Array.from(document.body.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Volver a revisar",
+    ) as HTMLButtonElement;
+    review.click();
+    await flushPromises();
+
+    mockedLotesDetalle.procesar.mockResolvedValueOnce({
+      lote,
+      mensaje: "Lote en cola",
+      en_progreso: true,
+    });
+    await emitButton?.trigger("click");
+    await flushPromises();
+    expect(mockedLotesDetalle.procesar).toHaveBeenCalledTimes(2);
+    expect(mockedLotesDetalle.procesar.mock.calls[1][2]).toBe(firstKey);
+    expect(
+      Array.from(document.body.querySelectorAll("button")).some((button) =>
+        button.textContent?.includes("Emitir con esta fecha"),
+      ),
+    ).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("restaura el foco al disparador tras confirmación fiscal, POST 409 y revisión por teclado", async () => {
+    const control = {
+      ...loteResumenMock().control_duplicados,
+      estado: "requiere_confirmacion" as const,
+      evidencia_id: "v2.evidencia-foco",
+      tipos_coincidencia: ["interna_receptor" as const],
+      cantidad_actual: 2,
+      cantidad_afectada: 2,
+      importe_actual: "2420.00",
+      importe_afectado: "2420.00",
+      aceptacion_requerida: true,
+      aceptacion_habilitada: true,
+      detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+    };
+    const lote = { ...loteResumenMock(), control_duplicados: control };
+    mockedLotesDetalle.procesar.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: control,
+            aceptacion_id: "v2.aceptacion-foco",
+          },
+        },
+      },
+    });
+    const wrapper = await mountView(
+      [],
+      [lote],
+      lote,
+      gruposPageMock(),
+      [],
+      document.body,
+    );
+    const emitButton = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Emitir comprobantes válidos"));
+    const emitElement = emitButton?.element as HTMLButtonElement;
+
+    emitElement.focus();
+    await emitButton?.trigger("click");
+    await flushPromises();
+    const fiscalConfirm = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find((button) =>
+      button.textContent?.includes("Emitir con esta fecha"),
+    ) as HTMLButtonElement;
+    fiscalConfirm.focus();
+    fiscalConfirm.click();
+    await flushPromises();
+
+    const review = Array.from(document.body.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Volver a revisar",
+    ) as HTMLButtonElement;
+    expect(document.activeElement).toBe(review);
+    review.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    review.click();
+    await flushPromises();
+
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(emitElement);
+    expect(mockedLotesDetalle.procesar).toHaveBeenCalledTimes(1);
+    expect(mockedLotesDetalle.procesar.mock.calls[0][3]).toBeUndefined();
+
+    const informationalTrigger = wrapper
+      .findAll("button")
+      .find((button) => button.text().includes("Revisar coincidencias"));
+    await informationalTrigger?.trigger("click");
+    await flushPromises();
+    const informationalReview = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find(
+      (button) => button.textContent?.trim() === "Volver a revisar",
+    ) as HTMLButtonElement;
+    const newerFocus = document.createElement("button");
+    document.body.appendChild(newerFocus);
+    informationalReview.click();
+    newerFocus.focus();
+    await flushPromises();
+
+    expect(document.activeElement).toBe(newerFocus);
+    expect(mockedLotesDetalle.procesar).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  });
+
+  it("usa la aceptación del POST 409 sólo después del checkbox y conserva la misma clave", async () => {
+    const control = {
+      ...loteResumenMock().control_duplicados,
+      estado: "requiere_confirmacion" as const,
+      evidencia_id: "v2.evidencia-aceptada",
+      tipos_coincidencia: ["interna_receptor" as const],
+      cantidad_actual: 2,
+      cantidad_afectada: 2,
+      importe_actual: "2420.00",
+      importe_afectado: "2420.00",
+      aceptacion_requerida: true,
+      aceptacion_habilitada: true,
+      detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+    };
+    const lote = { ...loteResumenMock(), control_duplicados: control };
+    mockedLotesDetalle.procesar.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: control,
+            aceptacion_id: "v2.aceptacion-interna",
+          },
+        },
+      },
+    });
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as { procesarLote: () => Promise<void> };
+    await vm.procesarLote();
+    const firstKey = mockedLotesDetalle.procesar.mock.calls[0][2];
+
+    const checkbox = document.body.querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    checkbox.click();
+    await flushPromises();
+    mockedLotesDetalle.procesar.mockResolvedValueOnce({
+      lote,
+      mensaje: "Lote en cola",
+      en_progreso: true,
+    });
+    const accept = Array.from(document.body.querySelectorAll("button")).find(
+      (button) =>
+        button.textContent?.trim() === "Emitir como operaciones nuevas",
+    ) as HTMLButtonElement;
+    accept.click();
+    await flushPromises();
+
+    expect(mockedLotesDetalle.procesar.mock.calls[1]).toEqual([
+      lote.id,
+      lote.confirmacion_fecha_fiscal,
+      firstKey,
+      "v2.aceptacion-interna",
+    ]);
+    wrapper.unmount();
+  });
+
+  it("un GET 409 actualiza evidencia, limpia aceptación y no dispara otro POST", async () => {
+    const controlInicial = {
+      ...loteResumenMock().control_duplicados,
+      estado: "requiere_confirmacion" as const,
+      evidencia_id: "v2.evidencia-inicial",
+      tipos_coincidencia: ["historica_completa" as const],
+      aceptacion_requerida: true,
+      aceptacion_habilitada: true,
+      cantidad_afectada: 1,
+      detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+    };
+    const controlNuevo = {
+      ...controlInicial,
+      evidencia_id: "v2.evidencia-nueva",
+      cantidad_afectada: 2,
+    };
+    const lote = { ...loteResumenMock(), control_duplicados: controlInicial };
+    mockedLotesDetalle.procesar.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: controlInicial,
+            aceptacion_id: "v2.aceptacion-inicial",
+          },
+        },
+      },
+    });
+    mockedLotesDetalle.obtenerCoincidencias.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: controlNuevo,
+          },
+        },
+      },
+    });
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as {
+      procesarLote: () => Promise<void>;
+      idempotencyKeyProcesar: string | null;
+      confirmacionFiscalProcesarVigente: boolean;
+    };
+    await vm.procesarLote();
+    const key = vm.idempotencyKeyProcesar;
+    vm.confirmacionFiscalProcesarVigente = true;
+
+    const detailsButton = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find(
+      (button) => button.textContent?.trim() === "Ver coincidencias",
+    ) as HTMLButtonElement;
+    detailsButton.click();
+    await flushPromises();
+
+    expect(mockedLotesDetalle.procesar).toHaveBeenCalledTimes(1);
+    expect(vm.idempotencyKeyProcesar).toBe(key);
+    expect(vm.confirmacionFiscalProcesarVigente).toBe(true);
+    expect(document.body.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(document.body.textContent).toContain(
+      "solicitá la emisión nuevamente para decidir sobre la evidencia actual",
+    );
+    expect((document.activeElement as HTMLElement).textContent?.trim()).toBe(
+      "Volver a revisar",
+    );
+    wrapper.unmount();
+  });
+
+  it("un GET 409 con cambio material invalida clave y confirmación fiscal", async () => {
+    const controlInicial = {
+      ...loteResumenMock().control_duplicados,
+      estado: "requiere_confirmacion" as const,
+      evidencia_id: "v2.evidencia-material-inicial",
+      tipos_coincidencia: ["historica_completa" as const],
+      aceptacion_requerida: true,
+      aceptacion_habilitada: true,
+      cantidad_afectada: 1,
+      detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+    };
+    const controlNuevo = {
+      ...controlInicial,
+      evidencia_id: "v2.evidencia-material-nueva",
+      datos_hash: "datos-materialmente-distintos",
+    };
+    const lote = { ...loteResumenMock(), control_duplicados: controlInicial };
+    mockedLotesDetalle.procesar.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: controlInicial,
+            aceptacion_id: "v2.aceptacion-material-inicial",
+          },
+        },
+      },
+    });
+    mockedLotesDetalle.obtenerCoincidencias.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: controlNuevo,
+          },
+        },
+      },
+    });
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as {
+      procesarLote: () => Promise<void>;
+      idempotencyKeyProcesar: string | null;
+      confirmacionFiscalProcesarVigente: boolean;
+    };
+    await vm.procesarLote();
+    expect(vm.idempotencyKeyProcesar).toEqual(expect.any(String));
+    vm.confirmacionFiscalProcesarVigente = true;
+
+    const detailsButton = Array.from(
+      document.body.querySelectorAll("button"),
+    ).find(
+      (button) => button.textContent?.trim() === "Ver coincidencias",
+    ) as HTMLButtonElement;
+    detailsButton.click();
+    await flushPromises();
+
+    expect(vm.idempotencyKeyProcesar).toBeNull();
+    expect(vm.confirmacionFiscalProcesarVigente).toBe(false);
+    expect(document.body.querySelector('input[type="checkbox"]')).toBeNull();
+    wrapper.unmount();
+  });
+
+  it("descarta un POST 409 tardío después de cambiar de emisor", async () => {
+    const pending = deferred<never>();
+    const control = {
+      ...loteResumenMock().control_duplicados,
+      estado: "requiere_confirmacion" as const,
+      evidencia_id: "v2.evidencia-tardia",
+      tipos_coincidencia: ["historica_completa" as const],
+      aceptacion_requerida: true,
+      aceptacion_habilitada: true,
+      detalle_url: "/api/lotes-comprobantes/12/coincidencias",
+    };
+    const lote = { ...loteResumenMock(), control_duplicados: control };
+    mockedLotesDetalle.procesar.mockReturnValueOnce(pending.promise);
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as { procesarLote: () => Promise<void> };
+    const request = vm.procesarLote();
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresaActivaId = 2;
+    await flushPromises();
+    pending.reject({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: control,
+            aceptacion_id: "v2.aceptacion-tardia",
+          },
+        },
+      },
+    });
+    await request;
+    await flushPromises();
+
+    expect(document.body.textContent).not.toContain(
+      "Este lote coincide por completo con otro ya emitido",
+    );
+    wrapper.unmount();
+  });
+
+  it("descarta un POST 409 tardío si cambia la selección comprobada del mismo lote", async () => {
+    const pending = deferred<never>();
+    const lote = loteResumenMock();
+    const changed = {
+      ...lote,
+      control_duplicados: {
+        ...lote.control_duplicados,
+        seleccion_hash: "seleccion-actualizada",
+      },
+    };
+    mockedLotesDetalle.procesar.mockReturnValueOnce(pending.promise);
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as {
+      procesarLote: () => Promise<void>;
+      cargarDetalleLote: (id: number, silent: boolean) => Promise<boolean>;
+    };
+    const request = vm.procesarLote();
+    mockedLotesDetalle.obtenerResumen.mockResolvedValueOnce(changed);
+    await vm.cargarDetalleLote(lote.id, true);
+    pending.reject({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: {
+              ...changed.control_duplicados,
+              estado: "requiere_confirmacion",
+            },
+            aceptacion_id: "v2.aceptacion-obsoleta",
+          },
+        },
+      },
+    });
+    await request;
+    await flushPromises();
+
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    wrapper.unmount();
   });
 });

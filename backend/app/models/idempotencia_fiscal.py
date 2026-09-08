@@ -87,6 +87,24 @@ class OperacionIdempotente(Base):
     estado = Column(String(40), nullable=False, default="en_proceso")
     response_json = Column(JSON, nullable=True)
     error_json = Column(JSON, nullable=True)
+    control_duplicados_json = Column(JSON, nullable=True)
+    duplicados_version = Column(String(30), nullable=True)
+    duplicados_generacion_id = Column(
+        Integer,
+        ForeignKey(
+            "lotes_duplicados_evidencias.id",
+            name="fk_operaciones_idempotentes_duplicados_generacion",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
+    operacion_raiz_id = Column(
+        Integer,
+        ForeignKey("operaciones_idempotentes.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    solicitante_nombre_snapshot = Column(String(255), nullable=True)
+    solicitud_emision_at = Column(DateTime(timezone=True), nullable=True)
     rece_snapshot_hash = Column(String(64), nullable=True)
     lote_id = Column(
         Integer,
@@ -114,6 +132,221 @@ class OperacionIdempotente(Base):
         cascade="all, delete-orphan",
         foreign_keys="IntentoEmisionFiscal.operacion_id",
     )
+
+
+class LoteDuplicadoEvidencia(Base):
+    """Generación inmutable de la relación compacta de duplicados de un lote."""
+
+    __tablename__ = "lotes_duplicados_evidencias"
+    __table_args__ = (
+        UniqueConstraint(
+            "operacion_id",
+            "generacion",
+            name="uq_lotes_duplicados_evidencias_operacion_generacion",
+        ),
+        UniqueConstraint(
+            "id",
+            "operacion_id",
+            "empresa_id",
+            "lote_id",
+            "ambiente",
+            name="uq_lotes_duplicados_evidencias_scope",
+        ),
+        CheckConstraint(
+            "formato = 'duplicados_relacion/1'",
+            name="ck_lotes_duplicados_evidencias_formato",
+        ),
+        CheckConstraint(
+            "length(snapshot_hash) = 64",
+            name="ck_lotes_duplicados_evidencias_snapshot_hash",
+        ),
+        CheckConstraint(
+            "generacion > 0",
+            name="ck_lotes_duplicados_evidencias_generacion",
+        ),
+        CheckConstraint(
+            "((aceptada_por_usuario_id IS NULL AND aceptada_por_nombre IS NULL "
+            "AND aceptada_at IS NULL AND aceptacion_origen_generacion_id IS NULL) "
+            "OR (aceptacion_id IS NOT NULL AND aceptada_por_usuario_id IS NOT NULL "
+            "AND aceptada_por_nombre IS NOT NULL AND aceptada_at IS NOT NULL))",
+            name="ck_lotes_duplicados_evidencias_aceptacion",
+        ),
+        Index(
+            "ix_lotes_duplicados_evidencias_consulta",
+            "empresa_id",
+            "ambiente",
+            "lote_id",
+            "evidencia_id",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    operacion_id = Column(
+        Integer,
+        ForeignKey("operaciones_idempotentes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    empresa_id = Column(
+        Integer, ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=False
+    )
+    ambiente = Column(String(20), nullable=False)
+    lote_id = Column(
+        Integer,
+        ForeignKey("lotes_comprobantes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    generacion = Column(Integer, nullable=False)
+    formato = Column(String(40), nullable=False)
+    evidencia_id = Column(String(100), nullable=True)
+    snapshot_hash = Column(String(64), nullable=False)
+    control_snapshot_json = Column(JSON, nullable=False)
+    aceptacion_id = Column(String(100), nullable=True)
+    aceptada_por_usuario_id = Column(
+        Integer, ForeignKey("usuarios.id", ondelete="RESTRICT"), nullable=True
+    )
+    aceptada_por_nombre = Column(String(255), nullable=True)
+    aceptada_at = Column(DateTime(timezone=True), nullable=True)
+    aceptacion_origen_generacion_id = Column(
+        Integer,
+        ForeignKey("lotes_duplicados_evidencias.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+    )
+
+    bloques = relationship(
+        "LoteDuplicadoCoincidencia",
+        back_populates="generacion",
+        cascade="all, delete-orphan",
+        foreign_keys="LoteDuplicadoCoincidencia.generacion_id",
+    )
+
+
+class LoteDuplicadoCoincidencia(Base):
+    """Bloque compacto de miembros relacionados por una misma clave fiscal."""
+
+    __tablename__ = "lotes_duplicados_coincidencias"
+    __table_args__ = (
+        UniqueConstraint(
+            "generacion_id",
+            "bloque_clave",
+            name="uq_lotes_duplicados_coincidencias_bloque",
+        ),
+        CheckConstraint(
+            "clase IN ('interna_nombre', 'interna_documento', 'completa', "
+            "'parcial_nombre', 'parcial_documento', 'individual_legacy')",
+            name="ck_lotes_duplicados_coincidencias_clase",
+        ),
+        ForeignKeyConstraint(
+            ["generacion_id", "operacion_id", "empresa_id", "lote_id", "ambiente"],
+            [
+                "lotes_duplicados_evidencias.id",
+                "lotes_duplicados_evidencias.operacion_id",
+                "lotes_duplicados_evidencias.empresa_id",
+                "lotes_duplicados_evidencias.lote_id",
+                "lotes_duplicados_evidencias.ambiente",
+            ],
+            name="fk_lotes_duplicados_coincidencias_generacion_scope",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "ix_lotes_duplicados_coincidencias_generacion_clase",
+            "generacion_id",
+            "clase",
+            "bloque_clave",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    generacion_id = Column(Integer, nullable=False)
+    operacion_id = Column(Integer, nullable=False)
+    empresa_id = Column(Integer, nullable=False)
+    ambiente = Column(String(20), nullable=False)
+    lote_id = Column(Integer, nullable=False)
+    bloque_clave = Column(String(64), nullable=False)
+    clase = Column(String(30), nullable=False)
+    antecedente_clave = Column(String(100), nullable=True)
+    snapshot_json = Column(JSON, nullable=False)
+
+    generacion = relationship(
+        "LoteDuplicadoEvidencia",
+        back_populates="bloques",
+        foreign_keys=[generacion_id],
+    )
+    miembros = relationship(
+        "LoteDuplicadoCoincidenciaMiembro",
+        back_populates="bloque",
+        cascade="all, delete-orphan",
+    )
+
+
+class LoteDuplicadoCoincidenciaMiembro(Base):
+    """Pertenencia compacta de un actual o antecedente a un bloque."""
+
+    __tablename__ = "lotes_duplicados_coincidencias_miembros"
+    __table_args__ = (
+        UniqueConstraint(
+            "bloque_id",
+            "lado",
+            "miembro_clave",
+            name="uq_lotes_duplicados_miembros_clave",
+        ),
+        UniqueConstraint(
+            "bloque_id",
+            "lado",
+            "ordinal",
+            name="uq_lotes_duplicados_miembros_ordinal",
+        ),
+        CheckConstraint(
+            "lado IN ('actual', 'anterior')",
+            name="ck_lotes_duplicados_miembros_lado",
+        ),
+        CheckConstraint(
+            "ordinal IS NULL OR ordinal >= 0",
+            name="ck_lotes_duplicados_miembros_ordinal",
+        ),
+        CheckConstraint(
+            "relevancia IN ('actual', 'autorizado', 'reservado', 'incierto')",
+            name="ck_lotes_duplicados_miembros_relevancia",
+        ),
+        CheckConstraint(
+            "((grupo_id IS NOT NULL AND comprobante_id IS NULL) OR "
+            "(grupo_id IS NULL AND comprobante_id IS NOT NULL))",
+            name="ck_lotes_duplicados_miembros_entidad",
+        ),
+        Index(
+            "ix_lotes_duplicados_miembros_pagina",
+            "bloque_id",
+            "lado",
+            "ordinal",
+            "miembro_clave",
+        ),
+        Index(
+            "ix_lotes_duplicados_miembros_nombre",
+            "bloque_id",
+            "lado",
+            "nombre_hash",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    bloque_id = Column(
+        Integer,
+        ForeignKey("lotes_duplicados_coincidencias.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    lado = Column(String(10), nullable=False)
+    miembro_clave = Column(String(100), nullable=False)
+    grupo_id = Column(Integer, nullable=True)
+    comprobante_id = Column(Integer, nullable=True)
+    nombre_hash = Column(String(64), nullable=True)
+    documento_hash = Column(String(64), nullable=True)
+    ordinal = Column(Integer, nullable=True)
+    relevancia = Column(String(20), nullable=False)
+    snapshot_json = Column(JSON, nullable=False)
+
+    bloque = relationship("LoteDuplicadoCoincidencia", back_populates="miembros")
 
 
 class IntentoEmisionFiscal(Base):
@@ -178,6 +411,24 @@ class IntentoEmisionFiscal(Base):
             ["lote_id", "empresa_id"],
             ["lotes_comprobantes.id", "lotes_comprobantes.empresa_id"],
             name="fk_intento_lote_empresa",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            [
+                "duplicados_generacion_id",
+                "operacion_id",
+                "empresa_id",
+                "lote_id",
+                "ambiente",
+            ],
+            [
+                "lotes_duplicados_evidencias.id",
+                "lotes_duplicados_evidencias.operacion_id",
+                "lotes_duplicados_evidencias.empresa_id",
+                "lotes_duplicados_evidencias.lote_id",
+                "lotes_duplicados_evidencias.ambiente",
+            ],
+            name="fk_intento_duplicados_generacion_scope",
             ondelete="RESTRICT",
         ),
         ForeignKeyConstraint(
@@ -278,6 +529,9 @@ class IntentoEmisionFiscal(Base):
     # Evidencia estructurada de ARCA. Los intentos anteriores a PF-19C conservan
     # ``NULL`` para no reinterpretar información legacy ni mensajes libres.
     errores_arca_json = Column(JSON, nullable=True)
+    solicitante_nombre_snapshot = Column(String(255), nullable=True)
+    solicitud_arca_at = Column(DateTime(timezone=True), nullable=True)
+    resultado_fiscal_at = Column(DateTime(timezone=True), nullable=True)
     ambiente = Column(String(20), nullable=True)
     punto_venta_elegibilidad_revision_id = Column(Integer, nullable=True)
     punto_venta_revision_fiscal = Column(Integer, nullable=True)
@@ -320,6 +574,7 @@ class IntentoEmisionFiscal(Base):
         ForeignKey("lotes_comprobantes_grupos.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    duplicados_generacion_id = Column(Integer, nullable=True)
 
     operacion = relationship(
         "OperacionIdempotente",
@@ -341,6 +596,11 @@ class IntentoEmisionFiscal(Base):
     grupo = relationship(
         "LoteComprobanteGrupo",
         foreign_keys=[grupo_id, empresa_id],
+        viewonly=True,
+    )
+    duplicados_generacion = relationship(
+        "LoteDuplicadoEvidencia",
+        foreign_keys=[duplicados_generacion_id],
         viewonly=True,
     )
     elegibilidad_revision = relationship(

@@ -368,12 +368,51 @@ historial del intento anterior y solo permite el reintento cuando no hubo CAE
 emitido. Si el lote ya quedó validado para emitir o emitió algún comprobante, el
 archivo duplicado se bloquea para evitar facturación repetida.
 
-Además del bloqueo por archivo ya cargado, FactuFlow calcula duplicados lógicos
-por comprobante. Si detecta comprobantes muy similares dentro del lote o contra
-comprobantes locales ya autorizados, muestra una advertencia y pide una
-confirmación adicional. Confirmar esa advertencia solo indica que revisaste el
-riesgo de duplicado; no reemplaza la confirmación fiscal final de fecha y punto
-de venta.
+### Revisión de coincidencias antes de emitir
+
+Dentro de un lote, repetir fecha e importe en ventas a consumidores finales
+anónimos no genera por sí solo una advertencia. Sí se señalan coincidencias de
+nombre definido o documento en comprobantes comparables con la misma fecha e
+importe. Revisá esos casos: una coincidencia no demuestra por sí sola que se
+trate de la misma operación.
+
+FactuFlow también compara el contenido con lotes anteriores del mismo emisor,
+incluidos los de receptores anónimos. Cambiar el nombre del archivo, el orden de
+las filas o su formato visual no vuelve nuevo un contenido contable idéntico.
+En cambio, tener el mismo nombre, cantidad e importe total no basta para afirmar
+que dos lotes estén duplicados. También se conserva el control de antecedentes
+individuales ya autorizados.
+
+La advertencia explica si coincide todo el lote o sólo una parte y muestra el
+archivo y lote anterior, cantidades, importes, fechas y usuario que solicitó la
+emisión. Si el lote anterior sólo se emitió parcialmente, distingue sus
+resultados; no presenta todo su importe como emitido. Los importes se muestran
+por moneda, sin sumar pesos y moneda extranjera. Si no se puede acreditar la
+moneda histórica, se indica y se conserva la consulta del importe individual.
+Cuando falta evidencia
+histórica, indica «Usuario de emisión no registrado» o que la hora no es
+confiable. Un comprobante individual se identifica como tal, sin atribuirle un
+lote o archivo inexistente.
+
+«Volver a revisar» es la acción principal y conserva el archivo y las opciones
+de preparación. Podés consultar el lote anterior o el detalle de coincidencias
+sin confirmar la emisión. Si verificaste que son operaciones distintas, marcá
+el checkbox específico y después activá «Emitir como operaciones nuevas».
+Marcar el checkbox no emite. Continuar crea otros comprobantes; no reemplaza
+los anteriores ni elimina la confirmación irreversible de fecha y punto de venta.
+
+FactuFlow vuelve a comprobar la evidencia antes de emitir. Si cambia una
+coincidencia relevante, actualiza
+el aviso y pide revisar la nueva coincidencia. Si otra emisión coincidente está
+en curso o tiene resultado incierto, no permite una excepción mientras ese
+estado siga sin resolver. La excepción tampoco permite emitir otra vez la misma
+importación ni reintentar un comprobante que requiere reconciliación.
+
+Un lote antiguo que conserva una confirmación anterior no comprobable y tiene
+coincidencias actuales queda bloqueado para continuar o reintentar su emisión.
+No se habilita mediante otra confirmación. Su historial sigue disponible; el
+trabajo nuevo debe prepararse en un lote nuevo y pasar los controles habituales.
+Esto no permite duplicar la misma importación ni eludir un resultado incierto.
 
 Si el lote queda como `Requiere reconciliación`, no lo reintentes. Ese estado
 significa que ARCA pudo haber autorizado comprobantes con CAE, pero FactuFlow no
@@ -392,9 +431,11 @@ si la comprobación no puede completarse, el lote queda bloqueado y los grupos
 intactos conservan su estado sin emitirse. En ese caso no reintentes
 manualmente: primero auditá el lote.
 
-Si un reintento se interrumpe después de tomar un comprobante para emisión, ese
-grupo también queda para reconciliación porque reemitirlo podría duplicar una
-autorización fiscal.
+Si un reintento se interrumpe después de tomar un comprobante para emisión y no
+puede demostrarse que aún no se envió a ARCA, ese grupo queda para reconciliación
+porque reemitirlo podría duplicar una autorización fiscal. Un cambio de
+coincidencias detectado antes del envío vuelve a revisión y conserva los
+comprobantes que ya se autorizaron.
 
 ### Gestión de lotes parciales y limpieza
 

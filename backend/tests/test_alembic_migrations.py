@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import importlib
+import json
 import shutil
 import sqlite3
 import subprocess
@@ -22,6 +24,7 @@ REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
 REVISION_PDV_DURABLE = "d1e2f3a4b5c6"
 REVISION_PF19D = "e3f4a5b6c7d8"
 REVISION_MULTIEMISOR = "f4a5b6c7d8e9"
+REVISION_DUPLICADOS_V2 = "a1b2c3d4e5f6"
 COLUMNAS_FORMATOS_LOTE = {
     "mapeo_usado_json",
     "headers_detectados_json",
@@ -92,6 +95,18 @@ def _table_columns(db_path: Path, table_name: str) -> set[str]:
     """Devuelve las columnas existentes de una tabla SQLite."""
     with sqlite3.connect(db_path) as conn:
         return {row[1] for row in conn.execute(f"PRAGMA table_info({table_name})")}
+
+
+def _table_names(db_path: Path) -> set[str]:
+    """Devuelve las tablas de usuario existentes en una base SQLite."""
+    with sqlite3.connect(db_path) as conn:
+        return {
+            str(row[0])
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
 
 
 def _table_sql(db_path: Path, table_name: str) -> str:
@@ -1282,3 +1297,488 @@ def test_sqlite_multiemisor_bloquea_referencia_legacy_inexistente(
             "SELECT name FROM sqlite_master WHERE type = 'table'"
         )
     }
+
+
+def test_sqlite_duplicados_v2_upgrade_downgrade_vacio_y_reupgrade(
+    tmp_path: Path,
+) -> None:
+    """La migración aditiva admite rollback físico sólo sin evidencia."""
+    db_path = tmp_path / "duplicados-v2-vacio.db"
+    database_url = f"sqlite:///{db_path.as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    backup_env = _backup_env_pf19(db_path, tmp_path / "duplicados-v2-vacio-backup.db")
+
+    _run_alembic(
+        "upgrade",
+        REVISION_DUPLICADOS_V2,
+        database_url,
+        extra_env=backup_env,
+    )
+    assert "control_duplicados_json" in _table_columns(
+        db_path, "operaciones_idempotentes"
+    )
+    assert "duplicados_generacion_id" in _table_columns(
+        db_path, "operaciones_idempotentes"
+    )
+    assert "duplicados_generacion_id" in _table_columns(
+        db_path, "intentos_emision_fiscal"
+    )
+    assert "total_centavos" in _table_columns(db_path, "lotes_comprobantes_grupos")
+    assert {
+        "lotes_duplicados_evidencias",
+        "lotes_duplicados_coincidencias",
+        "lotes_duplicados_coincidencias_miembros",
+    }.issubset(_table_names(db_path))
+    assert "detalle_json" not in _table_columns(
+        db_path, "lotes_duplicados_coincidencias"
+    )
+    assert _foreign_key_actions(
+        db_path,
+        "operaciones_idempotentes",
+        "duplicados_generacion_id",
+        "lotes_duplicados_evidencias",
+    ) == {"SET NULL"}
+    assert _foreign_key_actions(
+        db_path,
+        "intentos_emision_fiscal",
+        "duplicados_generacion_id",
+        "lotes_duplicados_evidencias",
+    ) == {"RESTRICT"}
+
+    _run_alembic("downgrade", REVISION_MULTIEMISOR, database_url)
+    assert _alembic_version(db_path) == REVISION_MULTIEMISOR
+    assert "duplicados_generacion_id" not in _table_columns(
+        db_path, "operaciones_idempotentes"
+    )
+    assert "duplicados_generacion_id" not in _table_columns(
+        db_path, "intentos_emision_fiscal"
+    )
+    assert {
+        "lotes_duplicados_evidencias",
+        "lotes_duplicados_coincidencias",
+        "lotes_duplicados_coincidencias_miembros",
+    }.isdisjoint(_table_names(db_path))
+    _run_alembic("upgrade", REVISION_DUPLICADOS_V2, database_url)
+    assert _alembic_version(db_path) == REVISION_DUPLICADOS_V2
+    assert _foreign_key_actions(
+        db_path,
+        "operaciones_idempotentes",
+        "duplicados_generacion_id",
+        "lotes_duplicados_evidencias",
+    ) == {"SET NULL"}
+    assert _foreign_key_actions(
+        db_path,
+        "intentos_emision_fiscal",
+        "duplicados_generacion_id",
+        "lotes_duplicados_evidencias",
+    ) == {"RESTRICT"}
+
+
+def test_duplicados_v2_backfill_acredita_contexto_y_no_inventa_identidad(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un payload coherente conserva identidad; otro contexto no la inventa."""
+    migration_path = (
+        BACKEND_DIR / "alembic" / "versions" / "a1b2c3d4e5f6_duplicados_lotes_v2.py"
+    )
+    spec = importlib.util.spec_from_file_location("migration_pf13_test", migration_path)
+    assert spec is not None and spec.loader is not None
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    payload = {
+        "empresa_id": 1,
+        "punto_venta_id": 7,
+        "tipo_comprobante": 6,
+        "concepto": 1,
+        "fecha_emision": "2026-08-09",
+        "confirmacion_fecha_fiscal": True,
+        "tipo_documento": 96,
+        "numero_documento": "30000001",
+        "razon_social": "Persona Sintética",
+        "condicion_iva": "CF",
+        "moneda": "USD",
+        "cotizacion": "123.456789",
+        "guardar_cliente": False,
+        "items": [
+            {
+                "descripcion": "Servicio sintético",
+                "cantidad": "1",
+                "unidad": "unidad",
+                "precio_unitario": "10",
+                "iva_porcentaje": "21",
+            }
+        ],
+    }
+    rows = [
+        {
+            "id": 1,
+            "payload_json": payload,
+            "total_estimado": "12.10",
+            "empresa_id": 1,
+            "punto_venta_id": 7,
+            "punto_venta_numero": 41,
+            "ambiente": "produccion",
+            "lote_empresa_id": 1,
+            "punto_encontrado": 7,
+            "punto_empresa_id": 1,
+            "punto_numero": 41,
+        },
+        {
+            "id": 2,
+            "payload_json": payload,
+            "total_estimado": "12.10",
+            "empresa_id": 2,
+            "punto_venta_id": 7,
+            "punto_venta_numero": 41,
+            "ambiente": "produccion",
+            "lote_empresa_id": 2,
+            "punto_encontrado": 7,
+            "punto_empresa_id": 1,
+            "punto_numero": 41,
+        },
+        {
+            "id": 3,
+            "payload_json": {
+                **payload,
+                "tipo_documento": 99,
+                "numero_documento": "0",
+                "razon_social": "Consumidor Final",
+            },
+            "total_estimado": "12.10",
+            "empresa_id": 1,
+            "punto_venta_id": 7,
+            "punto_venta_numero": 41,
+            "ambiente": "produccion",
+            "lote_empresa_id": 1,
+            "punto_encontrado": 7,
+            "punto_empresa_id": 1,
+            "punto_numero": 41,
+        },
+        {
+            "id": 4,
+            "payload_json": {"empresa_id": 1},
+            "total_estimado": "12.10",
+            "empresa_id": 1,
+            "punto_venta_id": 7,
+            "punto_venta_numero": 41,
+            "ambiente": "produccion",
+            "lote_empresa_id": 1,
+            "punto_encontrado": 7,
+            "punto_empresa_id": 1,
+            "punto_numero": 41,
+        },
+    ]
+    updates: list[dict[str, object]] = []
+
+    class RowsResult:
+        def mappings(self):
+            return rows
+
+    class FakeBind:
+        def execute(self, statement, parameters=None):
+            if parameters is None:
+                return RowsResult()
+            updates.append(dict(parameters))
+            return None
+
+    monkeypatch.setattr(migration.op, "get_bind", lambda: FakeBind())
+
+    migration._backfill_grupos()
+
+    from app.services.duplicados_lotes_service import identidad_entrada_v2
+
+    identidad = identidad_entrada_v2(
+        tipo_documento=payload["tipo_documento"],
+        numero_documento=payload["numero_documento"],
+        razon_social=payload["razon_social"],
+    )
+
+    assert updates[0]["cobertura"] == "parcial_legacy"
+    assert updates[0]["huella"] is not None
+    assert updates[0]["nombre_hash"] == identidad["nombre_hash"]
+    assert updates[0]["documento_hash"] == identidad["documento_hash"]
+    assert updates[0]["nombre_original"] == "Persona Sintética"
+    assert updates[0]["tipo_documento_original"] == 96
+    assert updates[0]["numero_documento_original"] == "30000001"
+    assert updates[0]["fecha"].isoformat() == "2026-08-09"
+    assert updates[0]["moneda"] == "USD"
+    assert updates[0]["cotizacion"] == "123.456789"
+    assert updates[0]["total_centavos"] == 1210
+    assert updates[1] == {
+        "version": "duplicados_lotes/v2",
+        "cobertura": "no_comprobable",
+        "huella": None,
+        "nombre_hash": None,
+        "documento_hash": None,
+        "nombre_original": None,
+        "tipo_documento_original": None,
+        "numero_documento_original": None,
+        "fecha": None,
+        "moneda": None,
+        "cotizacion": None,
+        "total_centavos": None,
+        "id": 2,
+    }
+    assert updates[2]["cobertura"] == "parcial_legacy"
+    assert updates[2]["nombre_hash"] is None
+    assert updates[2]["documento_hash"] is None
+    assert updates[2]["nombre_original"] == "Consumidor Final"
+    assert updates[2]["tipo_documento_original"] == 99
+    assert updates[2]["numero_documento_original"] == "0"
+    assert updates[3] == {
+        "version": "duplicados_lotes/v2",
+        "cobertura": "no_comprobable",
+        "huella": None,
+        "nombre_hash": None,
+        "documento_hash": None,
+        "nombre_original": None,
+        "tipo_documento_original": None,
+        "numero_documento_original": None,
+        "fecha": None,
+        "moneda": None,
+        "cotizacion": None,
+        "total_centavos": None,
+        "id": 4,
+    }
+
+
+@pytest.mark.asyncio
+async def test_duplicados_v2_backfill_real_habilita_parcial_por_receptor(
+    tmp_path: Path,
+) -> None:
+    """El UPDATE real vuelve consultable la identidad legacy sin inventar otras."""
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.services.duplicados_lotes_service import DuplicadosLotesService
+
+    db_path = tmp_path / "duplicados-v2-identidad-legacy.db"
+    database_url = f"sqlite:///{db_path.resolve().as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    _crear_contexto_fiscal_sintetico(db_path)
+    payload_base = {
+        "empresa_id": 1,
+        "punto_venta_id": 1,
+        "tipo_comprobante": 6,
+        "concepto": 1,
+        "fecha_emision": "2026-08-09",
+        "confirmacion_fecha_fiscal": True,
+        "tipo_documento": 96,
+        "numero_documento": "30000001",
+        "razon_social": "Persona Sintética",
+        "condicion_iva": "CF",
+        "moneda": "PES",
+        "cotizacion": "1",
+        "guardar_cliente": False,
+        "items": [
+            {
+                "descripcion": "Contenido anterior",
+                "cantidad": "1",
+                "unidad": "unidad",
+                "precio_unitario": "10",
+                "iva_porcentaje": "21",
+            }
+        ],
+    }
+    payload_actual = json.loads(json.dumps(payload_base))
+    payload_actual["items"][0]["descripcion"] = "Contenido actual distinto"
+    payload_anonimo = {
+        **payload_base,
+        "tipo_documento": 99,
+        "numero_documento": "0",
+        "razon_social": "Consumidor Final",
+    }
+    payload_invalido = {"empresa_id": 1}
+    payloads = (payload_base, payload_actual, payload_anonimo, payload_invalido)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("PRAGMA foreign_keys=ON")
+        for offset, payload in enumerate(payloads):
+            lote_id = 50 + offset
+            grupo_id = 60 + offset
+            conn.execute(
+                "INSERT INTO lotes_comprobantes ("
+                "id, nombre_archivo, archivo_hash, estado, modo_procesamiento, "
+                "procesamiento_async, total_filas, total_grupos, grupos_validos, "
+                "grupos_con_error, grupos_emitidos, grupos_fallidos, "
+                "grupos_reconciliados_externos, grupos_descartados, created_at, "
+                "updated_at, empresa_id"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    lote_id,
+                    f"legacy-{lote_id}.xlsx",
+                    f"{lote_id:064d}",
+                    "validado",
+                    "sincronico",
+                    0,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    1,
+                ),
+            )
+            conn.execute(
+                "INSERT INTO lotes_comprobantes_grupos ("
+                "id, comprobante_ref, orden, estado, tipo_comprobante, "
+                "punto_venta_numero, cliente_documento, cliente_razon_social, "
+                "total_estimado, payload_json, mensajes_json, created_at, updated_at, "
+                "lote_id"
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    grupo_id,
+                    f"LEGACY-{grupo_id}",
+                    1,
+                    "validado",
+                    6,
+                    41,
+                    str(payload.get("numero_documento") or ""),
+                    str(payload.get("razon_social") or ""),
+                    "12.10",
+                    json.dumps(payload, ensure_ascii=False),
+                    "[]",
+                    FECHA_HORA_SINTETICA,
+                    FECHA_HORA_SINTETICA,
+                    lote_id,
+                ),
+            )
+        conn.commit()
+
+    backup_env = _backup_env_pf19(
+        db_path,
+        tmp_path / "duplicados-v2-identidad-legacy-backup.db",
+    )
+    _run_alembic(
+        "upgrade",
+        REVISION_MULTIEMISOR,
+        database_url,
+        extra_env=backup_env,
+    )
+    with sqlite3.connect(db_path) as conn:
+        revision_row = conn.execute(
+            "SELECT id FROM puntos_venta_elegibilidad_rece_revisiones "
+            "WHERE empresa_id = 1 AND punto_venta_id = 1 "
+            "AND ambiente = 'produccion'"
+        ).fetchone()
+        assert revision_row is not None
+        conn.execute(
+            "UPDATE lotes_comprobantes_grupos "
+            "SET punto_venta_id = 1, ambiente = 'produccion', "
+            "punto_venta_elegibilidad_revision_id = ?, "
+            "punto_venta_revision_fiscal = 1",
+            (int(revision_row[0]),),
+        )
+        conn.commit()
+    _run_alembic("upgrade", REVISION_DUPLICADOS_V2, database_url)
+    with sqlite3.connect(db_path) as conn:
+        migrated = conn.execute(
+            "SELECT id, duplicados_cobertura, huella_fiscal_completa, "
+            "identidad_nombre_hash, identidad_documento_hash, "
+            "identidad_nombre_original, identidad_tipo_documento_original, "
+            "identidad_numero_documento_original "
+            "FROM lotes_comprobantes_grupos ORDER BY id"
+        ).fetchall()
+        assert migrated[0][1] == migrated[1][1] == "parcial_legacy"
+        assert migrated[0][2] != migrated[1][2]
+        assert migrated[0][3:8] == migrated[1][3:8]
+        assert migrated[2][1] == "parcial_legacy"
+        assert migrated[2][3] is None and migrated[2][4] is None
+        assert migrated[3][1:] == ("no_comprobable", None, None, None, None, None, None)
+        conn.execute(
+            "UPDATE lotes_comprobantes_grupos SET estado = 'autorizado' WHERE id = 60"
+        )
+        conn.execute(
+            "UPDATE lotes_comprobantes_grupos SET duplicados_cobertura = 'completa' "
+            "WHERE id = 61"
+        )
+        conn.commit()
+
+    async_engine = create_async_engine(
+        f"sqlite+aiosqlite:///{db_path.resolve().as_posix()}",
+        future=True,
+    )
+    session_factory = async_sessionmaker(async_engine, expire_on_commit=False)
+    try:
+        async with session_factory() as session:
+            control = await DuplicadosLotesService(session).calcular_control(
+                lote_id=51,
+                empresa_id=1,
+                estados={"validado"},
+            )
+            assert control["estado"] == "requiere_confirmacion"
+            assert control["tipos_coincidencia"] == ["historica_parcial_receptor"]
+            assert control["cantidad_afectada"] == 1
+            assert all(
+                item["origen"] == "lote" for item in control["antecedentes_resumen"]
+            )
+            await session.execute(
+                text(
+                    "UPDATE lotes_comprobantes_grupos "
+                    "SET identidad_nombre_hash = :nombre, "
+                    "identidad_documento_hash = :documento WHERE id = 61"
+                ),
+                {"nombre": "e" * 64, "documento": "f" * 64},
+            )
+            await session.commit()
+        async with session_factory() as session:
+            control_mutado = await DuplicadosLotesService(session).calcular_control(
+                lote_id=51,
+                empresa_id=1,
+                estados={"validado"},
+            )
+            assert control_mutado["estado"] == "sin_coincidencias"
+            assert control_mutado["tipos_coincidencia"] == []
+    finally:
+        await async_engine.dispose()
+
+
+def test_sqlite_duplicados_v2_downgrade_bloquea_control_durable(
+    tmp_path: Path,
+) -> None:
+    """Una aceptación/evidencia v2 impide perder físicamente el contrato."""
+    db_path = tmp_path / "duplicados-v2-con-evidencia.db"
+    database_url = f"sqlite:///{db_path.as_posix()}"
+    _run_alembic("upgrade", REVISION_INTEGRIDAD_FISCAL, database_url)
+    backup_env = _backup_env_pf19(
+        db_path, tmp_path / "duplicados-v2-con-evidencia-backup.db"
+    )
+    _run_alembic(
+        "upgrade",
+        REVISION_DUPLICADOS_V2,
+        database_url,
+        extra_env=backup_env,
+    )
+    _crear_contexto_fiscal_sintetico(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO operaciones_idempotentes (
+                id, idempotency_key, tipo_operacion, payload_hash, estado,
+                control_duplicados_json, duplicados_version, empresa_id,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, json(?), ?, ?, ?, ?)
+            """,
+            (
+                500,
+                "pf13-evidencia-durable",
+                "procesar_lote",
+                "e" * 64,
+                "requiere_confirmacion_duplicado",
+                '{"evidencia_id":"v2.sintetica"}',
+                "duplicados_lotes/v2",
+                1,
+                FECHA_HORA_SINTETICA,
+                FECHA_HORA_SINTETICA,
+            ),
+        )
+
+    output = _run_alembic_failure("downgrade", REVISION_MULTIEMISOR, database_url)
+
+    assert "evidencia de duplicados v2" in output
+    assert _alembic_version(db_path) == REVISION_DUPLICADOS_V2

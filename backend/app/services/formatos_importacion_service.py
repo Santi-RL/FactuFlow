@@ -2189,7 +2189,9 @@ class FormatosImportacionService:
         empresa: Empresa,
         fila_excel: int,
     ) -> dict[str, Any]:
-        documento = clean_cuit(valores.get("cliente_numero_documento", ""))
+        documento_original = clean_cuit(valores.get("cliente_numero_documento", ""))
+        tipo_documento_original = self._inferir_tipo_documento(documento_original)
+        documento = documento_original
         importe_total = self._parse_decimal(valores.get("importe_total"))
         precio_unitario = self._parse_decimal(valores.get("item_precio_unitario"))
         total_receptor = importe_total or precio_unitario or Decimal("0")
@@ -2211,6 +2213,11 @@ class FormatosImportacionService:
             "item_precio_unitario", valores.get("importe_total", "")
         )
         return {
+            "_duplicados_identidad_entrada": {
+                "tipo_documento": tipo_documento_original,
+                "numero_documento": documento_original,
+                "razon_social": valores.get("cliente_razon_social", ""),
+            },
             "comprobante_ref": f"FILA-{fila_excel:05d}",
             "empresa_cuit": empresa_cuit,
             "punto_venta_numero": valores.get("punto_venta_numero", ""),

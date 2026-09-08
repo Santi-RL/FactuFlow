@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 01/09/2026
+Última revisión: 05/09/2026
 
 Estado: VIGENTE.
 
@@ -53,6 +53,74 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - worker detenido, reiniciado y con claim concurrente;
 - lote stale intacto frente a lote con evidencia fiscal;
 - preservación de datos recuperables y cero duplicación.
+
+### Prevención de duplicados en lotes PF-13/PF-17
+
+Usar el [diseño de duplicados](pf-13-duplicados-lotes-design.md) como contrato.
+Preparar fechas fiscales explícitas, dos emisores, dos usuarios y archivos
+sintéticos; la API y el worker deben usar servicios fiscales simulados y una
+base aislada. Registrar por separado los resultados técnicos y la revisión
+visual/contable de la persona usuaria.
+
+- Validar ventas anónimas que repiten fecha e importe dentro del mismo lote:
+  no aparece una advertencia interna. Repetir con nombre definido o documento
+  coincidente y comprobar que se explica la coincidencia por receptor.
+- Procesar el primer lote con el simulador. Importar otro Excel con el mismo
+  contenido completo, filas reordenadas y distinta huella de carga: aparece la
+  coincidencia histórica, también para receptores anónimos. La misma importación
+  conserva su restricción propia.
+- Usar el mismo nombre de archivo, cantidad e importe total con contenido
+  distinto: esos agregados no bastan para afirmar duplicación. Un comprobante
+  anónimo que coincide con uno de un lote anterior de cien tampoco constituye
+  por sí solo una coincidencia de lote completo.
+- Comprobar coincidencia parcial identificada y lote anterior parcialmente
+  emitido: distinguir cantidad e importe afectados, totales de ambos lotes y
+  resultados autorizados, fallidos o pendientes, sin atribuir emisión total.
+- Consultar importes de una moneda, monedas diferentes y moneda histórica
+  desconocida: mostrar unidades y desgloses, sin suma mixta ni conversión
+  implícita. El detalle identifica el comprobante actual por su referencia.
+- Verificar archivo y lote anterior, fechas y usuario que solicitó emitir.
+  Cargar con un usuario y emitir con otro, incluido el worker. La historia
+  incompleta debe indicar la ausencia de actor u hora confiable. Un antecedente
+  individual se presenta como comprobante, sin inventar lote ni archivo.
+- Abrir la advertencia y verificar que «Volver a revisar» tiene mayor énfasis
+  y foco inicial. El checkbox empieza vacío; marcarlo sólo habilita la acción
+  secundaria y no cambia el foco ni emite. El retorno conserva archivo y opciones.
+- Recorrer el diálogo con teclado: Enter implícito no emite, espacio sólo marca
+  el checkbox y Escape/cierre vuelven a revisar. Comprobar etiquetas accesibles,
+  orden y restauración de foco, zoom y ancho móvil.
+- Consultar el lote anterior y el detalle paginado sin perder la preparación.
+  Si aparece evidencia relevante nueva, se actualiza el aviso, se desmarca el
+  checkbox y el foco vuelve al retorno. Cambiar emisor, lote o selección con una respuesta
+  pendiente no debe reutilizar esa respuesta ni su aceptación.
+- Un cambio sólo de testigos conserva la clave y la confirmación fiscal del
+  mismo material; un cambio de datos fiscales las invalida. Consultar el detalle
+  nunca concede una aceptación ni envía automáticamente una solicitud fiscal.
+- Confirmar la excepción y comprobar que se conserva la misma operación y la
+  confirmación fiscal correspondiente a los datos revisados. Doble clic,
+  respuesta repetida y reenvío de la misma solicitud no producen una segunda
+  solicitud fiscal simulada.
+- Con dos sesiones, pausar un lote mientras otro equivalente intenta emitir:
+  la operación ajena en curso impide la excepción. Repetir después de autorizar
+  sólo parte del primer lote; el conjunto original sigue siendo reconocible.
+- Ensayar rechazo, fallo anterior al envío e incertidumbre posterior: sólo los
+  grupos seguros pueden reintentarse, sin reemitir los autorizados. La
+  incertidumbre permanece bloqueada hasta reconciliarla con el simulador.
+- Compactar un lote cerrado y volver a consultar su coincidencia y aceptación:
+  la evidencia mínima permanece disponible. Repetir consultas desde otro emisor
+  y ambiente para comprobar aislamiento.
+- Ensayar el paquete de migración en PostgreSQL descartable: conservar selección,
+  multiconjunto, actor y detalle; regenerar coordinación. Un paquete v3 conocido
+  conserva su cobertura legacy y nunca se convierte en aceptación v2.
+- Intentar continuar y reintentar un lote antiguo con aceptación no comprobable
+  y coincidencias actuales, usando la clave original y otra nueva: debe quedar
+  bloqueado sin transformar su aceptación ni perder historia. Comprobar también
+  que se conserva el replay terminal, que una aceptación pendiente puede
+  evaluarse con v2 y que la incertidumbre sólo se resuelve por reconciliación.
+
+Las carreras reales de base de datos, migraciones y errores intermedios deben
+demostrarse además con la matriz automatizada del diseño; un recorrido visual
+con respuestas HTTP simuladas no reemplaza esas pruebas.
 
 ### Multiemisor
 

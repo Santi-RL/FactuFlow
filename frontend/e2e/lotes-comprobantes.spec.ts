@@ -58,9 +58,7 @@ test.describe("Emisión masiva", () => {
     await page
       .getByRole("button", { name: /emitir comprobantes válidos/i })
       .click();
-    await page
-      .getByRole("button", { name: /emitir con esta fecha/i })
-      .click();
+    await page.getByRole("button", { name: /emitir con esta fecha/i }).click();
 
     await expect(
       page.getByText(/lote procesado|emisión iniciada/i),
@@ -73,6 +71,86 @@ test.describe("Emisión masiva", () => {
         .getByRole("main")
         .getByText(/todos los comprobantes del lote fueron emitidos/i)
         .first(),
+    ).toBeVisible();
+  });
+
+  test("advierte una segunda carga contablemente equivalente sin avisar duplicados anónimos internos", async ({
+    page,
+  }) => {
+    let processRequests = 0;
+    page.on("request", (request) => {
+      if (/\/api\/lotes-comprobantes\/\d+\/procesar/.test(request.url())) {
+        processRequests += 1;
+      }
+    });
+
+    const prepareFile = async (name: string) => {
+      await page.locator('input[type="file"]').setInputFiles({
+        name,
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        buffer: Buffer.from(`contenido visual ${name}`),
+      });
+      await page.getByRole("radio", { name: /productos/i }).check();
+      await page
+        .getByRole("radio", { name: /utilizar la descripción del archivo/i })
+        .check();
+      await page
+        .getByRole("radio", { name: /^utilizar la fecha del archivo$/i })
+        .first()
+        .check();
+      await page.getByTestId("validar-lote-final").click();
+      await expect(page.getByText(/archivo validado/i)).toBeVisible();
+    };
+
+    await prepareFile("ventas-anonimas-original.xlsx");
+    await expect(page.getByTestId("resumen-control-duplicados")).toHaveCount(0);
+    await page
+      .getByRole("button", { name: /emitir comprobantes válidos/i })
+      .click();
+    await page.getByRole("button", { name: /emitir con esta fecha/i }).click();
+    await expect(
+      page.getByRole("main").getByText("Completado", { exact: true }).first(),
+    ).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await prepareFile("ventas-anonimas-reordenadas.xlsx");
+    await expect(page.getByTestId("resumen-control-duplicados")).toContainText(
+      "Hay coincidencias que requieren revisión",
+    );
+    await page
+      .getByRole("button", { name: /emitir comprobantes válidos/i })
+      .click();
+    await page.getByRole("button", { name: /emitir con esta fecha/i }).click();
+
+    const dialog = page.getByRole("dialog", {
+      name: /coincide por completo con otro ya emitido/i,
+    });
+    await expect(dialog).toBeVisible();
+    await page.evaluate(() => {
+      document.body.style.zoom = "150%";
+    });
+    await expect(dialog).toBeVisible();
+    const review = dialog.getByRole("button", { name: "Volver a revisar" });
+    await expect(review).toBeFocused();
+    await expect(dialog).toContainText("Usuario de emisión no registrado");
+    const checkbox = dialog.getByRole("checkbox");
+    await expect(checkbox).not.toBeChecked();
+    await checkbox.focus();
+    await checkbox.press("Enter");
+    await expect(checkbox).not.toBeChecked();
+    expect(processRequests).toBe(2);
+    await checkbox.press("Space");
+    await expect(checkbox).toBeChecked();
+    const accept = dialog.getByRole("button", {
+      name: "Emitir como operaciones nuevas",
+    });
+    await expect(accept).toBeEnabled();
+    await accept.dblclick();
+    await expect(dialog).toHaveCount(0);
+    expect(processRequests).toBe(3);
+    await expect(
+      page.getByRole("main").getByText("Completado", { exact: true }).first(),
     ).toBeVisible();
   });
 });

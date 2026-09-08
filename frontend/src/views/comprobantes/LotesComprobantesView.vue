@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import DuplicadosLoteDialog from "@/components/comprobantes/DuplicadosLoteDialog.vue";
 import Pagination from "@/components/common/Pagination.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -28,6 +29,10 @@ import {
   ESTADOS_GRUPO_NOMBRES,
   ESTADOS_LOTE_COLOR,
   ESTADOS_LOTE_NOMBRES,
+  type ControlDuplicadosLote,
+  type DuplicadosCoincidenciasPage,
+  type DuplicadosErrorDetail,
+  type DuplicadosImportes,
   type LoteComprobante,
   type LoteComprobanteGrupoDetalle,
   type LoteComprobanteSeguimiento,
@@ -129,8 +134,17 @@ const confirmacionDuplicadoReintentar = ref<string | null>(null);
 const confirmacionDuplicadoPendiente = ref<"procesar" | "reintentar" | null>(
   null,
 );
-const tokenDuplicadoPendiente = ref("");
-const mensajeConfirmacionDuplicadoLogico = ref("");
+const controlDuplicadosDialogo = ref<ControlDuplicadosLote | null>(null);
+const aceptacionDuplicadoPendiente = ref<string | null>(null);
+const detalleCoincidencias = ref<DuplicadosCoincidenciasPage | null>(null);
+const loadingDetalleCoincidencias = ref(false);
+let origenFocoDialogoDuplicados: {
+  elemento: HTMLButtonElement;
+  empresaId: number;
+  loteId: number;
+} | null = null;
+const confirmacionFiscalProcesarVigente = ref(false);
+const confirmacionFiscalReintentarVigente = ref(false);
 const motivoDescartar = ref("");
 const motivoEliminar = ref("");
 const externoGrupoId = ref<number | "">("");
@@ -148,6 +162,8 @@ let perfilesCargaMasivaRequestId = 0;
 let puntosVentaRequestId = 0;
 let detalleLoteRequestId = 0;
 let gruposLoteRequestId = 0;
+let detalleCoincidenciasRequestId = 0;
+let operacionDuplicadosRequestId = 0;
 let pollingGeneration = 0;
 let pollingInicioMs: number | null = null;
 let pollingLoteId: number | null = null;
@@ -452,6 +468,42 @@ const puedeProcesar = computed(() => {
     loteActual.value.estado === "validado"
   );
 });
+const requiereRevisionDuplicados = (
+  control: ControlDuplicadosLote | null | undefined,
+) =>
+  ["requiere_confirmacion", "operacion_en_curso"].includes(
+    control?.estado || "",
+  );
+const presentarMensajeValidacion = (mensaje: string | null | undefined) => {
+  const original = mensaje?.trim() || "";
+  return original.replace(/\s+y\s+puede emitirse\.?\s*$/i, ".");
+};
+const presentarMensajeLote = (
+  mensaje: string | null | undefined,
+  control: ControlDuplicadosLote | null | undefined,
+) => {
+  const original = mensaje?.trim() || "";
+  if (!requiereRevisionDuplicados(control)) return original;
+
+  const validacion = presentarMensajeValidacion(original);
+  if (validacion === original) return original;
+  return `${validacion} La revisión de coincidencias sigue pendiente.`;
+};
+const hayRevisionDuplicadosPendiente = computed(() =>
+  requiereRevisionDuplicados(loteActual.value?.control_duplicados),
+);
+const mensajeResumenLotePresentacion = computed(() =>
+  presentarMensajeLote(
+    loteActual.value?.mensaje_resumen,
+    loteActual.value?.control_duplicados,
+  ),
+);
+const mensajePrincipalGrupo = (grupo: LoteComprobanteGrupoDetalle) => {
+  if (grupo.mensajes_json[0]) return grupo.mensajes_json[0];
+  return hayRevisionDuplicadosPendiente.value
+    ? "Sin errores de validación en este comprobante. La revisión general de coincidencias del lote sigue pendiente."
+    : "Sin observaciones";
+};
 const hayFallidosParaReintentar = computed(
   () =>
     loteActual.value?.estado !== "requiere_reconciliacion" &&
@@ -785,6 +837,22 @@ const formatMoney = (value: number) => {
   }).format(value || 0);
 };
 
+const formatImportesDuplicados = (value: DuplicadosImportes | undefined) => {
+  if (!value) return "importes con moneda no acreditada";
+  const lines = value.por_moneda.map((item) => {
+    const match = item.importe.match(/^(-?)(\d+)\.(\d{2})$/);
+    const amount = match
+      ? `${match[1]}${match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${match[3]}`
+      : "importe no disponible";
+    const prefix = item.moneda === "PES" ? "$" : item.moneda;
+    return `${prefix} ${amount} en ${item.cantidad} comprobante${item.cantidad === 1 ? "" : "s"}`;
+  });
+  if (value.cantidad_sin_moneda_acreditada > 0) {
+    lines.push(`${value.cantidad_sin_moneda_acreditada} sin moneda acreditada`);
+  }
+  return lines.length ? lines.join("; ") : "sin importes afectados";
+};
+
 const pluralizar = (cantidad: number, singular: string, plural: string) => {
   return `${cantidad} ${cantidad === 1 ? singular : plural}`;
 };
@@ -829,6 +897,16 @@ const resumenPrincipalLote = (lote: LoteComprobante) => {
     return pluralizar(lote.grupos_emitidos, "emitido", "emitidos");
   }
   if (lote.grupos_validos > 0) {
+    if (
+      lote.id === loteActual.value?.id &&
+      requiereRevisionDuplicados(loteActual.value.control_duplicados)
+    ) {
+      return pluralizar(
+        lote.grupos_validos,
+        "comprobante validado",
+        "comprobantes validados",
+      );
+    }
     return pluralizar(lote.grupos_validos, "listo", "listos");
   }
   if (lote.grupos_con_error > 0) {
@@ -888,18 +966,59 @@ const obtenerIdempotencyKeyReintentar = (): string => {
 const resetearIdempotencyKeyProcesar = () => {
   idempotencyKeyProcesar.value = null;
   confirmacionDuplicadoProcesar.value = null;
+  confirmacionFiscalProcesarVigente.value = false;
 };
 
 const resetearIdempotencyKeyReintentar = () => {
   idempotencyKeyReintentar.value = null;
   confirmacionDuplicadoReintentar.value = null;
+  confirmacionFiscalReintentarVigente.value = false;
 };
 
 const resetearConfirmacionDuplicadoPendiente = () => {
+  origenFocoDialogoDuplicados = null;
   mostrarConfirmacionDuplicadoLogico.value = false;
   confirmacionDuplicadoPendiente.value = null;
-  tokenDuplicadoPendiente.value = "";
-  mensajeConfirmacionDuplicadoLogico.value = "";
+  controlDuplicadosDialogo.value = null;
+  aceptacionDuplicadoPendiente.value = null;
+  detalleCoincidencias.value = null;
+  loadingDetalleCoincidencias.value = false;
+  detalleCoincidenciasRequestId += 1;
+};
+
+const registrarOrigenFocoDialogoDuplicados = (event?: Event) => {
+  const elemento = event?.currentTarget;
+  const empresaId = empresaActivaId.value;
+  const loteId = loteActual.value?.id;
+  origenFocoDialogoDuplicados =
+    elemento instanceof HTMLButtonElement && empresaId && loteId
+      ? { elemento, empresaId, loteId }
+      : null;
+};
+
+const volverARevisarDuplicados = () => {
+  const origen = origenFocoDialogoDuplicados;
+  resetearConfirmacionDuplicadoPendiente();
+  if (!origen) return;
+  void nextTick(() => {
+    const conservaContexto =
+      empresaActivaId.value === origen.empresaId &&
+      loteActual.value?.id === origen.loteId;
+    const hayOtroDialogo =
+      mostrarConfirmacionFechaFiscal.value ||
+      mostrarConfirmacionReintentoFallidos.value ||
+      mostrarConfirmacionCompactar.value ||
+      mostrarConfirmacionDuplicadoLogico.value;
+    if (
+      conservaContexto &&
+      !hayOtroDialogo &&
+      origen.elemento.isConnected &&
+      !origen.elemento.disabled &&
+      document.activeElement === document.body
+    ) {
+      origen.elemento.focus();
+    }
+  });
 };
 
 const limpiarConfiguracionLote = () => {
@@ -1004,6 +1123,7 @@ const handleArchivoSeleccionado = (event: Event) => {
   const target = event.target as HTMLInputElement;
   deteccionFormatoRequestId += 1;
   archivoSeleccionado.value = target.files?.[0] || null;
+  operacionDuplicadosRequestId += 1;
   deteccionFormato.value = null;
   resetearIdempotencyKeyProcesar();
   resetearIdempotencyKeyReintentar();
@@ -1303,6 +1423,7 @@ const cargarDetalleLote = async (
     }
     const esNuevoLote = loteActual.value?.id !== loteId;
     if (esNuevoLote) {
+      operacionDuplicadosRequestId += 1;
       gruposLote.value = [];
       gruposLotePage.value = 1;
       gruposLoteTotal.value = 0;
@@ -1312,8 +1433,28 @@ const cargarDetalleLote = async (
       resetearIdempotencyKeyReintentar();
       resetearConfirmacionDuplicadoPendiente();
     }
+    const controlAnterior = loteActual.value?.control_duplicados;
     const resumen = await lotesComprobantesService.obtenerResumen(loteId);
     if (!sigueVigente()) return false;
+    if (!esNuevoLote && controlAnterior) {
+      const cambioMaterial =
+        controlAnterior.datos_hash !== resumen.control_duplicados.datos_hash ||
+        controlAnterior.seleccion_hash !==
+          resumen.control_duplicados.seleccion_hash;
+      const cambioEvidencia =
+        controlAnterior.evidencia_id !==
+        resumen.control_duplicados.evidencia_id;
+      if (cambioMaterial) {
+        resetearIdempotencyKeyProcesar();
+        resetearIdempotencyKeyReintentar();
+      } else if (cambioEvidencia) {
+        confirmacionDuplicadoProcesar.value = null;
+        confirmacionDuplicadoReintentar.value = null;
+      }
+      if (cambioMaterial || cambioEvidencia) {
+        resetearConfirmacionDuplicadoPendiente();
+      }
+    }
     loteActual.value = resumen;
     await cargarGruposLote(
       loteId,
@@ -1407,9 +1548,12 @@ const validarArchivo = async () => {
       opcionesFechas.value,
       perfilAplicadoId.value,
     );
-    showSuccess("Archivo validado", resultado.mensaje);
     await cargarLotes(true);
     await cargarDetalleLote(resultado.lote.id, true);
+    showSuccess(
+      "Archivo validado",
+      presentarMensajeValidacion(resultado.mensaje),
+    );
 
     if (resultado.requiere_background) {
       showInfo(
@@ -1428,25 +1572,166 @@ const validarArchivo = async () => {
   }
 };
 
+interface ContextoSolicitudDuplicados {
+  requestId: number;
+  empresaId: number;
+  loteId: number;
+  accion: "procesar" | "reintentar";
+  datosHash: string;
+  seleccionHash: string;
+}
+
+const crearContextoSolicitudDuplicados = (
+  accion: "procesar" | "reintentar",
+): ContextoSolicitudDuplicados | null => {
+  const lote = loteActual.value;
+  const empresaId = empresaActivaId.value;
+  if (!lote || !empresaId) return null;
+  return {
+    requestId: ++operacionDuplicadosRequestId,
+    empresaId,
+    loteId: lote.id,
+    accion,
+    datosHash: lote.control_duplicados.datos_hash,
+    seleccionHash: lote.control_duplicados.seleccion_hash,
+  };
+};
+
+const contextoSolicitudDuplicadosVigente = (
+  contexto: ContextoSolicitudDuplicados,
+) =>
+  !componenteDesmontado &&
+  contexto.requestId === operacionDuplicadosRequestId &&
+  empresaActivaId.value === contexto.empresaId &&
+  loteActual.value?.id === contexto.loteId &&
+  loteActual.value.control_duplicados.datos_hash === contexto.datosHash &&
+  loteActual.value.control_duplicados.seleccion_hash === contexto.seleccionHash;
+
+const esControlDuplicadosV2 = (
+  value: unknown,
+): value is ControlDuplicadosLote =>
+  Boolean(
+    value &&
+    typeof value === "object" &&
+    (value as { version?: unknown }).version === "duplicados_lotes/v2",
+  );
+
+const actualizarControlDuplicadosActual = (control: ControlDuplicadosLote) => {
+  if (!loteActual.value) return;
+  loteActual.value = { ...loteActual.value, control_duplicados: control };
+  controlDuplicadosDialogo.value = control;
+  detalleCoincidencias.value = null;
+};
+
 const prepararConfirmacionDuplicadoLogico = (
   error: any,
-  accion: "procesar" | "reintentar",
+  contexto: ContextoSolicitudDuplicados | null,
 ) => {
-  const detail = error.response?.data?.detail;
-  if (detail?.categoria_error !== "duplicado_logico_lote") {
+  if (!contexto || !contextoSolicitudDuplicadosVigente(contexto)) return false;
+  const detail = error.response?.data?.detail as
+    DuplicadosErrorDetail | undefined;
+  if (
+    !detail ||
+    !["duplicado_logico_lote", "duplicado_operacion_en_curso"].includes(
+      detail.categoria_error || "",
+    ) ||
+    !esControlDuplicadosV2(detail.control_duplicados)
+  ) {
     return false;
   }
 
-  const token = detail.confirmacion_duplicado_logico;
-  if (!token) return false;
+  const acceptanceCandidate =
+    typeof detail.aceptacion_id === "string"
+      ? detail.aceptacion_id
+      : detail.confirmacion_duplicado_logico;
+  const acceptanceId =
+    detail.categoria_error === "duplicado_logico_lote" &&
+    typeof acceptanceCandidate === "string" &&
+    acceptanceCandidate.startsWith("v2.")
+      ? acceptanceCandidate
+      : null;
 
-  confirmacionDuplicadoPendiente.value = accion;
-  tokenDuplicadoPendiente.value = token;
-  mensajeConfirmacionDuplicadoLogico.value =
-    [detail.mensaje, ...(detail.errores || [])].filter(Boolean).join(" ") ||
-    "Se detectaron comprobantes probablemente duplicados. Confirmá si corresponde solicitar CAE igualmente.";
+  actualizarControlDuplicadosActual(detail.control_duplicados);
+  confirmacionDuplicadoPendiente.value = contexto.accion;
+  aceptacionDuplicadoPendiente.value = acceptanceId;
   mostrarConfirmacionDuplicadoLogico.value = true;
   return true;
+};
+
+const abrirRevisionDuplicadosResumen = (event?: Event) => {
+  const control = loteActual.value?.control_duplicados;
+  if (!control || control.estado === "sin_coincidencias") return;
+  registrarOrigenFocoDialogoDuplicados(event);
+  confirmacionDuplicadoPendiente.value = null;
+  aceptacionDuplicadoPendiente.value = null;
+  controlDuplicadosDialogo.value = control;
+  detalleCoincidencias.value = null;
+  mostrarConfirmacionDuplicadoLogico.value = true;
+};
+
+const cargarDetalleCoincidencias = async (page = 1) => {
+  const loteId = loteActual.value?.id;
+  const empresaId = empresaActivaId.value;
+  const evidenciaId = controlDuplicadosDialogo.value?.evidencia_id;
+  if (!loteId || !empresaId || !evidenciaId) return;
+  const requestId = ++detalleCoincidenciasRequestId;
+  const sigueVigente = () =>
+    !componenteDesmontado &&
+    requestId === detalleCoincidenciasRequestId &&
+    empresaActivaId.value === empresaId &&
+    loteActual.value?.id === loteId &&
+    controlDuplicadosDialogo.value?.evidencia_id === evidenciaId;
+
+  loadingDetalleCoincidencias.value = true;
+  try {
+    const resultado = await lotesComprobantesService.obtenerCoincidencias(
+      loteId,
+      { evidenciaId, page, perPage: 50 },
+    );
+    if (!sigueVigente()) return;
+    detalleCoincidencias.value = resultado;
+  } catch (error: any) {
+    if (!sigueVigente()) return;
+    const detail = error.response?.data?.detail as
+      DuplicadosErrorDetail | undefined;
+    if (
+      error.response?.status === 409 &&
+      detail &&
+      ["duplicado_logico_lote", "duplicado_operacion_en_curso"].includes(
+        detail.categoria_error || "",
+      ) &&
+      esControlDuplicadosV2(detail.control_duplicados)
+    ) {
+      const controlAnterior = controlDuplicadosDialogo.value;
+      const cambioMaterial = Boolean(
+        controlAnterior &&
+        (controlAnterior.datos_hash !== detail.control_duplicados.datos_hash ||
+          controlAnterior.seleccion_hash !==
+            detail.control_duplicados.seleccion_hash),
+      );
+      if (cambioMaterial) {
+        resetearIdempotencyKeyProcesar();
+        resetearIdempotencyKeyReintentar();
+      } else {
+        confirmacionDuplicadoProcesar.value = null;
+        confirmacionDuplicadoReintentar.value = null;
+      }
+      aceptacionDuplicadoPendiente.value = null;
+      actualizarControlDuplicadosActual(detail.control_duplicados);
+      return;
+    }
+    showError(
+      "No se pudieron cargar las coincidencias",
+      detalleErrorComoTexto(
+        error.response?.data?.detail,
+        "Volvé a revisar el lote e intentá consultar nuevamente.",
+      ),
+    );
+  } finally {
+    if (requestId === detalleCoincidenciasRequestId) {
+      loadingDetalleCoincidencias.value = false;
+    }
+  }
 };
 
 const detalleErrorComoTexto = (detail: unknown, fallback: string): string => {
@@ -1474,6 +1759,7 @@ const detalleErrorComoTexto = (detail: unknown, fallback: string): string => {
 };
 
 const procesarLote = async () => {
+  if (procesandoLote.value) return;
   if (!loteActual.value) {
     showWarning(
       "Selecciona un lote",
@@ -1482,6 +1768,11 @@ const procesarLote = async () => {
     return;
   }
 
+  const contexto = crearContextoSolicitudDuplicados("procesar");
+  if (!contexto) return;
+  if (mostrarConfirmacionFechaFiscal.value) {
+    confirmacionFiscalProcesarVigente.value = true;
+  }
   procesandoLote.value = true;
   mostrarConfirmacionFechaFiscal.value = false;
   inicioProcesamientoLocal.value = new Date();
@@ -1504,9 +1795,10 @@ const procesarLote = async () => {
     }
   } catch (error: any) {
     inicioProcesamientoLocal.value = null;
-    if (prepararConfirmacionDuplicadoLogico(error, "procesar")) {
+    if (prepararConfirmacionDuplicadoLogico(error, contexto)) {
       return;
     }
+    if (!contextoSolicitudDuplicadosVigente(contexto)) return;
     showError(
       "No se pudo emitir el lote",
       detalleErrorComoTexto(
@@ -1519,8 +1811,13 @@ const procesarLote = async () => {
   }
 };
 
-const solicitarConfirmacionEmisionLote = () => {
+const solicitarConfirmacionEmisionLote = (event?: Event) => {
   if (!puedeProcesar.value) return;
+  registrarOrigenFocoDialogoDuplicados(event);
+  if (confirmacionFiscalProcesarVigente.value && idempotencyKeyProcesar.value) {
+    void procesarLote();
+    return;
+  }
   mostrarConfirmacionFechaFiscal.value = true;
 };
 
@@ -1529,7 +1826,7 @@ const refrescarLoteDespuesAccion = async (loteId: number) => {
   await cargarDetalleLote(loteId, true);
 };
 
-const solicitarConfirmacionReintentoFallidos = () => {
+const solicitarConfirmacionReintentoFallidos = (event?: Event) => {
   if (!hayFallidosParaReintentar.value) {
     showWarning(
       "Sin fallidos para reintentar",
@@ -1537,12 +1834,26 @@ const solicitarConfirmacionReintentoFallidos = () => {
     );
     return;
   }
+  registrarOrigenFocoDialogoDuplicados(event);
+  if (
+    confirmacionFiscalReintentarVigente.value &&
+    idempotencyKeyReintentar.value
+  ) {
+    void reintentarFallidos();
+    return;
+  }
   mostrarConfirmacionReintentoFallidos.value = true;
 };
 
 const reintentarFallidos = async () => {
+  if (resolviendoLote.value !== null) return;
   if (!loteActual.value) return;
   const loteId = loteActual.value.id;
+  const contexto = crearContextoSolicitudDuplicados("reintentar");
+  if (!contexto) return;
+  if (mostrarConfirmacionReintentoFallidos.value) {
+    confirmacionFiscalReintentarVigente.value = true;
+  }
   mostrarConfirmacionReintentoFallidos.value = false;
   resolviendoLote.value = "reintentar";
 
@@ -1558,9 +1869,10 @@ const reintentarFallidos = async () => {
     await refrescarLoteDespuesAccion(loteId);
     resetearIdempotencyKeyReintentar();
   } catch (error: any) {
-    if (prepararConfirmacionDuplicadoLogico(error, "reintentar")) {
+    if (prepararConfirmacionDuplicadoLogico(error, contexto)) {
       return;
     }
+    if (!contextoSolicitudDuplicadosVigente(contexto)) return;
     showError(
       "No se pudieron reintentar los fallidos",
       detalleErrorComoTexto(
@@ -1575,7 +1887,8 @@ const reintentarFallidos = async () => {
 
 const confirmarDuplicadoLogicoLote = async () => {
   const accion = confirmacionDuplicadoPendiente.value;
-  const token = tokenDuplicadoPendiente.value;
+  const token = aceptacionDuplicadoPendiente.value;
+  if (!accion || !token) return;
   resetearConfirmacionDuplicadoPendiente();
 
   if (accion === "procesar") {
@@ -1991,6 +2304,7 @@ watch(
     const sigueVigente = () =>
       !componenteDesmontado && empresaActivaId.value === empresaId;
     detenerPolling(true);
+    operacionDuplicadosRequestId += 1;
     detalleLoteRequestId += 1;
     gruposLoteRequestId += 1;
     formatosImportacionRequestId += 1;
@@ -2064,7 +2378,9 @@ onBeforeUnmount(() => {
       class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Emisión masiva</h1>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Emisión masiva
+        </h1>
         <p class="mt-2 max-w-3xl text-gray-600">
           Carga un Excel, revisa errores antes de emitir y sigue el resultado
           del lote sin perder contexto técnico.
@@ -2074,17 +2390,22 @@ onBeforeUnmount(() => {
       <div
         class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm"
       >
-        <p class="font-semibold text-gray-900">Emisor activo</p>
+        <p class="font-semibold text-gray-900">
+          Emisor activo
+        </p>
         <p>
           {{
             empresaActiva?.razon_social ||
-            "Selecciona una empresa para empezar."
+              "Selecciona una empresa para empezar."
           }}
         </p>
       </div>
     </div>
 
-    <BaseAlert v-if="!empresaActivaId" type="warning">
+    <BaseAlert
+      v-if="!empresaActivaId"
+      type="warning"
+    >
       Selecciona un emisor activo antes de descargar la plantilla o subir el
       archivo.
     </BaseAlert>
@@ -2130,11 +2451,17 @@ onBeforeUnmount(() => {
                 : "Sin perfil de carga masiva aplicado"
             }}
           </p>
-          <p v-if="configuracionModificada" class="mt-1 text-amber-700">
+          <p
+            v-if="configuracionModificada"
+            class="mt-1 text-amber-700"
+          >
             Configuración modificada en esta carga. Se validará sin snapshot de
             perfil de carga masiva.
           </p>
-          <p v-else class="mt-1 text-gray-500">
+          <p
+            v-else
+            class="mt-1 text-gray-500"
+          >
             {{
               perfilesCargaMasiva.length
                 ? "Puedes cambiarlo antes de validar."
@@ -2222,7 +2549,9 @@ onBeforeUnmount(() => {
         <div>
           <div class="flex items-center gap-2">
             <CloudArrowUpIcon class="h-5 w-5 text-primary-600" />
-            <h2 class="text-lg font-semibold text-gray-900">Validar archivo</h2>
+            <h2 class="text-lg font-semibold text-gray-900">
+              Validar archivo
+            </h2>
           </div>
           <p class="mt-2 text-sm text-gray-600">
             Sube la plantilla oficial o un archivo `.xlsx` externo y confirma la
@@ -2238,7 +2567,7 @@ onBeforeUnmount(() => {
               accept=".xlsx"
               class="hidden"
               @change="handleArchivoSeleccionado"
-            />
+            >
 
             <div
               class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
@@ -2247,7 +2576,7 @@ onBeforeUnmount(() => {
                 <p class="font-medium text-gray-900">
                   {{
                     archivoSeleccionado?.name ||
-                    "Todavía no seleccionaste ningún archivo."
+                      "Todavía no seleccionaste ningún archivo."
                   }}
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
@@ -2260,7 +2589,10 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="flex flex-wrap gap-3">
-                <BaseButton variant="secondary" @click="triggerFileSelection">
+                <BaseButton
+                  variant="secondary"
+                  @click="triggerFileSelection"
+                >
                   <DocumentDuplicateIcon class="mr-2 h-5 w-5" />
                   Elegir archivo
                 </BaseButton>
@@ -2315,17 +2647,23 @@ onBeforeUnmount(() => {
               />
 
               <div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                <p class="font-medium text-gray-900">Columnas detectadas</p>
+                <p class="font-medium text-gray-900">
+                  Columnas detectadas
+                </p>
                 <p class="mt-1 break-words">
                   {{
                     deteccionFormato?.headers_detectados.join(", ") ||
-                    "Todavía no se analizaron encabezados."
+                      "Todavía no se analizaron encabezados."
                   }}
                 </p>
               </div>
             </div>
 
-            <BaseAlert v-if="requiereElegirFormato" type="warning" class="mt-4">
+            <BaseAlert
+              v-if="requiereElegirFormato"
+              type="warning"
+              class="mt-4"
+            >
               <div
                 class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
@@ -2362,7 +2700,7 @@ onBeforeUnmount(() => {
                     :loading="detectandoFormato"
                     @click="
                       archivoSeleccionado &&
-                      detectarFormatoArchivo(archivoSeleccionado)
+                        detectarFormatoArchivo(archivoSeleccionado)
                     "
                   >
                     Analizar encabezados
@@ -2415,7 +2753,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Utilizar punto de venta definido en el archivo
                 </span>
               </label>
@@ -2428,9 +2766,9 @@ onBeforeUnmount(() => {
                     class="h-4 w-4 text-primary-600"
                     :disabled="
                       puntosVentaFactuflow.length === 0 ||
-                      puntosVentaStore.preparingForSelection
+                        puntosVentaStore.preparingForSelection
                     "
-                  />
+                  >
                   Utilizar punto de venta del emisor
                 </span>
                 <BaseSelect
@@ -2440,8 +2778,8 @@ onBeforeUnmount(() => {
                   :options="puntoVentaOptions"
                   :disabled="
                     puntoVentaModo !== 'fijo' ||
-                    puntosVentaFactuflow.length === 0 ||
-                    puntosVentaStore.preparingForSelection
+                      puntosVentaFactuflow.length === 0 ||
+                      puntosVentaStore.preparingForSelection
                   "
                 />
               </label>
@@ -2457,7 +2795,7 @@ onBeforeUnmount(() => {
             <BaseAlert
               v-else-if="
                 !puntosVentaStore.preparingForSelection &&
-                puntosVentaFactuflow.length === 0
+                  puntosVentaFactuflow.length === 0
               "
               type="warning"
               class="mt-4"
@@ -2501,7 +2839,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="productos"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Productos
                 </span>
               </label>
@@ -2512,7 +2850,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="servicios"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Servicios
                 </span>
               </label>
@@ -2523,7 +2861,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Definido por el archivo
                 </span>
                 <span class="mt-2 block text-xs text-gray-600">
@@ -2533,7 +2871,11 @@ onBeforeUnmount(() => {
               </label>
             </div>
 
-            <BaseAlert v-if="!conceptoModo" type="warning" class="mt-4">
+            <BaseAlert
+              v-if="!conceptoModo"
+              type="warning"
+              class="mt-4"
+            >
               Elegí el tipo de concepto fiscal ARCA antes de validar. Sin esta
               confirmación el lote no puede quedar listo para emitir.
             </BaseAlert>
@@ -2566,7 +2908,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="archivo"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Utilizar la descripción del archivo
                 </span>
                 <span class="mt-2 block text-xs text-gray-600">
@@ -2581,7 +2923,7 @@ onBeforeUnmount(() => {
                     type="radio"
                     value="fija"
                     class="h-4 w-4 text-primary-600"
-                  />
+                  >
                   Utilizar esta descripción para todo el lote
                 </span>
                 <input
@@ -2590,7 +2932,7 @@ onBeforeUnmount(() => {
                   :disabled="descripcionItemModo !== 'fija'"
                   placeholder="Ej.: Honorarios profesionales"
                   class="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                />
+                >
               </label>
             </div>
 
@@ -2635,7 +2977,7 @@ onBeforeUnmount(() => {
                       type="radio"
                       value="archivo"
                       class="h-4 w-4 text-primary-600"
-                    />
+                    >
                     Utilizar la fecha del archivo
                   </label>
                   <label class="flex flex-wrap items-center gap-2">
@@ -2644,14 +2986,14 @@ onBeforeUnmount(() => {
                       type="radio"
                       value="fija"
                       class="h-4 w-4 text-primary-600"
-                    />
+                    >
                     Utilizar esta fecha para todos
                     <input
                       v-model="fechaEmisionFija"
                       type="date"
                       :disabled="fechaEmisionModo !== 'fija'"
                       class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                    />
+                    >
                   </label>
                 </div>
               </div>
@@ -2662,14 +3004,16 @@ onBeforeUnmount(() => {
                 </p>
                 <div class="mt-3 space-y-4 text-sm text-gray-700">
                   <div>
-                    <p class="font-medium text-gray-800">Desde</p>
+                    <p class="font-medium text-gray-800">
+                      Desde
+                    </p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaServicioDesdeModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -2678,26 +3022,28 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Fijar
                       <input
                         v-model="fechaServicioDesdeFija"
                         type="date"
                         :disabled="fechaServicioDesdeModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      />
+                      >
                     </label>
                   </div>
 
                   <div>
-                    <p class="font-medium text-gray-800">Hasta</p>
+                    <p class="font-medium text-gray-800">
+                      Hasta
+                    </p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaServicioHastaModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -2706,26 +3052,28 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Fijar
                       <input
                         v-model="fechaServicioHastaFija"
                         type="date"
                         :disabled="fechaServicioHastaModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      />
+                      >
                     </label>
                   </div>
 
                   <div>
-                    <p class="font-medium text-gray-800">Vencimiento de pago</p>
+                    <p class="font-medium text-gray-800">
+                      Vencimiento de pago
+                    </p>
                     <label class="mt-2 flex items-center gap-2">
                       <input
                         v-model="fechaVtoPagoModo"
                         type="radio"
                         value="archivo"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Utilizar la fecha del archivo
                     </label>
                     <label class="mt-2 flex flex-wrap items-center gap-2">
@@ -2734,14 +3082,14 @@ onBeforeUnmount(() => {
                         type="radio"
                         value="fija"
                         class="h-4 w-4 text-primary-600"
-                      />
+                      >
                       Fijar
                       <input
                         v-model="fechaVtoPagoFija"
                         type="date"
                         :disabled="fechaVtoPagoModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      />
+                      >
                     </label>
                   </div>
                 </div>
@@ -2861,7 +3209,9 @@ onBeforeUnmount(() => {
                   </span>
                 </div>
                 <p class="mt-2 text-sm text-brand-slate">
-                  {{ loteActual.mensaje_resumen || "Sin novedades por ahora." }}
+                  {{
+                    mensajeResumenLotePresentacion || "Sin novedades por ahora."
+                  }}
                 </p>
                 <p class="mt-2 text-sm font-medium text-brand-teal">
                   Siguiente acción: {{ siguienteAccionLote }}
@@ -2907,26 +3257,89 @@ onBeforeUnmount(() => {
               </span>
             </BaseAlert>
 
-            <BaseAlert v-if="loteActual.compactado_at" type="info" class="mt-6">
+            <BaseAlert
+              v-if="loteActual.compactado_at"
+              type="info"
+              class="mt-6"
+            >
               Este lote fue compactado el
               {{ formatDateTime(loteActual.compactado_at) }}. Se conserva el
               resumen fiscal y los comprobantes agrupados, pero ya no está
               disponible el detalle original por fila.
             </BaseAlert>
 
+            <BaseAlert
+              v-if="
+                ['requiere_confirmacion', 'operacion_en_curso'].includes(
+                  loteActual.control_duplicados.estado,
+                )
+              "
+              type="warning"
+              class="mt-6"
+              data-testid="resumen-control-duplicados"
+            >
+              <div
+                class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p class="font-semibold">
+                    Hay coincidencias que requieren revisión
+                  </p>
+                  <p class="mt-1 text-sm">
+                    {{ loteActual.control_duplicados.cantidad_afectada }} de
+                    {{
+                      pluralizar(
+                        loteActual.control_duplicados.cantidad_actual,
+                        "comprobante",
+                        "comprobantes",
+                      )
+                    }}:
+                    {{
+                      formatImportesDuplicados(
+                        loteActual.control_duplicados.importes_afectados,
+                      )
+                    }}.
+                  </p>
+                </div>
+                <BaseButton
+                  variant="secondary"
+                  size="sm"
+                  @click="abrirRevisionDuplicadosResumen"
+                >
+                  Revisar coincidencias
+                </BaseButton>
+              </div>
+            </BaseAlert>
+
             <div
-              class="mt-6 rounded-xl border border-status-success bg-status-success-soft p-4"
+              :class="[
+                'mt-6 rounded-xl border p-4',
+                hayRevisionDuplicadosPendiente
+                  ? 'border-border-subtle bg-surface-page'
+                  : 'border-status-success bg-status-success-soft',
+              ]"
+              data-testid="totales-lote"
             >
               <div
                 class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
               >
                 <div>
                   <p class="text-sm font-semibold text-brand-ink">
-                    Totales listos para emitir
+                    {{
+                      hayRevisionDuplicadosPendiente
+                        ? "Totales preparados para revisión"
+                        : "Totales listos para emitir"
+                    }}
                   </p>
                   <p class="mt-1 text-sm text-brand-slate">
-                    Revisá estos importes contra el Excel antes de solicitar
-                    CAE.
+                    <template v-if="hayRevisionDuplicadosPendiente">
+                      Revisá estos importes contra el Excel y la advertencia de
+                      coincidencias del lote.
+                    </template>
+                    <template v-else>
+                      Revisá estos importes contra el Excel antes de solicitar
+                      CAE.
+                    </template>
                   </p>
                 </div>
                 <p class="text-sm font-medium text-brand-slate">
@@ -3035,10 +3448,10 @@ onBeforeUnmount(() => {
                 </p>
               </div>
               <p
-                v-if="loteActual.mensaje_resumen"
+                v-if="mensajeResumenLotePresentacion"
                 class="mt-2 text-xs text-brand-slate"
               >
-                {{ loteActual.mensaje_resumen }}
+                {{ mensajeResumenLotePresentacion }}
               </p>
             </div>
 
@@ -3305,7 +3718,7 @@ onBeforeUnmount(() => {
                     :loading="resolviendoLote === 'eliminar'"
                     :disabled="
                       motivoEliminar.trim().length < 3 ||
-                      resolviendoLote !== null
+                        resolviendoLote !== null
                     "
                     @click="eliminarLote"
                   >
@@ -3316,7 +3729,11 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <BaseAlert v-if="necesitaCorreccion" type="warning" class="mt-6">
+            <BaseAlert
+              v-if="necesitaCorreccion"
+              type="warning"
+              class="mt-6"
+            >
               Hay comprobantes observados. Descargá el archivo observado para
               ver fila por fila qué debés corregir antes de volver a subir el
               Excel.
@@ -3447,7 +3864,7 @@ onBeforeUnmount(() => {
                         <p
                           v-if="
                             grupo.fecha_servicio_desde ||
-                            grupo.fecha_servicio_hasta
+                              grupo.fecha_servicio_hasta
                           "
                           class="text-xs text-gray-500"
                         >
@@ -3478,7 +3895,7 @@ onBeforeUnmount(() => {
                         </span>
                       </td>
                       <td class="px-4 py-3 text-sm text-gray-600">
-                        {{ grupo.mensajes_json[0] || "Sin observaciones" }}
+                        {{ mensajePrincipalGrupo(grupo) }}
                       </td>
                     </tr>
                   </tbody>
@@ -3493,7 +3910,10 @@ onBeforeUnmount(() => {
                 />
               </div>
 
-              <div v-else class="mt-6">
+              <div
+                v-else
+                class="mt-6"
+              >
                 <BaseEmpty
                   title="Sin comprobantes para mostrar"
                   message="Cambiá el filtro de estado para revisar otros comprobantes del lote."
@@ -3618,15 +4038,16 @@ onBeforeUnmount(() => {
       @confirm="reintentarFallidos"
       @cancel="mostrarConfirmacionReintentoFallidos = false"
     />
-    <ConfirmDialog
+    <DuplicadosLoteDialog
       :show="mostrarConfirmacionDuplicadoLogico"
-      title="Duplicados probables"
-      :message="mensajeConfirmacionDuplicadoLogico"
-      confirm-text="Emitir igualmente"
-      cancel-text="Volver a revisar"
-      variant="danger"
-      @confirm="confirmarDuplicadoLogicoLote"
-      @cancel="resetearConfirmacionDuplicadoPendiente"
+      :control="controlDuplicadosDialogo"
+      :acceptance-available="!!aceptacionDuplicadoPendiente"
+      :loading="procesandoLote || resolviendoLote === 'reintentar'"
+      :details="detalleCoincidencias"
+      :details-loading="loadingDetalleCoincidencias"
+      @review="volverARevisarDuplicados"
+      @accept="confirmarDuplicadoLogicoLote"
+      @request-details="cargarDetalleCoincidencias"
     />
     <ConfirmDialog
       :show="mostrarConfirmacionCompactar"

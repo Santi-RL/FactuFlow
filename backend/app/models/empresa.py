@@ -1,7 +1,15 @@
 """Modelo Empresa - Datos del emisor de facturas."""
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Date, DateTime
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    Integer,
+    String,
+    Date,
+    DateTime,
+    ForeignKey,
+)
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -59,3 +67,26 @@ class Empresa(Base):
 
     def __repr__(self) -> str:
         return f"<Empresa {self.razon_social} - CUIT: {self.cuit}>"
+
+
+class LoteDuplicadosCoordinacion(Base):
+    """Serializa decisiones de duplicados por emisor y ambiente."""
+
+    __tablename__ = "lotes_duplicados_coordinacion"
+    __table_args__ = (
+        CheckConstraint(
+            "ambiente IN ('homologacion', 'produccion')",
+            name="ck_lotes_duplicados_coordinacion_ambiente",
+        ),
+    )
+
+    empresa_id = Column(
+        Integer,
+        ForeignKey("empresas.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    ambiente = Column(String(20), primary_key=True)
+    revision = Column(Integer, nullable=False, default=0)
+    updated_at = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )

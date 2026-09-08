@@ -34,6 +34,7 @@ from app.services.contencion_fiscal_service import (
     obtener_bloqueo_preautorizacion,
 )
 from app.services.facturacion_service import FacturacionService, FaseSolicitudArca
+from app.services.duplicados_lotes_service import DuplicadosLotesService
 from app.services.elegibilidad_rece_service import (
     ContextoElegibilidadRece,
     ElegibilidadReceService,
@@ -236,6 +237,15 @@ async def _crear_operacion_rece_contenida(
                 contexto.elegibilidad_revision_id
             )
             grupo.punto_venta_revision_fiscal = 1
+            grupo.duplicados_version = "duplicados_lotes/v2"
+            grupo.duplicados_cobertura = "completa"
+            grupo.huella_fiscal_completa = (
+                f"{contexto.elegibilidad_revision_id:032d}{indice:032d}"
+            )
+            grupo.fecha_emision_normalizada = request.fecha_emision
+            grupo.moneda_duplicados = request.moneda
+            grupo.cotizacion_duplicados = str(request.cotizacion)
+            grupo.total_centavos = 12100
             db.add(
                 LoteComprobanteFila(
                     lote_id=lote.id,
@@ -275,6 +285,21 @@ async def _crear_operacion_rece_contenida(
             }
         )
         lote.metadata_json = metadata_lote
+        duplicados = DuplicadosLotesService(db)
+        control_duplicados = await duplicados.calcular_control(
+            lote_id=int(lote.id),
+            empresa_id=int(empresa.id),
+            estados={"validado"},
+            operacion_id=int(operacion.id),
+            incluir_interno=True,
+        )
+        operacion.duplicados_version = "duplicados_lotes/v2"
+        operacion.control_duplicados_json = {
+            **duplicados._publicable(control_duplicados),
+            "seleccion_original": duplicados._seleccion_material(grupos),
+            "testigos_individuales_ids": [],
+            "testigos_lote_grupo_ids": [],
+        }
         if lote.procesamiento_async and lote.modo_procesamiento == "background":
             await db.flush()
             operacion.response_json = LoteProcesamientoResponse(

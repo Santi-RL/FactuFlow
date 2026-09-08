@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal, Optional
 
@@ -48,6 +48,10 @@ from app.services.contencion_fiscal_service import (
     obtener_bloqueo_preautorizacion,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
+from app.services.duplicados_lotes_service import (
+    DuplicadosLotePreflightCambioError,
+    DuplicadosLotesService,
+)
 from app.services.elegibilidad_rece_service import (
     ContextoElegibilidadRece,
     ElegibilidadReceError,
@@ -587,6 +591,13 @@ class FacturacionService:
                 primer_request.empresa_id
             )
 
+            idempotencia = IdempotenciaFiscalService(self.db)
+            await DuplicadosLotesService(self.db).revalidar_operacion_lote(
+                operacion_id=operacion_id,
+                lote_id=int(contextos[0]["lote_id"]),
+                empresa_id=primer_request.empresa_id,
+            )
+
             await self.db.commit()
             ticket = await self._obtener_ticket_acceso(empresa, certificado)
             wsfe_client = WSFEv1Client(
@@ -643,6 +654,16 @@ class FacturacionService:
                         empresa_id=primer_request.empresa_id,
                         contextos_esperados=contextos_operacion,
                     )
+                    duplicados_preflight = await DuplicadosLotesService(
+                        self.db
+                    ).revalidar_operacion_lote(
+                        operacion_id=operacion_id,
+                        lote_id=int(contextos[0]["lote_id"]),
+                        empresa_id=primer_request.empresa_id,
+                    )
+                    duplicados_generacion_id = duplicados_preflight.get(
+                        "_duplicados_generacion_id"
+                    )
                     guarda = await elegibilidad.crear_guarda_pre_arca(
                         operacion_id=operacion_id,
                         contexto=contexto_rece,
@@ -666,6 +687,7 @@ class FacturacionService:
                             usuario_id=metadata.get("usuario_id"),
                             lote_id=metadata.get("lote_id"),
                             grupo_id=metadata.get("grupo_id"),
+                            duplicados_generacion_id=duplicados_generacion_id,
                             contexto_rece=contexto_rece,
                             guarda_rece_id=guarda.id,
                             commit=False,
@@ -688,6 +710,9 @@ class FacturacionService:
                     await self.db.commit()
             except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
                 await self._rollback_seguro("reservas_batch_pre_arca")
+                raise
+            except DuplicadosLotePreflightCambioError:
+                await self._rollback_seguro("duplicados_batch_pre_arca")
                 raise
             except Exception:
                 logger.exception(
@@ -728,12 +753,14 @@ class FacturacionService:
                 return respuestas_pre_arca
 
             try:
-                await elegibilidad.marcar_arca_iniciada(
+                await self._marcar_solicitud_arca_iniciada(
+                    elegibilidad=elegibilidad,
                     guarda=guarda,
                     contexto=contexto_rece,
                     tipo_comprobante=primer_request.tipo_comprobante,
+                    intentos=intentos,
+                    fase_solicitud_arca=fase_solicitud_arca,
                 )
-                fase_solicitud_arca.marcar_iniciada()
                 arca_iniciada_en_esta_llamada = True
                 resultados_arca_sin_ordenar = await wsfe_client.fe_cae_solicitar_lote(
                     arca_requests
@@ -1114,6 +1141,8 @@ class FacturacionService:
 
         except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
             raise
+        except DuplicadosLotePreflightCambioError:
+            raise
         except ElegibilidadReceError as exc:
             respuestas_elegibilidad = [
                 self._respuesta_rechazo_elegibilidad(
@@ -1330,7 +1359,13 @@ class FacturacionService:
             certificado = await self._obtener_certificado_activo(request.empresa_id)
             idempotencia = IdempotenciaFiscalService(self.db)
 
-            if not request.confirmacion_duplicado_logico:
+            if lote_id is not None:
+                await DuplicadosLotesService(self.db).revalidar_operacion_lote(
+                    operacion_id=operacion_id,
+                    lote_id=lote_id,
+                    empresa_id=request.empresa_id,
+                )
+            elif not request.confirmacion_duplicado_logico:
                 duplicado = await idempotencia.buscar_duplicado_logico(
                     request=request,
                     punto_venta=punto_venta,
@@ -1399,6 +1434,19 @@ class FacturacionService:
                         empresa_id=request.empresa_id,
                         contextos_esperados=contextos_operacion,
                     )
+                    if lote_id is not None:
+                        duplicados_preflight = await DuplicadosLotesService(
+                            self.db
+                        ).revalidar_operacion_lote(
+                            operacion_id=operacion_id,
+                            lote_id=lote_id,
+                            empresa_id=request.empresa_id,
+                        )
+                        duplicados_generacion_id = duplicados_preflight.get(
+                            "_duplicados_generacion_id"
+                        )
+                    else:
+                        duplicados_generacion_id = None
                     guarda = await elegibilidad.crear_guarda_pre_arca(
                         operacion_id=operacion_id,
                         contexto=contexto_rece,
@@ -1413,6 +1461,7 @@ class FacturacionService:
                         usuario_id=usuario_id,
                         lote_id=lote_id,
                         grupo_id=grupo_id,
+                        duplicados_generacion_id=duplicados_generacion_id,
                         contexto_rece=contexto_rece,
                         guarda_rece_id=guarda.id,
                         commit=False,
@@ -1429,6 +1478,9 @@ class FacturacionService:
                     totales=totales,
                     error=exc,
                 )
+            except DuplicadosLotePreflightCambioError:
+                await self._rollback_seguro("duplicados_individual_lote_pre_arca")
+                raise
             except IntegrityError:
                 await self.db.rollback()
                 return self._respuesta_rechazo_elegibilidad(
@@ -1466,12 +1518,14 @@ class FacturacionService:
             # 6. Solicitar CAE
             resultado = None
             try:
-                await elegibilidad.marcar_arca_iniciada(
+                await self._marcar_solicitud_arca_iniciada(
+                    elegibilidad=elegibilidad,
                     guarda=guarda,
                     contexto=contexto_rece,
                     tipo_comprobante=request.tipo_comprobante,
+                    intentos=[intento],
+                    fase_solicitud_arca=fase_solicitud_arca,
                 )
-                fase_solicitud_arca.marcar_iniciada()
                 arca_iniciada_en_esta_llamada = True
                 resultado = await wsfe_client.fe_cae_solicitar(arca_request)
 
@@ -1710,6 +1764,8 @@ class FacturacionService:
 
         except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
             raise
+        except DuplicadosLotePreflightCambioError:
+            raise
         except ValidationError as e:
             logger.warning(f"Error de validación: {str(e)}")
             respuesta_validacion = EmitirComprobanteResponse(
@@ -1795,6 +1851,28 @@ class FacturacionService:
             if key not in cls._number_locks:
                 cls._number_locks[key] = asyncio.Lock()
             return cls._number_locks[key]
+
+    async def _marcar_solicitud_arca_iniciada(
+        self,
+        *,
+        elegibilidad: ElegibilidadReceService,
+        guarda: PuntoVentaGuardaEmisionRece,
+        contexto: ContextoElegibilidadRece,
+        tipo_comprobante: int,
+        intentos: list[IntentoEmisionFiscal],
+        fase_solicitud_arca: FaseSolicitudArca,
+    ) -> None:
+        """Persiste el instante y sólo después cruza la frontera irreversible."""
+        solicitud_arca_at = datetime.now(timezone.utc)
+        for intento in intentos:
+            intento.solicitud_arca_at = solicitud_arca_at
+        await self.db.flush()
+        await elegibilidad.marcar_arca_iniciada(
+            guarda=guarda,
+            contexto=contexto,
+            tipo_comprobante=tipo_comprobante,
+        )
+        fase_solicitud_arca.marcar_iniciada()
 
     async def _tomar_lock_numeracion(
         self, empresa_id: int, punto_venta_id: int, tipo_comprobante: int

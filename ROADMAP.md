@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 05/09/2026
+Última revisión: 08/09/2026
 
 Estado: VIGENTE.
 
@@ -144,6 +144,16 @@ operativos confirmados:
   riesgo y portabilidad de herramientas; accesibilidad, conectividad visible y
   ayudas contextuales. Los cortes se priorizan por riesgo concreto en el
   [portafolio](docs/agents/development-portfolio.md), sin refactor global.
+  Después del primer release de prevención de duplicados, completar la
+  verificación adicional de zoom real al 200 % y lector de pantalla del diálogo,
+  junto con ajustes visuales menores que no bloqueen la operación (**P3**).
+  Aclarar también el resumen y la atribución visibles cuando una coincidencia
+  corresponde a una emisión todavía en curso, conservando su bloqueo.
+  Unificar el estado informado de esos avisos bloqueados y limitar las
+  advertencias de filas a los grupos realmente afectados, sin modificar la
+  evidencia ni las restricciones de emisión del control de duplicados.
+  Este seguimiento no retrasa el control fiscal; cualquier defecto que impida
+  revisar, cancelar o confirmar conscientemente conserva prioridad de bloqueo.
 - **PF-18 — distribución e integraciones, P3:** ZIP de PDFs, soporte, correo e
   integraciones; instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar

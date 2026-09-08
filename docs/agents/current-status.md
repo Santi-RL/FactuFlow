@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 05/09/2026
+Última revisión: 08/09/2026
 
 Estado: VIGENTE.
 
@@ -41,6 +41,28 @@ la preferencia compartida `Usar en FactuFlow`; la constancia es opcional y sólo
 completa domicilio, nombre de fantasía y puntos informativos de otros sistemas.
 La revisión fiscal, el preflight de 90 días, la idempotencia y la reconciliación
 permanecen vigentes.
+
+## Contrato de prevención de duplicados
+
+La emisión masiva distingue repeticiones internas de receptores identificables
+y coincidencias de contenido entre lotes del mismo emisor y ambiente. Las
+ventas anónimas que sólo repiten fecha e importe dentro del lote no generan
+una advertencia interna. La comparación histórica completa sí incluye lotes
+anónimos; nombre de archivo, cantidad e importe total no bastan para probarla.
+
+El aviso identifica antecedentes y usuario de emisión, prioriza «Volver a
+revisar» y exige una aceptación específica para operaciones nuevas. La
+revalidación y las reservas concurrentes preservan idempotencia, confirmación
+fiscal y estados inciertos. Un reintento parcial conserva los comprobantes
+autorizados y sólo vuelve a enviar los fallidos.
+
+Los remanentes antiguos cuya aceptación no puede reconstruirse y tienen
+coincidencias actuales quedan bloqueados para continuar o reintentar. Se
+conservan historia, replay terminal y reconciliación. El alcance preciso de
+compatibilidad y el contrato técnico viven en el
+[diseño de duplicados](pf-13-duplicados-lotes-design.md); los cambios de la
+unidad se consultan en `CHANGELOG.md > Unreleased`. Esto no acredita su
+publicación ni su despliegue.
 
 ## Trabajo aceptado pendiente
 

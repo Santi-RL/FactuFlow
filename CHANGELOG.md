@@ -18,6 +18,39 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Seguridad de lectura PDF
+
+- Se actualiza `pypdf` a `6.16.1` para corregir los avisos de seguridad que
+  afectan la lectura de constancias. Se conserva el comportamiento de los
+  lectores de inscripción y puntos de venta.
+
+### Prevención de duplicados en emisión masiva
+
+- El control distingue coincidencias por receptor identificable dentro del lote
+  y coincidencias de contenido entre lotes del mismo emisor. Repetir fecha e
+  importe en ventas anónimas de un mismo lote no genera por sí solo un aviso;
+  repetir el contenido completo de un lote anterior sí puede requerir revisión.
+- La advertencia muestra antecedentes, cantidades, importes, fechas y usuario
+  que solicitó emitir, con ausencia de evidencia histórica explícita.
+  «Volver a revisar» es la acción principal; la excepción sólo se habilita tras
+  marcar el checkbox específico y conserva la confirmación fiscal irreversible.
+- La evidencia y aceptación de duplicados se conservan por operación, con
+  revalidación, coordinación concurrente y persistencia mínima tras compactar.
+  Se mantienen las restricciones de una misma importación, idempotencia,
+  aislamiento y reconciliación de resultados inciertos.
+- Se corrige el reintento de fallidos en lotes parcialmente autorizados: los
+  comprobantes ya emitidos se conservan y sólo se reintentan los fallidos.
+  El cierre de errores preserva la distinción entre fallos previos al envío y
+  resultados que requieren reconciliación.
+- Los lotes antiguos con aceptación no comprobable y coincidencias actuales
+  quedan bloqueados para continuar o reintentar; no se habilitan mediante otra
+  confirmación ni una clave nueva. Se conservan su historia y los resultados
+  terminales consultables.
+- El migrador local conserva la representación necesaria para este control en
+  el paquete v4 y mantiene lectura estricta de paquetes v3 conocidos. Los
+  importes de la advertencia se desglosan por moneda, con datos históricos
+  desconocidos explícitos.
+
 ## [0.3.5] - 2026-09-02
 
 ### Cambios
