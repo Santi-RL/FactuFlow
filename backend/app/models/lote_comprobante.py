@@ -7,11 +7,13 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
     Integer,
+    BigInteger,
     Numeric,
     String,
     Text,
@@ -183,6 +185,41 @@ class LoteComprobanteGrupo(Base):
         ),
         Index("ix_lotes_comprobantes_grupos_lote_ref", "lote_id", "comprobante_ref"),
         Index(
+            "ix_lotes_grupos_dup_huella_lote",
+            "empresa_id",
+            "ambiente",
+            "lote_id",
+            "huella_fiscal_completa",
+        ),
+        Index(
+            "ix_lotes_grupos_dup_nombre",
+            "empresa_id",
+            "ambiente",
+            "tipo_comprobante",
+            "punto_venta_numero",
+            "fecha_emision_normalizada",
+            "moneda_duplicados",
+            "cotizacion_duplicados",
+            "total_centavos",
+            "identidad_nombre_hash",
+        ),
+        Index(
+            "ix_lotes_grupos_dup_documento",
+            "empresa_id",
+            "ambiente",
+            "tipo_comprobante",
+            "punto_venta_numero",
+            "fecha_emision_normalizada",
+            "moneda_duplicados",
+            "cotizacion_duplicados",
+            "total_centavos",
+            "identidad_documento_hash",
+        ),
+        Index(
+            "ix_lotes_grupos_dup_reserva",
+            "duplicados_reserva_operacion_id",
+        ),
+        Index(
             "uq_lotes_comprobantes_grupos_comprobante_id",
             "comprobante_id",
             unique=True,
@@ -201,6 +238,22 @@ class LoteComprobanteGrupo(Base):
     cliente_razon_social = Column(String(255), nullable=True)
     total_estimado = Column(Numeric(12, 2), nullable=False, default=0)
     payload_json = Column(JSON, nullable=True)
+    duplicados_version = Column(String(30), nullable=True)
+    duplicados_cobertura = Column(String(30), nullable=True)
+    huella_fiscal_completa = Column(String(64), nullable=True)
+    identidad_nombre_hash = Column(String(64), nullable=True)
+    identidad_documento_hash = Column(String(64), nullable=True)
+    identidad_nombre_original = Column(String(255), nullable=True)
+    identidad_tipo_documento_original = Column(Integer, nullable=True)
+    identidad_numero_documento_original = Column(String(20), nullable=True)
+    fecha_emision_normalizada = Column(Date, nullable=True)
+    moneda_duplicados = Column(String(3), nullable=True)
+    cotizacion_duplicados = Column(String(100), nullable=True)
+    total_centavos = Column(BigInteger, nullable=True)
+    duplicados_reserva_operacion_id = Column(
+        Integer,
+        nullable=True,
+    )
     mensajes_json = Column(JSON, nullable=True)
     cae = Column(String(14), nullable=True)
     numero_asignado = Column(Integer, nullable=True)

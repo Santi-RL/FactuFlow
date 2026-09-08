@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -132,6 +132,104 @@ class LoteTotalesListosResponse(BaseModel):
     valores_invalidos: int = 0
 
 
+class DuplicadosSolicitante(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    usuario_id: int | None
+    nombre: str | None
+    estado: Literal["registrado", "no_registrado"]
+
+
+class DuplicadosBloqueo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    referencia: str
+    estado: Literal["reservada", "intento_en_curso", "incierta"]
+    cantidad_afectada: int
+    detectado_at: datetime | None
+
+
+class DuplicadosImportePorMoneda(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    moneda: str
+    importe: str
+    cantidad: int
+
+
+class DuplicadosImportes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    por_moneda: list[DuplicadosImportePorMoneda] = Field(default_factory=list)
+    cantidad_sin_moneda_acreditada: int = 0
+
+
+class DuplicadosAntecedenteResumen(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    origen: Literal["lote", "comprobante_individual"]
+    lote_id: int | None
+    nombre_archivo: str | None
+    comprobante_ref: str | None
+    tipo_coincidencia: Literal[
+        "historica_completa",
+        "historica_parcial_receptor",
+        "historica_individual_legacy",
+    ]
+    cobertura: Literal["completa", "parcial_legacy", "no_comprobable"]
+    cantidad_lote_anterior: int | None
+    cantidad_coincidente: int
+    cantidad_autorizada: int
+    cantidad_solo_validada: int
+    cantidad_reservada_en_curso: int
+    cantidad_fallida: int
+    cantidad_incierta: int
+    importe_lote_anterior: str | None
+    importe_lote_actual: str | None
+    importe_afectado: str | None
+    importes_lote_actual: DuplicadosImportes
+    importes_lote_anterior: DuplicadosImportes | None
+    importes_afectados: DuplicadosImportes
+    emitido_desde: datetime | None
+    emitido_hasta: datetime | None
+    hora_confiable: bool
+    solicitantes: list[DuplicadosSolicitante] = Field(default_factory=list)
+
+
+class ControlDuplicadosLote(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["duplicados_lotes/v2"] = "duplicados_lotes/v2"
+    cobertura: Literal["completa", "parcial_legacy", "no_comprobable"]
+    estado: Literal[
+        "sin_coincidencias", "requiere_confirmacion", "aceptada", "operacion_en_curso"
+    ]
+    evidencia_id: str | None
+    datos_hash: str
+    seleccion_hash: str
+    tipos_coincidencia: list[
+        Literal[
+            "interna_receptor",
+            "historica_completa",
+            "historica_parcial_receptor",
+            "historica_individual_legacy",
+        ]
+    ] = Field(default_factory=list)
+    cantidad_actual: int
+    cantidad_afectada: int
+    importe_actual: str | None
+    importe_afectado: str | None
+    importes_actuales: DuplicadosImportes
+    importes_afectados: DuplicadosImportes
+    antecedentes_resumen: list[DuplicadosAntecedenteResumen] = Field(
+        default_factory=list
+    )
+    aceptacion_requerida: bool
+    aceptacion_habilitada: bool
+    bloqueo_operacion_ajena: DuplicadosBloqueo | None
+    detalle_url: str | None
+
+
 class LoteComprobanteResumenResponse(LoteComprobanteResponse):
     """Resumen operativo liviano para abrir lotes grandes."""
 
@@ -142,6 +240,7 @@ class LoteComprobanteResumenResponse(LoteComprobanteResponse):
     confirmacion_duplicado_logico: str = ""
     mensaje_confirmacion_duplicado_logico: str = ""
     cantidad_duplicados_logicos: int = 0
+    control_duplicados: ControlDuplicadosLote
     fechas_emision_validas: list[str] = Field(default_factory=list)
     puntos_venta_validos: list[int] = Field(default_factory=list)
     totales_listos_para_emitir: LoteTotalesListosResponse = Field(
@@ -158,6 +257,57 @@ class LoteComprobanteGruposPageResponse(BaseModel):
     total: int
     total_pages: int
     estado: Optional[str] = None
+
+
+class DuplicadosCoincidenciaDetalle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    grupo_actual_id: int
+    comprobante_actual_ref: str
+    origen: Literal["lote", "comprobante_individual"]
+    tipo_coincidencia: Literal[
+        "interna_receptor",
+        "historica_completa",
+        "historica_parcial_receptor",
+        "historica_individual_legacy",
+    ]
+    campos_coincidentes: list[
+        Literal[
+            "nombre", "documento", "contenido_completo", "predicado_individual_vigente"
+        ]
+    ]
+    lote_anterior_id: int | None
+    grupo_anterior_id: int | None
+    comprobante_anterior_ref: str | None
+    operacion_anterior_ref: str | None
+    estado_grupo_anterior: Literal[
+        "cargado",
+        "validado",
+        "en_cola",
+        "procesando",
+        "autorizado",
+        "autorizado_externo",
+        "fallido",
+        "requiere_reconciliacion",
+    ] | None
+    importe: str
+    moneda: str | None
+    cotizacion: str | None
+    solicitantes: list[DuplicadosSolicitante] = Field(default_factory=list)
+    solicitud_emision_at: datetime | None
+    solicitud_arca_at: datetime | None
+    resultado_fiscal_at: datetime | None
+    hora_confiable: bool
+
+
+class DuplicadosCoincidenciasPageResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[DuplicadosCoincidenciaDetalle] = Field(default_factory=list)
+    page: int
+    per_page: int
+    total: int
+    total_pages: int
 
 
 class LoteValidacionResponse(BaseModel):

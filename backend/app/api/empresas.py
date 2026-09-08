@@ -19,7 +19,7 @@ from app.core.security import (
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
-from app.models.empresa import Empresa
+from app.models.empresa import Empresa, LoteDuplicadosCoordinacion
 from app.models.formato_importacion import FormatoImportacion
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.lote_comprobante import LoteComprobante
@@ -186,6 +186,16 @@ async def create_empresa(
         nueva_empresa = Empresa(**empresa_data.model_dump())
         db.add(nueva_empresa)
         await db.flush()
+        db.add_all(
+            [
+                LoteDuplicadosCoordinacion(
+                    empresa_id=nueva_empresa.id,
+                    ambiente=ambiente,
+                    revision=0,
+                )
+                for ambiente in ("homologacion", "produccion")
+            ]
+        )
         if current_user is not None and not current_user.es_admin:
             actuales = await db.execute(
                 select(UsuarioEmisorAcceso.empresa_id).where(

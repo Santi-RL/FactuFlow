@@ -86,13 +86,14 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/scripts/pf19_legacy_resolution.py`: CLI privada PF-19C para
   planificar y aplicar un cierre legacy con confirmación y backup verificable.
 - `backend/app/scripts/vps_migration.py`: preflight/export/import/validate del
-  paquete privado v2 para SQLite a PostgreSQL.
+  paquete privado para SQLite a PostgreSQL; contrato y compatibilidad en
+  `docs/setup/vps-migration.md`.
 - `backend/app/templates/`: plantillas (PDF/HTML).
 - `backend/tests/`: tests del backend.
 - `backend/tests/postgresql_harness.py`: guard central destructivo para la base
   loopback exacta `factuflow_integration_test`.
 - `backend/tests/integration/`: pruebas opt-in contra PostgreSQL desechable para
-  capacidad, PF-01, PF-19A/PF-19B y migración VPS v2.
+  capacidad, PF-01, PF-13/PF-17, PF-19A/PF-19B y migración SQLite a PostgreSQL.
 - `backend/tests/test_arca/`: tests específicos de ARCA.
 
 ## Frontend

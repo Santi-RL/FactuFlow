@@ -10,6 +10,7 @@ from time import perf_counter
 from typing import Any, AsyncGenerator, Literal, TypedDict
 
 from sqlalchemy import event
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import (
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, ORMExecuteState, Session
 from sqlalchemy.pool import Pool
 
 from app.core.config import settings
@@ -34,6 +35,161 @@ PoolRole = Literal["api", "worker"]
 _CHECKOUT_STARTED_KEY = "factuflow_checkout_started"
 _CHECKOUT_ROLE_KEY = "factuflow_checkout_role"
 _metrics_lock = Lock()
+_TX_PROVENANCE_KEY = "factuflow_tx_provenance"
+_TX_CONNECTION_SESSIONS_KEY = "factuflow_tx_sessions"
+_TX_CONNECTIONS_KEY = "factuflow_tx_connections"
+
+
+@dataclass
+class _TransactionProvenance:
+    """Clasifica la transacción raíz sin conservar SQL ni datos de negocio."""
+
+    wrote: bool = False
+    unknown: bool = False
+    nested: bool = False
+
+
+class DatabaseTransactionBoundaryError(RuntimeError):
+    """La transacción activa no puede descartarse como sólo lectura."""
+
+
+def _current_tx_provenance(session: Session) -> _TransactionProvenance | None:
+    value = session.info.get(_TX_PROVENANCE_KEY)
+    return value if isinstance(value, _TransactionProvenance) else None
+
+
+def _mark_session_statement(session: Session, statement: Any) -> None:
+    provenance = _current_tx_provenance(session)
+    if provenance is None:
+        return
+    if bool(getattr(statement, "is_select", False)):
+        return
+    if any(
+        bool(getattr(statement, attribute, False))
+        for attribute in ("is_insert", "is_update", "is_delete")
+    ):
+        provenance.wrote = True
+        return
+    provenance.unknown = True
+
+
+def _track_transaction_created(session: Session, transaction: Any) -> None:
+    if transaction.parent is None:
+        session.info[_TX_PROVENANCE_KEY] = _TransactionProvenance()
+    elif transaction.nested:
+        provenance = _current_tx_provenance(session)
+        if provenance is not None:
+            provenance.nested = True
+
+
+def _track_transaction_begin(
+    session: Session, _transaction: Any, connection: Connection
+) -> None:
+    sessions = connection.info.setdefault(_TX_CONNECTION_SESSIONS_KEY, {})
+    sessions[id(session)] = session
+    connection_infos = session.info.setdefault(_TX_CONNECTIONS_KEY, [])
+    connection_info = connection.info
+    if all(item is not connection_info for item in connection_infos):
+        connection_infos.append(connection_info)
+
+
+def _track_transaction_end(session: Session, transaction: Any) -> None:
+    if transaction.parent is not None:
+        return
+    connection_infos = session.info.pop(_TX_CONNECTIONS_KEY, [])
+    for connection_info in connection_infos:
+        sessions = connection_info.get(_TX_CONNECTION_SESSIONS_KEY)
+        if isinstance(sessions, dict):
+            sessions.pop(id(session), None)
+    session.info.pop(_TX_PROVENANCE_KEY, None)
+
+
+def _track_before_flush(session: Session, _flush_context: Any, _instances: Any) -> None:
+    provenance = _current_tx_provenance(session)
+    if provenance is not None:
+        provenance.wrote = True
+
+
+def _track_orm_execute(state: ORMExecuteState) -> None:
+    _mark_session_statement(state.session, state.statement)
+
+
+def _track_connection_execute(
+    connection: Connection,
+    clauseelement: Any,
+    _multiparams: Any,
+    _params: Any,
+    _execution_options: Any,
+) -> None:
+    sessions = connection.info.get(_TX_CONNECTION_SESSIONS_KEY)
+    if not isinstance(sessions, dict):
+        return
+    for session in tuple(sessions.values()):
+        if isinstance(session, Session) and session.in_transaction():
+            _mark_session_statement(session, clauseelement)
+
+
+def _track_driver_sql(
+    connection: Connection,
+    _cursor: Any,
+    _statement: str,
+    _parameters: Any,
+    context: Any,
+    _executemany: bool,
+) -> None:
+    if getattr(context, "compiled", None) is not None:
+        return
+    sessions = connection.info.get(_TX_CONNECTION_SESSIONS_KEY)
+    if not isinstance(sessions, dict):
+        return
+    for session in tuple(sessions.values()):
+        provenance = (
+            _current_tx_provenance(session)
+            if isinstance(session, Session) and session.in_transaction()
+            else None
+        )
+        if provenance is not None:
+            provenance.unknown = True
+
+
+def _install_transaction_provenance_tracking() -> None:
+    """Instala seguimiento mínimo para la frontera serializada de duplicados."""
+    event.listen(Session, "after_transaction_create", _track_transaction_created)
+    event.listen(Session, "after_begin", _track_transaction_begin)
+    event.listen(Session, "after_transaction_end", _track_transaction_end)
+    event.listen(Session, "before_flush", _track_before_flush)
+    event.listen(Session, "do_orm_execute", _track_orm_execute)
+    event.listen(Engine, "before_execute", _track_connection_execute)
+    event.listen(Engine, "before_cursor_execute", _track_driver_sql)
+
+
+_install_transaction_provenance_tracking()
+
+
+async def rollback_if_transaction_is_read_only(session: AsyncSession) -> None:
+    """Cierra sólo una raíz acreditada como lectura para iniciar coordinación."""
+    sync_session = session.sync_session
+    has_pending_orm = bool(
+        sync_session.new or sync_session.dirty or sync_session.deleted
+    )
+    if not session.in_transaction():
+        if has_pending_orm:
+            raise DatabaseTransactionBoundaryError(
+                "Hay cambios ORM pendientes fuera de una transacción acreditada."
+            )
+        return
+    provenance = _current_tx_provenance(sync_session)
+    if (
+        provenance is None
+        or provenance.wrote
+        or provenance.unknown
+        or provenance.nested
+        or has_pending_orm
+    ):
+        raise DatabaseTransactionBoundaryError(
+            "La transacción activa no está acreditada como exclusivamente lectora."
+        )
+    await session.rollback()
 
 
 class DatabasePoolRoleStatus(TypedDict):

@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 05/09/2026
+Última revisión: 08/09/2026
 
 Estado: VIGENTE.
 
@@ -34,26 +34,7 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
-### 1. PF-13/PF-17 — prevención de duplicados en emisión masiva
-
-**Prioridad:** P1 fiscal y operativa, por decisión del usuario ante el caso real
-de doble emisión.
-
-Silenciar repeticiones anónimas internas y detectar coincidencias de contenido
-con lotes anteriores, incluso anónimos. Mostrar lote, archivo, cantidad,
-importe, fecha/hora y usuario de emisión anterior; dar mayor énfasis a
-«Volver a revisar». La excepción «Emitir como operaciones nuevas» exige un
-checkbox específico. Revalidar antes de emitir y coordinar solicitudes
-simultáneas, conservando las guardas fiscales. Decisiones, compatibilidad y
-aceptación en el
-[diseño de prevención de duplicados](docs/agents/pf-13-duplicados-lotes-design.md).
-
-Comparte autoría PF-15 y garantías PF-01/PF-03; no depende del rediseño visual
-ni de completar todo el constructor. Se conservan los requisitos de respaldo
-y recuperación aplicables a cada operación, aunque el corte de mejora
-operativa siguiente se implemente después.
-
-### 2. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 
@@ -144,6 +125,16 @@ operativos confirmados:
   riesgo y portabilidad de herramientas; accesibilidad, conectividad visible y
   ayudas contextuales. Los cortes se priorizan por riesgo concreto en el
   [portafolio](docs/agents/development-portfolio.md), sin refactor global.
+  Después del primer release de prevención de duplicados, completar la
+  verificación adicional de zoom real al 200 % y lector de pantalla del diálogo,
+  junto con ajustes visuales menores que no bloqueen la operación (**P3**).
+  Aclarar también el resumen y la atribución visibles cuando una coincidencia
+  corresponde a una emisión todavía en curso, conservando su bloqueo.
+  Unificar el estado informado de esos avisos bloqueados y limitar las
+  advertencias de filas a los grupos realmente afectados, sin modificar la
+  evidencia ni las restricciones de emisión del control de duplicados.
+  Este seguimiento no retrasa el control fiscal; cualquier defecto que impida
+  revisar, cancelar o confirmar conscientemente conserva prioridad de bloqueo.
 - **PF-18 — distribución e integraciones, P3:** ZIP de PDFs, soporte, correo e
   integraciones; instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar

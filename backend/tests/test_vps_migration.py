@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+from copy import deepcopy
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -20,7 +22,8 @@ from sqlalchemy import create_engine, select, text
 
 from app.arca.crypto import load_private_key
 from app.core.database import Base
-from app.scripts import vps_migration
+from app.schemas.lote_comprobante import LoteComprobanteResponse
+from app.scripts import vps_migration, vps_migration_v3, vps_migration_v4
 
 
 _CERT_TEST_NOW = datetime.now().replace(microsecond=0)
@@ -112,6 +115,21 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
                 "created_at": datetime(2026, 6, 3, 12, 0, 0),
                 "updated_at": datetime(2026, 6, 3, 12, 0, 0),
             },
+        )
+        conn.execute(
+            Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+            [
+                {
+                    "empresa_id": 10,
+                    "ambiente": "homologacion",
+                    "revision": 0,
+                },
+                {
+                    "empresa_id": 10,
+                    "ambiente": "produccion",
+                    "revision": 0,
+                },
+            ],
         )
         conn.execute(
             Base.metadata.tables["usuarios"].insert(),
@@ -424,6 +442,2690 @@ def _insert_operation(
             )
     finally:
         engine.dispose()
+
+
+def _v4_lote_row(lote_id: int, *, total_grupos: int, estado: str) -> dict[str, Any]:
+    timestamp = "2026-09-05 12:00:00"
+    return {
+        "id": lote_id,
+        "nombre_archivo": f"lote-{lote_id}.xlsx",
+        "archivo_hash": hashlib.sha256(str(lote_id).encode("ascii")).hexdigest(),
+        "estado": estado,
+        "modo_procesamiento": "sincronico",
+        "procesamiento_async": 0,
+        "total_filas": total_grupos,
+        "total_grupos": total_grupos,
+        "grupos_validos": total_grupos,
+        "grupos_con_error": 0,
+        "grupos_emitidos": 1,
+        "grupos_fallidos": max(0, total_grupos - 1),
+        "grupos_reconciliados_externos": 0,
+        "grupos_descartados": 0,
+        "mensaje_resumen": None,
+        "metadata_json": None,
+        "mapeo_usado_json": None,
+        "headers_detectados_json": None,
+        "started_at": timestamp,
+        "finished_at": timestamp,
+        "compactado_at": None,
+        "created_at": timestamp,
+        "updated_at": timestamp,
+        "empresa_id": 10,
+        "usuario_id": 20,
+        "formato_importacion_id": 60,
+        "formato_importacion_version_id": 61,
+    }
+
+
+def _v4_group_row(
+    group_id: int,
+    lote_id: int,
+    *,
+    estado: str,
+    receipt_id: int | None,
+    reserved_by: int | None = None,
+    numero_asignado: int | None = None,
+) -> dict[str, Any]:
+    timestamp = "2026-09-05 12:00:00"
+    return {
+        "id": group_id,
+        "comprobante_ref": f"grupo-{group_id}",
+        "orden": group_id,
+        "estado": estado,
+        "tipo_comprobante": 6,
+        "punto_venta_numero": 6,
+        "cliente_documento": "20999999991",
+        "cliente_razon_social": "Cliente Sintético",
+        "total_estimado": "121.00",
+        "payload_json": json.dumps({"grupo_id": group_id}, sort_keys=True),
+        "duplicados_version": "duplicados_lotes/v2",
+        "duplicados_cobertura": "completa",
+        "huella_fiscal_completa": f"{group_id % 10}" * 64,
+        "identidad_nombre_hash": "a" * 64,
+        "identidad_documento_hash": "b" * 64,
+        "identidad_nombre_original": "Cliente Sintético",
+        "identidad_tipo_documento_original": 80,
+        "identidad_numero_documento_original": "20999999991",
+        "fecha_emision_normalizada": "2026-09-05",
+        "moneda_duplicados": "PES",
+        "cotizacion_duplicados": "1.000000",
+        "total_centavos": 12100,
+        "duplicados_reserva_operacion_id": reserved_by,
+        "mensajes_json": json.dumps([], sort_keys=True),
+        "cae": "12345678901234" if receipt_id is not None else None,
+        "numero_asignado": numero_asignado if receipt_id is not None else None,
+        "empresa_id": 10,
+        "punto_venta_id": 40,
+        "ambiente": "produccion",
+        "punto_venta_elegibilidad_revision_id": 42,
+        "punto_venta_revision_fiscal": 1,
+        "comprobante_id": receipt_id,
+        "created_at": timestamp,
+        "updated_at": timestamp,
+        "lote_id": lote_id,
+    }
+
+
+def _v4_lote_replay_payload(row: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(row)
+    for field_name in ("metadata_json", "mapeo_usado_json", "headers_detectados_json"):
+        if isinstance(payload[field_name], str):
+            payload[field_name] = json.loads(payload[field_name])
+    return LoteComprobanteResponse.model_validate(payload).model_dump(mode="json")
+
+
+def _v4_legacy_preflight() -> dict[str, Any]:
+    excluded_counts = {table_name: 0 for table_name in vps_migration_v3.EXCLUDED_TABLES}
+    excluded_counts.update(
+        {
+            "intentos_emision_fiscal": 2,
+            "puntos_venta_guardas_emision_rece": 1,
+            "lotes_comprobantes": 3,
+            "lotes_comprobantes_grupos": 101,
+        }
+    )
+    return {
+        "blockers": 0,
+        "excluded_counts": excluded_counts,
+        "operaciones_terminales_preservadas": 5,
+        "operaciones_lote_normalizado": 4,
+        "asociaciones_rece_preservadas": 2,
+        "intentos_terminales_omitidos": 2,
+        "resoluciones_legacy_pf19_omitidas": 0,
+        "guardas_terminales_omitidas": 1,
+        "lotes_seguros_omitidos": 3,
+        "grupos_seguros_omitidos": 101,
+        "filas_omitidas": 0,
+        "eventos_lote_omitidos": 0,
+        "eventos_sistema_omitidos": 0,
+        "exportaciones_omitidas": 0,
+    }
+
+
+def _v4_fixture_rows(tmp_path: Path) -> tuple[Path, dict[str, list[dict[str, Any]]]]:
+    package = _build_historical_v3_package(tmp_path)
+    rows = {
+        table_name: [
+            json.loads(line)
+            for line in (package / "data" / f"{table_name}.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        for table_name in vps_migration_v4.COMPLETE_TABLES
+    }
+    base_receipt = rows["comprobantes"][0]
+    base_receipt.update(
+        {"fecha_emision": "2026-09-05", "cae_vencimiento": "2026-09-15"}
+    )
+    base_item = rows["comprobante_items"][0]
+    for offset in range(15):
+        receipt_id = 111 + offset
+        rows["comprobantes"].append(
+            {
+                **base_receipt,
+                "id": receipt_id,
+                "numero": 124 + offset,
+            }
+        )
+        rows["comprobante_items"].append(
+            {
+                **base_item,
+                "id": 121 + offset,
+                "comprobante_id": receipt_id,
+            }
+        )
+
+    legacy_operation = rows["operaciones_idempotentes"][0]
+    legacy_operation.update(
+        {
+            "control_duplicados_json": None,
+            "duplicados_version": None,
+            "duplicados_generacion_id": None,
+            "operacion_raiz_id": None,
+            "solicitante_nombre_snapshot": None,
+            "solicitud_emision_at": None,
+        }
+    )
+    rows["lotes_comprobantes"] = [
+        _v4_lote_row(90, total_grupos=1, estado="completado"),
+        {
+            **_v4_lote_row(100, total_grupos=100, estado="completado"),
+            "grupos_validos": 85,
+            "grupos_con_error": 15,
+            "grupos_emitidos": 10,
+            "grupos_fallidos": 25,
+            "grupos_reconciliados_externos": 5,
+            "grupos_descartados": 20,
+        },
+    ]
+    rows["lotes_comprobantes_grupos"] = [
+        _v4_group_row(
+            91,
+            90,
+            estado="autorizado",
+            receipt_id=110,
+            numero_asignado=123,
+        )
+    ]
+    state_ranges = (
+        (range(101, 111), "autorizado"),
+        (range(111, 116), "autorizado_externo"),
+        (range(116, 126), "cargado"),
+        (range(126, 141), "validado"),
+        (range(141, 156), "con_error"),
+        (range(156, 181), "fallido"),
+        (range(181, 201), "descartado"),
+    )
+    for group_ids, state in state_ranges:
+        for group_id in group_ids:
+            is_authorized = state in {"autorizado", "autorizado_externo"}
+            rows["lotes_comprobantes_grupos"].append(
+                _v4_group_row(
+                    group_id,
+                    100,
+                    estado=state,
+                    receipt_id=group_id + 10 if is_authorized else None,
+                    reserved_by=200 if group_id == 101 else None,
+                    numero_asignado=group_id + 23 if is_authorized else None,
+                )
+            )
+
+    lote_90_response = _v4_lote_replay_payload(rows["lotes_comprobantes"][0])
+    lote_100_response = _v4_lote_replay_payload(rows["lotes_comprobantes"][1])
+    selection = [{"grupo_id": 101}]
+    generation_control = {
+        "formato_relacion": vps_migration_v4.RELATION_FORMAT,
+        "evidencia_id": "evidencia-compartida",
+        "datos_hash": "d" * 64,
+        "seleccion_hash": "e" * 64,
+        "seleccion_original": selection,
+        "manifiesto": {"bloques": 1, "miembros": 2},
+    }
+    association = {
+        "id": 142,
+        "operacion_id": 200,
+        "empresa_id": 10,
+        "punto_venta_id": 40,
+        "ambiente": "produccion",
+        "elegibilidad_revision_id": 42,
+        "punto_venta_revision_fiscal": 1,
+        "created_at": "2026-09-05 12:00:00",
+    }
+    rece_digest = vps_migration._digest_asociaciones_rece(
+        [{**association, "punto_venta_numero": 6}]
+    )
+    operation_specs = (
+        (200, "procesar_lote", 301, 2, 200),
+        (201, "reintentar_fallidos_lote", 302, 1, 200),
+    )
+    for (
+        operation_id,
+        operation_type,
+        generation_id,
+        generation_number,
+        root_id,
+    ) in operation_specs:
+        control = {
+            **generation_control,
+            "duplicados_generacion_id": generation_id,
+            "duplicados_generacion": generation_number,
+        }
+        response = {
+            "lote": lote_100_response,
+            "mensaje": "Lote procesado",
+            "errores_arca": [],
+        }
+        if operation_type == "procesar_lote":
+            response["en_progreso"] = False
+        rows["operaciones_idempotentes"].append(
+            {
+                **legacy_operation,
+                "id": operation_id,
+                "idempotency_key": f"v4-operacion-{operation_id}",
+                "tipo_operacion": operation_type,
+                "payload_hash": f"{operation_id % 10}" * 64,
+                "response_json": json.dumps(response, sort_keys=True),
+                "control_duplicados_json": json.dumps(control, sort_keys=True),
+                "duplicados_version": "duplicados_lotes/v2",
+                "duplicados_generacion_id": generation_id,
+                "operacion_raiz_id": root_id,
+                "solicitante_nombre_snapshot": "Operador Sintético",
+                "solicitud_emision_at": "2026-09-05 12:00:00+00:00",
+                "rece_snapshot_hash": rece_digest if operation_id == 200 else None,
+                "lote_id": 100,
+            }
+        )
+    rows["operaciones_idempotentes"].append(
+        {
+            **legacy_operation,
+            "id": 202,
+            "idempotency_key": "legacy-preservada-202",
+            "payload_hash": "2" * 64,
+            "response_json": json.dumps(
+                {
+                    "lote": lote_90_response,
+                    "mensaje": "Lote procesado",
+                    "en_progreso": False,
+                },
+                sort_keys=True,
+            ),
+            "rece_snapshot_hash": None,
+            "lote_id": 90,
+        }
+    )
+    rows["operaciones_idempotentes"].append(
+        {
+            **legacy_operation,
+            "id": 203,
+            "idempotency_key": "individual-legacy-203",
+            "tipo_operacion": "emitir_comprobante",
+            "payload_hash": "3" * 64,
+            "response_json": json.dumps(
+                {
+                    "exito": True,
+                    "comprobante_id": 110,
+                    "tipo_comprobante": 6,
+                    "punto_venta": 6,
+                    "numero": 123,
+                    "fecha": "2026-09-05",
+                    "cae": "12345678901234",
+                    "cae_vencimiento": "2026-09-15",
+                    "total": "121.00",
+                    "mensaje": "Autorizado",
+                    "errores": [],
+                    "errores_arca": [],
+                    "requiere_reconciliacion": False,
+                },
+                sort_keys=True,
+            ),
+            "rece_snapshot_hash": None,
+            "lote_id": None,
+        }
+    )
+    rows["operaciones_idempotentes_elegibilidad_rece"].append(association)
+    rows["puntos_venta_guardas_emision_rece"] = [
+        {
+            "id": 600,
+            "token": "f" * 64,
+            "fase": "cerrada_terminal",
+            "operacion_id": 200,
+            "empresa_id": 10,
+            "punto_venta_id": 40,
+            "ambiente": "produccion",
+            "elegibilidad_revision_id": 42,
+            "punto_venta_revision_fiscal": 1,
+            "arca_iniciada_en": "2026-09-05 12:00:00",
+            "cerrada_en": "2026-09-05 12:01:00",
+            "created_at": "2026-09-05 12:00:00",
+            "updated_at": "2026-09-05 12:01:00",
+        }
+    ]
+    block_rows = []
+    member_rows = []
+    for generation_id, operation_id, block_id, member_base in (
+        (300, 200, 400, 500),
+        (301, 200, 401, 502),
+        (302, 201, 402, 504),
+    ):
+        block_rows.append(
+            {
+                "id": block_id,
+                "generacion_id": generation_id,
+                "operacion_id": operation_id,
+                "empresa_id": 10,
+                "ambiente": "produccion",
+                "lote_id": 100,
+                "bloque_clave": "bloque-completo",
+                "clase": "completa",
+                "antecedente_clave": "huella-previa",
+                "snapshot_json": json.dumps({"multiplicidad_total": 1}, sort_keys=True),
+            }
+        )
+        member_rows.extend(
+            [
+                {
+                    "id": member_base,
+                    "bloque_id": block_id,
+                    "lado": "actual",
+                    "miembro_clave": "actual-101",
+                    "grupo_id": 101,
+                    "comprobante_id": None,
+                    "nombre_hash": "a" * 64,
+                    "documento_hash": "b" * 64,
+                    "ordinal": 0,
+                    "relevancia": "actual",
+                    "snapshot_json": json.dumps(
+                        {"decision": {"grupo_id": 101}}, sort_keys=True
+                    ),
+                },
+                {
+                    "id": member_base + 1,
+                    "bloque_id": block_id,
+                    "lado": "anterior",
+                    "miembro_clave": "anterior-110",
+                    "grupo_id": None,
+                    "comprobante_id": 110,
+                    "nombre_hash": "a" * 64,
+                    "documento_hash": "b" * 64,
+                    "ordinal": 0,
+                    "relevancia": "autorizado",
+                    "snapshot_json": json.dumps(
+                        {"decision": {"comprobante_id": 110}}, sort_keys=True
+                    ),
+                },
+            ]
+        )
+    rows["lotes_duplicados_coincidencias"] = block_rows
+    rows["lotes_duplicados_coincidencias_miembros"] = member_rows
+    rows["lotes_duplicados_evidencias"] = []
+    for generation_id, operation_id, generation_number, origin_id in (
+        (300, 200, 1, 300),
+        (301, 200, 2, 300),
+        (302, 201, 1, 300),
+    ):
+        generation = {
+            "id": generation_id,
+            "operacion_id": operation_id,
+            "empresa_id": 10,
+            "ambiente": "produccion",
+            "lote_id": 100,
+            "generacion": generation_number,
+            "formato": vps_migration_v4.RELATION_FORMAT,
+            "evidencia_id": "evidencia-compartida",
+            "snapshot_hash": "0" * 64,
+            "control_snapshot_json": json.dumps(generation_control, sort_keys=True),
+            "aceptacion_id": "aceptacion-compartida",
+            "aceptada_por_usuario_id": 20,
+            "aceptada_por_nombre": "Operador Sintético",
+            "aceptada_at": "2026-09-05 12:02:00+00:00",
+            "aceptacion_origen_generacion_id": origin_id,
+            "created_at": "2026-09-05 12:00:00+00:00",
+        }
+        relation = vps_migration._v4_generation_relation(
+            generation,
+            blocks=[row for row in block_rows if row["generacion_id"] == generation_id],
+            members_by_block={
+                block_id: [row for row in member_rows if row["bloque_id"] == block_id]
+                for block_id in (400, 401, 402)
+            },
+            group_ids={row["id"] for row in rows["lotes_comprobantes_grupos"]},
+            receipt_ids={row["id"] for row in rows["comprobantes"]},
+        )
+        generation["snapshot_hash"] = vps_migration_v4.canonical_sha256(
+            {
+                "dominio": vps_migration_v4.RELATION_FORMAT,
+                "control": generation_control,
+                "relacion": relation,
+            }
+        )
+        rows["lotes_duplicados_evidencias"].append(generation)
+    rows["intentos_emision_fiscal"] = [
+        {
+            "id": 700,
+            "tipo_comprobante": 6,
+            "punto_venta_numero": 6,
+            "numero_planificado": 124,
+            "fecha_emision": "2026-09-05",
+            "total": "121.00",
+            "receptor_tipo_documento": 80,
+            "receptor_numero_documento": "20999999991",
+            "receptor_razon_social": "Cliente Sintético",
+            "payload_hash": "7" * 64,
+            "huella_logica": "8" * 64,
+            "cae": "12345678901234",
+            "cae_vencimiento": "2026-09-15",
+            "estado": "autorizado",
+            "categoria_error": None,
+            "mensaje": "Autorizado",
+            "errores_arca_json": None,
+            "solicitante_nombre_snapshot": "Operador Sintético",
+            "solicitud_arca_at": "2026-09-05 12:00:00+00:00",
+            "resultado_fiscal_at": "2026-09-05 12:01:00+00:00",
+            "ambiente": "produccion",
+            "punto_venta_elegibilidad_revision_id": 42,
+            "punto_venta_revision_fiscal": 1,
+            "guarda_rece_id": 600,
+            "created_at": "2026-09-05 12:00:00",
+            "updated_at": "2026-09-05 12:01:00",
+            "operacion_id": 200,
+            "empresa_id": 10,
+            "usuario_id": 20,
+            "punto_venta_id": 40,
+            "comprobante_id": 111,
+            "lote_id": 100,
+            "grupo_id": 101,
+            "duplicados_generacion_id": 300,
+        }
+    ]
+    rows["intentos_emision_fiscal"].append(
+        {
+            **rows["intentos_emision_fiscal"][0],
+            "id": 701,
+            "numero_planificado": 123,
+            "payload_hash": "9" * 64,
+            "huella_logica": "a" * 64,
+            "ambiente": None,
+            "punto_venta_elegibilidad_revision_id": None,
+            "punto_venta_revision_fiscal": None,
+            "guarda_rece_id": None,
+            "operacion_id": 202,
+            "comprobante_id": 110,
+            "lote_id": 90,
+            "grupo_id": 91,
+            "duplicados_generacion_id": None,
+        }
+    )
+    for table_name in rows:
+        primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+        rows[table_name].sort(key=lambda row: tuple(row[name] for name in primary_key))
+    return package, rows
+
+
+def _write_v4_package(
+    package: Path,
+    rows: dict[str, list[dict[str, Any]]],
+    *,
+    previous_manifest: dict[str, Any],
+) -> dict[str, Any]:
+    data_files = {}
+    for table_name in vps_migration_v4.INCLUDED_TABLES:
+        path = package / "data" / f"{table_name}.jsonl"
+        raw = b"".join(
+            (
+                json.dumps(row, ensure_ascii=False, sort_keys=True, default=str) + "\n"
+            ).encode("utf-8")
+            for row in rows[table_name]
+        )
+        path.write_bytes(raw)
+        data_files[table_name] = {
+            "path": f"data/{table_name}.jsonl",
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "rows": len(rows[table_name]),
+            "bytes": len(raw),
+        }
+    normalization_pairs = [
+        {
+            "operacion_id": 140,
+            "lote_id": 130,
+            "grupo_ids": [],
+            "grupos_rechazo_ids": [],
+            "grupos_no_enviados_ids": [],
+        }
+    ]
+    normalization = {
+        "rule": vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE,
+        "rows": 1,
+        "sha256": vps_migration_v4.canonical_sha256(normalization_pairs),
+        "pairs": normalization_pairs,
+    }
+    closure = vps_migration._v4_closure_payload(
+        rows=rows,
+        normalization=normalization,
+    )
+    included_counts = {table_name: len(rows[table_name]) for table_name in rows}
+    omitted_counts = {
+        table_name: 1 if table_name == "lotes_comprobantes" else 0
+        for table_name in (
+            vps_migration_v4.FILTERED_TABLES + vps_migration_v4.EXCLUDED_TABLES
+        )
+    }
+    source_counts = {
+        table_name: included_counts.get(table_name, 0)
+        + omitted_counts.get(table_name, 0)
+        for table_name in (
+            vps_migration_v4.INCLUDED_TABLES
+            + vps_migration_v4.REGENERATED_TABLES
+            + vps_migration_v4.EXCLUDED_TABLES
+        )
+    }
+    source_counts["lotes_duplicados_coordinacion"] = 2
+    source_barrier = {
+        "source_quiesced": True,
+        "sqlite_transaction": "BEGIN IMMEDIATE",
+        "data_version": 0,
+    }
+    safe_omitted = {
+        "blockers": 0,
+        "legacy_preflight": _v4_legacy_preflight(),
+        "source_counts": source_counts,
+        "included_counts": included_counts,
+        "omitted_counts": omitted_counts,
+    }
+    manifest = {
+        "package_version": 4,
+        "created_at": "2026-09-05T12:00:00+00:00",
+        "scope": vps_migration_v4.SCOPE,
+        "alembic_version": vps_migration_v4.ALEMBIC_HEAD,
+        "complete_tables": list(vps_migration_v4.COMPLETE_TABLES),
+        "filtered_tables": list(vps_migration_v4.FILTERED_TABLES),
+        "regenerated_tables": list(vps_migration_v4.REGENERATED_TABLES),
+        "included_tables": list(vps_migration_v4.INCLUDED_TABLES),
+        "excluded_tables": list(vps_migration_v4.EXCLUDED_TABLES),
+        "target_empty_tables": list(vps_migration_v4.TARGET_EMPTY_TABLES),
+        "source_counts": source_counts,
+        "included_counts": included_counts,
+        "omitted_counts": omitted_counts,
+        "active_certificates": 1,
+        "safe_omitted": safe_omitted,
+        "normalizations": {
+            vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY: normalization
+        },
+        "closure": closure,
+        "source_barrier": source_barrier,
+        "idempotency_barrier": vps_migration.build_v4_idempotency_barrier(
+            source_barrier=source_barrier,
+            normalization=normalization,
+            closure=closure,
+            rows=rows,
+        ),
+        "data_files": data_files,
+        "certificate_files": previous_manifest["certificate_files"],
+        "env_template": previous_manifest["env_template"],
+        "required_env_keys": list(vps_migration_v3.REQUIRED_ENV_KEYS),
+        "notes": list(vps_migration_v4.PACKAGE_NOTES),
+    }
+    (package / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def _build_v4_package(
+    tmp_path: Path,
+) -> tuple[Path, dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    package, rows = _v4_fixture_rows(tmp_path)
+    previous_manifest = json.loads(
+        (package / "manifest.json").read_text(encoding="utf-8")
+    )
+    manifest = _write_v4_package(
+        package,
+        rows,
+        previous_manifest=previous_manifest,
+    )
+    return package, rows, manifest
+
+
+def _apply_v4_pf19c_rejection_with_successor(
+    rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    lote = _v4_lote_replay_payload(rows["lotes_comprobantes"][1])
+    errors = [dict(item) for item in vps_migration.ARCA_RECHAZO_GLOBAL_ERRORES]
+    lote["metadata_json"] = {
+        "pf19c_rechazo_global": {
+            "operacion_id": 200,
+            "categoria": vps_migration.ARCA_RECHAZO_GLOBAL_CATEGORIA,
+            "grupos_rechazo_ids": [101],
+            "grupos_no_enviados_ids": [],
+            "errores_arca": errors,
+        }
+    }
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    operation.update(
+        {
+            "estado": "rechazado_arca",
+            "response_json": json.dumps(
+                {
+                    "lote": lote,
+                    "mensaje": vps_migration.ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE,
+                    "en_progreso": False,
+                    "errores_arca": errors,
+                },
+                sort_keys=True,
+            ),
+        }
+    )
+    attempt = rows["intentos_emision_fiscal"][0]
+    authorized_successor = {
+        **attempt,
+        "id": 702,
+        "operacion_id": 201,
+        "guarda_rece_id": 601,
+        "duplicados_generacion_id": 302,
+    }
+    attempt.update(
+        {
+            "estado": "rechazado_arca",
+            "categoria_error": vps_migration.ARCA_RECHAZO_GLOBAL_CATEGORIA,
+            "errores_arca_json": json.dumps(errors, sort_keys=True),
+            "comprobante_id": None,
+            "cae": None,
+            "cae_vencimiento": None,
+        }
+    )
+    rows["intentos_emision_fiscal"].append(authorized_successor)
+    successor_association = {
+        **rows["operaciones_idempotentes_elegibilidad_rece"][-1],
+        "id": 143,
+        "operacion_id": 201,
+    }
+    rows["operaciones_idempotentes_elegibilidad_rece"].append(successor_association)
+    next(row for row in rows["operaciones_idempotentes"] if row["id"] == 201)[
+        "rece_snapshot_hash"
+    ] = vps_migration._digest_asociaciones_rece(
+        [{**successor_association, "punto_venta_numero": 6}]
+    )
+    rows["puntos_venta_guardas_emision_rece"].append(
+        {
+            **rows["puntos_venta_guardas_emision_rece"][0],
+            "id": 601,
+            "operacion_id": 201,
+        }
+    )
+
+
+def _apply_v4_partial_batch_global_rejection(
+    rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Conserva A autorizado y el 10005 posterior de B en la misma operación."""
+    lote_row = next(row for row in rows["lotes_comprobantes"] if row["id"] == 100)
+    errors = [dict(item) for item in vps_migration.ARCA_RECHAZO_GLOBAL_ERRORES]
+    metadata = {
+        "pf19c_rechazo_global": {
+            "operacion_id": 200,
+            "categoria": vps_migration.ARCA_RECHAZO_GLOBAL_CATEGORIA,
+            "grupos_rechazo_ids": [156],
+            "grupos_no_enviados_ids": [],
+            "errores_arca": errors,
+        }
+    }
+    lote_row["metadata_json"] = json.dumps(metadata, sort_keys=True)
+    lote = _v4_lote_replay_payload(lote_row)
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    operation.update(
+        {
+            "estado": "rechazado_arca",
+            "response_json": json.dumps(
+                {
+                    "lote": lote,
+                    "mensaje": vps_migration.ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE,
+                    "en_progreso": False,
+                    "errores_arca": errors,
+                },
+                sort_keys=True,
+            ),
+        }
+    )
+    authorized = next(
+        row for row in rows["intentos_emision_fiscal"] if row["id"] == 700
+    )
+    rows["intentos_emision_fiscal"].append(
+        {
+            **authorized,
+            "id": 702,
+            "numero_planificado": 179,
+            "payload_hash": "b" * 64,
+            "huella_logica": "c" * 64,
+            "estado": "rechazado_arca",
+            "categoria_error": vps_migration.ARCA_RECHAZO_GLOBAL_CATEGORIA,
+            "mensaje": vps_migration.ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE,
+            "errores_arca_json": json.dumps(errors, sort_keys=True),
+            "comprobante_id": None,
+            "cae": None,
+            "cae_vencimiento": None,
+            "grupo_id": 156,
+            "duplicados_generacion_id": None,
+        }
+    )
+
+
+def test_manifest_v4_preserva_clausura_pf13_y_convierte_tipos(tmp_path: Path) -> None:
+    package, _, _ = _build_v4_package(tmp_path)
+
+    manifest = vps_migration.load_and_verify_manifest(package)
+    operations = vps_migration.read_package_rows(
+        package,
+        manifest,
+        "operaciones_idempotentes",
+    )
+    generations = vps_migration.read_package_rows(
+        package,
+        manifest,
+        "lotes_duplicados_evidencias",
+    )
+
+    assert manifest["package_version"] == 4
+    assert manifest["closure"]["preserved_lote_ids"] == [90, 100]
+    assert len(manifest["closure"]["preserved_group_ids"]) == 101
+    assert manifest["closure"]["preserved_group_ids"][:2] == [91, 101]
+    assert manifest["closure"]["preserved_group_ids"][-1] == 200
+    assert manifest["closure"]["generation_ids"] == [300, 301, 302]
+    assert operations[0]["lote_id"] is None
+    assert [row["lote_id"] for row in operations[1:]] == [100, 100, 90, None]
+    assert isinstance(operations[1]["control_duplicados_json"], dict)
+    assert generations[0]["aceptada_at"].utcoffset() == timedelta(0)
+    generations_200 = [row for row in generations if row["operacion_id"] == 200]
+    assert [row["generacion"] for row in generations_200] == [1, 2]
+    assert operations[1]["duplicados_generacion_id"] == 301
+    attempts = vps_migration.read_package_rows(
+        package, manifest, "intentos_emision_fiscal"
+    )
+    assert (
+        next(row for row in attempts if row["id"] == 700)["duplicados_generacion_id"]
+        == 300
+    )
+    assert next(row for row in attempts if row["id"] == 701)["guarda_rece_id"] is None
+    assert generations_200[1]["aceptacion_origen_generacion_id"] == 300
+    assert operations[2]["operacion_raiz_id"] == 200
+    assert operations[3]["duplicados_version"] is None
+    assert operations[4]["tipo_operacion"] == "emitir_comprobante"
+    assert not any(
+        row["operacion_id"] == 203
+        for row in vps_migration.read_package_rows(
+            package,
+            manifest,
+            "intentos_emision_fiscal",
+        )
+    )
+    assert manifest["notes"] == list(vps_migration_v4.PACKAGE_NOTES)
+
+    groups = vps_migration.read_package_rows(
+        package, manifest, "lotes_comprobantes_grupos"
+    )
+    states = [row["estado"] for row in groups if row["lote_id"] == 100]
+    assert len(states) == 100
+    assert {state: states.count(state) for state in set(states)} == {
+        "autorizado": 10,
+        "autorizado_externo": 5,
+        "cargado": 10,
+        "validado": 15,
+        "con_error": 15,
+        "fallido": 25,
+        "descartado": 20,
+    }
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "lote_preservado",
+        "seleccion_original",
+        "aceptacion_heredada",
+        "intento_generacion",
+        "grupo_faltante",
+        "testigo_faltante",
+    ],
+)
+def test_manifest_v4_rechaza_manipulacion_coordinada_del_grafo(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    if mutation == "lote_preservado":
+        rows["operaciones_idempotentes"][1]["lote_id"] = None
+    elif mutation == "seleccion_original":
+        control = json.loads(
+            rows["operaciones_idempotentes"][1]["control_duplicados_json"]
+        )
+        control["seleccion_original"] = [{"grupo_id": 102}]
+        rows["operaciones_idempotentes"][1]["control_duplicados_json"] = json.dumps(
+            control, sort_keys=True
+        )
+    elif mutation == "aceptacion_heredada":
+        rows["lotes_duplicados_evidencias"][1]["aceptacion_id"] = "otra-aceptacion"
+    elif mutation == "intento_generacion":
+        rows["intentos_emision_fiscal"][0]["duplicados_generacion_id"] = 302
+    elif mutation == "grupo_faltante":
+        rows["lotes_comprobantes_grupos"] = [
+            row for row in rows["lotes_comprobantes_grupos"] if row["id"] != 101
+        ]
+    else:
+        rows["lotes_duplicados_coincidencias_miembros"].pop()
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_replay_terminal_incompatible_recalculado(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    rows["operaciones_idempotentes"][1]["response_json"] = json.dumps(
+        {"incompatible": True}, sort_keys=True
+    )
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="(?i)replay terminal v4"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_notas_legacy_incompatibles(tmp_path: Path) -> None:
+    package, _, manifest = _build_v4_package(tmp_path)
+    manifest["notes"] = list(vps_migration_v3.PACKAGE_NOTES)
+    (package / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(vps_migration.MigrationError, match="notes"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_intento_autorizado_fiscalmente_incompatible(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    rows["intentos_emision_fiscal"][0].update(
+        {"cae": "99999999999999", "total": "999.99"}
+    )
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="(?i)intento autorizado v4"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def _agregar_intento_individual_v4(
+    rows: dict[str, list[dict[str, Any]]],
+    *,
+    attempt_id: int,
+    state: str,
+    marker: str,
+) -> None:
+    template = next(row for row in rows["intentos_emision_fiscal"] if row["id"] == 701)
+    attempt = {
+        **template,
+        "id": attempt_id,
+        "operacion_id": 203,
+        "lote_id": None,
+        "grupo_id": None,
+        "duplicados_generacion_id": None,
+        "payload_hash": marker * 64,
+        "huella_logica": marker * 64,
+        "estado": state,
+    }
+    if state != "autorizado":
+        attempt.update(
+            {
+                "comprobante_id": None,
+                "cae": None,
+                "cae_vencimiento": None,
+                "categoria_error": vps_migration.LEGACY_PF19_CATEGORIA,
+            }
+        )
+    rows["intentos_emision_fiscal"].append(attempt)
+
+
+def test_manifest_v4_rechaza_dos_autorizaciones_individuales(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _agregar_intento_individual_v4(
+        rows,
+        attempt_id=703,
+        state="autorizado",
+        marker="b",
+    )
+    _agregar_intento_individual_v4(
+        rows,
+        attempt_id=704,
+        state="autorizado",
+        marker="c",
+    )
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="autorización única"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_admite_autorizacion_unica_con_historia_negativa(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _agregar_intento_individual_v4(
+        rows,
+        attempt_id=703,
+        state="autorizado",
+        marker="b",
+    )
+    _agregar_intento_individual_v4(
+        rows,
+        attempt_id=704,
+        state="fallido_verificado",
+        marker="c",
+    )
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    loaded = vps_migration.load_and_verify_manifest(package)
+
+    assert loaded["package_version"] == 4
+
+
+def test_manifest_v4_rechaza_puntero_de_generacion_atrasado(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    control = json.loads(operation["control_duplicados_json"])
+    operation["duplicados_generacion_id"] = 300
+    control["duplicados_generacion_id"] = 300
+    control["duplicados_generacion"] = 1
+    operation["control_duplicados_json"] = json.dumps(control, sort_keys=True)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="generación seleccionada"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_sucesor_pf19c_con_raiz_independiente(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _apply_v4_pf19c_rejection_with_successor(rows)
+    successor = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 201
+    )
+    successor["operacion_raiz_id"] = 201
+    generation = next(
+        row for row in rows["lotes_duplicados_evidencias"] if row["id"] == 302
+    )
+    generation["aceptacion_origen_generacion_id"] = 302
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="historia terminal"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_casos_hermanos_del_replay_terminal(
+    tmp_path: Path,
+) -> None:
+    package, base_rows, manifest = _build_v4_package(tmp_path)
+
+    def remove_response(rows: dict[str, list[dict[str, Any]]]) -> None:
+        rows["operaciones_idempotentes"][1]["response_json"] = None
+
+    def cross_lot(rows: dict[str, list[dict[str, Any]]]) -> None:
+        response = json.loads(rows["operaciones_idempotentes"][1]["response_json"])
+        response["lote"]["id"] = 90
+        rows["operaciones_idempotentes"][1]["response_json"] = json.dumps(
+            response, sort_keys=True
+        )
+
+    def contradict_state(rows: dict[str, list[dict[str, Any]]]) -> None:
+        rows["operaciones_idempotentes"][1]["estado"] = "rechazado_arca"
+
+    def wrong_retry_shape(rows: dict[str, list[dict[str, Any]]]) -> None:
+        response = json.loads(rows["operaciones_idempotentes"][2]["response_json"])
+        response["en_progreso"] = False
+        rows["operaciones_idempotentes"][2]["response_json"] = json.dumps(
+            response, sort_keys=True
+        )
+
+    for mutation in (
+        remove_response,
+        cross_lot,
+        contradict_state,
+        wrong_retry_shape,
+    ):
+        rows = deepcopy(base_rows)
+        mutation(rows)
+        _write_v4_package(package, rows, previous_manifest=manifest)
+        with pytest.raises(vps_migration.MigrationError):
+            vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_cada_campo_fiscal_durable_del_intento(
+    tmp_path: Path,
+) -> None:
+    package, base_rows, manifest = _build_v4_package(tmp_path)
+    mutations = {
+        "cae": "99999999999999",
+        "cae_vencimiento": "2026-09-16",
+        "numero_planificado": 999,
+        "fecha_emision": "2026-09-06",
+        "total": "999.99",
+        "tipo_comprobante": 11,
+        "punto_venta_id": 41,
+        "empresa_id": 11,
+        "estado": "fallido_verificado",
+    }
+    for field_name, value in mutations.items():
+        rows = deepcopy(base_rows)
+        rows["intentos_emision_fiscal"][0][field_name] = value
+        _write_v4_package(package, rows, previous_manifest=manifest)
+        with pytest.raises(vps_migration.MigrationError):
+            vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize("state", ["fallido_verificado", "rechazado_arca"])
+def test_manifest_v4_rechaza_intento_negativo_con_evidencia_positiva(
+    tmp_path: Path,
+    state: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    rows["intentos_emision_fiscal"][0]["estado"] = state
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="evidencia positiva"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_admite_rechazo_global_con_sucesor_autorizado(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _apply_v4_pf19c_rejection_with_successor(rows)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    loaded = vps_migration.load_and_verify_manifest(package)
+
+    assert loaded["package_version"] == 4
+    rejection = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    successor = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 201
+    )
+    assert successor["tipo_operacion"] == "reintentar_fallidos_lote"
+    assert successor["operacion_raiz_id"] == rejection["operacion_raiz_id"] == 200
+
+
+def test_manifest_v4_admite_batch_parcial_con_autorizacion_antes_de_10005(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _apply_v4_partial_batch_global_rejection(rows)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    loaded = vps_migration.load_and_verify_manifest(package)
+    attempts = vps_migration.read_package_rows(
+        package,
+        loaded,
+        "intentos_emision_fiscal",
+    )
+
+    assert loaded["package_version"] == 4
+    assert {
+        (row["grupo_id"], row["estado"])
+        for row in attempts
+        if row["operacion_id"] == 200
+    } == {(101, "autorizado"), (156, "rechazado_arca")}
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["comprobante", "cae", "grupo", "guarda", "generacion"],
+)
+def test_manifest_v4_batch_parcial_no_relaja_evidencia_autorizada(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _apply_v4_partial_batch_global_rejection(rows)
+    authorized = next(
+        row for row in rows["intentos_emision_fiscal"] if row["id"] == 700
+    )
+    if mutation == "comprobante":
+        authorized["comprobante_id"] = 110
+    elif mutation == "cae":
+        authorized["cae"] = "99999999999999"
+    elif mutation == "grupo":
+        authorized["grupo_id"] = 102
+    elif mutation == "guarda":
+        authorized["guarda_rece_id"] = None
+    else:
+        authorized["duplicados_generacion_id"] = 302
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_no_amplia_autorizacion_individual_a_estado_no_finalizado(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    individual = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 203
+    )
+    individual["estado"] = "fallido"
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_manifest_v4_rechaza_rechazo_global_sin_sucesor_durable(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _apply_v4_pf19c_rejection_with_successor(rows)
+    rows["intentos_emision_fiscal"].pop()
+    rows["puntos_venta_guardas_emision_rece"].pop()
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="historia terminal"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def _invalidar_evidencia_autorizada(
+    row: dict[str, Any],
+    mutation: str,
+    *,
+    number_field: str,
+) -> None:
+    if mutation == "numero_cero":
+        row[number_field] = 0
+    elif mutation == "cae_vacio":
+        row["cae"] = ""
+    else:
+        row["cae_vencimiento"] = None
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["numero_cero", "cae_vacio", "vencimiento_ausente"],
+)
+def test_evidencia_fiscal_minima_replay_individual_coordinado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 203
+    )
+    response = json.loads(operation["response_json"])
+    receipt = next(row for row in rows["comprobantes"] if row["id"] == 110)
+    _invalidar_evidencia_autorizada(response, mutation, number_field="numero")
+    _invalidar_evidencia_autorizada(receipt, mutation, number_field="numero")
+    operation["response_json"] = json.dumps(response, sort_keys=True)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="Replay terminal v4 exitoso sin evidencia fiscal completa",
+    ):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["numero_cero", "cae_vacio", "vencimiento_ausente"],
+)
+def test_evidencia_fiscal_minima_intento_autorizado_coordinado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    _, rows, _ = _build_v4_package(tmp_path)
+    attempt = next(row for row in rows["intentos_emision_fiscal"] if row["id"] == 700)
+    receipt = next(row for row in rows["comprobantes"] if row["id"] == 111)
+    group = next(row for row in rows["lotes_comprobantes_grupos"] if row["id"] == 101)
+    _invalidar_evidencia_autorizada(
+        attempt,
+        mutation,
+        number_field="numero_planificado",
+    )
+    _invalidar_evidencia_autorizada(receipt, mutation, number_field="numero")
+    if mutation != "vencimiento_ausente":
+        _invalidar_evidencia_autorizada(
+            group,
+            mutation,
+            number_field="numero_asignado",
+        )
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="Intento autorizado v4 sin evidencia fiscal completa",
+    ):
+        vps_migration._validate_v4_attempt_fiscal_evidence(rows)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["numero_cero", "cae_vacio", "vencimiento_ausente"],
+)
+def test_evidencia_fiscal_minima_grupo_autorizado_coordinado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    group = next(row for row in rows["lotes_comprobantes_grupos"] if row["id"] == 111)
+    receipt = next(row for row in rows["comprobantes"] if row["id"] == 121)
+    if mutation != "vencimiento_ausente":
+        _invalidar_evidencia_autorizada(
+            group,
+            mutation,
+            number_field="numero_asignado",
+        )
+    _invalidar_evidencia_autorizada(receipt, mutation, number_field="numero")
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="Un grupo v4 perdió su evidencia fiscal",
+    ):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["numero_cero", "cae_vacio", "vencimiento_ausente"],
+)
+def test_evidencia_fiscal_minima_comprobante_autorizado_aislado(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    receipt = {
+        **next(row for row in rows["comprobantes"] if row["id"] == 125),
+        "id": 999,
+    }
+    _invalidar_evidencia_autorizada(receipt, mutation, number_field="numero")
+    rows["comprobantes"].append(receipt)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(
+        vps_migration.MigrationError,
+        match="Comprobante autorizado v4 sin evidencia fiscal completa",
+    ):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_postflight_v4_ejecuta_validacion_fiscal_sobre_snapshot_igual(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    rows["intentos_emision_fiscal"][0]["cae"] = "99999999999999"
+    manifest = _write_v4_package(package, rows, previous_manifest=manifest)
+    monkeypatch.setattr(
+        vps_migration, "validate_target_alembic_head", lambda *args: None
+    )
+    monkeypatch.setattr(vps_migration, "validate_v3_coordinators", lambda *args: None)
+    monkeypatch.setattr(vps_migration, "scalar_count", lambda *args: 0)
+    monkeypatch.setattr(
+        vps_migration,
+        "read_database_rows",
+        lambda _conn, table_name: rows[table_name],
+    )
+
+    with pytest.raises(vps_migration.MigrationError, match="Intento autorizado v4"):
+        vps_migration.validate_imported_database(
+            object(), manifest, rows, vps_migration_v4.V4_CONTRACT
+        )
+
+
+def test_captura_v4_selecciona_lotes_comparables_y_normaliza_solo_legacy(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    _apply_v4_partial_batch_global_rejection(rows)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+    manifest = vps_migration.load_and_verify_manifest(package)
+    package_rows = {
+        table_name: vps_migration.read_package_rows(package, manifest, table_name)
+        for table_name in vps_migration_v4.INCLUDED_TABLES
+    }
+    source_path = tmp_path / "source-v4.db"
+    engine = create_engine(f"sqlite:///{source_path}", future=True)
+    try:
+        Base.metadata.create_all(engine)
+        with engine.begin() as conn:
+            conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
+            conn.execute(
+                text("INSERT INTO alembic_version VALUES (:version)"),
+                {"version": vps_migration_v4.ALEMBIC_HEAD},
+            )
+            for table_name in vps_migration_v4.INSERT_ORDER:
+                insert_rows = package_rows[table_name]
+                deferred = vps_migration_v4.DEFERRED_COLUMNS.get(table_name, ())
+                if deferred:
+                    insert_rows = [
+                        {**row, **{column_name: None for column_name in deferred}}
+                        for row in insert_rows
+                    ]
+                if insert_rows:
+                    conn.execute(Base.metadata.tables[table_name].insert(), insert_rows)
+            vps_migration.restore_deferred_columns(
+                conn,
+                package_rows,
+                vps_migration_v4.V4_CONTRACT,
+            )
+            omitted_lote = {
+                **package_rows["lotes_comprobantes"][0],
+                "id": 130,
+                "nombre_archivo": "legacy-omitido.xlsx",
+                "archivo_hash": "3" * 64,
+            }
+            conn.execute(
+                Base.metadata.tables["lotes_comprobantes"].insert(), omitted_lote
+            )
+            conn.execute(
+                Base.metadata.tables["operaciones_idempotentes"]
+                .update()
+                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .values(lote_id=130)
+            )
+            conn.execute(
+                Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+                [
+                    {"empresa_id": 10, "ambiente": "homologacion", "revision": 9},
+                    {"empresa_id": 10, "ambiente": "produccion", "revision": 7},
+                ],
+            )
+        connection = sqlite3.connect(source_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            vps_migration.validate_v4_sqlite_schema(connection)
+            preflight = vps_migration.run_preflight_on_connection(
+                connection,
+                db_path=source_path,
+                certs_base=package / "certs",
+                repo_head=vps_migration_v4.ALEMBIC_HEAD,
+            )
+            capture = vps_migration.capture_v4_rows(connection)
+        finally:
+            connection.close()
+    finally:
+        engine.dispose()
+
+    exported = vps_migration.export_package(
+        source_db=source_path,
+        certs_dir=package / "certs",
+        output_root=tmp_path / "export-v4",
+        target_key_password="clave-v4-destino",
+        source_key_password="clave-v3-sintetica",
+        source_quiesced=True,
+    )
+    exported_manifest = vps_migration.load_and_verify_manifest(exported)
+    assert capture.closure["preserved_lote_ids"] == [90, 100]
+    assert preflight.included_counts == capture.included_counts
+    assert exported_manifest["package_version"] == 4
+    assert len(capture.closure["preserved_group_ids"]) == 101
+    assert capture.normalization["pairs"] == [
+        {
+            "operacion_id": 140,
+            "lote_id": 130,
+            "grupo_ids": [],
+            "grupos_rechazo_ids": [],
+            "grupos_no_enviados_ids": [],
+        }
+    ]
+    assert capture.rows["operaciones_idempotentes"][0]["lote_id"] is None
+    assert capture.rows["operaciones_idempotentes"][1]["lote_id"] == 100
+    assert {
+        (row["grupo_id"], row["estado"])
+        for row in capture.rows["intentos_emision_fiscal"]
+        if row["operacion_id"] == 200
+    } == {(101, "autorizado"), (156, "rechazado_arca")}
+
+
+def test_barrera_v4_cubre_campos_pf13_no_usados_por_la_clausura(
+    tmp_path: Path,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    rows["lotes_comprobantes"][1]["mensaje_resumen"] = "contenido alterado"
+    path = package / "data" / "lotes_comprobantes.jsonl"
+    raw = b"".join(
+        (
+            json.dumps(row, ensure_ascii=False, sort_keys=True, default=str) + "\n"
+        ).encode("utf-8")
+        for row in rows["lotes_comprobantes"]
+    )
+    path.write_bytes(raw)
+    manifest["data_files"]["lotes_comprobantes"].update(
+        {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+    )
+    (package / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(vps_migration.MigrationError, match="barrera idempotente v4"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_destino_v4_sucio_bloquea_antes_de_importar(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package, _, _ = _build_v4_package(tmp_path)
+    manifest = vps_migration.load_and_verify_manifest(package)
+    contract = vps_migration.select_import_contract(manifest)
+    counted: list[str] = []
+    monkeypatch.setattr(
+        vps_migration,
+        "validate_target_alembic_head",
+        lambda *args: None,
+    )
+    monkeypatch.setattr(
+        vps_migration,
+        "validate_v4_target_table_contract",
+        lambda *args: None,
+    )
+    monkeypatch.setattr(
+        vps_migration,
+        "validate_canonical_target_seeds",
+        lambda *args: None,
+    )
+
+    def count(_conn: Any, table_name: str) -> int:
+        counted.append(table_name)
+        return int(table_name == "lotes_duplicados_coordinacion")
+
+    monkeypatch.setattr(vps_migration, "scalar_count", count)
+
+    with pytest.raises(vps_migration.MigrationError, match="destino no está limpia"):
+        vps_migration.ensure_target_database_ready(object(), manifest, contract)
+
+    assert set(counted) == set(contract.target_empty_tables)
+
+
+def _build_historical_v3_package(tmp_path: Path) -> Path:
+    """Materializa un grafo v3 derivado del blob histórico 61ac23b8."""
+    package = tmp_path / "historical-v3"
+    data_dir = package / "data"
+    certs_dir = package / "certs"
+    data_dir.mkdir(parents=True)
+    certs_dir.mkdir()
+
+    timestamp = "2026-06-03 12:00:00"
+    lote_response = _lote_response_payload()
+    operation_response = {
+        "lote": lote_response,
+        "mensaje": "Lote procesado",
+        "en_progreso": False,
+    }
+    rece_material = {
+        "version": 1,
+        "contextos": [
+            {
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "punto_venta_numero": 6,
+                "ambiente": "produccion",
+                "elegibilidad_revision_id": 42,
+                "punto_venta_revision_fiscal": 1,
+            }
+        ],
+    }
+    rece_sha = hashlib.sha256(
+        json.dumps(
+            rece_material,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    rows: dict[str, list[dict[str, Any]]] = {
+        "empresas": [
+            {
+                "id": 10,
+                "razon_social": "Empresa Sintética SA",
+                "cuit": "20123456789",
+                "condicion_iva": "Responsable Inscripto",
+                "ingresos_brutos": None,
+                "domicilio": "Calle de prueba 123",
+                "localidad": "Ciudad de prueba",
+                "provincia": "Buenos Aires",
+                "codigo_postal": "1000",
+                "email": "prueba@example.test",
+                "telefono": None,
+                "inicio_actividades": "2020-01-01",
+                "logo": None,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            }
+        ],
+        "usuarios": [
+            {
+                "id": 20,
+                "email": "admin@example.test",
+                "hashed_password": "hash-sintetico-no-utilizable",
+                "nombre": "Operador Sintético",
+                "activo": 1,
+                "es_admin": 1,
+                "puede_crear_editar_emisores": 1,
+                "empresa_id": 10,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+                "ultimo_login": None,
+                "password_changed_at": None,
+            }
+        ],
+        "usuario_emisor_acceso": [
+            {
+                "usuario_id": 20,
+                "empresa_id": 10,
+                "otorgado_por_usuario_id": 20,
+                "origen": "migracion_legacy",
+                "otorgado_en": timestamp,
+            }
+        ],
+        "clientes": [
+            {
+                "id": 30,
+                "razon_social": "Cliente Sintético",
+                "tipo_documento": "CUIT",
+                "numero_documento": "20999999991",
+                "condicion_iva": "Consumidor Final",
+                "domicilio": None,
+                "localidad": None,
+                "provincia": None,
+                "codigo_postal": None,
+                "email": None,
+                "telefono": None,
+                "notas": None,
+                "activo": 1,
+                "empresa_id": 10,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            }
+        ],
+        "puntos_venta": [
+            {
+                "id": 40,
+                "numero": 6,
+                "nombre": "PV sintético",
+                "sistema": "RECE",
+                "domicilio": None,
+                "domicilio_fuente": None,
+                "nombre_fantasia": None,
+                "nombre_fantasia_fuente": None,
+                "es_webservice": 1,
+                "bloqueado": 0,
+                "fecha_baja": None,
+                "fuente": "manual",
+                "activo": 1,
+                "usar_en_factuflow": 1,
+                "revision_fiscal": 1,
+                "ultima_comprobacion_arca_en": timestamp,
+                "empresa_id": 10,
+                "created_at": timestamp,
+            }
+        ],
+        "puntos_venta_elegibilidad_rece_revisiones": [
+            {
+                "id": 41,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "ambiente": "homologacion",
+                "revision": 1,
+                "estado": "no_verificado",
+                "fuente": "edicion",
+                "evidencia_tipo": "sin_evidencia",
+                "evidencia_sha256": None,
+                "clasificador_version": None,
+                "empresa_cuit_snapshot": "20123456789",
+                "punto_venta_numero_snapshot": 6,
+                "punto_revision_fiscal": 1,
+                "documento_emitido_en": None,
+                "vigente_hasta": None,
+                "observado_en": timestamp,
+                "verificado_en": None,
+                "creado_por_usuario_id": 20,
+                "actor_usuario_id_snapshot": 20,
+                "created_at": timestamp,
+            },
+            {
+                "id": 42,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "ambiente": "produccion",
+                "revision": 1,
+                "estado": "verificado_rece",
+                "fuente": "constancia_arca_atestada",
+                "evidencia_tipo": "rece_aplicativo_web_services_v1",
+                "evidencia_sha256": "e" * 64,
+                "clasificador_version": "rece-v1",
+                "empresa_cuit_snapshot": "20123456789",
+                "punto_venta_numero_snapshot": 6,
+                "punto_revision_fiscal": 1,
+                "documento_emitido_en": "2026-06-03",
+                "vigente_hasta": "2027-06-03",
+                "observado_en": timestamp,
+                "verificado_en": timestamp,
+                "creado_por_usuario_id": 20,
+                "actor_usuario_id_snapshot": 20,
+                "created_at": timestamp,
+            },
+        ],
+        "puntos_venta_elegibilidad_rece_actual": [
+            {
+                "id": 43,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "ambiente": "homologacion",
+                "revision_actual_id": 41,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            },
+            {
+                "id": 44,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "ambiente": "produccion",
+                "revision_actual_id": 42,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            },
+        ],
+        "operaciones_idempotentes": [
+            {
+                "id": 140,
+                "idempotency_key": "v3-lote-sintetico",
+                "tipo_operacion": "procesar_lote",
+                "payload_hash": "b" * 64,
+                "estado": "finalizado",
+                "response_json": json.dumps(operation_response, ensure_ascii=False),
+                "error_json": None,
+                "rece_snapshot_hash": rece_sha,
+                "lote_id": None,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+                "empresa_id": 10,
+                "usuario_id": 20,
+            }
+        ],
+        "operaciones_idempotentes_elegibilidad_rece": [
+            {
+                "id": 141,
+                "operacion_id": 140,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "ambiente": "produccion",
+                "elegibilidad_revision_id": 42,
+                "punto_venta_revision_fiscal": 1,
+                "created_at": timestamp,
+            }
+        ],
+        "certificados": [
+            {
+                "id": 50,
+                "nombre": "Certificado sintético",
+                "cuit": "20123456789",
+                "fecha_emision": "2026-05-01",
+                "fecha_vencimiento": "2030-05-01",
+                "archivo_crt": "synthetic-50.crt",
+                "archivo_key": "synthetic-50.key",
+                "activo": 1,
+                "ambiente": "produccion",
+                "empresa_id": 10,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            }
+        ],
+        "formatos_importacion": [
+            {
+                "id": 60,
+                "nombre": "Formato sintético",
+                "descripcion": "Formato histórico de prueba",
+                "alcance": "empresa",
+                "activo": 1,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+                "empresa_id": 10,
+            }
+        ],
+        "formatos_importacion_versiones": [
+            {
+                "id": 61,
+                "version": 1,
+                "estado": "vigente",
+                "configuracion_json": json.dumps(
+                    {"agrupacion": "fila", "campos": {}}, ensure_ascii=False
+                ),
+                "headers_firma_json": json.dumps(
+                    {"requeridos": ["Fecha"]}, ensure_ascii=False
+                ),
+                "created_at": timestamp,
+                "formato_id": 60,
+            }
+        ],
+        "formatos_importacion_campos": [
+            {
+                "id": 62,
+                "campo_destino": "fecha_emision",
+                "origen_tipo": "header",
+                "encabezado": "Fecha",
+                "alias_json": json.dumps(["Fecha", "Fecha emisión"]),
+                "letra_columna": None,
+                "indice_columna": None,
+                "valor_constante_json": None,
+                "requerido": 1,
+                "transformacion": "fecha",
+                "valor_default_json": None,
+                "created_at": timestamp,
+                "version_id": 61,
+            }
+        ],
+        "formatos_importacion_reglas": [
+            {
+                "id": 63,
+                "nombre": "Una fila por comprobante",
+                "tipo": "agrupacion",
+                "configuracion_json": json.dumps({"modo": "fila"}),
+                "orden": 1,
+                "activo": 1,
+                "created_at": timestamp,
+                "version_id": 61,
+            }
+        ],
+        "perfiles_carga_masiva": [
+            {
+                "id": 70,
+                "nombre": "Perfil sintético",
+                "descripcion": "Perfil histórico de prueba",
+                "configuracion_json": json.dumps(
+                    {"formato_importacion_id": 60}, ensure_ascii=False
+                ),
+                "es_predeterminado": 1,
+                "activo": 1,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+                "empresa_id": 10,
+            }
+        ],
+        "comprobantes": [
+            {
+                "id": 110,
+                "tipo_comprobante": 6,
+                "concepto": 1,
+                "numero": 123,
+                "fecha_emision": "2026-06-03",
+                "fecha_vencimiento": None,
+                "fecha_servicio_desde": None,
+                "fecha_servicio_hasta": None,
+                "fecha_vto_pago": None,
+                "subtotal": "100.00",
+                "descuento": "0.00",
+                "iva_21": "21.00",
+                "iva_10_5": "0.00",
+                "iva_27": "0.00",
+                "otros_impuestos": "0.00",
+                "total": "121.00",
+                "cae": "12345678901234",
+                "cae_vencimiento": "2026-06-13",
+                "estado": "autorizado",
+                "origen_emision": "lote",
+                "moneda": "PES",
+                "cotizacion": "1.000000",
+                "observaciones": None,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "cliente_id": 30,
+                "receptor_tipo_documento": 80,
+                "receptor_numero_documento": "20999999991",
+                "receptor_razon_social": "Cliente Sintético",
+                "receptor_condicion_iva": "Consumidor Final",
+                "receptor_domicilio": None,
+                "created_at": timestamp,
+                "updated_at": timestamp,
+            }
+        ],
+        "comprobante_items": [
+            {
+                "id": 120,
+                "codigo": "SYN-1",
+                "descripcion": "Ítem sintético",
+                "cantidad": "1.0000",
+                "unidad": "unidades",
+                "precio_unitario": "100.0000",
+                "descuento_porcentaje": "0.00",
+                "iva_porcentaje": "21.00",
+                "subtotal": "100.00",
+                "orden": 1,
+                "comprobante_id": 110,
+            }
+        ],
+    }
+    historical_tables = (
+        "empresas",
+        "usuarios",
+        "usuario_emisor_acceso",
+        "clientes",
+        "puntos_venta",
+        "puntos_venta_elegibilidad_rece_revisiones",
+        "puntos_venta_elegibilidad_rece_actual",
+        "operaciones_idempotentes",
+        "operaciones_idempotentes_elegibilidad_rece",
+        "certificados",
+        "formatos_importacion",
+        "formatos_importacion_versiones",
+        "formatos_importacion_campos",
+        "formatos_importacion_reglas",
+        "perfiles_carga_masiva",
+        "comprobantes",
+        "comprobante_items",
+    )
+    assert tuple(rows) == historical_tables
+
+    raw_key = tmp_path / "synthetic-50.raw.key"
+    _write_certificate_pair(
+        certs_dir / "synthetic-50.crt",
+        raw_key,
+        cuit="20123456789",
+        not_before=datetime(2026, 5, 1),
+        not_after=datetime(2030, 5, 1),
+    )
+    vps_migration.reencrypt_private_key(
+        raw_key,
+        certs_dir / "synthetic-50.key",
+        "clave-v3-sintetica",
+    )
+    raw_key.unlink()
+    data_files: dict[str, dict[str, Any]] = {}
+    for table_name in historical_tables:
+        path = data_dir / f"{table_name}.jsonl"
+        raw = b"".join(
+            (
+                json.dumps(
+                    row,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    default=str,
+                )
+                + "\n"
+            ).encode("utf-8")
+            for row in rows[table_name]
+        )
+        path.write_bytes(raw)
+        data_files[table_name] = {
+            "path": f"data/{table_name}.jsonl",
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "rows": len(rows[table_name]),
+            "bytes": len(raw),
+        }
+
+    env_path = package / "env.production.required.example"
+    env_path.write_text(
+        "\n".join(
+            [
+                "# Plantilla privada para restaurar el paquete en VPS.",
+                "# Reemplazar todos los valores antes de operar producción.",
+                "APP_SECRET_KEY=<generar-clave-larga>",
+                "ARCA_PRIVATE_KEY_PASSWORD=<misma-clave-usada-al-exportar>",
+                "POSTGRES_DB=factuflow",
+                "POSTGRES_USER=factuflow",
+                "POSTGRES_PASSWORD=<password-fuerte>",
+                "ARCA_ENV=produccion",
+                "CORS_ORIGINS=https://factuflow.tu-dominio.com",
+                "VITE_API_URL=https://factuflow.tu-dominio.com",
+                "CERTS_PATH=./certs",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    pairs = [
+        {
+            "operacion_id": 140,
+            "lote_id": 130,
+            "grupo_ids": [],
+            "grupos_rechazo_ids": [],
+            "grupos_no_enviados_ids": [],
+        }
+    ]
+    pairs_sha = hashlib.sha256(
+        json.dumps(
+            pairs,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    source_barrier = {
+        "source_quiesced": True,
+        "sqlite_transaction": "BEGIN IMMEDIATE",
+        "data_version": 0,
+    }
+    normalization = {
+        "rule": "set_null_preserve_source_pairs_and_group_inventory_sha256_v2",
+        "rows": 1,
+        "sha256": pairs_sha,
+        "pairs": pairs,
+    }
+    excluded_tables = (
+        "intentos_emision_fiscal",
+        "resoluciones_legacy_pf19_journal",
+        "puntos_venta_guardas_emision_rece",
+        "lotes_comprobantes",
+        "lotes_comprobantes_grupos",
+        "lotes_comprobantes_filas",
+        "lotes_comprobantes_eventos",
+        "eventos_sistema",
+        "exportaciones_almacenamiento",
+    )
+    excluded_counts = {table_name: 0 for table_name in excluded_tables}
+    excluded_counts["lotes_comprobantes"] = 1
+    safe_omitted = {
+        "blockers": 0,
+        "excluded_counts": excluded_counts,
+        "operaciones_terminales_preservadas": 1,
+        "operaciones_lote_normalizado": 1,
+        "asociaciones_rece_preservadas": 1,
+        "intentos_terminales_omitidos": 0,
+        "resoluciones_legacy_pf19_omitidas": 0,
+        "guardas_terminales_omitidas": 0,
+        "lotes_seguros_omitidos": 1,
+        "grupos_seguros_omitidos": 0,
+        "filas_omitidas": 0,
+        "eventos_lote_omitidos": 0,
+        "eventos_sistema_omitidos": 0,
+        "exportaciones_omitidas": 0,
+    }
+    barrier_material = {
+        "version": 1,
+        "algorithm": "sha256-json-c14n-v1",
+        "source_barrier": source_barrier,
+        "normalization": normalization,
+        "operations": [
+            {
+                "id": 140,
+                "empresa_id": 10,
+                "idempotency_key": "v3-lote-sintetico",
+                "tipo_operacion": "procesar_lote",
+                "payload_hash": "b" * 64,
+                "estado": "finalizado",
+                "response_json": operation_response,
+                "rece_snapshot_hash": rece_sha,
+                "lote_id": None,
+            }
+        ],
+        "associations": [
+            {
+                "id": 141,
+                "operacion_id": 140,
+                "empresa_id": 10,
+                "punto_venta_id": 40,
+                "ambiente": "produccion",
+                "elegibilidad_revision_id": 42,
+                "punto_venta_revision_fiscal": 1,
+            }
+        ],
+    }
+    barrier_sha = hashlib.sha256(
+        json.dumps(
+            barrier_material,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+    counts = {table_name: len(table_rows) for table_name, table_rows in rows.items()}
+    certificate_files = {}
+    for filename in ("synthetic-50.crt", "synthetic-50.key"):
+        path = certs_dir / filename
+        certificate_files[filename] = {
+            "path": f"certs/{filename}",
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "bytes": path.stat().st_size,
+        }
+    manifest = {
+        "package_version": 3,
+        "created_at": "2026-09-05T12:00:00+00:00",
+        "scope": "operacion_futura_con_comprobantes",
+        "alembic_version": "f4a5b6c7d8e9",
+        "included_tables": list(historical_tables),
+        "excluded_tables": list(excluded_tables),
+        "target_empty_tables": [
+            "empresas",
+            "usuarios",
+            "usuario_emisor_acceso",
+            "clientes",
+            "puntos_venta",
+            "puntos_venta_elegibilidad_rece_revisiones",
+            "puntos_venta_elegibilidad_rece_actual",
+            "operaciones_idempotentes",
+            "operaciones_idempotentes_elegibilidad_rece",
+            "certificados",
+            "perfiles_carga_masiva",
+            "comprobantes",
+            "comprobante_items",
+            *excluded_tables,
+        ],
+        "included_counts": counts,
+        "excluded_counts": excluded_counts,
+        "active_certificates": 1,
+        "safe_omitted": safe_omitted,
+        "normalizations": {"operaciones_idempotentes.lote_id": normalization},
+        "source_barrier": source_barrier,
+        "idempotency_barrier": {
+            "version": 1,
+            "algorithm": "sha256-json-c14n-v1",
+            "rows": 1,
+            "sha256": barrier_sha,
+        },
+        "data_files": data_files,
+        "certificate_files": certificate_files,
+        "env_template": {
+            "path": "env.production.required.example",
+            "sha256": hashlib.sha256(env_path.read_bytes()).hexdigest(),
+            "bytes": env_path.stat().st_size,
+        },
+        "required_env_keys": [
+            "APP_SECRET_KEY",
+            "ARCA_PRIVATE_KEY_PASSWORD",
+            "POSTGRES_DB",
+            "POSTGRES_USER",
+            "POSTGRES_PASSWORD",
+            "ARCA_ENV",
+            "CORS_ORIGINS",
+            "VITE_API_URL",
+            "CERTS_PATH",
+        ],
+        "notes": [
+            "No incluye lotes, filas, temporales, PDFs, Excels, logs ni cache ARCA.",
+            "Las claves privadas se re-cifraron con ARCA_PRIVATE_KEY_PASSWORD destino.",
+            "La SQLite local debe conservarse como evidencia histórica privada.",
+        ],
+    }
+    (package / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return package
+
+
+def _historical_v3_operation_row() -> dict[str, Any]:
+    return {
+        "id": 1,
+        "idempotency_key": "historical-v3",
+        "tipo_operacion": "emitir_comprobante",
+        "payload_hash": "a" * 64,
+        "estado": "fallido_verificado",
+        "response_json": None,
+        "error_json": None,
+        "rece_snapshot_hash": None,
+        "lote_id": None,
+        "created_at": "2026-09-05 12:00:00",
+        "updated_at": "2026-09-05 12:00:00",
+        "empresa_id": 1,
+        "usuario_id": None,
+    }
+
+
+def test_lector_historico_v3_acepta_fixture_material_independiente(
+    tmp_path: Path,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+
+    manifest = vps_migration.load_and_verify_manifest(package)
+    package_rows = {
+        table_name: vps_migration.read_package_rows(package, manifest, table_name)
+        for table_name in vps_migration_v3.INCLUDED_TABLES
+    }
+    vps_migration.verify_package_certificates(
+        package,
+        manifest,
+        "clave-v3-sintetica",
+        package_rows,
+    )
+
+    assert manifest["alembic_version"] == "f4a5b6c7d8e9"
+    assert set(manifest["data_files"]) == set(vps_migration_v3.V3_COLUMNS)
+    assert manifest["included_counts"]["empresas"] == 1
+    assert manifest["included_counts"]["operaciones_idempotentes"] == 1
+    assert manifest["included_counts"]["formatos_importacion"] == 1
+    assert manifest["included_counts"]["formatos_importacion_versiones"] == 1
+    assert manifest["included_counts"]["formatos_importacion_campos"] == 1
+    assert manifest["included_counts"]["formatos_importacion_reglas"] == 1
+    assert manifest["included_counts"]["perfiles_carga_masiva"] == 1
+    assert manifest["included_counts"]["comprobante_items"] == 1
+    assert manifest["active_certificates"] == 1
+    assert package_rows["operaciones_idempotentes"][0]["lote_id"] is None
+    assert all(
+        package_rows["operaciones_idempotentes"][0][column] is None
+        for column in vps_migration_v3.TARGET_NULL_ADDITIONS["operaciones_idempotentes"]
+    )
+    assert package_rows["formatos_importacion_versiones"][0]["configuracion_json"] == {
+        "agrupacion": "fila",
+        "campos": {},
+    }
+    assert package_rows["formatos_importacion_campos"][0]["alias_json"] == [
+        "Fecha",
+        "Fecha emisión",
+    ]
+    assert package_rows["formatos_importacion_reglas"][0]["configuracion_json"] == {
+        "modo": "fila"
+    }
+    assert package_rows["perfiles_carga_masiva"][0]["configuracion_json"] == {
+        "formato_importacion_id": 60
+    }
+    assert manifest["normalizations"]["operaciones_idempotentes.lote_id"]["pairs"] == [
+        {
+            "operacion_id": 140,
+            "lote_id": 130,
+            "grupo_ids": [],
+            "grupos_rechazo_ids": [],
+            "grupos_no_enviados_ids": [],
+        }
+    ]
+
+
+def test_exportador_no_rotula_v3_desde_schema_pf13(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(vps_migration, "get_repo_alembic_head", lambda *_: "head-pf13")
+
+    with pytest.raises(vps_migration.MigrationError, match="exportación v4 PF-13"):
+        vps_migration.export_package(
+            source_db=tmp_path / "no-se-lee.db",
+            certs_dir=tmp_path / "no-se-lee-certs",
+            output_root=tmp_path / "no-se-crea",
+            target_key_password="clave-sintetica",
+            source_quiesced=True,
+        )
+
+    assert not (tmp_path / "no-se-crea").exists()
+
+
+def test_lector_v3_no_depende_de_globales_mutables_del_exportador(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    monkeypatch.setattr(vps_migration, "INCLUDED_TABLES", ["tabla_v4"])
+    monkeypatch.setattr(vps_migration, "EXCLUDED_TABLES", ["otra_tabla_v4"])
+    monkeypatch.setattr(vps_migration, "TARGET_EMPTY_TABLES", ["tabla_v4"])
+    monkeypatch.setattr(vps_migration, "MANIFEST_TOP_LEVEL_KEYS", {"campo_v4"})
+    monkeypatch.setattr(vps_migration, "SAFE_OMITTED_KEYS", {"campo_v4"})
+    monkeypatch.setattr(vps_migration, "OPERATION_LOTE_NORMALIZATION_RULE", "v4")
+    monkeypatch.setattr(vps_migration, "IDEMPOTENCY_BARRIER_ALGORITHM", "v4")
+
+    manifest = vps_migration.load_and_verify_manifest(package)
+
+    assert manifest["package_version"] == 3
+
+
+def test_import_v3_selecciona_contrato_en_precarga_locks_postflight_y_secuencias(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    monkeypatch.setattr(vps_migration, "INCLUDED_TABLES", ["tabla_v4"])
+    monkeypatch.setattr(vps_migration, "EXCLUDED_TABLES", ["excluida_v4"])
+    monkeypatch.setattr(vps_migration, "TARGET_EMPTY_TABLES", ["tabla_v4"])
+    monkeypatch.setattr(vps_migration, "SEEDED_INCLUDED_TABLES", ["tabla_v4"])
+    monkeypatch.setattr(
+        vps_migration,
+        "V3_ADAPTER_TARGET_EMPTY_TABLES",
+        ["tabla_v4"],
+    )
+
+    manifest = vps_migration.load_and_verify_manifest(package)
+    contract = vps_migration.select_import_contract(manifest)
+    package_rows = {
+        table_name: vps_migration.read_package_rows(package, manifest, table_name)
+        for table_name in contract.included_tables
+    }
+
+    class Result:
+        def __init__(self, scalar_value: Any = None, row: Any = None) -> None:
+            self.scalar_value = scalar_value
+            self.row = row
+
+        def scalar(self) -> Any:
+            return self.scalar_value
+
+        def one(self) -> Any:
+            return self.row
+
+    class Connection:
+        def __init__(self) -> None:
+            self.statements: list[str] = []
+            self.sequence_tables: list[str] = []
+
+        def execute(self, statement: Any, parameters: Any = None) -> Result:
+            rendered = str(statement)
+            self.statements.append(rendered)
+            if "pg_get_serial_sequence" in rendered:
+                table_name = parameters["table_name"]
+                self.sequence_tables.append(table_name)
+                return Result(f"public.{table_name}_id_seq")
+            if "max(" in rendered.lower():
+                return Result(None)
+            if "last_value" in rendered:
+                return Result(row=(1, False))
+            return Result()
+
+    conn = Connection()
+    vps_migration.lock_target_tables_for_import(conn, contract)
+    assert "tabla_v4" not in conn.statements[-1]
+    assert '"empresas"' in conn.statements[-1]
+
+    counted_tables: list[str] = []
+    monkeypatch.setattr(
+        vps_migration, "validate_target_alembic_head", lambda *args: None
+    )
+    monkeypatch.setattr(
+        vps_migration, "validate_canonical_target_seeds", lambda conn: None
+    )
+    monkeypatch.setattr(
+        vps_migration,
+        "scalar_count",
+        lambda conn, table_name: counted_tables.append(table_name) or 0,
+    )
+    vps_migration.ensure_target_database_ready(conn, manifest, contract)
+    assert set(counted_tables) == set(
+        contract.target_empty_tables + contract.adapter_target_empty_tables
+    )
+
+    vps_migration.clear_seeded_included_tables(conn, contract)
+    assert all(
+        any(table_name in statement for statement in conn.statements)
+        for table_name in contract.seeded_included_tables
+    )
+
+    read_tables: list[str] = []
+    monkeypatch.setattr(
+        vps_migration,
+        "read_database_rows",
+        lambda conn, table_name: read_tables.append(table_name)
+        or package_rows[table_name],
+    )
+    monkeypatch.setattr(vps_migration, "validate_v3_coordinators", lambda *args: None)
+    vps_migration.validate_imported_database(
+        conn,
+        manifest,
+        package_rows,
+        contract,
+    )
+    assert tuple(read_tables) == contract.included_tables
+
+    conn.sequence_tables.clear()
+    vps_migration.reset_postgres_sequences(conn, contract)
+    assert tuple(conn.sequence_tables) == contract.sequence_tables
+    conn.sequence_tables.clear()
+    vps_migration.verify_postgres_sequences(conn, contract)
+    assert tuple(conn.sequence_tables) == contract.sequence_tables
+
+
+def test_replay_v3_no_depende_de_dtos_vigentes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DtoV4Incompatible:
+        @classmethod
+        def model_validate(cls, value: Any) -> Any:
+            raise AssertionError("el loader v3 consultó un DTO vigente")
+
+    for name in (
+        "EmitirComprobanteResponse",
+        "LoteComprobanteResponse",
+        "LoteProcesamientoResponse",
+        "LoteAccionResponse",
+    ):
+        monkeypatch.setattr(vps_migration, name, DtoV4Incompatible)
+
+    package = _build_historical_v3_package(tmp_path)
+    manifest = vps_migration.load_and_verify_manifest(package)
+    table_rows = {
+        table_name: vps_migration.read_package_rows(package, manifest, table_name)
+        for table_name in vps_migration_v3.INCLUDED_TABLES
+    }
+    table_rows["operaciones_idempotentes"][0].update(
+        {
+            "tipo_operacion": "emitir_comprobante",
+            "response_json": {
+                "exito": True,
+                "comprobante_id": 110,
+                "tipo_comprobante": 6,
+                "punto_venta": 6,
+                "numero": 123,
+                "fecha": "2026-06-03",
+                "cae": "12345678901234",
+                "cae_vencimiento": "2026-06-13",
+                "total": "121.00",
+                "mensaje": "Comprobante autorizado",
+            },
+        }
+    )
+    vps_migration._validate_packaged_terminal_operations(
+        table_rows=table_rows,
+        normalization_pairs=[],
+    )
+
+
+def test_replay_v3_rechaza_campos_futuros() -> None:
+    individual = {
+        "exito": False,
+        "tipo_comprobante": 6,
+        "punto_venta": 6,
+        "numero": 0,
+        "fecha": "2026-06-03",
+        "total": "0.00",
+        "mensaje": "No autorizado",
+        "campo_v4": None,
+    }
+    batch = {
+        "lote": _lote_response_payload(),
+        "mensaje": "Lote procesado",
+        "en_progreso": False,
+        "campo_v4": None,
+    }
+
+    with pytest.raises(ValueError, match="shape de replay v3"):
+        vps_migration_v3.parse_individual_replay(individual)
+    with pytest.raises(ValueError, match="shape de replay v3"):
+        vps_migration_v3.parse_batch_replay(batch, operation_type="procesar_lote")
+    with pytest.raises(ValueError, match="shape de replay v3"):
+        vps_migration_v3.parse_batch_error_replay(
+            {"categoria_error": "fallo", "campo_v4": None}
+        )
+
+
+def test_schema_v3_congela_dimensiones_y_representabilidad() -> None:
+    key_spec = vps_migration_v3.V3_COLUMNS["operaciones_idempotentes"][
+        "idempotency_key"
+    ]
+    total_spec = vps_migration_v3.V3_COLUMNS["comprobantes"]["total"]
+    timestamp_spec = vps_migration_v3.V3_COLUMNS["empresas"]["created_at"]
+
+    assert (key_spec.length, total_spec.precision, total_spec.scale) == (128, 12, 2)
+    assert timestamp_spec.timezone is False
+    assert vps_migration_v3.validate_value(total_spec, "1.2300") == Decimal("1.2300")
+    with pytest.raises(ValueError, match="longitud histórica"):
+        vps_migration_v3.validate_value(key_spec, "x" * 129)
+    with pytest.raises(ValueError, match="requiere redondeo"):
+        vps_migration_v3.validate_value(total_spec, "1.234")
+    with pytest.raises(ValueError, match="precisión histórica"):
+        vps_migration_v3.validate_value(total_spec, "12345678901.00")
+    with pytest.raises(ValueError, match="zona horaria"):
+        vps_migration_v3.validate_value(
+            timestamp_spec,
+            "2026-06-03T12:00:00+00:00",
+        )
+
+
+def test_parser_v3_rechaza_valores_no_representables_antes_del_destino(
+    tmp_path: Path,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    mutations = (
+        ("operaciones_idempotentes", "idempotency_key", "x" * 129),
+        ("comprobantes", "total", "1.234"),
+        ("empresas", "created_at", "2026-06-03T12:00:00+00:00"),
+    )
+    for table_name, column_name, value in mutations:
+        path = package / "data" / f"{table_name}.jsonl"
+        row = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+        row[column_name] = value
+        serialized = json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+        with pytest.raises(vps_migration.MigrationError, match="Tipo JSONL"):
+            vps_migration._parse_manifest_jsonl_lines(
+                [serialized],
+                table_name=table_name,
+            )
+
+
+def test_schema_v3_congela_acciones_fk_y_compatibilidad_destino(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for table_name in vps_migration_v3.INCLUDED_TABLES:
+        vps_migration.validate_v3_target_table_contract(
+            table_name,
+            Base.metadata.tables[table_name],
+        )
+    access_actions = {
+        foreign_key.local_columns: foreign_key.ondelete
+        for foreign_key in vps_migration_v3.FOREIGN_KEYS["usuario_emisor_acceso"]
+    }
+    assert access_actions == {
+        ("usuario_id",): "CASCADE",
+        ("empresa_id",): "CASCADE",
+        ("otorgado_por_usuario_id",): "SET NULL",
+    }
+    assert all(
+        foreign_key.onupdate is None
+        for foreign_keys in vps_migration_v3.FOREIGN_KEYS.values()
+        for foreign_key in foreign_keys
+    )
+
+    target_type = (
+        Base.metadata.tables["operaciones_idempotentes"].c["idempotency_key"].type
+    )
+    monkeypatch.setattr(target_type, "length", 127)
+    with pytest.raises(vps_migration.MigrationError, match="tipo físico"):
+        vps_migration.validate_v3_target_table_contract(
+            "operaciones_idempotentes",
+            Base.metadata.tables["operaciones_idempotentes"],
+        )
+
+    user_table = Base.metadata.tables["usuarios"]
+    user_company_fk = next(
+        constraint
+        for constraint in user_table.foreign_key_constraints
+        if tuple(element.parent.name for element in constraint.elements)
+        == ("empresa_id",)
+    )
+    monkeypatch.setattr(user_company_fk, "ondelete", "CASCADE")
+    with pytest.raises(vps_migration.MigrationError, match="FK física"):
+        vps_migration.validate_v3_target_table_contract("usuarios", user_table)
+
+
+@pytest.mark.parametrize("mutation", ["null", "duplicate", "reordered"])
+def test_pk_compuesta_v3_exige_forma_canonica(mutation: str) -> None:
+    first = {
+        "usuario_id": 20,
+        "empresa_id": 10,
+        "otorgado_por_usuario_id": 20,
+        "origen": "migracion_legacy",
+        "otorgado_en": "2026-06-03 12:00:00",
+    }
+    second = {**first, "empresa_id": 11}
+    if mutation == "null":
+        rows = [{**first, "usuario_id": None}]
+    elif mutation == "duplicate":
+        rows = [first, dict(first)]
+    else:
+        rows = [second, first]
+    lines = [json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows]
+
+    with pytest.raises(vps_migration.MigrationError, match="PK|NULL"):
+        vps_migration._parse_manifest_jsonl_lines(
+            lines,
+            table_name="usuario_emisor_acceso",
+        )
+
+
+def test_lector_v3_rechaza_fk_manipulada_con_hash_reatestiguado(
+    tmp_path: Path,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    access_path = package / "data" / "usuario_emisor_acceso.jsonl"
+    access = json.loads(access_path.read_text(encoding="utf-8"))
+    access["empresa_id"] = 999
+    raw = (json.dumps(access, ensure_ascii=False, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+    access_path.write_bytes(raw)
+    manifest["data_files"]["usuario_emisor_acceso"].update(
+        {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
+    )
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+    )
+
+    with pytest.raises(vps_migration.MigrationError, match="FK incluida inexistente"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_lector_v3_rechaza_normalizacion_reatestiguada_incompatible(
+    tmp_path: Path,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    normalization = manifest["normalizations"]["operaciones_idempotentes.lote_id"]
+    normalization["pairs"][0]["lote_id"] = 999
+    normalization["sha256"] = hashlib.sha256(
+        json.dumps(
+            normalization["pairs"],
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+    )
+
+    with pytest.raises(vps_migration.MigrationError, match="lote de replay"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+def test_lector_historico_v3_rechaza_head_y_columnas_pf13(
+    tmp_path: Path,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["alembic_version"] = vps_migration.get_repo_alembic_head()
+    vps_migration.write_json(manifest_path, manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="head Alembic"):
+        vps_migration.load_and_verify_manifest(package)
+
+    row = _historical_v3_operation_row()
+    row["control_duplicados_json"] = None
+    serialized = json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+    with pytest.raises(vps_migration.MigrationError, match="Schema JSONL"):
+        vps_migration._parse_manifest_jsonl_lines(
+            [serialized], table_name="operaciones_idempotentes"
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("package_version", 4, "Versión de paquete"),
+        ("package_version", 3.0, "Versión de paquete"),
+        ("included_tables", ["empresas"], "included_tables"),
+        ("excluded_tables", [], "excluded_tables"),
+        ("target_empty_tables", ["empresas"], "target_empty_tables"),
+    ],
+)
+def test_lector_v3_rechaza_version_o_particion_arbitraria(
+    tmp_path: Path,
+    field: str,
+    value: Any,
+    message: str,
+) -> None:
+    package = _build_historical_v3_package(tmp_path)
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest[field] = value
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+    )
+
+    with pytest.raises(vps_migration.MigrationError, match=message):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [("id", "1"), ("idempotency_key", None), ("created_at", "no-es-fecha")],
+)
+def test_lector_historico_v3_rechaza_tipo_o_nulabilidad(
+    column: str,
+    value: Any,
+) -> None:
+    row = _historical_v3_operation_row()
+    row[column] = value
+    serialized = json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+
+    with pytest.raises(vps_migration.MigrationError):
+        vps_migration._parse_manifest_jsonl_lines(
+            [serialized], table_name="operaciones_idempotentes"
+        )
+
+
+def test_adaptador_v3_agrega_solo_nulls_pf13_y_planifica_coordinadores() -> None:
+    adapted = vps_migration_v3.adapt_row(
+        "operaciones_idempotentes", _historical_v3_operation_row()
+    )
+
+    assert set(adapted) == {
+        *vps_migration_v3.V3_COLUMNS["operaciones_idempotentes"],
+        *vps_migration_v3.TARGET_NULL_ADDITIONS["operaciones_idempotentes"],
+    }
+    assert all(
+        adapted[column] is None
+        for column in vps_migration_v3.TARGET_NULL_ADDITIONS["operaciones_idempotentes"]
+    )
+    assert adapted["lote_id"] is None
+    assert vps_migration_v3.coordinator_plan([{"id": 3}, {"id": 1}]) == [
+        {"empresa_id": 1, "ambiente": "homologacion", "revision": 0},
+        {"empresa_id": 1, "ambiente": "produccion", "revision": 0},
+        {"empresa_id": 3, "ambiente": "homologacion", "revision": 0},
+        {"empresa_id": 3, "ambiente": "produccion", "revision": 0},
+    ]
+
+
+def test_precarga_v3_adapta_al_destino_vigente(tmp_path: Path) -> None:
+    row = _historical_v3_operation_row()
+    raw = (json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+    package = tmp_path / "package"
+    data_dir = package / "data"
+    data_dir.mkdir(parents=True)
+    path = data_dir / "operaciones_idempotentes.jsonl"
+    path.write_bytes(raw)
+    manifest = {
+        "package_version": 3,
+        "data_files": {
+            "operaciones_idempotentes": {
+                "path": "data/operaciones_idempotentes.jsonl",
+                "bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "rows": 1,
+            }
+        },
+    }
+
+    adapted = vps_migration.read_package_rows(
+        package, manifest, "operaciones_idempotentes"
+    )
+
+    assert adapted[0]["id"] == 1
+    assert adapted[0]["created_at"] == datetime(2026, 9, 5, 12, 0, 0)
+    assert all(
+        adapted[0][column] is None
+        for column in vps_migration_v3.TARGET_NULL_ADDITIONS["operaciones_idempotentes"]
+    )
+
+
+def test_fk_v3_no_depende_de_constraints_del_orm_vigente(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = {table_name: [] for table_name in vps_migration_v3.INCLUDED_TABLES}
+    rows["empresas"] = [{"id": 1}]
+    rows["usuarios"] = [{"id": 2, "empresa_id": 999}]
+    monkeypatch.setattr(vps_migration, "Base", object())
+
+    with pytest.raises(vps_migration.MigrationError, match="FK incluida inexistente"):
+        vps_migration._validate_packaged_foreign_keys(rows)
 
 
 def _insert_group_and_row(
@@ -1254,6 +3956,21 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
                 },
             )
             conn.execute(
+                Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+                [
+                    {
+                        "empresa_id": 11,
+                        "ambiente": "homologacion",
+                        "revision": 0,
+                    },
+                    {
+                        "empresa_id": 11,
+                        "ambiente": "produccion",
+                        "revision": 0,
+                    },
+                ],
+            )
+            conn.execute(
                 Base.metadata.tables["puntos_venta"].insert(),
                 {
                     "id": 240,
@@ -1335,8 +4052,546 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
         engine.dispose()
 
 
+def _windows_access_denied() -> PermissionError:
+    error = PermissionError("bloqueo transitorio sintético")
+    error.winerror = 5
+    return error
+
+
+def test_publicacion_atomica_acierta_en_el_primer_intento(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    payload = staging / "manifest.json"
+    payload.write_bytes(b'{"package_version":4}')
+    expected_hash = hashlib.sha256(payload.read_bytes()).hexdigest()
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    real_rename = Path.rename
+    calls: list[tuple[Path, Path]] = []
+    sleeps: list[float] = []
+
+    def tracked_rename(source: Path, target: Path) -> Path:
+        calls.append((source, target))
+        return real_rename(source, target)
+
+    monkeypatch.setattr(Path, "rename", tracked_rename)
+    result = vps_migration.publish_staging_directory(
+        staging,
+        destination,
+        ownership,
+        platform_name="nt",
+        sleep=sleeps.append,
+    )
+
+    assert result == destination
+    assert calls == [(staging, destination)]
+    assert sleeps == []
+    assert not os.path.lexists(staging)
+    assert hashlib.sha256((destination / "manifest.json").read_bytes()).hexdigest() == (
+        expected_hash
+    )
+
+
+def test_publicacion_atomica_reintenta_dos_winerror5_y_conserva_el_arbol(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    payload = staging / "data.jsonl"
+    payload.write_bytes(b'{"id":1}\n')
+    expected_hash = hashlib.sha256(payload.read_bytes()).hexdigest()
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    real_rename = Path.rename
+    calls: list[tuple[Path, Path]] = []
+    sleeps: list[float] = []
+
+    def transient_rename(source: Path, target: Path) -> Path:
+        calls.append((source, target))
+        if len(calls) <= 2:
+            raise _windows_access_denied()
+        return real_rename(source, target)
+
+    monkeypatch.setattr(Path, "rename", transient_rename)
+    vps_migration.publish_staging_directory(
+        staging,
+        destination,
+        ownership,
+        platform_name="nt",
+        sleep=sleeps.append,
+    )
+
+    assert calls == [(staging, destination)] * 3
+    assert sleeps == [0.05, 0.10]
+    assert not os.path.lexists(staging)
+    assert hashlib.sha256((destination / "data.jsonl").read_bytes()).hexdigest() == (
+        expected_hash
+    )
+
+
+def test_publicacion_atomica_agota_cinco_intentos_y_limpia_solo_staging(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    (staging / "privado.key").write_bytes(b"secreto-sintetico")
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    calls: list[tuple[Path, Path]] = []
+    sleeps: list[float] = []
+
+    def denied_rename(source: Path, target: Path) -> Path:
+        calls.append((source, target))
+        raise _windows_access_denied()
+
+    monkeypatch.setattr(Path, "rename", denied_rename)
+    with pytest.raises(vps_migration.MigrationError, match="5 intentos") as caught:
+        vps_migration.publish_staging_directory(
+            staging,
+            destination,
+            ownership,
+            platform_name="nt",
+            sleep=sleeps.append,
+        )
+
+    assert isinstance(caught.value.__cause__, PermissionError)
+    assert calls == [(staging, destination)] * 5
+    assert sleeps == [0.05, 0.10, 0.20, 0.40]
+    assert not os.path.lexists(destination)
+    vps_migration.cleanup_owned_staging_directory(staging, ownership)
+    assert not os.path.lexists(staging)
+
+
+@pytest.mark.parametrize("appearance", ["initial", "between_attempts"])
+def test_publicacion_atomica_preserva_destino_que_ya_existe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    appearance: str,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    (staging / "staging.txt").write_bytes(b"propio")
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    calls = 0
+    sleeps: list[float] = []
+
+    def destination_hash() -> str:
+        return hashlib.sha256((destination / "ajeno.txt").read_bytes()).hexdigest()
+
+    if appearance == "initial":
+        destination.mkdir()
+        (destination / "ajeno.txt").write_bytes(b"destino-ajeno")
+    expected_hash = destination_hash() if destination.exists() else None
+
+    def racing_rename(source: Path, target: Path) -> Path:
+        nonlocal calls, expected_hash
+        calls += 1
+        destination.mkdir()
+        (destination / "ajeno.txt").write_bytes(b"destino-tardio")
+        expected_hash = destination_hash()
+        raise _windows_access_denied()
+
+    monkeypatch.setattr(Path, "rename", racing_rename)
+    with pytest.raises(vps_migration.MigrationError, match="Ya existe"):
+        vps_migration.publish_staging_directory(
+            staging,
+            destination,
+            ownership,
+            platform_name="nt",
+            sleep=sleeps.append,
+        )
+
+    assert calls == int(appearance == "between_attempts")
+    assert sleeps == []
+    assert destination_hash() == expected_hash
+    vps_migration.cleanup_owned_staging_directory(staging, ownership)
+    assert destination_hash() == expected_hash
+
+
+@pytest.mark.parametrize(
+    ("failure", "platform_name"),
+    [
+        ("destination", "nt"),
+        ("cross_device", "nt"),
+        ("other_permission", "nt"),
+        ("winerror5_non_windows", "posix"),
+    ],
+)
+def test_publicacion_atomica_no_reintenta_otros_errores_o_plataformas(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+    platform_name: str,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    calls = 0
+    sleeps: list[float] = []
+
+    def fail_rename(source: Path, target: Path) -> Path:
+        nonlocal calls
+        calls += 1
+        if failure == "destination":
+            raise FileExistsError("destino apareció en la syscall")
+        if failure == "cross_device":
+            raise OSError(18, "volumen distinto")
+        if failure == "other_permission":
+            error = PermissionError("otro permiso")
+            error.winerror = 13
+            raise error
+        raise _windows_access_denied()
+
+    monkeypatch.setattr(Path, "rename", fail_rename)
+    expected = (
+        PermissionError
+        if "permission" in failure or "winerror5" in failure
+        else OSError
+    )
+    with pytest.raises(expected):
+        vps_migration.publish_staging_directory(
+            staging,
+            destination,
+            ownership,
+            platform_name=platform_name,
+            sleep=sleeps.append,
+        )
+
+    assert calls == 1
+    assert sleeps == []
+    assert not os.path.lexists(destination)
+
+
+@pytest.mark.parametrize("mutation", ["absent", "replaced", "link"])
+def test_publicacion_y_limpieza_fallan_cerrado_si_staging_deja_de_ser_propio(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    if mutation == "replaced":
+        (staging / "propio.txt").write_bytes(b"staging-original")
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    preserved_staging: Path | None = None
+    if mutation == "absent":
+        staging.rmdir()
+    elif mutation == "replaced":
+        preserved_staging = output_base / "staging-original"
+        staging.rename(preserved_staging)
+        staging.mkdir()
+        (staging / "ajeno.txt").write_bytes(b"reemplazo")
+    else:
+        real_is_symlink = Path.is_symlink
+        monkeypatch.setattr(
+            Path,
+            "is_symlink",
+            lambda path: path == staging or real_is_symlink(path),
+        )
+
+    with pytest.raises(vps_migration.MigrationError, match="staging"):
+        vps_migration.publish_staging_directory(
+            staging,
+            destination,
+            ownership,
+            platform_name="nt",
+            sleep=lambda _: None,
+        )
+    if mutation == "absent":
+        vps_migration.cleanup_owned_staging_directory(staging, ownership)
+        assert not os.path.lexists(staging)
+    else:
+        with pytest.raises(vps_migration.MigrationError, match="staging|identidad"):
+            vps_migration.cleanup_owned_staging_directory(staging, ownership)
+        assert os.path.lexists(staging)
+        if mutation == "replaced":
+            assert preserved_staging is not None
+            assert (
+                preserved_staging / "propio.txt"
+            ).read_bytes() == b"staging-original"
+            assert (staging / "ajeno.txt").read_bytes() == b"reemplazo"
+    assert not os.path.lexists(destination)
+
+
+@pytest.mark.parametrize("interrupt_at", ["rename", "sleep"])
+def test_publicacion_atomica_no_reintenta_interrupciones(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    interrupt_at: str,
+) -> None:
+    output_base = tmp_path.resolve()
+    staging = output_base / "staging"
+    destination = output_base / "package"
+    staging.mkdir()
+    ownership = vps_migration.capture_staging_directory_ownership(staging, output_base)
+    calls = 0
+    sleeps = 0
+
+    def interrupting_rename(source: Path, target: Path) -> Path:
+        nonlocal calls
+        calls += 1
+        if interrupt_at == "rename":
+            raise KeyboardInterrupt
+        raise _windows_access_denied()
+
+    def interrupting_sleep(delay: float) -> None:
+        nonlocal sleeps
+        sleeps += 1
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(Path, "rename", interrupting_rename)
+    with pytest.raises(KeyboardInterrupt):
+        vps_migration.publish_staging_directory(
+            staging,
+            destination,
+            ownership,
+            platform_name="nt",
+            sleep=interrupting_sleep,
+        )
+
+    assert calls == 1
+    assert sleeps == int(interrupt_at == "sleep")
+    vps_migration.cleanup_owned_staging_directory(staging, ownership)
+    assert not os.path.lexists(staging)
+
+
+def test_export_publica_con_reintento_atomico_y_manifest_verificable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path, certs_dir = _create_source_db(tmp_path)
+    real_rename = Path.rename
+    real_publish = vps_migration.publish_staging_directory
+    calls: list[tuple[Path, Path]] = []
+    sleeps: list[float] = []
+
+    def transient_rename(source: Path, target: Path) -> Path:
+        calls.append((source, target))
+        if len(calls) <= 2:
+            raise _windows_access_denied()
+        return real_rename(source, target)
+
+    def publish_on_windows(
+        staging: Path,
+        destination: Path,
+        ownership: vps_migration.StagingDirectoryOwnership,
+    ) -> Path:
+        return real_publish(
+            staging,
+            destination,
+            ownership,
+            platform_name="nt",
+            sleep=sleeps.append,
+        )
+
+    monkeypatch.setattr(Path, "rename", transient_rename)
+    monkeypatch.setattr(vps_migration, "publish_staging_directory", publish_on_windows)
+    package = vps_migration.export_package(
+        source_db=db_path,
+        certs_dir=certs_dir,
+        output_root=tmp_path / "packages",
+        target_key_password="clave-destino-larga",
+        source_quiesced=True,
+    )
+    manifest = vps_migration.load_and_verify_manifest(package)
+
+    assert len(calls) == 3
+    assert sleeps == [0.05, 0.10]
+    assert len({source for source, _ in calls}) == 1
+    assert len({target for _, target in calls}) == 1
+    assert not os.path.lexists(calls[0][0])
+    assert package == calls[0][1]
+    for info in manifest["data_files"].values():
+        path = package / info["path"]
+        assert path.stat().st_size == info["bytes"]
+        assert vps_migration.sha256_file(path) == info["sha256"]
+
+
+def test_export_informa_fallo_de_publicacion_y_cleanup_incompleto(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path, certs_dir = _create_source_db(tmp_path)
+    real_publish = vps_migration.publish_staging_directory
+    sleeps: list[float] = []
+
+    def denied_rename(source: Path, target: Path) -> Path:
+        raise _windows_access_denied()
+
+    def failed_cleanup(path: Path) -> None:
+        raise PermissionError("cleanup sintético fallido")
+
+    def publish_on_windows(
+        staging: Path,
+        destination: Path,
+        ownership: vps_migration.StagingDirectoryOwnership,
+    ) -> Path:
+        return real_publish(
+            staging,
+            destination,
+            ownership,
+            platform_name="nt",
+            sleep=sleeps.append,
+        )
+
+    monkeypatch.setattr(Path, "rename", denied_rename)
+    monkeypatch.setattr(vps_migration, "publish_staging_directory", publish_on_windows)
+    monkeypatch.setattr(vps_migration.shutil, "rmtree", failed_cleanup)
+    with pytest.raises(
+        vps_migration.MigrationError, match="limpieza.*incompleta"
+    ) as caught:
+        vps_migration.export_package(
+            source_db=db_path,
+            certs_dir=certs_dir,
+            output_root=tmp_path / "packages",
+            target_key_password="clave-destino-larga",
+            source_quiesced=True,
+        )
+
+    assert isinstance(caught.value.__cause__, BaseExceptionGroup)
+    failures = caught.value.__cause__.exceptions
+    assert any(
+        isinstance(failure, vps_migration.MigrationError) for failure in failures
+    )
+    assert any(isinstance(failure, PermissionError) for failure in failures)
+    assert sleeps == [0.05, 0.10, 0.20, 0.40]
+    remaining = list((tmp_path / "packages").iterdir())
+    assert len(remaining) == 1
+    assert remaining[0].name.startswith(".")
+    assert remaining[0].name.endswith(".tmp")
+
+
+@pytest.mark.parametrize(
+    ("interruption_type", "exit_code"),
+    [(KeyboardInterrupt, None), (SystemExit, 73)],
+    ids=["keyboard_interrupt", "system_exit"],
+)
+def test_export_propaga_interrupcion_de_cleanup_y_preserva_fallo_publicacion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    interruption_type: Any,
+    exit_code: int | None,
+) -> None:
+    db_path, certs_dir = _create_source_db(tmp_path)
+    publication_error = vps_migration.MigrationError("publicación sintética fallida")
+    cleanup_interruption = (
+        interruption_type() if exit_code is None else interruption_type(exit_code)
+    )
+
+    def failed_publication(*args: Any, **kwargs: Any) -> Path:
+        raise publication_error
+
+    def interrupted_cleanup(path: Path) -> None:
+        assert path.name.startswith(".")
+        assert path.name.endswith(".tmp")
+        raise cleanup_interruption
+
+    monkeypatch.setattr(vps_migration, "publish_staging_directory", failed_publication)
+    monkeypatch.setattr(vps_migration.shutil, "rmtree", interrupted_cleanup)
+
+    with pytest.raises(interruption_type) as caught:
+        vps_migration.export_package(
+            source_db=db_path,
+            certs_dir=certs_dir,
+            output_root=tmp_path / "packages",
+            target_key_password="clave-destino-larga",
+            source_quiesced=True,
+        )
+
+    assert caught.value is cleanup_interruption
+    assert caught.value.__cause__ is publication_error
+    assert any("limpieza" in note for note in caught.value.__notes__)
+    if exit_code is not None:
+        assert caught.value.code == exit_code
+
+
+@pytest.mark.parametrize(
+    ("cleanup_interruption", "publication_interruption", "exit_code"),
+    [
+        (KeyboardInterrupt(), SystemExit(41), None),
+        (SystemExit(73), KeyboardInterrupt(), 73),
+    ],
+    ids=["keyboard_interrupt", "system_exit"],
+)
+def test_export_propaga_interrupcion_mas_reciente_si_ambas_interrumpen(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cleanup_interruption: BaseException,
+    publication_interruption: BaseException,
+    exit_code: int | None,
+) -> None:
+    db_path, certs_dir = _create_source_db(tmp_path)
+
+    def interrupted_publication(*args: Any, **kwargs: Any) -> Path:
+        raise publication_interruption
+
+    def interrupted_cleanup(path: Path) -> None:
+        assert path.name.startswith(".")
+        assert path.name.endswith(".tmp")
+        raise cleanup_interruption
+
+    monkeypatch.setattr(
+        vps_migration, "publish_staging_directory", interrupted_publication
+    )
+    monkeypatch.setattr(vps_migration.shutil, "rmtree", interrupted_cleanup)
+
+    with pytest.raises(type(cleanup_interruption)) as caught:
+        vps_migration.export_package(
+            source_db=db_path,
+            certs_dir=certs_dir,
+            output_root=tmp_path / "packages",
+            target_key_password="clave-destino-larga",
+            source_quiesced=True,
+        )
+
+    assert caught.value is cleanup_interruption
+    assert caught.value.__cause__ is publication_interruption
+    assert any("limpieza" in note for note in caught.value.__notes__)
+    if exit_code is not None:
+        assert isinstance(caught.value, SystemExit)
+        assert caught.value.code == exit_code
+
+
+def test_export_propaga_interrupcion_y_limpia_staging_propio(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path, certs_dir = _create_source_db(tmp_path)
+
+    def interrupt_publication(*args: Any, **kwargs: Any) -> Path:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(
+        vps_migration, "publish_staging_directory", interrupt_publication
+    )
+    with pytest.raises(KeyboardInterrupt):
+        vps_migration.export_package(
+            source_db=db_path,
+            certs_dir=certs_dir,
+            output_root=tmp_path / "packages",
+            target_key_password="clave-destino-larga",
+            source_quiesced=True,
+        )
+
+    assert list((tmp_path / "packages").iterdir()) == []
+
+
 def test_exporta_solo_tablas_incluidas_y_excluye_lotes(tmp_path: Path) -> None:
-    """El paquete debe omitir lotes y artefactos, pero conservar comprobantes."""
+    """El paquete v4 declara toda su partición y omite sólo filas no requeridas."""
     db_path, certs_dir = _create_source_db(tmp_path)
 
     package = vps_migration.export_package(
@@ -1348,17 +4603,18 @@ def test_exporta_solo_tablas_incluidas_y_excluye_lotes(tmp_path: Path) -> None:
     )
 
     manifest = vps_migration.load_and_verify_manifest(package)
-    assert set(manifest["included_tables"]) == set(vps_migration.INCLUDED_TABLES)
-    assert "lotes_comprobantes" not in manifest["data_files"]
-    assert not (package / "data" / "lotes_comprobantes.jsonl").exists()
+    assert set(manifest["included_tables"]) == set(vps_migration_v4.INCLUDED_TABLES)
+    assert manifest["data_files"]["lotes_comprobantes"]["rows"] == 0
+    assert (package / "data" / "lotes_comprobantes.jsonl").exists()
     assert manifest["data_files"]["comprobantes"]["rows"] == 1
-    assert manifest["excluded_counts"]["lotes_comprobantes"] == 1
-    assert manifest["safe_omitted"]["excluded_counts"] == manifest["excluded_counts"]
-    for table_name, summary_key in vps_migration.SAFE_OMITTED_COUNT_KEYS.items():
-        assert (
-            manifest["safe_omitted"][summary_key]
-            == manifest["excluded_counts"][table_name]
-        )
+    assert manifest["omitted_counts"]["lotes_comprobantes"] == 1
+    assert manifest["safe_omitted"]["omitted_counts"] == manifest["omitted_counts"]
+    assert (
+        manifest["safe_omitted"]["legacy_preflight"]["excluded_counts"][
+            "lotes_comprobantes"
+        ]
+        == 1
+    )
     assert (package / "manifest.json").is_file()
     assert (package / "env.production.required.example").is_file()
     assert not any(path.name.endswith(".tmp") for path in package.parent.iterdir())
@@ -1476,8 +4732,9 @@ def test_preflight_admite_grupo_y_fila_pre_arca_seguros(tmp_path: Path) -> None:
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
-    assert result.safe_omitted["filas_omitidas"] == 1
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["grupos_seguros_omitidos"] == 1
+    assert legacy_preflight["filas_omitidas"] == 1
 
 
 def test_preflight_bloquea_grupo_autorizado_sin_comprobante(
@@ -1515,8 +4772,9 @@ def test_preflight_admite_grupo_autorizado_con_comprobante_coherente(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
-    assert result.safe_omitted["filas_omitidas"] == 1
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["grupos_seguros_omitidos"] == 1
+    assert legacy_preflight["filas_omitidas"] == 1
 
 
 def test_preflight_admite_grupo_autorizado_legacy_con_comprobante_coherente(
@@ -1534,7 +4792,7 @@ def test_preflight_admite_grupo_autorizado_legacy_con_comprobante_coherente(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
+    assert result.safe_omitted["legacy_preflight"]["grupos_seguros_omitidos"] == 1
 
 
 def test_preflight_bloquea_grupo_autorizado_legacy_con_comprobante_cruzado(
@@ -1589,21 +4847,23 @@ def test_preflight_admite_guarda_terminal_con_intento_canonico(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
-    assert result.safe_omitted["guardas_terminales_omitidas"] == 1
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["intentos_terminales_omitidos"] == 1
+    assert legacy_preflight["guardas_terminales_omitidas"] == 1
 
 
 def test_preflight_omite_rechazo_global_pf19c_con_evidencia_exacta(
     tmp_path: Path,
 ) -> None:
-    """El 10005 terminal queda fuera del paquete solo si su replay es exacto."""
+    """El 10005 individual conserva su intento histórico sólo si es exacto."""
     db_path, certs_dir = _create_source_db(tmp_path)
     _insert_pf19c_global_rejection(db_path)
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
-    assert result.excluded_counts["intentos_emision_fiscal"] == 1
+    assert result.safe_omitted["legacy_preflight"]["intentos_terminales_omitidos"] == 1
+    assert result.included_counts["intentos_emision_fiscal"] == 1
+    assert result.safe_omitted["omitted_counts"]["intentos_emision_fiscal"] == 0
 
 
 def test_preflight_omite_rechazo_global_pf19c_batch_con_grafo_exacto(
@@ -1615,9 +4875,10 @@ def test_preflight_omite_rechazo_global_pf19c_batch_con_grafo_exacto(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
-    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
-    assert result.safe_omitted["operaciones_terminales_preservadas"] == 1
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["intentos_terminales_omitidos"] == 1
+    assert legacy_preflight["grupos_seguros_omitidos"] == 1
+    assert legacy_preflight["operaciones_terminales_preservadas"] == 1
 
 
 def test_preflight_conserva_rechazo_pf19c_supersedido_por_reintento_exitoso(
@@ -1629,10 +4890,11 @@ def test_preflight_conserva_rechazo_pf19c_supersedido_por_reintento_exitoso(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["intentos_terminales_omitidos"] == 2
-    assert result.safe_omitted["guardas_terminales_omitidas"] == 2
-    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
-    assert result.safe_omitted["operaciones_terminales_preservadas"] == 2
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["intentos_terminales_omitidos"] == 2
+    assert legacy_preflight["guardas_terminales_omitidas"] == 2
+    assert legacy_preflight["grupos_seguros_omitidos"] == 1
+    assert legacy_preflight["operaciones_terminales_preservadas"] == 2
 
 
 def test_paquete_conserva_roles_pf19c_por_operacion_tras_supersesion(
@@ -1651,23 +4913,19 @@ def test_paquete_conserva_roles_pf19c_por_operacion_tras_supersesion(
     )
     manifest = vps_migration.load_and_verify_manifest(package)
 
-    pairs = manifest["normalizations"]["operaciones_idempotentes.lote_id"]["pairs"]
-    assert pairs == [
-        {
-            "operacion_id": 140,
-            "lote_id": 130,
-            "grupo_ids": [160],
-            "grupos_rechazo_ids": [160],
-            "grupos_no_enviados_ids": [],
-        },
-        {
-            "operacion_id": 240,
-            "lote_id": 130,
-            "grupo_ids": [160],
-            "grupos_rechazo_ids": [],
-            "grupos_no_enviados_ids": [],
-        },
-    ]
+    normalization = manifest["normalizations"]["operaciones_idempotentes.lote_id"]
+    assert normalization["pairs"] == []
+    operations = _read_package_jsonl_rows(package, manifest, "operaciones_idempotentes")
+    assert {
+        int(operation["id"]): int(operation["lote_id"]) for operation in operations
+    } == {140: 130, 240: 130}
+    attempts = _read_package_jsonl_rows(package, manifest, "intentos_emision_fiscal")
+    assert {
+        (int(attempt["operacion_id"]), attempt["estado"]) for attempt in attempts
+    } == {
+        (140, "rechazado_arca"),
+        (240, "autorizado"),
+    }
 
 
 @pytest.mark.parametrize(
@@ -1817,8 +5075,11 @@ def test_preflight_omite_journal_legacy_pf19_y_declara_target_vacio(
     )
     manifest = vps_migration.load_and_verify_manifest(package)
 
-    assert result.safe_omitted["resoluciones_legacy_pf19_omitidas"] == 1
-    assert manifest["excluded_counts"]["resoluciones_legacy_pf19_journal"] == 1
+    assert (
+        result.safe_omitted["legacy_preflight"]["resoluciones_legacy_pf19_omitidas"]
+        == 1
+    )
+    assert manifest["omitted_counts"]["resoluciones_legacy_pf19_journal"] == 1
     assert "resoluciones_legacy_pf19_journal" in manifest["target_empty_tables"]
     assert "resoluciones_legacy_pf19_journal" not in manifest["data_files"]
 
@@ -1832,9 +5093,10 @@ def test_preflight_omite_journal_legacy_pf19_batch_con_replay_exacto(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["resoluciones_legacy_pf19_omitidas"] == 1
-    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
-    assert result.safe_omitted["grupos_seguros_omitidos"] == 1
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["resoluciones_legacy_pf19_omitidas"] == 1
+    assert legacy_preflight["intentos_terminales_omitidos"] == 1
+    assert legacy_preflight["grupos_seguros_omitidos"] == 1
 
 
 def test_preflight_bloquea_journal_legacy_pf19_batch_con_mensaje_mutado(
@@ -2059,8 +5321,9 @@ def test_preflight_admite_respuesta_exitosa_con_intento_autorizado(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["operaciones_terminales_preservadas"] == 1
-    assert result.safe_omitted["intentos_terminales_omitidos"] == 1
+    legacy_preflight = result.safe_omitted["legacy_preflight"]
+    assert legacy_preflight["operaciones_terminales_preservadas"] == 1
+    assert legacy_preflight["intentos_terminales_omitidos"] == 1
 
 
 def test_preflight_bloquea_exito_moderno_con_intento_legacy_sin_guarda(
@@ -2106,7 +5369,10 @@ def test_preflight_admite_replay_legacy_exitoso_sin_intentos(
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["operaciones_terminales_preservadas"] == 1
+    assert (
+        result.safe_omitted["legacy_preflight"]["operaciones_terminales_preservadas"]
+        == 1
+    )
 
 
 def test_preflight_bloquea_guarda_terminal_huerfana(tmp_path: Path) -> None:
@@ -2379,7 +5645,7 @@ def test_preflight_digesta_numero_historico_de_la_revision(tmp_path: Path) -> No
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["asociaciones_rece_preservadas"] == 1
+    assert result.safe_omitted["legacy_preflight"]["asociaciones_rece_preservadas"] == 1
 
 
 def test_preflight_bloquea_hueco_en_ledger_append_only(tmp_path: Path) -> None:
@@ -2546,7 +5812,10 @@ def test_preflight_admite_replay_lote_tras_cierre_posterior(tmp_path: Path) -> N
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["operaciones_terminales_preservadas"] == 1
+    assert (
+        result.safe_omitted["legacy_preflight"]["operaciones_terminales_preservadas"]
+        == 1
+    )
 
 
 def test_preflight_admite_error_terminal_lote_sin_mensaje(tmp_path: Path) -> None:
@@ -2560,7 +5829,10 @@ def test_preflight_admite_error_terminal_lote_sin_mensaje(tmp_path: Path) -> Non
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
-    assert result.safe_omitted["operaciones_terminales_preservadas"] == 1
+    assert (
+        result.safe_omitted["legacy_preflight"]["operaciones_terminales_preservadas"]
+        == 1
+    )
 
 
 def test_export_normaliza_lote_operacion_sin_mutar_fuente(tmp_path: Path) -> None:
@@ -2618,12 +5890,15 @@ def test_export_normaliza_lote_operacion_sin_mutar_fuente(tmp_path: Path) -> Non
     ).encode("utf-8")
     normalization = manifest["normalizations"]["operaciones_idempotentes.lote_id"]
     assert normalization == {
-        "rule": vps_migration.OPERATION_LOTE_NORMALIZATION_RULE,
+        "rule": vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE,
         "rows": 1,
         "sha256": hashlib.sha256(canonical).hexdigest(),
         "pairs": pairs,
     }
-    assert manifest["safe_omitted"]["operaciones_lote_normalizado"] == 1
+    assert (
+        manifest["safe_omitted"]["legacy_preflight"]["operaciones_lote_normalizado"]
+        == 1
+    )
     with sqlite3.connect(db_path) as conn:
         assert (
             conn.execute(
@@ -3197,6 +6472,21 @@ def _rebuild_manifest_idempotency_barrier(
     manifest: dict[str, Any],
 ) -> None:
     """Recalcula la barrera para aislar validaciones semánticas adversariales."""
+    if manifest["package_version"] == vps_migration_v4.PACKAGE_VERSION:
+        rows = {
+            table: _read_package_jsonl_rows(package, manifest, table)
+            for table in vps_migration_v4.INCLUDED_TABLES
+        }
+        manifest["idempotency_barrier"] = vps_migration.build_v4_idempotency_barrier(
+            source_barrier=manifest["source_barrier"],
+            normalization=manifest["normalizations"][
+                vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY
+            ],
+            closure=manifest["closure"],
+            rows=rows,
+        )
+        return
+
     manifest["idempotency_barrier"] = vps_migration.build_idempotency_barrier(
         source_barrier=manifest["source_barrier"],
         normalization=manifest["normalizations"][
@@ -3276,6 +6566,7 @@ def _load_package_into_sqlite_target(
     manifest: dict[str, Any],
 ) -> tuple[Any, dict[str, list[dict[str, Any]]]]:
     """Carga el snapshot convertido en una transacción SQLite de prueba B2."""
+    contract = vps_migration.select_import_contract(manifest)
     engine = create_engine("sqlite:///:memory:", future=True)
     Base.metadata.create_all(engine)
     package_rows = {
@@ -3284,7 +6575,7 @@ def _load_package_into_sqlite_target(
             manifest,
             table_name,
         )
-        for table_name in vps_migration.INCLUDED_TABLES
+        for table_name in contract.included_tables
     }
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
@@ -3292,16 +6583,71 @@ def _load_package_into_sqlite_target(
             text("INSERT INTO alembic_version (version_num) VALUES (:version)"),
             {"version": manifest["alembic_version"]},
         )
-        for table_name in vps_migration.INCLUDED_TABLES:
+        for table_name in contract.insert_order:
+            rows = package_rows[table_name]
+            deferred = contract.deferred_columns.get(table_name, ())
+            if deferred:
+                rows = [
+                    {**row, **{column_name: None for column_name in deferred}}
+                    for row in rows
+                ]
             vps_migration.insert_rows(
                 conn,
                 table_name,
-                package_rows[table_name],
+                rows,
             )
+        if contract.package_version == vps_migration_v4.PACKAGE_VERSION:
+            vps_migration.restore_deferred_columns(conn, package_rows, contract)
+        conn.execute(
+            Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+            vps_migration_v3.coordinator_plan(package_rows["empresas"]),
+        )
     return engine, package_rows
 
 
-def test_manifest_v3_rechaza_clave_top_level_extra(tmp_path: Path) -> None:
+def test_restore_deferred_columns_preserva_aristas_y_updated_at(
+    tmp_path: Path,
+) -> None:
+    """Restaurar FKs cíclicas no debe inventar nuevas marcas temporales."""
+    package, _, _ = _build_v4_package(tmp_path)
+    manifest = vps_migration.load_and_verify_manifest(package)
+    engine, package_rows = _load_package_into_sqlite_target(package, manifest)
+    try:
+        with engine.connect() as conn:
+            actual_operations = {
+                int(row["id"]): row
+                for row in vps_migration.read_database_rows(
+                    conn, "operaciones_idempotentes"
+                )
+            }
+            actual_groups = {
+                int(row["id"]): row
+                for row in vps_migration.read_database_rows(
+                    conn, "lotes_comprobantes_grupos"
+                )
+            }
+        expected_operations = {
+            int(row["id"]): row for row in package_rows["operaciones_idempotentes"]
+        }
+        expected_groups = {
+            int(row["id"]): row for row in package_rows["lotes_comprobantes_grupos"]
+        }
+
+        for operation_id in (200, 201):
+            assert actual_operations[operation_id]["operacion_raiz_id"] == 200
+            assert actual_operations[operation_id]["duplicados_generacion_id"] == (
+                301 if operation_id == 200 else 302
+            )
+            assert actual_operations[operation_id]["updated_at"] == (
+                expected_operations[operation_id]["updated_at"]
+            )
+        assert actual_groups[101]["duplicados_reserva_operacion_id"] == 200
+        assert actual_groups[101]["updated_at"] == expected_groups[101]["updated_at"]
+    finally:
+        engine.dispose()
+
+
+def test_manifest_v4_rechaza_clave_top_level_extra(tmp_path: Path) -> None:
     """El loader v3 no admite extensiones de shape implícitas o desconocidas."""
     db_path, certs_dir = _create_source_db(tmp_path)
     package = vps_migration.export_package(
@@ -3366,14 +6712,7 @@ def test_manifest_v3_rechaza_mutaciones_de_shape_y_atestaciones(
     mutation: str,
 ) -> None:
     """Cada campo v3 es contractual y se valida contra datos reales/canónicos."""
-    db_path, certs_dir = _create_source_db(tmp_path)
-    package = vps_migration.export_package(
-        source_db=db_path,
-        certs_dir=certs_dir,
-        output_root=tmp_path / "packages",
-        target_key_password="clave-destino-larga",
-        source_quiesced=True,
-    )
+    package = _build_historical_v3_package(tmp_path)
     manifest_path = package / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if mutation == "top_level_faltante":
@@ -3469,30 +6808,16 @@ def test_manifest_v3_rechaza_mutaciones_de_shape_y_atestaciones(
 
 def test_manifest_v3_convierte_json_invalido_en_error_funcional(tmp_path: Path) -> None:
     """JSON truncado nunca escapa como JSONDecodeError/KeyError al operador."""
-    db_path, certs_dir = _create_source_db(tmp_path)
-    package = vps_migration.export_package(
-        source_db=db_path,
-        certs_dir=certs_dir,
-        output_root=tmp_path / "packages",
-        target_key_password="clave-destino-larga",
-        source_quiesced=True,
-    )
+    package = _build_historical_v3_package(tmp_path)
     (package / "manifest.json").write_text("{", encoding="utf-8")
 
-    with pytest.raises(vps_migration.MigrationError, match="JSON/schema"):
+    with pytest.raises(vps_migration.MigrationError, match="manifest"):
         vps_migration.load_and_verify_manifest(package)
 
 
 def test_manifest_v3_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
     """Una clave repetida no puede colapsarse silenciosamente al parsear JSON."""
-    db_path, certs_dir = _create_source_db(tmp_path)
-    package = vps_migration.export_package(
-        source_db=db_path,
-        certs_dir=certs_dir,
-        output_root=tmp_path / "packages",
-        target_key_password="clave-destino-larga",
-        source_quiesced=True,
-    )
+    package = _build_historical_v3_package(tmp_path)
     manifest_path = package / "manifest.json"
     serialized = manifest_path.read_text(encoding="utf-8")
     manifest_path.write_text(
@@ -3503,6 +6828,7 @@ def test_manifest_v3_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    assert manifest_path.read_text(encoding="utf-8").count('"package_version"') == 2
 
     with pytest.raises(vps_migration.MigrationError, match="clave duplicada"):
         vps_migration.load_and_verify_manifest(package)
@@ -3517,7 +6843,7 @@ def test_manifest_v3_rechaza_clave_json_duplicada(tmp_path: Path) -> None:
         ("archivo_key", "__same_as_crt__"),
     ],
 )
-def test_manifest_v3_rechaza_par_certificado_activo_no_canonico(
+def test_manifest_v4_rechaza_par_certificado_activo_no_canonico(
     tmp_path: Path,
     field_name: str,
     invalid_value: Any,
@@ -3546,7 +6872,7 @@ def test_manifest_v3_rechaza_par_certificado_activo_no_canonico(
 
 
 @pytest.mark.parametrize("mutation", ["missing", "wrong_lote", "duplicate"])
-def test_manifest_v3_reconstruye_pares_lote_normalizados(
+def test_manifest_v4_reconstruye_pares_lote_normalizados(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -3612,7 +6938,6 @@ def test_manifest_v3_reconstruye_pares_lote_normalizados(
             sort_keys=True,
         ).encode("utf-8")
     ).hexdigest()
-    manifest["safe_omitted"]["operaciones_lote_normalizado"] = len(pairs)
     _rebuild_manifest_idempotency_barrier(package, manifest)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
@@ -3620,7 +6945,7 @@ def test_manifest_v3_reconstruye_pares_lote_normalizados(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_reconstruye_digest_rece_desde_asociaciones(
+def test_manifest_v4_reconstruye_digest_rece_desde_asociaciones(
     tmp_path: Path,
 ) -> None:
     """Eliminar una asociación moderna bloquea aunque se reatestigüe el JSONL."""
@@ -3637,15 +6962,14 @@ def test_manifest_v3_reconstruye_digest_rece_desde_asociaciones(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     table_name = "operaciones_idempotentes_elegibilidad_rece"
     _rewrite_package_jsonl_rows(package, manifest, table_name, [])
-    manifest["safe_omitted"]["asociaciones_rece_preservadas"] = 0
     _rebuild_manifest_idempotency_barrier(package, manifest)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    with pytest.raises(vps_migration.MigrationError, match="RECE"):
+    with pytest.raises(vps_migration.MigrationError, match="RECE|elegibilidad_rece"):
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_incluye_asociaciones_en_barrera_idempotente(
+def test_manifest_v4_incluye_asociaciones_en_barrera_idempotente(
     tmp_path: Path,
 ) -> None:
     """Una asociación alterada conserva digest fiscal pero rompe la barrera exacta."""
@@ -3679,7 +7003,7 @@ def test_manifest_v3_incluye_asociaciones_en_barrera_idempotente(
         "empresa_inexistente",
     ],
 )
-def test_manifest_v3_rechaza_operacion_terminal_semanticamente_adulterada(
+def test_manifest_v4_rechaza_operacion_terminal_semanticamente_adulterada(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -3737,7 +7061,7 @@ def test_manifest_v3_rechaza_operacion_terminal_semanticamente_adulterada(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_cruza_replay_individual_con_comprobante_incluido(
+def test_manifest_v4_cruza_replay_individual_con_comprobante_incluido(
     tmp_path: Path,
 ) -> None:
     """Un DTO sintáctico con número fiscal adulterado no preserva autoridad."""
@@ -3775,7 +7099,7 @@ def test_manifest_v3_cruza_replay_individual_con_comprobante_incluido(
     rows = _read_package_jsonl_rows(package, manifest, "operaciones_idempotentes")
     response = json.loads(rows[0]["response_json"])
     response["numero"] = 999
-    rows[0]["response_json"] = response
+    rows[0]["response_json"] = json.dumps(response, sort_keys=True)
     _rewrite_package_jsonl_rows(
         package,
         manifest,
@@ -3790,7 +7114,7 @@ def test_manifest_v3_cruza_replay_individual_con_comprobante_incluido(
 
 
 @pytest.mark.parametrize("invalid_value", ["true", 2])
-def test_manifest_v3_rechaza_boolean_sqlite_no_canonico(
+def test_manifest_v4_rechaza_boolean_sqlite_no_canonico(
     tmp_path: Path,
     invalid_value: Any,
 ) -> None:
@@ -3814,7 +7138,7 @@ def test_manifest_v3_rechaza_boolean_sqlite_no_canonico(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_convierte_numeric_invalido_en_error_funcional(
+def test_manifest_v4_convierte_numeric_invalido_en_error_funcional(
     tmp_path: Path,
 ) -> None:
     """Un Decimal adulterado nunca escapa como InvalidOperation al operador."""
@@ -3833,11 +7157,11 @@ def test_manifest_v3_convierte_numeric_invalido_en_error_funcional(
     _rewrite_package_jsonl_rows(package, manifest, "comprobantes", rows)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    with pytest.raises(vps_migration.MigrationError, match="JSON/schema"):
+    with pytest.raises(vps_migration.MigrationError, match="schema"):
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_rechaza_mensaje_batch_negativo_no_textual(
+def test_manifest_v4_rechaza_mensaje_batch_negativo_no_textual(
     tmp_path: Path,
 ) -> None:
     """El replay de error batch conserva mensaje nulo o textual, nunca escalar."""
@@ -3864,7 +7188,12 @@ def test_manifest_v3_rechaza_mensaje_batch_negativo_no_textual(
     rows = _read_package_jsonl_rows(package, manifest, "operaciones_idempotentes")
     response = json.loads(rows[0]["response_json"])
     response["mensaje"] = 123
-    rows[0]["response_json"] = response
+    rows[0]["response_json"] = json.dumps(
+        response,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     _rewrite_package_jsonl_rows(
         package,
         manifest,
@@ -3874,12 +7203,12 @@ def test_manifest_v3_rechaza_mensaje_batch_negativo_no_textual(
     _rebuild_manifest_idempotency_barrier(package, manifest)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-    with pytest.raises(vps_migration.MigrationError, match="batch"):
+    with pytest.raises(vps_migration.MigrationError, match="batch|semánticamente"):
         vps_migration.load_and_verify_manifest(package)
 
 
 @pytest.mark.parametrize("mutation", ["numero_cero", "cae_vacio"])
-def test_manifest_v3_rechaza_exito_individual_coordinadamente_adulterado(
+def test_manifest_v4_rechaza_exito_individual_coordinadamente_adulterado(
     tmp_path: Path,
     mutation: str,
 ) -> None:
@@ -3928,7 +7257,7 @@ def test_manifest_v3_rechaza_exito_individual_coordinadamente_adulterado(
     else:
         response["cae"] = ""
         receipt_rows[0]["cae"] = ""
-    operation_rows[0]["response_json"] = response
+    operation_rows[0]["response_json"] = json.dumps(response, sort_keys=True)
     _rewrite_package_jsonl_rows(
         package,
         manifest,
@@ -3949,7 +7278,7 @@ def test_manifest_v3_rechaza_exito_individual_coordinadamente_adulterado(
 
 
 @pytest.mark.parametrize("extra_location", ["root", "data", "certs"])
-def test_manifest_v3_rechaza_archivos_no_declarados(
+def test_manifest_v4_rechaza_archivos_no_declarados(
     tmp_path: Path,
     extra_location: str,
 ) -> None:
@@ -3969,7 +7298,7 @@ def test_manifest_v3_rechaza_archivos_no_declarados(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_rechaza_schema_jsonl_aunque_actualicen_hash(
+def test_manifest_v4_rechaza_schema_jsonl_aunque_actualicen_hash(
     tmp_path: Path,
 ) -> None:
     """Un JSONL sin todas las columnas falla aunque bytes/SHA se reatestigüen."""
@@ -3995,7 +7324,7 @@ def test_manifest_v3_rechaza_schema_jsonl_aunque_actualicen_hash(
         vps_migration.load_and_verify_manifest(package)
 
 
-def test_manifest_v3_recalcula_barrera_idempotente_desde_jsonl(
+def test_manifest_v4_recalcula_barrera_idempotente_desde_jsonl(
     tmp_path: Path,
 ) -> None:
     """Cambiar una key y su SHA de archivo no alcanza sin la barrera semántica."""
@@ -4127,6 +7456,26 @@ def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
                     Base.metadata.tables["lotes_comprobantes_filas"].insert(),
                     row,
                 )
+                response = _batch_global_rejection_response()
+                response["lote"].update(
+                    {
+                        "total_filas": 2,
+                        "total_grupos": 2,
+                        "grupos_fallidos": 2,
+                    }
+                )
+                conn.execute(
+                    Base.metadata.tables["lotes_comprobantes"]
+                    .update()
+                    .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                    .values(total_filas=2, total_grupos=2, grupos_fallidos=2)
+                )
+                conn.execute(
+                    Base.metadata.tables["operaciones_idempotentes"]
+                    .update()
+                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .values(response_json=response)
+                )
         finally:
             engine.dispose()
     package = vps_migration.export_package(
@@ -4176,7 +7525,7 @@ def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
     with pytest.raises(
         vps_migration.MigrationError,
         match=(
-            "10005|batch negativo|inventario fuente|roles de grupos fuente|"
+            "10005|PF-19C|batch negativo|inventario fuente|roles de grupos fuente|"
             "normalización atribuye roles"
         ),
     ):
@@ -4611,32 +7960,32 @@ def test_parse_env_sanitiza_archivo_ilegible(
 @pytest.mark.parametrize(
     ("target_heads", "manifest_head", "accepted"),
     [
-        (["head-vigente"], "head-vigente", True),
-        ([], "head-vigente", False),
-        (["head-vigente", "otro-head"], "head-vigente", False),
-        (["otro-head"], "head-vigente", False),
+        (["head-vigente"], vps_migration_v3.ALEMBIC_HEAD, True),
+        ([], vps_migration_v3.ALEMBIC_HEAD, False),
+        (["head-vigente", "otro-head"], vps_migration_v3.ALEMBIC_HEAD, False),
+        (["otro-head"], vps_migration_v3.ALEMBIC_HEAD, False),
         (["head-vigente"], "otro-head", False),
     ],
 )
-def test_target_exige_triple_head_alembic_exacto(
+def test_target_exige_head_vigente_y_manifest_historico_v3(
     monkeypatch: pytest.MonkeyPatch,
     target_heads: list[str],
     manifest_head: str,
     accepted: bool,
 ) -> None:
-    """Repo, manifest y única fila destino deben coincidir exactamente."""
+    """El destino sigue al repo; el manifest conserva el head histórico v3."""
     monkeypatch.setattr(
         vps_migration,
         "get_repo_alembic_head",
         lambda: "head-vigente",
     )
     conn = _HeadConnection(target_heads)
-    manifest = {"alembic_version": manifest_head}
+    manifest = {"package_version": 3, "alembic_version": manifest_head}
 
     if accepted:
         vps_migration.validate_target_alembic_head(conn, manifest)
     else:
-        with pytest.raises(vps_migration.MigrationError, match="único head"):
+        with pytest.raises(vps_migration.MigrationError, match="head Alembic"):
             vps_migration.validate_target_alembic_head(conn, manifest)
 
 
@@ -4662,6 +8011,7 @@ def test_import_bloquea_todas_las_tablas_en_orden_determinista() -> None:
     for table_name in {
         *vps_migration.INCLUDED_TABLES,
         *vps_migration.EXCLUDED_TABLES,
+        *vps_migration.V3_ADAPTER_TARGET_EMPTY_TABLES,
     }:
         assert statement.count(f'"{table_name}"') == 1
 
@@ -4753,12 +8103,12 @@ def test_import_no_inserta_filas_si_falla_restauracion_de_certificados(
     monkeypatch.setattr(
         vps_migration,
         "ensure_target_database_ready",
-        lambda conn, manifest: events.append("ready"),
+        lambda *args: events.append("ready"),
     )
     monkeypatch.setattr(
         vps_migration,
         "lock_target_tables_for_import",
-        lambda conn: events.append("lock"),
+        lambda *args: events.append("lock"),
     )
     monkeypatch.setattr(
         vps_migration,
@@ -4768,7 +8118,7 @@ def test_import_no_inserta_filas_si_falla_restauracion_de_certificados(
     monkeypatch.setattr(
         vps_migration,
         "clear_seeded_included_tables",
-        lambda conn: events.append("clear"),
+        lambda *args: events.append("clear"),
     )
     monkeypatch.setattr(
         vps_migration,
@@ -4778,17 +8128,17 @@ def test_import_no_inserta_filas_si_falla_restauracion_de_certificados(
     monkeypatch.setattr(
         vps_migration,
         "reset_postgres_sequences",
-        lambda conn: events.append("seq"),
+        lambda *args: events.append("seq"),
     )
     monkeypatch.setattr(
         vps_migration,
         "validate_imported_database",
-        lambda conn, manifest, rows: events.append("postflight"),
+        lambda *args: events.append("postflight"),
     )
     monkeypatch.setattr(
         vps_migration,
         "verify_postgres_sequences",
-        lambda conn: events.append("seq-check"),
+        lambda *args: events.append("seq-check"),
     )
 
     with pytest.raises(vps_migration.MigrationError, match="sin permisos"):
@@ -4823,17 +8173,17 @@ def test_import_usa_una_sola_conexion_transaccional(
     monkeypatch.setattr(
         vps_migration,
         "lock_target_tables_for_import",
-        lambda conn: events.append("lock"),
+        lambda *args: events.append("lock"),
     )
     monkeypatch.setattr(
         vps_migration,
         "ensure_target_database_ready",
-        lambda conn, manifest: events.append("ready"),
+        lambda *args: events.append("ready"),
     )
     monkeypatch.setattr(
         vps_migration,
         "lock_target_tables_for_import",
-        lambda conn: events.append("lock"),
+        lambda *args: events.append("lock"),
     )
     monkeypatch.setattr(
         vps_migration,
@@ -4843,7 +8193,7 @@ def test_import_usa_una_sola_conexion_transaccional(
     monkeypatch.setattr(
         vps_migration,
         "clear_seeded_included_tables",
-        lambda conn: events.append("clear"),
+        lambda *args: events.append("clear"),
     )
     monkeypatch.setattr(
         vps_migration,
@@ -4852,18 +8202,28 @@ def test_import_usa_una_sola_conexion_transaccional(
     )
     monkeypatch.setattr(
         vps_migration,
+        "restore_deferred_columns",
+        lambda *args: events.append("deferred"),
+    )
+    monkeypatch.setattr(
+        vps_migration,
+        "regenerate_v3_coordinators",
+        lambda *args: events.append("coordinators"),
+    )
+    monkeypatch.setattr(
+        vps_migration,
         "reset_postgres_sequences",
-        lambda conn: events.append("seq"),
+        lambda *args: events.append("seq"),
     )
     monkeypatch.setattr(
         vps_migration,
         "validate_imported_database",
-        lambda conn, manifest, rows: events.append("postflight"),
+        lambda *args: events.append("postflight"),
     )
     monkeypatch.setattr(
         vps_migration,
         "verify_postgres_sequences",
-        lambda conn: events.append("seq-check"),
+        lambda *args: events.append("seq-check"),
     )
     monkeypatch.setattr(
         vps_migration,
@@ -5265,28 +8625,30 @@ def test_import_commit_ambiguo_conserva_certificados_para_validar(
     monkeypatch.setattr(
         vps_migration,
         "ensure_target_database_ready",
-        lambda conn, manifest: None,
+        lambda *args: None,
     )
     monkeypatch.setattr(
         vps_migration,
         "lock_target_tables_for_import",
-        lambda conn: None,
+        lambda *args: None,
     )
     monkeypatch.setattr(
-        vps_migration, "clear_seeded_included_tables", lambda conn: None
+        vps_migration, "clear_seeded_included_tables", lambda *args: None
     )
     monkeypatch.setattr(
         vps_migration,
         "insert_rows",
         lambda conn, table_name, rows: None,
     )
+    monkeypatch.setattr(vps_migration, "restore_deferred_columns", lambda *args: None)
+    monkeypatch.setattr(vps_migration, "regenerate_v3_coordinators", lambda *args: None)
     monkeypatch.setattr(
         vps_migration,
         "validate_imported_database",
-        lambda conn, manifest, rows: None,
+        lambda *args: None,
     )
-    monkeypatch.setattr(vps_migration, "reset_postgres_sequences", lambda conn: None)
-    monkeypatch.setattr(vps_migration, "verify_postgres_sequences", lambda conn: None)
+    monkeypatch.setattr(vps_migration, "reset_postgres_sequences", lambda *args: None)
+    monkeypatch.setattr(vps_migration, "verify_postgres_sequences", lambda *args: None)
 
     with pytest.raises(vps_migration.MigrationError, match="estado incierto"):
         vps_migration.import_package(
@@ -5327,21 +8689,27 @@ def test_import_postflight_fallido_revierte_y_limpia_solo_archivos_propios(
     monkeypatch.setattr(
         vps_migration,
         "ensure_target_database_ready",
-        lambda conn, manifest: events.append("ready"),
+        lambda *args: events.append("ready"),
     )
     monkeypatch.setattr(
         vps_migration,
         "lock_target_tables_for_import",
-        lambda conn: events.append("lock"),
+        lambda *args: events.append("lock"),
     )
     monkeypatch.setattr(
         vps_migration,
         "clear_seeded_included_tables",
-        lambda conn: events.append("clear"),
+        lambda *args: events.append("clear"),
     )
     monkeypatch.setattr(vps_migration, "insert_rows", lambda *args: None)
+    monkeypatch.setattr(vps_migration, "restore_deferred_columns", lambda *args: None)
+    monkeypatch.setattr(
+        vps_migration,
+        "regenerate_v3_coordinators",
+        lambda *args: events.append("coordinators"),
+    )
 
-    def fail_postflight(conn: object, manifest: dict, rows: dict) -> None:
+    def fail_postflight(*args: Any) -> None:
         events.append("postflight")
         raise vps_migration.MigrationError("postflight inválido")
 
@@ -5364,6 +8732,7 @@ def test_import_postflight_fallido_revierte_y_limpia_solo_archivos_propios(
         "lock",
         "ready",
         "clear",
+        "coordinators",
         "postflight",
         "tx-exit:MigrationError",
     ]
@@ -5391,16 +8760,18 @@ def test_import_sanitiza_fallo_del_cuerpo_y_limpia_certificados(
     engine = _RecordingTransactionEngine(events)
 
     monkeypatch.setattr(vps_migration, "create_postgres_engine", lambda url: engine)
-    monkeypatch.setattr(vps_migration, "lock_target_tables_for_import", lambda c: None)
+    monkeypatch.setattr(
+        vps_migration, "lock_target_tables_for_import", lambda *args: None
+    )
     monkeypatch.setattr(
         vps_migration,
         "ensure_target_database_ready",
-        lambda conn, manifest: None,
+        lambda *args: None,
     )
     monkeypatch.setattr(
         vps_migration,
         "clear_seeded_included_tables",
-        lambda conn: None,
+        lambda *args: None,
     )
 
     def fail_insert(*args: Any) -> None:
@@ -5444,15 +8815,15 @@ def test_validate_import_reutiliza_postflight_y_secuencias_integrales(
     monkeypatch.setattr(
         vps_migration,
         "lock_target_tables_for_import",
-        lambda conn: events.append("lock"),
+        lambda *args: events.append("lock"),
     )
 
-    def postflight(conn: object, manifest: dict, rows: dict) -> None:
+    def postflight(conn: object, manifest: dict, rows: dict, contract: Any) -> None:
         assert conn is engine.conn
-        assert set(rows) == set(vps_migration.INCLUDED_TABLES)
+        assert set(rows) == set(contract.included_tables)
         events.append("postflight")
 
-    def sequence_check(conn: object) -> None:
+    def sequence_check(conn: object, contract: Any) -> None:
         assert conn is engine.conn
         events.append("seq-check")
 
@@ -5501,7 +8872,9 @@ def test_validate_clasifica_commit_no_confirmado_sin_reimportar(
     engine = _FakeEngine()
 
     monkeypatch.setattr(vps_migration, "create_postgres_engine", lambda url: engine)
-    monkeypatch.setattr(vps_migration, "lock_target_tables_for_import", lambda c: None)
+    monkeypatch.setattr(
+        vps_migration, "lock_target_tables_for_import", lambda *args: None
+    )
     monkeypatch.setattr(
         vps_migration,
         "validate_imported_database",
@@ -5555,7 +8928,9 @@ def test_validate_sanitiza_error_inesperado_sin_ocultar_interrupciones(
     engine = _FakeEngine()
 
     monkeypatch.setattr(vps_migration, "create_postgres_engine", lambda url: engine)
-    monkeypatch.setattr(vps_migration, "lock_target_tables_for_import", lambda c: None)
+    monkeypatch.setattr(
+        vps_migration, "lock_target_tables_for_import", lambda *args: None
+    )
     monkeypatch.setattr(
         vps_migration,
         "validate_imported_database",

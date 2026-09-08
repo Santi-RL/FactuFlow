@@ -3,6 +3,7 @@ import type {
   LoteComprobante,
   LoteComprobanteDetalle,
   LoteComprobanteSeguimiento,
+  DuplicadosCoincidenciasPage,
   LoteComprobanteGruposPage,
   LoteComprobanteResumen,
   LoteAccionResponse,
@@ -16,6 +17,12 @@ interface ObtenerGruposParams {
   page?: number;
   perPage?: number;
   estado?: string | null;
+}
+
+interface ObtenerCoincidenciasParams {
+  evidenciaId: string;
+  page?: number;
+  perPage?: number;
 }
 
 class LotesComprobantesService {
@@ -58,6 +65,23 @@ class LotesComprobantesService {
           page: params.page,
           per_page: params.perPage,
           estado: params.estado || undefined,
+        },
+      },
+    );
+    return response.data;
+  }
+
+  async obtenerCoincidencias(
+    id: number,
+    params: ObtenerCoincidenciasParams,
+  ): Promise<DuplicadosCoincidenciasPage> {
+    const response = await apiClient.get<DuplicadosCoincidenciasPage>(
+      `/api/lotes-comprobantes/${id}/coincidencias`,
+      {
+        params: {
+          evidencia_id: params.evidenciaId,
+          page: params.page,
+          per_page: params.perPage,
         },
       },
     );

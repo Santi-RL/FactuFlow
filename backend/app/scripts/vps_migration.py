@@ -19,6 +19,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -36,7 +37,16 @@ from pydantic import ValidationError
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.sql.schema import Table
-from sqlalchemy.sql.sqltypes import Boolean, Date, DateTime, JSON, Numeric
+from sqlalchemy.sql.sqltypes import (
+    Boolean,
+    Date,
+    DateTime,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+)
 
 import app.models  # noqa: F401
 from app.arca.crypto import (
@@ -53,9 +63,10 @@ from app.schemas.lote_comprobante import (
     LoteProcesamientoResponse,
 )
 from app.services.resolucion_legacy_pf19_service import BackupLegacyPF19
+from app.scripts import vps_migration_v3, vps_migration_v4
 
 
-MIGRATION_PACKAGE_VERSION = 3
+MIGRATION_PACKAGE_VERSION = 4
 SCOPE = "operacion_futura_con_comprobantes"
 
 INCLUDED_TABLES = [
@@ -113,6 +124,12 @@ SEEDED_INCLUDED_TABLES = [
     "formatos_importacion_reglas",
 ]
 TARGET_EMPTY_TABLES = OPERATIONAL_TARGET_EMPTY_TABLES + EXCLUDED_TABLES
+V3_ADAPTER_TARGET_EMPTY_TABLES = [
+    "lotes_duplicados_coordinacion",
+    "lotes_duplicados_evidencias",
+    "lotes_duplicados_coincidencias",
+    "lotes_duplicados_coincidencias_miembros",
+]
 
 REQUIRED_ENV_KEYS = [
     "APP_SECRET_KEY",
@@ -165,13 +182,8 @@ NORMALIZATION_INFO_KEYS = {"rule", "rows", "sha256", "pairs"}
 SOURCE_BARRIER_KEYS = {"source_quiesced", "sqlite_transaction", "data_version"}
 IDEMPOTENCY_BARRIER_KEYS = {"version", "algorithm", "rows", "sha256"}
 
-AMBIENTES_RECE = {"homologacion", "produccion"}
-ESTADOS_OPERACION_TERMINALES = {
-    "finalizado",
-    "fallido",
-    "fallido_verificado",
-    "rechazado_arca",
-}
+AMBIENTES_RECE = set(vps_migration_v3.AMBIENTES_RECE)
+ESTADOS_OPERACION_TERMINALES = set(vps_migration_v3.ESTADOS_OPERACION_TERMINALES)
 ESTADOS_OPERACION_CONOCIDOS = ESTADOS_OPERACION_TERMINALES | {
     "en_proceso",
     "interrumpida_pre_arca",
@@ -193,16 +205,7 @@ FASES_GUARDA_CONOCIDAS = FASES_GUARDA_TERMINALES | {
     "arca_iniciada",
     "requiere_reconciliacion",
 }
-ESTADOS_LOTE_SEGUROS_OMITIBLES = {
-    "cargado",
-    "validado",
-    "con_errores",
-    "completado",
-    "fallido",
-    "autorizado_parcial",
-    "cerrado_con_descartes",
-    "cerrado_reconciliado",
-}
+ESTADOS_LOTE_SEGUROS_OMITIBLES = set(vps_migration_v3.ESTADOS_LOTE_SEGUROS_OMITIBLES)
 ESTADOS_GRUPO_SEGUROS_OMITIBLES = {
     "cargado",
     "validado",
@@ -224,29 +227,20 @@ SAFE_OMITTED_COUNT_KEYS = {
     "eventos_sistema": "eventos_sistema_omitidos",
     "exportaciones_almacenamiento": "exportaciones_omitidas",
 }
-ARCA_RECHAZO_GLOBAL_CATEGORIA = "arca_rechazo_global_excluyente"
-ARCA_RECHAZO_GLOBAL_MENSAJE = (
-    "El punto de venta no está dado de alta como RECE en ARCA."
-)
+ARCA_RECHAZO_GLOBAL_CATEGORIA = vps_migration_v3.ARCA_RECHAZO_GLOBAL_CATEGORIA
+ARCA_RECHAZO_GLOBAL_MENSAJE = vps_migration_v3.ARCA_RECHAZO_GLOBAL_MENSAJE
 ARCA_RECHAZO_GLOBAL_INDIVIDUAL_MENSAJE = (
-    "ARCA rechazó el requerimiento completo antes de autorizar."
+    vps_migration_v3.ARCA_RECHAZO_GLOBAL_INDIVIDUAL_MENSAJE
 )
-ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES = [
-    "Revisá la habilitación RECE del punto de venta antes de iniciar otra emisión."
-]
-ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE = (
-    "ARCA rechazó un requerimiento completo y FactuFlow detuvo los "
-    "grupos restantes sin enviarlos."
+ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES = list(
+    vps_migration_v3.ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES
 )
+ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE = vps_migration_v3.ARCA_RECHAZO_GLOBAL_LOTE_MENSAJE
 ARCA_RECHAZO_GLOBAL_ERRORES = [
-    {
-        "codigo": 10005,
-        "alcance": "global",
-        "mensaje": ARCA_RECHAZO_GLOBAL_MENSAJE,
-    }
+    dict(item) for item in vps_migration_v3.ARCA_RECHAZO_GLOBAL_ERRORES
 ]
-LEGACY_PF19_CATEGORIA = "legacy_sin_autorizacion_verificada"
-LEGACY_PF19_MENSAJE = "Cierre legacy por ausencia de autorización verificada"
+LEGACY_PF19_CATEGORIA = vps_migration_v3.LEGACY_PF19_CATEGORIA
+LEGACY_PF19_MENSAJE = vps_migration_v3.LEGACY_PF19_MENSAJE
 SAFE_OMITTED_KEYS = {
     "blockers",
     "excluded_counts",
@@ -259,6 +253,20 @@ SAFE_OMITTED_KEYS = {
 
 class MigrationError(RuntimeError):
     """Error funcional de preparación o restauración de migración."""
+
+
+def select_import_contract(
+    manifest: dict[str, Any],
+) -> vps_migration_v3.ImportContract | vps_migration_v4.ImportContract:
+    """Selecciona una versión soportada antes de planificar cualquier import."""
+    version = manifest.get("package_version")
+    if not isinstance(version, int) or isinstance(version, bool):
+        raise MigrationError("Versión de paquete de migración no soportada")
+    if version == vps_migration_v3.PACKAGE_VERSION:
+        return vps_migration_v3.V3_CONTRACT
+    if version == vps_migration_v4.PACKAGE_VERSION:
+        return vps_migration_v4.V4_CONTRACT
+    raise MigrationError("Versión de paquete de migración no soportada")
 
 
 @dataclass(frozen=True)
@@ -303,6 +311,28 @@ class CertificateRestoreJournal:
     temporary: dict[Path, tuple[int, int]] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class V4Capture:
+    """Selección cerrada y canónica producida desde una única snapshot SQLite."""
+
+    rows: dict[str, list[dict[str, Any]]]
+    source_counts: dict[str, int]
+    included_counts: dict[str, int]
+    omitted_counts: dict[str, int]
+    safe_omitted: dict[str, Any]
+    normalization: dict[str, Any]
+    closure: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class StagingDirectoryOwnership:
+    """Identidad inmutable del staging privado creado por esta exportación."""
+
+    parent: Path
+    device: int
+    inode: int
+
+
 def default_backend_dir() -> Path:
     """Devuelve el directorio `backend` del repositorio actual."""
     return Path(__file__).resolve().parents[2]
@@ -335,14 +365,1683 @@ def get_repo_alembic_head(backend_dir: Path | None = None) -> str:
     return heads[0]
 
 
+def _json_dict_or_none(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        decoded = json.loads(
+            value,
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+        if isinstance(decoded, dict):
+            return decoded
+    raise MigrationError("La evidencia PF-13 contiene JSON no canónico")
+
+
+def _is_v4_operation(row: dict[str, Any]) -> bool:
+    control = row.get("control_duplicados_json")
+    return row.get("duplicados_version") == "duplicados_lotes/v2" or (
+        control is not None and control != "null"
+    )
+
+
+def _is_comparable_v4_group(row: dict[str, Any]) -> bool:
+    return bool(
+        row.get("estado") in {"autorizado", "autorizado_externo"}
+        and row.get("duplicados_version") == "duplicados_lotes/v2"
+        and row.get("duplicados_cobertura")
+        in {"completa", "parcial_legacy", "no_comprobable"}
+        and isinstance(row.get("huella_fiscal_completa"), str)
+        and len(row["huella_fiscal_completa"]) == 64
+        and row.get("fecha_emision_normalizada") is not None
+        and row.get("moneda_duplicados") is not None
+        and row.get("cotizacion_duplicados") is not None
+        and row.get("total_centavos") is not None
+    )
+
+
+def _is_exact_terminal_pf19c_batch_operation(row: dict[str, Any]) -> bool:
+    """Identifica un rechazo PF-19C batch cuya historia debe viajar completa."""
+    if (
+        row.get("tipo_operacion") not in {"procesar_lote", "reintentar_fallidos_lote"}
+        or row.get("estado") != "rechazado_arca"
+        or row.get("lote_id") is None
+    ):
+        return False
+    try:
+        response = _json_dict_or_none(row.get("response_json"))
+        return bool(
+            response is not None
+            and _batch_global_rejection_context(
+                response,
+                operation_type=str(row["tipo_operacion"]),
+                operation_id=int(row["id"]),
+            )
+            is not None
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _v4_closure_payload(
+    *,
+    rows: dict[str, list[dict[str, Any]]],
+    normalization: dict[str, Any],
+) -> dict[str, Any]:
+    operations = rows["operaciones_idempotentes"]
+    v4_operations = [row for row in operations if _is_v4_operation(row)]
+    lotes = rows["lotes_comprobantes"]
+    groups = rows["lotes_comprobantes_grupos"]
+    attempts = rows["intentos_emision_fiscal"]
+    guards = rows["puntos_venta_guardas_emision_rece"]
+    generations = rows["lotes_duplicados_evidencias"]
+    blocks = rows["lotes_duplicados_coincidencias"]
+    members = rows["lotes_duplicados_coincidencias_miembros"]
+    payload = {
+        "version": 1,
+        "algorithm": vps_migration_v4.CLOSURE_ALGORITHM,
+        "operation_ids": sorted(int(row["id"]) for row in operations),
+        "root_operation_ids": sorted(
+            {int(row.get("operacion_raiz_id") or row["id"]) for row in v4_operations}
+        ),
+        "preserved_lote_ids": sorted(int(row["id"]) for row in lotes),
+        "preserved_group_ids": sorted(int(row["id"]) for row in groups),
+        "legacy_normalized_operation_ids": sorted(
+            int(pair["operacion_id"]) for pair in normalization["pairs"]
+        ),
+        "attempt_ids": sorted(int(row["id"]) for row in attempts),
+        "guard_ids": sorted(int(row["id"]) for row in guards),
+        "generation_ids": sorted(int(row["id"]) for row in generations),
+        "block_ids": sorted(int(row["id"]) for row in blocks),
+        "member_ids": sorted(int(row["id"]) for row in members),
+        "group_counts_by_lote": {
+            str(int(lote["id"])): sum(
+                int(group["lote_id"]) == int(lote["id"]) for group in groups
+            )
+            for lote in lotes
+        },
+    }
+    return {**payload, "sha256": vps_migration_v4.canonical_sha256(payload)}
+
+
+def normalize_v4_operation_rows(
+    rows: list[dict[str, Any]],
+    *,
+    preserved_lote_ids: set[int],
+    group_ids_by_lote: dict[int, list[int]],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Conserva lotes PF-13 y normaliza sólo operaciones legacy omitidas."""
+    pairs = [
+        _operation_lote_normalization_pair(
+            row,
+            group_ids_by_lote=group_ids_by_lote,
+        )
+        for row in rows
+        if row.get("lote_id") is not None
+        and int(row["lote_id"]) not in preserved_lote_ids
+    ]
+    pairs.sort(key=lambda item: (item["operacion_id"], item["lote_id"]))
+    normalized = [
+        (
+            {**row, "lote_id": None}
+            if row.get("lote_id") is not None
+            and int(row["lote_id"]) not in preserved_lote_ids
+            else dict(row)
+        )
+        for row in rows
+    ]
+    return normalized, {
+        "rule": vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE,
+        "rows": len(pairs),
+        "sha256": vps_migration_v4.canonical_sha256(pairs),
+        "pairs": pairs,
+    }
+
+
+def capture_v4_rows(conn: sqlite3.Connection) -> V4Capture:
+    """Calcula la clausura PF-13 sobre la snapshot inmóvil de la fuente."""
+    legacy_safety = classify_safe_omissions(conn)
+    complete_rows = {
+        table_name: read_table_rows(conn, table_name)
+        for table_name in vps_migration_v4.COMPLETE_TABLES
+    }
+    all_filtered = {
+        table_name: read_table_rows(conn, table_name)
+        for table_name in vps_migration_v4.FILTERED_TABLES
+    }
+    operations = complete_rows["operaciones_idempotentes"]
+    all_lotes = all_filtered["lotes_comprobantes"]
+    all_groups = all_filtered["lotes_comprobantes_grupos"]
+    all_attempts = all_filtered["intentos_emision_fiscal"]
+    all_generations = all_filtered["lotes_duplicados_evidencias"]
+    all_blocks = all_filtered["lotes_duplicados_coincidencias"]
+    all_members = all_filtered["lotes_duplicados_coincidencias_miembros"]
+
+    v4_operation_ids = {int(row["id"]) for row in operations if _is_v4_operation(row)}
+    terminal_individual_operation_ids = {
+        int(row["id"])
+        for row in operations
+        if row.get("tipo_operacion") == "emitir_comprobante"
+        and row.get("estado") in ESTADOS_OPERACION_TERMINALES
+    }
+    generation_ids = {int(row["id"]) for row in all_generations}
+    block_ids = {
+        int(row["id"])
+        for row in all_blocks
+        if int(row["generacion_id"]) in generation_ids
+    }
+    selected_members = [
+        row for row in all_members if int(row["bloque_id"]) in block_ids
+    ]
+    group_lote = {int(row["id"]): int(row["lote_id"]) for row in all_groups}
+    preserved_lote_ids = {
+        int(row["lote_id"])
+        for row in operations
+        if _is_v4_operation(row) and row.get("lote_id") is not None
+    }
+    preserved_lote_ids.update(
+        int(row["lote_id"]) for row in all_groups if _is_comparable_v4_group(row)
+    )
+    preserved_lote_ids.update(int(row["lote_id"]) for row in all_generations)
+    preserved_lote_ids.update(
+        int(row["lote_id"])
+        for row in operations
+        if _is_exact_terminal_pf19c_batch_operation(row)
+    )
+    preserved_lote_ids.update(
+        int(row["lote_id"])
+        for row in all_attempts
+        if row.get("lote_id") is not None
+        and (
+            int(row.get("operacion_id") or 0) in v4_operation_ids
+            or row.get("duplicados_generacion_id") is not None
+        )
+    )
+    preserved_lote_ids.update(
+        group_lote[int(row["grupo_id"])]
+        for row in selected_members
+        if row.get("grupo_id") is not None and int(row["grupo_id"]) in group_lote
+    )
+
+    selected_lotes = [row for row in all_lotes if int(row["id"]) in preserved_lote_ids]
+    selected_groups = [
+        row for row in all_groups if int(row["lote_id"]) in preserved_lote_ids
+    ]
+    selected_group_ids = {int(row["id"]) for row in selected_groups}
+    selected_attempts = [
+        row
+        for row in all_attempts
+        if int(row.get("operacion_id") or 0) in v4_operation_ids
+        or int(row.get("operacion_id") or 0) in terminal_individual_operation_ids
+        or int(row.get("grupo_id") or 0) in selected_group_ids
+        or int(row.get("lote_id") or 0) in preserved_lote_ids
+        or int(row.get("duplicados_generacion_id") or 0) in generation_ids
+    ]
+    selected_guard_ids = {
+        int(row["guarda_rece_id"])
+        for row in selected_attempts
+        if row.get("guarda_rece_id") is not None
+    }
+    selected_guards = [
+        row
+        for row in all_filtered["puntos_venta_guardas_emision_rece"]
+        if int(row["id"]) in selected_guard_ids
+    ]
+
+    group_ids_by_lote: dict[int, list[int]] = {}
+    for row in all_groups:
+        group_ids_by_lote.setdefault(int(row["lote_id"]), []).append(int(row["id"]))
+    normalized_operations, normalization = normalize_v4_operation_rows(
+        operations,
+        preserved_lote_ids=preserved_lote_ids,
+        group_ids_by_lote=group_ids_by_lote,
+    )
+    selected_rows = {
+        **complete_rows,
+        "operaciones_idempotentes": normalized_operations,
+        "lotes_comprobantes": selected_lotes,
+        "lotes_comprobantes_grupos": selected_groups,
+        "puntos_venta_guardas_emision_rece": selected_guards,
+        "lotes_duplicados_evidencias": all_generations,
+        "lotes_duplicados_coincidencias": [
+            row for row in all_blocks if int(row["id"]) in block_ids
+        ],
+        "lotes_duplicados_coincidencias_miembros": selected_members,
+        "intentos_emision_fiscal": selected_attempts,
+    }
+    source_counts = {
+        table_name: int(
+            conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
+        )
+        for table_name in (
+            vps_migration_v4.INCLUDED_TABLES
+            + vps_migration_v4.REGENERATED_TABLES
+            + vps_migration_v4.EXCLUDED_TABLES
+        )
+    }
+    included_counts = {
+        table_name: len(selected_rows[table_name])
+        for table_name in vps_migration_v4.INCLUDED_TABLES
+    }
+    omitted_counts = {
+        table_name: source_counts[table_name] - included_counts.get(table_name, 0)
+        for table_name in (
+            vps_migration_v4.FILTERED_TABLES + vps_migration_v4.EXCLUDED_TABLES
+        )
+    }
+    closure = _v4_closure_payload(
+        rows=selected_rows,
+        normalization=normalization,
+    )
+    safe_omitted = {
+        "blockers": 0,
+        "legacy_preflight": legacy_safety,
+        "source_counts": source_counts,
+        "included_counts": included_counts,
+        "omitted_counts": omitted_counts,
+    }
+    validate_v4_graph(
+        selected_rows,
+        normalization=normalization,
+        closure=closure,
+    )
+    return V4Capture(
+        rows=selected_rows,
+        source_counts=source_counts,
+        included_counts=included_counts,
+        omitted_counts=omitted_counts,
+        safe_omitted=safe_omitted,
+        normalization=normalization,
+        closure=closure,
+    )
+
+
+def validate_v4_source_coordinators(conn: sqlite3.Connection) -> None:
+    """Valida coordenadas fuente sin trasladar su revisión técnica."""
+    companies = {
+        int(row["id"]) for row in conn.execute("SELECT id FROM empresas ORDER BY id")
+    }
+    rows = [
+        (int(row["empresa_id"]), str(row["ambiente"]))
+        for row in conn.execute(
+            "SELECT empresa_id, ambiente FROM lotes_duplicados_coordinacion "
+            "ORDER BY empresa_id, ambiente"
+        )
+    ]
+    expected = sorted(
+        (company_id, environment)
+        for company_id in companies
+        for environment in ("homologacion", "produccion")
+    )
+    if rows != expected:
+        raise MigrationError(
+            "La coordinación PF-13 fuente no tiene dos ambientes exactos por emisor"
+        )
+
+
+def validate_v4_sqlite_schema(conn: sqlite3.Connection) -> None:
+    """Exige columnas v4 exactas antes de calcular cualquier selección."""
+    for table_name in vps_migration_v4.INCLUDED_TABLES:
+        columns = tuple(
+            str(row["name"])
+            for row in conn.execute(f'PRAGMA table_info("{table_name}")')
+        )
+        if columns != vps_migration_v4.V4_COLUMNS[table_name]:
+            raise MigrationError(
+                f"La fuente SQLite ya no representa el contrato v4 de {table_name}"
+            )
+
+
+def _v4_json_object(value: Any, *, label: str) -> dict[str, Any]:
+    try:
+        result = _json_dict_or_none(value)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise MigrationError(f"JSON inválido en {label}") from exc
+    if result is None:
+        raise MigrationError(f"Falta JSON obligatorio en {label}")
+    return result
+
+
+def _v4_generation_relation(
+    generation: dict[str, Any],
+    *,
+    blocks: list[dict[str, Any]],
+    members_by_block: dict[int, list[dict[str, Any]]],
+    group_ids: set[int],
+    receipt_ids: set[int],
+) -> list[dict[str, Any]]:
+    relation: list[dict[str, Any]] = []
+    for block in sorted(blocks, key=lambda item: str(item["bloque_clave"])):
+        if (
+            int(block["operacion_id"]) != int(generation["operacion_id"])
+            or int(block["empresa_id"]) != int(generation["empresa_id"])
+            or int(block["lote_id"]) != int(generation["lote_id"])
+            or str(block["ambiente"]) != str(generation["ambiente"])
+        ):
+            raise MigrationError("Un bloque PF-13 no pertenece a su generación")
+        block_snapshot = _v4_json_object(
+            block["snapshot_json"],
+            label=f"bloque {block['id']}",
+        )
+        block_members = sorted(
+            members_by_block.get(int(block["id"]), []),
+            key=lambda item: (
+                str(item["lado"]),
+                int(item["ordinal"]) if item["ordinal"] is not None else -1,
+                str(item["miembro_clave"]),
+            ),
+        )
+        current = [row for row in block_members if row["lado"] == "actual"]
+        previous = [row for row in block_members if row["lado"] == "anterior"]
+        if block["clase"] in {"interna_nombre", "interna_documento"}:
+            valid_shape = (
+                len(current) >= 2
+                and not previous
+                and all(row["ordinal"] is None for row in current)
+            )
+        elif block["clase"] == "completa":
+            current_ordinals = {row["ordinal"] for row in current}
+            previous_ordinals = {row["ordinal"] for row in previous}
+            multiplicity = block_snapshot.get("multiplicidad_total")
+            valid_shape = (
+                bool(current)
+                and bool(previous)
+                and (
+                    None not in current_ordinals
+                    and current_ordinals == previous_ordinals
+                    and len(current_ordinals) == len(current)
+                    and len(previous_ordinals) == len(previous)
+                    and isinstance(multiplicity, int)
+                    and all(
+                        0 <= int(value) < multiplicity for value in current_ordinals
+                    )
+                )
+            )
+        else:
+            valid_shape = (
+                block["clase"]
+                in {"parcial_nombre", "parcial_documento", "individual_legacy"}
+                and bool(current)
+                and bool(previous)
+                and all(row["ordinal"] is None for row in block_members)
+            )
+        if not valid_shape:
+            raise MigrationError("La multiplicidad u ordinal PF-13 no es canónica")
+
+        canonical_members = []
+        for member in block_members:
+            snapshot = _v4_json_object(
+                member["snapshot_json"],
+                label=f"miembro {member['id']}",
+            )
+            decision = snapshot.get("decision")
+            if not isinstance(decision, dict):
+                raise MigrationError("Un miembro PF-13 no conserva decisión")
+            group_id = member.get("grupo_id")
+            receipt_id = member.get("comprobante_id")
+            if (group_id is None) == (receipt_id is None):
+                raise MigrationError("Un miembro PF-13 no identifica una entidad única")
+            if group_id is not None:
+                if int(group_id) not in group_ids or decision.get("grupo_id") != int(
+                    group_id
+                ):
+                    raise MigrationError("Un miembro PF-13 perdió su grupo")
+            elif int(receipt_id) not in receipt_ids or decision.get(
+                "comprobante_id"
+            ) != int(receipt_id):
+                raise MigrationError("Un miembro PF-13 perdió su comprobante")
+            if member["lado"] == "actual":
+                if group_id is None or member["relevancia"] != "actual":
+                    raise MigrationError("Un miembro actual PF-13 es incoherente")
+            elif member["lado"] != "anterior" or member["relevancia"] not in {
+                "autorizado",
+                "reservado",
+                "incierto",
+            }:
+                raise MigrationError("Un miembro anterior PF-13 es incoherente")
+            canonical_members.append(
+                {
+                    "lado": member["lado"],
+                    "miembro_clave": member["miembro_clave"],
+                    "grupo_id": group_id,
+                    "comprobante_id": receipt_id,
+                    "nombre_hash": member["nombre_hash"],
+                    "documento_hash": member["documento_hash"],
+                    "ordinal": member["ordinal"],
+                    "relevancia": member["relevancia"],
+                    "snapshot": snapshot,
+                }
+            )
+        relation.append(
+            {
+                "bloque_clave": block["bloque_clave"],
+                "clase": block["clase"],
+                "antecedente_clave": block["antecedente_clave"],
+                "snapshot": block_snapshot,
+                "miembros": canonical_members,
+            }
+        )
+    return relation
+
+
+def _v4_replay_lot_matches_durable(
+    replay_lot: dict[str, Any],
+    durable_lot: dict[str, Any],
+) -> bool:
+    """Coteja identidad inmutable sin exigir que el snapshot replique cierres posteriores."""
+    immutable_fields = (
+        "id",
+        "nombre_archivo",
+        "archivo_hash",
+        "modo_procesamiento",
+        "procesamiento_async",
+        "total_filas",
+        "total_grupos",
+        "empresa_id",
+        "usuario_id",
+        "formato_importacion_id",
+        "formato_importacion_version_id",
+    )
+    try:
+        return bool(
+            all(
+                replay_lot.get(field) == durable_lot.get(field)
+                for field in immutable_fields
+            )
+            and replay_lot.get("estado") in ESTADOS_LOTE_SEGUROS_OMITIBLES
+            and durable_lot.get("estado") in ESTADOS_LOTE_SEGUROS_OMITIBLES
+            and datetime.fromisoformat(
+                str(replay_lot.get("created_at")).replace("Z", "+00:00")
+            )
+            == datetime.fromisoformat(
+                str(durable_lot.get("created_at")).replace("Z", "+00:00")
+            )
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _v4_has_minimum_authorization_evidence(
+    *,
+    receipt_id: Any,
+    number: Any,
+    cae: Any,
+    cae_expiration: Any,
+) -> bool:
+    """Exige la evidencia positiva histórica antes de cotejar copias v4."""
+    return bool(
+        isinstance(receipt_id, int)
+        and not isinstance(receipt_id, bool)
+        and receipt_id > 0
+        and isinstance(number, int)
+        and not isinstance(number, bool)
+        and number > 0
+        and isinstance(cae, str)
+        and cae.strip()
+        and cae_expiration is not None
+    )
+
+
+def _validate_v4_terminal_replays(
+    rows: dict[str, list[dict[str, Any]]],
+    *,
+    normalization_pairs: list[dict[str, Any]],
+) -> None:
+    """Valida replay terminal v4 con lote preservado o normalización legacy explícita."""
+    companies = {int(row["id"]) for row in rows["empresas"]}
+    receipts = {int(row["id"]): row for row in rows["comprobantes"]}
+    lotes = {int(row["id"]): row for row in rows["lotes_comprobantes"]}
+    revisions = {
+        int(row["id"]): row for row in rows["puntos_venta_elegibilidad_rece_revisiones"]
+    }
+    associations_by_operation: dict[int, list[dict[str, Any]]] = {}
+    for association in rows["operaciones_idempotentes_elegibilidad_rece"]:
+        associations_by_operation.setdefault(
+            int(association["operacion_id"]), []
+        ).append(association)
+    pair_by_operation = {
+        int(pair["operacion_id"]): pair for pair in normalization_pairs
+    }
+    identities: set[tuple[int, str]] = set()
+
+    for operation in rows["operaciones_idempotentes"]:
+        try:
+            operation_id = _require_nonnegative_int(
+                operation["id"], label="operacion.id"
+            )
+            company_id = _require_nonnegative_int(
+                operation["empresa_id"], label="operacion.empresa_id"
+            )
+            key = operation["idempotency_key"]
+            operation_type = operation["tipo_operacion"]
+            state = operation["estado"]
+            if (
+                operation_id <= 0
+                or company_id <= 0
+                or company_id not in companies
+                or not isinstance(key, str)
+                or not 1 <= len(key.strip()) <= 128
+                or key != key.strip()
+                or operation_type
+                not in {
+                    "emitir_comprobante",
+                    "procesar_lote",
+                    "reintentar_fallidos_lote",
+                }
+                or state not in ESTADOS_OPERACION_TERMINALES
+            ):
+                raise MigrationError("Replay terminal v4 con operación inválida")
+            _require_sha256(operation["payload_hash"], label="operacion.payload_hash")
+            identity = (company_id, key)
+            if identity in identities:
+                raise MigrationError("Replay terminal v4 con identidad duplicada")
+            identities.add(identity)
+            response = _v4_json_object(
+                operation.get("response_json"),
+                label=f"replay terminal v4 {operation_id}",
+            )
+            pair = pair_by_operation.get(operation_id)
+
+            if operation_type == "emitir_comprobante":
+                if operation.get("lote_id") is not None or pair is not None:
+                    raise MigrationError("Replay terminal v4 individual conserva lote")
+                parsed = vps_migration_v3.parse_individual_replay(response)
+                if parsed.requiere_reconciliacion:
+                    raise MigrationError("Replay terminal v4 individual incierto")
+                associations = associations_by_operation.get(operation_id, [])
+                if operation.get("rece_snapshot_hash") is not None:
+                    if len(associations) != 1:
+                        raise MigrationError(
+                            "Replay terminal v4 individual sin asociación RECE exacta"
+                        )
+                    revision = revisions[
+                        int(associations[0]["elegibilidad_revision_id"])
+                    ]
+                    if (
+                        int(revision["punto_venta_numero_snapshot"])
+                        != parsed.punto_venta
+                    ):
+                        raise MigrationError(
+                            "Replay terminal v4 individual cruza el snapshot RECE"
+                        )
+                if parsed.exito:
+                    if not _v4_has_minimum_authorization_evidence(
+                        receipt_id=parsed.comprobante_id,
+                        number=parsed.numero,
+                        cae=parsed.cae,
+                        cae_expiration=parsed.cae_vencimiento,
+                    ):
+                        raise MigrationError(
+                            "Replay terminal v4 exitoso sin evidencia fiscal completa"
+                        )
+                    receipt = receipts.get(int(parsed.comprobante_id or 0))
+                    if receipt is None:
+                        raise MigrationError(
+                            "Replay terminal v4 exitoso sin comprobante"
+                        )
+                    if (
+                        state != "finalizado"
+                        or not _v4_has_minimum_authorization_evidence(
+                            receipt_id=receipt["id"],
+                            number=receipt["numero"],
+                            cae=receipt["cae"],
+                            cae_expiration=receipt["cae_vencimiento"],
+                        )
+                        or receipt["estado"] != "autorizado"
+                        or int(receipt["empresa_id"]) != company_id
+                        or int(receipt["tipo_comprobante"]) != parsed.tipo_comprobante
+                        or int(receipt["numero"]) != parsed.numero
+                        or date.fromisoformat(str(receipt["fecha_emision"])[:10])
+                        != parsed.fecha
+                        or Decimal(str(receipt["total"])) != parsed.total
+                        or str(receipt["cae"]) != str(parsed.cae)
+                        or date.fromisoformat(str(receipt["cae_vencimiento"])[:10])
+                        != parsed.cae_vencimiento
+                        or (
+                            associations
+                            and int(receipt["punto_venta_id"])
+                            != int(associations[0]["punto_venta_id"])
+                        )
+                    ):
+                        raise MigrationError(
+                            "Replay terminal v4 individual no coincide con su comprobante"
+                        )
+                elif (
+                    state == "finalizado"
+                    or parsed.comprobante_id is not None
+                    or parsed.cae is not None
+                    or parsed.cae_vencimiento is not None
+                    or parsed.categoria_error
+                    in {"duplicado_logico", "idempotencia_en_proceso"}
+                ):
+                    raise MigrationError(
+                        "Replay terminal v4 individual negativo inválido"
+                    )
+                if parsed.categoria_error == ARCA_RECHAZO_GLOBAL_CATEGORIA and (
+                    state != "rechazado_arca"
+                    or not _response_is_exact_global_10005(parsed)
+                ):
+                    raise MigrationError("Replay terminal v4 individual 10005 inválido")
+                continue
+
+            preserved_lote_id = operation.get("lote_id")
+            expected_lote_id = (
+                int(preserved_lote_id)
+                if preserved_lote_id is not None
+                else int(pair["lote_id"] if pair is not None else 0)
+            )
+            if expected_lote_id <= 0 or (preserved_lote_id is None) != (
+                pair is not None
+            ):
+                raise MigrationError("Replay terminal v4 batch sin lote trazable")
+            if "categoria_error" in response:
+                parsed_error = vps_migration_v3.parse_batch_error_replay(response)
+                if (
+                    state in {"finalizado", "rechazado_arca"}
+                    or not parsed_error.categoria_error.strip()
+                    or parsed_error.categoria_error
+                    in {
+                        "duplicado_logico_lote",
+                        "idempotencia_en_proceso",
+                        "post_arca_persistencia",
+                    }
+                    or (
+                        parsed_error.status_code is not None
+                        and not 400 <= parsed_error.status_code <= 599
+                    )
+                ):
+                    raise MigrationError("Replay terminal v4 batch negativo inválido")
+                continue
+            parsed_batch = vps_migration_v3.parse_batch_replay(
+                response,
+                operation_type=operation_type,
+            )
+            if operation_type == "procesar_lote" and parsed_batch.en_progreso:
+                raise MigrationError("Replay terminal v4 batch todavía en progreso")
+            global_rejection = _batch_global_rejection_context(
+                response,
+                operation_type=operation_type,
+                operation_id=operation_id,
+            )
+            if state == "rechazado_arca":
+                if global_rejection is None:
+                    raise MigrationError("Replay terminal v4 batch 10005 inválido")
+            elif global_rejection is not None or parsed_batch.errores_arca:
+                raise MigrationError("Replay terminal v4 batch contradice su estado")
+            if (
+                state not in {"finalizado", "fallido", "rechazado_arca"}
+                or parsed_batch.lote.id != expected_lote_id
+                or parsed_batch.lote.empresa_id != company_id
+                or parsed_batch.lote.estado not in ESTADOS_LOTE_SEGUROS_OMITIBLES
+            ):
+                raise MigrationError("Replay terminal v4 batch no coincide con su lote")
+            if preserved_lote_id is not None:
+                durable_lot = lotes.get(expected_lote_id)
+                replay_lot = response.get("lote")
+                if (
+                    durable_lot is None
+                    or not isinstance(replay_lot, dict)
+                    or not _v4_replay_lot_matches_durable(replay_lot, durable_lot)
+                ):
+                    raise MigrationError(
+                        "Replay terminal v4 batch no coincide con el lote durable"
+                    )
+        except MigrationError:
+            raise
+        except (
+            DecimalException,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise MigrationError("Replay terminal v4 semánticamente inválido") from exc
+
+
+def _validate_v4_attempt_fiscal_evidence(
+    rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Coteja cada intento terminal con operación, grupo, guarda y comprobante."""
+    receipts = {int(row["id"]): row for row in rows["comprobantes"]}
+    sale_points = {int(row["id"]): row for row in rows["puntos_venta"]}
+    lotes = {int(row["id"]): row for row in rows["lotes_comprobantes"]}
+    groups = {int(row["id"]): row for row in rows["lotes_comprobantes_grupos"]}
+    operations = {int(row["id"]): row for row in rows["operaciones_idempotentes"]}
+    revisions = {
+        int(row["id"]): row for row in rows["puntos_venta_elegibilidad_rece_revisiones"]
+    }
+    generations = {int(row["id"]): row for row in rows["lotes_duplicados_evidencias"]}
+    guards = {int(row["id"]): row for row in rows["puntos_venta_guardas_emision_rece"]}
+    attempts = rows["intentos_emision_fiscal"]
+    attempts_by_guard: dict[int, list[dict[str, Any]]] = {}
+    attempts_by_operation: dict[int, list[dict[str, Any]]] = {}
+    associations_by_operation: dict[int, list[dict[str, Any]]] = {}
+    for association in rows["operaciones_idempotentes_elegibilidad_rece"]:
+        associations_by_operation.setdefault(
+            int(association["operacion_id"]), []
+        ).append(association)
+
+    for attempt in attempts:
+        try:
+            attempt_id = int(attempt["id"])
+            state = attempt["estado"]
+            operation = operations.get(int(attempt.get("operacion_id") or 0))
+            if state not in ESTADOS_INTENTO_TERMINALES or operation is None:
+                raise MigrationError("Intento terminal v4 sin operación válida")
+            attempts_by_operation.setdefault(int(operation["id"]), []).append(attempt)
+            if int(operation["empresa_id"]) != int(attempt["empresa_id"]):
+                raise MigrationError("Intento terminal v4 cruza el emisor")
+            sale_point = sale_points.get(int(attempt["punto_venta_id"]))
+            revision_id = attempt.get("punto_venta_elegibilidad_revision_id")
+            revision = (
+                revisions.get(int(revision_id)) if revision_id is not None else None
+            )
+            historical_sale_point_number = (
+                revision.get("punto_venta_numero_snapshot")
+                if revision is not None
+                else None
+            )
+            if (
+                sale_point is None
+                or int(sale_point["empresa_id"]) != int(attempt["empresa_id"])
+                or (
+                    revision_id is None
+                    and int(sale_point["numero"]) != int(attempt["punto_venta_numero"])
+                )
+                or (
+                    revision_id is not None
+                    and (
+                        revision is None
+                        or int(revision["empresa_id"]) != int(attempt["empresa_id"])
+                        or int(revision["punto_venta_id"])
+                        != int(attempt["punto_venta_id"])
+                        or revision["ambiente"] != attempt.get("ambiente")
+                        or int(revision["punto_revision_fiscal"])
+                        != int(attempt.get("punto_venta_revision_fiscal") or 0)
+                        or int(historical_sale_point_number or 0)
+                        != int(attempt["punto_venta_numero"])
+                    )
+                )
+            ):
+                raise MigrationError("Intento terminal v4 cruza el punto de venta")
+            group = None
+            if attempt.get("lote_id") is not None:
+                group = groups.get(int(attempt.get("grupo_id") or 0))
+                if (
+                    int(attempt["lote_id"]) not in lotes
+                    or group is None
+                    or int(group["lote_id"]) != int(attempt["lote_id"])
+                    or int(group["empresa_id"]) != int(attempt["empresa_id"])
+                    or int(operation.get("lote_id") or 0) != int(attempt["lote_id"])
+                ):
+                    raise MigrationError("Intento terminal v4 perdió lote o grupo")
+            elif attempt.get("grupo_id") is not None:
+                raise MigrationError("Intento terminal v4 conserva grupo sin lote")
+
+            generation = None
+            generation_id = attempt.get("duplicados_generacion_id")
+            if generation_id is not None:
+                generation = generations.get(int(generation_id))
+                if (
+                    generation is None
+                    or int(generation["operacion_id"]) != int(attempt["operacion_id"])
+                    or int(generation["empresa_id"]) != int(attempt["empresa_id"])
+                    or int(generation["lote_id"]) != int(attempt["lote_id"])
+                    or generation["ambiente"] != attempt["ambiente"]
+                ):
+                    raise MigrationError("Intento terminal v4 perdió su generación")
+                selected = _v4_json_object(
+                    generation["control_snapshot_json"],
+                    label=f"generación del intento {attempt_id}",
+                ).get("seleccion_original")
+                selected_ids = {
+                    item.get("grupo_id") for item in selected if isinstance(item, dict)
+                }
+                if group is None or int(group["id"]) not in selected_ids:
+                    raise MigrationError(
+                        "Intento terminal v4 quedó fuera de su selección"
+                    )
+
+            guard = None
+            guard_id = attempt.get("guarda_rece_id")
+            rece_snapshot_values = (
+                attempt.get("ambiente"),
+                attempt.get("punto_venta_elegibilidad_revision_id"),
+                attempt.get("punto_venta_revision_fiscal"),
+                guard_id,
+            )
+            legacy_rece = all(value is None for value in rece_snapshot_values)
+            modern_rece = all(value is not None for value in rece_snapshot_values)
+            if not (legacy_rece or modern_rece):
+                raise MigrationError(
+                    "Intento terminal v4 conserva un snapshot RECE parcial"
+                )
+            if guard_id is not None:
+                guard = guards.get(int(guard_id))
+                if (
+                    guard is None
+                    or any(
+                        guard[field] != attempt[field]
+                        for field in (
+                            "operacion_id",
+                            "empresa_id",
+                            "punto_venta_id",
+                            "ambiente",
+                            "punto_venta_revision_fiscal",
+                        )
+                    )
+                    or int(guard["elegibilidad_revision_id"])
+                    != int(attempt["punto_venta_elegibilidad_revision_id"])
+                ):
+                    raise MigrationError("Intento terminal v4 perdió su guarda RECE")
+                attempts_by_guard.setdefault(int(guard_id), []).append(attempt)
+
+            if state == "autorizado":
+                authorized_operation_state_is_valid = bool(
+                    operation["estado"] == "finalizado"
+                    or (
+                        operation["tipo_operacion"]
+                        in {"procesar_lote", "reintentar_fallidos_lote"}
+                        and operation["estado"]
+                        in {"finalizado", "fallido", "rechazado_arca"}
+                    )
+                )
+                if not _v4_has_minimum_authorization_evidence(
+                    receipt_id=attempt.get("comprobante_id"),
+                    number=attempt.get("numero_planificado"),
+                    cae=attempt.get("cae"),
+                    cae_expiration=attempt.get("cae_vencimiento"),
+                ):
+                    raise MigrationError(
+                        "Intento autorizado v4 sin evidencia fiscal completa"
+                    )
+                receipt = receipts.get(int(attempt.get("comprobante_id") or 0))
+                if receipt is None:
+                    raise MigrationError("Intento autorizado v4 sin comprobante")
+                if (
+                    not authorized_operation_state_is_valid
+                    or not _v4_has_minimum_authorization_evidence(
+                        receipt_id=receipt["id"],
+                        number=receipt["numero"],
+                        cae=receipt["cae"],
+                        cae_expiration=receipt["cae_vencimiento"],
+                    )
+                    or receipt["estado"] != "autorizado"
+                    or int(receipt["empresa_id"]) != int(attempt["empresa_id"])
+                    or int(receipt["punto_venta_id"]) != int(attempt["punto_venta_id"])
+                    or int(receipt["tipo_comprobante"])
+                    != int(attempt["tipo_comprobante"])
+                    or int(receipt["numero"]) != int(attempt["numero_planificado"])
+                    or date.fromisoformat(str(receipt["fecha_emision"])[:10])
+                    != date.fromisoformat(str(attempt["fecha_emision"])[:10])
+                    or Decimal(str(receipt["total"])) != Decimal(str(attempt["total"]))
+                    or str(receipt["cae"]) != str(attempt["cae"])
+                    or date.fromisoformat(str(receipt["cae_vencimiento"])[:10])
+                    != date.fromisoformat(str(attempt["cae_vencimiento"])[:10])
+                    or (
+                        modern_rece
+                        and (guard is None or guard["fase"] != "cerrada_terminal")
+                    )
+                ):
+                    raise MigrationError(
+                        "Intento autorizado v4 contradice su comprobante"
+                    )
+                if group is not None and (
+                    group["estado"] != "autorizado"
+                    or int(group.get("comprobante_id") or 0) != int(receipt["id"])
+                    or int(group["punto_venta_id"]) != int(attempt["punto_venta_id"])
+                    or int(group["punto_venta_numero"])
+                    != int(attempt["punto_venta_numero"])
+                    or int(group["tipo_comprobante"])
+                    != int(attempt["tipo_comprobante"])
+                    or int(group.get("numero_asignado") or 0)
+                    != int(attempt["numero_planificado"])
+                    or Decimal(str(group["total_estimado"]))
+                    != Decimal(str(attempt["total"]))
+                    or str(group.get("cae")) != str(attempt["cae"])
+                    or (
+                        group.get("duplicados_version") == "duplicados_lotes/v2"
+                        and date.fromisoformat(
+                            str(group["fecha_emision_normalizada"])[:10]
+                        )
+                        != date.fromisoformat(str(attempt["fecha_emision"])[:10])
+                    )
+                ):
+                    raise MigrationError("Intento autorizado v4 contradice su grupo")
+                continue
+
+            if any(
+                attempt.get(field) is not None
+                for field in ("comprobante_id", "cae", "cae_vencimiento")
+            ):
+                raise MigrationError(
+                    "Intento terminal v4 negativo conserva evidencia positiva"
+                )
+            if guard is not None and (
+                (state == "fallido_verificado" and guard["fase"] != "cerrada_pre_arca")
+                or (state == "rechazado_arca" and guard["fase"] != "cerrada_terminal")
+            ):
+                raise MigrationError("Intento terminal v4 contradice la fase de guarda")
+            if state == "fallido_verificado" and not _is_json_null_sqlite(
+                attempt.get("errores_arca_json")
+            ):
+                raise MigrationError("Intento fallido v4 inventa evidencia ARCA")
+            if state == "rechazado_arca" and (
+                attempt.get("categoria_error") == ARCA_RECHAZO_GLOBAL_CATEGORIA
+                or not _is_json_null_sqlite(attempt.get("errores_arca_json"))
+            ):
+                lot = lotes.get(int(operation.get("lote_id") or 0))
+                operation_view = {
+                    **operation,
+                    "lote_encontrado": None if lot is None else lot["id"],
+                    "lote_empresa_id": None if lot is None else lot["empresa_id"],
+                    "lote_estado": None if lot is None else lot["estado"],
+                }
+                if not pf19c_global_rejection_matches_operation(
+                    attempt, operation_view
+                ):
+                    raise MigrationError("Intento rechazado v4 no acredita PF-19C")
+        except MigrationError:
+            raise
+        except (
+            DecimalException,
+            KeyError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise MigrationError("Intento terminal v4 semánticamente inválido") from exc
+
+    for guard_id, guard in guards.items():
+        guarded = attempts_by_guard.get(guard_id, [])
+        states = {attempt["estado"] for attempt in guarded}
+        if (
+            not guarded
+            or (
+                guard["fase"] == "cerrada_pre_arca" and states != {"fallido_verificado"}
+            )
+            or (
+                guard["fase"] == "cerrada_terminal"
+                and not states <= {"autorizado", "rechazado_arca"}
+            )
+            or guard["fase"] not in FASES_GUARDA_TERMINALES
+        ):
+            raise MigrationError("Guarda terminal v4 sin intentos coherentes")
+
+    for operation_id, operation in operations.items():
+        if operation["tipo_operacion"] != "emitir_comprobante":
+            continue
+        response = _v4_json_object(
+            operation["response_json"],
+            label=f"replay individual del intento {operation_id}",
+        )
+        try:
+            replay = vps_migration_v3.parse_individual_replay(response)
+            operation_attempts = attempts_by_operation.get(operation_id, [])
+            authorized = [
+                attempt
+                for attempt in operation_attempts
+                if attempt["estado"] == "autorizado"
+            ]
+            if not replay.exito:
+                if authorized:
+                    raise MigrationError(
+                        "Replay individual negativo v4 conserva autorización"
+                    )
+                continue
+            operation_guards = [
+                guard
+                for guard in guards.values()
+                if int(guard["operacion_id"]) == operation_id
+            ]
+            if (
+                operation.get("rece_snapshot_hash") is None
+                and not operation_attempts
+                and not operation_guards
+            ):
+                continue
+            if len(authorized) != 1:
+                raise MigrationError(
+                    "Replay individual exitoso v4 no conserva una autorización única"
+                )
+            attempt = authorized[0]
+            if (
+                int(attempt["comprobante_id"]) != int(replay.comprobante_id or 0)
+                or int(attempt["empresa_id"]) != int(operation["empresa_id"])
+                or int(attempt["tipo_comprobante"]) != replay.tipo_comprobante
+                or int(attempt["punto_venta_numero"]) != replay.punto_venta
+                or int(attempt["numero_planificado"]) != replay.numero
+                or date.fromisoformat(str(attempt["fecha_emision"])[:10])
+                != replay.fecha
+                or Decimal(str(attempt["total"])) != replay.total
+                or str(attempt["cae"]) != str(replay.cae)
+                or date.fromisoformat(str(attempt["cae_vencimiento"])[:10])
+                != replay.cae_vencimiento
+            ):
+                raise MigrationError(
+                    "La autorización individual v4 contradice su replay"
+                )
+            if operation.get("rece_snapshot_hash") is not None:
+                associations = associations_by_operation.get(operation_id, [])
+                guard = guards.get(int(attempt.get("guarda_rece_id") or 0))
+                if (
+                    len(associations) != 1
+                    or guard is None
+                    or guard["fase"] != "cerrada_terminal"
+                    or attempt["ambiente"] != associations[0]["ambiente"]
+                    or int(attempt["punto_venta_id"])
+                    != int(associations[0]["punto_venta_id"])
+                    or int(attempt["punto_venta_elegibilidad_revision_id"])
+                    != int(associations[0]["elegibilidad_revision_id"])
+                    or int(attempt["punto_venta_revision_fiscal"])
+                    != int(associations[0]["punto_venta_revision_fiscal"])
+                    or int(guard["empresa_id"]) != int(associations[0]["empresa_id"])
+                    or int(guard["punto_venta_id"])
+                    != int(associations[0]["punto_venta_id"])
+                    or guard["ambiente"] != associations[0]["ambiente"]
+                    or int(guard["elegibilidad_revision_id"])
+                    != int(associations[0]["elegibilidad_revision_id"])
+                    or int(guard["punto_venta_revision_fiscal"])
+                    != int(associations[0]["punto_venta_revision_fiscal"])
+                ):
+                    raise MigrationError(
+                        "La autorización individual v4 contradice RECE"
+                    )
+        except MigrationError:
+            raise
+        except (DecimalException, KeyError, TypeError, ValueError) as exc:
+            raise MigrationError(
+                "La evidencia de autorización individual v4 es inválida"
+            ) from exc
+
+
+def _validate_v4_pf19c_history(
+    rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Conserva el rechazo global exacto y un único sucesor autorizado legítimo."""
+    groups = {int(row["id"]): row for row in rows["lotes_comprobantes_grupos"]}
+    operations = {int(row["id"]): row for row in rows["operaciones_idempotentes"]}
+    attempts_by_operation: dict[int, list[dict[str, Any]]] = {}
+    attempts_by_group: dict[int, list[dict[str, Any]]] = {}
+    for attempt in rows["intentos_emision_fiscal"]:
+        attempts_by_operation.setdefault(int(attempt["operacion_id"]), []).append(
+            attempt
+        )
+        if attempt.get("grupo_id") is not None:
+            attempts_by_group.setdefault(int(attempt["grupo_id"]), []).append(attempt)
+
+    for operation_id, operation in operations.items():
+        if operation["tipo_operacion"] not in {
+            "procesar_lote",
+            "reintentar_fallidos_lote",
+        }:
+            continue
+        response = _v4_json_object(
+            operation["response_json"], label=f"replay PF-19C {operation_id}"
+        )
+        context = _batch_global_rejection_context(
+            response,
+            operation_type=operation["tipo_operacion"],
+            operation_id=operation_id,
+        )
+        if operation["estado"] != "rechazado_arca" and context is None:
+            continue
+        if context is None or operation.get("lote_id") is None:
+            raise MigrationError("El rechazo global v4 no conserva su lote")
+        rejection_ids, not_sent_ids = context
+        operation_attempts = attempts_by_operation.get(operation_id, [])
+        rejection_attempts = [
+            attempt
+            for attempt in operation_attempts
+            if attempt.get("grupo_id") is not None
+            and attempt["estado"] == "rechazado_arca"
+            and attempt["categoria_error"] == ARCA_RECHAZO_GLOBAL_CATEGORIA
+            and _is_exact_global_10005_errors(attempt.get("errores_arca_json"))
+        ]
+        rejected_group_ids = [
+            int(attempt["grupo_id"]) for attempt in rejection_attempts
+        ]
+        context_groups = [
+            groups.get(group_id) for group_id in rejection_ids | not_sent_ids
+        ]
+
+        def group_preserves_history(group: dict[str, Any]) -> bool:
+            if int(group["lote_id"]) != int(operation["lote_id"]) or int(
+                group["empresa_id"]
+            ) != int(operation["empresa_id"]):
+                return False
+            if group["estado"] == "fallido":
+                return True
+            if group["estado"] != "autorizado":
+                return False
+            successors = []
+            for attempt in attempts_by_group.get(int(group["id"]), []):
+                successor_id = int(attempt.get("operacion_id") or 0)
+                successor = operations.get(successor_id)
+                if (
+                    attempt["estado"] == "autorizado"
+                    and attempt.get("comprobante_id") is not None
+                    and successor_id > operation_id
+                    and successor is not None
+                    and successor["tipo_operacion"]
+                    in {"procesar_lote", "reintentar_fallidos_lote"}
+                    and successor["estado"] == "finalizado"
+                    and int(successor.get("lote_id") or 0) == int(group["lote_id"])
+                    and int(successor["empresa_id"]) == int(group["empresa_id"])
+                    and (
+                        not _is_v4_operation(operation)
+                        or (
+                            _is_v4_operation(successor)
+                            and successor["tipo_operacion"]
+                            == "reintentar_fallidos_lote"
+                            and int(successor["operacion_raiz_id"])
+                            == int(operation["operacion_raiz_id"])
+                        )
+                    )
+                ):
+                    successors.append(attempt)
+            return len(successors) == 1
+
+        if (
+            len(rejected_group_ids) != len(rejection_ids)
+            or set(rejected_group_ids) != set(rejection_ids)
+            or len(rejected_group_ids) != len(set(rejected_group_ids))
+            or any(
+                len(
+                    [
+                        attempt
+                        for attempt in operation_attempts
+                        if attempt.get("grupo_id") is not None
+                        and int(attempt["grupo_id"]) == group_id
+                    ]
+                )
+                != 1
+                for group_id in rejection_ids
+            )
+            or any(group is None for group in context_groups)
+            or any(
+                not group_preserves_history(group)
+                for group in context_groups
+                if group is not None
+            )
+            or any(
+                attempt.get("grupo_id") is not None
+                and int(attempt["grupo_id"]) in not_sent_ids
+                for attempt in operation_attempts
+            )
+        ):
+            raise MigrationError("El rechazo global v4 perdió su historia terminal")
+
+
+def validate_v4_graph(
+    rows: dict[str, list[dict[str, Any]]],
+    *,
+    normalization: dict[str, Any],
+    closure: dict[str, Any],
+) -> None:
+    """Valida clausura, procedencia y barrera semántica PF-13 sin ORM mutable."""
+    if set(rows) != set(vps_migration_v4.INCLUDED_TABLES):
+        raise MigrationError("La selección v4 no contiene su partición exacta")
+    _validate_packaged_v4_foreign_keys(rows)
+    companies = {int(row["id"]) for row in rows["empresas"]}
+    users = {int(row["id"]): row for row in rows["usuarios"]}
+    receipts = {int(row["id"]): row for row in rows["comprobantes"]}
+    lotes = {int(row["id"]): row for row in rows["lotes_comprobantes"]}
+    groups = {int(row["id"]): row for row in rows["lotes_comprobantes_grupos"]}
+    operations = {int(row["id"]): row for row in rows["operaciones_idempotentes"]}
+    generations = {int(row["id"]): row for row in rows["lotes_duplicados_evidencias"]}
+    blocks = {int(row["id"]): row for row in rows["lotes_duplicados_coincidencias"]}
+    group_ids = set(groups)
+    receipt_ids = set(receipts)
+    latest_generation_by_operation: dict[int, dict[str, Any]] = {}
+    for generation in generations.values():
+        operation_id = int(generation["operacion_id"])
+        latest = latest_generation_by_operation.get(operation_id)
+        if latest is None or int(generation["generacion"]) > int(latest["generacion"]):
+            latest_generation_by_operation[operation_id] = generation
+
+    pairs = normalization.get("pairs")
+    if (
+        normalization.get("rule") != vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE
+        or not isinstance(pairs, list)
+        or normalization.get("rows") != len(pairs)
+        or normalization.get("sha256") != vps_migration_v4.canonical_sha256(pairs)
+    ):
+        raise MigrationError("La normalización legacy v4 no es canónica")
+    pair_operations: set[int] = set()
+    for pair in pairs:
+        validated = _validate_normalization_pairs([pair])[0]
+        operation_id = int(validated["operacion_id"])
+        if (
+            operation_id in pair_operations
+            or operation_id not in operations
+            or operations[operation_id]["lote_id"] is not None
+            or _is_v4_operation(operations[operation_id])
+            or int(validated["lote_id"]) in lotes
+        ):
+            raise MigrationError("Una operación no pertenece sólo a legacy omitido")
+        pair_operations.add(operation_id)
+
+    _validate_v4_terminal_replays(rows, normalization_pairs=pairs)
+
+    for lote_id, lote in lotes.items():
+        if int(lote["empresa_id"]) not in companies:
+            raise MigrationError("Un lote v4 no pertenece a un emisor incluido")
+        lote_groups = [row for row in groups.values() if int(row["lote_id"]) == lote_id]
+        if len(lote_groups) != int(
+            closure.get("group_counts_by_lote", {}).get(str(lote_id), -1)
+        ) or len(lote_groups) != int(lote["total_grupos"]):
+            raise MigrationError("Un lote v4 no conserva todos sus grupos")
+        if any(
+            int(row["empresa_id"]) != int(lote["empresa_id"]) for row in lote_groups
+        ):
+            raise MigrationError("Un grupo v4 cruza el emisor de su lote")
+        state_counts = {
+            state: sum(row["estado"] == state for row in lote_groups)
+            for state in ESTADOS_GRUPO_SEGUROS_OMITIBLES
+        }
+        if (
+            int(lote["grupos_con_error"]) != state_counts["con_error"]
+            or int(lote["grupos_emitidos"]) != state_counts["autorizado"]
+            or int(lote["grupos_reconciliados_externos"])
+            != state_counts["autorizado_externo"]
+            or int(lote["grupos_fallidos"]) != state_counts["fallido"]
+            or int(lote["grupos_descartados"]) != state_counts["descartado"]
+        ):
+            raise MigrationError("Los estados de grupos v4 no reconcilian con su lote")
+
+    for group in groups.values():
+        state = group["estado"]
+        if state not in ESTADOS_GRUPO_SEGUROS_OMITIBLES:
+            raise MigrationError("Un grupo v4 conserva un estado no terminal seguro")
+        if state in {"autorizado", "autorizado_externo"}:
+            receipt = receipts.get(int(group.get("comprobante_id") or 0))
+            snapshot_values = (
+                group.get("punto_venta_id"),
+                group.get("ambiente"),
+                group.get("punto_venta_elegibilidad_revision_id"),
+                group.get("punto_venta_revision_fiscal"),
+            )
+            snapshot_legacy = all(value is None for value in snapshot_values)
+            snapshot_modern = all(value is not None for value in snapshot_values)
+            if (
+                receipt is None
+                or not _v4_has_minimum_authorization_evidence(
+                    receipt_id=group.get("comprobante_id"),
+                    number=group.get("numero_asignado"),
+                    cae=group.get("cae"),
+                    cae_expiration=receipt.get("cae_vencimiento"),
+                )
+                or not _v4_has_minimum_authorization_evidence(
+                    receipt_id=receipt.get("id"),
+                    number=receipt.get("numero"),
+                    cae=receipt.get("cae"),
+                    cae_expiration=receipt.get("cae_vencimiento"),
+                )
+                or receipt["estado"] != "autorizado"
+                or int(receipt["empresa_id"]) != int(group["empresa_id"])
+                or not (
+                    snapshot_legacy
+                    or (
+                        snapshot_modern
+                        and int(receipt["punto_venta_id"])
+                        == int(group["punto_venta_id"])
+                    )
+                )
+                or int(receipt["tipo_comprobante"]) != int(group["tipo_comprobante"])
+                or int(receipt["numero"]) != int(group["numero_asignado"])
+                or str(receipt["cae"]) != str(group["cae"])
+                or Decimal(str(receipt["total"]))
+                != Decimal(str(group["total_estimado"]))
+            ):
+                raise MigrationError("Un grupo v4 perdió su evidencia fiscal")
+        elif any(
+            group.get(field) is not None
+            for field in ("comprobante_id", "numero_asignado", "cae")
+        ):
+            raise MigrationError("Un grupo v4 no autorizado conserva evidencia fiscal")
+
+    for operation_id, operation in operations.items():
+        company_id = int(operation["empresa_id"])
+        if (
+            company_id not in companies
+            or operation["estado"] not in ESTADOS_OPERACION_TERMINALES
+        ):
+            raise MigrationError("Una operación v4 no es terminal o perdió su emisor")
+        root_id = int(operation.get("operacion_raiz_id") or operation_id)
+        root = operations.get(root_id)
+        if (
+            root is None
+            or int(root["empresa_id"]) != company_id
+            or (
+                _is_v4_operation(operation)
+                and (
+                    not _is_v4_operation(root)
+                    or root.get("lote_id") != operation.get("lote_id")
+                )
+            )
+        ):
+            raise MigrationError("Una operación v4 perdió su raíz")
+        if root.get("operacion_raiz_id") not in {None, root_id}:
+            raise MigrationError("La raíz v4 no es terminal en su linaje")
+        if operation.get("lote_id") is not None:
+            lote = lotes.get(int(operation["lote_id"]))
+            if lote is None or int(lote["empresa_id"]) != company_id:
+                raise MigrationError("Una operación v4 perdió su lote preservado")
+        if not _is_v4_operation(operation):
+            continue
+        if (
+            operation.get("lote_id") is None
+            or operation.get("operacion_raiz_id") is None
+        ):
+            raise MigrationError("Una operación PF-13 no conserva lote y raíz")
+        control = _v4_json_object(
+            operation["control_duplicados_json"],
+            label=f"operación {operation_id}",
+        )
+        selection = control.get("seleccion_original")
+        if not isinstance(selection, list) or not selection:
+            raise MigrationError("Una operación PF-13 no conserva selección original")
+        selection_ids = [
+            item.get("grupo_id") if isinstance(item, dict) else None
+            for item in selection
+        ]
+        if (
+            any(not isinstance(group_id, int) for group_id in selection_ids)
+            or len(selection_ids) != len(set(selection_ids))
+            or any(
+                group_id not in groups
+                or int(groups[group_id]["lote_id"]) != int(operation["lote_id"])
+                or int(groups[group_id]["empresa_id"]) != company_id
+                for group_id in selection_ids
+            )
+        ):
+            raise MigrationError("La selección original PF-13 no es cerrada")
+        generation_id = operation.get("duplicados_generacion_id")
+        generation = generations.get(int(generation_id or 0))
+        if (
+            generation is None
+            or int(generation["operacion_id"]) != operation_id
+            or int(latest_generation_by_operation.get(operation_id, {}).get("id") or 0)
+            != int(generation_id or 0)
+            or control.get("duplicados_generacion_id") != generation_id
+            or control.get("duplicados_generacion") != generation["generacion"]
+            or control.get("formato_relacion") != generation["formato"]
+        ):
+            raise MigrationError("La operación PF-13 perdió su generación seleccionada")
+        generation_control = _v4_json_object(
+            generation["control_snapshot_json"],
+            label=f"generación seleccionada {generation_id}",
+        )
+        if any(
+            control.get(field) != generation_control.get(field)
+            for field in ("datos_hash", "seleccion_hash", "seleccion_original")
+        ):
+            raise MigrationError("La operación PF-13 perdió su selección original")
+
+    generation_blocks: dict[int, list[dict[str, Any]]] = {}
+    for block in blocks.values():
+        generation_blocks.setdefault(int(block["generacion_id"]), []).append(block)
+    members_by_block: dict[int, list[dict[str, Any]]] = {}
+    for member in rows["lotes_duplicados_coincidencias_miembros"]:
+        block_id = int(member["bloque_id"])
+        if block_id not in blocks:
+            raise MigrationError("Un miembro PF-13 perdió su bloque")
+        members_by_block.setdefault(block_id, []).append(member)
+
+    generation_numbers: dict[int, list[int]] = {}
+    for generation_id, generation in generations.items():
+        operation = operations.get(int(generation["operacion_id"]))
+        lote = lotes.get(int(generation["lote_id"]))
+        if (
+            operation is None
+            or lote is None
+            or not _is_v4_operation(operation)
+            or int(generation["empresa_id"]) != int(operation["empresa_id"])
+            or int(lote["empresa_id"]) != int(generation["empresa_id"])
+            or generation["ambiente"] not in AMBIENTES_RECE
+            or generation["formato"] != vps_migration_v4.RELATION_FORMAT
+        ):
+            raise MigrationError("Una generación PF-13 perdió su procedencia")
+        control_snapshot = _v4_json_object(
+            generation["control_snapshot_json"],
+            label=f"generación {generation_id}",
+        )
+        if (
+            control_snapshot.get("formato_relacion") != vps_migration_v4.RELATION_FORMAT
+            or control_snapshot.get("evidencia_id") != generation["evidencia_id"]
+            or not isinstance(control_snapshot.get("seleccion_original"), list)
+            or not isinstance(control_snapshot.get("manifiesto"), dict)
+        ):
+            raise MigrationError("Una generación PF-13 no conserva cabecera válida")
+        relation = _v4_generation_relation(
+            generation,
+            blocks=generation_blocks.get(generation_id, []),
+            members_by_block=members_by_block,
+            group_ids=group_ids,
+            receipt_ids=receipt_ids,
+        )
+        manifest = control_snapshot["manifiesto"]
+        relation_member_count = sum(len(block["miembros"]) for block in relation)
+        if (
+            manifest.get("bloques") != len(relation)
+            or manifest.get("miembros") != relation_member_count
+        ):
+            raise MigrationError("El manifiesto compacto PF-13 no reconcilia")
+        stable_control = {
+            key: value
+            for key, value in control_snapshot.items()
+            if key
+            not in {
+                "estado",
+                "detalle_url",
+                "aceptacion_habilitada",
+                "aceptacion_requerida",
+            }
+        }
+        expected_snapshot_hash = vps_migration_v4.canonical_sha256(
+            {
+                "dominio": vps_migration_v4.RELATION_FORMAT,
+                "control": stable_control,
+                "relacion": relation,
+            }
+        )
+        if expected_snapshot_hash != generation["snapshot_hash"]:
+            raise MigrationError("El snapshot PF-13 perdió un bloque o testigo")
+        generation_numbers.setdefault(int(generation["operacion_id"]), []).append(
+            int(generation["generacion"])
+        )
+        accepted_at = generation.get("aceptada_at")
+        acceptance_fields = (
+            generation.get("aceptada_por_usuario_id"),
+            generation.get("aceptada_por_nombre"),
+            accepted_at,
+        )
+        origin_id = generation.get("aceptacion_origen_generacion_id")
+        if accepted_at is None:
+            if (
+                any(value is not None for value in acceptance_fields)
+                or origin_id is not None
+            ):
+                raise MigrationError("Una aceptación PF-13 pendiente es contradictoria")
+        elif (
+            generation.get("aceptacion_id") is None
+            or any(value is None for value in acceptance_fields)
+            or origin_id is None
+            or int(generation["aceptada_por_usuario_id"]) not in users
+        ):
+            raise MigrationError("Una aceptación PF-13 perdió actor o tiempo")
+
+    for operation_id, numbers in generation_numbers.items():
+        ordered = sorted(numbers)
+        if ordered != list(range(1, len(ordered) + 1)):
+            raise MigrationError(
+                f"Las generaciones de la operación {operation_id} no son completas"
+            )
+
+    for generation_id, generation in generations.items():
+        origin_id = generation.get("aceptacion_origen_generacion_id")
+        if origin_id is None or int(origin_id) == generation_id:
+            continue
+        seen = {generation_id}
+        current = generation
+        while int(current["aceptacion_origen_generacion_id"]) != int(current["id"]):
+            candidate_id = int(current["aceptacion_origen_generacion_id"])
+            if candidate_id in seen:
+                raise MigrationError("La aceptación PF-13 contiene un ciclo")
+            seen.add(candidate_id)
+            origin = generations.get(candidate_id)
+            if origin is None:
+                raise MigrationError("La aceptación PF-13 perdió su origen")
+            current_operation = operations[int(current["operacion_id"])]
+            origin_operation = operations[int(origin["operacion_id"])]
+            current_snapshot = _v4_json_object(
+                current["control_snapshot_json"], label="aceptación heredada"
+            )
+            origin_snapshot = _v4_json_object(
+                origin["control_snapshot_json"], label="origen de aceptación"
+            )
+            if (
+                int(
+                    current_operation.get("operacion_raiz_id")
+                    or current_operation["id"]
+                )
+                != int(
+                    origin_operation.get("operacion_raiz_id") or origin_operation["id"]
+                )
+                or any(
+                    current[field] != origin[field]
+                    for field in ("empresa_id", "lote_id", "ambiente", "evidencia_id")
+                )
+                or any(
+                    current_snapshot.get(field) != origin_snapshot.get(field)
+                    for field in ("datos_hash", "seleccion_hash", "seleccion_original")
+                )
+                or any(
+                    current.get(field) != origin.get(field)
+                    for field in (
+                        "aceptacion_id",
+                        "aceptada_por_usuario_id",
+                        "aceptada_por_nombre",
+                        "aceptada_at",
+                    )
+                )
+            ):
+                raise MigrationError("La aceptación PF-13 heredada no es compatible")
+            current = origin
+
+    for group in groups.values():
+        reservation = group.get("duplicados_reserva_operacion_id")
+        if reservation is not None:
+            operation = operations.get(int(reservation))
+            if (
+                operation is None
+                or int(operation["empresa_id"]) != int(group["empresa_id"])
+                or int(operation.get("lote_id") or 0) != int(group["lote_id"])
+            ):
+                raise MigrationError("Una reserva PF-13 perdió su operación")
+
+    _validate_v4_attempt_fiscal_evidence(rows)
+    for receipt in receipts.values():
+        if receipt["estado"] == "autorizado" and not (
+            _v4_has_minimum_authorization_evidence(
+                receipt_id=receipt.get("id"),
+                number=receipt.get("numero"),
+                cae=receipt.get("cae"),
+                cae_expiration=receipt.get("cae_vencimiento"),
+            )
+        ):
+            raise MigrationError(
+                "Comprobante autorizado v4 sin evidencia fiscal completa"
+            )
+    _validate_v4_pf19c_history(rows)
+
+    expected_closure = _v4_closure_payload(
+        rows=rows,
+        normalization=normalization,
+    )
+    if closure != expected_closure:
+        raise MigrationError("La clausura declarada del paquete v4 no verifica")
+
+
+def _canonical_v4_barrier_rows(
+    rows: dict[str, list[dict[str, Any]]],
+) -> dict[str, list[dict[str, Any]]]:
+    result: dict[str, list[dict[str, Any]]] = {}
+    for table_name in vps_migration_v4.INCLUDED_TABLES:
+        table = Base.metadata.tables[table_name]
+        normalized_rows = []
+        for row in rows[table_name]:
+            normalized = {}
+            for column_name in vps_migration_v4.V4_COLUMNS[table_name]:
+                value = row[column_name]
+                column_type = table.c[column_name].type
+                if value is not None and isinstance(column_type, Boolean):
+                    value = bool(value)
+                elif value is not None and isinstance(column_type, DateTime):
+                    parsed = (
+                        value
+                        if isinstance(value, datetime)
+                        else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                    )
+                    if column_type.timezone:
+                        if parsed.tzinfo is None:
+                            parsed = parsed.replace(tzinfo=timezone.utc)
+                        else:
+                            parsed = parsed.astimezone(timezone.utc)
+                    value = parsed.isoformat()
+                elif value is not None and isinstance(column_type, Date):
+                    value = (
+                        value
+                        if isinstance(value, date)
+                        else date.fromisoformat(str(value))
+                    ).isoformat()
+                elif value is not None and isinstance(column_type, Numeric):
+                    value = format(Decimal(str(value)).normalize(), "f")
+                elif value is not None and isinstance(column_type, JSON):
+                    value = json.loads(value) if isinstance(value, str) else value
+                normalized[column_name] = value
+            normalized_rows.append(normalized)
+        primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+        normalized_rows.sort(key=lambda item: tuple(item[name] for name in primary_key))
+        result[table_name] = normalized_rows
+    return result
+
+
+def build_v4_idempotency_barrier(
+    *,
+    source_barrier: dict[str, Any],
+    normalization: dict[str, Any],
+    closure: dict[str, Any],
+    rows: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Atestigua todos los campos decisorios y relaciones del paquete v4."""
+    material = {
+        "version": 2,
+        "algorithm": vps_migration_v4.BARRIER_ALGORITHM,
+        "source_barrier": source_barrier,
+        "normalization": normalization,
+        "closure": closure,
+        "tables": _canonical_v4_barrier_rows(rows),
+    }
+    return {
+        "version": 2,
+        "algorithm": vps_migration_v4.BARRIER_ALGORITHM,
+        "rows": sum(len(table_rows) for table_rows in rows.values()),
+        "sha256": vps_migration_v4.canonical_sha256(material),
+    }
+
+
 def run_preflight(
     source_db: Path,
     certs_dir: Path,
     backend_dir: Path | None = None,
 ) -> PreflightResult:
     """Diagnostica si la fuente es apta; export vuelve a validar en snapshot."""
-    db_path, certs_base = resolve_source_paths(source_db, certs_dir)
     repo_head = get_repo_alembic_head(backend_dir)
+    if repo_head != vps_migration_v4.ALEMBIC_HEAD:
+        raise MigrationError("El preflight v4 exige el head PF-13 exacto del contrato")
+    db_path, certs_base = resolve_source_paths(source_db, certs_dir)
     with connect_sqlite_readonly(db_path) as conn:
         return run_preflight_on_connection(
             conn,
@@ -373,7 +2072,12 @@ def run_preflight_on_connection(
     """Ejecuta todas las barreras SQLite usando una conexión ya inmovilizada."""
     validate_table_partition()
     tables = get_sqlite_tables(conn)
-    expected_tables = set(INCLUDED_TABLES + EXCLUDED_TABLES + ["alembic_version"])
+    expected_tables = {
+        *vps_migration_v4.INCLUDED_TABLES,
+        *vps_migration_v4.REGENERATED_TABLES,
+        *vps_migration_v4.EXCLUDED_TABLES,
+        "alembic_version",
+    }
     if tables != expected_tables:
         missing = sorted(expected_tables - tables)
         unexpected = sorted(tables - expected_tables)
@@ -408,14 +2112,15 @@ def run_preflight_on_connection(
 
     validate_rece_ledger_sqlite(conn)
     validate_user_accesses_sqlite(conn)
-    included_counts = count_tables(conn, INCLUDED_TABLES)
-    excluded_counts = count_tables(conn, EXCLUDED_TABLES)
-    safe_omitted = classify_safe_omissions(conn)
-    validate_safe_omitted_counts(
-        safe_omitted,
-        included_counts=included_counts,
-        excluded_counts=excluded_counts,
-    )
+    validate_v4_sqlite_schema(conn)
+    validate_v4_source_coordinators(conn)
+    capture = capture_v4_rows(conn)
+    included_counts = capture.included_counts
+    excluded_counts = {
+        table_name: capture.source_counts[table_name]
+        for table_name in vps_migration_v4.EXCLUDED_TABLES
+    }
+    safe_omitted = capture.safe_omitted
     active_certs = list_active_certificates(conn)
     missing_certs = find_missing_certificate_files(active_certs, certs_base)
     if missing_certs:
@@ -437,6 +2142,98 @@ def run_preflight_on_connection(
     )
 
 
+def _staging_is_reparse(info: os.stat_result) -> bool:
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return bool(getattr(info, "st_file_attributes", 0) & reparse_flag)
+
+
+def capture_staging_directory_ownership(
+    staging_dir: Path,
+    output_base: Path,
+) -> StagingDirectoryOwnership:
+    """Captura la identidad del directorio recién creado y verifica su padre."""
+    parent = output_base.resolve()
+    if staging_dir.parent.resolve() != parent or staging_dir.is_symlink():
+        raise MigrationError("El staging de exportación no pertenece al destino")
+    try:
+        info = os.stat(staging_dir, follow_symlinks=False)
+    except OSError as exc:
+        raise MigrationError("No se pudo acreditar el staging de exportación") from exc
+    if not stat.S_ISDIR(info.st_mode) or _staging_is_reparse(info):
+        raise MigrationError("El staging de exportación no es un directorio real")
+    return StagingDirectoryOwnership(
+        parent=parent,
+        device=int(info.st_dev),
+        inode=int(info.st_ino),
+    )
+
+
+def verify_owned_staging_directory(
+    staging_dir: Path,
+    ownership: StagingDirectoryOwnership,
+) -> None:
+    """Falla cerrado si el staging desapareció, cambió o dejó de ser propio."""
+    if staging_dir.parent.resolve() != ownership.parent or staging_dir.is_symlink():
+        raise MigrationError("El staging propio cambió de ubicación o tipo")
+    try:
+        info = os.stat(staging_dir, follow_symlinks=False)
+    except OSError as exc:
+        raise MigrationError("El staging propio ya no está disponible") from exc
+    if (
+        not stat.S_ISDIR(info.st_mode)
+        or _staging_is_reparse(info)
+        or (int(info.st_dev), int(info.st_ino)) != (ownership.device, ownership.inode)
+    ):
+        raise MigrationError("La identidad del staging propio cambió")
+
+
+def publish_staging_directory(
+    staging_dir: Path,
+    package_dir: Path,
+    ownership: StagingDirectoryOwnership,
+    *,
+    platform_name: str | None = None,
+    sleep: Any = time.sleep,
+) -> Path:
+    """Publica mediante el mismo rename, con tolerancia acotada a WinError 5."""
+    platform = os.name if platform_name is None else platform_name
+    if package_dir.parent.resolve() != ownership.parent:
+        raise MigrationError("El paquete destino no comparte el padre del staging")
+    delays = (0.05, 0.10, 0.20, 0.40)
+    attempts = 5 if platform == "nt" else 1
+    for attempt in range(attempts):
+        verify_owned_staging_directory(staging_dir, ownership)
+        if os.path.lexists(package_dir):
+            raise MigrationError(f"Ya existe el paquete destino: {package_dir}")
+        try:
+            staging_dir.rename(package_dir)
+            return package_dir
+        except PermissionError as exc:
+            if platform != "nt" or getattr(exc, "winerror", None) != 5:
+                raise
+            if attempt == attempts - 1:
+                raise MigrationError(
+                    "No se pudo publicar el paquete de forma atómica tras "
+                    "5 intentos en Windows"
+                ) from exc
+            if os.path.lexists(package_dir):
+                raise MigrationError(f"Ya existe el paquete destino: {package_dir}")
+            verify_owned_staging_directory(staging_dir, ownership)
+            sleep(delays[attempt])
+    raise AssertionError("Bucle de publicación atómica incompleto")
+
+
+def cleanup_owned_staging_directory(
+    staging_dir: Path,
+    ownership: StagingDirectoryOwnership,
+) -> None:
+    """Elimina sólo el staging que conserva la identidad capturada."""
+    if not os.path.lexists(staging_dir):
+        return
+    verify_owned_staging_directory(staging_dir, ownership)
+    shutil.rmtree(staging_dir)
+
+
 def export_package(
     source_db: Path,
     certs_dir: Path,
@@ -455,13 +2252,17 @@ def export_package(
             "con --source-quiesced antes de exportar."
         )
 
-    db_path, certs_base = resolve_source_paths(source_db, certs_dir)
     repo_head = get_repo_alembic_head(backend_dir)
+    if repo_head != vps_migration_v4.ALEMBIC_HEAD:
+        raise MigrationError(
+            "La exportación v4 PF-13 exige el head exacto del contrato"
+        )
+    db_path, certs_base = resolve_source_paths(source_db, certs_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_base = output_root.resolve()
     output_base.mkdir(parents=True, exist_ok=True)
     package_dir = output_base / timestamp
-    if package_dir.exists():
+    if os.path.lexists(package_dir):
         raise MigrationError(f"Ya existe el paquete destino: {package_dir}")
     staging_dir = Path(
         tempfile.mkdtemp(
@@ -469,14 +2270,15 @@ def export_package(
             suffix=".tmp",
             dir=output_base,
         )
-    ).resolve()
+    )
+    staging_ownership = capture_staging_directory_ownership(staging_dir, output_base)
     try:
         os.chmod(staging_dir, 0o700)
         data_files: dict[str, dict[str, Any]] = {}
         cert_files: dict[str, dict[str, Any]] = {}
         normalizations: dict[str, dict[str, Any]] = {}
-        operation_rows_for_barrier: list[dict[str, Any]] = []
-        association_rows_for_barrier: list[dict[str, Any]] = []
+        package_rows: dict[str, list[dict[str, Any]]] = {}
+        capture: V4Capture | None = None
         conn = connect_sqlite_export_snapshot(db_path)
         try:
             data_version_inicio = int(conn.execute("PRAGMA data_version").fetchone()[0])
@@ -486,6 +2288,7 @@ def export_package(
                 certs_base=certs_base,
                 repo_head=repo_head,
             )
+            capture = capture_v4_rows(conn)
             data_dir = staging_dir / "data"
             package_certs_dir = staging_dir / "certs"
             data_dir.mkdir(parents=True, mode=0o700)
@@ -493,13 +2296,6 @@ def export_package(
 
             active_certs = list_active_certificates(conn)
             active_by_id = {int(row["id"]): row for row in active_certs}
-            group_ids_by_lote: dict[int, list[int]] = {}
-            for group_row in conn.execute(
-                "SELECT id, lote_id FROM lotes_comprobantes_grupos ORDER BY lote_id, id"
-            ):
-                group_ids_by_lote.setdefault(int(group_row["lote_id"]), []).append(
-                    int(group_row["id"])
-                )
             copied_names = export_active_certificate_files(
                 active_certs=active_certs,
                 certs_dir=preflight.certs_dir,
@@ -508,23 +2304,18 @@ def export_package(
                 source_key_password=source_key_password,
             )
 
-            for table_name in INCLUDED_TABLES:
-                rows = read_table_rows(conn, table_name)
+            normalizations[
+                vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY
+            ] = capture.normalization
+            for table_name in vps_migration_v4.INCLUDED_TABLES:
+                rows = [dict(row) for row in capture.rows[table_name]]
                 if table_name == "certificados":
                     rows = normalize_certificate_rows(
                         rows,
                         active_by_id,
                         copied_names,
                     )
-                elif table_name == "operaciones_idempotentes":
-                    rows, normalization = normalize_operation_rows(
-                        rows,
-                        group_ids_by_lote=group_ids_by_lote,
-                    )
-                    normalizations[OPERATION_LOTE_NORMALIZATION_KEY] = normalization
-                    operation_rows_for_barrier = [dict(row) for row in rows]
-                elif table_name == "operaciones_idempotentes_elegibilidad_rece":
-                    association_rows_for_barrier = [dict(row) for row in rows]
+                package_rows[table_name] = rows
                 file_path = data_dir / f"{table_name}.jsonl"
                 write_jsonl(file_path, rows)
                 data_files[table_name] = {
@@ -555,11 +2346,13 @@ def export_package(
             "sqlite_transaction": "BEGIN IMMEDIATE",
             "data_version": data_version_inicio,
         }
-        idempotency_barrier = build_idempotency_barrier(
+        if capture is None:
+            raise MigrationError("La captura v4 no llegó a completarse")
+        idempotency_barrier = build_v4_idempotency_barrier(
             source_barrier=source_barrier,
-            normalization=normalizations[OPERATION_LOTE_NORMALIZATION_KEY],
-            operation_rows=operation_rows_for_barrier,
-            association_rows=association_rows_for_barrier,
+            normalization=capture.normalization,
+            closure=capture.closure,
+            rows=package_rows,
         )
         env_template_path = staging_dir / ENV_TEMPLATE_FILENAME
         write_env_template(env_template_path)
@@ -573,29 +2366,53 @@ def export_package(
             "created_at": datetime.now(timezone.utc).isoformat(),
             "scope": SCOPE,
             "alembic_version": preflight.alembic_version,
-            "included_tables": INCLUDED_TABLES,
-            "excluded_tables": EXCLUDED_TABLES,
-            "target_empty_tables": TARGET_EMPTY_TABLES,
-            "included_counts": preflight.included_counts,
-            "excluded_counts": preflight.excluded_counts,
+            "complete_tables": list(vps_migration_v4.COMPLETE_TABLES),
+            "filtered_tables": list(vps_migration_v4.FILTERED_TABLES),
+            "regenerated_tables": list(vps_migration_v4.REGENERATED_TABLES),
+            "included_tables": list(vps_migration_v4.INCLUDED_TABLES),
+            "excluded_tables": list(vps_migration_v4.EXCLUDED_TABLES),
+            "target_empty_tables": list(vps_migration_v4.TARGET_EMPTY_TABLES),
+            "source_counts": capture.source_counts,
+            "included_counts": capture.included_counts,
+            "omitted_counts": capture.omitted_counts,
             "active_certificates": preflight.active_certificates,
             "safe_omitted": preflight.safe_omitted,
             "normalizations": normalizations,
+            "closure": capture.closure,
             "source_barrier": source_barrier,
             "idempotency_barrier": idempotency_barrier,
             "data_files": data_files,
             "certificate_files": cert_files,
             "env_template": env_template,
             "required_env_keys": REQUIRED_ENV_KEYS,
-            "notes": PACKAGE_NOTES,
+            "notes": list(vps_migration_v4.PACKAGE_NOTES),
         }
         write_json(staging_dir / "manifest.json", manifest)
-        if package_dir.exists():
-            raise MigrationError(f"Ya existe el paquete destino: {package_dir}")
-        staging_dir.rename(package_dir)
-    except BaseException:
-        if staging_dir.exists() and staging_dir.parent == output_base:
-            shutil.rmtree(staging_dir)
+        publish_staging_directory(staging_dir, package_dir, staging_ownership)
+    except BaseException as publication_error:
+        try:
+            cleanup_owned_staging_directory(staging_dir, staging_ownership)
+        except BaseException as cleanup_error:
+            if isinstance(cleanup_error, (KeyboardInterrupt, SystemExit)):
+                cleanup_error.add_note(
+                    "La limpieza del staging propio quedó incompleta después "
+                    "de un fallo de publicación"
+                )
+                raise cleanup_error from publication_error
+            if isinstance(publication_error, (KeyboardInterrupt, SystemExit)):
+                publication_error.add_note(
+                    "La publicación fue interrumpida y la limpieza del staging "
+                    "propio quedó incompleta"
+                )
+                raise publication_error from cleanup_error
+            failures = BaseExceptionGroup(
+                "Fallaron la publicación y la limpieza del staging propio",
+                [publication_error, cleanup_error],
+            )
+            raise MigrationError(
+                "La publicación del paquete falló y la limpieza del staging "
+                "propio quedó incompleta"
+            ) from failures
         raise
     return package_dir
 
@@ -609,6 +2426,7 @@ def import_package(
     """Restaura un paquete privado sobre una PostgreSQL limpia."""
     package = package_dir.resolve()
     manifest = load_and_verify_manifest(package)
+    contract = select_import_contract(manifest)
     env_values = parse_env_file(production_env)
     target_password = env_values.get("ARCA_PRIVATE_KEY_PASSWORD") or os.getenv(
         "ARCA_PRIVATE_KEY_PASSWORD"
@@ -625,7 +2443,7 @@ def import_package(
 
     package_rows = {
         table_name: read_package_rows(package, manifest, table_name)
-        for table_name in INCLUDED_TABLES
+        for table_name in contract.included_tables
     }
     verify_package_certificates(
         package,
@@ -639,18 +2457,37 @@ def import_package(
     transaction_body_completed = False
     try:
         with engine.begin() as conn:
-            lock_target_tables_for_import(conn)
-            ensure_target_database_ready(conn, manifest)
+            lock_target_tables_for_import(conn, contract)
+            ensure_target_database_ready(conn, manifest, contract)
             materialize_certificate_restore(
                 certificate_plan,
                 certificate_journal,
             )
-            clear_seeded_included_tables(conn)
-            for table_name in INCLUDED_TABLES:
-                insert_rows(conn, table_name, package_rows[table_name])
-            validate_imported_database(conn, manifest, package_rows)
-            reset_postgres_sequences(conn)
-            verify_postgres_sequences(conn)
+            clear_seeded_included_tables(conn, contract)
+            insert_order = (
+                contract.insert_order
+                if contract.package_version == vps_migration_v4.PACKAGE_VERSION
+                else contract.included_tables
+            )
+            for table_name in insert_order:
+                rows = package_rows[table_name]
+                deferred = (
+                    contract.deferred_columns.get(table_name, ())
+                    if contract.package_version == vps_migration_v4.PACKAGE_VERSION
+                    else ()
+                )
+                if deferred:
+                    rows = [
+                        {**row, **{column_name: None for column_name in deferred}}
+                        for row in rows
+                    ]
+                insert_rows(conn, table_name, rows)
+            if contract.package_version == vps_migration_v4.PACKAGE_VERSION:
+                restore_deferred_columns(conn, package_rows, contract)
+            regenerate_v3_coordinators(conn)
+            validate_imported_database(conn, manifest, package_rows, contract)
+            reset_postgres_sequences(conn, contract)
+            verify_postgres_sequences(conn, contract)
             verify_restored_certificate_files(
                 certs_dir,
                 manifest,
@@ -740,21 +2577,22 @@ def _validate_import_runtime(
     login_email: str | None,
 ) -> None:
     """Ejecuta la validación bajo lock y clasifica un commit no confirmado."""
+    contract = select_import_contract(manifest)
     retry_safe = False
     engine = create_postgres_engine(database_url)
     try:
         with engine.begin() as conn:
-            lock_target_tables_for_import(conn)
+            lock_target_tables_for_import(conn, contract)
             package_rows = {
                 table_name: read_package_rows(package, manifest, table_name)
-                for table_name in INCLUDED_TABLES
+                for table_name in contract.included_tables
             }
             try:
-                validate_imported_database(conn, manifest, package_rows)
-                verify_postgres_sequences(conn)
+                validate_imported_database(conn, manifest, package_rows, contract)
+                verify_postgres_sequences(conn, contract)
             except MigrationError:
                 try:
-                    ensure_target_database_ready(conn, manifest)
+                    ensure_target_database_ready(conn, manifest, contract)
                 except MigrationError as dirty_error:
                     raise MigrationError(
                         "El import quedó parcial o corrupto; requiere intervención "
@@ -827,15 +2665,18 @@ def count_tables(conn: sqlite3.Connection, tables: Iterable[str]) -> dict[str, i
 
 def validate_table_partition() -> None:
     """Exige una clasificación exhaustiva y sin solapamientos del modelo."""
-    included = set(INCLUDED_TABLES)
-    excluded = set(EXCLUDED_TABLES)
-    overlap = sorted(included & excluded)
+    included = set(vps_migration_v4.INCLUDED_TABLES)
+    regenerated = set(vps_migration_v4.REGENERATED_TABLES)
+    excluded = set(vps_migration_v4.EXCLUDED_TABLES)
+    overlap = sorted(
+        (included & regenerated) | (included & excluded) | (regenerated & excluded)
+    )
     if overlap:
         raise MigrationError(
             "Hay tablas simultáneamente incluidas y excluidas: " + ", ".join(overlap)
         )
     modeled = set(Base.metadata.tables)
-    classified = included | excluded
+    classified = included | regenerated | excluded
     if modeled != classified:
         missing = sorted(modeled - classified)
         unknown = sorted(classified - modeled)
@@ -904,7 +2745,7 @@ def _is_exact_global_10005_errors(value: Any) -> bool:
 
 
 def _response_is_exact_global_10005(
-    response: EmitirComprobanteResponse,
+    response: Any,
 ) -> bool:
     """Comprueba que un DTO individual conserva el rechazo global canónico."""
     return bool(
@@ -914,7 +2755,7 @@ def _response_is_exact_global_10005(
         and response.cae is None
         and response.cae_vencimiento is None
         and response.mensaje == ARCA_RECHAZO_GLOBAL_INDIVIDUAL_MENSAJE
-        and response.errores == ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES
+        and tuple(response.errores) == tuple(ARCA_RECHAZO_GLOBAL_INDIVIDUAL_ERRORES)
         and response.categoria_error == ARCA_RECHAZO_GLOBAL_CATEGORIA
         and len(response.errores_arca) == 1
         and response.errores_arca[0].codigo == 10005
@@ -2467,7 +4308,7 @@ def validate_safe_omitted_counts(
             "esperado": excluded_counts[table_name],
             "observado": safe_omitted.get(summary_key),
         }
-        for table_name, summary_key in SAFE_OMITTED_COUNT_KEYS.items()
+        for table_name, summary_key in vps_migration_v3.SAFE_OMITTED_COUNT_KEYS.items()
         if safe_omitted.get(summary_key) != excluded_counts[table_name]
     }
     if mismatches:
@@ -2902,7 +4743,7 @@ def build_idempotency_barrier(
     ]
     material = {
         "version": 1,
-        "algorithm": IDEMPOTENCY_BARRIER_ALGORITHM,
+        "algorithm": vps_migration_v3.IDEMPOTENCY_BARRIER_ALGORITHM,
         "source_barrier": source_barrier,
         "normalization": normalization,
         "operations": operations,
@@ -2917,7 +4758,7 @@ def build_idempotency_barrier(
     ).encode("utf-8")
     return {
         "version": 1,
-        "algorithm": IDEMPOTENCY_BARRIER_ALGORITHM,
+        "algorithm": vps_migration_v3.IDEMPOTENCY_BARRIER_ALGORITHM,
         "rows": len(operations),
         "sha256": hashlib.sha256(canonical).hexdigest(),
     }
@@ -3063,9 +4904,9 @@ def _parse_manifest_jsonl_lines(
     *,
     table_name: str,
 ) -> list[dict[str, Any]]:
-    """Parsea JSONL canónico y exige el schema exacto de la tabla modelada."""
-    table = Base.metadata.tables[table_name]
-    expected_columns = {column.name for column in table.columns}
+    """Parsea JSONL canónico y exige el schema histórico fijo de v3."""
+    columns = vps_migration_v3.V3_COLUMNS[table_name]
+    expected_columns = set(columns)
     rows: list[dict[str, Any]] = []
     for line_number, line in enumerate(lines, start=1):
         serialized = line.rstrip("\n")
@@ -3079,22 +4920,22 @@ def _parse_manifest_jsonl_lines(
             raise MigrationError(
                 f"Schema JSONL inválido en {table_name}, línea {line_number}"
             )
-        for column in table.columns:
-            value = payload[column.name]
+        for column_name, column in columns.items():
+            value = payload[column_name]
             if value is None:
-                if not column.nullable and not column.primary_key:
+                if column.primary_key or not column.nullable:
                     raise MigrationError(
-                        f"NULL inválido en {table_name}.{column.name}, "
+                        f"NULL inválido en {table_name}.{column_name}, "
                         f"línea {line_number}"
                     )
                 continue
-            if isinstance(column.type, Boolean) and (
+            if column.kind == "boolean" and (
                 not isinstance(value, int)
                 or isinstance(value, bool)
                 or value not in {0, 1}
             ):
                 raise MigrationError(
-                    f"Boolean no canónico en {table_name}.{column.name}, "
+                    f"Boolean no canónico en {table_name}.{column_name}, "
                     f"línea {line_number}"
                 )
         canonical = json.dumps(
@@ -3107,15 +4948,36 @@ def _parse_manifest_jsonl_lines(
             raise MigrationError(
                 f"JSONL no canónico en {table_name}, línea {line_number}"
             )
-        convert_row_for_table(table, payload)
+        try:
+            vps_migration_v3.adapt_row(table_name, payload)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MigrationError(
+                f"Tipo JSONL inválido en {table_name}, línea {line_number}"
+            ) from exc
         rows.append(payload)
-    if "id" in expected_columns:
-        ids = [
-            _require_nonnegative_int(row.get("id"), label=f"{table_name}.id")
-            for row in rows
-        ]
-        if any(identifier <= 0 for identifier in ids) or ids != sorted(set(ids)):
-            raise MigrationError(f"IDs no canónicos en el JSONL de {table_name}")
+    primary_key = vps_migration_v3.PRIMARY_KEYS[table_name]
+    identities: list[tuple[Any, ...]] = []
+    for row in rows:
+        identity: list[Any] = []
+        for column_name in primary_key:
+            value = row[column_name]
+            if value is None:
+                raise MigrationError(
+                    f"PK nula en el JSONL de {table_name}.{column_name}"
+                )
+            if columns[column_name].kind == "integer":
+                value = _require_nonnegative_int(
+                    value,
+                    label=f"{table_name}.{column_name}",
+                )
+                if value <= 0:
+                    raise MigrationError(
+                        f"PK no positiva en el JSONL de {table_name}.{column_name}"
+                    )
+            identity.append(value)
+        identities.append(tuple(identity))
+    if identities != sorted(identities) or len(identities) != len(set(identities)):
+        raise MigrationError(f"PK no canónica en el JSONL de {table_name}")
     return rows
 
 
@@ -3130,6 +4992,156 @@ def _read_manifest_jsonl_rows(
     return _parse_manifest_jsonl_lines(
         text_content.splitlines(keepends=True),
         table_name=table_name,
+    )
+
+
+def _convert_v4_jsonl_value(
+    *,
+    table_name: str,
+    column_name: str,
+    value: Any,
+    line_number: int,
+) -> Any:
+    """Valida un valor v4 sin coerciones ambiguas y devuelve su tipo destino."""
+    column = Base.metadata.tables[table_name].c[column_name]
+    label = f"{table_name}.{column_name}, línea {line_number}"
+    if value is None:
+        if column.primary_key or not column.nullable:
+            raise MigrationError(f"NULL inválido en {label}")
+        return None
+    if isinstance(column.type, Boolean):
+        if not isinstance(value, int) or isinstance(value, bool) or value not in {0, 1}:
+            raise MigrationError(f"Boolean no canónico en {label}")
+        return bool(value)
+    if isinstance(column.type, Integer):
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise MigrationError(f"Entero no canónico en {label}")
+        return value
+    if isinstance(column.type, DateTime):
+        if not isinstance(value, str):
+            raise MigrationError(f"Timestamp no canónico en {label}")
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if column.type.timezone:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            else:
+                parsed = parsed.astimezone(timezone.utc)
+        elif parsed.tzinfo is not None:
+            raise MigrationError(f"Timestamp local con zona inesperada en {label}")
+        return parsed
+    if isinstance(column.type, Date):
+        if not isinstance(value, str) or date.fromisoformat(value).isoformat() != value:
+            raise MigrationError(f"Fecha no canónica en {label}")
+        return date.fromisoformat(value)
+    if isinstance(column.type, Numeric):
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            raise MigrationError(f"Decimal no canónico en {label}")
+        decimal_value = Decimal(str(value))
+        if not decimal_value.is_finite():
+            raise MigrationError(f"Decimal no finito en {label}")
+        scale = column.type.scale
+        precision = column.type.precision
+        if scale is not None:
+            quantum = Decimal(1).scaleb(-scale)
+            if decimal_value != decimal_value.quantize(quantum):
+                raise MigrationError(f"Decimal fuera de escala en {label}")
+        if precision is not None:
+            integer_digits = max(1, decimal_value.copy_abs().adjusted() + 1)
+            if integer_digits > precision - int(scale or 0):
+                raise MigrationError(f"Decimal fuera de precisión en {label}")
+        return decimal_value
+    if isinstance(column.type, JSON):
+        if not isinstance(value, str):
+            raise MigrationError(f"JSON SQLite no canónico en {label}")
+        return json.loads(value, object_pairs_hook=_json_object_without_duplicate_keys)
+    if isinstance(column.type, (String, Text)):
+        if not isinstance(value, str):
+            raise MigrationError(f"Texto no canónico en {label}")
+        length = getattr(column.type, "length", None)
+        if length is not None and len(value) > length:
+            raise MigrationError(f"Texto fuera de longitud en {label}")
+        return value
+    raise MigrationError(f"Tipo v4 no soportado en {label}")
+
+
+def _parse_manifest_jsonl_lines_v4(
+    lines: Iterable[str],
+    *,
+    table_name: str,
+    convert: bool = False,
+) -> list[dict[str, Any]]:
+    """Parsea JSONL v4 contra columnas congeladas y tipos estrictos del head."""
+    try:
+        expected_columns = vps_migration_v4.V4_COLUMNS[table_name]
+        target_table = Base.metadata.tables[table_name]
+    except KeyError as exc:
+        raise MigrationError(f"Tabla v4 no modelada: {table_name}") from exc
+    if tuple(target_table.columns.keys()) != expected_columns:
+        raise MigrationError(
+            f"El ORM vigente ya no representa el contrato v4 de {table_name}"
+        )
+    rows: list[dict[str, Any]] = []
+    converted_rows: list[dict[str, Any]] = []
+    expected_set = set(expected_columns)
+    for line_number, line in enumerate(lines, start=1):
+        serialized = line.rstrip("\n")
+        if not serialized or serialized.endswith("\r"):
+            raise MigrationError(f"JSONL inválido en {table_name}, línea {line_number}")
+        payload = json.loads(
+            serialized,
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+        if not isinstance(payload, dict) or set(payload) != expected_set:
+            raise MigrationError(
+                f"Schema JSONL inválido en {table_name}, línea {line_number}"
+            )
+        canonical = json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        )
+        if serialized != canonical:
+            raise MigrationError(
+                f"JSONL no canónico en {table_name}, línea {line_number}"
+            )
+        converted_row = {
+            column_name: _convert_v4_jsonl_value(
+                table_name=table_name,
+                column_name=column_name,
+                value=payload[column_name],
+                line_number=line_number,
+            )
+            for column_name in expected_columns
+        }
+        rows.append(payload)
+        converted_rows.append(converted_row)
+    primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+    identities = [
+        tuple(row[column_name] for column_name in primary_key) for row in rows
+    ]
+    if any(
+        not isinstance(value, int) or isinstance(value, bool) or value <= 0
+        for identity in identities
+        for value in identity
+    ):
+        raise MigrationError(f"PK no positiva en el JSONL de {table_name}")
+    if identities != sorted(identities) or len(identities) != len(set(identities)):
+        raise MigrationError(f"PK no canónica en el JSONL de {table_name}")
+    return converted_rows if convert else rows
+
+
+def _read_manifest_jsonl_rows_v4(
+    file_path: Path,
+    *,
+    table_name: str,
+    convert: bool = False,
+) -> list[dict[str, Any]]:
+    raw = file_path.read_bytes()
+    return _parse_manifest_jsonl_lines_v4(
+        raw.decode("utf-8").splitlines(keepends=True),
+        table_name=table_name,
+        convert=convert,
     )
 
 
@@ -3338,18 +5350,13 @@ def _validate_packaged_foreign_keys(
     table_rows: dict[str, list[dict[str, Any]]],
 ) -> None:
     """Valida en memoria las FKs entre tablas incluidas antes de tocar destino."""
-    included = set(INCLUDED_TABLES)
+    included = set(vps_migration_v3.INCLUDED_TABLES)
     referenced_keys: dict[tuple[str, tuple[str, ...]], set[tuple[Any, ...]]] = {}
-    for table_name in INCLUDED_TABLES:
-        table = Base.metadata.tables[table_name]
-        for constraint in table.foreign_key_constraints:
-            referred_table = constraint.referred_table.name
-            local_columns = tuple(
-                element.parent.name for element in constraint.elements
-            )
-            remote_columns = tuple(
-                element.column.name for element in constraint.elements
-            )
+    for table_name in vps_migration_v3.INCLUDED_TABLES:
+        for constraint in vps_migration_v3.FOREIGN_KEYS.get(table_name, ()):
+            referred_table = constraint.remote_table
+            local_columns = constraint.local_columns
+            remote_columns = constraint.remote_columns
             if referred_table not in included:
                 for row in table_rows[table_name]:
                     values = tuple(row[column] for column in local_columns)
@@ -3376,6 +5383,45 @@ def _validate_packaged_foreign_keys(
                     raise MigrationError(
                         f"{table_name} conserva una FK incluida inexistente"
                     )
+
+
+def _validate_packaged_v4_foreign_keys(
+    table_rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Valida todas las FKs vigentes del subgrafo v4, incluidas las diferidas."""
+    included = set(vps_migration_v4.INCLUDED_TABLES)
+    key_cache: dict[tuple[str, tuple[str, ...]], set[tuple[Any, ...]]] = {}
+    for table_name in vps_migration_v4.INCLUDED_TABLES:
+        table = Base.metadata.tables[table_name]
+        for constraint in table.foreign_key_constraints:
+            local_columns = tuple(
+                element.parent.name for element in constraint.elements
+            )
+            remote_table = next(iter(constraint.elements)).column.table.name
+            remote_columns = tuple(
+                element.column.name for element in constraint.elements
+            )
+            if remote_table not in included:
+                for row in table_rows[table_name]:
+                    if any(
+                        row[column_name] is not None for column_name in local_columns
+                    ):
+                        raise MigrationError(
+                            f"{table_name} conserva una FK a {remote_table} fuera de v4"
+                        )
+                continue
+            cache_key = (remote_table, remote_columns)
+            if cache_key not in key_cache:
+                key_cache[cache_key] = {
+                    tuple(row[column_name] for column_name in remote_columns)
+                    for row in table_rows[remote_table]
+                }
+            for row in table_rows[table_name]:
+                values = tuple(row[column_name] for column_name in local_columns)
+                if any(value is None for value in values):
+                    continue
+                if values not in key_cache[cache_key]:
+                    raise MigrationError(f"{table_name} conserva una FK v4 inexistente")
 
 
 def _validate_packaged_user_accesses(
@@ -3483,7 +5529,7 @@ def _validate_packaged_terminal_operations(
             if operation_type == "emitir_comprobante":
                 if operation_id in pair_by_operation:
                     raise MigrationError("Una emisión individual conserva lote")
-                parsed = EmitirComprobanteResponse.model_validate(response)
+                parsed = vps_migration_v3.parse_individual_replay(response)
                 if parsed.requiere_reconciliacion:
                     raise MigrationError("Replay individual incierto en el paquete")
                 associations = associations_by_operation.get(operation_id, [])
@@ -3564,14 +5610,12 @@ def _validate_packaged_terminal_operations(
             if pair is None:
                 raise MigrationError("Operación batch sin lote normalizado")
             if "categoria_error" in response:
-                category = response.get("categoria_error")
-                message = response.get("mensaje")
-                errors = response.get("errores")
-                status_code = response.get("status_code")
+                parsed_error = vps_migration_v3.parse_batch_error_replay(response)
+                category = parsed_error.categoria_error
+                status_code = parsed_error.status_code
                 if (
                     state == "finalizado"
                     or state == "rechazado_arca"
-                    or not isinstance(category, str)
                     or not category.strip()
                     or category
                     in {
@@ -3579,35 +5623,26 @@ def _validate_packaged_terminal_operations(
                         "idempotencia_en_proceso",
                         "post_arca_persistencia",
                     }
-                    or (message is not None and not isinstance(message, str))
-                    or (
-                        errors is not None
-                        and (
-                            not isinstance(errors, list)
-                            or not all(isinstance(item, str) for item in errors)
-                        )
-                    )
-                    or (
-                        status_code is not None
-                        and (
-                            not isinstance(status_code, int)
-                            or isinstance(status_code, bool)
-                            or not 400 <= status_code <= 599
-                        )
-                    )
+                    or (status_code is not None and not 400 <= status_code <= 599)
                 ):
                     raise MigrationError("Replay batch negativo incoherente")
                 continue
             if operation_type == "procesar_lote":
                 if "en_progreso" not in response:
                     raise MigrationError("Replay procesar_lote sin estado durable")
-                parsed_lote = LoteProcesamientoResponse.model_validate(response)
+                parsed_lote = vps_migration_v3.parse_batch_replay(
+                    response,
+                    operation_type=operation_type,
+                )
                 if parsed_lote.en_progreso:
                     raise MigrationError("Replay batch todavía en progreso")
             else:
                 if "en_progreso" in response:
                     raise MigrationError("Replay de reintento tiene shape incorrecto")
-                parsed_lote = LoteAccionResponse.model_validate(response)
+                parsed_lote = vps_migration_v3.parse_batch_replay(
+                    response,
+                    operation_type=operation_type,
+                )
             rechazo_global = _batch_global_rejection_context(
                 response,
                 operation_type=operation_type,
@@ -3631,7 +5666,7 @@ def _validate_packaged_terminal_operations(
                 raise MigrationError("Replay batch no coincide con su lote histórico")
         except MigrationError:
             raise
-        except (KeyError, TypeError, ValidationError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError) as exc:
             raise MigrationError(
                 "Operación terminal empaquetada semánticamente inválida"
             ) from exc
@@ -3722,7 +5757,7 @@ def _validate_manifest_certificate_files(
         validate_certificate_filename(filename)
         info = _require_exact_keys(
             raw_info,
-            CERTIFICATE_FILE_INFO_KEYS,
+            vps_migration_v3.CERTIFICATE_FILE_INFO_KEYS,
             label=f"certificate_files.{filename}",
         )
         expected_path = f"certs/{filename}"
@@ -3748,6 +5783,27 @@ def _validate_manifest_certificate_files(
 
 
 def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
+    """Despacha el loader estricto según la versión declarada del paquete."""
+    package_root = package_dir.resolve()
+    manifest_path = package_root / "manifest.json"
+    try:
+        raw_manifest = json.loads(
+            manifest_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (OSError, TypeError, UnicodeError, ValueError) as exc:
+        raise MigrationError("No se pudo seleccionar el contrato del manifest") from exc
+    if not isinstance(raw_manifest, dict):
+        raise MigrationError("Shape inválido en top-level del manifest")
+    contract = select_import_contract(raw_manifest)
+    if contract.package_version == vps_migration_v3.PACKAGE_VERSION:
+        return _load_and_verify_manifest_v3(package_root)
+    if set(raw_manifest) == set(vps_migration_v3.MANIFEST_TOP_LEVEL_KEYS):
+        raise MigrationError("Versión de paquete incompatible con el manifest v3")
+    return _load_and_verify_manifest_v4(package_root)
+
+
+def _load_and_verify_manifest_v3(package_dir: Path) -> dict[str, Any]:
     """Carga y valida integralmente el contrato inmutable del paquete v3."""
     try:
         package_root = package_dir.resolve()
@@ -3760,21 +5816,18 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
             manifest_path.read_text(encoding="utf-8"),
             object_pairs_hook=_json_object_without_duplicate_keys,
         )
+        if not isinstance(manifest, dict):
+            raise MigrationError("Shape inválido en top-level del manifest")
+        contract = select_import_contract(manifest)
         manifest = _require_exact_keys(
             manifest,
-            MANIFEST_TOP_LEVEL_KEYS,
+            vps_migration_v3.MANIFEST_TOP_LEVEL_KEYS,
             label="top-level",
         )
-        if (
-            not isinstance(manifest["package_version"], int)
-            or isinstance(manifest["package_version"], bool)
-            or manifest["package_version"] != MIGRATION_PACKAGE_VERSION
-        ):
-            raise MigrationError("Versión de paquete de migración no soportada")
-        if manifest["scope"] != SCOPE:
+        if manifest["scope"] != vps_migration_v3.SCOPE:
             raise MigrationError("El paquete no corresponde al alcance esperado")
-        if manifest["alembic_version"] != get_repo_alembic_head():
-            raise MigrationError("El head Alembic del manifest no coincide con el repo")
+        if manifest["alembic_version"] != contract.alembic_head:
+            raise MigrationError("El head Alembic del manifest no coincide con v3")
         created_at = datetime.fromisoformat(str(manifest["created_at"]))
         if (
             not isinstance(manifest["created_at"], str)
@@ -3783,25 +5836,25 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
             or manifest["created_at"] != created_at.isoformat()
         ):
             raise MigrationError("created_at debe ser un timestamp UTC canónico")
-        if manifest["included_tables"] != INCLUDED_TABLES:
+        if manifest["included_tables"] != list(contract.included_tables):
             raise MigrationError("included_tables no coincide con el contrato v3")
-        if manifest["excluded_tables"] != EXCLUDED_TABLES:
+        if manifest["excluded_tables"] != list(contract.excluded_tables):
             raise MigrationError("excluded_tables no coincide con el contrato v3")
-        if manifest["target_empty_tables"] != TARGET_EMPTY_TABLES:
+        if manifest["target_empty_tables"] != list(contract.target_empty_tables):
             raise MigrationError("target_empty_tables no coincide con el contrato v3")
-        if manifest["required_env_keys"] != REQUIRED_ENV_KEYS:
+        if manifest["required_env_keys"] != list(vps_migration_v3.REQUIRED_ENV_KEYS):
             raise MigrationError("required_env_keys no coincide con el contrato v3")
-        if manifest["notes"] != PACKAGE_NOTES:
+        if manifest["notes"] != list(vps_migration_v3.PACKAGE_NOTES):
             raise MigrationError("notes no coincide con el contrato v3")
 
         included_counts = _validate_count_map(
             manifest["included_counts"],
-            expected_keys=INCLUDED_TABLES,
+            expected_keys=list(contract.included_tables),
             label="included_counts",
         )
         excluded_counts = _validate_count_map(
             manifest["excluded_counts"],
-            expected_keys=EXCLUDED_TABLES,
+            expected_keys=list(contract.excluded_tables),
             label="excluded_counts",
         )
         active_certificates = _require_nonnegative_int(
@@ -3810,14 +5863,14 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         safe_omitted = _require_exact_keys(
             manifest["safe_omitted"],
-            SAFE_OMITTED_KEYS,
+            vps_migration_v3.SAFE_OMITTED_KEYS,
             label="safe_omitted",
         )
-        for key in SAFE_OMITTED_KEYS - {"excluded_counts"}:
+        for key in vps_migration_v3.SAFE_OMITTED_KEYS - {"excluded_counts"}:
             _require_nonnegative_int(safe_omitted[key], label=f"safe_omitted.{key}")
         _validate_count_map(
             safe_omitted["excluded_counts"],
-            expected_keys=EXCLUDED_TABLES,
+            expected_keys=list(contract.excluded_tables),
             label="safe_omitted.excluded_counts",
         )
         validate_safe_omitted_counts(
@@ -3828,15 +5881,17 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         normalizations = _require_exact_keys(
             manifest["normalizations"],
-            {OPERATION_LOTE_NORMALIZATION_KEY},
+            {vps_migration_v3.OPERATION_LOTE_NORMALIZATION_KEY},
             label="normalizations",
         )
         normalization = _require_exact_keys(
-            normalizations[OPERATION_LOTE_NORMALIZATION_KEY],
-            NORMALIZATION_INFO_KEYS,
-            label=f"normalizations.{OPERATION_LOTE_NORMALIZATION_KEY}",
+            normalizations[vps_migration_v3.OPERATION_LOTE_NORMALIZATION_KEY],
+            vps_migration_v3.NORMALIZATION_INFO_KEYS,
+            label=(
+                "normalizations." f"{vps_migration_v3.OPERATION_LOTE_NORMALIZATION_KEY}"
+            ),
         )
-        if normalization["rule"] != OPERATION_LOTE_NORMALIZATION_RULE:
+        if normalization["rule"] != vps_migration_v3.OPERATION_LOTE_NORMALIZATION_RULE:
             raise MigrationError("Regla de normalización lote_id no soportada")
         normalization_rows = _require_nonnegative_int(
             normalization["rows"], label="normalizations.lote_id.rows"
@@ -3848,7 +5903,7 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         source_barrier = _require_exact_keys(
             manifest["source_barrier"],
-            SOURCE_BARRIER_KEYS,
+            vps_migration_v3.SOURCE_BARRIER_KEYS,
             label="source_barrier",
         )
         if (
@@ -3861,12 +5916,14 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
         )
 
         data_files = _require_exact_keys(
-            manifest["data_files"], set(INCLUDED_TABLES), label="data_files"
+            manifest["data_files"],
+            set(contract.included_tables),
+            label="data_files",
         )
         data_dir = package_root / "data"
         if not data_dir.is_dir():
             raise MigrationError("Falta el directorio data del paquete")
-        expected_data_names = {f"{table}.jsonl" for table in INCLUDED_TABLES}
+        expected_data_names = {f"{table}.jsonl" for table in contract.included_tables}
         actual_data_names = {path.name for path in data_dir.iterdir() if path.is_file()}
         if actual_data_names != expected_data_names or any(
             not path.is_file() for path in data_dir.iterdir()
@@ -3877,10 +5934,10 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         member_paths: list[str] = []
         table_rows: dict[str, list[dict[str, Any]]] = {}
-        for table_name in INCLUDED_TABLES:
+        for table_name in contract.included_tables:
             info = _require_exact_keys(
                 data_files[table_name],
-                DATA_FILE_INFO_KEYS,
+                vps_migration_v3.DATA_FILE_INFO_KEYS,
                 label=f"data_files.{table_name}",
             )
             expected_path = f"data/{table_name}.jsonl"
@@ -3913,12 +5970,12 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         env_template = _require_exact_keys(
             manifest["env_template"],
-            ENV_TEMPLATE_INFO_KEYS,
+            vps_migration_v3.ENV_TEMPLATE_INFO_KEYS,
             label="env_template",
         )
         env_relative_path = _require_canonical_package_path(
             env_template["path"],
-            expected=ENV_TEMPLATE_FILENAME,
+            expected=vps_migration_v3.ENV_TEMPLATE_FILENAME,
             label="env_template.path",
         )
         member_paths.append(env_relative_path)
@@ -3947,7 +6004,7 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         expected_root_entries = {
             "manifest.json",
-            ENV_TEMPLATE_FILENAME,
+            vps_migration_v3.ENV_TEMPLATE_FILENAME,
             "data",
             "certs",
         }
@@ -3970,14 +6027,14 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
 
         barrier = _require_exact_keys(
             manifest["idempotency_barrier"],
-            IDEMPOTENCY_BARRIER_KEYS,
+            vps_migration_v3.IDEMPOTENCY_BARRIER_KEYS,
             label="idempotency_barrier",
         )
         if (
             not isinstance(barrier["version"], int)
             or isinstance(barrier["version"], bool)
             or barrier["version"] != 1
-            or barrier["algorithm"] != IDEMPOTENCY_BARRIER_ALGORITHM
+            or barrier["algorithm"] != vps_migration_v3.IDEMPOTENCY_BARRIER_ALGORITHM
         ):
             raise MigrationError("Versión o algoritmo de barrera no soportado")
         _require_nonnegative_int(barrier["rows"], label="idempotency_barrier.rows")
@@ -4003,6 +6060,355 @@ def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
     ) as exc:
         raise MigrationError(
             "El manifest o sus archivos tienen JSON/schema inválido"
+        ) from exc
+
+
+def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
+    """Carga v4 y reconstruye clausura y barrera antes de tocar el destino."""
+    try:
+        package_root = package_dir.resolve()
+        if not package_root.is_dir():
+            raise MigrationError(f"No existe el paquete: {package_root}")
+        manifest_path = package_root / "manifest.json"
+        if not manifest_path.is_file():
+            raise MigrationError(f"No existe manifest.json en {package_root}")
+        manifest = json.loads(
+            manifest_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+        manifest = _require_exact_keys(
+            manifest,
+            set(vps_migration_v4.MANIFEST_TOP_LEVEL_KEYS),
+            label="top-level",
+        )
+        contract = select_import_contract(manifest)
+        if contract.package_version != vps_migration_v4.PACKAGE_VERSION:
+            raise MigrationError("El manifest no corresponde al contrato v4")
+        if manifest["scope"] != vps_migration_v4.SCOPE:
+            raise MigrationError("El paquete no corresponde al alcance esperado")
+        if manifest["alembic_version"] != contract.alembic_head:
+            raise MigrationError("El head Alembic del manifest no coincide con v4")
+        created_at = datetime.fromisoformat(str(manifest["created_at"]))
+        if (
+            not isinstance(manifest["created_at"], str)
+            or created_at.tzinfo is None
+            or created_at.utcoffset() != timezone.utc.utcoffset(created_at)
+            or manifest["created_at"] != created_at.isoformat()
+        ):
+            raise MigrationError("created_at debe ser un timestamp UTC canónico")
+
+        expected_lists = {
+            "complete_tables": contract.complete_tables,
+            "filtered_tables": contract.filtered_tables,
+            "regenerated_tables": contract.regenerated_tables,
+            "included_tables": contract.included_tables,
+            "excluded_tables": contract.excluded_tables,
+            "target_empty_tables": contract.target_empty_tables,
+        }
+        for key, expected in expected_lists.items():
+            if manifest[key] != list(expected):
+                raise MigrationError(f"{key} no coincide con el contrato v4")
+        if manifest["required_env_keys"] != list(vps_migration_v3.REQUIRED_ENV_KEYS):
+            raise MigrationError("required_env_keys no coincide con el contrato v4")
+        if manifest["notes"] != list(vps_migration_v4.PACKAGE_NOTES):
+            raise MigrationError("notes no coincide con el contrato v4")
+
+        source_keys = list(
+            contract.included_tables
+            + contract.regenerated_tables
+            + contract.excluded_tables
+        )
+        omitted_keys = list(contract.filtered_tables + contract.excluded_tables)
+        source_counts = _validate_count_map(
+            manifest["source_counts"],
+            expected_keys=source_keys,
+            label="source_counts",
+        )
+        included_counts = _validate_count_map(
+            manifest["included_counts"],
+            expected_keys=list(contract.included_tables),
+            label="included_counts",
+        )
+        omitted_counts = _validate_count_map(
+            manifest["omitted_counts"],
+            expected_keys=omitted_keys,
+            label="omitted_counts",
+        )
+        for table_name in contract.complete_tables:
+            if source_counts[table_name] != included_counts[table_name]:
+                raise MigrationError(f"La tabla completa {table_name} fue filtrada")
+        for table_name in contract.filtered_tables:
+            if source_counts[table_name] != (
+                included_counts[table_name] + omitted_counts[table_name]
+            ):
+                raise MigrationError(f"La tabla filtrada {table_name} no reconcilia")
+        for table_name in contract.excluded_tables:
+            if source_counts[table_name] != omitted_counts[table_name]:
+                raise MigrationError(f"La tabla excluida {table_name} no reconcilia")
+
+        safe_omitted = _require_exact_keys(
+            manifest["safe_omitted"],
+            set(vps_migration_v4.SAFE_OMITTED_KEYS),
+            label="safe_omitted",
+        )
+        if (
+            _require_nonnegative_int(
+                safe_omitted["blockers"], label="safe_omitted.blockers"
+            )
+            != 0
+        ):
+            raise MigrationError("El paquete v4 declara bloqueos de seguridad")
+        if (
+            safe_omitted["source_counts"] != source_counts
+            or safe_omitted["included_counts"] != included_counts
+            or safe_omitted["omitted_counts"] != omitted_counts
+        ):
+            raise MigrationError("safe_omitted v4 no reconcilia los conteos")
+        legacy_preflight = _require_exact_keys(
+            safe_omitted["legacy_preflight"],
+            set(vps_migration_v3.SAFE_OMITTED_KEYS),
+            label="safe_omitted.legacy_preflight",
+        )
+        if (
+            _require_nonnegative_int(
+                legacy_preflight["blockers"],
+                label="safe_omitted.legacy_preflight.blockers",
+            )
+            != 0
+        ):
+            raise MigrationError("La prevalidación legacy v4 declara bloqueos")
+        _validate_count_map(
+            legacy_preflight["excluded_counts"],
+            expected_keys=list(vps_migration_v3.EXCLUDED_TABLES),
+            label="safe_omitted.legacy_preflight.excluded_counts",
+        )
+        for key in vps_migration_v3.SAFE_OMITTED_KEYS - {
+            "blockers",
+            "excluded_counts",
+        }:
+            _require_nonnegative_int(
+                legacy_preflight[key],
+                label=f"safe_omitted.legacy_preflight.{key}",
+            )
+
+        normalizations = _require_exact_keys(
+            manifest["normalizations"],
+            {vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY},
+            label="normalizations",
+        )
+        normalization = _require_exact_keys(
+            normalizations[vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY],
+            set(vps_migration_v3.NORMALIZATION_INFO_KEYS),
+            label="normalizations.operaciones_idempotentes.lote_id",
+        )
+        if normalization["rule"] != vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE:
+            raise MigrationError("Regla de normalización lote_id v4 no soportada")
+        pairs = _validate_normalization_pairs(normalization["pairs"])
+        if _require_nonnegative_int(
+            normalization["rows"], label="normalizations.lote_id.rows"
+        ) != len(pairs) or _require_sha256(
+            normalization["sha256"], label="normalizations.lote_id.sha256"
+        ) != vps_migration_v4.canonical_sha256(
+            pairs
+        ):
+            raise MigrationError("La normalización legacy v4 no verifica")
+
+        closure = _require_exact_keys(
+            manifest["closure"],
+            set(vps_migration_v4.CLOSURE_KEYS),
+            label="closure",
+        )
+        if (
+            _require_nonnegative_int(closure["version"], label="closure.version") != 1
+            or closure["algorithm"] != vps_migration_v4.CLOSURE_ALGORITHM
+        ):
+            raise MigrationError("Versión o algoritmo de clausura v4 no soportado")
+        for key in (
+            "operation_ids",
+            "root_operation_ids",
+            "preserved_lote_ids",
+            "preserved_group_ids",
+            "legacy_normalized_operation_ids",
+            "attempt_ids",
+            "guard_ids",
+            "generation_ids",
+            "block_ids",
+            "member_ids",
+        ):
+            if _strict_positive_id_list(closure[key]) is None:
+                raise MigrationError(f"Lista de IDs no canónica en closure.{key}")
+        group_counts = closure["group_counts_by_lote"]
+        if not isinstance(group_counts, dict) or set(group_counts) != {
+            str(value) for value in closure["preserved_lote_ids"]
+        }:
+            raise MigrationError("group_counts_by_lote no coincide con los lotes")
+        for lote_id, count in group_counts.items():
+            if str(int(lote_id)) != lote_id or int(lote_id) <= 0:
+                raise MigrationError("group_counts_by_lote contiene un lote inválido")
+            _require_nonnegative_int(
+                count, label=f"closure.group_counts_by_lote.{lote_id}"
+            )
+        closure_hash = _require_sha256(closure["sha256"], label="closure.sha256")
+        closure_payload = {
+            key: value for key, value in closure.items() if key != "sha256"
+        }
+        if closure_hash != vps_migration_v4.canonical_sha256(closure_payload):
+            raise MigrationError("El hash de clausura v4 no verifica")
+
+        source_barrier = _require_exact_keys(
+            manifest["source_barrier"],
+            set(vps_migration_v3.SOURCE_BARRIER_KEYS),
+            label="source_barrier",
+        )
+        if (
+            source_barrier["source_quiesced"] is not True
+            or source_barrier["sqlite_transaction"] != "BEGIN IMMEDIATE"
+        ):
+            raise MigrationError("La barrera SQLite del manifest no es fail-closed")
+        _require_nonnegative_int(
+            source_barrier["data_version"], label="source_barrier.data_version"
+        )
+
+        data_files = _require_exact_keys(
+            manifest["data_files"], set(contract.included_tables), label="data_files"
+        )
+        data_dir = package_root / "data"
+        if not data_dir.is_dir():
+            raise MigrationError("Falta el directorio data del paquete")
+        expected_data_names = {f"{table}.jsonl" for table in contract.included_tables}
+        actual_data_names = {path.name for path in data_dir.iterdir() if path.is_file()}
+        if actual_data_names != expected_data_names or any(
+            not path.is_file() for path in data_dir.iterdir()
+        ):
+            raise MigrationError(
+                "El directorio data contiene archivos faltantes o extra"
+            )
+
+        member_paths: list[str] = []
+        table_rows: dict[str, list[dict[str, Any]]] = {}
+        for table_name in contract.included_tables:
+            info = _require_exact_keys(
+                data_files[table_name],
+                set(vps_migration_v3.DATA_FILE_INFO_KEYS),
+                label=f"data_files.{table_name}",
+            )
+            relative_path = _require_canonical_package_path(
+                info["path"],
+                expected=f"data/{table_name}.jsonl",
+                label=f"data_files.{table_name}.path",
+            )
+            member_paths.append(relative_path)
+            file_path = resolve_package_member(package_root, relative_path)
+            expected_bytes = _require_nonnegative_int(
+                info["bytes"], label=f"data_files.{table_name}.bytes"
+            )
+            expected_rows = _require_nonnegative_int(
+                info["rows"], label=f"data_files.{table_name}.rows"
+            )
+            expected_sha = _require_sha256(
+                info["sha256"], label=f"data_files.{table_name}.sha256"
+            )
+            if (
+                not file_path.is_file()
+                or file_path.stat().st_size != expected_bytes
+                or sha256_file(file_path) != expected_sha
+            ):
+                raise MigrationError(f"Archivo de datos inválido: {relative_path}")
+            rows = _read_manifest_jsonl_rows_v4(file_path, table_name=table_name)
+            if len(rows) != expected_rows or len(rows) != included_counts[table_name]:
+                raise MigrationError(f"Conteo JSONL inválido en {table_name}")
+            table_rows[table_name] = rows
+
+        active_certificates = _require_nonnegative_int(
+            manifest["active_certificates"], label="active_certificates"
+        )
+        env_template = _require_exact_keys(
+            manifest["env_template"],
+            set(vps_migration_v3.ENV_TEMPLATE_INFO_KEYS),
+            label="env_template",
+        )
+        env_relative_path = _require_canonical_package_path(
+            env_template["path"],
+            expected=vps_migration_v3.ENV_TEMPLATE_FILENAME,
+            label="env_template.path",
+        )
+        member_paths.append(env_relative_path)
+        env_path = resolve_package_member(package_root, env_relative_path)
+        if (
+            not env_path.is_file()
+            or env_path.stat().st_size
+            != _require_nonnegative_int(
+                env_template["bytes"], label="env_template.bytes"
+            )
+            or sha256_file(env_path)
+            != _require_sha256(env_template["sha256"], label="env_template.sha256")
+        ):
+            raise MigrationError("La plantilla de entorno del paquete es inválida")
+        _validate_manifest_certificate_files(
+            package_root=package_root,
+            certificate_files=manifest["certificate_files"],
+            certificate_rows=table_rows["certificados"],
+            active_certificates=active_certificates,
+            member_paths=member_paths,
+        )
+        path_casefold = [path.casefold() for path in member_paths]
+        if len(path_casefold) != len(set(path_casefold)):
+            raise MigrationError("El manifest contiene paths duplicados o colisionados")
+        if {path.name for path in package_root.iterdir()} != {
+            "manifest.json",
+            vps_migration_v3.ENV_TEMPLATE_FILENAME,
+            "data",
+            "certs",
+        }:
+            raise MigrationError("El paquete contiene miembros top-level inesperados")
+
+        if source_counts[contract.regenerated_tables[0]] != (
+            2 * included_counts["empresas"]
+        ):
+            raise MigrationError(
+                "La coordinación fuente v4 no tiene cardinalidad exacta"
+            )
+        _validate_packaged_user_accesses(table_rows)
+        validate_rece_ledger_rows(table_rows)
+        _validate_packaged_rece_associations(table_rows)
+        validate_v4_graph(table_rows, normalization=normalization, closure=closure)
+
+        barrier = _require_exact_keys(
+            manifest["idempotency_barrier"],
+            set(vps_migration_v4.BARRIER_KEYS),
+            label="idempotency_barrier",
+        )
+        if (
+            _require_nonnegative_int(
+                barrier["version"], label="idempotency_barrier.version"
+            )
+            != 2
+            or barrier["algorithm"] != vps_migration_v4.BARRIER_ALGORITHM
+        ):
+            raise MigrationError("Versión o algoritmo de barrera v4 no soportado")
+        _require_nonnegative_int(barrier["rows"], label="idempotency_barrier.rows")
+        _require_sha256(barrier["sha256"], label="idempotency_barrier.sha256")
+        expected_barrier = build_v4_idempotency_barrier(
+            source_barrier=source_barrier,
+            normalization=normalization,
+            closure=closure,
+            rows=table_rows,
+        )
+        if barrier != expected_barrier:
+            raise MigrationError("La barrera idempotente v4 del manifest no verifica")
+        return manifest
+    except MigrationError:
+        raise
+    except (
+        DecimalException,
+        KeyError,
+        OSError,
+        TypeError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise MigrationError(
+            "El manifest v4 o sus archivos tienen schema inválido"
         ) from exc
 
 
@@ -4100,11 +6506,25 @@ def create_postgres_engine(database_url: str) -> Engine:
     return create_engine(database_url, future=True)
 
 
-def ensure_target_database_ready(conn, manifest: dict[str, Any]) -> None:
+def ensure_target_database_ready(
+    conn,
+    manifest: dict[str, Any],
+    contract: vps_migration_v3.ImportContract | None = None,
+) -> None:
     """Valida que PostgreSQL esté migrada y sin datos operativos."""
-    validate_target_alembic_head(conn, manifest)
+    selected = contract or select_import_contract(manifest)
+    validate_target_alembic_head(conn, manifest, selected)
+    if selected.package_version == vps_migration_v4.PACKAGE_VERSION:
+        for table_name in selected.included_tables:
+            validate_v4_target_table_contract(
+                table_name,
+                Base.metadata.tables[table_name],
+            )
+    target_empty_tables = (
+        selected.target_empty_tables + selected.adapter_target_empty_tables
+    )
     non_empty = {
-        table_name: scalar_count(conn, table_name) for table_name in TARGET_EMPTY_TABLES
+        table_name: scalar_count(conn, table_name) for table_name in target_empty_tables
     }
     dirty = {table: count for table, count in non_empty.items() if count}
     if dirty:
@@ -4115,9 +6535,21 @@ def ensure_target_database_ready(conn, manifest: dict[str, Any]) -> None:
     validate_canonical_target_seeds(conn)
 
 
-def lock_target_tables_for_import(conn) -> None:
+def lock_target_tables_for_import(
+    conn,
+    contract: vps_migration_v3.ImportContract | None = None,
+) -> None:
     """Serializa importadores y bloquea escrituras hasta confirmar postflight."""
-    table_names = sorted({"alembic_version", *INCLUDED_TABLES, *EXCLUDED_TABLES})
+    selected = contract or vps_migration_v3.V3_CONTRACT
+    table_names = sorted(
+        {
+            "alembic_version",
+            *selected.included_tables,
+            *selected.excluded_tables,
+            *selected.adapter_target_empty_tables,
+            *selected.target_empty_tables,
+        }
+    )
     quoted = ", ".join(f'"{table_name}"' for table_name in table_names)
     conn.execute(text(f"LOCK TABLE {quoted} IN SHARE ROW EXCLUSIVE MODE"))
 
@@ -4244,9 +6676,13 @@ def validate_canonical_target_seeds(conn) -> None:
         raise MigrationError("Los campos del seed Alembic fueron modificados")
 
 
-def clear_seeded_included_tables(conn) -> None:
+def clear_seeded_included_tables(
+    conn,
+    contract: vps_migration_v3.ImportContract | None = None,
+) -> None:
     """Limpia tablas incluidas para reemplazar seeds por datos del paquete."""
-    for table_name in reversed(SEEDED_INCLUDED_TABLES):
+    selected = contract or vps_migration_v3.V3_CONTRACT
+    for table_name in reversed(selected.seeded_included_tables):
         conn.execute(Base.metadata.tables[table_name].delete())
 
 
@@ -4254,8 +6690,12 @@ def read_database_rows(conn, table_name: str) -> list[dict[str, Any]]:
     """Lee el estado transaccional de una tabla incluida en orden estable."""
     table = Base.metadata.tables[table_name]
     statement = select(table)
-    if "id" in table.columns:
-        statement = statement.order_by(table.c.id)
+    primary_key = vps_migration_v4.PRIMARY_KEYS.get(
+        table_name,
+        vps_migration_v3.PRIMARY_KEYS.get(table_name, ()),
+    )
+    if primary_key:
+        statement = statement.order_by(*(table.c[name] for name in primary_key))
     return [dict(row) for row in conn.execute(statement).mappings()]
 
 
@@ -4384,29 +6824,81 @@ def validate_rece_ledger_rows(
             raise MigrationError("La cabeza RECE no apunta a la revisión máxima")
 
 
-def validate_target_alembic_head(conn, manifest: dict[str, Any]) -> None:
-    """Exige una única fila Alembic igual al repo y al paquete."""
+def validate_target_alembic_head(
+    conn,
+    manifest: dict[str, Any],
+    contract: vps_migration_v3.ImportContract | None = None,
+) -> None:
+    """Exige destino en el head vigente y paquete v3 en su head histórico."""
+    selected = contract or select_import_contract(manifest)
     repo_head = get_repo_alembic_head()
     versions = list(
         conn.execute(
             text("SELECT version_num FROM alembic_version ORDER BY version_num")
         ).scalars()
     )
-    if versions != [repo_head] or manifest["alembic_version"] != repo_head:
+    if versions != [repo_head]:
         raise MigrationError(
-            "Repo, paquete y destino no comparten un único head Alembic"
+            "Repo y destino no comparten un único head Alembic vigente"
         )
+    if manifest["alembic_version"] != selected.alembic_head:
+        raise MigrationError("El paquete v3 no conserva su head Alembic histórico")
+
+
+def regenerate_v3_coordinators(conn) -> None:
+    """Regenera ambos ambientes técnicos por empresa con revisión cero."""
+    conn.execute(
+        text(
+            "INSERT INTO lotes_duplicados_coordinacion "
+            "(empresa_id, ambiente, revision, updated_at) "
+            "SELECT id, ambiente, 0, CURRENT_TIMESTAMP FROM empresas "
+            "CROSS JOIN (VALUES ('homologacion'), ('produccion')) "
+            "AS ambientes(ambiente)"
+        )
+    )
+
+
+def validate_v3_coordinators(conn, company_rows: list[dict[str, Any]]) -> None:
+    """Acredita que el destino regeneró sólo los coordinadores previstos."""
+    rows = list(
+        conn.execute(
+            text(
+                "SELECT empresa_id, ambiente, revision "
+                "FROM lotes_duplicados_coordinacion "
+                "ORDER BY empresa_id, ambiente"
+            )
+        ).mappings()
+    )
+    actual = [
+        {
+            "empresa_id": int(row["empresa_id"]),
+            "ambiente": str(row["ambiente"]),
+            "revision": int(row["revision"]),
+        }
+        for row in rows
+    ]
+    expected = sorted(
+        vps_migration_v3.coordinator_plan(company_rows),
+        key=lambda row: (row["empresa_id"], row["ambiente"]),
+    )
+    if actual != expected:
+        raise MigrationError("Los coordinadores PF-13 regenerados no verifican")
 
 
 def validate_imported_database(
     conn,
     manifest: dict[str, Any],
     package_rows: dict[str, list[dict[str, Any]]],
+    contract: vps_migration_v3.ImportContract | None = None,
 ) -> None:
     """Ejecuta postflight exhaustivo sobre la transacción aún no confirmada."""
-    validate_target_alembic_head(conn, manifest)
+    selected = contract or select_import_contract(manifest)
+    if selected.package_version == vps_migration_v4.PACKAGE_VERSION:
+        _validate_imported_database_v4(conn, manifest, package_rows, selected)
+        return
+    validate_target_alembic_head(conn, manifest, selected)
     actual_rows: dict[str, list[dict[str, Any]]] = {}
-    for table_name in INCLUDED_TABLES:
+    for table_name in selected.included_tables:
         rows = read_database_rows(conn, table_name)
         if len(rows) != manifest["included_counts"][table_name]:
             raise MigrationError(
@@ -4420,9 +6912,15 @@ def validate_imported_database(
                 f"El contenido importado de {table_name} difiere del paquete"
             )
         actual_rows[table_name] = rows
-    for table_name in EXCLUDED_TABLES:
+    for table_name in selected.excluded_tables:
         if scalar_count(conn, table_name) != 0:
             raise MigrationError(f"La tabla excluida {table_name} no quedó vacía")
+    for table_name in selected.adapter_target_empty_tables[1:]:
+        if scalar_count(conn, table_name) != 0:
+            raise MigrationError(
+                f"El adaptador v3 inventó evidencia PF-13 en {table_name}"
+            )
+    validate_v3_coordinators(conn, actual_rows["empresas"])
 
     normalization = manifest["normalizations"][OPERATION_LOTE_NORMALIZATION_KEY]
     pairs = _validate_normalization_pairs(normalization["pairs"])
@@ -4449,10 +6947,200 @@ def validate_imported_database(
         raise MigrationError("La barrera idempotente restaurada no verifica")
 
 
+def _validate_imported_database_v4(
+    conn,
+    manifest: dict[str, Any],
+    package_rows: dict[str, list[dict[str, Any]]],
+    contract: vps_migration_v4.ImportContract,
+) -> None:
+    """Acredita contenido y grafo v4 antes de confirmar la transacción."""
+    validate_target_alembic_head(conn, manifest, contract)
+    actual_rows: dict[str, list[dict[str, Any]]] = {}
+    for table_name in contract.included_tables:
+        rows = read_database_rows(conn, table_name)
+        if len(rows) != manifest["included_counts"][table_name]:
+            raise MigrationError(
+                f"Conteo inesperado en {table_name} durante postflight v4"
+            )
+        if canonicalize_table_rows(table_name, rows) != canonicalize_table_rows(
+            table_name, package_rows[table_name]
+        ):
+            raise MigrationError(
+                f"El contenido importado de {table_name} difiere del paquete v4"
+            )
+        actual_rows[table_name] = rows
+    for table_name in contract.excluded_tables:
+        if scalar_count(conn, table_name) != 0:
+            raise MigrationError(f"La tabla excluida {table_name} no quedó vacía")
+    validate_v3_coordinators(conn, actual_rows["empresas"])
+    normalization = manifest["normalizations"][
+        vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY
+    ]
+    validate_v4_graph(
+        actual_rows,
+        normalization=normalization,
+        closure=manifest["closure"],
+    )
+    expected_barrier = build_v4_idempotency_barrier(
+        source_barrier=manifest["source_barrier"],
+        normalization=normalization,
+        closure=manifest["closure"],
+        rows=actual_rows,
+    )
+    if manifest["idempotency_barrier"] != expected_barrier:
+        raise MigrationError("La barrera idempotente restaurada v4 no verifica")
+
+
+def _target_type_matches_v3(column_type: Any, spec: Any) -> bool:
+    """Compara el tipo físico de destino con la definición histórica exacta."""
+    if spec.kind == "integer":
+        return isinstance(column_type, Integer)
+    if spec.kind == "boolean":
+        return isinstance(column_type, Boolean)
+    if spec.kind == "date":
+        return isinstance(column_type, Date) and not isinstance(column_type, DateTime)
+    if spec.kind == "datetime":
+        return isinstance(column_type, DateTime) and bool(column_type.timezone) == bool(
+            spec.timezone
+        )
+    if spec.kind == "numeric":
+        if not isinstance(column_type, Numeric):
+            return False
+        if column_type.precision is None or column_type.scale is None:
+            return True
+        return (
+            column_type.scale >= spec.scale
+            and column_type.precision - column_type.scale >= spec.precision - spec.scale
+        )
+    if spec.kind == "json":
+        return isinstance(column_type, JSON)
+    if spec.kind == "text":
+        return isinstance(column_type, Text)
+    if spec.kind == "string":
+        return (
+            isinstance(column_type, String)
+            and not isinstance(column_type, Text)
+            and (column_type.length is None or column_type.length >= spec.length)
+        )
+    return False
+
+
+def validate_v3_target_table_contract(table_name: str, target_table: Table) -> None:
+    """Exige que el ORM destino pueda representar v3 sin pérdida ni coerción."""
+    historical_columns = vps_migration_v3.V3_COLUMNS[table_name]
+    expected_target_columns = {
+        *historical_columns,
+        *vps_migration_v3.TARGET_NULL_ADDITIONS.get(table_name, ()),
+    }
+    if set(target_table.columns.keys()) != expected_target_columns:
+        raise MigrationError(
+            f"El destino vigente de {table_name} no coincide con la "
+            "adaptación v3 explícita"
+        )
+    for column_name, spec in historical_columns.items():
+        target_column = target_table.c[column_name]
+        if (
+            bool(target_column.nullable) != spec.nullable
+            or bool(target_column.primary_key) != spec.primary_key
+            or not _target_type_matches_v3(target_column.type, spec)
+        ):
+            raise MigrationError(
+                f"El tipo físico de {table_name}.{column_name} no representa v3"
+            )
+    for column_name in vps_migration_v3.TARGET_NULL_ADDITIONS.get(table_name, ()):
+        if not target_table.c[column_name].nullable:
+            raise MigrationError(
+                f"La columna adaptada {table_name}.{column_name} no admite NULL"
+            )
+
+    actual_foreign_keys = {
+        (
+            tuple(element.parent.name for element in constraint.elements),
+            tuple(
+                tuple(element.target_fullname.rsplit(".", 1))
+                for element in constraint.elements
+            ),
+        ): (constraint.ondelete, constraint.onupdate)
+        for constraint in target_table.foreign_key_constraints
+    }
+    for foreign_key in vps_migration_v3.FOREIGN_KEYS.get(table_name, ()):
+        remote_identity = tuple(
+            (foreign_key.remote_table, column_name)
+            for column_name in foreign_key.remote_columns
+        )
+        actions = actual_foreign_keys.get((foreign_key.local_columns, remote_identity))
+        if actions != (foreign_key.ondelete, foreign_key.onupdate):
+            raise MigrationError(
+                f"La FK física de {table_name}{foreign_key.local_columns} "
+                "no representa v3"
+            )
+
+
+def validate_v4_target_table_contract(table_name: str, target_table: Table) -> None:
+    """Impide importar v4 si el ORM vigente divergió de sus columnas congeladas."""
+    try:
+        expected_columns = vps_migration_v4.V4_COLUMNS[table_name]
+    except KeyError as exc:
+        raise MigrationError(
+            f"Tabla no declarada por el contrato v4: {table_name}"
+        ) from exc
+    if tuple(target_table.columns.keys()) != expected_columns:
+        raise MigrationError(
+            f"El destino vigente de {table_name} no coincide con el contrato v4"
+        )
+
+
 def read_package_rows(
     package_dir: Path, manifest: dict[str, Any], table_name: str
 ) -> list[dict[str, Any]]:
+    """Precarga una tabla usando exclusivamente el contrato declarado."""
+    contract = select_import_contract(manifest)
+    if contract.package_version == vps_migration_v3.PACKAGE_VERSION:
+        return _read_package_rows_v3(package_dir, manifest, table_name)
+    if table_name not in contract.included_tables:
+        raise MigrationError(f"La tabla {table_name} no pertenece al contrato v4")
+    file_path = resolve_package_member(
+        package_dir, manifest["data_files"][table_name]["path"]
+    )
+    info = manifest["data_files"][table_name]
+    try:
+        raw = file_path.read_bytes()
+        if len(raw) != int(info["bytes"]) or hashlib.sha256(raw).hexdigest() != str(
+            info["sha256"]
+        ):
+            raise MigrationError(
+                f"El JSONL de {table_name} cambió después de verificar el paquete"
+            )
+        rows = _parse_manifest_jsonl_lines_v4(
+            raw.decode("utf-8").splitlines(keepends=True),
+            table_name=table_name,
+            convert=True,
+        )
+        if len(rows) != int(info["rows"]):
+            raise MigrationError(f"Conteo JSONL inválido en {table_name}")
+        return rows
+    except MigrationError:
+        raise
+    except (
+        DecimalException,
+        KeyError,
+        OSError,
+        TypeError,
+        UnicodeError,
+        ValueError,
+    ) as exc:
+        raise MigrationError(
+            f"No se pudo precargar el JSONL v4 verificado de {table_name}"
+        ) from exc
+
+
+def _read_package_rows_v3(
+    package_dir: Path, manifest: dict[str, Any], table_name: str
+) -> list[dict[str, Any]]:
     """Precarga una tabla desde una única lectura ligada al manifest."""
+    contract = select_import_contract(manifest)
+    if table_name not in contract.included_tables:
+        raise MigrationError(f"La tabla {table_name} no pertenece al contrato v3")
     file_path = resolve_package_member(
         package_dir, manifest["data_files"][table_name]["path"]
     )
@@ -4485,8 +7173,12 @@ def read_package_rows(
         raise MigrationError(
             f"No se pudo precargar el JSONL verificado de {table_name}"
         ) from exc
-    table = Base.metadata.tables[table_name]
-    return [convert_row_for_table(table, row) for row in raw_rows]
+    try:
+        target_table = Base.metadata.tables[table_name]
+        validate_v3_target_table_contract(table_name, target_table)
+        return [vps_migration_v3.adapt_row(table_name, row) for row in raw_rows]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise MigrationError(f"No se pudo adaptar el JSONL v3 de {table_name}") from exc
 
 
 def convert_row_for_table(table: Table, row: dict[str, Any]) -> dict[str, Any]:
@@ -4530,12 +7222,44 @@ def insert_rows(conn, table_name: str, rows: list[dict[str, Any]]) -> None:
         conn.execute(table.insert(), rows[start : start + 500])
 
 
-def reset_postgres_sequences(conn) -> None:
-    """Reinicia secuencias transaccionalmente al próximo ID libre."""
-    for table_name in INCLUDED_TABLES:
+def restore_deferred_columns(
+    conn,
+    package_rows: dict[str, list[dict[str, Any]]],
+    contract: vps_migration_v4.ImportContract,
+) -> None:
+    """Restaura aristas cíclicas v4 exactamente antes del postflight."""
+    for table_name, column_names in contract.deferred_columns.items():
         table = Base.metadata.tables[table_name]
-        if "id" not in table.columns:
-            continue
+        primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+        for row in package_rows[table_name]:
+            values = {
+                column_name: row[column_name]
+                for column_name in column_names
+                if row[column_name] is not None
+            }
+            if not values:
+                continue
+            if "updated_at" in table.c:
+                values["updated_at"] = row["updated_at"]
+            condition = None
+            for column_name in primary_key:
+                predicate = table.c[column_name] == row[column_name]
+                condition = predicate if condition is None else condition & predicate
+            result = conn.execute(table.update().where(condition).values(**values))
+            if result.rowcount != 1:
+                raise MigrationError(
+                    f"No se pudo restaurar una arista diferida de {table_name}"
+                )
+
+
+def reset_postgres_sequences(
+    conn,
+    contract: vps_migration_v3.ImportContract | None = None,
+) -> None:
+    """Reinicia secuencias transaccionalmente al próximo ID libre."""
+    selected = contract or vps_migration_v3.V3_CONTRACT
+    for table_name in selected.sequence_tables:
+        table = Base.metadata.tables[table_name]
         seq = conn.execute(
             text("SELECT pg_get_serial_sequence(:table_name, 'id')"),
             {"table_name": table_name},
@@ -4561,12 +7285,14 @@ def quote_postgres_sequence_name(sequence_name: str) -> str:
     return ".".join(f'"{part}"' for part in parts)
 
 
-def verify_postgres_sequences(conn) -> None:
+def verify_postgres_sequences(
+    conn,
+    contract: vps_migration_v3.ImportContract | None = None,
+) -> None:
     """Comprueba que el próximo nextval será MAX(id)+1 sin consumirlo."""
-    for table_name in INCLUDED_TABLES:
+    selected = contract or vps_migration_v3.V3_CONTRACT
+    for table_name in selected.sequence_tables:
         table = Base.metadata.tables[table_name]
-        if "id" not in table.columns:
-            continue
         seq = conn.execute(
             text("SELECT pg_get_serial_sequence(:table_name, 'id')"),
             {"table_name": table_name},

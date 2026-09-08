@@ -652,6 +652,7 @@ POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos
 GET /api/lotes-comprobantes/{lote_id}/seguimiento
 GET /api/lotes-comprobantes/{lote_id}/resumen
 GET /api/lotes-comprobantes/{lote_id}/grupos
+GET /api/lotes-comprobantes/{lote_id}/coincidencias
 GET /api/lotes-comprobantes/{lote_id}
 GET /api/lotes-comprobantes/{lote_id}/resultados
 GET /api/lotes-comprobantes/{lote_id}/archivo-observado
@@ -767,11 +768,54 @@ servicio esté disponible.
 
 Este endpoint exige `X-Idempotency-Key`. La clave cubre lote, modo background y
 confirmación fiscal; debe mantenerse para retries de la misma operación. Si el
-lote tiene duplicados lógicos probables, la API responde `409` con
-`categoria_error=duplicado_logico_lote` y `confirmacion_duplicado_logico`. El
-cliente debe mostrar una advertencia adicional y, si el usuario decide
-continuar, reenviar la misma clave con el header
-`X-Confirmacion-Duplicado-Logico` igual al token recibido.
+lote requiere una excepción por coincidencias, la API responde `409` con
+`categoria_error=duplicado_logico_lote`, `control_duplicados` y `aceptacion_id`.
+El control versionado `duplicados_lotes/v2` distingue coincidencias internas por
+receptor, contenido completo de otro lote, coincidencias parciales identificadas
+y antecedentes individuales cubiertos por la protección vigente. Las ventas
+anónimas que sólo repiten fecha e importe dentro del lote no generan un aviso
+interno. La coincidencia histórica completa compara contenido y multiplicidad;
+archivo, cantidad e importe total no bastan por sí solos.
+
+El resumen anticipa evidencia, cobertura histórica y cantidades/importes, pero
+no concede una aceptación. El cliente abre el diálogo accionable con el `409`
+autoritativo, destaca «Volver a revisar» y sólo habilita la excepción tras el
+checkbox específico. Para continuar reenvía la misma clave y
+`X-Confirmacion-Duplicado-Logico: <aceptacion_id>`, junto con la confirmación
+fiscal válida para ese material. El ID es opaco, pertenece a esa operación y
+evidencia y no admite `true`. No caduca sólo por tiempo: la misma evidencia
+reexpide el mismo ID; una modificación relevante lo invalida y exige revisar el
+control actualizado antes de emitir. Los campos planos legacy permanecen como
+proyección de compatibilidad; no habilitan un bypass del control v2.
+
+`GET /api/lotes-comprobantes/{lote_id}/coincidencias` exige `evidencia_id` y
+acepta `page>=1`, `per_page=50` por defecto y máximo 100. Devuelve `items`,
+`page`, `per_page`, `total` y `total_pages`, conservando la selección del control,
+también para un reintento parcial. Si la evidencia cambió, responde `409` con el
+control actual; el cliente limpia la aceptación y el detalle anterior. El
+detalle distingue origen lote/individual y coincidencia interna, sin inventar
+referencias históricas. `comprobante_actual_ref` identifica el comprobante
+actual mediante su referencia del archivo. Los resúmenes desglosan importes por
+moneda, sin conversión implícita; el total escalar es nulo si mezcla monedas o
+incluye componentes sin moneda acreditada. Estos últimos se cuentan por
+separado. Los importes individuales son strings decimales; los actores e
+instantes no acreditables son nulos y se presentan como desconocidos. No se
+devuelven CAEs, documentos completos ni correos en esta consulta.
+
+Una operación ajena coincidente reservada, activa o incierta responde `409` con
+`categoria_error=duplicado_operacion_en_curso`, referencia consultable y
+`aceptacion_habilitada=false`: no ofrece excepción. La reserva y la aceptación
+se revalidan antes de la emisión; no sustituyen idempotencia, restricciones de
+la misma importación, confirmación fiscal ni reconciliación. La selección
+original y la evidencia mínima sobreviven a resultados parciales y compactación.
+Los remanentes v1 no terminales con aceptación histórica no comprobable y
+coincidencias actuales responden `409` con
+`categoria_error=duplicado_legacy_no_reconfirmable`. No admiten una nueva
+confirmación ni se habilitan cambiando la clave idempotente; conservan su
+historia. El replay terminal y la reconciliación de resultados inciertos
+mantienen sus contratos. Las pendientes v1 nunca aceptadas se evalúan con v2.
+El contrato completo y la transición histórica se mantienen en el
+[diseño PF-13/PF-17](../agents/pf-13-duplicados-lotes-design.md).
 
 `POST /api/lotes-comprobantes/{lote_id}/reintentar-fallidos` comparte el mismo
 contrato idempotente: exige `X-Idempotency-Key`,

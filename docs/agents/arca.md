@@ -1,6 +1,6 @@
 # Integración ARCA
 
-Última revisión: 31/08/2026
+Última revisión: 05/09/2026
 
 ## Nomenclatura
 
@@ -15,6 +15,8 @@
 - `backend/app/arca/cache.py`: cache de tickets WSAA
 - `backend/app/arca/models.py`: modelos de request/response
 - `backend/app/services/facturacion_service.py`: orquestación de emisión real
+- `backend/app/services/duplicados_lotes_service.py`: comparación local y
+  coordinación durable de evidencia y excepciones de lotes
 - `backend/app/services/elegibilidad_rece_service.py`: autoridad RECE durable,
   snapshots WSFE y guarda fail-closed
 - `backend/app/api/arca.py`: endpoints HTTP vinculados a ARCA
@@ -370,6 +372,27 @@ web; una recarga forzada exige revisar el backend, no crear otra emisión. Dise�
   `requiere_reconciliacion`, registrar `bloqueo_operativo_no_reemitir`, marcar
   solo los grupos con evidencia fiscal como `requiere_reconciliacion` y exigir
   auditoría antes de continuar.
+
+### PF-13/PF-17: coincidencias de lotes antes de emitir
+
+El [control de duplicados](pf-13-duplicados-lotes-design.md) es local: compara
+identidad y contenido por emisor/ambiente, sin agregar métodos SOAP ni cambiar
+el receptor fiscal enviado a ARCA. La identidad explícita del archivo se
+conserva separada cuando la normalización fiscal del consumidor final la omite.
+
+La excepción se vincula a evidencia y selección de una operación idempotente;
+el resumen no concede permiso para emitir. La coordinación publica una reserva
+durable en una transacción corta y libera el lock antes de WSAA/WSFE. El avance
+parcial no reduce el conjunto original reconocido, y un reintento debe recuperar
+su reserva. Una operación ajena coincidente activa o incierta no admite excepción.
+
+Los caminos unitario, agrupado, cola y retry preservan el control de antecedentes
+individuales y revalidan antes del envío. Un antecedente relevante nuevo invalida
+la cobertura aceptada. Esto no cambia la idempotencia fiscal, numeración, RECE,
+confirmación de fecha/PV ni reconciliación: una aceptación de similitud nunca
+autoriza repetir un comprobante emitido o incierto. Actor e instantes se toman
+de la operación/intento acreditados; los datos históricos ausentes permanecen
+desconocidos, incluso después de compactar el lote.
 
 ### PF-02A/PF-02B: numeración individual, batch, reintentos y stale con historia externa
 

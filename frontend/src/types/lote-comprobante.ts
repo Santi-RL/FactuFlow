@@ -97,6 +97,143 @@ export interface LoteTotalesListos {
   valores_invalidos: number;
 }
 
+export type DuplicadosCobertura =
+  "completa" | "parcial_legacy" | "no_comprobable";
+
+export type DuplicadosTipoCoincidencia =
+  | "interna_receptor"
+  | "historica_completa"
+  | "historica_parcial_receptor"
+  | "historica_individual_legacy";
+
+export interface DuplicadosSolicitante {
+  usuario_id: number | null;
+  nombre: string | null;
+  estado: "registrado" | "no_registrado";
+}
+
+export interface DuplicadosBloqueo {
+  referencia: string;
+  estado: "reservada" | "intento_en_curso" | "incierta";
+  cantidad_afectada: number;
+  detectado_at: string | null;
+}
+
+export interface DuplicadosImportePorMoneda {
+  moneda: string;
+  importe: string;
+  cantidad: number;
+}
+
+export interface DuplicadosImportes {
+  por_moneda: DuplicadosImportePorMoneda[];
+  cantidad_sin_moneda_acreditada: number;
+}
+
+export interface DuplicadosAntecedenteResumen {
+  origen: "lote" | "comprobante_individual";
+  lote_id: number | null;
+  nombre_archivo: string | null;
+  comprobante_ref: string | null;
+  tipo_coincidencia: Exclude<DuplicadosTipoCoincidencia, "interna_receptor">;
+  cobertura: DuplicadosCobertura;
+  cantidad_lote_anterior: number | null;
+  cantidad_coincidente: number;
+  cantidad_autorizada: number;
+  cantidad_solo_validada: number;
+  cantidad_reservada_en_curso: number;
+  cantidad_fallida: number;
+  cantidad_incierta: number;
+  importe_lote_anterior: string | null;
+  importe_lote_actual: string | null;
+  importe_afectado: string | null;
+  importes_lote_actual: DuplicadosImportes;
+  importes_lote_anterior: DuplicadosImportes | null;
+  importes_afectados: DuplicadosImportes;
+  emitido_desde: string | null;
+  emitido_hasta: string | null;
+  hora_confiable: boolean;
+  solicitantes: DuplicadosSolicitante[];
+}
+
+export interface ControlDuplicadosLote {
+  version: "duplicados_lotes/v2";
+  cobertura: DuplicadosCobertura;
+  estado:
+    | "sin_coincidencias"
+    | "requiere_confirmacion"
+    | "aceptada"
+    | "operacion_en_curso";
+  evidencia_id: string | null;
+  datos_hash: string;
+  seleccion_hash: string;
+  tipos_coincidencia: DuplicadosTipoCoincidencia[];
+  cantidad_actual: number;
+  cantidad_afectada: number;
+  importe_actual: string | null;
+  importe_afectado: string | null;
+  importes_actuales: DuplicadosImportes;
+  importes_afectados: DuplicadosImportes;
+  antecedentes_resumen: DuplicadosAntecedenteResumen[];
+  aceptacion_requerida: boolean;
+  aceptacion_habilitada: boolean;
+  bloqueo_operacion_ajena: DuplicadosBloqueo | null;
+  detalle_url: string | null;
+}
+
+export type DuplicadosCampoCoincidente =
+  | "nombre"
+  | "documento"
+  | "contenido_completo"
+  | "predicado_individual_vigente";
+
+export interface DuplicadosCoincidenciaDetalle {
+  grupo_actual_id: number;
+  comprobante_actual_ref: string;
+  origen: "lote" | "comprobante_individual";
+  tipo_coincidencia: DuplicadosTipoCoincidencia;
+  campos_coincidentes: DuplicadosCampoCoincidente[];
+  lote_anterior_id: number | null;
+  grupo_anterior_id: number | null;
+  comprobante_anterior_ref: string | null;
+  operacion_anterior_ref: string | null;
+  estado_grupo_anterior:
+    | "cargado"
+    | "validado"
+    | "en_cola"
+    | "procesando"
+    | "autorizado"
+    | "autorizado_externo"
+    | "fallido"
+    | "requiere_reconciliacion"
+    | null;
+  importe: string;
+  moneda: string | null;
+  cotizacion: string | null;
+  solicitantes: DuplicadosSolicitante[];
+  solicitud_emision_at: string | null;
+  solicitud_arca_at: string | null;
+  resultado_fiscal_at: string | null;
+  hora_confiable: boolean;
+}
+
+export interface DuplicadosCoincidenciasPage {
+  items: DuplicadosCoincidenciaDetalle[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface DuplicadosErrorDetail {
+  mensaje?: string;
+  errores?: string[];
+  categoria_error?: string;
+  control_duplicados?: ControlDuplicadosLote;
+  aceptacion_id?: string;
+  confirmacion_duplicado_logico?: string;
+}
+
 export interface LoteComprobanteResumen extends LoteComprobante {
   confirmacion_fecha_fiscal: string;
   mensaje_confirmacion_fecha_fiscal: string;
@@ -105,6 +242,7 @@ export interface LoteComprobanteResumen extends LoteComprobante {
   confirmacion_duplicado_logico: string;
   mensaje_confirmacion_duplicado_logico: string;
   cantidad_duplicados_logicos: number;
+  control_duplicados: ControlDuplicadosLote;
   fechas_emision_validas: string[];
   puntos_venta_validos: number[];
   totales_listos_para_emitir: LoteTotalesListos;

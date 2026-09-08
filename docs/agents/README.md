@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 05/09/2026
+Última revisión: 08/09/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -66,9 +66,10 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 - PF-11/PF-15, implementación futura:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
-- PF-13/PF-17, implementación futura:
-  [plantillas contables](pf-13-plantillas-contables-design.md) y
+- PF-13/PF-17, contrato del control de emisión masiva:
   [prevención de duplicados en lotes](pf-13-duplicados-lotes-design.md).
+- PF-13/PF-17, implementación futura:
+  [plantillas contables](pf-13-plantillas-contables-design.md).
 - PF-18/PF-17, implementación futura:
   [dashboard mensual y fechas de emisión](pf-18-dashboard-mensual-design.md).
 - PF-17, implementación futura:

@@ -2436,7 +2436,11 @@ class ElegibilidadReceService:
                 estados_lote_permitidos = {"procesando"}
                 estados_grupo_permitidos = {"validado"}
             elif operacion_propietaria.tipo_operacion == "reintentar_fallidos_lote":
-                estados_lote_permitidos = {"con_errores", "fallido"}
+                estados_lote_permitidos = {
+                    "autorizado_parcial",
+                    "con_errores",
+                    "fallido",
+                }
                 estados_grupo_permitidos = {"reintentando"}
             else:
                 await self.db.rollback()

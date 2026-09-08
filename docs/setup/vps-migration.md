@@ -1,6 +1,6 @@
 # Migración local a VPS
 
-Última actualización: 2026-09-01
+Última actualización: 2026-09-05
 
 Estado: referencia técnica reutilizable. No describe el estado desplegado de
 ninguna instalación.
@@ -30,20 +30,46 @@ VPS sin perder continuidad fiscal local:
 - formatos de importación, versiones, campos y reglas
 - perfiles de carga masiva
 - comprobantes y sus ítems, preservando IDs y numeración local
+- representación mínima de lotes y evidencias requerida por el control de
+  duplicados PF-13/PF-17, con sus relaciones de operación y procedencia
 
 Quedan fuera del paquete:
 
-- intentos fiscales y guardas RECE
-- lotes de comprobantes, grupos, filas y eventos de lote
+- lotes, grupos, intentos y guardas ajenos a la representación necesaria para
+  PF-13/PF-17 y a la coherencia de los replays terminales incluidos, cuando el
+  preflight acredita que pueden omitirse
+- filas del archivo y eventos de lote
 - eventos de sistema y exportaciones de almacenamiento
 - PDFs, XLSX, observados, temporales, cachés, logs y evidencia privada
 
-El paquete v3 conserva el scope `operacion_futura_con_comprobantes`. Las tablas
-excluidas solo pueden omitirse cuando el preflight demuestra que no contienen
+El paquete v4 conserva el scope `operacion_futura_con_comprobantes`. Las filas
+excluidas sólo pueden omitirse cuando el preflight demuestra que no contienen
 estado no terminal, incierto, contradictorio ni necesario para continuar una
-operación. Cualquier caso dudoso bloquea la exportación. En operaciones
-terminales de lote, `lote_id` se normaliza a `null` y el paquete preserva pares
-y hashes suficientes para un replay terminal consistente.
+operación. Cualquier caso dudoso bloquea la exportación.
+
+La selección PF-13 incluye operaciones v2 y sus raíces, selecciones y testigos,
+así como antecedentes autorizados con representación comparable v2. Cada lote
+alcanzado conserva todos sus grupos, incluidos los pendientes o fallidos: omitir
+parte de su contenido podría generar una falsa coincidencia completa. Se
+conservan también los intentos terminales, guardas RECE y detalles de evidencia
+necesarios para esos vínculos. No se trasladan el Excel ni su historial visual.
+
+Para conservar replays terminales coherentes, también se incluyen los lotes de
+rechazos batch PF-19C exactos y sus relaciones históricas requeridas, además de
+los intentos y guardas durables de operaciones individuales terminales. Los
+intentos con revisión RECE conservan su número histórico de punto de venta;
+una renumeración posterior no invalida esa evidencia ni la reemplaza por el
+número vigente. No se inventan intentos, guardas ni revisiones ausentes.
+Una operación masiva terminal fallida o rechazada puede conservar autorizaciones
+anteriores al fallo: el paquete las admite sólo con comprobante, CAE, grupo,
+guarda y evidencia coherentes. La autorización individual sigue exigiendo una
+operación finalizada.
+
+Las operaciones de esos lotes mantienen `lote_id`. Las operaciones legacy cuyo
+lote se omite conservan la normalización a `null` y los pares/hashes que
+permiten un replay terminal consistente. El manifest distingue y verifica los
+dos casos. La coordinación técnica por emisor/ambiente se valida en la fuente
+y se regenera en destino con revisión cero; no se copia como evidencia fiscal.
 
 La SQLite local queda como archivo histórico privado y no se versiona.
 
@@ -60,8 +86,8 @@ Subcomandos disponibles:
 - `preflight`: valida SQLite local, Alembic head, tablas esperadas, barrera de
   idempotencia, elegibilidad RECE, operaciones y certificados activos.
 - `export`: genera un paquete privado en `.tmp/vps-migration/<timestamp>/`.
-- `import`: restaura un paquete v3 sobre PostgreSQL limpio ya migrado con
-  Alembic y bajo locks de tablas.
+- `import`: restaura un paquete v4, o adapta un v3 conocido mediante su contrato
+  estricto, sobre PostgreSQL limpio ya migrado con Alembic y bajo locks de tablas.
 - `validate`: compara manifest, datos, relaciones y disponibilidad básica; es
   obligatorio antes de operar.
 
@@ -118,6 +144,14 @@ La exportación exige además `--source-quiesced`: el operador confirma que la
 fuente está detenida y el script sostiene una barrera SQLite, compara
 `data_version` y aborta si la base cambia durante la captura.
 
+El paquete se publica mediante el renombrado del directorio temporal completo.
+En Windows, una denegación transitoria de acceso durante ese paso admite hasta
+cinco intentos sobre el mismo origen y destino, con un máximo de 750 ms de
+espera acumulada. Un destino existente se conserva. Si el bloqueo persiste,
+la exportación informa un error y sólo limpia su directorio temporal propio;
+si esa limpieza también falla, informa ambos problemas. Estos reintentos
+locales no repiten la captura de datos ni ninguna operación fiscal.
+
 Si las claves fuente ya estuvieran cifradas con otra contraseña:
 
 ```powershell
@@ -126,8 +160,9 @@ $env:ARCA_MIGRATION_SOURCE_KEY_PASSWORD="<clave-local-actual>"
 
 El paquete generado incluye:
 
-- `manifest.json` versión `3` con scope exacto, Alembic head, conteos, hashes,
-  rutas, shapes y tablas excluidas
+- `manifest.json` versión `4` con scope exacto, Alembic head, conteos, hashes,
+  rutas y shapes, distinguiendo tablas completas, filtradas, regeneradas y
+  excluidas; incluye la selección verificable de raíces y relaciones PF-13
 - `data/*.jsonl` con filas exportadas por tabla
 - `certs/*.crt` y `certs/*.key` de certificados activos
 - `env.production.required.example` con variables requeridas sin secretos reales
@@ -137,8 +172,19 @@ a servicios externos.
 
 El importador rechaza paquetes anteriores a v3 porque no pueden preservar los
 accesos explícitos. Deben regenerarse desde la fuente con la versión vigente.
-El manifest v3 valida de forma estricta cada hash, conteo, ruta, shape, FK,
-asignación multiemisor y barrera de idempotencia.
+El exportador genera sólo v4. Cada versión admitida valida de forma estricta
+hashes, conteos, rutas, shapes, FKs, asignaciones multiemisor y barrera de
+idempotencia. Un v3 usa su schema, partición y head conocidos; no adopta las
+columnas actuales del ORM ni acepta variantes arbitrarias. El adaptador agrega
+las columnas v2 nuevas como nulas y regenera coordinadores. No reconstruye
+lotes omitidos por v3 ni convierte tokens o booleanos v1 en aceptación v2.
+
+La barrera v4 conserva control, selección original, aceptación, actor, tiempos,
+huellas, reservas y generaciones de evidencia con sus bloques y miembros.
+Atestigua también formato, ordinales, hashes decisorio/snapshot, generaciones
+origen de aceptación y vínculo intento→generación. Sus conteos fuente/exportados/omitidos
+y su clausura verificable impiden eliminar un testigo o un grupo necesario
+modificando solamente los hashes del archivo.
 
 ## Ensayo en PostgreSQL local
 
@@ -192,8 +238,9 @@ Importar el paquete:
 
 El importador acepta la URL productiva `postgresql+asyncpg://` y la convierte a
 un driver síncrono para insertar datos. Rechaza cualquier destino que no sea
-PostgreSQL, exige que la base esté limpia y en el mismo head Alembic del
-paquete, no modifica `alembic_version`, toma locks de tablas, restaura todo en
+PostgreSQL y exige una base limpia en el head Alembic compatible con la versión
+de paquete y su adaptador explícito. No modifica `alembic_version`, toma locks
+de tablas, restaura todo en
 una transacción y ajusta secuencias `SERIAL/IDENTITY` al máximo ID restaurado.
 Los certificados se preparan en staging; ante cualquier error se revierte la
 transacción y se limpian solo los archivos creados por esa ejecución.
@@ -217,7 +264,12 @@ Validaciones esperadas:
 
 - versión, scope, head, hashes, rutas, shapes y conteos coinciden con el manifest
 - tablas excluidas quedan vacías
+- tablas filtradas conservan exactamente la selección atestiguada y todos los
+  grupos de cada lote incluido
+- coordinadores contienen los dos ambientes exactos por emisor con revisión cero
 - FKs, asociaciones RECE y barrera de idempotencia son coherentes
+- selección original, raíces, reservas, huellas, actor, tiempos y detalle de
+  coincidencias conservan sus relaciones y pertenencia al emisor
 - `usuario_emisor_acceso`, `usuarios.empresa_id` y la capacidad delegada
   conservan exactamente el alcance del paquete
 - claves privadas restauradas abren con `ARCA_PRIVATE_KEY_PASSWORD`
@@ -237,8 +289,9 @@ Verificar desde UI o API:
 4. Comprobantes, ítems y reportes básicos.
 5. `proximo-numero` solo como verificación segura de numeración, sin emitir CAE
    y sin ejecutar flujos de emisión.
-6. Elegibilidad RECE efectiva: homologación continúa bloqueada; producción solo
-   muestra como usable una acreditación RECE efectiva.
+6. Elegibilidad RECE efectiva en el ambiente correspondiente: la evidencia
+   WSFE debe pertenecer a ese emisor y ambiente, con revisión vigente. La
+   evidencia legacy por constancia sólo acredita producción.
 
 ## Bloqueos de seguridad
 

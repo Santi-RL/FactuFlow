@@ -23,6 +23,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
@@ -31,15 +32,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_empresa_id, get_current_empresa_user
 from app.api.arca import get_wsfe_client
 from app.core.config import settings
-from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
-from app.core.database import get_db
+from app.core.database import (
+    DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS,
+    DatabaseTransactionBoundaryError,
+    get_db,
+    rollback_if_transaction_is_read_only,
+)
 from app.core.date_parsing import parse_fecha_input
 from app.models.empresa import Empresa
 from app.models.idempotencia_fiscal import OperacionIdempotente
-from app.models.lote_comprobante import LoteComprobante
+from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.models.usuario import Usuario
 from app.schemas.comprobante import ErrorArcaFiscalResponse
 from app.schemas.lote_comprobante import (
+    DuplicadosCoincidenciasPageResponse,
     LoteAccionResponse,
     LoteComprobanteDetalleResponse,
     LoteComprobanteGrupoDetalleResponse,
@@ -55,7 +61,13 @@ from app.schemas.lote_comprobante import (
     LoteValidacionResponse,
 )
 from app.services.facturacion_service import FaseSolicitudArca
+from app.services.duplicados_lotes_service import (
+    DuplicadosLoteError,
+    DuplicadosLotesService,
+    MENSAJE_BLOQUEO_LEGACY,
+)
 from app.services.lote_comprobantes_service import (
+    LoteDuplicadosEvidenciaCambioError,
     LoteComprobanteConflictoError,
     LoteComprobanteError,
     LoteComprobantesService,
@@ -344,6 +356,244 @@ async def _resolver_operacion_lote(
     return idempotencia, operacion, creada, contextos_rece
 
 
+async def _resolver_remanente_legacy_aceptado(
+    *,
+    db: AsyncSession,
+    empresa_id: int,
+    usuario_id: int | None,
+    idempotency_key: str | None,
+    tipo_operacion: str,
+    payload: dict,
+    lote_id: int,
+    material_rece: dict,
+    estados: set[str],
+    grupo_ids: list[int] | None,
+    aceptacion_recibida: str | None,
+    solicitante_nombre: str | None,
+    propietario_inicial_id: int,
+) -> tuple[
+    IdempotenciaFiscalService,
+    OperacionIdempotente,
+    bool,
+    list[ContextoElegibilidadRece],
+    bool,
+    bool,
+]:
+    """Admite un owner v1 aceptado sin commits entre clasificación y reserva v2."""
+    duplicados = DuplicadosLotesService(db)
+    propietario_id = int(propietario_inicial_id)
+    idempotencia = IdempotenciaFiscalService(db)
+    payload_hash = idempotencia.calcular_payload_hash(
+        idempotencia.payload_sin_confirmacion_duplicado(payload)
+    )
+    try:
+        await idempotencia.obtener_operacion_existente(
+            empresa_id=empresa_id,
+            idempotency_key=idempotency_key,
+            payload_hash=payload_hash,
+        )
+    except IdempotenciaFiscalError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    grupos_rece = list(material_rece.get("grupos") or [])
+    puntos_ids = {
+        int(grupo["punto_venta_id"])
+        for grupo in grupos_rece
+        if grupo.get("punto_venta_id") is not None
+    }
+    try:
+        await rollback_if_transaction_is_read_only(db)
+        await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
+            empresa_id=empresa_id,
+            puntos_venta_ids=puntos_ids,
+            actor_usuario_id=usuario_id,
+        )
+        await rollback_if_transaction_is_read_only(db)
+        async with _bloqueos_locales_puntos_lote(
+            db=db,
+            empresa_id=empresa_id,
+            material_rece=material_rece,
+        ) as elegibilidad:
+            await duplicados.adquirir_coordinacion(
+                empresa_id=empresa_id,
+                ambiente=settings.arca_env,
+            )
+            key = idempotencia.validar_idempotency_key(idempotency_key)
+            operacion_actual_id = await db.scalar(
+                select(OperacionIdempotente.id).where(
+                    OperacionIdempotente.empresa_id == empresa_id,
+                    OperacionIdempotente.idempotency_key == key,
+                )
+            )
+            ids_operaciones = sorted(
+                {propietario_id}
+                | (
+                    {int(operacion_actual_id)}
+                    if operacion_actual_id is not None
+                    else set()
+                )
+            )
+            operaciones_bloqueadas = list(
+                (
+                    await db.scalars(
+                        select(OperacionIdempotente)
+                        .where(OperacionIdempotente.id.in_(ids_operaciones))
+                        .order_by(OperacionIdempotente.id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                ).all()
+            )
+            por_id = {int(item.id): item for item in operaciones_bloqueadas}
+            propietario = por_id.get(propietario_id)
+            if propietario is None:
+                raise DuplicadosLoteError(
+                    "El owner legacy dejó de estar disponible durante la coordinación."
+                )
+            propietario = await duplicados.revalidar_propietario_legacy_aceptado(
+                lote_id=lote_id,
+                empresa_id=empresa_id,
+                propietario_bloqueado=propietario,
+            )
+            grupo_ids_rece = sorted(int(grupo["grupo_id"]) for grupo in grupos_rece)
+            grupos_bloqueados = list(
+                (
+                    await db.scalars(
+                        select(LoteComprobanteGrupo)
+                        .where(
+                            LoteComprobanteGrupo.lote_id == lote_id,
+                            LoteComprobanteGrupo.empresa_id == empresa_id,
+                            LoteComprobanteGrupo.id.in_(grupo_ids_rece),
+                        )
+                        .order_by(LoteComprobanteGrupo.id)
+                        .with_for_update()
+                    )
+                ).all()
+            )
+            if [int(grupo.id) for grupo in grupos_bloqueados] != grupo_ids_rece:
+                raise DuplicadosLoteError(
+                    "La selección RECE cambió durante la coordinación."
+                )
+            bloqueo_legacy = await duplicados.obtener_bloqueo_legacy_no_reconfirmable(
+                lote_id=lote_id,
+                empresa_id=empresa_id,
+                estados=estados,
+                bloquear=False,
+                propietario_bloqueado=propietario,
+            )
+            if bloqueo_legacy is not None:
+                raise DuplicadosLoteError(
+                    MENSAJE_BLOQUEO_LEGACY,
+                    "duplicado_legacy_no_reconfirmable",
+                    control=bloqueo_legacy,
+                )
+            tipos = {
+                int(grupo["grupo_id"]): int(grupo["tipo_comprobante"])
+                for grupo in grupos_rece
+                if grupo.get("tipo_comprobante") is not None
+            }
+            contextos_rece = await elegibilidad.validar_grupos_lote(
+                lote_id=lote_id,
+                empresa_id=empresa_id,
+                grupo_ids=grupo_ids_rece,
+                tipo_comprobante_por_grupo=tipos,
+                material_confirmado=grupos_rece,
+                bloquear=True,
+            )
+            operacion, creada = await idempotencia.obtener_o_crear_operacion(
+                empresa_id=empresa_id,
+                usuario_id=usuario_id,
+                idempotency_key=idempotency_key,
+                tipo_operacion=tipo_operacion,
+                payload_hash=payload_hash,
+                lote_id=lote_id,
+                contextos_rece=contextos_rece,
+                commit=False,
+            )
+            continuar = creada
+            if not creada and operacion.estado == "interrumpida_pre_arca":
+                await elegibilidad.validar_operacion_para_continuar(
+                    operacion_id=operacion.id,
+                    empresa_id=empresa_id,
+                    contextos_esperados=contextos_rece,
+                )
+                (
+                    operacion,
+                    continuar,
+                ) = await idempotencia.reclamar_operacion_interrumpida_pre_arca(
+                    operacion,
+                    commit=False,
+                )
+                if not continuar:
+                    raise _error_idempotencia_en_proceso_lote()
+            elif (
+                not creada
+                and operacion.estado == "requiere_confirmacion_duplicado"
+                and aceptacion_recibida
+            ):
+                operacion, continuar = await idempotencia.marcar_operacion_en_proceso(
+                    operacion,
+                    commit=False,
+                )
+                if not continuar:
+                    raise _error_idempotencia_en_proceso_lote()
+            aceptada = False
+            if continuar:
+                _, _, aceptada = await duplicados.evaluar_y_reservar_bajo_coordinacion(
+                    operacion_id=int(operacion.id),
+                    lote_id=lote_id,
+                    empresa_id=empresa_id,
+                    estados=estados,
+                    grupo_ids=grupo_ids,
+                    aceptacion_recibida=aceptacion_recibida,
+                    solicitante_nombre=solicitante_nombre,
+                    reservar=True,
+                    ambiente=settings.arca_env,
+                    commit=False,
+                )
+            await db.commit()
+            await db.refresh(operacion)
+            return (
+                idempotencia,
+                operacion,
+                creada,
+                contextos_rece,
+                continuar,
+                aceptada,
+            )
+    except DatabaseTransactionBoundaryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "mensaje": "No se pudo acreditar una frontera de sólo lectura.",
+                "errores": ["No se solicitó CAE."],
+                "categoria_error": "duplicado_coordinacion_transaccional",
+            },
+        ) from exc
+    except DuplicadosLoteError as exc:
+        await db.rollback()
+        detail = {
+            "mensaje": exc.mensaje,
+            "errores": ["No se solicitó CAE."],
+            "categoria_error": exc.categoria,
+        }
+        if exc.control is not None:
+            detail["control_duplicados"] = exc.control
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=jsonable_encoder(detail),
+        ) from exc
+    except ElegibilidadReceError as exc:
+        await db.rollback()
+        raise _error_elegibilidad_lote(exc) from exc
+    except IdempotenciaFiscalError as exc:
+        await db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except BaseException:
+        if db.in_transaction():
+            await db.rollback()
+        raise
+
+
 def _error_elegibilidad_lote(exc: ElegibilidadReceError) -> HTTPException:
     """Devuelve un conflicto fail-closed sin filtrar evidencia fiscal."""
     return HTTPException(
@@ -389,17 +639,14 @@ async def _resolver_contextos_rece_lote(
 
 
 @asynccontextmanager
-async def _contextos_rece_lote_bloqueados(
+async def _bloqueos_locales_puntos_lote(
     *,
     db: AsyncSession,
-    lote_id: int,
     empresa_id: int,
     material_rece: dict,
-    operacion: OperacionIdempotente | None = None,
-) -> AsyncIterator[list[ContextoElegibilidadRece]]:
-    """Mantiene locks multipunto hasta que el caller termina su transacción."""
+) -> AsyncIterator[ElegibilidadReceService]:
+    """Toma los locks locales de puntos en orden antes de cualquier lock SQL."""
     grupos = list(material_rece.get("grupos") or [])
-    grupo_ids = [int(grupo["grupo_id"]) for grupo in grupos]
     puntos_ids = sorted(
         {
             int(grupo["punto_venta_id"])
@@ -415,11 +662,6 @@ async def _contextos_rece_lote_bloqueados(
         raise ElegibilidadReceError(
             "El lote no tiene una membresía RECE completa y emitible."
         )
-    tipos = {
-        int(grupo["grupo_id"]): int(grupo["tipo_comprobante"])
-        for grupo in grupos
-        if grupo.get("tipo_comprobante") is not None
-    }
     elegibilidad = ElegibilidadReceService(db)
     async with AsyncExitStack() as stack:
         for punto_venta_id in puntos_ids:
@@ -429,6 +671,31 @@ async def _contextos_rece_lote_bloqueados(
                     punto_venta_id=punto_venta_id,
                 )
             )
+        yield elegibilidad
+
+
+@asynccontextmanager
+async def _contextos_rece_lote_bloqueados(
+    *,
+    db: AsyncSession,
+    lote_id: int,
+    empresa_id: int,
+    material_rece: dict,
+    operacion: OperacionIdempotente | None = None,
+) -> AsyncIterator[list[ContextoElegibilidadRece]]:
+    """Mantiene locks multipunto hasta que el caller termina su transacción."""
+    grupos = list(material_rece.get("grupos") or [])
+    grupo_ids = [int(grupo["grupo_id"]) for grupo in grupos]
+    tipos = {
+        int(grupo["grupo_id"]): int(grupo["tipo_comprobante"])
+        for grupo in grupos
+        if grupo.get("tipo_comprobante") is not None
+    }
+    async with _bloqueos_locales_puntos_lote(
+        db=db,
+        empresa_id=empresa_id,
+        material_rece=material_rece,
+    ) as elegibilidad:
         contextos = await elegibilidad.validar_grupos_lote(
             lote_id=lote_id,
             empresa_id=empresa_id,
@@ -580,6 +847,138 @@ async def _guardar_y_lanzar_error_operacion_lote(
         estado="fallido_verificado",
     )
     raise HTTPException(status_code=status_code, detail=detail)
+
+
+async def _evaluar_control_duplicados_operacion(
+    *,
+    db: AsyncSession,
+    operacion_id: int,
+    lote_id: int,
+    empresa_id: int,
+    estados: set[str],
+    grupo_ids: list[int] | None,
+    aceptacion_recibida: str | None,
+    solicitante_nombre: str | None,
+    reservar: bool = True,
+) -> tuple[bool, OperacionIdempotente]:
+    """Publica evidencia/aceptación v2 o reserva la selección antes de ARCA."""
+    try:
+        await rollback_if_transaction_is_read_only(db)
+        control, aceptacion_id, accepted = await DuplicadosLotesService(
+            db
+        ).evaluar_y_reservar(
+            operacion_id=operacion_id,
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            estados=estados,
+            grupo_ids=grupo_ids,
+            aceptacion_recibida=aceptacion_recibida,
+            solicitante_nombre=solicitante_nombre,
+            reservar=reservar,
+            ambiente=settings.arca_env,
+        )
+        operacion_recargada = await db.get(
+            OperacionIdempotente,
+            operacion_id,
+            populate_existing=True,
+        )
+        if operacion_recargada is None:
+            raise DuplicadosLoteError(
+                "La operación idempotente dejó de estar disponible."
+            )
+    except (DatabaseTransactionBoundaryError, DuplicadosLoteError) as exc:
+        categoria = (
+            exc.categoria
+            if isinstance(exc, DuplicadosLoteError)
+            else "duplicado_coordinacion_transaccional"
+        )
+        mensaje = (
+            exc.mensaje
+            if isinstance(exc, DuplicadosLoteError)
+            else "No se pudo acreditar una frontera de sólo lectura."
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "mensaje": mensaje,
+                "errores": ["No se solicitó CAE."],
+                "categoria_error": categoria,
+            },
+        ) from exc
+    if control["bloqueo_operacion_ajena"] is not None:
+        detail = jsonable_encoder(
+            {
+                "mensaje": "Otra operación coincidente está en curso.",
+                "errores": ["Esperá su resultado antes de decidir una excepción."],
+                "categoria_error": "duplicado_operacion_en_curso",
+                "control_duplicados": control,
+                "confirmacion_duplicado_logico": "",
+                "cantidad_duplicados_logicos": control["cantidad_afectada"],
+            }
+        )
+        await IdempotenciaFiscalService(db).guardar_resultado_operacion_sync(
+            operacion_recargada,
+            response_json=detail,
+            estado="requiere_confirmacion_duplicado",
+        )
+        raise HTTPException(status_code=409, detail=detail)
+    if control["aceptacion_requerida"] and not accepted:
+        detail = jsonable_encoder(
+            {
+                "mensaje": "Revisá las coincidencias antes de emitir.",
+                "errores": [
+                    "Confirmá que corresponden a operaciones nuevas antes de solicitar CAE."
+                ],
+                "categoria_error": "duplicado_logico_lote",
+                "control_duplicados": control,
+                "aceptacion_id": aceptacion_id,
+                "confirmacion_duplicado_logico": aceptacion_id,
+                "cantidad_duplicados_logicos": control["cantidad_afectada"],
+            }
+        )
+        await IdempotenciaFiscalService(db).guardar_resultado_operacion_sync(
+            operacion_recargada,
+            response_json=detail,
+            estado="requiere_confirmacion_duplicado",
+        )
+        raise HTTPException(status_code=409, detail=detail)
+    return accepted, operacion_recargada
+
+
+async def _bloquear_remanente_legacy_no_reconfirmable(
+    *,
+    db: AsyncSession,
+    lote_id: int,
+    empresa_id: int,
+    estados: set[str],
+) -> int | None:
+    """Clasifica el owner v1 y bloquea si su aceptación ya no es comprobable."""
+    duplicados = DuplicadosLotesService(db)
+    propietario = await duplicados.obtener_propietario_legacy_aceptado(
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+    )
+    if propietario is None:
+        return None
+    control = await duplicados.obtener_bloqueo_legacy_no_reconfirmable(
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados=estados,
+        propietario_bloqueado=propietario,
+    )
+    if control is None:
+        return int(propietario.id)
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=jsonable_encoder(
+            {
+                "mensaje": MENSAJE_BLOQUEO_LEGACY,
+                "errores": ["No se solicitó CAE."],
+                "categoria_error": "duplicado_legacy_no_reconfirmable",
+                "control_duplicados": control,
+            }
+        ),
+    )
 
 
 def _descripcion_facturada_grupo(grupo) -> str | None:
@@ -754,6 +1153,8 @@ async def procesar_lote(
 ):
     """Procesa el lote validado."""
     service = LoteComprobantesService(db)
+    current_user_id = int(current_user.id)
+    current_user_nombre = current_user.nombre
     fase_solicitud_arca = FaseSolicitudArca()
     try:
         lote = await service.obtener_lote_resumen(lote_id, empresa_activa_id)
@@ -761,6 +1162,7 @@ async def procesar_lote(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     requiere_background = background or lote.total_grupos > settings.batch_sync_limit
+    lote_grupos_validos = int(lote.grupos_validos)
     material_grupos = await service.calcular_material_idempotente_grupos(
         lote_id=lote_id,
         empresa_id=empresa_activa_id,
@@ -815,6 +1217,15 @@ async def procesar_lote(
                 empresa_id=empresa_activa_id,
             )
 
+    propietario_legacy_id = None
+    if x_idempotency_key:
+        propietario_legacy_id = await _bloquear_remanente_legacy_no_reconfirmable(
+            db=db,
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            estados={"validado"},
+        )
+
     if (
         requiere_background
         and lote.estado in service.ESTADOS_PROCESABLES
@@ -834,19 +1245,71 @@ async def procesar_lote(
             },
         )
 
-    idempotencia, operacion, creada, contextos_rece = await _resolver_operacion_lote(
-        db=db,
-        empresa_id=empresa_activa_id,
-        usuario_id=current_user.id,
-        idempotency_key=x_idempotency_key,
-        tipo_operacion="procesar_lote",
-        payload=payload_operacion,
-        lote_id=lote_id,
-        material_rece=material_rece,
-    )
+    admision_legacy = None
+    if propietario_legacy_id is not None:
+        resumen_previo = await service.obtener_resumen_operativo_lote(
+            lote_id, empresa_activa_id
+        )
+        try:
+            await rollback_if_transaction_is_read_only(db)
+        except DatabaseTransactionBoundaryError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "mensaje": "No se pudo acreditar una frontera de sólo lectura.",
+                    "errores": ["No se solicitó CAE."],
+                    "categoria_error": "duplicado_coordinacion_transaccional",
+                },
+            ) from exc
+        if x_confirmacion_fecha_fiscal == resumen_previo["confirmacion_fecha_fiscal"]:
+            admision_legacy = await _resolver_remanente_legacy_aceptado(
+                db=db,
+                empresa_id=empresa_activa_id,
+                usuario_id=current_user_id,
+                idempotency_key=x_idempotency_key,
+                tipo_operacion="procesar_lote",
+                payload=payload_operacion,
+                lote_id=lote_id,
+                material_rece=material_rece,
+                estados={"validado"},
+                grupo_ids=None,
+                aceptacion_recibida=x_confirmacion_duplicado_logico,
+                solicitante_nombre=current_user_nombre,
+                propietario_inicial_id=propietario_legacy_id,
+            )
+    control_duplicados_evaluado = admision_legacy is not None
+    continuar_legacy = False
+    confirmacion_duplicado_ok = False
+    if admision_legacy is None:
+        (
+            idempotencia,
+            operacion,
+            creada,
+            contextos_rece,
+        ) = await _resolver_operacion_lote(
+            db=db,
+            empresa_id=empresa_activa_id,
+            usuario_id=current_user_id,
+            idempotency_key=x_idempotency_key,
+            tipo_operacion="procesar_lote",
+            payload=payload_operacion,
+            lote_id=lote_id,
+            material_rece=material_rece,
+        )
+    else:
+        (
+            idempotencia,
+            operacion,
+            creada,
+            contextos_rece,
+            continuar_legacy,
+            confirmacion_duplicado_ok,
+        ) = admision_legacy
     operacion_id_durable = int(operacion.id)
     try:
-        continuar_operacion = creada
+        continuar_operacion = (
+            continuar_legacy if admision_legacy is not None else creada
+        )
         if not creada and operacion.estado == "interrumpida_pre_arca":
             contextos_rece = await _resolver_contextos_rece_lote(
                 db=db,
@@ -931,7 +1394,7 @@ async def procesar_lote(
                 operacion=operacion,
             )
 
-        if lote.grupos_validos == 0:
+        if lote_grupos_validos == 0:
             await _guardar_y_lanzar_error_operacion_lote(
                 idempotencia,
                 operacion,
@@ -956,37 +1419,21 @@ async def procesar_lote(
                 categoria_error="confirmacion_fecha_fiscal_invalida",
             )
 
-        duplicados = await service.obtener_confirmacion_duplicado_logico_grupos(
-            lote_id=lote_id,
-            empresa_id=empresa_activa_id,
-            estados={"validado"},
-        )
-        confirmacion_duplicado_ok = False
-        if duplicados["cantidad_duplicados_logicos"]:
-            confirmacion_duplicado_ok = (
-                x_confirmacion_duplicado_logico
-                == duplicados["confirmacion_duplicado_logico"]
+        assert operacion_id_durable is not None
+        if not control_duplicados_evaluado:
+            (
+                confirmacion_duplicado_ok,
+                operacion,
+            ) = await _evaluar_control_duplicados_operacion(
+                db=db,
+                operacion_id=operacion_id_durable,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                estados={"validado"},
+                grupo_ids=None,
+                aceptacion_recibida=x_confirmacion_duplicado_logico,
+                solicitante_nombre=current_user_nombre,
             )
-            if not confirmacion_duplicado_ok:
-                detail = {
-                    "mensaje": duplicados["mensaje_confirmacion_duplicado_logico"],
-                    "errores": [
-                        "Confirmá el duplicado lógico antes de solicitar CAE para este lote."
-                    ],
-                    "categoria_error": "duplicado_logico_lote",
-                    "confirmacion_duplicado_logico": duplicados[
-                        "confirmacion_duplicado_logico"
-                    ],
-                    "cantidad_duplicados_logicos": duplicados[
-                        "cantidad_duplicados_logicos"
-                    ],
-                }
-                await idempotencia.guardar_resultado_operacion_sync(
-                    operacion,
-                    response_json=detail,
-                    estado="requiere_confirmacion_duplicado",
-                )
-                raise HTTPException(status_code=409, detail=detail)
 
         if requiere_background:
             lote = await service.encolar_lote(
@@ -1032,12 +1479,25 @@ async def procesar_lote(
                 lote_id,
                 empresa_activa_id,
                 operacion_id=operacion.id,
-                usuario_id=current_user.id,
+                usuario_id=current_user_id,
                 confirmacion_duplicado_logico=confirmacion_duplicado_ok,
                 contextos_rece=contextos_rece,
                 material_rece_confirmado=material_rece,
                 fase_solicitud_arca=fase_solicitud_arca,
             )
+        except LoteDuplicadosEvidenciaCambioError:
+            await _evaluar_control_duplicados_operacion(
+                db=db,
+                operacion_id=operacion_id_durable,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                estados={"validado"},
+                grupo_ids=None,
+                aceptacion_recibida=x_confirmacion_duplicado_logico,
+                solicitante_nombre=current_user_nombre,
+                reservar=False,
+            )
+            raise HTTPException(status_code=409, detail="La evidencia cambió")
         except LoteComprobanteError as exc:
             await _guardar_y_lanzar_error_operacion_lote(
                 idempotencia,
@@ -1135,10 +1595,13 @@ async def reintentar_fallidos_lote(
 ):
     """Reintenta grupos fallidos del lote con confirmación fiscal exacta."""
     service = LoteComprobantesService(db)
+    current_user_id = int(current_user.id)
+    current_user_nombre = current_user.nombre
     fase_solicitud_arca = FaseSolicitudArca()
     grupo_ids = request_body.grupo_ids or None
     idempotencia: IdempotenciaFiscalService | None = None
     operacion: OperacionIdempotente | None = None
+    operacion_id_durable: int | None = None
     try:
         await service.obtener_lote_resumen(lote_id, empresa_activa_id)
         material_grupos = await service.calcular_material_idempotente_grupos(
@@ -1162,28 +1625,132 @@ async def reintentar_fallidos_lote(
             estados=None if grupo_ids else {"fallido"},
             grupo_ids=grupo_ids,
         )
-        (
-            idempotencia,
-            operacion,
-            creada,
-            contextos_rece,
-        ) = await _resolver_operacion_lote(
-            db=db,
-            empresa_id=empresa_activa_id,
-            usuario_id=current_user.id,
-            idempotency_key=x_idempotency_key,
-            tipo_operacion="reintentar_fallidos_lote",
-            payload={
-                "lote_id": lote_id,
-                "grupo_ids": sorted(grupo_ids or []),
-                "confirmacion_fecha_fiscal": x_confirmacion_fecha_fiscal,
-                "grupo_ids_resueltos": material_grupos["grupo_ids"],
-                "grupos_hash": material_grupos["grupos_hash"],
-            },
-            lote_id=lote_id,
-            material_rece=material_rece,
+        payload_operacion = {
+            "lote_id": lote_id,
+            "grupo_ids": sorted(grupo_ids or []),
+            "confirmacion_fecha_fiscal": x_confirmacion_fecha_fiscal,
+            "grupo_ids_resueltos": material_grupos["grupo_ids"],
+            "grupos_hash": material_grupos["grupos_hash"],
+        }
+        if x_idempotency_key:
+            idempotencia_replay = IdempotenciaFiscalService(db)
+            payload_hash_replay = idempotencia_replay.calcular_payload_hash(
+                idempotencia_replay.payload_sin_confirmacion_duplicado(
+                    payload_operacion
+                )
+            )
+            try:
+                operacion_replay = (
+                    await idempotencia_replay.obtener_operacion_existente(
+                        empresa_id=empresa_activa_id,
+                        idempotency_key=x_idempotency_key,
+                        payload_hash=payload_hash_replay,
+                    )
+                )
+            except IdempotenciaFiscalError as exc:
+                raise HTTPException(
+                    status_code=exc.status_code,
+                    detail=exc.detail,
+                ) from exc
+            if (
+                operacion_replay is not None
+                and operacion_replay.response_json is not None
+                and _operacion_lote_esta_cerrada(operacion_replay)
+            ):
+                if "categoria_error" in operacion_replay.response_json:
+                    _raise_error_operacion_lote(operacion_replay.response_json)
+                return _respuesta_lote_replay_validada(
+                    operacion_replay.response_json,
+                    LoteAccionResponse,
+                    operacion=operacion_replay,
+                    lote_id=lote_id,
+                    empresa_id=empresa_activa_id,
+                )
+        propietario_legacy_id = None
+        if x_idempotency_key:
+            propietario_legacy_id = await _bloquear_remanente_legacy_no_reconfirmable(
+                db=db,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                estados={"fallido"},
+            )
+        admision_legacy = None
+        if propietario_legacy_id is not None:
+            confirmacion_previa = None
+            try:
+                confirmacion_previa = await service.obtener_confirmacion_fiscal_grupos(
+                    lote_id=lote_id,
+                    empresa_id=empresa_activa_id,
+                    estados={"fallido"},
+                    grupo_ids=grupo_ids,
+                )
+            except LoteComprobanteError:
+                pass
+            try:
+                await rollback_if_transaction_is_read_only(db)
+            except DatabaseTransactionBoundaryError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "mensaje": (
+                            "No se pudo acreditar una frontera de sólo lectura."
+                        ),
+                        "errores": ["No se solicitó CAE."],
+                        "categoria_error": "duplicado_coordinacion_transaccional",
+                    },
+                ) from exc
+            if (
+                confirmacion_previa is not None
+                and x_confirmacion_fecha_fiscal
+                == confirmacion_previa["confirmacion_fecha_fiscal"]
+            ):
+                admision_legacy = await _resolver_remanente_legacy_aceptado(
+                    db=db,
+                    empresa_id=empresa_activa_id,
+                    usuario_id=current_user_id,
+                    idempotency_key=x_idempotency_key,
+                    tipo_operacion="reintentar_fallidos_lote",
+                    payload=payload_operacion,
+                    lote_id=lote_id,
+                    material_rece=material_rece,
+                    estados={"fallido"},
+                    grupo_ids=grupo_ids,
+                    aceptacion_recibida=x_confirmacion_duplicado_logico,
+                    solicitante_nombre=current_user_nombre,
+                    propietario_inicial_id=propietario_legacy_id,
+                )
+        control_duplicados_evaluado = admision_legacy is not None
+        continuar_legacy = False
+        confirmacion_duplicado_ok = False
+        if admision_legacy is None:
+            (
+                idempotencia,
+                operacion,
+                creada,
+                contextos_rece,
+            ) = await _resolver_operacion_lote(
+                db=db,
+                empresa_id=empresa_activa_id,
+                usuario_id=current_user_id,
+                idempotency_key=x_idempotency_key,
+                tipo_operacion="reintentar_fallidos_lote",
+                payload=payload_operacion,
+                lote_id=lote_id,
+                material_rece=material_rece,
+            )
+        else:
+            (
+                idempotencia,
+                operacion,
+                creada,
+                contextos_rece,
+                continuar_legacy,
+                confirmacion_duplicado_ok,
+            ) = admision_legacy
+        operacion_id_durable = int(operacion.id)
+        continuar_operacion = (
+            continuar_legacy if admision_legacy is not None else creada
         )
-        continuar_operacion = creada
         if not creada and operacion.estado == "interrumpida_pre_arca":
             contextos_rece = await _resolver_contextos_rece_lote(
                 db=db,
@@ -1290,50 +1857,38 @@ async def reintentar_fallidos_lote(
                 categoria_error="confirmacion_fecha_fiscal_invalida",
             )
 
-        duplicados = await service.obtener_confirmacion_duplicado_logico_grupos(
-            lote_id=lote_id,
-            empresa_id=empresa_activa_id,
-            estados={"fallido"},
-            grupo_ids=grupo_ids,
-        )
-        confirmacion_duplicado_ok = False
-        if duplicados["cantidad_duplicados_logicos"]:
-            confirmacion_duplicado_ok = (
-                x_confirmacion_duplicado_logico
-                == duplicados["confirmacion_duplicado_logico"]
+        assert operacion_id_durable is not None
+        if not control_duplicados_evaluado:
+            (
+                confirmacion_duplicado_ok,
+                operacion,
+            ) = await _evaluar_control_duplicados_operacion(
+                db=db,
+                operacion_id=operacion_id_durable,
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                estados={"fallido"},
+                grupo_ids=grupo_ids,
+                aceptacion_recibida=x_confirmacion_duplicado_logico,
+                solicitante_nombre=current_user_nombre,
             )
-            if not confirmacion_duplicado_ok:
-                detail = {
-                    "mensaje": duplicados["mensaje_confirmacion_duplicado_logico"],
-                    "errores": [
-                        "Confirmá el duplicado lógico antes de reintentar estos comprobantes."
-                    ],
-                    "categoria_error": "duplicado_logico_lote",
-                    "confirmacion_duplicado_logico": duplicados[
-                        "confirmacion_duplicado_logico"
-                    ],
-                    "cantidad_duplicados_logicos": duplicados[
-                        "cantidad_duplicados_logicos"
-                    ],
-                }
-                await idempotencia.guardar_resultado_operacion_sync(
-                    operacion,
-                    response_json=detail,
-                    estado="requiere_confirmacion_duplicado",
-                )
-                raise HTTPException(status_code=409, detail=detail)
 
         lote = await service.reintentar_grupos_fallidos(
             lote_id=lote_id,
             empresa_id=empresa_activa_id,
-            usuario_id=current_user.id,
+            usuario_id=current_user_id,
             grupo_ids=grupo_ids,
-            operacion_id=operacion.id,
+            operacion_id=operacion_id_durable,
             contextos_rece=contextos_rece,
             material_rece_confirmado=material_rece,
             confirmacion_duplicado_logico=confirmacion_duplicado_ok,
             fase_solicitud_arca=fase_solicitud_arca,
         )
+        operacion = await db.get(OperacionIdempotente, operacion_id_durable)
+        if operacion is None:
+            raise LoteComprobanteConflictoError(
+                "La operación de reintento dejó de estar disponible."
+            )
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
         if fase_solicitud_arca.guarda_actual_iniciada:
             raise _error_db_post_arca_lote()
@@ -1341,10 +1896,11 @@ async def reintentar_fallidos_lote(
             raise
         recuperacion = fase_solicitud_arca.resultado_recuperacion_pre_arca
         if recuperacion is None:
+            assert operacion_id_durable is not None
             recuperacion = await _recuperar_operacion_lote_pre_arca(
                 db,
                 idempotencia,
-                operacion.id,
+                operacion_id_durable,
                 fase_solicitud_arca,
             )
             fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
@@ -1355,6 +1911,20 @@ async def reintentar_fallidos_lote(
         raise _error_db_pre_arca_lote_bloqueado()
     except HTTPException:
         raise
+    except LoteDuplicadosEvidenciaCambioError:
+        assert operacion_id_durable is not None
+        await _evaluar_control_duplicados_operacion(
+            db=db,
+            operacion_id=operacion_id_durable,
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            estados={"fallido"},
+            grupo_ids=grupo_ids,
+            aceptacion_recibida=x_confirmacion_duplicado_logico,
+            solicitante_nombre=current_user_nombre,
+            reservar=False,
+        )
+        raise HTTPException(status_code=409, detail="La evidencia cambió")
     except LoteComprobanteConflictoError as exc:
         await db.rollback()
         raise HTTPException(
@@ -1378,7 +1948,7 @@ async def reintentar_fallidos_lote(
         mensaje=lote.mensaje_resumen or "Reintento finalizado",
         errores_arca=_errores_arca_lote(
             lote,
-            operacion_id=int(operacion.id),
+            operacion_id=operacion_id_durable,
         ),
     )
     try:
@@ -1387,15 +1957,16 @@ async def reintentar_fallidos_lote(
             response_json=respuesta,
             estado=_estado_operacion_lote_desde_respuesta(
                 respuesta.model_dump(mode="json"),
-                operacion_id=int(operacion.id),
+                operacion_id=operacion_id_durable,
             ),
         )
     except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS:
         if not fase_solicitud_arca.guarda_actual_iniciada:
+            assert operacion_id_durable is not None
             recuperacion = await _recuperar_operacion_lote_pre_arca(
                 db,
                 idempotencia,
-                operacion.id,
+                operacion_id_durable,
                 fase_solicitud_arca,
             )
             fase_solicitud_arca.registrar_recuperacion_pre_arca(recuperacion)
@@ -1599,6 +2170,56 @@ async def listar_grupos_lote(
         total=total,
         total_pages=total_pages,
         estado=estado,
+    )
+
+
+@router.get(
+    "/{lote_id}/coincidencias",
+    response_model=DuplicadosCoincidenciasPageResponse,
+)
+async def obtener_coincidencias_lote(
+    lote_id: int,
+    evidencia_id: str = Query(..., min_length=4),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+) -> DuplicadosCoincidenciasPageResponse:
+    """Pagina el detalle de coincidencias ligado a la evidencia v2 vigente."""
+    service = DuplicadosLotesService(db)
+    try:
+        _control, items, total = await service.obtener_detalle(
+            lote_id=lote_id,
+            empresa_id=empresa_activa_id,
+            evidencia_id=evidencia_id,
+            page=page,
+            per_page=per_page,
+        )
+    except DuplicadosLoteError as exc:
+        actual = exc.control
+        if actual is None:
+            actual = await service.calcular_control(
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                estados={"validado", "fallido", "reintentando"},
+            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=jsonable_encoder(
+                {
+                    "mensaje": exc.mensaje,
+                    "categoria_error": exc.categoria,
+                    "control_duplicados": actual,
+                }
+            ),
+        ) from exc
+    return DuplicadosCoincidenciasPageResponse(
+        items=items,
+        page=page,
+        per_page=per_page,
+        total=total,
+        total_pages=(total + per_page - 1) // per_page if total else 0,
     )
 
 

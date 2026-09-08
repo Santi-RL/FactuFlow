@@ -27,6 +27,9 @@ Capacidades actuales:
 - emisión individual de comprobantes con CAE
 - emisión masiva desde Excel con validación previa, seguimiento adaptativo del
   lote y archivo observado
+- prevención de duplicados en lotes con evidencia del antecedente y aceptación
+  explícita de la excepción; alcance en
+  [`CHANGELOG.md > Unreleased`](CHANGELOG.md#unreleased)
 - diagnóstico administrativo sanitizado de worker y pools en `Sistema > Estado`
 - certificados por empresa y ambiente
 - puntos de venta descubiertos y validados con la autoridad WSFE del emisor;

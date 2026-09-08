@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 31/08/2026
+Última actualización: 05/09/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -327,8 +327,14 @@ preflight bloqueante y sin normalización de datos legacy. Diseños y tests:
   el comprobante no existe. Si ARCA confirma CAE, vincular o reconstruir cuando
   haya datos locales suficientes; si no, dejar `requiere_reconciliacion`.
 - Los duplicados lógicos son advertencias operativas: pueden requerir
-  confirmación adicional, pero no reemplazan la confirmación fiscal ni bloquean
-  automáticamente la emisión.
+  una excepción informada, pero no reemplazan la confirmación fiscal ni la
+  reconciliación. En lotes, PF-13/PF-17 conserva evidencia, selección y aceptación
+  por operación; una coincidencia ajena activa o incierta no admite excepción.
+  El control es local y no modifica SOAP ni el receptor fiscal: la identidad
+  del archivo para comparar se conserva separada. Revalida antes de emitir y
+  mantiene la protección frente a antecedentes individuales en caminos
+  unitario, agrupado, worker y retry. El contrato completo vive en el
+  [diseño de duplicados](../agents/pf-13-duplicados-lotes-design.md).
 
 ### 5. Estructura SOAP correcta en `FECAESolicitar`
 

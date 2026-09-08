@@ -1,7 +1,8 @@
 """Tests para emision masiva de comprobantes."""
 
+import asyncio
 from copy import deepcopy
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
 from io import BytesIO
@@ -14,10 +15,10 @@ import pytest
 from httpx import AsyncClient
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import to_excel
-from sqlalchemy import JSON, delete, func, select, update
+from sqlalchemy import JSON, delete, event, func, inspect, null, select, text, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.arca.exceptions import (
     ArcaErrorGlobalEstructurado,
@@ -33,6 +34,7 @@ from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
 from app.models.empresa import Empresa
 from app.models.elegibilidad_rece import (
+    OperacionIdempotenteElegibilidadRece,
     PuntoVentaElegibilidadReceActual,
     PuntoVentaElegibilidadReceRevision,
     PuntoVentaGuardaEmisionRece,
@@ -43,7 +45,13 @@ from app.models.lote_comprobante import (
     LoteComprobanteFila,
     LoteComprobanteGrupo,
 )
-from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
+from app.models.idempotencia_fiscal import (
+    IntentoEmisionFiscal,
+    LoteDuplicadoCoincidencia,
+    LoteDuplicadoCoincidenciaMiembro,
+    LoteDuplicadoEvidencia,
+    OperacionIdempotente,
+)
 from app.models.punto_venta import PuntoVenta
 from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
 from app.schemas.comprobante import EmitirComprobanteRequest, EmitirComprobanteResponse
@@ -53,18 +61,4603 @@ from app.schemas.lote_comprobante import (
     LoteProcesamientoResponse,
     LoteReconciliacionExternaItem,
 )
+from app.services import duplicados_lotes_service as duplicados_lotes_module
 from app.services.facturacion_service import FacturacionService
 from app.services.lote_comprobantes_service import (
     LoteComprobanteConflictoError,
     LoteComprobanteError,
     LoteComprobantesService,
+    LoteDuplicadosEvidenciaCambioError,
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
+from app.services.duplicados_lotes_service import (
+    DuplicadosLoteError,
+    DuplicadosLotePreflightCambioError,
+    DuplicadosLotesService,
+    canonicalizar_payload_fiscal_v2,
+    identidad_entrada_v2,
+    material_grupo_v2,
+)
 from app.services.elegibilidad_rece_service import (
     ContextoElegibilidadRece,
     ElegibilidadReceService,
 )
 from app.services.lote_worker import LoteWorker, get_lote_worker_status
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
+
+
+@pytest.mark.parametrize(
+    ("tipo", "numero", "nombre", "tiene_nombre", "tiene_documento"),
+    [
+        (99, "0", "Consumidor Final", False, False),
+        (99, "000", " A   CONSUMIDOR FINAL ", False, False),
+        (96, "", "  María   Pérez ", True, False),
+        (96, "30.000.001", "Otro nombre", True, True),
+        (80, "00000000000", "Empresa sintética", True, False),
+        (80, "20123456789", "Empresa sintética", True, False),
+        (80, "20-40937847-2", "Empresa sintética", True, True),
+        (777, "30000001", "", False, False),
+    ],
+)
+def test_identidad_entrada_v2_distingue_anonimos_y_receptores_definidos(
+    tipo,
+    numero,
+    nombre,
+    tiene_nombre,
+    tiene_documento,
+):
+    identidad = identidad_entrada_v2(
+        tipo_documento=tipo,
+        numero_documento=numero,
+        razon_social=nombre,
+    )
+
+    assert bool(identidad["nombre_hash"]) is tiene_nombre
+    assert bool(identidad["documento_hash"]) is tiene_documento
+    assert identidad["nombre_original"] == (nombre.strip() or None)
+
+
+def _request_duplicados_v2(**updates) -> EmitirComprobanteRequest:
+    payload = {
+        "empresa_id": 1,
+        "punto_venta_id": 1,
+        "tipo_comprobante": 6,
+        "concepto": 1,
+        "fecha_emision": "2026-08-09",
+        "confirmacion_fecha_fiscal": True,
+        "confirmacion_duplicado_logico": False,
+        "tipo_documento": 96,
+        "numero_documento": "30000001",
+        "razon_social": "Persona Sintética",
+        "condicion_iva": "CF",
+        "domicilio": "Calle de prueba 123",
+        "moneda": "PES",
+        "cotizacion": "1",
+        "observaciones": "Operación sintética",
+        "guardar_cliente": False,
+        "items": [
+            {
+                "codigo": "A",
+                "descripcion": "Servicio A",
+                "cantidad": "1.00",
+                "unidad": "unidad",
+                "precio_unitario": "100.0000",
+                "descuento_porcentaje": "0",
+                "iva_porcentaje": "21.0",
+                "orden": 9,
+            },
+            {
+                "codigo": "B",
+                "descripcion": "Servicio B",
+                "cantidad": "2",
+                "unidad": "unidad",
+                "precio_unitario": "50",
+                "descuento_porcentaje": "0",
+                "iva_porcentaje": "21",
+                "orden": 1,
+            },
+        ],
+        "comprobantes_asociados": [],
+    }
+    payload.update(updates)
+    return EmitirComprobanteRequest.model_validate(payload)
+
+
+def test_contenido_fiscal_v2_ignora_orden_pero_preserva_multiplicidad_y_campos():
+    request = _request_duplicados_v2()
+    reversed_request = request.model_copy(
+        update={
+            "items": list(reversed(request.items)),
+            "confirmacion_duplicado_logico": True,
+        }
+    )
+    base = canonicalizar_payload_fiscal_v2(request, punto_venta_numero=1)
+    reordered = canonicalizar_payload_fiscal_v2(reversed_request, punto_venta_numero=1)
+
+    assert base == reordered
+    duplicated = request.model_copy(
+        update={"items": [*request.items, request.items[0]]}
+    )
+    assert canonicalizar_payload_fiscal_v2(duplicated, punto_venta_numero=1) != base
+    assert canonicalizar_payload_fiscal_v2(
+        request.model_copy(
+            update={"moneda": "USD", "cotizacion": Decimal("1.000000001")}
+        ),
+        punto_venta_numero=1,
+    ) != canonicalizar_payload_fiscal_v2(
+        request.model_copy(
+            update={"moneda": "USD", "cotizacion": Decimal("1.000000002")}
+        ),
+        punto_venta_numero=1,
+    )
+    assert canonicalizar_payload_fiscal_v2(request, punto_venta_numero=1) != (
+        canonicalizar_payload_fiscal_v2(request, punto_venta_numero=2)
+    )
+
+
+def test_material_grupo_v2_no_desborda_importes_admitidos_ni_redondea_cotizacion():
+    request = _request_duplicados_v2(
+        moneda="USD",
+        cotizacion=Decimal("123456789.123456789123"),
+    )
+    identity = identidad_entrada_v2(
+        tipo_documento=96,
+        numero_documento="30000001",
+        razon_social="Persona Sintética",
+    )
+
+    material = material_grupo_v2(
+        payload=request.model_dump(mode="json"),
+        punto_venta_numero=1,
+        total=Decimal("9999999999.99"),
+        identidad=identity,
+    )
+
+    assert material["total_centavos"] == 999999999999
+    assert material["cotizacion_duplicados"] == "123456789.123456789123"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("core_update", [False, True])
+async def test_coordinador_v2_rechaza_transaccion_ajena_incluso_flushed(
+    db_session: AsyncSession,
+    test_empresa,
+    core_update: bool,
+):
+    nombre_original = test_empresa.razon_social
+    if core_update:
+        await db_session.execute(
+            update(Empresa)
+            .where(Empresa.id == test_empresa.id)
+            .values(razon_social="Cambio ajeno por Core")
+        )
+    else:
+        test_empresa.razon_social = "Cambio ajeno por ORM"
+        await db_session.flush()
+
+    with pytest.raises(DuplicadosLoteError, match="frontera transaccional limpia"):
+        await DuplicadosLotesService(db_session).evaluar_y_reservar(
+            operacion_id=999,
+            lote_id=999,
+            empresa_id=test_empresa.id,
+            estados={"validado"},
+            grupo_ids=None,
+            aceptacion_recibida=None,
+            solicitante_nombre="Operador sintético",
+            reservar=True,
+            ambiente="homologacion",
+        )
+
+    assert db_session.in_transaction()
+    await db_session.rollback()
+    await db_session.refresh(test_empresa)
+    assert test_empresa.razon_social == nombre_original
+
+
+def _modificar_receptores_excel_multi(
+    excel: bytes,
+    *,
+    tipo: str,
+    numeros: list[str],
+    nombres: list[str],
+    condicion: str,
+) -> bytes:
+    workbook = load_workbook(BytesIO(excel))
+    sheet = workbook["Comprobantes"]
+    for index, (numero, nombre) in enumerate(zip(numeros, nombres), start=2):
+        sheet.cell(row=index, column=7).value = tipo
+        sheet.cell(row=index, column=8).value = numero
+        sheet.cell(row=index, column=9).value = nombre
+        sheet.cell(row=index, column=10).value = condicion
+    stream = BytesIO()
+    workbook.save(stream)
+    return stream.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_control_v2_silencia_anonimos_internos_y_tipifica_receptor_identificado(
+    client: AsyncClient,
+    auth_headers: dict,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    anonymous_excel = _modificar_receptores_excel_multi(
+        _build_lote_excel_multi_grupo(test_empresa.cuit),
+        tipo="CI",
+        numeros=["", ""],
+        nombres=["Consumidor Final", "A consumidor final"],
+        condicion="Consumidor Final",
+    )
+    anonymous = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "anonimos.xlsx",
+                anonymous_excel,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert anonymous.status_code == 200, anonymous.text
+    summary = await client.get(
+        f"/api/lotes-comprobantes/{anonymous.json()['lote']['id']}/resumen",
+        headers=auth_headers,
+    )
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["control_duplicados"]["estado"] == "sin_coincidencias"
+    assert summary.json()["control_duplicados"]["tipos_coincidencia"] == []
+
+    identified_excel = _modificar_receptores_excel_multi(
+        _build_lote_excel_multi_grupo(test_empresa.cuit),
+        tipo="DNI",
+        numeros=["30000011", "30000011"],
+        nombres=["Persona Uno", "Persona Dos"],
+        condicion="Consumidor Final",
+    )
+    identified = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "identificados.xlsx",
+                identified_excel,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert identified.status_code == 200, identified.text
+    summary = await client.get(
+        f"/api/lotes-comprobantes/{identified.json()['lote']['id']}/resumen",
+        headers=auth_headers,
+    )
+    control = summary.json()["control_duplicados"]
+    assert control["estado"] == "requiere_confirmacion"
+    assert control["tipos_coincidencia"] == ["interna_receptor"]
+    detail = await client.get(
+        f"/api/lotes-comprobantes/{identified.json()['lote']['id']}/coincidencias",
+        params={"evidencia_id": control["evidencia_id"]},
+        headers=auth_headers,
+    )
+    assert detail.status_code == 200, detail.text
+    detail_items = detail.json()["items"]
+    assert {item["tipo_coincidencia"] for item in detail_items} == {"interna_receptor"}
+    assert all(item["lote_anterior_id"] is None for item in detail_items)
+    assert all(item["comprobante_actual_ref"] for item in detail_items)
+
+
+@pytest.mark.asyncio
+async def test_aceptacion_v2_es_aleatoria_reexpedible_y_ligada_a_misma_operacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    excel = _modificar_receptores_excel_multi(
+        _build_lote_excel_multi_grupo(test_empresa.cuit),
+        tipo="DNI",
+        numeros=["30000021", "30000021"],
+        nombres=["Persona Sintética", "Persona Sintética"],
+        condicion="Consumidor Final",
+    )
+    validation = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "aceptacion-v2.xlsx",
+                excel,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validation.status_code == 200, validation.text
+    lote_id = validation.json()["lote"]["id"]
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="pf13-aceptacion-v2",
+    )
+
+    first = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert first.status_code == 409, first.text
+    first_detail = first.json()["detail"]
+    acceptance_id = first_detail["aceptacion_id"]
+    evidence_id = first_detail["control_duplicados"]["evidencia_id"]
+    assert acceptance_id.startswith("v2.")
+    assert acceptance_id != evidence_id
+    page = await client.get(
+        f"/api/lotes-comprobantes/{lote_id}/coincidencias",
+        params={"evidencia_id": evidence_id, "page": 2, "per_page": 1},
+        headers=auth_headers,
+    )
+    assert page.status_code == 200, page.text
+    assert page.json()["total"] == 4
+    assert page.json()["total_pages"] == 4
+    assert len(page.json()["items"]) == 1
+
+    repeated = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert repeated.status_code == 409, repeated.text
+    assert repeated.json()["detail"]["aceptacion_id"] == acceptance_id
+
+    async def fake_emitir(self, request, **kwargs):
+        return EmitirComprobanteResponse(
+            exito=True,
+            comprobante_id=None,
+            tipo_comprobante=request.tipo_comprobante,
+            punto_venta=1,
+            numero=100,
+            fecha=request.fecha_emision,
+            cae=CAE_TEST_NO_REAL,
+            cae_vencimiento=date(2026, 8, 20),
+            total=self._calcular_totales(request.items)["total"],
+            mensaje="Autorizado por doble sintético",
+        )
+
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", fake_emitir)
+    accepted = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={
+            **auth_headers,
+            **headers,
+            "X-Confirmacion-Duplicado-Logico": acceptance_id,
+        },
+    )
+    assert accepted.status_code == 200, accepted.text
+    operation = (
+        await db_session.execute(
+            select(OperacionIdempotente).where(
+                OperacionIdempotente.idempotency_key == "pf13-aceptacion-v2"
+            )
+        )
+    ).scalar_one()
+    assert operation.control_duplicados_json["evidencia_id"] == evidence_id
+    assert operation.control_duplicados_json["aceptacion_id"] == acceptance_id
+    assert operation.control_duplicados_json["estado"] == "aceptada"
+    durable_page = await client.get(
+        f"/api/lotes-comprobantes/{lote_id}/coincidencias",
+        params={"evidencia_id": evidence_id, "page": 1, "per_page": 1},
+        headers=auth_headers,
+    )
+    assert durable_page.status_code == 200, durable_page.text
+    assert durable_page.json()["total"] == 4
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("accion", ["procesar", "reintentar-fallidos"])
+@pytest.mark.parametrize("reusar_clave", [True, False])
+async def test_remanente_v1_aceptado_no_admite_reconfirmacion_ni_nueva_operacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    accion: str,
+    reusar_clave: bool,
+) -> None:
+    """Una aceptación v1 no comprobable no se reconstruye como aceptación v2."""
+    empresa_id = int(test_empresa.id)
+    cantidad = 3 if accion == "reintentar-fallidos" and not reusar_clave else 2
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre=f"legacy-{accion}.xlsx",
+        cantidad=cantidad,
+    )
+    estados = {"validado"}
+    body = None
+    if accion == "reintentar-fallidos":
+        grupos_preparados = await _marcar_grupos_lote(
+            db_session, lote_id, ["fallido"] * cantidad
+        )
+        estados = {"fallido"}
+        body = {}
+    else:
+        grupos_preparados = list(
+            (
+                await db_session.scalars(
+                    select(LoteComprobanteGrupo)
+                    .where(LoteComprobanteGrupo.lote_id == lote_id)
+                    .order_by(LoteComprobanteGrupo.orden)
+                )
+            ).all()
+        )
+    assert len(grupos_preparados) == cantidad
+    for grupo in grupos_preparados[:2]:
+        grupo.identidad_nombre_hash = "a" * 64
+        grupo.identidad_documento_hash = "b" * 64
+    await db_session.commit()
+
+    clave_legacy = f"pf13-legacy-{accion}"
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados=estados,
+        idempotency_key=clave_legacy,
+    )
+    endpoint = f"/api/lotes-comprobantes/{lote_id}/{accion}"
+    primera = await client.post(
+        endpoint,
+        headers={**auth_headers, **headers},
+        json=body,
+    )
+    assert primera.status_code == 409, primera.text
+    assert primera.json()["detail"]["categoria_error"] == "duplicado_logico_lote"
+
+    operacion_legacy = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == clave_legacy
+        )
+    )
+    assert operacion_legacy is not None
+    legacy_id = int(operacion_legacy.id)
+    material_rece = await LoteComprobantesService(
+        db_session
+    ).calcular_material_idempotente_grupos(
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados=estados,
+    )
+    await db_session.execute(
+        update(OperacionIdempotente)
+        .where(OperacionIdempotente.id == legacy_id)
+        .values(
+            duplicados_generacion_id=None,
+            duplicados_version=None,
+            control_duplicados_json=None,
+            estado="interrumpida_pre_arca",
+            response_json=null(),
+        )
+    )
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    metadata = dict(lote.metadata_json or {})
+    metadata["operacion_idempotente_id"] = legacy_id
+    metadata["confirmacion_duplicado_logico"] = True
+    metadata["pf19b_rece_material"] = material_rece
+    lote.metadata_json = metadata
+    if accion == "procesar" and not reusar_clave:
+        lote.estado = "en_cola"
+        lote.modo_procesamiento = "background"
+        lote.procesamiento_async = True
+        operacion_legacy.estado = "en_proceso"
+        operacion_legacy.response_json = {
+            "lote": LoteComprobanteResponse.model_validate(lote).model_dump(
+                mode="json"
+            ),
+            "mensaje": "El lote legacy permanece en cola.",
+            "en_progreso": True,
+            "errores_arca": [],
+        }
+    await db_session.flush()
+    await db_session.execute(
+        delete(LoteDuplicadoEvidencia).where(
+            LoteDuplicadoEvidencia.operacion_id == operacion_legacy.id
+        )
+    )
+    await db_session.commit()
+
+    estado_legacy = operacion_legacy.estado
+    payload_hash_legacy = operacion_legacy.payload_hash
+    response_legacy = deepcopy(operacion_legacy.response_json)
+    metadata_legacy = deepcopy(lote.metadata_json)
+    operaciones_antes = int(
+        await db_session.scalar(
+            select(func.count(OperacionIdempotente.id)).where(
+                OperacionIdempotente.lote_id == lote_id
+            )
+        )
+        or 0
+    )
+    headers_intento = {
+        **auth_headers,
+        **headers,
+        "X-Idempotency-Key": (
+            clave_legacy if reusar_clave else f"{clave_legacy}-nueva"
+        ),
+        "X-Confirmacion-Duplicado-Logico": primera.json()["detail"]["aceptacion_id"],
+    }
+    body_intento = body
+    if accion == "reintentar-fallidos" and not reusar_clave:
+        body_intento = {"grupo_ids": [int(grupos_preparados[-1].id)]}
+
+    bloqueado = await client.post(endpoint, headers=headers_intento, json=body_intento)
+
+    assert bloqueado.status_code == 409, bloqueado.text
+    assert (
+        bloqueado.json()["detail"]["categoria_error"]
+        == "duplicado_legacy_no_reconfirmable"
+    )
+    db_session.expire_all()
+    operacion_legacy = await db_session.get(OperacionIdempotente, legacy_id)
+    assert operacion_legacy is not None
+    assert operacion_legacy.estado == estado_legacy
+    assert operacion_legacy.payload_hash == payload_hash_legacy
+    assert operacion_legacy.response_json == response_legacy
+    assert operacion_legacy.duplicados_version is None
+    assert operacion_legacy.control_duplicados_json is None
+    assert operacion_legacy.duplicados_generacion_id is None
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    assert lote.metadata_json == metadata_legacy
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(OperacionIdempotente.id)).where(
+                    OperacionIdempotente.lote_id == lote_id
+                )
+            )
+            or 0
+        )
+        == operaciones_antes
+    )
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(LoteDuplicadoEvidencia.id)).where(
+                    LoteDuplicadoEvidencia.operacion_id == operacion_legacy.id
+                )
+            )
+            or 0
+        )
+        == 0
+    )
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo).where(
+                    LoteComprobanteGrupo.lote_id == lote_id
+                )
+            )
+        ).all()
+    )
+    assert all(grupo.duplicados_reserva_operacion_id is None for grupo in grupos)
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(IntentoEmisionFiscal.id)).where(
+                    IntentoEmisionFiscal.lote_id == lote_id
+                )
+            )
+            or 0
+        )
+        == 0
+    )
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(PuntoVentaGuardaEmisionRece.id)).where(
+                    PuntoVentaGuardaEmisionRece.operacion_id == operacion_legacy.id
+                )
+            )
+            or 0
+        )
+        == 0
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("aceptacion_historica", "cantidad"),
+    [
+        pytest.param(False, 2, id="sin-aceptacion-historica"),
+        pytest.param(True, 1, id="sin-coincidencias-actuales"),
+    ],
+)
+async def test_bloqueo_legacy_no_amplia_remanentes_convertibles(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    aceptacion_historica: bool,
+    cantidad: int,
+) -> None:
+    """Un v1 pendiente o sin coincidencias actuales conserva la conversión pre-ARCA."""
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="legacy-convertible.xlsx",
+        cantidad=cantidad,
+    )
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    for grupo in grupos:
+        grupo.identidad_nombre_hash = "c" * 64
+        grupo.identidad_documento_hash = "d" * 64
+    owner = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key=f"pf13-legacy-convertible-{aceptacion_historica}-{cantidad}",
+        tipo_operacion="procesar_lote",
+        payload_hash="e" * 64,
+        estado="interrumpida_pre_arca",
+        lote_id=lote_id,
+    )
+    db_session.add(owner)
+    await db_session.flush()
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    metadata = dict(lote.metadata_json or {})
+    metadata["operacion_idempotente_id"] = int(owner.id)
+    metadata["confirmacion_duplicado_logico"] = aceptacion_historica
+    lote.metadata_json = metadata
+    await db_session.commit()
+
+    bloqueo = await DuplicadosLotesService(
+        db_session
+    ).obtener_bloqueo_legacy_no_reconfirmable(
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado"},
+    )
+
+    assert bloqueo is None
+
+
+@pytest.mark.asyncio
+async def test_reintentar_fallidos_replay_terminal_precede_owner_legacy_posterior(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """Una clave terminal conserva su replay aunque el lote cambie luego de owner."""
+    empresa_id = int(test_empresa.id)
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="replay-terminal-con-owner-legacy.xlsx",
+        cantidad=2,
+    )
+    grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido", "fallido"])
+    for grupo in grupos:
+        grupo.identidad_nombre_hash = "f" * 64
+        grupo.identidad_documento_hash = "1" * 64
+    await db_session.commit()
+    clave_terminal = "pf13-retry-terminal-antes-de-legacy"
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        idempotency_key=clave_terminal,
+    )
+    material = await LoteComprobantesService(
+        db_session
+    ).calcular_material_idempotente_grupos(
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados={"fallido", "reintentando", "autorizado", "requiere_reconciliacion"},
+    )
+    payload = {
+        "lote_id": lote_id,
+        "grupo_ids": [],
+        "confirmacion_fecha_fiscal": headers["X-Confirmacion-Fecha-Fiscal"],
+        "grupo_ids_resueltos": material["grupo_ids"],
+        "grupos_hash": material["grupos_hash"],
+    }
+    idempotencia = IdempotenciaFiscalService(db_session)
+    terminal = OperacionIdempotente(
+        empresa_id=empresa_id,
+        idempotency_key=clave_terminal,
+        tipo_operacion="reintentar_fallidos_lote",
+        payload_hash=idempotencia.calcular_payload_hash(payload),
+        estado="finalizado",
+        lote_id=lote_id,
+    )
+    db_session.add(terminal)
+    await db_session.flush()
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    terminal.response_json = {
+        "lote": LoteComprobanteResponse.model_validate(lote).model_dump(mode="json"),
+        "mensaje": "Resultado terminal durable previo.",
+        "errores_arca": [],
+    }
+    owner_legacy = OperacionIdempotente(
+        empresa_id=empresa_id,
+        idempotency_key="pf13-owner-legacy-posterior",
+        tipo_operacion="reintentar_fallidos_lote",
+        payload_hash="2" * 64,
+        estado="interrumpida_pre_arca",
+        lote_id=lote_id,
+    )
+    db_session.add(owner_legacy)
+    await db_session.flush()
+    metadata = dict(lote.metadata_json or {})
+    metadata["operacion_idempotente_id"] = int(owner_legacy.id)
+    metadata["confirmacion_duplicado_logico"] = True
+    lote.metadata_json = metadata
+    await db_session.commit()
+    bloqueo = await DuplicadosLotesService(
+        db_session
+    ).obtener_bloqueo_legacy_no_reconfirmable(
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados={"fallido"},
+    )
+    assert bloqueo is not None
+    conteo_antes = int(
+        await db_session.scalar(
+            select(func.count(OperacionIdempotente.id)).where(
+                OperacionIdempotente.lote_id == lote_id
+            )
+        )
+        or 0
+    )
+
+    replay = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **headers},
+        json={},
+    )
+
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == terminal.response_json
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(OperacionIdempotente.id)).where(
+                    OperacionIdempotente.lote_id == lote_id
+                )
+            )
+            or 0
+        )
+        == conteo_antes
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("accion", ["procesar", "reintentar-fallidos"])
+@pytest.mark.parametrize("reusar_clave", [True, False])
+async def test_admision_legacy_revierte_create_o_claim_si_falla_antes_de_reservar(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    accion: str,
+    reusar_clave: bool,
+) -> None:
+    """Create/claim y reserva v2 pertenecen a una única raíz reversible."""
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre=f"legacy-rollback-{accion}.xlsx",
+        cantidad=2,
+    )
+    estados = {"validado"}
+    body = None
+    if accion == "reintentar-fallidos":
+        grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido", "fallido"])
+        estados = {"fallido"}
+        body = {}
+    else:
+        grupos = list(
+            (
+                await db_session.scalars(
+                    select(LoteComprobanteGrupo)
+                    .where(LoteComprobanteGrupo.lote_id == lote_id)
+                    .order_by(LoteComprobanteGrupo.orden)
+                )
+            ).all()
+        )
+    for grupo in grupos:
+        grupo.identidad_nombre_hash = "3" * 64
+        grupo.identidad_documento_hash = "4" * 64
+    await db_session.commit()
+    clave_legacy = f"pf13-legacy-rollback-{accion}-{reusar_clave}"
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados=estados,
+        idempotency_key=clave_legacy,
+    )
+    endpoint = f"/api/lotes-comprobantes/{lote_id}/{accion}"
+    advertencia = await client.post(
+        endpoint,
+        headers={**auth_headers, **headers},
+        json=body,
+    )
+    assert advertencia.status_code == 409, advertencia.text
+    operacion_legacy = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == clave_legacy
+        )
+    )
+    assert operacion_legacy is not None
+    legacy_id = int(operacion_legacy.id)
+    await db_session.execute(
+        update(OperacionIdempotente)
+        .where(OperacionIdempotente.id == legacy_id)
+        .values(
+            duplicados_generacion_id=None,
+            duplicados_version=None,
+            control_duplicados_json=None,
+            estado="interrumpida_pre_arca",
+            response_json=null(),
+        )
+    )
+    await db_session.execute(
+        delete(LoteDuplicadoEvidencia).where(
+            LoteDuplicadoEvidencia.operacion_id == legacy_id
+        )
+    )
+    grupos[1].identidad_nombre_hash = "5" * 64
+    grupos[1].identidad_documento_hash = "6" * 64
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    metadata = dict(lote.metadata_json or {})
+    metadata["operacion_idempotente_id"] = legacy_id
+    metadata["confirmacion_duplicado_logico"] = True
+    lote.metadata_json = metadata
+    await db_session.commit()
+    db_session.expire_all()
+    operacion_legacy = await db_session.get(OperacionIdempotente, legacy_id)
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert operacion_legacy is not None
+    assert lote is not None
+    estado_antes = operacion_legacy.estado
+    hash_antes = operacion_legacy.payload_hash
+    respuesta_antes = deepcopy(operacion_legacy.response_json)
+    metadata_antes = deepcopy(lote.metadata_json)
+    operaciones_antes = int(
+        await db_session.scalar(
+            select(func.count(OperacionIdempotente.id)).where(
+                OperacionIdempotente.lote_id == lote_id
+            )
+        )
+        or 0
+    )
+
+    async def fallar_antes_de_reservar(self, **kwargs):
+        raise DuplicadosLoteError(
+            "Fallo sintético antes de reservar.",
+            "duplicados_fallo_sintetico",
+        )
+
+    resultados_claim = []
+    reclamar_original = (
+        IdempotenciaFiscalService.reclamar_operacion_interrumpida_pre_arca
+    )
+
+    async def registrar_claim(self, operacion, *, commit=True):
+        resultado = await reclamar_original(self, operacion, commit=commit)
+        resultados_claim.append((commit, resultado[1], resultado[0].estado))
+        return resultado
+
+    monkeypatch.setattr(
+        DuplicadosLotesService,
+        "evaluar_y_reservar_bajo_coordinacion",
+        fallar_antes_de_reservar,
+    )
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "reclamar_operacion_interrumpida_pre_arca",
+        registrar_claim,
+    )
+    headers_intento = {
+        **auth_headers,
+        **headers,
+        "X-Idempotency-Key": (
+            clave_legacy if reusar_clave else f"{clave_legacy}-nueva"
+        ),
+    }
+
+    fallida = await client.post(endpoint, headers=headers_intento, json=body)
+
+    assert fallida.status_code == 409, fallida.text
+    assert (
+        fallida.json()["detail"]["categoria_error"] == "duplicados_fallo_sintetico"
+    ), (
+        fallida.json(),
+        resultados_claim,
+    )
+    db_session.expire_all()
+    operacion_legacy = await db_session.get(OperacionIdempotente, legacy_id)
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert operacion_legacy is not None
+    assert lote is not None
+    assert operacion_legacy.estado == estado_antes
+    assert operacion_legacy.payload_hash == hash_antes
+    assert operacion_legacy.response_json == respuesta_antes
+    assert operacion_legacy.duplicados_version is None
+    assert operacion_legacy.control_duplicados_json is None
+    assert operacion_legacy.duplicados_generacion_id is None
+    assert lote.metadata_json == metadata_antes
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(OperacionIdempotente.id)).where(
+                    OperacionIdempotente.lote_id == lote_id
+                )
+            )
+            or 0
+        )
+        == operaciones_antes
+    )
+    grupos_recargados = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo).where(
+                    LoteComprobanteGrupo.lote_id == lote_id
+                )
+            )
+        ).all()
+    )
+    assert all(
+        grupo.duplicados_reserva_operacion_id is None for grupo in grupos_recargados
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("token_fiscal_valido", [True, False])
+async def test_admision_legacy_rechaza_dml_ajeno_antes_de_preparar_rece(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    token_fiscal_valido: bool,
+) -> None:
+    """La lectura legacy contaminada no puede confirmar DML ni alcanzar RECE."""
+    empresa_id = int(test_empresa.id)
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre=f"legacy-frontera-{token_fiscal_valido}.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    for grupo in grupos:
+        grupo.identidad_nombre_hash = "a" * 64
+        grupo.identidad_documento_hash = "b" * 64
+    await db_session.commit()
+    clave_legacy = f"pf13-legacy-frontera-{token_fiscal_valido}"
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key=clave_legacy,
+    )
+    endpoint = f"/api/lotes-comprobantes/{lote_id}/procesar"
+    advertencia = await client.post(endpoint, headers={**auth_headers, **headers})
+    assert advertencia.status_code == 409, advertencia.text
+    owner = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == clave_legacy
+        )
+    )
+    assert owner is not None
+    owner_id = int(owner.id)
+    await db_session.execute(
+        update(OperacionIdempotente)
+        .where(OperacionIdempotente.id == owner_id)
+        .values(
+            duplicados_generacion_id=None,
+            duplicados_version=None,
+            control_duplicados_json=None,
+            estado="interrumpida_pre_arca",
+            response_json=null(),
+        )
+    )
+    await db_session.execute(
+        delete(LoteDuplicadoEvidencia).where(
+            LoteDuplicadoEvidencia.operacion_id == owner_id
+        )
+    )
+    grupos[1].identidad_nombre_hash = "c" * 64
+    grupos[1].identidad_documento_hash = "d" * 64
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    metadata = dict(lote.metadata_json or {})
+    metadata["operacion_idempotente_id"] = owner_id
+    metadata["confirmacion_duplicado_logico"] = True
+    lote.metadata_json = metadata
+    await db_session.commit()
+    metadata_antes = deepcopy(lote.metadata_json)
+    operaciones_antes = int(
+        await db_session.scalar(
+            select(func.count(OperacionIdempotente.id)).where(
+                OperacionIdempotente.lote_id == lote_id
+            )
+        )
+        or 0
+    )
+    resumen_original = LoteComprobantesService.obtener_resumen_operativo_lote
+
+    async def contaminar_resumen(self, *args, **kwargs):
+        resultado = await resumen_original(self, *args, **kwargs)
+        await self.db.execute(
+            update(Empresa)
+            .where(Empresa.id == empresa_id)
+            .values(razon_social="Cambio legacy no autorizado")
+        )
+        return resultado
+
+    preparaciones_rece = 0
+
+    async def no_preparar_rece(*_args, **_kwargs):
+        nonlocal preparaciones_rece
+        preparaciones_rece += 1
+        raise AssertionError("No debe alcanzarse la preparación RECE")
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "obtener_resumen_operativo_lote",
+        contaminar_resumen,
+    )
+    monkeypatch.setattr(
+        PuntosVentaArcaService,
+        "asegurar_comprobacion_reciente",
+        no_preparar_rece,
+    )
+    headers_intento = {
+        **auth_headers,
+        "X-Idempotency-Key": (
+            clave_legacy if token_fiscal_valido else f"{clave_legacy}-sin-token"
+        ),
+    }
+    if token_fiscal_valido:
+        headers_intento["X-Confirmacion-Fecha-Fiscal"] = headers[
+            "X-Confirmacion-Fecha-Fiscal"
+        ]
+
+    bloqueada = await client.post(endpoint, headers=headers_intento)
+
+    assert bloqueada.status_code == 409, bloqueada.text
+    assert (
+        bloqueada.json()["detail"]["categoria_error"]
+        == "duplicado_coordinacion_transaccional"
+    )
+    assert preparaciones_rece == 0
+    await db_session.rollback()
+    db_session.expire_all()
+    empresa = await db_session.get(Empresa, empresa_id)
+    owner = await db_session.get(OperacionIdempotente, owner_id)
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert empresa is not None
+    assert empresa.razon_social == "Empresa Test S.A."
+    assert owner is not None
+    assert owner.estado == "interrumpida_pre_arca"
+    assert owner.duplicados_version is None
+    assert owner.control_duplicados_json is None
+    assert owner.duplicados_generacion_id is None
+    assert owner.response_json is None
+    assert lote is not None
+    assert lote.metadata_json == metadata_antes
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(OperacionIdempotente.id)).where(
+                    OperacionIdempotente.lote_id == lote_id
+                )
+            )
+            or 0
+        )
+        == operaciones_antes
+    )
+    grupos_actuales = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo).where(
+                    LoteComprobanteGrupo.lote_id == lote_id
+                )
+            )
+        ).all()
+    )
+    assert all(
+        grupo.duplicados_reserva_operacion_id is None for grupo in grupos_actuales
+    )
+
+
+@pytest.mark.asyncio
+async def test_admision_legacy_revalida_coincidencia_aparecida_antes_del_coordinador(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """La clasificación se repite bajo coordinación antes de crear otra operación."""
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="legacy-intercalado-antes-coordinador.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    for grupo in grupos:
+        grupo.identidad_nombre_hash = "7" * 64
+        grupo.identidad_documento_hash = "8" * 64
+    await db_session.commit()
+    clave_legacy = "pf13-legacy-intercalado-owner"
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key=clave_legacy,
+    )
+    endpoint = f"/api/lotes-comprobantes/{lote_id}/procesar"
+    advertencia = await client.post(
+        endpoint,
+        headers={**auth_headers, **headers},
+    )
+    assert advertencia.status_code == 409, advertencia.text
+    owner = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key == clave_legacy
+        )
+    )
+    assert owner is not None
+    owner_id = int(owner.id)
+    await db_session.execute(
+        update(OperacionIdempotente)
+        .where(OperacionIdempotente.id == owner_id)
+        .values(
+            duplicados_generacion_id=None,
+            duplicados_version=None,
+            control_duplicados_json=None,
+            estado="interrumpida_pre_arca",
+            response_json=null(),
+        )
+    )
+    await db_session.execute(
+        delete(LoteDuplicadoEvidencia).where(
+            LoteDuplicadoEvidencia.operacion_id == owner_id
+        )
+    )
+    grupos[1].identidad_nombre_hash = "9" * 64
+    grupos[1].identidad_documento_hash = "a" * 64
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert lote is not None
+    metadata = dict(lote.metadata_json or {})
+    metadata["operacion_idempotente_id"] = owner_id
+    metadata["confirmacion_duplicado_logico"] = True
+    lote.metadata_json = metadata
+    await db_session.commit()
+    metadata_antes = deepcopy(lote.metadata_json)
+    grupo_intercalado_id = int(grupos[1].id)
+    operaciones_antes = int(
+        await db_session.scalar(
+            select(func.count(OperacionIdempotente.id)).where(
+                OperacionIdempotente.lote_id == lote_id
+            )
+        )
+        or 0
+    )
+    adquirir_original = DuplicadosLotesService.adquirir_coordinacion
+    intercalada = False
+
+    async def adquirir_despues_de_publicacion(self, **kwargs):
+        nonlocal intercalada
+        if not intercalada:
+            intercalada = True
+            await self.db.execute(
+                update(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.id == grupo_intercalado_id)
+                .values(
+                    identidad_nombre_hash="7" * 64,
+                    identidad_documento_hash="8" * 64,
+                )
+            )
+            await self.db.commit()
+        return await adquirir_original(self, **kwargs)
+
+    monkeypatch.setattr(
+        DuplicadosLotesService,
+        "adquirir_coordinacion",
+        adquirir_despues_de_publicacion,
+    )
+
+    bloqueada = await client.post(
+        endpoint,
+        headers={
+            **auth_headers,
+            **headers,
+            "X-Idempotency-Key": "pf13-legacy-intercalado-nueva",
+        },
+    )
+
+    assert intercalada is True
+    assert bloqueada.status_code == 409, bloqueada.text
+    assert (
+        bloqueada.json()["detail"]["categoria_error"]
+        == "duplicado_legacy_no_reconfirmable"
+    )
+    db_session.expire_all()
+    owner = await db_session.get(OperacionIdempotente, owner_id)
+    lote = await db_session.get(LoteComprobante, lote_id)
+    assert owner is not None
+    assert lote is not None
+    assert owner.estado == "interrumpida_pre_arca"
+    assert owner.response_json is None
+    assert owner.duplicados_version is None
+    assert owner.control_duplicados_json is None
+    assert owner.duplicados_generacion_id is None
+    assert lote.metadata_json == metadata_antes
+    assert (
+        int(
+            await db_session.scalar(
+                select(func.count(OperacionIdempotente.id)).where(
+                    OperacionIdempotente.lote_id == lote_id
+                )
+            )
+            or 0
+        )
+        == operaciones_antes
+    )
+
+
+@pytest.mark.asyncio
+async def test_coordinacion_sqlite_serializa_sesiones_reales(tmp_path) -> None:
+    """La segunda sesión espera el commit de la raíz coordinadora en SQLite."""
+    database_path = tmp_path / "pf13-coordinacion.sqlite3"
+    engine = create_async_engine(
+        f"sqlite+aiosqlite:///{database_path.as_posix()}",
+        connect_args={"timeout": 2},
+    )
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "CREATE TABLE lotes_duplicados_coordinacion ("
+                "empresa_id INTEGER NOT NULL, ambiente VARCHAR(20) NOT NULL, "
+                "revision INTEGER NOT NULL, updated_at DATETIME NOT NULL, "
+                "PRIMARY KEY (empresa_id, ambiente))"
+            )
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO lotes_duplicados_coordinacion "
+                "(empresa_id, ambiente, revision, updated_at) "
+                "VALUES (1, 'homologacion', 0, CURRENT_TIMESTAMP)"
+            )
+        )
+    try:
+        async with sessions() as sesion_a, sessions() as sesion_b:
+            await DuplicadosLotesService(sesion_a).adquirir_coordinacion(
+                empresa_id=1,
+                ambiente="homologacion",
+            )
+            tarea_b = asyncio.create_task(
+                DuplicadosLotesService(sesion_b).adquirir_coordinacion(
+                    empresa_id=1,
+                    ambiente="homologacion",
+                )
+            )
+            await asyncio.sleep(0.05)
+            assert not tarea_b.done()
+            await sesion_a.commit()
+            await tarea_b
+            revision_b = await sesion_b.scalar(
+                text(
+                    "SELECT revision FROM lotes_duplicados_coordinacion "
+                    "WHERE empresa_id = 1 AND ambiente = 'homologacion'"
+                )
+            )
+            assert revision_b == 2
+            await sesion_b.rollback()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_detalle_v2_rechaza_evidencia_obsoleta_sin_exponer_aceptacion(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    excel = _modificar_receptores_excel_multi(
+        _build_lote_excel_multi_grupo(test_empresa.cuit),
+        tipo="DNI",
+        numeros=["30000031", "30000031"],
+        nombres=["Persona Sintética", "Persona Sintética"],
+        condicion="Consumidor Final",
+    )
+    validation = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "evidencia-obsoleta.xlsx",
+                excel,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    lote_id = validation.json()["lote"]["id"]
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="pf13-evidencia-obsoleta",
+    )
+    warning = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+    assert warning.status_code == 409, warning.text
+    old_evidence = warning.json()["detail"]["control_duplicados"]["evidencia_id"]
+    group = await db_session.scalar(
+        select(LoteComprobanteGrupo)
+        .where(LoteComprobanteGrupo.lote_id == lote_id)
+        .order_by(LoteComprobanteGrupo.orden)
+    )
+    group.huella_fiscal_completa = "f" * 64
+    await db_session.commit()
+
+    detail = await client.get(
+        f"/api/lotes-comprobantes/{lote_id}/coincidencias",
+        params={"evidencia_id": old_evidence},
+        headers=auth_headers,
+    )
+
+    assert detail.status_code == 409, detail.text
+    payload = detail.json()["detail"]
+    assert payload["control_duplicados"]["evidencia_id"] != old_evidence
+    assert "aceptacion_id" not in payload
+    assert "aceptacion_id" not in payload["control_duplicados"]
+
+
+@pytest.mark.asyncio
+async def test_detalle_retry_v2_conserva_seleccion_original_parcial(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="retry-seleccion-parcial.xlsx",
+        cantidad=3,
+    )
+    grupos = await _marcar_grupos_lote(
+        db_session,
+        lote_id,
+        ["fallido", "fallido", "fallido"],
+    )
+    for grupo in grupos:
+        grupo.identidad_nombre_hash = "a" * 64
+        grupo.identidad_documento_hash = "b" * 64
+    await db_session.commit()
+    seleccion = [int(grupos[0].id), int(grupos[1].id)]
+    excluido_id = int(grupos[2].id)
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        grupo_ids=seleccion,
+        idempotency_key="pf13-retry-parcial",
+    )
+    warning = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **headers},
+        json={"grupo_ids": seleccion},
+    )
+    assert warning.status_code == 409, warning.text
+    evidence = warning.json()["detail"]["control_duplicados"]["evidencia_id"]
+
+    detail = await client.get(
+        f"/api/lotes-comprobantes/{lote_id}/coincidencias",
+        params={"evidencia_id": evidence, "page": 1, "per_page": 100},
+        headers=auth_headers,
+    )
+
+    assert detail.status_code == 200, detail.text
+    assert {item["grupo_actual_id"] for item in detail.json()["items"]} == set(
+        seleccion
+    )
+    assert excluido_id not in {
+        item["grupo_actual_id"] for item in detail.json()["items"]
+    }
+
+
+async def _publicar_generacion_real_de_prueba(
+    db_session: AsyncSession,
+    *,
+    empresa_id: int,
+    lote_id: int,
+    grupos: list[LoteComprobanteGrupo],
+    idempotency_key: str,
+    aceptar: bool,
+) -> tuple[OperacionIdempotente, LoteDuplicadoEvidencia, dict, str | None,]:
+    usuario_id = await db_session.scalar(
+        select(UsuarioEmisorAcceso.usuario_id).where(
+            UsuarioEmisorAcceso.empresa_id == empresa_id
+        )
+    )
+    operation = OperacionIdempotente(
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+        idempotency_key=idempotency_key,
+        tipo_operacion="procesar_lote",
+        payload_hash=hashlib.sha256(idempotency_key.encode()).hexdigest(),
+        estado="en_proceso",
+        lote_id=lote_id,
+    )
+    db_session.add(operation)
+    await db_session.commit()
+    service = DuplicadosLotesService(db_session)
+    control, token, accepted = await service.evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados={"validado", "autorizado", "fallido"},
+        grupo_ids=[int(group.id) for group in grupos],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    if aceptar:
+        assert token is not None
+        control, same_token, accepted = await service.evaluar_y_reservar(
+            operacion_id=int(operation.id),
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            estados={"validado", "autorizado", "fallido"},
+            grupo_ids=[int(group.id) for group in grupos],
+            aceptacion_recibida=token,
+            solicitante_nombre="Operador sintético",
+            reservar=False,
+            ambiente=settings.arca_env,
+        )
+        assert same_token == token
+        assert accepted is True
+    else:
+        assert accepted is False
+    operation = await db_session.get(OperacionIdempotente, int(operation.id))
+    generation = await db_session.get(
+        LoteDuplicadoEvidencia, int(operation.duplicados_generacion_id)
+    )
+    assert generation is not None
+    return operation, generation, control, token
+
+
+async def _crear_intento_sintetico_con_generacion(
+    db_session: AsyncSession,
+    *,
+    operation: OperacionIdempotente,
+    group: LoteComprobanteGrupo,
+    generation_id: int,
+    punto_venta: PuntoVenta,
+) -> IntentoEmisionFiscal:
+    contexto = ContextoElegibilidadRece(
+        empresa_id=int(group.empresa_id),
+        punto_venta_id=int(group.punto_venta_id),
+        punto_venta_numero=int(group.punto_venta_numero),
+        ambiente=str(group.ambiente),
+        elegibilidad_revision_id=int(group.punto_venta_elegibilidad_revision_id),
+        punto_venta_revision_fiscal=int(group.punto_venta_revision_fiscal),
+    )
+    operation.rece_snapshot_hash = ElegibilidadReceService.calcular_digest_contextos(
+        [contexto]
+    )
+    db_session.add(
+        OperacionIdempotenteElegibilidadRece(
+            operacion_id=int(operation.id),
+            empresa_id=int(group.empresa_id),
+            punto_venta_id=int(group.punto_venta_id),
+            ambiente=str(group.ambiente),
+            elegibilidad_revision_id=int(group.punto_venta_elegibilidad_revision_id),
+            punto_venta_revision_fiscal=int(group.punto_venta_revision_fiscal),
+        )
+    )
+    await db_session.commit()
+    guard = PuntoVentaGuardaEmisionRece(
+        token=hashlib.sha256(
+            f"guarda-{operation.id}-{generation_id}".encode()
+        ).hexdigest(),
+        fase="pre_arca",
+        operacion_id=int(operation.id),
+        empresa_id=int(group.empresa_id),
+        punto_venta_id=int(group.punto_venta_id),
+        ambiente=str(group.ambiente),
+        elegibilidad_revision_id=int(group.punto_venta_elegibilidad_revision_id),
+        punto_venta_revision_fiscal=int(group.punto_venta_revision_fiscal),
+    )
+    db_session.add(guard)
+    await db_session.flush()
+    request = EmitirComprobanteRequest.model_validate(group.payload_json or {})
+    intento = await IdempotenciaFiscalService(db_session).crear_intento_emision(
+        request=request,
+        punto_venta=punto_venta,
+        numero_planificado=1000 + int(group.id),
+        total=FacturacionService(db_session)._calcular_totales(request.items)["total"],
+        operacion_id=int(operation.id),
+        usuario_id=operation.usuario_id,
+        lote_id=int(group.lote_id),
+        grupo_id=int(group.id),
+        duplicados_generacion_id=generation_id,
+        contexto_rece=contexto,
+        guarda_rece_id=int(guard.id),
+        commit=False,
+    )
+    await db_session.commit()
+    return intento
+
+
+@pytest.mark.asyncio
+async def test_retry_reutiliza_xy_solo_para_y_y_no_extiende_aceptacion_a_z(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="seleccion-original-xyz.xlsx",
+        cantidad=3,
+    )
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    x, y, z = grupos
+    x.identidad_documento_hash = "a" * 64
+    y.identidad_documento_hash = "a" * 64
+    await db_session.flush()
+    empresa_id = int(test_empresa.id)
+    service = DuplicadosLotesService(db_session)
+    usuario_id = await db_session.scalar(
+        select(UsuarioEmisorAcceso.usuario_id).where(
+            UsuarioEmisorAcceso.empresa_id == empresa_id
+        )
+    )
+    root = OperacionIdempotente(
+        empresa_id=empresa_id,
+        usuario_id=usuario_id,
+        idempotency_key="pf13-raiz-xy",
+        tipo_operacion="procesar_lote",
+        payload_hash="e" * 64,
+        estado="en_proceso",
+        lote_id=lote_id,
+    )
+    db_session.add(root)
+    await db_session.commit()
+    root_id = int(inspect(root).identity[0])
+    baseline, token_xy, accepted = await service.evaluar_y_reservar(
+        operacion_id=root_id,
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados={"validado"},
+        grupo_ids=[int(x.id), int(y.id)],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    assert token_xy is not None
+    assert accepted is False
+    baseline, same_token, accepted = await service.evaluar_y_reservar(
+        operacion_id=root_id,
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados={"validado"},
+        grupo_ids=[int(x.id), int(y.id)],
+        aceptacion_recibida=token_xy,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    assert same_token == token_xy
+    assert accepted is True
+    root = await db_session.get(OperacionIdempotente, root_id)
+    root.estado = "finalizado"
+    retry_y = OperacionIdempotente(
+        empresa_id=empresa_id,
+        idempotency_key="pf13-retry-y",
+        tipo_operacion="reintentar_fallidos_lote",
+        payload_hash="f" * 64,
+        estado="en_proceso",
+        lote_id=lote_id,
+        operacion_raiz_id=int(root.id),
+    )
+    retry_z = OperacionIdempotente(
+        empresa_id=empresa_id,
+        idempotency_key="pf13-retry-z",
+        tipo_operacion="reintentar_fallidos_lote",
+        payload_hash="1" * 64,
+        estado="en_proceso",
+        lote_id=lote_id,
+        operacion_raiz_id=int(root.id),
+    )
+    db_session.add_all([retry_y, retry_z])
+    x.estado = "autorizado"
+    y.estado = "fallido"
+    z.estado = "fallido"
+    await db_session.commit()
+    retry_y_id = int(inspect(retry_y).identity[0])
+    retry_z_id = int(inspect(retry_z).identity[0])
+    y_id = int(inspect(y).identity[0])
+    z_id = int(inspect(z).identity[0])
+
+    control, acceptance_id, accepted = await service.evaluar_y_reservar(
+        operacion_id=retry_y_id,
+        lote_id=lote_id,
+        empresa_id=empresa_id,
+        estados={"fallido"},
+        grupo_ids=[y_id],
+        aceptacion_recibida=token_xy,
+        solicitante_nombre="Operador sintético",
+        reservar=True,
+        ambiente=settings.arca_env,
+    )
+    assert accepted is True
+    assert acceptance_id == token_xy
+    assert control["evidencia_id"] == baseline["evidencia_id"]
+    y_actual = await db_session.get(LoteComprobanteGrupo, y_id)
+    z_actual = await db_session.get(LoteComprobanteGrupo, z_id)
+    assert y_actual.duplicados_reserva_operacion_id == retry_y_id
+    assert z_actual.duplicados_reserva_operacion_id is None
+    await db_session.rollback()
+
+    with pytest.raises(
+        DuplicadosLoteError,
+        match="no pertenecen a la selección original",
+    ):
+        await service.evaluar_y_reservar(
+            operacion_id=retry_z_id,
+            lote_id=lote_id,
+            empresa_id=empresa_id,
+            estados={"fallido"},
+            grupo_ids=[z_id],
+            aceptacion_recibida=token_xy,
+            solicitante_nombre="Operador sintético",
+            reservar=True,
+            ambiente=settings.arca_env,
+        )
+    await db_session.rollback()
+    root_actual = await db_session.get(OperacionIdempotente, root_id)
+    assert root_actual.operacion_raiz_id == root_id
+    assert (
+        await db_session.get(LoteComprobanteGrupo, z_id)
+    ).duplicados_reserva_operacion_id is None
+
+
+@pytest.mark.asyncio
+async def test_generaciones_conservan_token_aceptacion_y_progreso_propio(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="generaciones-snapshot.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo)
+            .where(LoteComprobanteGrupo.lote_id == lote_id)
+            .order_by(LoteComprobanteGrupo.id)
+        )
+    )
+    for group in grupos:
+        group.identidad_documento_hash = "9" * 64
+    await db_session.commit()
+    operation, generation_1, control, token = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=lote_id,
+        grupos=grupos,
+        idempotency_key="pf13-generaciones-snapshot",
+        aceptar=False,
+    )
+    assert control["estado"] == "requiere_confirmacion"
+    assert token is not None
+    assert generation_1.aceptada_at is None
+
+    grupos[0].comprobante_ref += "-descriptivo"
+    await db_session.commit()
+    _, same_token, accepted = await DuplicadosLotesService(
+        db_session
+    ).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(group.id) for group in grupos],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    await db_session.refresh(operation)
+    generation_2 = await db_session.get(
+        LoteDuplicadoEvidencia, int(operation.duplicados_generacion_id)
+    )
+    assert generation_2.id != generation_1.id
+    assert same_token == token
+    assert accepted is False
+    assert generation_2.aceptada_at is None
+    assert generation_2.aceptacion_origen_generacion_id is None
+    await db_session.commit()
+
+    _, same_token, accepted = await DuplicadosLotesService(
+        db_session
+    ).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(group.id) for group in grupos],
+        aceptacion_recibida=token,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    assert same_token == token
+    assert accepted is True
+    await db_session.refresh(generation_2)
+    accepted_audit = (
+        generation_2.aceptacion_id,
+        generation_2.aceptada_por_usuario_id,
+        generation_2.aceptada_por_nombre,
+        generation_2.aceptada_at,
+    )
+
+    grupos[1].comprobante_ref += "-otro-contexto"
+    await db_session.commit()
+    _, inherited_token, inherited = await DuplicadosLotesService(
+        db_session
+    ).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(group.id) for group in grupos],
+        aceptacion_recibida=None,
+        solicitante_nombre="Otro operador",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    await db_session.refresh(operation)
+    generation_3 = await db_session.get(
+        LoteDuplicadoEvidencia, int(operation.duplicados_generacion_id)
+    )
+    assert generation_3.id not in {generation_1.id, generation_2.id}
+    assert inherited_token == token
+    assert inherited is True
+    assert (
+        generation_3.aceptacion_id,
+        generation_3.aceptada_por_usuario_id,
+        generation_3.aceptada_por_nombre,
+        generation_3.aceptada_at,
+    ) == accepted_audit
+    assert generation_3.aceptacion_origen_generacion_id == generation_2.id
+
+    preflight = await DuplicadosLotesService(db_session).revalidar_operacion_lote(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+    )
+    assert preflight["_duplicados_generacion_id"] == generation_3.id
+    grupos[0].comprobante_ref += "-posterior-al-preflight"
+    await db_session.commit()
+    still_valid = await DuplicadosLotesService(db_session).revalidar_operacion_lote(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+    )
+    assert still_valid["_duplicados_generacion_id"] == generation_3.id
+    await db_session.commit()
+    _, _, accepted = await DuplicadosLotesService(db_session).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(group.id) for group in grupos],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    await db_session.refresh(operation)
+    generation_4_id = int(operation.duplicados_generacion_id)
+    assert generation_4_id != generation_3.id
+    assert accepted is True
+
+    grupos[0].estado = "autorizado"
+    await db_session.commit()
+    _, _, accepted = await DuplicadosLotesService(db_session).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(group.id) for group in grupos],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    await db_session.refresh(operation)
+    assert accepted is True
+    assert operation.duplicados_generacion_id == generation_4_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tampering", ["ambiente", "formato", "relacion", "origen"])
+async def test_preflight_generacional_falla_cerrado_ante_manipulacion(
+    tampering: str,
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre=f"generacion-alterada-{tampering}.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == lote_id)
+        )
+    )
+    for group in grupos:
+        group.identidad_documento_hash = "8" * 64
+    await db_session.commit()
+    operation, generation, _, _ = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=lote_id,
+        grupos=grupos,
+        idempotency_key=f"pf13-alterada-{tampering}",
+        aceptar=True,
+    )
+    if tampering == "ambiente":
+        generation.ambiente = (
+            "produccion" if generation.ambiente == "homologacion" else "homologacion"
+        )
+    elif tampering == "formato":
+        generation.formato = "duplicados_relacion/desconocido"
+    elif tampering == "origen":
+        generation.aceptacion_origen_generacion_id = 999999
+    else:
+        member = await db_session.scalar(
+            select(LoteDuplicadoCoincidenciaMiembro)
+            .join(LoteDuplicadoCoincidencia)
+            .where(LoteDuplicadoCoincidencia.generacion_id == generation.id)
+            .limit(1)
+        )
+        assert member is not None
+        member.snapshot_json = {
+            **member.snapshot_json,
+            "detalle": {"alterado": True},
+        }
+    with pytest.raises(DuplicadosLotePreflightCambioError):
+        await DuplicadosLotesService(db_session).revalidar_operacion_lote(
+            operacion_id=int(operation.id),
+            lote_id=lote_id,
+            empresa_id=int(test_empresa.id),
+        )
+    await db_session.rollback()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tampering", ["bloque", "miembro"])
+async def test_get_detalle_valida_integridad_durable_antes_de_paginar(
+    tampering: str,
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre=f"detalle-integridad-{tampering}.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == lote_id)
+        )
+    )
+    for group in grupos:
+        group.identidad_documento_hash = "6" * 64
+    await db_session.commit()
+    _operation, generation, _, _ = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=lote_id,
+        grupos=grupos,
+        idempotency_key=f"pf13-detalle-integridad-{tampering}",
+        aceptar=True,
+    )
+    url = f"/api/lotes-comprobantes/{lote_id}/coincidencias"
+    healthy = await client.get(
+        url,
+        params={"evidencia_id": generation.evidencia_id, "per_page": 10},
+        headers=auth_headers,
+    )
+    assert healthy.status_code == 200, healthy.text
+
+    block = await db_session.scalar(
+        select(LoteDuplicadoCoincidencia)
+        .where(LoteDuplicadoCoincidencia.generacion_id == generation.id)
+        .limit(1)
+    )
+    assert block is not None
+    if tampering == "bloque":
+        block.snapshot_json = {**block.snapshot_json, "alterado": True}
+    else:
+        member = await db_session.scalar(
+            select(LoteDuplicadoCoincidenciaMiembro)
+            .where(LoteDuplicadoCoincidenciaMiembro.bloque_id == block.id)
+            .limit(1)
+        )
+        assert member is not None
+        member.snapshot_json = {**member.snapshot_json, "alterado": True}
+    await db_session.commit()
+    page_calls = 0
+
+    async def prohibit_page(*_args, **_kwargs):
+        nonlocal page_calls
+        page_calls += 1
+        raise AssertionError("la página no debe leerse antes de validar integridad")
+
+    monkeypatch.setattr(
+        DuplicadosLotesService,
+        "_pagina_generacion",
+        prohibit_page,
+    )
+    corrupted = await client.get(
+        url,
+        params={"evidencia_id": generation.evidencia_id, "per_page": 10},
+        headers=auth_headers,
+    )
+    assert corrupted.status_code == 409, corrupted.text
+    assert corrupted.json()["detail"]["categoria_error"] == (
+        "duplicados_coordinacion_error"
+    )
+    assert page_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_herencia_aceptacion_rechaza_origen_de_otra_raiz(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="generaciones-raices.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == lote_id)
+        )
+    )
+    for group in grupos:
+        group.identidad_documento_hash = "7" * 64
+    await db_session.commit()
+    _, generation_1, _, _ = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=lote_id,
+        grupos=grupos,
+        idempotency_key="pf13-raiz-aceptada-1",
+        aceptar=True,
+    )
+    operation_2, generation_2, _, _ = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=lote_id,
+        grupos=grupos,
+        idempotency_key="pf13-raiz-aceptada-2",
+        aceptar=True,
+    )
+    generation_2.aceptacion_id = generation_1.aceptacion_id
+    generation_2.aceptada_por_usuario_id = generation_1.aceptada_por_usuario_id
+    generation_2.aceptada_por_nombre = generation_1.aceptada_por_nombre
+    generation_2.aceptada_at = generation_1.aceptada_at
+    generation_2.aceptacion_origen_generacion_id = generation_1.id
+    with pytest.raises(DuplicadosLotePreflightCambioError):
+        await DuplicadosLotesService(db_session).revalidar_operacion_lote(
+            operacion_id=int(operation_2.id),
+            lote_id=lote_id,
+            empresa_id=int(test_empresa.id),
+        )
+    await db_session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_g1_intento_x_y_evidencia_nueva_publica_g2_sin_habilitar_y(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="generaciones-g1-g2.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo)
+            .where(LoteComprobanteGrupo.lote_id == lote_id)
+            .order_by(LoteComprobanteGrupo.id)
+        )
+    )
+    x, y = grupos
+    for group in grupos:
+        group.identidad_documento_hash = "6" * 64
+    await db_session.commit()
+    (
+        operation,
+        generation_1,
+        control_1,
+        token_1,
+    ) = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=lote_id,
+        grupos=grupos,
+        idempotency_key="pf13-g1-x-g2-y",
+        aceptar=True,
+    )
+    assert token_1 is not None
+    assert control_1["estado"] == "aceptada"
+    accepted_audit = (
+        generation_1.aceptacion_id,
+        generation_1.aceptada_por_usuario_id,
+        generation_1.aceptada_por_nombre,
+        generation_1.aceptada_at,
+    )
+    preflight = await DuplicadosLotesService(db_session).revalidar_operacion_lote(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+    )
+    generation_validated_id = int(preflight["_duplicados_generacion_id"])
+    assert generation_validated_id == generation_1.id
+    await db_session.commit()
+    intento_x = await _crear_intento_sintetico_con_generacion(
+        db_session,
+        operation=operation,
+        group=x,
+        generation_id=generation_validated_id,
+        punto_venta=test_punto_venta,
+    )
+    intento_x_id = int(intento_x.id)
+    guarda_x = await db_session.get(
+        PuntoVentaGuardaEmisionRece, int(intento_x.guarda_rece_id)
+    )
+    assert guarda_x is not None
+    guarda_x.fase = "arca_iniciada"
+    guarda_x.arca_iniciada_en = datetime.utcnow()
+    await db_session.commit()
+    respuesta_x = EmitirComprobanteResponse(
+        exito=True,
+        tipo_comprobante=int(x.tipo_comprobante),
+        punto_venta=int(x.punto_venta_numero),
+        numero=int(intento_x.numero_planificado),
+        fecha=EmitirComprobanteRequest.model_validate(
+            x.payload_json or {}
+        ).fecha_emision,
+        cae="12345678901234",
+        cae_vencimiento=date(2099, 12, 31),
+        total=Decimal(str(intento_x.total)),
+        mensaje="Autorización ARCA sintética; no se realizó ninguna llamada real.",
+    )
+    x.estado = "autorizado"
+    x.cae = respuesta_x.cae
+    x.numero_asignado = respuesta_x.numero
+    await FacturacionService(db_session)._persistir_intento_y_guarda_rece(
+        idempotencia=IdempotenciaFiscalService(db_session),
+        intento=intento_x,
+        respuesta=respuesta_x,
+        guarda=guarda_x,
+        fase="cerrada_terminal",
+        commit=True,
+        contexto="prueba_g1_x_autorizado",
+    )
+    intento_x = await db_session.get(IntentoEmisionFiscal, intento_x_id)
+    guarda_x = await db_session.get(
+        PuntoVentaGuardaEmisionRece, int(intento_x.guarda_rece_id)
+    )
+    assert intento_x.estado == "autorizado"
+    assert intento_x.duplicados_generacion_id == generation_1.id
+    assert guarda_x is not None and guarda_x.fase == "cerrada_terminal"
+
+    _, same_token, accepted_after_x = await DuplicadosLotesService(
+        db_session
+    ).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(x.id), int(y.id)],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    await db_session.refresh(operation)
+    assert operation.duplicados_generacion_id == generation_1.id
+    assert same_token == token_1
+    assert accepted_after_x is True
+
+    previous_lot = LoteComprobante(
+        empresa_id=int(test_empresa.id),
+        nombre_archivo="antecedente-nuevo-y.xlsx",
+        archivo_hash="5" * 64,
+        estado="procesado",
+        total_filas=1,
+        total_grupos=1,
+        grupos_validos=1,
+    )
+    db_session.add(previous_lot)
+    await db_session.flush()
+    previous_group = LoteComprobanteGrupo(
+        lote_id=int(previous_lot.id),
+        empresa_id=int(y.empresa_id),
+        comprobante_ref="ANTERIOR-Y",
+        orden=1,
+        estado="autorizado",
+        tipo_comprobante=y.tipo_comprobante,
+        punto_venta_numero=y.punto_venta_numero,
+        cliente_documento=y.cliente_documento,
+        cliente_razon_social=y.cliente_razon_social,
+        total_estimado=y.total_estimado,
+        payload_json=deepcopy(y.payload_json),
+        duplicados_version=y.duplicados_version,
+        duplicados_cobertura=y.duplicados_cobertura,
+        huella_fiscal_completa=y.huella_fiscal_completa,
+        identidad_nombre_hash=y.identidad_nombre_hash,
+        identidad_documento_hash=y.identidad_documento_hash,
+        identidad_nombre_original=y.identidad_nombre_original,
+        identidad_tipo_documento_original=y.identidad_tipo_documento_original,
+        identidad_numero_documento_original=y.identidad_numero_documento_original,
+        fecha_emision_normalizada=y.fecha_emision_normalizada,
+        moneda_duplicados=y.moneda_duplicados,
+        cotizacion_duplicados=y.cotizacion_duplicados,
+        total_centavos=y.total_centavos,
+        punto_venta_id=y.punto_venta_id,
+        ambiente=y.ambiente,
+        punto_venta_elegibilidad_revision_id=y.punto_venta_elegibilidad_revision_id,
+        punto_venta_revision_fiscal=y.punto_venta_revision_fiscal,
+    )
+    db_session.add(previous_group)
+    await db_session.commit()
+
+    with pytest.raises(DuplicadosLotePreflightCambioError):
+        await DuplicadosLotesService(db_session).revalidar_operacion_lote(
+            operacion_id=int(operation.id),
+            lote_id=lote_id,
+            empresa_id=int(test_empresa.id),
+        )
+    await db_session.commit()
+    control_2, token_2, accepted_2 = await DuplicadosLotesService(
+        db_session
+    ).evaluar_y_reservar(
+        operacion_id=int(operation.id),
+        lote_id=lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado", "autorizado"},
+        grupo_ids=[int(x.id), int(y.id)],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    await db_session.refresh(operation)
+    generation_2 = await db_session.get(
+        LoteDuplicadoEvidencia, int(operation.duplicados_generacion_id)
+    )
+    assert generation_2.id != generation_1.id
+    assert control_2["evidencia_id"] != control_1["evidencia_id"]
+    assert token_2 not in {None, token_1}
+    assert accepted_2 is False
+    assert (
+        generation_1.aceptacion_id,
+        generation_1.aceptada_por_usuario_id,
+        generation_1.aceptada_por_nombre,
+        generation_1.aceptada_at,
+    ) == accepted_audit
+    intento_x = await db_session.get(IntentoEmisionFiscal, intento_x_id)
+    assert intento_x.duplicados_generacion_id == generation_1.id
+    assert (
+        await db_session.scalar(
+            select(func.count(IntentoEmisionFiscal.id)).where(
+                IntentoEmisionFiscal.grupo_id == y.id
+            )
+        )
+        == 0
+    )
+
+
+def test_modelo_declara_fks_generacionales_con_clausura_fiscal() -> None:
+    pointer_fks = {
+        fk.constraint.name: fk
+        for fk in OperacionIdempotente.__table__.foreign_keys
+        if fk.parent.name == "duplicados_generacion_id"
+    }
+    pointer = pointer_fks["fk_operaciones_idempotentes_duplicados_generacion"]
+    assert pointer.target_fullname == "lotes_duplicados_evidencias.id"
+    assert pointer.ondelete == "SET NULL"
+    attempt_fk = next(
+        constraint
+        for constraint in IntentoEmisionFiscal.__table__.foreign_key_constraints
+        if constraint.name == "fk_intento_duplicados_generacion_scope"
+    )
+    assert attempt_fk.ondelete == "RESTRICT"
+    assert {element.parent.name for element in attempt_fk.elements} == {
+        "duplicados_generacion_id",
+        "operacion_id",
+        "empresa_id",
+        "lote_id",
+        "ambiente",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "contaminacion",
+    [
+        "orm_flush",
+        "core_update",
+        "orm_pendiente",
+        "sql_desconocido",
+        "driver_sql_dml",
+    ],
+)
+async def test_frontera_http_duplicados_falla_cerrada_ante_transaccion_no_lectora(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    contaminacion: str,
+):
+    """La API no descarta ni confirma DML ajeno para abrir su sección crítica."""
+    empresa_id = int(test_empresa.id)
+    validation = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "frontera-transaccional.xlsx",
+                _build_lote_excel(test_empresa.cuit),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert validation.status_code == 200, validation.text
+    lote_id = validation.json()["lote"]["id"]
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key=f"pf13-frontera-{contaminacion}",
+    )
+    original = LoteComprobantesService.obtener_resumen_operativo_lote
+
+    async def contaminar(self, *args, **kwargs):
+        result = await original(self, *args, **kwargs)
+        if contaminacion == "core_update":
+            await self.db.execute(
+                update(Empresa)
+                .where(Empresa.id == empresa_id)
+                .values(razon_social="Cambio Core no autorizado")
+            )
+        elif contaminacion == "sql_desconocido":
+            await self.db.execute(text("SELECT 1"))
+        elif contaminacion == "driver_sql_dml":
+            connection = await self.db.connection()
+            await connection.exec_driver_sql(
+                "UPDATE empresas SET razon_social = ? WHERE id = ?",
+                ("Cambio driver SQL no autorizado", empresa_id),
+            )
+        else:
+            empresa = await self.db.get(Empresa, empresa_id)
+            empresa.razon_social = "Cambio ORM no autorizado"
+            if contaminacion == "orm_flush":
+                await self.db.flush()
+        return result
+
+    llamadas_fiscales = 0
+
+    async def no_emitir(*_args, **_kwargs):
+        nonlocal llamadas_fiscales
+        llamadas_fiscales += 1
+        raise AssertionError("No debe alcanzarse la emisión fiscal")
+
+    monkeypatch.setattr(
+        LoteComprobantesService,
+        "obtener_resumen_operativo_lote",
+        contaminar,
+    )
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", no_emitir)
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+
+    assert response.status_code == 409, response.text
+    assert (
+        response.json()["detail"]["categoria_error"]
+        == "duplicado_coordinacion_transaccional"
+    )
+    assert llamadas_fiscales == 0
+    await db_session.rollback()
+    empresa = await db_session.get(Empresa, empresa_id, populate_existing=True)
+    assert empresa.razon_social == "Empresa Test S.A."
+
+
+async def _validar_multi_para_duplicados(
+    client: AsyncClient,
+    auth_headers: dict,
+    empresa_cuit: str,
+    *,
+    nombre: str,
+    cantidad: int,
+    anonimo: bool = False,
+) -> int:
+    workbook = load_workbook(
+        BytesIO(_build_lote_excel_multi_grupo(empresa_cuit, cantidad))
+    )
+    sheet = workbook["Comprobantes"]
+    for row in range(2, cantidad + 2):
+        sheet.cell(
+            row=row, column=1
+        ).value = f"{sheet.cell(row=row, column=1).value}-{nombre}"
+        if anonimo:
+            sheet.cell(row=row, column=7).value = "CI"
+            sheet.cell(row=row, column=8).value = ""
+            sheet.cell(row=row, column=9).value = "Consumidor Final"
+            sheet.cell(row=row, column=10).value = "Consumidor Final"
+    stream = BytesIO()
+    workbook.save(stream)
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                nombre,
+                stream.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    return int(response.json()["lote"]["id"])
+
+
+@pytest.mark.asyncio
+async def test_lote_anonimo_uno_contra_cien_no_es_igualdad_completa(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Un único ítem coincidente no convierte un lote previo de cien en duplicado."""
+    previo_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="anonimo-previo-cien.xlsx",
+        cantidad=100,
+        anonimo=True,
+    )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="anonimo-actual-uno.xlsx",
+        cantidad=1,
+        anonimo=True,
+    )
+    grupos_previos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == previo_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    for grupo in grupos_previos:
+        grupo.estado = "autorizado"
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        idempotency_key="pf13-anonimo-seleccion-cien",
+        tipo_operacion="procesar_lote",
+        payload_hash="9" * 64,
+        estado="finalizado",
+        lote_id=previo_id,
+        duplicados_version="duplicados_lotes/v2",
+        control_duplicados_json={
+            "evidencia_id": "v2.cien",
+            "seleccion_original": [
+                {
+                    "grupo_id": int(grupo.id),
+                    "huella": grupo.huella_fiscal_completa,
+                    "nombre_hash": grupo.identidad_nombre_hash,
+                    "documento_hash": grupo.identidad_documento_hash,
+                }
+                for grupo in grupos_previos
+            ],
+        },
+    )
+    db_session.add(operacion)
+    await db_session.flush()
+    linked_comprobante_id = await _persistir_comprobante_autorizado(
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        tipo_comprobante=6,
+        numero=801,
+        fecha_emision=FECHA_FISCAL_CONTROLADA_PF19B,
+        cae=CAE_TEST_NO_REAL,
+        cae_vencimiento=date(2026, 8, 20),
+        total=Decimal("1210.00"),
+    )
+    individual_comprobante_id = await _persistir_comprobante_autorizado(
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        tipo_comprobante=6,
+        numero=802,
+        fecha_emision=FECHA_FISCAL_CONTROLADA_PF19B,
+        cae=CAE_TEST_NO_REAL_ALT,
+        cae_vencimiento=date(2026, 8, 20),
+        total=Decimal("1210.00"),
+    )
+    testigo_grupo = grupos_previos[0]
+    db_session.add(
+        IntentoEmisionFiscal(
+            operacion_id=int(operacion.id),
+            empresa_id=int(test_empresa.id),
+            usuario_id=None,
+            punto_venta_id=int(test_punto_venta.id),
+            punto_venta_numero=int(test_punto_venta.numero),
+            tipo_comprobante=int(testigo_grupo.tipo_comprobante),
+            numero_planificado=801,
+            fecha_emision=testigo_grupo.fecha_emision_normalizada,
+            total=Decimal("1210.00"),
+            receptor_tipo_documento=99,
+            receptor_numero_documento="0",
+            receptor_razon_social="A CONSUMIDOR FINAL",
+            payload_hash="c" * 64,
+            huella_logica="d" * 64,
+            estado="autorizado",
+            cae=CAE_TEST_NO_REAL,
+            cae_vencimiento=date(2026, 8, 20),
+            comprobante_id=linked_comprobante_id,
+            lote_id=previo_id,
+            grupo_id=int(testigo_grupo.id),
+        )
+    )
+    await db_session.commit()
+    linked = await db_session.get(Comprobante, linked_comprobante_id)
+    individual = await db_session.get(Comprobante, individual_comprobante_id)
+    assert linked is not None
+    assert individual is not None
+    matches = [linked]
+
+    async def buscar_matches(*_args, **_kwargs):
+        return list(matches)
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "buscar_duplicados_logicos_lote",
+        buscar_matches,
+    )
+
+    control = await DuplicadosLotesService(db_session).calcular_control(
+        lote_id=actual_id,
+        empresa_id=int(inspect(test_empresa).identity[0]),
+        estados={"validado"},
+    )
+
+    assert control["estado"] == "sin_coincidencias"
+    assert control["tipos_coincidencia"] == []
+    assert control["cantidad_afectada"] == 0
+
+    matches.append(individual)
+    control = await DuplicadosLotesService(db_session).calcular_control(
+        lote_id=actual_id,
+        empresa_id=int(inspect(test_empresa).identity[0]),
+        estados={"validado"},
+    )
+    assert control["estado"] == "requiere_confirmacion"
+    assert control["cantidad_afectada"] == 1
+    assert {
+        antecedente["comprobante_ref"]
+        for antecedente in control["antecedentes_resumen"]
+        if antecedente["origen"] == "comprobante_individual"
+    } == {f"comprobante-{individual_comprobante_id}"}
+
+
+@pytest.mark.asyncio
+async def test_resumen_y_revalidacion_usan_relacion_sin_construir_dtos(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    previo_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="relacion-previa-cuatro.xlsx",
+        cantidad=4,
+    )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="relacion-actual-tres.xlsx",
+        cantidad=3,
+    )
+    previos = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo)
+            .where(LoteComprobanteGrupo.lote_id == previo_id)
+            .order_by(LoteComprobanteGrupo.id)
+        )
+    )
+    actuales = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo)
+            .where(LoteComprobanteGrupo.lote_id == actual_id)
+            .order_by(LoteComprobanteGrupo.id)
+        )
+    )
+    for indice, grupo in enumerate(previos):
+        grupo.estado = "autorizado"
+        grupo.identidad_documento_hash = "d" * 64
+        grupo.identidad_nombre_hash = hashlib.sha256(
+            f"previo-{indice}".encode()
+        ).hexdigest()
+    for indice, grupo in enumerate(actuales):
+        grupo.identidad_documento_hash = "d" * 64
+        grupo.identidad_nombre_hash = hashlib.sha256(
+            f"actual-{indice}".encode()
+        ).hexdigest()
+    await db_session.commit()
+
+    def prohibir_dto(**_kwargs):
+        raise AssertionError("Resumen/revalidación no deben construir DTOs de detalle")
+
+    monkeypatch.setattr(
+        DuplicadosLotesService,
+        "_armar_detalle_compacto",
+        prohibir_dto,
+    )
+    service = DuplicadosLotesService(db_session)
+    resumen = await service.calcular_control(
+        lote_id=actual_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado"},
+        incluir_interno=True,
+    )
+    assert resumen["cantidad_actual"] == 3
+    assert resumen["cantidad_afectada"] == 3
+    assert resumen["evidencia_id"] is not None
+    assert "_coincidencias" not in resumen
+    assert "_detalle_total" not in resumen
+    bloque_historico = next(
+        bloque
+        for bloque in resumen["_bloques"].values()
+        if bloque["clase"] == "parcial_documento"
+    )
+    miembros = list(bloque_historico["miembros"].values())
+    assert sum(item["lado"] == "actual" for item in miembros) == 3
+    assert sum(item["lado"] == "anterior" for item in miembros) == 4
+    antecedente = next(
+        item for item in resumen["antecedentes_resumen"] if item["lote_id"] == previo_id
+    )
+    assert antecedente["cantidad_coincidente"] == 3
+    assert antecedente["cantidad_autorizada"] == 4
+
+    operation, generation, _, _ = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=actual_id,
+        grupos=actuales,
+        idempotency_key="pf13-h2-relacion-sin-dto",
+        aceptar=True,
+    )
+    revalidated = await service.revalidar_operacion_lote(
+        operacion_id=int(operation.id),
+        lote_id=actual_id,
+        empresa_id=int(test_empresa.id),
+    )
+    assert revalidated["evidencia_id"] == generation.evidencia_id
+
+
+@pytest.mark.asyncio
+async def test_detalle_parcial_no_retiene_expansion_en_resumen_ni_pagina_profunda(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous_count = 42
+    current_count = 41
+    previo_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="recursos-previo-cuarenta-y-dos.xlsx",
+        cantidad=previous_count,
+    )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="recursos-actual-cuarenta-y-uno.xlsx",
+        cantidad=current_count,
+    )
+    empresa_id = int(inspect(test_empresa).identity[0])
+    await db_session.execute(
+        update(LoteComprobanteGrupo)
+        .where(LoteComprobanteGrupo.lote_id == previo_id)
+        .values(estado="autorizado", identidad_documento_hash="b" * 64)
+    )
+    await db_session.execute(
+        update(LoteComprobanteGrupo)
+        .where(LoteComprobanteGrupo.lote_id == actual_id)
+        .values(identidad_documento_hash="b" * 64)
+    )
+    await db_session.commit()
+
+    service = DuplicadosLotesService(db_session)
+    resumen = await service.calcular_control(
+        lote_id=actual_id,
+        empresa_id=empresa_id,
+        estados={"validado"},
+        incluir_interno=True,
+    )
+
+    assert "_detalle_total" not in resumen
+    assert "_coincidencias" not in resumen
+    total_agregado = sum(
+        service._total_bloque_compacto(block) for block in resumen["_bloques"].values()
+    )
+    parcial = next(
+        block
+        for block in resumen["_bloques"].values()
+        if block["clase"] == "parcial_documento"
+    )
+    assert (
+        service._total_bloque_compacto(parcial)
+        == (current_count * previous_count) - current_count
+    )
+    assert total_agregado == ((current_count * previous_count) - current_count) + (
+        2 * current_count
+    )
+    construidos = 0
+    maximo_heap = 0
+    cursores = []
+    opciones_stream = []
+    binds_por_consulta = []
+    activos = 0
+    maximo_activos = 0
+    original = service._armar_detalle_compacto
+    original_heappush = duplicados_lotes_module.heapq.heappush
+    original_heapreplace = duplicados_lotes_module.heapq.heapreplace
+    original_stream = db_session.stream
+
+    class CursorObservado:
+        def __init__(self, cursor):
+            nonlocal activos, maximo_activos
+            self.cursor = cursor
+            self.closed = False
+            activos += 1
+            maximo_activos = max(maximo_activos, activos)
+
+        def mappings(self):
+            return self.cursor.mappings()
+
+        async def close(self):
+            nonlocal activos
+            if not self.closed:
+                await self.cursor.close()
+                self.closed = True
+                activos -= 1
+
+    def contar_dto(**kwargs):
+        nonlocal construidos
+        construidos += 1
+        return original(**kwargs)
+
+    def observar_heap(heap, item):
+        nonlocal maximo_heap
+        original_heappush(heap, item)
+        maximo_heap = max(maximo_heap, len(heap))
+
+    def observar_reemplazo(heap, item):
+        nonlocal maximo_heap
+        result = original_heapreplace(heap, item)
+        maximo_heap = max(maximo_heap, len(heap))
+        return result
+
+    async def observar_stream(statement, *args, **kwargs):
+        opciones_stream.append(statement.get_execution_options())
+        compiled = statement.compile(dialect=db_session.bind.sync_engine.dialect)
+        binds_por_consulta.append(
+            len(compiled.positiontup)
+            if compiled.positiontup is not None
+            else len(compiled.params)
+        )
+        result = await original_stream(statement, *args, **kwargs)
+        observado = CursorObservado(result)
+        cursores.append(observado)
+        return observado
+
+    monkeypatch.setattr(service, "_armar_detalle_compacto", contar_dto)
+    monkeypatch.setattr(duplicados_lotes_module.heapq, "heappush", observar_heap)
+    monkeypatch.setattr(
+        duplicados_lotes_module.heapq, "heapreplace", observar_reemplazo
+    )
+    monkeypatch.setattr(db_session, "stream", observar_stream)
+    _, items, total = await service.obtener_detalle(
+        lote_id=actual_id,
+        empresa_id=empresa_id,
+        evidencia_id=resumen["evidencia_id"],
+        page=total_agregado,
+        per_page=1,
+    )
+    assert total == total_agregado
+    assert len(items) == 1
+    assert construidos == 1
+    particiones = sum(
+        1
+        for block in resumen["_bloques"].values()
+        for _ in service._consultas_bloque_vivo(block)
+    )
+    assert particiones > len(resumen["_bloques"])
+    assert len(cursores) > particiones
+    assert maximo_activos == 1
+    assert activos == 0
+    assert maximo_heap <= service._live_member_buffer()
+    assert max(binds_por_consulta) <= duplicados_lotes_module.READ_PARAMETER_BUFFER
+    assert all(option["yield_per"] == 1 for option in opciones_stream)
+    assert all(option["max_row_buffer"] == 1 for option in opciones_stream)
+    assert all(cursor.closed for cursor in cursores)
+
+
+@pytest.mark.asyncio
+async def test_pagina_viva_cierra_cursor_si_falla_el_consumo(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = DuplicadosLotesService(db_session)
+    member = {
+        "lado": "actual",
+        "miembro_clave": "g-1",
+        "grupo_id": 1,
+        "comprobante_id": None,
+        "nombre_hash": "a" * 64,
+        "documento_hash": None,
+        "ordinal": None,
+        "relevancia": "actual",
+        "snapshot": {},
+    }
+    block = {
+        "bloque_clave": "cierre-excepcion",
+        "clase": "interna_nombre",
+        "antecedente_clave": None,
+        "snapshot": {
+            "origen": "lote",
+            "tipo_coincidencia": "interna_receptor",
+            "campos_coincidentes": ["nombre"],
+        },
+        "miembros": {("actual", "g-1"): member},
+    }
+    original_stream = db_session.stream
+    active = 0
+
+    class CursorObservado:
+        def __init__(self, cursor):
+            nonlocal active
+            self.cursor = cursor
+            self.closed = False
+            active += 1
+
+        def mappings(self):
+            return self.cursor.mappings()
+
+        async def close(self):
+            nonlocal active
+            if not self.closed:
+                await self.cursor.close()
+                self.closed = True
+                active -= 1
+
+    async def observe_stream(statement, *args, **kwargs):
+        return CursorObservado(await original_stream(statement, *args, **kwargs))
+
+    def fail_key(_row):
+        raise RuntimeError("fallo sintético durante el consumo")
+
+    monkeypatch.setattr(db_session, "stream", observe_stream)
+    monkeypatch.setattr(service, "_clave_orden_publico", fail_key)
+    with pytest.raises(RuntimeError, match="fallo sintético"):
+        await service._pagina_relacion_viva(
+            {"_bloques": {block["bloque_clave"]: block}},
+            offset=0,
+            limit=1,
+        )
+    assert active == 0
+
+
+@pytest.mark.asyncio
+async def test_comparacion_historica_usa_seleccion_original_y_no_lote_fisico_completo(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Una operación previa X+Y no se mezcla con Z sólo por compartir lote físico."""
+    previo_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="previo-xyz.xlsx",
+        cantidad=3,
+    )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="actual-xy.xlsx",
+        cantidad=2,
+    )
+    empresa_id = int(inspect(test_empresa).identity[0])
+    previos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == previo_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    for grupo in previos:
+        grupo.estado = "autorizado"
+    operacion_previa = OperacionIdempotente(
+        empresa_id=empresa_id,
+        idempotency_key="pf13-seleccion-previa-xy",
+        tipo_operacion="procesar_lote",
+        payload_hash="a" * 64,
+        estado="finalizado",
+        lote_id=previo_id,
+        duplicados_version="duplicados_lotes/v2",
+        control_duplicados_json={
+            "evidencia_id": "v2.previa",
+            "seleccion_original": [
+                {
+                    "grupo_id": int(grupo.id),
+                    "huella": grupo.huella_fiscal_completa,
+                    "nombre_hash": grupo.identidad_nombre_hash,
+                    "documento_hash": grupo.identidad_documento_hash,
+                }
+                for grupo in previos[:2]
+            ],
+        },
+        solicitante_nombre_snapshot="Solicitante histórico",
+        solicitud_emision_at=datetime(2026, 8, 9, 14, 0, tzinfo=timezone.utc),
+    )
+    db_session.add(operacion_previa)
+    await db_session.flush()
+    for indice, grupo in enumerate(previos[:2], start=1):
+        db_session.add(
+            IntentoEmisionFiscal(
+                operacion_id=operacion_previa.id,
+                empresa_id=empresa_id,
+                usuario_id=None,
+                punto_venta_id=grupo.punto_venta_id,
+                punto_venta_numero=grupo.punto_venta_numero,
+                tipo_comprobante=grupo.tipo_comprobante,
+                numero_planificado=indice,
+                fecha_emision=grupo.fecha_emision_normalizada,
+                total=grupo.total_estimado,
+                receptor_tipo_documento=96,
+                receptor_numero_documento=str(30000000 + indice),
+                receptor_razon_social=f"Cliente Lote {indice}",
+                payload_hash=grupo.huella_fiscal_completa,
+                huella_logica=grupo.huella_fiscal_completa,
+                estado="autorizado",
+                solicitante_nombre_snapshot="Solicitante histórico",
+                solicitud_arca_at=datetime(2026, 8, 9, 14, indice, tzinfo=timezone.utc),
+                resultado_fiscal_at=datetime(
+                    2026, 8, 9, 14, indice, 30, tzinfo=timezone.utc
+                ),
+                lote_id=previo_id,
+                grupo_id=grupo.id,
+            )
+        )
+    await db_session.commit()
+    db_session.expire_all()
+
+    control = await DuplicadosLotesService(db_session).calcular_control(
+        lote_id=actual_id,
+        empresa_id=empresa_id,
+        estados={"validado"},
+    )
+
+    antecedentes = [
+        item for item in control["antecedentes_resumen"] if item["lote_id"] == previo_id
+    ]
+    assert len(antecedentes) == 1
+    assert antecedentes[0]["tipo_coincidencia"] == "historica_completa"
+    assert antecedentes[0]["cantidad_lote_anterior"] == 2
+    assert antecedentes[0]["cantidad_coincidente"] == 2
+    assert antecedentes[0]["hora_confiable"] is True
+    assert antecedentes[0]["emitido_desde"].isoformat() == ("2026-08-09T14:01:30+00:00")
+    assert antecedentes[0]["solicitantes"] == [
+        {
+            "usuario_id": None,
+            "nombre": "Solicitante histórico",
+            "estado": "registrado",
+        }
+    ]
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{actual_id}/coincidencias",
+        params={"evidencia_id": control["evidencia_id"]},
+        headers=auth_headers,
+    )
+    assert detalle.status_code == 200, detalle.text
+    marca = datetime.fromisoformat(
+        detalle.json()["items"][0]["resultado_fiscal_at"].replace("Z", "+00:00")
+    )
+    assert marca.utcoffset() == timedelta(0)
+    assert detalle.json()["items"][0]["hora_confiable"] is True
+
+    intentos_antes = int(
+        await db_session.scalar(select(func.count(IntentoEmisionFiscal.id))) or 0
+    )
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=actual_id,
+        estados={"validado"},
+        idempotency_key="pf13-conflicto-historico-con-fechas",
+    )
+    conflicto = await client.post(
+        f"/api/lotes-comprobantes/{actual_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+
+    assert conflicto.status_code == 409, conflicto.text
+    conflicto_json = conflicto.json()["detail"]
+    assert conflicto_json["categoria_error"] == "duplicado_logico_lote"
+    assert conflicto_json["aceptacion_id"].startswith("v2.")
+    antecedente_http = next(
+        item
+        for item in conflicto_json["control_duplicados"]["antecedentes_resumen"]
+        if item["lote_id"] == previo_id
+    )
+    assert datetime.fromisoformat(antecedente_http["emitido_desde"]) == datetime(
+        2026, 8, 9, 14, 1, 30, tzinfo=timezone.utc
+    )
+    assert datetime.fromisoformat(antecedente_http["emitido_hasta"]) == datetime(
+        2026, 8, 9, 14, 2, 30, tzinfo=timezone.utc
+    )
+    operacion_conflicto = await db_session.scalar(
+        select(OperacionIdempotente).where(
+            OperacionIdempotente.idempotency_key
+            == "pf13-conflicto-historico-con-fechas"
+        )
+    )
+    assert operacion_conflicto is not None
+    assert operacion_conflicto.response_json == conflicto_json
+    intentos_despues = int(
+        await db_session.scalar(select(func.count(IntentoEmisionFiscal.id))) or 0
+    )
+    assert intentos_despues == intentos_antes
+
+
+@pytest.mark.asyncio
+async def test_selecciones_parciales_conservan_raices_y_colapsan_continuaciones(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="raices-previo-abc.xlsx",
+        cantidad=3,
+    )
+    current_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="raices-actual-a.xlsx",
+        cantidad=1,
+    )
+    previous_groups = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == previous_lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    current_group = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(
+            LoteComprobanteGrupo.lote_id == current_lote_id
+        )
+    )
+    for group in previous_groups:
+        group.estado = "autorizado"
+
+    def selection(*indexes: int) -> list[dict]:
+        return DuplicadosLotesService._seleccion_material(
+            [previous_groups[index] for index in indexes]
+        )
+
+    root_one = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key="pf13-h2-raiz-uno",
+        tipo_operacion="procesar_lote",
+        payload_hash="1" * 64,
+        estado="finalizado",
+        lote_id=previous_lote_id,
+        duplicados_version="duplicados_lotes/v2",
+        control_duplicados_json={"seleccion_original": selection(0, 1)},
+    )
+    root_two = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key="pf13-h2-raiz-dos",
+        tipo_operacion="procesar_lote",
+        payload_hash="2" * 64,
+        estado="finalizado",
+        lote_id=previous_lote_id,
+        duplicados_version="duplicados_lotes/v2",
+        control_duplicados_json={"seleccion_original": selection(0, 2)},
+    )
+    db_session.add_all([root_one, root_two])
+    await db_session.flush()
+    continuation = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key="pf13-h2-raiz-uno-continuacion",
+        tipo_operacion="procesar_lote",
+        payload_hash="3" * 64,
+        estado="finalizado",
+        lote_id=previous_lote_id,
+        operacion_raiz_id=int(root_one.id),
+        duplicados_version="duplicados_lotes/v2",
+        control_duplicados_json={"seleccion_original": selection(0, 1)},
+    )
+    invalid_cross_lote = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key="pf13-h2-seleccion-cruzada-lote",
+        tipo_operacion="procesar_lote",
+        payload_hash="4" * 64,
+        estado="finalizado",
+        lote_id=previous_lote_id,
+        duplicados_version="duplicados_lotes/v2",
+        control_duplicados_json={
+            "seleccion_original": DuplicadosLotesService._seleccion_material(
+                [current_group]
+            )
+        },
+    )
+    db_session.add_all([continuation, invalid_cross_lote])
+    await db_session.commit()
+
+    service = DuplicadosLotesService(db_session)
+    baseline = await service.calcular_control(
+        lote_id=current_lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado"},
+        incluir_interno=True,
+    )
+    selected_query_counts = []
+    operation_windows = 0
+    orm_peaks = {
+        LoteComprobanteGrupo: 0,
+        OperacionIdempotente: 0,
+        IntentoEmisionFiscal: 0,
+    }
+
+    def observe_selected_members(
+        _connection, _cursor, statement, parameters, _context, _many
+    ):
+        nonlocal operation_windows
+        if (
+            "lotes_comprobantes_grupos.id IN" in statement
+            and "lotes_comprobantes_grupos.lote_id IN" not in statement
+        ):
+            selected_query_counts.append(len(parameters))
+        if (
+            "FROM operaciones_idempotentes" in statement
+            and "control_duplicados_json" in statement
+            and "LIMIT" in statement
+        ):
+            operation_windows += 1
+
+    def observe_orm_load(session, _instance):
+        for model in orm_peaks:
+            orm_peaks[model] = max(
+                orm_peaks[model],
+                sum(isinstance(item, model) for item in session.identity_map.values()),
+            )
+
+    monkeypatch.setattr(duplicados_lotes_module, "READ_PARAMETER_BUFFER", 2)
+    monkeypatch.setattr(duplicados_lotes_module, "HISTORICAL_READ_WINDOW", 1)
+    db_session.expunge_all()
+    sync_engine = db_session.bind.sync_engine
+    event.listen(sync_engine, "before_cursor_execute", observe_selected_members)
+    event.listen(db_session.sync_session, "loaded_as_persistent", observe_orm_load)
+    try:
+        control = await service.calcular_control(
+            lote_id=current_lote_id,
+            empresa_id=int(test_empresa.id),
+            estados={"validado"},
+            incluir_interno=True,
+        )
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", observe_selected_members)
+        event.remove(db_session.sync_session, "loaded_as_persistent", observe_orm_load)
+
+    assert service._publicable(control) == service._publicable(baseline)
+    assert service._relacion_canonica(control, snapshot=True) == (
+        service._relacion_canonica(baseline, snapshot=True)
+    )
+    baseline_page, baseline_total = await service._pagina_relacion_viva(
+        baseline, offset=0, limit=100
+    )
+    partitioned_page, partitioned_total = await service._pagina_relacion_viva(
+        control, offset=0, limit=100
+    )
+    assert partitioned_total == baseline_total
+    assert partitioned_page == baseline_page
+    assert len(selected_query_counts) >= 2
+    assert max(selected_query_counts) <= 5
+    assert operation_windows >= 4
+    assert orm_peaks[OperacionIdempotente] == 0
+    assert orm_peaks[IntentoEmisionFiscal] == 0
+    assert orm_peaks[LoteComprobanteGrupo] <= 4
+
+    antecedents = [
+        item
+        for item in control["antecedentes_resumen"]
+        if item["lote_id"] == previous_lote_id
+    ]
+    assert len(antecedents) == 2
+    assert {item["cantidad_lote_anterior"] for item in antecedents} == {2}
+    assert {item["cantidad_coincidente"] for item in antecedents} == {1}
+    root_keys = {
+        block["antecedente_clave"]
+        for block in control["_bloques"].values()
+        if block["antecedente_clave"] is not None
+    }
+    assert len(root_keys) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("historical_lote_count", [8, 16])
+async def test_historia_fisica_mantiene_pico_orm_por_frontera(
+    historical_lote_count: int,
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    current_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre=f"volumen-actual-{historical_lote_count}.xlsx",
+        cantidad=1,
+    )
+    current = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(
+            LoteComprobanteGrupo.lote_id == current_lote_id
+        )
+    )
+    assert current is not None
+    expected_antecedent_keys = set()
+    for index in range(historical_lote_count):
+        lote = LoteComprobante(
+            empresa_id=int(test_empresa.id),
+            nombre_archivo=f"volumen-previo-{historical_lote_count}-{index}.xlsx",
+            archivo_hash=hashlib.sha256(
+                f"volumen-{historical_lote_count}-{index}".encode()
+            ).hexdigest(),
+            estado="completado",
+            total_grupos=2,
+            grupos_emitidos=1,
+            grupos_fallidos=1,
+        )
+        db_session.add(lote)
+        await db_session.flush()
+        common = {
+            "lote_id": int(lote.id),
+            "empresa_id": int(test_empresa.id),
+            "tipo_comprobante": current.tipo_comprobante,
+            "punto_venta_id": current.punto_venta_id,
+            "punto_venta_numero": current.punto_venta_numero,
+            "ambiente": current.ambiente,
+            "punto_venta_elegibilidad_revision_id": (
+                current.punto_venta_elegibilidad_revision_id
+            ),
+            "punto_venta_revision_fiscal": current.punto_venta_revision_fiscal,
+            "fecha_emision_normalizada": current.fecha_emision_normalizada,
+            "moneda_duplicados": current.moneda_duplicados,
+            "cotizacion_duplicados": current.cotizacion_duplicados,
+            "total_estimado": current.total_estimado,
+            "total_centavos": current.total_centavos,
+            "duplicados_version": current.duplicados_version,
+            "duplicados_cobertura": current.duplicados_cobertura,
+        }
+        matching_group = LoteComprobanteGrupo(
+            **common,
+            comprobante_ref=f"MATCH-{index}",
+            orden=0,
+            estado="autorizado",
+            huella_fiscal_completa=current.huella_fiscal_completa,
+            identidad_nombre_hash=current.identidad_nombre_hash,
+            identidad_documento_hash=current.identidad_documento_hash,
+        )
+        db_session.add_all(
+            [
+                matching_group,
+                LoteComprobanteGrupo(
+                    **common,
+                    comprobante_ref=f"AJENO-{index}",
+                    orden=1,
+                    estado="fallido",
+                    huella_fiscal_completa=hashlib.sha256(
+                        f"ajeno-{historical_lote_count}-{index}".encode()
+                    ).hexdigest(),
+                    identidad_nombre_hash=hashlib.sha256(
+                        f"nombre-ajeno-{historical_lote_count}-{index}".encode()
+                    ).hexdigest(),
+                    identidad_documento_hash=hashlib.sha256(
+                        f"documento-ajeno-{historical_lote_count}-{index}".encode()
+                    ).hexdigest(),
+                ),
+            ]
+        )
+        await db_session.flush()
+        expected_antecedent_keys.add(
+            duplicados_lotes_module._sha256(
+                {
+                    "lote_id": int(lote.id),
+                    "operacion_raiz_id": None,
+                    "seleccion": [int(matching_group.id)],
+                }
+            )
+        )
+    await db_session.commit()
+    service = DuplicadosLotesService(db_session)
+    baseline = await service.calcular_control(
+        lote_id=current_lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado"},
+        incluir_interno=True,
+    )
+    db_session.expunge_all()
+    peaks = {LoteComprobante: 0, LoteComprobanteGrupo: 0}
+
+    def observe_load(session, _instance):
+        for model in peaks:
+            peaks[model] = max(
+                peaks[model],
+                sum(isinstance(item, model) for item in session.identity_map.values()),
+            )
+
+    monkeypatch.setattr(duplicados_lotes_module, "HISTORICAL_READ_WINDOW", 2)
+    event.listen(db_session.sync_session, "loaded_as_persistent", observe_load)
+    try:
+        windowed = await service.calcular_control(
+            lote_id=current_lote_id,
+            empresa_id=int(test_empresa.id),
+            estados={"validado"},
+            incluir_interno=True,
+        )
+    finally:
+        event.remove(db_session.sync_session, "loaded_as_persistent", observe_load)
+    assert service._publicable(windowed) == service._publicable(baseline)
+    assert service._relacion_canonica(windowed, snapshot=True) == (
+        service._relacion_canonica(baseline, snapshot=True)
+    )
+    assert windowed["evidencia_id"] == baseline["evidencia_id"]
+    baseline_page = await service._pagina_relacion_viva(baseline, offset=0, limit=100)
+    windowed_page = await service._pagina_relacion_viva(windowed, offset=0, limit=100)
+    assert windowed_page == baseline_page
+    assert len(windowed["antecedentes_resumen"]) == historical_lote_count
+    assert all(
+        item["cantidad_lote_anterior"] == 2 and item["cantidad_coincidente"] == 1
+        for item in windowed["antecedentes_resumen"]
+    )
+    assert {
+        block["antecedente_clave"]
+        for block in windowed["_bloques"].values()
+        if block["antecedente_clave"] is not None
+    } == expected_antecedent_keys
+    assert peaks[LoteComprobante] <= 2
+    assert peaks[LoteComprobanteGrupo] <= 3
+
+
+@pytest.mark.asyncio
+async def test_reserva_solo_publica_propietario_con_scope_acreditado(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="scope-reserva.xlsx",
+        cantidad=1,
+    )
+    group = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == lote_id)
+    )
+    other_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="scope-reserva-otro-lote.xlsx",
+        cantidad=1,
+    )
+    other_company = Empresa(
+        razon_social="Empresa ajena sintética",
+        cuit="20999999991",
+        condicion_iva="RI",
+        domicilio="Calle sintética 456",
+        localidad="Ciudad de prueba",
+        provincia="Buenos Aires",
+        codigo_postal="1000",
+        email="ajena@example.invalid",
+        telefono="00000001",
+        inicio_actividades=date(2020, 1, 1),
+    )
+    db_session.add(other_company)
+    await db_session.flush()
+    other_company_lote = LoteComprobante(
+        empresa_id=int(other_company.id),
+        nombre_archivo="scope-ajeno.xlsx",
+        archivo_hash="9" * 64,
+        estado="validado",
+    )
+    db_session.add(other_company_lote)
+    await db_session.flush()
+
+    async def owner(
+        key: str,
+        *,
+        empresa_id: int,
+        owner_lote_id: int,
+        ambiente: str,
+        nombre: str,
+    ) -> OperacionIdempotente:
+        operation = OperacionIdempotente(
+            empresa_id=empresa_id,
+            idempotency_key=key,
+            tipo_operacion="procesar_lote",
+            payload_hash=hashlib.sha256(key.encode()).hexdigest(),
+            estado="en_proceso",
+            lote_id=owner_lote_id,
+            duplicados_version="duplicados_lotes/v2",
+            solicitante_nombre_snapshot=nombre,
+        )
+        db_session.add(operation)
+        await db_session.flush()
+        generation = LoteDuplicadoEvidencia(
+            operacion_id=int(operation.id),
+            empresa_id=empresa_id,
+            lote_id=owner_lote_id,
+            ambiente=ambiente,
+            generacion=1,
+            formato="duplicados_relacion/1",
+            evidencia_id=f"v2.{key}",
+            snapshot_hash=hashlib.sha256(f"snapshot-{key}".encode()).hexdigest(),
+            control_snapshot_json={"manifiesto": {"bloques": 0, "miembros": 0}},
+        )
+        db_session.add(generation)
+        await db_session.flush()
+        operation.duplicados_generacion_id = int(generation.id)
+        await db_session.flush()
+        return operation
+
+    valid = await owner(
+        "scope-valido",
+        empresa_id=int(test_empresa.id),
+        owner_lote_id=lote_id,
+        ambiente=group.ambiente,
+        nombre="Propietario válido",
+    )
+    wrong_lote = await owner(
+        "scope-lote-ajeno",
+        empresa_id=int(test_empresa.id),
+        owner_lote_id=other_lote_id,
+        ambiente=group.ambiente,
+        nombre="No divulgar lote",
+    )
+    wrong_company = await owner(
+        "scope-empresa-ajena",
+        empresa_id=int(other_company.id),
+        owner_lote_id=int(other_company_lote.id),
+        ambiente=group.ambiente,
+        nombre="No divulgar empresa",
+    )
+    wrong_environment = await owner(
+        "scope-ambiente-ajeno",
+        empresa_id=int(test_empresa.id),
+        owner_lote_id=lote_id,
+        ambiente=("produccion" if group.ambiente == "homologacion" else "homologacion"),
+        nombre="No divulgar ambiente",
+    )
+    await db_session.commit()
+    service = DuplicadosLotesService(db_session)
+
+    group.duplicados_reserva_operacion_id = int(valid.id)
+    valid_evidence = (await service._evidencia_por_grupo([group]))[int(group.id)]
+    assert valid_evidence["operacion_id"] == int(valid.id)
+    assert valid_evidence["nombre"] == "Propietario válido"
+    assert valid_evidence["procedencia"] == "reserva_operacion_propietaria"
+
+    for invalid in (wrong_lote, wrong_company, wrong_environment):
+        group.duplicados_reserva_operacion_id = int(invalid.id)
+        evidence = (await service._evidencia_por_grupo([group]))[int(group.id)]
+        assert evidence == {
+            "operacion_id": None,
+            "usuario_id": None,
+            "nombre": None,
+            "solicitud_emision_at": None,
+            "solicitud_arca_at": None,
+            "resultado_fiscal_at": None,
+            "procedencia": "reserva_no_acreditada",
+        }
+
+    group.duplicados_reserva_operacion_id = int(valid.id)
+    synthetic = [
+        SimpleNamespace(
+            id=100000 + index,
+            duplicados_reserva_operacion_id=None,
+            estado="fallido",
+        )
+        for index in range(2100)
+    ]
+    parameter_counts = []
+
+    def observe_parameters(
+        _connection, _cursor, _statement, parameters, _context, _many
+    ):
+        parameter_counts.append(len(parameters))
+
+    sync_engine = db_session.bind.sync_engine
+    event.listen(sync_engine, "before_cursor_execute", observe_parameters)
+    try:
+        expanded_evidence = await service._evidencia_por_grupo([group, *synthetic])
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", observe_parameters)
+    assert expanded_evidence == {int(group.id): valid_evidence}
+    assert max(parameter_counts) <= duplicados_lotes_module.READ_PARAMETER_BUFFER
+    assert parameter_counts == [1]
+
+
+@pytest.mark.asyncio
+async def test_completa_cien_conserva_ordinales_antes_de_filtrar_relevancia(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    previous_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="completa-previa-cien.xlsx",
+        cantidad=100,
+    )
+    current_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="completa-actual-cien.xlsx",
+        cantidad=100,
+    )
+    previous_groups = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == previous_lote_id)
+                .order_by(LoteComprobanteGrupo.id)
+            )
+        ).all()
+    )
+    current_groups = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == current_lote_id)
+                .order_by(LoteComprobanteGrupo.id)
+            )
+        ).all()
+    )
+    authorized_ordinals = set(range(0, 100, 5))
+    relevant_ordinals = authorized_ordinals | {1, 3}
+    for ordinal, group in enumerate(previous_groups):
+        group.huella_fiscal_completa = "8" * 64
+        group.estado = (
+            "autorizado"
+            if ordinal in authorized_ordinals
+            else "requiere_reconciliacion"
+            if ordinal == 3
+            else "fallido"
+        )
+        if ordinal == 1:
+            group.duplicados_reserva_operacion_id = 999999
+    for group in current_groups:
+        group.huella_fiscal_completa = "8" * 64
+    await db_session.commit()
+    service = DuplicadosLotesService(db_session)
+
+    control = await service.calcular_control(
+        lote_id=current_lote_id,
+        empresa_id=int(test_empresa.id),
+        estados={"validado"},
+        incluir_interno=True,
+    )
+
+    antecedent = next(
+        item
+        for item in control["antecedentes_resumen"]
+        if item["lote_id"] == previous_lote_id
+    )
+    assert antecedent["cantidad_lote_anterior"] == 100
+    assert antecedent["cantidad_coincidente"] == 100
+    assert antecedent["cantidad_autorizada"] == 20
+    assert antecedent["cantidad_reservada_en_curso"] == 1
+    assert antecedent["cantidad_incierta"] == 1
+    assert control["cantidad_afectada"] == 20
+    complete = next(
+        block for block in control["_bloques"].values() if block["clase"] == "completa"
+    )
+    assert complete["snapshot"]["multiplicidad_total"] == 100
+    current_ordinals = {
+        member["ordinal"]
+        for member in complete["miembros"].values()
+        if member["lado"] == "actual"
+    }
+    previous_ordinals = {
+        member["ordinal"]
+        for member in complete["miembros"].values()
+        if member["lado"] == "anterior"
+    }
+    assert current_ordinals == previous_ordinals == relevant_ordinals
+    assert len(current_ordinals) == 22
+    assert 2 not in current_ordinals
+    _, items, total = await service.obtener_detalle(
+        lote_id=current_lote_id,
+        empresa_id=int(test_empresa.id),
+        evidencia_id=control["evidencia_id"],
+        page=1,
+        per_page=100,
+    )
+    assert total == 22
+    assert len(items) == 22
+
+
+@pytest.mark.asyncio
+async def test_relacion_seis_clases_iguala_paginas_vivas_durables_y_buffer_core(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = DuplicadosLotesService(db_session)
+
+    def current(group_id: int, *, name: str | None, document: str | None) -> dict:
+        return {
+            "lado": "actual",
+            "miembro_clave": f"g-{group_id}",
+            "grupo_id": group_id,
+            "comprobante_id": None,
+            "nombre_hash": name,
+            "documento_hash": document,
+            "ordinal": None,
+            "relevancia": "actual",
+            "snapshot": {
+                "decision": {"grupo_id": group_id},
+                "presentacion": {
+                    "grupo_id": group_id,
+                    "comprobante_ref": f"ACT-{group_id}",
+                    "importe": "1.00",
+                    "moneda": "PES",
+                    "cotizacion": "1",
+                },
+            },
+        }
+
+    def previous(
+        entity_id: int,
+        *,
+        name: str | None,
+        document: str | None,
+        receipt: bool = False,
+    ) -> dict:
+        return {
+            "lado": "anterior",
+            "miembro_clave": f"{'c' if receipt else 'g'}-{entity_id}",
+            "grupo_id": None if receipt else entity_id,
+            "comprobante_id": entity_id if receipt else None,
+            "nombre_hash": name,
+            "documento_hash": document,
+            "ordinal": None,
+            "relevancia": "autorizado",
+            "snapshot": {
+                "decision": {"comprobante_id" if receipt else "grupo_id": entity_id},
+                "presentacion": {
+                    "lote_anterior_id": None if receipt else 900,
+                    "grupo_anterior_id": None if receipt else entity_id,
+                    "comprobante_anterior_ref": f"ANT-{entity_id}",
+                    "estado_grupo_anterior": None if receipt else "autorizado",
+                    "operacion_anterior_ref": "op-90",
+                    "solicitantes": [],
+                    "solicitud_emision_at": None,
+                    "solicitud_arca_at": None,
+                    "resultado_fiscal_at": None,
+                    "hora_confiable": False,
+                },
+            },
+        }
+
+    def block(
+        key: str,
+        clase: str,
+        members: list[dict],
+        *,
+        fields: list[str],
+    ) -> dict:
+        return {
+            "bloque_clave": key,
+            "clase": clase,
+            "antecedente_clave": None if clase.startswith("interna_") else "raiz-90",
+            "snapshot": {
+                "origen": (
+                    "comprobante_individual" if clase == "individual_legacy" else "lote"
+                ),
+                "tipo_coincidencia": (
+                    "interna_receptor"
+                    if clase.startswith("interna_")
+                    else "historica_completa"
+                    if clase == "completa"
+                    else "historica_individual_legacy"
+                    if clase == "individual_legacy"
+                    else "historica_parcial_receptor"
+                ),
+                "campos_coincidentes": fields,
+                "lote_anterior_id": (
+                    900
+                    if not clase.startswith("interna_") and clase != "individual_legacy"
+                    else None
+                ),
+                "multiplicidad_total": 1 if clase == "completa" else None,
+            },
+            "miembros": {
+                (member["lado"], member["miembro_clave"]): member for member in members
+            },
+        }
+
+    complete_current = current(3, name="n3", document="d3")
+    complete_current["ordinal"] = 0
+    complete_previous = previous(30, name="n3", document="d3")
+    complete_previous["ordinal"] = 0
+    overlap_current = current(5, name="igual", document="doc")
+    overlap_previous = previous(50, name="igual", document="doc")
+    blocks = {
+        item["bloque_clave"]: item
+        for item in [
+            block(
+                "i-nombre",
+                "interna_nombre",
+                [
+                    current(10, name="interno", document="x"),
+                    current(2, name="interno", document="y"),
+                ],
+                fields=["nombre"],
+            ),
+            block(
+                "i-documento",
+                "interna_documento",
+                [
+                    current(10, name="x", document="interno"),
+                    current(2, name="y", document="interno"),
+                ],
+                fields=["documento"],
+            ),
+            block(
+                "completa",
+                "completa",
+                [complete_current, complete_previous],
+                fields=["contenido_completo"],
+            ),
+            block(
+                "p-nombre",
+                "parcial_nombre",
+                [overlap_current, overlap_previous],
+                fields=["nombre"],
+            ),
+            block(
+                "p-documento",
+                "parcial_documento",
+                [
+                    overlap_current,
+                    current(6, name=None, document="doc"),
+                    overlap_previous,
+                    previous(51, name="otro", document="doc"),
+                ],
+                fields=["documento"],
+            ),
+            block(
+                "individual",
+                "individual_legacy",
+                [
+                    current(7, name="legacy", document="legacy"),
+                    previous(70, name=None, document=None, receipt=True),
+                ],
+                fields=["predicado_individual_vigente"],
+            ),
+        ]
+    }
+    control = {"_bloques": blocks}
+
+    reference_rows = []
+    for compact_block in blocks.values():
+        actual = [
+            member
+            for member in compact_block["miembros"].values()
+            if member["lado"] == "actual"
+        ]
+        prior = [
+            member
+            for member in compact_block["miembros"].values()
+            if member["lado"] == "anterior"
+        ]
+        pairs = []
+        if compact_block["clase"].startswith("interna_"):
+            pairs = [(member, None) for member in actual]
+        elif compact_block["clase"] == "completa":
+            pairs = [
+                (
+                    member,
+                    next(
+                        item for item in prior if item["ordinal"] == member["ordinal"]
+                    ),
+                )
+                for member in actual
+            ]
+        else:
+            pairs = [
+                (member, antecedent)
+                for member in actual
+                for antecedent in prior
+                if compact_block["clase"] != "parcial_documento"
+                or member["nombre_hash"] is None
+                or antecedent["nombre_hash"] is None
+                or member["nombre_hash"] != antecedent["nombre_hash"]
+            ]
+        for actual_member, prior_member in pairs:
+            reference_rows.append(
+                (
+                    {
+                        "grupo_actual_id": actual_member["grupo_id"],
+                        "lote_anterior_id": compact_block["snapshot"].get(
+                            "lote_anterior_id"
+                        ),
+                        "grupo_anterior_id": (
+                            prior_member["grupo_id"] if prior_member else None
+                        ),
+                        "tipo_orden": duplicados_lotes_module.TIPO_ORDEN_PUBLICO[
+                            compact_block["clase"]
+                        ],
+                        "comprobante_anterior_id": (
+                            prior_member["comprobante_id"] if prior_member else None
+                        ),
+                        "antecedente_clave": compact_block["antecedente_clave"],
+                        "bloque_clave": compact_block["bloque_clave"],
+                    },
+                    service._armar_detalle_compacto(
+                        clase=compact_block["clase"],
+                        block_snapshot=compact_block["snapshot"],
+                        current_snapshot=actual_member["snapshot"],
+                        previous_snapshot=(
+                            prior_member["snapshot"] if prior_member else None
+                        ),
+                        current_document_hash=actual_member["documento_hash"],
+                        previous_document_hash=(
+                            prior_member["documento_hash"] if prior_member else None
+                        ),
+                    ),
+                )
+            )
+    expected = [
+        item[1]
+        for item in sorted(
+            reference_rows,
+            key=lambda item: service._clave_orden_publico(item[0]),
+        )
+    ]
+    assert len(expected) == 10
+
+    lote = LoteComprobante(
+        empresa_id=int(test_empresa.id),
+        nombre_archivo="relacion-seis-clases.xlsx",
+        archivo_hash="7" * 64,
+        estado="validado",
+    )
+    db_session.add(lote)
+    await db_session.flush()
+    operation = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key="pf13-h2-seis-clases",
+        tipo_operacion="procesar_lote",
+        payload_hash="6" * 64,
+        estado="en_proceso",
+        lote_id=int(lote.id),
+    )
+    db_session.add(operation)
+    await db_session.flush()
+    generation = LoteDuplicadoEvidencia(
+        operacion_id=int(operation.id),
+        empresa_id=int(test_empresa.id),
+        ambiente="homologacion",
+        lote_id=int(lote.id),
+        generacion=1,
+        formato="duplicados_relacion/1",
+        evidencia_id="v2.seis-clases",
+        snapshot_hash="6" * 64,
+        control_snapshot_json={
+            "manifiesto": {
+                "bloques": len(blocks),
+                "miembros": sum(len(item["miembros"]) for item in blocks.values()),
+            }
+        },
+    )
+    db_session.add(generation)
+    await db_session.flush()
+    await service._insertar_relacion(generation=generation, control=control)
+
+    for page, offset in enumerate(range(0, len(expected), 3), start=1):
+        live_items, live_total = await service._pagina_relacion_viva(
+            control, offset=offset, limit=3
+        )
+        durable_items, durable_total = await service._pagina_generacion(
+            generation, offset=offset, limit=3
+        )
+        assert live_total == durable_total == len(expected)
+        assert live_items == durable_items == expected[offset : offset + 3]
+        assert len(live_items) <= 3
+        assert page <= 4
+
+    permuted_blocks = {}
+    for key, compact_block in reversed(list(blocks.items())):
+        copy_block = deepcopy(compact_block)
+        copy_block["miembros"] = dict(reversed(list(copy_block["miembros"].items())))
+        permuted_blocks[key] = copy_block
+    permuted = {"_bloques": permuted_blocks}
+    canonical = service._relacion_canonica(control, snapshot=False)
+    permuted_canonical = service._relacion_canonica(permuted, snapshot=False)
+    assert canonical == permuted_canonical
+    assert duplicados_lotes_module._sha256(canonical) == (
+        duplicados_lotes_module._sha256(permuted_canonical)
+    )
+    permuted_items, permuted_total = await service._pagina_relacion_viva(
+        permuted, offset=0, limit=100
+    )
+    assert permuted_total == len(expected)
+    assert permuted_items == expected
+
+    large_members = [
+        current(1000 + index, name="buffer", document=str(index))
+        for index in range(601)
+    ]
+    large_block = block(
+        "buffer-601",
+        "interna_nombre",
+        large_members,
+        fields=["nombre"],
+    )
+    second_generation = LoteDuplicadoEvidencia(
+        operacion_id=int(operation.id),
+        empresa_id=int(test_empresa.id),
+        ambiente="homologacion",
+        lote_id=int(lote.id),
+        generacion=2,
+        formato="duplicados_relacion/1",
+        evidencia_id="v2.buffer-601",
+        snapshot_hash="5" * 64,
+        control_snapshot_json={
+            "manifiesto": {"bloques": 1, "miembros": len(large_members)}
+        },
+    )
+    db_session.add(second_generation)
+    await db_session.flush()
+    batches = []
+    original_execute = db_session.execute
+
+    async def observe_execute(statement, params=None, *args, **kwargs):
+        if getattr(
+            getattr(statement, "table", None), "name", None
+        ) == LoteDuplicadoCoincidenciaMiembro.__tablename__ and isinstance(
+            params, list
+        ):
+            batches.append(len(params))
+        return await original_execute(statement, params, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "execute", observe_execute)
+    await service._insertar_relacion(
+        generation=second_generation,
+        control={"_bloques": {large_block["bloque_clave"]: large_block}},
+    )
+    assert batches == [250, 250, 101]
+
+
+@pytest.mark.asyncio
+async def test_generacion_y_get_sobreviven_compactacion_sqlite(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    previous_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="integracion-previo.xlsx",
+        cantidad=1,
+    )
+    current_lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="integracion-actual.xlsx",
+        cantidad=1,
+    )
+    await _marcar_grupos_lote(db_session, previous_lote_id, ["autorizado"])
+    current_groups = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo).where(
+                LoteComprobanteGrupo.lote_id == current_lote_id
+            )
+        )
+    )
+    operation, generation, _, _ = await _publicar_generacion_real_de_prueba(
+        db_session,
+        empresa_id=int(test_empresa.id),
+        lote_id=current_lote_id,
+        grupos=current_groups,
+        idempotency_key="pf13-h3-integracion-compacta",
+        aceptar=True,
+    )
+    before = await client.get(
+        f"/api/lotes-comprobantes/{current_lote_id}/coincidencias",
+        params={"evidencia_id": generation.evidencia_id, "per_page": 10},
+        headers=auth_headers,
+    )
+    assert before.status_code == 200, before.text
+
+    await _marcar_grupos_lote(db_session, current_lote_id, ["autorizado"])
+    compact = await client.post(
+        f"/api/lotes-comprobantes/{current_lote_id}/compactar",
+        headers=auth_headers,
+    )
+    assert compact.status_code == 200, compact.text
+    after = await client.get(
+        f"/api/lotes-comprobantes/{current_lote_id}/coincidencias",
+        params={"evidencia_id": generation.evidencia_id, "per_page": 10},
+        headers=auth_headers,
+    )
+    assert after.status_code == 200, after.text
+    assert after.json() == before.json()
+    assert (
+        await db_session.scalar(
+            select(func.count(LoteComprobanteFila.id)).where(
+                LoteComprobanteFila.lote_id == current_lote_id
+            )
+        )
+        == 0
+    )
+    await db_session.refresh(operation)
+    assert operation.duplicados_generacion_id == generation.id
+    assert len(operation.control_duplicados_json["seleccion_original"]) == 1
+    assert await db_session.get(LoteDuplicadoEvidencia, generation.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_metricas_historicas_deduplican_actual_afectado_por_varios_lotes(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """El mismo comprobante actual cuenta una vez aunque tenga dos antecedentes."""
+    previos_ids = []
+    for indice in (1, 2):
+        previos_ids.append(
+            await _validar_multi_para_duplicados(
+                client,
+                auth_headers,
+                test_empresa.cuit,
+                nombre=f"previo-repetido-{indice}.xlsx",
+                cantidad=1,
+            )
+        )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="actual-repetido.xlsx",
+        cantidad=1,
+    )
+    await db_session.execute(
+        update(LoteComprobanteGrupo)
+        .where(LoteComprobanteGrupo.lote_id.in_(previos_ids))
+        .values(estado="autorizado")
+    )
+    await db_session.commit()
+
+    control = await DuplicadosLotesService(db_session).calcular_control(
+        lote_id=actual_id,
+        empresa_id=test_empresa.id,
+        estados={"validado"},
+    )
+
+    assert control["cantidad_afectada"] == 1
+    assert control["importe_afectado"] == "1210.00"
+    assert len(control["antecedentes_resumen"]) == 2
+    assert (
+        sum(item["cantidad_autorizada"] for item in control["antecedentes_resumen"])
+        == 2
+    )
+
+
+@pytest.mark.asyncio
+async def test_importes_v2_no_suman_monedas_distintas_ni_unidad_desconocida(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    lote_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="importes-multimoneda.xlsx",
+        cantidad=2,
+    )
+    grupos = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    grupos[0].moneda_duplicados = "PES"
+    grupos[0].total_estimado = Decimal("100.00")
+    grupos[1].moneda_duplicados = "USD"
+    grupos[1].total_estimado = Decimal("7.50")
+    await db_session.commit()
+
+    service = DuplicadosLotesService(db_session)
+    control = await service.calcular_control(
+        lote_id=lote_id,
+        empresa_id=int(inspect(test_empresa).identity[0]),
+        estados={"validado"},
+    )
+
+    assert control["importe_actual"] is None
+    assert control["importes_actuales"] == {
+        "por_moneda": [
+            {"moneda": "PES", "importe": "100.00", "cantidad": 1},
+            {"moneda": "USD", "importe": "7.50", "cantidad": 1},
+        ],
+        "cantidad_sin_moneda_acreditada": 0,
+    }
+
+    grupo_sin_moneda = await db_session.get(
+        LoteComprobanteGrupo,
+        int(inspect(grupos[1]).identity[0]),
+    )
+    grupo_sin_moneda.moneda_duplicados = None
+    await db_session.commit()
+    control = await service.calcular_control(
+        lote_id=lote_id,
+        empresa_id=int(inspect(test_empresa).identity[0]),
+        estados={"validado"},
+    )
+    assert control["importe_actual"] is None
+    assert control["importes_actuales"]["cantidad_sin_moneda_acreditada"] == 1
+    assert control["importes_actuales"]["por_moneda"] == [
+        {"moneda": "PES", "importe": "100.00", "cantidad": 1}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_bloqueo_incierto_con_reserva_cuenta_un_solo_grupo(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    previo_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="incierto-previo.xlsx",
+        cantidad=1,
+    )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="incierto-actual.xlsx",
+        cantidad=1,
+    )
+    previo = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == previo_id)
+    )
+    previo.estado = "requiere_reconciliacion"
+    previo.duplicados_reserva_operacion_id = 999
+    await db_session.commit()
+
+    control = await DuplicadosLotesService(db_session).calcular_control(
+        lote_id=actual_id,
+        empresa_id=test_empresa.id,
+        estados={"validado"},
+    )
+
+    assert control["bloqueo_operacion_ajena"]["estado"] == "incierta"
+    assert control["bloqueo_operacion_ajena"]["cantidad_afectada"] == 1
+    antecedente = control["antecedentes_resumen"][0]
+    assert antecedente["cantidad_incierta"] == 1
+    assert antecedente["cantidad_reservada_en_curso"] == 0
+
+
+@pytest.mark.asyncio
+async def test_importe_afectado_suma_union_actual_con_testigo_autorizado(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """Dos testigos de A no duplican importe ni incorporan B sólo validado."""
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="importe-union-actual.xlsx",
+        cantidad=2,
+    )
+    actuales = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == actual_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    actuales[1].total_estimado = Decimal("12100.00")
+    actuales[1].total_centavos = 1210000
+
+    def copiar_grupo(
+        lote: LoteComprobante,
+        original: LoteComprobanteGrupo,
+        *,
+        estado: str,
+        referencia: str,
+    ) -> LoteComprobanteGrupo:
+        return LoteComprobanteGrupo(
+            lote=lote,
+            empresa_id=original.empresa_id,
+            comprobante_ref=referencia,
+            orden=1,
+            estado=estado,
+            tipo_comprobante=original.tipo_comprobante,
+            punto_venta_numero=original.punto_venta_numero,
+            total_estimado=original.total_estimado,
+            duplicados_version=original.duplicados_version,
+            duplicados_cobertura=original.duplicados_cobertura,
+            huella_fiscal_completa=original.huella_fiscal_completa,
+            identidad_nombre_hash=original.identidad_nombre_hash,
+            identidad_documento_hash=original.identidad_documento_hash,
+            identidad_nombre_original=original.identidad_nombre_original,
+            identidad_tipo_documento_original=(
+                original.identidad_tipo_documento_original
+            ),
+            identidad_numero_documento_original=(
+                original.identidad_numero_documento_original
+            ),
+            fecha_emision_normalizada=original.fecha_emision_normalizada,
+            moneda_duplicados=original.moneda_duplicados,
+            cotizacion_duplicados=original.cotizacion_duplicados,
+            total_centavos=original.total_centavos,
+            punto_venta_id=original.punto_venta_id,
+            ambiente=original.ambiente,
+            punto_venta_elegibilidad_revision_id=(
+                original.punto_venta_elegibilidad_revision_id
+            ),
+            punto_venta_revision_fiscal=original.punto_venta_revision_fiscal,
+        )
+
+    lotes_previos = []
+    for indice, (original, estado) in enumerate(
+        (
+            (actuales[0], "autorizado"),
+            (actuales[0], "autorizado"),
+            (actuales[1], "validado"),
+        ),
+        start=1,
+    ):
+        lote = LoteComprobante(
+            empresa_id=test_empresa.id,
+            nombre_archivo=f"importe-union-previo-{indice}.xlsx",
+            archivo_hash=f"{indice + 20:064d}",
+            estado="completado" if estado == "autorizado" else "validado",
+            total_filas=1,
+            total_grupos=1,
+            grupos_validos=0 if estado == "autorizado" else 1,
+            grupos_emitidos=1 if estado == "autorizado" else 0,
+        )
+        lote.grupos.append(
+            copiar_grupo(
+                lote,
+                original,
+                estado=estado,
+                referencia=f"PREVIO-{indice}",
+            )
+        )
+        lotes_previos.append(lote)
+    db_session.add_all(lotes_previos)
+    await db_session.commit()
+
+    control = await DuplicadosLotesService(db_session).calcular_control(
+        lote_id=actual_id,
+        empresa_id=test_empresa.id,
+        estados={"validado"},
+    )
+
+    assert control["cantidad_afectada"] == 1
+    assert control["importe_afectado"] == "1210.00"
+
+
+@pytest.mark.asyncio
+async def test_segundo_preflight_v2_distingue_testigos_propios_y_nuevos(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+):
+    """La cobertura v2 acepta sólo testigos presentados o autorizaciones propias."""
+    previo_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="preflight-previo.xlsx",
+        cantidad=1,
+    )
+    actual_id = await _validar_multi_para_duplicados(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre="preflight-actual.xlsx",
+        cantidad=1,
+    )
+    grupo_previo = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == previo_id)
+    )
+    grupo_propio = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(LoteComprobanteGrupo.lote_id == actual_id)
+    )
+    assert grupo_previo is not None
+    assert grupo_propio is not None
+
+    def comprobante(numero: int) -> Comprobante:
+        return Comprobante(
+            tipo_comprobante=6,
+            concepto=1,
+            numero=numero,
+            fecha_emision=FECHA_FISCAL_CONTROLADA_PF19B,
+            subtotal=Decimal("1000.00"),
+            descuento=Decimal("0.00"),
+            iva_21=Decimal("210.00"),
+            iva_10_5=Decimal("0.00"),
+            iva_27=Decimal("0.00"),
+            otros_impuestos=Decimal("0.00"),
+            total=Decimal("1210.00"),
+            cae=f"{numero:014d}"[-14:],
+            cae_vencimiento=date(2026, 8, 20),
+            estado="autorizado",
+            empresa_id=test_empresa.id,
+            punto_venta_id=test_punto_venta.id,
+            receptor_tipo_documento=96,
+            receptor_numero_documento="30000001",
+            receptor_razon_social="Persona Sintética",
+            receptor_condicion_iva="CF",
+        )
+
+    previo = comprobante(901)
+    propio = comprobante(902)
+    individual_presentado = comprobante(903)
+    nuevo = comprobante(904)
+    db_session.add_all([previo, propio, individual_presentado, nuevo])
+    await db_session.flush()
+    operacion = OperacionIdempotente(
+        empresa_id=test_empresa.id,
+        usuario_id=await db_session.scalar(
+            select(UsuarioEmisorAcceso.usuario_id).where(
+                UsuarioEmisorAcceso.empresa_id == test_empresa.id
+            )
+        ),
+        idempotency_key="pf13-segundo-preflight",
+        tipo_operacion="procesar_lote",
+        payload_hash="b" * 64,
+        estado="en_proceso",
+        lote_id=actual_id,
+    )
+    db_session.add(operacion)
+    await db_session.flush()
+
+    def intento(comp: Comprobante, grupo: LoteComprobanteGrupo):
+        return IntentoEmisionFiscal(
+            operacion_id=operacion.id,
+            empresa_id=test_empresa.id,
+            usuario_id=None,
+            punto_venta_id=test_punto_venta.id,
+            punto_venta_numero=test_punto_venta.numero,
+            tipo_comprobante=6,
+            numero_planificado=comp.numero,
+            fecha_emision=comp.fecha_emision,
+            total=comp.total,
+            receptor_tipo_documento=96,
+            receptor_numero_documento="30000001",
+            receptor_razon_social="Persona Sintética",
+            payload_hash=f"{comp.numero:064d}"[-64:],
+            huella_logica=f"{comp.numero + 1:064d}"[-64:],
+            estado="autorizado",
+            cae=comp.cae,
+            cae_vencimiento=comp.cae_vencimiento,
+            comprobante_id=comp.id,
+            lote_id=grupo.lote_id,
+            grupo_id=grupo.id,
+        )
+
+    db_session.add_all([intento(previo, grupo_previo), intento(propio, grupo_propio)])
+    empresa_id = int(test_empresa.id)
+    operacion_id = int(operacion.id)
+    grupo_propio_id = int(grupo_propio.id)
+    comprobante_ids = [
+        int(previo.id),
+        int(propio.id),
+        int(individual_presentado.id),
+        int(nuevo.id),
+    ]
+    await db_session.commit()
+    comprobantes = [
+        await db_session.get(Comprobante, comprobante_id)
+        for comprobante_id in comprobante_ids
+    ]
+    assert all(comprobante is not None for comprobante in comprobantes)
+    previo, propio, individual_presentado, nuevo = comprobantes
+    grupo_propio = await db_session.get(LoteComprobanteGrupo, grupo_propio_id)
+    operacion = await db_session.get(OperacionIdempotente, operacion_id)
+    assert grupo_propio is not None
+    assert operacion is not None
+    matches = [previo, propio, individual_presentado]
+
+    async def buscar_matches(*_args, **_kwargs):
+        return list(matches)
+
+    monkeypatch.setattr(
+        IdempotenciaFiscalService,
+        "buscar_duplicados_logicos_lote",
+        buscar_matches,
+    )
+    service = DuplicadosLotesService(db_session)
+    baseline, acceptance_id, accepted = await service.evaluar_y_reservar(
+        operacion_id=operacion_id,
+        lote_id=actual_id,
+        empresa_id=empresa_id,
+        estados={"validado"},
+        grupo_ids=[grupo_propio_id],
+        aceptacion_recibida=None,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    assert acceptance_id is not None
+    assert accepted is False
+    baseline, same_acceptance_id, accepted = await service.evaluar_y_reservar(
+        operacion_id=operacion_id,
+        lote_id=actual_id,
+        empresa_id=empresa_id,
+        estados={"validado"},
+        grupo_ids=[grupo_propio_id],
+        aceptacion_recibida=acceptance_id,
+        solicitante_nombre="Operador sintético",
+        reservar=False,
+        ambiente=settings.arca_env,
+    )
+    assert same_acceptance_id == acceptance_id
+    assert accepted is True
+
+    vigente = await service.revalidar_operacion_lote(
+        operacion_id=operacion.id,
+        lote_id=actual_id,
+        empresa_id=empresa_id,
+    )
+    assert vigente["evidencia_id"] == baseline["evidencia_id"]
+
+    matches.append(nuevo)
+    with pytest.raises(DuplicadosLotePreflightCambioError):
+        await service.revalidar_operacion_lote(
+            operacion_id=operacion.id,
+            lote_id=actual_id,
+            empresa_id=empresa_id,
+        )
 
 
 def _crear_error_db_temporal(
@@ -379,8 +4972,8 @@ def _build_lote_excel_multi_grupo(empresa_cuit: str, total_grupos: int = 2) -> b
                 6,
                 1,
                 FECHA_FISCAL_CONTROLADA_PF19B.isoformat(),
-                "CUIT",
-                CUIT_RECEPTOR_TEST_NO_REAL,
+                "DNI",
+                str(30000000 + index),
                 f"Cliente Lote {index}",
                 "Responsable Inscripto",
                 "Av. Siempre Viva 123",
@@ -771,6 +5364,8 @@ async def _persistir_comprobante_autorizado(
     total: Decimal,
 ) -> int:
     """Crea un comprobante sintético para fakes que simulan CAE autorizado."""
+    empresa_id = inspect(test_empresa).identity[0]
+    punto_venta_id = inspect(test_punto_venta).identity[0]
     comprobante = Comprobante(
         tipo_comprobante=tipo_comprobante,
         concepto=1,
@@ -786,8 +5381,8 @@ async def _persistir_comprobante_autorizado(
         cae=cae,
         cae_vencimiento=cae_vencimiento,
         estado="autorizado",
-        empresa_id=test_empresa.id,
-        punto_venta_id=test_punto_venta.id,
+        empresa_id=empresa_id,
+        punto_venta_id=punto_venta_id,
         receptor_tipo_documento=99,
         receptor_numero_documento="0",
         receptor_razon_social="A CONSUMIDOR FINAL",
@@ -942,6 +5537,294 @@ async def _preparar_reintento_manual_pf02b2(
         fake_validar_punto,
     )
     return lote_id, grupos
+
+
+@pytest.mark.asyncio
+async def test_reintentar_solo_y_de_lote_autorizado_parcial_alcanza_cae(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """X autorizado/Y rechazado permite solicitar únicamente el retry de Y."""
+
+    test_certificado.ambiente = settings.arca_env
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", True)
+
+    class FakeWSFEClient:
+        consultas_numeracion = 0
+        solicitudes_fecae = 0
+        ultimo_autorizado = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def fe_comp_tot_x_request(self):
+            return 2
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            FakeWSFEClient.consultas_numeracion += 1
+            return FakeWSFEClient.ultimo_autorizado
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            assert [request.cbte_desde for request in arca_requests] == [1, 2]
+            FakeWSFEClient.solicitudes_fecae += 2
+            FakeWSFEClient.ultimo_autorizado = 1
+            primero, segundo = arca_requests
+            return [
+                CAEResponse(
+                    cae=CAE_TEST_NO_REAL,
+                    cae_vencimiento="20260831",
+                    numero_comprobante=primero.cbte_desde,
+                    tipo_cbte=primero.tipo_cbte,
+                    punto_venta=primero.punto_venta,
+                    resultado="A",
+                ),
+                CAEResponse(
+                    cae=None,
+                    cae_vencimiento=None,
+                    numero_comprobante=segundo.cbte_desde,
+                    tipo_cbte=segundo.tipo_cbte,
+                    punto_venta=segundo.punto_venta,
+                    resultado="R",
+                    errores=[{"code": 10016, "msg": "Rechazo sintético explícito"}],
+                ),
+            ]
+
+        async def fe_cae_solicitar(self, arca_request):
+            FakeWSFEClient.solicitudes_fecae += 1
+            assert arca_request.cbte_desde == 2
+            FakeWSFEClient.ultimo_autorizado = 2
+            return CAEResponse(
+                cae=CAE_TEST_NO_REAL_ALT,
+                cae_vencimiento="20260831",
+                numero_comprobante=arca_request.cbte_desde,
+                tipo_cbte=arca_request.tipo_cbte,
+                punto_venta=arca_request.punto_venta,
+                resultado="A",
+            )
+
+    async def fake_validar_datos(self, request):
+        """Aísla sólo la ventana temporal; conserva el borde fiscal restante."""
+
+    async def fake_ticket(self, empresa, certificado):
+        return SimpleNamespace(token="token-test", sign="sign-test")
+
+    async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.facturacion_service.WSFEv1Client",
+        FakeWSFEClient,
+    )
+    monkeypatch.setattr(FacturacionService, "_validar_datos", fake_validar_datos)
+    monkeypatch.setattr(FacturacionService, "_obtener_ticket_acceso", fake_ticket)
+    monkeypatch.setattr(
+        FacturacionService,
+        "_validar_punto_venta_habilitado",
+        fake_validar_punto,
+    )
+
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-retry-x-autorizado-y-rechazado.xlsx",
+        total_grupos=2,
+    )
+    headers_iniciales = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="idem-lote-x-autorizado-y-rechazado",
+    )
+    inicial = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers_iniciales},
+    )
+    assert inicial.status_code == 200, inicial.text
+    assert inicial.json()["lote"]["estado"] == "autorizado_parcial"
+    assert FakeWSFEClient.solicitudes_fecae == 2
+
+    db_session.expire_all()
+    x, y = list(
+        (
+            await db_session.scalars(
+                select(LoteComprobanteGrupo)
+                .where(LoteComprobanteGrupo.lote_id == lote_id)
+                .order_by(LoteComprobanteGrupo.orden)
+            )
+        ).all()
+    )
+    x_id = int(x.id)
+    y_id = int(y.id)
+    assert (x.estado, x.numero_asignado, x.cae) == (
+        "autorizado",
+        1,
+        CAE_TEST_NO_REAL,
+    )
+    assert y.estado == "fallido"
+    intentos_iniciales = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal)
+                .where(IntentoEmisionFiscal.lote_id == lote_id)
+                .order_by(IntentoEmisionFiscal.id)
+            )
+        ).all()
+    )
+    assert [intento.estado for intento in intentos_iniciales] == [
+        "autorizado",
+        "rechazado_arca",
+    ]
+    headers_retry = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        grupo_ids=[y_id],
+        idempotency_key="idem-retry-solo-y-autorizado",
+    )
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **headers_retry},
+        json={"grupo_ids": [y_id]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["lote"]["estado"] == "completado"
+    assert FakeWSFEClient.solicitudes_fecae == 3
+    db_session.expire_all()
+    x = await db_session.get(LoteComprobanteGrupo, x_id)
+    y = await db_session.get(LoteComprobanteGrupo, y_id)
+    assert x is not None
+    assert y is not None
+    assert x.estado == "autorizado"
+    assert x.numero_asignado == 1
+    assert x.cae == CAE_TEST_NO_REAL
+    assert y.estado == "autorizado"
+    assert y.numero_asignado == 2
+    assert y.cae == CAE_TEST_NO_REAL_ALT
+    intentos_finales = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal)
+                .where(IntentoEmisionFiscal.lote_id == lote_id)
+                .order_by(IntentoEmisionFiscal.id)
+            )
+        ).all()
+    )
+    assert [intento.grupo_id for intento in intentos_finales] == [x_id, y_id, y_id]
+    assert [intento.estado for intento in intentos_finales] == [
+        "autorizado",
+        "rechazado_arca",
+        "autorizado",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_guarda_retry_rechaza_grupo_que_deja_estado_reintentando(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """La membresía final bloquea un grupo autorizado antes de solicitar CAE."""
+
+    test_certificado.ambiente = settings.arca_env
+
+    class FakeWSFEClient:
+        solicitudes_fecae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            return 0
+
+        async def fe_cae_solicitar(self, arca_request):
+            FakeWSFEClient.solicitudes_fecae += 1
+            raise AssertionError("La guarda debe bloquear el grupo antes de FECAE")
+
+    lote_id, [grupo] = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-retry-grupo-deja-reintentando.xlsx",
+    )
+    grupo_id = int(grupo.id)
+    headers_retry = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        grupo_ids=[grupo_id],
+        idempotency_key="idem-retry-grupo-deja-reintentando",
+    )
+    marcar_original = ElegibilidadReceService.marcar_arca_iniciada
+    guardas_evaluadas = 0
+
+    async def marcar_con_grupo_autorizado(self, **kwargs):
+        nonlocal guardas_evaluadas
+        guardas_evaluadas += 1
+        actualizado = await self.db.execute(
+            update(LoteComprobanteGrupo)
+            .where(
+                LoteComprobanteGrupo.id == grupo_id,
+                LoteComprobanteGrupo.estado == "reintentando",
+            )
+            .values(estado="autorizado")
+        )
+        assert actualizado.rowcount == 1
+        await self.db.flush()
+        return await marcar_original(self, **kwargs)
+
+    monkeypatch.setattr(
+        ElegibilidadReceService,
+        "marcar_arca_iniciada",
+        marcar_con_grupo_autorizado,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **headers_retry},
+        json={"grupo_ids": [grupo_id]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert guardas_evaluadas == 1
+    assert FakeWSFEClient.solicitudes_fecae == 0
+    db_session.expire_all()
+    grupo_durable = await db_session.get(LoteComprobanteGrupo, grupo_id)
+    assert grupo_durable is not None
+    assert grupo_durable.estado == "fallido"
+    [intento] = list(
+        (
+            await db_session.scalars(
+                select(IntentoEmisionFiscal).where(
+                    IntentoEmisionFiscal.lote_id == lote_id,
+                    IntentoEmisionFiscal.grupo_id == grupo_id,
+                )
+            )
+        ).all()
+    )
+    assert intento.estado == "fallido_verificado"
+    assert intento.solicitud_arca_at is None
+    guarda = await db_session.get(
+        PuntoVentaGuardaEmisionRece,
+        intento.guarda_rece_id,
+    )
+    assert guarda is not None
+    assert guarda.fase == "cerrada_pre_arca"
+    assert guarda.arca_iniciada_en is None
 
 
 async def _crear_lote_stale_moderno_intacto(
@@ -3285,6 +8168,62 @@ async def test_procesar_lote_sync_actualiza_resultados(
 
 
 @pytest.mark.asyncio
+async def test_procesar_lote_no_reabre_reserva_tras_cambio_tardio_de_evidencia(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-evidencia-tardia-procesar.xlsx",
+    )
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"validado"},
+        idempotency_key="idem-evidencia-tardia-procesar",
+    )
+
+    async def cambio_tardio(self, lote_id, empresa_id, **kwargs):
+        await self.db.execute(
+            update(LoteComprobanteGrupo)
+            .where(
+                LoteComprobanteGrupo.lote_id == lote_id,
+                LoteComprobanteGrupo.empresa_id == empresa_id,
+            )
+            .values(duplicados_reserva_operacion_id=None)
+        )
+        await self.db.commit()
+        raise LoteDuplicadosEvidenciaCambioError(
+            "La evidencia cambió antes de solicitar CAE."
+        )
+
+    monkeypatch.setattr(LoteComprobantesService, "procesar_lote", cambio_tardio)
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/procesar",
+        headers={**auth_headers, **headers},
+    )
+
+    assert response.status_code == 409, response.text
+    db_session.expire_all()
+    reservas = list(
+        await db_session.scalars(
+            select(LoteComprobanteGrupo.duplicados_reserva_operacion_id).where(
+                LoteComprobanteGrupo.lote_id == lote_id
+            )
+        )
+    )
+    assert reservas and all(reserva is None for reserva in reservas)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("anidado", [False, True])
 async def test_procesar_lote_sanitiza_payload_con_clave_desconocida(
     client: AsyncClient,
@@ -3456,7 +8395,11 @@ async def test_procesar_lote_background_encola_lote_chico(
         assert operacion_publicada.response_json["lote"]["id"] == lote_id
 
     service = LoteComprobantesService(db_session)
-    lote = await service.procesar_lote(lote_id, test_empresa.id, reanudar=True)
+    lote = await service.procesar_lote(
+        lote_id,
+        inspect(test_empresa).identity[0],
+        reanudar=True,
+    )
     await db_session.refresh(operacion)
 
     assert lote.estado == "completado"
@@ -4972,6 +9915,7 @@ async def test_procesar_lote_post_arca_requiere_reconciliacion(
 ):
     """Un fallo post-ARCA en lote no debe quedar como reintentable."""
     test_certificado.ambiente = settings.arca_env
+    empresa_id = inspect(test_empresa).identity[0]
 
     async def fake_emitir(self, request, **kwargs):
         operacion_id = int(kwargs["operacion_id"])
@@ -5047,7 +9991,7 @@ async def test_procesar_lote_post_arca_requiere_reconciliacion(
     assert grupo["numero_asignado"] == 654
 
     service = LoteComprobantesService(db_session)
-    lote = await service.obtener_lote(lote_id, test_empresa.id)
+    lote = await service.obtener_lote(lote_id, empresa_id)
     assert service._lote_permite_reintento(lote) is False
     operacion = (
         await db_session.execute(
@@ -5440,6 +10384,7 @@ async def test_reintentar_fallidos_no_transfiere_owner_con_intento_previo_activo
         usuario_id=owner_previo_usuario_id,
         lote_id=lote_id,
         grupo_id=grupo_id,
+        duplicados_generacion_id=operacion_previa.duplicados_generacion_id,
         contexto_rece=contexto,
         guarda_rece_id=int(guarda_cerrada.id),
         commit=False,
@@ -6185,6 +11130,99 @@ async def test_reintentar_fallidos_aborta_seleccion_si_falla_segundo_preflight(
     assert intentos[0].grupo_id == primero.id
     assert intentos[0].estado == "fallido_verificado"
     assert intentos[0].categoria_error == categoria_error
+
+
+@pytest.mark.asyncio
+async def test_reintento_restaura_grupo_si_cambia_evidencia_en_segundo_preflight(
+    client: AsyncClient,
+    auth_headers: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    """El rollback real de Facturación no expira el identificador a restaurar."""
+
+    class FakeWSFEClient:
+        llamadas_cae = 0
+
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            return 5
+
+        async def fe_cae_solicitar(self, arca_request):
+            FakeWSFEClient.llamadas_cae += 1
+            raise AssertionError("No debe solicitar CAE con evidencia nueva")
+
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        FakeWSFEClient,
+        nombre_archivo="lote-reintento-evidencia-tardia.xlsx",
+        total_grupos=2,
+    )
+    grupo_id = int(inspect(grupos[0]).identity[0])
+    otro_grupo_id = int(inspect(grupos[1]).identity[0])
+    otro_mensaje = list(grupos[1].mensajes_json or [])
+    headers = await _confirmacion_fecha_fiscal_header_lote(
+        db_session,
+        lote_id=lote_id,
+        estados={"fallido"},
+        grupo_ids=[grupo_id],
+        idempotency_key="idem-reintento-evidencia-tardia",
+    )
+    revalidaciones = 0
+
+    async def evidencia_cambia_en_segundo_preflight(self, **kwargs):
+        nonlocal revalidaciones
+        revalidaciones += 1
+        if revalidaciones == 1:
+            return {"estado": "sin_coincidencias", "evidencia_id": None}
+        raise DuplicadosLotePreflightCambioError(
+            {
+                "version": "duplicados_lotes/v2",
+                "estado": "requiere_confirmacion",
+                "evidencia_id": "v2.evidencia-nueva",
+            }
+        )
+
+    monkeypatch.setattr(
+        DuplicadosLotesService,
+        "revalidar_operacion_lote",
+        evidencia_cambia_en_segundo_preflight,
+    )
+
+    response = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
+        headers={**auth_headers, **headers},
+        json={"grupo_ids": [grupo_id]},
+    )
+
+    assert response.status_code == 409, response.text
+    assert revalidaciones == 2
+    assert FakeWSFEClient.llamadas_cae == 0
+    db_session.expire_all()
+    grupo = await db_session.get(LoteComprobanteGrupo, grupo_id)
+    otro = await db_session.get(LoteComprobanteGrupo, otro_grupo_id)
+    assert grupo is not None
+    assert otro is not None
+    assert grupo.estado == "fallido"
+    assert grupo.duplicados_reserva_operacion_id is None
+    assert grupo.numero_asignado is None
+    assert grupo.cae is None
+    assert otro.estado == "fallido"
+    assert otro.mensajes_json == otro_mensaje
+    assert (
+        int(await db_session.scalar(select(func.count(IntentoEmisionFiscal.id))) or 0)
+        == 0
+    )
 
 
 @pytest.mark.asyncio
@@ -7137,6 +12175,12 @@ async def test_reconciliar_externo_rechaza_comprobante_ya_vinculado(
         total_grupos=2,
     )
     grupos = await _marcar_grupos_lote(db_session, lote_id, ["fallido", "fallido"])
+    payload_segundo = deepcopy(grupos[1].payload_json or {})
+    payload_segundo["tipo_documento"] = grupos[0].payload_json["tipo_documento"]
+    payload_segundo["numero_documento"] = grupos[0].payload_json["numero_documento"]
+    payload_segundo["razon_social"] = grupos[0].payload_json["razon_social"]
+    grupos[1].payload_json = payload_segundo
+    await db_session.commit()
 
     class FakeWsfeClient:
         async def fe_comp_consultar(
@@ -7162,8 +12206,8 @@ async def test_reconciliar_externo_rechaza_comprobante_ya_vinculado(
                 imp_trib=0.0,
                 moneda_id="PES",
                 moneda_cotiz=1.0,
-                tipo_doc=80,
-                nro_doc=CUIT_RECEPTOR_TEST_NO_REAL_INT,
+                tipo_doc=96,
+                nro_doc=30000001,
                 resultado="A",
             )
 
@@ -7611,8 +12655,8 @@ async def test_reconciliar_externos_multi_item_es_atomico_si_un_item_falla(
                 imp_trib=0.0,
                 moneda_id="PES",
                 moneda_cotiz=1.0,
-                tipo_doc=80,
-                nro_doc=CUIT_RECEPTOR_TEST_NO_REAL_INT,
+                tipo_doc=96,
+                nro_doc=30000001,
                 resultado="A",
             )
 
@@ -7760,6 +12804,72 @@ async def test_eliminar_lote_sin_emision_permite_y_conserva_evento(
     ).scalar_one()
     assert evento.lote_id is None
     assert evento.metadata_json["lote_id_original"] == lote_id
+
+
+@pytest.mark.asyncio
+async def test_eliminar_lote_permite_control_pendiente_sin_intento_fiscal(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+) -> None:
+    lote_id = await _crear_lote_validado_por_api(
+        client,
+        auth_headers,
+        test_empresa.cuit,
+        nombre_archivo="lote-eliminar-control-pendiente.xlsx",
+    )
+    await _marcar_grupos_lote(db_session, lote_id, ["con_error"])
+    operation = OperacionIdempotente(
+        empresa_id=int(test_empresa.id),
+        idempotency_key="pf13-h3-borrar-pendiente",
+        tipo_operacion="procesar_lote",
+        payload_hash="3" * 64,
+        estado="en_proceso",
+        lote_id=lote_id,
+        duplicados_version="duplicados_lotes/v2",
+    )
+    db_session.add(operation)
+    await db_session.flush()
+    generation = LoteDuplicadoEvidencia(
+        operacion_id=int(operation.id),
+        empresa_id=int(test_empresa.id),
+        ambiente=settings.arca_env,
+        lote_id=lote_id,
+        generacion=1,
+        formato="duplicados_relacion/1",
+        evidencia_id=None,
+        snapshot_hash="3" * 64,
+        control_snapshot_json={"manifiesto": {"bloques": 0, "miembros": 0}},
+    )
+    db_session.add(generation)
+    await db_session.flush()
+    generation_id = int(generation.id)
+    operation.duplicados_generacion_id = int(generation.id)
+    await db_session.commit()
+
+    response = await client.request(
+        "DELETE",
+        f"/api/lotes-comprobantes/{lote_id}",
+        headers=auth_headers,
+        json={"motivo": "Carga descartada antes de emitir"},
+    )
+
+    assert response.status_code == 204, response.text
+    assert await db_session.get(LoteComprobante, lote_id) is None
+    await db_session.refresh(operation)
+    assert operation.lote_id is None
+    assert operation.duplicados_generacion_id is None
+    assert (
+        await db_session.scalar(
+            select(func.count(LoteDuplicadoEvidencia.id)).where(
+                LoteDuplicadoEvidencia.id == generation_id
+            )
+        )
+        == 0
+    )
 
 
 @pytest.mark.asyncio
@@ -10080,7 +15190,14 @@ async def test_procesar_lote_exige_idempotency_key(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "estado_lote",
-    ["en_cola", "procesando", "requiere_reconciliacion"],
+    [
+        "en_cola",
+        "procesando",
+        "requiere_reconciliacion",
+        "completado",
+        "cerrado_reconciliado",
+        "cerrado_con_descartes",
+    ],
 )
 async def test_lote_activo_o_incierto_no_admite_reintento_manual(
     db_session: AsyncSession,
@@ -10713,6 +15830,7 @@ async def test_worker_rechaza_ownership_invalido_antes_de_consultar_arca(
     mutacion: str,
 ) -> None:
     """Ownership inválido deja el lote en cola y corta toda capacidad/FECAE."""
+    empresa_id = int(inspect(test_empresa).identity[0])
     llamadas_wsaa = 0
     llamadas_fecomp = 0
     llamadas_fecae = 0
@@ -10799,7 +15917,7 @@ async def test_worker_rechaza_ownership_invalido_antes_de_consultar_arca(
     monkeypatch.setattr(service.facturacion_service, "emitir_comprobante", fail_emitir)
 
     with pytest.raises(LoteComprobanteError, match="perdió el ownership"):
-        await service.procesar_lote(lote_id, test_empresa.id, reanudar=True)
+        await service.procesar_lote(lote_id, empresa_id, reanudar=True)
 
     async with AsyncSession(bind=db_session.bind, expire_on_commit=False) as observador:
         lote = await observador.get(LoteComprobante, lote_id)
@@ -10824,6 +15942,7 @@ async def test_worker_revalida_ownership_post_claim_antes_de_capacidad(
     mutacion: str,
 ) -> None:
     """Una segunda sesión que cambia la operación post-claim corta toda ARCA."""
+    empresa_id = int(inspect(test_empresa).identity[0])
     llamadas_wsaa = 0
     llamadas_fecomp = 0
     llamadas_fecae = 0
@@ -10892,12 +16011,16 @@ async def test_worker_revalida_ownership_post_claim_antes_de_capacidad(
     operacion_id = int(operacion.id)
     commit_original = db_session.commit
     mutada = False
+    commits = 0
 
     async def commit_claim_con_carrera() -> None:
         """Publica el claim y luego muta ownership desde otra sesión."""
-        nonlocal mutada
+        nonlocal commits, mutada
         await commit_original()
-        if mutada:
+        commits += 1
+        # El primer commit pertenece ahora al coordinador PF-13. La carrera
+        # buscada debe ocurrir después del commit que toma el lote.
+        if mutada or commits < 2:
             return
         mutada = True
         async with AsyncSession(
@@ -10929,9 +16052,10 @@ async def test_worker_revalida_ownership_post_claim_antes_de_capacidad(
     monkeypatch.setattr(service.facturacion_service, "emitir_comprobante", fail_emitir)
 
     with pytest.raises(LoteComprobanteError, match="perdió el ownership"):
-        await service.procesar_lote(lote_id, test_empresa.id, reanudar=True)
+        await service.procesar_lote(lote_id, empresa_id, reanudar=True)
 
     assert mutada is True
+    assert commits >= 2
     assert llamadas_wsaa == 0
     assert llamadas_fecomp == 0
     assert llamadas_fecae == 0
@@ -11701,6 +16825,7 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
     test_punto_venta,
     test_certificado,
 ):
+    empresa_id = int(inspect(test_empresa).identity[0])
     test_certificado.ambiente = settings.arca_env
     monkeypatch.setattr(settings, "batch_sync_limit", 0)
 
@@ -11766,7 +16891,7 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
     assert data["lote"]["estado"] == "en_cola"
 
     service = LoteComprobantesService(db_session)
-    lote = await service.procesar_lote(lote_id, test_empresa.id, reanudar=True)
+    lote = await service.procesar_lote(lote_id, empresa_id, reanudar=True)
 
     assert lote.estado == "completado"
     assert lote.grupos_emitidos == 1

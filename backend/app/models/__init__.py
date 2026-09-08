@@ -2,7 +2,7 @@
 
 from app.models.usuario import Usuario
 from app.models.usuario_emisor_acceso import UsuarioEmisorAcceso
-from app.models.empresa import Empresa
+from app.models.empresa import Empresa, LoteDuplicadosCoordinacion
 from app.models.punto_venta import PuntoVenta
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
@@ -25,6 +25,9 @@ from app.models.evento_sistema import EventoSistema, ExportacionAlmacenamiento
 from app.models.idempotencia_fiscal import (
     OperacionIdempotente,
     IntentoEmisionFiscal,
+    LoteDuplicadoEvidencia,
+    LoteDuplicadoCoincidencia,
+    LoteDuplicadoCoincidenciaMiembro,
     ResolucionLegacyPF19Journal,
 )
 from app.models.elegibilidad_rece import (
@@ -38,6 +41,7 @@ __all__ = [
     "Usuario",
     "UsuarioEmisorAcceso",
     "Empresa",
+    "LoteDuplicadosCoordinacion",
     "PuntoVenta",
     "Certificado",
     "Cliente",
@@ -56,6 +60,9 @@ __all__ = [
     "ExportacionAlmacenamiento",
     "OperacionIdempotente",
     "IntentoEmisionFiscal",
+    "LoteDuplicadoEvidencia",
+    "LoteDuplicadoCoincidencia",
+    "LoteDuplicadoCoincidenciaMiembro",
     "ResolucionLegacyPF19Journal",
     "PuntoVentaElegibilidadReceRevision",
     "PuntoVentaElegibilidadReceActual",

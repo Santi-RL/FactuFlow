@@ -672,6 +672,9 @@ export const mockApi = async (page: Page) => {
       const loteId = state.nextLoteId++;
       const grupoId = state.nextGrupoId++;
       const filaId = state.nextFilaId++;
+      const antecedenteEmitido = state.lotes.find(
+        (item) => item.estado === "completado",
+      );
 
       const grupo = {
         id: grupoId,
@@ -683,8 +686,8 @@ export const mockApi = async (page: Page) => {
         punto_venta_numero: 1,
         fecha_emision: "2026-03-09",
         descripcion_facturada: "Producto E2E",
-        cliente_documento: "20409378472",
-        cliente_razon_social: "Cliente E2E SRL",
+        cliente_documento: null,
+        cliente_razon_social: null,
         total_estimado: 1210,
         mensajes_json: ["Validado correctamente. Listo para emitir."],
         cae: null,
@@ -722,7 +725,7 @@ export const mockApi = async (page: Page) => {
         grupos_fallidos: 0,
         grupos_descartados: 0,
         grupos_reconciliados_externos: 0,
-        mensaje_resumen: "El lote se valido correctamente y puede emitirse.",
+        mensaje_resumen: "El lote se validó correctamente y puede emitirse.",
         fechas_emision_validas: ["2026-03-09"],
         puntos_venta_validos: [1],
         confirmacion_fecha_fiscal: "confirmar-fecha-e2e",
@@ -734,6 +737,87 @@ export const mockApi = async (page: Page) => {
         confirmacion_duplicado_logico: "",
         mensaje_confirmacion_duplicado_logico: "",
         cantidad_duplicados_logicos: 0,
+        control_duplicados: {
+          version: "duplicados_lotes/v2",
+          cobertura: "completa",
+          estado: antecedenteEmitido
+            ? "requiere_confirmacion"
+            : "sin_coincidencias",
+          evidencia_id: antecedenteEmitido ? `v2.evidencia-${loteId}` : null,
+          datos_hash: `datos-${loteId}`,
+          seleccion_hash: `seleccion-${loteId}`,
+          tipos_coincidencia: antecedenteEmitido ? ["historica_completa"] : [],
+          cantidad_actual: 1,
+          cantidad_afectada: antecedenteEmitido ? 1 : 0,
+          importe_actual: "1210.00",
+          importe_afectado: antecedenteEmitido ? "1210.00" : "0.00",
+          importes_actuales: {
+            por_moneda: [{ moneda: "PES", importe: "1210.00", cantidad: 1 }],
+            cantidad_sin_moneda_acreditada: 0,
+          },
+          importes_afectados: {
+            por_moneda: antecedenteEmitido
+              ? [{ moneda: "PES", importe: "1210.00", cantidad: 1 }]
+              : [],
+            cantidad_sin_moneda_acreditada: 0,
+          },
+          antecedentes_resumen: antecedenteEmitido
+            ? [
+                {
+                  origen: "lote",
+                  lote_id: antecedenteEmitido.id,
+                  nombre_archivo: antecedenteEmitido.nombre_archivo,
+                  comprobante_ref: null,
+                  tipo_coincidencia: "historica_completa",
+                  cobertura: "completa",
+                  cantidad_lote_anterior: 1,
+                  cantidad_coincidente: 1,
+                  cantidad_autorizada: 1,
+                  cantidad_solo_validada: 0,
+                  cantidad_reservada_en_curso: 0,
+                  cantidad_fallida: 0,
+                  cantidad_incierta: 0,
+                  importe_lote_anterior: "1210.00",
+                  importe_lote_actual: "1210.00",
+                  importe_afectado: "1210.00",
+                  importes_lote_actual: {
+                    por_moneda: [
+                      { moneda: "PES", importe: "1210.00", cantidad: 1 },
+                    ],
+                    cantidad_sin_moneda_acreditada: 0,
+                  },
+                  importes_lote_anterior: {
+                    por_moneda: [
+                      { moneda: "PES", importe: "1210.00", cantidad: 1 },
+                    ],
+                    cantidad_sin_moneda_acreditada: 0,
+                  },
+                  importes_afectados: {
+                    por_moneda: [
+                      { moneda: "PES", importe: "1210.00", cantidad: 1 },
+                    ],
+                    cantidad_sin_moneda_acreditada: 0,
+                  },
+                  emitido_desde: antecedenteEmitido.finished_at,
+                  emitido_hasta: antecedenteEmitido.finished_at,
+                  hora_confiable: true,
+                  solicitantes: [
+                    {
+                      usuario_id: null,
+                      nombre: null,
+                      estado: "no_registrado",
+                    },
+                  ],
+                },
+              ]
+            : [],
+          aceptacion_requerida: Boolean(antecedenteEmitido),
+          aceptacion_habilitada: Boolean(antecedenteEmitido),
+          bloqueo_operacion_ajena: null,
+          detalle_url: antecedenteEmitido
+            ? `/api/lotes-comprobantes/${loteId}/coincidencias`
+            : null,
+        },
         totales_listos_para_emitir: {
           comprobantes: 1,
           neto: 1000,
@@ -779,6 +863,57 @@ export const mockApi = async (page: Page) => {
     }
 
     if (
+      /^\/api\/lotes-comprobantes\/\d+\/coincidencias$/.test(path) &&
+      method === "GET"
+    ) {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const loteId = Number(path.split("/")[3]);
+      const lote = state.lotes.find((item) => item.id === loteId);
+      if (!lote)
+        return jsonResponse(route, 404, { detail: "Lote no encontrado" });
+      if (
+        url.searchParams.get("evidencia_id") !==
+        lote.control_duplicados.evidencia_id
+      ) {
+        return jsonResponse(route, 409, {
+          detail: {
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: lote.control_duplicados,
+          },
+        });
+      }
+      return jsonResponse(route, 200, {
+        items: [
+          {
+            grupo_actual_id: lote.grupos[0].id,
+            comprobante_actual_ref: lote.grupos[0].comprobante_ref,
+            origen: "lote",
+            tipo_coincidencia: "historica_completa",
+            campos_coincidentes: ["contenido_completo"],
+            lote_anterior_id:
+              lote.control_duplicados.antecedentes_resumen[0]?.lote_id ?? null,
+            grupo_anterior_id: null,
+            comprobante_anterior_ref: null,
+            operacion_anterior_ref: null,
+            estado_grupo_anterior: "autorizado",
+            importe: "1210.00",
+            moneda: "PES",
+            cotizacion: "1.00",
+            solicitantes: [],
+            solicitud_emision_at: null,
+            solicitud_arca_at: null,
+            resultado_fiscal_at: null,
+            hora_confiable: false,
+          },
+        ],
+        page: 1,
+        per_page: 50,
+        total: 1,
+        total_pages: 1,
+      });
+    }
+
+    if (
       /^\/api\/lotes-comprobantes\/\d+\/grupos$/.test(path) &&
       method === "GET"
     ) {
@@ -819,6 +954,26 @@ export const mockApi = async (page: Page) => {
         return jsonResponse(route, 400, {
           detail: "Falta confirmación fiscal explícita del lote.",
         });
+      }
+      if (
+        lote.control_duplicados.aceptacion_requerida &&
+        headers["x-confirmacion-duplicado-logico"] !== `v2.aceptacion-${loteId}`
+      ) {
+        return jsonResponse(route, 409, {
+          detail: {
+            mensaje: "Se encontró un lote anterior con el mismo contenido.",
+            categoria_error: "duplicado_logico_lote",
+            control_duplicados: lote.control_duplicados,
+            aceptacion_id: `v2.aceptacion-${loteId}`,
+            confirmacion_duplicado_logico: `v2.aceptacion-${loteId}`,
+          },
+        });
+      }
+
+      if (lote.control_duplicados.aceptacion_requerida) {
+        lote.control_duplicados.estado = "aceptada";
+        lote.control_duplicados.aceptacion_requerida = false;
+        lote.control_duplicados.aceptacion_habilitada = false;
       }
 
       lote.estado = "completado";
@@ -994,8 +1149,7 @@ export const loginAsAdmin = async (page: Page) => {
     .waitFor();
   await Promise.all([
     page.waitForResponse(
-      (response) =>
-        response.url().endsWith("/api/empresas/1") && response.ok(),
+      (response) => response.url().endsWith("/api/empresas/1") && response.ok(),
     ),
     page.getByLabel(/emisor activo/i).selectOption("1"),
   ]);
@@ -1004,10 +1158,7 @@ export const loginAsAdmin = async (page: Page) => {
   );
 };
 
-export const loginAsUser = async (
-  page: Page,
-  seleccionarEmisor = true,
-) => {
+export const loginAsUser = async (page: Page, seleccionarEmisor = true) => {
   await page.goto("/login");
   await page.evaluate(() => {
     window.localStorage.removeItem("empresa_activa_id");

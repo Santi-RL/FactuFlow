@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +24,7 @@ from app.models.idempotencia_fiscal import (
     ESTADOS_INTENTO_FISCAL_BLOQUEANTES,
     ESTADOS_RESERVA_FISCAL_ACTIVA,
     IntentoEmisionFiscal,
+    LoteDuplicadoEvidencia,
     OperacionIdempotente,
 )
 from app.models.punto_venta import PuntoVenta
@@ -608,6 +609,7 @@ class IdempotenciaFiscalService:
         payload_hash: str,
         lote_id: int | None = None,
         contextos_rece: list[ContextoElegibilidadRece] | None = None,
+        commit: bool = True,
     ) -> tuple[OperacionIdempotente, bool]:
         """Obtiene o crea operación, asociaciones y digest atómicamente."""
         from app.services.elegibilidad_rece_service import ElegibilidadReceService
@@ -656,8 +658,13 @@ class IdempotenciaFiscalService:
                 operacion,
                 contextos_rece,
             )
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
+            else:
+                await self.db.flush()
         except IntegrityError:
+            if not commit:
+                raise
             await self.db.rollback()
             operacion = await self._obtener_operacion(empresa_id, key)
             if operacion is None:
@@ -670,12 +677,15 @@ class IdempotenciaFiscalService:
             )
             return operacion, False
         except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS as exc:
+            if not commit:
+                raise
             raise CreacionOperacionAmbiguaError(exc) from exc
 
-        try:
-            await self.db.refresh(operacion)
-        except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS as exc:
-            raise CreacionOperacionAmbiguaError(exc) from exc
+        if commit:
+            try:
+                await self.db.refresh(operacion)
+            except DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS as exc:
+                raise CreacionOperacionAmbiguaError(exc) from exc
         return operacion, True
 
     async def obtener_operacion_existente(
@@ -795,6 +805,8 @@ class IdempotenciaFiscalService:
     async def marcar_operacion_en_proceso(
         self,
         operacion: OperacionIdempotente,
+        *,
+        commit: bool = True,
     ) -> tuple[OperacionIdempotente, bool]:
         """Toma atómicamente una operación pausada por confirmación adicional."""
         result = await self.db.execute(
@@ -808,8 +820,11 @@ class IdempotenciaFiscalService:
                 response_json=null(),
             )
         )
-        await self.db.commit()
-        await self.db.refresh(operacion)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(operacion)
+        else:
+            await self.db.flush()
         return operacion, result.rowcount == 1
 
     async def marcar_operacion_interrumpida_pre_arca(
@@ -903,6 +918,8 @@ class IdempotenciaFiscalService:
     async def reclamar_operacion_interrumpida_pre_arca(
         self,
         operacion: OperacionIdempotente,
+        *,
+        commit: bool = True,
     ) -> tuple[OperacionIdempotente, bool]:
         """Reclama por CAS una operación interrumpida para un único replay."""
         result = await self.db.execute(
@@ -914,8 +931,11 @@ class IdempotenciaFiscalService:
             )
             .values(estado="en_proceso")
         )
-        await self.db.commit()
-        await self.db.refresh(operacion)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(operacion)
+        else:
+            await self.db.flush()
         return operacion, result.rowcount == 1
 
     @staticmethod
@@ -943,6 +963,7 @@ class IdempotenciaFiscalService:
         usuario_id: int | None,
         lote_id: int | None,
         grupo_id: int | None,
+        duplicados_generacion_id: int | None = None,
         contexto_rece: ContextoElegibilidadRece,
         guarda_rece_id: int,
         commit: bool = True,
@@ -962,6 +983,63 @@ class IdempotenciaFiscalService:
                     "categoria_error": "elegibilidad_rece_no_verificada",
                 },
             )
+        operacion = (
+            await self.db.execute(
+                select(OperacionIdempotente).where(
+                    OperacionIdempotente.id == operacion_id,
+                    OperacionIdempotente.empresa_id == request.empresa_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if operacion is None:
+            raise IdempotenciaFiscalError(
+                409,
+                {
+                    "mensaje": "La operación fiscal no pertenece al emisor activo.",
+                    "categoria_error": "idempotencia_conflicto",
+                },
+            )
+        if lote_id is None:
+            if grupo_id is not None or duplicados_generacion_id is not None:
+                raise IdempotenciaFiscalError(
+                    409,
+                    {
+                        "mensaje": "El intento individual no admite una generación de lote.",
+                        "categoria_error": "duplicados_coordinacion_error",
+                    },
+                )
+        elif operacion.duplicados_version == "duplicados_lotes/v2":
+            generation = (
+                await self.db.execute(
+                    select(LoteDuplicadoEvidencia).where(
+                        LoteDuplicadoEvidencia.id == duplicados_generacion_id,
+                        LoteDuplicadoEvidencia.operacion_id == operacion_id,
+                        LoteDuplicadoEvidencia.empresa_id == request.empresa_id,
+                        LoteDuplicadoEvidencia.lote_id == lote_id,
+                        LoteDuplicadoEvidencia.ambiente == contexto_rece.ambiente,
+                        LoteDuplicadoEvidencia.formato == "duplicados_relacion/1",
+                    )
+                )
+            ).scalar_one_or_none()
+            if generation is None:
+                raise IdempotenciaFiscalError(
+                    409,
+                    {
+                        "mensaje": (
+                            "El intento de lote no referencia la generación de "
+                            "duplicados revalidada."
+                        ),
+                        "categoria_error": "duplicados_coordinacion_error",
+                    },
+                )
+        elif duplicados_generacion_id is not None:
+            raise IdempotenciaFiscalError(
+                409,
+                {
+                    "mensaje": "Una operación legacy no admite generaciones v2.",
+                    "categoria_error": "duplicados_coordinacion_error",
+                },
+            )
         payload = request.model_dump(mode="json")
         payload_hash = self.calcular_payload_hash(
             self.payload_sin_confirmacion_duplicado(payload)
@@ -977,6 +1055,7 @@ class IdempotenciaFiscalService:
             usuario_id=usuario_id,
             lote_id=lote_id,
             grupo_id=grupo_id,
+            duplicados_generacion_id=duplicados_generacion_id,
             punto_venta_id=punto_venta.id,
             punto_venta_numero=punto_venta.numero,
             tipo_comprobante=request.tipo_comprobante,
@@ -995,6 +1074,7 @@ class IdempotenciaFiscalService:
             ),
             punto_venta_revision_fiscal=(contexto_rece.punto_venta_revision_fiscal),
             guarda_rece_id=guarda_rece_id,
+            solicitante_nombre_snapshot=operacion.solicitante_nombre_snapshot,
         )
         self.db.add(intento)
         if commit:
@@ -1027,6 +1107,7 @@ class IdempotenciaFiscalService:
         if response.exito:
             intento.estado = "autorizado"
             intento.comprobante_id = response.comprobante_id
+            intento.resultado_fiscal_at = datetime.now(timezone.utc)
         elif response.requiere_reconciliacion:
             intento.estado = "requiere_reconciliacion"
         elif response.categoria_error in {
@@ -1034,6 +1115,7 @@ class IdempotenciaFiscalService:
             "arca_rechazo_global_excluyente",
         }:
             intento.estado = "rechazado_arca"
+            intento.resultado_fiscal_at = datetime.now(timezone.utc)
         else:
             intento.estado = "fallido_verificado"
 
@@ -1106,6 +1188,52 @@ class IdempotenciaFiscalService:
             if huella_comprobante == huella_request:
                 return comprobante
         return None
+
+    async def buscar_duplicados_logicos_lote(
+        self,
+        *,
+        request: EmitirComprobanteRequest,
+        punto_venta: PuntoVenta,
+        total: Decimal,
+    ) -> list[Comprobante]:
+        """Devuelve todos los matches del predicado vigente para control de lotes."""
+        receptor_doc = clean_cuit(request.numero_documento)
+        result = await self.db.execute(
+            select(Comprobante)
+            .options(
+                selectinload(Comprobante.items),
+                selectinload(Comprobante.punto_venta),
+            )
+            .where(
+                Comprobante.empresa_id == request.empresa_id,
+                Comprobante.punto_venta_id == punto_venta.id,
+                Comprobante.tipo_comprobante == request.tipo_comprobante,
+                Comprobante.fecha_emision == request.fecha_emision,
+                Comprobante.total == total,
+                Comprobante.receptor_numero_documento == receptor_doc,
+                Comprobante.estado == "autorizado",
+            )
+            .order_by(Comprobante.id)
+        )
+        huella_request = self.calcular_huella_logica(
+            request=request,
+            punto_venta_numero=punto_venta.numero,
+            total=total,
+        )
+        comprobantes = list(result.scalars().all())
+        huellas_intentos = await self._huellas_autorizadas_por_comprobante(
+            [comprobante.id for comprobante in comprobantes]
+        )
+        matches = []
+        for comprobante in comprobantes:
+            huella_comprobante = huellas_intentos.get(comprobante.id)
+            if huella_comprobante is None:
+                huella_comprobante = self.calcular_huella_logica_comprobante(
+                    comprobante
+                )
+            if huella_comprobante == huella_request:
+                matches.append(comprobante)
+        return matches
 
     async def _huellas_autorizadas_por_comprobante(
         self, comprobante_ids: list[int]
