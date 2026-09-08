@@ -18,6 +18,8 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-08
+
 ### Seguridad de lectura PDF
 
 - Se actualiza `pypdf` a `6.16.1` para corregir los avisos de seguridad que
@@ -50,6 +52,14 @@ Reglas vigentes desde 2026-05-22:
   el paquete v4 y mantiene lectura estricta de paquetes v3 conocidos. Los
   importes de la advertencia se desglosan por moneda, con datos históricos
   desconocidos explícitos.
+
+### Publicación
+
+- Se publicó la [GitHub Release v0.3.6](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.6),
+  marcada como `Latest`, desde el tag inmutable que apunta a
+  `629174b188a93abf98fd081bbcad43d65ba54306`. Los siete controles completos de CI
+  aprobaron en el PR de versionado y en el commit integrado de `main`.
+  La publicación no desplegó ni modificó producción.
 
 ## [0.3.5] - 2026-09-02
 

@@ -13,7 +13,7 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.5`.
+- La release publicada más reciente es `v0.3.6`.
 - El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
   de esquema para PostgreSQL.
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
@@ -61,10 +61,10 @@ coincidencias actuales quedan bloqueados para continuar o reintentar. Se
 conservan historia, replay terminal y reconciliación. El alcance preciso de
 compatibilidad y el contrato técnico viven en el
 [diseño de duplicados](pf-13-duplicados-lotes-design.md); los cambios de la
-unidad se consultan en `CHANGELOG.md > Unreleased`. El corte está implementado
-y su [dossier](../project/releases/pf13-duplicados-candidate.md) reúne evidencia,
-migraciones y recuperación. La publicación de la release y el despliegue
-requieren sus decisiones correspondientes; no se acreditan desde este estado.
+unidad se consultan en `CHANGELOG.md > 0.3.6`. El corte está publicado en
+`v0.3.6` y su [dossier](../project/releases/pf13-duplicados-candidate.md) reúne
+evidencia de publicación, migraciones y recuperación. El despliegue requiere
+autorización separada y no se acredita desde este estado.
 
 ## Trabajo aceptado pendiente
 
@@ -78,8 +78,8 @@ lotes permanece en su diseño y precede a la publicación de esa implementación
 
 ## Punto de reanudación
 
-Para cerrar la publicación de duplicados, consultar primero el dossier del
-candidato. No iniciar la siguiente unidad del roadmap como parte de ese cierre.
+La publicación de duplicados está cerrada; su evidencia vive en el dossier.
+No iniciar la siguiente unidad del roadmap como parte de la publicación.
 La comprobación del origen realmente desplegado y del respaldo productivo
 corresponde a una fase autorizada en `vps-admin`.
 

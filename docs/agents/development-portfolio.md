@@ -134,7 +134,7 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 
 | Candidato | Evidencia y alcance propuesto |
 |---|---|
-| Seguimiento de lectura PDF, PF-16 | La corrección aplicable a los lectores de constancias se incluye en `Unreleased` mediante `pypdf==6.16.1`. El [cambio de seguridad de 6.17.0](https://github.com/py-pdf/pypdf/pull/4047/files) afecta la conversión de etiquetas de página, que los lectores actuales no invocan. Reevaluar antes de incorporar `page_labels` o ante un aviso aplicable nuevo; una auditoría limpia no sustituye ese análisis. |
+| Seguimiento de lectura PDF, PF-16 | La corrección aplicable a los lectores de constancias se incluye en `v0.3.6` mediante `pypdf==6.16.1`. El [cambio de seguridad de 6.17.0](https://github.com/py-pdf/pypdf/pull/4047/files) afecta la conversión de etiquetas de página, que los lectores actuales no invocan. Reevaluar antes de incorporar `page_labels` o ante un aviso aplicable nuevo; una auditoría limpia no sustituye ese análisis. |
 | Alineación de guías de calidad y dominio | Contrastar el comando E2E de `testing.md` con los scripts reales de frontend; alinear la descripción de auditoría npm con el workflow efectivo y revisar el README de servicios frente al contrato cerrado PF-19D. Son correcciones documentales acotadas, sin reabrir reglas fiscales ni rebajar checks. |
 | Mensajes de validación al iniciar sesión | Una respuesta estructurada `422` puede mostrarse como `Error: [object Object]`. Delimitar un mensaje comprensible y pruebas con entradas inválidas, preservando la validación del servidor. |
 | Marcado de pruebas PostgreSQL, PF-16 | Las pruebas de migración de `test_multiemisor_postgresql.py` y `test_pf19d_postgresql.py` no tienen el marcador `integration`. Una selección por marcador puede omitirlas o incluirlas en la suite local hasta que el guard las salte. Alinear el marcado sin modificar la allowlist, el opt-in de reset ni las garantías de los ensayos; mientras tanto, seleccionar la carpeta de integración completa para su verificación física. |
@@ -162,7 +162,7 @@ unidad antes de convertirse en una tarea ejecutable.
 
 Recuperación/trazabilidad es la siguiente unidad de desarrollo del roadmap.
 Se conservan los requisitos de respaldo y recuperación de cada operación.
-El cierre de publicación de duplicados se consulta en su dossier y no autoriza
+La publicación de duplicados se consulta en su dossier y no autoriza
 a iniciar otra unidad ni incorpora el rediseño visual completo o la ampliación
 del constructor.
 
@@ -185,9 +185,9 @@ del constructor.
 ## Líneas cerradas
 
 El corte de prevención de duplicados PF-13/PF-17 está implementado; su contrato
-vive en [duplicados](pf-13-duplicados-lotes-design.md) y su candidato en el
+vive en [duplicados](pf-13-duplicados-lotes-design.md) y su publicación en el
 [dossier](../project/releases/pf13-duplicados-candidate.md). Esto no cierra las
-otras unidades de PF-13/PF-17 ni acredita publicación o despliegue.
+otras unidades de PF-13/PF-17 ni acredita el estado de una instalación.
 
 PF-01, PF-02, PF-03A/PF-03B, PF-06/PF-07/PF-08 y
 PF-19A/PF-19B/PF-19C/PF-19D están cerrados. El contrato
