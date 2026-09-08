@@ -1,8 +1,8 @@
-# Candidato v0.3.6 — prevención de duplicados PF-13/PF-17
+# Release v0.3.6 — prevención de duplicados PF-13/PF-17
 
 Fecha de corte de evidencia: 08/09/2026.
 
-Estado: **candidato v0.3.6, publicación pendiente**. Este dossier conserva la evidencia del código y los requisitos de publicación. No crea por sí solo un tag o release ni acredita despliegue. El estado de cualquier instalación se consulta únicamente en el plano de control operativo.
+Estado: **v0.3.6 publicada el 08/09/2026**. Este dossier conserva la evidencia del código y de su publicación. No acredita despliegue. El estado de cualquier instalación se consulta únicamente en el plano de control operativo.
 
 ## Identificación del rango
 
@@ -94,6 +94,25 @@ revisado. Los siete controles completos aprobaron tanto en el
 La preparación de `v0.3.6` sólo alinea metadatos de backend/frontend, la versión
 visible y las expectativas existentes; no modifica lógica fiscal ni
 dependencias. La suite de scripts aprobó 28 casos y el spec del Sidebar, 7.
-El SHA de publicación será el commit integrado de ese versionado, comprobado
-por CI antes de crear el tag. Las notas y el cierre de publicación conservarán
-ese SHA exacto sin mover el tag posteriormente.
+El SHA de publicación es el commit integrado de ese versionado, comprobado
+por CI antes de crear el tag y registrado a continuación.
+
+## Publicación
+
+- El [PR #54](https://github.com/Santi-RL/FactuFlow/pull/54) integró el versionado
+  en `629174b188a93abf98fd081bbcad43d65ba54306`, con contenido idéntico al HEAD
+  revisado. Los siete controles completos aprobaron en el
+  [PR](https://github.com/Santi-RL/FactuFlow/actions/runs/34219314340) y en
+  [`main`](https://github.com/Santi-RL/FactuFlow/actions/runs/34220904386).
+  Backend: 1.378 pruebas y 73,10 % de cobertura en ambas ejecuciones.
+- El tag anotado `v0.3.6` apunta a ese SHA completo; su objeto es
+  `aef75a31bbf5aaba98310eb964b9ed3c7469166b`. Se verificaron ambos contra el
+  remoto después de publicar el tag.
+- La [GitHub Release v0.3.6](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.6)
+  se publicó el 08/09/2026 a las 11:49:14 UTC, marcada como `Latest`, sin estado
+  de borrador ni prerelease. No se adjuntaron artefactos privados.
+- El cierre documental posterior puede avanzar `main` sin modificar runtime
+  ni mover este tag. Su CI documental no sustituye la CI completa del SHA
+  publicado.
+- No se accedió a producción ni se desplegó. Preflight, respaldo y recuperación
+  de una instalación real requieren la fase autorizada en su plano de control.

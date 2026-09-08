@@ -27,8 +27,8 @@ La identidad leída del Excel se coordina con el
 de duplicados ni se reabre el rediseño de lotes cerrado.
 
 Este corte implementado responde a la **prioridad P1 fiscal y operativa**
-acordada por el usuario. Su evidencia y preparación de publicación viven en el
-[dossier del candidato](../project/releases/pf13-duplicados-candidate.md).
+acordada por el usuario. Su evidencia y publicación viven en el
+[dossier de v0.3.6](../project/releases/pf13-duplicados-candidate.md).
 El [roadmap](../../ROADMAP.md) conserva las próximas unidades; se mantienen los
 requisitos de respaldo y recuperación aplicables a cada operación.
 

@@ -4,13 +4,13 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-Versión publicada más reciente: `v0.3.5`
+Versión publicada más reciente: `v0.3.6`
 
-[GitHub Release v0.3.5](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.5)
+[GitHub Release v0.3.6](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.6)
 
-`v0.3.5` incorpora asignaciones explícitas de cero, uno o varios emisores por
-operador y la capacidad independiente `Puede crear y editar emisores`. El tag
-inmutable apunta a `ba8b7d0e5d9a2fd1c0a68a714e02f6a5aab0a655`; la publicación
+`v0.3.6` incorpora prevención de duplicados en lotes, evidencia comprensible y
+aceptación explícita de excepciones, con revalidación antes de emitir. El tag
+inmutable apunta a `629174b188a93abf98fd081bbcad43d65ba54306`; la publicación
 no determina ni modifica el estado desplegado.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
@@ -29,7 +29,7 @@ Capacidades actuales:
   lote y archivo observado
 - prevención de duplicados en lotes con evidencia del antecedente y aceptación
   explícita de la excepción; alcance en
-  [`CHANGELOG.md > Unreleased`](CHANGELOG.md#unreleased)
+  [`CHANGELOG.md > 0.3.6`](CHANGELOG.md)
 - diagnóstico administrativo sanitizado de worker y pools en `Sistema > Estado`
 - certificados por empresa y ambiente
 - puntos de venta descubiertos y validados con la autoridad WSFE del emisor;
