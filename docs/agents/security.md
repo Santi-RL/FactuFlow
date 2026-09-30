@@ -36,9 +36,9 @@
 
 ## Dependencias y cadena de construcción
 
-- La CI bloquea vulnerabilidades conocidas en dependencias productivas de
-  Python y frontend mediante `pip-audit -r requirements.txt` y
-  `npm audit --omit=dev --audit-level=high`.
+- La CI bloquea vulnerabilidades conocidas en dependencias de Python y del
+  frontend mediante `pip-audit -r requirements.txt` y
+  `npm audit --audit-level=low`, incluido tooling de desarrollo del frontend.
 - Los lockfiles son parte del comportamiento reproducible: cualquier cambio en
   ellos activa la matriz completa, aunque no cambie código de aplicación.
 - Las alertas de herramientas exclusivas de desarrollo deben revisarse y quedar
@@ -47,6 +47,9 @@
   ni debilitar las auditorías productivas.
 - El servidor de desarrollo, el modo UI de tests y las herramientas de build no
   deben exponerse en producción ni en redes no confiables.
+- Los hashes bcrypt existentes conservan prefijo, costo 12 y codificación UTF-8.
+  La integración directa con bcrypt mantiene los límites históricos (4096
+  caracteres de entrada y 72 bytes efectivos) y el rechazo de caracteres nulos.
 
 ## Migración local a VPS
 

@@ -444,14 +444,20 @@ puede mostrar acciones de resolución. Estas acciones aparecen agrupadas bajo
 `Resolver pendientes` y el panel arranca cerrado para no mezclar casos
 excepcionales con la revisión normal del lote:
 
-- `Reintentar fallidos`: vuelve a solicitar CAE para comprobantes fallidos. La
+- `Reintentar fallidos`: procesa en segundo plano los fallidos seleccionados. La
   pantalla muestra una confirmación de fecha fiscal y punto de venta; si esos
   datos no son correctos, cancela y revisa el lote. No se habilita para lotes en
   `Requiere reconciliación`. Si ARCA registra actividad externa legítima,
   FactuFlow usa el siguiente número global y vuelve a verificarlo antes del
   CAE. Un cambio, error o intento propio incierto detiene la selección sin tocar
   los comprobantes posteriores. Solo un rechazo ARCA explícito permite seguir
-  con el siguiente comprobante.
+  con el siguiente comprobante o bloque compatible. El avance muestra los
+  seleccionados, autorizados, fallidos, pendientes e inciertos de este reintento;
+  no cuenta lo emitido antes. Podés salir y volver al mismo lote para recuperar
+  el seguimiento. Si falla la conexión antes de emitir, el motivo queda guardado
+  y los pendientes seguros pueden reintentarse después de resolverla; ese fallo
+  no exige cambiar fecha ni numeración. Si el resultado es incierto, primero
+  corresponde reconciliar.
 - `Reconciliar ARCA Web`: úsalo cuando el comprobante pendiente ya fue emitido
   manualmente desde ARCA Web. Debes cargar el comprobante visible, número
   autorizado, CAE si lo tienes y motivo operativo. FactuFlow consulta ARCA antes

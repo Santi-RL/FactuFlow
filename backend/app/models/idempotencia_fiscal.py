@@ -701,5 +701,6 @@ class ResolucionLegacyPF19Journal(Base):
     )
 
     intento = relationship("IntentoEmisionFiscal")
-    empresa = relationship("Empresa")
+    # El journal se escribe con IDs explícitos; la relación del emisor es de lectura.
+    empresa = relationship("Empresa", viewonly=True)
     actor_usuario = relationship("Usuario", foreign_keys=[actor_usuario_id])

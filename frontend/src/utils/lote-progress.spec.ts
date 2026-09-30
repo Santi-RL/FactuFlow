@@ -46,6 +46,22 @@ describe("formatDuration", () => {
 });
 
 describe("calcularProgresoLote", () => {
+  it("reinicia el progreso del reintento y conserva los contadores tras recarga", () => {
+    const operacion = {
+      operacion_id: 7, seleccionados: 3, autorizados: 0, fallidos: 0,
+      pendientes: 3, inciertos: 0,
+    };
+    const lote = crearLote({
+      estado: "en_cola", grupos_emitidos: 97, grupos_fallidos: 3,
+      metadata_json: { reintento_background: true, operacion_progreso: operacion },
+      finished_at: null,
+    });
+    expect(calcularProgresoLote(lote).porcentaje).toBe(0);
+    expect(calcularProgresoLote(lote).totalEmitible).toBe(3);
+    lote.operacion_progreso = { ...operacion, autorizados: 1, pendientes: 1, inciertos: 1 };
+    expect(calcularProgresoLote(lote).porcentaje).toBe(67);
+    expect(calcularProgresoLote(lote).inciertos).toBe(1);
+  });
   it("calcula progreso parcial sobre comprobantes emitibles", () => {
     const progreso = calcularProgresoLote(
       crearLote({

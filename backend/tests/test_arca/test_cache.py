@@ -10,7 +10,6 @@ from app.arca.cache import TokenCache
 from app.arca.models import TicketAcceso
 
 
-@pytest.mark.asyncio
 class TestTokenCache:
     """Tests para TokenCache."""
 

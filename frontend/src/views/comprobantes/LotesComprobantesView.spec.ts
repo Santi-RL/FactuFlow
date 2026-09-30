@@ -1656,6 +1656,37 @@ describe("LotesComprobantesView", () => {
     );
   });
 
+  it("recupera el progreso del reintento sin contar los autorizados anteriores", async () => {
+    const progreso = {
+      operacion_id: 10,
+      seleccionados: 3,
+      autorizados: 0,
+      fallidos: 0,
+      pendientes: 3,
+      inciertos: 0,
+    };
+    const lote = {
+      ...loteResumenMock(),
+      estado: "en_cola" as const,
+      grupos_emitidos: 97,
+      grupos_validos: 3,
+      metadata_json: {
+        reintento_background: true,
+        operacion_progreso: progreso,
+      },
+    };
+    const wrapper = await mountView([], [lote], lote);
+    const vm = wrapper.vm as unknown as {
+      cargarDetalleLote: (id: number, silent: boolean) => Promise<boolean>;
+    };
+    await vm.cargarDetalleLote(lote.id, true);
+    await flushPromises();
+    expect(wrapper.text()).toContain("En cola para procesar 3 comprobantes");
+    expect(wrapper.text()).toContain("Seleccionados 3 · Autorizados 0 · Fallidos 0 · Pendientes 3 · Inciertos 0");
+    expect(mockedLotesDetalle.reintentarFallidos).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("renueva la clave de idempotencia despues de reintentar fallidos", async () => {
     const lote = {
       ...loteResumenMock(),

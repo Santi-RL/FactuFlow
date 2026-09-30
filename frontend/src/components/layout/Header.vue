@@ -138,14 +138,20 @@ const handleEmpresaChange = async (value: string | number) => {
         >
           No tenés emisores habilitados. Podés crear uno desde Emisor.
         </p>
-        <p v-else class="mt-1 text-xs text-brand-slate">
+        <p
+          v-else
+          class="mt-1 text-xs text-brand-slate"
+        >
           No tenés emisores habilitados. Pedile a un administrador que te asigne
           acceso.
         </p>
       </div>
     </div>
 
-    <div ref="dropdownRef" class="relative flex-shrink-0 self-end lg:self-auto">
+    <div
+      ref="dropdownRef"
+      class="relative flex-shrink-0 self-end lg:self-auto"
+    >
       <button
         class="flex items-center gap-2 rounded-control px-3 py-2 text-sm font-medium text-brand-slate transition-colors hover:bg-brand-mint hover:text-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
         @click="showDropdown = !showDropdown"

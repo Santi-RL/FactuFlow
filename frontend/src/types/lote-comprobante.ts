@@ -34,7 +34,17 @@ export interface LoteComprobanteGrupoDetalle extends LoteComprobanteGrupo {
   descripcion_facturada: string | null;
 }
 
+export interface LoteOperacionProgreso {
+  operacion_id: number;
+  seleccionados: number;
+  autorizados: number;
+  fallidos: number;
+  pendientes: number;
+  inciertos: number;
+}
+
 export interface LoteComprobante {
+  operacion_progreso?: LoteOperacionProgreso | null;
   id: number;
   nombre_archivo: string;
   archivo_hash: string;
@@ -65,6 +75,7 @@ export interface LoteComprobante {
 }
 
 export interface LoteComprobanteSeguimiento {
+  operacion_progreso?: LoteOperacionProgreso | null;
   id: number;
   estado: string;
   modo_procesamiento: string;

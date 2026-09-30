@@ -161,6 +161,7 @@ class LotesComprobantesService {
       `/api/lotes-comprobantes/${id}/reintentar-fallidos`,
       { grupo_ids: grupoIds },
       {
+        params: { background: true },
         headers: {
           "X-Confirmacion-Fecha-Fiscal": confirmacionFechaFiscal,
           "X-Idempotency-Key": idempotencyKey,

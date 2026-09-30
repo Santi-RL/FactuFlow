@@ -354,7 +354,9 @@ onMounted(() => {
       class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
-        <h1 class="text-3xl font-bold text-brand-ink">Usuarios</h1>
+        <h1 class="text-3xl font-bold text-brand-ink">
+          Usuarios
+        </h1>
         <p class="mt-2 text-brand-slate">
           Administrá altas, accesos y estado de inicio de sesión.
         </p>
@@ -486,7 +488,11 @@ onMounted(() => {
       />
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <BaseInput v-model="form.nombre" label="Nombre completo" required />
+        <BaseInput
+          v-model="form.nombre"
+          label="Nombre completo"
+          required
+        />
         <BaseInput
           v-model="form.email"
           type="email"
@@ -533,7 +539,7 @@ onMounted(() => {
                 :checked="form.empresa_ids.includes(empresa.id)"
                 class="mt-0.5 h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
                 @change="alternarEmisor(empresa.id)"
-              />
+              >
               <span>
                 <span class="block font-medium text-brand-ink">
                   {{ empresa.razon_social }}
@@ -548,7 +554,10 @@ onMounted(() => {
             title="Operador sin emisores"
             message="Podrá iniciar sesión, pero no podrá operar hasta que le asignes al menos un emisor."
           />
-          <p v-if="form.es_admin" class="text-xs text-brand-slate">
+          <p
+            v-if="form.es_admin"
+            class="text-xs text-brand-slate"
+          >
             Estas asignaciones se conservan mientras sea administrador y serán
             efectivas si vuelve a ser operador.
           </p>
@@ -559,7 +568,7 @@ onMounted(() => {
             type="checkbox"
             class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
             :disabled="usuarioEditando?.id === authStore.user?.id"
-          />
+          >
           Puede administrar usuarios
         </label>
         <label class="flex items-center gap-2 text-sm text-brand-slate">
@@ -567,7 +576,7 @@ onMounted(() => {
             v-model="form.puede_crear_editar_emisores"
             type="checkbox"
             class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
-          />
+          >
           Puede crear y editar emisores
         </label>
         <label class="flex items-center gap-2 text-sm text-brand-slate">
@@ -576,16 +585,22 @@ onMounted(() => {
             type="checkbox"
             class="h-4 w-4 rounded border-border-subtle text-brand-flow accent-brand-flow focus:ring-brand-flow"
             :disabled="usuarioEditando?.id === authStore.user?.id"
-          />
+          >
           Usuario activo
         </label>
       </div>
 
       <template #footer>
-        <BaseButton variant="secondary" @click="cerrarForm">
+        <BaseButton
+          variant="secondary"
+          @click="cerrarForm"
+        >
           Cancelar
         </BaseButton>
-        <BaseButton :loading="saving" @click="solicitarGuardar">
+        <BaseButton
+          :loading="saving"
+          @click="solicitarGuardar"
+        >
           Guardar
         </BaseButton>
       </template>
@@ -625,10 +640,16 @@ onMounted(() => {
       </div>
 
       <template #footer>
-        <BaseButton variant="secondary" @click="cerrarReset">
+        <BaseButton
+          variant="secondary"
+          @click="cerrarReset"
+        >
           Cancelar
         </BaseButton>
-        <BaseButton :loading="resetting" @click="resetPassword">
+        <BaseButton
+          :loading="resetting"
+          @click="resetPassword"
+        >
           Actualizar
         </BaseButton>
       </template>

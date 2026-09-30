@@ -448,7 +448,9 @@ watch(
       class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6"
     >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Puntos de venta</h1>
+        <h1 class="text-3xl font-bold text-gray-900">
+          Puntos de venta
+        </h1>
         <p class="mt-2 text-gray-600">
           Comprobá tus puntos con ARCA y elegí cuáles usar en FactuFlow.
         </p>
@@ -461,7 +463,7 @@ watch(
           class="hidden"
           accept=".pdf"
           @change="prepararImportacionConstancia"
-        />
+        >
         <BaseButton
           v-if="esAdmin"
           variant="secondary"
@@ -474,8 +476,8 @@ watch(
         <BaseButton
           :disabled="
             !tieneCertificadoDisponible ||
-            operacionAdministrativaEnCurso ||
-            cargandoCertificados
+              operacionAdministrativaEnCurso ||
+              cargandoCertificados
           "
           :loading="puntosVentaStore.syncing"
           @click="sincronizar"
@@ -554,7 +556,7 @@ watch(
               v-model="mostrarTodos"
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
+            >
             Mostrar todos
           </label>
         </div>
@@ -653,10 +655,19 @@ watch(
         si este punto se usa. El número y el estado técnico los informa ARCA.
       </BaseAlert>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <BaseInput v-model="editForm.nombre" label="Nombre" />
-        <BaseInput v-model="editForm.nombre_fantasia" label="Nombre fantasía" />
+        <BaseInput
+          v-model="editForm.nombre"
+          label="Nombre"
+        />
+        <BaseInput
+          v-model="editForm.nombre_fantasia"
+          label="Nombre fantasía"
+        />
         <div class="md:col-span-2">
-          <BaseInput v-model="editForm.domicilio" label="Domicilio" />
+          <BaseInput
+            v-model="editForm.domicilio"
+            label="Domicilio"
+          />
         </div>
         <label
           class="md:col-span-2 flex items-center gap-2 text-sm font-medium text-gray-700"
@@ -666,7 +677,7 @@ watch(
             type="checkbox"
             :disabled="!puntoEditando?.es_webservice"
             class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
+          >
           Usar en FactuFlow
         </label>
         <p
@@ -679,10 +690,16 @@ watch(
       </div>
 
       <template #footer>
-        <BaseButton variant="secondary" @click="cerrarEditor">
+        <BaseButton
+          variant="secondary"
+          @click="cerrarEditor"
+        >
           Cancelar
         </BaseButton>
-        <BaseButton :loading="guardandoEdicion" @click="guardarEdicion">
+        <BaseButton
+          :loading="guardandoEdicion"
+          @click="guardarEdicion"
+        >
           Guardar cambios
         </BaseButton>
       </template>
@@ -709,10 +726,16 @@ watch(
         </template>
       </p>
       <template #footer>
-        <BaseButton variant="secondary" @click="cambioUsoPendiente = null">
+        <BaseButton
+          variant="secondary"
+          @click="cambioUsoPendiente = null"
+        >
           Cancelar
         </BaseButton>
-        <BaseButton :loading="guardandoEdicion" @click="confirmarCambioUso">
+        <BaseButton
+          :loading="guardandoEdicion"
+          @click="confirmarCambioUso"
+        >
           Confirmar cambio
         </BaseButton>
       </template>

@@ -535,13 +535,11 @@ class IdempotenciaFiscalService:
                 and lote_background is None
                 and respuesta_es_sql_null
             )
-        if operacion.tipo_operacion == "reintentar_fallidos_lote":
-            return (
-                operacion.lote_id is not None
-                and lote_background is False
-                and respuesta_es_sql_null
-            )
-        if operacion.tipo_operacion != "procesar_lote" or operacion.lote_id is None:
+        if (
+            operacion.tipo_operacion
+            not in {"procesar_lote", "reintentar_fallidos_lote"}
+            or operacion.lote_id is None
+        ):
             return False
         if lote_background is False:
             return respuesta_es_sql_null

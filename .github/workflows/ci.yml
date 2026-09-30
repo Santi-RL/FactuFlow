@@ -113,11 +113,12 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: ${{ needs.scope.outputs.runtime == 'true' && 'postgres:16-alpine' || '' }}
+        image: ${{ needs.scope.outputs.runtime == 'true' && 'postgres:16-bookworm' || '' }}
         env:
           POSTGRES_DB: factuflow_integration_test
           POSTGRES_USER: factuflow_test
           POSTGRES_PASSWORD: synthetic_test_password
+          POSTGRES_INITDB_ARGS: "--auth-local=scram-sha-256 --auth-host=scram-sha-256"
         ports:
           - 5432:5432
         options: >-
@@ -147,6 +148,8 @@ jobs:
       - name: Install dependencies
         if: needs.scope.outputs.runtime == 'true'
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libharfbuzz-subset0
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
@@ -178,13 +181,13 @@ jobs:
 
       - name: Upload coverage
         if: always() && needs.scope.outputs.runtime == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: |
             backend/coverage.xml
             backend/coverage.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
   frontend:
@@ -245,11 +248,11 @@ jobs:
 
       - name: Upload frontend coverage
         if: always() && needs.scope.outputs.runtime == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage
           path: frontend/coverage
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
   runtime-smoke:
@@ -259,11 +262,12 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: ${{ needs.scope.outputs.runtime == 'true' && 'postgres:16-alpine' || '' }}
+        image: ${{ needs.scope.outputs.runtime == 'true' && 'postgres:16-bookworm' || '' }}
         env:
           POSTGRES_DB: factuflow_integration_test
           POSTGRES_USER: factuflow_test
           POSTGRES_PASSWORD: synthetic_test_password
+          POSTGRES_INITDB_ARGS: "--auth-local=scram-sha-256 --auth-host=scram-sha-256"
         ports:
           - 5432:5432
         options: >-
@@ -301,6 +305,8 @@ jobs:
         if: needs.scope.outputs.runtime == 'true'
         working-directory: backend
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libharfbuzz-subset0
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
@@ -316,11 +322,11 @@ jobs:
 
       - name: Upload sanitized runtime logs
         if: failure() && needs.scope.outputs.runtime == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: runtime-smoke-logs
           path: .tmp/runtime-smoke/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
 
   e2e:
@@ -367,7 +373,7 @@ jobs:
 
       - name: Upload test results
         if: failure() && needs.scope.outputs.runtime == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: frontend/playwright-report/
@@ -412,4 +418,4 @@ jobs:
       - name: Check npm dependencies
         if: needs.scope.outputs.runtime == 'true'
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=low

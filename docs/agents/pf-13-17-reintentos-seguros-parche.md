@@ -2,9 +2,9 @@
 
 Última revisión: 30/09/2026
 
-Estado: alcance priorizado; implementación y validación pendientes.
-Prioridad: P1 de continuidad operativa, primera unidad de «Ahora» en el
-[roadmap](../../ROADMAP.md).
+Estado: IMPLEMENTADO; contrato de comportamiento vigente.
+Prioridad del corte: P1 de continuidad operativa. La evidencia y recuperación
+viven en el [dossier](../project/releases/pf13-17-reintentos-seguros.md).
 
 ## Objetivo y límite
 

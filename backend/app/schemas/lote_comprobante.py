@@ -20,8 +20,7 @@ class LoteComprobanteFilaResponse(BaseModel):
     datos_json: dict[str, Any] | None = None
     mensajes_json: list[str] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoteComprobanteGrupoResponse(BaseModel):
@@ -46,14 +45,25 @@ class LoteComprobanteGrupoResponse(BaseModel):
     numero_asignado: Optional[int] = None
     comprobante_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoteComprobanteGrupoDetalleResponse(LoteComprobanteGrupoResponse):
     """Representa un comprobante agrupado con datos derivados para la UI."""
 
     descripcion_facturada: Optional[str] = None
+
+
+class LoteOperacionProgreso(BaseModel):
+    """Contadores de la selección de la operación actual, sin datos fiscales."""
+
+    model_config = ConfigDict(extra="forbid")
+    operacion_id: int
+    seleccionados: int
+    autorizados: int
+    fallidos: int
+    pendientes: int
+    inciertos: int
 
 
 class LoteComprobanteResponse(BaseModel):
@@ -87,8 +97,7 @@ class LoteComprobanteResponse(BaseModel):
     formato_importacion_id: Optional[int] = None
     formato_importacion_version_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoteComprobanteSeguimientoResponse(BaseModel):
@@ -112,6 +121,7 @@ class LoteComprobanteSeguimientoResponse(BaseModel):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     updated_at: datetime
+    operacion_progreso: LoteOperacionProgreso | None = None
 
 
 class LoteComprobanteDetalleResponse(LoteComprobanteResponse):

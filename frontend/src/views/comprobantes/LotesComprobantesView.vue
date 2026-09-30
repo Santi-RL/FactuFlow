@@ -690,6 +690,10 @@ const resumenAvanceLote = computed(() => {
 });
 const detalleAvanceLote = computed(() => {
   if (!progresoLote.value) return "";
+  if (loteActual.value?.metadata_json?.reintento_background) {
+    const progreso = progresoLote.value;
+    return `Seleccionados ${progreso.totalEmitible} · Autorizados ${progreso.autorizados} · Fallidos ${progreso.fallidos} · Pendientes ${progreso.pendientes} · Inciertos ${progreso.inciertos}`;
+  }
   if (loteActual.value?.estado === "requiere_reconciliacion") {
     return `Emitidos ${loteActual.value?.grupos_emitidos || 0} · Fallidos ${
       loteActual.value?.grupos_fallidos || 0
@@ -1865,7 +1869,12 @@ const reintentarFallidos = async () => {
       obtenerIdempotencyKeyReintentar(),
       confirmacionDuplicadoReintentar.value || undefined,
     );
-    showSuccess("Reintento finalizado", resultado.mensaje);
+    if (!contextoSolicitudDuplicadosVigente(contexto)) return;
+    inicioProcesamientoLocal.value = new Date();
+    showSuccess(
+      ["en_cola", "procesando"].includes(resultado.lote.estado) ? "Reintento iniciado" : "Reintento finalizado",
+      resultado.mensaje,
+    );
     await refrescarLoteDespuesAccion(loteId);
     resetearIdempotencyKeyReintentar();
   } catch (error: any) {
@@ -1877,7 +1886,7 @@ const reintentarFallidos = async () => {
       "No se pudieron reintentar los fallidos",
       detalleErrorComoTexto(
         error.response?.data?.detail,
-        "Revisa la fecha fiscal confirmada y el estado del lote.",
+        "No se pudo confirmar el inicio del reintento. Actualizá el estado del lote antes de volver a enviarlo.",
       ),
     );
   } finally {

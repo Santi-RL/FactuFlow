@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 08/09/2026
+Última revisión: 30/09/2026
 
 Estado: VIGENTE.
 
@@ -66,7 +66,25 @@ unidad se consultan en `CHANGELOG.md > 0.3.6`. El corte está publicado en
 evidencia de publicación, migraciones y recuperación. El despliegue requiere
 autorización separada y no se acredita desde este estado.
 
+## Contrato de reintentos seguros
+
+El reintento confirmado usa cola durable y el camino masivo por bloques. Sólo
+procesa su selección y conserva los autorizados anteriores. El progreso de la
+operación actual se recupera al volver al lote. Los fallos demostrados previos
+a CAE cierran pendientes y reservas propias; recuperar reservas antiguas exige
+propietario terminal y ausencia de intentos/guardas activos o inciertos. Los
+resultados posteriores al envío conservan reconciliación. La API síncrona
+anterior permanece compatible. El [contrato](pf-13-17-reintentos-seguros-parche.md)
+y el [dossier](../project/releases/pf13-17-reintentos-seguros.md) delimitan el corte.
+
 ## Trabajo aceptado pendiente
+
+La entrega de reintentos incluye correcciones de dependencias y una CI sin
+advertencias: PyJWT/WeasyPrint, auditoría npm completa, compatibilidad bcrypt,
+APIs Pydantic/FastAPI vigentes y puertas estrictas de lint y pytest. El
+[dossier](../project/releases/pf13-17-reintentos-seguros.md) conserva alcance y
+validación. El despliegue sigue requiriendo SHA exacto y evidencia del plano
+de control; este resumen no acredita una instalación.
 
 El orden y alcance macro del trabajo pendiente se consultan exclusivamente en
 [`ROADMAP.md`](../../ROADMAP.md). El detalle completo está en
@@ -78,10 +96,9 @@ lotes permanece en su diseño y precede a la publicación de esa implementación
 
 ## Punto de reanudación
 
-La publicación de duplicados está cerrada; su evidencia vive en el dossier.
-No iniciar la siguiente unidad del roadmap como parte de la publicación.
-La comprobación del origen realmente desplegado y del respaldo productivo
-corresponde a una fase autorizada en `vps-admin`.
+El parche de reintentos seguros está cerrado en código. La entrega y su
+evidencia se consultan en el dossier; el estado productivo se acredita sólo en
+el plano de control. No iniciar otra unidad como parte de este despliegue.
 
 Para continuar desarrollo:
 

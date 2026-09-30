@@ -2,7 +2,7 @@
 
 from datetime import datetime, date
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import ConfigDict, BaseModel, EmailStr, Field, field_validator
 
 from app.core.provincias import normalizar_provincia_argentina
 
@@ -74,8 +74,7 @@ class EmpresaResponse(EmpresaBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ConstanciaArcaResponse(BaseModel):

@@ -61,7 +61,10 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         await conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
         await conn.commit()
         try:
-            await conn.run_sync(Base.metadata.drop_all)
+            for table in reversed(list(Base.metadata.tables.values())):
+                await conn.run_sync(
+                    lambda sync_conn, table=table: table.drop(sync_conn)
+                )
             await conn.commit()
         finally:
             if conn.in_transaction():

@@ -666,7 +666,9 @@ lotes chicos, para mostrar progreso real por polling.
 Para el ciclo de polling de un lote activo, usar
 `GET /api/lotes-comprobantes/{lote_id}/seguimiento`. Es una allowlist mínima:
 devuelve identidad y estado operativo, modo de procesamiento, contadores,
-mensaje resumido y timestamps; no incluye filas, grupos, datos fiscales del
+mensaje resumido, timestamps y `operacion_progreso` opcional para el reintento
+background (identificador, seleccionados, autorizados, fallidos, pendientes e
+inciertos); no incluye filas, grupos, datos fiscales del
 receptor ni el contrato de confirmación. Respeta el emisor activo igual que el
 resto de los endpoints de lotes.
 
@@ -824,7 +826,19 @@ contrato idempotente: exige `X-Idempotency-Key`,
 acotar el reintento. Un grupo tomado para reintento que queda incierto debe
 tratarse como reconciliable, no como fallido reintentable.
 
-El reintento manual reutiliza el núcleo individual y admite `arca_adelantada`
+La pantalla envía `?background=true`: el servidor publica cola y recibo durable
+junto con la selección en una transacción y retorna sin esperar la emisión. El
+worker usa bloques compatibles y las mismas guardas del camino masivo. La misma
+clave devuelve el estado existente sin otro envío; un worker deshabilitado impide
+aceptar un trabajo nuevo. El progreso excluye autorizados previos y fallidos no
+seleccionados; el resumen conserva esos contadores en
+`metadata_json.operacion_progreso`, y seguimiento los proyecta explícitamente.
+Los fallos verificables previos a CAE cierran pendientes propios con motivo durable;
+las reservas históricas se liberan sólo con prueba de propietario terminal y
+sin intentos ni guardas activos o inciertos. No se libera numeración fiscal.
+
+Sin `background=true`, el contrato síncrono anterior reutiliza el núcleo
+individual y admite `arca_adelantada`
 con el mismo segundo preflight. PF-02B.2 cerró sus transiciones de grupo y
 fallos intermedios: cada grupo se reclama mediante CAS antes de emitir; un
 bloqueo propio, una numeración local adelantada, un cambio o error del segundo

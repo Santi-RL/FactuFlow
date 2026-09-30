@@ -20,7 +20,10 @@ from app.core.database import (
 )
 from app.models.lote_comprobante import LoteComprobante
 from app.services.facturacion_service import FaseSolicitudArca
-from app.services.lote_comprobantes_service import LoteComprobantesService
+from app.services.lote_comprobantes_service import (
+    LoteComprobantesService,
+    LoteComprobanteError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +242,30 @@ class LoteWorker:
                         lotes_procesados=lotes_procesados,
                         tuvo_error=True,
                     )
+                except LoteComprobanteError as exc:
+                    tuvo_error = True
+                    await db.rollback()
+                    try:
+                        lote = await service.obtener_lote_resumen(lote_id, empresa_id)
+                        operacion_id = (lote.metadata_json or {}).get(
+                            "operacion_idempotente_id"
+                        )
+                        lote = await service.cerrar_pendientes_pre_arca(
+                            lote_id=lote_id,
+                            empresa_id=empresa_id,
+                            operacion_id=operacion_id,
+                            mensaje=str(exc),
+                        )
+                        await service._guardar_respuesta_operacion_background(
+                            lote, operacion_id
+                        )
+                        await db.commit()
+                    except Exception:
+                        await db.rollback()
+                        logger.warning(
+                            "Worker conserva lote_id=%s para recuperación segura",
+                            lote_id,
+                        )
                 except Exception as exc:
                     tuvo_error = True
                     logger.error(

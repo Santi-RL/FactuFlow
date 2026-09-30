@@ -38,11 +38,8 @@ class WSAAClient:
         self.config = ArcaConfig(ambiente=ambiente)
         self.cache = get_token_cache()
 
-        # Cliente SOAP
-        try:
-            self.client = create_soap_client(self.config.wsaa_url)
-        except Exception as e:
-            raise ArcaConnectionError(f"Error al conectar con WSAA: {str(e)}")
+        # La caché se consulta antes de cargar el WSDL, que requiere conexión.
+        self.client = None
 
     async def login(
         self,
@@ -94,6 +91,16 @@ class WSAAClient:
                     f"Usando ticket en cache para {servicio} - CUIT: {cuit_clean}"
                 )
                 return cached_ticket
+
+        if self.client is None:
+            try:
+                self.client = await run_soap_call(
+                    create_soap_client, self.config.wsaa_url
+                )
+            except Exception as exc:
+                raise ArcaConnectionError(
+                    "No se pudo preparar la conexión WSAA"
+                ) from exc
 
         logger.info(f"Solicitando nuevo ticket para {servicio} - CUIT: {cuit_clean}")
 

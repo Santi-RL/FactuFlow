@@ -827,6 +827,7 @@ async def test_verificar_numeracion_segura_para_emision_consulta_arca(
 
     async def fake_certificado(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -1255,6 +1256,7 @@ async def test_batch_revierte_aprobado_si_falla_cerrar_rechazado_post_arca(
 
     async def fake_certificado(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -1436,6 +1438,7 @@ async def test_dos_sublotes_recuperan_segunda_guarda_pre_arca_sin_segundo_fecae(
 
     async def fake_certificado(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -1850,7 +1853,12 @@ async def test_emitir_rehidrata_grafo_rece_despues_de_rollback(
 
     async def fake_certificado(self, empresa_id):
         """Devuelve material sintético sin leer archivos locales."""
-        return SimpleNamespace(id=1, ambiente=settings.arca_env)
+        return SimpleNamespace(
+            id=1,
+            ambiente=settings.arca_env,
+            archivo_crt="empresa-test.crt",
+            archivo_key="empresa-test.key",
+        )
 
     async def fake_validar_punto(self, wsfe_client, punto_venta_numero):
         """Aísla el test de la lectura de parámetros WSFE."""
@@ -2086,6 +2094,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -2505,6 +2514,7 @@ async def test_excepcion_inesperada_post_arca_requiere_reconciliacion(
     async def fake_obtener_certificado_activo(self, empresa_id):
         """Devuelve material de certificado simulado."""
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -2875,6 +2885,7 @@ async def test_rechazo_arca_exige_cierre_durable_o_propaga_error_sanitizado(
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -4007,6 +4018,7 @@ async def test_emitir_comprobante_usa_siguiente_arca_si_historia_local_es_parcia
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -4157,6 +4169,7 @@ async def test_emitir_comprobante_aborta_si_arca_avanza_despues_de_reservar(
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -4314,6 +4327,7 @@ async def test_emitir_comprobante_cierra_intento_si_falla_segundo_preflight(
 
     async def fake_obtener_certificado_activo(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -4487,6 +4501,7 @@ async def test_rechazo_global_10005_cierra_grafo_y_replay_sin_arca(
 
     async def fake_certificado_pf19c(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -4645,6 +4660,7 @@ async def test_codigo_10005_string_permanece_incierto_sin_json_terminal(
 
     async def fake_certificado_pf19c(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )
@@ -4753,6 +4769,7 @@ async def test_error_global_mixto_preserva_enteros_sanitarios_en_orden(
 
     async def fake_certificado_pf19c(self, empresa_id):
         return SimpleNamespace(
+            id=1,
             archivo_crt="empresa-test.crt",
             archivo_key="empresa-test.key",
         )

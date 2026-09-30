@@ -18,6 +18,36 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Dependencias y CI sin advertencias
+
+- PyJWT 2.15.1 y WeasyPrint 70.0 corrigen las alertas de seguridad; el generador
+  PDF conserva su aislamiento de recursos mediante la API vigente de WeasyPrint.
+- Axios y dependencias de pruebas y construcción se actualizan a versiones
+  corregidas compatibles, con lockfile y auditoría completa del frontend.
+- bcrypt conserva el formato, costo y límites de las contraseñas existentes,
+  reemplazando el adaptador obsoleto de Passlib sin modificar hashes almacenados.
+- La configuración Pydantic y el ciclo de vida de FastAPI usan las APIs vigentes.
+  El worker se detiene antes de liberar los pools, también ante errores.
+- ESLint exige cero advertencias y pytest las trata como errores. Se corrigen
+  formato Vue, relaciones ORM y teardown de SQLite; PostgreSQL desechable de CI
+  dispone de locales y autenticación explícita. No se ocultan advertencias.
+
+### Emisión parcial y reintentos seguros
+
+- El reintento confirmado queda en cola y usa el worker y los bloques de emisión
+  masiva; conserva selección, autorizados previos y resultado durable.
+- El seguimiento y la recarga muestran el progreso de la operación actual,
+  separando seleccionados, autorizados, fallidos, pendientes e inciertos.
+- WSAA aprovecha el ticket cacheado antes de cargar el WSDL; WSFE reutiliza su
+  cliente por operación, con aislamiento por emisor, ambiente y ticket.
+- Los errores previos a CAE cierran pendientes seguros y reservas propias. Una
+  nueva admisión recupera reservas residuales sólo de propietarios terminales
+  acreditados, sin intentos ni guardas activos o inciertos.
+- Los conflictos anteriores a la cola conservan replay terminal. Los fallos de
+  conexión persisten sin recomendar cambiar fecha o numeración.
+- Se mantiene la API síncrona anterior; la pantalla usa `background=true`.
+  Los resultados inciertos conservan reconciliación y nunca se reenvían a ciegas.
+
 ## [0.3.6] - 2026-09-08
 
 ### Seguridad de lectura PDF

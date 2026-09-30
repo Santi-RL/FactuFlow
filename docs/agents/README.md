@@ -64,8 +64,6 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
-- PF-13/PF-17, siguiente parche P1 pendiente de implementación:
-  [emisión parcial y reintentos seguros](pf-13-17-reintentos-seguros-parche.md).
 - PF-11/PF-15, implementación futura:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:
@@ -87,6 +85,8 @@ contratos técnicos todavía por cerrar. Un diseño futuro no significa que la
 implementación esté autorizada o terminada.
 
 ## Diseños cerrados de consulta
+
+- PF-13/PF-17: [emisión parcial y reintentos seguros](pf-13-17-reintentos-seguros-parche.md).
 
 - PF-19D:
   [`pf-19d-puntos-venta-authority-design.md`](pf-19d-puntos-venta-authority-design.md)

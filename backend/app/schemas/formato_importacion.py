@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import ConfigDict, BaseModel, Field
 
 
 class FormatoImportacionVersionResponse(BaseModel):
@@ -16,8 +16,7 @@ class FormatoImportacionVersionResponse(BaseModel):
     headers_firma_json: dict[str, Any] | None = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FormatoImportacionResponse(BaseModel):
@@ -33,8 +32,7 @@ class FormatoImportacionResponse(BaseModel):
     updated_at: datetime
     version_vigente: Optional[FormatoImportacionVersionResponse] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FormatoImportacionCreate(BaseModel):

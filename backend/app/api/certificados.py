@@ -71,7 +71,7 @@ async def _leer_certificado_con_limite(file: UploadFile) -> bytes:
         total += len(chunk)
         if total > max_bytes:
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 detail=(
                     "El certificado supera el tamaño máximo permitido "
                     f"de {_formatear_limite_upload(max_bytes)}"

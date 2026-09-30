@@ -1,6 +1,7 @@
 """Entrada principal de FactuFlow."""
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -131,7 +132,26 @@ def configure_logging() -> None:
 
 configure_logging()
 
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Inicia el worker y libera los recursos al terminar la aplicación."""
+    if settings.app_env.lower() in {"test", "testing"}:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    application.state.lotes_background_tasks = set()
+    ensure_lote_worker_running(application)
+    try:
+        yield
+    finally:
+        try:
+            await stop_lote_worker(application)
+        finally:
+            await dispose_database_engines()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="FactuFlow API",
     description="Sistema de Facturación Electrónica ARCA - Argentina",
     version=settings.app_version,
@@ -236,23 +256,6 @@ app.include_router(
     prefix="/api/almacenamiento",
     tags=["Almacenamiento"],
 )
-
-
-@app.on_event("startup")
-async def startup():
-    """Inicializa recursos de aplicacion."""
-    if settings.app_env.lower() in {"test", "testing"}:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    app.state.lotes_background_tasks = set()
-    ensure_lote_worker_running(app)
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    """Detiene tareas de background de forma ordenada."""
-    await stop_lote_worker(app)
-    await dispose_database_engines()
 
 
 @app.get("/")

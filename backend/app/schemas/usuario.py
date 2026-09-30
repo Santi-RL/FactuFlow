@@ -2,7 +2,14 @@
 
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 def _normalizar_empresa_ids(value: list[int] | None) -> list[int] | None:
@@ -103,8 +110,7 @@ class UsuarioResponse(UsuarioBase):
     created_at: datetime
     ultimo_login: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UsuarioLogin(BaseModel):
