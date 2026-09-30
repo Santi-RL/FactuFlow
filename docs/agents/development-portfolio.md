@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 08/09/2026
+Última revisión: 30/09/2026
 
 Estado: VIGENTE.
 
@@ -25,7 +25,9 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-11/PF-15, recuperación operativa | Ahora 1 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-13/PF-17, parche de emisión parcial y reintentos | Ahora 1 | P1 operativa | Recuperación sin reservas huérfanas, reintento eficiente, progreso y errores accionables | [Alcance y aceptación](pf-13-17-reintentos-seguros-parche.md); preserva PF-01/PF-02/PF-03/PF-19 y duplicados; cambios acotados en WSAA, errores y trazabilidad sin esperar PF-09/PF-14/PF-15 completos |
+| RG 5616, parche de receptor | Ahora 2 | P1 fiscal/operativa | Condición IVA válida y presente en toda nueva solicitud de autorización | [Alcance cerrado](rg-5616-condicion-iva-receptor-parche.md); regla compartida con PF-13, sin esperar su ampliación |
+| PF-11/PF-15, recuperación operativa | Ahora 3 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
 | PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
@@ -66,6 +68,11 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 ### PF-10/PF-13/PF-16/PF-17/PF-18
 
+- PF-13/PF-17, **P1, Ahora**: parche acotado de emisión parcial y reintentos.
+  Incluye preparación de conexión, reservas residuales, ejecución eficiente,
+  progreso recuperable y errores fieles a la fase fiscal. Su
+  [contrato de aceptación](pf-13-17-reintentos-seguros-parche.md) lo separa de
+  eficiencia general, plantillas y rediseño visual futuros.
 - PF-13, con PF-17: constructor de plantillas e importación contable con
   `FC`/`NC`/`ND`, letra, CUIT y condición IVA por fila; requisitos condicionales,
   vista de interpretación y mensajes que identifiquen fila y columna. El
@@ -148,6 +155,8 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
+| Emisión parcial y reintentos | [Alcance y aceptación](pf-13-17-reintentos-seguros-parche.md): cerrar transiciones y ownership, ejecución durable/progreso, reutilización segura del envío masivo y medición comparativa; completar checklist fiscal antes de implementar. |
+| RG 5616, parche de receptor | [Alcance cerrado](rg-5616-condicion-iva-receptor-parche.md): verificar códigos y compatibilidad oficiales para el dominio soportado, tratamiento de valores ambiguos y aceptación fiscal. Sin ampliar plantillas ni modificar historia. |
 | Recuperación/trazabilidad | [Diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md): productor y cobertura de evidencia, escrituras posteriores y permisos; evidencia de instalación en el plano de control. |
 | Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): política de documento B/CF, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
 | Actividad de lotes | [Diseño](pf-17-actividad-lotes-design.md): fuente/orden de actor, cobertura histórica y consulta paginada. Reutiliza la procedencia mínima de duplicados, sin dependencia circular. |
@@ -160,7 +169,11 @@ unidad antes de convertirse en una tarea ejecutable.
 
 ## Orden aceptado
 
-Recuperación/trazabilidad es la siguiente unidad de desarrollo del roadmap.
+El parche de emisión parcial y reintentos PF-13/PF-17 es la siguiente unidad de
+desarrollo, con prioridad P1 por bloqueo operativo confirmado. Siguen RG 5616 de
+condición IVA del receptor y recuperación/trazabilidad, en ese orden. El resto
+del orden y los alcances se conservan. Resolver un lote con intervención privada
+no acredita el cierre del parche ni su despliegue.
 Se conservan los requisitos de respaldo y recuperación de cada operación.
 La publicación de duplicados se consulta en su dossier y no autoriza
 a iniciar otra unidad ni incorpora el rediseño visual completo o la ampliación
