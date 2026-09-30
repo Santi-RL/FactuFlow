@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 08/09/2026
+Última revisión: 30/09/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -64,6 +64,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-13/PF-17, siguiente parche P1 pendiente de implementación:
+  [emisión parcial y reintentos seguros](pf-13-17-reintentos-seguros-parche.md).
 - PF-11/PF-15, implementación futura:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:

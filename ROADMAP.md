@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 08/09/2026
+Última revisión: 30/09/2026
 
 Estado: VIGENTE.
 
@@ -34,7 +34,38 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
-### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 1. PF-13/PF-17 — parche urgente de emisión parcial y reintentos
+
+**Prioridad:** P1 de continuidad operativa; siguiente unidad de desarrollo.
+
+Evitar que fallos de conexión dejen lotes bloqueados por reservas de operaciones
+terminadas. Permitir reintentar únicamente los pendientes seguros desde el mismo
+lote, con eficiencia comparable a la emisión masiva, progreso visible y resultado
+persistente. Distinguir falta de conexión, fecha, numeración y resultado incierto;
+un error genérico no debe indicar que se cambie la fecha o la numeración.
+
+El [alcance y aceptación del parche](docs/agents/pf-13-17-reintentos-seguros-parche.md)
+incluye los fallos de preparación WSAA/WSDL y la recuperación segura de reservas.
+Este corte precede a RG 5616 y a recuperación/trazabilidad; no espera el rediseño
+visual, la ampliación de plantillas ni el endurecimiento general de plataforma.
+Conserva confirmación fiscal, idempotencia, control de duplicados, aislamiento y
+reconciliación antes de repetir cualquier resultado incierto. La recuperación
+puntual de un lote no sustituye la implementación y validación de este parche.
+
+### 2. RG 5616 — parche de condición IVA del receptor
+
+**Prioridad:** P1 fiscal y de continuidad operativa.
+
+Asegurar que toda nueva solicitud de autorización incluya una condición IVA del
+receptor válida y compatible con el comprobante, en emisión individual y masiva.
+Corregir únicamente la omisión y las equivalencias incorrectas de este dato,
+preservando los flujos válidos existentes. El aviso recibido anuncia rechazos
+desde el 01/12/2026; es un límite externo, no una fecha de entrega comprometida.
+El [alcance cerrado del parche](docs/agents/rg-5616-condicion-iva-receptor-parche.md)
+define aceptación y compatibilidad. No adelanta la ampliación de plantillas PF-13
+ni depende de completar recuperación o plataforma.
+
+### 3. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 
@@ -87,7 +118,9 @@ operativos confirmados:
   compatibilidad y aceptación en el
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
 - **PF-13 — procesos largos y eficiencia, P2:** límites de recursos y tareas
-  reanudables, conservando invariantes fiscales. Alcance en el
+  reanudables generales, conservando invariantes fiscales. El reintento de lotes
+  parciales, su progreso y los bloqueos residuales pertenecen al parche P1 de
+  «Ahora» y no quedan postergados en esta línea. Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
 - **PF-17 — períodos rápidos, P3:** facilitar el Reporte de ventas con
   «Mes actual», «Mes anterior» y selección

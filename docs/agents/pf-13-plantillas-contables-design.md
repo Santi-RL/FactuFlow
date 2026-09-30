@@ -29,6 +29,10 @@ La evidencia y las limitaciones están en la
 La propuesta respeta [`VISION.md`](../../VISION.md): conocimientos contables,
 sin programación, códigos internos ni nuevas confirmaciones rutinarias.
 
+La garantía compartida de condición IVA válida se resuelve antes en el
+[parche RG 5616](rg-5616-condicion-iva-receptor-parche.md). Este diseño la
+reutiliza; la ampliación del constructor conserva su horizonte y alcance.
+
 ## Resultado aceptado
 
 1. Construir una plantilla reutilizable para facturas, notas de crédito y notas
