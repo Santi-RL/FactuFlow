@@ -38,6 +38,14 @@ La puerta local completa, cuando corresponde, es:
 El log se guarda en una ruta ignorada. Los comandos con `--fix` o `--write`
 modifican archivos y no se usan como verificaciones pasivas.
 
+La CI debe finalizar sin advertencias: ESLint aplica `--max-warnings 0` y
+pytest convierte warnings en errores mediante `filterwarnings = error`.
+Corregir la causa; no desactivar reglas ni añadir filtros para ocultarla.
+La auditoría de npm abarca dependencias productivas y de desarrollo.
+Los runners Linux instalan HarfBuzz-Subset para generar PDFs; en Windows,
+usar un runtime compatible de WeasyPrint y sus bibliotecas nativas mediante
+`WEASYPRINT_DLL_DIRECTORIES` y `PATH`, sin mezclar versiones de GTK/Pango.
+
 ## Backend
 
 Desde `backend/`:

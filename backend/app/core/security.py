@@ -7,16 +7,13 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
+import bcrypt
 from jwt import PyJWTError
-from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.database import get_db
-
-# Configuración de bcrypt para hashear contraseñas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Security scheme para JWT
 security = HTTPBearer(auto_error=False)
@@ -34,7 +31,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True si coinciden, False si no
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(
+        _password_bytes(plain_password), hashed_password.encode("ascii")
+    )
 
 
 def get_password_hash(password: str) -> str:
@@ -47,7 +46,18 @@ def get_password_hash(password: str) -> str:
     Returns:
         Hash de la contraseña
     """
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_password_bytes(password), bcrypt.gensalt(rounds=12)).decode(
+        "ascii"
+    )
+
+
+def _password_bytes(password: str) -> bytes:
+    """Conserva los límites y la codificación bcrypt de los hashes existentes."""
+    if len(password) > 4096:
+        raise ValueError("La contraseña supera el tamaño máximo permitido")
+    if "\x00" in password:
+        raise ValueError("La contraseña contiene un carácter nulo")
+    return password.encode("utf-8")[:72]
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

@@ -2,7 +2,7 @@
 
 from datetime import datetime, date
 from typing import Optional, Literal
-from pydantic import BaseModel, Field, computed_field
+from pydantic import ConfigDict, BaseModel, Field, computed_field
 
 
 class CertificadoBase(BaseModel):
@@ -58,8 +58,7 @@ class CertificadoResponse(CertificadoBase):
             return "por_vencer"
         return "valido"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Schemas para wizard de certificados

@@ -20,8 +20,7 @@ class LoteComprobanteFilaResponse(BaseModel):
     datos_json: dict[str, Any] | None = None
     mensajes_json: list[str] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoteComprobanteGrupoResponse(BaseModel):
@@ -46,8 +45,7 @@ class LoteComprobanteGrupoResponse(BaseModel):
     numero_asignado: Optional[int] = None
     comprobante_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoteComprobanteGrupoDetalleResponse(LoteComprobanteGrupoResponse):
@@ -99,8 +97,7 @@ class LoteComprobanteResponse(BaseModel):
     formato_importacion_id: Optional[int] = None
     formato_importacion_version_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoteComprobanteSeguimientoResponse(BaseModel):

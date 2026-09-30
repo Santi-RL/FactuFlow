@@ -911,7 +911,10 @@ const confirmarCancelacion = () => {
           class="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-50"
           @click="verificarEstado"
         >
-          <ArrowPathIcon class="h-5 w-5" :class="{ 'animate-spin': loading }" />
+          <ArrowPathIcon
+            class="h-5 w-5"
+            :class="{ 'animate-spin': loading }"
+          />
           {{ loading ? "Verificando..." : "Verificar estado" }}
         </button>
       </div>
@@ -1028,7 +1031,10 @@ const confirmarCancelacion = () => {
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               @change="actualizarProximoNumero"
             >
-              <option :value="0" disabled>
+              <option
+                :value="0"
+                disabled
+              >
                 {{
                   puntosVentaStore.preparingForSelection
                     ? "Comprobando con ARCA…"
@@ -1053,7 +1059,7 @@ const confirmarCancelacion = () => {
             <p
               v-else-if="
                 !puntosVentaStore.preparingForSelection &&
-                puntosVentaUsables.length === 0
+                  puntosVentaUsables.length === 0
               "
               class="mt-1 text-sm text-red-600"
             >
@@ -1076,7 +1082,12 @@ const confirmarCancelacion = () => {
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option disabled value="">Elegir productos o servicios</option>
+              <option
+                disabled
+                value=""
+              >
+                Elegir productos o servicios
+              </option>
               <option :value="TIPOS_CONCEPTO.PRODUCTOS">
                 {{ TIPOS_CONCEPTO_NOMBRES[1] }}
               </option>
@@ -1100,12 +1111,15 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
         </div>
 
         <!-- Próximo número -->
-        <div v-if="consultandoProximoNumero" class="mt-4 text-sm text-gray-600">
+        <div
+          v-if="consultandoProximoNumero"
+          class="mt-4 text-sm text-gray-600"
+        >
           Consultando próximo número...
         </div>
         <div
@@ -1149,16 +1163,21 @@ const confirmarCancelacion = () => {
               <span
                 v-if="proximoNumero !== null"
                 class="font-mono font-semibold"
-                >{{ String(proximoNumero).padStart(8, "0") }}</span
-              >
+              >{{ String(proximoNumero).padStart(8, "0") }}</span>
               <span v-else>No disponible</span>
             </p>
           </div>
-          <p v-if="diagnosticoNumeracion.advertencia" class="mt-3">
+          <p
+            v-if="diagnosticoNumeracion.advertencia"
+            class="mt-3"
+          >
             {{ diagnosticoNumeracion.advertencia }}
           </p>
         </div>
-        <div v-else-if="errorProximoNumero" class="mt-4 text-sm text-red-700">
+        <div
+          v-else-if="errorProximoNumero"
+          class="mt-4 text-sm text-red-700"
+        >
           <p>{{ errorProximoNumero }}</p>
           <button
             type="button"
@@ -1184,7 +1203,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
 
           <div>
@@ -1196,7 +1215,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
 
           <div>
@@ -1208,7 +1227,7 @@ const confirmarCancelacion = () => {
               type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            >
           </div>
         </div>
       </BaseCard>

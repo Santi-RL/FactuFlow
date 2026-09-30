@@ -3,7 +3,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import ConfigDict, BaseModel, Field, field_validator, model_validator
 
 from app.arca.utils import format_date_arca
 
@@ -41,9 +41,7 @@ class IvaItem(BaseModel):
     base_imp: Decimal = Field(..., description="Base imponible", alias="BaseImp")
     importe: Decimal = Field(..., description="Importe de IVA", alias="Importe")
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class TributoItem(BaseModel):
@@ -55,9 +53,7 @@ class TributoItem(BaseModel):
     alic: Decimal = Field(..., description="Alícuota", alias="Alic")
     importe: Decimal = Field(..., description="Importe del tributo", alias="Importe")
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class CbteAsocItem(BaseModel):
@@ -290,9 +286,7 @@ class TipoComprobante(BaseModel):
         None, description="Fecha hasta", alias="FchHasta"
     )
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class TipoDocumento(BaseModel):
@@ -305,9 +299,7 @@ class TipoDocumento(BaseModel):
         None, description="Fecha hasta", alias="FchHasta"
     )
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class TipoIva(BaseModel):
@@ -320,9 +312,7 @@ class TipoIva(BaseModel):
         None, description="Fecha hasta", alias="FchHasta"
     )
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class TipoConcepto(BaseModel):
@@ -335,9 +325,7 @@ class TipoConcepto(BaseModel):
         None, description="Fecha hasta", alias="FchHasta"
     )
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class TipoMoneda(BaseModel):
@@ -350,9 +338,7 @@ class TipoMoneda(BaseModel):
         None, description="Fecha hasta", alias="FchHasta"
     )
 
-    class Config:
-        populate_by_name = True
-        by_alias = False  # Serialize using field names, not aliases
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=False)
 
 
 class Cotizacion(BaseModel):

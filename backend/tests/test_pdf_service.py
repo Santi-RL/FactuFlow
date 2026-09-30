@@ -6,6 +6,11 @@ import pytest
 from unittest.mock import Mock
 from datetime import date
 from types import SimpleNamespace
+from io import BytesIO
+
+from pypdf import PdfReader
+from weasyprint import HTML
+from weasyprint.urls import URLFetcher, URLFetchingError
 
 from app.services.pdf_service import PDFService
 from app.models.comprobante import Comprobante
@@ -185,6 +190,29 @@ class TestPDFService:
         with pytest.raises(ValueError, match="Recurso externo no permitido"):
             pdf_service._fetch_recurso_pdf("https://attacker.test/recurso.png")
 
+    @pytest.mark.parametrize("resource", ["../privado.txt", "file:///etc/passwd"])
+    def test_fetch_recurso_pdf_rechaza_archivos_fuera_de_templates(
+        self, pdf_service, resource
+    ):
+        """Las rutas relativas y absolutas conservan el aislamiento de archivos."""
+        with pytest.raises(ValueError, match="fuera del directorio permitido"):
+            pdf_service._fetch_recurso_pdf(resource)
+
+    def test_stylesheet_parametro_respeta_fetcher_original(
+        self, pdf_service, monkeypatch
+    ):
+        """La regresión de WeasyPrint no permite red mediante stylesheets externos."""
+        from unittest.mock import Mock
+
+        acceso = Mock(side_effect=AssertionError("No debe llegar al fetch de red"))
+        monkeypatch.setattr(URLFetcher, "fetch", acceso)
+        with pytest.raises(URLFetchingError, match="Recurso externo no permitido"):
+            HTML(
+                string="<p>Documento sintético</p>",
+                url_fetcher=pdf_service._url_fetcher,
+            ).write_pdf(stylesheets=["https://attacker.test/estilos.css"])
+        acceso.assert_not_called()
+
     def test_generar_qr_arca(self, pdf_service, comprobante_mock):
         """Debe generar un código QR válido."""
         qr_base64 = pdf_service._generar_qr_arca(comprobante_mock)
@@ -284,3 +312,9 @@ class TestPDFService:
         assert len(pdf_bytes) > 0
         # Verificar que sea un PDF válido (comienza con %PDF)
         assert pdf_bytes[:4] == b"%PDF"
+        document = PdfReader(BytesIO(pdf_bytes))
+        assert len(document.pages) == 1
+        texto = document.pages[0].extract_text()
+        assert "03/02/2026" in texto
+        assert "90.750,00" in texto
+        assert comprobante_mock.cae in texto

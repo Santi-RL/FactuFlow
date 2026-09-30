@@ -18,6 +18,20 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Dependencias y CI sin advertencias
+
+- PyJWT 2.15.1 y WeasyPrint 70.0 corrigen las alertas de seguridad; el generador
+  PDF conserva su aislamiento de recursos mediante la API vigente de WeasyPrint.
+- Axios y dependencias de pruebas y construcción se actualizan a versiones
+  corregidas compatibles, con lockfile y auditoría completa del frontend.
+- bcrypt conserva el formato, costo y límites de las contraseñas existentes,
+  reemplazando el adaptador obsoleto de Passlib sin modificar hashes almacenados.
+- La configuración Pydantic y el ciclo de vida de FastAPI usan las APIs vigentes.
+  El worker se detiene antes de liberar los pools, también ante errores.
+- ESLint exige cero advertencias y pytest las trata como errores. Se corrigen
+  formato Vue, relaciones ORM y teardown de SQLite; PostgreSQL desechable de CI
+  dispone de locales y autenticación explícita. No se ocultan advertencias.
+
 ### Emisión parcial y reintentos seguros
 
 - El reintento confirmado queda en cola y usa el worker y los bloques de emisión

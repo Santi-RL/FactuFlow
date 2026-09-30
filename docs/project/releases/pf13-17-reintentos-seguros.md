@@ -52,8 +52,8 @@ PostgreSQL desechable, controles del área, CI completa y autoreview fiscal fina
 
 ## Compatibilidad y recuperación
 
-No hay migraciones nuevas, dependencias, lockfiles, cambios Docker/compose ni
-variables de configuración nuevas. Se mantiene el head Alembic existente. La
+No hay migraciones nuevas, cambios Docker/compose ni variables de configuración
+nuevas. Se mantiene el head Alembic existente. La
 API sin `background=true` conserva el reintento síncrono; los recibos terminales
 previos y sus respuestas se conservan. El código nuevo reconoce recibos durables
 de emisión y reintento background en las guardas de ownership y recuperación.
@@ -109,12 +109,51 @@ selección confirmada, numeración, idempotencia y reconciliación. Permanece co
 riesgo externo la indisponibilidad de ARCA: se informa su fase y se conserva
 el resultado incierto cuando corresponda.
 
+## Ampliación autorizada: seguridad y cero advertencias
+
+El 30/09/2026 Santi autorizó corregir las dependencias que bloqueaban la CI y
+exigió que termine sin warnings antes de integrar o desplegar. La CI previa
+aprobó los caminos funcionales y PostgreSQL (1390 pruebas), pero registró 666
+advertencias de Python, 158 de Vue y alertas de dependencias. Esa corrida no
+habilita el despliegue del candidato ampliado.
+
+PyJWT pasa a 2.15.1 y WeasyPrint a 70.0. Los claims JWT malformados y el JSON
+profundamente anidado se rechazan sin error interno. WeasyPrint usa un
+`URLFetcher` restringido a datos embebidos y archivos dentro de templates;
+las hojas de estilo pasadas como parámetros respetan ese mismo filtro.
+Se verifican fecha, importes, CAE sintético, página y presentación del PDF.
+
+La auditoría completa corrige también Axios y dependencias transitivas de
+construcción mediante actualizaciones compatibles; Vitest y coverage-v8 pasan
+a 4.1.11. `js-beautify` 2.0.3 elimina glob obsoleto mediante un override acotado
+a `@vue/test-utils`; no se usa `audit fix --force` ni se excluye tooling.
+
+El adaptador Passlib importaba `crypt` obsoleto en Python 3.11. Se usa la misma
+biblioteca bcrypt 3.2.2 directamente, conservando costo 12, prefijos anteriores,
+UTF-8, límite de entrada y truncamiento histórico de 72 bytes; pruebas con
+hashes sintéticos previos acreditan compatibilidad sin regenerar contraseñas.
+
+Pydantic conserva atributos y aliases mediante `ConfigDict`; FastAPI migra a
+lifespan con inicio único del worker y liberación de pools tras su cierre,
+incluso ante errores. La relación del emisor en el journal administrativo queda
+de lectura: sus IDs y FK compuesta siguen siendo la autoridad de escritura.
+Sólo el teardown de SQLite desechable elimina tablas individualmente con FK
+suspendidas; las valida reactivadas antes de devolver la conexión.
+
+ESLint bloquea cualquier advertencia; pytest las convierte en errores. La CI
+usa PostgreSQL 16 Bookworm con locales y autenticación SCRAM explícita, añade
+HarfBuzz-Subset y actualiza la acción de artefactos a v7, sin cambiar el VPS.
+Se mantienen los siete checks, cobertura, auditorías y revisión fiscal final
+del rango completo. El rollback conserva las imágenes previas con sus
+dependencias; no requiere migrar hashes ni restaurar datos.
+
 ## Alineación documental y entrega
 
 Actualizados changelog, contrato, roadmap, portafolio, handoff, índices, API,
 manual de usuario, integración ARCA y recorrido QA. Visión, arquitectura,
-políticas de prueba y procedimientos productivos se revisan sin modificarlos:
-no hay cambios de producto, stack, comandos, permisos ni topología.
+procedimientos productivos se revisan sin modificarlos. Testing y seguridad
+registran las nuevas puertas sin advertencias y dependencias compatibles.
+No hay cambios de producto, permisos ni topología.
 
 La publicación e integración requieren los siete checks obligatorios y la
 revisión fiscal canónica `gpt-5.6-sol medium`. El origen y resultado productivos

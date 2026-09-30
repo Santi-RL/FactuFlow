@@ -55,8 +55,7 @@ class ItemComprobanteResponse(ItemComprobanteBase):
     subtotal: Decimal
     comprobante_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================== Comprobante ====================
@@ -219,8 +218,7 @@ class ComprobanteResponse(ComprobanteBase):
     receptor_condicion_iva: Optional[str] = None
     receptor_domicilio: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ComprobanteDetalleResponse(ComprobanteResponse):
@@ -235,8 +233,7 @@ class ComprobanteDetalleResponse(ComprobanteResponse):
     # Datos del punto de venta
     punto_venta_numero: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ComprobanteListResponse(BaseModel):
@@ -258,8 +255,7 @@ class ComprobanteListResponse(BaseModel):
     # Datos del punto de venta
     punto_venta_numero: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedComprobantesResponse(BaseModel):

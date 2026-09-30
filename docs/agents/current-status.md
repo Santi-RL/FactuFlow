@@ -79,6 +79,13 @@ y el [dossier](../project/releases/pf13-17-reintentos-seguros.md) delimitan el c
 
 ## Trabajo aceptado pendiente
 
+La entrega de reintentos incluye correcciones de dependencias y una CI sin
+advertencias: PyJWT/WeasyPrint, auditoría npm completa, compatibilidad bcrypt,
+APIs Pydantic/FastAPI vigentes y puertas estrictas de lint y pytest. El
+[dossier](../project/releases/pf13-17-reintentos-seguros.md) conserva alcance y
+validación. El despliegue sigue requiriendo SHA exacto y evidencia del plano
+de control; este resumen no acredita una instalación.
+
 El orden y alcance macro del trabajo pendiente se consultan exclusivamente en
 [`ROADMAP.md`](../../ROADMAP.md). El detalle completo está en
 [`development-portfolio.md`](development-portfolio.md) y los diseños enlazados.
