@@ -83,8 +83,8 @@ configura inicio automático con Windows.
 
 ### Requisitos Previos
 - Python 3.11+
-- Node.js 20+
-- npm o pnpm
+- Node.js 24.15.0
+- npm 11.12.1
 
 ### Backend
 

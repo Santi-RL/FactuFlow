@@ -20,6 +20,9 @@ Reglas vigentes desde 2026-05-22:
 
 ### Dependencias y CI sin advertencias
 
+- La imagen del frontend usa Node 24.15.0 y npm 11.12.1, alineados con el
+  proyecto. La CI construye esa imagen, bloquea advertencias y comprueba Nginx
+  y los archivos compilados; el contexto excluye dependencias y salidas locales.
 - PyJWT 2.15.1 y WeasyPrint 70.0 corrigen las alertas de seguridad; el generador
   PDF conserva su aislamiento de recursos mediante la API vigente de WeasyPrint.
 - Axios y dependencias de pruebas y construcción se actualizan a versiones
