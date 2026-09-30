@@ -232,6 +232,20 @@ jobs:
         if: needs.scope.outputs.runtime == 'true'
         run: npm run build
 
+      - name: Build production frontend image without warnings
+        if: needs.scope.outputs.runtime == 'true'
+        run: |
+          set -o pipefail
+          docker build --progress=plain --build-arg VITE_API_URL=/api \
+            -t factuflow-frontend-ci . 2>&1 | tee "$RUNNER_TEMP/frontend-docker-build.log"
+          if rg -i 'npm warn|(^|[[:space:]])warning([[:space:]:]|$)' "$RUNNER_TEMP/frontend-docker-build.log"; then
+            echo "Production frontend image emitted warnings."
+            exit 1
+          fi
+          docker run --rm --network none --add-host backend:127.0.0.1 \
+            factuflow-frontend-ci sh -c \
+            'nginx -t && test -s /usr/share/nginx/html/index.html && test -d /usr/share/nginx/html/assets'
+
       - name: Run unit tests with coverage gate
         if: needs.scope.outputs.runtime == 'true'
         run: npm run test:coverage

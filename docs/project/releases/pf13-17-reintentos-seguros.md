@@ -52,8 +52,10 @@ PostgreSQL desechable, controles del área, CI completa y autoreview fiscal fina
 
 ## Compatibilidad y recuperación
 
-No hay migraciones nuevas, cambios Docker/compose ni variables de configuración
-nuevas. Se mantiene el head Alembic existente. La
+No hay migraciones nuevas, cambios de Compose ni variables de configuración
+nuevas. La imagen de construcción del frontend alinea Node y npm con el
+proyecto, según la ampliación autorizada descrita más abajo. Se mantiene el
+head Alembic existente. La
 API sin `background=true` conserva el reintento síncrono; los recibos terminales
 previos y sus respuestas se conservan. El código nuevo reconoce recibos durables
 de emisión y reintento background en las guardas de ownership y recuperación.
@@ -148,6 +150,14 @@ del rango completo. El rollback conserva las imágenes previas con sus
 dependencias; no requiere migrar hashes ni restaurar datos.
 
 ## Alineación documental y entrega
+
+El preflight detectó Node 20 en el Dockerfile del frontend frente a Node
+24.15.0 y npm 11.12.1 exigidos por el proyecto y usados en CI. Santi autorizó
+alinear la imagen el 30/09/2026. Se fija Node 24.15.0 Alpine y npm 11.12.1
+en la etapa de construcción; Nginx y su configuración se conservan. El contexto
+excluye dependencias y salidas locales. La CI construye la imagen real, falla
+ante advertencias y comprueba Nginx y los archivos compilados. No se actualizan
+Node, npm ni paquetes base del host productivo.
 
 Actualizados changelog, contrato, roadmap, portafolio, handoff, índices, API,
 manual de usuario, integración ARCA y recorrido QA. Visión, arquitectura,

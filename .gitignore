@@ -158,6 +158,7 @@ frontend/logs/
 
 # Docker
 .dockerignore
+!frontend/.dockerignore
 
 # Temporary files
 tmp/

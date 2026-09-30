@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine as build
+FROM node:24.15.0-alpine AS build
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ ENV VITE_API_URL=$VITE_API_URL
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install --global npm@11.12.1 && npm ci
 
 # Copy source code
 COPY . .

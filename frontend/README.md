@@ -49,6 +49,10 @@ npm run preview
 
 ## 🐳 Docker
 
+La etapa de construcción usa Node 24.15.0 y npm 11.12.1, iguales a los exigidos
+en `package.json`. El contexto excluye `node_modules` y las salidas locales;
+la CI valida la imagen completa y bloquea advertencias del build.
+
 ```bash
 # Build de la imagen
 docker build -t factuflow-frontend .
