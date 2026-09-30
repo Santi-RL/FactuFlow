@@ -44,6 +44,10 @@ from app.models.idempotencia_fiscal import (
 )
 from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.models.punto_venta import PuntoVenta
+from app.models.elegibilidad_rece import (
+    FASES_GUARDA_RECE_ACTIVAS,
+    PuntoVentaGuardaEmisionRece,
+)
 from app.schemas.comprobante import EmitirComprobanteRequest
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
@@ -4177,6 +4181,95 @@ class DuplicadosLotesService:
         row.revision += 1
         await self.db.flush()
 
+    async def recuperar_reservas_terminales(self, *, empresa_id: int, ambiente: str):
+        """Recupera sólo reservas acreditadas; requiere coordinación transaccional."""
+        if not self.db.in_transaction():
+            raise DuplicadosLoteError("La recuperación requiere coordinación activa.")
+        propietarios = list(
+            (
+                await self.db.execute(
+                    select(OperacionIdempotente)
+                    .join(
+                        LoteComprobanteGrupo,
+                        LoteComprobanteGrupo.duplicados_reserva_operacion_id
+                        == OperacionIdempotente.id,
+                    )
+                    .where(
+                        OperacionIdempotente.empresa_id == empresa_id,
+                        OperacionIdempotente.tipo_operacion.in_(
+                            {"procesar_lote", "reintentar_fallidos_lote"}
+                        ),
+                        OperacionIdempotente.estado.in_(
+                            {
+                                "finalizado",
+                                "fallido",
+                                "fallido_verificado",
+                                "rechazado_arca",
+                            }
+                        ),
+                        LoteComprobanteGrupo.empresa_id == empresa_id,
+                        LoteComprobanteGrupo.ambiente == ambiente,
+                        LoteComprobanteGrupo.estado.in_({"validado", "fallido"}),
+                    )
+                    .order_by(OperacionIdempotente.id)
+                    .with_for_update(of=OperacionIdempotente)
+                    .execution_options(populate_existing=True)
+                )
+            )
+            .scalars()
+            .unique()
+        )
+        for propietario in propietarios:
+            respuesta = propietario.response_json
+            if not isinstance(respuesta, dict):
+                continue
+            snapshot = respuesta.get("lote")
+            if isinstance(snapshot, dict):
+                if (
+                    snapshot.get("id") != propietario.lote_id
+                    or snapshot.get("empresa_id") != empresa_id
+                    or snapshot.get("estado")
+                    in {"procesando", "en_cola", "requiere_reconciliacion"}
+                    or respuesta.get("en_progreso") is True
+                ):
+                    continue
+            elif not isinstance(respuesta.get("categoria_error"), str):
+                continue
+            intento_activo = await self.db.scalar(
+                select(IntentoEmisionFiscal.id)
+                .where(
+                    IntentoEmisionFiscal.operacion_id == propietario.id,
+                    IntentoEmisionFiscal.estado.in_(
+                        {"en_proceso", "requiere_reconciliacion"}
+                    ),
+                )
+                .limit(1)
+            )
+            guarda_activa = await self.db.scalar(
+                select(PuntoVentaGuardaEmisionRece.id)
+                .where(
+                    PuntoVentaGuardaEmisionRece.operacion_id == propietario.id,
+                    PuntoVentaGuardaEmisionRece.fase.in_(FASES_GUARDA_RECE_ACTIVAS),
+                )
+                .limit(1)
+            )
+            if intento_activo is not None or guarda_activa is not None:
+                continue
+            await self.db.execute(
+                update(LoteComprobanteGrupo)
+                .where(
+                    LoteComprobanteGrupo.duplicados_reserva_operacion_id
+                    == propietario.id,
+                    LoteComprobanteGrupo.lote_id == propietario.lote_id,
+                    LoteComprobanteGrupo.empresa_id == empresa_id,
+                    LoteComprobanteGrupo.ambiente == ambiente,
+                    LoteComprobanteGrupo.estado.in_({"validado", "fallido"}),
+                    LoteComprobanteGrupo.cae.is_(None),
+                    LoteComprobanteGrupo.comprobante_id.is_(None),
+                )
+                .values(duplicados_reserva_operacion_id=None)
+            )
+
     async def evaluar_y_reservar_bajo_coordinacion(
         self,
         *,
@@ -4198,6 +4291,9 @@ class DuplicadosLotesService:
             )
         if ambiente not in {"homologacion", "produccion"}:
             raise DuplicadosLoteError("El ambiente de coordinación no es válido.")
+        await self.recuperar_reservas_terminales(
+            empresa_id=empresa_id, ambiente=ambiente
+        )
         operacion = (
             await self.db.execute(
                 select(OperacionIdempotente)

@@ -216,3 +216,18 @@ permanece fuera del repositorio.
 
 La evidencia histórica retirada de este documento se conserva en
 [`manual-qa-through-v0.3.2.md`](../project/history/manual-qa-through-v0.3.2.md).
+
+## Reintento parcial en segundo plano
+
+En entorno de prueba con ARCA simulado, preparar un lote parcial con autorizados
+anteriores y más fallidos seguros que el límite de un bloque. Seleccionar sólo
+parte y confirmar fecha/PV; comprobar inicio en cola, progreso desde cero sobre
+esa selección y conservación del resto. Recargar y volver al lote: recuperar
+la misma operación, sin otro POST fiscal.
+
+Simular fallo WSDL antes de CAE: debe quedar el motivo de conexión, sin consejo
+de cambiar fecha/número, y los pendientes seguros deben volver a revisión.
+Simular timeout después del envío: conservar incertidumbre, bloquear reintento y
+reconciliar antes de repetir. Repetir la misma clave y competir desde otra sesión:
+una sola ejecución, sin liberar reservas ajenas, activas o inciertas. No ejecutar
+estos fallos ni pedir CAE reales como smoke productivo.

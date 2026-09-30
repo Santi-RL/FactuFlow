@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import (
+    ArcaConnectionError,
+    ArcaAuthError,
     ArcaErrorGlobalEstructurado,
     ArcaServiceError,
     ArcaValidationError,
@@ -297,12 +299,7 @@ class FacturacionService:
             raise ValidationError("Empresa no encontrada")
 
         certificado = await self._obtener_certificado_activo(empresa_id)
-        ticket = await self._obtener_ticket_acceso(empresa, certificado)
-        wsfe_client = WSFEv1Client(
-            ambiente=self._get_arca_ambiente(),
-            ticket=ticket,
-            cuit=empresa.cuit,
-        )
+        wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
         return await wsfe_client.fe_comp_tot_x_request()
 
     async def verificar_numeracion_segura_para_emision(
@@ -330,12 +327,7 @@ class FacturacionService:
 
         certificado = await self._obtener_certificado_activo(empresa_id)
         await self.db.commit()
-        ticket = await self._obtener_ticket_acceso(empresa, certificado)
-        wsfe_client = WSFEv1Client(
-            ambiente=self._get_arca_ambiente(),
-            ticket=ticket,
-            cuit=empresa.cuit,
-        )
+        wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
         await self._validar_punto_venta_habilitado(wsfe_client, punto_venta.numero)
         diagnostico = await self._obtener_diagnostico_numeracion(
             empresa_id,
@@ -442,12 +434,7 @@ class FacturacionService:
         if empresa is None:
             return self._respuesta_intento_requiere_reconciliacion(intento)
         certificado = await self._obtener_certificado_activo(intento.empresa_id)
-        ticket = await self._obtener_ticket_acceso(empresa, certificado)
-        wsfe_client = WSFEv1Client(
-            ambiente=self._get_arca_ambiente(),
-            ticket=ticket,
-            cuit=empresa.cuit,
-        )
+        wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
         reconciliado = await self._reconciliar_intento_stale(
             intento=intento,
             wsfe_client=wsfe_client,
@@ -599,12 +586,7 @@ class FacturacionService:
             )
 
             await self.db.commit()
-            ticket = await self._obtener_ticket_acceso(empresa, certificado)
-            wsfe_client = WSFEv1Client(
-                ambiente=self._get_arca_ambiente(),
-                ticket=ticket,
-                cuit=empresa.cuit,
-            )
+            wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
             await self._validar_punto_venta_habilitado(
                 wsfe_client,
                 punto_venta_numero,
@@ -1188,7 +1170,7 @@ class FacturacionService:
                     contexto="validacion_batch_pre_arca",
                 )
             return respuestas_validacion
-        except Exception:
+        except Exception as exc:
             logger.exception("Error inesperado al emitir sublote")
             if arca_iniciada_en_esta_llamada:
                 resultados_por_numero = {
@@ -1247,8 +1229,21 @@ class FacturacionService:
                     numero=0,
                     fecha=request.fecha_emision,
                     total=Decimal("0"),
-                    mensaje="Error inesperado",
-                    errores=[ERROR_INTERNO_EMISION_PUBLICO],
+                    mensaje=(
+                        "La conexión con ARCA no está disponible. No se solicitó CAE."
+                        if isinstance(exc, (ArcaConnectionError, ArcaAuthError))
+                        else "No se pudo preparar la emisión. No se solicitó CAE."
+                    ),
+                    errores=(
+                        ["Podés reintentar los pendientes seguros desde este lote."]
+                        if isinstance(exc, (ArcaConnectionError, ArcaAuthError))
+                        else [ERROR_INTERNO_EMISION_PUBLICO]
+                    ),
+                    categoria_error=(
+                        "preparacion_arca_no_disponible"
+                        if isinstance(exc, (ArcaConnectionError, ArcaAuthError))
+                        else None
+                    ),
                 )
                 for request in requests
             ]
@@ -1382,12 +1377,7 @@ class FacturacionService:
 
             # 4. Autenticar contra ARCA y reconciliar numeración
             await self.db.commit()
-            ticket = await self._obtener_ticket_acceso(empresa, certificado)
-            wsfe_client = WSFEv1Client(
-                ambiente=self._get_arca_ambiente(),
-                ticket=ticket,
-                cuit=empresa.cuit,
-            )
+            wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
             await self._validar_punto_venta_habilitado(wsfe_client, punto_venta_numero)
             diagnostico = await self._obtener_diagnostico_numeracion(
                 request.empresa_id,
@@ -1789,7 +1779,7 @@ class FacturacionService:
                     contexto="validacion_individual_pre_arca",
                 )
             return respuesta_validacion
-        except Exception:
+        except Exception as exc:
             logger.exception("Error inesperado al emitir comprobante")
             if arca_iniciada_en_esta_llamada:
                 respuesta = self._respuesta_post_arca_requiere_reconciliacion(
@@ -1826,8 +1816,21 @@ class FacturacionService:
                 numero=0,
                 fecha=request.fecha_emision,
                 total=Decimal("0"),
-                mensaje="Error inesperado",
-                errores=[ERROR_INTERNO_EMISION_PUBLICO],
+                mensaje=(
+                    "La conexión con ARCA no está disponible. No se solicitó CAE."
+                    if isinstance(exc, (ArcaConnectionError, ArcaAuthError))
+                    else "No se pudo preparar la emisión. No se solicitó CAE."
+                ),
+                errores=(
+                    ["Volvé a intentar cuando se restablezca el servicio."]
+                    if isinstance(exc, (ArcaConnectionError, ArcaAuthError))
+                    else [ERROR_INTERNO_EMISION_PUBLICO]
+                ),
+                categoria_error=(
+                    "preparacion_arca_no_disponible"
+                    if isinstance(exc, (ArcaConnectionError, ArcaAuthError))
+                    else None
+                ),
             )
             if intento is not None and guarda is not None:
                 await self._persistir_intento_y_guarda_rece(
@@ -1911,12 +1914,7 @@ class FacturacionService:
             raise ValidationError("Empresa no encontrada")
         certificado = await self._obtener_certificado_activo(empresa_id)
         await self.db.commit()
-        ticket = await self._obtener_ticket_acceso(empresa, certificado)
-        wsfe_client = WSFEv1Client(
-            ambiente=self._get_arca_ambiente(),
-            ticket=ticket,
-            cuit=empresa.cuit,
-        )
+        wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
         return await self._obtener_diagnostico_numeracion(
             empresa_id,
             punto_venta_id,
@@ -1952,12 +1950,7 @@ class FacturacionService:
         empresa = await self._obtener_empresa(empresa_id)
         certificado = await self._obtener_certificado_activo(empresa_id)
         await self.db.commit()
-        ticket = await self._obtener_ticket_acceso(empresa, certificado)
-        wsfe_client = WSFEv1Client(
-            ambiente=self._get_arca_ambiente(),
-            ticket=ticket,
-            cuit=empresa.cuit,
-        )
+        wsfe_client = await self._obtener_cliente_wsfe(empresa, certificado)
         return await self._obtener_proximo_numero(
             empresa_id,
             punto_venta_id,
@@ -2035,7 +2028,7 @@ class FacturacionService:
                 total=total,
                 mensaje="No se pudo reconfirmar la numeración fiscal antes de emitir",
                 errores=[
-                    "No se envió ninguna solicitud de CAE. Actualizá la numeración y volvé a confirmar la emisión."
+                    "No se solicitó CAE. La consulta a ARCA no está disponible; volvé a intentar cuando se restablezca la conexión."
                 ],
                 categoria_error="preflight_arca_no_disponible",
             )
@@ -3082,6 +3075,29 @@ class FacturacionService:
             return ArcaAmbiente.HOMOLOGACION
         raise ValidationError("El ambiente ARCA configurado no es válido")
 
+    async def _obtener_cliente_wsfe(self, empresa: Empresa, certificado: Certificado):
+        """Reutiliza preparación dentro de esta operación, con identidad completa."""
+        ticket = await self._obtener_ticket_acceso(empresa, certificado)
+        ambiente = self._get_arca_ambiente()
+        clave = (
+            empresa.id,
+            ambiente.value,
+            certificado.id,
+            certificado.archivo_crt,
+            certificado.archivo_key,
+            ticket.token,
+            ticket.sign,
+        )
+        clientes = getattr(self, "_clientes_wsfe", {})
+        if clave not in clientes:
+            from app.arca.soap import run_soap_call
+
+            clientes[clave] = await run_soap_call(
+                WSFEv1Client, ambiente=ambiente, ticket=ticket, cuit=empresa.cuit
+            )
+            self._clientes_wsfe = {clave: clientes[clave]}
+        return clientes[clave]
+
     async def _obtener_ticket_acceso(self, empresa: Empresa, certificado: Certificado):
         """Obtiene ticket WSAA para la empresa con material local utilizable."""
         cert_path, key_path = requerir_material_certificado(
@@ -3696,7 +3712,8 @@ class FacturacionService:
                 if not respuesta_es_sql_null:
                     ownership_valido = (
                         ownership_lote_valido
-                        and operacion.tipo_operacion == "procesar_lote"
+                        and operacion.tipo_operacion
+                        in {"procesar_lote", "reintentar_fallidos_lote"}
                         and IdempotenciaFiscalService.respuesta_worker_en_progreso_valida(
                             operacion.response_json,
                             lote_id=int(lote.id),
@@ -3884,7 +3901,11 @@ class FacturacionService:
         if operacion.lote_id is not None:
             lote_background = False
         if not respuesta_es_sql_null:
-            if operacion.tipo_operacion != "procesar_lote" or operacion.lote_id is None:
+            if (
+                operacion.tipo_operacion
+                not in {"procesar_lote", "reintentar_fallidos_lote"}
+                or operacion.lote_id is None
+            ):
                 raise SQLAlchemyTimeoutError(
                     "La operación fiscal conserva una respuesta incompatible."
                 )
@@ -3931,13 +3952,7 @@ class FacturacionService:
                 and lote_background is None
                 and respuesta_es_sql_null
             )
-        elif operacion.tipo_operacion == "reintentar_fallidos_lote":
-            ownership_valido = (
-                operacion.lote_id is not None
-                and lote_background is False
-                and respuesta_es_sql_null
-            )
-        elif operacion.tipo_operacion == "procesar_lote":
+        elif operacion.tipo_operacion in {"procesar_lote", "reintentar_fallidos_lote"}:
             ownership_valido = operacion.lote_id is not None and (
                 (lote_background is False and respuesta_es_sql_null)
                 or (

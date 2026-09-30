@@ -25,9 +25,8 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-13/PF-17, parche de emisión parcial y reintentos | Ahora 1 | P1 operativa | Recuperación sin reservas huérfanas, reintento eficiente, progreso y errores accionables | [Alcance y aceptación](pf-13-17-reintentos-seguros-parche.md); preserva PF-01/PF-02/PF-03/PF-19 y duplicados; cambios acotados en WSAA, errores y trazabilidad sin esperar PF-09/PF-14/PF-15 completos |
-| RG 5616, parche de receptor | Ahora 2 | P1 fiscal/operativa | Condición IVA válida y presente en toda nueva solicitud de autorización | [Alcance cerrado](rg-5616-condicion-iva-receptor-parche.md); regla compartida con PF-13, sin esperar su ampliación |
-| PF-11/PF-15, recuperación operativa | Ahora 3 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| RG 5616, parche de receptor | Ahora 1 | P1 fiscal/operativa | Condición IVA válida y presente en toda nueva solicitud de autorización | [Alcance cerrado](rg-5616-condicion-iva-receptor-parche.md); regla compartida con PF-13, sin esperar su ampliación |
+| PF-11/PF-15, recuperación operativa | Ahora 2 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
 | PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
@@ -68,11 +67,6 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 ### PF-10/PF-13/PF-16/PF-17/PF-18
 
-- PF-13/PF-17, **P1, Ahora**: parche acotado de emisión parcial y reintentos.
-  Incluye preparación de conexión, reservas residuales, ejecución eficiente,
-  progreso recuperable y errores fieles a la fase fiscal. Su
-  [contrato de aceptación](pf-13-17-reintentos-seguros-parche.md) lo separa de
-  eficiencia general, plantillas y rediseño visual futuros.
 - PF-13, con PF-17: constructor de plantillas e importación contable con
   `FC`/`NC`/`ND`, letra, CUIT y condición IVA por fila; requisitos condicionales,
   vista de interpretación y mensajes que identifiquen fila y columna. El
@@ -155,7 +149,6 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
-| Emisión parcial y reintentos | [Alcance y aceptación](pf-13-17-reintentos-seguros-parche.md): cerrar transiciones y ownership, ejecución durable/progreso, reutilización segura del envío masivo y medición comparativa; completar checklist fiscal antes de implementar. |
 | RG 5616, parche de receptor | [Alcance cerrado](rg-5616-condicion-iva-receptor-parche.md): verificar códigos y compatibilidad oficiales para el dominio soportado, tratamiento de valores ambiguos y aceptación fiscal. Sin ampliar plantillas ni modificar historia. |
 | Recuperación/trazabilidad | [Diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md): productor y cobertura de evidencia, escrituras posteriores y permisos; evidencia de instalación en el plano de control. |
 | Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): política de documento B/CF, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
@@ -169,11 +162,8 @@ unidad antes de convertirse en una tarea ejecutable.
 
 ## Orden aceptado
 
-El parche de emisión parcial y reintentos PF-13/PF-17 es la siguiente unidad de
-desarrollo, con prioridad P1 por bloqueo operativo confirmado. Siguen RG 5616 de
-condición IVA del receptor y recuperación/trazabilidad, en ese orden. El resto
-del orden y los alcances se conservan. Resolver un lote con intervención privada
-no acredita el cierre del parche ni su despliegue.
+La siguiente unidad es RG 5616 de condición IVA del receptor; después sigue
+recuperación/trazabilidad. El resto del orden y los alcances se conservan.
 Se conservan los requisitos de respaldo y recuperación de cada operación.
 La publicación de duplicados se consulta en su dossier y no autoriza
 a iniciar otra unidad ni incorpora el rediseño visual completo o la ampliación
@@ -196,6 +186,11 @@ del constructor.
    independientes de los nuevos agregados.
 
 ## Líneas cerradas
+
+El parche de emisión parcial y reintentos está implementado; su
+[contrato](pf-13-17-reintentos-seguros-parche.md) y
+[dossier](../project/releases/pf13-17-reintentos-seguros.md) conservan el alcance
+y la evidencia. No cierra plantillas, eficiencia general ni el rediseño visual.
 
 El corte de prevención de duplicados PF-13/PF-17 está implementado; su contrato
 vive en [duplicados](pf-13-duplicados-lotes-design.md) y su publicación en el

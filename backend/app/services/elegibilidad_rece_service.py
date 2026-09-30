@@ -2294,7 +2294,9 @@ class ElegibilidadReceService:
                 or lote_operacion.modo_procesamiento == "background"
             )
             if operacion_propietaria.tipo_operacion == "reintentar_fallidos_lote":
-                lote_background = False
+                lote_background = bool(
+                    (lote_operacion.metadata_json or {}).get("reintento_background")
+                )
             else:
                 lote_background = modo_background_db
             metadata_lote = lote_operacion.metadata_json
@@ -2432,7 +2434,10 @@ class ElegibilidadReceService:
         estados_lote_permitidos: set[str] = set()
         estados_grupo_permitidos: set[str] = set()
         if intentos_batch:
-            if operacion_propietaria.tipo_operacion == "procesar_lote":
+            if operacion_propietaria.tipo_operacion == "procesar_lote" or (
+                operacion_propietaria.tipo_operacion == "reintentar_fallidos_lote"
+                and lote_background
+            ):
                 estados_lote_permitidos = {"procesando"}
                 estados_grupo_permitidos = {"validado"}
             elif operacion_propietaria.tipo_operacion == "reintentar_fallidos_lote":

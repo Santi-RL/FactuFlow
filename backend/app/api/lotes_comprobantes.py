@@ -40,7 +40,11 @@ from app.core.database import (
 )
 from app.core.date_parsing import parse_fecha_input
 from app.models.empresa import Empresa
-from app.models.idempotencia_fiscal import OperacionIdempotente
+from app.models.idempotencia_fiscal import OperacionIdempotente, IntentoEmisionFiscal
+from app.models.elegibilidad_rece import (
+    PuntoVentaGuardaEmisionRece,
+    FASES_GUARDA_RECE_ACTIVAS,
+)
 from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.models.usuario import Usuario
 from app.schemas.comprobante import ErrorArcaFiscalResponse
@@ -1585,6 +1589,8 @@ async def procesar_lote(
 @router.post("/{lote_id}/reintentar-fallidos", response_model=LoteAccionResponse)
 async def reintentar_fallidos_lote(
     lote_id: int,
+    request: Request,
+    background: bool = Query(False),
     request_body: LoteGrupoIdsRequest = Body(default_factory=LoteGrupoIdsRequest),
     x_confirmacion_fecha_fiscal: str | None = Header(default=None),
     x_idempotency_key: str | None = Header(default=None),
@@ -1616,6 +1622,7 @@ async def reintentar_fallidos_lote(
                     "autorizado",
                     "requiere_reconciliacion",
                 }
+                | ({"validado"} if background else set())
             ),
             grupo_ids=grupo_ids,
         )
@@ -1632,6 +1639,8 @@ async def reintentar_fallidos_lote(
             "grupo_ids_resueltos": material_grupos["grupo_ids"],
             "grupos_hash": material_grupos["grupos_hash"],
         }
+        if background:
+            payload_operacion["background"] = True
         if x_idempotency_key:
             idempotencia_replay = IdempotenciaFiscalService(db)
             payload_hash_replay = idempotencia_replay.calcular_payload_hash(
@@ -1666,6 +1675,14 @@ async def reintentar_fallidos_lote(
                     lote_id=lote_id,
                     empresa_id=empresa_activa_id,
                 )
+        if background and not ensure_lote_worker_running(request.app):
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "mensaje": "El procesamiento en segundo plano no está disponible. No se solicitó CAE.",
+                    "categoria_error": "worker_lotes_no_disponible",
+                },
+            )
         propietario_legacy_id = None
         if x_idempotency_key:
             propietario_legacy_id = await _bloquear_remanente_legacy_no_reconfirmable(
@@ -1873,6 +1890,19 @@ async def reintentar_fallidos_lote(
                 solicitante_nombre=current_user_nombre,
             )
 
+        if background:
+            lote = await service.encolar_reintento(
+                lote_id=lote_id,
+                empresa_id=empresa_activa_id,
+                operacion_id=operacion_id_durable,
+                material_rece=material_rece,
+                contextos_rece=contextos_rece,
+                confirmacion_duplicado_logico=confirmacion_duplicado_ok,
+            )
+            return LoteAccionResponse(
+                lote=_serialize_lote(lote), mensaje=lote.mensaje_resumen
+            )
+
         lote = await service.reintentar_grupos_fallidos(
             lote_id=lote_id,
             empresa_id=empresa_activa_id,
@@ -1927,6 +1957,54 @@ async def reintentar_fallidos_lote(
         raise HTTPException(status_code=409, detail="La evidencia cambió")
     except LoteComprobanteConflictoError as exc:
         await db.rollback()
+        if (
+            background
+            and operacion_id_durable is not None
+            and not fase_solicitud_arca.iniciada
+        ):
+            op_cierre = (
+                await db.execute(
+                    select(OperacionIdempotente)
+                    .where(
+                        OperacionIdempotente.id == operacion_id_durable,
+                        OperacionIdempotente.empresa_id == empresa_activa_id,
+                        OperacionIdempotente.lote_id == lote_id,
+                        OperacionIdempotente.estado == "en_proceso",
+                        OperacionIdempotente.response_json.is_(None),
+                    )
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            intento_activo = await db.scalar(
+                select(IntentoEmisionFiscal.id)
+                .where(
+                    IntentoEmisionFiscal.operacion_id == operacion_id_durable,
+                    IntentoEmisionFiscal.estado.in_(
+                        {"en_proceso", "requiere_reconciliacion"}
+                    ),
+                )
+                .limit(1)
+            )
+            guarda_activa = await db.scalar(
+                select(PuntoVentaGuardaEmisionRece.id)
+                .where(
+                    PuntoVentaGuardaEmisionRece.operacion_id == operacion_id_durable,
+                    PuntoVentaGuardaEmisionRece.fase.in_(FASES_GUARDA_RECE_ACTIVAS),
+                )
+                .limit(1)
+            )
+            if (
+                op_cierre is not None
+                and intento_activo is None
+                and guarda_activa is None
+            ):
+                await _guardar_y_lanzar_error_operacion_lote(
+                    idempotencia,
+                    op_cierre,
+                    mensaje=str(exc),
+                    categoria_error="lote_conflicto_pre_arca",
+                    status_code=409,
+                )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),

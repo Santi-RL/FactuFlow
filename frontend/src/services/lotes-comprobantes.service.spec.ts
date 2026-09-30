@@ -94,6 +94,7 @@ describe("lotesComprobantesService", () => {
       "/api/lotes-comprobantes/42/reintentar-fallidos",
       { grupo_ids: [8, 9] },
       {
+        params: { background: true },
         headers: {
           "X-Confirmacion-Fecha-Fiscal": "confirmacion-reintento",
           "X-Idempotency-Key": "operacion-reintento",

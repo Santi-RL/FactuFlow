@@ -14,6 +14,9 @@ autoriza producción.
 
 ## Índice
 
+- [`pf13-17-reintentos-seguros.md`](pf13-17-reintentos-seguros.md): diseño fiscal,
+  compatibilidad y evidencia del parche de emisión parcial y reintentos.
+
 - [`pf13-duplicados-candidate.md`](pf13-duplicados-candidate.md): cierre y
   publicación de `v0.3.6`, prevención de duplicados PF-13/PF-17.
 - [`v0.3.5-candidate.md`](v0.3.5-candidate.md): cierre y publicación de

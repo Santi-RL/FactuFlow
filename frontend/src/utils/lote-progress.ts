@@ -1,4 +1,7 @@
-import type { LoteComprobante } from "@/types/lote-comprobante";
+import type {
+  LoteComprobante,
+  LoteOperacionProgreso,
+} from "@/types/lote-comprobante";
 
 export interface LoteProgressInfo {
   procesados: number;
@@ -12,6 +15,9 @@ export interface LoteProgressInfo {
   restanteSegundos: number | null;
   transcurridoTexto: string;
   restanteTexto: string;
+  autorizados: number;
+  fallidos: number;
+  inciertos: number;
 }
 
 const ESTADOS_ACTIVOS = new Set(["en_cola", "procesando"]);
@@ -20,7 +26,8 @@ const parseDate = (value?: string | null) => {
   if (!value) return null;
   const trimmed = value.trim();
   const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
-  const normalized = trimmed.includes("T") && !hasTimeZone ? `${trimmed}Z` : trimmed;
+  const normalized =
+    trimmed.includes("T") && !hasTimeZone ? `${trimmed}Z` : trimmed;
   const parsed = new Date(normalized);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
@@ -45,9 +52,16 @@ export const calcularProgresoLote = (
   now: Date = new Date(),
   fallbackStartedAt: Date | null = null,
 ): LoteProgressInfo => {
-  const procesados = lote.grupos_emitidos + lote.grupos_fallidos;
-  const pendientes = lote.grupos_validos;
-  const totalEmitible = procesados + pendientes;
+  const operacion =
+    lote.operacion_progreso ||
+    (lote.metadata_json?.operacion_progreso as
+      LoteOperacionProgreso | undefined);
+  const autorizados = operacion?.autorizados ?? lote.grupos_emitidos;
+  const fallidos = operacion?.fallidos ?? lote.grupos_fallidos;
+  const inciertos = operacion?.inciertos ?? 0;
+  const procesados = autorizados + fallidos + inciertos;
+  const pendientes = operacion?.pendientes ?? lote.grupos_validos;
+  const totalEmitible = operacion?.seleccionados ?? procesados + pendientes;
   const porcentaje =
     totalEmitible > 0 ? Math.round((procesados / totalEmitible) * 100) : 0;
   const estaEnCola = lote.estado === "en_cola";
@@ -67,6 +81,9 @@ export const calcularProgresoLote = (
         : null;
 
   return {
+    autorizados,
+    fallidos,
+    inciertos,
     procesados,
     pendientes,
     totalEmitible,
@@ -78,6 +95,8 @@ export const calcularProgresoLote = (
     restanteSegundos,
     transcurridoTexto: formatDuration(transcurridoSegundos),
     restanteTexto:
-      restanteSegundos === null ? "Estimando..." : formatDuration(restanteSegundos),
+      restanteSegundos === null
+        ? "Estimando..."
+        : formatDuration(restanteSegundos),
   };
 };

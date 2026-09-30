@@ -56,6 +56,18 @@ class LoteComprobanteGrupoDetalleResponse(LoteComprobanteGrupoResponse):
     descripcion_facturada: Optional[str] = None
 
 
+class LoteOperacionProgreso(BaseModel):
+    """Contadores de la selección de la operación actual, sin datos fiscales."""
+
+    model_config = ConfigDict(extra="forbid")
+    operacion_id: int
+    seleccionados: int
+    autorizados: int
+    fallidos: int
+    pendientes: int
+    inciertos: int
+
+
 class LoteComprobanteResponse(BaseModel):
     """Representa el estado general de un lote."""
 
@@ -112,6 +124,7 @@ class LoteComprobanteSeguimientoResponse(BaseModel):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     updated_at: datetime
+    operacion_progreso: LoteOperacionProgreso | None = None
 
 
 class LoteComprobanteDetalleResponse(LoteComprobanteResponse):

@@ -6192,6 +6192,7 @@ async def test_seguimiento_lote_es_liviano_y_no_muta_updated_at(
     assert data["estado"] == "en_cola"
     assert data["modo_procesamiento"] == "background"
     assert set(data) == {
+        "operacion_progreso",
         "id",
         "estado",
         "modo_procesamiento",

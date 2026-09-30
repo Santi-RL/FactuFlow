@@ -683,3 +683,12 @@ copiarse a la documentación versionada.
 
 - Curacion documental: `docs/arca-ws/README.md`
 - Notas prácticas: `docs/arca-ws/NOTAS.md`
+
+## Preparación y reintentos de lotes
+
+WSAA comprueba el ticket cacheado por emisor, ambiente, servicio y huella de
+certificado antes de construir el cliente WSDL. WSFE se reutiliza por operación
+y ticket. El reintento background conserva las guardas de emisión masiva y
+reconciliación; un fallo de preparación acreditado no equivale a un rechazo
+fiscal ni autoriza repetir un resultado incierto. El contrato vive en
+[reintentos seguros](pf-13-17-reintentos-seguros-parche.md).

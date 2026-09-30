@@ -12,6 +12,42 @@ from app.arca.config import ArcaAmbiente
 from app.arca.wsaa import WSAAClient
 
 
+@pytest.mark.asyncio
+async def test_ticket_cacheado_no_necesita_preparar_wsdl(tmp_path, monkeypatch):
+    """Una interrupción WSDL no impide usar un ticket vigente ya acreditado."""
+    cert = tmp_path / "cert.crt"
+    key = tmp_path / "key.key"
+    cert.write_bytes(b"certificado sintetico")
+    key.write_bytes(b"clave sintetica")
+    cache = TokenCache(storage_path=str(tmp_path / "cache.json"))
+    monkeypatch.setattr(wsaa_module, "get_token_cache", lambda: cache)
+    cliente = WSAAClient(ArcaAmbiente.HOMOLOGACION)
+    assert cliente.client is None
+    from app.arca.models import TicketAcceso
+
+    ticket = TicketAcceso(
+        token="token-sintetico",
+        sign="sign-sintetico",
+        servicio="wsfe",
+        expiracion=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    clave = cache.get_cache_key(
+        "wsfe",
+        "20123456789",
+        "homologacion",
+        cliente._certificate_fingerprint(str(cert)),
+    )
+    await cache.set(clave, ticket)
+
+    def no_cargar_wsdl(*args, **kwargs):
+        pytest.fail("La caché vigente no debe cargar WSDL")
+
+    monkeypatch.setattr(wsaa_module, "create_soap_client", no_cargar_wsdl)
+    assert (
+        await cliente.login(str(cert), str(key), "20123456789")
+    ).token == ticket.token
+
+
 def _wsaa_response(token: str) -> str:
     """Construye una respuesta WSAA mínima para tests."""
     expiration = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()

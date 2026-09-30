@@ -18,6 +18,22 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Emisión parcial y reintentos seguros
+
+- El reintento confirmado queda en cola y usa el worker y los bloques de emisión
+  masiva; conserva selección, autorizados previos y resultado durable.
+- El seguimiento y la recarga muestran el progreso de la operación actual,
+  separando seleccionados, autorizados, fallidos, pendientes e inciertos.
+- WSAA aprovecha el ticket cacheado antes de cargar el WSDL; WSFE reutiliza su
+  cliente por operación, con aislamiento por emisor, ambiente y ticket.
+- Los errores previos a CAE cierran pendientes seguros y reservas propias. Una
+  nueva admisión recupera reservas residuales sólo de propietarios terminales
+  acreditados, sin intentos ni guardas activos o inciertos.
+- Los conflictos anteriores a la cola conservan replay terminal. Los fallos de
+  conexión persisten sin recomendar cambiar fecha o numeración.
+- Se mantiene la API síncrona anterior; la pantalla usa `background=true`.
+  Los resultados inciertos conservan reconciliación y nunca se reenvían a ciegas.
+
 ## [0.3.6] - 2026-09-08
 
 ### Seguridad de lectura PDF
