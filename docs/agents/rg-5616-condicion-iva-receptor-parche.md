@@ -1,26 +1,32 @@
 # RG 5616 — parche de condición IVA del receptor
 
-Fecha: 08/09/2026. Estado: alcance aceptado; implementación pendiente.
+Fecha: 01/10/2026. Estado: contrato implementado para el dominio soportado.
 
 ## Objetivo y prioridad
 
 Garantizar que toda nueva solicitud de autorización de los comprobantes ya
 soportados envíe `CondicionIVAReceptorId` presente, válido y compatible con su
-clase. Es un parche P1 de seguridad fiscal y continuidad operativa, a continuación
-del parche de emisión parcial y reintentos según el orden de
-[ROADMAP.md](../../ROADMAP.md). No acredita un incidente productivo ni el
+clase. Es un parche P1 de seguridad fiscal y continuidad operativa que sucede
+al parche de emisión parcial y reintentos. No acredita un incidente productivo ni el
 cumplimiento de una instalación hasta su verificación autorizada.
 
-El código ya mapea RI, Monotributo, Exento y CF, pero permite omitir el campo
-cuando el mapeo no reconoce el valor. Además, ofrece «Responsable No Inscripto»
-y lo convierte en RI. El aviso recibido anuncia rechazo por ausencia del dato
+El parche corrige la omisión del campo ante un valor desconocido y la conversión
+incorrecta de «Responsable No Inscripto» en RI. El aviso recibido anuncia rechazo
+por ausencia del dato
 desde el 01/12/2026. Su evidencia permanece privada; esa fecha no compromete una
 release ni posterga la corrección del contrato fiscal.
 
 Fuentes: [RG 5616/2024, artículo 2](https://www.argentina.gob.ar/normativa/nacional/norma-407369/texto)
 y [manual oficial WSFEv1](https://www.afip.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf),
 campo `CondicionIVAReceptorId`, validaciones 10242/10243/10246 y catálogo
-`FEParamGetCondicionIvaReceptor`. Verificar la matriz vigente antes de codificar.
+`FEParamGetCondicionIvaReceptor`. La matriz v4.7 se verificó antes de implementar
+y está en el [dossier fiscal](../project/releases/rg5616-condicion-iva.md).
+
+Entre las cuatro condiciones soportadas, A admite RI y Monotributo; B admite
+Exento y CF; C admite las cuatro. La regla compartida valida importación y nuevas
+solicitudes del servicio y vuelve a exigir el ID al serializar WSFE. El cálculo
+de hashes reconoce la normalización anterior y la actual sólo para verificar
+evidencia; no habilita emisiones ni reclasifica registros.
 
 ## Alcance cerrado
 

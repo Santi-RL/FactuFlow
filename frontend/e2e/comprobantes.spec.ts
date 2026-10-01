@@ -151,7 +151,7 @@ test.describe("Emisión de Comprobantes", () => {
     await page.getByLabel(/número/i).fill("20123456789");
     await page
       .getByLabel(/condición iva/i)
-      .selectOption({ label: "Responsable Inscripto" });
+      .selectOption({ label: "Exento" });
     await page.getByLabel(/razón social/i).fill("Cliente Emitir");
 
     // Item
@@ -285,7 +285,7 @@ test.describe("Emisión de Comprobantes", () => {
     await page.getByLabel(/número/i).fill("20123456789");
     await page
       .getByLabel(/condición iva/i)
-      .selectOption({ label: "Responsable Inscripto" });
+      .selectOption({ label: "Exento" });
     await page.getByLabel(/razón social/i).fill("Cliente Incierto");
     await page
       .getByLabel(/descripción/i)

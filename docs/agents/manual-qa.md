@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 05/09/2026
+Última revisión: 01/10/2026
 
 Estado: VIGENTE.
 
@@ -24,6 +24,11 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ### Fiscal o ARCA
 
+- Condición IVA del receptor: comprobar opciones compatibles A (RI/Monotributo),
+  B (Exento/CF) y C (las cuatro); un cliente legacy RNI debe quedar visible y
+  permitir corrección sin sustitución automática. Un lote con IVA vacío o
+  incompatible informa el comprobante afectado; un formato con condición fija
+  válida sigue funcionando sin columna adicional. Usar dobles sin salida CAE.
 - fecha visible y payload técnico correctos;
 - confirmación irreversible con fecha y punto cuando corresponda;
 - éxito, rechazo, timeout y respuesta incierta;

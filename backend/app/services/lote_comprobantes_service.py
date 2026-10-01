@@ -39,6 +39,7 @@ from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import ArcaServiceError, ArcaValidationError
 from app.arca.utils import clean_cuit, validate_cuit
 from app.core.config import settings
+from app.core.condicion_iva_receptor import normalizar_condicion_iva_receptor
 from app.core.database import (
     DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS,
     DatabaseTransactionBoundaryError,
@@ -286,14 +287,6 @@ class LoteComprobantesService:
         "CI": 99,
         "99": 99,
         "CONSUMIDOR FINAL": 99,
-    }
-    CONDICION_IVA_MAP = {
-        "RESPONSABLE INSCRIPTO": "RI",
-        "RI": "RI",
-        "MONOTRIBUTO": "Monotributo",
-        "EXENTO": "Exento",
-        "CONSUMIDOR FINAL": "CF",
-        "CF": "CF",
     }
 
     def __init__(self, db: AsyncSession):
@@ -6303,13 +6296,11 @@ class LoteComprobantesService:
             )
 
         if condicion_iva is None:
-            condicion_raw = str(header.get("cliente_condicion_iva", "")).strip()
-            if not condicion_raw and tipo_documento == 99:
-                condicion_iva = "CF"
-            else:
-                mensajes.append(
-                    f"La condición IVA del receptor en {comprobante_ref} no es válida"
-                )
+            mensajes.append(
+                f"La condición IVA del receptor en {comprobante_ref} no es válida. "
+                "Indicá Responsable Inscripto, Monotributo, Exento o Consumidor Final "
+                "según su situación fiscal. Responsable No Inscripto requiere corrección explícita."
+            )
         elif tipo_documento == 80 and condicion_iva == "CF":
             mensajes.append(
                 f"El receptor en {comprobante_ref} tiene CUIT pero figura como consumidor final. Configurá una condición IVA del receptor o dejá el documento vacío cuando la normativa lo permita."
@@ -7198,5 +7189,4 @@ class LoteComprobantesService:
         return self.TIPO_DOCUMENTO_MAP.get(normalized)
 
     def _parse_condicion_iva(self, value: Any) -> str | None:
-        normalized = str(value or "").strip().upper()
-        return self.CONDICION_IVA_MAP.get(normalized)
+        return normalizar_condicion_iva_receptor(str(value or ""))

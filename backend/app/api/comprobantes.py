@@ -430,6 +430,12 @@ async def _resolver_operacion_emitir(
         )
         if existente is not None:
             return idempotencia, existente, False, None
+        try:
+            FacturacionService(db)._obtener_condicion_iva_receptor_id(
+                request.condicion_iva, request.tipo_comprobante
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         await PuntosVentaArcaService(db).asegurar_comprobacion_reciente(
             empresa_id=empresa_id,
             puntos_venta_ids=[request.punto_venta_id],

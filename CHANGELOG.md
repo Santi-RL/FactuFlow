@@ -18,8 +18,23 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Condición IVA del receptor — RG 5616
+
+- Toda nueva solicitud individual o masiva incluye una condición IVA válida y
+  compatible con la clase del comprobante; se valida también en reintentos y
+  antes de construir el envío WSFE.
+- Los datos vacíos, desconocidos o incompatibles requieren corrección explícita.
+  «Responsable No Inscripto» deja de ofrecerse y no se convierte en RI ni CF.
+- La pantalla ofrece las condiciones compatibles y conserva visible un valor
+  anterior que necesita revisión. Archivos con una condición fija válida no
+  requieren columnas adicionales.
+- Los replays, autorizados y solicitudes inciertas conservan su resultado y
+  reconciliación; no se modifican datos históricos.
+
 ### Dependencias y CI sin advertencias
 
+- pypdf 6.19.0 corrige los ocho avisos de seguridad detectados en la versión
+  6.16.1; se conserva la lectura de constancias y comprobantes PDF.
 - La imagen del frontend usa Node 24.15.0 y npm 11.12.1, alineados con el
   proyecto. La CI construye esa imagen, bloquea advertencias y comprueba Nginx
   y los archivos compilados; el contexto excluye dependencias y salidas locales.

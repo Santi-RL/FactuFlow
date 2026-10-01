@@ -4416,11 +4416,13 @@ async def test_emitir_comprobante_cierra_intento_si_falla_segundo_preflight(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("condicion", ["Consumidor Final", "Exento"])
 async def test_rechazo_global_10005_cierra_grafo_y_replay_sin_arca(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
     batch: bool,
+    condicion: str,
 ) -> None:
     """Individual y batch persisten el 10005 sanitario como terminal durable."""
     _fijar_reloj_facturacion(monkeypatch)
@@ -4444,7 +4446,7 @@ async def test_rechazo_global_10005_cierra_grafo_y_replay_sin_arca(
             tipo_documento=99,
             numero_documento="0",
             razon_social="A CONSUMIDOR FINAL",
-            condicion_iva="Consumidor Final",
+            condicion_iva=condicion,
             guardar_cliente=False,
             moneda="PES",
             cotizacion=Decimal("1"),

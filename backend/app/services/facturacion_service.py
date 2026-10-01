@@ -27,6 +27,10 @@ from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
 from app.core.config import settings
+from app.core.condicion_iva_receptor import (
+    normalizar_condicion_iva_receptor,
+    resolver_condicion_iva_receptor_id,
+)
 from app.core.comprobante_totales import calcular_totales
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
@@ -218,7 +222,7 @@ class FacturacionService:
         94: "Pasaporte",
         99: "CI",
     }
-    CONDICION_IVA_MAP = {
+    _CONDICION_IVA_MAP_HISTORICO = {
         "Responsable Inscripto": "RI",
         "RI": "RI",
         "Monotributo": "Monotributo",
@@ -226,12 +230,6 @@ class FacturacionService:
         "Consumidor Final": "CF",
         "CF": "CF",
         "Responsable No Inscripto": "RI",
-    }
-    CONDICION_IVA_RECEPTOR_ID_MAP = {
-        "RI": 1,
-        "Monotributo": 6,
-        "Exento": 4,
-        "CF": 5,
     }
 
     def __init__(self, db: AsyncSession):
@@ -2164,6 +2162,9 @@ class FacturacionService:
         Raises:
             ValidationError: Si hay error de validación
         """
+        self._obtener_condicion_iva_receptor_id(
+            request.condicion_iva, request.tipo_comprobante
+        )
         # Factura A requiere CUIT del receptor
         if request.tipo_comprobante in [1, 2, 3]:
             if request.tipo_documento != 80:
@@ -2238,12 +2239,29 @@ class FacturacionService:
         self, request: EmitirComprobanteRequest
     ) -> EmitirComprobanteRequest:
         """Normaliza y valida datos mínimos del receptor según tipo e importe."""
+        self._obtener_condicion_iva_receptor_id(
+            request.condicion_iva, request.tipo_comprobante
+        )
+        return self._normalizar_datos_receptor(request, historico=False)
+
+    def _normalizar_datos_receptor(
+        self, request: EmitirComprobanteRequest, *, historico: bool
+    ) -> EmitirComprobanteRequest:
+        """La compatibilidad histórica se usa exclusivamente para verificar hashes."""
         total = self._calcular_totales(request.items)["total"]
-        condicion_iva = self._normalizar_condicion_iva(request.condicion_iva)
+        condicion_iva = (
+            self._CONDICION_IVA_MAP_HISTORICO.get(
+                request.condicion_iva, request.condicion_iva
+            )
+            if historico
+            else self._normalizar_condicion_iva(request.condicion_iva)
+        )
         numero_documento = clean_cuit(request.numero_documento)
         razon_social = request.razon_social.strip()
         domicilio = request.domicilio.strip() if request.domicilio else None
-        es_consumidor_final = condicion_iva == "CF" or request.tipo_documento == 99
+        es_consumidor_final = condicion_iva == "CF" or (
+            historico and request.tipo_documento == 99
+        )
         es_comprobante_a = request.tipo_comprobante in [1, 2, 3]
 
         if es_comprobante_a:
@@ -3231,7 +3249,7 @@ class FacturacionService:
             moneda_id=request.moneda,
             moneda_cotiz=request.cotizacion,
             condicion_iva_receptor_id=self._obtener_condicion_iva_receptor_id(
-                request.condicion_iva
+                request.condicion_iva, request.tipo_comprobante
             ),
             fecha_serv_desde=(
                 request.fecha_servicio_desde.strftime("%Y%m%d")
@@ -3655,15 +3673,9 @@ class FacturacionService:
                 and not isinstance(item.get("grupo_id"), bool)
             }
             grupos_por_id = {int(grupo.id): grupo for grupo in grupos_material}
-            payload_hash_por_grupo = {
-                grupo_id: IdempotenciaFiscalService.calcular_payload_hash(
-                    IdempotenciaFiscalService.payload_sin_confirmacion_duplicado(
-                        self.normalizar_receptor(
-                            EmitirComprobanteRequest.model_validate(
-                                grupo.payload_json or {}
-                            )
-                        ).model_dump(mode="json")
-                    )
+            payload_hashes_por_grupo = {
+                grupo_id: self._hashes_receptor_para_verificar_evidencia(
+                    EmitirComprobanteRequest.model_validate(grupo.payload_json or {})
                 )
                 for grupo_id, grupo in grupos_por_id.items()
             }
@@ -3704,7 +3716,7 @@ class FacturacionService:
                         == item_material["tipo_comprobante"]
                         and intento.grupo_id in grupos_por_id
                         and intento.payload_hash
-                        == payload_hash_por_grupo.get(intento.grupo_id)
+                        in payload_hashes_por_grupo[intento.grupo_id]
                         for intento in intentos_bloqueados
                     )
                 )
@@ -4322,12 +4334,37 @@ class FacturacionService:
 
     def _normalizar_condicion_iva(self, condicion_iva: str) -> str:
         """Normaliza condición de IVA desde UI/API a código persistido."""
-        return self.CONDICION_IVA_MAP.get(condicion_iva, condicion_iva)
+        return normalizar_condicion_iva_receptor(condicion_iva) or condicion_iva
 
-    def _obtener_condicion_iva_receptor_id(self, condicion_iva: str) -> int | None:
-        """Mapea la condición IVA del receptor al ID requerido por WSFE."""
-        condicion_normalizada = self._normalizar_condicion_iva(condicion_iva)
-        return self.CONDICION_IVA_RECEPTOR_ID_MAP.get(condicion_normalizada)
+    def _hashes_receptor_para_verificar_evidencia(
+        self, request: EmitirComprobanteRequest
+    ) -> set[str]:
+        """Reconstruye representaciones conocidas sin habilitar nuevas emisiones."""
+        hashes = set()
+        for historico in (False, True):
+            try:
+                normalizado = self._normalizar_datos_receptor(
+                    request, historico=historico
+                )
+            except ValidationError:
+                continue
+            hashes.add(
+                IdempotenciaFiscalService.calcular_payload_hash(
+                    IdempotenciaFiscalService.payload_sin_confirmacion_duplicado(
+                        normalizado.model_dump(mode="json")
+                    )
+                )
+            )
+        return hashes
+
+    def _obtener_condicion_iva_receptor_id(
+        self, condicion_iva: str, tipo_comprobante: int
+    ) -> int:
+        """Exige una condición válida y compatible para una nueva solicitud."""
+        try:
+            return resolver_condicion_iva_receptor_id(condicion_iva, tipo_comprobante)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
 
     def _parse_fecha_cae(self, fecha_str: Optional[str]) -> Optional[date]:
         """

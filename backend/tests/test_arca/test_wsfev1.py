@@ -38,6 +38,7 @@ def _comprobante(
     **extra,
 ):
     """Construye un request ARCA mínimo para pruebas."""
+    extra.setdefault("condicion_iva_receptor_id", 5)
     return ComprobanteRequest(
         punto_venta=punto_venta,
         tipo_cbte=tipo,
@@ -57,6 +58,36 @@ def _comprobante(
         moneda_cotiz=1,
         **extra,
     )
+
+
+@pytest.mark.parametrize("tipo,ids", [(1, [1, 6]), (6, [4, 5]), (11, [1, 4, 5, 6])])
+def test_detalle_wsfe_incluye_condicion_iva_compatible(tipo, ids):
+    client = _crear_cliente_wsfe(SimpleNamespace())
+    for codigo in ids:
+        request = _comprobante(tipo=tipo, condicion_iva_receptor_id=codigo)
+        assert client._build_fe_det_request(request)["CondicionIVAReceptorId"] == codigo
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize(
+    "tipo,codigo", [(6, None), (6, 999), (6, 1), (1, 5), (11, None)]
+)
+async def test_solicitud_sin_condicion_iva_valida_no_llama_soap(batch, tipo, codigo):
+    class Service:
+        def FECAESolicitar(self, **kwargs):
+            raise AssertionError("No debe enviarse un detalle inválido a ARCA")
+
+    client = _crear_cliente_wsfe(Service())
+    invalido = _comprobante(tipo=tipo, condicion_iva_receptor_id=codigo)
+    with pytest.raises(ArcaValidationError, match="condición IVA"):
+        if batch:
+            valido = _comprobante(
+                tipo=tipo, condicion_iva_receptor_id=1 if tipo == 1 else 5
+            )
+            await client.fe_cae_solicitar_lote([valido, invalido])
+        else:
+            await client.fe_cae_solicitar(invalido)
 
 
 def test_comprobante_request_preserva_importes_decimal():

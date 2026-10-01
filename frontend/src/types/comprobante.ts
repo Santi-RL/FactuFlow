@@ -249,7 +249,6 @@ export const CONDICIONES_IVA = [
   "Monotributo",
   "Exento",
   "Consumidor Final",
-  "Responsable No Inscripto",
 ];
 
 // Estados de comprobante

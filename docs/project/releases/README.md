@@ -14,6 +14,8 @@ autoriza producción.
 
 ## Índice
 
+- [`rg5616-condicion-iva.md`](rg5616-condicion-iva.md): diseño fiscal, matriz
+  oficial y validación del campo obligatorio del receptor.
 - [`pf13-17-reintentos-seguros.md`](pf13-17-reintentos-seguros.md): diseño fiscal,
   compatibilidad y evidencia del parche de emisión parcial y reintentos.
 
