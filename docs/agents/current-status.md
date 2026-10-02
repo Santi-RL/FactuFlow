@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 30/09/2026
+Última revisión: 01/10/2026
 
 Estado: VIGENTE.
 
@@ -94,11 +94,22 @@ prioridades y horizontes diferentes. Los diseños futuros no describen
 capacidades implementadas. La revisión visual local acordada para la UI de
 lotes permanece en su diseño y precede a la publicación de esa implementación.
 
+## Condición IVA del receptor
+
+Toda nueva solicitud individual, masiva o de reintento envía un ID presente y
+compatible con el comprobante. Las condiciones soportadas son RI y Monotributo
+para A, Exento y CF para B, y las cuatro para C. Valores vacíos, desconocidos,
+RNI o incompatibles requieren corrección explícita; no se infieren por documento.
+Los formatos con una condición fija válida conservan su funcionamiento. Replay,
+historia y reconciliación mantienen el contrato vigente. El
+[contrato RG 5616](rg-5616-condicion-iva-receptor-parche.md) y su
+[dossier](../project/releases/rg5616-condicion-iva.md) delimitan el parche.
+
 ## Punto de reanudación
 
-El parche de reintentos seguros está cerrado en código. La entrega y su
-evidencia se consultan en el dossier; el estado productivo se acredita sólo en
-el plano de control. No iniciar otra unidad como parte de este despliegue.
+Los parches de reintentos seguros y condición IVA están cerrados en código.
+La evidencia se consulta en sus dossiers; el estado productivo se acredita sólo
+en el plano de control. Una publicación o despliegue no inicia la siguiente unidad.
 
 Para continuar desarrollo:
 

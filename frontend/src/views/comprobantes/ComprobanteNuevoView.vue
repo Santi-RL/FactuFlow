@@ -23,6 +23,7 @@ import {
   crearItemsEmision,
   mensajeErrorItemsApi,
 } from "@/utils/comprobante-items";
+import { condicionIvaReceptorValida } from "@/utils/condicion-iva-receptor";
 import type {
   ItemComprobante,
   EmitirComprobanteRequest,
@@ -466,7 +467,10 @@ const formularioValido = computed(() => {
     formData.value.fecha_emision.length > 0 &&
     formData.value.cliente.numero_documento.length > 0 &&
     formData.value.cliente.razon_social.length > 0 &&
-    formData.value.cliente.condicion_iva.length > 0 &&
+    condicionIvaReceptorValida(
+      formData.value.cliente.condicion_iva,
+      formData.value.tipo_comprobante,
+    ) &&
     (!requiereClienteCuit.value ||
       formData.value.cliente.tipo_documento === TIPOS_DOCUMENTO.CUIT) &&
     formData.value.items.length > 0 &&

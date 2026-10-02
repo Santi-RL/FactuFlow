@@ -4736,7 +4736,7 @@ def _build_lote_excel(
     cliente_tipo_documento: str = "CUIT",
     cliente_numero_documento: str = CUIT_RECEPTOR_TEST_NO_REAL,
     cliente_razon_social: str = "Cliente Lote SA",
-    cliente_condicion_iva: str = "Responsable Inscripto",
+    cliente_condicion_iva: str | None = None,
     item_precio_unitario: int | float = 1000,
     fecha_servicio_desde: date | str = "",
     fecha_servicio_hasta: date | str = "",
@@ -4747,6 +4747,10 @@ def _build_lote_excel(
     asociado_fecha: date | str = "",
     asociado_cuit: str = "",
 ) -> bytes:
+    if cliente_condicion_iva is None:
+        cliente_condicion_iva = (
+            "Responsable Inscripto" if tipo_comprobante in {1, 2, 3} else "Exento"
+        )
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Comprobantes"
@@ -4975,7 +4979,7 @@ def _build_lote_excel_multi_grupo(empresa_cuit: str, total_grupos: int = 2) -> b
                 "DNI",
                 str(30000000 + index),
                 f"Cliente Lote {index}",
-                "Responsable Inscripto",
+                "Exento",
                 "Av. Siempre Viva 123",
                 "",
                 "",
@@ -7018,6 +7022,42 @@ async def test_validar_lote_rechaza_factura_c_con_iva(
     )
     mensajes = detalle.json()["grupos"][0]["mensajes_json"]
     assert any("tipo C no pueden incluir IVA" in mensaje for mensaje in mensajes)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "condicion", ["", "RNI", "Responsable No Inscripto", "Otra", "RI"]
+)
+async def test_rg5616_importacion_no_infiere_iva_por_documento_99(
+    client, auth_headers, test_empresa, test_punto_venta, test_certificado, condicion
+):
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "iva-receptor-invalido.xlsx",
+                _build_lote_excel(
+                    test_empresa.cuit,
+                    cliente_tipo_documento="CI",
+                    cliente_numero_documento="",
+                    cliente_razon_social="",
+                    cliente_condicion_iva=condicion,
+                ),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["puede_emitirse"] is False
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{data['lote']['id']}", headers=auth_headers
+    )
+    grupo = detalle.json()["grupos"][0]
+    assert grupo["estado"] == "con_error"
+    assert "IVA" in str(grupo["mensajes_json"])
 
 
 @pytest.mark.asyncio

@@ -1456,6 +1456,7 @@ async def test_emitir_comprobante_sanitiza_errores_inesperados(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("legacy", [False, True])
 async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
     client: AsyncClient,
     auth_headers: dict,
@@ -1463,6 +1464,7 @@ async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
     test_empresa,
     test_user,
     monkeypatch: pytest.MonkeyPatch,
+    legacy: bool,
 ) -> None:
     """Un fallback post-ARCA huérfano no se reatestigua ni vuelve a emitir."""
     llamadas = 0
@@ -1485,11 +1487,21 @@ async def test_emitir_comprobante_excepcion_post_arca_persiste_replay_409(
         usuario_id=test_user.id,
     )
 
-    primera = await client.post(
-        "/api/comprobantes/emitir",
-        headers=headers,
-        json=payload,
-    )
+    if legacy:
+        payload["condicion_iva"] = "Responsable No Inscripto"
+        with monkeypatch.context() as historico:
+            historico.setattr(
+                FacturacionService,
+                "_obtener_condicion_iva_receptor_id",
+                lambda self, condicion, tipo: 5,
+            )
+            primera = await client.post(
+                "/api/comprobantes/emitir", headers=headers, json=payload
+            )
+    else:
+        primera = await client.post(
+            "/api/comprobantes/emitir", headers=headers, json=payload
+        )
     segunda = await client.post(
         "/api/comprobantes/emitir",
         headers=headers,
@@ -1615,6 +1627,7 @@ async def test_emitir_comprobante_fallo_guardando_respuesta_post_arca_persiste_4
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("legacy", [False, True])
 async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     client: AsyncClient,
     auth_headers: dict,
@@ -1622,6 +1635,7 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     test_empresa,
     test_user,
     monkeypatch: pytest.MonkeyPatch,
+    legacy: bool,
 ):
     """La misma clave y payload debe devolver la respuesta persistida."""
 
@@ -1674,11 +1688,29 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
         numero=6,
     )
 
-    primera = await client.post(
-        "/api/comprobantes/emitir",
-        headers=headers,
-        json=payload,
-    )
+    if legacy:
+        payload["condicion_iva"] = "Responsable No Inscripto"
+        # Simula el comportamiento anterior al parche, sólo para crear historia.
+        with monkeypatch.context() as historico:
+            historico.setattr(
+                FacturacionService,
+                "normalizar_receptor",
+                lambda self, request: self._normalizar_datos_receptor(
+                    request, historico=True
+                ),
+            )
+            historico.setattr(
+                FacturacionService,
+                "_obtener_condicion_iva_receptor_id",
+                lambda self, condicion, tipo: 5,
+            )
+            primera = await client.post(
+                "/api/comprobantes/emitir", headers=headers, json=payload
+            )
+    else:
+        primera = await client.post(
+            "/api/comprobantes/emitir", headers=headers, json=payload
+        )
     segunda = await client.post(
         "/api/comprobantes/emitir",
         headers=headers,
@@ -1689,6 +1721,39 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
     assert segunda.status_code == 200, segunda.text
     assert FakeWSFEClient.llamadas == 1
     assert segunda.json() == primera.json()
+    corregido = {**payload, "condicion_iva": "Exento"}
+    conflicto = await client.post(
+        "/api/comprobantes/emitir", headers=headers, json=corregido
+    )
+    assert conflicto.status_code == 409
+    assert FakeWSFEClient.llamadas == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "condicion", ["", "RNI", "Responsable No Inscripto", "Desconocida", "RI"]
+)
+async def test_rg5616_api_rechaza_condicion_antes_de_crear_estado_fiscal(
+    client, auth_headers, db_session, test_empresa, monkeypatch, condicion
+):
+    async def no_arca(*args, **kwargs):
+        raise AssertionError("No debe consultar ARCA ni emitir con IVA inválido")
+
+    monkeypatch.setattr(
+        PuntosVentaArcaService, "asegurar_comprobacion_reciente", no_arca
+    )
+    monkeypatch.setattr(FacturacionService, "emitir_comprobante", no_arca)
+    payload = _request_emitir_base(test_empresa)
+    payload["condicion_iva"] = condicion
+    response = await client.post(
+        "/api/comprobantes/emitir",
+        headers={**auth_headers, **_idempotency_header("idem-rg5616-invalido")},
+        json=payload,
+    )
+    assert response.status_code == 400, response.text
+    assert "condición IVA" in response.json()["detail"]
+    assert await db_session.scalar(select(OperacionIdempotente)) is None
+    assert await db_session.scalar(select(IntentoEmisionFiscal)) is None
 
 
 @pytest.mark.asyncio

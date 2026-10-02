@@ -1,6 +1,6 @@
 # Integración ARCA
 
-Última revisión: 05/09/2026
+Última revisión: 01/10/2026
 
 ## Nomenclatura
 
@@ -496,6 +496,13 @@ desconocidos, incluso después de compactar el lote.
   - `Monotributo` -> `6`
   - `Exento` -> `4`
   - `CF` -> `5`
+- Las nuevas solicitudes exigen ID presente y compatible: A admite RI y
+  Monotributo; B, Exento y CF; C, las cuatro condiciones soportadas. La regla
+  compartida se aplica a individual, importación, lote, worker y reintento, y el
+  serializer WSFE impide omitir el campo.
+- Vacíos, desconocidos y RNI requieren corrección explícita; el documento 99 no
+  permite inferir CF. Replay, historia y reconciliación conservan su contrato.
+  Matriz oficial y diseño en el [dossier RG 5616](../project/releases/rg5616-condicion-iva.md).
 
 ### Consumidor final e identificacion del receptor
 
@@ -505,7 +512,8 @@ desconocidos, incluso después de compactar el lote.
   obligatoria cuando el importe de la operación es igual o superior a
   `$10.000.000`.
 - FactuFlow aplica esto en emisión masiva para comprobantes B/C:
-  - bajo ese umbral acepta documento y nombre vacíos desde Excel
+  - bajo ese umbral acepta documento y nombre vacíos desde Excel con condición
+    Consumidor Final explícita o resuelta mediante una configuración fija válida
   - normaliza a tipo documento `99`, número `0`, razón social
     `A CONSUMIDOR FINAL` y condición IVA `CF`
   - desde ese umbral exige documento

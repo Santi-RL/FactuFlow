@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 05/09/2026
+Última actualización: 01/10/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -79,6 +79,12 @@ Mapping aplicado en el proyecto:
 - `Monotributo` -> `6`
 - `Exento` -> `4`
 - `CF` -> `5`
+
+La matriz oficial WSFEv1 v4.7 admite RI/Monotributo para A, Exento/CF para B y
+las cuatro condiciones soportadas para C. Las nuevas solicitudes siempre envían
+el ID compatible; blanco, desconocido o RNI requieren corregir el dato antes de
+CAE. Documento 99 no es una condición IVA. El [dossier fiscal](../project/releases/rg5616-condicion-iva.md)
+delimita la compatibilidad histórica y las pruebas.
 
 ### 4.b Consumidor final
 

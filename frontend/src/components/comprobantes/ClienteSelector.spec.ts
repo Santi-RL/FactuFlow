@@ -5,6 +5,41 @@ import { describe, expect, it } from "vitest";
 import ClienteSelector from "./ClienteSelector.vue";
 
 describe("ClienteSelector", () => {
+  it("mantiene visible el dato legacy y exige corregirlo sin sustituirlo", async () => {
+    const wrapper = mount(ClienteSelector, {
+      props: {
+        modelValue: {
+          cliente_id: 15,
+          tipo_documento: 80,
+          numero_documento: "20409378472",
+          razon_social: "Receptor sintético",
+          condicion_iva: "Responsable No Inscripto",
+        },
+        tipoComprobante: 1,
+      },
+      global: { plugins: [createPinia()] },
+    });
+    const select = wrapper.get("#cliente-condicion-iva");
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      "Revisá la condición IVA",
+    );
+    expect(select.text()).toContain("Responsable No Inscripto (revisar)");
+    expect(
+      select
+        .findAll("option")
+        .filter((opcion) => !(opcion.element as HTMLOptionElement).disabled)
+        .map((opcion) => opcion.text()),
+    ).toEqual(["Seleccione...", "Responsable Inscripto", "Monotributo"]);
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    await select.setValue("Monotributo");
+    expect(wrapper.emitted("update:modelValue")?.[0]?.[0]).toEqual(
+      expect.objectContaining({
+        cliente_id: undefined,
+        condicion_iva: "Monotributo",
+      }),
+    );
+  });
+
   it("oculta resultados si la búsqueda baja de dos caracteres", async () => {
     const wrapper = mount(ClienteSelector, {
       props: {

@@ -32,6 +32,7 @@ from app.arca.exceptions import (
 )
 from app.arca.soap import create_soap_client, run_soap_call
 from app.arca.utils import clean_cuit, format_importe
+from app.core.condicion_iva_receptor import validar_condicion_iva_receptor_id
 
 logger = logging.getLogger(__name__)
 
@@ -274,7 +275,14 @@ class WSFEv1Client:
 
     def _build_fe_det_request(self, comprobante: ComprobanteRequest) -> dict:
         """Construye el detalle `FECAEDetRequest` para un comprobante."""
+        try:
+            condicion_iva_id = validar_condicion_iva_receptor_id(
+                comprobante.condicion_iva_receptor_id, comprobante.tipo_cbte
+            )
+        except ValueError as exc:
+            raise ArcaValidationError(str(exc)) from exc
         fe_det = {
+            "CondicionIVAReceptorId": condicion_iva_id,
             "Concepto": comprobante.concepto,
             "DocTipo": comprobante.tipo_doc,
             "DocNro": comprobante.nro_doc,
@@ -290,9 +298,6 @@ class WSFEv1Client:
             "MonId": comprobante.moneda_id,
             "MonCotiz": comprobante.moneda_cotiz,
         }
-
-        if comprobante.condicion_iva_receptor_id is not None:
-            fe_det["CondicionIVAReceptorId"] = comprobante.condicion_iva_receptor_id
 
         if comprobante.fecha_serv_desde:
             fe_det["FchServDesde"] = comprobante.fecha_serv_desde

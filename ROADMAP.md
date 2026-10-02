@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 30/09/2026
+Última revisión: 01/10/2026
 
 Estado: VIGENTE.
 
@@ -34,20 +34,7 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
-### 1. RG 5616 — parche de condición IVA del receptor
-
-**Prioridad:** P1 fiscal y de continuidad operativa.
-
-Asegurar que toda nueva solicitud de autorización incluya una condición IVA del
-receptor válida y compatible con el comprobante, en emisión individual y masiva.
-Corregir únicamente la omisión y las equivalencias incorrectas de este dato,
-preservando los flujos válidos existentes. El aviso recibido anuncia rechazos
-desde el 01/12/2026; es un límite externo, no una fecha de entrega comprometida.
-El [alcance cerrado del parche](docs/agents/rg-5616-condicion-iva-receptor-parche.md)
-define aceptación y compatibilidad. No adelanta la ampliación de plantillas PF-13
-ni depende de completar recuperación o plataforma.
-
-### 2. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 

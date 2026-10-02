@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 01/09/2026
+Última actualización: 01/10/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -384,6 +384,16 @@ numeración local adelantada devuelve `proximo_numero=null` con emisión
 deshabilitada.
 `POST /api/comprobantes/emitir` emite a través del servicio de facturación y
 puede consumir numeración fiscal si `ARCA_ENV=produccion`.
+
+Para una operación nueva, `condicion_iva` debe ser válida y compatible con el
+tipo: A (1/2/3), RI o Monotributo; B (6/7/8), Exento o CF; C (11/12/13), las
+cuatro condiciones soportadas. Se aceptan sus nombres completos y aliases
+inequívocos. Blanco, desconocido, RNI o incompatibilidad devuelve `400` antes
+de crear operación o intento fiscal; no se infiere CF del documento 99. El
+lookup de una clave existente conserva precedencia: replay terminal y
+conflicto por cambio de payload mantienen su contrato. Importación, lotes y
+worker validan toda nueva solicitud antes de CAE. Consultar o reconciliar una
+solicitud histórica no reclasifica al receptor ni vuelve a emitirla.
 
 Antes de crear una operación o intento nuevo y antes de `FECAESolicitar`, tanto
 `proximo-numero` como la emisión exigen un contexto RECE vigente del punto para

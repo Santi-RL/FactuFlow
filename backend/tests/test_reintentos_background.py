@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.arca.exceptions import ArcaConnectionError
 from app.arca.models import CAEResponse
 from app.core.config import settings
-from app.models.idempotencia_fiscal import OperacionIdempotente
+from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.services.duplicados_lotes_service import DuplicadosLotesService
 from app.services.lote_comprobantes_service import LoteComprobantesService
@@ -27,6 +27,81 @@ from tests.test_lotes_comprobantes import (
 
 test_punto_venta = _fixture_punto_venta
 test_certificado = _fixture_certificado
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("batch", [False, True])
+async def test_rg5616_worker_rechaza_payload_legacy_antes_de_cae(
+    client,
+    auth_headers,
+    db_session,
+    monkeypatch,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    batch,
+):
+    class WSFE:
+        def __init__(self, **kwargs):
+            pass
+
+        async def fe_comp_tot_x_request(self):
+            return 2
+
+        async def fe_comp_ultimo_autorizado(self, *args):
+            return 0
+
+        async def fe_cae_solicitar(self, request):
+            raise AssertionError("No debe emitir un receptor ambiguo")
+
+        async def fe_cae_solicitar_lote(self, requests):
+            raise AssertionError("No debe emitir un batch con receptor ambiguo")
+
+    empresa_id = test_empresa.id
+    lote_id, grupos = await _preparar_reintento_manual_pf02b2(
+        client,
+        auth_headers,
+        monkeypatch,
+        db_session,
+        test_empresa,
+        test_punto_venta,
+        WSFE,
+        nombre_archivo="rg5616-worker.xlsx",
+        total_grupos=2,
+    )
+    for grupo in grupos:
+        grupo.payload_json = {
+            **grupo.payload_json,
+            "condicion_iva": "Responsable No Inscripto",
+        }
+    await db_session.commit()
+    monkeypatch.setattr(settings, "arca_fecaesolicitar_batch_enabled", batch)
+    monkeypatch.setattr(
+        "app.api.lotes_comprobantes.ensure_lote_worker_running", lambda app: True
+    )
+    headers = {
+        **auth_headers,
+        **await _confirmacion_fecha_fiscal_header_lote(
+            db_session,
+            lote_id=lote_id,
+            estados={"fallido"},
+        ),
+    }
+    url = f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos?background=true"
+    encolado = await client.post(url, headers=headers, json={"grupo_ids": []})
+    assert encolado.status_code == 200, encolado.text
+    await LoteComprobantesService(db_session).procesar_lote(
+        lote_id, empresa_id, reanudar=True
+    )
+    for grupo in grupos:
+        await db_session.refresh(grupo)
+        assert grupo.estado == "fallido"
+        assert "condición IVA" in str(grupo.mensajes_json)
+        assert grupo.numero_asignado is None
+        assert grupo.cae is None
+    assert await db_session.scalar(select(IntentoEmisionFiscal)) is None
+    replay = await client.post(url, headers=headers, json={"grupo_ids": []})
+    assert replay.status_code == 200, replay.text
 
 
 @pytest.mark.asyncio

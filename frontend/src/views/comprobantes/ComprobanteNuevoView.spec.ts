@@ -517,6 +517,9 @@ describe("ComprobanteNuevoView", () => {
     expect(vm.formularioValido).toBe(false);
     vm.formData.cliente.tipo_documento = TIPOS_DOCUMENTO.CUIT;
     await flushPromises();
+    expect(vm.formularioValido).toBe(false);
+    vm.formData.cliente.condicion_iva = "Responsable Inscripto";
+    await flushPromises();
     expect(vm.formularioValido).toBe(true);
   });
 

@@ -2,11 +2,12 @@
 import { ref, computed, watch } from "vue";
 import { MagnifyingGlassIcon, UserPlusIcon } from "@heroicons/vue/24/outline";
 import { useClientesStore } from "@/stores/clientes";
+import { TIPOS_DOCUMENTO, TIPOS_DOCUMENTO_NOMBRES } from "@/types/comprobante";
 import {
-  TIPOS_DOCUMENTO,
-  TIPOS_DOCUMENTO_NOMBRES,
-  CONDICIONES_IVA,
-} from "@/types/comprobante";
+  condicionesIvaReceptor,
+  condicionIvaReceptorValida,
+  nombreCondicionIvaReceptor,
+} from "@/utils/condicion-iva-receptor";
 
 interface ClienteData {
   cliente_id?: number;
@@ -34,6 +35,20 @@ const clientesStore = useClientesStore();
 const busqueda = ref("");
 const mostrarResultados = ref(false);
 const modoManual = ref(false);
+const condicionesCompatibles = computed(() =>
+  condicionesIvaReceptor(props.tipoComprobante),
+);
+const condicionValida = computed(() =>
+  condicionIvaReceptorValida(
+    props.modelValue.condicion_iva,
+    props.tipoComprobante,
+  ),
+);
+const condicionVisible = computed(
+  () =>
+    nombreCondicionIvaReceptor(props.modelValue.condicion_iva) ??
+    props.modelValue.condicion_iva,
+);
 
 const tipoDocumentoToCodigo: Record<string, number> = {
   CUIT: 80,
@@ -366,7 +381,7 @@ const cerrarResultados = () => {
         </label>
         <select
           id="cliente-condicion-iva"
-          :value="modelValue.condicion_iva"
+          :value="condicionVisible"
           required
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           @change="
@@ -380,13 +395,29 @@ const cerrarResultados = () => {
             Seleccione...
           </option>
           <option
-            v-for="condicion in CONDICIONES_IVA"
+            v-if="modelValue.condicion_iva && !condicionValida"
+            :value="condicionVisible"
+            disabled
+          >
+            {{ modelValue.condicion_iva }} (revisar)
+          </option>
+          <option
+            v-for="condicion in condicionesCompatibles"
             :key="condicion"
             :value="condicion"
           >
             {{ condicion }}
           </option>
         </select>
+        <p
+          v-if="modelValue.condicion_iva && !condicionValida"
+          role="alert"
+          class="mt-1 text-sm text-amber-700"
+        >
+          Revisá la condición IVA del receptor. Para este comprobante
+          corresponde
+          {{ condicionesCompatibles.join(" o ") }} según su situación fiscal.
+        </p>
       </div>
 
       <!-- Razón Social -->

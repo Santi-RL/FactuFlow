@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 29/08/2026
+Última actualización: 01/10/2026
 
 Este manual describe las capacidades aceptadas del producto, no el estado de una
 instalación concreta.
@@ -277,6 +277,16 @@ Si el comprobante está autorizado, verás:
   estaban persistidos en el comprobante.
 
 ## 6. Emisión masiva
+
+La condición IVA del receptor debe corresponder al comprobante: A admite
+Responsable Inscripto o Monotributo; B, Exento o Consumidor Final; C, las cuatro
+condiciones. Esta regla también rige en la emisión individual. Si un cliente
+anterior tiene «Responsable No Inscripto» u otro dato incompatible, revisá su
+situación fiscal y corregí la condición antes de una nueva emisión.
+
+En el archivo, la condición debe estar informada o resuelta por una configuración
+fija válida. No se deduce de un documento vacío; para una venta anónima de bajo
+importe elegí Consumidor Final. Los comprobantes ya autorizados no cambian.
 
 La emisión masiva está pensada para cargar muchas facturas desde Excel. Puede
 usar la plantilla oficial de FactuFlow o una plantilla configurada para un
