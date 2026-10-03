@@ -18,6 +18,15 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Asociación administrativa posterior a CAE
+
+- Clientes coincidentes del mismo emisor y documento dejan de impedir guardar
+  una autorización fiscal. La asociación implícita ambigua conserva el snapshot
+  receptor y deja el vínculo vacío; no elige ni fusiona fichas arbitrariamente.
+- La selección explícita y las coincidencias inequívocas conservan su conducta.
+  El guardado compartido mantiene la transacción fiscal y la recuperación ante
+  errores reales de base, sin cambiar idempotencia ni reintentos.
+
 ### Contrato temporal y hora argentina
 
 - Instantes operativos de respuestas HTTP con UTC explícito y presentación común

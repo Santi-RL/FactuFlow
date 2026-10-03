@@ -66,6 +66,10 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-03/PF-04/PF-14: [asociación administrativa del receptor](pf-03-04-14-asociacion-cliente.md).
+  Define el vínculo opcional sin alterar el snapshot fiscal; capacidad A-01
+  permanece pendiente.
+
 - PF-12/PF-15/PF-17: [instantes operativos y hora argentina](pf-12-15-17-tiempo-operativo.md).
   Separa instantes UTC y presentación argentina de fechas de calendario y
   antecedentes con zona desconocida.

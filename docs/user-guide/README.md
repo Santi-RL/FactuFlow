@@ -142,6 +142,12 @@ verificación fiscal, cambiar el selector no descarta esa operación: la pantall
 conserva el emisor original y deshabilita la verificación hasta volver a
 seleccionarlo.
 
+Los datos del receptor guardados en el comprobante se conservan aunque no quede
+vinculado a una ficha de cliente. Si cargás el receptor manualmente y hay varias
+fichas con el mismo documento, FactuFlow no elige una al azar ni las fusiona.
+La selección explícita de una ficha conserva su vínculo; una ambigüedad
+administrativa no cambia el receptor ni impide guardar la autorización fiscal.
+
 El emisor activo se mantiene por pestaña del navegador. Si abres otra pestaña y
 cambias de emisor, esa nueva selección no cambia silenciosamente una factura o
 un lote que ya estabas revisando en la pestaña anterior.

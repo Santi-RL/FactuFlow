@@ -36,6 +36,11 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ### Fiscal o ARCA
 
+- Con dobles locales, preparar dos clientes del mismo emisor y documento.
+  La carga manual conserva receptor y comprobante autorizado sin elegir una ficha;
+  elegir explícitamente una conserva su vínculo. Repetir en lote y recuperación.
+  Un error real posterior a autorización debe seguir reconciliable, sin reemisión.
+
 - Condición IVA del receptor: comprobar opciones compatibles A (RI/Monotributo),
   B (Exento/CF) y C (las cuatro); un cliente legacy RNI debe quedar visible y
   permitir corrección sin sustitución automática. Un lote con IVA vacío o

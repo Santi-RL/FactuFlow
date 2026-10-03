@@ -38,12 +38,12 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 **Prioridad:** P1, antes de nuevas capacidades. La
 [auditoría integral](docs/project/analysis/auditoria-integral-2026-10.md)
-confirmó diferencias entre datos admitidos y persistibles, dependencia del alta
-de clientes después de CAE, lecturas de IVA/moneda inconsistentes y una cadena
-vulnerable de herramientas de construcción. Cerrar en unidades separadas:
+confirmó diferencias entre datos admitidos y persistibles, lecturas de
+IVA/moneda inconsistentes y una cadena vulnerable de herramientas de
+construcción. Cerrar en unidades separadas:
 
-- **PF-03/PF-04/PF-14:** persistencia fiscal fiel y asociación administrativa
-  resuelta antes de la frontera irreversible o desacoplada de su resultado.
+- **PF-03/PF-04/PF-14:** capacidad de persistencia fiscal fiel en todos sus
+  consumidores, incluidos importación, duplicados y recuperación.
   Conservar precisión PF-03B, snapshots y estados inciertos; no fusionar historia
   ni imponer límites silenciosos.
 - **PF-03/PF-04/PF-17:** corregir bases de IVA y presentación/agregación de

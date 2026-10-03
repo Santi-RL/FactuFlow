@@ -25,7 +25,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-03/PF-04/PF-14, persistencia y asociación | Puerta previa | P1 fiscal | Datos admitidos persistibles fielmente y guardado fiscal independiente de un alta administrativa posterior | [Auditoría A-01/A-02](../project/analysis/auditoria-integral-2026-10.md); preservar precisión, historia y recuperación |
+| PF-03/PF-04/PF-14, capacidad de persistencia | Puerta previa | P1 fiscal | Datos admitidos persistibles fielmente sin límites silenciosos ni pérdida de precisión | [Auditoría A-01](../project/analysis/auditoria-integral-2026-10.md); preservar historia y recuperación; asociación A-02 cerrada por su contrato |
 | PF-03/PF-04/PF-17, lecturas actuales | Puerta previa | P1 | Bases de IVA correctas y moneda explícita en detalle, ventas, IVA y ranking | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md); autoridad de agrupación/conversión por cerrar; sin dependencia PF-05 |
 | PF-16, dependencias de construcción | Puerta previa | P1 de integración | Corregir cadena vulnerable manteniendo auditoría completa y compatibilidad | [Auditoría](../project/analysis/auditoria-integral-2026-10.md); unidad técnica propia, sin `--force` ni reducción de gates |
 | PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
@@ -209,7 +209,7 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
-| Persistencia y asociación antes de CAE | [Auditoría A-01/A-02](../project/analysis/auditoria-integral-2026-10.md): capacidad y precisión de DB, asociación de cliente, consumidores y concurrencia; cerrar migración/compatibilidad sin alterar historia. |
+| Capacidad y precisión de persistencia | [Auditoría A-01](../project/analysis/auditoria-integral-2026-10.md): representación decimal, capacidad de DB, agregados, índices y consumidores; cerrar migración/compatibilidad sin alterar historia y conservar el [contrato de asociación A-02](pf-03-04-14-asociacion-cliente.md) ya estabilizado. |
 | Lecturas fiscales actuales | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md): bases desde evidencia conservada y política funcional de moneda; separar corrección actual de nuevas categorías o importación externa. |
 | Dependencias de construcción | [Auditoría](../project/analysis/auditoria-integral-2026-10.md): evaluar sustitución/migración compatible, build Docker y QA visual; auditoría completa verde antes de integrar runtime. |
 | Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
@@ -276,6 +276,11 @@ del constructor.
     reconstrucción histórica externa completa ni introducen cuentas corrientes.
 
 ## Líneas cerradas
+
+La asociación administrativa A-02 tiene un
+[contrato compartido](pf-03-04-14-asociacion-cliente.md): ambigüedad conserva
+snapshot y autorización sin una ficha arbitraria. No cierra capacidad A-01
+ni todas las fallas posibles de creación administrativa.
 
 El contrato de [instantes operativos](pf-12-15-17-tiempo-operativo.md) comunica
 UTC explícito y muestra hora argentina con compatibilidad para sus campos

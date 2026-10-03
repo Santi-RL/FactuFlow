@@ -398,6 +398,15 @@ deshabilitada.
 `POST /api/comprobantes/emitir` emite a través del servicio de facturación y
 puede consumir numeración fiscal si `ARCA_ENV=produccion`.
 
+El vínculo administrativo `cliente_id` es independiente del snapshot receptor.
+Sin ID y con `guardar_cliente=true`, una coincidencia exacta de emisor, tipo y
+documento se reutiliza; sin coincidencias se crea una ficha como antes. Varias coincidencias
+conservan el comprobante con vínculo vacío. No se fusionan fichas ni se altera
+el receptor enviado. Un ID explícito conserva su validación previa a CAE.
+Lotes, reconstrucción y registro externo comparten este
+[contrato](../agents/pf-03-04-14-asociacion-cliente.md). Errores reales de base
+mantienen el tratamiento de incertidumbre posterior a ARCA.
+
 Para una operación nueva, `condicion_iva` debe ser válida y compatible con el
 tipo: A (1/2/3), RI o Monotributo; B (6/7/8), Exento o CF; C (11/12/13), las
 cuatro condiciones soportadas. Se aceptan sus nombres completos y aliases

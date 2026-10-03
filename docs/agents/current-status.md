@@ -88,11 +88,18 @@ compatibilidad y consumidores; no hay migración ni desplazamiento de la base.
 La auditoría integral corrigió documentación, código sin consumidores, fechas de
 calendario, contexto de detalles/formularios, errores PDF y barreras de
 construcción. Conserva los contratos fiscales y la visión. Los hallazgos de
-persistencia, lecturas y dependencias permanecen abiertos y forman una puerta de
-estabilización antes de capacidades nuevas. Evidencia y límites en el
+capacidad de persistencia, lecturas y dependencias permanecen abiertos y forman
+una puerta de estabilización antes de capacidades nuevas. Evidencia y límites en el
 [dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md);
 responsabilidades compartidas y horizonte MCP en
 [dirección de arquitectura](architecture-direction.md). No acredita despliegue.
+
+La asociación administrativa A-02 está corregida en el guardado compartido:
+varias fichas coincidentes conservan el snapshot receptor sin elegir una al
+azar ni impedir guardar el CAE. Selección explícita, transacción, errores reales
+y reconciliación conservan su conducta. El
+[contrato](pf-03-04-14-asociacion-cliente.md) delimita los cuatro consumidores;
+no cierra capacidad A-01 ni introduce unicidad de clientes.
 
 La entrega de reintentos incluye correcciones de dependencias y una CI sin
 advertencias: PyJWT/WeasyPrint, auditoría npm completa, compatibilidad bcrypt,
