@@ -1,8 +1,9 @@
 """Schemas para Cliente."""
 
-from datetime import datetime
 from typing import Optional
 from pydantic import ConfigDict, BaseModel, EmailStr, Field
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class ClienteBase(BaseModel):
@@ -52,8 +53,8 @@ class ClienteResponse(ClienteBase):
     id: int
     empresa_id: int
     activo: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCResponseDateTime
+    updated_at: UTCResponseDateTime
 
     model_config = ConfigDict(from_attributes=True)
 

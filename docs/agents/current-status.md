@@ -79,6 +79,12 @@ y el [dossier](../project/releases/pf13-17-reintentos-seguros.md) delimitan el c
 
 ## Trabajo aceptado pendiente
 
+Los instantes operativos de la API comunican UTC explícito y la web muestra
+hora argentina en lotes, usuarios, emisor y Sistema, independientemente de la
+zona del navegador. Fechas fiscales y antecedentes de zona desconocida conservan
+su tratamiento. El [contrato temporal](pf-12-15-17-tiempo-operativo.md) delimita
+compatibilidad y consumidores; no hay migración ni desplazamiento de la base.
+
 La auditoría integral corrigió documentación, código sin consumidores, fechas de
 calendario, contexto de detalles/formularios, errores PDF y barreras de
 construcción. Conserva los contratos fiscales y la visión. Los hallazgos de

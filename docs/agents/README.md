@@ -66,6 +66,10 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-12/PF-15/PF-17: [instantes operativos y hora argentina](pf-12-15-17-tiempo-operativo.md).
+  Separa instantes UTC y presentación argentina de fechas de calendario y
+  antecedentes con zona desconocida.
+
 - PF-03/PF-04/PF-13, implementación futura:
   [importes y previsualización fiscal común](pf-03-04-importes-previsualizacion-design.md).
   Separa corrección P1 de admisibilidad/revisión, ampliación P2 de categorías y

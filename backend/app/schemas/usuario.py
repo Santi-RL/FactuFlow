@@ -1,6 +1,5 @@
 """Schemas para Usuario."""
 
-from datetime import datetime
 from typing import Optional
 from pydantic import (
     ConfigDict,
@@ -10,6 +9,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 def _normalizar_empresa_ids(value: list[int] | None) -> list[int] | None:
@@ -107,8 +108,8 @@ class UsuarioResponse(UsuarioBase):
     es_admin: bool
     empresa_ids: list[int] = Field(default_factory=list)
     puede_crear_editar_emisores: bool = False
-    created_at: datetime
-    ultimo_login: Optional[datetime] = None
+    created_at: UTCResponseDateTime
+    ultimo_login: Optional[UTCResponseDateTime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

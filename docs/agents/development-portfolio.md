@@ -183,7 +183,6 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Frontera de errores técnicos, PF-09/PF-12 | PDF está sanitizado; revisar respuestas ARCA/certificados y diagnóstico SQL sin parámetros sensibles. Conservar errores fiscales públicos controlados. [Auditoría](../project/analysis/auditoria-integral-2026-10.md). |
 | Updates con `null`, PF-12/PF-14 | Validar campos obligatorios de clientes/emisores antes de persistir, conservando restricciones y rollback; no confundir ausencia con `null`. |
 | Guía del wizard por ambiente, PF-09/PF-17 | Homologación necesita WSASS también en el paso de portal; propagar ambiente y comprobar ambas experiencias. |
-| Instantes de actividad, PF-12/PF-15/PF-17 | Definir UTC explícito y compatibilidad de datos históricos sin zona; no alterar fechas fiscales ni inventar una zona para toda la historia. |
 
 La limpieza de guías, marcado PostgreSQL y código sin consumidores salió del
 inventario activo; su evidencia está en el
@@ -277,6 +276,11 @@ del constructor.
     reconstrucción histórica externa completa ni introducen cuentas corrientes.
 
 ## Líneas cerradas
+
+El contrato de [instantes operativos](pf-12-15-17-tiempo-operativo.md) comunica
+UTC explícito y muestra hora argentina con compatibilidad para sus campos
+históricos de procedencia UTC. No cierra la evolución de actores y eventos de
+PF-15/PF-17 ni atribuye zona a antecedentes desconocidos.
 
 El parche de emisión parcial y reintentos está implementado; su
 [contrato](pf-13-17-reintentos-seguros-parche.md) y

@@ -18,6 +18,18 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Contrato temporal y hora argentina
+
+- Instantes operativos de respuestas HTTP con UTC explícito y presentación común
+  en hora argentina; lotes, progreso, usuarios, emisor y Sistema dejan de depender
+  de la zona del navegador. Almacenamiento y relojes internos conservan UTC.
+- Fechas fiscales y de calendario sin conversión; antecedentes de duplicados
+  conservan cobertura histórica y zona desconocida cuando corresponda. El replay
+  de lotes antiguos no reescribe su respuesta durable al comunicar la zona.
+- El verificador de paquetes v4 coteja el mismo instante UTC de creación entre
+  replay y lote durable, compatible con representaciones anteriores y zona
+  explícita; mantiene identidad, estados y evidencia fiscal.
+
 ### Limpieza y coherencia del estado actual
 
 - Alineadas guías de dominio, certificados, instalación y pruebas; corregido el

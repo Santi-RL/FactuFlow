@@ -12,6 +12,12 @@ concreta a partir de este manual.
 Las fechas visibles y las ingresadas manualmente por usuarios se expresan en
 `DD/MM/AAAA`. Los formatos ISO quedan reservados a API, backend y ARCA.
 
+Los horarios de carga, inicio y finalización de lotes, último ingreso y
+actualizaciones se muestran en hora argentina, aunque el equipo esté configurado
+en otra región. Las fechas fiscales y los vencimientos conservan su día original.
+Cuando un antecedente histórico no tiene hora o zona acreditadas, la aplicación
+informa ese límite en lugar de inventarlas.
+
 ## Contenido
 
 1. Acceso al sistema

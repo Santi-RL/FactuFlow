@@ -503,4 +503,40 @@ describe("DuplicadosLoteDialog", () => {
       "Fecha y hora históricas no comprobables",
     );
   });
+
+  it("convierte el historial confiable con zona y conserva la incertidumbre del resto", async () => {
+    const original = controlCompleto().antecedentes_resumen[0];
+    render(controlCompleto({
+      antecedentes_resumen: [
+        {
+          ...original,
+          lote_id: 18,
+          emitido_desde: "2026-01-01T01:00:00Z",
+          emitido_hasta: "2026-01-01T01:00:00Z",
+        },
+        {
+          ...original,
+          lote_id: 19,
+          emitido_desde: "2026-01-01T01:00:00",
+          emitido_hasta: "2026-01-01T01:00:00",
+        },
+        {
+          ...original,
+          lote_id: 20,
+          emitido_desde: "2026-01-01T01:00:00Z",
+          emitido_hasta: "2026-01-01T01:00:00Z",
+          hora_confiable: false,
+        },
+      ],
+    }));
+    await flushPromises();
+
+    expect(document.body.textContent).toContain("31/12/2025, 22:00");
+    expect(document.body.textContent).toContain(
+      "01/01/2026 01:00 (zona horaria no registrada)",
+    );
+    expect(document.body.textContent).toContain(
+      "01/01/2026 (hora histórica no comprobable)",
+    );
+  });
 });

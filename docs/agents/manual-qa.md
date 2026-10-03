@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 01/10/2026
+Última revisión: 03/10/2026
 
 Estado: VIGENTE.
 
@@ -21,6 +21,18 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - Si la prueba sólo verifica UX, usar dobles y bloquear toda salida fiscal real.
 
 ## Matriz por tipo de cambio
+
+### Instantes operativos y hora argentina
+
+- Abrir el mismo lote con navegadores configurados en Argentina, UTC y otra
+  región: carga, inicio, fin y actualización deben mostrar el mismo horario
+  argentino; duración y progreso conservan el mismo intervalo.
+- Comparar último ingreso de usuario y actualización del emisor; verificar un
+  instante cercano a medianoche UTC que pertenezca al día argentino anterior.
+- Comprobar que fecha fiscal y vencimiento del certificado no cambian de día.
+  La evidencia antigua sin hora confiable conserva su indicación de cobertura.
+- Preparar y validar un lote sintético con mocks, sin pulsar emisión ni llamar
+  a ARCA. No inventar una hora para campos vacíos o inválidos.
 
 ### Fiscal o ARCA
 

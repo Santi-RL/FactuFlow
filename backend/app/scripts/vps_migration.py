@@ -831,6 +831,17 @@ def _v4_replay_lot_matches_durable(
     durable_lot: dict[str, Any],
 ) -> bool:
     """Coteja identidad inmutable sin exigir que el snapshot replique cierres posteriores."""
+
+    def utc_creation_instant(lot: dict[str, Any]) -> datetime:
+        # Ambos created_at proceden del reloj UTC del lote. La forma legacy
+        # sin zona y la respuesta con zona representan el mismo instante.
+        created_at = datetime.fromisoformat(
+            str(lot.get("created_at")).replace("Z", "+00:00")
+        )
+        if created_at.utcoffset() is None:
+            return created_at.replace(tzinfo=timezone.utc)
+        return created_at.astimezone(timezone.utc)
+
     immutable_fields = (
         "id",
         "nombre_archivo",
@@ -852,12 +863,7 @@ def _v4_replay_lot_matches_durable(
             )
             and replay_lot.get("estado") in ESTADOS_LOTE_SEGUROS_OMITIBLES
             and durable_lot.get("estado") in ESTADOS_LOTE_SEGUROS_OMITIBLES
-            and datetime.fromisoformat(
-                str(replay_lot.get("created_at")).replace("Z", "+00:00")
-            )
-            == datetime.fromisoformat(
-                str(durable_lot.get("created_at")).replace("Z", "+00:00")
-            )
+            and utc_creation_instant(replay_lot) == utc_creation_instant(durable_lot)
         )
     except (TypeError, ValueError):
         return False

@@ -261,7 +261,7 @@ describe("SistemaView", () => {
       certificado_disponible: true,
       certificado_id: 3,
       certificado_nombre: "Certificado productivo",
-      certificado_vencimiento: "2028-05-04T00:00:00",
+      certificado_vencimiento: "2028-05-04",
     });
     mockedArcaService.testConnection.mockResolvedValue({
       status: "ok",
@@ -283,6 +283,7 @@ describe("SistemaView", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Estado operativo");
+    expect(wrapper.text()).toContain("vence 04/05/2028");
     expect(wrapper.text()).toContain("API de FactuFlow");
     expect(wrapper.text()).toContain("Conexión ARCA");
     expect(wrapper.text()).toContain("Worker de lotes");
@@ -313,6 +314,16 @@ describe("SistemaView", () => {
     expect(worker.text()).toContain(
       "Los pools de API y worker están separados.",
     );
+  });
+
+  it("muestra horas de lotes compactables en Argentina", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    await buttonByText(wrapper, "Almacenamiento").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("02/06/2026, 08:00");
+    wrapper.unmount();
   });
 
   it("muestra el worker como no disponible si falla el healthcheck", async () => {

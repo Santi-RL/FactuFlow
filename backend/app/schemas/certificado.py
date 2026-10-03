@@ -1,8 +1,10 @@
 """Schemas para Certificado."""
 
-from datetime import datetime, date
+from datetime import date
 from typing import Optional, Literal
 from pydantic import ConfigDict, BaseModel, Field, computed_field
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class CertificadoBase(BaseModel):
@@ -37,8 +39,8 @@ class CertificadoResponse(CertificadoBase):
     archivo_crt: str
     archivo_key: str
     activo: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCResponseDateTime
+    updated_at: UTCResponseDateTime
 
     @computed_field
     @property

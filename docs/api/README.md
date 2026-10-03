@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 01/10/2026
+Última actualización: 03/10/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -11,6 +11,19 @@ Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 - Todas las rutas funcionales usan prefijo `/api`. No hay versionado en la URL.
+
+## Fechas e instantes operativos
+
+Las fechas fiscales y de calendario usan `YYYY-MM-DD`, sin conversión de zona.
+Los instantes operativos de lotes, CRUD, verificación de puntos de venta, salud
+y almacenamiento se publican en ISO 8601 con zona UTC explícita (`Z`).
+Por ejemplo, `2026-10-03T01:30:00Z` corresponde al `02/10/2026 22:30` argentino.
+La web presenta siempre `America/Argentina/Buenos_Aires`, independientemente
+de la región del equipo. Los campos históricos sin zona de esos contratos
+producidos en UTC conservan esa procedencia; no se migra ni desplaza la base.
+La evidencia histórica de duplicados mantiene `hora_confiable`; JSON arbitrario
+y fechas sin procedencia acreditada no reciben una zona inventada. Contrato en
+[instantes operativos](../agents/pf-12-15-17-tiempo-operativo.md).
 
 ## Autenticación
 
