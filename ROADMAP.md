@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 01/10/2026
+Última revisión: 03/10/2026
 
 Estado: VIGENTE.
 
@@ -34,7 +34,24 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
-### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 1. PF-13 — fidelidad del receptor en importación fiscal
+
+**Prioridad:** P1 fiscal.
+
+Conservar documento y nombre suministrados y resolver condición IVA desde el
+archivo o una configuración explícita. Admitir consumidor final identificado
+con CUIT/CUIL: identificación y condición fiscal son datos independientes.
+Corregir conjuntamente la pérdida del documento bajo el umbral y el rechazo
+general de CUIT con consumidor final; señalar diferencias reales entre archivo
+y plantilla antes de emitir, sin inferir una inscripción ni cambiar datos
+silenciosamente. El riesgo demostrado de emitir sin la identificación esperada
+o bloquear una combinación válida justifica adelantar este corte acotado.
+Preservar los casos anónimos permitidos, la compatibilidad RG 5616, duplicados,
+historia e idempotencia. No espera el rediseño P2 del constructor o de la UI.
+Motivo, fuentes, transición legacy y aceptación en el
+[diseño de fidelidad del receptor](docs/agents/pf-13-receptores-importacion-design.md).
+
+### 2. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 
@@ -81,8 +98,12 @@ operativos confirmados:
   condicionales en el constructor y validarlos en el lote: los comprobantes A
   requieren CUIT válido y condición compatible; las notas requieren su asociado.
   Mostrar cómo se interpretará el Excel, con neto, IVA y total diferenciados,
-  sin exigir códigos técnicos. **P2 fiscal y de usabilidad**, sin desplazar el
-  orden vigente. Depende de conservar PF-01/PF-03 y el aislamiento multiemisor;
+  sin exigir códigos técnicos. Aceptar alias inequívocos como «Monotributista»
+  para «Monotributo», evitando correcciones manuales de significado equivalente;
+  distinguir documento y condición, con procedencia visible y fechas de emisión,
+  servicio desde/hasta y vencimiento. **P2 fiscal y de usabilidad**, sin desplazar
+  el corte P1 de fidelidad del receptor ni repetirlo. Depende de conservar
+  PF-01/PF-03 y el aislamiento multiemisor;
   comparte claridad de uso con PF-17 y contratos con PF-14. Alcance, auditoría,
   compatibilidad y aceptación en el
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
@@ -102,7 +123,10 @@ operativos confirmados:
   [diseño de actividad de lotes](docs/agents/pf-17-actividad-lotes-design.md).
 - **PF-17 — UI de emisión masiva, P2:** compactar la preparación,
   mantener a la vista el resumen de requisitos y distinguir el archivo nuevo
-  del historial. Coordinar con plantillas y duplicados PF-13, actividad PF-15 y
+  del historial. Hacer evidentes el tipo FC/NC/ND del perfil y los datos efectivos
+  del receptor y las fechas, diferenciando Excel, constantes y perfil; evitar
+  seleccionar una configuración de notas al preparar facturas sin advertirlo.
+  Coordinar con plantillas y duplicados PF-13, actividad PF-15 y
   almacenamiento PF-10. El diseño se revisará con el usuario en la aplicación
   local y podrá ajustarse antes de subir la implementación al repositorio
   remoto. Alcance y aceptación en el
@@ -137,8 +161,9 @@ operativos confirmados:
   evidencia ni las restricciones de emisión del control de duplicados.
   Este seguimiento no retrasa el control fiscal; cualquier defecto que impida
   revisar, cancelar o confirmar conscientemente conserva prioridad de bloqueo.
-- **PF-18 — distribución e integraciones, P3:** ZIP de PDFs, soporte, correo e
-  integraciones; instalación simplificada y demo controlada para terceros tras
+- **PF-18 — distribución e integraciones, P3:** ZIP de PDFs del lote para evitar
+  descargas individuales repetidas, soporte, correo e integraciones;
+  instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar
   almacenamiento seguro PF-10. Alcance en el [portafolio](docs/agents/development-portfolio.md).
 - **PF-17 — consulta opcional de numeración, P3:** dentro del editor de punto de

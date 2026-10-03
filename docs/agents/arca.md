@@ -1,6 +1,6 @@
 # Integración ARCA
 
-Última revisión: 01/10/2026
+Última revisión: 03/10/2026
 
 ## Nomenclatura
 
@@ -504,20 +504,35 @@ desconocidos, incluso después de compactar el lote.
   permite inferir CF. Replay, historia y reconciliación conservan su contrato.
   Matriz oficial y diseño en el [dossier RG 5616](../project/releases/rg5616-condicion-iva.md).
 
-### Consumidor final e identificacion del receptor
+### Consumidor final e identificación del receptor
 
-- La página pública de ARCA sobre comprobantes indica que, para receptor
-  consumidor final, debe figurar la leyenda `A CONSUMIDOR FINAL`.
-- También indica que la identificacion con CUIT/CUIL/CDI/DNI u otro documento es
-  obligatoria cuando el importe de la operación es igual o superior a
-  `$10.000.000`.
-- FactuFlow aplica esto en emisión masiva para comprobantes B/C:
-  - bajo ese umbral acepta documento y nombre vacíos desde Excel con condición
-    Consumidor Final explícita o resuelta mediante una configuración fija válida
-  - normaliza a tipo documento `99`, número `0`, razón social
-    `A CONSUMIDOR FINAL` y condición IVA `CF`
-  - desde ese umbral exige documento
-- Para comprobantes tipo A se mantiene obligatorio CUIT válido del receptor.
+Identificación y condición fiscal son independientes: consumidor final puede
+estar identificado con CUIT/CUIL. Un número no demuestra inscripción en IVA o
+monotributo; CUIT y CUIL tienen tipos de documento diferentes en WSFE.
+
+La [RG 5866/2026, artículo 1°, inciso f](https://www.argentina.gob.ar/normativa/nacional/norma-427092/texto)
+exige la leyenda `A CONSUMIDOR FINAL`, identificación desde `$10.000.000` con
+DNI, CUIL, CDI o documento admitido de extranjero, y CUIT sin considerar ese
+importe cuando se solicita para deducción en Ganancias. La posibilidad de no
+identificar bajo el umbral no obliga a borrar un documento suministrado.
+Referencia verificada el 03/10/2026; revisar la norma y catálogos aplicables antes
+de cambiar validaciones.
+
+Conducta actual y limitación comprobada:
+
+- En B/C se acepta consumidor final sin documento bajo el umbral y se normaliza
+  a tipo `99`, número `0` y nombre genérico si no se suministró otro nombre.
+- La importación configurable descarta el documento de CF bajo el umbral; la
+  validación de grupos rechaza CUIT con CF. La normalización individual conserva
+  documento suministrado. Estas diferencias no son una exigencia normativa.
+- Desde el umbral se exige identificación. Para A se mantienen CUIT válido,
+  razón social y condición compatible.
+
+La corrección futura, incluidos requisitos independientes del importe y
+compatibilidad legacy, se concentra en el
+[diseño P1 de fidelidad del receptor](pf-13-receptores-importacion-design.md).
+No está implementada por esta actualización documental. Mantener condición IVA
+explícita, matriz RG 5616, historia, snapshots, duplicados y reconciliación.
 
 ### Fecha de emisión y período de servicios
 

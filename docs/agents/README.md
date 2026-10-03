@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 30/09/2026
+Última revisión: 03/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -64,12 +64,17 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-13, próximo corte P1, implementación futura:
+  [fidelidad del receptor en importación fiscal](pf-13-receptores-importacion-design.md).
+  Distingue documento y condición IVA; admite consumidor final identificado sin
+  perder datos. El constructor P2 y la UI PF-17 consumen esta regla.
 - PF-11/PF-15, implementación futura:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:
   [prevención de duplicados en lotes](pf-13-duplicados-lotes-design.md).
 - PF-13/PF-17, implementación futura:
-  [plantillas contables](pf-13-plantillas-contables-design.md).
+  [plantillas contables](pf-13-plantillas-contables-design.md), incluidos alias
+  inequívocos y procedencia del receptor y fechas; no repite el corte P1.
 - PF-18/PF-17, implementación futura:
   [dashboard mensual y fechas de emisión](pf-18-dashboard-mensual-design.md).
 - PF-17, implementación futura:

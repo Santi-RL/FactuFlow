@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 01/10/2026
+Última revisión: 03/10/2026
 
 Estado: VIGENTE.
 
@@ -104,6 +104,14 @@ Los formatos con una condición fija válida conservan su funcionamiento. Replay
 historia y reconciliación mantienen el contrato vigente. El
 [contrato RG 5616](rg-5616-condicion-iva-receptor-parche.md) y su
 [dossier](../project/releases/rg5616-condicion-iva.md) delimitan el parche.
+
+El cierre del parche no acredita fidelidad completa de identificación en la
+importación configurable: ésta aún puede descartar el documento de CF bajo el
+umbral y la validación del lote rechaza CUIT con CF. La combinación es admisible
+en la normativa; la diferencia entre caminos y su corrección pendiente están
+delimitadas en el [diseño de fidelidad del receptor](pf-13-receptores-importacion-design.md).
+Ese diseño futuro no describe una corrección ya implementada. Las condiciones
+siguen siendo datos explícitos, independientes del documento.
 
 ## Punto de reanudación
 

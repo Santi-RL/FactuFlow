@@ -1,6 +1,7 @@
 # PF-13 — plantillas contables e interpretación fiscal
 
 Fecha: 04/09/2026.
+Última revisión: 03/10/2026.
 
 Estado: alcance incorporado al roadmap; implementación pendiente. Este documento
 define el resultado futuro y las decisiones por cerrar, no capacidades actuales.
@@ -18,7 +19,9 @@ PF-17 aporta claridad y accesibilidad. PF-14 acompaña los contratos y mensajes;
 PF-12 sólo interviene si el diseño de persistencia lo necesita. No se crea un
 constructor paralelo ni se retoma el rediseño de lotes cerrado en
 [`lotes-ux-redesign.md`](lotes-ux-redesign.md). Se mantienen el horizonte «Más
-adelante», P2 y las prioridades anteriores.
+adelante» y P2 para esta ampliación del constructor. El corte acotado P1 de
+[fidelidad del receptor](pf-13-receptores-importacion-design.md) se ejecuta antes
+y aporta la regla compartida, sin adelantar todo el rediseño.
 
 La evolución posterior de la pantalla de carga se coordina con el
 [diseño de UI de lotes PF-17](pf-17-lotes-ui-design.md). Aquel organiza la
@@ -32,6 +35,12 @@ sin programación, códigos internos ni nuevas confirmaciones rutinarias.
 La garantía compartida de condición IVA válida se resuelve antes en el
 [parche RG 5616](rg-5616-condicion-iva-receptor-parche.md). Este diseño la
 reutiliza; la ampliación del constructor conserva su horizonte y alcance.
+
+La revisión posterior del receptor confirmó pérdida de identificación y rechazo
+de CUIT con consumidor final. Son defectos separados de la matriz RG 5616; su
+corrección se concentra en el diseño P1. Este corte P2 reduce además correcciones
+manuales de etiquetas equivalentes y permite detectar valores fijos o perfiles
+que no representan el Excel antes de preparar una emisión.
 
 ## Resultado aceptado
 
@@ -52,6 +61,9 @@ reutiliza; la ampliación del constructor conserva su horizonte y alcance.
 6. Conservar nombre/documento y procedencia para el control de duplicados de
    emisión masiva. Las repeticiones anónimas internas y las coincidencias con
    lotes anteriores se tratan según el diseño específico enlazado abajo.
+7. Aceptar alias inequívocos de condición fiscal, incluido «Monotributista» como
+   «Monotributo», espacios redundantes y diferencias de mayúsculas. Normalizar
+   vocabulario no autoriza inferir inscripción ni aceptar etiquetas desconocidas.
 
 ## Decisión de producto: duplicados y receptor identificable
 
@@ -63,9 +75,11 @@ y excepción con checkbox. Incluye casos anónimos, revalidación y coordinació
 simultánea.
 
 Este diseño de plantillas conserva la responsabilidad de leer la identidad y
-su procedencia sin pérdidas. La normalización del importador que descarta
-documentos de consumidores finales debe resolverse con ese contrato, sin
-inventar identidad ni cambiar implícitamente el dato fiscal enviado a ARCA.
+su procedencia sin pérdidas. La normalización que descarta documentos de
+consumidores finales y el rechazo general de CUIT con CF se corrigen en el
+[corte P1 de receptor](pf-13-receptores-importacion-design.md); el contrato de
+duplicados conserva su comparación y la identidad de entrada. No inventar
+identidad ni cambiar implícitamente el dato fiscal enviado a ARCA.
 Las huellas históricas de idempotencia y reconciliación permanecen inmutables.
 
 ## Contrato contable
@@ -95,6 +109,13 @@ no se establece una prioridad silenciosa.
 
 - La condición es la del **receptor**, distinta de la del emisor. Debe provenir
   de una columna explícita en el archivo mixto; no se deduce del CUIT ni de A/B.
+  Si se configuró una columna fiscal por fila, un vacío requerido o valor
+  desconocido no se sustituye por consumidor final. Una condición fija sigue
+  siendo una elección explícita válida para archivos homogéneos.
+- Consumidor final puede estar identificado con CUIT/CUIL o DNI. Reutilizar la
+  regla P1: mantener documento y nombre, distinguir el tipo de identificación y
+  mostrar diferencias reales entre dato aportado y configuración efectiva.
+  No interpretar CUIT con CF como contradicción ni como receptor anónimo.
 - A requiere documento CUIT, número válido, razón social y condición compatible.
   No imponer «A = sólo Responsable Inscripto»: también existen receptores
   monotributistas admitidos. La matriz se verifica con documentación y catálogos
@@ -155,7 +176,11 @@ contrato anterior. La ampliación de columnas se muestra en la plantilla generad
   calculado disponible no equivale a cero ni a un dato opcional ausente.
 - Fecha fiscal desde archivo o elección explícita en el lote. Formato visible
   `DD/MM/AAAA`, validación de calendario y ninguna fecha actual predeterminada.
-  Conservar controles de fechas de servicio y comprobantes asociados.
+  Conservar controles de fechas de servicio y comprobantes asociados. Mostrar
+  emisión, servicio desde/hasta y vencimiento como campos distintos, con su
+  procedencia efectiva desde Excel, constante o perfil/lote. Su soporte existente
+  no se presenta como una funcionalidad nueva; este corte facilita el mapeo y la
+  revisión, sin reemplazar silenciosamente una fecha suministrada.
 
 ## Responsabilidades del flujo
 
@@ -207,10 +232,10 @@ No reabrir contratos cerrados sin necesidad demostrada para esta unidad.
 
 ## Decisiones pendientes antes de implementar
 
-1. Tratamiento del documento informado en B/CF: revisar la normalización vigente
-   y la diferencia entre importación configurable y emisión individual. Proponer
-   una regla coherente sin eliminar datos explícitos; cualquier cambio de política
-   o protección se presenta al usuario antes de implementarlo.
+1. Consumir el contrato P1 aceptado de documento y condición independientes,
+   sin reabrir la validez de CF identificado. La transición legacy, consumidores
+   y snapshots se resuelven en ese corte; cerrar aquí sólo su integración con
+   columnas, constantes y vista interpretada del constructor.
 2. Campos «requeridos»: separar obligatoriedad del encabezado, valor por fila y
    requisito fiscal condicional; definir transición para plantillas legacy que
    hoy permiten celdas vacías. No endurecer todos los archivos existentes por
@@ -219,19 +244,21 @@ No reabrir contratos cerrados sin necesidad demostrada para esta unidad.
    mensajes con un Excel sintético representativo. Confirmar nombres completos
    y estructura con el archivo real si se usa como caso de aceptación privado.
 4. Resolver la división exacta de trabajo transversal con PF-14/PF-17 y confirmar
-   el corte a ejecutar. No se cambia el horizonte del roadmap por esta auditoría.
+   el corte a ejecutar. La ampliación P2 mantiene su horizonte; la fidelidad P1
+   se ejecuta aparte según el orden del roadmap.
 
 ## Matriz de aceptación obligatoria
 
 | Área | Casos mínimos |
 |---|---|
 | Tipo/letra | Las nueve combinaciones; tipo o letra fijos; código legacy; mixto A/B; vacíos, desconocidos, contradictorios y fracciones |
-| Receptor | A con CUIT válido/ausente/inválido; condición ausente/desconocida/incompatible; RI y monotributo admitidos; B/CF y receptor identificado conforme a la regla aceptada |
+| Receptor | A con CUIT válido/ausente/inválido; condición ausente/desconocida/incompatible; RI y monotributo admitidos; B/C con CF identificado o anónimo conforme al contrato P1, sin pérdida de documento |
+| Alias de condición | «Monotributista» equivale a «Monotributo»; espacios y mayúsculas normalizados; desconocidos no se convierten en CF ni se interpretan por CUIT |
 | Asociados | FC con celdas vacías; NC/ND completas e incompletas; asociado incompatible; notas mixtas con facturas |
 | Mapeo | Encabezados duplicados tras normalizar; columnas sin nombre; posición fuera de archivo; hoja ausente; cambio de hoja; filas vacías y encabezado distinto de fila 1 |
 | Importes | Neto/IVA/total separados, cantidad 1 explícita, IVA fijo/columna, C con IVA incompatible, total requerido vacío, fórmula sin caché, precisión y diferencias de centavos |
 | Generación | Descargar, completar y reimportar produce la misma interpretación; posiciones fijas y columnas por nombre sin colisiones; etiquetas y ejemplos seguros |
-| Perfiles/versiones | Overrides explícitos visibles, versión reemplazada, clonación protegida, legacy sin pérdida, lote existente inalterado y rollback |
+| Perfiles/versiones | Overrides explícitos visibles, procedencia de documento/condición y emisión/servicio/vencimiento; versión reemplazada, clonación protegida, legacy sin pérdida, lote existente inalterado y rollback |
 | Aislamiento/concurrencia | Otro emisor rechazado; cambios de contexto y respuestas tardías; guardado concurrente; doble validación/confirmación sin doble efecto fiscal |
 | Emisión/errores | Error previo sin CAE; worker y caminos unitario/batch revalidan; incertidumbre/reconciliación conservan solicitud congelada y nunca se reemite por un error de importación |
 | UX/accesibilidad | Usuario contable configura sin códigos; muestra explica el resultado; corrección por fila/columna; teclado, foco, lector de pantalla y zoom; sin confirmaciones nuevas rutinarias |
