@@ -972,6 +972,10 @@ payload Base64 según la especificación oficial y muestra datos fiscales del
 emisor/receptor, operación, detalle, totales, CAE y vencimiento CAE. En
 comprobantes nuevos de servicios también muestra período facturado y vencimiento
 de pago. Los datos libres renderizados en la plantilla se escapan como HTML.
+Si falla la generación, descarga y preview responden `500` con un mensaje
+genérico accionable; no devuelven excepciones, rutas internas ni credenciales.
+El diagnóstico técnico queda en registros privados. La autorización y el alcance
+por emisor se comprueban antes de generar el documento.
 
 ## Reportes
 

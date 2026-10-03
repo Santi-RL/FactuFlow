@@ -40,11 +40,13 @@ Los casos de comportamiento abusivo, acosador o inaceptable pueden reportarse co
 
 - Verificá que estés usando la última versión de FactuFlow
 - Buscá en [Issues existentes](https://github.com/Santi-RL/FactuFlow/issues) para ver si ya fue reportado
-- Recopilá información sobre el bug (pasos para reproducir, logs, screenshots)
+- Recopilá pasos y evidencia sintética o redactada. Antes de publicar logs o
+  capturas, retirar credenciales, datos fiscales, clientes, emisores y rutas
+  privadas. La evidencia operativa real permanece fuera de Issues públicos.
 
 ### Template para Reportar Bugs
 
-```markdown
+````markdown
 ## Descripción del Bug
 Una descripción clara y concisa del problema.
 
@@ -70,13 +72,13 @@ Si aplica, agregá capturas de pantalla.
 - Ambiente ARCA: [homologación / producción]
 
 ## Logs
-```
-Pegá acá los logs relevantes
+```text
+Pegá acá únicamente mensajes redactados, sin datos ni evidencia privada.
 ```
 
 ## Información Adicional
 Cualquier otra información que pueda ser útil.
-```
+````
 
 ### Creá el Issue
 
@@ -235,7 +237,7 @@ git checkout -b docs/guia-instalacion
 ### 3. Desarrollar
 
 - Escribí código limpio y bien documentado
-- Seguí las [convenciones de código](#estándares-de-código)
+- Seguí las [convenciones de código](#-estándares-de-código)
 - Agregá o actualizá tests
 - Actualizá documentación si es necesario
 
@@ -304,7 +306,7 @@ Los comandos con `--fix` o `--write` se reservan para cuando se quiera modificar
 archivos y siempre requieren revisar el diff resultante.
 ### 6. Commit
 
-Seguí la convención de [Conventional Commits](#conventional-commits) en español.
+Seguí la convención de [Conventional Commits](#-conventional-commits) en español.
 
 ```bash
 git add .
@@ -346,7 +348,7 @@ Una vez aprobados todos los checks y aceptados los riesgos, se hace merge a `mai
 #### Estilo
 - **PEP8** obligatorio
 - Formatear con **black** (línea de 88 caracteres)
-- Lint con **pylint** o **ruff**
+- Lint con **Ruff**, según la configuración versionada
 
 #### Type Hints
 Obligatorios en código nuevo o modificado para funciones, clases y helpers
@@ -355,16 +357,19 @@ dedicadas.
 
 ```python
 # ✅ BIEN
-def calcular_total(items: list[dict], iva: float = 21.0) -> float:
-    """Calcula el total con IVA."""
-    subtotal = sum(item['precio'] * item['cantidad'] for item in items)
-    return subtotal * (1 + iva / 100)
+def contar_pendientes(estados: list[str]) -> int:
+    """Cuenta tareas pendientes."""
+    return sum(estado == "pendiente" for estado in estados)
 
 # ❌ MAL
-def calcular_total(items, iva=21):
-    subtotal = sum(item['precio'] * item['cantidad'] for item in items)
-    return subtotal * (1 + iva / 100)
+def contar_pendientes(estados):
+    return sum(estado == "pendiente" for estado in estados)
 ```
+
+Los importes fiscales usan el cálculo decimal compartido de
+[`comprobante_totales.py`](backend/app/core/comprobante_totales.py). No crear
+fórmulas paralelas con `float` ni cambiar la política de redondeo desde una
+utilidad de interfaz.
 
 #### Docstrings
 En código nuevo o modificado, usar docstrings en español para funciones,
@@ -559,31 +564,46 @@ BREAKING CHANGE: El campo "items" ahora se llama "lineas"
 
 ### Cobertura Mínima
 
-- Backend: **80%** de coverage
-- Frontend: **70%** de coverage (lógica de negocio)
+- Backend: puerta global de líneas y ramas definida en
+  [`pytest.ini`](backend/pytest.ini).
+- Frontend: umbrales por métrica definidos en
+  [`vite.config.ts`](frontend/vite.config.ts).
+
+La CI aplica estas configuraciones versionadas y publica la cobertura. Un
+porcentaje global no sustituye las pruebas de errores, concurrencia y estados
+inciertos exigidas por el riesgo del cambio.
 
 ### Backend (pytest)
 
 ```python
 # tests/test_clientes.py
-def test_crear_cliente_valido(client, db):
+import pytest
+from httpx import AsyncClient
+
+
+@pytest.mark.asyncio
+async def test_crear_cliente_valido(client: AsyncClient, auth_headers: dict):
     """Debe crear un cliente con datos válidos."""
-    response = client.post(
-        "/api/v1/clientes",
+    response = await client.post(
+        "/api/clientes",
+        headers=auth_headers,
         json={
-            "nombre": "Juan Pérez",
-            "cuit": "20123456789",
-            "email": "juan@example.com"
+            "tipo_documento": "DNI",
+            "numero_documento": "12345678",
+            "razon_social": "Cliente sintético",
+            "condicion_iva": "CF"
         }
     )
     assert response.status_code == 201
-    assert response.json()["nombre"] == "Juan Pérez"
+    assert response.json()["razon_social"] == "Cliente sintético"
 
-def test_crear_cliente_cuit_invalido(client, db):
-    """No debe crear cliente con CUIT inválido."""
-    response = client.post(
-        "/api/v1/clientes",
-        json={"nombre": "Juan", "cuit": "123"}
+@pytest.mark.asyncio
+async def test_crear_cliente_sin_datos_requeridos(client: AsyncClient, auth_headers: dict):
+    """Debe rechazar un cliente sin razón social ni condición IVA."""
+    response = await client.post(
+        "/api/clientes",
+        headers=auth_headers,
+        json={"tipo_documento": "DNI", "numero_documento": "12345678"}
     )
     assert response.status_code == 422
 ```
@@ -591,18 +611,12 @@ def test_crear_cliente_cuit_invalido(client, db):
 ### Frontend (Vitest)
 
 ```typescript
-// src/components/__tests__/FormCliente.spec.ts
 import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
-import FormCliente from '../FormCliente.vue'
+import { formatearFecha } from '@/composables/useFormatters'
 
-describe('FormCliente', () => {
-  it('valida CUIT correctamente', async () => {
-    const wrapper = mount(FormCliente)
-    const input = wrapper.find('input[name="cuit"]')
-    await input.setValue('20123456789')
-    
-    expect(wrapper.vm.cuitValido).toBe(true)
+describe('fecha visible', () => {
+  it('muestra una fecha fiscal explícita en formato argentino', () => {
+    expect(formatearFecha('2026-08-01')).toBe('01/08/2026')
   })
 })
 ```

@@ -13,6 +13,7 @@ services/
 ├── contencion_fiscal_service.py          # Guarda opt-in PF-19A antes de FECAESolicitar
 ├── constancia_arca_service.py           # Extracción de datos fiscales desde constancia ARCA
 ├── constancia_puntos_venta_service.py   # Extracción de puntos de venta desde constancia ARCA
+├── duplicados_lotes_service.py          # Evidencia y coordinación de duplicados de lotes
 ├── elegibilidad_rece_service.py         # Autoridad durable y fail-closed PF-19B
 ├── facturacion_service.py               # Orquestación de emisión de comprobantes
 ├── formatos_importacion_service.py      # Plantillas/formato, compatibilidad, descarga XLSX y mapeo de Excel externos
@@ -42,8 +43,10 @@ services/
 - Idempotencia fiscal: ver `idempotencia_fiscal_service.py`. Los caminos que
   solicitan CAE deben exigir `X-Idempotency-Key`, persistir una operación
   durable, crear intentos fiscales antes de ARCA y bloquear reintentos inciertos
-  hasta consultar `FECompConsultar` o reconciliar. Los duplicados lógicos son
-  advertencias con confirmación adicional, no bloqueos automáticos.
+  hasta consultar `FECompConsultar` o reconciliar. Las coincidencias compatibles
+  con una operación nueva admiten aceptación específica; una operación ajena
+  activa o incierta y ciertos remanentes legacy permanecen bloqueados. El
+  contrato de duplicados no concede un bypass fiscal ni idempotente.
 - Lotes masivos: ver `backend/app/services/lote_comprobantes_service.py` y
   `backend/app/services/lote_worker.py`. Los lotes requieren política explícita
   de concepto fiscal ARCA, descripción/concepto facturado del ítem, fecha de
@@ -82,13 +85,16 @@ services/
   emisores distingue constancia de inscripción de persona jurídica, inscripción
   de persona física y opción Monotributo; valida provincia contra el catálogo
   argentino antes de completar el campo.
-- PF-19B: `elegibilidad_rece_service.py` es la autoridad central. Toda ruta que
+- PF-19B/PF-19D: `elegibilidad_rece_service.py` es la autoridad central. Toda ruta que
   pueda solicitar CAE exige estado efectivo `verificado_rece` para el ambiente
   actual, snapshots coherentes y guardas antes de `FECAESolicitar`. La única
   promoción
-  positiva es una atestación administrativa de constancia productiva completa,
-  reciente y con señal exacta; homologación permanece cerrada. La
-  sincronización WSFE solo actualiza estado técnico. PF-19A conserva una
+  positiva vigente procede de `FEParamGetPtosVenta` autenticado para el emisor
+  y ambiente. La constancia sólo completa datos descriptivos; las atestaciones
+  antiguas conservan historia, pero no habilitan nuevos selectores. La
+  sincronización WSFE actualiza estado técnico y autoridad de forma atómica,
+  conservando la preferencia de uso. Los selectores exigen una comprobación con
+  menos de 90 días y la emisión conserva el preflight final. PF-19A mantiene una
   denegación adicional para tuplas declaradas explícitamente en configuración
   privada. `inventario_legacy_pf19_service.py` no llama ARCA ni
   muta estados y produce evidencia sanitizada, pero privada. Antes de usar una

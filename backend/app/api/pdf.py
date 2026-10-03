@@ -1,5 +1,7 @@
 """API endpoints para generación de PDFs."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +13,11 @@ from app.models.comprobante import Comprobante
 from app.services.pdf_service import pdf_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+ERROR_GENERACION_PDF_PUBLICO = (
+    "No se pudo generar el PDF. Intentá nuevamente y, si el problema continúa, "
+    "contactá al administrador."
+)
 
 
 def _validar_comprobante_autorizado_para_pdf(comprobante: Comprobante) -> None:
@@ -74,8 +81,11 @@ async def descargar_pdf_comprobante(
         pdf_bytes = await pdf_service.generar_pdf_comprobante(
             comprobante, comprobante.empresa
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al generar PDF: {str(e)}")
+    except Exception:
+        logger.exception("Error al generar PDF comprobante_id=%s", comprobante_id)
+        raise HTTPException(
+            status_code=500, detail=ERROR_GENERACION_PDF_PUBLICO
+        ) from None
 
     # Nombre del archivo
     letra = pdf_service._get_letra_comprobante(comprobante.tipo_comprobante)
@@ -137,8 +147,11 @@ async def preview_pdf_comprobante(
         pdf_bytes = await pdf_service.generar_pdf_comprobante(
             comprobante, comprobante.empresa
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al generar PDF: {str(e)}")
+    except Exception:
+        logger.exception("Error al generar PDF comprobante_id=%s", comprobante_id)
+        raise HTTPException(
+            status_code=500, detail=ERROR_GENERACION_PDF_PUBLICO
+        ) from None
 
     return Response(
         content=pdf_bytes,

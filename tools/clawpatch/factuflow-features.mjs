@@ -207,18 +207,17 @@ export const FEATURE_AREAS = {
         { path: "src/services/lotes-comprobantes.service.ts", reason: "cliente HTTP de lotes" },
         { path: "src/types/lote-comprobante.ts", reason: "contratos de lotes" },
         { path: "src/utils/lote-progress.ts", reason: "calculo de progreso y ETA" },
-        { path: "src/utils/lote-totals.ts", reason: "totales previos a emitir" },
         { path: "src/services/formatos-importacion.service.ts", reason: "cliente de formatos" },
         { path: "src/services/perfiles-carga-masiva.service.ts", reason: "cliente de perfiles" },
       ],
       contextFiles: [
         { path: "src/utils/lote-progress.spec.ts", reason: "tests progreso lotes" },
-        { path: "src/utils/lote-totals.spec.ts", reason: "tests totales lotes" },
+        { path: "src/views/comprobantes/LotesComprobantesView.spec.ts", reason: "tests de totales autoritativos y flujo de lotes" },
         { path: "src/utils/perfiles-carga-masiva.spec.ts", reason: "tests perfiles" },
       ],
       tests: [
         { path: "src/utils/lote-progress.spec.ts", command: "npm run test:unit -- lote-progress" },
-        { path: "src/utils/lote-totals.spec.ts", command: "npm run test:unit -- lote-totals" },
+        { path: "src/views/comprobantes/LotesComprobantesView.spec.ts", command: "npm run test:unit -- LotesComprobantesView" },
       ],
       tags: ["frontend", "lotes", "fecha-fiscal", "emision-masiva"],
       trustBoundaries: ["user-input", "network", "auth", "serialization"],
@@ -274,8 +273,11 @@ export const FEATURE_AREAS = {
         { path: "src/stores/empresa.ts", reason: "emisor activo" },
         { path: "src/types/certificado.ts", reason: "contrato certificados" },
         { path: "src/types/punto_venta.ts", reason: "contrato puntos" },
+        { path: "src/composables/useFormatters.ts", reason: "fechas de calendario compartidas" },
       ],
-      tests: [],
+      tests: [
+        { path: "src/components/certificados/CertificadoCard.spec.ts", command: "npm run test:unit -- CertificadoCard" },
+      ],
       tags: ["frontend", "certificados", "arca", "puntos-venta"],
       trustBoundaries: ["user-input", "network", "auth", "secrets"],
     },
@@ -303,8 +305,14 @@ export const FEATURE_AREAS = {
       contextFiles: [
         { path: "src/services/empresa.service.ts", reason: "cliente de emisores" },
         { path: "src/stores/auth.ts", reason: "usuario y rol" },
+        { path: "src/views/clientes/ClienteDetailView.vue", reason: "identidad del detalle de cliente" },
+        { path: "src/views/clientes/ClienteFormView.vue", reason: "identidad del formulario de cliente" },
+        { path: "src/views/comprobantes/ComprobanteDetalleView.vue", reason: "identidad del detalle fiscal" },
+        { path: "src/views/contexto-emisor.spec.ts", reason: "regresiones de contexto y respuestas tardías" },
       ],
-      tests: [],
+      tests: [
+        { path: "src/views/contexto-emisor.spec.ts", command: "npm run test:unit -- contexto-emisor" },
+      ],
       tags: ["frontend", "multiemisor", "reportes", "auth"],
       trustBoundaries: ["network", "auth", "permissions", "serialization"],
     },
@@ -334,7 +342,7 @@ export const FEATURE_AREAS = {
       contextFiles: [
         { path: "backend/tests/test_lotes_comprobantes.py", reason: "tests backend de lotes" },
         { path: "frontend/src/utils/lote-progress.ts", reason: "progreso UI" },
-        { path: "frontend/src/utils/lote-totals.ts", reason: "totales UI" },
+        { path: "frontend/src/views/comprobantes/LotesComprobantesView.spec.ts", reason: "tests de totales autoritativos en UI" },
       ],
       tests: [
         { path: "backend/tests/test_lotes_comprobantes.py", command: "cd backend && python -m pytest tests/test_lotes_comprobantes.py -q" },

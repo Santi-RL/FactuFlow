@@ -18,6 +18,21 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Limpieza y coherencia del estado actual
+
+- Alineadas guías de dominio, certificados, instalación y pruebas; corregido el
+  manifiesto público de historia sin modificar sus snapshots. Retirada la receta
+  de borrar WAL/SHM y las referencias de despliegue inferidas desde el repositorio.
+- Retirados tres helpers backend sin consumidores y la calculadora huérfana de
+  lotes. Fechas de certificados usan calendario; detalles y formulario de cliente
+  preservan el contexto de emisor frente a cargas o escrituras tardías.
+- Errores PDF públicos sanitizados, contextos Docker sin datos de instalación,
+  mocks E2E completos, marcadores PostgreSQL y auditoría npm local alineados con CI.
+- Incorporadas la puerta de estabilización derivada de la auditoría y la dirección
+  de arquitectura hacia un MCP futuro, sin implementar sus capacidades ni cambiar
+  la visión. Evidencia y límites en el
+  [dossier](docs/project/analysis/auditoria-integral-2026-10.md); prioridades en el roadmap.
+
 ### Planificación de confiabilidad fiscal
 
 - Integra oportunidades de importes/previsualización, reconciliación, WSAA,

@@ -79,6 +79,15 @@ y el [dossier](../project/releases/pf13-17-reintentos-seguros.md) delimitan el c
 
 ## Trabajo aceptado pendiente
 
+La auditoría integral corrigió documentación, código sin consumidores, fechas de
+calendario, contexto de detalles/formularios, errores PDF y barreras de
+construcción. Conserva los contratos fiscales y la visión. Los hallazgos de
+persistencia, lecturas y dependencias permanecen abiertos y forman una puerta de
+estabilización antes de capacidades nuevas. Evidencia y límites en el
+[dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md);
+responsabilidades compartidas y horizonte MCP en
+[dirección de arquitectura](architecture-direction.md). No acredita despliegue.
+
 La entrega de reintentos incluye correcciones de dependencias y una CI sin
 advertencias: PyJWT/WeasyPrint, auditoría npm completa, compatibilidad bcrypt,
 APIs Pydantic/FastAPI vigentes y puertas estrictas de lint y pytest. El

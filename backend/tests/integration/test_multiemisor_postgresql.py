@@ -14,6 +14,9 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 from tests.postgresql_harness import require_disposable_postgres_url
 
 
+pytestmark = pytest.mark.integration
+
+
 REVISION_PF19D = "e3f4a5b6c7d8"
 REVISION_MULTIEMISOR = "f4a5b6c7d8e9"
 

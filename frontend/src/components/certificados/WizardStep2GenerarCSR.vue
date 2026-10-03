@@ -421,7 +421,7 @@ onMounted(async () => {
         <BaseInput
           v-model="keyFilename"
           label="Nombre de la clave privada (.key)"
-          placeholder="23318277559_homologacion_20260204_123456.key"
+          placeholder="CUIT_homologacion_AAAAMMDD_HHMMSS.key"
           hint="Debe ser la clave generada por FactuFlow para este CSR"
           required
           :maxlength="255"

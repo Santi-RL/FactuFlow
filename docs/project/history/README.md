@@ -59,6 +59,36 @@ resultados ni referencias a PR, commits, tags o dossiers.
 | `manual-qa-through-v0.3.2.md` | `5d12e258dea8d97a0a5430be820bb31d11083ffe0d426a42f7e9628bd30dfc66` |
 | `fase-6-pdf-reportes.md` | `bd479dbfba3da98ae09f204e6e665cd44468adf06b718e4ce2ff1b566ee8c28b` |
 
+## Manifiesto verificable de los snapshots actuales — 03/10/2026
+
+Las tablas anteriores conservan los hashes registrados de origen y de
+anonimización como antecedentes históricos. No verifican por sí solas el
+contenido público actual: los registros originales mezclan finales de línea y
+varios hashes de anonimización no coinciden con el snapshot conservado. No se
+ha reconstruido ni sustituido el origen desconocido.
+
+La siguiente tabla verifica el contenido actual. El procedimiento es leer cada
+archivo como UTF-8, quitar un BOM inicial si existe, normalizar CRLF y CR a LF,
+volver a codificar como UTF-8 sin BOM y calcular SHA-256. Se conservan todos los
+saltos de línea, incluido el final; no se modifica el contenido del snapshot.
+
+| Snapshot actual | SHA-256 canónico UTF-8/LF |
+|---|---|
+| `roadmap-through-2026-08-29.md` | `5ae41dd5f59d1e996103b0056e55732c9768676b6a5aef49ce3cb38cd155fc5a` |
+| `current-status-through-v0.3.2.md` | `76f8cee010f3f00482855e25dc695802146c92bcc3c6ec98b1a2163bb1952869` |
+| `development-portfolio-through-v0.3.2.md` | `f2d4480022f26ea795c7d63887093c0492442bc2e121f2bc8731549e64e04ecc` |
+| `testing-through-v0.3.2.md` | `53871c808c7307507ae4a10d02ff05c06ed766f8b5c33116a57a45efbd05b826` |
+| `manual-qa-through-v0.3.2.md` | `a50829dce4cf03fff08e06bb5a206c6f786fcc381efa4513c9894d4991659a9f` |
+| `overview-through-v0.3.2.md` | `84b2f78d48f1f19984a11952fbc4b264d63a190fb7ffb9866bd64b0cb13b1ebb` |
+| `alignment-audit-closed-2026-05-07.md` | `c26543bab9d8ab3d34aa68d5b22607d125e212130d2345b4fce1d7dba2fb8668` |
+| `docs-index-through-v0.3.2.md` | `b7f461d3515ef077eef5503031220c30c24112fbd98a486088618378d880c869` |
+| `agents-index-through-v0.3.2.md` | `befa218cf6add0beae9d9710c3f40060d066f4785bb9827cbc1af54559a1f04f` |
+| `project-index-through-v0.3.2.md` | `73c4eea85357e28f5fb6f8190ebaef9699f636357b70324b0cd1b7f301470763` |
+| `releases-index-through-v0.3.2.md` | `8f323e2936653832ccb107b1b382433784b301ecc3eb12b3c71db3ffcba1b4e7` |
+| `fase-6-pdf-reportes.md` | `55a5953715a1aa92d2ecca2ebf8097a682648d007bffb2f65940bc400eb9cc6c` |
+| `integracion-arca-inicial.md` | `80cc5f1642314e5f4a1a8598ccd4bc621daf9ec31d49b47768444687880dc83e` |
+| `../releases/v0.3.2-design-qa.md` | `bd727f1bf3745c8da8964afca699ce2f0ac7ab7ca5ad3ced23903880b0ccddd6` |
+
 ## Auditoría de reorganización
 
 La clasificación del corpus, las decisiones de migración y la adjudicación de

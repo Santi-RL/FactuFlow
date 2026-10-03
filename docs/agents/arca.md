@@ -52,10 +52,10 @@
 
 ### Certificados y WSASS
 
-- En homologación se trabajo con WSASS.
-- El certificado se emitió para el CUIT del titular del certificado y luego se autorizo el servicio `wsfe` para el CUIT representado.
+- En homologación se trabajó con WSASS.
+- El certificado se emitió para el CUIT del titular del certificado y luego se autorizó el servicio `wsfe` para el CUIT representado.
 - Flujo confirmado:
-  1. Adherir `WSASS - Autogestion Certificados Homologacion`
+  1. Adherir a WSASS, autogestión de certificados de homologación
   2. Generar CSR con el CUIT del titular del certificado
   3. Crear DN/certificado en WSASS
   4. Crear autorización al servicio `wsfe` para el CUIT representado
@@ -223,10 +223,10 @@
 - La constancia permite ver también puntos de otros sistemas como Factuweb,
   Comprobantes en Línea y Controlador Fiscal; deben mostrarse pero no tratarse
   como usables para FactuFlow si no son Web Services.
-- Si al importar una constancia falla la consulta técnica `FEParamGetPtosVenta`,
-  no se debe inventar estado ARCA activo: los puntos existentes conservan
-  `bloqueado`, `fecha_baja` y `activo`; los puntos nuevos quedan inactivos hasta
-  sincronizar con ARCA o revisarlos manualmente.
+- Importar una constancia no ejecuta `FEParamGetPtosVenta` ni cambia el estado
+  técnico de puntos existentes. Una falla de la comprobación WSFE separada
+  conserva íntegra la autoridad previa y no crea una señal positiva; no existe
+  una revisión manual que sustituya esa autoridad.
 - La disponibilidad de este contrato en una instalación concreta se comprueba
   exclusivamente en su plano de control; no se infiere desde `main` o una
   release.

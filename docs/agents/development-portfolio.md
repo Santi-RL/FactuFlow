@@ -25,6 +25,9 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
+| PF-03/PF-04/PF-14, persistencia y asociación | Puerta previa | P1 fiscal | Datos admitidos persistibles fielmente y guardado fiscal independiente de un alta administrativa posterior | [Auditoría A-01/A-02](../project/analysis/auditoria-integral-2026-10.md); preservar precisión, historia y recuperación |
+| PF-03/PF-04/PF-17, lecturas actuales | Puerta previa | P1 | Bases de IVA correctas y moneda explícita en detalle, ventas, IVA y ranking | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md); autoridad de agrupación/conversión por cerrar; sin dependencia PF-05 |
+| PF-16, dependencias de construcción | Puerta previa | P1 de integración | Corregir cadena vulnerable manteniendo auditoría completa y compatibilidad | [Auditoría](../project/analysis/auditoria-integral-2026-10.md); unidad técnica propia, sin `--force` ni reducción de gates |
 | PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
 | PF-03/PF-13, admisibilidad y revisión | Ahora 2 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
 | PF-02/PF-04, recuperación legacy | Ahora 3 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
@@ -176,10 +179,27 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 
 | Candidato | Evidencia y alcance propuesto |
 |---|---|
-| Seguimiento de lectura PDF, PF-16 | La corrección aplicable a los lectores de constancias se incluye en `v0.3.6` mediante `pypdf==6.16.1`. El [cambio de seguridad de 6.17.0](https://github.com/py-pdf/pypdf/pull/4047/files) afecta la conversión de etiquetas de página, que los lectores actuales no invocan. Reevaluar antes de incorporar `page_labels` o ante un aviso aplicable nuevo; una auditoría limpia no sustituye ese análisis. |
-| Alineación de guías de calidad y dominio | Contrastar el comando E2E de `testing.md` con los scripts reales de frontend y revisar el README de servicios frente al contrato cerrado PF-19D. La auditoría npm ya se alinea con el workflow completo sin excluir tooling. Son correcciones documentales acotadas, sin reabrir reglas fiscales ni rebajar checks. |
 | Mensajes de validación al iniciar sesión | Una respuesta estructurada `422` puede mostrarse como `Error: [object Object]`. Delimitar un mensaje comprensible y pruebas con entradas inválidas, preservando la validación del servidor. |
-| Marcado de pruebas PostgreSQL, PF-16 | Las pruebas de migración de `test_multiemisor_postgresql.py` y `test_pf19d_postgresql.py` no tienen el marcador `integration`. Una selección por marcador puede omitirlas o incluirlas en la suite local hasta que el guard las salte. Alinear el marcado sin modificar la allowlist, el opt-in de reset ni las garantías de los ensayos; mientras tanto, seleccionar la carpeta de integración completa para su verificación física. |
+| Frontera de errores técnicos, PF-09/PF-12 | PDF está sanitizado; revisar respuestas ARCA/certificados y diagnóstico SQL sin parámetros sensibles. Conservar errores fiscales públicos controlados. [Auditoría](../project/analysis/auditoria-integral-2026-10.md). |
+| Updates con `null`, PF-12/PF-14 | Validar campos obligatorios de clientes/emisores antes de persistir, conservando restricciones y rollback; no confundir ausencia con `null`. |
+| Guía del wizard por ambiente, PF-09/PF-17 | Homologación necesita WSASS también en el paso de portal; propagar ambiente y comprobar ambas experiencias. |
+| Instantes de actividad, PF-12/PF-15/PF-17 | Definir UTC explícito y compatibilidad de datos históricos sin zona; no alterar fechas fiscales ni inventar una zona para toda la historia. |
+
+La limpieza de guías, marcado PostgreSQL y código sin consumidores salió del
+inventario activo; su evidencia está en el
+[dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md). Las
+dependencias reales se consultan en manifests y lockfiles; nuevos usos del lector
+PDF requieren reevaluar los avisos aplicables, sin mantener aquí una versión de
+release como estado de instalación.
+
+## Horizonte de operación asistida
+
+PF-18 contempla un MCP futuro para consultar y preparar comprobantes o lotes
+desde agentes. Reutilizar el caso de uso completo, incluidos controles que hoy
+viven en routers, con autorización humana verificable del contenido exacto.
+La [dirección de arquitectura](architecture-direction.md) conecta este horizonte
+con los cortes de datos, preparación, persistencia y recuperación. No implica
+implementación autorizada, calendario ni un plan detallado nuevo.
 
 ## Preparación para abrir cada corte
 
@@ -190,6 +210,9 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
+| Persistencia y asociación antes de CAE | [Auditoría A-01/A-02](../project/analysis/auditoria-integral-2026-10.md): capacidad y precisión de DB, asociación de cliente, consumidores y concurrencia; cerrar migración/compatibilidad sin alterar historia. |
+| Lecturas fiscales actuales | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md): bases desde evidencia conservada y política funcional de moneda; separar corrección actual de nuevas categorías o importación externa. |
+| Dependencias de construcción | [Auditoría](../project/analysis/auditoria-integral-2026-10.md): evaluar sustitución/migración compatible, build Docker y QA visual; auditoría completa verde antes de integrar runtime. |
 | Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
 | Admisibilidad, revisión y categorías | [Importes](pf-03-04-importes-previsualizacion-design.md): separar P1 de ampliación P2, contrato de preparación, tasas efectivas, lectura legacy y precisión inmutable. |
 | Reconciliación | [Diseño](pf-02-04-reconciliacion-integral-design.md): comparación legacy P1, cobertura del snapshot y recuperación moderna P2; conservar ownership y guardas RECE. |
@@ -208,9 +231,13 @@ unidad antes de convertirse en una tarea ejecutable.
 
 ## Orden aceptado
 
-La siguiente unidad sigue siendo fidelidad del receptor. Los ensayos de
-planificación justifican atender después admisibilidad/revisión de importes y
-comparación legacy, ambos P1 acotados, antes de recuperación/trazabilidad.
+La puerta previa de estabilización precede a capacidades nuevas; sus reparaciones
+se delimitan por contrato, sin mezclar un refactor global. Los cortes P1 de
+receptor, admisibilidad/revisión y comparación legacy mantienen sus dueños y se
+coordinan con esa preparación común antes de recuperación/trazabilidad.
+Tooling habilita la integración de runtime con CI verde; cada reparación fiscal
+se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
+una única unidad ni se bloquea una reparación esperando su propio resultado.
 Después: evidencia/reconciliación integral, WSAA y capacidades de plataforma
 necesarias, y padrón para clientes/emisores. La historia externa PF-05 pasa a
 Más adelante y no bloquea estos consumidores. Constructor, categorías completas

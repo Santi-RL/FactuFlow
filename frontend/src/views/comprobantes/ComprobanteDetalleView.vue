@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, watch, computed, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useComprobantesStore } from "@/stores/comprobantes";
+import { useEmpresaStore } from "@/stores/empresa";
 import { formatearFecha as formatFecha } from "@/composables/useFormatters";
 import {
   DocumentTextIcon,
@@ -19,24 +20,41 @@ import pdfService from "@/services/pdf.service";
 const route = useRoute();
 const router = useRouter();
 const comprobantesStore = useComprobantesStore();
+const empresaStore = useEmpresaStore();
 const { showError } = useNotification();
 
 const loading = ref(true);
 
-onMounted(async () => {
-  const id = parseInt(route.params.id as string);
-
-  try {
-    await comprobantesStore.obtenerComprobante(id);
-  } catch (error) {
-    console.error("Error al cargar comprobante:", error);
-    showError(
-      "No se pudo cargar el comprobante",
-      "Verifica que el comprobante exista y que pertenezca a la empresa activa.",
-    );
-  } finally {
+let solicitudCargaId = 0;
+watch(
+  [() => empresaStore.empresaActivaId, () => route.params.id],
+  async ([empresaId, rutaId]) => {
+    const solicitudId = ++solicitudCargaId;
+    comprobantesStore.limpiarComprobanteActual();
     loading.value = false;
-  }
+    if (!empresaId) return;
+
+    const id = Number(rutaId);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    loading.value = true;
+    try {
+      await comprobantesStore.obtenerComprobante(id);
+    } catch (error) {
+      if (solicitudId !== solicitudCargaId) return;
+      console.error("Error al cargar comprobante:", error);
+      showError(
+        "No se pudo cargar el comprobante",
+        "Verifica que el comprobante exista y que pertenezca a la empresa activa.",
+      );
+    } finally {
+      if (solicitudId === solicitudCargaId) loading.value = false;
+    }
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  solicitudCargaId += 1;
+  comprobantesStore.limpiarComprobanteActual();
 });
 
 const comprobante = computed(() => comprobantesStore.comprobanteActual);

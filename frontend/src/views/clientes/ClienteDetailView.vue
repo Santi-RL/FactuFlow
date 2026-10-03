@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useClientesStore } from "@/stores/clientes";
+import { useEmpresaStore } from "@/stores/empresa";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseBadge from "@/components/ui/BaseBadge.vue";
@@ -11,18 +12,38 @@ import { PencilIcon, ArrowLeftIcon } from "@heroicons/vue/24/outline";
 const route = useRoute();
 const router = useRouter();
 const clientesStore = useClientesStore();
+const empresaStore = useEmpresaStore();
 
 const loading = ref(true);
 
-onMounted(async () => {
-  const id = parseInt(route.params.id as string);
-  try {
-    await clientesStore.fetchCliente(id);
-  } catch (error) {
-    router.push("/clientes");
-  } finally {
+let solicitudCargaId = 0;
+watch(
+  [() => empresaStore.empresaActivaId, () => route.params.id],
+  async ([empresaId, rutaId]) => {
+    const solicitudId = ++solicitudCargaId;
+    clientesStore.limpiarClienteActual();
     loading.value = false;
-  }
+    if (!empresaId) return;
+
+    const id = Number(rutaId);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      router.push("/clientes");
+      return;
+    }
+    loading.value = true;
+    try {
+      await clientesStore.fetchCliente(id);
+    } catch {
+      if (solicitudId === solicitudCargaId) router.push("/clientes");
+    } finally {
+      if (solicitudId === solicitudCargaId) loading.value = false;
+    }
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  solicitudCargaId += 1;
+  clientesStore.limpiarClienteActual();
 });
 
 const handleEdit = () => {

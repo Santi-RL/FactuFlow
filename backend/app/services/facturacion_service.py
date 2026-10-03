@@ -2986,26 +2986,6 @@ class FacturacionService:
         )
         return True
 
-    def _validar_sin_bloqueo_preautorizacion(
-        self,
-        *,
-        empresa_id: int,
-        punto_venta_id: int,
-        punto_venta_numero: int,
-        tipo_comprobante: int,
-    ) -> None:
-        """Falla cerrado antes de consultas ARCA si la tupla está bloqueada."""
-        if self._bloqueo_preautorizacion(
-            empresa_id=empresa_id,
-            punto_venta_id=punto_venta_id,
-            punto_venta_numero=punto_venta_numero,
-            tipo_comprobante=tipo_comprobante,
-        ):
-            raise ValidationError(
-                f"{MENSAJE_BLOQUEO_PREAUTORIZACION}. "
-                f"{DETALLE_BLOQUEO_PREAUTORIZACION}"
-            )
-
     @staticmethod
     def _respuesta_bloqueo_preautorizacion(
         *,

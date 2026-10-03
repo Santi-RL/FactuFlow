@@ -252,22 +252,6 @@ async def get_current_user_optional(
     return user
 
 
-async def get_current_active_user(current_user=Depends(get_current_user)):
-    """
-    Dependency para obtener usuario activo.
-
-    Args:
-        current_user: Usuario actual del token
-
-    Returns:
-        Usuario activo
-
-    Raises:
-        HTTPException: Si el usuario no está activo
-    """
-    return current_user
-
-
 async def get_current_admin_user(current_user=Depends(get_current_user)):
     """
     Dependency para verificar que el usuario es administrador.

@@ -158,12 +158,12 @@ cuando detectan un problema.
 ## Alcance de la auditoría de dependencias
 
 En cada cambio de runtime, `Security Audit` bloquea vulnerabilidades conocidas
-de las dependencias que se instalan en producción. El árbol exclusivo de
-compilación y tests también se revisa, pero sus migraciones mayores se realizan
-en un corte técnico propio para no introducir incompatibilidades de forma
-automática. Hasta completar ese corte, las herramientas de desarrollo no se
-exponen como servicios públicos y sus alertas conocidas se registran como riesgo
-residual; nunca se usa `--force` para silenciarlas.
+de Python mediante `pip-audit -r requirements.txt` y de todo el árbol del
+frontend mediante `npm audit --audit-level=low`, incluidas herramientas de
+compilación y tests. Las migraciones mayores se delimitan como una unidad
+técnica para probar compatibilidad; no se excluyen las dependencias de
+desarrollo ni se usa `--force` para silenciar una puerta. Los servidores de
+desarrollo y los modos UI de tests no se exponen como servicios públicos.
 
 ## Puerta adicional de release
 

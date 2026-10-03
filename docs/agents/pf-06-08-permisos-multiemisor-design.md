@@ -2,7 +2,10 @@
 
 Última actualización: 2026-09-02
 
-Estado: CERRADO Y PUBLICADO EN `v0.3.5`; DESPLIEGUE PENDIENTE
+Estado: CERRADO Y PUBLICADO EN `v0.3.5`.
+
+La disponibilidad en una instalación se acredita únicamente en su plano de
+control; este diseño no fija su estado de despliegue.
 
 ## Objetivo
 

@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 01/10/2026
+Última actualización: 03/10/2026
 
 Este manual describe las capacidades aceptadas del producto, no el estado de una
 instalación concreta.
@@ -59,7 +59,7 @@ directo del escritorio que ejecuta `scripts\restart-local-dev.ps1`, volvé a
 ejecutarlo y esperá que muestre `Backend OK` y `Frontend OK`; ese flujo no
 muestra ícono junto al reloj. Si usaste el launcher `FactuFlow Local.vbs`, hacé
 clic derecho en el ícono de FactuFlow junto al reloj de Windows y elegí
-`Reiniciar servicios`. Luego presióná `Reintentar` en la pantalla.
+`Reiniciar servicios`. Luego presioná `Reintentar` en la pantalla.
 
 En una instalación en VPS o servidor, no se usa el launcher local. En ese caso
 se entra desde la URL publicada de FactuFlow. FactuFlow está pensado para poder
@@ -105,12 +105,16 @@ Si cambias el emisor activo, las pantallas principales recargan la información
 para mostrar solo datos de ese CUIT. En `Nueva Factura`, cambiar el emisor
 recarga puntos de venta y limpia el cliente seleccionado. La vista previa se
 habilita solo cuando FactuFlow pudo confirmar el próximo número.
+Los detalles de cliente y comprobante, y el formulario de cliente, también
+recargan su contexto: los datos del emisor anterior no se conservan en el
+formulario ni se aplican al nuevo emisor. Si el registro abierto no pertenece
+al nuevo emisor, vuelve al listado y selecciona el que corresponda.
 
 El panel de numeración muestra emisor, punto de venta, tipo de comprobante,
 último número guardado en FactuFlow, último número informado por ARCA y próximo
 número. Si ARCA tiene comprobantes anteriores que no están en FactuFlow, verás
 una advertencia, pero podrás continuar con el siguiente número de ARCA. Esta
-política corresponde a PF-02A, integrado en `main` pero aún no desplegado.
+política forma parte del contrato vigente de numeración individual.
 Importar esa historia para completar informes será una función opcional
 posterior y no es un requisito para emitir.
 
@@ -151,7 +155,7 @@ perfiles de carga y formatos de importación: no deben mezclarse entre emisores.
 
 ## 3. Dashboard
 
-El dashboard muestra un resumen general y accesos rapidos.
+El dashboard muestra un resumen general y accesos rápidos.
 
 Hoy informa:
 - total de clientes
@@ -159,7 +163,7 @@ Hoy informa:
 - último comprobante emitido
 - estado del certificado activo
 
-Desde ahi puedes ir directo a:
+Desde ahí puedes ir directo a:
 - nuevo cliente
 - emitir factura
 - emisión masiva
@@ -351,8 +355,8 @@ número global informado por ARCA. No es necesario importar esa historia para
 emitir. Antes de solicitar CAE, FactuFlow reserva todo el rango y vuelve a
 consultar la numeración. Si otro sistema avanzó o la consulta no puede
 completarse, el sublote se detiene sin solicitar CAE ni guardar comprobantes; no
-se replanifica automáticamente. Esta política corresponde a PF-02B.1,
-integrado en `main` pero aún no desplegado.
+se replanifica automáticamente. Esta política forma parte del contrato vigente
+de numeración masiva.
 
 Cuando el lote queda validado, la pantalla muestra `Totales listos para emitir`
 con cantidad de comprobantes, neto, IVA 21%, IVA 10,5% y total. Compara esos

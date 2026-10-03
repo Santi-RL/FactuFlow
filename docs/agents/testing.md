@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 29/08/2026
+Última revisión: 03/10/2026
 
 Estado: VIGENTE.
 
@@ -71,7 +71,7 @@ normal llama a ARCA real ni solicita CAE.
 Las pruebas de migraciones, constraints o concurrencia deben usar el harness
 versionado y una base descartable. Las barreras mínimas son:
 
-- driver `postgresql+asyncpg`;
+- driver `postgresql` o `postgresql+asyncpg`;
 - host loopback exacto;
 - base exacta `factuflow_integration_test`;
 - opt-in explícito `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1`;
@@ -106,11 +106,15 @@ requiera.
 
 ## E2E
 
-Desde la raíz:
+Desde `frontend/`:
 
 ```bash
 npm run test:e2e
 ```
+
+Desde la raíz, el comando equivalente es
+`npm --prefix frontend run test:e2e`. El runner levanta su propio servidor Vite
+local y lo cierra al terminar; no requiere una instalación operativa.
 
 - Usar dobles y datos sintéticos.
 - No reutilizar sesiones o credenciales productivas.

@@ -60,6 +60,15 @@ metadatos sin cambio fiscal no invalida por sí sola una operación.
    datos no soportados se trata explícitamente antes de una nueva emisión;
    intentos activos o inciertos mantienen su evidencia congelada.
 
+La [auditoría integral A-01/A-03](../project/analysis/auditoria-integral-2026-10.md)
+añade una puerta previa de persistencia y lecturas actuales. La preparación
+común debe admitir datos que puedan almacenarse fielmente, conservando precisión
+de cantidades/precios y totales; el cálculo representable no garantiza capacidad
+de `Numeric`. Delimitar la solución con PF-14 y revisar migración/compatibilidad
+antes de elegir nuevos límites. Las bases y proyecciones de moneda en informes
+usan hechos conservados, sin reconstruir netos desde IVA redondeado. Estos
+cortes no esperan categorías P2 ni modifican redondeos aceptados.
+
 Si aparece un uso operativo válido de una tasa todavía no implementada, evaluar
 su soporte acotado y el efecto de rechazarla antes de imponer una restricción
 permanente. El intercambio que requiera bloquear una operatoria válida conserva

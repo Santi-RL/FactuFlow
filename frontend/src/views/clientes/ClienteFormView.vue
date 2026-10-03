@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useClientesStore } from "@/stores/clientes";
+import { useEmpresaStore } from "@/stores/empresa";
 import { useNotification } from "@/composables/useNotification";
 import { provinciasOptions } from "@/constants/provincias";
 import BaseCard from "@/components/ui/BaseCard.vue";
@@ -13,13 +14,14 @@ import type { ClienteCreate, ClienteUpdate } from "@/types/cliente";
 const route = useRoute();
 const router = useRouter();
 const clientesStore = useClientesStore();
+const empresaStore = useEmpresaStore();
 const { showSuccess, showError } = useNotification();
 
 const loading = ref(false);
 const isEdit = ref(false);
 const clienteId = ref<number | null>(null);
 
-const formData = ref<ClienteCreate | ClienteUpdate>({
+const crearFormularioVacio = (): ClienteCreate => ({
   razon_social: "",
   tipo_documento: "CUIT",
   numero_documento: "",
@@ -32,6 +34,10 @@ const formData = ref<ClienteCreate | ClienteUpdate>({
   telefono: "",
   notas: "",
 });
+const formData = ref<ClienteCreate | ClienteUpdate>(crearFormularioVacio());
+let solicitudCargaId = 0;
+let empresaFormularioId: number | null = null;
+let rutaFormularioId: string | string[] | undefined;
 
 const tipoDocumentoOptions = [
   { value: "CUIT", label: "CUIT" },
@@ -50,17 +56,29 @@ const condicionIvaOptions = [
   { value: "Exento", label: "Exento" },
 ];
 
-onMounted(async () => {
-  const id = route.params.id;
-  if (id && id !== "nuevo") {
-    isEdit.value = true;
-    clienteId.value = parseInt(id as string);
+watch(
+  [() => empresaStore.empresaActivaId, () => route.params.id],
+  async ([empresaId, rutaId]) => {
+    const solicitudId = ++solicitudCargaId;
+    empresaFormularioId = empresaStore.empresaActivaId;
+    rutaFormularioId = route.params.id;
+    clientesStore.limpiarClienteActual();
+    formData.value = crearFormularioVacio();
+    clienteId.value = null;
+    isEdit.value = Boolean(rutaId && rutaId !== "nuevo");
+    loading.value = false;
+    if (!empresaId || !isEdit.value) return;
 
+    const id = Number(rutaId);
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      router.push("/clientes");
+      return;
+    }
+    clienteId.value = id;
     loading.value = true;
     try {
-      await clientesStore.fetchCliente(clienteId.value);
-      if (clientesStore.clienteActual) {
-        const cliente = clientesStore.clienteActual;
+      const cliente = await clientesStore.fetchCliente(id);
+      if (solicitudId === solicitudCargaId && cliente) {
         formData.value = {
           razon_social: cliente.razon_social,
           tipo_documento: cliente.tipo_documento,
@@ -76,36 +94,52 @@ onMounted(async () => {
         };
       }
     } catch (error) {
+      if (solicitudId !== solicitudCargaId) return;
       showError("Error", "No se pudo cargar el cliente");
       router.push("/clientes");
     } finally {
-      loading.value = false;
+      if (solicitudId === solicitudCargaId) loading.value = false;
     }
-  }
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  solicitudCargaId += 1;
+  clientesStore.limpiarClienteActual();
 });
 
 const handleSubmit = async () => {
+  if (
+    !empresaStore.empresaActivaId ||
+    empresaFormularioId !== empresaStore.empresaActivaId ||
+    rutaFormularioId !== route.params.id ||
+    loading.value
+  ) return;
+  const solicitudId = solicitudCargaId;
   loading.value = true;
   try {
     if (isEdit.value && clienteId.value) {
       await clientesStore.updateCliente(clienteId.value, formData.value);
+      if (solicitudId !== solicitudCargaId) return;
       showSuccess(
         "Cliente actualizado",
         "Los cambios se guardaron correctamente",
       );
     } else {
       await clientesStore.createCliente(formData.value as ClienteCreate);
+      if (solicitudId !== solicitudCargaId) return;
       showSuccess("Cliente creado", "El cliente se creó correctamente");
     }
     router.push("/clientes");
   } catch (error: any) {
+    if (solicitudId !== solicitudCargaId) return;
     const detail = error.response?.data?.detail;
     showError(
       "Error",
       detail || error.message || "No se pudo guardar el cliente",
     );
   } finally {
-    loading.value = false;
+    if (solicitudId === solicitudCargaId) loading.value = false;
   }
 };
 
@@ -253,6 +287,7 @@ const handleCancel = () => {
             class="w-full sm:w-auto"
             type="submit"
             :loading="loading"
+            :disabled="!empresaStore.empresaActivaId"
           >
             {{ isEdit ? "Guardar Cambios" : "Crear Cliente" }}
           </BaseButton>

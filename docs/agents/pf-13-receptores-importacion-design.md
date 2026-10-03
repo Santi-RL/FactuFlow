@@ -114,6 +114,7 @@ incidente activo. No requiere completar el constructor contable ni la UI compact
 | Identificación obligatoria por importe o requisito independiente | Faltantes dan error antes de CAE; el importe se evalúa por comprobante. |
 | Condición explícita desde columna o constante válida | Mantiene el valor y su origen; no infiere por documento. |
 | Condición vacía requerida, desconocida o incompatible; documento inválido | Error por fila/campo, sin fallback CF ni pérdida del dato. |
+| DNI con letras o caracteres inválidos, por ejemplo `AB12345678` | Conservar el error; no convertirlo silenciosamente en `12345678`. Verificar representación de otros tipos según WSFE antes de ampliar soporte. |
 | Excel con condición distinta de una constante efectiva | Diferencia visible y corrección previa; no sustituye silenciosamente. |
 | A, RI/monotributo; B, exento; C con condiciones soportadas | Conserva la matriz y requisitos fiscales vigentes. |
 | Varias filas del mismo comprobante | Identificación obligatoria según total del grupo, sin inconsistencias entre ítems. |

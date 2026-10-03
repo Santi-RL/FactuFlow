@@ -34,6 +34,34 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
+### Puerta previa — estabilización del estado actual
+
+**Prioridad:** P1, antes de nuevas capacidades. La
+[auditoría integral](docs/project/analysis/auditoria-integral-2026-10.md)
+confirmó diferencias entre datos admitidos y persistibles, dependencia del alta
+de clientes después de CAE, lecturas de IVA/moneda inconsistentes y una cadena
+vulnerable de herramientas de construcción. Cerrar en unidades separadas:
+
+- **PF-03/PF-04/PF-14:** persistencia fiscal fiel y asociación administrativa
+  resuelta antes de la frontera irreversible o desacoplada de su resultado.
+  Conservar precisión PF-03B, snapshots y estados inciertos; no fusionar historia
+  ni imponer límites silenciosos.
+- **PF-03/PF-04/PF-17:** corregir bases de IVA y presentación/agregación de
+  monedas desde hechos conservados. Cerrar autoridad funcional de agrupación o
+  conversión histórica; no depende de PF-05 ni del dashboard futuro.
+- **PF-16:** resolver alertas de tooling y demostrar compatibilidad, manteniendo
+  la auditoría completa y los umbrales de calidad.
+
+El [portafolio](docs/agents/development-portfolio.md) adjudica responsables y
+aceptación. Esta puerta no es un refactor global ni una única implementación
+mezclada. Los cortes P1 siguientes conservan sus dueños; coordinar su preparación
+común para no crear validaciones o máquinas fiscales paralelas.
+PF-16 debe habilitar la integración de runtime con auditoría verde. Las
+reparaciones fiscales de la puerta se coordinan con los cortes 1–3: cada unidad
+puede integrarse al cumplir su contrato y sus checks, sin esperar una reparación
+conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
+P1 que afectan sus consumidores.
+
 ### 1. PF-13 — fidelidad del receptor en importación fiscal
 
 **Prioridad:** P1 fiscal.
@@ -209,6 +237,14 @@ operativos confirmados:
   instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar
   almacenamiento seguro PF-10. Alcance en el [portafolio](docs/agents/development-portfolio.md).
+- **PF-18 — operación asistida mediante MCP, horizonte futuro:** permitir que
+  un agente consulte, revise un Excel y prepare facturas o lotes sobre los mismos
+  casos de uso de la web. La emisión conserva autorización humana verificable
+  sobre los datos exactos, permisos por emisor, idempotencia y reconciliación.
+  La [dirección de arquitectura](docs/agents/architecture-direction.md) orienta
+  las piezas previas; sin calendario ni plan de implementación detallado y tras
+  estabilizar el núcleo. No introduce otro motor fiscal ni administración ajena
+  a la facturación.
 - **PF-17 — consulta opcional de numeración, P3:** dentro del editor de punto de
   venta y bajo demanda, consultar el
   último comprobante autorizado y el próximo número mediante

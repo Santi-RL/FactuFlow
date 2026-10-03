@@ -47,6 +47,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 ### Backend, frontend o estructura
 
 - `structure.md` para ubicar módulos;
+- `architecture-direction.md` para fronteras compartidas y evolución hacia
+  operación asistida, especialmente cuando un cambio cruza consumidores;
 - README del módulo afectado;
 - `overview.md` sólo si cambia arquitectura.
 
@@ -104,6 +106,10 @@ contratos técnicos todavía por cerrar. Un diseño futuro no significa que la
 implementación esté autorizada o terminada.
 La [validación de planificación de confiabilidad ARCA](../project/analysis/confiabilidad-arca-roadmap.md)
 conserva las hipótesis ensayadas, fuentes y límites; no acredita producción.
+La [auditoría integral](../project/analysis/auditoria-integral-2026-10.md) conserva
+la limpieza y hallazgos de estado actual; la
+[dirección de arquitectura](architecture-direction.md) explica cómo encajan los
+cortes y el horizonte MCP. Un hallazgo pendiente no es una capacidad terminada.
 
 ## Diseños cerrados de consulta
 
