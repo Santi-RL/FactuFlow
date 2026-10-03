@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 01/10/2026
+Última revisión: 03/10/2026
 
 Estado: VIGENTE.
 
@@ -25,7 +25,8 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-11/PF-15, recuperación operativa | Ahora 1 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
+| PF-11/PF-15, recuperación operativa | Ahora 2 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04 | Después 1 | P2 fiscal | Evidencia histórica inmutable en comprobantes, PDFs e informes | Contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Después 1 | P2 fiscal | Reconstrucción histórica opcional, reanudable y con procedencia desde ARCA | PF-04 y PF-02 cerrado |
 | PF-09 | Después 2 | P2 elevable | Propiedad y rotación de certificados, WSAA, caché y ambientes | Seguridad, ARCA y migraciones |
@@ -66,9 +67,20 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 ### PF-10/PF-13/PF-16/PF-17/PF-18
 
+- PF-13, **P1 fiscal, Ahora 1**: preservar documento/nombre y condición fiscal
+  explícitos, admitiendo consumidor final identificado con CUIT/CUIL. Corregir
+  la pérdida del documento y el rechazo general de CUIT con CF como una unidad;
+  señalar diferencias reales entre archivo y configuración. El riesgo demostrado
+  justifica adelantarlo sin elevar toda PF-13. El
+  [diseño de fidelidad del receptor](pf-13-receptores-importacion-design.md)
+  concentra motivo, fuentes, transición legacy y aceptación; no modifica el
+  contrato cerrado de duplicados ni reinterpreta el parche RG 5616.
 - PF-13, con PF-17: constructor de plantillas e importación contable con
   `FC`/`NC`/`ND`, letra, CUIT y condición IVA por fila; requisitos condicionales,
-  vista de interpretación y mensajes que identifiquen fila y columna. El
+  vista de interpretación y mensajes que identifiquen fila y columna. **P2,
+  Más adelante**: alias inequívocos, como «Monotributista» a «Monotributo», y
+  procedencia visible del receptor y fechas reducen correcciones manuales y
+  configuraciones equivocadas. Consume la regla P1, sin implementarla de nuevo. El
   [diseño de plantillas contables](pf-13-plantillas-contables-design.md)
   adjudica los hallazgos de la auditoría y conserva versiones, perfiles,
   importes, confirmación fiscal e idempotencia. No reabre el rediseño cerrado de
@@ -81,8 +93,11 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   PF-13 sin sustituir su control previo a emitir ni abrir otro motor de duplicados.
   El ajuste P3 del certificado es independiente: tilde de éxito para «Válido» e
   ícono/color coherentes para los demás estados; no espera nuevos agregados.
-- PF-18, P3: ZIP de PDFs y selección múltiple; coordinar limpieza de temporales
-  y resguardo con PF-10, sin duplicar políticas de almacenamiento.
+- PF-18, P3: ZIP de PDFs del lote y selección múltiple para evitar descargas
+  individuales repetidas; generar bajo demanda y coordinar limpieza de temporales
+  y resguardo con PF-10, sin duplicar políticas de almacenamiento. La comodidad
+  de descarga no desplaza correcciones fiscales ni implica controlar el diálogo
+  de guardado del sistema operativo.
 - PF-13, P2: tareas reanudables, trazabilidad masiva y límites de recursos.
 - PF-16: cobertura de reportes/PDF y pruebas por riesgo (P2), verificación local
   y portabilidad de herramientas (P3 salvo bloqueo comprobado).
@@ -112,7 +127,10 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   distingue carga, emisión y acciones posteriores, comparte procedencia con
   PF-13 y conserva el historial compacto. No altera el corte «Ahora» de PF-15.
 - PF-17: preparación compacta de lotes, resumen de requisitos persistente y
-  separación entre archivo en preparación, resultado e historial. **P2 de
+  separación entre archivo en preparación, resultado e historial. Hacer explícito
+  el tipo de comprobante del perfil y la procedencia efectiva de documento,
+  condición IVA y fechas evita preparar FC con una configuración de NC o aceptar
+  valores fijos sin advertirlos. **P2 de
   usabilidad operativa, Más adelante**; coordina con PF-13, PF-15 y PF-10 sin
   desplazar el orden vigente. El [diseño de UI de lotes](pf-17-lotes-ui-design.md)
   define una evolución nueva, conserva los cortes anteriores cerrados y exige
@@ -148,8 +166,9 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
+| Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
 | Recuperación/trazabilidad | [Diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md): productor y cobertura de evidencia, escrituras posteriores y permisos; evidencia de instalación en el plano de control. |
-| Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): política de documento B/CF, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
+| Plantillas contables | [Diseño](pf-13-plantillas-contables-design.md): consumir la regla P1 de receptor; alias inequívocos, requisitos legacy, controles de importes y casos sintéticos. Sus reglas fiscales se verifican con fuentes oficiales antes de codificar. |
 | Actividad de lotes | [Diseño](pf-17-actividad-lotes-design.md): fuente/orden de actor, cobertura histórica y consulta paginada. Reutiliza la procedencia mínima de duplicados, sin dependencia circular. |
 | Dashboard mensual | [Diseño](pf-18-dashboard-mensual-design.md): fuente temporal, moneda histórica, agregados y cobertura; el ícono tiene aceptación independiente. |
 | Reportes con períodos rápidos | [Diseño](pf-17-reportes-periodos-design.md): calendario e interacción definidos; verificar helper y consumidores al implementar. |
@@ -160,10 +179,14 @@ unidad antes de convertirse en una tarea ejecutable.
 
 ## Orden aceptado
 
-La siguiente unidad es recuperación/trazabilidad. El parche RG 5616 cerrado se
+La siguiente unidad es fidelidad del receptor en importación, seguida de
+recuperación/trazabilidad. El corte P1 se separa de las mejoras P2 del constructor
+y la UI; ZIP permanece P3 en la línea de distribución existente.
+El parche RG 5616 cerrado se
 consulta en su [contrato](rg-5616-condicion-iva-receptor-parche.md) y
 [dossier fiscal](../project/releases/rg5616-condicion-iva.md).
-El resto del orden y los alcances se conservan.
+El resto del orden y los alcances se conservan. Esta decisión de planificación
+no implementa capacidades ni autoriza publicación, despliegue o emisiones.
 Se conservan los requisitos de respaldo y recuperación de cada operación.
 La publicación de duplicados se consulta en su dossier y no autoriza
 a iniciar otra unidad ni incorpora el rediseño visual completo o la ampliación

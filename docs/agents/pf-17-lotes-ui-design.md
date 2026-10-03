@@ -1,6 +1,7 @@
 # PF-17 — UI compacta de emisión masiva
 
 Fecha: 05/09/2026.
+Última revisión: 03/10/2026.
 
 Estado: dirección de cambio aceptada; implementación y revisión visual local
 pendientes. Este documento prepara el trabajo futuro, sin modificar runtime.
@@ -36,6 +37,13 @@ Es evidencia nueva para una evolución de UI, no un fallo fiscal demostrado.
 Las capturas y datos reales permanecen privados y fuera del repositorio.
 No se verificaron móvil ni accesibilidad completa durante ese recorrido.
 
+La revisión posterior de importación justifica hacer evidentes los datos del
+receptor y el origen de las fechas, así como distinguir perfiles de facturas y
+notas de crédito: una configuración válida puede corresponder a otra operación.
+Este seguimiento es P2 de claridad administrativa. La pérdida del documento y
+el rechazo de CUIT con consumidor final son responsabilidad del
+[corte fiscal P1](pf-13-receptores-importacion-design.md), no del rediseño visual.
+
 | Fuente | Responsabilidad y coordinación |
 |---|---|
 | [Rediseño anterior](lotes-ux-redesign.md) | Sus cuatro cortes siguen cerrados. Este documento gobierna la evolución posterior; no repetir su implementación ni modificar su historia. |
@@ -58,6 +66,11 @@ No se verificaron móvil ni accesibilidad completa durante ese recorrido.
 - Explicar el perfil como configuración habitual del emisor y la plantilla como
   formato del Excel. Evitar repetir título, etiqueta y nombre aplicado. Mantener
   visibles los valores efectivos y si fueron modificados respecto del perfil.
+- Identificar el tipo efectivo FC/NC/ND y letra del formato elegido por el perfil,
+  o que provienen por fila del archivo mixto. Distinguir en la selección perfiles
+  para facturas y notas; no ocultar un tipo NC detrás de un nombre genérico ni
+  cambiarlo automáticamente al elegir otro archivo. Revisar localmente la
+  presentación sin exigir perfiles duplicados o nuevas confirmaciones rutinarias.
 - Ofrecer administración de perfiles, descarga de plantilla y guía como acciones
   secundarias. La guía plegada no debe ocupar una tarjeta introductoria grande.
   La ayuda extensa queda disponible bajo demanda, sin onboarding obligatorio.
@@ -81,6 +94,12 @@ No se verificaron móvil ni accesibilidad completa durante ese recorrido.
 - Conservar el resumen de valores efectivos: emisor, archivo/formato, punto,
   concepto, descripción y origen de fechas. Los completos pueden presentarse
   en filas breves; no ocultar decisiones fiscales detrás de la ayuda.
+- Mostrar documento y nombre del receptor y condición IVA en la revisión del
+  lote, con origen desde Excel o valor fijo; para datos por fila, ofrecer detalle
+  por comprobante sin aparentar que un único valor representa todo el lote.
+  Mostrar tipo/letra y valores de emisión, servicio desde/hasta y vencimiento,
+  distinguiendo archivo, constantes y ajustes del perfil/lote. Reutilizar la
+  interpretación PF-13; CUIT/CUIL con CF no genera por sí solo una alerta.
 - Usar controles de altura natural. Evitar que opciones cortas y una fecha
   aislada hereden la altura de otra opción con varios campos.
 - Presentar fecha de emisión en un grupo propio y, cuando correspondan, período
@@ -187,6 +206,8 @@ para quienes usan FactuFlow al emitir.
 | Scroll largo, ventana baja y zoom 200 % | Pendientes y validar accesibles sin volver al inicio; sin columna vacía estirada, foco tapado ni pérdida de controles. |
 | Escritorio y móvil, nombres largos, teclado y lector de pantalla | Controles legibles, orden lógico, grupos/etiquetas identificables y contraste medido; acciones a pendientes llevan al campo correcto. |
 | Fecha del archivo elegida, sin período ni vencimiento | Aviso identifica sólo las decisiones faltantes; ninguna fecha se completa automáticamente. |
+| Perfil de NC elegido para un archivo de facturas o formato mixto | Tipo/letra efectivos y origen son evidentes antes de validar; no cambia el comprobante ni exige un diálogo rutinario adicional. |
+| Receptores distintos y fechas desde Excel, constantes o perfil/lote | Datos y procedencia se pueden revisar por comprobante; distingue consumidor final identificado y conserva datos efectivos sin un resumen uniforme falso. |
 | Todos los requisitos completos | Estado de preparación correcto, sin alarma fija ni afirmación de validación fiscal ya realizada. |
 | Archivo nuevo junto a lote anterior completado | Contextos inequívocos; navegar por historial conserva el borrador del mismo emisor. |
 | Validación con errores o advertencia de duplicación | Mensajes accionables, controles vigentes y retorno principal de duplicados conservados. |

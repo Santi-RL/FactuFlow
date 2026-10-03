@@ -44,6 +44,12 @@ Completar los invariantes específicos del cambio. Como mínimo, revisar:
 - La numeración fiscal no se libera por errores ambiguos de ARCA.
 - Un cambio de datos fiscales debe invalidar confirmaciones y claves de
   idempotencia vigentes.
+- Al cambiar interpretación del receptor, distinguir identificación y condición
+  IVA: CUIT/CUIL no implica inscripción ni impide consumidor final. Verificar
+  conservación de datos explícitos, tipo de documento correcto y requisitos
+  legales de identificación, sin inferencias ni descarte silencioso. La
+  corrección pendiente y su compatibilidad histórica se delimitan en el
+  [diseño PF-13 de fidelidad del receptor](pf-13-receptores-importacion-design.md).
 
 ## 3. Estados y transiciones
 
