@@ -51,7 +51,23 @@ historia e idempotencia. No espera el rediseño P2 del constructor o de la UI.
 Motivo, fuentes, transición legacy y aceptación en el
 [diseño de fidelidad del receptor](docs/agents/pf-13-receptores-importacion-design.md).
 
-### 2. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 2. PF-03/PF-13 — admisibilidad y revisión de importes
+
+**Prioridad:** P1 fiscal. Evitar que alícuotas sin soporte se conviertan en IVA
+cero y que la revisión muestre un total distinto del cálculo decimal vigente.
+Usar preparación fiscal común sin cambiar redondeos PF-03B ni agregar pasos.
+La ampliación de categorías permanece P2. Alcance, compatibilidad y aceptación
+en el [diseño de importes y previsualización](docs/agents/pf-03-04-importes-previsualizacion-design.md).
+
+### 3. PF-02/PF-04 — comparación fiscal en recuperación legacy
+
+**Prioridad:** P1 fiscal. Comparar componentes fiscales disponibles antes de
+reconstruir/vincular un autorizado; conservar CAE e incertidumbre ante diferencias.
+Preservar guardas modernas y evidencia antigua. La recuperación integral moderna
+es otro corte P2; alcance y aceptación en el
+[diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
+
+### 4. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 
@@ -68,27 +84,52 @@ separa este corte de la automatización de backups de «Más adelante».
 El orden de esta sección también es vinculante salvo nueva evidencia o decisión
 explícita del usuario.
 
-### 1. PF-04/PF-05 — evidencia e historia fiscal externa
+### 1. PF-04/PF-02 — evidencia y reconciliación integral
 
 **Prioridad:** P2 fiscal.
 
-Primero preservar instantáneas históricas correctas en comprobantes, PDFs e
-informes. Después diseñar una reconstrucción opcional, reanudable y con
-procedencia desde ARCA. La historia externa nunca será requisito para emitir.
+Preservar instantáneas históricas correctas en comprobantes, PDFs e informes,
+y la solicitud fiscal mínima necesaria para recuperar intentos unitarios y
+masivos con seguridad. Extender la comparación y las transiciones modernas sin
+saltar guardas ni reemitir; comparte el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
+PF-05 externo es opcional y no bloquea padrón, notas ni emisión.
 
 ### 2. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
 
 **Prioridad:** P2, elevable por evidencia.
 
-Endurecer certificados, WSAA y ambientes; trasladar garantías críticas a
-constraints y migraciones reversibles; uniformar contratos HTTP, errores y
-concurrencia CRUD sin mezclar estos cortes con funcionalidades nuevas.
+Priorizar coordinación WSAA entre consumidores/procesos y tickets cifrados,
+con identidad, renovación y recuperación seguras. Contrato en el
+[diseño WSAA](docs/agents/pf-09-wsaa-coordinacion-cache-design.md).
+Endurecer certificados/ambientes, constraints reversibles y contratos HTTP por
+cortes de dominio; no exigir terminar toda la plataforma para un consumidor.
+
+### 3. PF-18/PF-09 — padrón de clientes y alta de emisores
+
+**Prioridad:** P2 fiscal y administrativa. Consultar ARCA para completar datos
+por CUIT y detectar cambios de régimen; conservar fuente y fecha de verificación.
+Anticipar y agrupar consultas, reutilizar caché y renovar fuera del tramo de CAE.
+Mantener alternativas manual/PDF y resolver credenciales del primer emisor;
+no convertir ausencia de respuesta en CF ni alterar solicitudes congeladas.
+Depende de la capacidad WSAA necesaria, receptor P1 y preparación común.
+Política de actualización, límites y aceptación en el
+[diseño de padrón](docs/agents/pf-18-09-padron-clientes-emisores-design.md).
 
 ## Más adelante
 
 Estas líneas están aceptadas, pero no deben desplazar problemas fiscales u
 operativos confirmados:
 
+- **PF-05, P2 fiscal:** reconstrucción histórica externa opcional, reanudable y
+  con procedencia desde ARCA, después del snapshot PF-04. No es requisito para
+  emitir ni para reconciliar intentos locales. Alcance en el portafolio.
+- **PF-03/PF-04/PF-13, P2 fiscal:** separar tasa cero, exento, no gravado y
+  tributos, y ampliar alícuotas con soporte completo hasta PDF/informes.
+  Preservar interpretación histórica y consumir el
+  [dominio común de importes](docs/agents/pf-03-04-importes-previsualizacion-design.md).
+- **PF-04/PF-17/PF-13, P2:** preparar NC/ND desde un comprobante autorizado,
+  con asociado, alcance e importes explícitos; usar evidencia histórica y
+  revisión común. Contrato en el [diseño de notas guiadas](docs/agents/pf-04-17-notas-guiadas-design.md).
 - **PF-10:** exportaciones, resguardo confirmado y liberación segura de
   almacenamiento. **P2**; depende de preservación histórica PF-04 y recuperación
   PF-11. Alcance en el [portafolio](docs/agents/development-portfolio.md).
@@ -107,6 +148,8 @@ operativos confirmados:
   comparte claridad de uso con PF-17 y contratos con PF-14. Alcance, auditoría,
   compatibilidad y aceptación en el
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
+  Consume preparación fiscal común y padrón anticipado cuando esté disponible;
+  no agrega otro cálculo ni una consulta obligatoria por fila o al emitir.
 - **PF-13 — procesos largos y eficiencia, P2:** límites de recursos y tareas
   reanudables generales, conservando invariantes fiscales. El reintento de lotes
   parciales, su progreso y la recuperación de reservas terminales están cubiertos

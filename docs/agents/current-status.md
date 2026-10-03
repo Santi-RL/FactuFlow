@@ -94,6 +94,15 @@ prioridades y horizontes diferentes. Los diseños futuros no describen
 capacidades implementadas. La revisión visual local acordada para la UI de
 lotes permanece en su diseño y precede a la publicación de esa implementación.
 
+Está aceptada la planificación integrada de importes/previsualización,
+reconciliación integral, WSAA coordinado/cifrado, padrón para clientes y emisores,
+y notas guiadas. Los ensayos justifican cortes fiscales acotados y el uso de
+padrón anticipado, con fuente fechada y sin consulta obligatoria en el tramo de
+CAE. La [validación de planificación](../project/analysis/confiabilidad-arca-roadmap.md)
+conserva evidencia y límites; los contratos futuros se consultan desde el
+[índice de diseños](README.md#diseños-activos). Esta planificación no modifica
+runtime, no acredita una instalación ni cambia los cierres históricos.
+
 ## Condición IVA del receptor
 
 Toda nueva solicitud individual, masiva o de reintento envía un ID presente y

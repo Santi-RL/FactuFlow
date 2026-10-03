@@ -18,6 +18,14 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Planificación de confiabilidad fiscal
+
+- Integra oportunidades de importes/previsualización, reconciliación, WSAA,
+  padrón de clientes/emisores y notas guiadas con los cortes existentes.
+  Los ensayos de planificación y los contratos complementarios sustentan la
+  priorización; este cambio documental no implementa funcionalidades ni cambia
+  producción. La secuencia futura se consulta únicamente en el roadmap.
+
 ### Condición IVA del receptor — RG 5616
 
 - Toda nueva solicitud individual o masiva incluye una condición IVA válida y

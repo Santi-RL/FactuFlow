@@ -84,6 +84,15 @@ Las huellas históricas de idempotencia y reconciliación permanecen inmutables.
 
 ## Contrato contable
 
+La [preparación fiscal común](pf-03-04-importes-previsualizacion-design.md) es dueña
+del cálculo decimal y de sus categorías. La muestra de esta plantilla consume
+sus importes y errores; no introduce otro cálculo ni cambia redondeos PF-03B.
+Cuando exista [padrón](pf-18-09-padron-clientes-emisores-design.md), su consulta
+anticipada/agrupada y procedencia registral se integran en preparación, sin
+consultas obligatorias por fila o al solicitar CAE. Mantener datos explícitos y
+solicitudes congeladas. Las [notas guiadas](pf-04-17-notas-guiadas-design.md)
+comparten validación de asociados con esta entrada Excel.
+
 ### Tipo y letra
 
 La persona elige «Tipo y letra en columnas separadas», «Tipo completo» o «Valor

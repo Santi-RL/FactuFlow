@@ -49,6 +49,7 @@ incidente activo. No requiere completar el constructor contable ni la UI compact
 | [Duplicados PF-13/PF-17](pf-13-duplicados-lotes-design.md) | Conserva identidad de entrada, comparación y excepciones. Preservar el documento fiscal no crea otro motor ni altera huellas históricas. |
 | [Parche RG 5616](rg-5616-condicion-iva-receptor-parche.md) | Conserva condición válida y compatible con la clase. Este corte corrige la identificación; no elimina esa garantía ni reinterpreta su cierre. |
 | [UI de lotes PF-17](pf-17-lotes-ui-design.md) | Presenta procedencia y valores efectivos; el rediseño P2 no es requisito para esta corrección fiscal. |
+| [Padrón de clientes/emisores](pf-18-09-padron-clientes-emisores-design.md) | Incorporación posterior de evidencia registral ARCA, separada de identificación y condición de operación. Este P1 no espera padrón ni consulta por fila. |
 | PF-04/PF-05 y PF-11/PF-15 | No reconstruye comprobantes históricos ni cambia políticas de backup. Conservar el respaldo y rollback proporcionados al cambio futuro. |
 
 ## Resultado aceptado e invariantes
@@ -58,10 +59,12 @@ incidente activo. No requiere completar el constructor contable ni la UI compact
    válidas de consumidor final identificado.
 2. Distinguir CUIT de CUIL y DNI. Un número de once dígitos no basta para decidir
    entre CUIT y CUIL. Resolver el tipo desde el archivo o una configuración
-   explícita; no intercambiar códigos ni consultar padrones por defecto.
+   explícita; no intercambiar códigos. Este corte no incorpora consultas de padrón.
 3. Resolver condición IVA desde una columna o un valor fijo explícito para un
    archivo homogéneo. No inferirla por número, tipo de documento o letra del
    comprobante, ni sustituir una celda fiscal inválida por consumidor final.
+   La integración posterior de padrón consume este contrato y trata diferencias
+   con evidencia registral explícita; no agrega inferencias a este P1.
 4. Señalar diferencias reales entre la condición aportada por el archivo y la
    configuración efectiva, con fila, campo y corrección accionable. No usar
    «CUIT + Consumidor Final» como criterio de contradicción ni agregar una

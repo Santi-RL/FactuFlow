@@ -64,6 +64,20 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-03/PF-04/PF-13, implementación futura:
+  [importes y previsualización fiscal común](pf-03-04-importes-previsualizacion-design.md).
+  Separa corrección P1 de admisibilidad/revisión, ampliación P2 de categorías y
+  consumo por plantillas; preserva redondeos PF-03B.
+- PF-02/PF-04, implementación futura:
+  [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
+  Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
+- PF-09, implementación futura:
+  [WSAA coordinado y caché cifrada](pf-09-wsaa-coordinacion-cache-design.md).
+- PF-18/PF-09, implementación futura:
+  [padrón para clientes y alta de emisores](pf-18-09-padron-clientes-emisores-design.md),
+  con consultas anticipadas, situación registral fechada y bootstrap sin dependencia circular.
+- PF-04/PF-17/PF-13, implementación futura:
+  [notas de crédito y débito guiadas](pf-04-17-notas-guiadas-design.md).
 - PF-13, próximo corte P1, implementación futura:
   [fidelidad del receptor en importación fiscal](pf-13-receptores-importacion-design.md).
   Distingue documento y condición IVA; admite consumidor final identificado sin
@@ -88,6 +102,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 El [portafolio](development-portfolio.md) distingue alcance aceptado de
 contratos técnicos todavía por cerrar. Un diseño futuro no significa que la
 implementación esté autorizada o terminada.
+La [validación de planificación de confiabilidad ARCA](../project/analysis/confiabilidad-arca-roadmap.md)
+conserva las hipótesis ensayadas, fuentes y límites; no acredita producción.
 
 ## Diseños cerrados de consulta
 
