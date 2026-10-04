@@ -13,7 +13,6 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 DEFAULT_SECRET_KEY = "cambiar-esto-en-produccion-usar-secrets-token_urlsafe"
 INSECURE_PRODUCTION_SECRET_KEYS = {
     DEFAULT_SECRET_KEY,
@@ -52,7 +51,7 @@ class Settings(BaseSettings):
 
     # App
     app_name: str = "FactuFlow"
-    app_version: str = "0.3.6"
+    app_version: str = "0.3.7"
     app_env: str = Field(default="development", alias="APP_ENV")
     app_debug: bool = Field(default=True, alias="APP_DEBUG")
 

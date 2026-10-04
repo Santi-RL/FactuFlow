@@ -159,13 +159,11 @@ def test_empresa_create_rechaza_provincia_invalida():
 
 def test_extraer_texto_acepta_constancia_opcion_monotributo() -> None:
     """Debe aceptar una constancia sintética real de opción monotributo."""
-    contenido = HTML(
-        string="""
+    contenido = HTML(string="""
             <p>CONSTANCIA DE OPCIÓN</p>
             <p>Régimen Simplificado para Pequeños Contribuyentes</p>
             <p>CUIT: 27-12345678-5</p>
-            """
-    ).write_pdf()
+            """).write_pdf()
 
     texto = extraer_texto_constancia_pdf(contenido)
 
@@ -174,8 +172,7 @@ def test_extraer_texto_acepta_constancia_opcion_monotributo() -> None:
 
 def test_extraer_y_parsear_constancia_pdf_real_sintetico() -> None:
     """Debe extraer y parsear una constancia sintética real en memoria."""
-    contenido = HTML(
-        string="""
+    contenido = HTML(string="""
             <pre>
             AGENCIA DE RECAUDACIÓN Y CONTROL ADUANERO
             CONSTANCIA DE INSCRIPCIÓN
@@ -190,8 +187,7 @@ def test_extraer_y_parsear_constancia_pdf_real_sintetico() -> None:
             ACTIVIDADES NACIONALES REGISTRADAS Y FECHA DE ALTA
             Actividad principal: 949990 SERVICIOS Mes de inicio: 08/2018
             </pre>
-            """
-    ).write_pdf()
+            """).write_pdf()
 
     texto = extraer_texto_constancia_pdf(contenido)
     datos = parsear_constancia_arca(texto)

@@ -13,7 +13,6 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
 from typing import Any
 
-
 PACKAGE_VERSION = 3
 ALEMBIC_HEAD = "f4a5b6c7d8e9"
 SCOPE = "operacion_futura_con_comprobantes"

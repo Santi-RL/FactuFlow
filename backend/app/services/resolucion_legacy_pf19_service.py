@@ -42,7 +42,6 @@ from app.services.inventario_legacy_pf19_service import (
     construir_consulta_inventario,
 )
 
-
 ACCION_CIERRE_LEGACY_PF19 = "cerrar_legacy_sin_autorizacion_verificada"
 CATEGORIA_CIERRE_LEGACY_PF19 = "legacy_sin_autorizacion_verificada"
 CONFIRMACION_APPLY_LEGACY_PF19 = "APLICAR_CIERRE_LEGACY_PF19"

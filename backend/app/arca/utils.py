@@ -5,7 +5,6 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from app.core.date_parsing import parse_fecha_input
 
-
 CENTAVO_ARCA = Decimal("0.01")
 
 

@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 REVISION_FORMATOS_IMPORTACION = "a6b7c8d9e0f1"
 REVISION_RECEPTOR_SNAPSHOT = "e5f6a7b8c9d0"
@@ -1220,14 +1219,12 @@ def test_sqlite_multiemisor_upgrade_downgrade_y_reupgrade(tmp_path: Path) -> Non
         conn.execute(
             "UPDATE usuario_emisor_acceso SET otorgado_en = '2026-01-01 00:00:00'"
         )
-        conn.execute(
-            """
+        conn.execute("""
             INSERT INTO usuario_emisor_acceso (
                 usuario_id, empresa_id, otorgado_por_usuario_id, origen,
                 otorgado_en
             ) VALUES (1, 2, NULL, 'asignacion_admin', '2026-02-01 00:00:00')
-            """
-        )
+            """)
         conn.execute(
             "UPDATE usuarios SET empresa_id = NULL, "
             "puede_crear_editar_emisores = 1 WHERE id = 1"

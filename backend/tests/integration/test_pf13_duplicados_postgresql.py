@@ -57,7 +57,6 @@ from tests.test_duplicados_lotes_v2 import (
     _ejecutar_contencion_dos_lotes,
 )
 
-
 REVISION_ANTERIOR = "f4a5b6c7d8e9"
 REVISION_DUPLICADOS_V2 = "a1b2c3d4e5f6"
 TIMEOUT_SECONDS = 5
@@ -202,8 +201,7 @@ async def _insertar_generacion(
 ) -> int:
     """Inserta una generación sintética mínima y devuelve su identidad."""
     generation_id = await connection.scalar(
-        text(
-            """
+        text("""
             INSERT INTO lotes_duplicados_evidencias (
                 operacion_id, empresa_id, ambiente, lote_id, generacion,
                 formato, evidencia_id, snapshot_hash, control_snapshot_json,
@@ -214,8 +212,7 @@ async def _insertar_generacion(
                 :snapshot_hash, CAST(:snapshot AS json), now()
             )
             RETURNING id
-            """
-        ),
+            """),
         {
             "operacion_id": operacion_id,
             "empresa_id": empresa_id,
@@ -440,10 +437,7 @@ async def _crear_scope_adicional(
 async def _catalogo_constraints_pf13(engine) -> dict[str, tuple[str, str, str]]:
     """Lee tipo, acción de borrado y definición de constraints PF-13."""
     async with engine.connect() as connection:
-        rows = (
-            await connection.execute(
-                text(
-                    """
+        rows = (await connection.execute(text("""
                     SELECT constraint_row.conname,
                            table_row.relname,
                            constraint_row.contype::text,
@@ -463,10 +457,7 @@ async def _catalogo_constraints_pf13(engine) -> dict[str, tuple[str, str, str]]:
                         'lotes_duplicados_coincidencias',
                         'lotes_duplicados_coincidencias_miembros'
                       )
-                    """
-                )
-            )
-        ).all()
+                    """))).all()
     return {
         str(name): (str(table_name), str(constraint_type), str(definition))
         for name, table_name, constraint_type, _delete_action, definition in rows
@@ -479,10 +470,7 @@ async def _catalogo_constraints_pf13(engine) -> dict[str, tuple[str, str, str]]:
 async def _indices_pf13(engine) -> set[str]:
     """Devuelve los índices explícitos de las tablas compactas PF-13."""
     async with engine.connect() as connection:
-        rows = (
-            await connection.execute(
-                text(
-                    """
+        rows = (await connection.execute(text("""
                     SELECT indexname
                     FROM pg_indexes
                     WHERE schemaname = 'public'
@@ -492,10 +480,7 @@ async def _indices_pf13(engine) -> set[str]:
                         'lotes_duplicados_coincidencias_miembros',
                         'lotes_comprobantes_grupos'
                       )
-                    """
-                )
-            )
-        ).all()
+                    """))).all()
     return {str(row[0]) for row in rows}
 
 
@@ -1463,8 +1448,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                 evidencia_id="v2.fisico.set-null",
             )
             acceptance_origin_id = await connection.scalar(
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_evidencias (
                         operacion_id, empresa_id, ambiente, lote_id, generacion,
                         formato, evidencia_id, snapshot_hash,
@@ -1478,8 +1462,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         :user_id, 'Actor sintético', now(), now()
                     )
                     RETURNING id
-                    """
-                ),
+                    """),
                 {
                     "operation_id": operaciones[1],
                     "company_id": empresa_id,
@@ -1490,8 +1473,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
             )
             assert acceptance_origin_id is not None
             acceptance_child_id = await connection.scalar(
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_evidencias (
                         operacion_id, empresa_id, ambiente, lote_id, generacion,
                         formato, evidencia_id, snapshot_hash,
@@ -1505,8 +1487,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         :user_id, 'Actor sintético', now(), :origin_id, now()
                     )
                     RETURNING id
-                    """
-                ),
+                    """),
                 {
                     "operation_id": operaciones[1],
                     "company_id": empresa_id,
@@ -1518,8 +1499,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
             )
             assert acceptance_child_id is not None
             block_id = await connection.scalar(
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_coincidencias (
                         generacion_id, operacion_id, empresa_id, ambiente,
                         lote_id, bloque_clave, clase, snapshot_json
@@ -1529,8 +1509,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         'completa', CAST(:snapshot AS json)
                     )
                     RETURNING id
-                    """
-                ),
+                    """),
                 {
                     "generation_id": generation_id,
                     "operation_id": operaciones[0],
@@ -1541,8 +1520,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
             )
             assert block_id is not None
             cascade_block_id = await connection.scalar(
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_coincidencias (
                         generacion_id, operacion_id, empresa_id, ambiente,
                         lote_id, bloque_clave, clase, snapshot_json
@@ -1552,8 +1530,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         'completa', CAST('{}' AS json)
                     )
                     RETURNING id
-                    """
-                ),
+                    """),
                 {
                     "generation_id": foreign_generation_id,
                     "operation_id": operaciones[1],
@@ -1563,8 +1540,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
             )
             assert cascade_block_id is not None
             cascade_member_id = await connection.scalar(
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_coincidencias_miembros (
                         bloque_id, lado, miembro_clave, grupo_id, ordinal,
                         relevancia, snapshot_json
@@ -1573,8 +1549,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         0, 'actual', CAST('{}' AS json)
                     )
                     RETURNING id
-                    """
-                ),
+                    """),
                 {
                     "block_id": int(cascade_block_id),
                     "group_id": grupo_id,
@@ -1586,8 +1561,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                 ("anterior", "grupo-anterior", 0, "autorizado"),
             ):
                 await connection.execute(
-                    text(
-                        """
+                    text("""
                         INSERT INTO lotes_duplicados_coincidencias_miembros (
                             bloque_id, lado, miembro_clave, grupo_id, ordinal,
                             relevancia, snapshot_json
@@ -1595,8 +1569,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                             :block_id, :side, :key, :group_id, :ordinal,
                             :relevance, CAST(:snapshot AS json)
                         )
-                        """
-                    ),
+                        """),
                     {
                         "block_id": int(block_id),
                         "side": side,
@@ -1608,26 +1581,22 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                     },
                 )
             await connection.execute(
-                text(
-                    """
+                text("""
                     UPDATE operaciones_idempotentes
                     SET duplicados_generacion_id = :generation_id
                     WHERE id = :operation_id
-                    """
-                ),
+                    """),
                 {
                     "generation_id": generation_id,
                     "operation_id": operaciones[0],
                 },
             )
             await connection.execute(
-                text(
-                    """
+                text("""
                     UPDATE operaciones_idempotentes
                     SET duplicados_generacion_id = :generation_id
                     WHERE id = :operation_id
-                    """
-                ),
+                    """),
                 {
                     "generation_id": nullable_generation_id,
                     "operation_id": operaciones[1],
@@ -1644,8 +1613,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
         async with engine.begin() as connection:
             await _esperar_integrity_error(
                 connection,
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_coincidencias (
                         generacion_id, operacion_id, empresa_id, ambiente,
                         lote_id, bloque_clave, clase, snapshot_json
@@ -1654,8 +1622,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         'homologacion', :batch_id, 'scope-invalido',
                         'completa', CAST(:snapshot AS json)
                     )
-                    """
-                ),
+                    """),
                 {
                     "generation_id": generation_id,
                     "wrong_operation_id": operaciones[1],
@@ -1667,13 +1634,11 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
             )
             await _esperar_integrity_error(
                 connection,
-                text(
-                    """
+                text("""
                     UPDATE intentos_emision_fiscal
                     SET duplicados_generacion_id = :foreign_generation_id
                     WHERE id = :attempt_id
-                    """
-                ),
+                    """),
                 {
                     "foreign_generation_id": foreign_generation_id,
                     "attempt_id": attempt_id,
@@ -1682,8 +1647,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
             )
             await _esperar_integrity_error(
                 connection,
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_duplicados_evidencias (
                         operacion_id, empresa_id, ambiente, lote_id, generacion,
                         formato, evidencia_id, snapshot_hash,
@@ -1695,8 +1659,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                         :snapshot_hash, CAST('{}' AS json), 'token-incompleto',
                         'Actor incompleto', now()
                     )
-                    """
-                ),
+                    """),
                 {
                     "operation_id": operaciones[0],
                     "company_id": empresa_id,
@@ -1705,8 +1668,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                 },
                 constraint_name="ck_lotes_duplicados_evidencias_aceptacion",
             )
-            invalid_member = text(
-                """
+            invalid_member = text("""
                 INSERT INTO lotes_duplicados_coincidencias_miembros (
                     bloque_id, lado, miembro_clave, grupo_id, comprobante_id,
                     ordinal, relevancia, snapshot_json
@@ -1714,8 +1676,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                     :block_id, 'actual', :key, :group_id, :voucher_id,
                     :ordinal, 'actual', CAST('{}' AS json)
                 )
-                """
-            )
+                """)
             for key, group_value, voucher_value, ordinal in (
                 ("sin-entidad", None, None, 10),
                 ("dos-entidades", grupo_id, 1, 11),
@@ -1732,8 +1693,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                     },
                     constraint_name="ck_lotes_duplicados_miembros_entidad",
                 )
-            duplicate_member = text(
-                """
+            duplicate_member = text("""
                 INSERT INTO lotes_duplicados_coincidencias_miembros (
                     bloque_id, lado, miembro_clave, grupo_id, ordinal,
                     relevancia, snapshot_json
@@ -1741,8 +1701,7 @@ async def test_postgresql_pf13_schema_compacto_impone_scope_y_delete_actions() -
                     :block_id, :side, :key, :group_id, :ordinal,
                     :relevance, CAST('{}' AS json)
                 )
-                """
-            )
+                """)
             await _esperar_integrity_error(
                 connection,
                 duplicate_member,
@@ -2869,9 +2828,9 @@ async def test_postgresql_pf13_pagina_viva_acota_cursor_heap_y_binds(
                         "decision": {"grupo_id": group_id},
                         "presentacion": {
                             "grupo_id": group_id if side == "actual" else None,
-                            "grupo_anterior_id": group_id
-                            if side == "anterior"
-                            else None,
+                            "grupo_anterior_id": (
+                                group_id if side == "anterior" else None
+                            ),
                             "lote_anterior_id": 90 if side == "anterior" else None,
                             "comprobante_ref": f"G-{group_id}",
                             "comprobante_anterior_ref": f"A-{group_id}",

@@ -18,7 +18,6 @@ from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempo
 from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.models.punto_venta import PuntoVenta
 
-
 CATEGORIAS_CANDIDATAS_PF19 = (
     "arca_batch_sin_respuesta",
     "arca_respuesta_incierta",

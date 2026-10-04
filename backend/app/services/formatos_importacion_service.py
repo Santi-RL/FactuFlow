@@ -1292,9 +1292,9 @@ class FormatosImportacionService:
         metadata["A5"] = "nombre"
         metadata["B5"] = self._valor_excel_seguro(formato.nombre)
         metadata["A6"] = "advertencia"
-        metadata[
-            "B6"
-        ] = "Metadatos no fiscales. FactuFlow no confía en esta hoja para emitir."
+        metadata["B6"] = (
+            "Metadatos no fiscales. FactuFlow no confía en esta hoja para emitir."
+        )
 
         output = BytesIO()
         workbook.save(output)
@@ -1714,9 +1714,9 @@ class FormatosImportacionService:
             columnas.append(
                 {
                     "campo_destino": campo,
-                    "etiqueta": encabezados[0]
-                    if encabezados
-                    else self._etiqueta_campo(campo),
+                    "etiqueta": (
+                        encabezados[0] if encabezados else self._etiqueta_campo(campo)
+                    ),
                     "origen": detalle.get("origen", "header"),
                     "indice_columna": indice_columna,
                     "requerido": bool(detalle.get("requerido", False)),
@@ -2048,9 +2048,11 @@ class FormatosImportacionService:
             confianza = "baja"
 
         mensajes = [
-            "Coincide con las columnas requeridas."
-            if not missing_required
-            else "Faltan columnas requeridas."
+            (
+                "Coincide con las columnas requeridas."
+                if not missing_required
+                else "Faltan columnas requeridas."
+            )
         ]
         return CandidatoFormato(
             formato_id=formato.id,

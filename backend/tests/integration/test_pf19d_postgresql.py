@@ -14,7 +14,6 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 )
 from tests.postgresql_harness import require_disposable_postgres_url
 
-
 pytestmark = pytest.mark.integration
 
 
@@ -34,9 +33,7 @@ async def test_postgresql_pf19d_upgrade_rollback_y_reupgrade() -> None:
     try:
         await _crear_contexto_sintetico(engine)
         async with engine.begin() as connection:
-            await connection.execute(
-                text(
-                    """
+            await connection.execute(text("""
                     INSERT INTO puntos_venta (
                         id, numero, nombre, es_webservice, bloqueado, fecha_baja,
                         activo, empresa_id, created_at
@@ -45,9 +42,7 @@ async def test_postgresql_pf19d_upgrade_rollback_y_reupgrade() -> None:
                          true, 1, now()),
                         (3, 43, 'Web Services bloqueado', true, true, NULL,
                          false, 1, now())
-                    """
-                )
-            )
+                    """))
     finally:
         await engine.dispose()
 

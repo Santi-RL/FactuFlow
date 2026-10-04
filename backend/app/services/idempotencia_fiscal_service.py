@@ -1293,9 +1293,11 @@ class IdempotenciaFiscalService:
                     "tipo_comprobante": asociado.tipo_comprobante,
                     "punto_venta": asociado.punto_venta,
                     "numero": asociado.numero,
-                    "fecha": asociado.fecha.isoformat()
-                    if isinstance(asociado.fecha, date)
-                    else None,
+                    "fecha": (
+                        asociado.fecha.isoformat()
+                        if isinstance(asociado.fecha, date)
+                        else None
+                    ),
                     "cuit": clean_cuit(asociado.cuit or ""),
                 }
                 for asociado in request.comprobantes_asociados

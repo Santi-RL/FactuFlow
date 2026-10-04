@@ -13,7 +13,6 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 )
 from tests.postgresql_harness import require_disposable_postgres_url
 
-
 pytestmark = pytest.mark.integration
 
 
@@ -33,9 +32,7 @@ async def test_postgresql_multiemisor_upgrade_downgrade_y_reupgrade() -> None:
     try:
         await _crear_contexto_sintetico(engine)
         async with engine.begin() as connection:
-            await connection.execute(
-                text(
-                    """
+            await connection.execute(text("""
                     INSERT INTO empresas (
                         id, razon_social, cuit, condicion_iva, domicilio,
                         localidad, provincia, codigo_postal, inicio_actividades,
@@ -46,12 +43,8 @@ async def test_postgresql_multiemisor_upgrade_downgrade_y_reupgrade() -> None:
                         'Provincia sintética', '1000', DATE '2020-01-01',
                         now(), now()
                     )
-                    """
-                )
-            )
-            await connection.execute(
-                text(
-                    """
+                    """))
+            await connection.execute(text("""
                     INSERT INTO usuarios (
                         id, email, hashed_password, nombre, activo, es_admin,
                         empresa_id, created_at, updated_at
@@ -59,9 +52,7 @@ async def test_postgresql_multiemisor_upgrade_downgrade_y_reupgrade() -> None:
                         1, 'operador@example.test', 'hash-sintetico',
                         'Operador sintético', true, false, 1, now(), now()
                     )
-                    """
-                )
-            )
+                    """))
     finally:
         await engine.dispose()
 
@@ -88,9 +79,7 @@ async def test_postgresql_multiemisor_upgrade_downgrade_y_reupgrade() -> None:
                     "SET otorgado_en = TIMESTAMP '2026-02-01 00:00:00'"
                 )
             )
-            await connection.execute(
-                text(
-                    """
+            await connection.execute(text("""
                     INSERT INTO usuario_emisor_acceso (
                         usuario_id, empresa_id, otorgado_por_usuario_id, origen,
                         otorgado_en
@@ -98,9 +87,7 @@ async def test_postgresql_multiemisor_upgrade_downgrade_y_reupgrade() -> None:
                         1, 2, NULL, 'asignacion_admin',
                         TIMESTAMP '2026-01-01 00:00:00'
                     )
-                    """
-                )
-            )
+                    """))
             await connection.execute(
                 text("UPDATE usuarios SET empresa_id = NULL WHERE id = 1")
             )

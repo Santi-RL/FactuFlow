@@ -30,7 +30,6 @@ from tests.test_facturacion_service import (
     _fijar_reloj_facturacion,
 )
 
-
 CAE_SINTETICO = "00000000000000"
 VENCIMIENTO_CAE_SINTETICO = "20260819"
 

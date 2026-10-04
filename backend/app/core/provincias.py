@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import unicodedata
 
-
 PROVINCIAS_ARGENTINAS = {
     "BUENOS AIRES": "Buenos Aires",
     "CABA": "CABA",

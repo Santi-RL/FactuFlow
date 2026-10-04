@@ -301,30 +301,30 @@ class LoteComprobantesService:
         instrucciones["A1"] = "Plantilla de emisión masiva FactuFlow"
         instrucciones["A1"].font = Font(bold=True, size=14)
         instrucciones["A3"] = "1. Completá una fila por ítem."
-        instrucciones[
-            "A4"
-        ] = "2. Repetí los datos del comprobante en todas las filas que compartan el mismo comprobante_ref."
-        instrucciones[
-            "A5"
-        ] = "3. Definí Productos/Servicios en pantalla o completá concepto con Producto/Servicio."
-        instrucciones[
-            "A6"
-        ] = "4. La descripción facturada del ítem es independiente: completá item_descripcion o elegí una descripción fija en pantalla."
-        instrucciones[
-            "A7"
-        ] = "5. El lote debe corresponder a una única empresa. Usá el CUIT activo en la columna empresa_cuit."
-        instrucciones[
-            "A8"
-        ] = "6. Completá fecha_emision o elegí una fecha fija en la pantalla antes de validar."
-        instrucciones[
-            "A9"
-        ] = "7. Para consumidor final de bajo importe podés dejar documento, nombre y domicilio vacíos."
-        instrucciones[
-            "A10"
-        ] = "8. Si informás documento, tipos sugeridos: CUIT, DNI, CUIL, Pasaporte."
-        instrucciones[
-            "A11"
-        ] = "9. Condición IVA sugerida: Responsable Inscripto, Monotributo, Exento, Consumidor Final."
+        instrucciones["A4"] = (
+            "2. Repetí los datos del comprobante en todas las filas que compartan el mismo comprobante_ref."
+        )
+        instrucciones["A5"] = (
+            "3. Definí Productos/Servicios en pantalla o completá concepto con Producto/Servicio."
+        )
+        instrucciones["A6"] = (
+            "4. La descripción facturada del ítem es independiente: completá item_descripcion o elegí una descripción fija en pantalla."
+        )
+        instrucciones["A7"] = (
+            "5. El lote debe corresponder a una única empresa. Usá el CUIT activo en la columna empresa_cuit."
+        )
+        instrucciones["A8"] = (
+            "6. Completá fecha_emision o elegí una fecha fija en la pantalla antes de validar."
+        )
+        instrucciones["A9"] = (
+            "7. Para consumidor final de bajo importe podés dejar documento, nombre y domicilio vacíos."
+        )
+        instrucciones["A10"] = (
+            "8. Si informás documento, tipos sugeridos: CUIT, DNI, CUIL, Pasaporte."
+        )
+        instrucciones["A11"] = (
+            "9. Condición IVA sugerida: Responsable Inscripto, Monotributo, Exento, Consumidor Final."
+        )
 
         hoja = workbook.create_sheet("Comprobantes")
         hoja.append(self.TEMPLATE_COLUMNS)
@@ -1853,7 +1853,11 @@ class LoteComprobantesService:
         mensaje_seguro: str,
         guarda_rece_id: int | None = None,
         guarda_rece_token: str | None = None,
-    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+    ) -> Literal[
+        "recuperada_pre_arca",
+        "requiere_reconciliacion",
+        "no_recuperable",
+    ]:
         """Revierte lote y operación en una transacción solo antes de ARCA."""
         try:
             await self.db.rollback()
@@ -1943,7 +1947,11 @@ class LoteComprobantesService:
         empresa_id: int,
         guarda_rece_id: int | None = None,
         guarda_rece_token: str | None = None,
-    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+    ) -> Literal[
+        "recuperada_pre_arca",
+        "requiere_reconciliacion",
+        "no_recuperable",
+    ]:
         """Devuelve a cola un lote del worker solo si su operación es reanudable."""
         try:
             await self.db.rollback()
@@ -2136,7 +2144,11 @@ class LoteComprobantesService:
         mensajes_previos: list[str] | None,
         guarda_rece_id: int | None = None,
         guarda_rece_token: str | None = None,
-    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+    ) -> Literal[
+        "recuperada_pre_arca",
+        "requiere_reconciliacion",
+        "no_recuperable",
+    ]:
         """Restaura únicamente el grupo reclamado y su operación antes de ARCA."""
         try:
             await self.db.rollback()
@@ -3119,7 +3131,10 @@ class LoteComprobantesService:
         confirmacion_duplicado_logico: bool,
         solo_revalidar: bool = False,
         encolar: bool = False,
-    ) -> tuple[LoteComprobanteGrupo | None, list[ContextoElegibilidadRece],]:
+    ) -> tuple[
+        LoteComprobanteGrupo | None,
+        list[ContextoElegibilidadRece],
+    ]:
         """Valida ownership y, si corresponde, publica el claim pre-ARCA."""
         grupos_material = material_rece_confirmado.get("grupos")
         grupo_ids_declarados = material_rece_confirmado.get("grupo_ids")
@@ -3552,9 +3567,9 @@ class LoteComprobantesService:
 
                 metadata_nueva = dict(metadata)
                 metadata_nueva["operacion_idempotente_id"] = operacion_id
-                metadata_nueva[
-                    "confirmacion_duplicado_logico"
-                ] = confirmacion_duplicado_logico
+                metadata_nueva["confirmacion_duplicado_logico"] = (
+                    confirmacion_duplicado_logico
+                )
                 metadata_nueva["pf19b_rece_material"] = material_rece_confirmado
                 lote.metadata_json = metadata_nueva
                 result = await self.db.execute(
@@ -6354,9 +6369,9 @@ class LoteComprobantesService:
                 "fecha_servicio_hasta": (
                     fecha_servicio_hasta.isoformat() if fecha_servicio_hasta else None
                 ),
-                "fecha_vto_pago": fecha_vto_pago.isoformat()
-                if fecha_vto_pago
-                else None,
+                "fecha_vto_pago": (
+                    fecha_vto_pago.isoformat() if fecha_vto_pago else None
+                ),
             }
             return {
                 "estado": "con_error",
@@ -6633,9 +6648,9 @@ class LoteComprobantesService:
     async def _marcar_grupos_validos_stale_para_reconciliacion(
         self,
         lote: LoteComprobante,
-        grupos: tuple[LoteComprobanteGrupo, ...]
-        | list[LoteComprobanteGrupo]
-        | None = None,
+        grupos: (
+            tuple[LoteComprobanteGrupo, ...] | list[LoteComprobanteGrupo] | None
+        ) = None,
     ) -> int:
         """Marca grupos válidos de un lote stale como fiscalmente inciertos."""
         mensaje = (

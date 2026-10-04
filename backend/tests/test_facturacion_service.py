@@ -72,7 +72,6 @@ from app.services.elegibilidad_rece_service import (
 )
 from app.services.lote_comprobantes_service import LoteComprobantesService
 
-
 FECHA_FISCAL_PRUEBA = date(2026, 8, 9)
 
 
@@ -213,7 +212,11 @@ async def _crear_operacion_rece_sintetica(
     punto_venta: PuntoVenta,
     requests: list[EmitirComprobanteRequest],
     batch: bool,
-) -> tuple[OperacionIdempotente, ContextoElegibilidadRece, list[dict[str, object]],]:
+) -> tuple[
+    OperacionIdempotente,
+    ContextoElegibilidadRece,
+    list[dict[str, object]],
+]:
     """Crea evidencia positiva y membresía durable solo para pruebas felices."""
     contexto = await _crear_cabeza_rece_sintetica(
         db,

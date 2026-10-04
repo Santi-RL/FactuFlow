@@ -83,8 +83,10 @@ El frontend usa Tailwind 4.3.3 y su plugin PostCSS; la cadena vulnerable de
 construcción anterior fue retirada, conservando marca, escalas y foco accesible.
 El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
 acepta Firefox 128+. CI conserva sus gates y usa Ubuntu 24.04 explícito.
-Las alertas de herramientas Python de desarrollo son un corte distinto pendiente;
-no están cubiertas por la auditoría de `requirements.txt` ni cierran PF-16.
+Las herramientas Python usan pytest 9.0.3, pytest-asyncio 1.3.0 y Black 26.3.1.
+La CI y el comando local auditan también `requirements-dev.txt`, incluido el
+runtime. El ciclo de eventos de sesión mantiene su alcance mediante configuración
+del plugin. Este corte no cierra las demás líneas de calidad PF-16.
 
 Los instantes operativos de la API comunican UTC explícito y la web muestra
 hora argentina en lotes, usuarios, emisor y Sistema, independientemente de la
@@ -95,7 +97,7 @@ compatibilidad y consumidores; no hay migración ni desplazamiento de la base.
 La auditoría integral corrigió documentación, código sin consumidores, fechas de
 calendario, contexto de detalles/formularios, errores PDF y barreras de
 construcción. Conserva los contratos fiscales y la visión. Los hallazgos de
-capacidad de persistencia, lecturas y dependencias permanecen abiertos y forman
+capacidad de persistencia y lecturas permanecen abiertos y forman
 una puerta de estabilización antes de capacidades nuevas. Evidencia y límites en el
 [dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md);
 responsabilidades compartidas y horizonte MCP en

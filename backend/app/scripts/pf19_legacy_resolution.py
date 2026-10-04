@@ -31,7 +31,6 @@ from app.services.resolucion_legacy_pf19_service import (
     planificar_resolucion_legacy_pf19,
 )
 
-
 MAX_PLAN_BYTES = 1024 * 1024
 
 

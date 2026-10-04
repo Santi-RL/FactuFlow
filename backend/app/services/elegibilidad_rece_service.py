@@ -41,7 +41,6 @@ from app.services.contencion_fiscal_service import (
 )
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
-
 CATEGORIA_ELEGIBILIDAD_RECE = "elegibilidad_rece_no_verificada"
 MENSAJE_ELEGIBILIDAD_RECE = (
     "El punto de venta no tiene una acreditación RECE válida para este ambiente."
@@ -56,9 +55,9 @@ _ZONA_ARGENTINA = timezone(
     name="America/Argentina/Buenos_Aires",
 )
 _PUNTO_LOCKS_GUARD = threading.Lock()
-_PUNTO_LOCKS: weakref.WeakValueDictionary[
-    tuple[int, int], asyncio.Lock
-] = weakref.WeakValueDictionary()
+_PUNTO_LOCKS: weakref.WeakValueDictionary[tuple[int, int], asyncio.Lock] = (
+    weakref.WeakValueDictionary()
+)
 
 
 def _obtener_lock_local_punto(empresa_id: int, punto_venta_id: int) -> asyncio.Lock:
@@ -772,8 +771,9 @@ class ElegibilidadReceService:
         self,
         atestaciones: list[AtestacionPuntoRece],
         *,
-        invalidaciones_ausentes: list[tuple[PuntoVenta, dict[str, object]]]
-        | None = None,
+        invalidaciones_ausentes: (
+            list[tuple[PuntoVenta, dict[str, object]]] | None
+        ) = None,
         empresa_id: int,
         empresa_cuit: str,
         evidencia_sha256: str,
@@ -1766,7 +1766,11 @@ class ElegibilidadReceService:
         guarda_id: int,
         token: str,
         commit: bool = True,
-    ) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+    ) -> Literal[
+        "recuperada_pre_arca",
+        "requiere_reconciliacion",
+        "no_recuperable",
+    ]:
         """Cierra por CAS solo una guarda propia que prueba cero inicio ARCA."""
         operacion = (
             await self.db.execute(

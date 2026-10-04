@@ -48,7 +48,6 @@ from app.services.idempotencia_fiscal_service import (
     IdempotenciaFiscalService,
 )
 
-
 FECHA_FISCAL_PRUEBA = date(2026, 8, 9)
 AHORA_FISCAL_PRUEBA = datetime(2026, 8, 9, 12, 0, 0)
 

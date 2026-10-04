@@ -6,7 +6,6 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-
 SUPPORTED_DATE_FORMATS = (
     (re.compile(r"^\d{2}/\d{2}/\d{4}$"), "%d/%m/%Y", "DD/MM/AAAA"),
     (re.compile(r"^\d{4}-\d{2}-\d{2}$"), "%Y-%m-%d", "YYYY-MM-DD"),

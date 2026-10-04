@@ -30,7 +30,6 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 )
 from tests.test_pf19_legacy_resolution import _sembrar, _solicitud_apply
 
-
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_PF19C_LEGACY = "c0d1e2f3a4b"
 
@@ -50,17 +49,13 @@ async def test_postgresql_pf19c_constraints_append_only_y_roundtrip() -> None:
             journal_table = await connection.scalar(
                 text("SELECT to_regclass('public.resoluciones_legacy_pf19_journal')")
             )
-            errores_column = await connection.scalar(
-                text(
-                    """
+            errores_column = await connection.scalar(text("""
                     SELECT COUNT(*)
                     FROM information_schema.columns
                     WHERE table_schema = 'public'
                       AND table_name = 'intentos_emision_fiscal'
                       AND column_name = 'errores_arca_json'
-                    """
-                )
-            )
+                    """))
         assert journal_table is None
         assert int(errores_column or 0) == 0
     finally:
@@ -70,34 +65,20 @@ async def test_postgresql_pf19c_constraints_append_only_y_roundtrip() -> None:
     try:
         assert await _alembic_version(engine) == REVISION_PF19C_LEGACY
         async with engine.connect() as connection:
-            constraints = {
-                str(row[0])
-                for row in await connection.execute(
-                    text(
-                        """
+            constraints = {str(row[0]) for row in await connection.execute(text("""
                         SELECT conname
                         FROM pg_constraint
                         WHERE conrelid IN (
                             'intentos_emision_fiscal'::regclass,
                             'resoluciones_legacy_pf19_journal'::regclass
                         )
-                        """
-                    )
-                )
-            }
-            triggers = {
-                str(row[0])
-                for row in await connection.execute(
-                    text(
-                        """
+                        """))}
+            triggers = {str(row[0]) for row in await connection.execute(text("""
                         SELECT tgname
                         FROM pg_trigger
                         WHERE tgrelid = 'resoluciones_legacy_pf19_journal'::regclass
                           AND NOT tgisinternal
-                        """
-                    )
-                )
-            }
+                        """))}
         assert {
             "uq_intentos_emision_fiscal_id_empresa",
             "fk_resoluciones_legacy_pf19_journal_intento_empresa",
@@ -117,9 +98,7 @@ async def test_postgresql_pf19c_constraints_append_only_y_roundtrip() -> None:
         await _crear_contexto_sintetico(engine)
         await _insertar_intento(engine, 1, "fallido_verificado", 1)
         async with engine.begin() as connection:
-            await connection.execute(
-                text(
-                    """
+            await connection.execute(text("""
                     INSERT INTO usuarios (
                         id, email, hashed_password, nombre, activo, es_admin,
                         empresa_id, created_at, updated_at
@@ -127,12 +106,8 @@ async def test_postgresql_pf19c_constraints_append_only_y_roundtrip() -> None:
                         1, 'admin-pf19c@example.test', 'hash', 'Admin PF19C',
                         true, true, 1, now(), now()
                     )
-                    """
-                )
-            )
-            await connection.execute(
-                text(
-                    """
+                    """))
+            await connection.execute(text("""
                     INSERT INTO empresas (
                         id, razon_social, cuit, condicion_iva, domicilio,
                         localidad, provincia, codigo_postal, inicio_actividades,
@@ -142,12 +117,9 @@ async def test_postgresql_pf19c_constraints_append_only_y_roundtrip() -> None:
                         'Domicilio 2', 'Localidad 2', 'Provincia 2', '1001',
                         DATE '2020-01-01', now(), now()
                     )
-                    """
-                )
-            )
+                    """))
 
-        journal_insert = text(
-            """
+        journal_insert = text("""
             INSERT INTO resoluciones_legacy_pf19_journal (
                 id, accion, plan_sha256, terminal_response_sha256, actor_usuario_id,
                 ambiente_consultado, resultado, resultado_consultas_json,
@@ -160,8 +132,7 @@ async def test_postgresql_pf19c_constraints_append_only_y_roundtrip() -> None:
                 CAST('{}' AS json), CAST('{}' AS json), :backup_sha,
                 now(), 1, :empresa_id
             )
-            """
-        )
+            """)
         with pytest.raises(IntegrityError):
             async with engine.begin() as connection:
                 await connection.execute(

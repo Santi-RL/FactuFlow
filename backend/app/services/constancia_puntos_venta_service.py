@@ -10,7 +10,6 @@ import unicodedata
 
 from pypdf import PdfReader
 
-
 CLASIFICADOR_RECE_VERSION = "rece_constancia_v2"
 SENAL_RECE_EXACTA = "RECE para aplicativo y web services"
 SENALES_RECE_EXACTAS = (

@@ -179,7 +179,11 @@ async def _recuperar_operacion_lote_pre_arca(
     idempotencia: IdempotenciaFiscalService,
     operacion_id: int,
     fase_solicitud_arca: FaseSolicitudArca,
-) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+) -> Literal[
+    "recuperada_pre_arca",
+    "requiere_reconciliacion",
+    "no_recuperable",
+]:
     """Recupera una operación solo si su guarda prueba cero inicio ARCA."""
     try:
         await db.rollback()

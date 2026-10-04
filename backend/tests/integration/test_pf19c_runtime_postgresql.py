@@ -42,7 +42,6 @@ from tests.integration.test_integridad_fiscal_postgresql import (
 )
 from tests.postgresql_harness import require_disposable_postgres_url
 
-
 ERROR_ARCA_10005 = {
     "codigo": 10005,
     "alcance": "global",

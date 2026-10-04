@@ -22,7 +22,6 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-
 ESTADOS_INTENTO_FISCAL = (
     "autorizado",
     "en_proceso",

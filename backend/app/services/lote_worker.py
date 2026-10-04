@@ -316,9 +316,9 @@ class LoteWorker:
     ) -> LoteWorkerRuntimeStatus:
         """Devuelve una copia allowlist del estado runtime del worker."""
         if not habilitado:
-            estado: Literal[
-                "deshabilitado", "detenido", "esperando", "ocupado"
-            ] = "deshabilitado"
+            estado: Literal["deshabilitado", "detenido", "esperando", "ocupado"] = (
+                "deshabilitado"
+            )
         elif not ejecutando:
             estado = "detenido"
         elif self._runtime.ocupado:

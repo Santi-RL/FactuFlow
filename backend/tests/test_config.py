@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from app.core.config import DEFAULT_SECRET_KEY, Settings
 
-
 POOL_ENV_KEYS = (
     "DATABASE_API_POOL_SIZE",
     "DATABASE_API_MAX_OVERFLOW",
