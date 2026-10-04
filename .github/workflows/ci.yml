@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -81,7 +81,7 @@ jobs:
         run: echo "Cambio exclusivamente documental; no requiere tests de runtime."
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -135,7 +135,7 @@ jobs:
 
       - name: Checkout
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
@@ -206,7 +206,7 @@ jobs:
 
       - name: Checkout
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         if: needs.scope.outputs.runtime == 'true'
@@ -297,7 +297,7 @@ jobs:
 
       - name: Checkout
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
@@ -355,7 +355,7 @@ jobs:
 
       - name: Checkout
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         if: needs.scope.outputs.runtime == 'true'
@@ -405,7 +405,7 @@ jobs:
 
       - name: Checkout
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
