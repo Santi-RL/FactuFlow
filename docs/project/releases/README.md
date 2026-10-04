@@ -14,8 +14,8 @@ autoriza producción.
 
 ## Índice
 
-- [`v0.3.7-candidate.md`](v0.3.7-candidate.md): corte de mantenimiento,
-  contratos fiscales, compatibilidad y recuperación.
+- [`v0.3.7-candidate.md`](v0.3.7-candidate.md): publicación del corte de
+  mantenimiento, contratos fiscales, compatibilidad y recuperación.
 - [`rg5616-condicion-iva.md`](rg5616-condicion-iva.md): diseño fiscal, matriz
   oficial y validación del campo obligatorio del receptor.
 - [`pf13-17-reintentos-seguros.md`](pf13-17-reintentos-seguros.md): diseño fiscal,

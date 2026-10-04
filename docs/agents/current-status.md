@@ -13,7 +13,7 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.6`.
+- La release publicada más reciente es `v0.3.7`.
 - El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
   de esquema para PostgreSQL.
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
@@ -158,6 +158,11 @@ siguen siendo datos explícitos, independientes del documento.
 Los parches de reintentos seguros y condición IVA están cerrados en código.
 La evidencia se consulta en sus dossiers; el estado productivo se acredita sólo
 en el plano de control. Una publicación o despliegue no inicia la siguiente unidad.
+
+`v0.3.7` reúne el mantenimiento aceptado y sus dependencias corregidas. El
+[dossier](../project/releases/v0.3.7-candidate.md) acredita publicación y
+validaciones del corte. El usuario realizará su revisión manual después del
+despliegue; el desarrollo de A01/A03 y las unidades siguientes espera esa revisión.
 
 Para continuar desarrollo:
 
