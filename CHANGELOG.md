@@ -18,6 +18,14 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Mantenimiento preventivo de dependencias
+
+- Configuración de Dependabot para npm, Python y GitHub Actions con revisión
+  semanal en horario argentino, límites de PRs ordinarios y grupos acotados de
+  herramientas relacionadas. Vitest y cobertura mantienen versiones coordinadas.
+- Las propuestas conservan revisión y CI antes del merge; no incorporan fusión
+  automática, despliegues ni actualizaciones de imágenes Docker.
+
 ### Condición IVA del receptor — RG 5616
 
 - Toda nueva solicitud individual o masiva incluye una condición IVA válida y

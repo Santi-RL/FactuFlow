@@ -36,6 +36,38 @@
 
 ## Dependencias y cadena de construcción
 
+### Propuestas de Dependabot
+
+La configuración versionada vive en
+[`.github/dependabot.yml`](../../.github/dependabot.yml) y se aplica desde la
+rama predeterminada del repositorio. Revisa npm en `frontend/`, los archivos
+requirements de ejecución y desarrollo en `backend/` y las referencias de GitHub Actions.
+Las actualizaciones ordinarias se programan los lunes a las 09:00 en
+`America/Argentina/Buenos_Aires`, con límites de tres PRs npm, tres Python y dos
+de Actions. Esos límites y la revisión semanal no limitan las propuestas de
+seguridad.
+
+- Vitest y su proveedor de cobertura avanzan juntos, incluidas actualizaciones
+  mayores y de seguridad, por su compatibilidad de versiones.
+- ESLint, pytest y Actions agrupan únicamente cambios menores y parches;
+  las demás actualizaciones se revisan en PRs individuales. No se ignoran
+  versiones mayores ni dependencias fiscales, criptográficas, de PDF o persistencia.
+- Alertas y actualizaciones automáticas de seguridad son ajustes de GitHub,
+  independientes del archivo de revisiones ordinarias. Comprobarlos en la
+  configuración de seguridad del repositorio; la ausencia de un PR no demuestra
+  que no existan vulnerabilidades ni que haya una corrección disponible.
+- Dependabot propone cambios: no fusiona ni despliega. Cada PR conserva las
+  puertas de CI y la revisión proporcional al riesgo. Un salto mayor puede
+  requerir adaptar código, configuración y compatibilidad; no aprobarlo sólo
+  porque se generó automáticamente.
+- Las imágenes Docker quedan fuera de esta configuración inicial. Node, Python
+  y PostgreSQL requieren coordinar contratos de versiones y validar las imágenes
+  correspondientes; el bot no sustituye esa comprobación.
+
+Referencia: [opciones oficiales de Dependabot](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference).
+
+### Auditorías y construcción
+
 - La CI bloquea vulnerabilidades conocidas en dependencias de Python y del
   frontend mediante `pip-audit -r requirements.txt` y
   `npm audit --audit-level=low`, incluido tooling de desarrollo del frontend.
