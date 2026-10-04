@@ -1,9 +1,53 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 const WORKFLOW_URL = new URL("../../.github/workflows/ci.yml", import.meta.url);
 const workflow = readFileSync(WORKFLOW_URL, "utf8").replaceAll("\r\n", "\n");
+
+function runDockerWarningGuard(logPath) {
+  const script = workflow.match(/<<'NODE'\n([\s\S]*?)\n          NODE/u)?.[1];
+  assert.ok(script, "No se encontró el control de advertencias de Docker");
+  const result = spawnSync(
+    process.execPath,
+    ["--input-type=module", "-", logPath],
+    { input: script, encoding: "utf8" },
+  );
+  assert.ifError(result.error);
+  return result;
+}
+
+test("el control Docker acepta logs limpios y rechaza advertencias", () => {
+  const directory = mkdtempSync(join(tmpdir(), "factuflow-ci-warning-"));
+  try {
+    const logPath = join(directory, "build.log");
+    for (const [log, expected] of [
+      ["#14 DONE 8.3s\nfound 0 vulnerabilities\n", 0],
+      ["#14 npm warn deprecated synthetic-package\n", 1],
+      ["#14 WARNING: synthetic build diagnostic\n", 1],
+    ]) {
+      writeFileSync(logPath, log);
+      assert.equal(runDockerWarningGuard(logPath).status, expected, log);
+    }
+  } finally {
+    rmSync(directory, { recursive: true });
+  }
+});
+
+test("el control Docker falla si no puede leer el log", () => {
+  const directory = mkdtempSync(join(tmpdir(), "factuflow-ci-warning-"));
+  try {
+    assert.notEqual(
+      runDockerWarningGuard(join(directory, "missing.log")).status,
+      0,
+    );
+  } finally {
+    rmSync(directory, { recursive: true });
+  }
+});
 
 function extractJob(jobId) {
   const marker = `  ${jobId}:\n`;

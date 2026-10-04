@@ -96,6 +96,8 @@ La CI también construye `frontend/Dockerfile` con Node 24.15.0 y npm 11.12.1,
 bloquea warnings del build y comprueba la configuración Nginx y los archivos
 compilados. `frontend/.dockerignore` evita copiar dependencias y salidas locales
 sobre las instaladas dentro de la imagen.
+El control usa Node, disponible por `setup-node`, y falla si el log no se puede
+leer. Los tests de scripts verifican logs limpios, advertencias y lectura fallida.
 
 Desde `frontend/`:
 

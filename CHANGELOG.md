@@ -27,6 +27,8 @@ Reglas vigentes desde 2026-05-22:
   Safari 16.4+ conservan su mínimo. La configuración de marca sigue compartida.
 - Runners de CI fijados en Ubuntu 24.04, el entorno ya utilizado, para que un
   cambio automático del sistema operativo no altere la matriz de validación.
+- El control de advertencias de Docker usa Node, ya disponible en CI, y falla
+  también si no puede leer el log; no depende de herramientas ausentes del runner.
 - E2E de lotes y navegación esperan la carga administrativa de perfiles antes
   de terminar, evitando consultas tardías fuera de los dobles de prueba.
 
