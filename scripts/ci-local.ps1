@@ -164,7 +164,7 @@ Invoke-Step "Security: pip-audit producción" { & $python -m pip_audit -r requir
 Pop-Location
 
 Push-Location (Join-Path $root "frontend")
-Invoke-Step "Security: npm audit producción (high)" { npm audit --omit=dev --audit-level=high }
+Invoke-Step "Security: npm audit completo (low)" { npm audit --audit-level=low }
 Pop-Location
 
 Write-Summary

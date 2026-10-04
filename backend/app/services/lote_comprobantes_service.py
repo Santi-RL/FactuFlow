@@ -6790,16 +6790,6 @@ class LoteComprobantesService:
             return "El emisor no Responsable Inscripto no puede emitir comprobantes tipo A."
         return None
 
-    async def _obtener_grupos_lote(self, lote_id: int) -> list[LoteComprobanteGrupo]:
-        result = await self.db.execute(
-            select(LoteComprobanteGrupo)
-            .options(selectinload(LoteComprobanteGrupo.filas))
-            .where(LoteComprobanteGrupo.lote_id == lote_id)
-            .order_by(LoteComprobanteGrupo.orden)
-            .execution_options(populate_existing=True)
-        )
-        return list(result.scalars().all())
-
     async def _obtener_grupos_emitibles(
         self, lote_id: int
     ) -> list[LoteComprobanteGrupo]:

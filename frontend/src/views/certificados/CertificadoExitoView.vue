@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { Certificado } from "@/types/certificado";
 import certificadosService from "@/services/certificados.service";
+import { formatearFecha } from "@/composables/useFormatters";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseSpinner from "@/components/ui/BaseSpinner.vue";
@@ -20,14 +21,6 @@ const loading = ref(true);
 
 const formatearCUIT = (cuit: string) => {
   return `${cuit.slice(0, 2)}-${cuit.slice(2, 10)}-${cuit.slice(10)}`;
-};
-
-const formatearFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
 };
 
 const irADashboard = () => {

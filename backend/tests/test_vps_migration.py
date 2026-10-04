@@ -1260,6 +1260,113 @@ def test_manifest_v4_preserva_clausura_pf13_y_convierte_tipos(tmp_path: Path) ->
 
 
 @pytest.mark.parametrize(
+    "created_at",
+    [
+        "2026-09-05T12:00:00",
+        "2026-09-05T12:00:00Z",
+        "2026-09-05T12:00:00+00:00",
+        "2026-09-05T09:00:00-03:00",
+    ],
+    ids=["legacy-utc", "utc-z", "utc-offset", "offset-equivalente"],
+)
+def test_manifest_v4_preserva_replay_del_mismo_instante_utc(
+    tmp_path: Path,
+    created_at: str,
+) -> None:
+    """La comparación temporal no reescribe el replay ni metadatos opacos."""
+    package, rows, manifest = _build_v4_package(tmp_path)
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    response = json.loads(operation["response_json"])
+    opaque_metadata = {
+        "hora_sin_procedencia": "2026-09-05T09:00:00",
+        "historia": {"created_at": "2026-09-05T09:00:00-03:00"},
+    }
+    response["lote"]["created_at"] = created_at
+    response["lote"]["metadata_json"] = opaque_metadata
+    original_json = json.dumps(response, sort_keys=True)
+    operation["response_json"] = original_json
+    _write_v4_package(package, rows, previous_manifest=manifest)
+    operations_path = package / "data" / "operaciones_idempotentes.jsonl"
+    original_file = operations_path.read_bytes()
+    original_rows = deepcopy(rows)
+
+    loaded = vps_migration.load_and_verify_manifest(package)
+    converted = vps_migration.read_package_rows(
+        package, loaded, "operaciones_idempotentes"
+    )
+    replay = next(row for row in converted if row["id"] == 200)["response_json"]
+
+    assert replay == json.loads(original_json)
+    assert replay["lote"]["created_at"] == created_at
+    assert replay["lote"]["metadata_json"] == opaque_metadata
+    assert operations_path.read_bytes() == original_file
+    assert rows == original_rows
+    assert (
+        next(row for row in rows["lotes_comprobantes"] if row["id"] == 100)[
+            "created_at"
+        ]
+        == "2026-09-05 12:00:00"
+    )
+
+
+@pytest.mark.parametrize(
+    "created_at",
+    [
+        "2026-09-05T12:00:00.000001Z",
+        "2026-09-05T12:00:01Z",
+        "2026-09-05T12:00:00-03:00",
+    ],
+    ids=["microsegundo-distinto", "segundo-distinto", "offset-otro-instante"],
+)
+def test_manifest_v4_rechaza_replay_con_otro_instante_utc(
+    tmp_path: Path,
+    created_at: str,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    response = json.loads(operation["response_json"])
+    response["lote"]["created_at"] = created_at
+    operation["response_json"] = json.dumps(response, sort_keys=True)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="lote durable"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("id", 90),
+        ("empresa_id", 11),
+        ("archivo_hash", "f" * 64),
+        ("estado", "en_progreso"),
+        ("formato_importacion_version_id", 62),
+    ],
+)
+def test_manifest_v4_instante_equivalente_no_admite_lote_adulterado(
+    tmp_path: Path,
+    field: str,
+    value: Any,
+) -> None:
+    package, rows, manifest = _build_v4_package(tmp_path)
+    operation = next(
+        row for row in rows["operaciones_idempotentes"] if row["id"] == 200
+    )
+    response = json.loads(operation["response_json"])
+    response["lote"]["created_at"] = "2026-09-05T09:00:00-03:00"
+    response["lote"][field] = value
+    operation["response_json"] = json.dumps(response, sort_keys=True)
+    _write_v4_package(package, rows, previous_manifest=manifest)
+
+    with pytest.raises(vps_migration.MigrationError, match="Replay terminal v4"):
+        vps_migration.load_and_verify_manifest(package)
+
+
+@pytest.mark.parametrize(
     "mutation",
     [
         "lote_preservado",

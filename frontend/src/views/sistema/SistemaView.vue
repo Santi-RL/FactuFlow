@@ -22,6 +22,8 @@ import BaseBadge from "@/components/ui/BaseBadge.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import { useNotification } from "@/composables/useNotification";
+import { useFormatters } from "@/composables/useFormatters";
+import { formatearFechaHoraArgentina } from "@/utils/instantes";
 import almacenamientoService from "@/services/almacenamiento.service";
 import { arcaService, type ArcaStatus } from "@/services/arca.service";
 import sistemaService, {
@@ -36,6 +38,7 @@ import type {
 } from "@/types/almacenamiento";
 
 const { showError, showSuccess } = useNotification();
+const { formatearFecha } = useFormatters();
 
 type SistemaTab = "estado" | "almacenamiento";
 type EstadoOperativo =
@@ -177,7 +180,8 @@ const certificadoDetalle = computed(() => {
   if (!arcaStatus.value.certificado_disponible) {
     return "El certificado activo no tiene disponibles sus archivos locales.";
   }
-  const vencimiento = formatDateTime(arcaStatus.value.certificado_vencimiento);
+  const vencimiento =
+    formatearFecha(arcaStatus.value.certificado_vencimiento || "") || "-";
   const dias = certificadoDiasRestantes.value;
   const diasTexto = dias === null ? "" : `, ${dias} días restantes`;
   return `${arcaStatus.value.certificado_nombre || "Certificado activo"} · vence ${vencimiento}${diasTexto}`;
@@ -721,10 +725,10 @@ const formatBytes = (bytes: number | null | undefined) => {
 
 const formatDateTime = (value: string | null) => {
   if (!value) return "-";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return (
+    formatearFechaHoraArgentina(value, { interpretarSinZonaComoUtc: true }) ||
+    "Fecha y hora no disponibles"
+  );
 };
 
 const estadoLabel = (value: string) => {

@@ -8,6 +8,10 @@ import type {
   DuplicadosImportes,
   DuplicadosSolicitante,
 } from "@/types/lote-comprobante";
+import {
+  analizarFechaHoraIso,
+  formatearFechaHoraArgentina,
+} from "@/utils/instantes";
 
 const props = withDefaults(
   defineProps<{
@@ -166,58 +170,9 @@ const formatAmount = (value: string | null | undefined) => {
   return `${sign}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimals}`;
 };
 
-const parseIsoParts = (value: string) => {
-  const match = value.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?(Z|[+-]\d{2}:\d{2})?$/,
-  );
-  if (!match) return null;
-  const [
-    ,
-    yearRaw,
-    monthRaw,
-    dayRaw,
-    hourRaw = "00",
-    minuteRaw = "00",
-    secondRaw = "00",
-    zone,
-  ] = match;
-  const hasTime = Boolean(match[4]);
-  const year = Number(yearRaw);
-  const month = Number(monthRaw);
-  const day = Number(dayRaw);
-  const hour = Number(hourRaw);
-  const minute = Number(minuteRaw);
-  const second = Number(secondRaw);
-  const check = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
-  if (
-    check.getUTCFullYear() !== year ||
-    check.getUTCMonth() !== month - 1 ||
-    check.getUTCDate() !== day ||
-    check.getUTCHours() !== hour ||
-    check.getUTCMinutes() !== minute ||
-    check.getUTCSeconds() !== second
-  ) {
-    return null;
-  }
-  if (zone && !hasTime) return null;
-  if (zone && zone !== "Z") {
-    const [offsetHour, offsetMinute] = zone.slice(1).split(":").map(Number);
-    if (offsetHour > 23 || offsetMinute > 59) return null;
-  }
-  return {
-    dayRaw,
-    monthRaw,
-    yearRaw,
-    hourRaw,
-    minuteRaw,
-    zone: zone || null,
-    hasTime,
-  };
-};
-
 const formatDateTime = (value: string | null, reliable: boolean | null) => {
   if (!value) return "Fecha y hora no registradas";
-  const parts = parseIsoParts(value);
+  const parts = analizarFechaHoraIso(value);
   if (!parts) return "Fecha y hora históricas no comprobables";
   if (!parts.hasTime) {
     return `${parts.dayRaw}/${parts.monthRaw}/${parts.yearRaw} (hora no registrada)`;
@@ -228,20 +183,10 @@ const formatDateTime = (value: string | null, reliable: boolean | null) => {
   if (!parts.zone) {
     return `${parts.dayRaw}/${parts.monthRaw}/${parts.yearRaw} ${parts.hourRaw}:${parts.minuteRaw} (zona horaria no registrada)`;
   }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Fecha y hora históricas no comprobables";
-  }
-  const formatted = new Intl.DateTimeFormat("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
-  return formatted;
+  return (
+    formatearFechaHoraArgentina(value) ||
+    "Fecha y hora históricas no comprobables"
+  );
 };
 
 const formatAmountWithCurrency = (value: string, currency: string | null) => {

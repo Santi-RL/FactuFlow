@@ -46,6 +46,37 @@ describe("formatDuration", () => {
 });
 
 describe("calcularProgresoLote", () => {
+  it.each([
+    "2026-01-01T01:00:00Z",
+    "2025-12-31T22:00:00-03:00",
+    "2026-01-01T10:00:00+09:00",
+  ])("calcula la misma duración entre días para el inicio %s", (started_at) => {
+    const progreso = calcularProgresoLote(
+      crearLote({
+        estado: "completado",
+        grupos_validos: 0,
+        grupos_emitidos: 3,
+        started_at,
+        finished_at: "2026-01-01T01:02:00Z",
+      }),
+      new Date("2026-01-01T02:00:00Z"),
+    );
+    expect(progreso.transcurridoTexto).toBe("02:00");
+  });
+
+  it("no normaliza un inicio imposible para calcular tiempos", () => {
+    const progreso = calcularProgresoLote(
+      crearLote({
+        estado: "procesando",
+        grupos_validos: 2,
+        grupos_emitidos: 1,
+        started_at: "2026-02-31T12:00:00",
+      }),
+      new Date("2026-03-03T12:01:00Z"),
+    );
+    expect(progreso.transcurridoSegundos).toBe(0);
+  });
+
   it("reinicia el progreso del reintento y conserva los contadores tras recarga", () => {
     const operacion = {
       operacion_id: 7, seleccionados: 3, autorizados: 0, fallidos: 0,

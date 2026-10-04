@@ -1,9 +1,10 @@
 """Schemas para perfiles de carga masiva por emisor."""
 
-from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import ConfigDict, BaseModel, Field
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class PerfilCargaMasivaBase(BaseModel):
@@ -35,7 +36,7 @@ class PerfilCargaMasivaResponse(PerfilCargaMasivaBase):
 
     id: int
     empresa_id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCResponseDateTime
+    updated_at: UTCResponseDateTime
 
     model_config = ConfigDict(from_attributes=True)

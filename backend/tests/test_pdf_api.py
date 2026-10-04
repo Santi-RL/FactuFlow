@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from httpx import AsyncClient
 
+from app.api.pdf import ERROR_GENERACION_PDF_PUBLICO
 from app.models.comprobante import Comprobante
 from app.models.punto_venta import PuntoVenta
 
@@ -112,4 +113,53 @@ async def test_pdf_permite_comprobante_autorizado(
     assert response.status_code == 200
     assert response.content == b"%PDF-test"
     assert response.headers["content-type"] == "application/pdf"
+    generar_pdf.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "ruta",
+    [
+        "/api/pdf/comprobante/{comprobante_id}",
+        "/api/pdf/comprobante/{comprobante_id}/preview",
+    ],
+)
+async def test_pdf_sanitiza_excepciones_internas(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session,
+    test_empresa,
+    caplog,
+    ruta: str,
+):
+    """El error público no refleja rutas ni tokens de una excepción interna."""
+    comprobante = await _crear_comprobante_pdf(
+        db_session,
+        test_empresa.id,
+        estado="autorizado",
+        cae="12345678901234",
+        cae_vencimiento=date(2026, 2, 13),
+    )
+    ruta_privada = "/private/synthetic-cert.key"
+    token_privado = "TOKEN_SINTETICO_PRIVADO"
+    with patch(
+        "app.api.pdf.pdf_service.generar_pdf_comprobante",
+        new_callable=AsyncMock,
+    ) as generar_pdf:
+        generar_pdf.side_effect = RuntimeError(
+            f"Error interno en {ruta_privada}; token={token_privado}"
+        )
+        response = await client.get(
+            ruta.format(comprobante_id=comprobante.id), headers=auth_headers
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": ERROR_GENERACION_PDF_PUBLICO}
+    assert ruta_privada not in response.text
+    assert token_privado not in response.text
+    assert any(
+        record.name == "app.api.pdf"
+        and "Error al generar PDF comprobante_id=" in record.getMessage()
+        for record in caplog.records
+    )
     generar_pdf.assert_awaited_once()

@@ -1,6 +1,6 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 01/10/2026
+Última actualización: 03/10/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
@@ -515,9 +515,10 @@ Los smokes históricos de homologación cubrieron emisión individual, lote y
 consulta posterior. Comprobantes, puntos, CAEs, cantidades y fechas exactas
 permanecen en evidencia privada y no se replican en este repositorio público.
 
-Este documento describe el snapshot de `main` congelado para `v0.3.0`. Al
-cerrarlo, la release publicada y producción eran `v0.2.2`, que no incluye
-PF-19A/B/C; tag, publicación y despliegue requieren checkpoints separados.
+El antecedente del corte `v0.3.0` se conserva en su
+[dossier histórico](../project/releases/v0.3.0-candidate.md). Estas notas
+describen los contratos actuales de integración; no fijan la versión, SHA ni
+estado de ninguna instalación.
 
 ## Preparación y reintentos de lotes
 

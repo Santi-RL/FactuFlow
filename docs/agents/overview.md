@@ -58,3 +58,8 @@ masiva, con evidencia, recuperación y mensajes comprensibles.
 La estructura de código se consulta en [`structure.md`](structure.md). Las
 reglas documentales se consultan en
 [`documentation-governance.md`](documentation-governance.md).
+La [dirección de arquitectura](architecture-direction.md) gobierna la extracción
+gradual de casos de uso compartidos y el horizonte de operación asistida. El MCP
+es futuro; permisos, preparación, autorización humana y recuperación deben
+conservar una única autoridad, también cuando hoy se distribuyen entre routers
+y servicios.

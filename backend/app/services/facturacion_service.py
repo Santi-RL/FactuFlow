@@ -2986,26 +2986,6 @@ class FacturacionService:
         )
         return True
 
-    def _validar_sin_bloqueo_preautorizacion(
-        self,
-        *,
-        empresa_id: int,
-        punto_venta_id: int,
-        punto_venta_numero: int,
-        tipo_comprobante: int,
-    ) -> None:
-        """Falla cerrado antes de consultas ARCA si la tupla está bloqueada."""
-        if self._bloqueo_preautorizacion(
-            empresa_id=empresa_id,
-            punto_venta_id=punto_venta_id,
-            punto_venta_numero=punto_venta_numero,
-            tipo_comprobante=tipo_comprobante,
-        ):
-            raise ValidationError(
-                f"{MENSAJE_BLOQUEO_PREAUTORIZACION}. "
-                f"{DETALLE_BLOQUEO_PREAUTORIZACION}"
-            )
-
     @staticmethod
     def _respuesta_bloqueo_preautorizacion(
         *,
@@ -4188,6 +4168,51 @@ class FacturacionService:
                     mensajes.append(str(msg))
         return mensajes
 
+    async def _resolver_cliente_para_comprobante(
+        self,
+        request: EmitirComprobanteRequest,
+        *,
+        tipo_documento: str,
+        numero_documento: str,
+    ) -> int | None:
+        """Asocia sólo un cliente inequívoco sin alterar el snapshot fiscal."""
+        # El ID elegido ya pertenece al emisor validado antes de solicitar CAE.
+        # No agregar aquí otra lectura administrativa a la persistencia fiscal.
+        if request.cliente_id or not request.guardar_cliente:
+            return request.cliente_id
+
+        result = await self.db.execute(
+            select(Cliente)
+            .where(
+                Cliente.empresa_id == request.empresa_id,
+                Cliente.tipo_documento == tipo_documento,
+                Cliente.numero_documento == numero_documento,
+            )
+            .limit(2)
+        )
+        clientes = result.scalars().all()
+        if len(clientes) > 1:
+            logger.info(
+                "Asociación administrativa ambigua: se conserva el snapshot "
+                "fiscal sin vincular un cliente. empresa=%s",
+                request.empresa_id,
+            )
+            return None
+        if clientes:
+            return clientes[0].id
+
+        cliente = Cliente(
+            empresa_id=request.empresa_id,
+            razon_social=request.razon_social,
+            tipo_documento=tipo_documento,
+            numero_documento=numero_documento,
+            condicion_iva=self._normalizar_condicion_iva(request.condicion_iva),
+            domicilio=request.domicilio,
+        )
+        self.db.add(cliente)
+        await self.db.flush()
+        return cliente.id
+
     async def _guardar_comprobante(
         self,
         request: EmitirComprobanteRequest,
@@ -4216,31 +4241,11 @@ class FacturacionService:
         if not resultado_arca.cae or not resultado_arca.cae_vencimiento:
             raise ValueError("No se puede guardar un comprobante sin CAE autorizado")
 
-        # Obtener o crear cliente solo cuando el flujo lo pida explícitamente.
-        cliente_id = request.cliente_id
-        if not cliente_id and request.guardar_cliente:
-            result = await self.db.execute(
-                select(Cliente).where(
-                    Cliente.empresa_id == request.empresa_id,
-                    Cliente.tipo_documento == tipo_documento,
-                    Cliente.numero_documento == numero_documento,
-                )
-            )
-            cliente = result.scalar_one_or_none()
-
-            if cliente is None:
-                cliente = Cliente(
-                    empresa_id=request.empresa_id,
-                    razon_social=request.razon_social,
-                    tipo_documento=tipo_documento,
-                    numero_documento=numero_documento,
-                    condicion_iva=self._normalizar_condicion_iva(request.condicion_iva),
-                    domicilio=request.domicilio,
-                )
-                self.db.add(cliente)
-                await self.db.flush()
-
-            cliente_id = cliente.id
+        cliente_id = await self._resolver_cliente_para_comprobante(
+            request,
+            tipo_documento=tipo_documento,
+            numero_documento=numero_documento,
+        )
 
         # Crear comprobante
         comprobante = Comprobante(

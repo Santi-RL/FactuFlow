@@ -6,7 +6,7 @@ Frontend moderno desarrollado con Vue.js 3, TypeScript y Tailwind CSS para el si
 
 - **Vue.js 3.4+** - Framework reactivo con Composition API
 - **TypeScript 5.3+** - Tipado estático
-- **Vite 5.x** - Build tool ultra-rápido
+- **Vite 8.x** - Construcción y servidor de desarrollo
 - **Tailwind CSS 3.4+** - Utility-first CSS
 - **Vue Router 4.x** - Enrutamiento SPA
 - **Pinia 2.x** - State management
@@ -193,6 +193,10 @@ await clientesService.update(1, data)
 await clientesService.delete(1)
 ```
 
+Los servicios encapsulan HTTP. Para iniciar o cerrar una sesión de la interfaz,
+usar `useAuthStore`, que también actualiza Pinia y el almacenamiento local.
+La autorización por emisor siempre la resuelve el backend.
+
 ## 🗃️ Stores (Pinia)
 
 ```vue
@@ -286,13 +290,14 @@ El sidebar se colapsa automáticamente en mobile.
 
 ## 🎨 Personalización de Colores
 
-En `tailwind.config.js`:
+Los tokens visuales de la aplicación se definen en
+`src/assets/styles/brand.css` y se consumen desde `tailwind.config.js`:
 
 ```javascript
 colors: {
-  primary: { /* Azul */ },
-  celeste: '#74acdf',  // Color ARCA
-  sol: '#f6b40e'       // Color argentino
+  brand: { /* Tokens de identidad */ },
+  surface: { /* Fondos */ },
+  status: { /* Estados */ }
 }
 ```
 

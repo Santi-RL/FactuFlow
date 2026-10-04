@@ -26,6 +26,50 @@ Reglas vigentes desde 2026-05-22:
 - Las propuestas conservan revisión y CI antes del merge; no incorporan fusión
   automática, despliegues ni actualizaciones de imágenes Docker.
 
+### Asociación administrativa posterior a CAE
+
+- Clientes coincidentes del mismo emisor y documento dejan de impedir guardar
+  una autorización fiscal. La asociación implícita ambigua conserva el snapshot
+  receptor y deja el vínculo vacío; no elige ni fusiona fichas arbitrariamente.
+- La selección explícita y las coincidencias inequívocas conservan su conducta.
+  El guardado compartido mantiene la transacción fiscal y la recuperación ante
+  errores reales de base, sin cambiar idempotencia ni reintentos.
+
+### Contrato temporal y hora argentina
+
+- Instantes operativos de respuestas HTTP con UTC explícito y presentación común
+  en hora argentina; lotes, progreso, usuarios, emisor y Sistema dejan de depender
+  de la zona del navegador. Almacenamiento y relojes internos conservan UTC.
+- Fechas fiscales y de calendario sin conversión; antecedentes de duplicados
+  conservan cobertura histórica y zona desconocida cuando corresponda. El replay
+  de lotes antiguos no reescribe su respuesta durable al comunicar la zona.
+- El verificador de paquetes v4 coteja el mismo instante UTC de creación entre
+  replay y lote durable, compatible con representaciones anteriores y zona
+  explícita; mantiene identidad, estados y evidencia fiscal.
+
+### Limpieza y coherencia del estado actual
+
+- Alineadas guías de dominio, certificados, instalación y pruebas; corregido el
+  manifiesto público de historia sin modificar sus snapshots. Retirada la receta
+  de borrar WAL/SHM y las referencias de despliegue inferidas desde el repositorio.
+- Retirados tres helpers backend sin consumidores y la calculadora huérfana de
+  lotes. Fechas de certificados usan calendario; detalles y formulario de cliente
+  preservan el contexto de emisor frente a cargas o escrituras tardías.
+- Errores PDF públicos sanitizados, contextos Docker sin datos de instalación,
+  mocks E2E completos, marcadores PostgreSQL y auditoría npm local alineados con CI.
+- Incorporadas la puerta de estabilización derivada de la auditoría y la dirección
+  de arquitectura hacia un MCP futuro, sin implementar sus capacidades ni cambiar
+  la visión. Evidencia y límites en el
+  [dossier](docs/project/analysis/auditoria-integral-2026-10.md); prioridades en el roadmap.
+
+### Planificación de confiabilidad fiscal
+
+- Integra oportunidades de importes/previsualización, reconciliación, WSAA,
+  padrón de clientes/emisores y notas guiadas con los cortes existentes.
+  Los ensayos de planificación y los contratos complementarios sustentan la
+  priorización; este cambio documental no implementa funcionalidades ni cambia
+  producción. La secuencia futura se consulta únicamente en el roadmap.
+
 ### Condición IVA del receptor — RG 5616
 
 - Toda nueva solicitud individual o masiva incluye una condición IVA válida y

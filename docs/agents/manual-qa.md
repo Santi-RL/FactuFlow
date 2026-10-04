@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 01/10/2026
+Última revisión: 03/10/2026
 
 Estado: VIGENTE.
 
@@ -22,7 +22,24 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Matriz por tipo de cambio
 
+### Instantes operativos y hora argentina
+
+- Abrir el mismo lote con navegadores configurados en Argentina, UTC y otra
+  región: carga, inicio, fin y actualización deben mostrar el mismo horario
+  argentino; duración y progreso conservan el mismo intervalo.
+- Comparar último ingreso de usuario y actualización del emisor; verificar un
+  instante cercano a medianoche UTC que pertenezca al día argentino anterior.
+- Comprobar que fecha fiscal y vencimiento del certificado no cambian de día.
+  La evidencia antigua sin hora confiable conserva su indicación de cobertura.
+- Preparar y validar un lote sintético con mocks, sin pulsar emisión ni llamar
+  a ARCA. No inventar una hora para campos vacíos o inválidos.
+
 ### Fiscal o ARCA
+
+- Con dobles locales, preparar dos clientes del mismo emisor y documento.
+  La carga manual conserva receptor y comprobante autorizado sin elegir una ficha;
+  elegir explícitamente una conserva su vínculo. Repetir en lote y recuperación.
+  Un error real posterior a autorización debe seguir reconciliable, sin reemisión.
 
 - Condición IVA del receptor: comprobar opciones compatibles A (RI/Monotributo),
   B (Exento/CF) y C (las cuatro); un cliente legacy RNI debe quedar visible y

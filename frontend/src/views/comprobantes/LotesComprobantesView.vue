@@ -45,6 +45,7 @@ import {
   seleccionarPerfilInicial,
 } from "@/utils/perfiles-carga-masiva";
 import { calcularProgresoLote } from "@/utils/lote-progress";
+import { formatearFechaHoraArgentina } from "@/utils/instantes";
 import {
   ArchiveBoxIcon,
   ArrowDownTrayIcon,
@@ -818,14 +819,10 @@ const resumenPaginacionGrupos = computed(() => {
 
 const formatDateTime = (value: string | null) => {
   if (!value) return "Sin iniciar";
-
-  return new Date(value).toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return (
+    formatearFechaHoraArgentina(value, { interpretarSinZonaComoUtc: true }) ||
+    "Fecha y hora no disponibles"
+  );
 };
 
 const formatDate = (value: string | null) => {

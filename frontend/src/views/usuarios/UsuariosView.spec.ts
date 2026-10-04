@@ -73,6 +73,29 @@ describe("UsuariosView multiemisor", () => {
     authStore.user = { ...administrador, id: 1 };
   });
 
+  it("muestra el último ingreso UTC heredado en la fecha y hora argentinas", async () => {
+    (usuariosService.getAll as Mock).mockResolvedValue([
+      { ...administrador, ultimo_login: "2026-01-01T01:00:00" },
+    ]);
+    const wrapper = mount(UsuariosView);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("31/12/2025, 22:00");
+    wrapper.unmount();
+  });
+
+  it("mantiene la tabla disponible ante un último ingreso inválido", async () => {
+    (usuariosService.getAll as Mock).mockResolvedValue([
+      { ...administrador, ultimo_login: "2026-02-31T01:00:00Z" },
+    ]);
+    const wrapper = mount(UsuariosView);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain(administrador.nombre);
+    expect(wrapper.text()).toContain("Fecha y hora no disponibles");
+    wrapper.unmount();
+  });
+
   it("confirma el alcance y envía asignaciones explícitas al degradar", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);

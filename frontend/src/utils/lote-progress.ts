@@ -2,6 +2,7 @@ import type {
   LoteComprobante,
   LoteOperacionProgreso,
 } from "@/types/lote-comprobante";
+import { parsearInstante } from "@/utils/instantes";
 
 export interface LoteProgressInfo {
   procesados: number;
@@ -21,16 +22,6 @@ export interface LoteProgressInfo {
 }
 
 const ESTADOS_ACTIVOS = new Set(["en_cola", "procesando"]);
-
-const parseDate = (value?: string | null) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
-  const normalized =
-    trimmed.includes("T") && !hasTimeZone ? `${trimmed}Z` : trimmed;
-  const parsed = new Date(normalized);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
 
 export const formatDuration = (seconds: number) => {
   const total = Math.max(Math.floor(seconds), 0);
@@ -67,8 +58,12 @@ export const calcularProgresoLote = (
   const estaEnCola = lote.estado === "en_cola";
   const estaProcesando = lote.estado === "procesando";
   const estaActivo = ESTADOS_ACTIVOS.has(lote.estado);
-  const startedAt = parseDate(lote.started_at) || fallbackStartedAt;
-  const finishedAt = parseDate(lote.finished_at);
+  const startedAt =
+    parsearInstante(lote.started_at, { interpretarSinZonaComoUtc: true }) ||
+    fallbackStartedAt;
+  const finishedAt = parsearInstante(lote.finished_at, {
+    interpretarSinZonaComoUtc: true,
+  });
   const end = !estaActivo && finishedAt ? finishedAt : now;
   const transcurridoSegundos = startedAt
     ? Math.max((end.getTime() - startedAt.getTime()) / 1000, 0)

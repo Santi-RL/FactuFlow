@@ -1,10 +1,12 @@
 """Schemas para Empresa."""
 
-from datetime import datetime, date
+from datetime import date
 from typing import Optional
 from pydantic import ConfigDict, BaseModel, EmailStr, Field, field_validator
 
 from app.core.provincias import normalizar_provincia_argentina
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class EmpresaBase(BaseModel):
@@ -71,8 +73,8 @@ class EmpresaResponse(EmpresaBase):
     """Schema de respuesta de Empresa."""
 
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCResponseDateTime
+    updated_at: UTCResponseDateTime
 
     model_config = ConfigDict(from_attributes=True)
 

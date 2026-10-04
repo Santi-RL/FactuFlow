@@ -14,17 +14,18 @@ Empezar por acá:
 
 Ir después a los documentos originales según el tema.
 
-## Autoridad vigente de WSFEv1
+## Autoridad de WSFEv1
 
-Fuente consultada el 08/08/2026:
+La autoridad es el manual enlazado por el catálogo oficial. Verificar su
+versión vigente antes de un cambio fiscal: las URLs estables pueden publicar
+una revisión posterior. La referencia consultada el 08/08/2026 fue v4.6:
 
-- [Índice oficial de factura electrónica de ARCA](https://arca.gob.ar/ws/documentacion/ws-factura-electronica.asp),
-  que enlaza el `Manual para el desarrollador V. 4.6`.
-- [Manual oficial WSFEv1 v4.6](https://www.arca.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf),
-  revisión 01/08/2026.
+- [Índice oficial de factura electrónica de ARCA](https://arca.gob.ar/ws/documentacion/ws-factura-electronica.asp).
+- [Manual oficial WSFEv1](https://www.arca.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf);
+  la consulta indicada usó la revisión 01/08/2026, no fija la versión actual.
 - Regla `10005`: `FECAESolicitar` → `Validaciones y errores` → `Controles
   aplicados al objeto <FeCabReq>` → `Validaciones Excluyentes`, campo
-  `<PtoVta>`, página 40 del PDF. La validación exige que el punto esté dado de
+  `<PtoVta>`, página 40 de la revisión consultada. La validación exige que el punto esté dado de
   alta y sea RECE.
 
 ## Documentos prioritarios
@@ -47,7 +48,7 @@ Fuente consultada el 08/08/2026:
 ### Facturación y servicios relacionados
 
 - `docs/arca-ws/wsfe/manual-desarrollador-ARCA-COMPG-v4-1.pdf`: copia local
-  histórica v4.1; no sustituye la autoridad oficial vigente v4.6.
+  histórica v4.1; no sustituye la autoridad oficial vigente.
 - `docs/arca-ws/wsfe/Web-Service-MTXCA-v25.pdf`
 - `docs/arca-ws/wsfe/Manual_Desarrollador_WSCT_v1.6.4.pdf`
 - `docs/arca-ws/wsfe/WSFEX-Manualparaeldesarrollador_V3.1.1_ARCA.pdf`

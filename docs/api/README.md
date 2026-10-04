@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 01/10/2026
+Última actualización: 03/10/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -11,6 +11,19 @@ Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 - Todas las rutas funcionales usan prefijo `/api`. No hay versionado en la URL.
+
+## Fechas e instantes operativos
+
+Las fechas fiscales y de calendario usan `YYYY-MM-DD`, sin conversión de zona.
+Los instantes operativos de lotes, CRUD, verificación de puntos de venta, salud
+y almacenamiento se publican en ISO 8601 con zona UTC explícita (`Z`).
+Por ejemplo, `2026-10-03T01:30:00Z` corresponde al `02/10/2026 22:30` argentino.
+La web presenta siempre `America/Argentina/Buenos_Aires`, independientemente
+de la región del equipo. Los campos históricos sin zona de esos contratos
+producidos en UTC conservan esa procedencia; no se migra ni desplaza la base.
+La evidencia histórica de duplicados mantiene `hora_confiable`; JSON arbitrario
+y fechas sin procedencia acreditada no reciben una zona inventada. Contrato en
+[instantes operativos](../agents/pf-12-15-17-tiempo-operativo.md).
 
 ## Autenticación
 
@@ -384,6 +397,15 @@ numeración local adelantada devuelve `proximo_numero=null` con emisión
 deshabilitada.
 `POST /api/comprobantes/emitir` emite a través del servicio de facturación y
 puede consumir numeración fiscal si `ARCA_ENV=produccion`.
+
+El vínculo administrativo `cliente_id` es independiente del snapshot receptor.
+Sin ID y con `guardar_cliente=true`, una coincidencia exacta de emisor, tipo y
+documento se reutiliza; sin coincidencias se crea una ficha como antes. Varias coincidencias
+conservan el comprobante con vínculo vacío. No se fusionan fichas ni se altera
+el receptor enviado. Un ID explícito conserva su validación previa a CAE.
+Lotes, reconstrucción y registro externo comparten este
+[contrato](../agents/pf-03-04-14-asociacion-cliente.md). Errores reales de base
+mantienen el tratamiento de incertidumbre posterior a ARCA.
 
 Para una operación nueva, `condicion_iva` debe ser válida y compatible con el
 tipo: A (1/2/3), RI o Monotributo; B (6/7/8), Exento o CF; C (11/12/13), las
@@ -972,6 +994,10 @@ payload Base64 según la especificación oficial y muestra datos fiscales del
 emisor/receptor, operación, detalle, totales, CAE y vencimiento CAE. En
 comprobantes nuevos de servicios también muestra período facturado y vencimiento
 de pago. Los datos libres renderizados en la plantilla se escapan como HTML.
+Si falla la generación, descarga y preview responden `500` con un mensaje
+genérico accionable; no devuelven excepciones, rutas internas ni credenciales.
+El diagnóstico técnico queda en registros privados. La autorización y el alcance
+por emisor se comprueban antes de generar el documento.
 
 ## Reportes
 

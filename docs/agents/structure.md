@@ -31,15 +31,16 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   administrativo sanitizado de worker/pools.
 - `backend/app/api/lotes_comprobantes.py`: emisión masiva y seguimiento allowlist
   para polling de lotes.
-- `backend/app/api/puntos_venta.py`: CRUD, importación administrativa con
-  atestación RECE y sincronización técnica WSFE server-side.
+- `backend/app/api/puntos_venta.py`: autoridad WSFE por emisor/ambiente,
+  preferencia de uso y constancia descriptiva opcional. El alta manual
+  permanece deshabilitada por compatibilidad de ruta.
 - `backend/app/api/almacenamiento.py`: endpoints administrativos de uso,
   resguardo y limpieza segura de almacenamiento.
 - `backend/app/api/formatos_importacion.py`: endpoints de formatos configurables para importar Excel externos.
 - `backend/app/api/perfiles_carga_masiva.py`: endpoints de perfiles de carga
   masiva por emisor.
 - `backend/app/arca/`: integración ARCA (WSAA, WSFEv1, SOAP, crypto, cache, utils).
-- `backend/app/afip/`: legacy (mantener solo compatibilidad).
+- `backend/app/afip/`: carpeta legacy de nomenclatura, sin código operativo.
 - `backend/app/core/`: configuración, seguridad y utilidades base.
 - `backend/app/core/comprobante_totales.py`: cálculo decimal fiscal compartido
   entre el contrato de entrada y el servicio de facturación.
@@ -70,8 +71,9 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/services/contencion_fiscal_service.py`: guarda opt-in exacta por
   ambiente, emisor, identidad/número de punto y tipo antes de
   `FECAESolicitar`.
-- `backend/app/services/elegibilidad_rece_service.py`: autoridad durable,
-  atestación productiva, revisión monotónica, snapshots y compuerta fail-closed.
+- `backend/app/services/elegibilidad_rece_service.py`: autoridad WSFE durable
+  por emisor/ambiente, revisión monotónica, snapshots y compuerta fail-closed.
+  Las atestaciones históricas se conservan sin habilitar opciones nuevas.
 - `backend/app/services/inventario_legacy_pf19_service.py`: inventario PF-19A
   sanitizado, privado y estrictamente de solo lectura.
 - `backend/app/services/resolucion_legacy_pf19_service.py`: resolución PF-19C
@@ -112,8 +114,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
   administrativo de almacenamiento.
 - `frontend/src/services/formatos-importacion.service.ts`: cliente HTTP para listar y detectar formatos de importación.
 - `frontend/src/services/perfiles-carga-masiva.service.ts`: cliente HTTP de perfiles de carga masiva.
-- `frontend/src/services/puntos_venta.service.ts`: CRUD, importación/atestación y
-  sincronización técnica server-side de puntos.
+- `frontend/src/services/puntos_venta.service.ts`: consulta y comprobación WSFE
+  de puntos, preferencia de uso y constancia descriptiva opcional.
 - `frontend/src/stores/`: estado global (Pinia).
 - `frontend/src/types/`: tipos compartidos.
 - `frontend/src/types/lote-comprobante.ts`: tipos del flujo de lotes.
@@ -147,4 +149,5 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `docs/project/audits/`: auditorías fechadas.
 - `docs/project/history/`: snapshots y documentos retirados de la lectura
   diaria; nunca son fuente de estado actual.
-- `docs/certificados-wizard.md`: diseño técnico del wizard de certificados.
+- `docs/certificados-wizard.md`: referencia histórica del diseño inicial del
+  wizard; el contrato actual vive en API y guía de certificados.

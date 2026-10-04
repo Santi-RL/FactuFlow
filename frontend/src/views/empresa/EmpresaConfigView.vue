@@ -34,6 +34,7 @@ import type {
 } from "@/types/perfil-carga-masiva";
 import type { PuntoVenta } from "@/types/punto_venta";
 import { configuracionPerfilVacia } from "@/utils/perfiles-carga-masiva";
+import { formatearFechaHoraArgentina } from "@/utils/instantes";
 import {
   ArrowDownIcon,
   ArrowDownTrayIcon,
@@ -1366,7 +1367,9 @@ onMounted(async () => {
                   </p>
                   <p class="font-semibold text-gray-900">
                     {{
-                      new Date(empresaActiva.updated_at).toLocaleString("es-AR")
+                      formatearFechaHoraArgentina(empresaActiva.updated_at, {
+                        interpretarSinZonaComoUtc: true,
+                      }) || "Fecha y hora no disponibles"
                     }}
                   </p>
                 </div>

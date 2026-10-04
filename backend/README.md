@@ -44,6 +44,11 @@ mkdir -p data certs logs
 
 ### 5. Ejecutar migraciones
 
+PostgreSQL usa Alembic como camino canónico. Para SQLite física, incluso una
+base nueva, seguir primero el procedimiento de backup y la barrera PF-19B de
+[la guía de instalación](../docs/setup/README.md#backend); no ejecutar el
+siguiente comando hasta completar esas condiciones.
+
 ```bash
 alembic upgrade head
 ```
@@ -112,22 +117,25 @@ Una vez iniciado el servidor, la documentación interactiva está disponible en:
 - `PUT /api/clientes/{id}` - Actualizar cliente
 - `DELETE /api/clientes/{id}` - Desactivar cliente
 
-### Puntos de Venta
+### Puntos de venta
 
 - `GET /api/puntos-venta` - Listar puntos de venta
-- `POST /api/puntos-venta` - Crear punto de venta como administrador; inicia
-  cerrado para RECE
-- `POST /api/puntos-venta/importar-constancia` - Importar una constancia y,
-  con confirmación productiva explícita, atestar elegibilidad RECE
+- `POST /api/puntos-venta` - Ruta compatible que responde `409`; el alta técnica
+  se hace mediante comprobación WSFE
+- `POST /api/puntos-venta/importar-constancia` - Completar datos descriptivos
+  desde una constancia, sin acreditar elegibilidad
 - `POST /api/puntos-venta/sincronizar-arca` - Sincronizar en el servidor el
-  estado técnico WSFE, sin promover RECE
-- `PUT /api/puntos-venta/{id}` - Actualizar punto de venta
-- `DELETE /api/puntos-venta/{id}` - Desactivar punto de venta
+  estado técnico y la autoridad WSFE por emisor y ambiente
+- `PUT /api/puntos-venta/{id}` - Actualizar la preferencia de uso
+- `DELETE /api/puntos-venta/{id}` - Deshabilitar el uso sin borrar historia
 
 El DTO expone `revision_fiscal`, `elegibilidad_rece` y
 `usable_factuflow`. Este último se calcula en el servidor y solo es verdadero
-cuando el punto también tiene estado efectivo `verificado_rece` para el ambiente
-actual.
+cuando el punto también cumple estado técnico, preferencia de uso y estado
+efectivo `verificado_rece` para el ambiente actual. Los selectores consumen
+`seleccionable_para_emision`, que exige autoridad WSFE comprobada hace menos de
+90 días. La constancia no sustituye esa comprobación. El contrato completo vive
+en [la API](../docs/api/README.md#puntos-de-venta).
 
 ### Certificados
 
@@ -167,9 +175,13 @@ sanitizado y `Retry-After: 2`.
 
 ### Sistema y almacenamiento
 
-- `GET /api/almacenamiento/uso` - Diagnóstico resumido de uso
-- `POST /api/almacenamiento/resguardos` - Preparar ZIP de resguardo
-- `POST /api/almacenamiento/liberar` - Liberar espacio con confirmación
+- `GET /api/almacenamiento/resumen` - Diagnóstico resumido de uso
+- `POST /api/almacenamiento/exportaciones` - Preparar ZIP de resguardo
+- `GET /api/almacenamiento/exportaciones/{token}/descargar` - Descargar resguardo
+- `POST /api/almacenamiento/exportaciones/{token}/confirmar-descarga` - Confirmar
+  la recepción del resguardo
+- `POST /api/almacenamiento/exportaciones/{token}/confirmar-liberacion` - Liberar
+  la selección resguardada, con confirmación y revalidación
 
 ## Testing
 
@@ -199,8 +211,11 @@ que `FACTUFLOW_TEST_POSTGRES_URL` apunte a una instancia PostgreSQL desechable
 configurada fuera del repositorio:
 
 ```bash
-pytest -m integration tests/integration -q
+pytest tests/integration -q
 ```
+
+Seleccionar la carpeta completa incluye también las pruebas de migraciones
+marcadas como `integration`.
 
 `backend/tests/postgresql_harness.py` exige simultáneamente: driver
 `postgresql` o `postgresql+asyncpg`; host loopback exacto `localhost`,
@@ -216,11 +231,12 @@ guardar la URL o sus credenciales en Git. Ver `docs/agents/testing.md`.
 
 ### Error: "password cannot be longer than 72 bytes" al ejecutar tests
 
-Esto no suele ser una contraseña real demasiado larga. En Windows se presenta por
-una incompatibilidad entre `passlib 1.7.4` y `bcrypt >= 4`.
+Comprobar primero que el entorno use las dependencias fijadas. FactuFlow usa
+bcrypt directamente y conserva la compatibilidad de sus hashes históricos;
+`passlib` ya no forma parte de la integración actual.
 
 Solución:
-- Asegurarse de tener `bcrypt<4` instalado (ya está fijado en `requirements.txt`).
+- Asegurarse de tener la versión de bcrypt fijada en `requirements.txt`.
 - Si el entorno ya existía, reinstalar dependencias:
 
 ```bash

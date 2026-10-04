@@ -471,7 +471,7 @@ async def test_get_wsfe_client_usa_cuit_empresa_activa(
 
     certificado = Certificado(
         nombre="Certificado QA",
-        cuit="23318277559",
+        cuit="20000000002",
         fecha_emision=date(2026, 1, 1),
         fecha_vencimiento=date(2028, 1, 1),
         archivo_crt=str(cert_path),

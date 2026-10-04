@@ -8,6 +8,7 @@ import type { Certificado, VerificacionResponse } from "@/types/certificado";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseCard from "@/components/ui/BaseCard.vue";
 import CertificadoEstado from "./CertificadoEstado.vue";
+import { formatearFecha } from "@/composables/useFormatters";
 
 interface Props {
   certificado: Certificado;
@@ -64,14 +65,6 @@ const resultadoClasses = computed(() => {
     ? "border-status-success bg-surface-page"
     : "border-status-danger bg-surface-page";
 });
-
-const formatearFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
 
 const formatearCUIT = (cuit: string) => {
   // Formato: XX-XXXXXXXX-X

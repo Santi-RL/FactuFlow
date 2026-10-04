@@ -47,6 +47,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 ### Backend, frontend o estructura
 
 - `structure.md` para ubicar módulos;
+- `architecture-direction.md` para fronteras compartidas y evolución hacia
+  operación asistida, especialmente cuando un cambio cruza consumidores;
 - README del módulo afectado;
 - `overview.md` sólo si cambia arquitectura.
 
@@ -64,6 +66,28 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
+- PF-03/PF-04/PF-14: [asociación administrativa del receptor](pf-03-04-14-asociacion-cliente.md).
+  Define el vínculo opcional sin alterar el snapshot fiscal; capacidad A-01
+  permanece pendiente.
+
+- PF-12/PF-15/PF-17: [instantes operativos y hora argentina](pf-12-15-17-tiempo-operativo.md).
+  Separa instantes UTC y presentación argentina de fechas de calendario y
+  antecedentes con zona desconocida.
+
+- PF-03/PF-04/PF-13, implementación futura:
+  [importes y previsualización fiscal común](pf-03-04-importes-previsualizacion-design.md).
+  Separa corrección P1 de admisibilidad/revisión, ampliación P2 de categorías y
+  consumo por plantillas; preserva redondeos PF-03B.
+- PF-02/PF-04, implementación futura:
+  [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
+  Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
+- PF-09, implementación futura:
+  [WSAA coordinado y caché cifrada](pf-09-wsaa-coordinacion-cache-design.md).
+- PF-18/PF-09, implementación futura:
+  [padrón para clientes y alta de emisores](pf-18-09-padron-clientes-emisores-design.md),
+  con consultas anticipadas, situación registral fechada y bootstrap sin dependencia circular.
+- PF-04/PF-17/PF-13, implementación futura:
+  [notas de crédito y débito guiadas](pf-04-17-notas-guiadas-design.md).
 - PF-13, próximo corte P1, implementación futura:
   [fidelidad del receptor en importación fiscal](pf-13-receptores-importacion-design.md).
   Distingue documento y condición IVA; admite consumidor final identificado sin
@@ -88,6 +112,12 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 El [portafolio](development-portfolio.md) distingue alcance aceptado de
 contratos técnicos todavía por cerrar. Un diseño futuro no significa que la
 implementación esté autorizada o terminada.
+La [validación de planificación de confiabilidad ARCA](../project/analysis/confiabilidad-arca-roadmap.md)
+conserva las hipótesis ensayadas, fuentes y límites; no acredita producción.
+La [auditoría integral](../project/analysis/auditoria-integral-2026-10.md) conserva
+la limpieza y hallazgos de estado actual; la
+[dirección de arquitectura](architecture-direction.md) explica cómo encajan los
+cortes y el horizonte MCP. Un hallazgo pendiente no es una capacidad terminada.
 
 ## Diseños cerrados de consulta
 

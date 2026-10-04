@@ -1,6 +1,6 @@
 # Documentación de FactuFlow
 
-Última revisión: 29/08/2026
+Última revisión: 03/10/2026
 
 Elegí el recorrido según la audiencia; no es necesario leer todo el repositorio.
 
@@ -11,8 +11,8 @@ Elegí el recorrido según la audiencia; no es necesario leer todo el repositori
 - Estado aceptado del repositorio:
   [`agents/current-status.md`](agents/current-status.md)
 - Historial de versiones: [`../CHANGELOG.md`](../CHANGELOG.md)
-- Última release publicada:
-  [`v0.3.2`](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.2)
+- Release publicada y capacidades aceptadas:
+  [`README del proyecto`](../README.md#release-publicada-y-estado-desplegado)
 
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`; no se infiere desde este repositorio.
