@@ -6,6 +6,11 @@ test.describe("Emisión masiva", () => {
     await mockApi(page);
     await loginAsAdmin(page);
     await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/perfiles-carga-masiva" &&
+          response.ok(),
+      ),
       page.waitForURL(/comprobantes\/lotes/),
       page.getByTestId("nav-lotes-comprobantes").click(),
     ]);
@@ -13,7 +18,15 @@ test.describe("Emisión masiva", () => {
 
   test("debe permitir cambiar la empresa activa", async ({ page }) => {
     await expect(page.getByLabel(/emisor activo/i)).toBeVisible();
-    await page.getByLabel(/emisor activo/i).selectOption("2");
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/perfiles-carga-masiva" &&
+          response.request().headers()["x-empresa-id"] === "2" &&
+          response.ok(),
+      ),
+      page.getByLabel(/emisor activo/i).selectOption("2"),
+    ]);
     await expect(page.getByLabel(/emisor activo/i)).toHaveValue("2");
     await expect(
       page.getByText("Sucursal Norte SRL", { exact: true }).first(),

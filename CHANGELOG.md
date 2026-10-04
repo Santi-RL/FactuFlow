@@ -18,6 +18,18 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Construcción frontend y compatibilidad
+
+- Migración a Tailwind CSS 4.3.3 y su plugin PostCSS, retirando la cadena
+  vulnerable de `braces`. Se conservan paleta, escalas, marca, modales y foco
+  accesible; la auditoría sigue incluyendo herramientas de desarrollo.
+- Firefox 128+ como requisito aceptado explícitamente; Chrome/Edge 111+ y
+  Safari 16.4+ conservan su mínimo. La configuración de marca sigue compartida.
+- Runners de CI fijados en Ubuntu 24.04, el entorno ya utilizado, para que un
+  cambio automático del sistema operativo no altere la matriz de validación.
+- E2E de lotes y navegación esperan la carga administrativa de perfiles antes
+  de terminar, evitando consultas tardías fuera de los dobles de prueba.
+
 ### Mantenimiento preventivo de dependencias
 
 - Configuración de Dependabot para npm, Python y GitHub Actions con revisión

@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 03/10/2026
+Última revisión: 04/10/2026
 
 Estado: VIGENTE.
 
@@ -42,6 +42,9 @@ La CI debe finalizar sin advertencias: ESLint aplica `--max-warnings 0` y
 pytest convierte warnings en errores mediante `filterwarnings = error`.
 Corregir la causa; no desactivar reglas ni añadir filtros para ocultarla.
 La auditoría de npm abarca dependencias productivas y de desarrollo.
+Los runners de CI usan Ubuntu 24.04 explícito. Cambiar su versión requiere
+comprobar instalación, PDF, build, PostgreSQL y smoke; no depender del cambio
+automático de `ubuntu-latest`.
 Los runners Linux instalan HarfBuzz-Subset para generar PDFs; en Windows,
 usar un runtime compatible de WeasyPrint y sus bibliotecas nativas mediante
 `WEASYPRINT_DLL_DIRECTORIES` y `PATH`, sin mezclar versiones de GTK/Pango.
@@ -82,6 +85,12 @@ Nunca apuntar el harness a producción, una base compartida o un nombre que sól
 “parezca” de prueba.
 
 ## Frontend
+
+El contrato de navegadores y estilos vive en
+[`frontend/README.md`](../../frontend/README.md#navegadores-compatibles).
+Una migración mayor de estilos debe comprobar componentes, modales, foco y
+colores forzados además de compilar. Los motores E2E actuales no prueban todas
+las versiones mínimas declaradas.
 
 La CI también construye `frontend/Dockerfile` con Node 24.15.0 y npm 11.12.1,
 bloquea warnings del build y comprueba la configuración Nginx y los archivos

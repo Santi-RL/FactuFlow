@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 03/10/2026
+Última revisión: 04/10/2026
 
 Estado: VIGENTE.
 
@@ -78,6 +78,13 @@ anterior permanece compatible. El [contrato](pf-13-17-reintentos-seguros-parche.
 y el [dossier](../project/releases/pf13-17-reintentos-seguros.md) delimitan el corte.
 
 ## Trabajo aceptado pendiente
+
+El frontend usa Tailwind 4.3.3 y su plugin PostCSS; la cadena vulnerable de
+construcción anterior fue retirada, conservando marca, escalas y foco accesible.
+El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
+acepta Firefox 128+. CI conserva sus gates y usa Ubuntu 24.04 explícito.
+Las alertas de herramientas Python de desarrollo son un corte distinto pendiente;
+no están cubiertas por la auditoría de `requirements.txt` ni cierran PF-16.
 
 Los instantes operativos de la API comunican UTC explícito y la web muestra
 hora argentina en lotes, usuarios, emisor y Sistema, independientemente de la

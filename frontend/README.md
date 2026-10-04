@@ -7,11 +7,24 @@ Frontend moderno desarrollado con Vue.js 3, TypeScript y Tailwind CSS para el si
 - **Vue.js 3.4+** - Framework reactivo con Composition API
 - **TypeScript 5.3+** - Tipado estático
 - **Vite 8.x** - Construcción y servidor de desarrollo
-- **Tailwind CSS 3.4+** - Utility-first CSS
+- **Tailwind CSS 4.3.x** - Estilos mediante `@tailwindcss/postcss`
 - **Vue Router 4.x** - Enrutamiento SPA
 - **Pinia 2.x** - State management
 - **Axios 1.x** - Cliente HTTP
 - **Hero Icons 2.x** - Iconos SVG
+
+### Navegadores compatibles
+
+Chrome y Edge 111+, Firefox 128+ y Safari 16.4+. El requisito de Firefox
+128+ fue aceptado explícitamente para la migración a Tailwind 4; los otros
+mínimos se conservan. Las pruebas con motores actuales no certifican por sí
+solas cada versión mínima.
+
+La configuración de marca permanece en `tailwind.config.js`, cargada desde
+`src/assets/styles/main.css`. Esa hoja declara las fuentes de clases y conserva
+la paleta, las escalas visuales y los estados de foco anteriores. PostCSS usa
+`@tailwindcss/postcss`; Tailwind resuelve los prefijos sin `autoprefixer`.
+Referencia: [migración y compatibilidad de Tailwind](https://tailwindcss.com/docs/upgrade-guide).
 
 ## 📦 Instalación
 

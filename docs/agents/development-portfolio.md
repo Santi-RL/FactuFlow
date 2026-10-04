@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 03/10/2026
+Última revisión: 04/10/2026
 
 Estado: VIGENTE.
 
@@ -27,7 +27,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 |---|---|---|---|---|
 | PF-03/PF-04/PF-14, capacidad de persistencia | Puerta previa | P1 fiscal | Datos admitidos persistibles fielmente sin límites silenciosos ni pérdida de precisión | [Auditoría A-01](../project/analysis/auditoria-integral-2026-10.md); preservar historia y recuperación; asociación A-02 cerrada por su contrato |
 | PF-03/PF-04/PF-17, lecturas actuales | Puerta previa | P1 | Bases de IVA correctas y moneda explícita en detalle, ventas, IVA y ranking | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md); autoridad de agrupación/conversión por cerrar; sin dependencia PF-05 |
-| PF-16, dependencias de construcción | Puerta previa | P1 de integración | Corregir cadena vulnerable manteniendo auditoría completa y compatibilidad | [Auditoría](../project/analysis/auditoria-integral-2026-10.md); unidad técnica propia, sin `--force` ni reducción de gates |
+| PF-16, herramientas del backend | Puerta previa | P1 de mantenimiento | Resolver alertas de pytest y Black sin romper pruebas ni formato | `requirements-dev.txt`; [pytest](https://github.com/advisories/GHSA-6w46-j5rx-g56g) y [Black](https://github.com/advisories/GHSA-fj7x-q9j7-g6q6); la corrección frontend es un corte cerrado distinto |
 | PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
 | PF-03/PF-13, admisibilidad y revisión | Ahora 2 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
 | PF-02/PF-04, recuperación legacy | Ahora 3 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
@@ -276,6 +276,11 @@ del constructor.
     reconstrucción histórica externa completa ni introducen cuentas corrientes.
 
 ## Líneas cerradas
+
+La cadena vulnerable de construcción frontend se retiró con Tailwind 4.3.3.
+El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
+conserva estilos y foco y acepta Firefox 128+. No cierra las herramientas del
+backend, la evolución de calidad PF-16 ni una puerta de release completa.
 
 La asociación administrativa A-02 tiene un
 [contrato compartido](pf-03-04-14-asociacion-cliente.md): ambigüedad conserva

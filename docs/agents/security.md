@@ -68,9 +68,17 @@ Referencia: [opciones oficiales de Dependabot](https://docs.github.com/en/code-s
 
 ### Auditorías y construcción
 
+- El frontend usa Tailwind 4 y conserva el contrato de navegadores y foco de
+  [`frontend/README.md`](../../frontend/README.md#navegadores-compatibles).
+  Las futuras actualizaciones deben validar ese contrato; la auditoría no
+  sustituye comprobaciones visuales ni de accesibilidad.
 - La CI bloquea vulnerabilidades conocidas en dependencias de Python y del
   frontend mediante `pip-audit -r requirements.txt` y
   `npm audit --audit-level=low`, incluido tooling de desarrollo del frontend.
+- El comando de Python anterior cubre `requirements.txt`, no declara libre de
+  alertas `requirements-dev.txt`. Dependabot revisa ambos manifests; las
+  herramientas de pruebas y formato también requieren remediación propia con
+  su matriz de compatibilidad. Una CI verde no cierra alertas fuera de su alcance.
 - Los lockfiles son parte del comportamiento reproducible: cualquier cambio en
   ellos activa la matriz completa, aunque no cambie código de aplicación.
 - Las alertas de herramientas exclusivas de desarrollo deben revisarse y quedar
