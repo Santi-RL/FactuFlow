@@ -1562,7 +1562,12 @@ async def _publicar_generacion_real_de_prueba(
     grupos: list[LoteComprobanteGrupo],
     idempotency_key: str,
     aceptar: bool,
-) -> tuple[OperacionIdempotente, LoteDuplicadoEvidencia, dict, str | None,]:
+) -> tuple[
+    OperacionIdempotente,
+    LoteDuplicadoEvidencia,
+    dict,
+    str | None,
+]:
     usuario_id = await db_session.scalar(
         select(UsuarioEmisorAcceso.usuario_id).where(
             UsuarioEmisorAcceso.empresa_id == empresa_id
@@ -2540,9 +2545,9 @@ async def _validar_multi_para_duplicados(
     )
     sheet = workbook["Comprobantes"]
     for row in range(2, cantidad + 2):
-        sheet.cell(
-            row=row, column=1
-        ).value = f"{sheet.cell(row=row, column=1).value}-{nombre}"
+        sheet.cell(row=row, column=1).value = (
+            f"{sheet.cell(row=row, column=1).value}-{nombre}"
+        )
         if anonimo:
             sheet.cell(row=row, column=7).value = "CI"
             sheet.cell(row=row, column=8).value = ""
@@ -3750,9 +3755,7 @@ async def test_completa_cien_conserva_ordinales_antes_de_filtrar_relevancia(
         group.estado = (
             "autorizado"
             if ordinal in authorized_ordinals
-            else "requiere_reconciliacion"
-            if ordinal == 3
-            else "fallido"
+            else "requiere_reconciliacion" if ordinal == 3 else "fallido"
         )
         if ordinal == 1:
             group.duplicados_reserva_operacion_id = 999999
@@ -3888,11 +3891,15 @@ async def test_relacion_seis_clases_iguala_paginas_vivas_durables_y_buffer_core(
                 "tipo_coincidencia": (
                     "interna_receptor"
                     if clase.startswith("interna_")
-                    else "historica_completa"
-                    if clase == "completa"
-                    else "historica_individual_legacy"
-                    if clase == "individual_legacy"
-                    else "historica_parcial_receptor"
+                    else (
+                        "historica_completa"
+                        if clase == "completa"
+                        else (
+                            "historica_individual_legacy"
+                            if clase == "individual_legacy"
+                            else "historica_parcial_receptor"
+                        )
+                    )
                 ),
                 "campos_coincidentes": fields,
                 "lote_anterior_id": (
@@ -5867,13 +5874,13 @@ async def _crear_lote_stale_moderno_intacto(
         punto_venta_id = int(payload["punto_venta_id"])
         if punto_venta_id in contextos_por_punto:
             continue
-        contextos_por_punto[
-            punto_venta_id
-        ] = await elegibilidad.exigir_contexto_preautorizacion(
-            empresa_id=empresa_id,
-            punto_venta_id=punto_venta_id,
-            ambiente=settings.arca_env,
-            tipo_comprobante=int(payload["tipo_comprobante"]),
+        contextos_por_punto[punto_venta_id] = (
+            await elegibilidad.exigir_contexto_preautorizacion(
+                empresa_id=empresa_id,
+                punto_venta_id=punto_venta_id,
+                ambiente=settings.arca_env,
+                tipo_comprobante=int(payload["tipo_comprobante"]),
+            )
         )
 
     lote = LoteComprobante(
@@ -6090,9 +6097,11 @@ async def test_obtener_resumen_y_grupos_paginados_lote(
             cliente_razon_social=f"Cliente {index}",
             total_estimado=Decimal("1210"),
             payload_json=payload,
-            mensajes_json=["Validado correctamente. Listo para emitir."]
-            if estado == "validado"
-            else ["Observado"],
+            mensajes_json=(
+                ["Validado correctamente. Listo para emitir."]
+                if estado == "validado"
+                else ["Observado"]
+            ),
         )
         db_session.add(grupo)
         await db_session.flush()

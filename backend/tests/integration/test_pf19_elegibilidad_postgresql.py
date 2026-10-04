@@ -40,7 +40,6 @@ from tests.integration.test_integridad_fiscal_postgresql import (
     _run_alembic,
 )
 
-
 REVISION_ANTERIOR = "a8b9c0d1e2f3"
 REVISION_ELEGIBILIDAD_RECE = "b9c0d1e2f3a4"
 REVISION_ACREDITACION_DURABLE = "d1e2f3a4b5c6"
@@ -72,9 +71,7 @@ async def _preparar_pf19b(
 async def _ledger_rows(engine: AsyncEngine) -> list[tuple[object, ...]]:
     """Lee el ledger inicial RECE sin exponer datos operativos."""
     async with engine.connect() as connection:
-        result = await connection.execute(
-            text(
-                """
+        result = await connection.execute(text("""
                 SELECT r.ambiente, r.estado, r.fuente, r.evidencia_tipo,
                        r.revision, r.punto_revision_fiscal,
                        a.revision_actual_id = r.id AS es_cabeza
@@ -84,29 +81,22 @@ async def _ledger_rows(engine: AsyncEngine) -> list[tuple[object, ...]]:
                  AND a.punto_venta_id = r.punto_venta_id
                  AND a.ambiente = r.ambiente
                 ORDER BY r.ambiente, r.revision
-                """
-            )
-        )
+                """))
         return [tuple(row) for row in result]
 
 
 async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, int]:
     """Crea operaciones, lotes, grupo y guarda sintéticos coherentes."""
     async with engine.begin() as connection:
-        revision_rows = await connection.execute(
-            text(
-                """
+        revision_rows = await connection.execute(text("""
                 SELECT id, ambiente
                 FROM puntos_venta_elegibilidad_rece_revisiones
                 WHERE empresa_id = 1 AND punto_venta_id = 1
-                """
-            )
-        )
+                """))
         revisions = {str(row.ambiente): int(row.id) for row in revision_rows}
         for operation_id in (10, 11, 12):
             await connection.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO operaciones_idempotentes (
                         id, idempotency_key, tipo_operacion, payload_hash,
                         estado, rece_snapshot_hash, empresa_id,
@@ -115,8 +105,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                         :id, :key, 'emitir_comprobante', :payload_hash,
                         'en_proceso', :snapshot_hash, 1, now(), now()
                     )
-                    """
-                ),
+                    """),
                 {
                     "id": operation_id,
                     "key": f"pf19b-pg-{operation_id}",
@@ -125,8 +114,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                 },
             )
             await connection.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO operaciones_idempotentes_elegibilidad_rece (
                         id, operacion_id, empresa_id, punto_venta_id,
                         ambiente, elegibilidad_revision_id,
@@ -135,8 +123,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                         :id, :operation_id, 1, 1, 'produccion',
                         :revision_id, 1, now()
                     )
-                    """
-                ),
+                    """),
                 {
                     "id": operation_id + 10,
                     "operation_id": operation_id,
@@ -146,8 +133,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
 
         for lote_id in (50, 51):
             await connection.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO lotes_comprobantes (
                         id, nombre_archivo, archivo_hash, estado,
                         modo_procesamiento, procesamiento_async, total_filas,
@@ -159,8 +145,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                         :id, :filename, :file_hash, 'validado', 'sincronico',
                         false, 1, 1, 1, 0, 0, 0, 0, 0, 1, now(), now()
                     )
-                    """
-                ),
+                    """),
                 {
                     "id": lote_id,
                     "filename": f"pf19b-{lote_id}.xlsx",
@@ -168,8 +153,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                 },
             )
         await connection.execute(
-            text(
-                """
+            text("""
                 INSERT INTO lotes_comprobantes_grupos (
                     id, comprobante_ref, orden, estado, tipo_comprobante,
                     punto_venta_numero, total_estimado, lote_id, empresa_id,
@@ -180,13 +164,11 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                     60, 'PF19B-PG-GRUPO', 1, 'validado', 6, 41, 121,
                     50, 1, 1, 'produccion', :revision_id, 1, now(), now()
                 )
-                """
-            ),
+                """),
             {"revision_id": revisions["produccion"]},
         )
         await connection.execute(
-            text(
-                """
+            text("""
                 INSERT INTO puntos_venta_guardas_emision_rece (
                     id, token, fase, operacion_id, empresa_id,
                     punto_venta_id, ambiente, elegibilidad_revision_id,
@@ -195,8 +177,7 @@ async def _insertar_contexto_operativo_pf19b(engine: AsyncEngine) -> dict[str, i
                     30, :token, 'cerrada_pre_arca', 10, 1, 1,
                     'produccion', :revision_id, 1, now(), now(), now()
                 )
-                """
-            ),
+                """),
             {
                 "token": "6" * 64,
                 "revision_id": revisions["produccion"],
@@ -235,8 +216,7 @@ def _attempt_params(
     }
 
 
-INTENTO_PF19B_INSERT = text(
-    """
+INTENTO_PF19B_INSERT = text("""
     INSERT INTO intentos_emision_fiscal (
         id, tipo_comprobante, punto_venta_numero, numero_planificado,
         fecha_emision, total, payload_hash, huella_logica, estado,
@@ -249,8 +229,7 @@ INTENTO_PF19B_INSERT = text(
         :operacion_id, :empresa_id, :punto_venta_id, :lote_id, :grupo_id,
         :ambiente, :revision_id, :revision_fiscal, :guarda_id, now(), now()
     )
-    """
-)
+    """)
 
 
 async def _constraint_columns(
@@ -264,8 +243,7 @@ async def _constraint_columns(
     key_column = "confkey" if referred else "conkey"
     async with engine.connect() as connection:
         value = await connection.scalar(
-            text(
-                f"""
+            text(f"""
                 SELECT array_agg(attribute.attname ORDER BY key.ordinality)
                 FROM pg_constraint constraint_row
                 CROSS JOIN LATERAL unnest(constraint_row.{key_column})
@@ -275,8 +253,7 @@ async def _constraint_columns(
                  AND attribute.attnum = key.attnum
                 WHERE constraint_row.conname = :constraint_name
                 GROUP BY constraint_row.oid
-                """
-            ),
+                """),
             {"constraint_name": constraint_name},
         )
     assert value is not None
@@ -325,15 +302,11 @@ async def test_postgresql_pf19b_backfill_downgrade_reupgrade() -> None:
     ]
     assert await _ledger_rows(engine) == expected_ledger
     async with engine.connect() as connection:
-        legacy_snapshot = await connection.execute(
-            text(
-                """
+        legacy_snapshot = await connection.execute(text("""
                 SELECT ambiente, punto_venta_elegibilidad_revision_id,
                        punto_venta_revision_fiscal, guarda_rece_id
                 FROM intentos_emision_fiscal WHERE id = 1
-                """
-            )
-        )
+                """))
         assert tuple(legacy_snapshot.one()) == (None, None, None, None)
     await engine.dispose()
 
@@ -341,15 +314,11 @@ async def test_postgresql_pf19b_backfill_downgrade_reupgrade() -> None:
     engine = create_async_engine(database_url)
     assert await _alembic_version(engine) == REVISION_ANTERIOR
     async with engine.connect() as connection:
-        removed = await connection.execute(
-            text(
-                """
+        removed = await connection.execute(text("""
                 SELECT to_regclass('public.puntos_venta_elegibilidad_rece_revisiones'),
                        to_regclass('public.puntos_venta_elegibilidad_rece_actual'),
                        to_regclass('public.puntos_venta_guardas_emision_rece')
-                """
-            )
-        )
+                """))
         assert tuple(removed.one()) == (None, None, None)
     await engine.dispose()
 
@@ -369,16 +338,12 @@ async def test_postgresql_pf19b_upgrade_vacio() -> None:
     _run_alembic("upgrade", REVISION_ELEGIBILIDAD_RECE, database_url)
     engine = create_async_engine(database_url)
     async with engine.connect() as connection:
-        counts = await connection.execute(
-            text(
-                """
+        counts = await connection.execute(text("""
                 SELECT
                   (SELECT COUNT(*) FROM puntos_venta_elegibilidad_rece_revisiones),
                   (SELECT COUNT(*) FROM puntos_venta_elegibilidad_rece_actual),
                   (SELECT COUNT(*) FROM puntos_venta_guardas_emision_rece)
-                """
-            )
-        )
+                """))
         assert tuple(counts.one()) == (0, 0, 0)
     assert await _alembic_version(engine) == REVISION_ELEGIBILIDAD_RECE
     await engine.dispose()
@@ -396,7 +361,10 @@ async def test_postgresql_pf19b_escritor_real_serializa_revision_y_cabeza() -> N
         expire_on_commit=False,
     )
     try:
-        async with session_factory() as first_session, session_factory() as second_session:
+        async with (
+            session_factory() as first_session,
+            session_factory() as second_session,
+        ):
             first_point = await first_session.get(PuntoVenta, 1)
             second_point = await second_session.get(PuntoVenta, 1)
             assert first_point is not None
@@ -437,9 +405,7 @@ async def test_postgresql_pf19b_escritor_real_serializa_revision_y_cabeza() -> N
             revision_fiscal = await connection.scalar(
                 text("SELECT revision_fiscal FROM puntos_venta WHERE id = 1")
             )
-            ledger = await connection.execute(
-                text(
-                    """
+            ledger = await connection.execute(text("""
                     SELECT r.ambiente, r.revision,
                            a.revision_actual_id = r.id AS es_cabeza
                     FROM puntos_venta_elegibilidad_rece_revisiones r
@@ -449,9 +415,7 @@ async def test_postgresql_pf19b_escritor_real_serializa_revision_y_cabeza() -> N
                      AND a.ambiente = r.ambiente
                     WHERE r.punto_venta_id = 1
                     ORDER BY r.ambiente, r.revision
-                    """
-                )
-            )
+                    """))
             assert revision_fiscal == 2
             assert [tuple(row) for row in ledger] == [
                 ("homologacion", 1, False),
@@ -490,9 +454,7 @@ async def test_postgresql_pf19b_atestaciones_solapadas_respetan_orden_global(
     )
     try:
         async with session_factory() as setup_session:
-            await setup_session.execute(
-                text(
-                    """
+            await setup_session.execute(text("""
                     INSERT INTO usuarios (
                         id, email, hashed_password, nombre, activo, es_admin,
                         empresa_id, created_at, updated_at
@@ -501,9 +463,7 @@ async def test_postgresql_pf19b_atestaciones_solapadas_respetan_orden_global(
                          true, true, 1, now(), now()),
                         (2, 'admin-dos@example.invalid', 'hash', 'Admin Dos',
                          true, true, 1, now(), now())
-                    """
-                )
-            )
+                    """))
             segundo = PuntoVenta(
                 id=2,
                 numero=42,
@@ -523,7 +483,10 @@ async def test_postgresql_pf19b_atestaciones_solapadas_respetan_orden_global(
             )
             await setup_session.commit()
 
-        async with session_factory() as first_session, session_factory() as second_session:
+        async with (
+            session_factory() as first_session,
+            session_factory() as second_session,
+        ):
             puntos_primera = {
                 int(punto.id): punto
                 for punto in (
@@ -610,26 +573,18 @@ async def test_postgresql_pf19b_atestaciones_solapadas_respetan_orden_global(
         assert len(conflicts) == 1
         assert conflicts[0].categoria == "conflicto_revision_fiscal"
         async with engine.connect() as connection:
-            puntos = await connection.execute(
-                text(
-                    """
+            puntos = await connection.execute(text("""
                     SELECT id, revision_fiscal
                     FROM puntos_venta
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in puntos] == [(1, 2), (2, 2)]
-            ledger = await connection.execute(
-                text(
-                    """
+            ledger = await connection.execute(text("""
                     SELECT punto_venta_id, ambiente, array_agg(revision ORDER BY revision)
                     FROM puntos_venta_elegibilidad_rece_revisiones
                     GROUP BY punto_venta_id, ambiente
                     ORDER BY punto_venta_id, ambiente
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in ledger] == [
                 (1, "homologacion", [1, 2]),
                 (1, "produccion", [1, 2]),
@@ -661,8 +616,7 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
     try:
         async with engine.begin() as connection:
             await connection.execute(
-                text(
-                    """
+                text("""
                     INSERT INTO empresas (
                         id, razon_social, cuit, condicion_iva, domicilio,
                         localidad, provincia, codigo_postal,
@@ -673,13 +627,10 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
                         'Provincia sintética', '1000', '2020-01-01',
                         now(), now()
                     )
-                    """
-                ),
+                    """),
                 {"cuit": cuit_original},
             )
-            await connection.execute(
-                text(
-                    """
+            await connection.execute(text("""
                     INSERT INTO usuarios (
                         id, email, hashed_password, nombre, activo,
                         es_admin, empresa_id, created_at, updated_at
@@ -687,9 +638,7 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
                         20, 'admin-cuit@example.invalid', 'hash',
                         'Admin carrera CUIT', true, true, 2, now(), now()
                     )
-                    """
-                )
-            )
+                    """))
 
         async with (
             session_factory() as atestacion_session,
@@ -853,15 +802,11 @@ async def test_postgresql_pf19b_serializa_cuit_y_atestacion(
             punto_count = await connection.scalar(
                 text("SELECT COUNT(*) FROM puntos_venta WHERE empresa_id = 2")
             )
-            verificadas = await connection.scalar(
-                text(
-                    """
+            verificadas = await connection.scalar(text("""
                     SELECT COUNT(*)
                     FROM puntos_venta_elegibilidad_rece_revisiones
                     WHERE empresa_id = 2 AND estado = 'verificado_rece'
-                    """
-                )
-            )
+                    """))
         if ganador == "update":
             assert (cuit_actual, punto_count, verificadas) == (cuit_nuevo, 0, 0)
         else:
@@ -890,9 +835,7 @@ async def test_postgresql_pf19b_serializa_actor_y_atestacion(
     )
     try:
         async with engine.begin() as connection:
-            await connection.execute(
-                text(
-                    """
+            await connection.execute(text("""
                     INSERT INTO usuarios (
                         id, email, hashed_password, nombre, activo,
                         es_admin, empresa_id, created_at, updated_at
@@ -900,9 +843,7 @@ async def test_postgresql_pf19b_serializa_actor_y_atestacion(
                         30, 'admin-actor@example.invalid', 'hash',
                         'Admin carrera actor', true, true, 1, now(), now()
                     )
-                    """
-                )
-            )
+                    """))
 
         async with (
             session_factory() as atestacion_session,
@@ -1012,26 +953,18 @@ async def test_postgresql_pf19b_serializa_actor_y_atestacion(
                     text("SELECT activo, es_admin FROM usuarios WHERE id = 30")
                 )
             ).one()
-            verificadas = await connection.scalar(
-                text(
-                    """
+            verificadas = await connection.scalar(text("""
                     SELECT COUNT(*)
                     FROM puntos_venta_elegibilidad_rece_revisiones
                     WHERE empresa_id = 1
                       AND punto_venta_id = 1
                       AND estado = 'verificado_rece'
-                    """
-                )
-            )
-            total_revisiones = await connection.scalar(
-                text(
-                    """
+                    """))
+            total_revisiones = await connection.scalar(text("""
                     SELECT COUNT(*)
                     FROM puntos_venta_elegibilidad_rece_revisiones
                     WHERE empresa_id = 1 AND punto_venta_id = 1
-                    """
-                )
-            )
+                    """))
             revision_fiscal = await connection.scalar(
                 text("SELECT revision_fiscal FROM puntos_venta WHERE id = 1")
             )
@@ -1214,8 +1147,7 @@ async def test_postgresql_pf19b_fk_exacta_checks_y_guarda_concurrente() -> None:
     first_transaction = await first_connection.begin()
     second_transaction = await second_connection.begin()
     try:
-        guard_sql = text(
-            """
+        guard_sql = text("""
             INSERT INTO puntos_venta_guardas_emision_rece (
                 id, token, fase, operacion_id, empresa_id, punto_venta_id,
                 ambiente, elegibilidad_revision_id,
@@ -1224,8 +1156,7 @@ async def test_postgresql_pf19b_fk_exacta_checks_y_guarda_concurrente() -> None:
                 :id, :token, 'pre_arca', :operation_id, 1, 1,
                 'produccion', :revision_id, 1, now(), now()
             )
-            """
-        )
+            """)
         await first_connection.execute(
             guard_sql,
             {

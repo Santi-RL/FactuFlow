@@ -51,7 +51,6 @@ from app.models.elegibilidad_rece import (
 from app.schemas.comprobante import EmitirComprobanteRequest
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
-
 VERSION = "duplicados_lotes/v2"
 RELACION_FORMATO = "duplicados_relacion/1"
 MENSAJE_BLOQUEO_LEGACY = (
@@ -159,9 +158,7 @@ def _json_canonico(value: Any) -> str:
         default=lambda item: (
             item.isoformat()
             if isinstance(item, datetime)
-            else decimal_canonico(item)
-            if isinstance(item, Decimal)
-            else str(item)
+            else decimal_canonico(item) if isinstance(item, Decimal) else str(item)
         ),
     )
 
@@ -896,9 +893,7 @@ class DuplicadosLotesService:
                 "coverage": (
                     "no_comprobable"
                     if int(aggregate[2] or 0)
-                    else "parcial_legacy"
-                    if int(aggregate[3] or 0)
-                    else "completa"
+                    else "parcial_legacy" if int(aggregate[3] or 0) else "completa"
                 ),
             }
             physical_amounts = [
@@ -1142,24 +1137,22 @@ class DuplicadosLotesService:
             ]
         ]
         if full:
-            previous_by_hash: dict[
-                str | None, list[LoteComprobanteGrupo]
-            ] = defaultdict(list)
+            previous_by_hash: dict[str | None, list[LoteComprobanteGrupo]] = (
+                defaultdict(list)
+            )
             for previous in previous_groups:
                 previous_by_hash[previous.huella_fiscal_completa].append(previous)
             for bucket in previous_by_hash.values():
                 bucket.sort(key=lambda item: int(item.id))
 
-            def iter_matches() -> (
-                Iterator[
-                    tuple[
-                        LoteComprobanteGrupo,
-                        LoteComprobanteGrupo,
-                        list[str],
-                        int | None,
-                    ]
+            def iter_matches() -> Iterator[
+                tuple[
+                    LoteComprobanteGrupo,
+                    LoteComprobanteGrupo,
+                    list[str],
+                    int | None,
                 ]
-            ):
+            ]:
                 ordinals: Counter[str | None] = Counter()
                 for current in sorted(grupos, key=lambda item: int(item.id)):
                     bucket = previous_by_hash[current.huella_fiscal_completa]
@@ -1211,11 +1204,9 @@ class DuplicadosLotesService:
             relevance = (
                 "autorizado"
                 if is_authorized
-                else "incierto"
-                if is_uncertain
-                else "reservado"
-                if is_reserved
-                else None
+                else (
+                    "incierto" if is_uncertain else "reservado" if is_reserved else None
+                )
             )
             if relevance is None:
                 continue
@@ -2047,9 +2038,11 @@ class DuplicadosLotesService:
             desired_state = (
                 "autorizado"
                 if grupo.estado in ESTADOS_AUTORIZADOS
-                else "requiere_reconciliacion"
-                if grupo.estado in ESTADOS_INCIERTOS
-                else None
+                else (
+                    "requiere_reconciliacion"
+                    if grupo.estado in ESTADOS_INCIERTOS
+                    else None
+                )
             )
             if desired_state is None:
                 continue
@@ -2247,9 +2240,9 @@ class DuplicadosLotesService:
         }
         if control["_bloques"] or block:
             control["evidencia_id"] = f"v2.{_digest_b64(relevant)}"
-            control[
-                "detalle_url"
-            ] = f"/api/lotes-comprobantes/{control['_lote_id']}/coincidencias"
+            control["detalle_url"] = (
+                f"/api/lotes-comprobantes/{control['_lote_id']}/coincidencias"
+            )
         control["cantidad_afectada"] = len(control["_afectados_importes"])
         control["importes_afectados"] = _desglosar_importes(
             list(control["_afectados_importes"].values())
@@ -2555,9 +2548,11 @@ class DuplicadosLotesService:
                 decision_entity_id = (
                     decision.get("grupo_id")
                     if member.grupo_id is not None and isinstance(decision, dict)
-                    else decision.get("comprobante_id")
-                    if isinstance(decision, dict)
-                    else None
+                    else (
+                        decision.get("comprobante_id")
+                        if isinstance(decision, dict)
+                        else None
+                    )
                 )
                 entity_shape = (
                     member.lado == "actual"

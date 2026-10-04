@@ -8,7 +8,6 @@ import pytest
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
-
 POSTGRES_URL_ENV = "FACTUFLOW_TEST_POSTGRES_URL"
 SCHEMA_RESET_ENV = "FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET"
 DISPOSABLE_DATABASE_NAME = "factuflow_integration_test"

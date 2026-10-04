@@ -18,6 +18,21 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-10-04
+
+El corte reúne el mantenimiento aceptado desde `v0.3.6`. Su publicación y
+evidencia se registran en el [dossier](docs/project/releases/v0.3.7-candidate.md).
+
+### Herramientas Python y auditoría completa
+
+- pytest 9.0.3 y Black 26.3.1 corrigen los avisos de seguridad de sus versiones
+  anteriores; pytest-asyncio 1.3.0 permite la actualización coordinada.
+- El plugin administra el ciclo de eventos de sesión mediante configuración,
+  preservando aislamiento de datos por prueba, advertencias como errores y
+  cobertura mínima. Se adapta el formato al estilo estable del nuevo Black.
+- La auditoría Python de CI y del comando local incluye `requirements-dev.txt`,
+  que también incorpora el runtime; las herramientas dejan de quedar fuera.
+
 ### Construcción frontend y compatibilidad
 
 - Migración a Tailwind CSS 4.3.3 y su plugin PostCSS, retirando la cadena

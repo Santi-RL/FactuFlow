@@ -19,7 +19,6 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-
 AMBIENTES_RECE = ("homologacion", "produccion")
 ESTADOS_ELEGIBILIDAD_RECE = ("verificado_rece", "no_rece", "no_verificado")
 FUENTES_ELEGIBILIDAD_RECE = (

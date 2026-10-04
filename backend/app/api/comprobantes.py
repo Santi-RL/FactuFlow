@@ -177,7 +177,11 @@ async def _recuperar_operacion_pre_arca(
     idempotencia: IdempotenciaFiscalService,
     operacion_id: int,
     fase_solicitud_arca: FaseSolicitudArca,
-) -> Literal["recuperada_pre_arca", "requiere_reconciliacion", "no_recuperable",]:
+) -> Literal[
+    "recuperada_pre_arca",
+    "requiere_reconciliacion",
+    "no_recuperable",
+]:
     """Intenta abrir un replay durable sin reemplazar el error primario."""
     try:
         await db.rollback()

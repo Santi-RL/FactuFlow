@@ -21,7 +21,6 @@ from tests.postgresql_harness import (
     validate_disposable_postgres_url,
 )
 
-
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 REVISION_ANTERIOR_INTEGRIDAD_FISCAL = "f7a8b9c0d1e2"
 REVISION_INTEGRIDAD_FISCAL = "a8b9c0d1e2f3"
@@ -98,8 +97,7 @@ async def _crear_contexto_sintetico(engine: AsyncEngine) -> None:
     """Inserta un emisor y punto de venta ficticios."""
     async with engine.begin() as connection:
         await connection.execute(
-            text(
-                """
+            text("""
                 INSERT INTO empresas (
                     id, razon_social, cuit, condicion_iva, domicilio,
                     localidad, provincia, codigo_postal, inicio_actividades,
@@ -109,8 +107,7 @@ async def _crear_contexto_sintetico(engine: AsyncEngine) -> None:
                     :localidad, :provincia, :codigo_postal,
                     :inicio_actividades, now(), now()
                 )
-                """
-            ),
+                """),
             {
                 "razon_social": "Emisor sintético",
                 "cuit": "20000000001",
@@ -123,16 +120,14 @@ async def _crear_contexto_sintetico(engine: AsyncEngine) -> None:
             },
         )
         await connection.execute(
-            text(
-                """
+            text("""
                 INSERT INTO puntos_venta (
                     id, numero, nombre, es_webservice, bloqueado, activo,
                     empresa_id, created_at
                 ) VALUES (
                     1, 41, :nombre, true, false, true, 1, now()
                 )
-                """
-            ),
+                """),
             {"nombre": "Punto sintético"},
         )
 
@@ -158,8 +153,7 @@ def _intento_params(
     }
 
 
-INTENTO_INSERT = text(
-    """
+INTENTO_INSERT = text("""
     INSERT INTO intentos_emision_fiscal (
         id, tipo_comprobante, punto_venta_numero, numero_planificado,
         fecha_emision, total, payload_hash, huella_logica, estado,
@@ -169,8 +163,7 @@ INTENTO_INSERT = text(
         :fecha_emision, :total, :payload_hash, :huella_logica, :estado,
         now(), now(), :empresa_id, :punto_venta_id
     )
-    """
-)
+    """)
 
 
 def _comprobante_params(
@@ -204,8 +197,7 @@ def _comprobante_params(
     }
 
 
-COMPROBANTE_INSERT = text(
-    """
+COMPROBANTE_INSERT = text("""
     INSERT INTO comprobantes (
         id, tipo_comprobante, concepto, numero, fecha_emision, subtotal,
         descuento, iva_21, iva_10_5, iva_27, otros_impuestos, total,
@@ -217,8 +209,7 @@ COMPROBANTE_INSERT = text(
         :otros_impuestos, :total, :cae, :cae_vencimiento, :estado,
         :moneda, :cotizacion, :empresa_id, :punto_venta_id, now(), now()
     )
-    """
-)
+    """)
 
 
 async def _insertar_intento(
@@ -259,9 +250,7 @@ async def _insertar_comprobante(
 async def _constraint_names(engine: AsyncEngine) -> set[str]:
     """Devuelve los nombres de checks fiscales presentes."""
     async with engine.connect() as connection:
-        result = await connection.execute(
-            text(
-                """
+        result = await connection.execute(text("""
                 SELECT conname
                 FROM pg_constraint
                 WHERE conrelid IN (
@@ -269,9 +258,7 @@ async def _constraint_names(engine: AsyncEngine) -> set[str]:
                     'comprobantes'::regclass
                 )
                 AND contype = 'c'
-                """
-            )
-        )
+                """))
     return {str(row[0]) for row in result}
 
 
@@ -286,17 +273,13 @@ async def _alembic_version(engine: AsyncEngine) -> str:
 async def _indice_reserva_definicion(engine: AsyncEngine) -> str:
     """Devuelve la definición PostgreSQL del índice de reserva activa."""
     async with engine.connect() as connection:
-        value = await connection.scalar(
-            text(
-                """
+        value = await connection.scalar(text("""
                 SELECT indexdef
                 FROM pg_indexes
                 WHERE schemaname = 'public'
                 AND tablename = 'intentos_emision_fiscal'
                 AND indexname = 'uq_intentos_emision_fiscal_reserva_activa'
-                """
-            )
-        )
+                """))
     assert value is not None
     return str(value)
 

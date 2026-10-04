@@ -25,7 +25,6 @@ from app.core.database import Base
 from app.schemas.lote_comprobante import LoteComprobanteResponse
 from app.scripts import vps_migration, vps_migration_v3, vps_migration_v4
 
-
 _CERT_TEST_NOW = datetime.now().replace(microsecond=0)
 _CERT_TEST_NOT_BEFORE = _CERT_TEST_NOW - timedelta(days=30)
 _CERT_TEST_NOT_AFTER = _CERT_TEST_NOW + timedelta(days=3650)
@@ -5442,16 +5441,14 @@ def test_preflight_bloquea_exito_moderno_con_intento_legacy_sin_guarda(
     _authorize_terminal_guard_context(db_path, publish_success=True)
     with sqlite3.connect(db_path) as conn:
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute(
-            """
+        conn.execute("""
             UPDATE intentos_emision_fiscal
             SET guarda_rece_id = NULL,
                 ambiente = NULL,
                 punto_venta_elegibilidad_revision_id = NULL,
                 punto_venta_revision_fiscal = NULL
             WHERE id = 143
-            """
-        )
+            """)
         conn.execute("DELETE FROM puntos_venta_guardas_emision_rece WHERE id = 142")
 
     with pytest.raises(
@@ -5499,13 +5496,11 @@ def test_preflight_bloquea_intento_y_guarda_activos(tmp_path: Path) -> None:
     db_path, certs_dir = _create_source_db(tmp_path)
     _insert_terminal_guard_context(db_path, with_attempt=True)
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             UPDATE puntos_venta_guardas_emision_rece
             SET fase = 'pre_arca', cerrada_en = NULL
             WHERE id = 142
-            """
-        )
+            """)
         conn.execute(
             "UPDATE intentos_emision_fiscal SET estado = 'en_proceso' WHERE id = 143"
         )
@@ -5907,15 +5902,13 @@ def test_preflight_admite_replay_lote_tras_cierre_posterior(tmp_path: Path) -> N
         },
     )
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            """
+        conn.execute("""
             UPDATE lotes_comprobantes
             SET estado = 'cerrado_reconciliado',
                 grupos_emitidos = 1,
                 updated_at = '2026-06-04 12:00:00'
             WHERE id = 130
-            """
-        )
+            """)
 
     result = vps_migration.run_preflight(db_path, certs_dir)
 
@@ -6253,14 +6246,12 @@ def test_export_bloquea_certificado_activo_criptograficamente_invalido(
             not_after=datetime(2021, 1, 1),
         )
         with sqlite3.connect(db_path) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 UPDATE certificados
                 SET fecha_emision = '2020-01-01',
                     fecha_vencimiento = '2021-01-01'
                 WHERE id = 50
-                """
-            )
+                """)
     elif corruption == "cuit_cruzado":
         _write_certificate_pair(
             cert_path,

@@ -40,7 +40,6 @@ from app.services.inventario_legacy_pf19_service import (
     inventariar_legacy_pf19,
 )
 
-
 FIRMA_GLOBAL_10005 = (
     "Error del servicio ARCA: ARCA devolvió errores globales al solicitar CAE: "
     "[10005] El punto de venta debe ser RECE"

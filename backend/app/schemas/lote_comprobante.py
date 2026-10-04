@@ -291,16 +291,19 @@ class DuplicadosCoincidenciaDetalle(BaseModel):
     grupo_anterior_id: int | None
     comprobante_anterior_ref: str | None
     operacion_anterior_ref: str | None
-    estado_grupo_anterior: Literal[
-        "cargado",
-        "validado",
-        "en_cola",
-        "procesando",
-        "autorizado",
-        "autorizado_externo",
-        "fallido",
-        "requiere_reconciliacion",
-    ] | None
+    estado_grupo_anterior: (
+        Literal[
+            "cargado",
+            "validado",
+            "en_cola",
+            "procesando",
+            "autorizado",
+            "autorizado_externo",
+            "fallido",
+            "requiere_reconciliacion",
+        ]
+        | None
+    )
     importe: str
     moneda: str | None
     cotizacion: str | None

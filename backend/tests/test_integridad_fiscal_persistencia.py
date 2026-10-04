@@ -25,7 +25,6 @@ from app.models.idempotencia_fiscal import (
 from app.models.punto_venta import PuntoVenta
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
-
 CAE_SINTETICO = "12345678901234"
 FECHA_FISCAL_SINTETICA = date(2026, 7, 13)
 

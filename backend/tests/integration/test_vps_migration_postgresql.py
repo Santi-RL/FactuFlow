@@ -329,16 +329,12 @@ async def _assert_v4_relations(database_url: str) -> None:
     engine = create_async_engine(_validated_postgres_url(database_url))
     try:
         async with engine.connect() as connection:
-            operations = await connection.execute(
-                text(
-                    """
+            operations = await connection.execute(text("""
                     SELECT id, operacion_raiz_id, duplicados_generacion_id, lote_id
                     FROM operaciones_idempotentes
                     WHERE id IN (140, 200, 201, 202, 203)
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in operations] == [
                 (140, None, None, None),
                 (200, 200, 301, 100),
@@ -354,44 +350,32 @@ async def _assert_v4_relations(database_url: str) -> None:
             )
             assert operation_control["seleccion_original"] == [{"grupo_id": 101}]
 
-            generations = await connection.execute(
-                text(
-                    """
+            generations = await connection.execute(text("""
                     SELECT id, operacion_id, generacion,
                            aceptacion_origen_generacion_id
                     FROM lotes_duplicados_evidencias
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in generations] == [
                 (300, 200, 1, 300),
                 (301, 200, 2, 300),
                 (302, 201, 1, 300),
             ]
-            blocks = await connection.execute(
-                text(
-                    """
+            blocks = await connection.execute(text("""
                     SELECT id, generacion_id, operacion_id, lote_id
                     FROM lotes_duplicados_coincidencias
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in blocks] == [
                 (400, 300, 200, 100),
                 (401, 301, 200, 100),
                 (402, 302, 201, 100),
             ]
-            members = await connection.execute(
-                text(
-                    """
+            members = await connection.execute(text("""
                     SELECT id, bloque_id, lado, grupo_id, comprobante_id
                     FROM lotes_duplicados_coincidencias_miembros
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in members] == [
                 (500, 400, "actual", 101, None),
                 (501, 400, "anterior", None, 110),
@@ -400,40 +384,28 @@ async def _assert_v4_relations(database_url: str) -> None:
                 (504, 402, "actual", 101, None),
                 (505, 402, "anterior", None, 110),
             ]
-            attempts = await connection.execute(
-                text(
-                    """
+            attempts = await connection.execute(text("""
                     SELECT id, operacion_id, guarda_rece_id,
                            duplicados_generacion_id, lote_id, grupo_id
                     FROM intentos_emision_fiscal
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in attempts] == [
                 (700, 200, 600, 300, 100, 101),
                 (701, 202, None, None, 90, 91),
             ]
-            group_counts = await connection.execute(
-                text(
-                    """
+            group_counts = await connection.execute(text("""
                     SELECT lote_id, COUNT(*)
                     FROM lotes_comprobantes_grupos
                     GROUP BY lote_id
                     ORDER BY lote_id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in group_counts] == [(90, 1), (100, 100)]
-            reservation = await connection.execute(
-                text(
-                    """
+            reservation = await connection.execute(text("""
                     SELECT id, duplicados_reserva_operacion_id
                     FROM lotes_comprobantes_grupos
                     WHERE id = 101
-                    """
-                )
-            )
+                    """))
             assert tuple(reservation.one()) == (101, 200)
     finally:
         await engine.dispose()
@@ -471,66 +443,46 @@ async def test_postgresql_vps_v2_roundtrip_y_validate(
     engine = create_async_engine(_validated_postgres_url(database_url))
     try:
         async with engine.connect() as connection:
-            operations = await connection.execute(
-                text(
-                    """
+            operations = await connection.execute(text("""
                     SELECT id, idempotency_key, lote_id, rece_snapshot_hash
                     FROM operaciones_idempotentes
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in operations] == [
                 (140, "vps-guarda-terminal", None, _rece_digest()),
                 (150, "vps-operacion-150", None, None),
             ]
-            association = await connection.execute(
-                text(
-                    """
+            association = await connection.execute(text("""
                     SELECT operacion_id, empresa_id, punto_venta_id, ambiente,
                            elegibilidad_revision_id, punto_venta_revision_fiscal
                     FROM operaciones_idempotentes_elegibilidad_rece
-                    """
-                )
-            )
+                    """))
             assert tuple(association.one()) == (140, 10, 40, "produccion", 45, 1)
-            heads = await connection.execute(
-                text(
-                    """
+            heads = await connection.execute(text("""
                     SELECT a.ambiente, a.revision_actual_id, r.revision
                     FROM puntos_venta_elegibilidad_rece_actual a
                     JOIN puntos_venta_elegibilidad_rece_revisiones r
                       ON r.id = a.revision_actual_id
                     ORDER BY a.ambiente
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in heads] == [
                 ("homologacion", 41, 1),
                 ("produccion", 45, 2),
             ]
-            attempts = await connection.execute(
-                text(
-                    """
+            attempts = await connection.execute(text("""
                     SELECT id, operacion_id, guarda_rece_id, estado,
                            duplicados_generacion_id, lote_id, grupo_id
                     FROM intentos_emision_fiscal
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in attempts] == [
                 (143, 140, 142, "fallido_verificado", None, None, None)
             ]
-            guards = await connection.execute(
-                text(
-                    """
+            guards = await connection.execute(text("""
                     SELECT id, operacion_id, fase
                     FROM puntos_venta_guardas_emision_rece
                     ORDER BY id
-                    """
-                )
-            )
+                    """))
             assert [tuple(row) for row in guards] == [(142, 140, "cerrada_pre_arca")]
             assert (
                 await connection.scalar(text("SELECT COUNT(*) FROM lotes_comprobantes"))
@@ -705,9 +657,7 @@ async def test_postgresql_vps_v2_dirty_y_rollback_limpian_solo_propios(
 
     engine = await _preparar_destino_vps(database_url)
     async with engine.begin() as connection:
-        await connection.execute(
-            text(
-                """
+        await connection.execute(text("""
                 INSERT INTO empresas (
                     id, razon_social, cuit, condicion_iva, domicilio,
                     localidad, provincia, codigo_postal, inicio_actividades,
@@ -717,9 +667,7 @@ async def test_postgresql_vps_v2_dirty_y_rollback_limpian_solo_propios(
                     'Sintética', 'Sintética', '1000', DATE '2020-01-01',
                     now(), now()
                 )
-                """
-            )
-        )
+                """))
     await engine.dispose()
 
     with pytest.raises(vps_migration.MigrationError, match="no está limpia"):

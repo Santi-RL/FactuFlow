@@ -18,7 +18,6 @@ from app.services.autorizacion_emisor_service import (
     reemplazar_accesos_usuario,
 )
 
-
 email_adapter = TypeAdapter(EmailStr)
 
 

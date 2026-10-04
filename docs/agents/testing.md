@@ -42,6 +42,9 @@ La CI debe finalizar sin advertencias: ESLint aplica `--max-warnings 0` y
 pytest convierte warnings en errores mediante `filterwarnings = error`.
 Corregir la causa; no desactivar reglas ni añadir filtros para ocultarla.
 La auditoría de npm abarca dependencias productivas y de desarrollo.
+La auditoría Python usa `pip-audit -r requirements-dev.txt`, que también incluye
+las dependencias productivas. Las herramientas de pruebas y formato conservan
+versiones explícitas; no resolver alertas debilitando esta auditoría.
 Los runners de CI usan Ubuntu 24.04 explícito. Cambiar su versión requiere
 comprobar instalación, PDF, build, PostgreSQL y smoke; no depender del cambio
 automático de `ubuntu-latest`.
@@ -68,6 +71,10 @@ pytest tests/ruta_relevante.py -k caso_relevante -q
 
 Las pruebas deben usar fechas explícitas y datos sintéticos. Ninguna suite
 normal llama a ARCA real ni solicita CAE.
+`pytest-asyncio` gestiona un único ciclo de eventos de sesión, tanto para pruebas
+como para fixtures, mediante `pytest.ini`; conserva el alcance anterior sin
+redefinir la fixture retirada `event_loop`. El aislamiento de datos sigue siendo
+por prueba y el teardown restaura las claves foráneas de SQLite.
 
 ### PostgreSQL desechable
 

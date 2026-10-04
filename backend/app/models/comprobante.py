@@ -17,7 +17,6 @@ from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-
 ESTADO_COMPROBANTE_AUTORIZADO = "autorizado"
 ESTADOS_COMPROBANTE = (
     ESTADO_COMPROBANTE_AUTORIZADO,

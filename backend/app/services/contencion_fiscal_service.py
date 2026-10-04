@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from app.core.config import BloqueoPreautorizacionArca, settings
 
-
 CATEGORIA_BLOQUEO_PREAUTORIZACION = "punto_venta_bloqueado_preautorizacion"
 MENSAJE_BLOQUEO_PREAUTORIZACION = (
     "El punto de venta está bloqueado preventivamente para esta operación fiscal"

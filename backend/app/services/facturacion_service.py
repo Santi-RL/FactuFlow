@@ -84,11 +84,14 @@ class FaseSolicitudArca:
 
     iniciada: bool = False
     guarda_actual_iniciada: bool = False
-    resultado_recuperacion_pre_arca: Literal[
-        "recuperada_pre_arca",
-        "requiere_reconciliacion",
-        "no_recuperable",
-    ] | None = None
+    resultado_recuperacion_pre_arca: (
+        Literal[
+            "recuperada_pre_arca",
+            "requiere_reconciliacion",
+            "no_recuperable",
+        ]
+        | None
+    ) = None
     guarda_rece_id: int | None = None
     guarda_rece_token: str | None = None
 
@@ -3204,9 +3207,9 @@ class FacturacionService:
                 punto_venta=asociado.punto_venta,
                 numero=asociado.numero,
                 cuit=asociado.cuit,
-                fecha_cbte=asociado.fecha.strftime("%Y%m%d")
-                if asociado.fecha
-                else None,
+                fecha_cbte=(
+                    asociado.fecha.strftime("%Y%m%d") if asociado.fecha else None
+                ),
             )
             for asociado in request.comprobantes_asociados
         ]

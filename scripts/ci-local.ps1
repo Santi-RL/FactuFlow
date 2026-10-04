@@ -160,7 +160,7 @@ Pop-Location
 # -----------------------------
 Push-Location (Join-Path $root "backend")
 Invoke-Step "Security: install pip-audit" { & $python -m pip install --upgrade pip setuptools wheel; & $python -m pip install pip-audit }
-Invoke-Step "Security: pip-audit producción" { & $python -m pip_audit -r requirements.txt }
+Invoke-Step "Security: pip-audit completa" { & $python -m pip_audit -r requirements-dev.txt }
 Pop-Location
 
 Push-Location (Join-Path $root "frontend")

@@ -38,8 +38,8 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 **Prioridad:** P1, antes de nuevas capacidades. La
 [auditoría integral](docs/project/analysis/auditoria-integral-2026-10.md)
-delimita los problemas de persistencia y lecturas fiscales. La puerta conserva
-también la revisión de alertas de herramientas. Cerrar en unidades separadas:
+delimita los problemas de persistencia y lecturas fiscales. Cerrar en unidades
+separadas:
 
 - **PF-03/PF-04/PF-14:** capacidad de persistencia fiscal fiel en todos sus
   consumidores, incluidos importación, duplicados y recuperación.
@@ -48,9 +48,6 @@ también la revisión de alertas de herramientas. Cerrar en unidades separadas:
 - **PF-03/PF-04/PF-17:** corregir bases de IVA y presentación/agregación de
   monedas desde hechos conservados. Cerrar autoridad funcional de agrupación o
   conversión histórica; no depende de PF-05 ni del dashboard futuro.
-- **PF-16:** resolver las alertas de `pytest` y `black` en las herramientas del
-  backend y demostrar compatibilidad de pruebas/formato. Mantener auditorías y
-  umbrales; la migración frontend ya cerrada se consulta en el estado y changelog.
 
 El [portafolio](docs/agents/development-portfolio.md) adjudica responsables y
 aceptación. Esta puerta no es un refactor global ni una única implementación

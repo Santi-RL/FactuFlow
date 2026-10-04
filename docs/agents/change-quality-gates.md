@@ -158,7 +158,8 @@ cuando detectan un problema.
 ## Alcance de la auditoría de dependencias
 
 En cada cambio de runtime, `Security Audit` bloquea vulnerabilidades conocidas
-de Python mediante `pip-audit -r requirements.txt` y de todo el árbol del
+de Python mediante `pip-audit -r requirements-dev.txt` (runtime y herramientas)
+y de todo el árbol del
 frontend mediante `npm audit --audit-level=low`, incluidas herramientas de
 compilación y tests. Las migraciones mayores se delimitan como una unidad
 técnica para probar compatibilidad; no se excluyen las dependencias de
@@ -169,6 +170,7 @@ desarrollo y los modos UI de tests no se exponen como servicios públicos.
 
 Una CI verde permite integrar una unidad, pero no convierte automáticamente el
 commit en release. Una versión candidata destinada a producción o a terceros
-debe completar además la línea PF-16 del portafolio, el checklist fiscal cuando
-corresponda, el dossier de release, backup/restauración, migraciones y QA
-contable del rango completo.
+debe completar además los controles PF-16 aplicables al corte, el checklist
+fiscal cuando corresponda, el dossier de release, backup/restauración, migraciones y QA
+contable del rango completo. El dossier identifica esos controles y sus
+pendientes; no exige cerrar iniciativas ajenas al alcance ni todo el roadmap.

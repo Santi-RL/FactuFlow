@@ -185,6 +185,12 @@ sanitizado y `Retry-After: 2`.
 
 ## Testing
 
+Las versiones de pytest, su plugin asíncrono y Black se coordinan en
+`requirements-dev.txt`. El ciclo de eventos conserva alcance de sesión mediante
+`pytest.ini`; los datos y las claves foráneas siguen aislados por prueba.
+CI y el comando local auditan dependencias de ejecución y desarrollo con
+`pip-audit -r requirements-dev.txt`.
+
 ### Ejecutar todos los tests
 
 ```bash

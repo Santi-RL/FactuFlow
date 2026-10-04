@@ -65,7 +65,6 @@ from app.schemas.lote_comprobante import (
 from app.services.resolucion_legacy_pf19_service import BackupLegacyPF19
 from app.scripts import vps_migration_v3, vps_migration_v4
 
-
 MIGRATION_PACKAGE_VERSION = 4
 SCOPE = "operacion_futura_con_comprobantes"
 
@@ -2310,9 +2309,9 @@ def export_package(
                 source_key_password=source_key_password,
             )
 
-            normalizations[
-                vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY
-            ] = capture.normalization
+            normalizations[vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY] = (
+                capture.normalization
+            )
             for table_name in vps_migration_v4.INCLUDED_TABLES:
                 rows = [dict(row) for row in capture.rows[table_name]]
                 if table_name == "certificados":
@@ -3465,20 +3464,14 @@ def validate_rece_ledger_sqlite(conn: sqlite3.Connection) -> None:
             "El ledger RECE fuente no tiene exactamente dos cabezas por punto"
         )
 
-    revisiones_huerfanas = int(
-        conn.execute(
-            """
+    revisiones_huerfanas = int(conn.execute("""
             SELECT COUNT(*)
             FROM puntos_venta_elegibilidad_rece_revisiones r
             LEFT JOIN puntos_venta p
               ON p.id = r.punto_venta_id AND p.empresa_id = r.empresa_id
             WHERE p.id IS NULL
-            """
-        ).fetchone()[0]
-    )
-    heads_huerfanas = int(
-        conn.execute(
-            """
+            """).fetchone()[0])
+    heads_huerfanas = int(conn.execute("""
             SELECT COUNT(*)
             FROM puntos_venta_elegibilidad_rece_actual h
             LEFT JOIN puntos_venta p
@@ -3489,9 +3482,7 @@ def validate_rece_ledger_sqlite(conn: sqlite3.Connection) -> None:
              AND r.punto_venta_id = h.punto_venta_id
              AND r.ambiente = h.ambiente
             WHERE p.id IS NULL OR r.id IS NULL
-            """
-        ).fetchone()[0]
-    )
+            """).fetchone()[0])
     if revisiones_huerfanas or heads_huerfanas:
         raise MigrationError(
             "El ledger RECE fuente contiene ownership o punteros huérfanos"
@@ -3567,10 +3558,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
     """Bloquea estados continuables o inciertos y resume omisiones seguras."""
     blockers: dict[str, int] = {}
 
-    operaciones = [
-        dict(row)
-        for row in conn.execute(
-            """
+    operaciones = [dict(row) for row in conn.execute("""
             SELECT o.id, o.empresa_id, o.idempotency_key, o.tipo_operacion,
                    o.payload_hash, o.estado, o.response_json,
                    o.rece_snapshot_hash, o.lote_id,
@@ -3580,9 +3568,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
             LEFT JOIN lotes_comprobantes l
               ON l.id = o.lote_id AND l.empresa_id = o.empresa_id
             ORDER BY o.id
-            """
-        )
-    ]
+            """)]
     estados_operacion_desconocidos = sum(
         row["estado"] not in ESTADOS_OPERACION_CONOCIDOS for row in operaciones
     )
@@ -3608,9 +3594,9 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for row in operaciones
     )
     if operaciones_respuesta_invalida:
-        blockers[
-            "operaciones_terminales_respuesta_invalida"
-        ] = operaciones_respuesta_invalida
+        blockers["operaciones_terminales_respuesta_invalida"] = (
+            operaciones_respuesta_invalida
+        )
     operaciones_exitosas_sin_comprobante = sum(
         row["estado"] in ESTADOS_OPERACION_TERMINALES
         and row["tipo_operacion"] == "emitir_comprobante"
@@ -3619,18 +3605,18 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for row in operaciones
     )
     if operaciones_exitosas_sin_comprobante:
-        blockers[
-            "operaciones_exitosas_sin_comprobante"
-        ] = operaciones_exitosas_sin_comprobante
+        blockers["operaciones_exitosas_sin_comprobante"] = (
+            operaciones_exitosas_sin_comprobante
+        )
     operaciones_lote_respuesta_incoherente = sum(
         row["estado"] in ESTADOS_OPERACION_TERMINALES
         and not terminal_batch_response_matches_db(conn, row)
         for row in operaciones
     )
     if operaciones_lote_respuesta_incoherente:
-        blockers[
-            "operaciones_lote_respuesta_incoherente"
-        ] = operaciones_lote_respuesta_incoherente
+        blockers["operaciones_lote_respuesta_incoherente"] = (
+            operaciones_lote_respuesta_incoherente
+        )
     operaciones_identidad_invalida = sum(
         not isinstance(row["idempotency_key"], str)
         or not str(row["idempotency_key"]).strip()
@@ -3642,10 +3628,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
     if operaciones_identidad_invalida:
         blockers["operaciones_identidad_invalida"] = operaciones_identidad_invalida
 
-    asociaciones = [
-        dict(row)
-        for row in conn.execute(
-            """
+    asociaciones = [dict(row) for row in conn.execute("""
             SELECT a.*,
                    o.id AS operacion_encontrada,
                    o.empresa_id AS operacion_empresa_id,
@@ -3668,9 +3651,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
              AND r.punto_venta_id = a.punto_venta_id
              AND r.ambiente = a.ambiente
             ORDER BY a.operacion_id, a.empresa_id, a.punto_venta_id, a.ambiente
-            """
-        )
-    ]
+            """)]
     asociaciones_por_operacion: dict[int, list[dict[str, Any]]] = {}
     asociaciones_invalidas = 0
     operaciones_con_asociacion_invalida: set[int] = set()
@@ -3735,14 +3716,11 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for operacion in operaciones
     )
     if operaciones_individuales_asociacion_incoherente:
-        blockers[
-            "operaciones_individuales_asociacion_incoherente"
-        ] = operaciones_individuales_asociacion_incoherente
+        blockers["operaciones_individuales_asociacion_incoherente"] = (
+            operaciones_individuales_asociacion_incoherente
+        )
 
-    intentos = [
-        dict(row)
-        for row in conn.execute(
-            """
+    intentos = [dict(row) for row in conn.execute("""
             SELECT id, estado, operacion_id, guarda_rece_id, comprobante_id,
                    empresa_id, lote_id, grupo_id, punto_venta_id, punto_venta_numero,
                    tipo_comprobante, ambiente,
@@ -3752,9 +3730,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
                    cae_vencimiento, categoria_error, errores_arca_json
             FROM intentos_emision_fiscal
             ORDER BY id
-            """
-        )
-    ]
+            """)]
     intentos_desconocidos = sum(
         row["estado"] not in ESTADOS_INTENTO_CONOCIDOS for row in intentos
     )
@@ -3767,9 +3743,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         blockers["intentos_estado_desconocido"] = intentos_desconocidos
     if intentos_no_terminales:
         blockers["intentos_no_terminales"] = intentos_no_terminales
-    autorizados_incoherentes = int(
-        conn.execute(
-            """
+    autorizados_incoherentes = int(conn.execute("""
             SELECT COUNT(*)
             FROM intentos_emision_fiscal i
             LEFT JOIN comprobantes c ON c.id = i.comprobante_id
@@ -3788,9 +3762,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
                 OR i.cae_vencimiento IS NULL
                 OR c.cae_vencimiento <> i.cae_vencimiento
               )
-            """
-        ).fetchone()[0]
-    )
+            """).fetchone()[0])
     if autorizados_incoherentes:
         blockers["intentos_autorizados_sin_comprobante"] = autorizados_incoherentes
     intentos_fallidos_con_evidencia_positiva = sum(
@@ -3803,9 +3775,9 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for row in intentos
     )
     if intentos_fallidos_con_evidencia_positiva:
-        blockers[
-            "intentos_fallidos_con_evidencia_positiva"
-        ] = intentos_fallidos_con_evidencia_positiva
+        blockers["intentos_fallidos_con_evidencia_positiva"] = (
+            intentos_fallidos_con_evidencia_positiva
+        )
 
     operaciones_por_id = {int(row["id"]): row for row in operaciones}
     intentos_rechazo_global_incoherentes = sum(
@@ -3821,9 +3793,9 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         )
     )
     if intentos_rechazo_global_incoherentes:
-        blockers[
-            "intentos_rechazo_global_pf19c_incoherentes"
-        ] = intentos_rechazo_global_incoherentes
+        blockers["intentos_rechazo_global_pf19c_incoherentes"] = (
+            intentos_rechazo_global_incoherentes
+        )
     legacy_con_errores_arca_estructurados = sum(
         intento["estado"] == "fallido_verificado"
         and intento["categoria_error"] == LEGACY_PF19_CATEGORIA
@@ -3831,14 +3803,11 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for intento in intentos
     )
     if legacy_con_errores_arca_estructurados:
-        blockers[
-            "intentos_legacy_con_errores_arca_estructurados"
-        ] = legacy_con_errores_arca_estructurados
+        blockers["intentos_legacy_con_errores_arca_estructurados"] = (
+            legacy_con_errores_arca_estructurados
+        )
 
-    journals = [
-        dict(row)
-        for row in conn.execute(
-            """
+    journals = [dict(row) for row in conn.execute("""
             SELECT j.*, i.id AS intento_encontrado, i.empresa_id AS intento_empresa_id,
                    i.estado AS intento_estado,
                    i.categoria_error AS intento_categoria_error,
@@ -3873,9 +3842,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
               ON g.id = i.grupo_id AND g.empresa_id = i.empresa_id
             LEFT JOIN usuarios u ON u.id = j.actor_usuario_id
             ORDER BY j.id
-            """
-        )
-    ]
+            """)]
     journals_incoherentes = 0
     for journal in journals:
         intento = (
@@ -3921,19 +3888,14 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
     if journals_incoherentes:
         blockers["journals_legacy_pf19_incoherentes"] = journals_incoherentes
 
-    guardas = [
-        dict(row)
-        for row in conn.execute(
-            """
+    guardas = [dict(row) for row in conn.execute("""
             SELECT id, operacion_id, fase, empresa_id, punto_venta_id,
                    ambiente, elegibilidad_revision_id,
                    punto_venta_revision_fiscal,
                    arca_iniciada_en, cerrada_en
             FROM puntos_venta_guardas_emision_rece
             ORDER BY id
-            """
-        )
-    ]
+            """)]
     guardas_desconocidas = sum(
         row["fase"] not in FASES_GUARDA_CONOCIDAS for row in guardas
     )
@@ -4019,9 +3981,9 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         for operacion in operaciones
     )
     if operaciones_individuales_resultado_incoherente:
-        blockers[
-            "operaciones_individuales_resultado_incoherente"
-        ] = operaciones_individuales_resultado_incoherente
+        blockers["operaciones_individuales_resultado_incoherente"] = (
+            operaciones_individuales_resultado_incoherente
+        )
 
     lotes = [
         dict(row)
@@ -4032,10 +3994,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
     )
     if lotes_bloqueantes:
         blockers["lotes_activos_inciertos_o_desconocidos"] = lotes_bloqueantes
-    grupos = [
-        dict(row)
-        for row in conn.execute(
-            """
+    grupos = [dict(row) for row in conn.execute("""
             SELECT g.id, g.lote_id, g.empresa_id, g.estado,
                    g.tipo_comprobante, g.punto_venta_id,
                    g.punto_venta_numero, g.ambiente,
@@ -4053,9 +4012,7 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
             FROM lotes_comprobantes_grupos g
             LEFT JOIN comprobantes c ON c.id = g.comprobante_id
             ORDER BY g.id
-            """
-        )
-    ]
+            """)]
     grupos_bloqueantes = sum(
         row["estado"] not in ESTADOS_GRUPO_SEGUROS_OMITIBLES for row in grupos
     )
@@ -4231,21 +4188,16 @@ def classify_safe_omissions(conn: sqlite3.Connection) -> dict[str, Any]:
         if not grafo_valido:
             operaciones_batch_pf19c_grafo_incoherente += 1
     if operaciones_batch_pf19c_grafo_incoherente:
-        blockers[
-            "operaciones_batch_pf19c_grafo_incoherente"
-        ] = operaciones_batch_pf19c_grafo_incoherente
-    filas = [
-        dict(row)
-        for row in conn.execute(
-            """
+        blockers["operaciones_batch_pf19c_grafo_incoherente"] = (
+            operaciones_batch_pf19c_grafo_incoherente
+        )
+    filas = [dict(row) for row in conn.execute("""
             SELECT f.id, f.estado, f.grupo_id,
                    g.id AS grupo_encontrado, g.estado AS grupo_estado
             FROM lotes_comprobantes_filas f
             LEFT JOIN lotes_comprobantes_grupos g ON g.id = f.grupo_id
             ORDER BY f.id
-            """
-        )
-    ]
+            """)]
     filas_bloqueantes = sum(
         row["estado"] not in ESTADOS_FILA_SEGUROS_OMITIBLES for row in filas
     )
@@ -4341,8 +4293,7 @@ def validate_safe_omitted_counts(
 
 def list_active_certificates(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """Devuelve certificados activos de la fuente SQLite."""
-    rows = conn.execute(
-        """
+    rows = conn.execute("""
         SELECT c.id, c.archivo_crt, c.archivo_key, c.cuit,
                c.fecha_emision, c.fecha_vencimiento, c.empresa_id,
                e.cuit AS empresa_cuit
@@ -4350,8 +4301,7 @@ def list_active_certificates(conn: sqlite3.Connection) -> list[dict[str, Any]]:
         LEFT JOIN empresas e ON e.id = c.empresa_id
         WHERE c.activo = 1
         ORDER BY c.id
-        """
-    )
+        """)
     return [dict(row) for row in rows]
 
 

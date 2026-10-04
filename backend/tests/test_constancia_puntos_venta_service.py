@@ -15,8 +15,7 @@ from app.services.constancia_puntos_venta_service import (
 
 def test_extraer_y_parsear_constancia_puntos_pdf_real_sintetico() -> None:
     """Debe extraer y parsear una constancia sintética real en memoria."""
-    contenido = HTML(
-        string="""
+    contenido = HTML(string="""
             <pre>
             CONSTANCIA DE PUNTOS DE VENTA / EMISIÓN Y DOMICILIOS
             CUIT: ENTIDAD DE PRUEBA SIN DATOS REALES 30123456789
@@ -26,8 +25,7 @@ def test_extraer_y_parsear_constancia_puntos_pdf_real_sintetico() -> None:
             CIUDAD DE PRUEBA - BUENOS AIRES ESTABLECIMIENTO QA
             04/05/2026
             </pre>
-            """
-    ).write_pdf()
+            """).write_pdf()
 
     texto = extraer_texto_constancia_puntos_pdf(contenido)
     datos = parsear_constancia_puntos_venta(texto)

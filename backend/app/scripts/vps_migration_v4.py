@@ -9,7 +9,6 @@ from typing import Any
 
 from app.scripts import vps_migration_v3
 
-
 PACKAGE_VERSION = 4
 ALEMBIC_HEAD = "a1b2c3d4e5f6"
 SCOPE = "operacion_futura_con_comprobantes"
@@ -286,9 +285,11 @@ V4_COLUMNS.update(
 )
 
 PRIMARY_KEYS = {
-    table_name: ("usuario_id", "empresa_id")
-    if table_name == "usuario_emisor_acceso"
-    else ("id",)
+    table_name: (
+        ("usuario_id", "empresa_id")
+        if table_name == "usuario_emisor_acceso"
+        else ("id",)
+    )
     for table_name in INCLUDED_TABLES
 }
 
