@@ -238,10 +238,14 @@ jobs:
           set -o pipefail
           docker build --progress=plain --build-arg VITE_API_URL=/api \
             -t factuflow-frontend-ci . 2>&1 | tee "$RUNNER_TEMP/frontend-docker-build.log"
-          if rg -i 'npm warn|(^|[[:space:]])warning([[:space:]:]|$)' "$RUNNER_TEMP/frontend-docker-build.log"; then
-            echo "Production frontend image emitted warnings."
-            exit 1
-          fi
+          node --input-type=module - "$RUNNER_TEMP/frontend-docker-build.log" <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const log = readFileSync(process.argv[2], 'utf8');
+          if (/npm warn|(^|\s)warning([\s:]|$)/im.test(log)) {
+            console.error('Production frontend image emitted warnings.');
+            process.exit(1);
+          }
+          NODE
           docker run --rm --network none --add-host backend:127.0.0.1 \
             factuflow-frontend-ci sh -c \
             'nginx -t && test -s /usr/share/nginx/html/index.html && test -d /usr/share/nginx/html/assets'
