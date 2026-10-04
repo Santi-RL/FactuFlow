@@ -51,7 +51,12 @@ Instrucciones paso a paso para instalar y configurar FactuFlow.
    docker-compose logs -f frontend
    ```
 
-### Actualizar
+### Actualizar el entorno local de desarrollo
+
+Este recorrido corresponde al entorno local. Una actualización productiva usa
+un SHA exacto, preflight, backup y rollback según el
+[runbook de producción](../agents/production-workflow.md); no se actualiza una
+instalación operativa siguiendo `main` sin fijar el corte.
 
 ```bash
 git pull origin main
@@ -103,10 +108,13 @@ configura inicio automático con Windows.
 
 3. **Configurar variables de entorno**
    ```bash
-   cd ..
-   cp .env.example .env
+   cp ../.env.example .env
    # Editar .env
    ```
+
+   El backend se ejecuta desde `backend/` y lee el `.env` de ese directorio.
+   El `.env` de la raíz se usa para Docker Compose; no sustituye esta
+   configuración en una ejecución manual.
 
 4. **Ejecutar migraciones**
 
@@ -128,7 +136,6 @@ configura inicio automático con Windows.
    transaccional.
 
    ```bash
-   cd backend
    alembic upgrade head
    ```
 
@@ -351,9 +358,12 @@ y sin solicitar CAE.
 ```bash
 # Ver qué proceso está usando el puerto
 sudo lsof -i :8000
-# Matar el proceso
-sudo kill -9 <PID>
 ```
+
+Identificar el servicio propietario antes de intervenir. Si pertenece a
+FactuFlow local, detenerlo mediante el launcher o su mecanismo normal y volver
+a iniciar; si pertenece a otra aplicación, elegir otro puerto. No terminar un
+proceso desconocido ni forzar su cierre como primer recurso.
 
 ### Error: Permisos en carpeta certs/
 ```bash
@@ -362,21 +372,21 @@ sudo chown -R $USER:$USER certs/
 ```
 
 ### Error: Base de datos bloqueada (SQLite)
-```bash
-# Detener todos los servicios
-docker-compose down
-# Eliminar lock file si existe
-rm data/*.db-shm data/*.db-wal
-# Reiniciar
-docker-compose up -d
-```
+
+Identificar conexiones o procesos que mantienen una transacción y cerrar
+ordenadamente sólo los servicios de la instalación afectada. Conservar la base
+y sus archivos asociados; crear un backup recuperable antes de cualquier
+reparación y seguir el [runbook de soporte](../agents/support-runbook.md).
+No borrar `.db-wal` ni `.db-shm` para eliminar un bloqueo: el WAL puede contener
+transacciones confirmadas que todavía no están en el archivo principal, según
+la [documentación oficial de SQLite](https://sqlite.org/wal.html#the_wal_file).
 
 ### Error: "password cannot be longer than 72 bytes" al ejecutar tests
-En Windows puede aparecer por incompatibilidad entre `passlib 1.7.4` y
-`bcrypt >= 4`, aunque la contraseña sea corta.
+Comprobar que se hayan instalado las versiones fijadas. La integración actual
+usa bcrypt directamente; `passlib` ya no es parte de las dependencias.
 
 Solución:
-- Usar `bcrypt<4` (ya fijado en `backend/requirements.txt`).
+- Usar la versión de bcrypt fijada en `backend/requirements.txt`.
 - Si el entorno ya existía, reinstalar:
 
 ```bash

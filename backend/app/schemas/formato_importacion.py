@@ -1,9 +1,10 @@
 """Schemas para formatos de importación."""
 
-from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import ConfigDict, BaseModel, Field
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class FormatoImportacionVersionResponse(BaseModel):
@@ -14,7 +15,7 @@ class FormatoImportacionVersionResponse(BaseModel):
     estado: str
     configuracion_json: dict[str, Any]
     headers_firma_json: dict[str, Any] | None = None
-    created_at: datetime
+    created_at: UTCResponseDateTime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -28,8 +29,8 @@ class FormatoImportacionResponse(BaseModel):
     alcance: str
     activo: bool
     empresa_id: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCResponseDateTime
+    updated_at: UTCResponseDateTime
     version_vigente: Optional[FormatoImportacionVersionResponse] = None
 
     model_config = ConfigDict(from_attributes=True)

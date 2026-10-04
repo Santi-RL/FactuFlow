@@ -138,7 +138,7 @@ define el contrato futuro; no declara que la capacidad esté implementada.
   expresamente seguras. Cualquier recuperación de una mutación requiere el
   contrato idempotente y la decisión específica de su flujo.
 
-Este trabajo pertenece a la banda C del portafolio y depende de los contratos
+Este trabajo pertenece a PF-17 en el portafolio y depende de los contratos
 de errores de PF-14, las señales sanitizadas de PF-15 y las garantías fiscales
 de PF-01. Su prioridad relativa se consulta únicamente en `ROADMAP.md`.
 

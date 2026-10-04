@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import { useClientesStore } from "@/stores/clientes";
 import { useEmpresaStore } from "@/stores/empresa";
+import { formatearFecha } from "@/composables/useFormatters";
 import certificadosService from "@/services/certificados.service";
 import comprobantesService from "@/services/comprobantes.service";
 import reportesService from "@/services/reportes.service";
@@ -47,14 +48,6 @@ watch(
     await cargarDashboard();
   },
 );
-
-const formatearFecha = (fecha: string) => {
-  return new Date(fecha).toLocaleDateString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
 
 const irACertificados = () => {
   router.push({ name: "certificados" });

@@ -797,11 +797,11 @@ class TestCertificadosService:
         monkeypatch.setattr(settings, "certs_path", "./certs")
 
         resolved = resolve_cert_storage_path(
-            "certs/23318277559_homologacion_20260309_190054.crt"
+            "certs/20000000002_homologacion_20260309_190054.crt"
         )
 
         resolved_path = Path(resolved)
-        assert resolved_path.name == "23318277559_homologacion_20260309_190054.crt"
+        assert resolved_path.name == "20000000002_homologacion_20260309_190054.crt"
         assert resolved_path.parent.name == "certs"
         assert resolved_path.parent.parent.name == "backend"
 
@@ -813,11 +813,11 @@ class TestCertificadosService:
         monkeypatch.setattr(settings, "certs_path", "./certs")
 
         resolved = resolve_cert_storage_path(
-            "23318277559_homologacion_20260309_190054.key"
+            "20000000002_homologacion_20260309_190054.key"
         )
 
         resolved_path = Path(resolved)
-        assert resolved_path.name == "23318277559_homologacion_20260309_190054.key"
+        assert resolved_path.name == "20000000002_homologacion_20260309_190054.key"
         assert resolved_path.parent.name == "certs"
         assert resolved_path.parent.parent.name == "backend"
 

@@ -10,6 +10,7 @@ import type { Certificado } from "@/types/certificado";
 import certificadosService from "@/services/certificados.service";
 import BaseButton from "@/components/ui/BaseButton.vue";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
+import { formatearFecha } from "@/composables/useFormatters";
 
 interface Props {
   cuit: string;
@@ -38,10 +39,8 @@ const certificadoInfo = computed(() => {
   if (!certificadoSubido.value) return null;
 
   const cert = certificadoSubido.value;
-  const fechaEmision = new Date(cert.fecha_emision).toLocaleDateString("es-AR");
-  const fechaVencimiento = new Date(cert.fecha_vencimiento).toLocaleDateString(
-    "es-AR",
-  );
+  const fechaEmision = formatearFecha(cert.fecha_emision);
+  const fechaVencimiento = formatearFecha(cert.fecha_vencimiento);
 
   return {
     cuit: `${cert.cuit.slice(0, 2)}-${cert.cuit.slice(2, 10)}-${cert.cuit.slice(10)}`,

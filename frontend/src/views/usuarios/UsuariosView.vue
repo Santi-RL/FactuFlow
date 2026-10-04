@@ -21,6 +21,7 @@ import { usuariosService } from "@/services/usuarios.service";
 import { useAuthStore } from "@/stores/auth";
 import { useEmpresaStore } from "@/stores/empresa";
 import type { Usuario } from "@/types/auth";
+import { formatearFechaHoraArgentina } from "@/utils/instantes";
 
 const authStore = useAuthStore();
 const empresaStore = useEmpresaStore();
@@ -125,10 +126,10 @@ const alternarEmisor = (empresaId: number) => {
 
 const formatDateTime = (value: string | null) => {
   if (!value) return "Sin ingresos";
-  return new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
+  return (
+    formatearFechaHoraArgentina(value, { interpretarSinZonaComoUtc: true }) ||
+    "Fecha y hora no disponibles"
+  );
 };
 
 const actualizarUsuarioLocal = (usuario: Usuario) => {

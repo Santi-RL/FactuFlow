@@ -48,6 +48,8 @@ el rechazo de CUIT con consumidor final son responsabilidad del
 |---|---|
 | [Rediseño anterior](lotes-ux-redesign.md) | Sus cuatro cortes siguen cerrados. Este documento gobierna la evolución posterior; no repetir su implementación ni modificar su historia. |
 | [Plantillas PF-13](pf-13-plantillas-contables-design.md) | Conserva interpretación del Excel, tipo/letra, precedencia de archivo/perfil/valores fijos y validaciones condicionales. Esta UI debe mostrar el origen efectivo sin crear otro constructor. |
+| [Importes y revisión común](pf-03-04-importes-previsualizacion-design.md) | Presenta importes confirmables del backend; el P1 fiscal no espera este rediseño ni cambia redondeos. |
+| [Padrón de clientes/emisores](pf-18-09-padron-clientes-emisores-design.md) | Presenta consulta fechada, actualización y diferencias en preparación; no consulta por fila/CAE ni altera un lote congelado. |
 | [Duplicados PF-13/PF-17](pf-13-duplicados-lotes-design.md) | Conserva comparación, advertencia, actores, retorno principal, checkbox, revalidación y coordinación de emisiones simultáneas. El historial compacto aporta contexto; no reemplaza el control. |
 | [Actividad PF-17/PF-15](pf-17-actividad-lotes-design.md) | Conserva atribución de última emisión confirmada, límites históricos y apertura de actividad al seleccionar un lote. Ajustar la ubicación dentro de la nueva distribución, sin duplicar su contrato. |
 | PF-10 y [QA manual](manual-qa.md) | Mantenimiento secundario conserva elegibilidad, consecuencias, resguardos y confirmaciones. Reubicarlo no cambia retención ni borra datos automáticamente. |

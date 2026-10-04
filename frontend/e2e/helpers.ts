@@ -615,16 +615,39 @@ export const mockApi = async (page: Page) => {
 
     // Comprobantes
     if (
-      (path === "/api/comprobantes" || path === "/comprobantes") &&
+      [
+        "/api/comprobantes",
+        "/api/comprobantes/",
+        "/comprobantes",
+        "/comprobantes/",
+      ].includes(path) &&
       method === "GET"
     ) {
       if (!hasAuthHeader(route)) return unauthorized(route);
       return jsonResponse(route, 200, {
         items: [],
         total: 0,
-        page: 1,
-        per_page: 20,
-        pages: 1,
+        page: Number(url.searchParams.get("page") || 1),
+        per_page: Number(url.searchParams.get("per_page") || 20),
+        pages: 0,
+      });
+    }
+
+    if (path === "/api/reportes/ventas" && method === "GET") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      return jsonResponse(route, 200, {
+        comprobantes: [],
+        resumen: {
+          total_facturas: 0,
+          total_notas_credito: 0,
+          total_notas_debito: 0,
+          total_neto: 0,
+          cantidad_comprobantes: 0,
+          periodo: {
+            desde: url.searchParams.get("desde"),
+            hasta: url.searchParams.get("hasta"),
+          },
+        },
       });
     }
 

@@ -1,5 +1,12 @@
 # Wizard de Certificados ARCA
 
+Estado: referencia histórica del diseño inicial del wizard. Este documento
+conserva antecedentes técnicos y no gobierna el contrato actual. Para el flujo
+vigente usar la [guía de certificados](certificates/README.md), el
+[manual de usuario](user-guide/README.md#8-certificados) y la
+[API](api/README.md#certificados); para aislamiento y protección de claves,
+usar la [guía de seguridad](agents/security.md).
+
 ## 📋 Descripción
 
 El Wizard de Certificados ARCA es una funcionalidad completa que guía al usuario paso a paso en la configuración de certificados digitales necesarios para emitir facturas electrónicas ante ARCA.

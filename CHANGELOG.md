@@ -18,6 +18,70 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Construcción frontend y compatibilidad
+
+- Migración a Tailwind CSS 4.3.3 y su plugin PostCSS, retirando la cadena
+  vulnerable de `braces`. Se conservan paleta, escalas, marca, modales y foco
+  accesible; la auditoría sigue incluyendo herramientas de desarrollo.
+- Firefox 128+ como requisito aceptado explícitamente; Chrome/Edge 111+ y
+  Safari 16.4+ conservan su mínimo. La configuración de marca sigue compartida.
+- Runners de CI fijados en Ubuntu 24.04, el entorno ya utilizado, para que un
+  cambio automático del sistema operativo no altere la matriz de validación.
+- E2E de lotes y navegación esperan la carga administrativa de perfiles antes
+  de terminar, evitando consultas tardías fuera de los dobles de prueba.
+
+### Mantenimiento preventivo de dependencias
+
+- Configuración de Dependabot para npm, Python y GitHub Actions con revisión
+  semanal en horario argentino, límites de PRs ordinarios y grupos acotados de
+  herramientas relacionadas. Vitest y cobertura mantienen versiones coordinadas.
+- Las propuestas conservan revisión y CI antes del merge; no incorporan fusión
+  automática, despliegues ni actualizaciones de imágenes Docker.
+
+### Asociación administrativa posterior a CAE
+
+- Clientes coincidentes del mismo emisor y documento dejan de impedir guardar
+  una autorización fiscal. La asociación implícita ambigua conserva el snapshot
+  receptor y deja el vínculo vacío; no elige ni fusiona fichas arbitrariamente.
+- La selección explícita y las coincidencias inequívocas conservan su conducta.
+  El guardado compartido mantiene la transacción fiscal y la recuperación ante
+  errores reales de base, sin cambiar idempotencia ni reintentos.
+
+### Contrato temporal y hora argentina
+
+- Instantes operativos de respuestas HTTP con UTC explícito y presentación común
+  en hora argentina; lotes, progreso, usuarios, emisor y Sistema dejan de depender
+  de la zona del navegador. Almacenamiento y relojes internos conservan UTC.
+- Fechas fiscales y de calendario sin conversión; antecedentes de duplicados
+  conservan cobertura histórica y zona desconocida cuando corresponda. El replay
+  de lotes antiguos no reescribe su respuesta durable al comunicar la zona.
+- El verificador de paquetes v4 coteja el mismo instante UTC de creación entre
+  replay y lote durable, compatible con representaciones anteriores y zona
+  explícita; mantiene identidad, estados y evidencia fiscal.
+
+### Limpieza y coherencia del estado actual
+
+- Alineadas guías de dominio, certificados, instalación y pruebas; corregido el
+  manifiesto público de historia sin modificar sus snapshots. Retirada la receta
+  de borrar WAL/SHM y las referencias de despliegue inferidas desde el repositorio.
+- Retirados tres helpers backend sin consumidores y la calculadora huérfana de
+  lotes. Fechas de certificados usan calendario; detalles y formulario de cliente
+  preservan el contexto de emisor frente a cargas o escrituras tardías.
+- Errores PDF públicos sanitizados, contextos Docker sin datos de instalación,
+  mocks E2E completos, marcadores PostgreSQL y auditoría npm local alineados con CI.
+- Incorporadas la puerta de estabilización derivada de la auditoría y la dirección
+  de arquitectura hacia un MCP futuro, sin implementar sus capacidades ni cambiar
+  la visión. Evidencia y límites en el
+  [dossier](docs/project/analysis/auditoria-integral-2026-10.md); prioridades en el roadmap.
+
+### Planificación de confiabilidad fiscal
+
+- Integra oportunidades de importes/previsualización, reconciliación, WSAA,
+  padrón de clientes/emisores y notas guiadas con los cortes existentes.
+  Los ensayos de planificación y los contratos complementarios sustentan la
+  priorización; este cambio documental no implementa funcionalidades ni cambia
+  producción. La secuencia futura se consulta únicamente en el roadmap.
+
 ### Condición IVA del receptor — RG 5616
 
 - Toda nueva solicitud individual o masiva incluye una condición IVA válida y

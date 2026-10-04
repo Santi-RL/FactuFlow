@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.date_parsing import parse_fecha_input
 from app.schemas.comprobante import ErrorArcaFiscalResponse
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class LoteComprobanteFilaResponse(BaseModel):
@@ -87,11 +88,11 @@ class LoteComprobanteResponse(BaseModel):
     metadata_json: dict[str, Any] | None = None
     mapeo_usado_json: dict[str, Any] | None = None
     headers_detectados_json: list[str] | None = None
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
-    compactado_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    started_at: Optional[UTCResponseDateTime] = None
+    finished_at: Optional[UTCResponseDateTime] = None
+    compactado_at: Optional[UTCResponseDateTime] = None
+    created_at: UTCResponseDateTime
+    updated_at: UTCResponseDateTime
     empresa_id: int
     usuario_id: Optional[int] = None
     formato_importacion_id: Optional[int] = None
@@ -118,9 +119,9 @@ class LoteComprobanteSeguimientoResponse(BaseModel):
     grupos_reconciliados_externos: int = 0
     grupos_descartados: int = 0
     mensaje_resumen: Optional[str] = None
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
-    updated_at: datetime
+    started_at: Optional[UTCResponseDateTime] = None
+    finished_at: Optional[UTCResponseDateTime] = None
+    updated_at: UTCResponseDateTime
     operacion_progreso: LoteOperacionProgreso | None = None
 
 

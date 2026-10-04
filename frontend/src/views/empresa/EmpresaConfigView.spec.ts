@@ -134,6 +134,22 @@ describe("EmpresaConfigView", () => {
     vi.clearAllMocks();
   });
 
+  it("muestra la actualización del emisor en Argentina sin cambiar fechas de calendario", async () => {
+    const { empresaStore, wrapper } = await mountView(Promise.resolve([]));
+    empresaStore.empresa = {
+      ...empresaMock(1),
+      updated_at: "2026-01-01T01:00:00",
+      inicio_actividades: "2024-01-01",
+    };
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("31/12/2025, 22:00");
+    expect(
+      (wrapper.get('input[type="date"]').element as HTMLInputElement).value,
+    ).toBe("2024-01-01");
+    wrapper.unmount();
+  });
+
   it("conserva la configuración de B si la respuesta de A llega tarde", async () => {
     const cargaA = deferred<PerfilCargaMasiva[]>();
     const cargaB = deferred<PerfilCargaMasiva[]>();

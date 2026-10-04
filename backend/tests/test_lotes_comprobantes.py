@@ -740,6 +740,7 @@ async def test_bloqueo_legacy_no_amplia_remanentes_convertibles(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("replay_utc_sin_zona", [False, True])
 async def test_reintentar_fallidos_replay_terminal_precede_owner_legacy_posterior(
     client: AsyncClient,
     auth_headers: dict,
@@ -747,6 +748,8 @@ async def test_reintentar_fallidos_replay_terminal_precede_owner_legacy_posterio
     test_empresa,
     test_punto_venta,
     test_certificado,
+    replay_utc_sin_zona: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Una clave terminal conserva su replay aunque el lote cambie luego de owner."""
     empresa_id = int(test_empresa.id)
@@ -801,6 +804,13 @@ async def test_reintentar_fallidos_replay_terminal_precede_owner_legacy_posterio
         "mensaje": "Resultado terminal durable previo.",
         "errores_arca": [],
     }
+    esperado_http = deepcopy(terminal.response_json)
+    if replay_utc_sin_zona:
+        for campo in ("created_at", "updated_at"):
+            terminal.response_json["lote"][campo] = terminal.response_json["lote"][
+                campo
+            ].removesuffix("Z")
+    respuesta_guardada = deepcopy(terminal.response_json)
     owner_legacy = OperacionIdempotente(
         empresa_id=empresa_id,
         idempotency_key="pf13-owner-legacy-posterior",
@@ -833,6 +843,14 @@ async def test_reintentar_fallidos_replay_terminal_precede_owner_legacy_posterio
         or 0
     )
 
+    llamadas_wsfe = 0
+
+    async def no_obtener_wsfe(*_args, **_kwargs):
+        nonlocal llamadas_wsfe
+        llamadas_wsfe += 1
+        raise AssertionError("El replay no puede consultar ARCA")
+
+    monkeypatch.setattr(FacturacionService, "_obtener_cliente_wsfe", no_obtener_wsfe)
     replay = await client.post(
         f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos",
         headers={**auth_headers, **headers},
@@ -840,7 +858,10 @@ async def test_reintentar_fallidos_replay_terminal_precede_owner_legacy_posterio
     )
 
     assert replay.status_code == 200, replay.text
-    assert replay.json() == terminal.response_json
+    assert replay.json() == esperado_http
+    await db_session.refresh(terminal)
+    assert terminal.response_json == respuesta_guardada
+    assert llamadas_wsfe == 0
     assert (
         int(
             await db_session.scalar(

@@ -7,6 +7,7 @@ import { ref, computed } from "vue";
 import comprobantesService, {
   type ListarComprobantesParams,
 } from "@/services/comprobantes.service";
+import { useEmpresaStore } from "@/stores/empresa";
 import type {
   ComprobanteListItem,
   ComprobanteDetalle,
@@ -35,6 +36,7 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
   let solicitudListarComprobantesId = 0;
+  let solicitudObtenerComprobanteId = 0;
 
   const esSolicitudListarActual = (solicitudId: number) =>
     solicitudId === solicitudListarComprobantesId;
@@ -107,19 +109,27 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   }
 
   async function obtenerComprobante(id: number) {
+    const solicitudId = ++solicitudObtenerComprobanteId;
+    const empresaStore = useEmpresaStore();
+    const empresaIdSolicitada = empresaStore.empresaActivaId;
+    const sigueVigente = () =>
+      solicitudId === solicitudObtenerComprobanteId &&
+      empresaStore.empresaActivaId === empresaIdSolicitada;
     loading.value = true;
     error.value = null;
     comprobanteActual.value = null;
 
     try {
       const comprobante = await comprobantesService.obtener(id);
+      if (!sigueVigente()) return undefined;
       comprobanteActual.value = comprobante;
       return comprobante;
     } catch (e: any) {
+      if (!sigueVigente()) return undefined;
       error.value = e.response?.data?.detail || "Error al obtener comprobante";
       throw e;
     } finally {
-      loading.value = false;
+      if (sigueVigente()) loading.value = false;
     }
   }
 
@@ -187,7 +197,10 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   }
 
   function limpiarComprobanteActual() {
+    solicitudObtenerComprobanteId += 1;
     comprobanteActual.value = null;
+    error.value = null;
+    loading.value = false;
   }
 
   function limpiarError() {

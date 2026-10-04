@@ -44,6 +44,11 @@ test.describe("Navegación", () => {
 
   test("debe navegar a la página de emisión masiva", async ({ page }) => {
     await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/perfiles-carga-masiva" &&
+          response.ok(),
+      ),
       page.waitForURL(/comprobantes\/lotes/),
       page.getByTestId("nav-lotes-comprobantes").click(),
     ]);

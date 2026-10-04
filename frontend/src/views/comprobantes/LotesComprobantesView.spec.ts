@@ -409,6 +409,27 @@ describe("LotesComprobantesView", () => {
     document.body.innerHTML = "";
   });
 
+  it("presenta horas de lotes en Argentina y conserva la fecha fiscal del archivo", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      created_at: "2026-01-01T01:00:00",
+      started_at: "2026-01-01T01:01:00Z",
+      finished_at: "2025-12-31T22:02:00-03:00",
+      compactado_at: "2026-01-01T01:03:00Z",
+    };
+    const wrapper = await mountView([], [lote], lote);
+
+    expect(wrapper.get('[data-testid="lote-reciente-12"]').text()).toContain(
+      "Cargado 31/12/2025, 22:00",
+    );
+    expect(wrapper.text()).toContain("Inicio 31/12/2025, 22:01");
+    expect(wrapper.text()).toContain("Fin 31/12/2025, 22:02");
+    expect(wrapper.text()).toContain("compactado el 31/12/2025, 22:03");
+    expect(wrapper.text()).toContain("20/05/2026");
+    expect(mockedLotesDetalle.procesar).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it.each(["requiere_confirmacion", "operacion_en_curso"] as const)(
     "presenta totales y filas de forma neutral con duplicados en estado %s sin impedir el primer POST",
     async (estadoDuplicados) => {

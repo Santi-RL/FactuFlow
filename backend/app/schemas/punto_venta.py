@@ -1,9 +1,11 @@
 """Schemas para PuntoVenta."""
 
-from datetime import date, datetime
+from datetime import date
 from typing import Literal, Optional
 
 from pydantic import ConfigDict, BaseModel, Field, model_validator
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class PuntoVentaBase(BaseModel):
@@ -83,7 +85,7 @@ class SincronizarPuntosVentaResponse(BaseModel):
     existentes: int
     actualizados: int
     desactivados_ausentes: int
-    comprobado_en: datetime
+    comprobado_en: UTCResponseDateTime
 
 
 class ElegibilidadReceResponse(BaseModel):
@@ -96,7 +98,7 @@ class ElegibilidadReceResponse(BaseModel):
     revision_id: int | None = None
     revision: int | None = None
     punto_revision_fiscal: int | None = None
-    verificado_en: datetime | None = None
+    verificado_en: UTCResponseDateTime | None = None
     vigente_hasta: date | None = None
     motivo: str | None = None
 
@@ -113,10 +115,10 @@ class PuntoVentaResponse(PuntoVentaBase):
     usable_factuflow: bool
     puede_intentar_emision: bool
     seleccionable_para_emision: bool
-    ultima_comprobacion_arca_en: datetime | None = None
+    ultima_comprobacion_arca_en: UTCResponseDateTime | None = None
     comprobacion_arca_desactualizada: bool
     revision_fiscal: int
     elegibilidad_rece: ElegibilidadReceResponse
-    created_at: datetime
+    created_at: UTCResponseDateTime
 
     model_config = ConfigDict(from_attributes=True)

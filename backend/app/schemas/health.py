@@ -1,9 +1,10 @@
 """Esquemas seguros para diagnósticos administrativos de salud."""
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 
 class _HealthAllowlistModel(BaseModel):
@@ -44,12 +45,12 @@ class LoteWorkerRuntimeStatusResponse(_HealthAllowlistModel):
     habilitado: bool
     ejecutando: bool
     ocupado: bool
-    ciclo_iniciado_at: datetime | None = None
-    ciclo_finalizado_at: datetime | None = None
+    ciclo_iniciado_at: UTCResponseDateTime | None = None
+    ciclo_finalizado_at: UTCResponseDateTime | None = None
     ultima_duracion_ms: float | None = None
     ultimo_resultado: Literal["exitoso", "error"] | None = None
-    ultimo_exito_at: datetime | None = None
-    ultimo_error_at: datetime | None = None
+    ultimo_exito_at: UTCResponseDateTime | None = None
+    ultimo_error_at: UTCResponseDateTime | None = None
     stale_detectados_ultimo_ciclo: int = 0
     lotes_en_cola_ultimo_ciclo: int = 0
     lotes_procesados_ultimo_ciclo: int = 0

@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 29/08/2026
+Última revisión: 04/10/2026
 
 Estado: VIGENTE.
 
@@ -42,6 +42,9 @@ La CI debe finalizar sin advertencias: ESLint aplica `--max-warnings 0` y
 pytest convierte warnings en errores mediante `filterwarnings = error`.
 Corregir la causa; no desactivar reglas ni añadir filtros para ocultarla.
 La auditoría de npm abarca dependencias productivas y de desarrollo.
+Los runners de CI usan Ubuntu 24.04 explícito. Cambiar su versión requiere
+comprobar instalación, PDF, build, PostgreSQL y smoke; no depender del cambio
+automático de `ubuntu-latest`.
 Los runners Linux instalan HarfBuzz-Subset para generar PDFs; en Windows,
 usar un runtime compatible de WeasyPrint y sus bibliotecas nativas mediante
 `WEASYPRINT_DLL_DIRECTORIES` y `PATH`, sin mezclar versiones de GTK/Pango.
@@ -71,7 +74,7 @@ normal llama a ARCA real ni solicita CAE.
 Las pruebas de migraciones, constraints o concurrencia deben usar el harness
 versionado y una base descartable. Las barreras mínimas son:
 
-- driver `postgresql+asyncpg`;
+- driver `postgresql` o `postgresql+asyncpg`;
 - host loopback exacto;
 - base exacta `factuflow_integration_test`;
 - opt-in explícito `FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET=1`;
@@ -82,6 +85,12 @@ Nunca apuntar el harness a producción, una base compartida o un nombre que sól
 “parezca” de prueba.
 
 ## Frontend
+
+El contrato de navegadores y estilos vive en
+[`frontend/README.md`](../../frontend/README.md#navegadores-compatibles).
+Una migración mayor de estilos debe comprobar componentes, modales, foco y
+colores forzados además de compilar. Los motores E2E actuales no prueban todas
+las versiones mínimas declaradas.
 
 La CI también construye `frontend/Dockerfile` con Node 24.15.0 y npm 11.12.1,
 bloquea warnings del build y comprueba la configuración Nginx y los archivos
@@ -106,11 +115,15 @@ requiera.
 
 ## E2E
 
-Desde la raíz:
+Desde `frontend/`:
 
 ```bash
 npm run test:e2e
 ```
+
+Desde la raíz, el comando equivalente es
+`npm --prefix frontend run test:e2e`. El runner levanta su propio servidor Vite
+local y lo cierra al terminar; no requiere una instalación operativa.
 
 - Usar dobles y datos sintéticos.
 - No reutilizar sesiones o credenciales productivas.

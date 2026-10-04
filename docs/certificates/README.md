@@ -1,5 +1,7 @@
 # Certificados ARCA - Guía Completa
 
+Última revisión: 03/10/2026
+
 Todo lo que necesitás saber sobre certificados digitales para facturar con ARCA (Agencia de Recaudación y Control Aduanero).
 
 **Nota importante**: Aunque el organismo cambió su nombre a ARCA, el portal web y algunos sistemas aún pueden mostrar "AFIP" en las URLs y referencias técnicas. Esto es normal y no afecta el funcionamiento.
@@ -8,7 +10,7 @@ Todo lo que necesitás saber sobre certificados digitales para facturar con ARCA
 
 Un certificado digital es como un **DNI electrónico** para tu empresa. Te permite:
 - Identificarte de forma segura ante ARCA
-- Firmar digitalmente tus comprobantes
+- Autenticar y firmar las solicitudes de acceso a los servicios de ARCA
 - Comunicarte con los webservices de ARCA
 
 **Nota técnica**: Los webservices de ARCA mantienen las URLs con "afip.gov.ar" por compatibilidad técnica (ej: wsaa.afip.gov.ar). Esto es normal.
@@ -36,6 +38,11 @@ Si ya generaste un CSR desde este sistema, el wizard permite continuar sin volve
 
 ### Opción B: Manualmente con OpenSSL
 
+Esta opción es una referencia técnica para trabajar fuera del wizard. La
+interfaz actual de FactuFlow requiere una clave administrada por el sistema;
+no permite subir una clave privada externa. Para completar el alta desde la
+aplicación, usá la opción A.
+
 ```bash
 # Instalar OpenSSL (si no lo tenés)
 # Ubuntu/Debian:
@@ -47,7 +54,7 @@ brew install openssl
 # Windows: Descargar desde https://slproweb.com/products/Win32OpenSSL.html
 
 # Generar CSR y clave privada
-openssl req -new -newkey rsa:2048 -nodes \
+openssl req -new -newkey rsa:2048 \
   -keyout clave_privada.key \
   -out certificado.csr
 
@@ -57,9 +64,15 @@ openssl req -new -newkey rsa:2048 -nodes \
 # - Locality: CABA (o tu ciudad)
 # - Organization Name: Tu Razón Social
 # - Organizational Unit: Puede dejarse vacío
-# - Common Name: Tu CUIT (ej: 20123456789)
+# - Common Name: Alias del certificado
 # - Email: tu-email@ejemplo.com
 ```
+
+El CSR para ARCA debe incluir además `serialNumber=CUIT <CUIT_TITULAR>`;
+el formulario interactivo básico anterior no lo agrega automáticamente.
+Consultar el [procedimiento oficial de CSR](https://www.arca.gob.ar/ws/WSASS/html/generarcsr.html)
+para configurar ese campo. Conservar la clave cifrada y su contraseña en el
+resguardo privado; nunca usar identificadores ajenos como datos de prueba.
 
 **⚠️ IMPORTANTE**: La clave privada (`clave_privada.key`) es **ULTRA SECRETA**. Guardala en un lugar seguro y nunca la compartas.
 
@@ -69,31 +82,18 @@ openssl req -new -newkey rsa:2048 -nodes \
 
 ### Para Homologación (Testing)
 
-1. **Ingresar a ARCA con Clave Fiscal**
-   - URL: https://auth.afip.gov.ar/contribuyente_/login.xhtml (portal heredado)
-   - Usar tu CUIT y Clave Fiscal nivel 3 o superior
+1. Ingresar al portal de ARCA con la clave fiscal de una persona física y
+   adherir a **WSASS**, si todavía no está habilitado.
+2. Abrir WSASS y usar **Nuevo certificado** con el CSR correspondiente al
+   titular autenticado.
+3. Guardar el certificado emitido en formato PEM.
+4. En **Crear autorización a servicio**, autorizar `wsfe` para el CUIT
+   representado que se va a operar en homologación.
 
-2. **Ir a Administrador de Relaciones**
-   - Menú: "Administrador de Relaciones de Clave Fiscal"
-   - O buscar "Certificados Digitales"
-
-3. **Crear Nueva Relación**
-   - Clic en "Nueva Relación"
-   - Seleccionar: "Certificado Digital"
-
-4. **Seleccionar Servicio**
-   - Servicio: **wsfe** (Web Service de Factura Electrónica)
-   - Ambiente: **Homologación**
-
-5. **Cargar CSR**
-   - Copiar el contenido del archivo `.csr`
-   - Pegarlo en el campo de texto
-   - Clic en "Crear"
-
-6. **Descargar Certificado**
-   - Se generará inmediatamente
-   - Clic en "Descargar"
-   - Guardar como `certificado_homologacion.crt`
+El [manual oficial de WSASS](https://www.arca.gob.ar/ws/WSASS/html/index.html)
+detalla la creación del certificado y la autorización. El CUIT del titular del
+certificado puede diferir del emisor representado; ambos deben corresponder a
+la relación autorizada.
 
 **Nota**: El portal puede mostrar "AFIP" en algunas referencias, pero el certificado es válido para ARCA.
 
@@ -101,10 +101,18 @@ openssl req -new -newkey rsa:2048 -nodes \
 
 **⚠️ SOLO después de probar extensivamente en homologación**
 
-Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homologación.
+1. Ingresar al portal de ARCA y abrir **Administración de Certificados Digitales**.
+2. Crear el alias y cargar el CSR para obtener el certificado.
+3. Abrir **Administrador de Relaciones de Clave Fiscal** y asociar el alias
+   del computador al servicio `wsfe` para el CUIT representado.
+
+Los portales y las autorizaciones difieren entre ambientes. Consultar la
+[guía oficial de WSAA y certificados](https://www.arca.gob.ar/ws/documentacion/wsaa.asp)
+antes de configurar una relación.
 
 **Diferencias importantes:**
-- Certificados de producción generan obligaciones fiscales REALES
+- La emisión de comprobantes autorizados en producción genera obligaciones
+  fiscales reales; crear o verificar un certificado no emite comprobantes
 - No se pueden usar certificados de homologación en producción ni viceversa
 - Cada ambiente requiere su propio certificado
 
@@ -125,8 +133,9 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
    - ○ Producción (para facturación real)
 
    **Paso 2: Subir Archivos**
-   - Subir certificado `.crt` descargado de ARCA
-   - Subir clave privada `.key` generada en Paso 1
+   - Subir certificado `.crt`, `.cer` o `.pem` descargado de ARCA
+   - FactuFlow usa la clave privada generada y administrada en el paso del CSR;
+     no se sube la clave desde el navegador
    - El archivo de certificado debe ser pequeño; si supera
      `CERTIFICATE_MAX_UPLOAD_BYTES`, FactuFlow lo rechaza antes de guardarlo
 
@@ -156,15 +165,18 @@ Los pasos son idénticos, pero seleccionando **Producción** en lugar de Homolog
 
 ### ¿Cuándo vencen los certificados?
 
-Los certificados de ARCA tienen validez de **1 o 2 años** (según configuración).
+La fecha de vencimiento está contenida en cada certificado. FactuFlow informa
+esa fecha y los días restantes; no debe asumirse una duración fija.
 
 ### Sistema de Alertas de FactuFlow
 
-FactuFlow te alertará automáticamente:
-- 🟡 **30 días antes**: "Tu certificado vence en X días"
-- 🟠 **15 días antes**: "Renová tu certificado pronto"
-- 🔴 **7 días antes**: "URGENTE: Renová tu certificado"
-- ⛔ **Vencido**: "No podés facturar con certificado vencido"
+FactuFlow muestra el estado y los días restantes al consultar certificados:
+- hasta 30 días: advertencia de vencimiento próximo;
+- hasta 7 días: alerta de mayor urgencia;
+- vencido: el certificado no permite emitir.
+
+Estas señales forman parte de la aplicación; no implican un envío de correo ni
+una notificación externa programada.
 
 ### Renovar Certificado
 
@@ -179,7 +191,7 @@ FactuFlow te alertará automáticamente:
 3. **Reemplazar en FactuFlow**
    - Ir a "Certificados"
    - Clic en "Renovar" en el certificado actual
-   - Subir nuevo certificado y clave
+   - Generar o seleccionar la clave administrada y subir el nuevo certificado
    - FactuFlow mantendrá historial del antiguo
 
 **⚠️ IMPORTANTE**: Renovar ANTES del vencimiento. Si el certificado vence, no podrás facturar hasta renovarlo.
@@ -217,8 +229,9 @@ FactuFlow te alertará automáticamente:
 ## Migración a VPS
 
 Cuando el VPS va a reemplazar la instalación local operativa, los certificados
-productivos activos pueden migrarse con el runbook privado
-`docs/setup/vps-migration.md`.
+productivos activos pueden migrarse con la
+[guía técnica de migración](../setup/vps-migration.md). La configuración y
+evidencia de la instalación se conservan en su plano de control privado.
 
 Condiciones:
 
@@ -243,7 +256,7 @@ separados para reducir el riesgo de exposición o uso cruzado.
 **Posibles causas:**
 - El archivo no es un certificado válido
 - Está corrupto o incompleto
-- Formato incorrecto (debe ser .crt o .pem)
+- Formato incorrecto (debe ser .crt, .cer o .pem)
 
 **Solución:**
 - Descargar nuevamente desde ARCA
@@ -279,19 +292,12 @@ separados para reducir el riesgo de exposición o uso cruzado.
 
 ## Certificados para Testing
 
-### CUIT de Prueba
-
-Para homologación, podés usar el CUIT de prueba de ARCA:
-- **CUIT**: 20409378472
-- Disponible para todos
-- Solo válido en ambiente de homologación
-
 ### Generar Certificados de Test
 
-El proceso es idéntico, pero:
-1. Usar el CUIT de prueba (o tu CUIT en homologación)
-2. Seleccionar ambiente "Homologación" en ARCA
-3. Usar en FactuFlow con `ARCA_ENV=homologacion`
+Usar WSASS y un titular autorizado, con autorización explícita al CUIT
+representado. No se ofrece un CUIT compartido de libre uso. Configurar
+FactuFlow con `ARCA_ENV=homologacion`; los certificados de ese entorno no
+permiten emitir comprobantes productivos.
 
 ---
 
@@ -299,7 +305,7 @@ El proceso es idéntico, pero:
 
 Podés tener múltiples certificados en FactuFlow:
 - Uno para homologación, otro para producción
-- Diferentes CUITs (si gestiónás múltiples empresas)
+- Diferentes CUITs (si gestionás múltiples empresas)
 
 FactuFlow seleccionará automáticamente el certificado correcto según:
 - El CUIT de la empresa
@@ -325,7 +331,10 @@ Técnicamente sí, pero NO es recomendable por seguridad. Si necesitás usar Fac
 Tendrás que generar un nuevo CSR y obtener un nuevo certificado. Los comprobantes anteriores siguen siendo válidos.
 
 **¿Puedo revocar un certificado?**
-Sí, desde ARCA → Administrador de Relaciones → Certificados → Revocar. Útil si creés que está comprometido.
+Si creés que está comprometido, suspender su uso y seguir el procedimiento del
+portal oficial del ambiente correspondiente. Revocar un certificado y quitar
+su autorización a un servicio son operaciones distintas; consultar la
+[documentación de certificados](https://www.arca.gob.ar/ws/documentacion/certificados.asp).
 
 **¿Los certificados tienen costo?**
 No, ARCA los emite gratuitamente.

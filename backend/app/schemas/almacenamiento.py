@@ -1,10 +1,10 @@
 """Schemas del gestor de almacenamiento."""
 
-from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.utc_datetime import UTCResponseDateTime
 
 EstadoAlmacenamiento = Literal["correcto", "necesita_atencion", "critico"]
 
@@ -37,7 +37,7 @@ class AlmacenamientoEmisorResponse(BaseModel):
 class AlmacenamientoResumenResponse(BaseModel):
     """Resumen general del almacenamiento visible para administradores."""
 
-    generated_at: datetime
+    generated_at: UTCResponseDateTime
     estado: EstadoAlmacenamiento
     total_bytes_usados: int = 0
     total_bytes_recuperables: int = 0
@@ -58,7 +58,7 @@ class AlmacenamientoItemResponse(BaseModel):
     bytes_usados: int = 0
     bytes_recuperables: int = 0
     descripcion: str = ""
-    created_at: datetime | None = None
+    created_at: UTCResponseDateTime | None = None
 
 
 class LoteCompactableResponse(BaseModel):
@@ -72,8 +72,8 @@ class LoteCompactableResponse(BaseModel):
     total_grupos: int
     filas_persistidas: int
     bytes_recuperables: int
-    created_at: datetime
-    finished_at: datetime | None = None
+    created_at: UTCResponseDateTime
+    finished_at: UTCResponseDateTime | None = None
 
 
 class CrearExportacionAlmacenamientoRequest(BaseModel):
@@ -94,9 +94,9 @@ class ExportacionAlmacenamientoResponse(BaseModel):
     archivo_nombre: str
     checksum_sha256: str
     size_bytes: int
-    created_at: datetime
-    downloaded_at: datetime | None = None
-    released_at: datetime | None = None
+    created_at: UTCResponseDateTime
+    downloaded_at: UTCResponseDateTime | None = None
+    released_at: UTCResponseDateTime | None = None
     manifest: dict
 
 
