@@ -4,13 +4,13 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-Versión publicada más reciente: `v0.3.6`
+Versión publicada más reciente: `v0.3.7`
 
-[GitHub Release v0.3.6](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.6)
+[GitHub Release v0.3.7](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.7)
 
-`v0.3.6` incorpora prevención de duplicados en lotes, evidencia comprensible y
-aceptación explícita de excepciones, con revalidación antes de emitir. El tag
-inmutable apunta a `629174b188a93abf98fd081bbcad43d65ba54306`; la publicación
+`v0.3.7` reúne reintentos seguros, condición IVA compatible, hora argentina,
+guardado posterior a CAE y mantenimiento de dependencias y documentación.
+El tag inmutable apunta a `83bbc5450bd4fec5acf83ac510a9637984a50097`; la publicación
 no determina ni modifica el estado desplegado.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers

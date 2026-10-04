@@ -20,8 +20,8 @@ Reglas vigentes desde 2026-05-22:
 
 ## [0.3.7] — 2026-10-04
 
-El corte reúne el mantenimiento aceptado desde `v0.3.6`. Su publicación y
-evidencia se registran en el [dossier](docs/project/releases/v0.3.7-candidate.md).
+Publicado como `v0.3.7`, el corte reúne el mantenimiento aceptado desde `v0.3.6`.
+Su evidencia se registra en el [dossier](docs/project/releases/v0.3.7-candidate.md).
 
 ### Herramientas Python y auditoría completa
 
