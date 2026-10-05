@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 04/10/2026
+Última revisión: 05/10/2026
 
 Estado: VIGENTE.
 
@@ -44,7 +44,8 @@ separadas:
 - **PF-03/PF-04/PF-14:** capacidad de persistencia fiscal fiel en todos sus
   consumidores, incluidos importación, duplicados y recuperación.
   Conservar precisión PF-03B, snapshots y estados inciertos; no fusionar historia
-  ni imponer límites silenciosos.
+  ni imponer límites silenciosos. Representación, consumidores y transición en
+  el [contrato de persistencia fiel](docs/agents/pf-03-04-14-persistencia-fiel-design.md).
 - **PF-03/PF-04/PF-17:** corregir bases de IVA y presentación/agregación de
   monedas desde hechos conservados. Cerrar autoridad funcional de agrupación o
   conversión histórica; no depende de PF-05 ni del dashboard futuro.

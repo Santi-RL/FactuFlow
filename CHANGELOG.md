@@ -18,6 +18,15 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Documentación y preparación de persistencia
+
+- Registrada la aceptación manual general de v0.3.7 informada por el usuario,
+  que permite reanudar el roadmap sin declarar corregidos sus hallazgos pendientes.
+- Definido el [contrato de persistencia fiel A-01](docs/agents/pf-03-04-14-persistencia-fiel-design.md),
+  con representación decimal por motor, capacidad auxiliar, consumidores,
+  preservación del legado y downgrade sin pérdida. Sus ensayos son preparatorios;
+  no se cambiaron runtime, esquema ni versión y A-01 sigue abierto.
+
 ## [0.3.7] — 2026-10-04
 
 Publicado como `v0.3.7`, el corte reúne el mantenimiento aceptado desde `v0.3.6`.

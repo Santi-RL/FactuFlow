@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 03/10/2026
+Última revisión: 05/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -65,6 +65,11 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - `production-workflow.md` sólo con autorización productiva.
 
 ## Diseños activos
+
+- PF-03/PF-04/PF-14, puerta previa A-01:
+  [persistencia fiscal fiel](pf-03-04-14-persistencia-fiel-design.md).
+  Define representación, agregados, consumidores y migración; los ensayos son
+  preparatorios y la implementación integrada permanece pendiente.
 
 - PF-03/PF-04/PF-14: [asociación administrativa del receptor](pf-03-04-14-asociacion-cliente.md).
   Define el vínculo opcional sin alterar el snapshot fiscal; capacidad A-01

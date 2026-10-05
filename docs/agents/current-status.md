@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 04/10/2026
+Última revisión: 05/10/2026
 
 Estado: VIGENTE.
 
@@ -161,8 +161,16 @@ en el plano de control. Una publicación o despliegue no inicia la siguiente uni
 
 `v0.3.7` reúne el mantenimiento aceptado y sus dependencias corregidas. El
 [dossier](../project/releases/v0.3.7-candidate.md) acredita publicación y
-validaciones del corte. El usuario realizará su revisión manual después del
-despliegue; el desarrollo de A01/A03 y las unidades siguientes espera esa revisión.
+validaciones del corte. El usuario informó que su revisión manual fue
+satisfactoria y autorizó continuar. Esa aceptación levanta la espera de revisión;
+no cierra los hallazgos fiscales pendientes.
+
+La preparación A-01 tiene un
+[contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md) y
+[ensayos sintéticos](../project/analysis/a01-validacion-representacion-2026-10.md).
+La implementación y matriz integrada siguen pendientes. El siguiente corte debe
+consumir ese contrato sin límites arbitrarios ni cambios de PF-03B, historia,
+idempotencia o incertidumbre.
 
 Para continuar desarrollo:
 
