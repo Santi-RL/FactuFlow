@@ -10,6 +10,17 @@ prioridades, estado de releases ni estado productivo.
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`.
 
+## Representación fiscal compartida
+
+PF-03B conserva la autoridad del cálculo. `core/fiscal_storage.py` adapta
+`Decimal` e enteros exactos a ambos motores: texto compacto en campos variables,
+`NUMERIC` sin typmod en importes PostgreSQL y agregado explícito en SQLite.
+Todas las conexiones registran comparación y suma exactas. La búsqueda de
+cotización usa una clave fija y valida luego el dato fiscal, sin sustituir
+huellas históricas. Alembic y los paquetes de traslado conservan lectores de
+origen congelados; el [contrato A-01](pf-03-04-14-persistencia-fiel-design.md)
+explica transición y recuperación.
+
 ## Producto
 
 FactuFlow es una aplicación de facturación electrónica ARCA para personal

@@ -1,3 +1,8 @@
+import {
+  formatearDecimalFiscal,
+  type FiscalDecimal,
+} from "@/utils/fiscal-decimal";
+
 /**
  * Composable para formateo de datos
  */
@@ -72,12 +77,11 @@ export const formatearFecha = (fecha: string | Date): string => {
 /**
  * Formatea un valor como moneda argentina (ARS)
  */
-export const formatearMoneda = (valor: number): string => {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    minimumFractionDigits: 2,
-  }).format(valor);
+export const formatearMoneda = (valor: FiscalDecimal): string => {
+  const formatted = formatearDecimalFiscal(valor, 2);
+  return formatted.startsWith("-")
+    ? `-$\u00a0${formatted.slice(1)}`
+    : `$\u00a0${formatted}`;
 };
 
 /**

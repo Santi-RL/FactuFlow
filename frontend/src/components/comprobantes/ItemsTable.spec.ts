@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ItemComprobante } from "@/types/comprobante";
+import type { EditableItemComprobante as ItemComprobante } from "@/types/comprobante";
 import ItemsTable from "./ItemsTable.vue";
 
 vi.mock("@/composables/useNotification", () => ({

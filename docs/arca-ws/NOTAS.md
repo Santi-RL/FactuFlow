@@ -4,6 +4,15 @@
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
+## Representación interna A-01
+
+El almacenamiento conserva los decimales finitos admitidos y los resultados
+calculados por PF-03B. La preparación común comprueba encodabilidad antes de
+CAE; no modifica SOAP, solicitudes congeladas, CAE, huellas ni reservas. El QR
+serializa importe y cotización como números JSON exactos sin pasar por float.
+Fallas posteriores al envío conservan reconciliación. Consultar el
+[contrato A-01](../agents/pf-03-04-14-persistencia-fiel-design.md).
+
 ## Homologación - checklist operativo real
 
 1. Adherir `WSASS - Autogestion Certificados Homologacion`

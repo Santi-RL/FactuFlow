@@ -23,6 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, ORMExecuteState, Session
 from sqlalchemy.pool import Pool
 
 from app.core.config import settings
+from app.core import fiscal_storage  # noqa: F401 - registra adaptadores en todo Engine
 
 logger = logging.getLogger(__name__)
 

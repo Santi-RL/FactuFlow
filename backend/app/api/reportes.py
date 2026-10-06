@@ -1,6 +1,8 @@
 """API endpoints para reportes."""
 
 from datetime import date
+from decimal import Decimal
+from app.core.fiscal_storage import sum_decimals
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -114,6 +116,9 @@ async def reporte_clientes(
         )
         return {
             "clientes": ranking,
+            "total_general": str(
+                sum_decimals(Decimal(item["total_facturado"]) for item in ranking)
+            ),
             "periodo": {"desde": desde.isoformat(), "hasta": hasta.isoformat()},
         }
     except Exception as e:

@@ -7,6 +7,7 @@ from unittest.mock import Mock
 from datetime import date
 from types import SimpleNamespace
 from io import BytesIO
+from decimal import Decimal, localcontext
 
 from pypdf import PdfReader
 from weasyprint import HTML
@@ -97,6 +98,48 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
 
 class TestPDFService:
     """Tests para PDFService."""
+
+    @pytest.mark.parametrize("value", ["1.2300E200000", "1.2300E-200000"])
+    def test_exponente_pdf_conserva_ceros_del_exponente(self, pdf_service, value):
+        number = Decimal(value)
+        assert pdf_service._format_cantidad_ar(number) == str(number).replace(".", ",")
+
+    async def test_pdf_y_qr_preservan_decimales_ampliados(
+        self, pdf_service, comprobante_mock, empresa_mock
+    ):
+        comprobante_mock.total = Decimal("9007199254740992.01")
+        comprobante_mock.cotizacion = Decimal("1.1234567890123456789012345678")
+        comprobante_mock.items = [
+            SimpleNamespace(
+                codigo="S" * 101,
+                descripcion="Detalle sintético ampliado",
+                cantidad=Decimal("1.00005"),
+                unidad="unidades",
+                precio_unitario=Decimal("0.1234567890123456789012345678"),
+                descuento_porcentaje=Decimal("0.00123"),
+                subtotal=Decimal("0.12"),
+            )
+        ]
+        url = pdf_service._generar_qr_url_arca(comprobante_mock)
+        payload = json.loads(base64.b64decode(url.split("?p=")[1]), parse_float=Decimal)
+        assert payload["importe"] == comprobante_mock.total
+        assert payload["ctz"] == comprobante_mock.cotizacion
+        with localcontext() as context:
+            context.prec = 8
+            assert (
+                pdf_service._format_cantidad_ar(
+                    comprobante_mock.items[0].precio_unitario
+                )
+                == "0,1234567890123456789012345678"
+            )
+        pdf = await pdf_service.generar_pdf_comprobante(comprobante_mock, empresa_mock)
+        rendered = "\n".join(
+            page.extract_text() for page in PdfReader(BytesIO(pdf)).pages
+        )
+        assert "1,00005" in rendered
+        assert "0,1234567890123456789012345678" in rendered
+        assert "0,00123" in rendered
+        assert "9.007.199.254.740.992,01" in rendered
 
     def test_get_letra_comprobante_a(self, pdf_service):
         """Debe retornar 'A' para facturas tipo A."""

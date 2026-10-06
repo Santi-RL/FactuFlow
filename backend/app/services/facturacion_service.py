@@ -32,6 +32,7 @@ from app.core.condicion_iva_receptor import (
     resolver_condicion_iva_receptor_id,
 )
 from app.core.comprobante_totales import calcular_totales
+from app.core.fiscal_storage import persisted_item_subtotal, validate_storage_request
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
@@ -2165,6 +2166,10 @@ class FacturacionService:
         Raises:
             ValidationError: Si hay error de validación
         """
+        try:
+            validate_storage_request(request)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
         self._obtener_condicion_iva_receptor_id(
             request.condicion_iva, request.tipo_comprobante
         )
@@ -4291,12 +4296,6 @@ class FacturacionService:
 
         # Crear items
         for idx, item_data in enumerate(request.items):
-            # Calcular subtotal del item
-            item_subtotal = item_data.cantidad * item_data.precio_unitario
-            if item_data.descuento_porcentaje > 0:
-                descuento = item_subtotal * (item_data.descuento_porcentaje / 100)
-                item_subtotal -= descuento
-
             item = ComprobanteItem(
                 codigo=item_data.codigo,
                 descripcion=item_data.descripcion,
@@ -4305,7 +4304,7 @@ class FacturacionService:
                 precio_unitario=item_data.precio_unitario,
                 descuento_porcentaje=item_data.descuento_porcentaje,
                 iva_porcentaje=item_data.iva_porcentaje,
-                subtotal=item_subtotal.quantize(Decimal("0.01")),
+                subtotal=persisted_item_subtotal(item_data),
                 orden=item_data.orden if item_data.orden > 0 else idx,
                 comprobante_id=comprobante.id,
             )

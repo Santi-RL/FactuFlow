@@ -8,13 +8,13 @@ from sqlalchemy import (
     String,
     Date,
     DateTime,
-    Numeric,
     ForeignKey,
     Index,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
+from app.core.fiscal_storage import ExactAmount, ExactDecimal
 from app.core.database import Base
 
 ESTADO_COMPROBANTE_AUTORIZADO = "autorizado"
@@ -82,13 +82,13 @@ class Comprobante(Base):
     fecha_vto_pago = Column(Date, nullable=True)
 
     # Importes
-    subtotal = Column(Numeric(12, 2), nullable=False)
-    descuento = Column(Numeric(12, 2), default=0, nullable=False)
-    iva_21 = Column(Numeric(12, 2), default=0, nullable=False)
-    iva_10_5 = Column(Numeric(12, 2), default=0, nullable=False)
-    iva_27 = Column(Numeric(12, 2), default=0, nullable=False)
-    otros_impuestos = Column(Numeric(12, 2), default=0, nullable=False)
-    total = Column(Numeric(12, 2), nullable=False)
+    subtotal = Column(ExactAmount(), nullable=False)
+    descuento = Column(ExactAmount(), default=0, nullable=False)
+    iva_21 = Column(ExactAmount(), default=0, nullable=False)
+    iva_10_5 = Column(ExactAmount(), default=0, nullable=False)
+    iva_27 = Column(ExactAmount(), default=0, nullable=False)
+    otros_impuestos = Column(ExactAmount(), default=0, nullable=False)
+    total = Column(ExactAmount(), nullable=False)
 
     # ARCA
     cae = Column(String(14), nullable=True)  # Nullable hasta autorizado
@@ -100,7 +100,7 @@ class Comprobante(Base):
 
     # Datos adicionales
     moneda = Column(String(3), default="PES", nullable=False)
-    cotizacion = Column(Numeric(10, 6), default=1, nullable=False)
+    cotizacion = Column(ExactDecimal(), default=1, nullable=False)
     observaciones = Column(String(500), nullable=True)
 
     # Relaciones

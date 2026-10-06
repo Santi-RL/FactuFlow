@@ -1696,6 +1696,7 @@ async def test_duplicados_v2_backfill_real_habilita_parcial_por_receptor(
         )
         conn.commit()
 
+    _run_alembic("upgrade", "b2c3d4e5f6a7", database_url)
     async_engine = create_async_engine(
         f"sqlite+aiosqlite:///{db_path.resolve().as_posix()}",
         future=True,

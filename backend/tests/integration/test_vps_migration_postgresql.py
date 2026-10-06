@@ -14,7 +14,9 @@ from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.core.database import Base
+from tests.fiscal_legacy_schema import legacy_metadata
 from app.scripts import vps_migration, vps_migration_v3, vps_migration_v4
+from app.core.fiscal_storage_legacy import A01_HEAD
 from tests.integration.test_integridad_fiscal_postgresql import (
     _postgres_url,
     _reset_schema,
@@ -52,6 +54,84 @@ async def _preparar_destino_vps(database_url: str) -> AsyncEngine:
     return create_async_engine(database_url)
 
 
+@pytest.mark.integration
+async def test_postgresql_v5_datos_ampliados_roundtrip(tmp_path: Path) -> None:
+    database_url = _postgres_url()
+    source, certs = _create_source_db(tmp_path, fiscal_head=True)
+    source_engine = create_engine(f"sqlite:///{source}")
+    with source_engine.begin() as connection:
+        connection.execute(
+            Base.metadata.tables["comprobante_items"]
+            .update()
+            .values(
+                codigo="S" * 101,
+                cantidad=Decimal("1.00005"),
+                precio_unitario=Decimal("0.1234567890123456789012345678"),
+                descuento_porcentaje=Decimal("0.00123"),
+            )
+        )
+        connection.execute(
+            Base.metadata.tables["comprobantes"]
+            .update()
+            .values(
+                cotizacion=Decimal("1E200000"), total=Decimal("9007199254740992.01")
+            )
+        )
+    source_engine.dispose()
+    package = vps_migration.export_package(
+        source,
+        certs,
+        tmp_path / "packages-v5",
+        "clave-destino-larga",
+        source_quiesced=True,
+    )
+    manifest = vps_migration.load_and_verify_manifest(package)
+    assert manifest["package_version"] == 5
+    assert manifest["alembic_version"] == A01_HEAD
+    env_path = tmp_path / ".env.production"
+    _write_production_env(env_path)
+    target_certs = tmp_path / "target-certs"
+    engine = await _preparar_destino_vps(database_url)
+    await engine.dispose()
+    await _importar_paquete(
+        package=package,
+        database_url=database_url,
+        env_path=env_path,
+        target_certs=target_certs,
+    )
+    await _validar_paquete(
+        package=package,
+        database_url=database_url,
+        env_path=env_path,
+        target_certs=target_certs,
+    )
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            item = (
+                (
+                    await connection.execute(
+                        select(Base.metadata.tables["comprobante_items"])
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            receipt = (
+                (await connection.execute(select(Base.metadata.tables["comprobantes"])))
+                .mappings()
+                .one()
+            )
+            assert item["cantidad"] == Decimal("1.00005")
+            assert item["precio_unitario"] == Decimal("0.1234567890123456789012345678")
+            assert item["descuento_porcentaje"] == Decimal("0.00123")
+            assert item["codigo"] == "S" * 101
+            assert receipt["cotizacion"] == Decimal("1E200000")
+            assert receipt["total"] == Decimal("9007199254740992.01")
+    finally:
+        await engine.dispose()
+
+
 def _exportar_paquete_terminal(tmp_path: Path) -> Path:
     """Exporta replay legacy y su evidencia terminal individual real."""
     db_path, certs_dir = _create_source_db(tmp_path)
@@ -87,9 +167,10 @@ def _crear_fuente_v4_pf13(tmp_path: Path) -> tuple[Path, Path]:
         vps_migration_v4.INCLUDED_TABLES,
     )
     source_path = tmp_path / "source-v4.db"
+    source_metadata = legacy_metadata()
     engine = create_engine(f"sqlite:///{source_path}", future=True)
     try:
-        Base.metadata.create_all(engine)
+        source_metadata.create_all(engine)
         with engine.begin() as connection:
             connection.execute(
                 text("CREATE TABLE alembic_version (version_num VARCHAR(32))")
@@ -110,7 +191,9 @@ def _crear_fuente_v4_pf13(tmp_path: Path) -> tuple[Path, Path]:
                         for row in rows
                     ]
                 if rows:
-                    connection.execute(Base.metadata.tables[table_name].insert(), rows)
+                    connection.execute(
+                        source_metadata.tables[table_name].insert(), rows
+                    )
             vps_migration.restore_deferred_columns(
                 connection,
                 package_rows,
@@ -123,16 +206,16 @@ def _crear_fuente_v4_pf13(tmp_path: Path) -> tuple[Path, Path]:
                 "archivo_hash": "3" * 64,
             }
             connection.execute(
-                Base.metadata.tables["lotes_comprobantes"].insert(), omitted_lote
+                source_metadata.tables["lotes_comprobantes"].insert(), omitted_lote
             )
             connection.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                source_metadata.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(source_metadata.tables["operaciones_idempotentes"].c.id == 140)
                 .values(lote_id=130)
             )
             connection.execute(
-                Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+                source_metadata.tables["lotes_duplicados_coordinacion"].insert(),
                 [
                     {"empresa_id": 10, "ambiente": "homologacion", "revision": 9},
                     {"empresa_id": 10, "ambiente": "produccion", "revision": 7},

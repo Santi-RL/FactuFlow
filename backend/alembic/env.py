@@ -68,6 +68,35 @@ def run_migrations_offline() -> None:
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations with the given connection."""
+    if connection.dialect.name == "sqlite":
+        # La reconstrucción fiscal cruza FKs y ciclos reales. BEGIN explícito
+        # incluye DDL y datos en una sola unidad; PRAGMA queda fuera de ella.
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        connection.commit()
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
+        try:
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                compare_type=True,
+                transactional_ddl=True,
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+        finally:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
+            if connection.exec_driver_sql("PRAGMA foreign_keys").scalar() != 1:
+                raise RuntimeError(
+                    "Alembic no pudo restaurar las claves foráneas SQLite"
+                )
+        return
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

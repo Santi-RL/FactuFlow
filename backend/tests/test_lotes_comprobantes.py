@@ -6140,10 +6140,10 @@ async def test_obtener_resumen_y_grupos_paginados_lote(
     assert resumen_data["puntos_venta_validos"] == [1]
     assert resumen_data["totales_listos_para_emitir"] == {
         "comprobantes": 2,
-        "neto": 2000,
-        "iva21": 420,
-        "iva105": 0,
-        "total": 2420,
+        "neto": "2000.00",
+        "iva21": "420.00",
+        "iva105": "0.00",
+        "total": "2420.00",
         "valores_invalidos": 0,
     }
 

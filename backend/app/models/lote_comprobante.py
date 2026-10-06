@@ -13,8 +13,6 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
-    BigInteger,
-    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -22,6 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from app.core.fiscal_storage import ExactAmount, ExactInteger, quotation_search_default
 from app.core.database import Base
 
 
@@ -199,7 +198,7 @@ class LoteComprobanteGrupo(Base):
             "punto_venta_numero",
             "fecha_emision_normalizada",
             "moneda_duplicados",
-            "cotizacion_duplicados",
+            "cotizacion_busqueda",
             "total_centavos",
             "identidad_nombre_hash",
         ),
@@ -211,7 +210,7 @@ class LoteComprobanteGrupo(Base):
             "punto_venta_numero",
             "fecha_emision_normalizada",
             "moneda_duplicados",
-            "cotizacion_duplicados",
+            "cotizacion_busqueda",
             "total_centavos",
             "identidad_documento_hash",
         ),
@@ -236,7 +235,7 @@ class LoteComprobanteGrupo(Base):
     punto_venta_numero = Column(Integer, nullable=True)
     cliente_documento = Column(String(20), nullable=True)
     cliente_razon_social = Column(String(255), nullable=True)
-    total_estimado = Column(Numeric(12, 2), nullable=False, default=0)
+    total_estimado = Column(ExactAmount(), nullable=False, default=0)
     payload_json = Column(JSON, nullable=True)
     duplicados_version = Column(String(30), nullable=True)
     duplicados_cobertura = Column(String(30), nullable=True)
@@ -248,8 +247,11 @@ class LoteComprobanteGrupo(Base):
     identidad_numero_documento_original = Column(String(20), nullable=True)
     fecha_emision_normalizada = Column(Date, nullable=True)
     moneda_duplicados = Column(String(3), nullable=True)
-    cotizacion_duplicados = Column(String(100), nullable=True)
-    total_centavos = Column(BigInteger, nullable=True)
+    cotizacion_duplicados = Column(Text, nullable=True)
+    cotizacion_busqueda = Column(
+        String(64), nullable=True, default=quotation_search_default
+    )
+    total_centavos = Column(ExactInteger(), nullable=True)
     duplicados_reserva_operacion_id = Column(
         Integer,
         nullable=True,

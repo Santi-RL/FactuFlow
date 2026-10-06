@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { decimalEsPositivo, type FiscalDecimal } from "@/utils/fiscal-decimal";
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
@@ -25,7 +26,7 @@ import {
 } from "@/utils/comprobante-items";
 import { condicionIvaReceptorValida } from "@/utils/condicion-iva-receptor";
 import type {
-  ItemComprobante,
+  EditableItemComprobante as ItemComprobante,
   EmitirComprobanteRequest,
   EmitirComprobanteResponse,
   ProximoNumeroResponse,
@@ -46,7 +47,7 @@ interface OperacionInciertaEmision {
   readonly respuesta: EmitirComprobanteResponse;
   readonly puntoVentaNumero: number;
   readonly numeroPlanificado: number | null;
-  readonly totalPlanificado: number;
+  readonly totalPlanificado: FiscalDecimal;
 }
 
 const router = useRouter();
@@ -220,7 +221,7 @@ const normalizarRespuestaReconciliacion = (
   request: EmitirComprobanteRequest,
   puntoVentaNumero: number,
   numeroPlanificado: number | null,
-  totalPlanificado: number,
+  totalPlanificado: FiscalDecimal,
 ): EmitirComprobanteResponse | null => {
   if (
     !esRegistroDesconocido(detail) ||
@@ -268,7 +269,11 @@ const normalizarRespuestaReconciliacion = (
         : request.fecha_emision,
     cae,
     cae_vencimiento: caeVencimiento,
-    total: numeroSeguro(detail.total, totalPlanificado),
+    total: typeof detail.total === "string" && /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(detail.total)
+      ? detail.total
+      : typeof detail.total === "number" && Number.isFinite(detail.total)
+        ? detail.total
+        : totalPlanificado,
     mensaje:
       "FactuFlow no puede confirmar todavía el resultado fiscal de esta operación.",
     errores: [
@@ -294,7 +299,7 @@ const registrarOperacionIncierta = (
     (respuesta.numero > 0 ? respuesta.numero : proximoNumero.value);
   const totalPlanificado =
     operacionPrevia?.totalPlanificado ??
-    (respuesta.total > 0 ? respuesta.total : totales.value.total);
+    (decimalEsPositivo(respuesta.total) ? respuesta.total : totales.value.total);
 
   operacionIncierta.value = Object.freeze({
     idempotencyKey: operacionPrevia?.idempotencyKey ?? idempotencyKey,

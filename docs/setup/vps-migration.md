@@ -1,6 +1,6 @@
 # Migración local a VPS
 
-Última actualización: 2026-09-05
+Última actualización: 2026-10-05
 
 Estado: referencia técnica reutilizable. No describe el estado desplegado de
 ninguna instalación.
@@ -16,6 +16,19 @@ ensayos controlados autorizados.
 La primera restauración debe ensayarse en PostgreSQL local o en un entorno de
 prueba descartable. No se solicita CAE, no se emite ningún comprobante y no se
 hacen llamadas ARCA durante la exportación o importación.
+
+## Actualización del esquema fiscal A-01
+
+Alembic `b2c3d4e5f6a7` actualiza una instalación existente sin repetir un traslado.
+Detener API/worker durante el cambio y recrear conexiones antes de reabrir, para
+retirar prepared statements con tipos antiguos. SQLite reconstruye las tablas
+en una transacción y restaura claves foráneas; PostgreSQL conserva la escala
+histórica antes de ampliar los tipos.
+
+Un downgrade comprueba todos los valores antes del DDL. Si pierde precisión,
+capacidad de código o centavos, aborta sin modificar esquema ni datos. Preferir
+corrección hacia adelante; restaurar datos exige una decisión explícita y revisar
+escrituras posteriores. Consultar el [contrato A-01](../agents/pf-03-04-14-persistencia-fiel-design.md).
 
 ## Alcance migrado
 
@@ -42,7 +55,7 @@ Quedan fuera del paquete:
 - eventos de sistema y exportaciones de almacenamiento
 - PDFs, XLSX, observados, temporales, cachés, logs y evidencia privada
 
-El paquete v4 conserva el scope `operacion_futura_con_comprobantes`. Las filas
+Los paquetes v4/v5 conservan el scope `operacion_futura_con_comprobantes`. Las filas
 excluidas sólo pueden omitirse cuando el preflight demuestra que no contienen
 estado no terminal, incierto, contradictorio ni necesario para continuar una
 operación. Cualquier caso dudoso bloquea la exportación.
@@ -86,32 +99,41 @@ Subcomandos disponibles:
 - `preflight`: valida SQLite local, Alembic head, tablas esperadas, barrera de
   idempotencia, elegibilidad RECE, operaciones y certificados activos.
 - `export`: genera un paquete privado en `.tmp/vps-migration/<timestamp>/`.
-- `import`: restaura un paquete v4, o adapta un v3 conocido mediante su contrato
-  estricto, sobre PostgreSQL limpio ya migrado con Alembic y bajo locks de tablas.
+- `import`: restaura v5 o adapta v3/v4 conocidos mediante sus contratos
+  congelados, sobre PostgreSQL limpio en el head ampliado y bajo locks de tablas.
 - `validate`: compara manifest, datos, relaciones y disponibilidad básica; es
   obligatorio antes de operar.
 
 ## Preflight local
 
-Ejecutar desde el repo:
+La SQLite fuente debe estar en A-01 (`b2c3d4e5f6a7`) para exportar v5. Si todavía
+debe cruzar PF-19B, seguir primero el procedimiento de backup de
+[`docs/setup/README.md`](README.md): llegar a `a8b9c0d1e2f3`, crear y verificar un
+backup físico distinto, y declarar `PF19B_SQLITE_BACKUP_CONFIRMED=1` y
+`PF19B_SQLITE_BACKUP_PATH` durante el upgrade. Si ese DDL falla, restaurar el
+backup antes de reintentar. Completar después la cadena hasta A-01:
 
 ```powershell
 cd backend
+.\.venv\Scripts\alembic.exe upgrade b2c3d4e5f6a7
+```
+
+Como compatibilidad, una fuente que ya esté en `a1b2c3d4e5f6` puede ejecutar el
+preflight y exportar v4 sin aplicar A-01. No basta con detenerse en PF-19B ni en
+`a8b9c0d1e2f3`: sólo esos dos heads de paquete están admitidos.
+
+Con la fuente en uno de los heads admitidos, ejecutar desde `backend/`:
+
+```powershell
 .\.venv\Scripts\python.exe -m app.scripts.vps_migration preflight
 ```
 
 La fuente predeterminada es `backend/data/factuflow.db` y `CERTS_PATH` se
 resuelve como `backend/certs` si no se configura otra ruta.
 
-La SQLite fuente debe llegar al head PF-19B mediante el procedimiento de backup
-de `docs/setup/README.md`: primero revisión `a8b9c0d1e2f3`, luego backup físico
-distinto y verificado, y recién entonces upgrade con
-`PF19B_SQLITE_BACKUP_CONFIRMED=1` y `PF19B_SQLITE_BACKUP_PATH`. Si el DDL falla,
-restaurar ese backup antes de reintentar.
-
 El preflight debe bloquear si:
 
-- la SQLite no existe o no está en el head Alembic vigente
+- la SQLite no existe o no está en uno de los heads de paquete admitidos
 - faltan tablas esperadas
 - existe un certificado activo sin `.crt` y `.key` resolubles dentro de
   `CERTS_PATH`
@@ -160,7 +182,8 @@ $env:ARCA_MIGRATION_SOURCE_KEY_PASSWORD="<clave-local-actual>"
 
 El paquete generado incluye:
 
-- `manifest.json` versión `4` con scope exacto, Alembic head, conteos, hashes,
+- `manifest.json` versión `5` para origen A-01 (`b2c3d4e5f6a7`) o versión `4`
+  para origen anterior (`a1b2c3d4e5f6`), con scope exacto, Alembic head, conteos, hashes,
   rutas y shapes, distinguiendo tablas completas, filtradas, regeneradas y
   excluidas; incluye la selección verificable de raíces y relaciones PF-13
 - `data/*.jsonl` con filas exportadas por tabla
@@ -172,7 +195,11 @@ a servicios externos.
 
 El importador rechaza paquetes anteriores a v3 porque no pueden preservar los
 accesos explícitos. Deben regenerarse desde la fuente con la versión vigente.
-El exportador genera sólo v4. Cada versión admitida valida de forma estricta
+El exportador selecciona v4 para origen `a1b2c3d4e5f6` y v5 para
+`b2c3d4e5f6a7`. v5 conserva decimales compactos exactos y la clave física de
+búsqueda de cotización. v3/v4 mantienen descriptores, lectura, manifest y hashes
+congelados; el destino A-01 deriva únicamente la clave física necesaria.
+Cada versión admitida valida de forma estricta
 hashes, conteos, rutas, shapes, FKs, asignaciones multiemisor y barrera de
 idempotencia. Un v3 usa su schema, partición y head conocidos; no adopta las
 columnas actuales del ORM ni acepta variantes arbitrarias. El adaptador agrega

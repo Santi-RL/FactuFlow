@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 04/10/2026
+Última revisión: 05/10/2026
 
 Estado: VIGENTE.
 
@@ -25,7 +25,6 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-03/PF-04/PF-14, capacidad de persistencia | Puerta previa | P1 fiscal | Datos admitidos persistibles fielmente sin límites silenciosos ni pérdida de precisión | [Auditoría A-01](../project/analysis/auditoria-integral-2026-10.md); preservar historia y recuperación; asociación A-02 cerrada por su contrato |
 | PF-03/PF-04/PF-17, lecturas actuales | Puerta previa | P1 | Bases de IVA correctas y moneda explícita en detalle, ventas, IVA y ranking | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md); autoridad de agrupación/conversión por cerrar; sin dependencia PF-05 |
 | PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
 | PF-03/PF-13, admisibilidad y revisión | Ahora 2 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
@@ -208,7 +207,6 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
-| Capacidad y precisión de persistencia | [Auditoría A-01](../project/analysis/auditoria-integral-2026-10.md): representación decimal, capacidad de DB, agregados, índices y consumidores; cerrar migración/compatibilidad sin alterar historia y conservar el [contrato de asociación A-02](pf-03-04-14-asociacion-cliente.md) ya estabilizado. |
 | Lecturas fiscales actuales | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md): bases desde evidencia conservada y política funcional de moneda; separar corrección actual de nuevas categorías o importación externa. |
 | Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
 | Admisibilidad, revisión y categorías | [Importes](pf-03-04-importes-previsualizacion-design.md): separar P1 de ampliación P2, contrato de preparación, tasas efectivas, lectura legacy y precisión inmutable. |
@@ -275,6 +273,11 @@ del constructor.
 
 ## Líneas cerradas
 
+La capacidad A-01 está implementada mediante el [contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md):
+representación exacta, migración en ambos motores y consumidores integrados, con
+historia e incertidumbre intactas. Bases IVA y moneda A-03 conservan su unidad
+abierta. El [dossier](../project/analysis/a01-persistencia-fiscal-fiel.md) conserva la evidencia.
+
 La cadena vulnerable de construcción frontend se retiró con Tailwind 4.3.3.
 El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
 conserva estilos y foco y acepta Firefox 128+. Las herramientas del backend
@@ -284,8 +287,8 @@ evolución de calidad PF-16 ni acreditan una instalación productiva.
 
 La asociación administrativa A-02 tiene un
 [contrato compartido](pf-03-04-14-asociacion-cliente.md): ambigüedad conserva
-snapshot y autorización sin una ficha arbitraria. No cierra capacidad A-01
-ni todas las fallas posibles de creación administrativa.
+snapshot y autorización sin una ficha arbitraria. No cierra todas las fallas
+posibles de creación administrativa.
 
 El contrato de [instantes operativos](pf-12-15-17-tiempo-operativo.md) comunica
 UTC explícito y muestra hora argentina con compatibilidad para sus campos

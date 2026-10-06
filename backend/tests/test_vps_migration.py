@@ -22,9 +22,12 @@ from sqlalchemy import create_engine, select, text
 
 from app.arca.crypto import load_private_key
 from app.core.database import Base
+from tests.fiscal_legacy_schema import legacy_metadata
+
 from app.schemas.lote_comprobante import LoteComprobanteResponse
 from app.scripts import vps_migration, vps_migration_v3, vps_migration_v4
 
+SOURCE_METADATA = legacy_metadata()
 _CERT_TEST_NOW = datetime.now().replace(microsecond=0)
 _CERT_TEST_NOT_BEFORE = _CERT_TEST_NOW - timedelta(days=30)
 _CERT_TEST_NOT_AFTER = _CERT_TEST_NOW + timedelta(days=3650)
@@ -75,7 +78,9 @@ def _write_certificate_pair(
     )
 
 
-def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
+def _create_source_db(
+    tmp_path: Path, *, fiscal_head: bool = False
+) -> tuple[Path, Path]:
     """Crea una SQLite fuente con datos sintéticos de operación futura."""
     db_path = tmp_path / "factuflow.db"
     certs_dir = tmp_path / "certs"
@@ -89,15 +94,22 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
     )
 
     engine = create_engine(f"sqlite:///{db_path}", future=True)
-    Base.metadata.create_all(engine)
+    source_metadata = Base.metadata if fiscal_head else SOURCE_METADATA
+    source_metadata.create_all(engine)
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
         conn.execute(
             text("INSERT INTO alembic_version (version_num) VALUES (:version)"),
-            {"version": vps_migration.get_repo_alembic_head()},
+            {
+                "version": (
+                    vps_migration.get_repo_alembic_head()
+                    if fiscal_head
+                    else vps_migration_v4.ALEMBIC_HEAD
+                )
+            },
         )
         conn.execute(
-            Base.metadata.tables["empresas"].insert(),
+            source_metadata.tables["empresas"].insert(),
             {
                 "id": 10,
                 "razon_social": "Empresa Sintetica S.A.",
@@ -116,7 +128,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+            source_metadata.tables["lotes_duplicados_coordinacion"].insert(),
             [
                 {
                     "empresa_id": 10,
@@ -131,7 +143,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             ],
         )
         conn.execute(
-            Base.metadata.tables["usuarios"].insert(),
+            source_metadata.tables["usuarios"].insert(),
             {
                 "id": 20,
                 "email": "admin@example.com",
@@ -146,7 +158,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["usuario_emisor_acceso"].insert(),
+            source_metadata.tables["usuario_emisor_acceso"].insert(),
             {
                 "usuario_id": 20,
                 "empresa_id": 10,
@@ -156,7 +168,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["clientes"].insert(),
+            source_metadata.tables["clientes"].insert(),
             {
                 "id": 30,
                 "razon_social": "Cliente Sintetico",
@@ -170,7 +182,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["puntos_venta"].insert(),
+            source_metadata.tables["puntos_venta"].insert(),
             {
                 "id": 40,
                 "numero": 6,
@@ -185,7 +197,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
         )
         for revision_id, ambiente in ((41, "homologacion"), (42, "produccion")):
             conn.execute(
-                Base.metadata.tables[
+                source_metadata.tables[
                     "puntos_venta_elegibilidad_rece_revisiones"
                 ].insert(),
                 {
@@ -209,7 +221,9 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             (44, "produccion", 42),
         ):
             conn.execute(
-                Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"].insert(),
+                source_metadata.tables[
+                    "puntos_venta_elegibilidad_rece_actual"
+                ].insert(),
                 {
                     "id": head_id,
                     "empresa_id": 10,
@@ -221,7 +235,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
                 },
             )
         conn.execute(
-            Base.metadata.tables["certificados"].insert(),
+            source_metadata.tables["certificados"].insert(),
             {
                 "id": 50,
                 "nombre": "Certificado productivo",
@@ -238,7 +252,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["formatos_importacion"].insert(),
+            source_metadata.tables["formatos_importacion"].insert(),
             {
                 "id": 60,
                 "nombre": "Formato sintetico",
@@ -251,7 +265,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["formatos_importacion_versiones"].insert(),
+            source_metadata.tables["formatos_importacion_versiones"].insert(),
             {
                 "id": 70,
                 "version": 1,
@@ -263,7 +277,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["formatos_importacion_campos"].insert(),
+            source_metadata.tables["formatos_importacion_campos"].insert(),
             {
                 "id": 80,
                 "campo_destino": "fecha_emision",
@@ -275,7 +289,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["formatos_importacion_reglas"].insert(),
+            source_metadata.tables["formatos_importacion_reglas"].insert(),
             {
                 "id": 90,
                 "nombre": "Regla sintetica",
@@ -288,7 +302,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["perfiles_carga_masiva"].insert(),
+            source_metadata.tables["perfiles_carga_masiva"].insert(),
             {
                 "id": 100,
                 "nombre": "Perfil sintetico",
@@ -302,7 +316,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["comprobantes"].insert(),
+            source_metadata.tables["comprobantes"].insert(),
             {
                 "id": 110,
                 "tipo_comprobante": 6,
@@ -334,7 +348,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["comprobante_items"].insert(),
+            source_metadata.tables["comprobante_items"].insert(),
             {
                 "id": 120,
                 "descripcion": "Item sintetico",
@@ -349,7 +363,7 @@ def _create_source_db(tmp_path: Path) -> tuple[Path, Path]:
             },
         )
         conn.execute(
-            Base.metadata.tables["lotes_comprobantes"].insert(),
+            source_metadata.tables["lotes_comprobantes"].insert(),
             {
                 "id": 130,
                 "nombre_archivo": "privado.xlsx",
@@ -1891,7 +1905,7 @@ def test_captura_v4_selecciona_lotes_comparables_y_normaliza_solo_legacy(
     source_path = tmp_path / "source-v4.db"
     engine = create_engine(f"sqlite:///{source_path}", future=True)
     try:
-        Base.metadata.create_all(engine)
+        SOURCE_METADATA.create_all(engine)
         with engine.begin() as conn:
             conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
             conn.execute(
@@ -1907,7 +1921,9 @@ def test_captura_v4_selecciona_lotes_comparables_y_normaliza_solo_legacy(
                         for row in insert_rows
                     ]
                 if insert_rows:
-                    conn.execute(Base.metadata.tables[table_name].insert(), insert_rows)
+                    conn.execute(
+                        SOURCE_METADATA.tables[table_name].insert(), insert_rows
+                    )
             vps_migration.restore_deferred_columns(
                 conn,
                 package_rows,
@@ -1920,16 +1936,16 @@ def test_captura_v4_selecciona_lotes_comparables_y_normaliza_solo_legacy(
                 "archivo_hash": "3" * 64,
             }
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes"].insert(), omitted_lote
+                SOURCE_METADATA.tables["lotes_comprobantes"].insert(), omitted_lote
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(lote_id=130)
             )
             conn.execute(
-                Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+                SOURCE_METADATA.tables["lotes_duplicados_coordinacion"].insert(),
                 [
                     {"empresa_id": 10, "ambiente": "homologacion", "revision": 9},
                     {"empresa_id": 10, "ambiente": "produccion", "revision": 7},
@@ -3249,7 +3265,7 @@ def _insert_group_and_row(
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes_grupos"].insert(),
+                SOURCE_METADATA.tables["lotes_comprobantes_grupos"].insert(),
                 {
                     "id": 160,
                     "comprobante_ref": "VPS-1",
@@ -3286,7 +3302,7 @@ def _insert_group_and_row(
                 },
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes_filas"].insert(),
+                SOURCE_METADATA.tables["lotes_comprobantes_filas"].insert(),
                 {
                     "id": 161,
                     "fila_excel": 2,
@@ -3334,7 +3350,7 @@ def _insert_terminal_guard_context(db_path: Path, *, with_attempt: bool) -> None
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables[
+                SOURCE_METADATA.tables[
                     "puntos_venta_elegibilidad_rece_revisiones"
                 ].insert(),
                 {
@@ -3361,16 +3377,16 @@ def _insert_terminal_guard_context(db_path: Path, *, with_attempt: bool) -> None
                 },
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"]
+                SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"].c.id
                     == 44
                 )
                 .values(revision_actual_id=45)
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"].insert(),
+                SOURCE_METADATA.tables["operaciones_idempotentes"].insert(),
                 {
                     "id": 140,
                     "idempotency_key": "vps-guarda-terminal",
@@ -3400,7 +3416,7 @@ def _insert_terminal_guard_context(db_path: Path, *, with_attempt: bool) -> None
                 },
             )
             conn.execute(
-                Base.metadata.tables[
+                SOURCE_METADATA.tables[
                     "operaciones_idempotentes_elegibilidad_rece"
                 ].insert(),
                 {
@@ -3415,7 +3431,7 @@ def _insert_terminal_guard_context(db_path: Path, *, with_attempt: bool) -> None
                 },
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta_guardas_emision_rece"].insert(),
+                SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"].insert(),
                 {
                     "id": 142,
                     "token": "g" * 64,
@@ -3433,7 +3449,7 @@ def _insert_terminal_guard_context(db_path: Path, *, with_attempt: bool) -> None
             )
             if with_attempt:
                 conn.execute(
-                    Base.metadata.tables["intentos_emision_fiscal"].insert(),
+                    SOURCE_METADATA.tables["intentos_emision_fiscal"].insert(),
                     {
                         "id": 143,
                         "tipo_comprobante": 6,
@@ -3473,10 +3489,10 @@ def _authorize_terminal_guard_context(
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["puntos_venta_guardas_emision_rece"]
+                SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_guardas_emision_rece"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"].c.id
                     == 142
                 )
                 .values(
@@ -3486,9 +3502,9 @@ def _authorize_terminal_guard_context(
                 )
             )
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"]
+                SOURCE_METADATA.tables["intentos_emision_fiscal"]
                 .update()
-                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .where(SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143)
                 .values(
                     estado="autorizado",
                     comprobante_id=110,
@@ -3501,9 +3517,11 @@ def _authorize_terminal_guard_context(
             )
             if publish_success:
                 conn.execute(
-                    Base.metadata.tables["operaciones_idempotentes"]
+                    SOURCE_METADATA.tables["operaciones_idempotentes"]
                     .update()
-                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .where(
+                        SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140
+                    )
                     .values(
                         estado="finalizado",
                         response_json=_individual_success_response(),
@@ -3614,10 +3632,10 @@ def _insert_pf19c_global_rejection(db_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["puntos_venta_guardas_emision_rece"]
+                SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_guardas_emision_rece"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"].c.id
                     == 142
                 )
                 .values(
@@ -3627,9 +3645,9 @@ def _insert_pf19c_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"]
+                SOURCE_METADATA.tables["intentos_emision_fiscal"]
                 .update()
-                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .where(SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143)
                 .values(
                     estado="rechazado_arca",
                     categoria_error="arca_rechazo_global_excluyente",
@@ -3640,9 +3658,9 @@ def _insert_pf19c_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(
                     estado="rechazado_arca",
                     response_json=_individual_global_rejection_response(),
@@ -3662,10 +3680,10 @@ def _insert_pf19c_batch_global_rejection(db_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["puntos_venta_guardas_emision_rece"]
+                SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_guardas_emision_rece"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"].c.id
                     == 142
                 )
                 .values(
@@ -3675,9 +3693,9 @@ def _insert_pf19c_batch_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes_grupos"]
+                SOURCE_METADATA.tables["lotes_comprobantes_grupos"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes_grupos"].c.id == 160)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes_grupos"].c.id == 160)
                 .values(
                     punto_venta_id=40,
                     ambiente="produccion",
@@ -3686,9 +3704,9 @@ def _insert_pf19c_batch_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"]
+                SOURCE_METADATA.tables["intentos_emision_fiscal"]
                 .update()
-                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .where(SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143)
                 .values(
                     estado="rechazado_arca",
                     categoria_error="arca_rechazo_global_excluyente",
@@ -3699,9 +3717,9 @@ def _insert_pf19c_batch_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes"]
+                SOURCE_METADATA.tables["lotes_comprobantes"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes"].c.id == 130)
                 .values(
                     estado="fallido",
                     grupos_validos=0,
@@ -3713,9 +3731,9 @@ def _insert_pf19c_batch_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(
                     tipo_operacion="procesar_lote",
                     lote_id=130,
@@ -3749,7 +3767,7 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"].insert(),
+                SOURCE_METADATA.tables["operaciones_idempotentes"].insert(),
                 {
                     "id": 240,
                     "idempotency_key": "vps-reintento-pf19c-b",
@@ -3766,7 +3784,7 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
                 },
             )
             conn.execute(
-                Base.metadata.tables[
+                SOURCE_METADATA.tables[
                     "operaciones_idempotentes_elegibilidad_rece"
                 ].insert(),
                 {
@@ -3781,7 +3799,7 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
                 },
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta_guardas_emision_rece"].insert(),
+                SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"].insert(),
                 {
                     "id": 242,
                     "token": "h" * 64,
@@ -3799,7 +3817,7 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
                 },
             )
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"].insert(),
+                SOURCE_METADATA.tables["intentos_emision_fiscal"].insert(),
                 {
                     "id": 243,
                     "tipo_comprobante": 6,
@@ -3829,9 +3847,9 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
                 },
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes"]
+                SOURCE_METADATA.tables["lotes_comprobantes"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes"].c.id == 130)
                 .values(
                     estado="completado",
                     grupos_validos=1,
@@ -3844,9 +3862,9 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes_grupos"]
+                SOURCE_METADATA.tables["lotes_comprobantes_grupos"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes_grupos"].c.id == 160)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes_grupos"].c.id == 160)
                 .values(
                     estado="autorizado",
                     mensajes_json=[],
@@ -3857,9 +3875,9 @@ def _insert_pf19c_batch_success_after_global_rejection(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes_filas"]
+                SOURCE_METADATA.tables["lotes_comprobantes_filas"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes_filas"].c.id == 161)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes_filas"].c.id == 161)
                 .values(estado="autorizado", mensajes_json=[])
             )
     finally:
@@ -3885,9 +3903,9 @@ def _insert_legacy_pf19_journal(db_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"]
+                SOURCE_METADATA.tables["intentos_emision_fiscal"]
                 .update()
-                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .where(SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143)
                 .values(
                     categoria_error="legacy_sin_autorizacion_verificada",
                     errores_arca_json=None,
@@ -3895,16 +3913,16 @@ def _insert_legacy_pf19_journal(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(
                     estado="fallido_verificado",
                     response_json=response,
                 )
             )
             conn.execute(
-                Base.metadata.tables["resoluciones_legacy_pf19_journal"].insert(),
+                SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"].insert(),
                 {
                     "id": 170,
                     "accion": "cerrar_legacy_sin_autorizacion_verificada",
@@ -3959,9 +3977,9 @@ def _insert_legacy_pf19_batch_journal(db_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes_grupos"]
+                SOURCE_METADATA.tables["lotes_comprobantes_grupos"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes_grupos"].c.id == 160)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes_grupos"].c.id == 160)
                 .values(
                     punto_venta_id=40,
                     ambiente="produccion",
@@ -3970,9 +3988,9 @@ def _insert_legacy_pf19_batch_journal(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"]
+                SOURCE_METADATA.tables["intentos_emision_fiscal"]
                 .update()
-                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .where(SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143)
                 .values(
                     estado="fallido_verificado",
                     categoria_error="legacy_sin_autorizacion_verificada",
@@ -3983,9 +4001,9 @@ def _insert_legacy_pf19_batch_journal(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["lotes_comprobantes"]
+                SOURCE_METADATA.tables["lotes_comprobantes"]
                 .update()
-                .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                .where(SOURCE_METADATA.tables["lotes_comprobantes"].c.id == 130)
                 .values(
                     estado="fallido",
                     grupos_validos=0,
@@ -3996,9 +4014,9 @@ def _insert_legacy_pf19_batch_journal(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(
                     tipo_operacion="procesar_lote",
                     lote_id=130,
@@ -4007,7 +4025,7 @@ def _insert_legacy_pf19_batch_journal(db_path: Path) -> None:
                 )
             )
             conn.execute(
-                Base.metadata.tables["resoluciones_legacy_pf19_journal"].insert(),
+                SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"].insert(),
                 {
                     "id": 170,
                     "accion": "cerrar_legacy_sin_autorizacion_verificada",
@@ -4043,7 +4061,7 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["empresas"].insert(),
+                SOURCE_METADATA.tables["empresas"].insert(),
                 {
                     "id": 11,
                     "razon_social": "Otro Emisor S.A.",
@@ -4062,7 +4080,7 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
                 },
             )
             conn.execute(
-                Base.metadata.tables["lotes_duplicados_coordinacion"].insert(),
+                SOURCE_METADATA.tables["lotes_duplicados_coordinacion"].insert(),
                 [
                     {
                         "empresa_id": 11,
@@ -4077,7 +4095,7 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
                 ],
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta"].insert(),
+                SOURCE_METADATA.tables["puntos_venta"].insert(),
                 {
                     "id": 240,
                     "numero": 6,
@@ -4092,7 +4110,7 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
             )
             for revision_id, ambiente in ((241, "homologacion"), (242, "produccion")):
                 conn.execute(
-                    Base.metadata.tables[
+                    SOURCE_METADATA.tables[
                         "puntos_venta_elegibilidad_rece_revisiones"
                     ].insert(),
                     {
@@ -4114,7 +4132,7 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
                 (244, "produccion", 242),
             ):
                 conn.execute(
-                    Base.metadata.tables[
+                    SOURCE_METADATA.tables[
                         "puntos_venta_elegibilidad_rece_actual"
                     ].insert(),
                     {
@@ -4128,7 +4146,7 @@ def _insert_foreign_comprobante(db_path: Path) -> None:
                     },
                 )
             conn.execute(
-                Base.metadata.tables["comprobantes"].insert(),
+                SOURCE_METADATA.tables["comprobantes"].insert(),
                 {
                     "id": 210,
                     "tipo_comprobante": 6,
@@ -5061,23 +5079,28 @@ def test_preflight_bloquea_rechazo_global_pf19c_batch_mutado(
                         "operacion_id"
                     ] = 999
                 conn.execute(
-                    Base.metadata.tables["operaciones_idempotentes"]
+                    SOURCE_METADATA.tables["operaciones_idempotentes"]
                     .update()
-                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .where(
+                        SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140
+                    )
                     .values(response_json=response)
                 )
             elif mutation == "intento":
                 conn.execute(
-                    Base.metadata.tables["intentos_emision_fiscal"]
+                    SOURCE_METADATA.tables["intentos_emision_fiscal"]
                     .update()
-                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .where(
+                        SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143
+                    )
                     .values(lote_id=None, grupo_id=None)
                 )
             else:
                 intento = dict(
                     conn.execute(
-                        select(Base.metadata.tables["intentos_emision_fiscal"]).where(
-                            Base.metadata.tables["intentos_emision_fiscal"].c.id == 143
+                        select(SOURCE_METADATA.tables["intentos_emision_fiscal"]).where(
+                            SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id
+                            == 143
                         )
                     )
                     .mappings()
@@ -5089,7 +5112,7 @@ def test_preflight_bloquea_rechazo_global_pf19c_batch_mutado(
                     errores_arca_json=None,
                 )
                 conn.execute(
-                    Base.metadata.tables["intentos_emision_fiscal"].insert(),
+                    SOURCE_METADATA.tables["intentos_emision_fiscal"].insert(),
                     intento,
                 )
     finally:
@@ -5115,9 +5138,11 @@ def test_preflight_bloquea_rechazo_global_pf19c_mutado(
         with engine.begin() as conn:
             if mutation == "error_arca":
                 conn.execute(
-                    Base.metadata.tables["intentos_emision_fiscal"]
+                    SOURCE_METADATA.tables["intentos_emision_fiscal"]
                     .update()
-                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .where(
+                        SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143
+                    )
                     .values(
                         errores_arca_json=[
                             {
@@ -5132,16 +5157,20 @@ def test_preflight_bloquea_rechazo_global_pf19c_mutado(
                 response = _individual_global_rejection_response()
                 response["errores_arca"] = []
                 conn.execute(
-                    Base.metadata.tables["operaciones_idempotentes"]
+                    SOURCE_METADATA.tables["operaciones_idempotentes"]
                     .update()
-                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .where(
+                        SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140
+                    )
                     .values(response_json=response)
                 )
             elif mutation == "categoria":
                 conn.execute(
-                    Base.metadata.tables["intentos_emision_fiscal"]
+                    SOURCE_METADATA.tables["intentos_emision_fiscal"]
                     .update()
-                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .where(
+                        SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143
+                    )
                     .values(categoria_error="arca_no_aprobado")
                 )
             else:
@@ -5149,9 +5178,11 @@ def test_preflight_bloquea_rechazo_global_pf19c_mutado(
                 response["mensaje"] = "Reintentá inmediatamente"
                 response["errores"] = []
                 conn.execute(
-                    Base.metadata.tables["operaciones_idempotentes"]
+                    SOURCE_METADATA.tables["operaciones_idempotentes"]
                     .update()
-                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .where(
+                        SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140
+                    )
                     .values(response_json=response)
                 )
     finally:
@@ -5222,16 +5253,17 @@ def test_preflight_bloquea_journal_legacy_pf19_batch_con_mensaje_mutado(
             }
             response["lote"]["estado"] = "fallido"
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(response_json=response)
             )
             conn.execute(
-                Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"]
                 .update()
                 .where(
-                    Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id == 170
+                    SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"].c.id
+                    == 170
                 )
                 .values(terminal_response_sha256=_canonical_json_sha256(response))
             )
@@ -5270,16 +5302,17 @@ def test_preflight_bloquea_journal_legacy_pf19_batch_con_dto_coordinado(
     try:
         with engine.begin() as conn:
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(response_json=response)
             )
             conn.execute(
-                Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"]
                 .update()
                 .where(
-                    Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id == 170
+                    SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"].c.id
+                    == 170
                 )
                 .values(terminal_response_sha256=_canonical_json_sha256(response))
             )
@@ -5309,18 +5342,20 @@ def test_preflight_bloquea_journal_legacy_pf19_incoherente(
         with engine.begin() as conn:
             if mutation == "error_arca":
                 conn.execute(
-                    Base.metadata.tables["intentos_emision_fiscal"]
+                    SOURCE_METADATA.tables["intentos_emision_fiscal"]
                     .update()
-                    .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                    .where(
+                        SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143
+                    )
                     .values(errores_arca_json=[])
                 )
             elif mutation == "orphan":
                 conn.execute(text("PRAGMA foreign_keys=OFF"))
                 conn.execute(
-                    Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                    SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"]
                     .update()
                     .where(
-                        Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id
+                        SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"].c.id
                         == 170
                     )
                     .values(intento_id=999)
@@ -5335,17 +5370,19 @@ def test_preflight_bloquea_journal_legacy_pf19_incoherente(
                     categoria_error="arca_no_aprobado",
                 )
                 conn.execute(
-                    Base.metadata.tables["operaciones_idempotentes"]
+                    SOURCE_METADATA.tables["operaciones_idempotentes"]
                     .update()
-                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .where(
+                        SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140
+                    )
                     .values(response_json=response)
                 )
             else:
                 conn.execute(
-                    Base.metadata.tables["resoluciones_legacy_pf19_journal"]
+                    SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"]
                     .update()
                     .where(
-                        Base.metadata.tables["resoluciones_legacy_pf19_journal"].c.id
+                        SOURCE_METADATA.tables["resoluciones_legacy_pf19_journal"].c.id
                         == 170
                     )
                     .values(terminal_response_sha256="3" * 64)
@@ -5386,22 +5423,22 @@ def test_preflight_bloquea_respuesta_exitosa_moderna_sin_intento_autorizado(
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["intentos_emision_fiscal"]
+                SOURCE_METADATA.tables["intentos_emision_fiscal"]
                 .delete()
-                .where(Base.metadata.tables["intentos_emision_fiscal"].c.id == 143)
+                .where(SOURCE_METADATA.tables["intentos_emision_fiscal"].c.id == 143)
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta_guardas_emision_rece"]
+                SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"]
                 .delete()
                 .where(
-                    Base.metadata.tables["puntos_venta_guardas_emision_rece"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_guardas_emision_rece"].c.id
                     == 142
                 )
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(
                     estado="finalizado",
                     response_json=_individual_success_response(),
@@ -5566,7 +5603,7 @@ def test_preflight_bloquea_emision_individual_con_dos_asociaciones(
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["puntos_venta"].insert(),
+                SOURCE_METADATA.tables["puntos_venta"].insert(),
                 {
                     "id": 240,
                     "numero": 8,
@@ -5620,7 +5657,7 @@ def test_preflight_bloquea_emision_individual_con_dos_asociaciones(
                         }
                     )
                 conn.execute(
-                    Base.metadata.tables[
+                    SOURCE_METADATA.tables[
                         "puntos_venta_elegibilidad_rece_revisiones"
                     ].insert(),
                     values,
@@ -5630,7 +5667,7 @@ def test_preflight_bloquea_emision_individual_con_dos_asociaciones(
                 (244, "produccion", 245),
             ):
                 conn.execute(
-                    Base.metadata.tables[
+                    SOURCE_METADATA.tables[
                         "puntos_venta_elegibilidad_rece_actual"
                     ].insert(),
                     {
@@ -5644,7 +5681,7 @@ def test_preflight_bloquea_emision_individual_con_dos_asociaciones(
                     },
                 )
             conn.execute(
-                Base.metadata.tables[
+                SOURCE_METADATA.tables[
                     "operaciones_idempotentes_elegibilidad_rece"
                 ].insert(),
                 {
@@ -5659,9 +5696,9 @@ def test_preflight_bloquea_emision_individual_con_dos_asociaciones(
                 },
             )
             conn.execute(
-                Base.metadata.tables["operaciones_idempotentes"]
+                SOURCE_METADATA.tables["operaciones_idempotentes"]
                 .update()
-                .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                .where(SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140)
                 .values(rece_snapshot_hash=digest)
             )
     finally:
@@ -5695,9 +5732,9 @@ def test_preflight_digesta_numero_historico_de_la_revision(tmp_path: Path) -> No
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables["puntos_venta"]
+                SOURCE_METADATA.tables["puntos_venta"]
                 .update()
-                .where(Base.metadata.tables["puntos_venta"].c.id == 40)
+                .where(SOURCE_METADATA.tables["puntos_venta"].c.id == 40)
                 .values(numero=7, revision_fiscal=2)
             )
             for revision_id, ambiente, revision in (
@@ -5705,7 +5742,7 @@ def test_preflight_digesta_numero_historico_de_la_revision(tmp_path: Path) -> No
                 (47, "produccion", 3),
             ):
                 conn.execute(
-                    Base.metadata.tables[
+                    SOURCE_METADATA.tables[
                         "puntos_venta_elegibilidad_rece_revisiones"
                     ].insert(),
                     {
@@ -5725,19 +5762,19 @@ def test_preflight_digesta_numero_historico_de_la_revision(tmp_path: Path) -> No
                     },
                 )
             conn.execute(
-                Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"]
+                SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"].c.id
                     == 43
                 )
                 .values(revision_actual_id=46)
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"]
+                SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"].c.id
                     == 44
                 )
                 .values(revision_actual_id=47)
@@ -5758,7 +5795,7 @@ def test_preflight_bloquea_hueco_en_ledger_append_only(tmp_path: Path) -> None:
         with engine.begin() as conn:
             conn.execute(text("PRAGMA foreign_keys=ON"))
             conn.execute(
-                Base.metadata.tables[
+                SOURCE_METADATA.tables[
                     "puntos_venta_elegibilidad_rece_revisiones"
                 ].insert(),
                 {
@@ -5777,10 +5814,10 @@ def test_preflight_bloquea_hueco_en_ledger_append_only(tmp_path: Path) -> None:
                 },
             )
             conn.execute(
-                Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"]
+                SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"]
                 .update()
                 .where(
-                    Base.metadata.tables["puntos_venta_elegibilidad_rece_actual"].c.id
+                    SOURCE_METADATA.tables["puntos_venta_elegibilidad_rece_actual"].c.id
                     == 44
                 )
                 .values(revision_actual_id=45)
@@ -6176,13 +6213,13 @@ def test_export_bloquea_colision_de_basename_entre_certificados_activos(
     try:
         with engine.begin() as conn:
             conn.execute(
-                Base.metadata.tables["certificados"]
+                SOURCE_METADATA.tables["certificados"]
                 .update()
-                .where(Base.metadata.tables["certificados"].c.id == 50)
+                .where(SOURCE_METADATA.tables["certificados"].c.id == 50)
                 .values(archivo_crt="a/cert.crt", archivo_key="a/a1.key")
             )
             conn.execute(
-                Base.metadata.tables["certificados"].insert(),
+                SOURCE_METADATA.tables["certificados"].insert(),
                 {
                     "id": 51,
                     "nombre": "Segundo certificado productivo",
@@ -6679,7 +6716,7 @@ def _load_package_into_sqlite_target(
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
         conn.execute(
             text("INSERT INTO alembic_version (version_num) VALUES (:version)"),
-            {"version": manifest["alembic_version"]},
+            {"version": vps_migration.get_repo_alembic_head()},
         )
         for table_name in contract.insert_order:
             rows = package_rows[table_name]
@@ -7522,8 +7559,10 @@ def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
             with engine.begin() as conn:
                 group = dict(
                     conn.execute(
-                        select(Base.metadata.tables["lotes_comprobantes_grupos"]).where(
-                            Base.metadata.tables["lotes_comprobantes_grupos"].c.id
+                        select(
+                            SOURCE_METADATA.tables["lotes_comprobantes_grupos"]
+                        ).where(
+                            SOURCE_METADATA.tables["lotes_comprobantes_grupos"].c.id
                             == 160
                         )
                     )
@@ -7532,13 +7571,16 @@ def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
                 )
                 group.update(id=161, comprobante_ref="VPS-2", orden=2)
                 conn.execute(
-                    Base.metadata.tables["lotes_comprobantes_grupos"].insert(),
+                    SOURCE_METADATA.tables["lotes_comprobantes_grupos"].insert(),
                     group,
                 )
                 row = dict(
                     conn.execute(
-                        select(Base.metadata.tables["lotes_comprobantes_filas"]).where(
-                            Base.metadata.tables["lotes_comprobantes_filas"].c.id == 161
+                        select(
+                            SOURCE_METADATA.tables["lotes_comprobantes_filas"]
+                        ).where(
+                            SOURCE_METADATA.tables["lotes_comprobantes_filas"].c.id
+                            == 161
                         )
                     )
                     .mappings()
@@ -7551,7 +7593,7 @@ def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
                     grupo_id=161,
                 )
                 conn.execute(
-                    Base.metadata.tables["lotes_comprobantes_filas"].insert(),
+                    SOURCE_METADATA.tables["lotes_comprobantes_filas"].insert(),
                     row,
                 )
                 response = _batch_global_rejection_response()
@@ -7563,15 +7605,17 @@ def test_loader_bloquea_replay_batch_10005_reatestiguado_mutado(
                     }
                 )
                 conn.execute(
-                    Base.metadata.tables["lotes_comprobantes"]
+                    SOURCE_METADATA.tables["lotes_comprobantes"]
                     .update()
-                    .where(Base.metadata.tables["lotes_comprobantes"].c.id == 130)
+                    .where(SOURCE_METADATA.tables["lotes_comprobantes"].c.id == 130)
                     .values(total_filas=2, total_grupos=2, grupos_fallidos=2)
                 )
                 conn.execute(
-                    Base.metadata.tables["operaciones_idempotentes"]
+                    SOURCE_METADATA.tables["operaciones_idempotentes"]
                     .update()
-                    .where(Base.metadata.tables["operaciones_idempotentes"].c.id == 140)
+                    .where(
+                        SOURCE_METADATA.tables["operaciones_idempotentes"].c.id == 140
+                    )
                     .values(response_json=response)
                 )
         finally:

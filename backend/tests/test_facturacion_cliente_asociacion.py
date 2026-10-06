@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.arca.models import CAEResponse
 from app.core.config import settings
+from app.core.comprobante_totales import calcular_totales
 from app.models.certificado import Certificado
 from app.models.cliente import Cliente
 from app.models.comprobante import Comprobante
@@ -129,7 +130,7 @@ def _comprobar_snapshot(comprobante: Comprobante, request) -> None:
     assert comprobante.receptor_domicilio == request.domicilio
     assert comprobante.fecha_emision == FECHA_FISCAL_PRUEBA
     assert comprobante.cae == CAE_SINTETICO
-    assert comprobante.total == Decimal("1000")
+    assert comprobante.total == calcular_totales(request.items)["total"]
 
 
 @pytest.mark.asyncio
@@ -412,11 +413,23 @@ async def test_error_db_de_asociacion_propaga_y_permite_rollback(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("modo", ["individual", "batch"])
 @pytest.mark.parametrize("fallar_db", [False, True])
+@pytest.mark.parametrize("ampliado", [False, True])
 async def test_autorizacion_sintetica_con_duplicados_y_error_post_cae(
-    db_session, escenario_cliente, test_empresa, monkeypatch, modo, fallar_db
+    db_session, escenario_cliente, test_empresa, monkeypatch, modo, fallar_db, ampliado
 ):
     """La ambigüedad permite guardar; un fallo DB conserva incertidumbre y reserva."""
     service, request, punto = escenario_cliente
+    if ampliado:
+        payload = request.model_dump(mode="json")
+        payload["cotizacion"] = "1.1234567890123456789012345678"
+        payload["items"][0].update(
+            codigo="S" * 101,
+            cantidad="1.00005",
+            precio_unitario="12345678901234567890.012345",
+            descuento_porcentaje="0.00123",
+        )
+        request = EmitirComprobanteRequest.model_validate(payload)
+
     await _agregar_clientes(db_session, request.empresa_id, 2)
     db_session.add(
         Certificado(
@@ -520,11 +533,23 @@ async def test_autorizacion_sintetica_con_duplicados_y_error_post_cae(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("origen", ["stale", "externo"])
+@pytest.mark.parametrize("ampliado", [False, True])
 async def test_recuperacion_autorizada_y_externa_preservan_snapshot_ambiguo(
-    db_session, escenario_cliente, test_empresa, origen
+    db_session, escenario_cliente, test_empresa, origen, ampliado
 ):
     """Los otros dos consumidores guardan la evidencia sin elegir un duplicado."""
     service, request, punto = escenario_cliente
+    if ampliado:
+        payload = request.model_dump(mode="json")
+        payload["cotizacion"] = "1.1234567890123456789012345678"
+        payload["items"][0].update(
+            codigo="S" * 101,
+            cantidad="1.00005",
+            precio_unitario="12345678901234567890.012345",
+            descuento_porcentaje="0.00123",
+        )
+        request = EmitirComprobanteRequest.model_validate(payload)
+
     await _agregar_clientes(db_session, request.empresa_id, 2)
     if origen == "externo":
         comprobante = await LoteComprobantesService(
@@ -553,7 +578,7 @@ async def test_recuperacion_autorizada_y_externa_preservan_snapshot_ambiguo(
             comprobante_ref="SINTETICO",
             estado="requiere_reconciliacion",
             payload_json=request.model_dump(mode="json"),
-            total_estimado=Decimal("1000"),
+            total_estimado=service._calcular_totales(request.items)["total"],
         )
         db_session.add(grupo)
         await db_session.flush()
@@ -566,7 +591,7 @@ async def test_recuperacion_autorizada_y_externa_preservan_snapshot_ambiguo(
                 tipo_comprobante=request.tipo_comprobante,
                 numero_planificado=1,
                 fecha_emision=request.fecha_emision,
-                total=Decimal("1000"),
+                total=service._calcular_totales(request.items)["total"],
                 grupo_id=grupo.id,
             ),
             consulta_arca=SimpleNamespace(

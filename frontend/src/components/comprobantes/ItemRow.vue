@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { TrashIcon } from "@heroicons/vue/24/outline";
-import type { ItemComprobante } from "@/types/comprobante";
+import type { EditableItemComprobante as ItemComprobante } from "@/types/comprobante";
 import { ALICUOTAS_IVA } from "@/types/comprobante";
 import { subtotalItem } from "@/utils/comprobante-items";
 

@@ -165,6 +165,13 @@ cliente seleccionado no pertenecen al emisor activo.
 La misma separación aplica a certificados, comprobantes, lotes, PDFs, reportes,
 perfiles de carga y formatos de importación: no deben mezclarse entre emisores.
 
+### Cifras conservadas al consultar
+
+El detalle de comprobantes y el PDF muestran las cifras guardadas de cantidad,
+precio y descuento, incluyendo decimales adicionales. Los importes de listados,
+lotes y reportes conservan su precisión al mostrarse. No se agregan pasos de
+confirmación; la fecha fiscal y la confirmación irreversible siguen vigentes.
+
 ## 3. Dashboard
 
 El dashboard muestra un resumen general y accesos rápidos.

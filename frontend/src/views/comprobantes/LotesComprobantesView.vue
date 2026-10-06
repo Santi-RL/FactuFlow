@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearMoneda } from "@/composables/useFormatters";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
@@ -831,12 +832,7 @@ const formatDate = (value: string | null) => {
   return `${day}/${month}/${year}`;
 };
 
-const formatMoney = (value: number) => {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(value || 0);
-};
+const formatMoney = formatearMoneda;
 
 const formatImportesDuplicados = (value: DuplicadosImportes | undefined) => {
   if (!value) return "importes con moneda no acreditada";
@@ -1977,7 +1973,7 @@ const reconciliarExterno = async () => {
     punto_venta_numero: grupo.punto_venta_numero,
     numero,
     fecha_emision: grupo.fecha_emision,
-    total: Number(grupo.total_estimado || 0),
+    total: grupo.total_estimado ?? "0",
     cae: externoCae.value.trim() || undefined,
     motivo: externoMotivo.value.trim(),
   };

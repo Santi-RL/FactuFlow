@@ -1,3 +1,5 @@
+import type { FiscalDecimal } from "@/utils/fiscal-decimal";
+
 /**
  * Servicio para generación de reportes
  */
@@ -19,16 +21,16 @@ export interface ComprobanteReporte {
   numero: number;
   numero_completo: string;
   cliente_nombre: string;
-  subtotal: number;
-  iva_total: number;
-  total: number;
+  subtotal: FiscalDecimal;
+  iva_total: FiscalDecimal;
+  total: FiscalDecimal;
 }
 
 export interface ResumenVentas {
-  total_facturas: number;
-  total_notas_credito: number;
-  total_notas_debito: number;
-  total_neto: number;
+  total_facturas: FiscalDecimal;
+  total_notas_credito: FiscalDecimal;
+  total_notas_debito: FiscalDecimal;
+  total_neto: FiscalDecimal;
   cantidad_comprobantes: number;
   periodo: {
     desde: string;
@@ -50,28 +52,28 @@ export interface ComprobanteIVA {
   numero_completo: string;
   cuit_receptor: string;
   razon_social_receptor: string;
-  gravado_21: number;
-  iva_21: number;
-  gravado_10_5: number;
-  iva_10_5: number;
-  gravado_27: number;
-  iva_27: number;
-  no_gravado: number;
-  exento: number;
-  total: number;
+  gravado_21: FiscalDecimal;
+  iva_21: FiscalDecimal;
+  gravado_10_5: FiscalDecimal;
+  iva_10_5: FiscalDecimal;
+  gravado_27: FiscalDecimal;
+  iva_27: FiscalDecimal;
+  no_gravado: FiscalDecimal;
+  exento: FiscalDecimal;
+  total: FiscalDecimal;
 }
 
 export interface ResumenIVA {
-  gravado_21: number;
-  iva_21: number;
-  gravado_10_5: number;
-  iva_10_5: number;
-  gravado_27: number;
-  iva_27: number;
-  no_gravado: number;
-  exento: number;
-  total_neto: number;
-  total_iva: number;
+  gravado_21: FiscalDecimal;
+  iva_21: FiscalDecimal;
+  gravado_10_5: FiscalDecimal;
+  iva_10_5: FiscalDecimal;
+  gravado_27: FiscalDecimal;
+  iva_27: FiscalDecimal;
+  no_gravado: FiscalDecimal;
+  exento: FiscalDecimal;
+  total_neto: FiscalDecimal;
+  total_iva: FiscalDecimal;
   periodo: {
     mes: number;
     anio: number;
@@ -83,11 +85,12 @@ export interface RankingCliente {
   cliente_id: number;
   razon_social: string;
   numero_documento: string;
-  total_facturado: number;
+  total_facturado: FiscalDecimal;
   cantidad_comprobantes: number;
 }
 
 export interface ReporteClientes {
+  total_general: FiscalDecimal;
   clientes: RankingCliente[];
   periodo: {
     desde: string;
@@ -115,10 +118,7 @@ class ReportesService {
   /**
    * Obtiene el subdiario de IVA ventas
    */
-  async obtenerReporteIVA(
-    mes: number,
-    anio: number,
-  ): Promise<ReporteIVA> {
+  async obtenerReporteIVA(mes: number, anio: number): Promise<ReporteIVA> {
     const response = await api.get("/api/reportes/iva-ventas", {
       params: {
         periodo_mes: mes,

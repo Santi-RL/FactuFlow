@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { decimalEsPositivo } from "@/utils/fiscal-decimal";
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useEmpresaStore } from "@/stores/empresa";
@@ -143,8 +144,8 @@ const resumenIVA = computed(() => {
   const items = [];
 
   if (
-    reporte.value.resumen.gravado_21 > 0 ||
-    reporte.value.resumen.iva_21 > 0
+    decimalEsPositivo(reporte.value.resumen.gravado_21) ||
+    decimalEsPositivo(reporte.value.resumen.iva_21)
   ) {
     items.push({
       label: "IVA 21%",
@@ -156,8 +157,8 @@ const resumenIVA = computed(() => {
   }
 
   if (
-    reporte.value.resumen.gravado_10_5 > 0 ||
-    reporte.value.resumen.iva_10_5 > 0
+    decimalEsPositivo(reporte.value.resumen.gravado_10_5) ||
+    decimalEsPositivo(reporte.value.resumen.iva_10_5)
   ) {
     items.push({
       label: "IVA 10.5%",
@@ -169,8 +170,8 @@ const resumenIVA = computed(() => {
   }
 
   if (
-    reporte.value.resumen.gravado_27 > 0 ||
-    reporte.value.resumen.iva_27 > 0
+    decimalEsPositivo(reporte.value.resumen.gravado_27) ||
+    decimalEsPositivo(reporte.value.resumen.iva_27)
   ) {
     items.push({
       label: "IVA 27%",

@@ -80,10 +80,10 @@
             <div class="item-row">
                 <div>{{ item.codigo or "-" }}</div>
                 <div>{{ item.descripcion }}</div>
-                <div class="num">{{ item.cantidad | importe_ar }}</div>
+                <div class="num">{{ item.cantidad | cantidad_ar }}</div>
                 <div>{{ item.unidad }}</div>
-                <div class="num">{{ item.precio_unitario | importe_ar }}</div>
-                <div class="num">{{ item.descuento_porcentaje | importe_ar }}</div>
+                <div class="num">{{ item.precio_unitario | cantidad_ar }}</div>
+                <div class="num">{{ item.descuento_porcentaje | cantidad_ar }}</div>
                 <div class="num">{{ item.importe_bonificacion | importe_ar }}</div>
                 <div class="num">{{ item.subtotal | importe_ar }}</div>
             </div>

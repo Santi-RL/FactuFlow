@@ -3,10 +3,11 @@
 from datetime import date
 from decimal import Decimal
 from typing import Any, List, Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.date_parsing import parse_fecha_input
 from app.core.comprobante_totales import calcular_totales
+from app.core.fiscal_storage import validate_storage_request
 
 # ==================== Items ====================
 
@@ -78,7 +79,9 @@ class EmitirComprobanteRequest(ComprobanteBase):
     el comprobante y solicitar el CAE a ARCA.
     """
 
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    model_config = ConfigDict(
+        extra="forbid", allow_inf_nan=False, hide_input_in_errors=True
+    )
 
     empresa_id: int
     punto_venta_id: int
@@ -118,6 +121,11 @@ class EmitirComprobanteRequest(ComprobanteBase):
     comprobantes_asociados: List[ComprobanteAsociadoCreate] = Field(
         default_factory=list
     )
+
+    @model_validator(mode="after")
+    def validate_persistence(self):
+        validate_storage_request(self)
+        return self
 
     @field_validator("fecha_emision", mode="before")
     @classmethod

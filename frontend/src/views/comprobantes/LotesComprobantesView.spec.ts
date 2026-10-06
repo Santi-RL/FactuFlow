@@ -50,6 +50,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     obtenerCoincidencias: vi.fn(),
     reintentarFallidos: vi.fn(),
     descartarGrupos: vi.fn(),
+    reconciliarExternos: vi.fn(),
     descargarPlantilla: vi.fn(),
   },
 }));
@@ -226,6 +227,7 @@ const mockedLotesDetalle = lotesComprobantesService as unknown as {
   procesar: Mock;
   reintentarFallidos: Mock;
   descartarGrupos: Mock;
+  reconciliarExternos: Mock;
   descargarPlantilla: Mock;
 };
 const mockedPerfiles = perfilesCargaMasivaService as unknown as {
@@ -409,6 +411,43 @@ describe("LotesComprobantesView", () => {
     document.body.innerHTML = "";
   });
 
+  it("conserva el importe decimal al reconciliar un autorizado externo", async () => {
+    const lote = {
+      ...loteResumenMock(),
+      estado: "requiere_reconciliacion" as const,
+    };
+    const grupo = {
+      ...grupoDetalleMock(),
+      estado: "requiere_reconciliacion",
+      total_estimado: "9007199254740992.01",
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      ...gruposPageMock(),
+      items: [grupo],
+    });
+    const vm = wrapper.vm as unknown as {
+      cargarDetalleLote: (id: number) => Promise<boolean>;
+      externoGrupoId: string;
+      externoNumero: string;
+      externoMotivo: string;
+      reconciliarExterno: () => Promise<void>;
+    };
+    await vm.cargarDetalleLote(lote.id);
+    vm.externoGrupoId = String(grupo.id);
+    vm.externoNumero = "1";
+    vm.externoMotivo = "Verificación sintética";
+    mockedLotesDetalle.reconciliarExternos.mockResolvedValueOnce({
+      lote,
+      mensaje: "Verificado",
+    });
+    await vm.reconciliarExterno();
+    expect(mockedLotesDetalle.reconciliarExternos).toHaveBeenCalledWith(
+      lote.id,
+      [expect.objectContaining({ total: "9007199254740992.01" })],
+    );
+    wrapper.unmount();
+  });
+
   it("presenta horas de lotes en Argentina y conserva la fecha fiscal del archivo", async () => {
     const lote = {
       ...loteResumenMock(),
@@ -477,9 +516,7 @@ describe("LotesComprobantesView", () => {
 
       const totals = wrapper.get('[data-testid="totales-lote"]');
       expect(totals.text()).toContain("Totales preparados para revisión");
-      expect(totals.text().replace(/\u00a0/g, " ")).toContain(
-        "$ 1.732.720,00",
-      );
+      expect(totals.text().replace(/\u00a0/g, " ")).toContain("$ 1.732.720,00");
       expect(totals.classes()).not.toContain("bg-status-success-soft");
       expect(wrapper.text()).not.toContain("Totales listos para emitir");
       expect(wrapper.text()).not.toContain(
@@ -495,13 +532,15 @@ describe("LotesComprobantesView", () => {
       expect(wrapper.get('[data-testid="lote-reciente-12"]').text()).toContain(
         "1432 comprobantes validados",
       );
-      expect(wrapper.get('[data-testid="lote-reciente-12"]').text()).not.toContain(
-        "1432 listos",
-      );
+      expect(
+        wrapper.get('[data-testid="lote-reciente-12"]').text(),
+      ).not.toContain("1432 listos");
 
       const emitButton = wrapper
         .findAll("button")
-        .find((button) => button.text().includes("Emitir comprobantes válidos"));
+        .find((button) =>
+          button.text().includes("Emitir comprobantes válidos"),
+        );
       expect(emitButton?.attributes("disabled")).toBeUndefined();
       await emitButton?.trigger("click");
       await flushPromises();
@@ -531,9 +570,9 @@ describe("LotesComprobantesView", () => {
     };
     const wrapper = await mountView([], [lote], lote);
 
-    expect(wrapper.get('[data-testid="resumen-control-duplicados"]').text()).toContain(
-      "1 de 1 comprobante:",
-    );
+    expect(
+      wrapper.get('[data-testid="resumen-control-duplicados"]').text(),
+    ).toContain("1 de 1 comprobante:");
     const actual = wrapper.get('[data-testid="lote-reciente-12"]');
     expect(actual.text()).toContain("1 comprobante validado");
     expect(actual.text()).not.toContain("1 listo");
@@ -1703,7 +1742,9 @@ describe("LotesComprobantesView", () => {
     await vm.cargarDetalleLote(lote.id, true);
     await flushPromises();
     expect(wrapper.text()).toContain("En cola para procesar 3 comprobantes");
-    expect(wrapper.text()).toContain("Seleccionados 3 · Autorizados 0 · Fallidos 0 · Pendientes 3 · Inciertos 0");
+    expect(wrapper.text()).toContain(
+      "Seleccionados 3 · Autorizados 0 · Fallidos 0 · Pendientes 3 · Inciertos 0",
+    );
     expect(mockedLotesDetalle.reintentarFallidos).not.toHaveBeenCalled();
     wrapper.unmount();
   });

@@ -136,10 +136,10 @@ class LoteTotalesListosResponse(BaseModel):
     """Totales agregados de los comprobantes válidos del lote."""
 
     comprobantes: int = 0
-    neto: float = 0
-    iva21: float = 0
-    iva105: float = 0
-    total: float = 0
+    neto: Decimal = Decimal("0")
+    iva21: Decimal = Decimal("0")
+    iva105: Decimal = Decimal("0")
+    total: Decimal = Decimal("0")
     valores_invalidos: int = 0
 
 
