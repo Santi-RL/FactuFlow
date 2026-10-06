@@ -379,6 +379,22 @@ usar `POST /api/comprobantes/emitir` o el flujo de lotes, que aplican
 idempotencia, persistencia de intento fiscal y confirmación irreversible antes
 de solicitar CAE.
 
+## Decimales fiscales y compatibilidad A-01
+
+Las lecturas de comprobantes e ítems, totales de lotes y reportes representan
+importes, cantidades, precios, porcentajes y cotización como strings decimales.
+No convertirlos a `float`/`Number` para presentar o sumar: IDs, conteos y
+paginación siguen siendo números. `GET /api/reportes/clientes` agrega
+`total_general`, calculado exactamente en el servidor sobre el ranking devuelto.
+La reconciliación externa acepta el total decimal sin conversión del navegador.
+
+Los requests admiten decimales conforme al contrato vigente. La preparación
+común verifica encodabilidad y orden técnico antes de reserva/CAE, sin imponer
+los límites comerciales del esquema anterior. Los JSON e importes de replays
+históricos conservan su forma original; los clientes deben admitir strings y
+números en esas respuestas antiguas. PF-03B conserva cálculo y redondeos. A-03
+mantiene las decisiones sobre bases IVA y moneda.
+
 ## Comprobantes
 
 ```http

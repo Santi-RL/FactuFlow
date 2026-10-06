@@ -34,6 +34,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.arca.utils import validate_cuit
+from app.core.fiscal_storage import (
+    amount_sum,
+    decimal_search_key,
+    scaled_integer,
+    sum_amounts,
+)
 from app.models.empresa import LoteDuplicadosCoordinacion
 from app.models.idempotencia_fiscal import (
     IntentoEmisionFiscal,
@@ -218,7 +224,7 @@ def _desglosar_importes(
         if not codigo:
             desconocidos += 1
             continue
-        acumulados[codigo] += Decimal(str(importe))
+        acumulados[codigo] = sum_amounts([acumulados[codigo], Decimal(str(importe))])
         cantidades[codigo] += 1
     return {
         "por_moneda": [
@@ -417,9 +423,8 @@ def material_grupo_v2(
         "fecha_emision_normalizada": request.fecha_emision,
         "moneda_duplicados": request.moneda,
         "cotizacion_duplicados": decimal_canonico(request.cotizacion),
-        "total_centavos": int(
-            (Decimal(str(total)).quantize(Decimal("0.01")) * 100).to_integral_exact()
-        ),
+        "cotizacion_busqueda": decimal_search_key(request.cotizacion),
+        "total_centavos": scaled_integer(total, 2),
     }
 
 
@@ -810,6 +815,29 @@ class DuplicadosLotesService:
                         LoteComprobanteGrupo.ambiente.in_(ambientes),
                         column.in_(value_partition),
                     )
+                    if column.key != "huella_fiscal_completa":
+                        search_keys = set()
+                        for group in grupos:
+                            if getattr(group, column.key) in value_partition:
+                                search_keys.add(
+                                    decimal_search_key(
+                                        Decimal(group.cotizacion_duplicados or "1")
+                                    )
+                                )
+                                if len(search_keys) > HISTORICAL_READ_WINDOW:
+                                    break
+                        # La clave fija sólo reduce candidatos. La comparación
+                        # posterior conserva el valor exacto ante colisiones.
+                        # Mantener el presupuesto de parámetros de lotes grandes.
+                        if len(search_keys) <= HISTORICAL_READ_WINDOW:
+                            statement = statement.where(
+                                or_(
+                                    LoteComprobanteGrupo.cotizacion_busqueda.in_(
+                                        search_keys
+                                    ),
+                                    LoteComprobanteGrupo.cotizacion_busqueda.is_(None),
+                                )
+                            )
                     if watermark is not None:
                         statement = statement.where(
                             or_(
@@ -854,7 +882,9 @@ class DuplicadosLotesService:
                 await self.db.execute(
                     select(
                         func.count(LoteComprobanteGrupo.id),
-                        func.coalesce(func.sum(LoteComprobanteGrupo.total_estimado), 0),
+                        func.coalesce(
+                            amount_sum(LoteComprobanteGrupo.total_estimado), 0
+                        ),
                         func.sum(
                             case(
                                 (
@@ -903,7 +933,7 @@ class DuplicadosLotesService:
                         select(
                             LoteComprobanteGrupo.moneda_duplicados,
                             func.coalesce(
-                                func.sum(LoteComprobanteGrupo.total_estimado), 0
+                                amount_sum(LoteComprobanteGrupo.total_estimado), 0
                             ),
                             func.count(LoteComprobanteGrupo.id),
                         )

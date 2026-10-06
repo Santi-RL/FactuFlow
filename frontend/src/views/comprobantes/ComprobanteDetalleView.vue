@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { decimalEsPositivo, formatearDecimalFiscal } from "@/utils/fiscal-decimal";
 import { ref, watch, computed, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useComprobantesStore } from "@/stores/comprobantes";
 import { useEmpresaStore } from "@/stores/empresa";
-import { formatearFecha as formatFecha } from "@/composables/useFormatters";
+import { formatearFecha as formatFecha, formatearMoneda } from "@/composables/useFormatters";
 import {
   DocumentTextIcon,
   ArrowLeftIcon,
@@ -102,12 +103,7 @@ const numeroCompleto = computed(() => {
   return `${puntoVenta}-${numero}`;
 });
 
-const formatMonto = (monto: number) => {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(monto);
-};
+const formatMonto = formatearMoneda;
 
 const volver = () => {
   router.push({ name: "comprobantes" });
@@ -357,12 +353,12 @@ const obtenerLetraComprobante = (tipo: number): string => {
                   {{ item.descripcion }}
                 </td>
                 <td class="px-4 py-3 text-sm text-center text-gray-900">
-                  {{ item.cantidad }} {{ item.unidad }}
+                  {{ formatearDecimalFiscal(item.cantidad) }} {{ item.unidad }}
                 </td>
                 <td
                   class="px-4 py-3 text-sm text-right font-mono text-gray-900"
                 >
-                  {{ formatMonto(item.precio_unitario) }}
+                  {{ formatearDecimalFiscal(item.precio_unitario, 2) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-center text-gray-600">
                   {{ item.iva_porcentaje }}%
@@ -390,7 +386,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
             </div>
 
             <div
-              v-if="comprobante.iva_21 > 0"
+              v-if="decimalEsPositivo(comprobante.iva_21)"
               class="flex justify-between text-gray-700"
             >
               <span class="font-medium">IVA 21%:</span>
@@ -400,7 +396,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
             </div>
 
             <div
-              v-if="comprobante.iva_10_5 > 0"
+              v-if="decimalEsPositivo(comprobante.iva_10_5)"
               class="flex justify-between text-gray-700"
             >
               <span class="font-medium">IVA 10.5%:</span>
@@ -410,7 +406,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
             </div>
 
             <div
-              v-if="comprobante.iva_27 > 0"
+              v-if="decimalEsPositivo(comprobante.iva_27)"
               class="flex justify-between text-gray-700"
             >
               <span class="font-medium">IVA 27%:</span>

@@ -2,7 +2,7 @@
 import { PlusIcon } from "@heroicons/vue/24/outline";
 import { useNotification } from "@/composables/useNotification";
 import ItemRow from "./ItemRow.vue";
-import type { ItemComprobante } from "@/types/comprobante";
+import type { EditableItemComprobante as ItemComprobante } from "@/types/comprobante";
 
 interface Props {
   items: ItemComprobante[];

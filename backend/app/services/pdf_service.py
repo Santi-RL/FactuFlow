@@ -1,7 +1,6 @@
 """Servicio para generación de PDFs de comprobantes."""
 
 import base64
-import json
 from datetime import date
 from decimal import Decimal
 from io import BytesIO
@@ -17,6 +16,7 @@ from weasyprint import CSS, HTML
 from weasyprint.urls import URLFetcher, URLFetcherResponse
 
 from app.models.comprobante import Comprobante
+from app.core.fiscal_storage import decimal_json_dumps
 from app.models.empresa import Empresa
 
 # URL oficial heredada del QR ARCA.
@@ -266,7 +266,7 @@ class PDFService:
     def _generar_qr_url_arca(self, comprobante: Comprobante) -> str:
         """Genera la URL completa del QR con payload ARCA en Base64."""
         datos_qr = self._generar_qr_payload_arca(comprobante)
-        json_str = json.dumps(datos_qr, separators=(",", ":"), ensure_ascii=False)
+        json_str = decimal_json_dumps(datos_qr)
         base64_data = base64.b64encode(json_str.encode("utf-8")).decode("ascii")
         return f"{ARCA_QR_BASE_URL}{base64_data}"
 
@@ -285,9 +285,9 @@ class PDFService:
             "ptoVta": comprobante.punto_venta.numero,
             "tipoCmp": comprobante.tipo_comprobante,
             "nroCmp": comprobante.numero,
-            "importe": float(comprobante.total),
+            "importe": comprobante.total,
             "moneda": comprobante.moneda,
-            "ctz": float(comprobante.cotizacion),
+            "ctz": comprobante.cotizacion,
             "tipoDocRec": receptor_tipo_documento
             or self._get_tipo_documento_codigo(comprobante.cliente.tipo_documento),
             "nroDocRec": int(
@@ -468,7 +468,9 @@ class PDFService:
         """Formatea cantidades del detalle del comprobante."""
         if value is None:
             value = Decimal("0")
-        number = Decimal(str(value)).normalize()
+        number = Decimal(str(value))
+        if abs(number.adjusted()) > 1000:
+            return str(number).replace(".", ",")
         formatted = f"{number:f}"
         if "." in formatted:
             formatted = formatted.rstrip("0").rstrip(".")

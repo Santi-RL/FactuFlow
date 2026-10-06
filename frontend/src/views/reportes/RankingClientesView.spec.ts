@@ -45,6 +45,7 @@ const empresaMock = (id: number): Empresa => ({
 });
 
 const reporteClientesMock = (razonSocial: string): ReporteClientes => ({
+  total_general: "1210.00",
   periodo: { desde: "2026-05-01", hasta: "2026-05-31" },
   clientes: [
     {

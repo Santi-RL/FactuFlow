@@ -66,14 +66,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
-- PF-03/PF-04/PF-14, puerta previa A-01:
-  [persistencia fiscal fiel](pf-03-04-14-persistencia-fiel-design.md).
-  Define representación, agregados, consumidores y migración; los ensayos son
-  preparatorios y la implementación integrada permanece pendiente.
-
 - PF-03/PF-04/PF-14: [asociación administrativa del receptor](pf-03-04-14-asociacion-cliente.md).
-  Define el vínculo opcional sin alterar el snapshot fiscal; capacidad A-01
-  permanece pendiente.
+  Define el vínculo opcional sin alterar el snapshot fiscal.
 
 - PF-12/PF-15/PF-17: [instantes operativos y hora argentina](pf-12-15-17-tiempo-operativo.md).
   Separa instantes UTC y presentación argentina de fechas de calendario y
@@ -125,6 +119,9 @@ la limpieza y hallazgos de estado actual; la
 cortes y el horizonte MCP. Un hallazgo pendiente no es una capacidad terminada.
 
 ## Diseños cerrados de consulta
+
+- PF-03/PF-04/PF-14, A-01: [persistencia fiscal fiel](pf-03-04-14-persistencia-fiel-design.md).
+  Representación, migración y consumidores implementados; A-03 mantiene bases IVA y moneda.
 
 - PF-13/PF-17: [emisión parcial y reintentos seguros](pf-13-17-reintentos-seguros-parche.md).
 

@@ -7133,8 +7133,7 @@ class LoteComprobantesService:
         if isinstance(value, date):
             return value.isoformat()
         if isinstance(value, Decimal):
-            converted = float(value)
-            return converted if math.isfinite(converted) else str(value)
+            return str(value)
         return self._valor_no_finito_json(value)
 
     def _parse_int(self, value: Any) -> int | None:

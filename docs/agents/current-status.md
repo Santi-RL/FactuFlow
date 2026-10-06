@@ -96,9 +96,9 @@ compatibilidad y consumidores; no hay migración ni desplazamiento de la base.
 
 La auditoría integral corrigió documentación, código sin consumidores, fechas de
 calendario, contexto de detalles/formularios, errores PDF y barreras de
-construcción. Conserva los contratos fiscales y la visión. Los hallazgos de
-capacidad de persistencia y lecturas permanecen abiertos y forman
-una puerta de estabilización antes de capacidades nuevas. Evidencia y límites en el
+construcción. Conserva los contratos fiscales y la visión. La capacidad de
+persistencia A-01 está corregida; las lecturas funcionales A-03 permanecen
+abiertas y forman la puerta de estabilización antes de capacidades nuevas. Evidencia y límites en el
 [dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md);
 responsabilidades compartidas y horizonte MCP en
 [dirección de arquitectura](architecture-direction.md). No acredita despliegue.
@@ -108,7 +108,7 @@ varias fichas coincidentes conservan el snapshot receptor sin elegir una al
 azar ni impedir guardar el CAE. Selección explícita, transacción, errores reales
 y reconciliación conservan su conducta. El
 [contrato](pf-03-04-14-asociacion-cliente.md) delimita los cuatro consumidores;
-no cierra capacidad A-01 ni introduce unicidad de clientes.
+no introduce unicidad de clientes; capacidad A-01 tiene su contrato separado.
 
 La entrega de reintentos incluye correcciones de dependencias y una CI sin
 advertencias: PyJWT/WeasyPrint, auditoría npm completa, compatibilidad bcrypt,
@@ -165,12 +165,13 @@ validaciones del corte. El usuario informó que su revisión manual fue
 satisfactoria y autorizó continuar. Esa aceptación levanta la espera de revisión;
 no cierra los hallazgos fiscales pendientes.
 
-La preparación A-01 tiene un
-[contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md) y
-[ensayos sintéticos](../project/analysis/a01-validacion-representacion-2026-10.md).
-La implementación y matriz integrada siguen pendientes. El siguiente corte debe
-consumir ese contrato sin límites arbitrarios ni cambios de PF-03B, historia,
-idempotencia o incertidumbre.
+A-01 incorpora persistencia decimal exacta, migración Alembic y traslado v5,
+con v3/v4 congelados, lectura histórica y downgrade sin pérdida. Consulta, PDF,
+lotes y reportes presentan cifras fieles sin alterar PF-03B, asociación A-02,
+idempotencia ni incertidumbre. El [contrato](pf-03-04-14-persistencia-fiel-design.md)
+y el [dossier](../project/analysis/a01-persistencia-fiscal-fiel.md) delimitan el cierre.
+El siguiente corte de la puerta es A-03: bases IVA y autoridad funcional de moneda.
+Este cierre de código no acredita publicación ni despliegue.
 
 Para continuar desarrollo:
 

@@ -2,6 +2,16 @@
 
 Última revisión: 03/10/2026
 
+## Persistencia fiscal fiel A-01
+
+La preparación compartida comprueba encodabilidad antes de reserva y CAE.
+Cantidad, precio, descuento y cotización no se redondean al almacenar; los
+resultados PF-03B conservan su precisión. API, worker, bloques y reintentos
+consumen la misma guarda. Una falla posterior a una posible autorización
+conserva incertidumbre y reconciliación, sin reenviar. El
+[contrato A-01](pf-03-04-14-persistencia-fiel-design.md) delimita migración,
+consumidores y downgrade; no modifica el contrato externo WSFE ni A-03.
+
 ## Nomenclatura
 
 - ARCA es el nombre actual y debe usarse en UI, documentación nueva y textos de soporte.

@@ -148,13 +148,7 @@ const clientesConPosicion = computed(() => {
   }));
 });
 
-const totalGeneral = computed(() => {
-  if (!reporte.value) return 0;
-  return reporte.value.clientes.reduce(
-    (sum, cliente) => sum + cliente.total_facturado,
-    0,
-  );
-});
+const totalGeneral = computed(() => reporte.value?.total_general ?? "0");
 </script>
 
 <template>

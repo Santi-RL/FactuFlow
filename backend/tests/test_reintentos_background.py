@@ -1,6 +1,8 @@
 """Regresiones del contrato durable de reintentos; ARCA completamente simulado."""
 
 import asyncio
+from copy import deepcopy
+from decimal import Decimal
 from time import perf_counter
 
 import pytest
@@ -9,9 +11,16 @@ from sqlalchemy import select
 from app.arca.exceptions import ArcaConnectionError
 from app.arca.models import CAEResponse
 from app.core.config import settings
+from app.core.comprobante_totales import calcular_totales
+from app.models.comprobante_item import ComprobanteItem
+from app.schemas.comprobante import EmitirComprobanteRequest
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
-from app.services.duplicados_lotes_service import DuplicadosLotesService
+from app.services.duplicados_lotes_service import (
+    DuplicadosLotesService,
+    material_grupo_v2,
+    aplicar_material_grupo_v2,
+)
 from app.services.lote_comprobantes_service import LoteComprobantesService
 from app.services.lote_comprobantes_service import LoteComprobanteConflictoError
 from tests.test_lotes_comprobantes import (
@@ -276,6 +285,7 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("ampliado", [False, True])
 @pytest.mark.parametrize(
     ("modo", "seleccion_explicita"),
     [("reintento", True), ("reintento", False), ("normal", False)],
@@ -290,6 +300,7 @@ async def test_reintento_durable_seleccion_bloques_progreso_y_replay(
     test_certificado,
     seleccion_explicita,
     modo,
+    ampliado,
 ):
     llamadas = []
     inicializaciones = []
@@ -338,6 +349,35 @@ async def test_reintento_durable_seleccion_bloques_progreso_y_replay(
         nombre_archivo="reintento-background.xlsx",
         total_grupos=4,
     )
+    if ampliado:
+        for grupo in grupos:
+            payload = deepcopy(grupo.payload_json)
+            payload["cotizacion"] = "1.1234567890123456789012345678"
+            payload["items"][0].update(
+                codigo="S" * 101,
+                cantidad="1.00005",
+                precio_unitario="123456789012345.123456789",
+                descuento_porcentaje="0.00123",
+            )
+            request = EmitirComprobanteRequest.model_validate(payload)
+            grupo.payload_json = request.model_dump(mode="json")
+            grupo.total_estimado = calcular_totales(request.items)["total"]
+            aplicar_material_grupo_v2(
+                grupo,
+                material_grupo_v2(
+                    payload=grupo.payload_json,
+                    punto_venta_numero=test_punto_venta.numero,
+                    total=grupo.total_estimado,
+                    identidad={
+                        "nombre_hash": grupo.identidad_nombre_hash,
+                        "documento_hash": grupo.identidad_documento_hash,
+                        "nombre_original": grupo.identidad_nombre_original,
+                        "tipo_documento_original": grupo.identidad_tipo_documento_original,
+                        "numero_documento_original": grupo.identidad_numero_documento_original,
+                    },
+                ),
+            )
+        await db_session.commit()
     ids = [g.id for g in grupos[:3]] if seleccion_explicita else None
     if modo == "normal":
         await _marcar_grupos_lote(db_session, lote_id, ["validado"] * 4)
@@ -386,6 +426,15 @@ async def test_reintento_durable_seleccion_bloques_progreso_y_replay(
         f"benchmark modo={modo} seleccion={len(ids or grupos)} latencia_ms=5 bloques={len(llamadas)} inicializaciones={len(inicializaciones)} duracion_s={perf_counter() - inicio:.3f}"
     )
     assert lote.grupos_emitidos == (3 if seleccion_explicita else 4)
+    if ampliado:
+        items = list(await db_session.scalars(select(ComprobanteItem)))
+        assert len(items) == lote.grupos_emitidos
+        assert all(item.cantidad == Decimal("1.00005") for item in items)
+        assert all(
+            item.precio_unitario == Decimal("123456789012345.123456789")
+            for item in items
+        )
+        assert all(item.codigo == "S" * 101 for item in items)
     if seleccion_explicita:
         await db_session.refresh(grupos[3])
         assert grupos[3].estado == "fallido"

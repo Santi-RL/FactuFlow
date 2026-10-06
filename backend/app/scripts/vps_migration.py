@@ -9,6 +9,9 @@ descargable.
 from __future__ import annotations
 
 import argparse
+from contextvars import ContextVar
+from functools import wraps
+import inspect
 import ast
 import getpass
 import hashlib
@@ -56,6 +59,15 @@ from app.arca.crypto import (
 )
 from app.arca.exceptions import ArcaCertificateError
 from app.core.database import Base
+from app.core.fiscal_storage import (
+    ExactAmount,
+    ExactDecimal,
+    ExactInteger,
+    _install_sqlite_functions,
+    decimal_search_key,
+    encode_decimal,
+)
+from app.core.fiscal_storage_legacy import A01_HEAD, LEGACY_COLUMNS
 from app.schemas.comprobante import EmitirComprobanteResponse
 from app.schemas.lote_comprobante import (
     LoteAccionResponse,
@@ -63,9 +75,109 @@ from app.schemas.lote_comprobante import (
     LoteProcesamientoResponse,
 )
 from app.services.resolucion_legacy_pf19_service import BackupLegacyPF19
-from app.scripts import vps_migration_v3, vps_migration_v4
+from app.scripts import vps_migration_v3, vps_migration_v4, vps_migration_v5
 
-MIGRATION_PACKAGE_VERSION = 4
+_package_format = ContextVar(
+    "fiscal_migration_package_format", default=vps_migration_v4
+)
+
+
+def _fiscal_package_format():
+    return _package_format.get()
+
+
+def _format_context(function):
+    """Selecciona el descriptor de origen por evidencia explícita y lo restaura.
+
+    La selección no valida el paquete: los loaders estrictos y sus hashes siguen
+    siendo obligatorios antes de cualquier escritura. Cada llamada conserva su
+    propio contexto; v3/v4 no heredan el formato de una importación anterior.
+    """
+    signature = inspect.signature(function)
+
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        arguments = signature.bind(*args, **kwargs).arguments
+        version = None
+        manifest = arguments.get("manifest")
+        if isinstance(manifest, dict):
+            version = manifest.get("package_version")
+        package_dir = arguments.get("package_dir")
+        if version is None and package_dir is not None:
+            try:
+                version = json.loads(
+                    (Path(package_dir) / "manifest.json").read_text(encoding="utf-8")
+                ).get("package_version")
+            except (OSError, ValueError, AttributeError):
+                pass  # El loader estricto emitirá el diagnóstico funcional.
+        source_db = arguments.get("source_db")
+        if source_db is not None and Path(source_db).is_file():
+            try:
+                with connect_sqlite_readonly(Path(source_db)) as source_connection:
+                    heads = [
+                        row[0]
+                        for row in source_connection.execute(
+                            "SELECT version_num FROM alembic_version"
+                        )
+                    ]
+            except sqlite3.Error:
+                heads = []  # El preflight conserva la autoridad del diagnóstico.
+            if heads == [A01_HEAD]:
+                version = 5
+            elif heads == [vps_migration_v4.ALEMBIC_HEAD]:
+                version = 4
+        elif arguments.get("repo_head") == A01_HEAD:
+            version = 5
+        selected = (
+            vps_migration_v5
+            if version == 5
+            else vps_migration_v4 if version in {3, 4} else _package_format.get()
+        )
+        token = _package_format.set(selected)
+        try:
+            return function(*args, **kwargs)
+        finally:
+            _package_format.reset(token)
+
+    return wrapped
+
+
+def _historical_v4_table(table_name: str) -> Table:
+    """Descriptor de origen v4 congelado para las columnas ampliadas en A-01."""
+    from sqlalchemy import Column, MetaData
+
+    current = Base.metadata.tables[table_name]
+    columns = []
+    for name in _fiscal_package_format().V4_COLUMNS[table_name]:
+        original = current.c[name]
+        old_type = (
+            vps_migration_v5.DECIMAL_TYPES.get((table_name, name), original.type)
+            if _fiscal_package_format().PACKAGE_VERSION == 5
+            else LEGACY_COLUMNS.get(table_name, {}).get(name, original.type)
+        )
+        columns.append(
+            Column(
+                name,
+                old_type,
+                nullable=original.nullable,
+                primary_key=original.primary_key,
+            )
+        )
+    return Table(table_name, MetaData(), *columns)
+
+
+def _a01_destination_row(table_name: str, row: dict[str, Any]) -> dict[str, Any]:
+    if table_name != "lotes_comprobantes_grupos":
+        return row
+    quotation = row.get("cotizacion_duplicados")
+    return {
+        **row,
+        "cotizacion_busqueda": (
+            decimal_search_key(Decimal(quotation)) if quotation is not None else None
+        ),
+    }
+
+
 SCOPE = "operacion_futura_con_comprobantes"
 
 INCLUDED_TABLES = [
@@ -254,18 +366,19 @@ class MigrationError(RuntimeError):
     """Error funcional de preparación o restauración de migración."""
 
 
-def select_import_contract(
-    manifest: dict[str, Any],
-) -> vps_migration_v3.ImportContract | vps_migration_v4.ImportContract:
-    """Selecciona una versión soportada antes de planificar cualquier import."""
+def select_import_contract(manifest: dict[str, Any]):
+    """Selecciona el contrato congelado, nunca el esquema del ORM vigente."""
     version = manifest.get("package_version")
     if not isinstance(version, int) or isinstance(version, bool):
         raise MigrationError("Versión de paquete de migración no soportada")
-    if version == vps_migration_v3.PACKAGE_VERSION:
-        return vps_migration_v3.V3_CONTRACT
-    if version == vps_migration_v4.PACKAGE_VERSION:
-        return vps_migration_v4.V4_CONTRACT
-    raise MigrationError("Versión de paquete de migración no soportada")
+    contracts = {
+        3: vps_migration_v3.V3_CONTRACT,
+        4: vps_migration_v4.V4_CONTRACT,
+        5: vps_migration_v5.V4_CONTRACT,
+    }
+    if version not in contracts:
+        raise MigrationError("Versión de paquete de migración no soportada")
+    return contracts[version]
 
 
 @dataclass(frozen=True)
@@ -440,7 +553,7 @@ def _v4_closure_payload(
     members = rows["lotes_duplicados_coincidencias_miembros"]
     payload = {
         "version": 1,
-        "algorithm": vps_migration_v4.CLOSURE_ALGORITHM,
+        "algorithm": _fiscal_package_format().CLOSURE_ALGORITHM,
         "operation_ids": sorted(int(row["id"]) for row in operations),
         "root_operation_ids": sorted(
             {int(row.get("operacion_raiz_id") or row["id"]) for row in v4_operations}
@@ -462,7 +575,7 @@ def _v4_closure_payload(
             for lote in lotes
         },
     }
-    return {**payload, "sha256": vps_migration_v4.canonical_sha256(payload)}
+    return {**payload, "sha256": _fiscal_package_format().canonical_sha256(payload)}
 
 
 def normalize_v4_operation_rows(
@@ -492,9 +605,9 @@ def normalize_v4_operation_rows(
         for row in rows
     ]
     return normalized, {
-        "rule": vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE,
+        "rule": _fiscal_package_format().OPERATION_LOTE_NORMALIZATION_RULE,
         "rows": len(pairs),
-        "sha256": vps_migration_v4.canonical_sha256(pairs),
+        "sha256": _fiscal_package_format().canonical_sha256(pairs),
         "pairs": pairs,
     }
 
@@ -504,11 +617,11 @@ def capture_v4_rows(conn: sqlite3.Connection) -> V4Capture:
     legacy_safety = classify_safe_omissions(conn)
     complete_rows = {
         table_name: read_table_rows(conn, table_name)
-        for table_name in vps_migration_v4.COMPLETE_TABLES
+        for table_name in _fiscal_package_format().COMPLETE_TABLES
     }
     all_filtered = {
         table_name: read_table_rows(conn, table_name)
-        for table_name in vps_migration_v4.FILTERED_TABLES
+        for table_name in _fiscal_package_format().FILTERED_TABLES
     }
     operations = complete_rows["operaciones_idempotentes"]
     all_lotes = all_filtered["lotes_comprobantes"]
@@ -615,19 +728,20 @@ def capture_v4_rows(conn: sqlite3.Connection) -> V4Capture:
             conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
         )
         for table_name in (
-            vps_migration_v4.INCLUDED_TABLES
-            + vps_migration_v4.REGENERATED_TABLES
-            + vps_migration_v4.EXCLUDED_TABLES
+            _fiscal_package_format().INCLUDED_TABLES
+            + _fiscal_package_format().REGENERATED_TABLES
+            + _fiscal_package_format().EXCLUDED_TABLES
         )
     }
     included_counts = {
         table_name: len(selected_rows[table_name])
-        for table_name in vps_migration_v4.INCLUDED_TABLES
+        for table_name in _fiscal_package_format().INCLUDED_TABLES
     }
     omitted_counts = {
         table_name: source_counts[table_name] - included_counts.get(table_name, 0)
         for table_name in (
-            vps_migration_v4.FILTERED_TABLES + vps_migration_v4.EXCLUDED_TABLES
+            _fiscal_package_format().FILTERED_TABLES
+            + _fiscal_package_format().EXCLUDED_TABLES
         )
     }
     closure = _v4_closure_payload(
@@ -682,12 +796,12 @@ def validate_v4_source_coordinators(conn: sqlite3.Connection) -> None:
 
 def validate_v4_sqlite_schema(conn: sqlite3.Connection) -> None:
     """Exige columnas v4 exactas antes de calcular cualquier selección."""
-    for table_name in vps_migration_v4.INCLUDED_TABLES:
+    for table_name in _fiscal_package_format().INCLUDED_TABLES:
         columns = tuple(
             str(row["name"])
             for row in conn.execute(f'PRAGMA table_info("{table_name}")')
         )
-        if columns != vps_migration_v4.V4_COLUMNS[table_name]:
+        if columns != _fiscal_package_format().V4_COLUMNS[table_name]:
             raise MigrationError(
                 f"La fuente SQLite ya no representa el contrato v4 de {table_name}"
             )
@@ -1585,7 +1699,7 @@ def validate_v4_graph(
     closure: dict[str, Any],
 ) -> None:
     """Valida clausura, procedencia y barrera semántica PF-13 sin ORM mutable."""
-    if set(rows) != set(vps_migration_v4.INCLUDED_TABLES):
+    if set(rows) != set(_fiscal_package_format().INCLUDED_TABLES):
         raise MigrationError("La selección v4 no contiene su partición exacta")
     _validate_packaged_v4_foreign_keys(rows)
     companies = {int(row["id"]) for row in rows["empresas"]}
@@ -1607,10 +1721,12 @@ def validate_v4_graph(
 
     pairs = normalization.get("pairs")
     if (
-        normalization.get("rule") != vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE
+        normalization.get("rule")
+        != _fiscal_package_format().OPERATION_LOTE_NORMALIZATION_RULE
         or not isinstance(pairs, list)
         or normalization.get("rows") != len(pairs)
-        or normalization.get("sha256") != vps_migration_v4.canonical_sha256(pairs)
+        or normalization.get("sha256")
+        != _fiscal_package_format().canonical_sha256(pairs)
     ):
         raise MigrationError("La normalización legacy v4 no es canónica")
     pair_operations: set[int] = set()
@@ -1805,7 +1921,7 @@ def validate_v4_graph(
             or int(generation["empresa_id"]) != int(operation["empresa_id"])
             or int(lote["empresa_id"]) != int(generation["empresa_id"])
             or generation["ambiente"] not in AMBIENTES_RECE
-            or generation["formato"] != vps_migration_v4.RELATION_FORMAT
+            or generation["formato"] != _fiscal_package_format().RELATION_FORMAT
         ):
             raise MigrationError("Una generación PF-13 perdió su procedencia")
         control_snapshot = _v4_json_object(
@@ -1813,7 +1929,8 @@ def validate_v4_graph(
             label=f"generación {generation_id}",
         )
         if (
-            control_snapshot.get("formato_relacion") != vps_migration_v4.RELATION_FORMAT
+            control_snapshot.get("formato_relacion")
+            != _fiscal_package_format().RELATION_FORMAT
             or control_snapshot.get("evidencia_id") != generation["evidencia_id"]
             or not isinstance(control_snapshot.get("seleccion_original"), list)
             or not isinstance(control_snapshot.get("manifiesto"), dict)
@@ -1844,9 +1961,9 @@ def validate_v4_graph(
                 "aceptacion_requerida",
             }
         }
-        expected_snapshot_hash = vps_migration_v4.canonical_sha256(
+        expected_snapshot_hash = _fiscal_package_format().canonical_sha256(
             {
-                "dominio": vps_migration_v4.RELATION_FORMAT,
+                "dominio": _fiscal_package_format().RELATION_FORMAT,
                 "control": stable_control,
                 "relacion": relation,
             }
@@ -1973,12 +2090,12 @@ def _canonical_v4_barrier_rows(
     rows: dict[str, list[dict[str, Any]]],
 ) -> dict[str, list[dict[str, Any]]]:
     result: dict[str, list[dict[str, Any]]] = {}
-    for table_name in vps_migration_v4.INCLUDED_TABLES:
-        table = Base.metadata.tables[table_name]
+    for table_name in _fiscal_package_format().INCLUDED_TABLES:
+        table = _historical_v4_table(table_name)
         normalized_rows = []
         for row in rows[table_name]:
             normalized = {}
-            for column_name in vps_migration_v4.V4_COLUMNS[table_name]:
+            for column_name in _fiscal_package_format().V4_COLUMNS[table_name]:
                 value = row[column_name]
                 column_type = table.c[column_name].type
                 if value is not None and isinstance(column_type, Boolean):
@@ -2001,13 +2118,21 @@ def _canonical_v4_barrier_rows(
                         if isinstance(value, date)
                         else date.fromisoformat(str(value))
                     ).isoformat()
+                elif value is not None and isinstance(
+                    column_type, (ExactAmount, ExactDecimal, ExactInteger)
+                ):
+                    value = (
+                        str(value)
+                        if isinstance(column_type, ExactInteger)
+                        else encode_decimal(Decimal(str(value)))
+                    )
                 elif value is not None and isinstance(column_type, Numeric):
                     value = format(Decimal(str(value)).normalize(), "f")
                 elif value is not None and isinstance(column_type, JSON):
                     value = json.loads(value) if isinstance(value, str) else value
                 normalized[column_name] = value
             normalized_rows.append(normalized)
-        primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+        primary_key = _fiscal_package_format().PRIMARY_KEYS[table_name]
         normalized_rows.sort(key=lambda item: tuple(item[name] for name in primary_key))
         result[table_name] = normalized_rows
     return result
@@ -2023,7 +2148,7 @@ def build_v4_idempotency_barrier(
     """Atestigua todos los campos decisorios y relaciones del paquete v4."""
     material = {
         "version": 2,
-        "algorithm": vps_migration_v4.BARRIER_ALGORITHM,
+        "algorithm": _fiscal_package_format().BARRIER_ALGORITHM,
         "source_barrier": source_barrier,
         "normalization": normalization,
         "closure": closure,
@@ -2031,12 +2156,13 @@ def build_v4_idempotency_barrier(
     }
     return {
         "version": 2,
-        "algorithm": vps_migration_v4.BARRIER_ALGORITHM,
+        "algorithm": _fiscal_package_format().BARRIER_ALGORITHM,
         "rows": sum(len(table_rows) for table_rows in rows.values()),
-        "sha256": vps_migration_v4.canonical_sha256(material),
+        "sha256": _fiscal_package_format().canonical_sha256(material),
     }
 
 
+@_format_context
 def run_preflight(
     source_db: Path,
     certs_dir: Path,
@@ -2044,7 +2170,7 @@ def run_preflight(
 ) -> PreflightResult:
     """Diagnostica si la fuente es apta; export vuelve a validar en snapshot."""
     repo_head = get_repo_alembic_head(backend_dir)
-    if repo_head != vps_migration_v4.ALEMBIC_HEAD:
+    if repo_head not in {_fiscal_package_format().ALEMBIC_HEAD, A01_HEAD}:
         raise MigrationError("El preflight v4 exige el head PF-13 exacto del contrato")
     db_path, certs_base = resolve_source_paths(source_db, certs_dir)
     with connect_sqlite_readonly(db_path) as conn:
@@ -2052,7 +2178,7 @@ def run_preflight(
             conn,
             db_path=db_path,
             certs_base=certs_base,
-            repo_head=repo_head,
+            repo_head=_fiscal_package_format().ALEMBIC_HEAD,
         )
 
 
@@ -2067,6 +2193,7 @@ def resolve_source_paths(source_db: Path, certs_dir: Path) -> tuple[Path, Path]:
     return db_path, certs_base
 
 
+@_format_context
 def run_preflight_on_connection(
     conn: sqlite3.Connection,
     *,
@@ -2078,9 +2205,9 @@ def run_preflight_on_connection(
     validate_table_partition()
     tables = get_sqlite_tables(conn)
     expected_tables = {
-        *vps_migration_v4.INCLUDED_TABLES,
-        *vps_migration_v4.REGENERATED_TABLES,
-        *vps_migration_v4.EXCLUDED_TABLES,
+        *_fiscal_package_format().INCLUDED_TABLES,
+        *_fiscal_package_format().REGENERATED_TABLES,
+        *_fiscal_package_format().EXCLUDED_TABLES,
         "alembic_version",
     }
     if tables != expected_tables:
@@ -2123,7 +2250,7 @@ def run_preflight_on_connection(
     included_counts = capture.included_counts
     excluded_counts = {
         table_name: capture.source_counts[table_name]
-        for table_name in vps_migration_v4.EXCLUDED_TABLES
+        for table_name in _fiscal_package_format().EXCLUDED_TABLES
     }
     safe_omitted = capture.safe_omitted
     active_certs = list_active_certificates(conn)
@@ -2139,7 +2266,7 @@ def run_preflight_on_connection(
         source_db=db_path,
         certs_dir=certs_base,
         alembic_version=repo_head,
-        repo_head=repo_head,
+        repo_head=_fiscal_package_format().ALEMBIC_HEAD,
         included_counts=included_counts,
         excluded_counts=excluded_counts,
         active_certificates=len(active_certs),
@@ -2239,6 +2366,7 @@ def cleanup_owned_staging_directory(
     shutil.rmtree(staging_dir)
 
 
+@_format_context
 def export_package(
     source_db: Path,
     certs_dir: Path,
@@ -2258,7 +2386,7 @@ def export_package(
         )
 
     repo_head = get_repo_alembic_head(backend_dir)
-    if repo_head != vps_migration_v4.ALEMBIC_HEAD:
+    if repo_head not in {_fiscal_package_format().ALEMBIC_HEAD, A01_HEAD}:
         raise MigrationError(
             "La exportación v4 PF-13 exige el head exacto del contrato"
         )
@@ -2291,7 +2419,7 @@ def export_package(
                 conn,
                 db_path=db_path,
                 certs_base=certs_base,
-                repo_head=repo_head,
+                repo_head=_fiscal_package_format().ALEMBIC_HEAD,
             )
             capture = capture_v4_rows(conn)
             data_dir = staging_dir / "data"
@@ -2309,10 +2437,10 @@ def export_package(
                 source_key_password=source_key_password,
             )
 
-            normalizations[vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY] = (
-                capture.normalization
-            )
-            for table_name in vps_migration_v4.INCLUDED_TABLES:
+            normalizations[
+                _fiscal_package_format().OPERATION_LOTE_NORMALIZATION_KEY
+            ] = capture.normalization
+            for table_name in _fiscal_package_format().INCLUDED_TABLES:
                 rows = [dict(row) for row in capture.rows[table_name]]
                 if table_name == "certificados":
                     rows = normalize_certificate_rows(
@@ -2367,16 +2495,16 @@ def export_package(
             "bytes": env_template_path.stat().st_size,
         }
         manifest = {
-            "package_version": MIGRATION_PACKAGE_VERSION,
+            "package_version": _fiscal_package_format().PACKAGE_VERSION,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "scope": SCOPE,
             "alembic_version": preflight.alembic_version,
-            "complete_tables": list(vps_migration_v4.COMPLETE_TABLES),
-            "filtered_tables": list(vps_migration_v4.FILTERED_TABLES),
-            "regenerated_tables": list(vps_migration_v4.REGENERATED_TABLES),
-            "included_tables": list(vps_migration_v4.INCLUDED_TABLES),
-            "excluded_tables": list(vps_migration_v4.EXCLUDED_TABLES),
-            "target_empty_tables": list(vps_migration_v4.TARGET_EMPTY_TABLES),
+            "complete_tables": list(_fiscal_package_format().COMPLETE_TABLES),
+            "filtered_tables": list(_fiscal_package_format().FILTERED_TABLES),
+            "regenerated_tables": list(_fiscal_package_format().REGENERATED_TABLES),
+            "included_tables": list(_fiscal_package_format().INCLUDED_TABLES),
+            "excluded_tables": list(_fiscal_package_format().EXCLUDED_TABLES),
+            "target_empty_tables": list(_fiscal_package_format().TARGET_EMPTY_TABLES),
             "source_counts": capture.source_counts,
             "included_counts": capture.included_counts,
             "omitted_counts": capture.omitted_counts,
@@ -2390,7 +2518,7 @@ def export_package(
             "certificate_files": cert_files,
             "env_template": env_template,
             "required_env_keys": REQUIRED_ENV_KEYS,
-            "notes": list(vps_migration_v4.PACKAGE_NOTES),
+            "notes": list(_fiscal_package_format().PACKAGE_NOTES),
         }
         write_json(staging_dir / "manifest.json", manifest)
         publish_staging_directory(staging_dir, package_dir, staging_ownership)
@@ -2422,6 +2550,7 @@ def export_package(
     return package_dir
 
 
+@_format_context
 def import_package(
     package_dir: Path,
     database_url: str,
@@ -2471,14 +2600,15 @@ def import_package(
             clear_seeded_included_tables(conn, contract)
             insert_order = (
                 contract.insert_order
-                if contract.package_version == vps_migration_v4.PACKAGE_VERSION
+                if contract.package_version == _fiscal_package_format().PACKAGE_VERSION
                 else contract.included_tables
             )
             for table_name in insert_order:
                 rows = package_rows[table_name]
                 deferred = (
                     contract.deferred_columns.get(table_name, ())
-                    if contract.package_version == vps_migration_v4.PACKAGE_VERSION
+                    if contract.package_version
+                    == _fiscal_package_format().PACKAGE_VERSION
                     else ()
                 )
                 if deferred:
@@ -2487,7 +2617,7 @@ def import_package(
                         for row in rows
                     ]
                 insert_rows(conn, table_name, rows)
-            if contract.package_version == vps_migration_v4.PACKAGE_VERSION:
+            if contract.package_version == _fiscal_package_format().PACKAGE_VERSION:
                 restore_deferred_columns(conn, package_rows, contract)
             regenerate_v3_coordinators(conn)
             validate_imported_database(conn, manifest, package_rows, contract)
@@ -2528,6 +2658,7 @@ def import_package(
         engine.dispose()
 
 
+@_format_context
 def validate_import(
     package_dir: Path,
     database_url: str,
@@ -2627,6 +2758,7 @@ def connect_sqlite_readonly(db_path: Path) -> sqlite3.Connection:
     """Abre una conexión SQLite de solo lectura."""
     uri = f"file:{db_path.as_posix()}?mode=ro"
     conn = sqlite3.connect(uri, uri=True)
+    _install_sqlite_functions(conn, None)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -2636,6 +2768,7 @@ def connect_sqlite_export_snapshot(db_path: Path) -> sqlite3.Connection:
     uri = f"file:{db_path.as_posix()}?mode=rw"
     conn = sqlite3.connect(uri, uri=True, isolation_level=None, timeout=5)
     try:
+        _install_sqlite_functions(conn, None)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
         conn.execute("PRAGMA busy_timeout=5000")
@@ -2670,9 +2803,9 @@ def count_tables(conn: sqlite3.Connection, tables: Iterable[str]) -> dict[str, i
 
 def validate_table_partition() -> None:
     """Exige una clasificación exhaustiva y sin solapamientos del modelo."""
-    included = set(vps_migration_v4.INCLUDED_TABLES)
-    regenerated = set(vps_migration_v4.REGENERATED_TABLES)
-    excluded = set(vps_migration_v4.EXCLUDED_TABLES)
+    included = set(_fiscal_package_format().INCLUDED_TABLES)
+    regenerated = set(_fiscal_package_format().REGENERATED_TABLES)
+    excluded = set(_fiscal_package_format().EXCLUDED_TABLES)
     overlap = sorted(
         (included & regenerated) | (included & excluded) | (regenerated & excluded)
     )
@@ -4959,12 +5092,26 @@ def _convert_v4_jsonl_value(
     line_number: int,
 ) -> Any:
     """Valida un valor v4 sin coerciones ambiguas y devuelve su tipo destino."""
-    column = Base.metadata.tables[table_name].c[column_name]
+    column = _historical_v4_table(table_name).c[column_name]
     label = f"{table_name}.{column_name}, línea {line_number}"
     if value is None:
         if column.primary_key or not column.nullable:
             raise MigrationError(f"NULL inválido en {label}")
         return None
+    if isinstance(column.type, (ExactAmount, ExactDecimal, ExactInteger)):
+        if isinstance(value, bool) or not isinstance(value, str):
+            raise MigrationError(f"Decimal A-01 no canónico en {label}")
+        number = Decimal(value)
+        if isinstance(column.type, ExactInteger):
+            from app.core.fiscal_storage import scaled_integer
+
+            integer = scaled_integer(number)
+            if str(integer) != value:
+                raise MigrationError(f"Entero A-01 no canónico en {label}")
+            return integer
+        if encode_decimal(number) != value:
+            raise MigrationError(f"Decimal A-01 no canónico en {label}")
+        return number
     if isinstance(column.type, Boolean):
         if not isinstance(value, int) or isinstance(value, bool) or value not in {0, 1}:
             raise MigrationError(f"Boolean no canónico en {label}")
@@ -5028,8 +5175,8 @@ def _parse_manifest_jsonl_lines_v4(
 ) -> list[dict[str, Any]]:
     """Parsea JSONL v4 contra columnas congeladas y tipos estrictos del head."""
     try:
-        expected_columns = vps_migration_v4.V4_COLUMNS[table_name]
-        target_table = Base.metadata.tables[table_name]
+        expected_columns = _fiscal_package_format().V4_COLUMNS[table_name]
+        target_table = _historical_v4_table(table_name)
     except KeyError as exc:
         raise MigrationError(f"Tabla v4 no modelada: {table_name}") from exc
     if tuple(target_table.columns.keys()) != expected_columns:
@@ -5072,7 +5219,7 @@ def _parse_manifest_jsonl_lines_v4(
         }
         rows.append(payload)
         converted_rows.append(converted_row)
-    primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+    primary_key = _fiscal_package_format().PRIMARY_KEYS[table_name]
     identities = [
         tuple(row[column_name] for column_name in primary_key) for row in rows
     ]
@@ -5345,9 +5492,9 @@ def _validate_packaged_v4_foreign_keys(
     table_rows: dict[str, list[dict[str, Any]]],
 ) -> None:
     """Valida todas las FKs vigentes del subgrafo v4, incluidas las diferidas."""
-    included = set(vps_migration_v4.INCLUDED_TABLES)
+    included = set(_fiscal_package_format().INCLUDED_TABLES)
     key_cache: dict[tuple[str, tuple[str, ...]], set[tuple[Any, ...]]] = {}
-    for table_name in vps_migration_v4.INCLUDED_TABLES:
+    for table_name in _fiscal_package_format().INCLUDED_TABLES:
         table = Base.metadata.tables[table_name]
         for constraint in table.foreign_key_constraints:
             local_columns = tuple(
@@ -5738,6 +5885,7 @@ def _validate_manifest_certificate_files(
             raise MigrationError(f"Checksum inválido en {relative_path}")
 
 
+@_format_context
 def load_and_verify_manifest(package_dir: Path) -> dict[str, Any]:
     """Despacha el loader estricto según la versión declarada del paquete."""
     package_root = package_dir.resolve()
@@ -6034,13 +6182,13 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
         )
         manifest = _require_exact_keys(
             manifest,
-            set(vps_migration_v4.MANIFEST_TOP_LEVEL_KEYS),
+            set(_fiscal_package_format().MANIFEST_TOP_LEVEL_KEYS),
             label="top-level",
         )
         contract = select_import_contract(manifest)
-        if contract.package_version != vps_migration_v4.PACKAGE_VERSION:
+        if contract.package_version != _fiscal_package_format().PACKAGE_VERSION:
             raise MigrationError("El manifest no corresponde al contrato v4")
-        if manifest["scope"] != vps_migration_v4.SCOPE:
+        if manifest["scope"] != _fiscal_package_format().SCOPE:
             raise MigrationError("El paquete no corresponde al alcance esperado")
         if manifest["alembic_version"] != contract.alembic_head:
             raise MigrationError("El head Alembic del manifest no coincide con v4")
@@ -6066,7 +6214,7 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
                 raise MigrationError(f"{key} no coincide con el contrato v4")
         if manifest["required_env_keys"] != list(vps_migration_v3.REQUIRED_ENV_KEYS):
             raise MigrationError("required_env_keys no coincide con el contrato v4")
-        if manifest["notes"] != list(vps_migration_v4.PACKAGE_NOTES):
+        if manifest["notes"] != list(_fiscal_package_format().PACKAGE_NOTES):
             raise MigrationError("notes no coincide con el contrato v4")
 
         source_keys = list(
@@ -6104,7 +6252,7 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
 
         safe_omitted = _require_exact_keys(
             manifest["safe_omitted"],
-            set(vps_migration_v4.SAFE_OMITTED_KEYS),
+            set(_fiscal_package_format().SAFE_OMITTED_KEYS),
             label="safe_omitted",
         )
         if (
@@ -6149,34 +6297,37 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
 
         normalizations = _require_exact_keys(
             manifest["normalizations"],
-            {vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY},
+            {_fiscal_package_format().OPERATION_LOTE_NORMALIZATION_KEY},
             label="normalizations",
         )
         normalization = _require_exact_keys(
-            normalizations[vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY],
+            normalizations[_fiscal_package_format().OPERATION_LOTE_NORMALIZATION_KEY],
             set(vps_migration_v3.NORMALIZATION_INFO_KEYS),
             label="normalizations.operaciones_idempotentes.lote_id",
         )
-        if normalization["rule"] != vps_migration_v4.OPERATION_LOTE_NORMALIZATION_RULE:
+        if (
+            normalization["rule"]
+            != _fiscal_package_format().OPERATION_LOTE_NORMALIZATION_RULE
+        ):
             raise MigrationError("Regla de normalización lote_id v4 no soportada")
         pairs = _validate_normalization_pairs(normalization["pairs"])
         if _require_nonnegative_int(
             normalization["rows"], label="normalizations.lote_id.rows"
         ) != len(pairs) or _require_sha256(
             normalization["sha256"], label="normalizations.lote_id.sha256"
-        ) != vps_migration_v4.canonical_sha256(
+        ) != _fiscal_package_format().canonical_sha256(
             pairs
         ):
             raise MigrationError("La normalización legacy v4 no verifica")
 
         closure = _require_exact_keys(
             manifest["closure"],
-            set(vps_migration_v4.CLOSURE_KEYS),
+            set(_fiscal_package_format().CLOSURE_KEYS),
             label="closure",
         )
         if (
             _require_nonnegative_int(closure["version"], label="closure.version") != 1
-            or closure["algorithm"] != vps_migration_v4.CLOSURE_ALGORITHM
+            or closure["algorithm"] != _fiscal_package_format().CLOSURE_ALGORITHM
         ):
             raise MigrationError("Versión o algoritmo de clausura v4 no soportado")
         for key in (
@@ -6208,7 +6359,7 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
         closure_payload = {
             key: value for key, value in closure.items() if key != "sha256"
         }
-        if closure_hash != vps_migration_v4.canonical_sha256(closure_payload):
+        if closure_hash != _fiscal_package_format().canonical_sha256(closure_payload):
             raise MigrationError("El hash de clausura v4 no verifica")
 
         source_barrier = _require_exact_keys(
@@ -6331,7 +6482,7 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
 
         barrier = _require_exact_keys(
             manifest["idempotency_barrier"],
-            set(vps_migration_v4.BARRIER_KEYS),
+            set(_fiscal_package_format().BARRIER_KEYS),
             label="idempotency_barrier",
         )
         if (
@@ -6339,7 +6490,7 @@ def _load_and_verify_manifest_v4(package_dir: Path) -> dict[str, Any]:
                 barrier["version"], label="idempotency_barrier.version"
             )
             != 2
-            or barrier["algorithm"] != vps_migration_v4.BARRIER_ALGORITHM
+            or barrier["algorithm"] != _fiscal_package_format().BARRIER_ALGORITHM
         ):
             raise MigrationError("Versión o algoritmo de barrera v4 no soportado")
         _require_nonnegative_int(barrier["rows"], label="idempotency_barrier.rows")
@@ -6462,6 +6613,7 @@ def create_postgres_engine(database_url: str) -> Engine:
     return create_engine(database_url, future=True)
 
 
+@_format_context
 def ensure_target_database_ready(
     conn,
     manifest: dict[str, Any],
@@ -6470,7 +6622,7 @@ def ensure_target_database_ready(
     """Valida que PostgreSQL esté migrada y sin datos operativos."""
     selected = contract or select_import_contract(manifest)
     validate_target_alembic_head(conn, manifest, selected)
-    if selected.package_version == vps_migration_v4.PACKAGE_VERSION:
+    if selected.package_version == _fiscal_package_format().PACKAGE_VERSION:
         for table_name in selected.included_tables:
             validate_v4_target_table_contract(
                 table_name,
@@ -6646,7 +6798,7 @@ def read_database_rows(conn, table_name: str) -> list[dict[str, Any]]:
     """Lee el estado transaccional de una tabla incluida en orden estable."""
     table = Base.metadata.tables[table_name]
     statement = select(table)
-    primary_key = vps_migration_v4.PRIMARY_KEYS.get(
+    primary_key = _fiscal_package_format().PRIMARY_KEYS.get(
         table_name,
         vps_migration_v3.PRIMARY_KEYS.get(table_name, ()),
     )
@@ -6665,6 +6817,17 @@ def canonicalize_table_rows(
     for row in rows:
         canonical: dict[str, Any] = {}
         for column in table.columns:
+            if (
+                column.name == "cotizacion_busqueda"
+                and _fiscal_package_format().PACKAGE_VERSION == 4
+            ):
+                if (
+                    column.name in row
+                    and row[column.name]
+                    != _a01_destination_row(table_name, row)[column.name]
+                ):
+                    raise MigrationError("La clave auxiliar A-01 no verifica")
+                continue
             value = row[column.name]
             if value is None:
                 canonical[column.name] = None
@@ -6686,6 +6849,8 @@ def canonicalize_table_rows(
                     else date.fromisoformat(str(value)[:10])
                 )
                 canonical[column.name] = parsed_date.isoformat()
+            elif isinstance(column.type, (ExactDecimal, ExactAmount, ExactInteger)):
+                canonical[column.name] = encode_decimal(Decimal(str(value)))
             elif isinstance(column.type, Numeric):
                 canonical[column.name] = format(Decimal(str(value)).normalize(), "f")
             elif isinstance(column.type, JSON):
@@ -6780,6 +6945,7 @@ def validate_rece_ledger_rows(
             raise MigrationError("La cabeza RECE no apunta a la revisión máxima")
 
 
+@_format_context
 def validate_target_alembic_head(
     conn,
     manifest: dict[str, Any],
@@ -6841,6 +7007,7 @@ def validate_v3_coordinators(conn, company_rows: list[dict[str, Any]]) -> None:
         raise MigrationError("Los coordinadores PF-13 regenerados no verifican")
 
 
+@_format_context
 def validate_imported_database(
     conn,
     manifest: dict[str, Any],
@@ -6849,7 +7016,7 @@ def validate_imported_database(
 ) -> None:
     """Ejecuta postflight exhaustivo sobre la transacción aún no confirmada."""
     selected = contract or select_import_contract(manifest)
-    if selected.package_version == vps_migration_v4.PACKAGE_VERSION:
+    if selected.package_version == _fiscal_package_format().PACKAGE_VERSION:
         _validate_imported_database_v4(conn, manifest, package_rows, selected)
         return
     validate_target_alembic_head(conn, manifest, selected)
@@ -6903,11 +7070,12 @@ def validate_imported_database(
         raise MigrationError("La barrera idempotente restaurada no verifica")
 
 
+@_format_context
 def _validate_imported_database_v4(
     conn,
     manifest: dict[str, Any],
     package_rows: dict[str, list[dict[str, Any]]],
-    contract: vps_migration_v4.ImportContract,
+    contract: _fiscal_package_format().ImportContract,
 ) -> None:
     """Acredita contenido y grafo v4 antes de confirmar la transacción."""
     validate_target_alembic_head(conn, manifest, contract)
@@ -6930,7 +7098,7 @@ def _validate_imported_database_v4(
             raise MigrationError(f"La tabla excluida {table_name} no quedó vacía")
     validate_v3_coordinators(conn, actual_rows["empresas"])
     normalization = manifest["normalizations"][
-        vps_migration_v4.OPERATION_LOTE_NORMALIZATION_KEY
+        _fiscal_package_format().OPERATION_LOTE_NORMALIZATION_KEY
     ]
     validate_v4_graph(
         actual_rows,
@@ -6950,7 +7118,7 @@ def _validate_imported_database_v4(
 def _target_type_matches_v3(column_type: Any, spec: Any) -> bool:
     """Compara el tipo físico de destino con la definición histórica exacta."""
     if spec.kind == "integer":
-        return isinstance(column_type, Integer)
+        return isinstance(column_type, (Integer, ExactInteger))
     if spec.kind == "boolean":
         return isinstance(column_type, Boolean)
     if spec.kind == "date":
@@ -6960,6 +7128,8 @@ def _target_type_matches_v3(column_type: Any, spec: Any) -> bool:
             spec.timezone
         )
     if spec.kind == "numeric":
+        if isinstance(column_type, (ExactDecimal, ExactAmount)):
+            return True
         if not isinstance(column_type, Numeric):
             return False
         if column_type.precision is None or column_type.scale is None:
@@ -6998,7 +7168,14 @@ def validate_v3_target_table_contract(table_name: str, target_table: Table) -> N
         if (
             bool(target_column.nullable) != spec.nullable
             or bool(target_column.primary_key) != spec.primary_key
-            or not _target_type_matches_v3(target_column.type, spec)
+            or not (
+                _target_type_matches_v3(target_column.type, spec)
+                or (
+                    table_name == "comprobante_items"
+                    and column_name == "codigo"
+                    and isinstance(target_column.type, Text)
+                )
+            )
         ):
             raise MigrationError(
                 f"El tipo físico de {table_name}.{column_name} no representa v3"
@@ -7035,17 +7212,27 @@ def validate_v3_target_table_contract(table_name: str, target_table: Table) -> N
 def validate_v4_target_table_contract(table_name: str, target_table: Table) -> None:
     """Impide importar v4 si el ORM vigente divergió de sus columnas congeladas."""
     try:
-        expected_columns = vps_migration_v4.V4_COLUMNS[table_name]
+        expected_columns = _fiscal_package_format().V4_COLUMNS[table_name]
     except KeyError as exc:
         raise MigrationError(
             f"Tabla no declarada por el contrato v4: {table_name}"
         ) from exc
-    if tuple(target_table.columns.keys()) != expected_columns:
+    actual_columns = tuple(
+        name
+        for name in target_table.columns.keys()
+        if not (
+            _fiscal_package_format().PACKAGE_VERSION == 4
+            and table_name == "lotes_comprobantes_grupos"
+            and name == "cotizacion_busqueda"
+        )
+    )
+    if actual_columns != expected_columns:
         raise MigrationError(
             f"El destino vigente de {table_name} no coincide con el contrato v4"
         )
 
 
+@_format_context
 def read_package_rows(
     package_dir: Path, manifest: dict[str, Any], table_name: str
 ) -> list[dict[str, Any]]:
@@ -7162,7 +7349,7 @@ def convert_value(column_type: Any, value: Any) -> Any:
     if isinstance(column_type, Date):
         if isinstance(value, str):
             return date.fromisoformat(value[:10])
-    if isinstance(column_type, Numeric):
+    if isinstance(column_type, (Numeric, ExactDecimal, ExactAmount)):
         return Decimal(str(value))
     if isinstance(column_type, JSON) and isinstance(value, str):
         return json.loads(value)
@@ -7175,18 +7362,24 @@ def insert_rows(conn, table_name: str, rows: list[dict[str, Any]]) -> None:
         return
     table = Base.metadata.tables[table_name]
     for start in range(0, len(rows), 500):
-        conn.execute(table.insert(), rows[start : start + 500])
+        conn.execute(
+            table.insert(),
+            [
+                _a01_destination_row(table_name, row)
+                for row in rows[start : start + 500]
+            ],
+        )
 
 
 def restore_deferred_columns(
     conn,
     package_rows: dict[str, list[dict[str, Any]]],
-    contract: vps_migration_v4.ImportContract,
+    contract: _fiscal_package_format().ImportContract,
 ) -> None:
     """Restaura aristas cíclicas v4 exactamente antes del postflight."""
     for table_name, column_names in contract.deferred_columns.items():
         table = Base.metadata.tables[table_name]
-        primary_key = vps_migration_v4.PRIMARY_KEYS[table_name]
+        primary_key = _fiscal_package_format().PRIMARY_KEYS[table_name]
         for row in package_rows[table_name]:
             values = {
                 column_name: row[column_name]

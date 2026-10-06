@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import type { ItemComprobante } from "@/types/comprobante";
+import type { EditableItemComprobante as ItemComprobante } from "@/types/comprobante";
 import ItemRow from "./ItemRow.vue";
 
 describe("ItemRow PF-03B", () => {

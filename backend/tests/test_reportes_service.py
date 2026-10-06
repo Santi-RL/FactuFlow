@@ -2,7 +2,9 @@
 
 import pytest
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, localcontext
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
@@ -18,6 +20,52 @@ def reportes_service():
 
 class TestReportesService:
     """Tests para ReportesService."""
+
+    async def test_reportes_ampliados_suman_y_firman_sin_float(self, reportes_service):
+        amount = Decimal("10000000000000000000000000.01")
+
+        def receipt(kind, number, total):
+            return SimpleNamespace(
+                id=number,
+                numero=number,
+                tipo_comprobante=kind,
+                fecha_emision=date(2026, 7, 13),
+                punto_venta=SimpleNamespace(numero=1),
+                cliente=None,
+                receptor_razon_social="Receptor sintético",
+                receptor_numero_documento="0",
+                subtotal=total,
+                total=total,
+                iva_21=Decimal(0),
+                iva_10_5=Decimal(0),
+                iva_27=Decimal(0),
+                items=[],
+            )
+
+        reportes_service.obtener_comprobantes_por_periodo = AsyncMock(
+            return_value=[receipt(11, 1, amount), receipt(13, 2, Decimal("0.01"))]
+        )
+        with localcontext() as context:
+            context.prec = 8
+            sales = await reportes_service.generar_reporte_ventas(
+                None, 1, date(2026, 7, 1), date(2026, 7, 31)
+            )
+            iva = await reportes_service.generar_reporte_iva(None, 1, 7, 2026)
+            ranking = await reportes_service.obtener_ranking_clientes(
+                None, 1, date(2026, 7, 1), date(2026, 7, 31)
+            )
+        assert sales["comprobantes"][0]["total"] == str(amount)
+        assert Decimal(sales["resumen"]["total_neto"]) == Decimal(
+            "10000000000000000000000000.00"
+        )
+        assert iva["comprobantes"][0]["total"] == str(amount)
+        assert Decimal(iva["resumen"]["exento"]) == Decimal(
+            "10000000000000000000000000.00"
+        )
+        assert Decimal(ranking[0]["total_facturado"]) == Decimal(
+            "10000000000000000000000000.00"
+        )
+        assert ranking[0]["cantidad_comprobantes"] == 2
 
     def test_get_letra_comprobante_a(self, reportes_service):
         """Debe retornar 'A' para comprobantes tipo A."""
@@ -80,7 +128,7 @@ class TestReportesService:
         assert "comprobantes" in reporte
         assert "resumen" in reporte
         assert len(reporte["comprobantes"]) == 0
-        assert reporte["resumen"]["total_neto"] == 0.0
+        assert Decimal(reporte["resumen"]["total_neto"]) == Decimal("0.0")
         assert reporte["resumen"]["cantidad_comprobantes"] == 0
 
     @pytest.mark.asyncio
@@ -93,7 +141,7 @@ class TestReportesService:
         assert "comprobantes" in reporte
         assert "resumen" in reporte
         assert len(reporte["comprobantes"]) == 0
-        assert reporte["resumen"]["total_iva"] == 0.0
+        assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("0.0")
         assert reporte["resumen"]["periodo"]["mes"] == 1
         assert reporte["resumen"]["periodo"]["anio"] == 2026
         assert reporte["resumen"]["periodo"]["nombre"] == "Enero"
@@ -173,11 +221,11 @@ class TestReportesService:
             periodo_anio=2026,
         )
 
-        assert reporte["resumen"]["gravado_21"] == 800.0
-        assert reporte["resumen"]["iva_21"] == 168.0
-        assert reporte["resumen"]["total_iva"] == 168.0
-        assert reporte["comprobantes"][1]["gravado_21"] == -200.0
-        assert reporte["comprobantes"][1]["iva_21"] == -42.0
+        assert Decimal(reporte["resumen"]["gravado_21"]) == Decimal("800.0")
+        assert Decimal(reporte["resumen"]["iva_21"]) == Decimal("168.0")
+        assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("168.0")
+        assert Decimal(reporte["comprobantes"][1]["gravado_21"]) == Decimal("-200.0")
+        assert Decimal(reporte["comprobantes"][1]["iva_21"]) == Decimal("-42.0")
 
     @pytest.mark.asyncio
     async def test_generar_reporte_iva_incluye_tipo_c_sin_iva_como_exento(
@@ -254,18 +302,18 @@ class TestReportesService:
             periodo_anio=2026,
         )
 
-        assert reporte["resumen"]["exento"] == 1300.0
-        assert reporte["resumen"]["no_gravado"] == 0.0
-        assert reporte["resumen"]["total_neto"] == 1300.0
-        assert reporte["resumen"]["total_iva"] == 0.0
+        assert Decimal(reporte["resumen"]["exento"]) == Decimal("1300.0")
+        assert Decimal(reporte["resumen"]["no_gravado"]) == Decimal("0.0")
+        assert Decimal(reporte["resumen"]["total_neto"]) == Decimal("1300.0")
+        assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("0.0")
         assert reporte["comprobantes"][0]["tipo_letra"] == "C"
         assert reporte["comprobantes"][0]["tipo_nombre"] == "FC"
-        assert reporte["comprobantes"][0]["exento"] == 1500.0
-        assert reporte["comprobantes"][0]["no_gravado"] == 0.0
-        assert reporte["comprobantes"][0]["total"] == 1500.0
+        assert Decimal(reporte["comprobantes"][0]["exento"]) == Decimal("1500.0")
+        assert Decimal(reporte["comprobantes"][0]["no_gravado"]) == Decimal("0.0")
+        assert Decimal(reporte["comprobantes"][0]["total"]) == Decimal("1500.0")
         assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
-        assert reporte["comprobantes"][1]["exento"] == -200.0
-        assert reporte["comprobantes"][1]["total"] == -200.0
+        assert Decimal(reporte["comprobantes"][1]["exento"]) == Decimal("-200.0")
+        assert Decimal(reporte["comprobantes"][1]["total"]) == Decimal("-200.0")
 
     @pytest.mark.asyncio
     async def test_generar_reporte_iva_incluye_items_iva_cero_no_gravados(
@@ -366,17 +414,17 @@ class TestReportesService:
             periodo_anio=2026,
         )
 
-        assert reporte["resumen"]["no_gravado"] == 800.0
-        assert reporte["resumen"]["exento"] == 0.0
-        assert reporte["resumen"]["total_neto"] == 800.0
-        assert reporte["resumen"]["total_iva"] == 0.0
+        assert Decimal(reporte["resumen"]["no_gravado"]) == Decimal("800.0")
+        assert Decimal(reporte["resumen"]["exento"]) == Decimal("0.0")
+        assert Decimal(reporte["resumen"]["total_neto"]) == Decimal("800.0")
+        assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("0.0")
         assert reporte["comprobantes"][0]["tipo_letra"] == "B"
         assert reporte["comprobantes"][0]["tipo_nombre"] == "FB"
-        assert reporte["comprobantes"][0]["no_gravado"] == 1000.0
-        assert reporte["comprobantes"][0]["exento"] == 0.0
+        assert Decimal(reporte["comprobantes"][0]["no_gravado"]) == Decimal("1000.0")
+        assert Decimal(reporte["comprobantes"][0]["exento"]) == Decimal("0.0")
         assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
-        assert reporte["comprobantes"][1]["no_gravado"] == -200.0
-        assert reporte["comprobantes"][1]["total"] == -200.0
+        assert Decimal(reporte["comprobantes"][1]["no_gravado"]) == Decimal("-200.0")
+        assert Decimal(reporte["comprobantes"][1]["total"]) == Decimal("-200.0")
 
     @pytest.mark.asyncio
     async def test_obtener_ranking_clientes_empty(self, reportes_service, db_session):

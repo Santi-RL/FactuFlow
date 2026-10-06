@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
-import { formatearFecha as formatFecha } from "@/composables/useFormatters";
+import { formatearFecha as formatFecha, formatearMoneda } from "@/composables/useFormatters";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
   DocumentTextIcon,
@@ -100,12 +100,7 @@ const verDetalle = (id: number) => {
   router.push({ name: "comprobante-detalle", params: { id } });
 };
 
-const formatMonto = (monto: number) => {
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(monto);
-};
+const formatMonto = formatearMoneda;
 
 const getTipoNombre = (tipo: number) => {
   return TIPOS_COMPROBANTE_NOMBRES[tipo] || `Tipo ${tipo}`;

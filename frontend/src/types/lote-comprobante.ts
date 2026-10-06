@@ -1,3 +1,5 @@
+import type { FiscalDecimal } from "@/utils/fiscal-decimal";
+
 import type { ErrorArcaFiscalResponse } from "@/types/comprobante";
 
 export interface LoteComprobanteFila {
@@ -23,7 +25,7 @@ export interface LoteComprobanteGrupo {
   fecha_servicio_desde: string | null;
   fecha_servicio_hasta: string | null;
   fecha_vto_pago: string | null;
-  total_estimado: number;
+  total_estimado: FiscalDecimal;
   mensajes_json: string[];
   cae: string | null;
   numero_asignado: number | null;
@@ -101,10 +103,10 @@ export interface LoteComprobanteDetalle extends LoteComprobante {
 
 export interface LoteTotalesListos {
   comprobantes: number;
-  neto: number;
-  iva21: number;
-  iva105: number;
-  total: number;
+  neto: FiscalDecimal;
+  iva21: FiscalDecimal;
+  iva105: FiscalDecimal;
+  total: FiscalDecimal;
   valores_invalidos: number;
 }
 
@@ -294,7 +296,7 @@ export interface ReconciliacionExternaItem {
   punto_venta_numero: number;
   numero: number;
   fecha_emision: string;
-  total: number;
+  total: FiscalDecimal;
   cae?: string;
   motivo: string;
 }

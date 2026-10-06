@@ -18,14 +18,29 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-### Documentación y preparación de persistencia
+### Seguridad del frontend
+
+- Actualizados Vue y sus paquetes internos a 3.5.42,
+  `postcss-selector-parser` a 7.1.6 y `source-map-js` a 1.2.2 para corregir
+  las cuatro alertas de npm. El lockfile conserva las versiones verificadas;
+  Vue declara 3.5.42 como mínimo compatible.
+
+### Persistencia fiscal fiel A-01
 
 - Registrada la aceptación manual general de v0.3.7 informada por el usuario,
   que permite reanudar el roadmap sin declarar corregidos sus hallazgos pendientes.
 - Definido el [contrato de persistencia fiel A-01](docs/agents/pf-03-04-14-persistencia-fiel-design.md),
   con representación decimal por motor, capacidad auxiliar, consumidores,
-  preservación del legado y downgrade sin pérdida. Sus ensayos son preparatorios;
-  no se cambiaron runtime, esquema ni versión y A-01 sigue abierto.
+  preservación del legado y downgrade sin pérdida.
+- Implementados adaptadores decimales exactos, centavos sin límite int64, índices
+  de cotización acotados y migración Alembic en SQLite y PostgreSQL. Se conserva
+  la lectura histórica y se bloquea el downgrade incompatible antes del DDL.
+- Consulta, lotes, PDF y reportes conservan cifras sin pasar por flotantes; la web
+  presenta los decimales recibidos y el ranking usa el total del servidor.
+- Paquetes v5 para el esquema ampliado; v3/v4 conservan descriptores, hashes y
+  barreras históricos con adaptación explícita al destino. PF-03B, asociación
+  A-02, idempotencia e incertidumbre conservan sus contratos. Bases IVA y política
+  de moneda A-03 continúan pendientes. La versión publicada permanece v0.3.7.
 
 ## [0.3.7] — 2026-10-04
 

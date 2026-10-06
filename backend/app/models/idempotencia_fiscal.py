@@ -12,7 +12,6 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
-    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -20,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from app.core.fiscal_storage import ExactAmount
 from app.core.database import Base
 
 ESTADOS_INTENTO_FISCAL = (
@@ -514,7 +514,7 @@ class IntentoEmisionFiscal(Base):
     punto_venta_numero = Column(Integer, nullable=False)
     numero_planificado = Column(Integer, nullable=True)
     fecha_emision = Column(Date, nullable=False)
-    total = Column(Numeric(12, 2), nullable=False)
+    total = Column(ExactAmount(), nullable=False)
     receptor_tipo_documento = Column(Integer, nullable=True)
     receptor_numero_documento = Column(String(20), nullable=True)
     receptor_razon_social = Column(String(255), nullable=True)

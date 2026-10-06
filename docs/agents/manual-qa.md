@@ -217,6 +217,23 @@ datos sintéticos y sin solicitudes CAE reales:
 El contrato completo vive en el
 [`diseño PF-19D`](pf-19d-puntos-venta-authority-design.md).
 
+## Precisión fiscal A-01
+
+En un entorno sintético con ARCA simulado, cargar cantidad `1.00005`, precio
+`0.1234567890123456789012345678`, descuento `0.00123` y cotización con más de
+seis decimales. Revisar un código superior a 50 caracteres y un total superior
+a `9007199254740992`. Comprobar detalle, listado, lote, PDF y reporte: conservar
+cifras recibidas, sin redondeo del navegador. Reconciliación externa envía el
+mismo importe. La revisión previa conserva el contrato vigente; su unificación
+funcional y las bases IVA/moneda tienen cortes separados.
+
+Repetir la clave de una autorización y simular falla de guardado posterior a
+CAE: una sola llamada, estado reconciliable y solicitud durable intacta. Para
+migración, usar copias desechables: comparar lecturas legacy, JSON y reservas;
+probar upgrade, downgrade compatible y rechazo previo al DDL con datos ampliados.
+Detener/recrear conexiones después del cambio. No realizar estas pruebas como
+emisiones reales ni sobre una instalación operativa.
+
 ## Smoke local de aplicación
 
 1. iniciar backend, frontend y base según el setup vigente;

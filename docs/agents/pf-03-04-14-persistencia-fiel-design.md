@@ -2,7 +2,7 @@
 
 Última revisión: 05/10/2026.
 
-Estado: DISEÑO DE IMPLEMENTACIÓN; A-01 CONTINÚA ABIERTO.
+Estado: IMPLEMENTADO; contrato de persistencia A-01.
 
 ## Objetivo y alcance
 
@@ -12,10 +12,12 @@ Una autorización no debe quedar sin detalle porque la base tenga menos capacida
 que la preparación fiscal. La regla pertenece a la aplicación, con adaptadores de
 almacenamiento; no crear otro cálculo ni un motor por canal.
 
-Esta unidad define representación, consumidores y transición. Los
-[ensayos sintéticos](../project/analysis/a01-validacion-representacion-2026-10.md)
-son preparatorios: no constituyen una migración Alembic ni una implementación
-integrada. No modifican producción.
+Esta unidad implementa representación, consumidores y transición. El codec vive
+en `backend/app/core/fiscal_storage.py` y la migración real es
+`b2c3d4e5f6a7_persistencia_fiscal_fiel.py`, posterior a `a1b2c3d4e5f6`.
+Los [ensayos preparatorios](../project/analysis/a01-validacion-representacion-2026-10.md)
+conservan su condición histórica; la [evidencia integrada](../project/analysis/a01-persistencia-fiscal-fiel.md)
+describe implementación, validación y límites. No acredita producción.
 
 No imponer máximos comerciales para acomodar datos al esquema antiguo. Conservar
 el contexto decimal, operaciones y redondeos PF-03B. A-03 conserva la autoridad
@@ -172,5 +174,12 @@ El rollback de aplicación anterior exige compatibilidad demostrada de esquema.
 - Suite completa, cobertura, PostgreSQL desechable, lint/formato/tipos/build,
   E2E, auditorías y revisión sensible/QA proporcionales antes de integración.
 
-Los ensayos de diseño no satisfacen esta matriz integrada ni cierran A-01. No
-implementar aquí padrón, tasas, reconciliación integral o nuevas pantallas.
+La matriz integrada se acredita en el dossier de implementación. No se incorporan
+padrón, tasas, reconciliación integral o nuevas pantallas. La preparación fiscal
+común protege emisión individual, bloques, worker y reintentos. Los decimales
+públicos son strings; las respuestas idempotentes antiguas se conservan literalmente.
+
+El paquete v5 corresponde a `b2c3d4e5f6a7`: agrega la clave de búsqueda física y
+usa decimales compactos exactos. v3/v4 permanecen congelados. El formato se
+selecciona por head de origen o manifest, dentro de cada operación, sin alterar
+paquetes existentes. El destino se valida contra el head ampliado.

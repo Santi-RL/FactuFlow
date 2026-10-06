@@ -1,3 +1,5 @@
+import type { FiscalDecimal } from "@/utils/fiscal-decimal";
+
 /**
  * Tipos TypeScript para Comprobantes
  */
@@ -13,9 +15,22 @@ export interface ItemComprobanteCreate {
   orden: number;
 }
 
-export interface ItemComprobante extends ItemComprobanteCreate {
+export interface EditableItemComprobante extends ItemComprobanteCreate {
   id?: number;
   subtotal?: number;
+  comprobante_id?: number;
+}
+
+export interface ItemComprobante extends Omit<
+  ItemComprobanteCreate,
+  "cantidad" | "precio_unitario" | "descuento_porcentaje" | "iva_porcentaje"
+> {
+  cantidad: FiscalDecimal;
+  precio_unitario: FiscalDecimal;
+  descuento_porcentaje: FiscalDecimal;
+  iva_porcentaje: FiscalDecimal;
+  id?: number;
+  subtotal?: FiscalDecimal;
   comprobante_id?: number;
 }
 
@@ -66,7 +81,7 @@ export interface EmitirComprobanteResponse {
   fecha: string;
   cae?: string;
   cae_vencimiento?: string;
-  total: number;
+  total: FiscalDecimal;
   mensaje: string;
   errores: string[];
   errores_arca?: ErrorArcaFiscalResponse[];
@@ -81,18 +96,18 @@ export interface Comprobante {
   numero: number;
   fecha_emision: string;
   fecha_vencimiento?: string;
-  subtotal: number;
-  descuento: number;
-  iva_21: number;
-  iva_10_5: number;
-  iva_27: number;
-  otros_impuestos: number;
-  total: number;
+  subtotal: FiscalDecimal;
+  descuento: FiscalDecimal;
+  iva_21: FiscalDecimal;
+  iva_10_5: FiscalDecimal;
+  iva_27: FiscalDecimal;
+  otros_impuestos: FiscalDecimal;
+  total: FiscalDecimal;
   cae?: string;
   cae_vencimiento?: string;
   estado: string;
   moneda: string;
-  cotizacion: number;
+  cotizacion: FiscalDecimal;
   observaciones?: string;
   empresa_id: number;
   punto_venta_id: number;
@@ -116,7 +131,7 @@ export interface ComprobanteListItem {
   tipo_comprobante: number;
   numero: number;
   fecha_emision: string;
-  total: number;
+  total: FiscalDecimal;
   estado: string;
   cae?: string;
   cliente_nombre: string;
@@ -133,9 +148,7 @@ export interface PaginatedComprobantesResponse {
 }
 
 export type EstadoNumeracion =
-  | "alineada"
-  | "arca_adelantada"
-  | "local_adelantada";
+  "alineada" | "arca_adelantada" | "local_adelantada";
 
 export interface ProximoNumeroResponse {
   punto_venta: number;

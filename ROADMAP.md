@@ -38,14 +38,8 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 **Prioridad:** P1, antes de nuevas capacidades. La
 [auditoría integral](docs/project/analysis/auditoria-integral-2026-10.md)
-delimita los problemas de persistencia y lecturas fiscales. Cerrar en unidades
-separadas:
+delimita las lecturas fiscales pendientes. Cerrar el corte restante:
 
-- **PF-03/PF-04/PF-14:** capacidad de persistencia fiscal fiel en todos sus
-  consumidores, incluidos importación, duplicados y recuperación.
-  Conservar precisión PF-03B, snapshots y estados inciertos; no fusionar historia
-  ni imponer límites silenciosos. Representación, consumidores y transición en
-  el [contrato de persistencia fiel](docs/agents/pf-03-04-14-persistencia-fiel-design.md).
 - **PF-03/PF-04/PF-17:** corregir bases de IVA y presentación/agregación de
   monedas desde hechos conservados. Cerrar autoridad funcional de agrupación o
   conversión histórica; no depende de PF-05 ni del dashboard futuro.

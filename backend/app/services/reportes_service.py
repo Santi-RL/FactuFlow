@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.comprobante import Comprobante
+from app.core.fiscal_storage import sum_decimals
 
 # Constantes de alícuotas de IVA
 IVA_21 = Decimal("0.21")
@@ -93,27 +94,29 @@ class ReportesService:
                 "numero": comp.numero,
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
                 "cliente_nombre": self._get_receptor_nombre(comp),
-                "subtotal": float(comp.subtotal),
-                "iva_total": float(comp.iva_21 + comp.iva_10_5 + comp.iva_27),
-                "total": float(comp.total),
+                "subtotal": str(comp.subtotal),
+                "iva_total": str(
+                    sum_decimals([comp.iva_21, comp.iva_10_5, comp.iva_27])
+                ),
+                "total": str(comp.total),
             }
             comprobantes_list.append(comp_dict)
 
             # Clasificar por tipo
             if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
-                total_facturas += comp.total
+                total_facturas = sum_decimals([total_facturas, comp.total])
             elif comp.tipo_comprobante in [3, 8, 13]:  # Notas de crédito
-                total_nc += comp.total
+                total_nc = sum_decimals([total_nc, comp.total])
             elif comp.tipo_comprobante in [2, 7, 12]:  # Notas de débito
-                total_nd += comp.total
+                total_nd = sum_decimals([total_nd, comp.total])
 
-        total_neto = total_facturas + total_nd - total_nc
+        total_neto = sum_decimals([total_facturas, total_nd, total_nc.copy_negate()])
 
         resumen = {
-            "total_facturas": float(total_facturas),
-            "total_notas_credito": float(total_nc),
-            "total_notas_debito": float(total_nd),
-            "total_neto": float(total_neto),
+            "total_facturas": str(total_facturas),
+            "total_notas_credito": str(total_nc),
+            "total_notas_debito": str(total_nd),
+            "total_neto": str(total_neto),
             "cantidad_comprobantes": len(comprobantes),
             "periodo": {"desde": desde.isoformat(), "hasta": hasta.isoformat()},
         }
@@ -161,15 +164,19 @@ class ReportesService:
             gravado_21 = comp.iva_21 / IVA_21 if comp.iva_21 > 0 else Decimal(0)
             gravado_10_5 = comp.iva_10_5 / IVA_10_5 if comp.iva_10_5 > 0 else Decimal(0)
             gravado_27 = comp.iva_27 / IVA_27 if comp.iva_27 > 0 else Decimal(0)
-            gravado_21_firmado = gravado_21 * signo
-            gravado_10_5_firmado = gravado_10_5 * signo
-            gravado_27_firmado = gravado_27 * signo
-            iva_21_firmado = comp.iva_21 * signo
-            iva_10_5_firmado = comp.iva_10_5 * signo
-            iva_27_firmado = comp.iva_27 * signo
+            gravado_21_firmado = gravado_21.copy_negate() if signo < 0 else gravado_21
+            gravado_10_5_firmado = (
+                gravado_10_5.copy_negate() if signo < 0 else gravado_10_5
+            )
+            gravado_27_firmado = gravado_27.copy_negate() if signo < 0 else gravado_27
+            iva_21_firmado = comp.iva_21.copy_negate() if signo < 0 else comp.iva_21
+            iva_10_5_firmado = (
+                comp.iva_10_5.copy_negate() if signo < 0 else comp.iva_10_5
+            )
+            iva_27_firmado = comp.iva_27.copy_negate() if signo < 0 else comp.iva_27
             no_gravado, exento = self._calcular_importes_sin_iva(comp)
-            no_gravado_firmado = no_gravado * signo
-            exento_firmado = exento * signo
+            no_gravado_firmado = no_gravado.copy_negate() if signo < 0 else no_gravado
+            exento_firmado = exento.copy_negate() if signo < 0 else exento
 
             comp_dict = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
@@ -182,48 +189,52 @@ class ReportesService:
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
                 "cuit_receptor": self._get_receptor_documento(comp),
                 "razon_social_receptor": self._get_receptor_nombre(comp),
-                "gravado_21": float(gravado_21_firmado),
-                "iva_21": float(iva_21_firmado),
-                "gravado_10_5": float(gravado_10_5_firmado),
-                "iva_10_5": float(iva_10_5_firmado),
-                "gravado_27": float(gravado_27_firmado),
-                "iva_27": float(iva_27_firmado),
-                "no_gravado": float(no_gravado_firmado),
-                "exento": float(exento_firmado),
-                "total": float(comp.total * signo),
+                "gravado_21": str(gravado_21_firmado),
+                "iva_21": str(iva_21_firmado),
+                "gravado_10_5": str(gravado_10_5_firmado),
+                "iva_10_5": str(iva_10_5_firmado),
+                "gravado_27": str(gravado_27_firmado),
+                "iva_27": str(iva_27_firmado),
+                "no_gravado": str(no_gravado_firmado),
+                "exento": str(exento_firmado),
+                "total": str((comp.total.copy_negate() if signo < 0 else comp.total)),
             }
             comprobantes_list.append(comp_dict)
 
             # Acumular totales
-            total_gravado_21 += gravado_21_firmado
-            total_iva_21 += iva_21_firmado
-            total_gravado_10_5 += gravado_10_5_firmado
-            total_iva_10_5 += iva_10_5_firmado
-            total_gravado_27 += gravado_27_firmado
-            total_iva_27 += iva_27_firmado
-            total_no_gravado += no_gravado_firmado
-            total_exento += exento_firmado
+            total_gravado_21 = sum_decimals([total_gravado_21, gravado_21_firmado])
+            total_iva_21 = sum_decimals([total_iva_21, iva_21_firmado])
+            total_gravado_10_5 = sum_decimals(
+                [total_gravado_10_5, gravado_10_5_firmado]
+            )
+            total_iva_10_5 = sum_decimals([total_iva_10_5, iva_10_5_firmado])
+            total_gravado_27 = sum_decimals([total_gravado_27, gravado_27_firmado])
+            total_iva_27 = sum_decimals([total_iva_27, iva_27_firmado])
+            total_no_gravado = sum_decimals([total_no_gravado, no_gravado_firmado])
+            total_exento = sum_decimals([total_exento, exento_firmado])
 
-        total_neto = (
-            total_gravado_21
-            + total_gravado_10_5
-            + total_gravado_27
-            + total_no_gravado
-            + total_exento
+        total_neto = sum_decimals(
+            [
+                total_gravado_21,
+                total_gravado_10_5,
+                total_gravado_27,
+                total_no_gravado,
+                total_exento,
+            ]
         )
-        total_iva = total_iva_21 + total_iva_10_5 + total_iva_27
+        total_iva = sum_decimals([total_iva_21, total_iva_10_5, total_iva_27])
 
         resumen = {
-            "gravado_21": float(total_gravado_21),
-            "iva_21": float(total_iva_21),
-            "gravado_10_5": float(total_gravado_10_5),
-            "iva_10_5": float(total_iva_10_5),
-            "gravado_27": float(total_gravado_27),
-            "iva_27": float(total_iva_27),
-            "no_gravado": float(total_no_gravado),
-            "exento": float(total_exento),
-            "total_neto": float(total_neto),
-            "total_iva": float(total_iva),
+            "gravado_21": str(total_gravado_21),
+            "iva_21": str(total_iva_21),
+            "gravado_10_5": str(total_gravado_10_5),
+            "iva_10_5": str(total_iva_10_5),
+            "gravado_27": str(total_gravado_27),
+            "iva_27": str(total_iva_27),
+            "no_gravado": str(total_no_gravado),
+            "exento": str(total_exento),
+            "total_neto": str(total_neto),
+            "total_iva": str(total_iva),
             "periodo": {
                 "mes": periodo_mes,
                 "anio": periodo_anio,
@@ -278,11 +289,20 @@ class ReportesService:
 
             # Sumar o restar según el tipo
             if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
-                totales_por_cliente[grupo_key]["total_facturado"] += comp.total
+                totales_por_cliente[grupo_key]["total_facturado"] = sum_decimals(
+                    [totales_por_cliente[grupo_key]["total_facturado"], comp.total]
+                )
             elif comp.tipo_comprobante in [3, 8, 13]:  # NC
-                totales_por_cliente[grupo_key]["total_facturado"] -= comp.total
+                totales_por_cliente[grupo_key]["total_facturado"] = sum_decimals(
+                    [
+                        totales_por_cliente[grupo_key]["total_facturado"],
+                        comp.total.copy_negate(),
+                    ]
+                )
             elif comp.tipo_comprobante in [2, 7, 12]:  # ND
-                totales_por_cliente[grupo_key]["total_facturado"] += comp.total
+                totales_por_cliente[grupo_key]["total_facturado"] = sum_decimals(
+                    [totales_por_cliente[grupo_key]["total_facturado"], comp.total]
+                )
 
             totales_por_cliente[grupo_key]["cantidad_comprobantes"] += 1
 
@@ -293,9 +313,9 @@ class ReportesService:
             reverse=True,
         )[:limite]
 
-        # Convertir Decimal a float
+        # Serializar decimales exactos para el contrato público
         for item in ranking:
-            item["total_facturado"] = float(item["total_facturado"])
+            item["total_facturado"] = str(item["total_facturado"])
 
         return ranking
 
@@ -303,16 +323,13 @@ class ReportesService:
         self, comprobante: Comprobante
     ) -> tuple[Decimal, Decimal]:
         """Clasifica bases sin débito fiscal para el subdiario IVA."""
-        total_iva = comprobante.iva_21 + comprobante.iva_10_5 + comprobante.iva_27
+        total_iva = sum_decimals(
+            [comprobante.iva_21, comprobante.iva_10_5, comprobante.iva_27]
+        )
         items = list(comprobante.items or [])
         if items:
-            importe_iva_cero = sum(
-                (
-                    item.subtotal
-                    for item in items
-                    if item.iva_porcentaje == Decimal("0")
-                ),
-                Decimal(0),
+            importe_iva_cero = sum_decimals(
+                (item.subtotal for item in items if item.iva_porcentaje == Decimal("0"))
             )
         elif total_iva == 0:
             importe_iva_cero = comprobante.subtotal

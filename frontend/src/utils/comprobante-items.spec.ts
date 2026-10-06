@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ItemComprobante } from "@/types/comprobante";
+import type { EditableItemComprobante as ItemComprobante } from "@/types/comprobante";
 import {
   calcularImportesItems,
   crearItemsEmision,
