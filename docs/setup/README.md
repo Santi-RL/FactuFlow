@@ -184,8 +184,16 @@ configura inicio automático con Windows.
 
 Esta guía no declara la versión ni la salud de una instalación concreta. Esos
 datos se consultan en `VPS Hostinger` / `vps-admin`. Las instalaciones nuevas
-deben aplicar todas las migraciones hasta el head de la versión elegida y nunca
-desplegar directamente un `main` posterior al último tag aprobado.
+deben aplicar todas las migraciones hasta el head de la revisión elegida.
+Seleccionar siempre un SHA completo aprobado, ya sea de un commit o de un tag
+inmutable; no construir ni desplegar desde una rama mutable como `main`.
+
+El [flujo de producción](../agents/production-workflow.md) gobierna autorización,
+preflight, comparación desde el runtime observado, migraciones, backup, rollback
+y verificación posterior. Los pasos de instalación de Docker/Compose y reverse
+proxy son provisionamiento del host, no parte de una actualización ordinaria de
+FactuFlow. En un host existente requieren una decisión operativa separada;
+seguir los comandos privados de la instalación.
 
 Para una instalación nueva o una reinstalación, seguir este mismo criterio: base
 PostgreSQL limpia, Alembic en `head`, paquete privado validado, certificados en
@@ -228,11 +236,32 @@ y sin solicitar CAE.
    sudo chmod +x /usr/local/bin/docker-compose
    ```
 
-4. **Clonar repositorio**
+4. **Clonar y seleccionar la revisión aprobada**
    ```bash
-   git clone https://github.com/Santi-RL/FactuFlow.git
-   cd FactuFlow
+   git clone https://github.com/Santi-RL/FactuFlow.git || exit 1
+   cd FactuFlow || exit 1
+   FACTUFLOW_TARGET_SHA='<SHA-completo-aprobado-de-40-caracteres>'
+
+   verificar_revision_factuflow() {
+       test "${#FACTUFLOW_TARGET_SHA}" -eq 40 || return 1
+       case "$FACTUFLOW_TARGET_SHA" in
+           *[!0-9a-f]*) return 1 ;;
+       esac
+       factuflow_actual_sha="$(git rev-parse HEAD)" || return 1
+       test "$factuflow_actual_sha" = "$FACTUFLOW_TARGET_SHA" || return 1
+       factuflow_worktree_status="$(git status --porcelain --untracked-files=all)" || return 1
+       test -z "$factuflow_worktree_status" || return 1
+   }
+
+   git checkout --detach "$FACTUFLOW_TARGET_SHA" || exit 1
+   verificar_revision_factuflow || exit 1
    ```
+
+   Resolver un tag aprobado a su commit completo antes de completar la variable.
+   Si falla el checkout o la verificación, detenerse: no sustituir el objetivo
+   por `main`, el último tag ni otro SHA. El checkout debe permanecer limpio;
+   configuración y evidencia privadas van en rutas ignoradas. Conservar esta
+   variable y función para las verificaciones antes de construir o iniciar.
 
 5. **Configurar .env para producción**
    ```bash
@@ -273,7 +302,8 @@ y sin solicitar CAE.
    Camino alternativo por consola con Docker Compose de producción:
 
    ```bash
-   docker compose --env-file .env.production -f docker-compose.prod.yml run --rm backend \
+   verificar_revision_factuflow || exit 1
+   docker compose --env-file .env.production -f docker-compose.prod.yml run --build --rm backend \
      python -m app.scripts.create_admin_user
    ```
 
@@ -282,6 +312,7 @@ y sin solicitar CAE.
    ```bash
    cd backend
    python -m app.scripts.create_admin_user
+   cd ..
    ```
 
    Crear este usuario antes de operar una instalación nueva para tener acceso
@@ -341,9 +372,19 @@ y sin solicitar CAE.
    ```
 
 8. **Levantar FactuFlow**
+
+   Completar primero el preflight del flujo canónico y la recuperación aplicable.
+   Una base existente exige comparar las migraciones desde su revisión real;
+   `up --build` no sustituye esa revisión ni demuestra el SHA activo después.
+
    ```bash
+   verificar_revision_factuflow || exit 1
    docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
    ```
+
+   Comprobar después identidad de imágenes y contenido activo, esquema y smoke
+   según el flujo de producción. Registrar la evidencia en el plano de control;
+   el checkout correcto por sí solo no acredita el runtime desplegado.
 
 9. **Configurar auto-inicio**
    ```bash

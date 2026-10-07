@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 05/10/2026
+Última revisión: 07/10/2026
 
 Estado: VIGENTE.
 
@@ -181,6 +181,30 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Frontera de errores técnicos, PF-09/PF-12 | PDF está sanitizado; revisar respuestas ARCA/certificados y diagnóstico SQL sin parámetros sensibles. Conservar errores fiscales públicos controlados. [Auditoría](../project/analysis/auditoria-integral-2026-10.md). |
 | Updates con `null`, PF-12/PF-14 | Validar campos obligatorios de clientes/emisores antes de persistir, conservando restricciones y rollback; no confundir ausencia con `null`. |
 | Guía del wizard por ambiente, PF-09/PF-17 | Homologación necesita WSASS también en el paso de portal; propagar ambiente y comprobar ambas experiencias. |
+| Respuestas WSFE contradictorias, PF-02/PF-04/PF-09 | SC-09, P1 fiscal propuesto: correlacionar cabecera y detalle, conservando CAE, reservas e incertidumbre. Corte independiente de la ampliación P2 de reconciliación. |
+| Autenticación, PF-12/PF-14 | SC-11 y SC-08, dos cortes P1 propuestos: vincular el token a la credencial verificada ante reset concurrente y limitar intentos repetidos. La política de contraseñas requiere una decisión separada. |
+| Entorno de desarrollo, PF-16 | SC-10, P1 condicionado a acceso desde una red no confiable. Delimitar exposición y configuración local antes del próximo uso compartido; no inferir el estado productivo desde Compose de desarrollo. |
+| Archivos externos, PF-13/PF-09 | SC-02 y SC-07, P2 preferentes: presupuestos de expansión/lectura XLSX y lectura/procesamiento de constancias PDF en cortes propios. Mantener el tamaño máximo de carga y el corte temprano de filas ya existentes. |
+| Paquetes de traslado, PF-11/PF-12 | SC-01/SC-12, P2: procedencia comprobable fuera del paquete y presupuesto de importación. Requisito de la próxima importación autorizada; coordinar compatibilidad del driver, sin repetir un traslado existente. |
+| Wrapper Windows de auditoría, PF-16 | SC-05, P2: ejecutar argumentos sin reconstrucción shell antes del próximo Clawpatch con contenido no confiable. Separado del mantenimiento de Actions. |
+| Almacenamiento y certificados, PF-10/PF-09 | SC-06/SC-18, P2: proteger operaciones ante enlaces/cambios de raíz y delimitar concurrencia/ciclo de CSR en unidades separadas. Conservar certificados activos y la política de resguardo; no imponer borrado o vencimiento nuevos. |
+| Transporte y registros, PF-09/PF-14/PF-15 | SC-13/SC-15/SC-16, P2: presupuesto SOAP sin reenvío ante incertidumbre, sanitización residual de reportes y minimización de logs. Coordinar SC-15 con la frontera de errores ya registrada; PDF está corregido. Cada contrato tiene su unidad, sin un refactor global. |
+| Recursos de reportes, PF-04/PF-17 | SC-17, P2: reducir materialización y delimitar presupuesto/paginación donde corresponda. Preservar precisión A-01 y autoridad A-03; no limitar arbitrariamente períodos válidos. |
+| Control efectivo de cobertura, PF-16 | P2, adicional a los 18 hallazgos: corregir la estructura de umbrales y demostrar su fallo con cobertura insuficiente. Coordinar con PR #79, conservando porcentajes y `autoUpdate: false`; delimitar una reparación propia del control. |
+| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #75–#81: actualizar bases anteriores a A-01, resolver compatibilidad de #78 y coordinar #79 con cobertura y #80/#81 con reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
+
+La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
+conserva la evidencia fechada, los 18 casos, su adjudicación, condiciones y
+aceptación propuesta. SC-03 y SC-14 ya tienen cobertura integrada; la receta
+de SHA de SC-04 se corrige en setup y no crea otro parche futuro. SC-02 y
+SC-15 conservan sólo su alcance residual. El control de cobertura es un
+hallazgo de calidad separado del escaneo.
+
+Estos candidatos entran al inventario para delimitar sus unidades. Los P1 son
+prioridades propuestas; su posición respecto de A-03 y «Ahora» requiere una
+decisión explícita. La severidad del escaneo no cambia el orden vigente. El
+dossier no sustituye al portafolio para el estado activo ni al plano de control
+para producción. Refrescar los PR y su CI al abrir cada unidad.
 
 La limpieza de guías, marcado PostgreSQL y código sin consumidores salió del
 inventario activo; su evidencia está en el

@@ -1,6 +1,6 @@
 # PF-03/PF-04/PF-14 — asociación administrativa del receptor
 
-Fecha: 03/10/2026.
+Última revisión: 07/10/2026.
 
 Estado: contrato implementado. Evidencia en el
 [dossier](../project/analysis/asociacion-cliente-post-cae-2026-10.md).
@@ -74,8 +74,11 @@ Concurrencia de reserva y numeración mantiene su matriz existente; este corte
 no modifica los locks ni impone exclusividad administrativa.
 
 No pretende desacoplar toda creación administrativa: otras fallas reales del
-alta siguen conservando reconciliación. La capacidad de persistencia A-01 es
-una unidad pendiente distinta; no se considera resuelta por este cambio.
+alta siguen conservando reconciliación. La capacidad de persistencia A-01 está
+implementada en una unidad separada, con su
+[contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md).
+La asociación A-02 no sustituye ese contrato; las lecturas A-03 conservan su
+alcance pendiente.
 
 Rollback: revertir la unidad y reconstruir. No requiere migración ni cambios
 de historia. Comprobantes existentes sin vínculo administrativo permanecen
