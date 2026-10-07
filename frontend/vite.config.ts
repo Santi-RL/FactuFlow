@@ -23,14 +23,12 @@ export default defineConfig({
       reportsDirectory: './coverage',
       // Línea base global: statements 56,12; branches 50,14; functions 43,77;
       // lines 57,37. Todos los umbrales se redondean hacia abajo.
-      // `autoUpdate` debe permanecer desactivado para que el gate no baje solo.
+      // Mantener `autoUpdate` desactivado para conservar los umbrales.
       thresholds: {
-        global: {
-          statements: 56,
-          branches: 50,
-          functions: 43,
-          lines: 57
-        },
+        statements: 56,
+        branches: 50,
+        functions: 43,
+        lines: 57,
         autoUpdate: false
       }
     }
