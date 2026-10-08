@@ -110,4 +110,22 @@ describe("LoginView", () => {
     expect(wrapper.text()).toContain("¿Primera instalación?");
     expect(wrapper.text()).toContain("Configurar sistema");
   });
+
+  it("muestra la espera temporal y permite volver a entrar", async () => {
+    mockedAuthService.checkBackendAvailable.mockResolvedValue(true);
+    loginMock
+      .mockRejectedValueOnce(
+        new Error(
+          "Demasiados intentos de acceso. Vuelve a intentarlo en 40 segundos.",
+        ),
+      )
+      .mockResolvedValueOnce(undefined);
+    const wrapper = mountView();
+    await completarLogin(wrapper);
+    expect(wrapper.text()).toContain("Vuelve a intentarlo en 40 segundos");
+    expect(wrapper.text()).not.toContain("FactuFlow no está listo");
+    await completarLogin(wrapper);
+    expect(loginMock).toHaveBeenCalledTimes(2);
+    expect(wrapper.text()).not.toContain("Demasiados intentos");
+  });
 });

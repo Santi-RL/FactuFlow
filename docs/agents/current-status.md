@@ -192,7 +192,9 @@ letra C. El [contrato A-03](a03-lecturas-fiscales-design.md) conserva la decisi�
 de Santi de separar monedas, sin conversión automática. Antes de publicar el
 candidato v0.3.8, Santi autorizó SC-08: limitar intentos de login y conservar
 recuperación administrativa y de emergencia sin perder datos ni alterar
-permisos. Está pendiente de implementación; alcance y comprobaciones en el
+permisos. El contrato de código incorpora presupuesto previo a bcrypt y
+restablecimiento por consola de cuentas existentes; límites en
+[SC-08](sc-08-login-recuperacion-design.md), alcance y puertas de publicación en el
 [dossier del candidato](../project/releases/v0.3.8-candidate.md). La siguiente
 unidad fiscal del roadmap sigue siendo PF-13: fidelidad del receptor en
 importación fiscal.

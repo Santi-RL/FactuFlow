@@ -191,6 +191,12 @@ base con `DATABASE_URL` de PostgreSQL, crea el administrador en esa base. Si ya
 existe un usuario con ese email, lo activa, lo deja como administrador y permite
 resetear su contraseña.
 
+Si se perdió el acceso de un administrador, recuperar la cuenta existente con
+`python -m app.scripts.reset_user_password` desde el entorno del backend.
+Pide la nueva contraseña de forma oculta y conserva rol, permisos y datos;
+requiere acceso autorizado a la instalación y su base configurada. Una espera
+temporal de login debe respetarse antes de volver a entrar. No recrear la base.
+
 ## Variables de entorno relevantes
 
 - `ARCA_ENV`: enum estricto; admite solo `homologacion` o `produccion`. Si no se

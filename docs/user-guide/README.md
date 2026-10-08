@@ -81,6 +81,15 @@ Luego:
 1. Ingresar con tu correo electrónico y contraseña.
 2. Si es la primera vez y no hay un usuario creado, usar la opción `Configurar sistema`.
 
+Si se acumulan intentos de acceso, FactuFlow indica cuántos segundos esperar
+antes de volver a intentar. Esa espera es temporal y no elimina la cuenta ni
+los datos. Puede afectar a varios usuarios de una misma conexión si hay muchos
+intentos seguidos.
+Si olvidaste la contraseña, un administrador puede restablecerla desde
+`Usuarios`. Si también se perdió el acceso administrativo, el responsable
+autorizado de la instalación puede recuperar la cuenta por consola sin borrar
+información. No hace falta volver a configurar el sistema ni restaurar la base.
+
 En pantallas chicas, el menú lateral se abre con el botón de menú de la esquina
 superior izquierda y se cierra desde el mismo botón o al elegir una sección.
 

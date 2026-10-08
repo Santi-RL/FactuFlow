@@ -178,6 +178,15 @@ Referencia: [opciones oficiales de Dependabot](https://docs.github.com/en/code-s
 
 ## Checklist antes de commit
 
+El login limita intentos con presupuestos por cuenta, origen y proceso antes
+de bcrypt, y respuestas `429` con espera temporal. El runtime de un proceso y
+la confianza de proxies delimitan esta protección; contrato y límites en
+[SC-08](sc-08-login-recuperacion-design.md).
+Para recuperar una contraseña sin modificar permisos, usar el restablecimiento
+administrativo o `app.scripts.reset_user_password` desde la consola autorizada
+de la instalación. `create_admin_user` es un alta/promoción con otros efectos.
+La recuperación de credenciales no requiere restaurar ni borrar datos.
+
 Ejecutar una revisión mínima:
 
 ```bash

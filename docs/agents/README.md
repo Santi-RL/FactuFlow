@@ -127,6 +127,9 @@ del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
 
+- SC-08: [intentos de acceso y recuperación asistida](sc-08-login-recuperacion-design.md).
+  Presupuesto antes de bcrypt y reset por consola que conserva permisos y datos.
+
 - SC-09: [correlación y coherencia de respuestas WSFE](sc-09-respuestas-wsfe-design.md).
   Cabecera/detalle atribuibles y cierre incierto sin liberar reservas ni reemitir.
 
