@@ -1,6 +1,6 @@
 # PF-03/PF-04/PF-13 — importes y previsualización fiscal común
 
-Última revisión: 07/10/2026.
+Última revisión: 08/10/2026.
 
 Estado: planificación aceptada; implementación pendiente. Amplía el dominio
 por cortes y preserva el contrato decimal cerrado PF-03B. No autoriza emisiones
@@ -66,7 +66,8 @@ separa persistencia de lecturas fiscales. A-01 está implementado en el
 preparación consume su representación y validación de encodabilidad, conserva
 precisión de cantidades/precios y totales y no vuelve a imponer los límites
 del esquema anterior ni diseña otra migración de almacenamiento.
-A-03 sigue pendiente: las bases y proyecciones de moneda en informes deben
+A-03 está implementado en el [contrato de lecturas fiscales](a03-lecturas-fiscales-design.md):
+las bases y agrupaciones de moneda en informes deben
 usar hechos conservados, sin reconstruir netos desde IVA redondeado. La
 admisibilidad y revisión de este corte mantienen sus propios criterios de
 aceptación; no esperan categorías P2 ni modifican redondeos aceptados.

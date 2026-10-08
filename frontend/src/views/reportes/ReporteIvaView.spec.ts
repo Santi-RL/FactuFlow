@@ -109,6 +109,24 @@ describe("ReporteIvaView", () => {
     vi.clearAllMocks();
   });
 
+  it("muestra bases desconocidas y notas de crédito negativas en su moneda", async () => {
+    const payload = reporteIvaMock("Nota DOL", -100);
+    payload.resumen.moneda = "DOL";
+    payload.resumen.gravado_27 = null;
+    payload.resumen.cantidad_bases_no_acreditadas = 1;
+    payload.comprobantes[0].gravado_27 = null;
+    payload.comprobantes[0].moneda = "DOL";
+    mockedReportesService.obtenerReporteIVA.mockResolvedValue(payload);
+    const { wrapper } = await mountView();
+    const vm = wrapper.vm as unknown as { generarReporte: () => Promise<void> };
+    await vm.generarReporte();
+    await flushPromises();
+    expect(wrapper.text()).toContain("No acreditado");
+    expect(wrapper.text()).toContain("-USD");
+    expect(wrapper.text()).toContain("27,00");
+    expect(wrapper.text()).toContain("sin detalle suficiente");
+  });
+
   it("muestra columnas y valores de IVA 27% en el detalle", async () => {
     mockedReportesService.obtenerReporteIVA.mockResolvedValue(
       reporteIvaMock("Cliente 27", 1000),

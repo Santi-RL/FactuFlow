@@ -609,6 +609,8 @@ async def listar_comprobantes(
     # Mapear a response
     items = [
         ComprobanteListResponse(
+            moneda=c.moneda,
+            cotizacion=c.cotizacion,
             id=c.id,
             tipo_comprobante=c.tipo_comprobante,
             numero=c.numero,

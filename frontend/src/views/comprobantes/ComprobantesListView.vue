@@ -2,7 +2,10 @@
 import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
-import { formatearFecha as formatFecha, formatearMoneda } from "@/composables/useFormatters";
+import {
+  formatearFecha as formatFecha,
+  formatearMoneda,
+} from "@/composables/useFormatters";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
   DocumentTextIcon,
@@ -362,7 +365,7 @@ const tiposDisponibles = [
                 </div>
               </td>
               <td class="px-4 py-3 text-sm text-right font-mono text-gray-900">
-                {{ formatMonto(comprobante.total) }}
+                {{ formatMonto(comprobante.total, comprobante.moneda ?? null) }}
               </td>
               <td class="px-4 py-3 text-center">
                 <span

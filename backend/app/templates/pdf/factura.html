@@ -55,7 +55,7 @@
                 </tr>
                 <tr>
                     <td><strong>Condición de venta:</strong> Contado</td>
-                    <td></td>
+                    <td><strong>Moneda:</strong> {{ comprobante.moneda }} · <strong>Cotización conservada:</strong> {{ comprobante.cotizacion | cantidad_ar }}</td>
                 </tr>
             </table>
         </section>
@@ -93,15 +93,15 @@
         <section class="totals">
             <table>
                 <tr>
-                    <td>Subtotal: $</td>
+                    <td>Subtotal:</td>
                     <td>{{ comprobante.subtotal | importe_ar }}</td>
                 </tr>
                 <tr>
-                    <td>Importe Otros Tributos: $</td>
+                    <td>Importe Otros Tributos:</td>
                     <td>{{ comprobante.otros_impuestos | importe_ar }}</td>
                 </tr>
                 <tr class="grand">
-                    <td>Importe Total: $</td>
+                    <td>Importe Total:</td>
                     <td>{{ comprobante.total | importe_ar }}</td>
                 </tr>
             </table>

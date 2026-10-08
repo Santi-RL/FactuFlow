@@ -114,11 +114,29 @@ async def reporte_clientes(
         ranking = await reportes_service.obtener_ranking_clientes(
             db, empresa_activa_id, desde, hasta, limite
         )
+        por_moneda = []
+        for moneda in sorted({item["moneda"] for item in ranking}):
+            clientes = [item for item in ranking if item["moneda"] == moneda]
+            por_moneda.append(
+                {
+                    "moneda": moneda,
+                    "clientes": clientes,
+                    "total_general": str(
+                        sum_decimals(
+                            Decimal(item["total_facturado"]) for item in clientes
+                        )
+                    ),
+                }
+            )
         return {
             "clientes": ranking,
-            "total_general": str(
-                sum_decimals(Decimal(item["total_facturado"]) for item in ranking)
+            "por_moneda": por_moneda,
+            "total_general": (
+                por_moneda[0]["total_general"]
+                if len(por_moneda) == 1
+                else (None if por_moneda else "0")
             ),
+            "moneda": por_moneda[0]["moneda"] if len(por_moneda) == 1 else None,
             "periodo": {"desde": desde.isoformat(), "hasta": hasta.isoformat()},
         }
     except Exception as e:

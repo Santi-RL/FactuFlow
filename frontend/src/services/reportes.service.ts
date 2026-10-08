@@ -9,9 +9,12 @@ import api from "./api";
 export interface ReporteVentas {
   comprobantes: ComprobanteReporte[];
   resumen: ResumenVentas;
+  por_moneda?: ResumenVentas[];
 }
 
 export interface ComprobanteReporte {
+  cotizacion?: FiscalDecimal;
+  moneda?: string | null;
   id: number;
   fecha_emision: string;
   tipo_comprobante: number;
@@ -27,10 +30,11 @@ export interface ComprobanteReporte {
 }
 
 export interface ResumenVentas {
-  total_facturas: FiscalDecimal;
-  total_notas_credito: FiscalDecimal;
-  total_notas_debito: FiscalDecimal;
-  total_neto: FiscalDecimal;
+  moneda?: string | null;
+  total_facturas: FiscalDecimal | null;
+  total_notas_credito: FiscalDecimal | null;
+  total_notas_debito: FiscalDecimal | null;
+  total_neto: FiscalDecimal | null;
   cantidad_comprobantes: number;
   periodo: {
     desde: string;
@@ -41,9 +45,17 @@ export interface ResumenVentas {
 export interface ReporteIVA {
   comprobantes: ComprobanteIVA[];
   resumen: ResumenIVA;
+  por_moneda?: ResumenIVA[];
 }
 
 export interface ComprobanteIVA {
+  bases_acreditadas?: boolean;
+  origen_bases?: string;
+  sin_clasificacion?: FiscalDecimal | null;
+  sin_iva_discriminado?: FiscalDecimal | null;
+  cantidad_bases_no_acreditadas?: number;
+  cotizacion?: FiscalDecimal;
+  moneda?: string | null;
   fecha_emision: string;
   tipo_letra: string;
   tipo_nombre: string;
@@ -52,28 +64,32 @@ export interface ComprobanteIVA {
   numero_completo: string;
   cuit_receptor: string;
   razon_social_receptor: string;
-  gravado_21: FiscalDecimal;
-  iva_21: FiscalDecimal;
-  gravado_10_5: FiscalDecimal;
-  iva_10_5: FiscalDecimal;
-  gravado_27: FiscalDecimal;
-  iva_27: FiscalDecimal;
-  no_gravado: FiscalDecimal;
-  exento: FiscalDecimal;
+  gravado_21: FiscalDecimal | null;
+  iva_21: FiscalDecimal | null;
+  gravado_10_5: FiscalDecimal | null;
+  iva_10_5: FiscalDecimal | null;
+  gravado_27: FiscalDecimal | null;
+  iva_27: FiscalDecimal | null;
+  no_gravado: FiscalDecimal | null;
+  exento: FiscalDecimal | null;
   total: FiscalDecimal;
 }
 
 export interface ResumenIVA {
-  gravado_21: FiscalDecimal;
-  iva_21: FiscalDecimal;
-  gravado_10_5: FiscalDecimal;
-  iva_10_5: FiscalDecimal;
-  gravado_27: FiscalDecimal;
-  iva_27: FiscalDecimal;
-  no_gravado: FiscalDecimal;
-  exento: FiscalDecimal;
-  total_neto: FiscalDecimal;
-  total_iva: FiscalDecimal;
+  sin_clasificacion?: FiscalDecimal | null;
+  sin_iva_discriminado?: FiscalDecimal | null;
+  cantidad_bases_no_acreditadas?: number;
+  moneda?: string | null;
+  gravado_21: FiscalDecimal | null;
+  iva_21: FiscalDecimal | null;
+  gravado_10_5: FiscalDecimal | null;
+  iva_10_5: FiscalDecimal | null;
+  gravado_27: FiscalDecimal | null;
+  iva_27: FiscalDecimal | null;
+  no_gravado: FiscalDecimal | null;
+  exento: FiscalDecimal | null;
+  total_neto: FiscalDecimal | null;
+  total_iva: FiscalDecimal | null;
   periodo: {
     mes: number;
     anio: number;
@@ -82,6 +98,7 @@ export interface ResumenIVA {
 }
 
 export interface RankingCliente {
+  moneda?: string | null;
   cliente_id: number;
   razon_social: string;
   numero_documento: string;
@@ -90,7 +107,13 @@ export interface RankingCliente {
 }
 
 export interface ReporteClientes {
-  total_general: FiscalDecimal;
+  moneda?: string | null;
+  por_moneda?: {
+    moneda: string;
+    clientes: RankingCliente[];
+    total_general: FiscalDecimal;
+  }[];
+  total_general: FiscalDecimal | null;
   clientes: RankingCliente[];
   periodo: {
     desde: string;

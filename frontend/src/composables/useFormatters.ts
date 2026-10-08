@@ -75,13 +75,22 @@ export const formatearFecha = (fecha: string | Date): string => {
 };
 
 /**
- * Formatea un valor como moneda argentina (ARS)
+ * Presenta el importe nominal en su moneda, sin conversión ni pérdida decimal.
  */
-export const formatearMoneda = (valor: FiscalDecimal): string => {
+export const formatearMoneda = (
+  valor: FiscalDecimal,
+  moneda: string | null = "PES",
+): string => {
   const formatted = formatearDecimalFiscal(valor, 2);
+  const etiqueta =
+    moneda === "PES"
+      ? "$"
+      : moneda === "DOL"
+        ? "USD"
+        : moneda || "Moneda sin acreditar";
   return formatted.startsWith("-")
-    ? `-$\u00a0${formatted.slice(1)}`
-    : `$\u00a0${formatted}`;
+    ? `-${etiqueta}\u00a0${formatted.slice(1)}`
+    : `${etiqueta}\u00a0${formatted}`;
 };
 
 /**

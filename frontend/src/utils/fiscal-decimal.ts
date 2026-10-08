@@ -39,3 +39,8 @@ export function decimalEsPositivo(value: FiscalDecimal): boolean {
   const coefficient = String(value).split(/[eE]/)[0];
   return !coefficient.startsWith("-") && /[1-9]/.test(coefficient);
 }
+
+/** Compara con cero sin float; desconocido permanece distinto de un importe. */
+export function decimalEsDistintoDeCero(value: FiscalDecimal | null): boolean {
+  return value !== null && /[1-9]/.test(String(value).split(/[eE]/)[0]);
+}

@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 07/10/2026
+Última revisión: 08/10/2026
 
 Estado: VIGENTE.
 
@@ -21,6 +21,19 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - Si la prueba sólo verifica UX, usar dobles y bloquear toda salida fiscal real.
 
 ## Matriz por tipo de cambio
+
+### Lecturas fiscales A-03
+
+1. Usar comprobantes sintéticos autorizados, sin emitir: A/B con neto 0,03 e
+   IVA 0,01; varias tasas/descuentos; NC; C; detalle ausente o contradictorio.
+2. Verificar base 0,03, notas negativas visibles y base no acreditada cuando
+   falta evidencia. Neto e IVA deben conservarse; C no debe llamarse exento.
+3. Incluir PES y DOL, con cotizaciones distintas; alternar moneda en ventas,
+   IVA y ranking. Totales y posiciones pertenecen sólo a esa moneda y el límite
+   del ranking se aplica por moneda. Un código desconocido no se rotula pesos.
+4. Cambiar emisor durante la carga: descartar la respuesta anterior. Revisar
+   lista/detalle y PDF: moneda nominal y cotización histórica, sin conversión;
+   PDF corriente de una página mantiene CAE, fechas e importes legibles.
 
 ### Instantes operativos y hora argentina
 

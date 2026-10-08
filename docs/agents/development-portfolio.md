@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 07/10/2026
+Última revisión: 08/10/2026
 
 Estado: VIGENTE.
 
@@ -25,7 +25,6 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-03/PF-04/PF-17, lecturas actuales | Puerta previa | P1 | Bases de IVA correctas y moneda explícita en detalle, ventas, IVA y ranking | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md); autoridad de agrupación/conversión por cerrar; sin dependencia PF-05 |
 | PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
 | PF-03/PF-13, admisibilidad y revisión | Ahora 2 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
 | PF-02/PF-04, recuperación legacy | Ahora 3 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
@@ -202,7 +201,7 @@ cobertura, separado del escaneo, salió del inventario activo y figura en las
 líneas cerradas.
 
 Estos candidatos entran al inventario para delimitar sus unidades. Los P1 son
-prioridades propuestas; su posición respecto de A-03 y «Ahora» requiere una
+prioridades propuestas; su posición respecto de «Ahora» requiere una
 decisión explícita. La severidad del escaneo no cambia el orden vigente. El
 dossier no sustituye al portafolio para el estado activo ni al plano de control
 para producción. Refrescar los PR y su CI al abrir cada unidad.
@@ -232,7 +231,7 @@ unidad antes de convertirse en una tarea ejecutable.
 
 | Corte | Fuente y preparación restante |
 |---|---|
-| Lecturas fiscales actuales | [Auditoría A-03](../project/analysis/auditoria-integral-2026-10.md): bases desde evidencia conservada y política funcional de moneda; separar corrección actual de nuevas categorías o importación externa. |
+| Lecturas fiscales actuales | [Contrato A-03](a03-lecturas-fiscales-design.md): corrección implementada con bases contrastadas, cobertura explícita y totales/ranking por moneda. Categorías nuevas e importación externa conservan sus unidades futuras. |
 | Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
 | Admisibilidad, revisión y categorías | [Importes](pf-03-04-importes-previsualizacion-design.md): separar P1 de ampliación P2, contrato de preparación, tasas efectivas, lectura legacy y precisión inmutable. |
 | Reconciliación | [Diseño](pf-02-04-reconciliacion-integral-design.md): comparación legacy P1, cobertura del snapshot y recuperación moderna P2; conservar ownership y guardas RECE. |
@@ -312,8 +311,8 @@ las demás líneas PF-16 siguen pendientes.
 
 La capacidad A-01 está implementada mediante el [contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md):
 representación exacta, migración en ambos motores y consumidores integrados, con
-historia e incertidumbre intactas. Bases IVA y moneda A-03 conservan su unidad
-abierta. El [dossier](../project/analysis/a01-persistencia-fiscal-fiel.md) conserva la evidencia.
+historia e incertidumbre intactas. A-03 cierra bases IVA y moneda en lecturas
+actuales conforme a su [contrato](a03-lecturas-fiscales-design.md). El [dossier](../project/analysis/a01-persistencia-fiscal-fiel.md) conserva la evidencia.
 
 La cadena vulnerable de construcción frontend se retiró con Tailwind 4.3.3.
 El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)

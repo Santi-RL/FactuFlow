@@ -127,6 +127,8 @@ export interface ComprobanteDetalle extends Comprobante {
 }
 
 export interface ComprobanteListItem {
+  moneda?: string;
+  cotizacion?: FiscalDecimal;
   id: number;
   tipo_comprobante: number;
   numero: number;

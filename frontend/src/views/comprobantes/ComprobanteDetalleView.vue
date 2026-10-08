@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { decimalEsPositivo, formatearDecimalFiscal } from "@/utils/fiscal-decimal";
+import {
+  decimalEsPositivo,
+  formatearDecimalFiscal,
+} from "@/utils/fiscal-decimal";
 import { ref, watch, computed, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useComprobantesStore } from "@/stores/comprobantes";
 import { useEmpresaStore } from "@/stores/empresa";
-import { formatearFecha as formatFecha, formatearMoneda } from "@/composables/useFormatters";
+import {
+  formatearFecha as formatFecha,
+  formatearMoneda,
+} from "@/composables/useFormatters";
 import {
   DocumentTextIcon,
   ArrowLeftIcon,
@@ -103,7 +109,8 @@ const numeroCompleto = computed(() => {
   return `${puntoVenta}-${numero}`;
 });
 
-const formatMonto = formatearMoneda;
+const formatMonto = (valor: string | number) =>
+  formatearMoneda(valor, comprobante.value?.moneda ?? null);
 
 const volver = () => {
   router.push({ name: "comprobantes" });
@@ -303,6 +310,10 @@ const obtenerLetraComprobante = (tipo: number): string => {
         </div>
       </BaseCard>
 
+      <p class="mb-4 text-sm">
+        Moneda: {{ comprobante.moneda }} · Cotización conservada:
+        {{ formatearDecimalFiscal(comprobante.cotizacion) }}
+      </p>
       <!-- Items -->
       <BaseCard title="📦 Detalle">
         <div class="overflow-x-auto">
@@ -379,7 +390,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
         <div class="flex justify-end">
           <div class="w-80 space-y-3">
             <div class="flex justify-between text-gray-700">
-              <span class="font-medium">Subtotal:</span>
+              <span class="font-medium">Subtotal ({{ comprobante.moneda }}):</span>
               <span class="font-mono">{{
                 formatMonto(comprobante.subtotal)
               }}</span>

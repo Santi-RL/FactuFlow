@@ -1,7 +1,7 @@
 """Servicio para generación de reportes."""
 
 from datetime import date
-from typing import List, Dict, Any
+from typing import List
 from decimal import Decimal
 from calendar import monthrange
 
@@ -11,12 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.comprobante import Comprobante
 from app.core.fiscal_storage import sum_decimals
-
-# Constantes de alícuotas de IVA
-IVA_21 = Decimal("0.21")
-IVA_10_5 = Decimal("0.105")
-IVA_27 = Decimal("0.27")
-TIPOS_COMPROBANTE_C = {11, 12, 13}
+from app.core.lecturas_fiscales import leer_bases_iva
 
 
 class ReportesService:
@@ -58,33 +53,46 @@ class ReportesService:
         result = await db.execute(query)
         return result.scalars().all()
 
-    async def generar_reporte_ventas(
-        self, db: AsyncSession, empresa_id: int, desde: date, hasta: date
-    ) -> Dict[str, Any]:
-        """
-        Genera reporte de ventas por período.
+    @staticmethod
+    def _resumir_por_moneda(filas, campos):
+        resumenes = []
+        for moneda in sorted({fila["moneda"] for fila in filas}):
+            grupo = [fila for fila in filas if fila["moneda"] == moneda]
+            resumen = {"moneda": moneda, "cantidad_comprobantes": len(grupo)}
+            for campo in campos:
+                resumen[campo] = (
+                    None
+                    if any(fila[campo] is None for fila in grupo)
+                    else str(sum_decimals(Decimal(fila[campo]) for fila in grupo))
+                )
+            resumen["cantidad_bases_no_acreditadas"] = sum(
+                fila.get("bases_acreditadas") is False for fila in grupo
+            )
+            resumenes.append(resumen)
+        return resumenes
 
-        Args:
-            db: Sesión de base de datos
-            empresa_id: ID de la empresa
-            desde: Fecha desde
-            hasta: Fecha hasta
+    @staticmethod
+    def _resumen_compatible(resumenes, campos):
+        if len(resumenes) == 1:
+            return dict(resumenes[0])
+        return {
+            "moneda": None,
+            **{campo: None if resumenes else "0" for campo in campos},
+        }
 
-        Returns:
-            Diccionario con comprobantes y resumen
-        """
+    async def generar_reporte_ventas(self, db, empresa_id, desde, hasta):
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
-
-        # Calcular totales por tipo
-        total_facturas = Decimal(0)
-        total_nc = Decimal(0)  # Notas de crédito
-        total_nd = Decimal(0)  # Notas de débito
-
-        comprobantes_list = []
+        filas = []
+        campos = (
+            "total_facturas",
+            "total_notas_credito",
+            "total_notas_debito",
+            "total_neto",
+        )
         for comp in comprobantes:
-            comp_dict = {
+            fila = {
                 "id": comp.id,
                 "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_comprobante": comp.tipo_comprobante,
@@ -94,91 +102,78 @@ class ReportesService:
                 "numero": comp.numero,
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
                 "cliente_nombre": self._get_receptor_nombre(comp),
+                "moneda": comp.moneda,
+                "cotizacion": str(comp.cotizacion),
                 "subtotal": str(comp.subtotal),
                 "iva_total": str(
                     sum_decimals([comp.iva_21, comp.iva_10_5, comp.iva_27])
                 ),
                 "total": str(comp.total),
+                "total_facturas": str(
+                    comp.total if comp.tipo_comprobante in {1, 6, 11} else Decimal(0)
+                ),
+                "total_notas_credito": str(
+                    comp.total if comp.tipo_comprobante in {3, 8, 13} else Decimal(0)
+                ),
+                "total_notas_debito": str(
+                    comp.total if comp.tipo_comprobante in {2, 7, 12} else Decimal(0)
+                ),
+                "total_neto": str(
+                    comp.total.copy_negate()
+                    if comp.tipo_comprobante in {3, 8, 13}
+                    else comp.total
+                ),
             }
-            comprobantes_list.append(comp_dict)
+            filas.append(fila)
+        por_moneda = self._resumir_por_moneda(filas, campos)
+        resumen = self._resumen_compatible(por_moneda, campos)
+        resumen.update(
+            cantidad_comprobantes=len(filas),
+            periodo={"desde": desde.isoformat(), "hasta": hasta.isoformat()},
+        )
+        return {"comprobantes": filas, "resumen": resumen, "por_moneda": por_moneda}
 
-            # Clasificar por tipo
-            if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
-                total_facturas = sum_decimals([total_facturas, comp.total])
-            elif comp.tipo_comprobante in [3, 8, 13]:  # Notas de crédito
-                total_nc = sum_decimals([total_nc, comp.total])
-            elif comp.tipo_comprobante in [2, 7, 12]:  # Notas de débito
-                total_nd = sum_decimals([total_nd, comp.total])
-
-        total_neto = sum_decimals([total_facturas, total_nd, total_nc.copy_negate()])
-
-        resumen = {
-            "total_facturas": str(total_facturas),
-            "total_notas_credito": str(total_nc),
-            "total_notas_debito": str(total_nd),
-            "total_neto": str(total_neto),
-            "cantidad_comprobantes": len(comprobantes),
-            "periodo": {"desde": desde.isoformat(), "hasta": hasta.isoformat()},
-        }
-
-        return {"comprobantes": comprobantes_list, "resumen": resumen}
-
-    async def generar_reporte_iva(
-        self, db: AsyncSession, empresa_id: int, periodo_mes: int, periodo_anio: int
-    ) -> Dict[str, Any]:
-        """
-        Genera subdiario de IVA ventas para DDJJ.
-
-        Args:
-            db: Sesión de base de datos
-            empresa_id: ID de la empresa
-            periodo_mes: Mes del período (1-12)
-            periodo_anio: Año del período
-
-        Returns:
-            Diccionario con detalle de IVA
-        """
-        # Calcular primer y último día del mes
+    async def generar_reporte_iva(self, db, empresa_id, periodo_mes, periodo_anio):
         desde = date(periodo_anio, periodo_mes, 1)
-        ultimo_dia = monthrange(periodo_anio, periodo_mes)[1]
-        hasta = date(periodo_anio, periodo_mes, ultimo_dia)
-
+        hasta = date(
+            periodo_anio, periodo_mes, monthrange(periodo_anio, periodo_mes)[1]
+        )
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
-
-        # Procesar IVA
-        total_gravado_21 = Decimal(0)
-        total_gravado_10_5 = Decimal(0)
-        total_gravado_27 = Decimal(0)
-        total_iva_21 = Decimal(0)
-        total_iva_10_5 = Decimal(0)
-        total_iva_27 = Decimal(0)
-        total_no_gravado = Decimal(0)
-        total_exento = Decimal(0)
-
-        comprobantes_list = []
+        filas = []
+        campos = (
+            "gravado_21",
+            "iva_21",
+            "gravado_10_5",
+            "iva_10_5",
+            "gravado_27",
+            "iva_27",
+            "no_gravado",
+            "exento",
+            "sin_clasificacion",
+            "sin_iva_discriminado",
+            "total_neto",
+            "total_iva",
+            "total",
+        )
         for comp in comprobantes:
-            # Calcular neto gravado por cada alícuota
-            signo = self._get_signo_comprobante(comp.tipo_comprobante)
-            gravado_21 = comp.iva_21 / IVA_21 if comp.iva_21 > 0 else Decimal(0)
-            gravado_10_5 = comp.iva_10_5 / IVA_10_5 if comp.iva_10_5 > 0 else Decimal(0)
-            gravado_27 = comp.iva_27 / IVA_27 if comp.iva_27 > 0 else Decimal(0)
-            gravado_21_firmado = gravado_21.copy_negate() if signo < 0 else gravado_21
-            gravado_10_5_firmado = (
-                gravado_10_5.copy_negate() if signo < 0 else gravado_10_5
+            bases = leer_bases_iva(comp)
+            importes = {
+                key: value
+                for key, value in bases.items()
+                if key not in {"bases_acreditadas", "origen_bases"}
+            }
+            importes.update(
+                iva_21=comp.iva_21,
+                iva_10_5=comp.iva_10_5,
+                iva_27=comp.iva_27,
+                total_neto=comp.subtotal,
+                total_iva=sum_decimals([comp.iva_21, comp.iva_10_5, comp.iva_27]),
+                total=comp.total,
             )
-            gravado_27_firmado = gravado_27.copy_negate() if signo < 0 else gravado_27
-            iva_21_firmado = comp.iva_21.copy_negate() if signo < 0 else comp.iva_21
-            iva_10_5_firmado = (
-                comp.iva_10_5.copy_negate() if signo < 0 else comp.iva_10_5
-            )
-            iva_27_firmado = comp.iva_27.copy_negate() if signo < 0 else comp.iva_27
-            no_gravado, exento = self._calcular_importes_sin_iva(comp)
-            no_gravado_firmado = no_gravado.copy_negate() if signo < 0 else no_gravado
-            exento_firmado = exento.copy_negate() if signo < 0 else exento
-
-            comp_dict = {
+            negativo = self._get_signo_comprobante(comp.tipo_comprobante) < 0
+            fila = {
                 "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_letra": self._get_letra_comprobante(comp.tipo_comprobante),
                 "tipo_nombre": self._get_abreviatura_tipo_comprobante(
@@ -189,156 +184,76 @@ class ReportesService:
                 "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
                 "cuit_receptor": self._get_receptor_documento(comp),
                 "razon_social_receptor": self._get_receptor_nombre(comp),
-                "gravado_21": str(gravado_21_firmado),
-                "iva_21": str(iva_21_firmado),
-                "gravado_10_5": str(gravado_10_5_firmado),
-                "iva_10_5": str(iva_10_5_firmado),
-                "gravado_27": str(gravado_27_firmado),
-                "iva_27": str(iva_27_firmado),
-                "no_gravado": str(no_gravado_firmado),
-                "exento": str(exento_firmado),
-                "total": str((comp.total.copy_negate() if signo < 0 else comp.total)),
+                "moneda": comp.moneda,
+                "cotizacion": str(comp.cotizacion),
+                "bases_acreditadas": bases["bases_acreditadas"],
+                "origen_bases": bases["origen_bases"],
+                **{
+                    key: (
+                        None
+                        if value is None
+                        else str(value.copy_negate() if negativo else value)
+                    )
+                    for key, value in importes.items()
+                },
             }
-            comprobantes_list.append(comp_dict)
-
-            # Acumular totales
-            total_gravado_21 = sum_decimals([total_gravado_21, gravado_21_firmado])
-            total_iva_21 = sum_decimals([total_iva_21, iva_21_firmado])
-            total_gravado_10_5 = sum_decimals(
-                [total_gravado_10_5, gravado_10_5_firmado]
-            )
-            total_iva_10_5 = sum_decimals([total_iva_10_5, iva_10_5_firmado])
-            total_gravado_27 = sum_decimals([total_gravado_27, gravado_27_firmado])
-            total_iva_27 = sum_decimals([total_iva_27, iva_27_firmado])
-            total_no_gravado = sum_decimals([total_no_gravado, no_gravado_firmado])
-            total_exento = sum_decimals([total_exento, exento_firmado])
-
-        total_neto = sum_decimals(
-            [
-                total_gravado_21,
-                total_gravado_10_5,
-                total_gravado_27,
-                total_no_gravado,
-                total_exento,
-            ]
-        )
-        total_iva = sum_decimals([total_iva_21, total_iva_10_5, total_iva_27])
-
-        resumen = {
-            "gravado_21": str(total_gravado_21),
-            "iva_21": str(total_iva_21),
-            "gravado_10_5": str(total_gravado_10_5),
-            "iva_10_5": str(total_iva_10_5),
-            "gravado_27": str(total_gravado_27),
-            "iva_27": str(total_iva_27),
-            "no_gravado": str(total_no_gravado),
-            "exento": str(total_exento),
-            "total_neto": str(total_neto),
-            "total_iva": str(total_iva),
-            "periodo": {
+            filas.append(fila)
+        por_moneda = self._resumir_por_moneda(filas, campos)
+        resumen = self._resumen_compatible(por_moneda, campos)
+        resumen.update(
+            cantidad_comprobantes=len(filas),
+            cantidad_bases_no_acreditadas=sum(
+                not fila["bases_acreditadas"] for fila in filas
+            ),
+            periodo={
                 "mes": periodo_mes,
                 "anio": periodo_anio,
                 "nombre": self._get_nombre_mes(periodo_mes),
             },
-        }
+        )
+        return {"comprobantes": filas, "resumen": resumen, "por_moneda": por_moneda}
 
-        return {"comprobantes": comprobantes_list, "resumen": resumen}
-
-    async def obtener_ranking_clientes(
-        self,
-        db: AsyncSession,
-        empresa_id: int,
-        desde: date,
-        hasta: date,
-        limite: int = 10,
-    ) -> List[Dict[str, Any]]:
-        """
-        Obtiene ranking de clientes por facturación.
-
-        Args:
-            db: Sesión de base de datos
-            empresa_id: ID de la empresa
-            desde: Fecha desde
-            hasta: Fecha hasta
-            limite: Cantidad de clientes a devolver
-
-        Returns:
-            Lista de clientes con totales
-        """
-        # Obtener todos los comprobantes del período
+    async def obtener_ranking_clientes(self, db, empresa_id, desde, hasta, limite=10):
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
-
-        # Agrupar por cliente
-        totales_por_cliente = {}
+        grupos = {}
         for comp in comprobantes:
-            grupo_key = (
+            receptor = (
                 f"cliente:{comp.cliente.id}"
                 if comp.cliente
                 else f"receptor:{self._get_receptor_documento(comp)}"
             )
-            if grupo_key not in totales_por_cliente:
-                totales_por_cliente[grupo_key] = {
+            key = (comp.moneda, receptor)
+            if key not in grupos:
+                grupos[key] = {
                     "cliente_id": comp.cliente.id if comp.cliente else 0,
                     "razon_social": self._get_receptor_nombre(comp),
                     "numero_documento": self._get_receptor_documento(comp),
+                    "moneda": comp.moneda,
                     "total_facturado": Decimal(0),
                     "cantidad_comprobantes": 0,
                 }
-
-            # Sumar o restar según el tipo
-            if comp.tipo_comprobante in [1, 6, 11]:  # Facturas
-                totales_por_cliente[grupo_key]["total_facturado"] = sum_decimals(
-                    [totales_por_cliente[grupo_key]["total_facturado"], comp.total]
-                )
-            elif comp.tipo_comprobante in [3, 8, 13]:  # NC
-                totales_por_cliente[grupo_key]["total_facturado"] = sum_decimals(
-                    [
-                        totales_por_cliente[grupo_key]["total_facturado"],
-                        comp.total.copy_negate(),
-                    ]
-                )
-            elif comp.tipo_comprobante in [2, 7, 12]:  # ND
-                totales_por_cliente[grupo_key]["total_facturado"] = sum_decimals(
-                    [totales_por_cliente[grupo_key]["total_facturado"], comp.total]
-                )
-
-            totales_por_cliente[grupo_key]["cantidad_comprobantes"] += 1
-
-        # Ordenar por total y limitar
-        ranking = sorted(
-            totales_por_cliente.values(),
-            key=lambda x: x["total_facturado"],
-            reverse=True,
-        )[:limite]
-
-        # Serializar decimales exactos para el contrato público
-        for item in ranking:
-            item["total_facturado"] = str(item["total_facturado"])
-
-        return ranking
-
-    def _calcular_importes_sin_iva(
-        self, comprobante: Comprobante
-    ) -> tuple[Decimal, Decimal]:
-        """Clasifica bases sin débito fiscal para el subdiario IVA."""
-        total_iva = sum_decimals(
-            [comprobante.iva_21, comprobante.iva_10_5, comprobante.iva_27]
-        )
-        items = list(comprobante.items or [])
-        if items:
-            importe_iva_cero = sum_decimals(
-                (item.subtotal for item in items if item.iva_porcentaje == Decimal("0"))
+            grupo = grupos[key]
+            importe = (
+                comp.total.copy_negate()
+                if self._get_signo_comprobante(comp.tipo_comprobante) < 0
+                else comp.total
             )
-        elif total_iva == 0:
-            importe_iva_cero = comprobante.subtotal
-        else:
-            importe_iva_cero = Decimal(0)
-
-        if comprobante.tipo_comprobante in TIPOS_COMPROBANTE_C:
-            return Decimal(0), importe_iva_cero
-        return importe_iva_cero, Decimal(0)
+            grupo["total_facturado"] = sum_decimals([grupo["total_facturado"], importe])
+            grupo["cantidad_comprobantes"] += 1
+        ranking = []
+        for moneda in sorted({key[0] for key in grupos}):
+            clientes = sorted(
+                (grupo for grupo in grupos.values() if grupo["moneda"] == moneda),
+                key=lambda x: x["total_facturado"],
+                reverse=True,
+            )[:limite]
+            ranking.extend(
+                {**item, "total_facturado": str(item["total_facturado"])}
+                for item in clientes
+            )
+        return ranking
 
     def _get_receptor_nombre(self, comprobante: Comprobante) -> str:
         """Nombre fiscal del receptor guardado en el comprobante."""

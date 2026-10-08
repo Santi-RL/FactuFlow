@@ -247,6 +247,9 @@ class ComprobanteDetalleResponse(ComprobanteResponse):
 class ComprobanteListResponse(BaseModel):
     """Schema para listado de comprobantes."""
 
+    moneda: str
+    cotizacion: Decimal
+
     id: int
     tipo_comprobante: int
     numero: int

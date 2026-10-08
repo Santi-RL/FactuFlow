@@ -1,6 +1,14 @@
 # Integración ARCA
 
-Última revisión: 03/10/2026
+Última revisión: 08/10/2026
+
+## Lecturas fiscales A-03
+
+Los reportes no llaman a ARCA ni alteran solicitudes, CAEs o reconciliación.
+El [contrato de lecturas](a03-lecturas-fiscales-design.md) distingue bases
+contrastadas y cobertura desconocida; IVA cero y letra C no prueban categorías
+exenta/no gravada. Monedas nominales separadas, cotización histórica conservada,
+sin conversión automática. Categorías completas siguen en el corte P2.
 
 ## Persistencia fiscal fiel A-01
 
