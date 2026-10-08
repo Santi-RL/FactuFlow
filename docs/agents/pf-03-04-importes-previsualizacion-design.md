@@ -1,6 +1,6 @@
 # PF-03/PF-04/PF-13 — importes y previsualización fiscal común
 
-Fecha: 03/10/2026.
+Última revisión: 07/10/2026.
 
 Estado: planificación aceptada; implementación pendiente. Amplía el dominio
 por cortes y preserva el contrato decimal cerrado PF-03B. No autoriza emisiones
@@ -61,13 +61,15 @@ metadatos sin cambio fiscal no invalida por sí sola una operación.
    intentos activos o inciertos mantienen su evidencia congelada.
 
 La [auditoría integral A-01/A-03](../project/analysis/auditoria-integral-2026-10.md)
-añade una puerta previa de persistencia y lecturas actuales. La preparación
-común debe admitir datos que puedan almacenarse fielmente, conservando precisión
-de cantidades/precios y totales; el cálculo representable no garantiza capacidad
-de `Numeric`. Delimitar la solución con PF-14 y revisar migración/compatibilidad
-antes de elegir nuevos límites. Las bases y proyecciones de moneda en informes
-usan hechos conservados, sin reconstruir netos desde IVA redondeado. Estos
-cortes no esperan categorías P2 ni modifican redondeos aceptados.
+separa persistencia de lecturas fiscales. A-01 está implementado en el
+[contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md): esta
+preparación consume su representación y validación de encodabilidad, conserva
+precisión de cantidades/precios y totales y no vuelve a imponer los límites
+del esquema anterior ni diseña otra migración de almacenamiento.
+A-03 sigue pendiente: las bases y proyecciones de moneda en informes deben
+usar hechos conservados, sin reconstruir netos desde IVA redondeado. La
+admisibilidad y revisión de este corte mantienen sus propios criterios de
+aceptación; no esperan categorías P2 ni modifican redondeos aceptados.
 
 Si aparece un uso operativo válido de una tasa todavía no implementada, evaluar
 su soporte acotado y el efecto de rechazarla antes de imponer una restricción

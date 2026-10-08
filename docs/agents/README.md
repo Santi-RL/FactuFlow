@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 05/10/2026
+Última revisión: 07/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -117,6 +117,10 @@ La [auditoría integral](../project/analysis/auditoria-integral-2026-10.md) cons
 la limpieza y hallazgos de estado actual; la
 [dirección de arquitectura](architecture-direction.md) explica cómo encajan los
 cortes y el horizonte MCP. Un hallazgo pendiente no es una capacidad terminada.
+La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
+conserva el contraste del escaneo y las actualizaciones propuestas; sus unidades
+candidatas y dependencias se consultan en el portafolio. No modifica el orden
+del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
 

@@ -18,6 +18,20 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Alineación documental y planificación de seguridad
+
+- Corregidas dos referencias de diseños vivos para consumir A-01 implementado,
+  manteniendo pendientes las lecturas A-03 y la revisión/admisibilidad de importes.
+- La receta VPS selecciona y verifica un SHA completo aprobado antes de construir
+  o iniciar, y remite al preflight, recuperación y verificación de runtime del
+  flujo canónico de producción.
+- Adjudicados al portafolio los candidatos de Security Cloud y el mantenimiento
+  de PR; el control de cobertura corregido figura como línea cerrada. La
+  evaluación original conserva su evidencia sanitizada en el
+  [dossier](docs/project/analysis/security-cloud-pr-2026-10.md).
+  Las prioridades propuestas conservan la decisión explícita; no cambian el
+  orden del roadmap ni implementan parches de aplicación.
+
 ### Seguridad del frontend
 
 - Actualizados Vue y sus paquetes internos a 3.5.42,
