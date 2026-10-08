@@ -190,15 +190,15 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Almacenamiento y certificados, PF-10/PF-09 | SC-06/SC-18, P2: proteger operaciones ante enlaces/cambios de raíz y delimitar concurrencia/ciclo de CSR en unidades separadas. Conservar certificados activos y la política de resguardo; no imponer borrado o vencimiento nuevos. |
 | Transporte y registros, PF-09/PF-14/PF-15 | SC-13/SC-15/SC-16, P2: presupuesto SOAP sin reenvío ante incertidumbre, sanitización residual de reportes y minimización de logs. Coordinar SC-15 con la frontera de errores ya registrada; PDF está corregido. Cada contrato tiene su unidad, sin un refactor global. |
 | Recursos de reportes, PF-04/PF-17 | SC-17, P2: reducir materialización y delimitar presupuesto/paginación donde corresponda. Preservar precisión A-01 y autoridad A-03; no limitar arbitrariamente períodos válidos. |
-| Control efectivo de cobertura, PF-16 | P2, adicional a los 18 hallazgos: corregir la estructura de umbrales y demostrar su fallo con cobertura insuficiente. Coordinar con PR #79, conservando porcentajes y `autoUpdate: false`; delimitar una reparación propia del control. |
-| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #75–#81: actualizar bases anteriores a A-01, resolver compatibilidad de #78 y coordinar #79 con cobertura y #80/#81 con reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
+| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #75–#81: actualizar bases anteriores a A-01, resolver compatibilidad de #78 y validar #79 con la puerta de cobertura vigente y #80/#81 con sus reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
 
 La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
 conserva la evidencia fechada, los 18 casos, su adjudicación, condiciones y
 aceptación propuesta. SC-03 y SC-14 ya tienen cobertura integrada; la receta
 de SHA de SC-04 se corrige en setup y no crea otro parche futuro. SC-02 y
-SC-15 conservan sólo su alcance residual. El control de cobertura es un
-hallazgo de calidad separado del escaneo.
+SC-15 conservan sólo su alcance residual. El hallazgo de calidad del control de
+cobertura, separado del escaneo, salió del inventario activo y figura en las
+líneas cerradas.
 
 Estos candidatos entran al inventario para delimitar sus unidades. Los P1 son
 prioridades propuestas; su posición respecto de A-03 y «Ahora» requiere una
@@ -296,6 +296,12 @@ del constructor.
     reconstrucción histórica externa completa ni introducen cuentas corrientes.
 
 ## Líneas cerradas
+
+La puerta de cobertura del frontend aplica los mínimos globales originales y
+comprueba con la CLI real el rechazo de cobertura insuficiente y la aceptación
+de cobertura suficiente. Su contrato vive en [testing](testing.md#frontend) y
+la evidencia de cierre en el changelog. La actualización de Vitest del PR #79 y
+las demás líneas PF-16 siguen pendientes.
 
 La capacidad A-01 está implementada mediante el [contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md):
 representación exacta, migración en ambos motores y consumidores integrados, con

@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 05/10/2026
+Última revisión: 07/10/2026
 
 Estado: VIGENTE.
 
@@ -87,6 +87,11 @@ Las herramientas Python usan pytest 9.0.3, pytest-asyncio 1.3.0 y Black 26.3.1.
 La CI y el comando local auditan también `requirements-dev.txt`, incluido el
 runtime. El ciclo de eventos de sesión mantiene su alcance mediante configuración
 del plugin. Este corte no cierra las demás líneas de calidad PF-16.
+
+La puerta de cobertura del frontend aplica los mínimos globales originales y
+ensaya su rechazo y aceptación con la CLI real antes de medir la suite. El
+contrato y los comandos viven en [testing](testing.md#frontend); la actualización
+de Vitest y las demás líneas PF-16 conservan su alcance pendiente.
 
 Los instantes operativos de la API comunican UTC explícito y la web muestra
 hora argentina en lotes, usuarios, emisor y Sistema, independientemente de la

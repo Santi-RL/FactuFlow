@@ -25,9 +25,10 @@ Reglas vigentes desde 2026-05-22:
 - La receta VPS selecciona y verifica un SHA completo aprobado antes de construir
   o iniciar, y remite al preflight, recuperación y verificación de runtime del
   flujo canónico de producción.
-- Incorporados al portafolio los candidatos de Security Cloud, el control de
-  cobertura y el mantenimiento de PR, con adjudicación y evidencia sanitizada
-  en el [dossier](docs/project/analysis/security-cloud-pr-2026-10.md).
+- Adjudicados al portafolio los candidatos de Security Cloud y el mantenimiento
+  de PR; el control de cobertura corregido figura como línea cerrada. La
+  evaluación original conserva su evidencia sanitizada en el
+  [dossier](docs/project/analysis/security-cloud-pr-2026-10.md).
   Las prioridades propuestas conservan la decisión explícita; no cambian el
   orden del roadmap ni implementan parches de aplicación.
 
