@@ -17,10 +17,39 @@ import { ArrowLeftIcon, DocumentChartBarIcon } from "@heroicons/vue/24/outline";
 const router = useRouter();
 const empresaStore = useEmpresaStore();
 const { showError } = useNotification();
-const { formatearFecha, formatearMoneda } = useFormatters();
+const { formatearFecha, formatearMoneda: formatearImporte } = useFormatters();
 
 const loading = ref(false);
-const reporte = ref<ReporteVentas | null>(null);
+const reporteCompleto = ref<ReporteVentas | null>(null);
+const monedaElegida = ref("");
+const monedas = computed(
+  () =>
+    reporteCompleto.value?.por_moneda
+      ?.map((grupo) => grupo.moneda)
+      .filter((moneda): moneda is string => typeof moneda === "string") ?? [],
+);
+const monedaActiva = computed(
+  () => monedaElegida.value || reporteCompleto.value?.resumen.moneda || null,
+);
+const formatearMoneda = (valor: string | number | null) =>
+  valor === null
+    ? "No acreditado"
+    : formatearImporte(valor, monedaActiva.value);
+const reporte = computed(() => {
+  const completo = reporteCompleto.value;
+  if (!completo) return null;
+  const grupo = completo.por_moneda?.find(
+    (item) => item.moneda === monedaActiva.value,
+  );
+  if (!grupo) return completo;
+  return {
+    ...completo,
+    resumen: { ...completo.resumen, ...grupo },
+    comprobantes: completo.comprobantes.filter(
+      (item) => item.moneda === grupo.moneda,
+    ),
+  };
+});
 let generarReporteRequestId = 0;
 
 // Fechas por defecto: mes actual
@@ -75,7 +104,8 @@ const generarReporte = async () => {
       requestId === generarReporteRequestId &&
       empresaActivaId.value === empresaIdSolicitada
     ) {
-      reporte.value = resultado;
+      reporteCompleto.value = resultado;
+      monedaElegida.value = resultado.por_moneda?.[0]?.moneda ?? "";
     }
   } catch (error: any) {
     if (requestId === generarReporteRequestId) {
@@ -83,7 +113,8 @@ const generarReporte = async () => {
         "Error",
         error.response?.data?.detail || "No se pudo generar el reporte",
       );
-      reporte.value = null;
+      reporteCompleto.value = null;
+      monedaElegida.value = "";
     }
   } finally {
     if (requestId === generarReporteRequestId) {
@@ -108,7 +139,8 @@ watch(
     if (!empresaId || empresaId === previousEmpresaId) return;
 
     const debeRegenerar = !!reporte.value;
-    reporte.value = null;
+    reporteCompleto.value = null;
+    monedaElegida.value = "";
 
     if (debeRegenerar) {
       await generarReporte();
@@ -150,6 +182,38 @@ const resumenCards = computed(() => {
 
 <template>
   <div>
+    <div
+      v-if="reporteCompleto && monedas.length"
+      class="mb-6"
+    >
+      <label
+        for="moneda-reporte"
+        class="mr-3 font-medium"
+      >Moneda del reporte</label>
+      <select
+        id="moneda-reporte"
+        v-model="monedaElegida"
+        class="rounded-control border border-border-subtle bg-surface-card p-2"
+      >
+        <option
+          v-for="moneda in monedas"
+          :key="moneda"
+          :value="moneda"
+        >
+          {{
+            moneda === "PES"
+              ? "PES — pesos argentinos"
+              : moneda === "DOL"
+                ? "DOL — dólares estadounidenses"
+                : moneda || "Sin moneda acreditada"
+          }}
+        </option>
+      </select>
+      <p class="mt-2 text-sm text-brand-slate">
+        Importes nominales; cada moneda tiene sus propios totales. Sin
+        conversión a pesos.
+      </p>
+    </div>
     <!-- Header -->
     <div class="mb-6">
       <div class="mb-4 flex items-center gap-4">

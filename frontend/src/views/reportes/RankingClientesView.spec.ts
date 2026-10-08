@@ -75,6 +75,43 @@ describe("RankingClientesView", () => {
     vi.clearAllMocks();
   });
 
+  it("mantiene posiciones y totales independientes al cambiar moneda", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const empresaStore = useEmpresaStore();
+    empresaStore.empresa = empresaMock(1);
+    empresaStore.empresaActivaId = 1;
+    const payload = reporteClientesMock("Cliente PES");
+    const pes = { ...payload.clientes[0], moneda: "PES" };
+    const dol = {
+      ...pes,
+      moneda: "DOL",
+      razon_social: "Cliente DOL",
+      total_facturado: "99.00",
+    };
+    payload.clientes = [dol, pes];
+    payload.total_general = null;
+    payload.por_moneda = [
+      { moneda: "DOL", clientes: [dol], total_general: "99.00" },
+      { moneda: "PES", clientes: [pes], total_general: "1210.00" },
+    ];
+    mockedReportesService.obtenerRankingClientes.mockResolvedValue(payload);
+    const wrapper = mount(RankingClientesView, {
+      global: { plugins: [pinia] },
+    });
+    await flushPromises();
+    const vm = wrapper.vm as unknown as { generarReporte: () => Promise<void> };
+    await vm.generarReporte();
+    await flushPromises();
+    expect(wrapper.text()).toContain("Cliente DOL");
+    expect(wrapper.text()).not.toContain("Cliente PES");
+    expect(wrapper.text()).toContain("USD");
+    await wrapper.get("#moneda-reporte").setValue("PES");
+    expect(wrapper.text()).toContain("Cliente PES");
+    expect(wrapper.text()).not.toContain("Cliente DOL");
+    expect(wrapper.text()).toContain("1° Puesto");
+  });
+
   it("ignora respuestas viejas despues de cambiar el emisor activo", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);

@@ -40,6 +40,8 @@ class TestReportesService:
                 iva_10_5=Decimal(0),
                 iva_27=Decimal(0),
                 items=[],
+                moneda="PES",
+                cotizacion=Decimal("1"),
             )
 
         reportes_service.obtener_comprobantes_por_periodo = AsyncMock(
@@ -59,7 +61,7 @@ class TestReportesService:
             "10000000000000000000000000.00"
         )
         assert iva["comprobantes"][0]["total"] == str(amount)
-        assert Decimal(iva["resumen"]["exento"]) == Decimal(
+        assert Decimal(iva["resumen"]["total_neto"]) == Decimal(
             "10000000000000000000000000.00"
         )
         assert Decimal(ranking[0]["total_facturado"]) == Decimal(
@@ -221,17 +223,18 @@ class TestReportesService:
             periodo_anio=2026,
         )
 
-        assert Decimal(reporte["resumen"]["gravado_21"]) == Decimal("800.0")
+        assert reporte["resumen"]["gravado_21"] is None
+        assert Decimal(reporte["resumen"]["total_neto"]) == Decimal("800.0")
         assert Decimal(reporte["resumen"]["iva_21"]) == Decimal("168.0")
         assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("168.0")
-        assert Decimal(reporte["comprobantes"][1]["gravado_21"]) == Decimal("-200.0")
+        assert reporte["comprobantes"][1]["gravado_21"] is None
         assert Decimal(reporte["comprobantes"][1]["iva_21"]) == Decimal("-42.0")
 
     @pytest.mark.asyncio
-    async def test_generar_reporte_iva_incluye_tipo_c_sin_iva_como_exento(
+    async def test_generar_reporte_iva_tipo_c_sin_discriminacion_no_infiere_exencion(
         self, reportes_service, db_session, test_empresa
     ):
-        """El subdiario IVA debe sumar comprobantes C con IVA cero como exentos."""
+        """El subdiario conserva C sin inferir una exención fiscal."""
         punto_venta = PuntoVenta(
             numero=2,
             nombre="Punto C",
@@ -302,24 +305,27 @@ class TestReportesService:
             periodo_anio=2026,
         )
 
-        assert Decimal(reporte["resumen"]["exento"]) == Decimal("1300.0")
-        assert Decimal(reporte["resumen"]["no_gravado"]) == Decimal("0.0")
+        assert reporte["resumen"]["exento"] is None
+        assert reporte["resumen"]["sin_iva_discriminado"] is None
+        assert reporte["resumen"]["cantidad_bases_no_acreditadas"] == 2
+        assert reporte["resumen"]["no_gravado"] is None
         assert Decimal(reporte["resumen"]["total_neto"]) == Decimal("1300.0")
         assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("0.0")
         assert reporte["comprobantes"][0]["tipo_letra"] == "C"
         assert reporte["comprobantes"][0]["tipo_nombre"] == "FC"
-        assert Decimal(reporte["comprobantes"][0]["exento"]) == Decimal("1500.0")
-        assert Decimal(reporte["comprobantes"][0]["no_gravado"]) == Decimal("0.0")
+        assert reporte["comprobantes"][0]["exento"] is None
+        assert reporte["comprobantes"][0]["sin_iva_discriminado"] is None
+        assert reporte["comprobantes"][0]["no_gravado"] is None
         assert Decimal(reporte["comprobantes"][0]["total"]) == Decimal("1500.0")
         assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
-        assert Decimal(reporte["comprobantes"][1]["exento"]) == Decimal("-200.0")
+        assert reporte["comprobantes"][1]["sin_iva_discriminado"] is None
         assert Decimal(reporte["comprobantes"][1]["total"]) == Decimal("-200.0")
 
     @pytest.mark.asyncio
-    async def test_generar_reporte_iva_incluye_items_iva_cero_no_gravados(
+    async def test_generar_reporte_iva_cero_sin_clasificacion_acreditada(
         self, reportes_service, db_session, test_empresa
     ):
-        """El subdiario IVA debe incluir ítems A/B con IVA cero como no gravados."""
+        """IVA cero no acredita categoría no gravada o exenta."""
         punto_venta = PuntoVenta(
             numero=3,
             nombre="Punto B",
@@ -414,16 +420,21 @@ class TestReportesService:
             periodo_anio=2026,
         )
 
-        assert Decimal(reporte["resumen"]["no_gravado"]) == Decimal("800.0")
-        assert Decimal(reporte["resumen"]["exento"]) == Decimal("0.0")
+        assert reporte["resumen"]["no_gravado"] is None
+        assert Decimal(reporte["resumen"]["sin_clasificacion"]) == Decimal("800.0")
+        assert reporte["resumen"]["exento"] is None
         assert Decimal(reporte["resumen"]["total_neto"]) == Decimal("800.0")
         assert Decimal(reporte["resumen"]["total_iva"]) == Decimal("0.0")
         assert reporte["comprobantes"][0]["tipo_letra"] == "B"
         assert reporte["comprobantes"][0]["tipo_nombre"] == "FB"
-        assert Decimal(reporte["comprobantes"][0]["no_gravado"]) == Decimal("1000.0")
-        assert Decimal(reporte["comprobantes"][0]["exento"]) == Decimal("0.0")
+        assert Decimal(reporte["comprobantes"][0]["sin_clasificacion"]) == Decimal(
+            "1000.0"
+        )
+        assert reporte["comprobantes"][0]["exento"] is None
         assert reporte["comprobantes"][1]["tipo_nombre"] == "NC"
-        assert Decimal(reporte["comprobantes"][1]["no_gravado"]) == Decimal("-200.0")
+        assert Decimal(reporte["comprobantes"][1]["sin_clasificacion"]) == Decimal(
+            "-200.0"
+        )
         assert Decimal(reporte["comprobantes"][1]["total"]) == Decimal("-200.0")
 
     @pytest.mark.asyncio

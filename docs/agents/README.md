@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 07/10/2026
+Última revisión: 08/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -65,6 +65,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - `production-workflow.md` sólo con autorización productiva.
 
 ## Diseños activos
+
+- PF-03/PF-04/PF-17: [lecturas fiscales A-03](a03-lecturas-fiscales-design.md).
+  Bases contrastadas, cobertura histórica explícita y moneda nominal separada.
 
 - PF-03/PF-04/PF-14: [asociación administrativa del receptor](pf-03-04-14-asociacion-cliente.md).
   Define el vínculo opcional sin alterar el snapshot fiscal.

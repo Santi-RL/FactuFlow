@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 07/10/2026
+Última revisión: 08/10/2026
 
 Estado: VIGENTE.
 
@@ -96,7 +96,7 @@ de Vitest y las demás líneas PF-16 conservan su alcance pendiente.
 SC-09 correlaciona las respuestas WSFE con la solicitud y conserva la
 incertidumbre ante contradicciones. El cierre individual y masivo preserva CAEs
 atribuibles y reservas, sin convertirlos en éxito ni permitir otro envío. El
-[contrato](sc-09-respuestas-wsfe-design.md) delimita la reparación; A-03 y los
+[contrato](sc-09-respuestas-wsfe-design.md) delimita la reparación; los
 restantes candidatos de seguridad conservan su alcance pendiente.
 
 Los instantes operativos de la API comunican UTC explícito y la web muestra
@@ -108,8 +108,8 @@ compatibilidad y consumidores; no hay migración ni desplazamiento de la base.
 La auditoría integral corrigió documentación, código sin consumidores, fechas de
 calendario, contexto de detalles/formularios, errores PDF y barreras de
 construcción. Conserva los contratos fiscales y la visión. La capacidad de
-persistencia A-01 está corregida; las lecturas funcionales A-03 permanecen
-abiertas y forman la puerta de estabilización antes de capacidades nuevas. Evidencia y límites en el
+persistencia A-01 y las lecturas funcionales A-03 están corregidas; el siguiente
+corte de estabilización es la fidelidad del receptor PF-13. Evidencia y límites de la auditoría en el
 [dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md);
 responsabilidades compartidas y horizonte MCP en
 [dirección de arquitectura](architecture-direction.md). No acredita despliegue.
@@ -181,7 +181,12 @@ con v3/v4 congelados, lectura histórica y downgrade sin pérdida. Consulta, PDF
 lotes y reportes presentan cifras fieles sin alterar PF-03B, asociación A-02,
 idempotencia ni incertidumbre. El [contrato](pf-03-04-14-persistencia-fiel-design.md)
 y el [dossier](../project/analysis/a01-persistencia-fiscal-fiel.md) delimitan el cierre.
-El siguiente corte de la puerta es A-03: bases IVA y autoridad funcional de moneda.
+A-03 corrige las lecturas actuales: bases desde detalle contrastado con los
+importes conservados, cobertura desconocida explícita y agregados/ranking por
+moneda nominal. No infiere categorías fiscales de IVA cero ni exención por
+letra C. El [contrato A-03](a03-lecturas-fiscales-design.md) conserva la decisión
+de Santi de separar monedas, sin conversión automática. El siguiente corte es
+PF-13: fidelidad del receptor en importación fiscal.
 Este cierre de código no acredita publicación ni despliegue.
 
 Para continuar desarrollo:

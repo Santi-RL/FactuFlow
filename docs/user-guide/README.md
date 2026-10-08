@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 03/10/2026
+Última actualización: 08/10/2026
 
 Este manual describe las capacidades aceptadas del producto, no el estado de una
 instalación concreta.
@@ -841,10 +841,21 @@ Los reportes usan el emisor activo seleccionado.
 Si cambias el emisor activo mientras un reporte está cargando, FactuFlow
 descarta la respuesta anterior para no mostrar datos de otro CUIT. El subdiario
 IVA muestra detalle por alícuota, incluyendo gravado e IVA 27% cuando
-corresponde. Los comprobantes C autorizados con IVA 0 se incluyen como importes
-exentos, con signo negativo cuando son notas de crédito. En comprobantes A/B,
-los ítems guardados con IVA 0 se muestran como no gravados porque FactuFlow aún
-no distingue otro subtipo fiscal para esa alícuota.
+corresponde, también con signo negativo en notas de crédito.
+
+Ventas, IVA y ranking muestran una moneda por vez. Si el período contiene varias,
+podés cambiar `Moneda del reporte` para consultar sus filas, totales y posiciones.
+Cada moneda tiene un ranking independiente; no se suman pesos con dólares ni se
+convierten importes automáticamente. El total del ranking corresponde a los
+clientes mostrados. La lista, el detalle y el PDF identifican la moneda nominal;
+detalle y PDF incluyen la cotización conservada al emitir.
+
+Las bases de IVA se obtienen del detalle guardado y se contrastan con los
+importes del comprobante. Si la historia no permite acreditarlas, se indica
+`No acreditado`; neto e IVA conservan sus valores. IVA cero no acredita por sí
+solo exención o categoría no gravada: aparece como `Sin clasificación acreditada`.
+En los C se muestra el importe `Sin IVA discriminado`. Esto no modifica
+comprobantes emitidos ni exige acciones adicionales para seguir operando.
 
 ## 8. Certificados
 

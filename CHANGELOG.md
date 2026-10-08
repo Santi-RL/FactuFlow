@@ -18,6 +18,19 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Lecturas fiscales A-03
+
+- Bases de IVA reconstruidas desde detalle conservado y contrastadas con neto,
+  IVA y total; sin dividir impuestos redondeados. Historia insuficiente muestra
+  bases desconocidas y conserva los importes del comprobante.
+- Ventas, IVA y ranking separados por moneda nominal; límite y posiciones
+  independientes. Los totales escalares de períodos mixtos son nulos. Lista,
+  detalle y PDF identifican moneda; cotización histórica visible, sin conversión.
+- IVA cero no se convierte en no gravado y C no se convierte en exento. Se
+  muestran importes sin clasificación acreditada o sin IVA discriminado. No
+  cambia emisión, redondeo PF-03B, persistencia, categorías ni incertidumbre.
+  El [contrato A-03](docs/agents/a03-lecturas-fiscales-design.md) delimita el cierre.
+
 ### Correlación de respuestas WSFE SC-09
 
 - Correlacionadas cabecera, cantidad, rangos y datos obligatorios de cada detalle

@@ -1,8 +1,16 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 03/10/2026
+Última actualización: 08/10/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
+
+## Lecturas fiscales A-03
+
+Los reportes no llaman a ARCA ni alteran solicitudes, CAEs o reconciliación.
+El [contrato de lecturas](../agents/a03-lecturas-fiscales-design.md) distingue bases
+contrastadas y cobertura desconocida; IVA cero y letra C no prueban categorías
+exenta/no gravada. Monedas nominales separadas, cotización histórica conservada,
+sin conversión automática. Categorías completas siguen en el corte P2.
 
 ## Representación interna A-01
 

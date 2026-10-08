@@ -34,22 +34,11 @@ impacto; el orden de ejecución lo fijan «Ahora» y «Después».
 
 ## Ahora
 
-### Puerta previa — estabilización del estado actual
-
-**Prioridad:** P1, antes de nuevas capacidades. La
-[auditoría integral](docs/project/analysis/auditoria-integral-2026-10.md)
-delimita las lecturas fiscales pendientes. Cerrar el corte restante:
-
-- **PF-03/PF-04/PF-17:** corregir bases de IVA y presentación/agregación de
-  monedas desde hechos conservados. Cerrar autoridad funcional de agrupación o
-  conversión histórica; no depende de PF-05 ni del dashboard futuro.
-
 El [portafolio](docs/agents/development-portfolio.md) adjudica responsables y
-aceptación. Esta puerta no es un refactor global ni una única implementación
-mezclada. Los cortes P1 siguientes conservan sus dueños; coordinar su preparación
+aceptación. Los cortes P1 conservan sus dueños; coordinar su preparación
 común para no crear validaciones o máquinas fiscales paralelas.
 Cada integración de runtime exige auditoría verde. Las
-reparaciones fiscales de la puerta se coordinan con los cortes 1–3: cada unidad
+reparaciones fiscales se coordinan con los cortes 1–3: cada unidad
 puede integrarse al cumplir su contrato y sus checks, sin esperar una reparación
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.

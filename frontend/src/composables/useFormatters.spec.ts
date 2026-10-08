@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { formatearFecha } from "./useFormatters";
+import { formatearFecha, formatearMoneda } from "./useFormatters";
+
+describe("monedas nominales", () => {
+  it("conserva signo y precisión e identifica dólares y códigos desconocidos", () => {
+    expect(formatearMoneda("-0.01", "DOL")).toBe("-USD\u00a00,01");
+    expect(formatearMoneda("100000000000000000000000.01", "XYZ")).toContain(
+      "XYZ\u00a0100.000.000.000.000.000.000.000,01",
+    );
+    expect(formatearMoneda("100", null)).toContain("Moneda sin acreditar");
+  });
+});
 
 describe("formatearFecha", () => {
   it("formatea strings ISO YYYY-MM-DD sin desplazar la fecha", () => {

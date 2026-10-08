@@ -361,3 +361,19 @@ class TestPDFService:
         assert "03/02/2026" in texto
         assert "90.750,00" in texto
         assert comprobante_mock.cae in texto
+        assert "PES" in texto
+        assert "Cotización conservada" in texto
+
+    async def test_pdf_divisa_conserva_moneda_y_cotizacion(
+        self, pdf_service, comprobante_mock, empresa_mock
+    ):
+        comprobante_mock.moneda = "DOL"
+        comprobante_mock.cotizacion = Decimal("1500.123456")
+        contenido = await pdf_service.generar_pdf_comprobante(
+            comprobante_mock, empresa_mock
+        )
+        documento = PdfReader(BytesIO(contenido))
+        assert len(documento.pages) == 1
+        texto = documento.pages[0].extract_text()
+        assert "DOL" in texto and "1500,123456" in texto
+        assert "90.750,00" in texto

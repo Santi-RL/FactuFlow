@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 03/10/2026
+Última actualización: 08/10/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -393,7 +393,7 @@ común verifica encodabilidad y orden técnico antes de reserva/CAE, sin imponer
 los límites comerciales del esquema anterior. Los JSON e importes de replays
 históricos conservan su forma original; los clientes deben admitir strings y
 números en esas respuestas antiguas. PF-03B conserva cálculo y redondeos. A-03
-mantiene las decisiones sobre bases IVA y moneda.
+define la lectura de bases y la separación nominal de monedas.
 
 ## Comprobantes
 
@@ -1041,10 +1041,31 @@ GET /api/reportes/clientes
 Los reportes se calculan para el emisor activo.
 `GET /api/reportes/iva-ventas` calcula notas de crédito/débito con signo
 fiscal correspondiente y el detalle discrimina alícuotas 10,5%, 21% y 27%.
-Los comprobantes C autorizados con IVA cero se informan como importe exento en
-el subdiario, también con signo fiscal para notas de crédito. En comprobantes
-A/B, los ítems persistidos con IVA cero se informan como no gravados porque el
-modelo actual no distingue otro subtipo fiscal para esa alícuota.
+
+### Lecturas fiscales A-03
+
+`GET /api/reportes/ventas` y `/iva-ventas` incluyen `por_moneda`, una lista de
+resúmenes independientes; sus filas incluyen `moneda` y `cotizacion` decimal
+conservada. Los campos monetarios de `resumen` son `null` en períodos mixtos;
+en períodos de una moneda mantienen el valor escalar y acreditan `moneda`.
+Conteos y período generales permanecen disponibles. No hay conversión a pesos.
+
+IVA obtiene bases desde detalle contrastado con los importes guardados. Una
+base no acreditada es `null`, también en el agregado que la incluye; `total_neto`
+y `total_iva` usan importes conservados. `bases_acreditadas`, `origen_bases` y
+`cantidad_bases_no_acreditadas` explican cobertura. `sin_clasificacion` identifica
+la base con IVA cero sin categoría acreditada y `sin_iva_discriminado` el neto
+C. `no_gravado` y `exento` son desconocidos mientras no exista evidencia fiscal
+de esas categorías. NC aplica signo negativo a neto, bases, IVA y total.
+
+`GET /api/reportes/clientes` aplica orden y límite dentro de cada moneda.
+`por_moneda` contiene `moneda`, `clientes` y `total_general` de los clientes
+mostrados. `clientes` superior conserva todas esas filas, identificadas por
+moneda; `total_general` superior es nulo si mezcla monedas. No sumar esos
+nominales ni comparar sus posiciones entre monedas. La lista de comprobantes
+incorpora `moneda` y `cotizacion` exacta; detalle ya conserva ambos campos.
+
+Contrato y límites históricos: [lecturas A-03](../agents/a03-lecturas-fiscales-design.md).
 
 ## Codigos De Error
 
