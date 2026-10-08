@@ -124,6 +124,9 @@ del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
 
+- SC-09: [correlación y coherencia de respuestas WSFE](sc-09-respuestas-wsfe-design.md).
+  Cabecera/detalle atribuibles y cierre incierto sin liberar reservas ni reemitir.
+
 - PF-03/PF-04/PF-14, A-01: [persistencia fiscal fiel](pf-03-04-14-persistencia-fiel-design.md).
   Representación, migración y consumidores implementados; A-03 mantiene bases IVA y moneda.
 

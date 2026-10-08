@@ -399,6 +399,8 @@ class WSFEv1Client:
 
         errores = self._parse_errors_response(response)
 
+        resultado_global = self._validar_cabecera_cae(response, comprobantes)
+
         if not detalles:
             raise ArcaServiceError("ARCA no devolvió detalle de comprobantes")
 
@@ -416,7 +418,23 @@ class WSFEv1Client:
             for detalle, comprobante in zip(detalles_ordenados, comprobantes)
         ]
 
+        resultados_detalle = {resultado.resultado for resultado in resultados}
+        resumen_esperado = (
+            next(iter(resultados_detalle)) if len(resultados_detalle) == 1 else "P"
+        )
+        if resultado_global != resumen_esperado or any(
+            resultado.requiere_reconciliacion for resultado in resultados
+        ):
+            # El sublote es una sola respuesta: no cerrar ni atribuir éxito parcial
+            # ante una contradicción, pero conservar sus CAEs correlacionados.
+            for resultado in resultados:
+                resultado.requiere_reconciliacion = True
+
         if rechazar_detalles_no_aprobados:
+            if any(resultado.requiere_reconciliacion for resultado in resultados):
+                raise ArcaServiceError(
+                    "ARCA devolvió una respuesta contradictoria que requiere verificación"
+                )
             for resultado in resultados:
                 if not resultado.is_aprobado:
                     error_msgs = [f"[{e.code}] {e.msg}" for e in resultado.errores]
@@ -428,6 +446,34 @@ class WSFEv1Client:
                     )
 
         return resultados
+
+    def _validar_cabecera_cae(
+        self, response, comprobantes: list[ComprobanteRequest]
+    ) -> str:
+        """Correlaciona identidad SOAP antes de atribuir los CAEs al request."""
+        cabecera = getattr(response, "FeCabResp", None)
+        esperados = {
+            "Cuit": int(self.cuit),
+            "PtoVta": comprobantes[0].punto_venta,
+            "CbteTipo": comprobantes[0].tipo_cbte,
+            "CantReg": len(comprobantes),
+        }
+        for campo, esperado in esperados.items():
+            recibido = getattr(cabecera, campo, None)
+            if (
+                not isinstance(recibido, int)
+                or isinstance(recibido, bool)
+                or recibido != esperado
+            ):
+                raise ArcaServiceError(
+                    f"ARCA devolvió una cabecera ausente o discordante: {campo}"
+                )
+        resultado = getattr(cabecera, "Resultado", None)
+        if not isinstance(resultado, str) or resultado not in {"A", "R", "P"}:
+            raise ArcaServiceError(
+                "ARCA devolvió un resultado global ausente o inválido"
+            )
+        return resultado
 
     def _ordenar_detalles_cae_por_comprobante(
         self,
@@ -447,6 +493,11 @@ class WSFEv1Client:
                 raise ArcaServiceError(
                     "ARCA devolvió un detalle de comprobante sin CbteHasta"
                 )
+            if any(
+                not isinstance(valor, int) or isinstance(valor, bool)
+                for valor in (cbte_desde_raw, cbte_hasta_raw)
+            ):
+                raise ArcaServiceError("ARCA devolvió un rango de comprobante inválido")
             try:
                 cbte_desde = int(cbte_desde_raw)
                 cbte_hasta = int(cbte_hasta_raw)
@@ -492,6 +543,26 @@ class WSFEv1Client:
         errores: list[ErrorArca],
     ) -> CAEResponse:
         """Convierte un `FECAEDetResponse` en `CAEResponse`."""
+        esperados = {
+            "Concepto": comprobante.concepto,
+            "DocTipo": comprobante.tipo_doc,
+            "DocNro": comprobante.nro_doc,
+            "CbteFch": comprobante.fecha_cbte,
+        }
+        for campo, esperado in esperados.items():
+            recibido = getattr(fe_det_resp, campo, None)
+            # WSFEv1 declara CbteFch opcional en FeDetResp. Si está presente,
+            # debe coincidir; su ausencia no invalida una respuesta legítima.
+            if campo == "CbteFch" and recibido is None:
+                continue
+            if (
+                not isinstance(recibido, type(esperado))
+                or isinstance(recibido, bool)
+                or recibido != esperado
+            ):
+                raise ArcaServiceError(
+                    f"ARCA devolvió un detalle ausente o discordante: {campo}"
+                )
         resultado, cae, cae_vencimiento = self._validar_autorizacion_cae(fe_det_resp)
 
         # Extraer observaciones
@@ -510,6 +581,7 @@ class WSFEv1Client:
             tipo_cbte=comprobante.tipo_cbte,
             punto_venta=comprobante.punto_venta,
             resultado=resultado,
+            requiere_reconciliacion=resultado == "R" and bool(cae or cae_vencimiento),
             observaciones=observaciones,
             errores=errores,
         )
@@ -522,8 +594,8 @@ class WSFEv1Client:
     ) -> tuple[str, str | None, str | None]:
         """Valida el resultado fiscal y los campos que acreditan autorización."""
         resultado_raw = getattr(fe_det_resp, "Resultado", None)
-        resultado = str(resultado_raw or "").strip().upper()
-        if resultado not in {"A", "R", "P"}:
+        resultado = resultado_raw
+        if not isinstance(resultado, str) or resultado not in {"A", "R", "P"}:
             raise ArcaServiceError(
                 "ARCA devolvió un resultado de autorización ausente o inválido"
             )
@@ -539,15 +611,17 @@ class WSFEv1Client:
             str(vencimiento_raw).strip() if vencimiento_raw is not None else None
         )
 
-        if resultado == "R":
-            return resultado, cae or None, cae_vencimiento or None
+        if resultado == "R" and not (cae or cae_vencimiento):
+            return resultado, None, None
 
-        if cae is None or len(cae) != 14 or not cae.isascii() or not cae.isdigit():
+        if (resultado == "A" or cae) and (
+            cae is None or len(cae) != 14 or not cae.isascii() or not cae.isdigit()
+        ):
             raise ArcaServiceError(
                 "ARCA informó una aprobación sin un CAE válido de 14 dígitos"
             )
 
-        if (
+        if (resultado == "A" or cae_vencimiento) and (
             cae_vencimiento is None
             or len(cae_vencimiento) != 8
             or not cae_vencimiento.isascii()
@@ -557,7 +631,8 @@ class WSFEv1Client:
                 "ARCA informó una aprobación sin vencimiento de CAE válido YYYYMMDD"
             )
         try:
-            datetime.strptime(cae_vencimiento, "%Y%m%d")
+            if cae_vencimiento:
+                datetime.strptime(cae_vencimiento, "%Y%m%d")
         except ValueError as exc:
             raise ArcaServiceError(
                 "ARCA informó una aprobación con vencimiento de CAE inválido"

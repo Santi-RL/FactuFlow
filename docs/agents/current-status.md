@@ -93,6 +93,12 @@ ensaya su rechazo y aceptación con la CLI real antes de medir la suite. El
 contrato y los comandos viven en [testing](testing.md#frontend); la actualización
 de Vitest y las demás líneas PF-16 conservan su alcance pendiente.
 
+SC-09 correlaciona las respuestas WSFE con la solicitud y conserva la
+incertidumbre ante contradicciones. El cierre individual y masivo preserva CAEs
+atribuibles y reservas, sin convertirlos en éxito ni permitir otro envío. El
+[contrato](sc-09-respuestas-wsfe-design.md) delimita la reparación; A-03 y los
+restantes candidatos de seguridad conservan su alcance pendiente.
+
 Los instantes operativos de la API comunican UTC explícito y la web muestra
 hora argentina en lotes, usuarios, emisor y Sistema, independientemente de la
 zona del navegador. Fechas fiscales y antecedentes de zona desconocida conservan

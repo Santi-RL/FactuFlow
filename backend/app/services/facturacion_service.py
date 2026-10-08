@@ -858,6 +858,41 @@ class FacturacionService:
                 )
                 return respuestas_inciertas
 
+            if any(
+                self._resultado_arca_incierto(resultado)
+                for resultado in resultados_arca
+            ):
+                # Inmovilizar el grafo antes de modificar intentos por detalle:
+                # su cierre requiere todavía el estado durable en_proceso.
+                respuestas = [
+                    self._respuesta_post_arca_requiere_reconciliacion(
+                        request=request,
+                        punto_venta_numero=punto_venta_numero,
+                        numero=arca_request.cbte_desde,
+                        totales=totales,
+                        resultado_arca=resultado,
+                        mensaje="FactuFlow debe verificar el resultado del sublote en ARCA",
+                        errores=[
+                            "ARCA devolvió una respuesta contradictoria. "
+                            "No reintentes hasta reconciliar todo el sublote."
+                        ],
+                        categoria_error="arca_respuesta_incierta",
+                    )
+                    for request, arca_request, totales, resultado in zip(
+                        requests, arca_requests, totales_por_request, resultados_arca
+                    )
+                ]
+                await self._persistir_intentos_y_guarda_rece(
+                    idempotencia=idempotencia,
+                    intentos=intentos,
+                    respuestas=respuestas,
+                    guarda=guarda,
+                    fase="reconciliacion",
+                    contexto="respuesta_contradictoria_batch",
+                    commit=commit_rechazo_global,
+                )
+                return respuestas
+
             respuestas: list[EmitirComprobanteResponse] = []
             persistencia_bloqueada = False
             for request, arca_request, totales, resultado, intento in zip(
@@ -1633,7 +1668,11 @@ class FacturacionService:
                     intento=intento,
                     respuesta=respuesta_no_aprobada,
                     guarda=guarda,
-                    fase="cerrada_terminal",
+                    fase=(
+                        "reconciliacion"
+                        if respuesta_no_aprobada.requiere_reconciliacion
+                        else "cerrada_terminal"
+                    ),
                     commit=commit,
                     contexto="arca_no_aprobado",
                 )
@@ -4128,6 +4167,20 @@ class FacturacionService:
 
         return [resultados_por_numero[numero] for numero in numeros_solicitados]
 
+    @staticmethod
+    def _resultado_arca_incierto(resultado_arca) -> bool:
+        """Distingue contradicción de rechazo terminal antes de alterar el grafo."""
+        return bool(
+            getattr(resultado_arca, "requiere_reconciliacion", False)
+            or (
+                not bool(getattr(resultado_arca, "is_aprobado", True))
+                and (
+                    getattr(resultado_arca, "cae", None)
+                    or getattr(resultado_arca, "cae_vencimiento", None)
+                )
+            )
+        )
+
     def _respuesta_si_arca_no_autorizo(
         self,
         request: EmitirComprobanteRequest,
@@ -4140,6 +4193,20 @@ class FacturacionService:
         aprobado = bool(getattr(resultado_arca, "is_aprobado", True))
         cae = getattr(resultado_arca, "cae", None)
         cae_vencimiento = getattr(resultado_arca, "cae_vencimiento", None)
+        if self._resultado_arca_incierto(resultado_arca):
+            return self._respuesta_post_arca_requiere_reconciliacion(
+                request=request,
+                punto_venta_numero=punto_venta_numero,
+                numero=numero,
+                totales=totales,
+                resultado_arca=resultado_arca,
+                mensaje="FactuFlow debe verificar el resultado de la solicitud a ARCA",
+                errores=[
+                    "ARCA devolvió una respuesta contradictoria. "
+                    "No reintentes hasta consultar y reconciliar el comprobante."
+                ],
+                categoria_error="arca_respuesta_incierta",
+            )
         if aprobado and cae and cae_vencimiento:
             return None
 

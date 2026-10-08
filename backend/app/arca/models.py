@@ -218,6 +218,9 @@ class CAEResponse(BaseModel):
     resultado: str = Field(
         ..., description="Resultado (A=Aprobado, R=Rechazado, P=Parcial)"
     )
+    requiere_reconciliacion: bool = Field(
+        default=False, description="Respuesta correlacionada pero contradictoria"
+    )
 
     # Mensajes
     observaciones: List[Observacion] = Field(
@@ -228,12 +231,12 @@ class CAEResponse(BaseModel):
     @property
     def is_aprobado(self) -> bool:
         """Verifica si el comprobante fue aprobado."""
-        return self.resultado == "A"
+        return self.resultado == "A" and not self.requiere_reconciliacion
 
     @property
     def is_rechazado(self) -> bool:
         """Verifica si el comprobante fue rechazado."""
-        return self.resultado == "R"
+        return self.resultado == "R" and not self.requiere_reconciliacion
 
 
 class ComprobanteResponse(BaseModel):

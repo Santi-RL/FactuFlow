@@ -482,6 +482,15 @@ convierte una operación ya cerrada en una emisión nueva.
 
 Las fechas visibles que se muestran al usuario deben formatearse como `DD/MM/AAAA`. Los contratos técnicos de API pueden seguir usando `YYYY-MM-DD`, ISO datetime o `CbteFch` `YYYYMMDD` según corresponda, convirtiendo siempre en los bordes.
 
+Una respuesta WSFE sólo puede cerrar la emisión cuando corresponde a la
+solicitud. Cabecera o detalle ajenos, o resultados contradictorios, conservan
+`requiere_reconciliacion`. Para contradicciones correlacionadas se publica
+`categoria_error=arca_respuesta_incierta`; un CAE presente es evidencia para
+verificar, no un éxito. Se conservan intento, guarda y reserva; repetir la misma
+operación no vuelve a solicitar CAE. La fecha de respuesta es opcional y se
+compara cuando ARCA la informa. El [contrato SC-09](../agents/sc-09-respuestas-wsfe-design.md)
+delimita la semántica sin añadir campos HTTP.
+
 El body debe incluir `fecha_emision`. FactuFlow no la completa con la fecha del
 día. Para comprobantes de servicios o productos y servicios también deben
 informarse `fecha_servicio_desde`, `fecha_servicio_hasta` y `fecha_vto_pago`.
@@ -902,12 +911,18 @@ cabecera `R` correlacionada al request, un único error y ausencia de detalle o
 CAE. La respuesta puede incluir el error sanitario global; no expone el mensaje
 SOAP. El sublote enviado se cierra atómicamente y el lote detiene los grupos
 posteriores como `no_enviado_por_rechazo_global`. Código desconocido o mezclado,
-tipos no exactos, respuesta parcial, timeout, transporte, CAE o detalle dejan
+tipos no exactos, error global parcial, timeout, transporte, CAE o detalle dejan
 la operación en `requiere_reconciliacion`; el replay de la misma clave devuelve
 su estado durable sin realizar WSAA, WSFE ni una nueva FECAE. El contrato
 forma parte del estado aceptado del repositorio. La evidencia de su cierre vive
 en el dossier correspondiente; su disponibilidad en una instalación se
 consulta en el plano de control.
+
+SC-09 también impide cerrar un sublote ante una cabecera/detalle discordantes o
+un rechazo acompañado por CAE/vencimiento. La contradicción correlacionada
+inmoviliza toda la respuesta antes de guardar comprobantes, conserva los CAEs
+atribuibles y detiene nuevos envíos para reconciliar. Una cabecera P coherente
+con una mezcla A/R sigue aplicando la política vigente por detalle.
 
 La recuperación stale del worker conserva una puerta previa más estricta: solo
 reencola grupos intactos, sin intento, CAE, número, comprobante vinculado ni

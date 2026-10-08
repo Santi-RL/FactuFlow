@@ -2828,17 +2828,29 @@ async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("modo", ["individual", "batch"])
 @pytest.mark.parametrize("fallar_cierre", [False, True])
-async def test_rechazo_arca_exige_cierre_durable_o_propaga_error_sanitizado(
+@pytest.mark.parametrize(
+    "respuesta_arca",
+    ["rechazo", "rechazo_con_cae", "rechazo_con_vencimiento", "senal_global"],
+)
+async def test_sc09_resultado_arca_exige_cierre_durable_o_propaga_error_sanitizado(
     db_session: AsyncSession,
     test_empresa,
     monkeypatch: pytest.MonkeyPatch,
     modo: str,
     fallar_cierre: bool,
+    respuesta_arca: str,
 ):
-    """Un rechazo solo se devuelve si su cierre durable pudo persistirse."""
+    """Rechazo y contradicción conservan su clasificación sólo con cierre durable."""
+    incierta = respuesta_arca != "rechazo"
+    cae_esperado = (
+        "12345678901234"
+        if respuesta_arca in {"rechazo_con_cae", "senal_global"}
+        else None
+    )
+    vencimiento_esperado = date(2026, 6, 10) if incierta else None
 
     class FakeWSFEClient:
-        """Cliente WSFE simulado con rechazo explícito sin CAE."""
+        """Cliente WSFE con rechazo verificable o señal fiscal contradictoria."""
 
         llamadas_fecae = 0
 
@@ -2861,14 +2873,15 @@ async def test_rechazo_arca_exige_cierre_durable_o_propaga_error_sanitizado(
 
         @staticmethod
         def _respuesta_no_aprobada():
-            """Construye un rechazo fiscal sin CAE."""
+            """Preserva las señales atribuidas por el adaptador o defensa común."""
             return CAEResponse(
-                cae=None,
-                cae_vencimiento=None,
+                cae=cae_esperado,
+                cae_vencimiento="20260610" if incierta else None,
                 numero_comprobante=77,
                 tipo_cbte=6,
                 punto_venta=1,
-                resultado="R",
+                resultado="A" if respuesta_arca == "senal_global" else "R",
+                requiere_reconciliacion=respuesta_arca == "senal_global",
                 errores=[
                     {
                         "code": 10016,
@@ -3043,15 +3056,54 @@ async def test_rechazo_arca_exige_cierre_durable_o_propaga_error_sanitizado(
     else:
         assert resultado is not None
         assert resultado.exito is False
-        assert resultado.requiere_reconciliacion is False
-        assert resultado.categoria_error == "arca_no_aprobado"
-        assert resultado.cae is None
-        assert intentos[0].estado == "rechazado_arca"
-        assert guardas[0].fase == "cerrada_terminal"
+        assert resultado.requiere_reconciliacion is incierta
+        assert resultado.categoria_error == (
+            "arca_respuesta_incierta" if incierta else "arca_no_aprobado"
+        )
+        assert resultado.cae == cae_esperado
+        assert resultado.cae_vencimiento == vencimiento_esperado
+        assert intentos[0].cae == cae_esperado
+        assert intentos[0].cae_vencimiento == vencimiento_esperado
+        assert intentos[0].numero_planificado == 77
+        assert intentos[0].estado == (
+            "requiere_reconciliacion" if incierta else "rechazado_arca"
+        )
+        assert guardas[0].fase == (
+            "requiere_reconciliacion" if incierta else "cerrada_terminal"
+        )
         respuesta_json = resultado.model_dump_json()
         assert "secreto" not in respuesta_json
         assert "privada.key" not in respuesta_json
-        assert "10016" in respuesta_json
+        if not incierta:
+            assert "10016" in respuesta_json
+        else:
+            intento_id = intentos[0].id
+            guarda_id = guardas[0].id
+            bloqueante = await IdempotenciaFiscalService(
+                db_session
+            ).existe_intento_bloqueante(
+                test_empresa.id, punto_venta.id, request.tipo_comprobante
+            )
+            assert bloqueante is not None
+            assert bloqueante.id == intento_id
+            recuperada = await service.resolver_operacion_idempotente_incompleta(
+                operacion_id
+            )
+            assert recuperada is not None
+            assert recuperada.requiere_reconciliacion is True
+            assert recuperada.cae == cae_esperado
+            assert recuperada.cae_vencimiento == vencimiento_esperado
+            assert recuperada.numero == 77
+            repetida = await emitir()
+            assert repetida.exito is False
+            assert FakeWSFEClient.llamadas_fecae == 1
+            await db_session.refresh(intentos[0])
+            await db_session.refresh(guardas[0])
+            assert intentos[0].id == intento_id
+            assert intentos[0].estado == "requiere_reconciliacion"
+            assert intentos[0].cae == cae_esperado
+            assert guardas[0].id == guarda_id
+            assert guardas[0].fase == "requiere_reconciliacion"
 
 
 @pytest.mark.asyncio
@@ -3345,6 +3397,116 @@ async def _preparar_escenario_numeracion_batch(
         batch=True,
     )
     return FacturacionService(db_session), requests, metadata
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "respuesta_arca",
+    ["parcial_compatible", "senal_global", "rechazo_con_cae"],
+)
+async def test_sc09_batch_contradictorio_no_persiste_el_detalle_aprobado(
+    db_session: AsyncSession,
+    test_empresa,
+    monkeypatch: pytest.MonkeyPatch,
+    respuesta_arca: str,
+):
+    """Una contradicción inmoviliza el sublote; una mezcla válida conserva A/R."""
+    incierta = respuesta_arca != "parcial_compatible"
+    caes_esperados = [
+        "12345678901231",
+        "12345678901232" if respuesta_arca == "rechazo_con_cae" else None,
+    ]
+
+    class FakeWSFEClient:
+        """Simula resultados correlacionados del parser común, sin red fiscal."""
+
+        llamadas_fecae = 0
+
+        def __init__(self, *args, **kwargs):
+            """Acepta la firma del cliente de WSFE sin usar certificados reales."""
+
+        async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
+            """Conserva la numeración estable antes y después de reservar."""
+            return 0
+
+        async def fe_cae_solicitar_lote(self, arca_requests):
+            """Devuelve detalles invertidos con la señal explícita del parser."""
+            type(self).llamadas_fecae += 1
+            respuestas = [
+                CAEResponse(
+                    cae=caes_esperados[index],
+                    cae_vencimiento="20260808" if caes_esperados[index] else None,
+                    numero_comprobante=request.cbte_desde,
+                    punto_venta=request.punto_venta,
+                    tipo_cbte=request.tipo_cbte,
+                    resultado="A" if index == 0 else "R",
+                    requiere_reconciliacion=incierta,
+                )
+                for index, request in enumerate(arca_requests)
+            ]
+            return list(reversed(respuestas))
+
+    service, requests, metadata = await _preparar_escenario_numeracion_batch(
+        db_session, test_empresa, monkeypatch, FakeWSFEClient
+    )
+    resultados = await service.emitir_comprobantes_lote(
+        requests, max_registros=2, contextos=metadata
+    )
+    comprobantes = list(
+        await db_session.scalars(select(Comprobante).order_by(Comprobante.numero))
+    )
+    intentos = list(
+        await db_session.scalars(
+            select(IntentoEmisionFiscal).order_by(
+                IntentoEmisionFiscal.numero_planificado
+            )
+        )
+    )
+    guardas = list(await db_session.scalars(select(PuntoVentaGuardaEmisionRece)))
+
+    assert FakeWSFEClient.llamadas_fecae == 1
+    assert [resultado.numero for resultado in resultados] == [1, 2]
+    assert [resultado.cae for resultado in resultados] == caes_esperados
+    assert [resultado.requiere_reconciliacion for resultado in resultados] == [
+        incierta,
+        incierta,
+    ]
+    assert [intento.numero_planificado for intento in intentos] == [1, 2]
+    assert [intento.cae for intento in intentos] == caes_esperados
+    assert len(guardas) == 1
+    if incierta:
+        assert comprobantes == []
+        assert all(resultado.exito is False for resultado in resultados)
+        assert all(
+            resultado.categoria_error == "arca_respuesta_incierta"
+            for resultado in resultados
+        )
+        assert [intento.estado for intento in intentos] == [
+            "requiere_reconciliacion",
+            "requiere_reconciliacion",
+        ]
+        assert all(intento.comprobante_id is None for intento in intentos)
+        assert guardas[0].fase == "requiere_reconciliacion"
+        resultados_repetidos = await service.emitir_comprobantes_lote(
+            requests, max_registros=2, contextos=metadata
+        )
+        assert all(resultado.exito is False for resultado in resultados_repetidos)
+        assert FakeWSFEClient.llamadas_fecae == 1
+        for intento in intentos:
+            await db_session.refresh(intento)
+            assert intento.estado == "requiere_reconciliacion"
+        await db_session.refresh(guardas[0])
+        assert guardas[0].fase == "requiere_reconciliacion"
+    else:
+        assert [resultado.exito for resultado in resultados] == [True, False]
+        assert resultados[1].categoria_error == "arca_no_aprobado"
+        assert [comprobante.numero for comprobante in comprobantes] == [1]
+        assert [comprobante.cae for comprobante in comprobantes] == [caes_esperados[0]]
+        assert [intento.estado for intento in intentos] == [
+            "autorizado",
+            "rechazado_arca",
+        ]
+        assert guardas[0].fase == "cerrada_terminal"
 
 
 @pytest.mark.asyncio
