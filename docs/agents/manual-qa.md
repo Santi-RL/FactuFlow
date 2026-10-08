@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 03/10/2026
+Última revisión: 07/10/2026
 
 Estado: VIGENTE.
 
@@ -35,6 +35,16 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
   a ARCA. No inventar una hora para campos vacíos o inválidos.
 
 ### Fiscal o ARCA
+
+- Con el simulador SOAP local, devolver cabecera de otro emisor/punto/tipo o
+  detalle con otro receptor/rango: no se atribuye un CAE ajeno y la operación
+  conserva reconciliación. No realizar llamadas fiscales reales.
+- Simular cabecera contradictoria y R con CAE/vencimiento en individual y
+  sublote. No deben guardarse comprobantes; CAE atribuible, intento, guarda y
+  reserva permanecen recuperables. Repetir la operación no genera otro FECAE.
+- Simular A/R legítimos, mezcla A/R con cabecera P y fecha opcional ausente:
+  conservan el tratamiento vigente. Si la fecha llega discordante, se bloquea
+  el cierre. El [contrato SC-09](sc-09-respuestas-wsfe-design.md) delimita los casos.
 
 - Con dobles locales, preparar dos clientes del mismo emisor y documento.
   La carga manual conserva receptor y comprobante autorizado sin elegir una ficha;

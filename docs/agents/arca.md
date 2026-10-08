@@ -674,6 +674,14 @@ explícita, matriz RG 5616, historia, snapshots, duplicados y reconciliación.
   posición del detalle devuelto por ARCA. La cantidad y el conjunto de números
   deben coincidir exactamente con lo solicitado; cualquier diferencia vuelve el
   sublote no confiable.
+- SC-09 correlaciona CUIT, punto, tipo y cantidad de cabecera, y concepto y
+  documento de cada detalle con la solicitud. La fecha opcional se compara si
+  está informada. A/R/P de cabecera debe resumir los detalles; P con una mezcla
+  A/R coherente conserva su tratamiento. Una contradicción o R con CAE/vencimiento
+  inmoviliza todo el sublote antes de guardar comprobantes: conserva evidencia
+  atribuible, intentos, guardas y reservas para reconciliar, sin otro FECAE. Una
+  identidad ajena no permite asignar sus CAEs. El alcance y la autoridad viven
+  en el [contrato SC-09](sc-09-respuestas-wsfe-design.md).
 - Si falla la preparación o reserva local antes de `FECAESolicitar`, la
   transacción completa revierte: quedan cero guardas, intentos y reservas
   nuevos, y cero FECAE. WSAA y lecturas seguras como `FECompTotXRequest` o

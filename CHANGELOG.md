@@ -18,6 +18,19 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Correlación de respuestas WSFE SC-09
+
+- Correlacionadas cabecera, cantidad, rangos y datos obligatorios de cada detalle
+  de `FECAESolicitar` con la solicitud. La fecha opcional se comprueba cuando
+  ARCA la informa; una identidad ajena no permite atribuir sus CAEs.
+- Una cabecera contradictoria o un rechazo con CAE/vencimiento deja toda la
+  respuesta en reconciliación. Se conservan los CAEs atribuibles, intentos,
+  guardas y reservas sin guardar comprobantes autorizados ni reenviar CAE.
+- Las aprobaciones, rechazos sin autorización y mezclas A/R coherentes conservan
+  su conducta. El [contrato SC-09](docs/agents/sc-09-respuestas-wsfe-design.md)
+  registra el corte fiscal autorizado antes de A-03; no acredita despliegue ni
+  cierra los demás hallazgos de Security Cloud.
+
 ### Alineación documental y planificación de seguridad
 
 - Corregidas dos referencias de diseños vivos para consumir A-01 implementado,

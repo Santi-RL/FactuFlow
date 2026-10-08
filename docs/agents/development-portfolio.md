@@ -181,7 +181,6 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Frontera de errores técnicos, PF-09/PF-12 | PDF está sanitizado; revisar respuestas ARCA/certificados y diagnóstico SQL sin parámetros sensibles. Conservar errores fiscales públicos controlados. [Auditoría](../project/analysis/auditoria-integral-2026-10.md). |
 | Updates con `null`, PF-12/PF-14 | Validar campos obligatorios de clientes/emisores antes de persistir, conservando restricciones y rollback; no confundir ausencia con `null`. |
 | Guía del wizard por ambiente, PF-09/PF-17 | Homologación necesita WSASS también en el paso de portal; propagar ambiente y comprobar ambas experiencias. |
-| Respuestas WSFE contradictorias, PF-02/PF-04/PF-09 | SC-09, P1 fiscal propuesto: correlacionar cabecera y detalle, conservando CAE, reservas e incertidumbre. Corte independiente de la ampliación P2 de reconciliación. |
 | Autenticación, PF-12/PF-14 | SC-11 y SC-08, dos cortes P1 propuestos: vincular el token a la credencial verificada ante reset concurrente y limitar intentos repetidos. La política de contraseñas requiere una decisión separada. |
 | Entorno de desarrollo, PF-16 | SC-10, P1 condicionado a acceso desde una red no confiable. Delimitar exposición y configuración local antes del próximo uso compartido; no inferir el estado productivo desde Compose de desarrollo. |
 | Archivos externos, PF-13/PF-09 | SC-02 y SC-07, P2 preferentes: presupuestos de expansión/lectura XLSX y lectura/procesamiento de constancias PDF en cortes propios. Mantener el tamaño máximo de carga y el corte temprano de filas ya existentes. |
@@ -194,7 +193,9 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 
 La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
 conserva la evidencia fechada, los 18 casos, su adjudicación, condiciones y
-aceptación propuesta. SC-03 y SC-14 ya tienen cobertura integrada; la receta
+aceptación propuesta. SC-09 tiene su reparación delimitada en las líneas
+cerradas, independiente de la ampliación P2 de reconciliación. SC-03 y SC-14
+ya tienen cobertura integrada; la receta
 de SHA de SC-04 se corrige en setup y no crea otro parche futuro. SC-02 y
 SC-15 conservan sólo su alcance residual. El hallazgo de calidad del control de
 cobertura, separado del escaneo, salió del inventario activo y figura en las
@@ -296,6 +297,12 @@ del constructor.
     reconstrucción histórica externa completa ni introducen cuentas corrientes.
 
 ## Líneas cerradas
+
+SC-09, adelantado con autorización antes de A-03, correlaciona cabecera y detalle
+de WSFE y trata toda respuesta contradictoria como incierta. Conserva evidencia
+atribuible, intentos, guardas y reservas; admite respuestas A/R legítimas y fecha
+opcional ausente. El [contrato](sc-09-respuestas-wsfe-design.md) delimita el corte.
+Este cierre de código no acredita cierre remoto de Security Cloud ni despliegue.
 
 La puerta de cobertura del frontend aplica los mínimos globales originales y
 comprueba con la CLI real el rechazo de cobertura insuficiente y la aceptación

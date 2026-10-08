@@ -204,6 +204,20 @@ delimita la compatibilidad histórica y las pruebas.
 - Esta regla no cambia el contrato SOAP ni autoriza usar defaults de fecha,
   moneda o cotización como sustituto de una entrada mal escrita.
 
+### 4.e.3 Correlación de respuestas FECAE SC-09
+
+- Correlacionar cabecera (CUIT, punto, tipo y cantidad) y detalle (rango,
+  concepto y documento) antes de atribuir un CAE. La fecha de respuesta es
+  opcional; si llega, debe coincidir con la solicitud.
+- A/R/P de cabecera debe resumir los detalles A/R. Una mezcla legítima no
+  introduce una restricción nueva. Una cabecera contradictoria o un R con
+  CAE/vencimiento deja todo el sublote en reconciliación, sin guardar un éxito
+  parcial, liberar reservas ni reenviar CAE. Se conservan los CAEs atribuibles;
+  una identidad no correlacionada no permite asignarlos.
+- El [contrato SC-09](../agents/sc-09-respuestas-wsfe-design.md) documenta la
+  autoridad WSFEv1 y el cierre durable individual y masivo. No amplía el
+  contrato legacy de `FECompConsultar` ni el rechazo global PF-19C.
+
 ### 4.f Reconciliación externa de lotes
 
 - Para comprobantes emitidos manualmente en ARCA Web, FactuFlow debe usar

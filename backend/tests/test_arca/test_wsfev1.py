@@ -60,6 +60,34 @@ def _comprobante(
     )
 
 
+def _respuesta_fecae(auth, request, **campos):
+    """Completa dobles históricos con los campos obligatorios del contrato SOAP."""
+    response = SimpleNamespace(**campos)
+    detalles_raw = getattr(
+        getattr(response, "FeDetResp", None), "FECAEDetResponse", None
+    )
+    detalles = WSFEv1Client._normalizar_lista(detalles_raw)
+    solicitudes = request["FeDetReq"]["FECAEDetRequest"]
+    resultados = {getattr(detalle, "Resultado", None) for detalle in detalles}
+    if "FeCabResp" not in campos:
+        response.FeCabResp = SimpleNamespace(
+            Cuit=int(auth["Cuit"]),
+            **request["FeCabReq"],
+            Resultado=next(iter(resultados)) if len(resultados) == 1 else "P",
+        )
+    por_rango = {(r["CbteDesde"], r["CbteHasta"]): r for r in solicitudes}
+    for detalle in detalles:
+        rango = (
+            getattr(detalle, "CbteDesde", None),
+            getattr(detalle, "CbteHasta", None),
+        )
+        solicitud = por_rango.get(rango, solicitudes[0])
+        for campo in ("Concepto", "DocTipo", "DocNro", "CbteFch"):
+            if not hasattr(detalle, campo):
+                setattr(detalle, campo, solicitud[campo])
+    return response
+
+
 @pytest.mark.parametrize("tipo,ids", [(1, [1, 6]), (6, [4, 5]), (11, [1, 4, 5, 6])])
 def test_detalle_wsfe_incluye_condicion_iva_compatible(tipo, ids):
     client = _crear_cliente_wsfe(SimpleNamespace())
@@ -232,7 +260,9 @@ async def test_fe_cae_solicitar_rechaza_resultado_parcial():
                 CbteHasta=1,
                 Resultado="P",
             )
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
                 Errors=None,
             )
@@ -259,7 +289,9 @@ async def test_fe_cae_solicitar_conserva_rechazo_explicito():
                 CbteHasta=1,
                 Resultado="R",
             )
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
                 Errors=None,
             )
@@ -302,7 +334,9 @@ async def test_fe_cae_solicitar_rechaza_aprobacion_sin_cae_utilizable(
                 CbteHasta=1,
                 Resultado="A",
             )
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
                 Errors=None,
             )
@@ -330,7 +364,9 @@ async def test_fe_cae_solicitar_rechaza_errores_globales_aun_con_detalle_aprobad
                 Resultado="A",
             )
             error = SimpleNamespace(Code=1000, Msg="Respuesta global inconsistente")
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
                 Errors=SimpleNamespace(Err=[error]),
             )
@@ -371,7 +407,9 @@ async def test_fe_cae_solicitar_lote_envia_cant_reg_y_detalles():
                     Resultado="A",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     service = FakeService()
     client = _crear_cliente_wsfe(service)
@@ -410,8 +448,8 @@ async def test_fe_cae_solicitar_lote_cuantiza_importes_decimales():
                 CbteHasta=1,
                 Resultado="A",
             )
-            return SimpleNamespace(
-                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle])
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle])
             )
 
     service = FakeService()
@@ -475,7 +513,9 @@ async def test_fe_cae_solicitar_lote_ordena_detalles_por_numero():
                     Resultado="A",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -513,7 +553,9 @@ async def test_fe_cae_solicitar_lote_rechaza_numeros_no_solicitados():
                     Resultado="A",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -538,7 +580,9 @@ async def test_fe_cae_solicitar_lote_rechaza_detalle_sin_cbte_hasta():
                     Resultado="A",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -564,7 +608,9 @@ async def test_fe_cae_solicitar_lote_rechaza_cbte_hasta_distinto():
                     Resultado="A",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -608,7 +654,9 @@ async def test_fe_cae_solicitar_lote_rechaza_resultado_parcial():
                     Resultado="P",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -641,7 +689,9 @@ async def test_fe_cae_solicitar_lote_conserva_rechazo_explicito():
                     Resultado="R",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -677,7 +727,9 @@ async def test_fe_cae_solicitar_lote_rechaza_rango_duplicado():
                     Resultado="A",
                 ),
             ]
-            return SimpleNamespace(FeDetResp=SimpleNamespace(FECAEDetResponse=detalles))
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=detalles)
+            )
 
     client = _crear_cliente_wsfe(FakeService())
 
@@ -701,8 +753,8 @@ async def test_fe_cae_solicitar_lote_rechaza_detalle_faltante():
                 CbteHasta=1,
                 Resultado="A",
             )
-            return SimpleNamespace(
-                FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle])
+            return _respuesta_fecae(
+                Auth, FeCAEReq, FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle])
             )
 
     client = _crear_cliente_wsfe(FakeService())
@@ -728,7 +780,9 @@ async def test_fe_cae_solicitar_lote_rechaza_error_global():
                 Resultado="A",
             )
             error = SimpleNamespace(Code=1000, Msg="Respuesta global inconsistente")
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeDetResp=SimpleNamespace(FECAEDetResponse=[detalle]),
                 Errors=SimpleNamespace(Err=error),
             )
@@ -748,7 +802,9 @@ async def test_fe_cae_solicitar_preserva_error_global_y_eventos_estructurados():
 
         def FECAESolicitar(self, Auth, FeCAEReq):
             """Devuelve el contrato global exacto sin detalle."""
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeCabResp=SimpleNamespace(
                     Cuit=20123456789,
                     PtoVta=1,
@@ -804,7 +860,9 @@ async def test_fe_cae_solicitar_no_clasifica_codigos_no_enteros_exactos(codigo):
 
         def FECAESolicitar(self, Auth, FeCAEReq):
             """Devuelve una variante adversarial del código."""
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeCabResp=SimpleNamespace(
                     Cuit=20123456789,
                     PtoVta=1,
@@ -859,7 +917,9 @@ async def test_fe_cae_solicitar_exige_cabecera_global_exacta(campo, valor):
                 "Resultado": "R",
             }
             cabecera[campo] = valor
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeCabResp=SimpleNamespace(**cabecera),
                 Errors=SimpleNamespace(
                     Err=SimpleNamespace(Code=10005, Msg="rechazo global")
@@ -884,7 +944,9 @@ async def test_fe_cae_solicitar_rechazo_global_exige_error_unico(errores):
 
         def FECAESolicitar(self, Auth, FeCAEReq):
             """Devuelve los códigos globales indicados."""
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeCabResp=SimpleNamespace(
                     Cuit=20123456789,
                     PtoVta=1,
@@ -921,7 +983,9 @@ async def test_fe_cae_solicitar_no_clasifica_10005_con_detalle_o_cae(cae):
                 Resultado="R",
                 CAE=cae,
             )
-            return SimpleNamespace(
+            return _respuesta_fecae(
+                Auth,
+                FeCAEReq,
                 FeCabResp=SimpleNamespace(
                     Cuit=20123456789,
                     PtoVta=1,
