@@ -14,6 +14,9 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.8-candidate.md`](v0.3.8-candidate.md): corte de persistencia fiel,
+  lecturas por moneda, correlación WSFE y protección de acceso SC-08; compatibilidad, recuperación y
+  controles del candidato, separados de publicación y despliegue.
 - [`v0.3.7-candidate.md`](v0.3.7-candidate.md): publicación del corte de
   mantenimiento, contratos fiscales, compatibilidad y recuperación.
 - [`rg5616-condicion-iva.md`](rg5616-condicion-iva.md): diseño fiscal, matriz

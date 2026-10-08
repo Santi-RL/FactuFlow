@@ -77,6 +77,9 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    from app.core.login_throttle import LoginThrottle
+
+    app.state.login_throttle = LoginThrottle()
 
     from httpx import ASGITransport
 

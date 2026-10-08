@@ -156,6 +156,14 @@ configura inicio automático con Windows.
    contraseña sin mostrarla en pantalla. Si el email ya existe, promueve ese
    usuario a administrador, lo activa y permite resetear la contraseña.
 
+   Para recuperar sólo la contraseña de una cuenta existente, sin cambiar rol,
+   activación o asignaciones, usar `python -m app.scripts.reset_user_password`
+   desde el entorno del backend conectado a la base de esa instalación.
+   El comando pide correo y contraseña con confirmación oculta; requiere acceso
+   autorizado al equipo o servidor. No borrar ni recrear la base. En producción
+   seguir el plano de control privado y ejecutar el comando en el runtime
+   verificado, sin reconstruir imágenes ni desplegar otra revisión para un reset.
+
 6. **Ejecutar servidor**
    ```bash
    uvicorn app.main:app --reload --port 8000

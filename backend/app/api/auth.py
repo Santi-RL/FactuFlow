@@ -1,12 +1,15 @@
 """Endpoints de autenticación."""
 
 from datetime import datetime
+import asyncio
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.core.database import get_db
+from app.core.login_throttle import get_login_throttle
 from app.core.bootstrap import BOOTSTRAP_LOCK, tomar_lock_bootstrap
 from app.core.security import (
     verify_password,
@@ -27,6 +30,23 @@ from app.services.autorizacion_emisor_service import construir_usuario_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _verify_password(password: str, hashed: str) -> bool:
+    """No liberar el presupuesto si bcrypt sigue trabajando tras una cancelación."""
+    task = asyncio.create_task(run_in_threadpool(verify_password, password, hashed))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+        # Consumir un eventual error del trabajo, conservando la cancelación original.
+        if not task.cancelled():
+            task.exception()
+        raise
 
 
 def _credentials_exception() -> HTTPException:
@@ -50,7 +70,18 @@ async def _count_usuarios(db: AsyncSession) -> int:
 
 
 @router.post("/login", response_model=Token)
-async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
+async def login(
+    credentials: UsuarioLogin, request: Request, db: AsyncSession = Depends(get_db)
+):
+    """Limita trabajo antes de buscar usuarios o verificar la contraseña."""
+    source = request.client.host if request.client else "unknown"
+    with get_login_throttle(request).attempt(str(credentials.email), source) as attempt:
+        response = await _login(credentials, db)
+        attempt["success"] = True
+        return response
+
+
+async def _login(credentials: UsuarioLogin, db: AsyncSession):
     """
     Login de usuario con email y contraseña.
 
@@ -82,7 +113,9 @@ async def login(credentials: UsuarioLogin, db: AsyncSession = Depends(get_db)):
             raise _credentials_exception()
         user = usuarios[0] if usuarios else None
 
-    if not user or not verify_password(credentials.password, user.hashed_password):
+    if not user or not await _verify_password(
+        credentials.password, user.hashed_password
+    ):
         logger.warning("Login rechazado para email=%s", email)
         raise _credentials_exception()
 

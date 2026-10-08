@@ -16,6 +16,11 @@ no determina ni modifica el estado desplegado.
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
+El corte técnico `0.3.8` reúne persistencia fiscal fiel A-01, lecturas fiscales
+A-03, correlación de respuestas WSFE SC-09 y mantenimiento de dependencias y
+cobertura. Su alcance, compatibilidad y puertas de publicación se conservan en
+el [dossier de v0.3.8](docs/project/releases/v0.3.8-candidate.md).
+
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
 
@@ -185,6 +190,12 @@ El comando pide email, nombre y contraseña por consola. Si se ejecuta contra un
 base con `DATABASE_URL` de PostgreSQL, crea el administrador en esa base. Si ya
 existe un usuario con ese email, lo activa, lo deja como administrador y permite
 resetear su contraseña.
+
+Si se perdió el acceso de un administrador, recuperar la cuenta existente con
+`python -m app.scripts.reset_user_password` desde el entorno del backend.
+Pide la nueva contraseña de forma oculta y conserva rol, permisos y datos;
+requiere acceso autorizado a la instalación y su base configurada. Una espera
+temporal de login debe respetarse antes de volver a entrar. No recrear la base.
 
 ## Variables de entorno relevantes
 

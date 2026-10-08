@@ -86,8 +86,13 @@ Próximo paso seguro:
 - Resolver primero disponibilidad de backend/base.
 - Si el servidor responde y el problema es de credenciales, usar la pantalla
   `Usuarios` con un administrador activo.
-- Para recuperar el primer administrador, usar el comando administrativo
-  documentado en entorno privado o local seguro.
+- Si el login indica una espera, respetar los segundos informados antes de
+  reintentar; los rechazos no prolongan la ventana.
+- Para recuperar una cuenta existente cuando también se perdió el acceso del
+  administrador, usar `python -m app.scripts.reset_user_password` desde la
+  consola autorizada de la instalación, según su runbook privado. Conserva
+  rol, activación y asignaciones; no sustituirlo por `create_admin_user`, que
+  también realiza altas y promociones. No recrear ni restaurar la base.
 
 Detenerse si:
 

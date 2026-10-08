@@ -29,6 +29,13 @@ y fechas sin procedencia acreditada no reciben una zona inventada. Contrato en
 
 La API usa JWT Bearer.
 
+`POST /api/auth/login` reserva presupuesto antes de consultar usuarios y
+comprobar contraseñas. Puede responder `429` con un `detail` en español y
+cabecera `Retry-After` en segundos. Esperar ese plazo antes de reintentar;
+los rechazos no prolongan la ventana. Las credenciales incorrectas siguen
+respondiendo `401` y las cuentas inactivas `403` cuando hay presupuesto.
+Límites, origen y recuperación en el [contrato SC-08](../agents/sc-08-login-recuperacion-design.md).
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -1085,7 +1092,9 @@ Contrato y límites históricos: [lecturas A-03](../agents/a03-lecturas-fiscales
 
 ## Notas
 
-- No hay rate limiting implementado en el backend actual.
+- El login tiene presupuesto por cuenta, origen y proceso, con respuestas
+  `429` y recuperación temporal; los demás endpoints no incorporan una
+  limitación global por este cambio. Alcance en el [contrato SC-08](../agents/sc-08-login-recuperacion-design.md).
 - La versión visible de la API sale de `APP_VERSION`; el contrato HTTP no está
   versionado en la URL.
 - Para el estado operativo actual, usar `docs/agents/current-status.md`.
