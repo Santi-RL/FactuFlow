@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 04/10/2026
+Última revisión: 07/10/2026
 
 Estado: VIGENTE.
 
@@ -110,6 +110,8 @@ Desde `frontend/`:
 
 ```bash
 npm run test:unit
+npm run test:coverage
+npm run test:coverage:gate
 npm run lint:check
 npm run type-check
 npm run build
@@ -117,6 +119,15 @@ npm run build
 
 `npm run lint:fix` y `npm run format` son comandos de modificación; revisar el
 diff después de usarlos.
+
+`npm run test:coverage` comprueba primero la puerta con fixtures sintéticas y
+la CLI real de Vitest, y después ejecuta la suite con cobertura. El control
+reutiliza los umbrales de `vite.config.ts`: statements 56%, branches 50%,
+functions 43% y lines 57%, directamente bajo `coverage.thresholds`, con
+`autoUpdate: false`. Una cobertura insuficiente debe terminar con error; una
+cobertura suficiente debe pasar sin reescribir la configuración. El comando
+`test:coverage:gate` permite ensayar ese contrato de forma enfocada. Las fixtures
+y sus reportes se crean en `frontend/.tmp/` y se eliminan al finalizar.
 
 Las pruebas de stores y vistas con emisor activo deben cubrir respuestas tardías,
 cambio de emisor, permisos y estados de carga cuando el contrato afectado lo

@@ -38,6 +38,16 @@ Reglas vigentes desde 2026-05-22:
   las cuatro alertas de npm. El lockfile conserva las versiones verificadas;
   Vue declara 3.5.42 como mínimo compatible.
 
+### Puerta de cobertura del frontend
+
+- Corregida la configuración de umbrales globales de Vitest para que una
+  cobertura insuficiente falle de forma visible. Se conservan los mínimos de
+  statements 56%, branches 50%, functions 43% y lines 57%, sin actualización
+  automática ni cambios en la selección de código medido.
+- `test:coverage` ensaya primero la CLI real con fixtures de cobertura nula y
+  completa antes de ejecutar la suite. El control reutiliza la configuración
+  del proyecto, comprueba el código de salida y conserva el archivo sin cambios.
+
 ### Persistencia fiscal fiel A-01
 
 - Registrada la aceptación manual general de v0.3.7 informada por el usuario,
