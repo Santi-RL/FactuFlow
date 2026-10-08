@@ -18,6 +18,14 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Preparación del corte v0.3.8
+
+- Alineados los productores técnicos y visibles de versión en `0.3.8`, sin
+  cambiar las reglas fiscales. El [dossier del corte](docs/project/releases/v0.3.8-candidate.md)
+  delimita A-01, A-03, SC-09, compatibilidad, recuperación y puertas de salida.
+  La release publicada más reciente continúa siendo `v0.3.7`; esta preparación
+  no crea un tag ni acredita un despliegue.
+
 ### Lecturas fiscales A-03
 
 - Bases de IVA reconstruidas desde detalle conservado y contrastadas con neto,

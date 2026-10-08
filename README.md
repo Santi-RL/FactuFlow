@@ -16,6 +16,11 @@ no determina ni modifica el estado desplegado.
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
+El corte técnico `0.3.8` reúne persistencia fiscal fiel A-01, lecturas fiscales
+A-03, correlación de respuestas WSFE SC-09 y mantenimiento de dependencias y
+cobertura. Su alcance, compatibilidad y puertas de publicación se conservan en
+el [dossier de v0.3.8](docs/project/releases/v0.3.8-candidate.md).
+
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
 
