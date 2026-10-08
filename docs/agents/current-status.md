@@ -189,8 +189,13 @@ A-03 corrige las lecturas actuales: bases desde detalle contrastado con los
 importes conservados, cobertura desconocida explícita y agregados/ranking por
 moneda nominal. No infiere categorías fiscales de IVA cero ni exención por
 letra C. El [contrato A-03](a03-lecturas-fiscales-design.md) conserva la decisión
-de Santi de separar monedas, sin conversión automática. El siguiente corte es
-PF-13: fidelidad del receptor en importación fiscal.
+de Santi de separar monedas, sin conversión automática. Antes de publicar el
+candidato v0.3.8, Santi autorizó SC-08: limitar intentos de login y conservar
+recuperación administrativa y de emergencia sin perder datos ni alterar
+permisos. Está pendiente de implementación; alcance y comprobaciones en el
+[dossier del candidato](../project/releases/v0.3.8-candidate.md). La siguiente
+unidad fiscal del roadmap sigue siendo PF-13: fidelidad del receptor en
+importación fiscal.
 Este cierre de código no acredita publicación ni despliegue.
 
 Para continuar desarrollo:

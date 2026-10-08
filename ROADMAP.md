@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 05/10/2026
+Última revisión: 08/10/2026
 
 Estado: VIGENTE.
 
@@ -129,6 +129,12 @@ Política de actualización, límites y aceptación en el
 Estas líneas están aceptadas, pero no deben desplazar problemas fiscales u
 operativos confirmados:
 
+- **PF-12/PF-14 — «Olvidé mi contraseña», sin prioridad asignada:** considerar
+  recuperación autónoma mediante un canal verificado y una prueba de identidad
+  de un solo uso. Conservar cuentas, permisos y datos, y la recuperación asistida
+  por el administrador o responsable de la instalación. Canal, configuración y
+  diseño pendientes; sin compromiso de implementación ni inclusión en el corte
+  actual. Inventario relacionado en el [portafolio](docs/agents/development-portfolio.md).
 - **PF-05, P2 fiscal:** reconstrucción histórica externa opcional, reanudable y
   con procedencia desde ARCA, después del snapshot PF-04. No es requisito para
   emitir ni para reconciliar intentos locales. Alcance en el portafolio.
