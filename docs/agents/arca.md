@@ -536,21 +536,21 @@ identificar bajo el umbral no obliga a borrar un documento suministrado.
 Referencia verificada el 03/10/2026; revisar la norma y catálogos aplicables antes
 de cambiar validaciones.
 
-Conducta actual y limitación comprobada:
+Conducta implementada:
 
-- En B/C se acepta consumidor final sin documento bajo el umbral y se normaliza
-  a tipo `99`, número `0` y nombre genérico si no se suministró otro nombre.
-- La importación configurable descarta el documento de CF bajo el umbral; la
-  validación de grupos rechaza CUIT con CF. La normalización individual conserva
-  documento suministrado. Estas diferencias no son una exigencia normativa.
-- Desde el umbral se exige identificación. Para A se mantienen CUIT válido,
-  razón social y condición compatible.
+- En B/C se acepta CF identificado con CUIT, CUIL o DNI; importación, grupo y
+  preparación conservan el tipo explícito, número y nombre suministrados.
+- La condición IVA proviene de columna o constante explícita, independiente del
+  documento. Vacíos, incompatibilidades y contradicciones reconocidas dan error.
+- CF sin documento bajo el umbral conserva tipo `99`, número `0` y nombre
+  genérico sólo cuando no se suministró otro. Desde el umbral se exige identidad
+  según el total del comprobante. A mantiene CUIT válido y condición compatible.
+- Formatos legacy ambiguos requieren configuración explícita para nuevas
+  importaciones; no se reescriben lotes, snapshots ni hashes históricos.
 
-La corrección futura, incluidos requisitos independientes del importe y
-compatibilidad legacy, se concentra en el
-[diseño P1 de fidelidad del receptor](pf-13-receptores-importacion-design.md).
-No está implementada por esta actualización documental. Mantener condición IVA
-explícita, matriz RG 5616, historia, snapshots, duplicados y reconciliación.
+El [contrato P1 de fidelidad del receptor](pf-13-receptores-importacion-design.md)
+delimita la transición autorizada y los consumidores. Se conserva RG 5616,
+fecha explícita, duplicados, idempotencia y reconciliación.
 
 ### Fecha de emisión y período de servicios
 

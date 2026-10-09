@@ -690,6 +690,15 @@ intentar detectar encabezados. Si el archivo es válido, devuelve:
 El cliente debe confirmar el formato antes de validar cualquier archivo externo.
 La deteccion automática es una sugerencia: no crea lotes ni consume numeración.
 
+La importación conserva tipo, número y nombre del receptor, incluidos CF con
+CUIT/CUIL/DNI. `cliente_condicion_iva` debe mapear una columna o constante
+explícita; un documento informado exige `cliente_tipo_documento`. No se infiere
+CUIT por longitud ni se sustituye una celda fiscal inválida o ausente por un
+default. Las contradicciones de columnas fiscales reconocidas se informan con
+fila y campo antes de emitir. Un formato antiguo ambiguo requiere una versión
+corregida; un formato protegido se clona. No se migran lotes, snapshots ni hashes
+existentes. La identificación obligatoria se evalúa sobre el total del grupo.
+
 Formato global inicial:
 
 - Nombre: `Extracto bancario - creditos IVA exento`
@@ -701,6 +710,8 @@ Formato global inicial:
   concepto fiscal ARCA ni la descripción facturada del ítem: el usuario debe
   elegir productos, servicios o archivo para el dato fiscal, y archivo o valor
   fijo para el texto del ítem antes de validar.
+- Si el extracto aporta documento, clonar el formato protegido y configurar
+  `cliente_tipo_documento` desde una columna o constante explícita.
 - Este formato global está pensado para emisores Exento o Monotributo. Si el
   emisor activo es Responsable Inscripto, la validación observa el lote para
   evitar emitir Factura C incorrectamente.

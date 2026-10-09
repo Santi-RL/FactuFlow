@@ -22,7 +22,13 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.arca.utils import clean_cuit, validate_cuit
+from app.arca.utils import clean_cuit
+from app.core.condicion_iva_receptor import normalizar_condicion_iva_receptor
+from app.core.documento_receptor import (
+    normalizar_documento,
+    parse_tipo_documento,
+    texto_documento,
+)
 from app.models.empresa import Empresa
 from app.models.formato_importacion import (
     FormatoImportacion,
@@ -505,6 +511,7 @@ CAMPOS_FISCALES_DESEMPATE = (
     "punto_venta_numero",
     "concepto",
     "cliente_condicion_iva",
+    "cliente_tipo_documento",
     "item_cantidad",
     "item_unidad",
     "item_iva_porcentaje",
@@ -1311,6 +1318,11 @@ class FormatosImportacionService:
         self._validar_configuracion_formato(version.configuracion_json)
         sheet, headers = self._leer_sheet_y_headers(file_bytes, version)
         mapeo = self._resolver_mapeo(headers, version.configuracion_json)
+        campos_receptor = mapeo["campos"]
+        if "cliente_condicion_iva" not in campos_receptor:
+            raise FormatoImportacionError(
+                "Configurá la condición IVA del receptor desde una columna o un valor fijo antes de importar."
+            )
         faltantes = [
             campo
             for campo, detalle in mapeo["campos"].items()
@@ -1331,6 +1343,7 @@ class FormatosImportacionService:
             if all(cell in (None, "") for cell in row):
                 continue
             valores = self._extraer_valores_configurados(row, mapeo)
+            self._validar_receptor_aportado(headers, row, valores, fila_excel)
             filas.append(self._armar_fila_canonica(valores, empresa, fila_excel))
 
         if not filas:
@@ -2176,14 +2189,66 @@ class FormatosImportacionService:
             if detalle["origen"] == "empresa":
                 continue
 
-            value = detalle.get("default", "")
+            value = (
+                ""
+                if campo in {"cliente_tipo_documento", "cliente_condicion_iva"}
+                else detalle.get("default", "")
+            )
             index = detalle.get("index")
             if index is not None and index < len(row):
                 value = row[index]
-            valores[campo] = self._aplicar_transformacion(
-                value, detalle.get("transformacion")
+            valores[campo] = (
+                texto_documento(value)
+                if campo == "cliente_tipo_documento"
+                else self._aplicar_transformacion(value, detalle.get("transformacion"))
             )
         return valores
+
+    def _validar_receptor_aportado(
+        self,
+        headers: list[str],
+        row: tuple[Any, ...],
+        valores: dict[str, Any],
+        fila: int,
+    ) -> None:
+        """No sustituye columnas fiscales reconocidas por constantes del formato."""
+        campos = {
+            "cliente_condicion_iva": (
+                {
+                    "cliente_condicion_iva",
+                    "Condición IVA receptor",
+                    "Condición IVA",
+                    "Condición fiscal receptor",
+                },
+                lambda value: normalizar_condicion_iva_receptor(str(value or "")),
+            ),
+            "cliente_tipo_documento": (
+                {
+                    "cliente_tipo_documento",
+                    "Tipo doc. receptor",
+                    "Tipo de documento",
+                    "Tipo documento",
+                },
+                parse_tipo_documento,
+            ),
+        }
+        for campo, (aliases, parse) in campos.items():
+            reconocidos = {self.normalizar_etiqueta(alias) for alias in aliases}
+            for index, header in enumerate(headers):
+                if self.normalizar_etiqueta(header) not in reconocidos:
+                    continue
+                aportado = row[index] if index < len(row) else None
+                if (
+                    texto_documento(aportado) == ""
+                    and campo == "cliente_tipo_documento"
+                    and not texto_documento(valores.get("cliente_numero_documento"))
+                ):
+                    continue
+                interpretado = parse(aportado)
+                if interpretado is None or interpretado != parse(valores.get(campo)):
+                    raise FormatoImportacionError(
+                        f"Fila {fila}: {self._etiqueta_campo(campo)} del archivo está vacío, es inválido o difiere de la configuración; corregí el archivo o el formato."
+                    )
 
     def _armar_fila_canonica(
         self,
@@ -2191,21 +2256,26 @@ class FormatosImportacionService:
         empresa: Empresa,
         fila_excel: int,
     ) -> dict[str, Any]:
-        documento_original = clean_cuit(valores.get("cliente_numero_documento", ""))
-        tipo_documento_original = self._inferir_tipo_documento(documento_original)
-        documento = documento_original
-        importe_total = self._parse_decimal(valores.get("importe_total"))
-        precio_unitario = self._parse_decimal(valores.get("item_precio_unitario"))
-        total_receptor = importe_total or precio_unitario or Decimal("0")
-        condicion_iva = str(
-            valores.get("cliente_condicion_iva", "Consumidor Final") or ""
-        ).strip()
-        es_consumidor_final = condicion_iva.upper() in {"CF", "CONSUMIDOR FINAL"}
-        if (
-            es_consumidor_final
-            and total_receptor < self.CONSUMIDOR_FINAL_IDENTIFICACION_MINIMA
-        ):
-            documento = ""
+        documento_original = texto_documento(
+            valores.get("cliente_numero_documento", "")
+        )
+        tipo_raw = valores.get("cliente_tipo_documento")
+        tipo = parse_tipo_documento(tipo_raw)
+        condicion_iva = normalizar_condicion_iva_receptor(
+            str(valores.get("cliente_condicion_iva") or "")
+        )
+        if condicion_iva is None:
+            raise FormatoImportacionError(
+                f"Fila {fila_excel}: la condición IVA del receptor está vacía o no es válida; corregí el archivo o la configuración."
+            )
+        if tipo is None and texto_documento(tipo_raw):
+            raise FormatoImportacionError(
+                f"Fila {fila_excel}: el tipo de documento del receptor no es válido."
+            )
+        try:
+            documento = normalizar_documento(documento_original, tipo)
+        except ValueError as exc:
+            raise FormatoImportacionError(f"Fila {fila_excel}: {exc}") from exc
         empresa_cuit = (
             clean_cuit(valores.get("empresa_cuit", ""))
             if "empresa_cuit" in valores
@@ -2216,7 +2286,7 @@ class FormatosImportacionService:
         )
         return {
             "_duplicados_identidad_entrada": {
-                "tipo_documento": tipo_documento_original,
+                "tipo_documento": tipo,
                 "numero_documento": documento_original,
                 "razon_social": valores.get("cliente_razon_social", ""),
             },
@@ -2228,10 +2298,10 @@ class FormatosImportacionService:
             "fecha_emision": valores.get("fecha_emision", ""),
             "fecha_origen": valores.get("fecha_origen", ""),
             "importe_total": valores.get("importe_total", ""),
-            "cliente_tipo_documento": self._inferir_tipo_documento(documento),
+            "cliente_tipo_documento": tipo or "",
             "cliente_numero_documento": documento,
             "cliente_razon_social": valores.get("cliente_razon_social", ""),
-            "cliente_condicion_iva": condicion_iva or "Consumidor Final",
+            "cliente_condicion_iva": condicion_iva,
             "cliente_domicilio": valores.get("cliente_domicilio", ""),
             "fecha_servicio_desde": valores.get("fecha_servicio_desde", ""),
             "fecha_servicio_hasta": valores.get("fecha_servicio_hasta", ""),
@@ -2264,7 +2334,7 @@ class FormatosImportacionService:
             except (InvalidOperation, ValueError):
                 return value
         if transformacion == "documento":
-            return clean_cuit(value)
+            return texto_documento(value)
         if transformacion == "fecha":
             return self._parse_date(value) or value
         if transformacion == "texto":
@@ -2305,12 +2375,3 @@ class FormatosImportacionService:
             except ValueError:
                 continue
         return None
-
-    def _inferir_tipo_documento(self, documento: str) -> str:
-        if not documento:
-            return ""
-        if len(documento) == 11 and validate_cuit(documento):
-            return "CUIT"
-        if len(documento) in {7, 8}:
-            return "DNI"
-        return "CUIT" if len(documento) == 11 else ""

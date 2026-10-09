@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 08/10/2026
+Última revisión: 09/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -90,10 +90,6 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   con consultas anticipadas, situación registral fechada y bootstrap sin dependencia circular.
 - PF-04/PF-17/PF-13, implementación futura:
   [notas de crédito y débito guiadas](pf-04-17-notas-guiadas-design.md).
-- PF-13, próximo corte P1, implementación futura:
-  [fidelidad del receptor en importación fiscal](pf-13-receptores-importacion-design.md).
-  Distingue documento y condición IVA; admite consumidor final identificado sin
-  perder datos. El constructor P2 y la UI PF-17 consumen esta regla.
 - PF-11/PF-15, implementación futura:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:
@@ -126,6 +122,11 @@ candidatas y dependencias se consultan en el portafolio. No modifica el orden
 del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
+
+- PF-13 P1: [fidelidad del receptor](pf-13-receptores-importacion-design.md).
+  Conserva identificación y condición explícitas; transición autorizada para
+  nuevas importaciones, sin reescribir lotes ni huellas históricas. Constructor,
+  padrón y UI futuros consumen esta regla.
 
 - SC-08: [intentos de acceso y recuperación asistida](sc-08-login-recuperacion-design.md).
   Presupuesto antes de bcrypt y reset por consola que conserva permisos y datos.

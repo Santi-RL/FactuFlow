@@ -19,7 +19,7 @@ Evidencia, alcance y reproducción en la
 
 | Corte | Prioridad / horizonte | Resultado |
 |---|---|---|
-| Comparación y recuperación legacy | P1 fiscal, Ahora 3 | Evitar reconstruir o vincular como coincidente una respuesta fiscal diferente |
+| Comparación y recuperación legacy | P1 fiscal, Ahora | Evitar reconstruir o vincular como coincidente una respuesta fiscal diferente |
 | Snapshot y recuperación integral | P2 fiscal, Después con PF-04 | Evidencia mínima suficiente y reconciliación segura de caminos modernos, unitarios y masivos |
 
 ## Invariantes y fuente de comparación

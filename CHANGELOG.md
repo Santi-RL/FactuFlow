@@ -18,6 +18,20 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Fidelidad del receptor PF-13
+
+- Conservados tipo, número y nombre suministrados al importar consumidores
+  finales identificados; CUIT y CUIL mantienen sus códigos y no implican otra
+  condición IVA. La validación de lotes admite esas combinaciones.
+- La condición IVA y el tipo de un documento informado deben provenir de una
+  columna o un valor fijo explícito. Celdas fiscales inválidas y contradicciones
+  reconocibles del archivo requieren corrección antes de emitir; no se borran
+  documentos inválidos ni se infiere CUIT por longitud.
+- Los formatos antiguos ambiguos requieren corregir su configuración para
+  nuevas importaciones; los protegidos se clonan. Se conservan lotes existentes,
+  solicitudes congeladas, normalización de hashes históricos y reconciliación.
+  Contrato y transición en [PF-13](docs/agents/pf-13-receptores-importacion-design.md).
+
 ### Protección de acceso SC-08
 
 - Limitados los intentos de login por cuenta, origen y proceso antes del costo
@@ -31,7 +45,7 @@ Reglas vigentes desde 2026-05-22:
 
 - Alineados los productores técnicos y visibles de versión en `0.3.8`, sin
   cambiar las reglas fiscales. El [dossier del corte](docs/project/releases/v0.3.8-candidate.md)
-  delimita A-01, A-03, SC-09, SC-08, compatibilidad, recuperación y puertas de salida.
+  delimita A-01, A-03, PF-13, SC-09, SC-08, compatibilidad, recuperación y puertas de salida.
   La release publicada más reciente continúa siendo `v0.3.7`; esta preparación
   no crea un tag ni acredita un despliegue.
 

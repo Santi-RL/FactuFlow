@@ -12,6 +12,7 @@ from xml.etree import ElementTree
 from types import SimpleNamespace
 
 import pytest
+from app.services.formatos_importacion_service import FormatosImportacionService
 from httpx import AsyncClient
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils.datetime import to_excel
@@ -5099,8 +5100,8 @@ def _build_cano_factura_b_excel(fecha_movimiento: date | None = None) -> bytes:
             "",
             "",
             "DNI",
-            "HEBER YOEL ASANCHEZ CA -",
-            "",
+            "12345678",
+            "Receptor sintético",
             1,
             "$",
             74380.1652892562,
@@ -5144,7 +5145,7 @@ def _config_formato_cano_factura_b() -> dict:
             },
             "cliente_razon_social": {
                 "origen": "header",
-                "encabezados": ["Nro. Doc. Receptor", "Denominación Receptor"],
+                "encabezados": ["Denominación Receptor"],
                 "transformacion": "texto",
                 "requerido": False,
                 "default": "",
@@ -5156,6 +5157,15 @@ def _config_formato_cano_factura_b() -> dict:
                 "requerido": True,
             },
             "tipo_comprobante": {"origen": "constante", "valor": 6},
+            "cliente_tipo_documento": {
+                "origen": "header",
+                "encabezados": ["Tipo Doc. Receptor"],
+            },
+            "cliente_numero_documento": {
+                "origen": "header",
+                "encabezados": ["Nro. Doc. Receptor"],
+                "transformacion": "documento",
+            },
             "cliente_condicion_iva": {
                 "origen": "constante",
                 "valor": "Consumidor Final",
@@ -5167,6 +5177,32 @@ def _config_formato_cano_factura_b() -> dict:
             "guardar_cliente": {"origen": "constante", "valor": False},
         },
     }
+
+
+async def _extracto_con_cuit_explicito(
+    client, auth_headers, db_session, empresa_id, version_id
+):
+    """El usuario configura un formato propio sin mutar la versión protegida."""
+    service = FormatosImportacionService(db_session)
+    original = await service.obtener_version(int(version_id), empresa_id)
+    config = deepcopy(original.configuracion_json)
+    config.pop("plantilla_sistema_protegida", None)
+    config["campos"]["cliente_tipo_documento"] = {
+        "origen": "constante",
+        "valor": "CUIT",
+    }
+    response = await client.post(
+        "/api/formatos-importacion",
+        headers=auth_headers,
+        json={
+            "nombre": "Extracto sintético con CUIT explícito",
+            "alcance": "emisor",
+            "configuracion_json": config,
+        },
+    )
+    assert response.status_code == 201, response.text
+    assert "cliente_tipo_documento" not in original.configuracion_json["campos"]
+    return response.json()["version_vigente"]["id"]
 
 
 def _fecha_argentina(value: date | str) -> str:
@@ -7455,7 +7491,7 @@ async def test_validar_lote_formato_cano_factura_b_iva_21(
     fila = detalle.json()["filas"][0]["datos_json"]
     assert grupo["tipo_comprobante"] == 6
     assert grupo["punto_venta_numero"] == 2
-    assert grupo["cliente_documento"] == "0"
+    assert grupo["cliente_documento"] == "12345678"
     assert grupo["total_estimado"] == "90000.00"
     assert fila["item_precio_unitario"] == "74380.1652892562"
     assert fila["item_iva_porcentaje"] == 21
@@ -7574,6 +7610,9 @@ async def test_validar_lote_extracto_bancario_varios_puntos_venta(
         },
     )
     formato_version_id = detectar.json()["formato_sugerido_version_id"]
+    formato_version_id = await _extracto_con_cuit_explicito(
+        client, auth_headers, db_session, test_empresa.id, formato_version_id
+    )
 
     response = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -7607,7 +7646,9 @@ async def test_validar_lote_extracto_bancario_varios_puntos_venta(
     )
     grupos = detalle.json()["grupos"]
     assert [grupo["punto_venta_numero"] for grupo in grupos] == [1, 10, 13]
-    assert [grupo["cliente_documento"] for grupo in grupos] == ["0", "0", "0"]
+    assert [grupo["cliente_documento"] for grupo in grupos] == [
+        CUIT_RECEPTOR_TEST_NO_REAL
+    ] * 3
     assert [grupo["total_estimado"] for grupo in grupos] == [
         "59500.00",
         "70500.00",
@@ -7668,6 +7709,9 @@ async def test_validar_lote_formato_con_header_blanco_preserva_indices(
     assert detectar.status_code == 200, detectar.text
     assert detectar.json()["headers_detectados"][0] == ""
     formato_version_id = detectar.json()["formato_sugerido_version_id"]
+    formato_version_id = await _extracto_con_cuit_explicito(
+        client, auth_headers, db_session, test_empresa.id, formato_version_id
+    )
 
     response = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -7745,6 +7789,9 @@ async def test_validar_lote_rechaza_fecha_emision_fuera_de_ventana_arca(
         },
     )
     formato_version_id = detectar.json()["formato_sugerido_version_id"]
+    formato_version_id = await _extracto_con_cuit_explicito(
+        client, auth_headers, db_session, test_empresa.id, formato_version_id
+    )
 
     response = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -7817,6 +7864,7 @@ async def test_validar_lote_concepto_definido_por_archivo(
 async def test_validar_lote_rechaza_concepto_archivo_sin_columna(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
     test_certificado,
@@ -7836,6 +7884,9 @@ async def test_validar_lote_rechaza_concepto_archivo_sin_columna(
         },
     )
     formato_version_id = detectar.json()["formato_sugerido_version_id"]
+    formato_version_id = await _extracto_con_cuit_explicito(
+        client, auth_headers, db_session, test_empresa.id, formato_version_id
+    )
 
     response = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -7865,6 +7916,7 @@ async def test_validar_lote_rechaza_concepto_archivo_sin_columna(
 async def test_validar_lote_rechaza_descripcion_archivo_sin_columna(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
     test_empresa,
     test_punto_venta,
     test_certificado,
@@ -7884,6 +7936,9 @@ async def test_validar_lote_rechaza_descripcion_archivo_sin_columna(
         },
     )
     formato_version_id = detectar.json()["formato_sugerido_version_id"]
+    formato_version_id = await _extracto_con_cuit_explicito(
+        client, auth_headers, db_session, test_empresa.id, formato_version_id
+    )
 
     response = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -7966,6 +8021,9 @@ async def test_validar_lote_extracto_bancario_rechaza_factura_c_para_ri(
         },
     )
     formato_version_id = detectar.json()["formato_sugerido_version_id"]
+    formato_version_id = await _extracto_con_cuit_explicito(
+        client, auth_headers, db_session, test_empresa.id, formato_version_id
+    )
 
     response = await client.post(
         "/api/lotes-comprobantes/validar",
@@ -16966,3 +17024,101 @@ async def test_procesar_lote_grande_encola_y_se_reanuda(
 
     assert lote.estado == "completado"
     assert lote.grupos_emitidos == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tipo,numero",
+    [
+        ("CUIT", CUIT_RECEPTOR_TEST_NO_REAL),
+        ("CUIL", CUIT_RECEPTOR_TEST_NO_REAL),
+        ("DNI", "12345678"),
+    ],
+)
+async def test_pf13_lote_cf_identificado_preserva_receptor(
+    client,
+    auth_headers,
+    db_session,
+    test_empresa,
+    test_punto_venta,
+    test_certificado,
+    tipo,
+    numero,
+):
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "receptor-sintetico.xlsx",
+                _build_lote_excel(
+                    test_empresa.cuit,
+                    cliente_tipo_documento=tipo,
+                    cliente_numero_documento=numero,
+                    cliente_condicion_iva="CF",
+                ),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["puede_emitirse"] is True
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}", headers=auth_headers
+    )
+    grupo = detalle.json()["grupos"][0]
+    assert grupo["cliente_documento"] == numero
+    persistido = await db_session.scalar(
+        select(LoteComprobanteGrupo).where(
+            LoteComprobanteGrupo.lote_id == response.json()["lote"]["id"]
+        )
+    )
+    assert (
+        persistido.payload_json["tipo_documento"]
+        == {"CUIT": 80, "CUIL": 86, "DNI": 96}[tipo]
+    )
+    assert persistido.payload_json["condicion_iva"] == "CF"
+    assert persistido.payload_json["razon_social"] == "Cliente Lote SA"
+    assert await db_session.scalar(select(func.count()).select_from(Comprobante)) == 0
+    assert (
+        await db_session.scalar(select(func.count()).select_from(IntentoEmisionFiscal))
+        == 0
+    )
+
+
+@pytest.mark.asyncio
+async def test_pf13_lote_documento_invalido_no_oculta_error(
+    client, auth_headers, db_session, test_empresa, test_punto_venta, test_certificado
+):
+    response = await client.post(
+        "/api/lotes-comprobantes/validar",
+        headers=auth_headers,
+        data=_opciones_fechas(),
+        files={
+            "archivo": (
+                "documento-invalido.xlsx",
+                _build_lote_excel(
+                    test_empresa.cuit,
+                    cliente_tipo_documento="DNI",
+                    cliente_numero_documento="AB12345678",
+                    cliente_condicion_iva="CF",
+                ),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["puede_emitirse"] is False
+    detalle = await client.get(
+        f"/api/lotes-comprobantes/{response.json()['lote']['id']}", headers=auth_headers
+    )
+    assert (
+        "AB12345678"
+        == detalle.json()["filas"][0]["datos_json"]["cliente_numero_documento"]
+    )
+    assert "formato inválido" in str(detalle.json()["grupos"][0]["mensajes_json"])
+    assert (
+        await db_session.scalar(select(func.count()).select_from(IntentoEmisionFiscal))
+        == 0
+    )

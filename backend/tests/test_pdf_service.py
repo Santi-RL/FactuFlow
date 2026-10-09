@@ -99,6 +99,34 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
 class TestPDFService:
     """Tests para PDFService."""
 
+    @pytest.mark.parametrize(
+        "tipo,numero,etiqueta",
+        [
+            (80, "20409378472", "CUIT"),
+            (86, "20409378472", "CUIL"),
+            (96, "12345678", "DNI"),
+        ],
+    )
+    async def test_pf13_pdf_y_qr_conservan_cf_identificado(
+        self, pdf_service, comprobante_mock, empresa_mock, tipo, numero, etiqueta
+    ):
+        comprobante_mock.receptor_razon_social = "Receptor sintético"
+        comprobante_mock.receptor_tipo_documento = tipo
+        comprobante_mock.receptor_numero_documento = numero
+        comprobante_mock.receptor_condicion_iva = "CF"
+        comprobante_mock.receptor_domicilio = ""
+        url = pdf_service._generar_qr_url_arca(comprobante_mock)
+        qr = json.loads(base64.b64decode(url.split("?p=")[1]))
+        assert qr["tipoDocRec"] == tipo
+        assert qr["nroDocRec"] == int(numero)
+        pdf = await pdf_service.generar_pdf_comprobante(comprobante_mock, empresa_mock)
+        texto = "\n".join(page.extract_text() for page in PdfReader(BytesIO(pdf)).pages)
+        assert "Receptor sintético" in texto
+        assert "Consumidor Final" in texto
+        assert (etiqueta if tipo == 80 else "Doc.:") in texto
+        assert numero in texto
+        assert "Cliente Ejemplo S.A." not in texto
+
     @pytest.mark.parametrize("value", ["1.2300E200000", "1.2300E-200000"])
     def test_exponente_pdf_conserva_ceros_del_exponente(self, pdf_service, value):
         number = Decimal(value)

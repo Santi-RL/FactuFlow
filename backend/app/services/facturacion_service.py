@@ -27,6 +27,7 @@ from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
 from app.core.config import settings
+from app.core.documento_receptor import normalizar_documento
 from app.core.condicion_iva_receptor import (
     normalizar_condicion_iva_receptor,
     resolver_condicion_iva_receptor_id,
@@ -2303,7 +2304,16 @@ class FacturacionService:
             if historico
             else self._normalizar_condicion_iva(request.condicion_iva)
         )
-        numero_documento = clean_cuit(request.numero_documento)
+        try:
+            numero_documento = (
+                clean_cuit(request.numero_documento)
+                if historico
+                else normalizar_documento(
+                    request.numero_documento, request.tipo_documento
+                )
+            )
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
         razon_social = request.razon_social.strip()
         domicilio = request.domicilio.strip() if request.domicilio else None
         es_consumidor_final = condicion_iva == "CF" or (
@@ -2329,7 +2339,9 @@ class FacturacionService:
                 }
             )
 
-        if not numero_documento:
+        if not numero_documento or (
+            not historico and es_consumidor_final and numero_documento == "0"
+        ):
             if not es_consumidor_final:
                 raise ValidationError(
                     "El documento del receptor es obligatorio salvo consumidor final bajo el umbral legal"
