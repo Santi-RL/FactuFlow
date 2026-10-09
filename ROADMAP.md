@@ -117,6 +117,10 @@ cortes de dominio; no exigir terminar toda la plataforma para un consumidor.
 
 **Prioridad:** P2 fiscal y administrativa. Consultar ARCA para completar datos
 por CUIT y detectar cambios de régimen; conservar fuente y fecha de verificación.
+En Excel, ofrecer completar razón social/nombre y condición registral desde
+CUIT como opción explícita por archivo, desactivada por defecto; conservar los
+datos aceptados para reportes y PDFs. No consultar cada Excel automáticamente
+ni prometer obtener CUIT desde cualquier documento.
 Anticipar y agrupar consultas, reutilizar caché y renovar fuera del tramo de CAE.
 Mantener alternativas manual/PDF y resolver credenciales del primer emisor;
 no convertir ausencia de respuesta en CF ni alterar solicitudes congeladas.

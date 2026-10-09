@@ -34,7 +34,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 | PF-09 | Después 2 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
 | PF-12 | Después 2 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
 | PF-14 | Después 2 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
-| PF-18/PF-09, padrón | Después 3 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes y alta de emisores por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
+| PF-18/PF-09, padrón | Después 3 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes, alta de emisores y opción para completar receptores de Excel por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
 | PF-03/PF-04/PF-13, categorías de importes | Más adelante | P2 fiscal | Tasa cero, exento, no gravado, tributos y alícuotas con soporte completo | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); PF-04/PF-12 |
 | PF-04/PF-17/PF-13, notas guiadas | Más adelante | P2 fiscal/administrativa | NC/ND desde original autorizado, con asociado y revisión coherentes | [Notas](pf-04-17-notas-guiadas-design.md); snapshot mínimo y preparación común |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
@@ -84,8 +84,11 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   Preparación individual y muestra Excel comparten autoridad decimal.
 - PF-18/PF-09, P2, Después 3: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
   ARCA acredita situación registral en una consulta fechada; deduplicar/agrupar,
-  renovar anticipadamente y emitir con snapshot. Mantener bootstrap manual/PDF,
-  permisos, evidencia histórica y CF identificado válido; no fallback fiscal a CF.
+  renovar anticipadamente y emitir con snapshot. En Excel, completar razón
+  social/nombre y condición registral sólo al elegir la opción por archivo,
+  desactivada por defecto; usar los datos aceptados en reportes y PDFs.
+  Mantener bootstrap manual/PDF, permisos, evidencia histórica y CF identificado
+  válido; no fallback fiscal a CF.
 - PF-04/PF-17/PF-13, P2, Más adelante: [notas guiadas](pf-04-17-notas-guiadas-design.md),
   con asociado y alcance explícitos desde original autorizado. Reutiliza
   validación de notas y revisión común; no implementa cuentas corrientes.
