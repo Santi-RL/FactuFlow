@@ -113,7 +113,7 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: ${{ needs.scope.outputs.runtime == 'true' && 'postgres:16-bookworm' || '' }}
+        image: ${{ needs.scope.outputs.runtime == 'true' && 'public.ecr.aws/docker/library/postgres:16-bookworm' || '' }}
         env:
           POSTGRES_DB: factuflow_integration_test
           POSTGRES_USER: factuflow_test
@@ -237,6 +237,7 @@ jobs:
         run: |
           set -o pipefail
           docker build --progress=plain --build-arg VITE_API_URL=/api \
+            --build-arg IMAGE_REGISTRY=public.ecr.aws/docker/library \
             -t factuflow-frontend-ci . 2>&1 | tee "$RUNNER_TEMP/frontend-docker-build.log"
           node --input-type=module - "$RUNNER_TEMP/frontend-docker-build.log" <<'NODE'
           import { readFileSync } from 'node:fs';
@@ -280,7 +281,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: ${{ needs.scope.outputs.runtime == 'true' && 'postgres:16-bookworm' || '' }}
+        image: ${{ needs.scope.outputs.runtime == 'true' && 'public.ecr.aws/docker/library/postgres:16-bookworm' || '' }}
         env:
           POSTGRES_DB: factuflow_integration_test
           POSTGRES_USER: factuflow_test
