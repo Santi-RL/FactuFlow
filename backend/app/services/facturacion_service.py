@@ -32,7 +32,7 @@ from app.core.condicion_iva_receptor import (
     normalizar_condicion_iva_receptor,
     resolver_condicion_iva_receptor_id,
 )
-from app.core.comprobante_totales import calcular_totales
+from app.core.comprobante_totales import calcular_totales, preparar_importes
 from app.core.fiscal_storage import persisted_item_subtotal, validate_storage_request
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
@@ -2199,6 +2199,39 @@ class FacturacionService:
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
 
+    def preparar_importes(self, items: list[ItemComprobanteCreate]) -> dict:
+        """Valida el dominio de emisiones nuevas, sin cambiar snapshots históricos."""
+        try:
+            return preparar_importes(items)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+
+    async def previsualizar_comprobante(
+        self, request: EmitirComprobanteRequest
+    ) -> dict:
+        """Revisión local autenticada por el adaptador; no crea estado fiscal ni IO ARCA."""
+        request = self.normalizar_receptor(request)
+        await self._validar_datos(request)
+        totales = self.preparar_importes(request.items)
+        return {
+            **totales,
+            "subtotales_items": [
+                self._calcular_totales([item])["subtotal"] for item in request.items
+            ],
+            "moneda": request.moneda,
+            "cotizacion": request.cotizacion,
+            "receptor": {
+                campo: getattr(request, campo)
+                for campo in (
+                    "tipo_documento",
+                    "numero_documento",
+                    "razon_social",
+                    "condicion_iva",
+                    "domicilio",
+                )
+            },
+        }
+
     async def _validar_datos(self, request: EmitirComprobanteRequest):
         """
         Valida datos según reglas de negocio y ARCA.
@@ -2206,6 +2239,7 @@ class FacturacionService:
         Raises:
             ValidationError: Si hay error de validación
         """
+        self.preparar_importes(request.items)
         try:
             validate_storage_request(request)
         except ValueError as exc:
@@ -2287,6 +2321,7 @@ class FacturacionService:
         self, request: EmitirComprobanteRequest
     ) -> EmitirComprobanteRequest:
         """Normaliza y valida datos mínimos del receptor según tipo e importe."""
+        self.preparar_importes(request.items)
         self._obtener_condicion_iva_receptor_id(
             request.condicion_iva, request.tipo_comprobante
         )

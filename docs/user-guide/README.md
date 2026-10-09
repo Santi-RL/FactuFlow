@@ -265,6 +265,20 @@ para usar cero, escribilo explícitamente. Si un importe no es válido, FactuFlo
 identifica el ítem y bloquea la vista previa hasta que lo corrijas. Editar datos
 después de revisar exige abrir nuevamente la vista previa y confirmar.
 
+La vista previa muestra el cálculo fiscal del servidor, conservando el redondeo
+vigente; los importes mientras editás son estimados. Por ejemplo, un subtotal
+de `1,005` se revisa como `1,00`. La revisión no reserva numeración ni solicita
+CAE. Si falla o cambiás datos fiscales o emisor, volvé a abrirla antes de confirmar.
+Una nota en observaciones no cambia por sí sola los importes revisados.
+
+Las tasas disponibles son 0 %, 10,5 %, 21 % y 27 %. Una tasa distinta requiere
+corrección antes de emitir, también en lotes pendientes anteriores. La opción
+0 % no significa una categoría exenta: en A/B representa tasa cero y en C se
+conserva la regla sin IVA. Se mantienen los comprobantes ya autorizados y las
+operaciones pendientes de verificación; no los reemitas para cambiar una tasa.
+El resumen de pendientes incluye el desglose IVA 27 % y suma importes fiscales
+por comprobante.
+
 En un Excel, un descuento ausente significa cero. Un descuento ilegible, fuera
 de rango o un total informado inválido genera un error del grupo: corregí el
 archivo o la plantilla y volvé a validar. La aplicación no inventa un importe

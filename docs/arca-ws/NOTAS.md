@@ -21,6 +21,17 @@ por celda inválida y transición de formatos ambiguos antes de nuevas
 importaciones. No se reescriben historia ni hashes.
 [Contrato PF-13](../agents/pf-13-receptores-importacion-design.md).
 
+## Admisibilidad y revisión P1
+
+La preparación nueva valida 0 %, 10,5 %, 21 % y 27 % antes de emitir, sin
+convertir tasas no implementadas a cero. El calculador histórico y sus hashes
+permanecen compatibles. La revisión obtiene importes decimales del backend y
+el resumen de pendientes incluye IVA 27 %, sin consultas WSAA/WSFE ni CAE en
+previsualización. Tasa cero gravada, exento y no gravado son categorías distintas;
+la aplicación no promete las dos últimas por elegir 0 %. C sigue sin objeto IVA.
+[Contrato P1/P2](../agents/pf-03-04-importes-previsualizacion-design.md).
+Manual WSFE v4.7, revisión 01/09/2026, consultado el 09/10/2026.
+
 ## Representación interna A-01
 
 El almacenamiento conserva los decimales finitos admitidos y los resultados

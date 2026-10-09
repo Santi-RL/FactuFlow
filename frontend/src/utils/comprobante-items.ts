@@ -29,6 +29,8 @@ export const errorImportesItem = (
     return "El descuento debe ser un número entre 0 y 100.";
   if (!Number.isFinite(item.iva_porcentaje) || item.iva_porcentaje < 0)
     return "La alícuota de IVA debe ser un número válido.";
+  if (![0, 10.5, 21, 27].includes(item.iva_porcentaje))
+    return "La alícuota de IVA no tiene soporte. Usá 0 %, 10,5 %, 21 % o 27 %.";
   return null;
 };
 

@@ -26,9 +26,9 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
 | PF-13, fidelidad del receptor | Cerrado | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
-| PF-03/PF-13, admisibilidad y revisión | Ahora 1 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
-| PF-02/PF-04, recuperación legacy | Ahora 2 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
-| PF-11/PF-15, recuperación operativa | Ahora 3 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-03/PF-13, admisibilidad y revisión | Cerrado | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B; categorías P2 pendientes |
+| PF-02/PF-04, recuperación legacy | Ahora 1 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
+| PF-11/PF-15, recuperación operativa | Ahora 2 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04/PF-02, evidencia y recuperación integral | Después 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 2 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
@@ -79,7 +79,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 ### PF-10/PF-13/PF-16/PF-17/PF-18
 
 - PF-03/PF-13: [importes y previsualización común](pf-03-04-importes-previsualizacion-design.md).
-  El corte P1 corrige tasas convertidas a cero y diferencias de revisión sin
+  El corte P1 cerrado corrige tasas convertidas a cero y diferencias de revisión sin
   cambiar redondeos; la ampliación P2 cubre categorías hasta PDF e informes.
   Preparación individual y muestra Excel comparten autoridad decimal.
 - PF-18/PF-09, P2, Después 3: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).

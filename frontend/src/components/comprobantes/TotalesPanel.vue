@@ -46,7 +46,7 @@ const tieneIva = computed(() => {
         v-if="iva105 > 0"
         class="flex justify-between text-gray-700"
       >
-        <span class="font-medium">IVA 10.5%:</span>
+        <span class="font-medium">IVA 10,5 %:</span>
         <span class="font-mono">{{ formatMonto(iva105) }}</span>
       </div>
 

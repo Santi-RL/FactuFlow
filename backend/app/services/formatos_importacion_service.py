@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 
 from app.arca.utils import clean_cuit
 from app.core.condicion_iva_receptor import normalizar_condicion_iva_receptor
+from app.core.comprobante_totales import ALICUOTAS_IVA_SOPORTADAS
 from app.core.documento_receptor import (
     normalizar_documento,
     parse_tipo_documento,
@@ -487,12 +488,7 @@ TIPOS_NOTA_CREDITO = {3, 8, 13}
 TIPOS_NOTA = TIPOS_NOTA_DEBITO | TIPOS_NOTA_CREDITO
 CONCEPTOS_SERVICIOS = {2, 3}
 CONCEPTOS_PRODUCTOS = {1}
-ALICUOTAS_IVA_PERMITIDAS = {
-    Decimal("0"),
-    Decimal("10.5"),
-    Decimal("21"),
-    Decimal("27"),
-}
+ALICUOTAS_IVA_PERMITIDAS = ALICUOTAS_IVA_SOPORTADAS
 CAMPOS_ORIGEN_EMPRESA = {"empresa_cuit"}
 CAMPOS_CONSTANTE_REQUERIDA_NO_VACIA = {
     "tipo_comprobante",
@@ -1525,7 +1521,7 @@ class FormatosImportacionService:
             iva = self._parse_decimal(valor)
             if iva not in ALICUOTAS_IVA_PERMITIDAS:
                 raise FormatoImportacionError(
-                    "La alícuota de IVA fija debe ser 0, 10.5, 21 o 27"
+                    "La alícuota de IVA fija debe ser 0 %, 10,5 %, 21 % o 27 %"
                 )
         elif campo in {
             "item_cantidad",

@@ -139,6 +139,7 @@ class LoteTotalesListosResponse(BaseModel):
     neto: Decimal = Decimal("0")
     iva21: Decimal = Decimal("0")
     iva105: Decimal = Decimal("0")
+    iva27: Decimal = Decimal("0")
     total: Decimal = Decimal("0")
     valores_invalidos: int = 0
 

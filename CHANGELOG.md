@@ -18,6 +18,19 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Admisibilidad y revisión de importes P1
+
+- Nuevas emisiones individuales, lotes y reintentos admiten únicamente 0 %,
+  10,5 %, 21 % y 27 %. Una tasa sin soporte identifica el ítem o fila y requiere
+  corrección; no se convierte silenciosamente en IVA cero. Se conservan los
+  schemas, hashes, autorizados y recuperación de evidencia histórica.
+- La vista previa obtiene importes decimales del backend al abrirse, sin
+  solicitar CAE ni reservar numeración. Conserva el redondeo PF-03B e invalida
+  revisiones fiscales viejas, incluidas respuestas tardías y cambios de emisor.
+- El resumen de pendientes suma los importes fiscales por comprobante e
+  incorpora IVA 27 %. La opción 0 % ya no promete una categoría exenta; la
+  ampliación de categorías y alícuotas mantiene su corte P2.
+
 ### Descarga de imágenes en CI
 
 - Los servicios PostgreSQL y las bases Node/Nginx de CI usan las imágenes

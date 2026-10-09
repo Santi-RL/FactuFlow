@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 08/10/2026
+Última revisión: 09/10/2026
 
 Estado: VIGENTE.
 
@@ -97,6 +97,17 @@ Con Excel sintético y dobles sin salida CAE:
 
 ### Ítems e importes
 
+- Revisar 0 %, 10,5 %, 21 % y 27 % con fracciones y descuentos; mitad de
+  centavo `1,005` debe mostrar `1,00` en la revisión, sin cambiar el cálculo.
+- La revisión HTTP no lleva confirmación ni clave y no consulta ARCA ni crea
+  estado fiscal; sólo se llama al revisar, no al escribir cada valor.
+- Simular respuesta tardía, error HTTP, edición de importe y cambio de emisor:
+  no habilitar una confirmación vieja; repetir la revisión permite recuperarse.
+- Usar tasas 2,5 %, 5 % o desconocidas en API, Excel y pendientes anteriores:
+  error por ítem/fila antes de CAE, sin convertir a cero. Históricos autorizados
+  e inciertos conservan payload, clave y reconciliación.
+- Comparar resumen de dos comprobantes con mitad de centavo y uno con IVA 27 %:
+  sumar los importes fiscales por comprobante; no usar estimados antiguos.
 - vaciar cantidad o precio: el mensaje identifica el campo y no muestra un
   total inventado; corregirlo permite continuar;
 - precio cero y descuento 100 % explícitos conservan su significado;

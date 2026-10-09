@@ -1,19 +1,19 @@
 # PF-03/PF-04/PF-13 — importes y previsualización fiscal común
 
-Última revisión: 08/10/2026.
+Última revisión: 09/10/2026.
 
-Estado: planificación aceptada; implementación pendiente. Amplía el dominio
-por cortes y preserva el contrato decimal cerrado PF-03B. No autoriza emisiones
-ni describe capacidades ya implementadas.
+Estado: admisibilidad y revisión P1 implementadas; categorías y reutilización
+en plantillas P2 pendientes. Preserva el contrato decimal cerrado PF-03B.
+Este documento no autoriza emisiones ni acredita un despliegue.
 
 ## Problema, evidencia y prioridad
 
-Los ensayos sobre el código actual comprobaron dos problemas acotados:
+Los ensayos que motivaron el corte comprobaron dos problemas acotados:
 
-- El schema y la validación de negocio admiten alícuotas positivas que el
+- El schema y la validación de negocio admitían alícuotas positivas que el
   calculador no implementa. Con 2,5 %, 5 % y un valor desconocido, el pedido
   preparado tiene IVA cero: no debe reinterpretarse una tasa como otra.
-- La revisión de la interfaz usa aritmética y presentación propias. Un subtotal
+- La revisión de la interfaz usaba aritmética y presentación propias. Un subtotal
   de 1,005 se muestra como 1,01, mientras el cálculo decimal vigente devuelve
   1,00. El objetivo es respetar el cálculo aceptado, no cambiar su redondeo.
 
@@ -22,7 +22,7 @@ delimita los ensayos y sus límites; no acredita un incidente productivo.
 
 | Corte | Prioridad / horizonte | Resultado |
 |---|---|---|
-| Admisibilidad y revisión de importes | P1 fiscal, Ahora | Impedir conversiones silenciosas a IVA cero y mostrar los importes fiscales que realmente se confirmarán |
+| Admisibilidad y revisión de importes | P1 fiscal, cerrado en código | Impedir conversiones silenciosas a IVA cero y mostrar los importes fiscales que realmente se confirmarán |
 | Categorías fiscales completas | P2 fiscal, Más adelante | Separar tasa cero, exento, no gravado y otros tributos; ampliar alícuotas con soporte completo |
 | Reutilización en plantillas | P2, junto con PF-13 | Una muestra contable y la emisión usan la misma preparación fiscal |
 
@@ -77,6 +77,56 @@ su soporte acotado y el efecto de rechazarla antes de imponer una restricción
 permanente. El intercambio que requiera bloquear una operatoria válida conserva
 la decisión explícita prevista por `VISION.md`; no se resuelve cambiando la tasa.
 
+## Contrato técnico del corte P1
+
+El 09/10/2026 Santi aceptó conservar 0 %, 10,5 %, 21 % y 27 % y exigir
+corrección de tasas sin soporte antes de una nueva emisión. El catálogo de ARCA
+no implica soporte implementado. Los pendientes incompatibles necesitan
+corrección; autorizados, hashes y operaciones activas o inciertas conservan
+su evidencia. No se modifica `VISION.md` ni se agregan categorías P2.
+
+`preparar_importes` valida las tasas y consume `calcular_totales`, sin IO.
+El calculador y los schemas históricos conservan su lectura y redondeo PF-03B.
+API individual nueva, normalización nueva, servicio unitario/batch, columnas y
+constantes de Excel usan el mismo conjunto. Worker y reintentos pasan por la
+frontera del servicio antes de solicitar otro CAE. El resumen de pendientes
+suma importes fiscales por comprobante, incluye IVA 27 % y cuenta los payloads
+incompatibles como inválidos; no usa estimados almacenados como autoridad.
+
+`POST /api/comprobantes/previsualizar` acepta el request existente sin exigir
+confirmación ni clave. Usa los permisos y emisor activo de emisión; valida
+pertenencia de empresa, punto y cliente y reglas locales de preparación.
+Devuelve totales y subtotales de ítems como strings decimales, moneda,
+cotización y receptor efectivo. Errores locales responden 400; errores de
+contrato, 422. No guarda clientes/operaciones/intentos, autentica en WSAA,
+consulta RECE/padrón/numeración ni solicita CAE. No reserva número ni promete
+autorización. La UI consulta sólo al revisar y presenta ese resultado en el
+modal existente; una respuesta vieja nunca rehabilita una revisión invalidada.
+
+Checklist fiscal previo: riesgo de conversión a IVA cero y confirmación de un
+total distinto; consumidores identificados arriba. Se mantienen fecha explícita,
+confirmación irreversible, aislamiento, hashes, claves, locks, reservas,
+intentos durables y reconciliación. La operación existente se busca antes de
+las validaciones mutables de una operación nueva. Una reanudación que enviaría
+otro CAE revalida tasas; la recuperación autorizada usa la lectura histórica.
+No cambia la máquina de estados fiscal, DDL ni constraints. La revisión UI
+pasa de vacía a consultando y revisada/error; edición fiscal o cambio de emisor
+invalida solicitud/confirmación. La operación incierta conserva su snapshot.
+
+Matriz de aceptación: tasas admitidas/sin soporte, constantes/columnas, errores
+por ítem/fila, descuentos 0/100 %, fracciones, mitad de centavo, IVA 27 %,
+acumulación inválida y monedas; API sin efectos externos/escrituras y aislamiento;
+servicio unitario/batch antes de CAE; pendientes legacy y hashes históricos;
+UI con edición fiscal, respuesta tardía, error HTTP, cambio de emisor, doble
+acción y snapshot incierto. Las regresiones existentes cubren concurrencia,
+replay/conflicto, fallos pre/post-CAE y reconciliación; no se introducen locks.
+
+Rollback técnico por commit, sin reescritura de datos. Revertir runtime
+reintroduce el riesgo: preferir corrección hacia adelante. No restaurar ni
+reemitir autorizados. Suites completas, QA y revisión final `autoreview`
+`gpt-5.6-sol medium` preceden al cierre; release y despliegue tienen puertas
+propias. El adaptador WSFE y sus tolerancias mantienen su contrato vigente.
+
 ## Ampliación P2 del dominio
 
 - Representar por separado gravado a tasa cero, exento, no gravado y tributos,
@@ -117,4 +167,5 @@ la decisión explícita prevista por `VISION.md`; no se resuelve cambiando la ta
   legacy y rollback del corte; completar `fiscal-change-checklist.md`.
 
 Fuente fiscal: [manual WSFE oficial](https://www.arca.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf),
-consultado el 03/10/2026. Verificar versión, campos y catálogos al implementar.
+v4.7, revisión del 01/09/2026, consultado el 09/10/2026. Verificar versión,
+campos y catálogos antes de implementar la ampliación P2.

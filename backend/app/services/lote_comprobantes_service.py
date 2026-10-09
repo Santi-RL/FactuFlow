@@ -39,6 +39,7 @@ from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import ArcaServiceError, ArcaValidationError
 from app.arca.utils import clean_cuit, validate_cuit
 from app.core.config import settings
+from app.core.comprobante_totales import ALICUOTAS_IVA_SOPORTADAS
 from app.core.condicion_iva_receptor import normalizar_condicion_iva_receptor
 from app.core.documento_receptor import texto_documento
 from app.core.database import (
@@ -215,12 +216,7 @@ class LoteComprobantesService:
         "requiere_reconciliacion",
         "reintentando",
     }
-    ALICUOTAS_IVA_PERMITIDAS = {
-        Decimal("0"),
-        Decimal("10.5"),
-        Decimal("21"),
-        Decimal("27"),
-    }
+    ALICUOTAS_IVA_PERMITIDAS = ALICUOTAS_IVA_SOPORTADAS
 
     TEMPLATE_COLUMNS = [
         "comprobante_ref",
@@ -4061,6 +4057,7 @@ class LoteComprobantesService:
             "neto": Decimal("0"),
             "iva21": Decimal("0"),
             "iva105": Decimal("0"),
+            "iva27": Decimal("0"),
             "total": Decimal("0"),
             "valores_invalidos": 0,
         }
@@ -4075,33 +4072,27 @@ class LoteComprobantesService:
                 estimado = self._parse_decimal(total_estimado)
                 if total_estimado is not None and (estimado is None or estimado < 0):
                     raise InvalidOperation
-                neto_grupo = Decimal("0")
-                iva21_grupo = Decimal("0")
-                iva105_grupo = Decimal("0")
-                for item in request.items:
-                    bruto = item.cantidad * item.precio_unitario
-                    neto_item = bruto - bruto * (
-                        item.descuento_porcentaje / Decimal("100")
-                    )
-                    neto_grupo += neto_item
-                    if item.iva_porcentaje == Decimal("21"):
-                        iva21_grupo += neto_item * Decimal("0.21")
-                    elif item.iva_porcentaje == Decimal("10.5"):
-                        iva105_grupo += neto_item * Decimal("0.105")
-                total_grupo = estimado or self._round_money(
-                    neto_grupo + iva21_grupo + iva105_grupo
-                )
+                preparado = self.facturacion_service.preparar_importes(request.items)
                 nuevos = {
-                    "neto": self._round_money(Decimal(totales["neto"]) + neto_grupo),
-                    "iva21": self._round_money(Decimal(totales["iva21"]) + iva21_grupo),
-                    "iva105": self._round_money(
-                        Decimal(totales["iva105"]) + iva105_grupo
+                    "neto": (Decimal(totales["neto"]) + preparado["subtotal"]).quantize(
+                        Decimal("0.01")
                     ),
-                    "total": self._round_money(Decimal(totales["total"]) + total_grupo),
+                    "iva21": (Decimal(totales["iva21"]) + preparado["iva_21"]).quantize(
+                        Decimal("0.01")
+                    ),
+                    "iva105": (
+                        Decimal(totales["iva105"]) + preparado["iva_10_5"]
+                    ).quantize(Decimal("0.01")),
+                    "iva27": (Decimal(totales["iva27"]) + preparado["iva_27"]).quantize(
+                        Decimal("0.01")
+                    ),
+                    "total": (Decimal(totales["total"]) + preparado["total"]).quantize(
+                        Decimal("0.01")
+                    ),
                 }
                 if not all(valor.is_finite() for valor in nuevos.values()):
                     raise InvalidOperation
-            except DecimalException:
+            except (DecimalException, ValidationError):
                 totales["valores_invalidos"] = int(totales["valores_invalidos"]) + 1
                 continue
             totales.update(nuevos)
@@ -6237,8 +6228,11 @@ class LoteComprobantesService:
                 )
                 continue
             if iva is None or iva not in self.ALICUOTAS_IVA_PERMITIDAS:
+                tasa = "informada" if iva is None else f"{str(iva).replace('.', ',')} %"
                 mensajes.append(
-                    f"La alícuota de IVA del ítem '{descripcion}' en {comprobante_ref} debe ser 0, 10.5, 21 o 27"
+                    f"La alícuota de IVA {tasa} del ítem "
+                    f"'{descripcion}' en {comprobante_ref} no tiene soporte. "
+                    "Debe ser 0 %, 10,5 %, 21 % o 27 %."
                 )
                 continue
             if (

@@ -17,7 +17,8 @@ El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
 El corte técnico `0.3.8` reúne persistencia fiscal fiel A-01, lecturas fiscales
-A-03, fidelidad del receptor PF-13, correlación de respuestas WSFE SC-09,
+A-03, fidelidad del receptor PF-13, admisibilidad y revisión decimal P1,
+correlación de respuestas WSFE SC-09,
 protección de acceso SC-08 y mantenimiento de dependencias y cobertura.
 Su alcance, compatibilidad y puertas de publicación se conservan en
 el [dossier de v0.3.8](docs/project/releases/v0.3.8-candidate.md).

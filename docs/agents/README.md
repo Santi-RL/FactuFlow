@@ -76,9 +76,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   Separa instantes UTC y presentación argentina de fechas de calendario y
   antecedentes con zona desconocida.
 
-- PF-03/PF-04/PF-13, implementación futura:
+- PF-03/PF-04/PF-13, P1 cerrado y ampliación P2 futura:
   [importes y previsualización fiscal común](pf-03-04-importes-previsualizacion-design.md).
-  Separa corrección P1 de admisibilidad/revisión, ampliación P2 de categorías y
+  Separa corrección P1 implementada de admisibilidad/revisión, ampliación P2 de categorías y
   consumo por plantillas; preserva redondeos PF-03B.
 - PF-02/PF-04, implementación futura:
   [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
