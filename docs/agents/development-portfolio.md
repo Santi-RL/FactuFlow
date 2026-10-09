@@ -25,10 +25,10 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
-| PF-03/PF-13, admisibilidad y revisión | Ahora 2 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
-| PF-02/PF-04, recuperación legacy | Ahora 3 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
-| PF-11/PF-15, recuperación operativa | Ahora 4 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-13, fidelidad del receptor | Cerrado | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
+| PF-03/PF-13, admisibilidad y revisión | Ahora 1 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
+| PF-02/PF-04, recuperación legacy | Ahora 2 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
+| PF-11/PF-15, recuperación operativa | Ahora 3 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04/PF-02, evidencia y recuperación integral | Después 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 2 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
@@ -245,7 +245,7 @@ unidad antes de convertirse en una tarea ejecutable.
 | Corte | Fuente y preparación restante |
 |---|---|
 | Lecturas fiscales actuales | [Contrato A-03](a03-lecturas-fiscales-design.md): corrección implementada con bases contrastadas, cobertura explícita y totales/ranking por moneda. Categorías nuevas e importación externa conservan sus unidades futuras. |
-| Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
+| Fidelidad del receptor | [Contrato P1 cerrado](pf-13-receptores-importacion-design.md): identificación y condición explícitas, transición autorizada para nuevas importaciones; conserva lotes, snapshots y hashes históricos. Constructor y padrón siguen siendo capacidades futuras. |
 | Admisibilidad, revisión y categorías | [Importes](pf-03-04-importes-previsualizacion-design.md): separar P1 de ampliación P2, contrato de preparación, tasas efectivas, lectura legacy y precisión inmutable. |
 | Reconciliación | [Diseño](pf-02-04-reconciliacion-integral-design.md): comparación legacy P1, cobertura del snapshot y recuperación moderna P2; conservar ownership y guardas RECE. |
 | WSAA coordinado/cifrado | [Diseño](pf-09-wsaa-coordinacion-cache-design.md): mecanismo multiproceso, claves, renovación, transición y recuperación; no requiere otro servicio. |
@@ -264,9 +264,10 @@ unidad antes de convertirse en una tarea ejecutable.
 ## Orden aceptado
 
 La puerta previa de estabilización precede a capacidades nuevas; sus reparaciones
-se delimitan por contrato, sin mezclar un refactor global. Los cortes P1 de
-receptor, admisibilidad/revisión y comparación legacy mantienen sus dueños y se
-coordinan con esa preparación común antes de recuperación/trazabilidad.
+se delimitan por contrato, sin mezclar un refactor global. La fidelidad del
+receptor P1 está implementada; admisibilidad/revisión y comparación legacy
+mantienen sus dueños y se coordinan con esa preparación común antes de
+recuperación/trazabilidad.
 Tooling habilita la integración de runtime con CI verde; cada reparación fiscal
 se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
 una única unidad ni se bloquea una reparación esperando su propio resultado.

@@ -77,6 +77,24 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 - reconciliación y mensajes sanitizados;
 - otro emisor, ambiente o punto no puede reutilizar el estado.
 
+### Fidelidad del receptor PF-13
+
+Con Excel sintético y dobles sin salida CAE:
+
+- Importar CF con CUIT, CUIL y DNI explícitos, también bajo el umbral: comprobar
+  número, nombre y tipo efectivo en revisión y request; snapshot PDF/QR fiel.
+- Usar columna o valores fijos válidos en archivos homogéneos; una condición
+  vacía/desconocida o contradictoria y un DNI con letras deben identificar el
+  error antes de reservar numeración o enviar.
+- Un formato antiguo sin tipo de documento debe pedir corregir configuración;
+  clonar uno protegido y comprobar que el original y los lotes anteriores siguen
+  intactos. Un tipo fraccionario no se convierte en un código entero.
+- CF anónimo permitido bajo el umbral; sumar varios ítems hasta identificación
+  obligatoria y comprobar rechazo previo. Cero no permite saltar ese control.
+- Reimportar contenido identificado con nombre/representación equivalentes:
+  mantener avisos de duplicados, confirmaciones específicas y aislamiento;
+  replay y resultado incierto conservan datos congelados.
+
 ### Ítems e importes
 
 - vaciar cantidad o precio: el mensaje identifica el campo y no muestra un

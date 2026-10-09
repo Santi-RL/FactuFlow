@@ -12,6 +12,15 @@ contrastadas y cobertura desconocida; IVA cero y letra C no prueban categorías
 exenta/no gravada. Monedas nominales separadas, cotización histórica conservada,
 sin conversión automática. Categorías completas siguen en el corte P2.
 
+## Fidelidad del receptor PF-13
+
+Tipo/número de documento y condición IVA son independientes. CF identificado
+con CUIT/CUIL/DNI conserva sus datos hasta request y snapshot PDF/QR; el umbral
+no borra identificación suministrada. Columna o constante explícitas, errores
+por celda inválida y transición de formatos ambiguos antes de nuevas
+importaciones. No se reescriben historia ni hashes.
+[Contrato PF-13](../agents/pf-13-receptores-importacion-design.md).
+
 ## Representación interna A-01
 
 El almacenamiento conserva los decimales finitos admitidos y los resultados

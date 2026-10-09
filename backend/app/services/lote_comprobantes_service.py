@@ -40,6 +40,7 @@ from app.arca.exceptions import ArcaServiceError, ArcaValidationError
 from app.arca.utils import clean_cuit, validate_cuit
 from app.core.config import settings
 from app.core.condicion_iva_receptor import normalizar_condicion_iva_receptor
+from app.core.documento_receptor import texto_documento
 from app.core.database import (
     DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS,
     DatabaseTransactionBoundaryError,
@@ -6154,7 +6155,7 @@ class LoteComprobantesService:
         tipo_documento = self._parse_tipo_documento(
             header.get("cliente_tipo_documento")
         )
-        numero_documento = clean_cuit(header.get("cliente_numero_documento", ""))
+        numero_documento = texto_documento(header.get("cliente_numero_documento", ""))
         identidad_raw = header.get("_duplicados_identidad_entrada")
         if not isinstance(identidad_raw, dict):
             identidad_raw = {
@@ -6315,10 +6316,6 @@ class LoteComprobantesService:
                 f"La condición IVA del receptor en {comprobante_ref} no es válida. "
                 "Indicá Responsable Inscripto, Monotributo, Exento o Consumidor Final "
                 "según su situación fiscal. Responsable No Inscripto requiere corrección explícita."
-            )
-        elif tipo_documento == 80 and condicion_iva == "CF":
-            mensajes.append(
-                f"El receptor en {comprobante_ref} tiene CUIT pero figura como consumidor final. Configurá una condición IVA del receptor o dejá el documento vacío cuando la normativa lo permita."
             )
 
         payload: EmitirComprobanteRequest | None = None

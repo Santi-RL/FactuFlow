@@ -38,29 +38,12 @@ El [portafolio](docs/agents/development-portfolio.md) adjudica responsables y
 aceptación. Los cortes P1 conservan sus dueños; coordinar su preparación
 común para no crear validaciones o máquinas fiscales paralelas.
 Cada integración de runtime exige auditoría verde. Las
-reparaciones fiscales se coordinan con los cortes 1–3: cada unidad
+reparaciones fiscales se coordinan con los cortes 1–2: cada unidad
 puede integrarse al cumplir su contrato y sus checks, sin esperar una reparación
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.
 
-### 1. PF-13 — fidelidad del receptor en importación fiscal
-
-**Prioridad:** P1 fiscal.
-
-Conservar documento y nombre suministrados y resolver condición IVA desde el
-archivo o una configuración explícita. Admitir consumidor final identificado
-con CUIT/CUIL: identificación y condición fiscal son datos independientes.
-Corregir conjuntamente la pérdida del documento bajo el umbral y el rechazo
-general de CUIT con consumidor final; señalar diferencias reales entre archivo
-y plantilla antes de emitir, sin inferir una inscripción ni cambiar datos
-silenciosamente. El riesgo demostrado de emitir sin la identificación esperada
-o bloquear una combinación válida justifica adelantar este corte acotado.
-Preservar los casos anónimos permitidos, la compatibilidad RG 5616, duplicados,
-historia e idempotencia. No espera el rediseño P2 del constructor o de la UI.
-Motivo, fuentes, transición legacy y aceptación en el
-[diseño de fidelidad del receptor](docs/agents/pf-13-receptores-importacion-design.md).
-
-### 2. PF-03/PF-13 — admisibilidad y revisión de importes
+### 1. PF-03/PF-13 — admisibilidad y revisión de importes
 
 **Prioridad:** P1 fiscal. Evitar que alícuotas sin soporte se conviertan en IVA
 cero y que la revisión muestre un total distinto del cálculo decimal vigente.
@@ -68,7 +51,7 @@ Usar preparación fiscal común sin cambiar redondeos PF-03B ni agregar pasos.
 La ampliación de categorías permanece P2. Alcance, compatibilidad y aceptación
 en el [diseño de importes y previsualización](docs/agents/pf-03-04-importes-previsualizacion-design.md).
 
-### 3. PF-02/PF-04 — comparación fiscal en recuperación legacy
+### 2. PF-02/PF-04 — comparación fiscal en recuperación legacy
 
 **Prioridad:** P1 fiscal. Comparar componentes fiscales disponibles antes de
 reconstruir/vincular un autorizado; conservar CAE e incertidumbre ante diferencias.
@@ -76,7 +59,7 @@ Preservar guardas modernas y evidencia antigua. La recuperación integral modern
 es otro corte P2; alcance y aceptación en el
 [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
 
-### 4. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 3. PF-11/PF-15 — recuperación y trazabilidad operativa
 
 **Prioridad:** P1 para recuperación; P2 para señales y soporte.
 

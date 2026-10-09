@@ -726,6 +726,19 @@ Las plantillas pueden mapear datos de cuatro maneras:
 - por emisor, solo para datos que FactuFlow resuelve explícitamente, como el
   CUIT del emisor activo
 
+El tipo de documento del receptor y su condición IVA son datos distintos. Un
+consumidor final puede tener CUIT, CUIL o DNI; FactuFlow conserva el documento
+y nombre informados aunque el importe no obligue a identificarlo. Configurá
+el tipo desde una columna o un valor fijo y declará la condición IVA de la
+misma manera. Una columna fiscal vacía, inválida o contradictoria requiere
+corrección antes de emitir. No se deduce CUIT por la longitud del número.
+
+Si una plantilla antigua no declara esos datos, corregí su configuración antes
+de una nueva importación. Si es del sistema, clonala y configurá la copia; los
+lotes ya guardados conservan sus datos. Un archivo homogéneo puede usar valores
+fijos y no necesita agregar columnas. Para CF sin documento siguen vigentes
+las reglas de identificación por el total del comprobante.
+
 El IVA del ítem debe estar definido de forma explícita en la plantilla: puede
 venir desde una columna del Excel o quedar fijo como constante. Para Factura C,
 esa constante debe ser `0`; FactuFlow no debe completar el IVA por un valor
@@ -769,7 +782,8 @@ persistente por defecto. No define por si solo si el lote es de productos o
 servicios, ni qué descripción del ítem se va a facturar: debes elegir el tipo de
 concepto fiscal ARCA y definir la descripción facturada antes de validar. Si el
 documento o receptor vienen vacíos, aplican las reglas vigentes de consumidor
-final. Para emisores Responsable Inscripto, el lote queda observado y se debe
+final. Si el extracto aporta un documento, cloná la plantilla protegida y
+declará su tipo desde una columna o un valor fijo explícito antes de importar. Para emisores Responsable Inscripto, el lote queda observado y se debe
 crear un formato particular con Factura A/B según corresponda.
 
 En Factura C los ítems deben tener IVA 0. En nueva factura, FactuFlow limita el

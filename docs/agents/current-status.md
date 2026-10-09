@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 08/10/2026
+Última revisión: 09/10/2026
 
 Estado: VIGENTE.
 
@@ -113,7 +113,8 @@ La auditoría integral corrigió documentación, código sin consumidores, fecha
 calendario, contexto de detalles/formularios, errores PDF y barreras de
 construcción. Conserva los contratos fiscales y la visión. La capacidad de
 persistencia A-01 y las lecturas funcionales A-03 están corregidas; el siguiente
-corte de estabilización es la fidelidad del receptor PF-13. Evidencia y límites de la auditoría en el
+corte de estabilización sigue el roadmap; la fidelidad del receptor PF-13 está
+implementada. Evidencia y límites de la auditoría en el
 [dossier de auditoría](../project/analysis/auditoria-integral-2026-10.md);
 responsabilidades compartidas y horizonte MCP en
 [dirección de arquitectura](architecture-direction.md). No acredita despliegue.
@@ -160,13 +161,14 @@ historia y reconciliación mantienen el contrato vigente. El
 [contrato RG 5616](rg-5616-condicion-iva-receptor-parche.md) y su
 [dossier](../project/releases/rg5616-condicion-iva.md) delimitan el parche.
 
-El cierre del parche no acredita fidelidad completa de identificación en la
-importación configurable: ésta aún puede descartar el documento de CF bajo el
-umbral y la validación del lote rechaza CUIT con CF. La combinación es admisible
-en la normativa; la diferencia entre caminos y su corrección pendiente están
-delimitadas en el [diseño de fidelidad del receptor](pf-13-receptores-importacion-design.md).
-Ese diseño futuro no describe una corrección ya implementada. Las condiciones
-siguen siendo datos explícitos, independientes del documento.
+PF-13 conserva documento y nombre de CF identificado en importación, lote y
+preparación fiscal. Tipo de documento y condición IVA se declaran desde columna
+o constante; no se infiere CUIT ni se reemplazan celdas inválidas por CF. Los
+formatos antiguos ambiguos requieren corregir su configuración para nuevas
+importaciones; los protegidos se clonan. Lotes, snapshots, hashes históricos,
+replay y reconciliación se conservan. El
+[contrato de fidelidad del receptor](pf-13-receptores-importacion-design.md)
+delimita el cierre, independiente de constructor, UI y padrón futuros.
 
 ## Punto de reanudación
 
