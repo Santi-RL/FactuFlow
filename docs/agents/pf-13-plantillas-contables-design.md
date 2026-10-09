@@ -200,11 +200,12 @@ contrato anterior. La ampliación de columnas se muestra en la plantilla generad
 
 ### Fechas relativas y ajustes del perfil
 
-- Una política como «mes anterior completo» debe identificar su fecha base y
-  mostrar el período calculado. La base proviene de una fecha explícita del
-  usuario o del archivo según la política elegida; nunca del día actual. Si no
-  puede resolverse, indicar qué dato falta y llevar al campo correspondiente,
-  sin presentar el período como completo ni añadir una confirmación rutinaria.
+- Las políticas relativas se reservan para período de servicios o vencimiento;
+  la emisión conserva una fecha explícita, fija o desde el archivo. Una política
+  como «mes anterior completo» debe identificar esa fecha de emisión como base y
+  mostrar el período calculado; nunca usar el día actual. Si la base no puede
+  resolverse, indicar qué dato falta y llevar al campo correspondiente, sin
+  presentar el período como completo ni añadir una confirmación rutinaria.
 - Si el archivo trae fechas de emisión distintas, no elegir silenciosamente
   la primera, la última ni una fecha mayoritaria para todo el lote. La revisión
   debe reflejar los valores efectivos por comprobante o el reemplazo uniforme
