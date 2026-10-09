@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 08/10/2026
+Última revisión: 09/10/2026
 
 Estado: VIGENTE.
 
@@ -170,6 +170,13 @@ operativos confirmados:
   parciales, su progreso y la recuperación de reservas terminales están cubiertos
   por el [contrato del parche cerrado](docs/agents/pf-13-17-reintentos-seguros-parche.md). Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
+- **PF-17/PF-13 — formato argentino visible, P3:** corregir fechas y números
+  mostrados al usuario, incluidos los ejemplos del constructor de plantillas
+  de emisión masiva (`31/05/2026`, `10.000,00`). Aplicar la regla transversal de
+  [AGENTS.md](AGENTS.md#formato-argentino-en-contenido-visible), conservando
+  contratos internos, precisión e identificadores. Baja prioridad, sin desplazar
+  el orden vigente; alcance y aceptación en el
+  [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
 - **PF-17 — períodos rápidos, P3:** facilitar el Reporte de ventas con
   «Mes actual», «Mes anterior» y selección
   personalizada, completando Desde/Hasta y mostrando el rango calendario.
