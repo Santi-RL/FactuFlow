@@ -1,7 +1,7 @@
 # PF-17 — UI compacta de emisión masiva
 
 Fecha: 05/09/2026.
-Última revisión: 03/10/2026.
+Última revisión: 09/10/2026.
 
 Estado: dirección de cambio aceptada; implementación y revisión visual local
 pendientes. Este documento prepara el trabajo futuro, sin modificar runtime.
@@ -49,7 +49,7 @@ el rechazo de CUIT con consumidor final son responsabilidad del
 | [Rediseño anterior](lotes-ux-redesign.md) | Sus cuatro cortes siguen cerrados. Este documento gobierna la evolución posterior; no repetir su implementación ni modificar su historia. |
 | [Plantillas PF-13](pf-13-plantillas-contables-design.md) | Conserva interpretación del Excel, tipo/letra, precedencia de archivo/perfil/valores fijos y validaciones condicionales. Esta UI debe mostrar el origen efectivo sin crear otro constructor. |
 | [Importes y revisión común](pf-03-04-importes-previsualizacion-design.md) | Presenta importes confirmables del backend; el P1 fiscal no espera este rediseño ni cambia redondeos. |
-| [Padrón de clientes/emisores](pf-18-09-padron-clientes-emisores-design.md) | Presenta consulta fechada, actualización y diferencias en preparación; no consulta por fila/CAE ni altera un lote congelado. |
+| [Padrón de clientes/emisores](pf-18-09-padron-clientes-emisores-design.md) | Ofrece completar datos con ARCA como opción por archivo, desactivada por defecto, y presenta consulta fechada y diferencias en preparación; no consulta cada Excel automáticamente, por fila/CAE ni altera un lote congelado. |
 | [Duplicados PF-13/PF-17](pf-13-duplicados-lotes-design.md) | Conserva comparación, advertencia, actores, retorno principal, checkbox, revalidación y coordinación de emisiones simultáneas. El historial compacto aporta contexto; no reemplaza el control. |
 | [Actividad PF-17/PF-15](pf-17-actividad-lotes-design.md) | Conserva atribución de última emisión confirmada, límites históricos y apertura de actividad al seleccionar un lote. Ajustar la ubicación dentro de la nueva distribución, sin duplicar su contrato. |
 | PF-10 y [QA manual](manual-qa.md) | Mantenimiento secundario conserva elegibilidad, consecuencias, resguardos y confirmaciones. Reubicarlo no cambia retención ni borra datos automáticamente. |
@@ -68,6 +68,8 @@ el rechazo de CUIT con consumidor final son responsabilidad del
 - Explicar el perfil como configuración habitual del emisor y la plantilla como
   formato del Excel. Evitar repetir título, etiqueta y nombre aplicado. Mantener
   visibles los valores efectivos y si fueron modificados respecto del perfil.
+  Conservar la referencia al perfil de origen al mostrar ajustes, según el
+  contrato PF-13; distinguirla de una configuración íntegramente aplicada.
 - Identificar el tipo efectivo FC/NC/ND y letra del formato elegido por el perfil,
   o que provienen por fila del archivo mixto. Distinguir en la selección perfiles
   para facturas y notas; no ocultar un tipo NC detrás de un nombre genérico ni
@@ -107,6 +109,8 @@ el rechazo de CUIT con consumidor final son responsabilidad del
 - Presentar fecha de emisión en un grupo propio y, cuando correspondan, período
   desde/hasta y vencimiento del servicio en un grupo que aproveche el ancho.
   Mantener elecciones y fechas explícitas; nunca completar con el día actual.
+  Para políticas relativas, mostrar base, período resultante o dato pendiente
+  conforme a PF-13; no ocultar un período sin resolver detrás del nombre del perfil.
 - Usar superficies neutras para grupos normales. Reservar color de alerta e
   iconos para estados concretos, con texto que explique qué hacer. El título del
   checklist no debe conservar un triángulo de advertencia cuando todo esté
@@ -208,6 +212,8 @@ para quienes usan FactuFlow al emitir.
 | Scroll largo, ventana baja y zoom 200 % | Pendientes y validar accesibles sin volver al inicio; sin columna vacía estirada, foco tapado ni pérdida de controles. |
 | Escritorio y móvil, nombres largos, teclado y lector de pantalla | Controles legibles, orden lógico, grupos/etiquetas identificables y contraste medido; acciones a pendientes llevan al campo correcto. |
 | Fecha del archivo elegida, sin período ni vencimiento | Aviso identifica sólo las decisiones faltantes; ninguna fecha se completa automáticamente. |
+| Política relativa sin base o con fechas distintas en el archivo | Pendiente concreto o valores por comprobante según PF-13; no aparentar un período uniforme resuelto. |
+| Cambio de fecha después de elegir un perfil | Perfil de origen, ajustes y valores efectivos identificables; no afirmar aplicación íntegra ni conservar una validación invalidada. |
 | Perfil de NC elegido para un archivo de facturas o formato mixto | Tipo/letra efectivos y origen son evidentes antes de validar; no cambia el comprobante ni exige un diálogo rutinario adicional. |
 | Receptores distintos y fechas desde Excel, constantes o perfil/lote | Datos y procedencia se pueden revisar por comprobante; distingue consumidor final identificado y conserva datos efectivos sin un resumen uniforme falso. |
 | Todos los requisitos completos | Estado de preparación correcto, sin alarma fija ni afirmación de validación fiscal ya realizada. |

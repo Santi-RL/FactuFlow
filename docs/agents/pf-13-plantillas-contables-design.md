@@ -1,7 +1,7 @@
 # PF-13 — plantillas contables e interpretación fiscal
 
 Fecha: 04/09/2026.
-Última revisión: 03/10/2026.
+Última revisión: 09/10/2026.
 
 Estado: alcance incorporado al roadmap; implementación pendiente. Este documento
 define el resultado futuro y las decisiones por cerrar, no capacidades actuales.
@@ -48,8 +48,10 @@ que no representan el Excel antes de preparar una emisión.
    de débito, con tipo y letra en columnas separadas o con valores fijos
    explícitos cuando corresponda.
 2. Leer CUIT y condición IVA del receptor desde columnas. Si la plantilla admite
-   A, exigir la configuración de ambas columnas para este modo de archivo mixto;
-   en cada fila A exigir un CUIT presente y válido y una condición admitida.
+   A sin consulta registral opcional, exigir la configuración de ambas columnas
+   para este modo de archivo mixto. Cuando exista la opción de padrón, admitir
+   completar los datos faltantes según su contrato; en cada fila A exigir un
+   CUIT presente y válido y una condición admitida antes de emitir.
 3. Mostrar, dentro del constructor, cómo se interpretará una muestra del archivo:
    comprobante resultante, receptor, fecha, punto, concepto, neto, IVA y total.
    La muestra no crea un lote ni requiere certificado o una conexión fiscal.
@@ -88,9 +90,12 @@ La [preparación fiscal común](pf-03-04-importes-previsualizacion-design.md) es
 del cálculo decimal y de sus categorías. La muestra de esta plantilla consume
 sus importes y errores; no introduce otro cálculo ni cambia redondeos PF-03B.
 Cuando exista [padrón](pf-18-09-padron-clientes-emisores-design.md), su consulta
-anticipada/agrupada y procedencia registral se integran en preparación, sin
-consultas obligatorias por fila o al solicitar CAE. Mantener datos explícitos y
-solicitudes congeladas. Las [notas guiadas](pf-04-17-notas-guiadas-design.md)
+opcional por archivo, anticipada/agrupada y con procedencia registral se integra
+en preparación. Permitir completar razón social y condición registral faltantes
+desde CUIT cuando el usuario elija esa opción, desactivada por defecto; validar
+los datos efectivos antes de emitir. No consultar cada Excel automáticamente,
+por fila o al solicitar CAE. Mantener datos explícitos y solicitudes congeladas.
+Las [notas guiadas](pf-04-17-notas-guiadas-design.md)
 comparten validación de asociados con esta entrada Excel.
 
 ### Tipo y letra
@@ -116,11 +121,13 @@ no se establece una prioridad silenciosa.
 
 ### Receptor y notas
 
-- La condición es la del **receptor**, distinta de la del emisor. Debe provenir
-  de una columna explícita en el archivo mixto; no se deduce del CUIT ni de A/B.
-  Si se configuró una columna fiscal por fila, un vacío requerido o valor
-  desconocido no se sustituye por consumidor final. Una condición fija sigue
-  siendo una elección explícita válida para archivos homogéneos.
+- La condición es la del **receptor**, distinta de la del emisor. En el archivo
+  mixto proviene de una columna explícita o, cuando exista y se elija, de los
+  datos incorporados desde la consulta de padrón. No se infiere del número de
+  CUIT ni de A/B. Un vacío requerido o valor desconocido no se sustituye por
+  consumidor final; la consulta tampoco autoriza ignorar una condición explícita
+  o un dato inválido. Una condición fija sigue siendo una elección explícita
+  válida para archivos homogéneos.
 - Consumidor final puede estar identificado con CUIT/CUIL o DNI. Reutilizar la
   regla P1: mantener documento y nombre, distinguir el tipo de identificación y
   mostrar diferencias reales entre dato aportado y configuración efectiva.
@@ -165,10 +172,10 @@ para todas las plantillas. Los encabezados efectivos se verifican al importar.
 | I | Total IVA | Importe de IVA para control, no porcentaje de alícuota |
 | J | Total final | Importe final informado para contrastar el cálculo canónico |
 
-Para admitir filas A, el archivo mixto agrega una columna de condición IVA del
-receptor. La alícuota del 21 % puede ser un valor fijo explícito de la plantilla
-aplicable al caso; no se deduce del importe de la columna I ni se generaliza
-a otros emisores. Las filas NC/ND requieren las columnas de asociado del
+Para admitir filas A sin la futura consulta opcional, el archivo mixto agrega una
+columna de condición IVA del receptor. La alícuota del 21 % puede ser un valor fijo
+explícito de la plantilla aplicable al caso; no se deduce del importe de la columna
+I ni se generaliza a otros emisores. Las filas NC/ND requieren las columnas de asociado del
 contrato anterior. La ampliación de columnas se muestra en la plantilla generada.
 
 - H del ejemplo representa neto, I importe IVA y J total final. El nombre exacto
@@ -190,6 +197,26 @@ contrato anterior. La ampliación de columnas se muestra en la plantilla generad
   procedencia efectiva desde Excel, constante o perfil/lote. Su soporte existente
   no se presenta como una funcionalidad nueva; este corte facilita el mapeo y la
   revisión, sin reemplazar silenciosamente una fecha suministrada.
+
+### Fechas relativas y ajustes del perfil
+
+- Las políticas relativas se reservan para período de servicios o vencimiento;
+  la emisión conserva una fecha explícita, fija o desde el archivo. Una política
+  como «mes anterior completo» debe identificar esa fecha de emisión como base y
+  mostrar el período calculado; nunca usar el día actual. Si la base no puede
+  resolverse, indicar qué dato falta y llevar al campo correspondiente, sin
+  presentar el período como completo ni añadir una confirmación rutinaria.
+- Si el archivo trae fechas de emisión distintas, no elegir silenciosamente
+  la primera, la última ni una fecha mayoritaria para todo el lote. La revisión
+  debe reflejar los valores efectivos por comprobante o el reemplazo uniforme
+  elegido explícitamente. La granularidad de las políticas relativas se cierra
+  antes de implementar, según la decisión pendiente de este documento.
+- Ajustar una fecha u otro valor después de elegir un perfil debe conservar la
+  referencia al perfil de origen y su versión, distinguiendo los campos
+  modificados y su procedencia efectiva. Mostrar «perfil con ajustes» o su
+  equivalente no acredita que el perfil siga aplicado íntegramente: el snapshot
+  efectivo y la validación corresponden a los valores nuevos. Conservar las
+  invalidaciones de validación y confirmación que exija el cambio.
 
 ## Responsabilidades del flujo
 
@@ -255,6 +282,10 @@ No reabrir contratos cerrados sin necesidad demostrada para esta unidad.
 4. Resolver la división exacta de trabajo transversal con PF-14/PF-17 y confirmar
    el corte a ejecutar. La ampliación P2 mantiene su horizonte; la fidelidad P1
    se ejecuta aparte según el orden del roadmap.
+5. Cerrar la fecha base y granularidad de cada política relativa cuando la emisión
+   viene del Excel: cálculo por comprobante o base uniforme elegida por el usuario.
+   Definir compatibilidad con perfiles guardados y tratamiento de archivos con
+   fechas distintas; no inferir una base ni alterar las fechas aportadas.
 
 ## Matriz de aceptación obligatoria
 
@@ -267,7 +298,8 @@ No reabrir contratos cerrados sin necesidad demostrada para esta unidad.
 | Mapeo | Encabezados duplicados tras normalizar; columnas sin nombre; posición fuera de archivo; hoja ausente; cambio de hoja; filas vacías y encabezado distinto de fila 1 |
 | Importes | Neto/IVA/total separados, cantidad 1 explícita, IVA fijo/columna, C con IVA incompatible, total requerido vacío, fórmula sin caché, precisión y diferencias de centavos |
 | Generación | Descargar, completar y reimportar produce la misma interpretación; posiciones fijas y columnas por nombre sin colisiones; etiquetas y ejemplos seguros |
-| Perfiles/versiones | Overrides explícitos visibles, procedencia de documento/condición y emisión/servicio/vencimiento; versión reemplazada, clonación protegida, legacy sin pérdida, lote existente inalterado y rollback |
+| Fechas relativas | Base explícita presente/ausente; emisión desde Excel uniforme o distinta por fila; período calculado visible, sin usar el día actual ni escoger una fila como base implícita |
+| Perfiles/versiones | Perfil de origen y versión conservados tras ajustes, con valores efectivos y procedencia por campo; invalidaciones aplicables; versión reemplazada, clonación protegida, legacy sin pérdida, lote existente inalterado y rollback |
 | Aislamiento/concurrencia | Otro emisor rechazado; cambios de contexto y respuestas tardías; guardado concurrente; doble validación/confirmación sin doble efecto fiscal |
 | Emisión/errores | Error previo sin CAE; worker y caminos unitario/batch revalidan; incertidumbre/reconciliación conservan solicitud congelada y nunca se reemite por un error de importación |
 | UX/accesibilidad | Usuario contable configura sin códigos; muestra explica el resultado; corrección por fila/columna; teclado, foco, lector de pantalla y zoom; sin confirmaciones nuevas rutinarias |
