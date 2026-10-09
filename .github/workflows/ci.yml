@@ -139,7 +139,7 @@ jobs:
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -306,7 +306,7 @@ jobs:
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -414,7 +414,7 @@ jobs:
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
