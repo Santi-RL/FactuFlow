@@ -92,11 +92,10 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - PF-04/PF-17/PF-13, P2, Más adelante: [notas guiadas](pf-04-17-notas-guiadas-design.md),
   con asociado y alcance explícitos desde original autorizado. Reutiliza
   validación de notas y revisión común; no implementa cuentas corrientes.
-- PF-13, **P1 fiscal, Ahora 1**: preservar documento/nombre y condición fiscal
-  explícitos, admitiendo consumidor final identificado con CUIT/CUIL. Corregir
+- PF-13, **P1 fiscal cerrado**: conserva documento/nombre y condición fiscal
+  explícitos, admitiendo consumidor final identificado con CUIT/CUIL. Corrige
   la pérdida del documento y el rechazo general de CUIT con CF como una unidad;
-  señalar diferencias reales entre archivo y configuración. El riesgo demostrado
-  justifica adelantarlo sin elevar toda PF-13. El
+  señala diferencias reales entre archivo y configuración. El
   [diseño de fidelidad del receptor](pf-13-receptores-importacion-design.md)
   concentra motivo, fuentes, transición legacy y aceptación; no modifica el
   contrato cerrado de duplicados ni reinterpreta el parche RG 5616.

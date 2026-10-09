@@ -22,7 +22,7 @@ delimita los ensayos y sus límites; no acredita un incidente productivo.
 
 | Corte | Prioridad / horizonte | Resultado |
 |---|---|---|
-| Admisibilidad y revisión de importes | P1 fiscal, Ahora 2 | Impedir conversiones silenciosas a IVA cero y mostrar los importes fiscales que realmente se confirmarán |
+| Admisibilidad y revisión de importes | P1 fiscal, Ahora | Impedir conversiones silenciosas a IVA cero y mostrar los importes fiscales que realmente se confirmarán |
 | Categorías fiscales completas | P2 fiscal, Más adelante | Separar tasa cero, exento, no gravado y otros tributos; ampliar alícuotas con soporte completo |
 | Reutilización en plantillas | P2, junto con PF-13 | Una muestra contable y la emisión usan la misma preparación fiscal |
 
