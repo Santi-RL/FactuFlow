@@ -45,6 +45,23 @@
   fail-closed ante riesgo inmediato no autoriza a diseñar una política permanente
   ni ampliar el alcance por cuenta propia.
 
+## Formato argentino en contenido visible
+
+- Las fechas y los números destinados al usuario usan formato argentino en la
+  interfaz, ejemplos, ayudas, PDFs, reportes y documentos descargables: fechas
+  `DD/MM/AAAA`, coma decimal y punto de miles cuando corresponda (por ejemplo,
+  `31/05/2026` y `10.000,00`). La presentación no depende del idioma o la región
+  del navegador ni del formato técnico almacenado.
+- API, base de datos, ARCA y archivos de intercambio técnico conservan el formato
+  exigido por sus contratos. Convertir en la frontera de presentación sin
+  modificar el valor, la precisión, los redondeos fiscales ni la interpretación
+  de entradas. Los instantes operativos conservan la hora argentina establecida.
+- CUIT, CAE, documentos, códigos y números de comprobante son identificadores:
+  conservar su representación específica y sus ceros significativos; no aplicar
+  separadores de miles como si fueran cantidades.
+- Esta regla rige los cambios nuevos; las inconsistencias existentes se corrigen
+  según el pendiente PF-17/PF-13 del roadmap, sin adelantarlo por cuenta propia.
+
 ## Invariantes fiscales
 
 - La fecha de emisión es siempre un dato explícito del usuario o del archivo

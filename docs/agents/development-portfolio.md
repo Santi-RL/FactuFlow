@@ -145,6 +145,16 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   el retorno seguro, el checkbox específico y los controles fiscales del
   [diseño de duplicados](pf-13-duplicados-lotes-design.md). Un defecto comprobado
   que impida utilizar esos controles se atiende antes de publicar.
+- PF-17/PF-13, P3, Más adelante: corregir la presentación de fechas y números
+  según la [regla de formato argentino](../../AGENTS.md#formato-argentino-en-contenido-visible).
+  Incluir ejemplos iniciales y de plantillas existentes o clonadas del constructor
+  de emisión masiva y su hoja de instrucciones descargable; revisar otros
+  contenidos visibles para aplicar la misma convención. Aceptación: mostrar
+  `31/05/2026` y `10.000,00` en lugar de `2026-05-31` y `10000.00`, también con
+  otra región de navegador, conservando el valor y la precisión. Mantener
+  formatos de API/base/ARCA, compatibilidad de importación, redondeos fiscales e
+  identificadores sin cambios. Es un pendiente de baja prioridad, sin compromiso
+  inmediato ni dependencia del rediseño completo P2 del constructor.
 - PF-17, P3: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
   y rango personalizado. Conservar fechas visibles, generación explícita y
   aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
