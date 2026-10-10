@@ -18,6 +18,17 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+Sin cambios funcionales posteriores a v0.3.8.
+
+## [0.3.8] — 10/10/2026
+
+Publicada como [v0.3.8](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.8),
+con tag inmutable en `57ecb7c6155ecc661d3572feb06f64659f6342b6`.
+CI de main, QA contable y ensayo aislado de actualización y recuperación
+aprobados; [evidencia y límites](docs/project/releases/v0.3.8-candidate.md).
+La publicación no modifica producción; preflight y despliegue son operaciones
+separadas, con autoridad en el plano de control.
+
 ### IVA y legibilidad del PDF
 
 - Los A discriminan IVA guardado por alícuota; los B muestran «IVA Contenido»
@@ -111,8 +122,8 @@ Reglas vigentes desde 2026-05-22:
 - Alineados los productores técnicos y visibles de versión en `0.3.8`, sin
   cambiar las reglas fiscales. El [dossier del corte](docs/project/releases/v0.3.8-candidate.md)
   delimita A-01, A-03, PF-13, SC-09, SC-08, compatibilidad, recuperación y puertas de salida.
-  La release publicada más reciente continúa siendo `v0.3.7`; esta preparación
-  no crea un tag ni acredita un despliegue.
+  Durante esa preparación, `v0.3.7` era la última release publicada;
+  la preparación por sí sola no creó un tag ni acreditó un despliegue.
 
 ### Lecturas fiscales A-03
 
@@ -142,8 +153,9 @@ Reglas vigentes desde 2026-05-22:
 
 ### Alineación documental y planificación de seguridad
 
-- Corregidas dos referencias de diseños vivos para consumir A-01 implementado,
-  manteniendo pendientes las lecturas A-03 y la revisión/admisibilidad de importes.
+- Corregidas dos referencias de diseños vivos para consumir A-01 implementado.
+  En ese antecedente, A-03 y revisión/admisibilidad seguían pendientes;
+  sus cierres posteriores están incluidos en esta release.
 - La receta VPS selecciona y verifica un SHA completo aprobado antes de construir
   o iniciar, y remite al preflight, recuperación y verificación de runtime del
   flujo canónico de producción.
@@ -185,8 +197,9 @@ Reglas vigentes desde 2026-05-22:
   presenta los decimales recibidos y el ranking usa el total del servidor.
 - Paquetes v5 para el esquema ampliado; v3/v4 conservan descriptores, hashes y
   barreras históricos con adaptación explícita al destino. PF-03B, asociación
-  A-02, idempotencia e incertidumbre conservan sus contratos. Bases IVA y política
-  de moneda A-03 continúan pendientes. La versión publicada permanece v0.3.7.
+  A-02, idempotencia e incertidumbre conservan sus contratos. Aquel cierre
+  no incluía bases IVA y política de moneda A-03, incorporadas después en esta
+  release; entonces la última versión publicada era v0.3.7.
 
 ## [0.3.7] — 2026-10-04
 
