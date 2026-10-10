@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 09/10/2026
+Última revisión: 10/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -122,6 +122,9 @@ candidatas y dependencias se consultan en el portafolio. No modifica el orden
 del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
+
+- PF-04: [IVA y legibilidad de PDF](pf-04-pdf-representacion-fiscal-design.md).
+  Representación de importes guardados, sin recalcular ni reclasificar historia.
 
 - SC-11: [login y reset concurrente](sc-11-login-reset-design.md).
   Sesiones nuevas vinculadas a la credencial verificada, con compatibilidad legacy.

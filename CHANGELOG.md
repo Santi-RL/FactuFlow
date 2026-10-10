@@ -18,6 +18,15 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### IVA y legibilidad del PDF
+
+- Los A discriminan IVA guardado por alícuota; los B muestran «IVA Contenido»
+  y transparencia fiscal. No se recalculan bases, totales ni datos históricos.
+  Otros tributos sin clasificación conservada no se atribuyen a impuestos
+  nacionales indirectos. C conserva su representación sin exención inferida.
+- Códigos y decimales extensos se ajustan a su celda sin truncamiento ni
+  superposición. [Contrato y límites](docs/agents/pf-04-pdf-representacion-fiscal-design.md).
+
 ### Sesiones y restablecimiento concurrente SC-11
 
 - Cada sesión nueva queda vinculada a la credencial realmente verificada. Un

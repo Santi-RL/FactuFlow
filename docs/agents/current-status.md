@@ -188,8 +188,9 @@ delimita el cierre, independiente de constructor, UI y padrón futuros.
 SC-11 vincula las sesiones nuevas a la credencial verificada, cierra el acceso
 tras un reset concurrente y conserva las sesiones legacy válidas y los
 procedimientos de recuperación. [Contrato y límites](sc-11-login-reset-design.md).
-El siguiente cierre del candidato es su ensayo y QA exactos, no una nueva
-capacidad P2. La corrección no acredita despliegue ni cierre remoto del finding.
+El ensayo aislado y QA del candidato reparado están aprobados; la publicación
+conserva la puerta del SHA aceptado exacto. La corrección no acredita despliegue
+ni cierre remoto del finding.
 
 PF-11/PF-15 incorpora contrato de evidencia externa y señal administrativa en
 Sistema: creación y punto respaldado separados, componentes, integridad,
@@ -197,8 +198,9 @@ ensayo, copia externa y cotejos históricos. Cobertura actual desconocida;
 sin migraciones, llamadas fiscales, restauraciones ni nuevo journal.
 El [contrato](pf-11-15-recuperacion-trazabilidad-design.md) y su
 [instalación opcional](../setup/recovery-evidence.md) delimitan productor y
-consumidores. Falta acreditar la recuperación de la operación del candidato
-exacto en el plano de control, además de las puertas de release del dossier.
+consumidores. El ensayo sintético de recuperación está aprobado; la cobertura
+productiva actual requiere su propio preflight, además de las puertas de release
+del dossier.
 
 Los parches de reintentos seguros y condición IVA están cerrados en código.
 La evidencia se consulta en sus dossiers; el estado productivo se acredita sólo
@@ -229,6 +231,13 @@ restablecimiento por consola de cuentas existentes; límites en
 unidad se toma del roadmap; fidelidad del receptor, admisibilidad/revisión y
 comparación fiscal legacy P1 están implementadas.
 Este cierre de código no acredita publicación ni despliegue.
+
+La representación PDF discrimina IVA guardado en A y muestra «IVA Contenido»
+en B; los códigos y decimales extensos se ajustan a su celda. No recalcula
+importes ni clasifica tributos históricos sin evidencia. El
+[contrato PDF](pf-04-pdf-representacion-fiscal-design.md) delimita la reparación
+autorizada durante QA. El candidato reparado aprobó ensayo aislado y QA contable;
+el dossier conserva evidencia, límites y puertas del SHA aceptado exacto.
 
 Para continuar desarrollo:
 
