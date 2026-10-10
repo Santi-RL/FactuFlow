@@ -194,10 +194,16 @@ Primeros cortes visibles:
 - `docs/agents/support-runbook.md` contiene el primer runbook público y
   sanitizado de diagnóstico operativo.
 
-El health dedicado de worker ya forma parte del corte local. Siguen pendientes
-la señal automática de backup, mayor trazabilidad histórica y la documentación
-privada de cada instalación. La presencia de este contrato en el repositorio no
-debe interpretarse como evidencia de despliegue.
+El health de worker y la señal de evidencia externa de recuperación forman
+parte del contrato de aplicación. `GET /api/health/recovery`, exclusivo de
+administradores, consume un resumen privado con creación, punto respaldado,
+componentes, integridad, ensayo, copia externa y cotejos. Siempre conserva
+cobertura actual desconocida; no llama a ARCA, escribe eventos ni restaura.
+El [formato de instalación](../setup/recovery-evidence.md) exige productor
+confiable y vínculos a los informes; no comprueba sus archivos originales.
+Siguen pendientes la automatización posterior y mayor trazabilidad histórica.
+La evidencia y recuperación concreta pertenecen al plano de control; la
+presencia del contrato no acredita configuración ni despliegue.
 
 ## Fuera de alcance por ahora
 

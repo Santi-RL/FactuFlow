@@ -18,6 +18,17 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Evidencia de recuperación PF-11/PF-15
+
+- Sistema muestra resumen privado de respaldo, componentes, integridad, ensayo,
+  copia externa y cotejos posteriores con sus fechas originales. La cobertura
+  actual queda desconocida; no autoriza restauraciones.
+- API exclusiva de administradores y validación por consola, con límite de
+  tamaño, identidad de instalación, vínculos y errores sanitizados. Sin
+  migraciones, nuevos journals, llamadas fiscales ni pasos por factura.
+- El contrato reutiliza procedencia de operaciones y exige comprobar la
+  recuperación concreta en el plano de control, incluidas escrituras posteriores.
+
 ### Comparación fiscal en recuperación legacy P1
 
 - La recuperación antigua compara moneda, cotización, componentes, IVA,

@@ -3,12 +3,13 @@
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_database_pool_status, get_db
 from app.core.security import get_current_admin_user
 from app.models.usuario import Usuario
@@ -17,10 +18,24 @@ from app.schemas.health import (
     LoteWorkerHealthResponse,
     LoteWorkerRuntimeStatusResponse,
 )
+from app.schemas.recovery import RecoveryHealthResponse
 from app.services.lote_worker import get_lote_worker_status
+from app.services.recovery_evidence_service import recovery_health
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/recovery", response_model=RecoveryHealthResponse)
+async def health_check_recovery(
+    response: Response,
+    _current_admin: Usuario = Depends(get_current_admin_user),
+) -> RecoveryHealthResponse:
+    """Proyecta evidencia histórica privada; no declara cobertura actual."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await recovery_health(
+        settings.recovery_evidence_path, settings.recovery_installation_id
+    )
 
 
 @router.get("")

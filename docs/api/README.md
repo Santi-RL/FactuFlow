@@ -93,8 +93,19 @@ resuelve automáticamente y con varias debe enviar una selección explícita.
 GET /api/health
 GET /api/health/db
 GET /api/health/worker
+GET /api/health/recovery
 GET /
 ```
+
+`GET /api/health/recovery` requiere administrador y proyecta evidencia externa
+de instalación: `status=recorded|not_verified`, motivo, respaldo, propósito,
+código de origen, creación y punto respaldado, componentes, integridad, ensayo,
+copia externa y último cotejo. `current_coverage=unknown` siempre: ningún
+resultado histórico garantiza cobertura actual. Sin evidencia utilizable
+responde `200` con `not_verified`; nunca revela rutas, hashes privados, errores
+crudos ni datos de emisores. Usa `Cache-Control: private, no-store`.
+Contrato en [evidencia de recuperación](../setup/recovery-evidence.md).
+No escribe datos ni ejecuta restauración o llamadas fiscales.
 
 `GET /api/health/worker` requiere un usuario administrador y devuelve una
 allowlist sanitizada con el estado del worker y métricas de los pools `api` y

@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 09/10/2026
+Última revisión: 10/10/2026
 
 Estado: VIGENTE.
 
@@ -184,6 +184,15 @@ replay y reconciliación se conservan. El
 delimita el cierre, independiente de constructor, UI y padrón futuros.
 
 ## Punto de reanudación
+
+PF-11/PF-15 incorpora contrato de evidencia externa y señal administrativa en
+Sistema: creación y punto respaldado separados, componentes, integridad,
+ensayo, copia externa y cotejos históricos. Cobertura actual desconocida;
+sin migraciones, llamadas fiscales, restauraciones ni nuevo journal.
+El [contrato](pf-11-15-recuperacion-trazabilidad-design.md) y su
+[instalación opcional](../setup/recovery-evidence.md) delimitan productor y
+consumidores. Falta acreditar la recuperación de la operación del candidato
+exacto en el plano de control, además de las puertas de release del dossier.
 
 Los parches de reintentos seguros y condición IVA están cerrados en código.
 La evidencia se consulta en sus dossiers; el estado productivo se acredita sólo

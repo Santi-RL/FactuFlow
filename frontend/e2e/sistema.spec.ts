@@ -170,9 +170,12 @@ const mockStorageApi = async (page: Page) => {
   await page.route("**/api/almacenamiento/resumen", async (route) => {
     await fulfillJson(route, storageResumen);
   });
-  await page.route("**/api/almacenamiento/lotes-compactables", async (route) => {
-    await fulfillJson(route, storageLotes);
-  });
+  await page.route(
+    "**/api/almacenamiento/lotes-compactables",
+    async (route) => {
+      await fulfillJson(route, storageLotes);
+    },
+  );
   await page.route("**/api/almacenamiento/logs", async (route) => {
     await fulfillJson(route, storageLogs);
   });
@@ -232,6 +235,108 @@ const mockStorageApi = async (page: Page) => {
   );
 };
 
+test("Sistema > Estado distingue evidencia histórica y descarta evidencia inválida", async ({
+  page,
+}, testInfo) => {
+  await mockApi(page);
+  await mockStorageApi(page);
+  let invalid = false;
+  const unchecked = {
+    result: "not_verified",
+    checked_at: null,
+    components: [],
+    time_precision: "unknown",
+  };
+  await page.route("**/api/health/recovery", async (route) => {
+    await fulfillJson(
+      route,
+      invalid
+        ? {
+            status: "not_verified",
+            reason: "invalid",
+            scope: "installation",
+            current_coverage: "unknown",
+            backup_id: null,
+            purpose: null,
+            source_code_sha: null,
+            created_at: null,
+            captured_at: null,
+            components: [],
+            integrity: unchecked,
+            restore: unchecked,
+            external_copy: unchecked,
+            comparison: null,
+          }
+        : {
+            status: "recorded",
+            reason: "recorded",
+            scope: "installation",
+            current_coverage: "unknown",
+            backup_id: "00000000-0000-4000-8000-000000000002",
+            purpose: "pre_update",
+            source_code_sha: "d".repeat(40),
+            created_at: "2026-01-02T00:30:00Z",
+            captured_at: null,
+            components: [
+              { name: "database", state: "present" },
+              { name: "certificates", state: "missing" },
+            ],
+            integrity: {
+              result: "verified",
+              checked_at: "2026-01-02T01:00:00Z",
+              components: ["database"],
+              time_precision: "instant",
+            },
+            restore: {
+              result: "verified",
+              checked_at: "2026-01-02T01:30:00Z",
+              components: ["database"],
+              time_precision: "instant",
+            },
+            external_copy: unchecked,
+            comparison: {
+              observed_at: "2026-01-03T00:30:00Z",
+              database: "changed",
+              managed_files: "unknown",
+              configuration: "unknown",
+              fiscal_writes: "changed",
+              administrative_writes: "unknown",
+            },
+          },
+    );
+  });
+  await loginAsAdmin(page);
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method()))
+      writes.push(request.url());
+  });
+  await page.getByTestId("nav-sistema").click();
+  const evidence = page.getByTestId("recovery-evidence");
+  await expect(evidence).toContainText("Creado: 01/01/2026, 21:30");
+  await expect(evidence).toContainText("Punto respaldado: Fecha desconocida");
+  await expect(evidence).toContainText("Certificados y claves: Ausente");
+  await expect(evidence).toContainText("Verificado el 01/01/2026, 22:30");
+  await expect(evidence).toContainText(
+    "Actividad fiscal posterior: Cambios detectados",
+  );
+  await expect(evidence).toContainText(
+    "Esta información no autoriza una restauración",
+  );
+  await evidence.screenshot({
+    path: testInfo.outputPath("recovery-evidence.png"),
+  });
+  invalid = true;
+  await page.getByRole("button", { name: "Actualizar" }).click();
+  await expect(evidence).toContainText(
+    "No verificado: no hay evidencia utilizable",
+  );
+  await expect(evidence).not.toContainText(
+    "00000000-0000-4000-8000-000000000002",
+  );
+  expect(writes).toEqual([]);
+});
+
 test("Sistema > Almacenamiento muestra y resguarda datos administrados sin exponer datos sensibles", async ({
   page,
 }) => {
@@ -248,9 +353,9 @@ test("Sistema > Almacenamiento muestra y resguarda datos administrados sin expon
   await expect(page.getByText("Uso medido")).toBeVisible();
   await expect(page.getByText("Lotes compactables")).toBeVisible();
   await expect(page.getByText("Uso por emisor")).toBeVisible();
-  await expect(page.getByText("Emisor demo · CUIT terminado en 6789")).toHaveCount(
-    2,
-  );
+  await expect(
+    page.getByText("Emisor demo · CUIT terminado en 6789"),
+  ).toHaveCount(2);
   await expect(page.getByText("backend-rotado-2026-06.log")).toBeVisible();
   await expect(page.getByText("export-observados-vencido.xlsx")).toBeVisible();
   await expect(page.getByText("certificado-demo-huerfano.crt")).toBeVisible();
@@ -261,14 +366,21 @@ test("Sistema > Almacenamiento muestra y resguarda datos administrados sin expon
   expect(bodyText).not.toContain("C:\\");
   expect(bodyText).not.toContain("/var/");
 
-  await page.getByRole("row", { name: /Lote #501/ }).getByRole("checkbox").check();
+  await page
+    .getByRole("row", { name: /Lote #501/ })
+    .getByRole("checkbox")
+    .check();
   await page.getByLabel(/backend-rotado-2026-06\.log/).check();
   await page.getByLabel(/export-observados-vencido\.xlsx/).check();
   await page.getByRole("button", { name: "Preparar ZIP" }).click();
-  await expect(page.getByText("factuflow-almacenamiento-e2e.zip")).toBeVisible();
+  await expect(
+    page.getByText("factuflow-almacenamiento-e2e.zip"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Descargar resguardo" }).click();
-  await expect(page.getByRole("button", { name: "Liberar espacio" })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Liberar espacio" }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: "Liberar espacio" }).click();
   await expect(page.getByText("Se compactarán o eliminarán")).toBeVisible();
   await Promise.all([

@@ -90,7 +90,7 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   con consultas anticipadas, situación registral fechada y bootstrap sin dependencia circular.
 - PF-04/PF-17/PF-13, implementación futura:
   [notas de crédito y débito guiadas](pf-04-17-notas-guiadas-design.md).
-- PF-11/PF-15, implementación futura:
+- PF-11/PF-15, señal implementada y recuperación por operación pendiente:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:
   [prevención de duplicados en lotes](pf-13-duplicados-lotes-design.md).

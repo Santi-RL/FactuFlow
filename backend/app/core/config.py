@@ -149,6 +149,12 @@ class Settings(BaseSettings):
         default=None, alias="STORAGE_LIMIT_BYTES"
     )
     storage_tmp_path: str = Field(default="./data/tmp", alias="STORAGE_TMP_PATH")
+    recovery_installation_id: Optional[str] = Field(
+        default=None, alias="RECOVERY_INSTALLATION_ID"
+    )
+    recovery_evidence_path: Optional[str] = Field(
+        default=None, alias="RECOVERY_EVIDENCE_PATH"
+    )
     storage_log_retention_days: int = Field(
         default=30, alias="STORAGE_LOG_RETENTION_DAYS"
     )

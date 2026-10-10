@@ -162,6 +162,16 @@ fiscales, migraciones fiscales o aislamiento por emisor, antes debe completarse
 
 ## Durante el despliegue
 
+El [contrato PF-11/PF-15](pf-11-15-recuperacion-trazabilidad-design.md) y el
+[resumen de evidencia](../setup/recovery-evidence.md) vinculan respaldo,
+operación e informes sin duplicar el plano de control. Registrar creación y
+punto/intervalo respaldado por separado; no derivar cobertura del nombre del
+archivo. Un ensayo de base aislada no prueba componentes que no se ensayaron.
+Antes de recuperar, cotejar estados y preservar referencias privadas de las
+operaciones/actores/emisores/resultados posteriores; huellas iguales no
+reconstruyen historia. La señal de Sistema conserva cobertura actual desconocida
+y nunca autoriza restaurar ni reemplaza el respaldo fresco de esa operación.
+
 El despliegue debe hacerse desde la documentación privada del VPS, porque ahí
 están los comandos reales y el contexto del host.
 
@@ -195,8 +205,10 @@ Si aparece una migración que el preflight no había anunciado:
 
 Nunca ejecutar un downgrade automático solo porque el prompt o preflight previo
 fue incorrecto. Si la migración ya quedó aplicada, el rollback debe incluir una
-estrategia explícita para schema y datos; cuando el downgrade sea destructivo o
-incierto, restaurar el backup puede ser más seguro.
+estrategia explícita para schema y datos. Si el downgrade es destructivo o
+incierto, detenerse y evaluar reparación hacia adelante o recuperación específica.
+Un restore requiere una decisión separada y preservar las escrituras y
+autorizaciones posteriores; no es una salida automática.
 
 ## Después del despliegue
 

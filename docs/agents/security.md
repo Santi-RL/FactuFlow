@@ -18,6 +18,13 @@
   evidencia pública.
 
 ## Almacenamiento recomendado
+
+El resumen PF-11/PF-15 es una proyección privada producida por el responsable de
+instalación y validada antes de su publicación atómica. Restringir permisos y
+montar sólo el resumen con lectura para el runtime; nunca el almacén de backups.
+La aplicación valida estructura/vínculos, no los archivos de prueba originales.
+No confundir una proyección declarada con procedencia autenticada de un paquete
+de importación. Formato en [evidencia de recuperación](../setup/recovery-evidence.md).
 - Guardar en el filesystem el certificado y la clave.
 - Crear claves privadas nuevas con permisos restrictivos desde la apertura del
   archivo y cifrarlas antes de persistirlas.

@@ -6,6 +6,7 @@ import almacenamientoService from "@/services/almacenamiento.service";
 import { arcaService } from "@/services/arca.service";
 import sistemaService, {
   type LoteWorkerHealthResponse,
+  type RecoveryHealthResponse,
 } from "@/services/sistema.service";
 import type {
   AlmacenamientoResumen,
@@ -13,6 +14,7 @@ import type {
   LoteCompactable,
 } from "@/types/almacenamiento";
 import SistemaView from "./SistemaView.vue";
+import { useEmpresaStore } from "@/stores/empresa";
 
 vi.mock("@/services/almacenamiento.service", () => ({
   default: {
@@ -41,6 +43,7 @@ vi.mock("@/services/sistema.service", () => ({
     health: vi.fn(),
     databaseHealth: vi.fn(),
     workerHealth: vi.fn(),
+    recoveryHealth: vi.fn(),
   },
 }));
 
@@ -131,6 +134,46 @@ const mockedSistemaService = sistemaService as unknown as {
   health: Mock;
   databaseHealth: Mock;
   workerHealth: Mock;
+  recoveryHealth: Mock;
+};
+
+const recoveryMock: RecoveryHealthResponse = {
+  status: "recorded",
+  reason: "recorded",
+  scope: "installation",
+  current_coverage: "unknown",
+  backup_id: "00000000-0000-4000-8000-000000000002",
+  purpose: "pre_update",
+  source_code_sha: "d".repeat(40),
+  created_at: "2026-01-02T00:30:00Z",
+  captured_at: null,
+  components: [{ name: "database", state: "present" }],
+  integrity: {
+    result: "verified",
+    checked_at: "2026-01-02T01:30:00Z",
+    components: ["database"],
+    time_precision: "instant",
+  },
+  restore: {
+    result: "failed",
+    checked_at: "2026-01-02T01:35:00Z",
+    components: ["database"],
+    time_precision: "instant",
+  },
+  external_copy: {
+    result: "not_verified",
+    checked_at: null,
+    components: [],
+    time_precision: "unknown",
+  },
+  comparison: {
+    observed_at: "2026-01-03T00:30:00Z",
+    database: "changed",
+    managed_files: "unknown",
+    configuration: "unknown",
+    fiscal_writes: "changed",
+    administrative_writes: "changed",
+  },
 };
 
 const apiPoolHealthMock = {
@@ -216,7 +259,9 @@ const mountView = () => {
 };
 
 const buttonByText = (wrapper: ReturnType<typeof mount>, text: string) => {
-  const button = wrapper.findAll("button").find((item) => item.text().includes(text));
+  const button = wrapper
+    .findAll("button")
+    .find((item) => item.text().includes(text));
   if (!button) {
     throw new Error(`No se encontró el botón ${text}`);
   }
@@ -255,6 +300,7 @@ describe("SistemaView", () => {
       message: "Conexión a la base de datos OK",
     });
     mockedSistemaService.workerHealth.mockResolvedValue(workerHealthMock);
+    mockedSistemaService.recoveryHealth.mockResolvedValue(recoveryMock);
     mockedArcaService.getStatus.mockResolvedValue({
       ambiente: "produccion",
       certificado_activo: true,
@@ -276,6 +322,85 @@ describe("SistemaView", () => {
       configurable: true,
     });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  });
+
+  it("separa integridad, ensayo y cambios posteriores sin prometer recuperación actual", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    const evidence = wrapper.get('[data-testid="recovery-evidence"]');
+    expect(evidence.text()).toContain("Creado: 01/01/2026, 21:30");
+    expect(evidence.text()).toContain("Punto respaldado: Fecha desconocida");
+    expect(evidence.text()).toContain("Integridad registrada");
+    expect(evidence.text()).toContain("Verificado el 01/01/2026, 22:30");
+    expect(evidence.text()).toContain("Falló el 01/01/2026, 22:35");
+    expect(evidence.text()).toContain("Certificados y claves: No verificado");
+    expect(evidence.text()).toContain(
+      "Actividad fiscal posterior: Cambios detectados",
+    );
+    expect(evidence.text()).toContain(
+      "cobertura del estado actual no está verificada",
+    );
+    expect(evidence.text()).toContain(
+      "Esta información no autoriza una restauración",
+    );
+    expect(mockedArcaService.testConnection).not.toHaveBeenCalled();
+    expect(mockedService.confirmarLiberacion).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("no conserva un éxito anterior si falla la siguiente lectura", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    mockedSistemaService.recoveryHealth.mockRejectedValueOnce({
+      response: { data: { detail: "/private/MARKER_SECRET" } },
+    });
+    await buttonByText(wrapper, "Actualizar").trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).toContain(
+      "No se pudo consultar la evidencia de recuperación",
+    );
+    expect(
+      wrapper.get('[data-testid="recovery-evidence"]').text(),
+    ).not.toContain(recoveryMock.backup_id);
+    expect(wrapper.text()).not.toContain("MARKER_SECRET");
+    wrapper.unmount();
+  });
+
+  it("descarta una respuesta anterior al cambio de emisor", async () => {
+    let resolveOld!: (value: RecoveryHealthResponse) => void;
+    mockedSistemaService.recoveryHealth.mockImplementationOnce(
+      () =>
+        new Promise<RecoveryHealthResponse>((resolve) => {
+          resolveOld = resolve;
+        }),
+    );
+    const wrapper = mountView();
+    await flushPromises();
+    const store = useEmpresaStore();
+    store.empresaActivaId = 2;
+    await flushPromises();
+    const oldId = "00000000-0000-4000-8000-000000000099";
+    resolveOld({ ...recoveryMock, backup_id: oldId });
+    await flushPromises();
+    expect(wrapper.text()).toContain(recoveryMock.backup_id);
+    expect(wrapper.text()).not.toContain(oldId);
+    wrapper.unmount();
+  });
+
+  it("mantiene evidencia histórica sin cotejo como no verificada", async () => {
+    mockedSistemaService.recoveryHealth.mockResolvedValueOnce({
+      ...recoveryMock,
+      comparison: null,
+    });
+    const wrapper = mountView();
+    await flushPromises();
+    expect(wrapper.text()).toContain(
+      "No verificado: no hay un cotejo registrado",
+    );
+    expect(
+      wrapper.get('[data-testid="estado-sistema-backup"]').text(),
+    ).toContain("Necesita atención");
+    wrapper.unmount();
   });
 
   it("muestra estado operativo sin probar ARCA automáticamente", async () => {
@@ -333,9 +458,7 @@ describe("SistemaView", () => {
 
     const worker = wrapper.get('[data-testid="estado-sistema-worker-lotes"]');
     expect(worker.text()).toContain("No disponible");
-    expect(worker.text()).toContain(
-      "No se pudo consultar el worker de lotes.",
-    );
+    expect(worker.text()).toContain("No se pudo consultar el worker de lotes.");
   });
 
   it("marca el certificado como no disponible si faltan sus archivos locales", async () => {
@@ -380,7 +503,9 @@ describe("SistemaView", () => {
     await buttonByText(wrapper, "Descargar resguardo").trigger("click");
     await flushPromises();
 
-    expect(mockedService.descargarExportacion).toHaveBeenCalledWith("token-seguro");
+    expect(mockedService.descargarExportacion).toHaveBeenCalledWith(
+      "token-seguro",
+    );
     expect(mockedService.confirmarDescarga).toHaveBeenCalledWith(
       "token-seguro",
       "abc123",
@@ -391,6 +516,8 @@ describe("SistemaView", () => {
     await wrapper.find('[data-testid="confirm-action"]').trigger("click");
     await flushPromises();
 
-    expect(mockedService.confirmarLiberacion).toHaveBeenCalledWith("token-seguro");
+    expect(mockedService.confirmarLiberacion).toHaveBeenCalledWith(
+      "token-seguro",
+    );
   });
 });
