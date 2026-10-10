@@ -123,6 +123,9 @@ del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
 
+- PF-04: [IVA y legibilidad de PDF](pf-04-pdf-representacion-fiscal-design.md).
+  Representación de importes guardados, sin recalcular ni reclasificar historia.
+
 - SC-11: [login y reset concurrente](sc-11-login-reset-design.md).
   Sesiones nuevas vinculadas a la credencial verificada, con compatibilidad legacy.
 

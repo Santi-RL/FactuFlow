@@ -230,6 +230,13 @@ unidad se toma del roadmap; fidelidad del receptor, admisibilidad/revisión y
 comparación fiscal legacy P1 están implementadas.
 Este cierre de código no acredita publicación ni despliegue.
 
+La representación PDF discrimina IVA guardado en A y muestra «IVA Contenido»
+en B; los códigos y decimales extensos se ajustan a su celda. No recalcula
+importes ni clasifica tributos históricos sin evidencia. El
+[contrato PDF](pf-04-pdf-representacion-fiscal-design.md) delimita la reparación
+autorizada durante QA. El ensayo previo a esa reparación no certifica el
+candidato final; sus pruebas y pendientes se conservan en el dossier.
+
 Para continuar desarrollo:
 
 1. verificar `git status --short --branch` y sincronía con `origin/main`;

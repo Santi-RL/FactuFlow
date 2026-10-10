@@ -1094,6 +1094,12 @@ genérico accionable; no devuelven excepciones, rutas internas ni credenciales.
 El diagnóstico técnico queda en registros privados. La autorización y el alcance
 por emisor se comprueban antes de generar el documento.
 
+A discrimina el IVA guardado por alícuota; B muestra «IVA Contenido» y el bloque
+de transparencia fiscal. No se reconstruyen bases ni se corrigen importes
+históricos. Otros tributos sin clasificación no se atribuyen a impuestos
+nacionales indirectos; el agregado original permanece visible. C no se declara
+exento. [Contrato de representación](../agents/pf-04-pdf-representacion-fiscal-design.md).
+
 ## Reportes
 
 ```http

@@ -46,6 +46,17 @@ candidato requiere su ensayo aislado y evidencia privada, no una prueba de UI.
    lista/detalle y PDF: moneda nominal y cotización histórica, sin conversión;
    PDF corriente de una página mantiene CAE, fechas e importes legibles.
 
+### IVA y legibilidad de PDF
+
+Descargar A/B/C y notas sintéticas, sin emitir: varias tasas, IVA de un centavo,
+sin detalle y total que difiera de la suma de componentes redondeados.
+Contrastar A por alícuota y B por «IVA Contenido» con lo guardado; no recalcular
+el total ni deducir exención en C. Con otros tributos no cero, verificar que
+la clasificación nacional indirecta se indique desconocida y el agregado se
+conserve. Renderizar las páginas y revisar código ordinario, código largo y
+decimales extensos: sin superposición, recortes ni datos perdidos; QR, CAE,
+fecha y moneda legibles. Una factura corriente debe conservar una página.
+
 ### Instantes operativos y hora argentina
 
 - Abrir el mismo lote con navegadores configurados en Argentina, UTC y otra

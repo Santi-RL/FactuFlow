@@ -300,6 +300,12 @@ Si el comprobante está autorizado, verás:
 
 ### Cómo funciona el PDF hoy
 
+- Los comprobantes A muestran el IVA guardado por alícuota. Los B muestran
+  «IVA Contenido» en el bloque de transparencia fiscal. Los valores pertenecen
+  al comprobante original; no se recalculan al descargar.
+- Si otros tributos históricos no tienen clasificación, el PDF lo indica y
+  conserva el agregado en «Importe Otros Tributos».
+
 - El PDF no se genera automáticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
 - Esto evita guardar archivos innecesarios.
@@ -308,7 +314,8 @@ Si el comprobante está autorizado, verás:
   servidor.
 - El PDF muestra `ORIGINAL`, letra y código de comprobante, emisor, receptor,
   período facturado, detalle, totales, CAE, vencimiento CAE y QR ARCA en una
-  hoja A4 con ubicaciones principales similares a la factura oficial ARCA.
+  formato A4 con ubicaciones principales similares a la factura oficial ARCA.
+  Las facturas corrientes ocupan una hoja; un detalle extenso puede ocupar más.
 - Si el receptor es consumidor final sin documento, el PDF muestra `Doc.: -`,
   y consigna `Condición frente al IVA: Consumidor Final`; el número `0` queda
   como dato técnico para ARCA/QR y no se muestra como documento visible. Si el

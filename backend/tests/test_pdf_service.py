@@ -79,7 +79,7 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
     comprobante.fecha_vto_pago = date(2026, 2, 28)
     comprobante.subtotal = 75000.00
     comprobante.descuento = 0
-    comprobante.iva_21 = 15750.00
+    comprobante.iva_21 = Decimal("15750.00")
     comprobante.iva_10_5 = 0
     comprobante.iva_27 = 0
     comprobante.otros_impuestos = 0
@@ -98,6 +98,119 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
 
 class TestPDFService:
     """Tests para PDFService."""
+
+    @pytest.mark.parametrize("tipo", [1, 2, 3])
+    async def test_pdf_a_discrimina_iva_guardado_sin_reconstruir_bases(
+        self, pdf_service, comprobante_mock, empresa_mock, tipo
+    ):
+        comprobante_mock.tipo_comprobante = tipo
+        comprobante_mock.subtotal = Decimal("46.06")
+        comprobante_mock.iva_10_5 = Decimal("0.01")
+        comprobante_mock.iva_21 = Decimal("9.45")
+        comprobante_mock.iva_27 = Decimal("0.27")
+        comprobante_mock.total = Decimal("55.78")
+        pdf = await pdf_service.generar_pdf_comprobante(comprobante_mock, empresa_mock)
+        documento = PdfReader(BytesIO(pdf))
+        assert len(documento.pages) == 1
+        texto = documento.pages[0].extract_text()
+        for esperado in [
+            "IVA 10,5 %: 0,01",
+            "IVA 21 %: 9,45",
+            "IVA 27 %: 0,27",
+            "IVA total: 9,73",
+            "Importe Total: 55,78",
+            comprobante_mock.cae,
+        ]:
+            assert esperado in texto
+        assert "IVA Contenido" not in texto
+        assert comprobante_mock.total == Decimal("55.78")
+
+    @pytest.mark.parametrize("tipo", [6, 7, 8])
+    @pytest.mark.parametrize("otros", [Decimal("0"), Decimal("12.34")])
+    async def test_pdf_b_iva_contenido_y_tributos_sin_clasificacion_inventada(
+        self, pdf_service, comprobante_mock, empresa_mock, tipo, otros
+    ):
+        comprobante_mock.tipo_comprobante = tipo
+        comprobante_mock.otros_impuestos = otros
+        comprobante_mock.iva_21 = Decimal("9007199254740992.01")
+        comprobante_mock.iva_10_5 = Decimal("0.02")
+        comprobante_mock.iva_27 = Decimal("0.04")
+        with localcontext() as contexto:
+            contexto.prec = 8
+            pdf = await pdf_service.generar_pdf_comprobante(
+                comprobante_mock, empresa_mock
+            )
+        texto = " ".join(
+            " ".join(p.extract_text().split()) for p in PdfReader(BytesIO(pdf)).pages
+        )
+        assert "Ley 27.743" in texto
+        assert "IVA Contenido: 9.007.199.254.740.992,07" in texto
+        assert "Otros Impuestos Nacionales Indirectos:" in texto
+        if otros:
+            assert "No discriminados en los datos guardados" in texto
+            assert "Importe Otros Tributos: 12,34" in texto
+        else:
+            assert "Otros Impuestos Nacionales Indirectos: 0,00" in texto
+        assert "IVA 21 %:" not in texto
+
+    @pytest.mark.parametrize("tipo", [11, 12, 13])
+    async def test_pdf_c_no_inventa_iva_ni_exencion(
+        self, pdf_service, comprobante_mock, empresa_mock, tipo
+    ):
+        comprobante_mock.tipo_comprobante = tipo
+        comprobante_mock.iva_21 = Decimal("0")
+        pdf = await pdf_service.generar_pdf_comprobante(comprobante_mock, empresa_mock)
+        texto = " ".join(p.extract_text() for p in PdfReader(BytesIO(pdf)).pages)
+        assert "IVA Contenido" not in texto and "IVA total" not in texto
+        assert "Exento" not in texto
+        assert "90.750,00" in texto
+
+    @pytest.mark.parametrize("codigo", ["SINTETICO-2", "S" * 101])
+    async def test_pdf_detalle_no_desborda_celdas_ni_recorta_decimales(
+        self, pdf_service, comprobante_mock, empresa_mock, monkeypatch, codigo
+    ):
+        comprobante_mock.items = [
+            SimpleNamespace(
+                codigo=codigo,
+                descripcion="Descripción sintética con descuento",
+                cantidad=Decimal("1.00005"),
+                unidad="unidades",
+                precio_unitario=Decimal("0.1234567890123456789012345678"),
+                descuento_porcentaje=Decimal("0.00123"),
+                subtotal=Decimal("0.12"),
+            )
+        ]
+        documentos = []
+
+        def escribir_pdf(html, *, stylesheets):
+            documento = html.render(stylesheets=stylesheets)
+            documentos.append(documento)
+            return documento.write_pdf()
+
+        monkeypatch.setattr(HTML, "write_pdf", escribir_pdf)
+        pdf = await pdf_service.generar_pdf_comprobante(comprobante_mock, empresa_mock)
+        assert len(PdfReader(BytesIO(pdf)).pages) == 1
+        filas = [
+            caja
+            for pagina in documentos[0].pages
+            for caja in pagina._page_box.descendants()
+            if caja.__class__.__name__ == "GridBox"
+            and caja.element.get("class") == "item-row"
+        ]
+        assert len(filas) == 1
+        contenidos = []
+        for celda in filas[0].children:
+            textos = [
+                c for c in celda.descendants() if c.__class__.__name__ == "TextBox"
+            ]
+            contenidos.append("".join(t.text for t in textos))
+            for texto in textos:
+                assert texto.position_x >= celda.content_box_x() - 0.1
+                assert texto.position_x + texto.width <= (
+                    celda.content_box_x() + celda.width + 0.1
+                )
+        assert contenidos[0] == codigo
+        assert contenidos[4] == "0,1234567890123456789012345678"
 
     @pytest.mark.parametrize(
         "tipo,numero,etiqueta",
@@ -165,7 +278,7 @@ class TestPDFService:
             page.extract_text() for page in PdfReader(BytesIO(pdf)).pages
         )
         assert "1,00005" in rendered
-        assert "0,1234567890123456789012345678" in rendered
+        assert "0,1234567890123456789012345678" in rendered.replace("\n", "")
         assert "0,00123" in rendered
         assert "9.007.199.254.740.992,01" in rendered
 
