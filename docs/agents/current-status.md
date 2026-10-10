@@ -13,11 +13,11 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.7`.
+- La release publicada más reciente es `v0.3.8`.
 - Los productores técnicos y visibles de versión usan `0.3.8`; el
   [dossier del corte](../project/releases/v0.3.8-candidate.md) delimita su
-  publicación y recuperación. La identidad técnica no acredita un tag ni
-  modifica el estado de una instalación.
+  publicación comprobada y recuperación. La identidad técnica o la publicación
+  no modifican el estado de una instalación.
 - El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
   de esquema para PostgreSQL.
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
@@ -184,6 +184,11 @@ replay y reconciliación se conservan. El
 delimita el cierre, independiente de constructor, UI y padrón futuros.
 
 ## Punto de reanudación
+
+`v0.3.8` está publicada, con CI, ensayo aislado y QA contable aprobados.
+El siguiente cierre es el preflight de la instalación real y su recuperación
+preoperación. El despliegue requiere una decisión separada; su estado y evidencia
+permanecen en el plano de control.
 
 SC-11 vincula las sesiones nuevas a la credencial verificada, cierra el acceso
 tras un reset concurrente y conserva las sesiones legacy válidas y los
