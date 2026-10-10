@@ -123,6 +123,9 @@ del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
 
+- SC-11: [login y reset concurrente](sc-11-login-reset-design.md).
+  Sesiones nuevas vinculadas a la credencial verificada, con compatibilidad legacy.
+
 - PF-13 P1: [fidelidad del receptor](pf-13-receptores-importacion-design.md).
   Conserva identificación y condición explícitas; transición autorizada para
   nuevas importaciones, sin reescribir lotes ni huellas históricas. Constructor,

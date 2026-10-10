@@ -185,6 +185,12 @@ delimita el cierre, independiente de constructor, UI y padrón futuros.
 
 ## Punto de reanudación
 
+SC-11 vincula las sesiones nuevas a la credencial verificada, cierra el acceso
+tras un reset concurrente y conserva las sesiones legacy válidas y los
+procedimientos de recuperación. [Contrato y límites](sc-11-login-reset-design.md).
+El siguiente cierre del candidato es su ensayo y QA exactos, no una nueva
+capacidad P2. La corrección no acredita despliegue ni cierre remoto del finding.
+
 PF-11/PF-15 incorpora contrato de evidencia externa y señal administrativa en
 Sistema: creación y punto respaldado separados, componentes, integridad,
 ensayo, copia externa y cotejos históricos. Cobertura actual desconocida;
