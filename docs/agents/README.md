@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 09/10/2026
+Última revisión: 10/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.

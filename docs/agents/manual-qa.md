@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 09/10/2026
+Última revisión: 10/10/2026
 
 Estado: VIGENTE.
 
