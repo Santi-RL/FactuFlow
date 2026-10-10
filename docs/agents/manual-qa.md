@@ -218,6 +218,12 @@ con respuestas HTTP simuladas no reemplaza esas pruebas.
 
 ### Multiemisor
 
+- Con cuentas sintéticas, iniciar sesión, restablecer la contraseña desde un
+  administrador y comprobar que la sesión anterior queda rechazada. Entrar con
+  la nueva contraseña y verificar los mismos permisos y emisores. Repetir el
+  procedimiento por consola en una instalación aislada. No usar cuentas reales
+  para ensayar las carreras SC-11: se demuestran con PostgreSQL descartable en
+  la matriz automatizada de su [contrato](sc-11-login-reset-design.md).
 - preparar un administrador, un operador asignado a A/B y un emisor C no
   asignado, todos sintéticos;
 - comprobar cero, uno y varios accesos: login permitido sin accesos, selección

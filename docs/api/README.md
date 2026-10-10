@@ -36,6 +36,12 @@ los rechazos no prolongan la ventana. Las credenciales incorrectas siguen
 respondiendo `401` y las cuentas inactivas `403` cuando hay presupuesto.
 Límites, origen y recuperación en el [contrato SC-08](../agents/sc-08-login-recuperacion-design.md).
 
+Las sesiones nuevas se vinculan a la credencial verificada. Un restablecimiento
+concurrente invalida el acceso con la contraseña anterior, incluso si el token
+se genera después. Cuando el cambio se detecta durante el login, responde el
+mismo `401` genérico. Los tokens legacy válidos conservan su compatibilidad;
+alcance en [SC-11](../agents/sc-11-login-reset-design.md).
+
 ```http
 POST /api/auth/login
 Content-Type: application/json

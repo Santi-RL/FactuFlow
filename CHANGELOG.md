@@ -18,6 +18,15 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Sesiones y restablecimiento concurrente SC-11
+
+- Cada sesión nueva queda vinculada a la credencial realmente verificada. Un
+  login con la contraseña anterior no concede acceso después de un reset
+  concurrente, aunque el token se genere más tarde.
+- Conservadas las sesiones legacy válidas, la revocación temporal, los límites
+  SC-08 y ambos métodos de recuperación sin alterar permisos ni datos. Sin
+  migraciones; [contrato y límites](docs/agents/sc-11-login-reset-design.md).
+
 ### Evidencia de recuperación PF-11/PF-15
 
 - Sistema muestra resumen privado de respaldo, componentes, integridad, ensayo,
