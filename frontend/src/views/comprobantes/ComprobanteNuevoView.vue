@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { decimalEsPositivo, type FiscalDecimal } from "@/utils/fiscal-decimal";
+import {
+  decimalEsPositivo,
+  formatearDecimalFiscal,
+  type FiscalDecimal,
+} from "@/utils/fiscal-decimal";
+import comprobantesService from "@/services/comprobantes.service";
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
@@ -30,6 +35,7 @@ import type {
   EmitirComprobanteRequest,
   EmitirComprobanteResponse,
   ProximoNumeroResponse,
+  PrevisualizacionComprobanteResponse,
 } from "@/types/comprobante";
 import {
   TIPOS_COMPROBANTE,
@@ -88,6 +94,33 @@ const formData = ref({
 // Estados
 const loading = ref(false);
 const mostrarPreview = ref(false);
+const revisandoImportes = ref(false);
+const revisionImportes = ref<{
+  request: EmitirComprobanteRequest;
+  resultado: PrevisualizacionComprobanteResponse;
+} | null>(null);
+let revisionRequestId = 0;
+const huellaFiscalRevision = (request: EmitirComprobanteRequest): string => {
+  const {
+    confirmacion_fecha_fiscal,
+    confirmacion_duplicado_logico,
+    observaciones,
+    guardar_cliente,
+    ...fiscal
+  } = request;
+  return JSON.stringify(fiscal);
+};
+const totalesRevisados = computed(() => ({
+  subtotal: revisionImportes.value?.resultado.subtotal ?? "0.00",
+  iva21: revisionImportes.value?.resultado.iva_21 ?? "0.00",
+  iva105: revisionImportes.value?.resultado.iva_10_5 ?? "0.00",
+  iva27: revisionImportes.value?.resultado.iva_27 ?? "0.00",
+  total: revisionImportes.value?.resultado.total ?? "0.00",
+}));
+const datosVistaPrevia = computed(() => ({
+  ...formData.value,
+  cliente: revisionImportes.value?.resultado.receptor ?? formData.value.cliente,
+}));
 const mostrarCancelacion = ref(false);
 const mostrarConfirmacionFechaFiscal = ref(false);
 const mostrarConfirmacionDuplicadoLogico = ref(false);
@@ -203,6 +236,9 @@ const crearSnapshotInmutable = (
 const resetearIdempotencyKeyEmision = (forzar = false) => {
   if (operacionIncierta.value && !forzar) return;
 
+  revisionRequestId++;
+  revisionImportes.value = null;
+  revisandoImportes.value = false;
   mostrarPreview.value = false;
   mostrarConfirmacionFechaFiscal.value = false;
   idempotencyKeyEmision.value = null;
@@ -269,11 +305,13 @@ const normalizarRespuestaReconciliacion = (
         : request.fecha_emision,
     cae,
     cae_vencimiento: caeVencimiento,
-    total: typeof detail.total === "string" && /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(detail.total)
-      ? detail.total
-      : typeof detail.total === "number" && Number.isFinite(detail.total)
+    total:
+      typeof detail.total === "string" &&
+      /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(detail.total)
         ? detail.total
-        : totalPlanificado,
+        : typeof detail.total === "number" && Number.isFinite(detail.total)
+          ? detail.total
+          : totalPlanificado,
     mensaje:
       "FactuFlow no puede confirmar todavía el resultado fiscal de esta operación.",
     errores: [
@@ -299,7 +337,9 @@ const registrarOperacionIncierta = (
     (respuesta.numero > 0 ? respuesta.numero : proximoNumero.value);
   const totalPlanificado =
     operacionPrevia?.totalPlanificado ??
-    (decimalEsPositivo(respuesta.total) ? respuesta.total : totales.value.total);
+    (decimalEsPositivo(respuesta.total)
+      ? respuesta.total
+      : totales.value.total);
 
   operacionIncierta.value = Object.freeze({
     idempotencyKey: operacionPrevia?.idempotencyKey ?? idempotencyKey,
@@ -388,7 +428,16 @@ watch(
   },
 );
 
-watch(formData, () => resetearIdempotencyKeyEmision(), { deep: true });
+watch(
+  () => huellaFiscalRevision(construirRequestEmision()),
+  () => resetearIdempotencyKeyEmision(),
+);
+watch(
+  () => formData.value.observaciones,
+  () => {
+    if (!operacionIncierta.value) idempotencyKeyEmision.value = null;
+  },
+);
 
 const manejarBeforeUnload = (event: BeforeUnloadEvent) => {
   if (!operacionIncierta.value) return;
@@ -401,6 +450,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  revisionRequestId++;
   window.removeEventListener("beforeunload", manejarBeforeUnload);
 });
 
@@ -458,10 +508,19 @@ watch(mostrarFechasServicios, (requiereFechas) => {
   formData.value.fecha_vto_pago = "";
 });
 
-const importesItems = computed(() => calcularImportesItems(formData.value.items));
-const totales = computed(() => importesItems.value.totales ?? {
-  subtotal: 0, iva21: 0, iva105: 0, iva27: 0, total: 0,
-});
+const importesItems = computed(() =>
+  calcularImportesItems(formData.value.items),
+);
+const totales = computed(
+  () =>
+    importesItems.value.totales ?? {
+      subtotal: 0,
+      iva21: 0,
+      iva105: 0,
+      iva27: 0,
+      total: 0,
+    },
+);
 
 const formularioValido = computed(() => {
   return (
@@ -616,7 +675,9 @@ const actualizarProximoNumero = async () => {
   }
 };
 
-const abrirVistaPrevia = () => {
+const abrirVistaPrevia = async () => {
+  if (loading.value || formularioBloqueado.value || revisandoImportes.value)
+    return;
   if (consultandoProximoNumero.value) {
     showWarning(
       "Numeración en proceso",
@@ -642,36 +703,73 @@ const abrirVistaPrevia = () => {
     return;
   }
 
-  mostrarPreview.value = true;
+  const request = crearSnapshotInmutable(construirRequestEmision());
+  const huella = huellaFiscalRevision(request);
+  const requestId = ++revisionRequestId;
+  revisandoImportes.value = true;
+  revisionImportes.value = null;
+  mostrarPreview.value = false;
+  const sigueVigente = () =>
+    requestId === revisionRequestId &&
+    huella === huellaFiscalRevision(construirRequestEmision());
+  try {
+    const resultado = await comprobantesService.previsualizar({
+      ...request,
+      confirmacion_fecha_fiscal: false,
+      confirmacion_duplicado_logico: false,
+    });
+    if (!sigueVigente()) return;
+    revisionImportes.value = { request, resultado };
+    mostrarPreview.value = true;
+  } catch (error: unknown) {
+    if (!sigueVigente()) return;
+    const detail =
+      esRegistroDesconocido(error) &&
+      esRegistroDesconocido(error.response) &&
+      esRegistroDesconocido(error.response.data)
+        ? error.response.data.detail
+        : null;
+    showError(
+      "No se pudo revisar el comprobante",
+      mensajeErrorItemsApi(detail) ??
+        (typeof detail === "string"
+          ? detail
+          : "Revisá los datos e intentá abrir la vista previa nuevamente."),
+    );
+  } finally {
+    if (requestId === revisionRequestId) revisandoImportes.value = false;
+  }
 };
 
 const solicitarConfirmacionFechaFiscal = () => {
   mostrarConfirmacionFechaFiscal.value = true;
 };
 
-const construirRequestEmision = (): EmitirComprobanteRequest => ({
-  empresa_id: empresaId.value,
-  punto_venta_id: formData.value.punto_venta_id,
-  tipo_comprobante: formData.value.tipo_comprobante,
-  concepto: Number(formData.value.concepto),
-  fecha_emision: formData.value.fecha_emision,
-  confirmacion_fecha_fiscal: true,
-  confirmacion_duplicado_logico: confirmacionDuplicadoLogico.value,
-  cliente_id: formData.value.cliente.cliente_id,
-  tipo_documento: formData.value.cliente.tipo_documento,
-  numero_documento: formData.value.cliente.numero_documento,
-  razon_social: formData.value.cliente.razon_social,
-  condicion_iva: formData.value.cliente.condicion_iva,
-  domicilio: formData.value.cliente.domicilio,
-  guardar_cliente: true,
-  items: crearItemsEmision(formData.value.items),
-  fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
-  fecha_servicio_hasta: formData.value.fecha_servicio_hasta || undefined,
-  fecha_vto_pago: formData.value.fecha_vto_pago || undefined,
-  observaciones: formData.value.observaciones || undefined,
-  moneda: "PES",
-  cotizacion: 1,
-});
+function construirRequestEmision(): EmitirComprobanteRequest {
+  return {
+    empresa_id: empresaId.value,
+    punto_venta_id: formData.value.punto_venta_id,
+    tipo_comprobante: formData.value.tipo_comprobante,
+    concepto: Number(formData.value.concepto),
+    fecha_emision: formData.value.fecha_emision,
+    confirmacion_fecha_fiscal: true,
+    confirmacion_duplicado_logico: confirmacionDuplicadoLogico.value,
+    cliente_id: formData.value.cliente.cliente_id,
+    tipo_documento: formData.value.cliente.tipo_documento,
+    numero_documento: formData.value.cliente.numero_documento,
+    razon_social: formData.value.cliente.razon_social,
+    condicion_iva: formData.value.cliente.condicion_iva,
+    domicilio: formData.value.cliente.domicilio,
+    guardar_cliente: true,
+    items: crearItemsEmision(formData.value.items),
+    fecha_servicio_desde: formData.value.fecha_servicio_desde || undefined,
+    fecha_servicio_hasta: formData.value.fecha_servicio_hasta || undefined,
+    fecha_vto_pago: formData.value.fecha_vto_pago || undefined,
+    observaciones: formData.value.observaciones || undefined,
+    moneda: "PES",
+    cotizacion: 1,
+  };
+}
 
 const ejecutarEmision = async (
   request: EmitirComprobanteRequest,
@@ -693,7 +791,7 @@ const ejecutarEmision = async (
   const numeroPlanificado =
     operacionIncierta.value?.numeroPlanificado ?? proximoNumero.value;
   const totalPlanificado =
-    operacionIncierta.value?.totalPlanificado ?? totales.value.total;
+    operacionIncierta.value?.totalPlanificado ?? totalesRevisados.value.total;
 
   try {
     const resultado = await comprobantesStore.emitirComprobante(
@@ -717,7 +815,7 @@ const ejecutarEmision = async (
       finalizarOperacionIncierta();
       showSuccess(
         "Comprobante emitido",
-        `CAE ${resultado.cae || "sin informar"} | Total $${Number(resultado.total).toFixed(2)}`,
+        `CAE ${resultado.cae || "sin informar"} | Total $${formatearDecimalFiscal(resultado.total, 2)}`,
       );
 
       if (resultado.comprobante_id) {
@@ -813,8 +911,9 @@ const ejecutarEmision = async (
       return;
     }
 
-    const mensaje = mensajeErrorItemsApi(detail) ?? (
-      esRegistroDesconocido(detail) && typeof detail.mensaje === "string"
+    const mensaje =
+      mensajeErrorItemsApi(detail) ??
+      (esRegistroDesconocido(detail) && typeof detail.mensaje === "string"
         ? detail.mensaje
         : "Ocurrió un error inesperado. Revisá los datos e intentá nuevamente.");
     showError("Error al emitir comprobante", mensaje);
@@ -828,11 +927,23 @@ const confirmarEmision = async () => {
   if (!formularioValido.value) {
     showWarning(
       "Revisá los datos antes de emitir",
-      importesItems.value.error ?? "Completá los datos obligatorios y revisá la vista previa.",
+      importesItems.value.error ??
+        "Completá los datos obligatorios y revisá la vista previa.",
     );
     return;
   }
   const request = construirRequestEmision();
+  if (
+    !revisionImportes.value ||
+    huellaFiscalRevision(request) !==
+      huellaFiscalRevision(revisionImportes.value.request)
+  ) {
+    showWarning(
+      "Revisá el comprobante",
+      "Abrí la vista previa antes de confirmar la emisión.",
+    );
+    return;
+  }
   await ejecutarEmision(request, obtenerIdempotencyKeyEmision(), false);
 };
 
@@ -1255,7 +1366,7 @@ const confirmarCancelacion = () => {
       />
 
       <!-- Sección 4: Totales -->
-      <BaseCard title="💰 Totales">
+      <BaseCard title="💰 Importes estimados">
         <TotalesPanel
           v-if="!importesItems.error"
           :subtotal="totales.subtotal"
@@ -1298,18 +1409,28 @@ const confirmarCancelacion = () => {
         <button
           type="button"
           data-testid="comprobante-vista-previa"
-          :disabled="!formularioValido || formularioBloqueado"
+          :disabled="
+            !formularioValido ||
+              formularioBloqueado ||
+              revisandoImportes ||
+              loading
+          "
           class="inline-flex items-center gap-2 px-6 py-2 text-blue-700 bg-blue-50 border border-blue-300 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="abrirVistaPrevia"
         >
           <EyeIcon class="h-5 w-5" />
-          Vista Previa
+          {{ revisandoImportes ? "Revisando importes..." : "Vista Previa" }}
         </button>
 
         <button
           type="submit"
           data-testid="comprobante-emitir"
-          :disabled="!formularioValido || loading || formularioBloqueado"
+          :disabled="
+            !formularioValido ||
+              loading ||
+              formularioBloqueado ||
+              revisandoImportes
+          "
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <PaperAirplaneIcon class="h-5 w-5" />
@@ -1320,9 +1441,10 @@ const confirmarCancelacion = () => {
 
     <!-- Modal de vista previa -->
     <ComprobantePreview
-      v-if="mostrarPreview"
-      :form-data="formData"
-      :totales="totales"
+      v-if="mostrarPreview && revisionImportes"
+      :form-data="datosVistaPrevia"
+      :totales="totalesRevisados"
+      :subtotales-items="revisionImportes.resultado.subtotales_items"
       :proximo-numero="proximoNumero"
       :punto-venta-numero="puntoVentaSeleccionado?.numero || null"
       :empresa="empresaActiva"

@@ -651,6 +651,12 @@ fecha explícita, duplicados, idempotencia y reconciliación.
 
 ## Hallazgos técnicos de integración solucionados
 
+- Admisibilidad y revisión P1 usan el cálculo decimal PF-03B para nuevas
+  solicitudes y admiten sólo 0 %, 10,5 %, 21 % y 27 %. Rechazan tasas sin
+  soporte antes de CAE y conservan lectura/hashes históricos. El endpoint de
+  revisión no consulta WSAA/WSFE ni reserva numeración; lotes incluyen IVA 27 %.
+  Tasa cero no se presenta como exento. El [contrato](pf-03-04-importes-previsualizacion-design.md)
+  separa este cierre de categorías P2; no cambia SOAP ni tolerancias de ARCA.
 - Cache WSAA antes solo en memoria; ahora persiste en `backend/data/arca_token_cache.json`.
 - Los importes del request `FECAESolicitar` deben cuantizarse con
   `Decimal("0.01")` y redondeo `ROUND_HALF_UP` antes del payload SOAP. No usar

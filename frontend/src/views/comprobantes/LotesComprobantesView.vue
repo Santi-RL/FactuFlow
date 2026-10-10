@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { formatearMoneda } from "@/composables/useFormatters";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import DuplicadosLoteDialog from "@/components/comprobantes/DuplicadosLoteDialog.vue";
@@ -661,6 +668,7 @@ const totalesListosParaEmitir = computed(() => {
     neto: totales?.neto || 0,
     iva21: totales?.iva21 || 0,
     iva105: totales?.iva105 || 0,
+    iva27: totales?.iva27 || 0,
     total: totales?.total || 0,
     valoresInvalidos: totales?.valores_invalidos || 0,
   };
@@ -1865,7 +1873,9 @@ const reintentarFallidos = async () => {
     if (!contextoSolicitudDuplicadosVigente(contexto)) return;
     inicioProcesamientoLocal.value = new Date();
     showSuccess(
-      ["en_cola", "procesando"].includes(resultado.lote.estado) ? "Reintento iniciado" : "Reintento finalizado",
+      ["en_cola", "procesando"].includes(resultado.lote.estado)
+        ? "Reintento iniciado"
+        : "Reintento finalizado",
       resultado.mensaje,
     );
     await refrescarLoteDespuesAccion(loteId);
@@ -3349,7 +3359,7 @@ onBeforeUnmount(() => {
                 </p>
               </div>
 
-              <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <div
                   class="rounded-lg border border-border-subtle bg-surface-card p-3"
                 >
@@ -3384,6 +3394,16 @@ onBeforeUnmount(() => {
                   class="rounded-lg border border-border-subtle bg-surface-card p-3"
                 >
                   <p class="text-xs font-medium uppercase text-brand-slate">
+                    IVA 27 %
+                  </p>
+                  <p class="mt-1 text-lg font-semibold text-brand-ink">
+                    {{ formatMoney(totalesListosParaEmitir.iva27) }}
+                  </p>
+                </div>
+                <div
+                  class="rounded-lg border border-border-subtle bg-surface-card p-3"
+                >
+                  <p class="text-xs font-medium uppercase text-brand-slate">
                     Total
                   </p>
                   <p class="mt-1 text-lg font-semibold text-brand-ink">
@@ -3396,9 +3416,9 @@ onBeforeUnmount(() => {
                 type="warning"
                 class="mt-4"
               >
-                Hay importes con un formato ambiguo en
-                {{ totalesListosParaEmitir.valoresInvalidos }} fila(s)
-                validada(s). Revisá el Excel y volvé a validar antes de emitir.
+                Hay importes o tasas de IVA que requieren corrección en
+                {{ totalesListosParaEmitir.valoresInvalidos }} comprobante(s)
+                pendiente(s). Revisá el Excel y volvé a validar antes de emitir.
               </BaseAlert>
             </div>
 

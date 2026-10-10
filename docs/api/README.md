@@ -386,6 +386,26 @@ usar `POST /api/comprobantes/emitir` o el flujo de lotes, que aplican
 idempotencia, persistencia de intento fiscal y confirmación irreversible antes
 de solicitar CAE.
 
+## Revisión de importes P1
+
+`POST /api/comprobantes/previsualizar` acepta el body de emisión sin exigir
+`confirmacion_fecha_fiscal=true` ni `X-Idempotency-Key`. Usa los permisos y el
+emisor activo de emisión, valida pertenencia de punto/cliente y reglas locales.
+Responde `subtotal`, `iva_21`, `iva_10_5`, `iva_27`, `total`, `subtotales_items`,
+`moneda`, `cotizacion` y `receptor` efectivo. Los importes son strings decimales;
+errores de negocio usan 400 y errores de contrato 422. No consulta WSAA,
+RECE, padrón o numeración ni escribe clientes, comprobantes u operaciones.
+No solicita CAE ni reserva un número.
+
+Nuevas emisiones admiten 0 %, 10,5 %, 21 % y 27 %. Tasas sin soporte requieren
+corrección por ítem/fila; no se reinterpretan como cero. La emisión revalida
+antes de CAE, también en worker/reintento. Lookup y replay existentes preceden
+a las validaciones nuevas; snapshots históricos conservan su schema y hash.
+Los resúmenes de pendientes incluyen `iva27` y suman los resultados fiscales de
+cada comprobante, sin usar `total_estimado` como autoridad. Cero en A/B representa
+tasa cero gravada; C conserva su regla sin IVA. Exento/no gravado/tributos siguen
+fuera de la preparación actual. [Contrato P1](../agents/pf-03-04-importes-previsualizacion-design.md).
+
 ## Decimales fiscales y compatibilidad A-01
 
 Las lecturas de comprobantes e ítems, totales de lotes y reportes representan

@@ -11,6 +11,25 @@ class ItemImportes(Protocol):
     iva_porcentaje: Decimal
 
 
+ALICUOTAS_IVA_SOPORTADAS = frozenset(
+    (Decimal("0"), Decimal("10.5"), Decimal("21"), Decimal("27"))
+)
+
+
+def preparar_importes(items: Iterable[ItemImportes]) -> dict[str, Decimal]:
+    """Prepara emisiones nuevas sin reinterpretar tasas ni cambiar la lectura histórica."""
+    items = list(items)
+    for index, item in enumerate(items, start=1):
+        if item.iva_porcentaje not in ALICUOTAS_IVA_SOPORTADAS:
+            tasa = str(item.iva_porcentaje).replace(".", ",")
+            raise ValueError(
+                f"El ítem {index} tiene IVA {tasa} % sin soporte. "
+                "Las tasas soportadas son 0 %, 10,5 %, 21 % y 27 %. "
+                "Corregí el ítem antes de emitir."
+            )
+    return calcular_totales(items)
+
+
 def calcular_totales(items: Iterable[ItemImportes]) -> dict[str, Decimal]:
     """Conserva operaciones y redondeo fiscal; rechaza importes no calculables."""
     subtotal = Decimal("0")

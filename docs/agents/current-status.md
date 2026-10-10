@@ -141,7 +141,12 @@ prioridades y horizontes diferentes. Los diseños futuros no describen
 capacidades implementadas. La revisión visual local acordada para la UI de
 lotes permanece en su diseño y precede a la publicación de esa implementación.
 
-Está aceptada la planificación integrada de importes/previsualización,
+El P1 de admisibilidad y revisión está implementado: tasas soportadas explícitas,
+vista previa decimal desde backend y resumen de lotes con IVA 27 %. Preserva
+redondeos, hashes, autorizados y reconciliación; categorías completas siguen P2.
+Contrato en [importes/previsualización](pf-03-04-importes-previsualizacion-design.md).
+
+Está aceptada la planificación integrada de ampliación de importes/previsualización,
 reconciliación integral, WSAA coordinado/cifrado, padrón para clientes y emisores,
 y notas guiadas. Los ensayos justifican cortes fiscales acotados y el uso de
 padrón anticipado, con fuente fechada y sin consulta obligatoria en el tramo de
@@ -198,8 +203,8 @@ permisos. El contrato de código incorpora presupuesto previo a bcrypt y
 restablecimiento por consola de cuentas existentes; límites en
 [SC-08](sc-08-login-recuperacion-design.md), alcance y puertas de publicación en el
 [dossier del candidato](../project/releases/v0.3.8-candidate.md). La siguiente
-unidad fiscal del roadmap sigue siendo PF-13: fidelidad del receptor en
-importación fiscal.
+unidad fiscal se toma del roadmap; fidelidad del receptor y admisibilidad/revisión
+P1 están implementadas.
 Este cierre de código no acredita publicación ni despliegue.
 
 Para continuar desarrollo:

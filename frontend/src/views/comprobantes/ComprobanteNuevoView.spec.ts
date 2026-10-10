@@ -14,6 +14,7 @@ import type {
   EmitirComprobanteRequest,
   EmitirComprobanteResponse,
   ProximoNumeroResponse,
+  PrevisualizacionComprobanteResponse,
 } from "@/types/comprobante";
 import type { Empresa } from "@/types/empresa";
 import type { PuntoVenta } from "@/types/punto_venta";
@@ -32,6 +33,7 @@ vi.mock("@/services/comprobantes.service", () => ({
     emitir: vi.fn(),
     obtener: vi.fn(),
     proximoNumero: vi.fn(),
+    previsualizar: vi.fn(),
   },
 }));
 
@@ -136,6 +138,7 @@ const deferred = <T>() => {
 const mockedComprobantesService = comprobantesService as unknown as {
   proximoNumero: Mock;
   emitir: Mock;
+  previsualizar: Mock;
 };
 const mockedPuntosVentaService = puntosVentaService as unknown as {
   getAll: Mock;
@@ -155,6 +158,7 @@ interface ComprobanteNuevoViewModel {
     items: EmitirComprobanteRequest["items"];
   };
   confirmarEmision: () => Promise<void>;
+  abrirVistaPrevia: () => Promise<void>;
   verificarEstado: () => Promise<void>;
   loading: boolean;
   idempotencyKeyEmision: string | null;
@@ -213,6 +217,7 @@ const completarFormulario = async (
     },
   ];
   await flushPromises();
+  await vm.abrirVistaPrevia();
   return vm;
 };
 
@@ -259,6 +264,184 @@ const mountView = async () => {
 describe("ComprobanteNuevoView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedComprobantesService.previsualizar
+      .mockReset()
+      .mockImplementation(
+        async (
+          request: EmitirComprobanteRequest,
+        ): Promise<PrevisualizacionComprobanteResponse> => ({
+          subtotal: "100.00",
+          iva_21: "21.00",
+          iva_10_5: "0.00",
+          iva_27: "0.00",
+          total: "121.00",
+          subtotales_items: ["100.00"],
+          moneda: request.moneda,
+          cotizacion: "1",
+          receptor: request,
+        }),
+      );
+  });
+
+  it("P1 revisa con importes decimales backend y no consulta por cada edición", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
+    const wrapper = await mountView();
+    const vm = await completarFormulario(wrapper);
+    vm.formData.items[0].precio_unitario = 1.005;
+    vm.formData.items[0].iva_porcentaje = 0;
+    await flushPromises();
+    expect(mockedComprobantesService.previsualizar).toHaveBeenCalledTimes(1);
+    mockedComprobantesService.previsualizar.mockResolvedValueOnce({
+      subtotal: "1.00",
+      iva_21: "0.00",
+      iva_10_5: "0.00",
+      iva_27: "0.00",
+      total: "1.00",
+      subtotales_items: ["1.00"],
+      moneda: "PES",
+      cotizacion: "1",
+      receptor: {
+        tipo_documento: 96,
+        numero_documento: "12345678",
+        razon_social: "Cliente Demo",
+        condicion_iva: "CF",
+      },
+    });
+    await vm.abrirVistaPrevia();
+    const preview = wrapper.getComponent({ name: "ComprobantePreview" });
+    expect(preview.props("totales").total).toBe("1.00");
+    expect(preview.props("subtotalesItems")).toEqual(["1.00"]);
+    expect(preview.text()).toContain("$ 1,00");
+    expect(preview.text()).not.toContain("$ 1,01");
+    expect(
+      mockedComprobantesService.previsualizar.mock.calls[1][0],
+    ).toMatchObject({
+      confirmacion_fecha_fiscal: false,
+      confirmacion_duplicado_logico: false,
+    });
+    expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+  });
+
+  it.each(["importe", "emisor"])(
+    "P1 descarta una revisión tardía después de cambiar %s",
+    async (cambio) => {
+      mockedComprobantesService.proximoNumero.mockResolvedValue(
+        diagnosticoNumeracionMock(100),
+      );
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      const espera = deferred<PrevisualizacionComprobanteResponse>();
+      mockedComprobantesService.previsualizar.mockReturnValueOnce(
+        espera.promise,
+      );
+      const revisando = vm.abrirVistaPrevia();
+      if (cambio === "importe") vm.formData.items[0].precio_unitario = 200;
+      else {
+        const empresaStore = useEmpresaStore();
+        empresaStore.empresaActivaId = 2;
+        empresaStore.empresa = { ...empresaMock(), id: 2 };
+      }
+      await flushPromises();
+      espera.resolve({
+        subtotal: "100.00",
+        iva_21: "21.00",
+        iva_10_5: "0.00",
+        iva_27: "0.00",
+        total: "121.00",
+        subtotales_items: ["100.00"],
+        moneda: "PES",
+        cotizacion: "1",
+        receptor: {
+          tipo_documento: 96,
+          numero_documento: "12345678",
+          razon_social: "Cliente Demo",
+          condicion_iva: "CF",
+        },
+      });
+      await revisando;
+      await flushPromises();
+      expect(
+        wrapper.findComponent({ name: "ComprobantePreview" }).exists(),
+      ).toBe(false);
+      await vm.confirmarEmision();
+      expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+    },
+  );
+
+  it("P1 permite repetir revisión tras error HTTP y conserva cambios de observaciones", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
+    const wrapper = await mountView();
+    const vm = await completarFormulario(wrapper);
+    mockedComprobantesService.previsualizar.mockRejectedValueOnce({
+      response: {
+        data: { detail: "Revisión no disponible" },
+      },
+    });
+    await vm.abrirVistaPrevia();
+    expect(wrapper.findComponent({ name: "ComprobantePreview" }).exists()).toBe(
+      false,
+    );
+    await vm.confirmarEmision();
+    expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+    await vm.abrirVistaPrevia();
+    (
+      vm.formData as typeof vm.formData & { observaciones: string }
+    ).observaciones = "Nota administrativa";
+    Object.assign(vm.formData.items[0], { subtotal: 999, id: 55 });
+    await flushPromises();
+    expect(wrapper.findComponent({ name: "ComprobantePreview" }).exists()).toBe(
+      true,
+    );
+    expect(mockedComprobantesService.previsualizar).toHaveBeenCalledTimes(3);
+    mockedComprobantesService.emitir.mockResolvedValueOnce(respuestaFinal());
+    await vm.confirmarEmision();
+    expect(
+      mockedComprobantesService.emitir.mock.calls[0][0].observaciones,
+    ).toBe("Nota administrativa");
+  });
+
+  it("P1 evita duplicar consultas al hacer doble clic en revisar", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
+    const wrapper = await mountView();
+    const vm = await completarFormulario(wrapper);
+    const espera = deferred<PrevisualizacionComprobanteResponse>();
+    mockedComprobantesService.previsualizar.mockReturnValueOnce(espera.promise);
+    const consulta = vm.abrirVistaPrevia();
+    await vm.abrirVistaPrevia();
+    expect(mockedComprobantesService.previsualizar).toHaveBeenCalledTimes(2);
+    const previo = wrapper.vm as unknown as {
+      revisionImportes: {
+        resultado: PrevisualizacionComprobanteResponse;
+      } | null;
+    };
+    // Una edición invalida la consulta pendiente; no se permite confirmar sin resultado.
+    vm.formData.items[0].precio_unitario = 200;
+    await flushPromises();
+    expect(previo.revisionImportes).toBeNull();
+    espera.resolve({
+      subtotal: "100.00",
+      iva_21: "21.00",
+      iva_10_5: "0.00",
+      iva_27: "0.00",
+      total: "121.00",
+      subtotales_items: ["100.00"],
+      moneda: "PES",
+      cotizacion: "1",
+      receptor: {
+        tipo_documento: 96,
+        numero_documento: "12345678",
+        razon_social: "Cliente Demo",
+        condicion_iva: "CF",
+      },
+    });
+    await consulta;
+    expect(previo.revisionImportes).toBeNull();
   });
 
   it("ignora respuestas viejas al consultar el proximo numero", async () => {
@@ -610,6 +793,7 @@ describe("ComprobanteNuevoView", () => {
       expect(vm.idempotencyKeyEmision).toBeNull();
       vm.formData.items = [original];
       await flushPromises();
+      await vm.abrirVistaPrevia();
       await vm.confirmarEmision();
       expect(mockedComprobantesService.emitir).toHaveBeenCalledTimes(1);
     },
@@ -634,6 +818,7 @@ describe("ComprobanteNuevoView", () => {
         orden: 8,
       });
       await flushPromises();
+      await vm.abrirVistaPrevia();
       await vm.confirmarEmision();
       const [request, key] = mockedComprobantesService.emitir.mock.calls[0];
       expect(request.items[0]).toEqual({
@@ -699,6 +884,7 @@ describe("ComprobanteNuevoView", () => {
         }>;
       };
       confirmarEmision: () => Promise<void>;
+      abrirVistaPrevia: () => Promise<void>;
     };
 
     vm.formData.punto_venta_id = 1;
@@ -723,6 +909,7 @@ describe("ComprobanteNuevoView", () => {
     ];
 
     await flushPromises();
+    await vm.abrirVistaPrevia();
     await vm.confirmarEmision();
 
     expect(mockedComprobantesService.emitir).toHaveBeenCalledWith(

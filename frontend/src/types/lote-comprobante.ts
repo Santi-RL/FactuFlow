@@ -106,6 +106,7 @@ export interface LoteTotalesListos {
   neto: FiscalDecimal;
   iva21: FiscalDecimal;
   iva105: FiscalDecimal;
+  iva27?: FiscalDecimal;
   total: FiscalDecimal;
   valores_invalidos: number;
 }
