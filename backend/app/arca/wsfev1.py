@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime
 from typing import List
+from pydantic import ValidationError
 
 from zeep.exceptions import Fault, TransportError
 
@@ -768,7 +769,7 @@ class WSFEv1Client:
                     "ARCA devolvió un comprobante sin número identificable"
                 )
 
-            return ComprobanteResponse(
+            datos = dict(
                 punto_venta=result.PtoVta,
                 tipo_cbte=result.CbteTipo,
                 numero=numero_resultado,
@@ -779,20 +780,92 @@ class WSFEv1Client:
                 ),
                 cae=result.CodAutorizacion,
                 cae_vencimiento=result.FchVto,
-                fecha_cbte=result.CbteFch,
-                fecha_proceso=result.FchProceso,
-                imp_total=result.ImpTotal,
-                imp_neto=result.ImpNeto,
-                imp_iva=result.ImpIVA,
-                imp_op_ex=result.ImpOpEx,
-                imp_tot_conc=result.ImpTotConc,
-                imp_trib=result.ImpTrib,
-                moneda_id=result.MonId,
-                moneda_cotiz=result.MonCotiz,
-                tipo_doc=result.DocTipo,
-                nro_doc=result.DocNro,
+                fecha_cbte=getattr(result, "CbteFch", None),
+                fecha_proceso=getattr(result, "FchProceso", None),
+                imp_total=getattr(result, "ImpTotal", None),
+                imp_neto=getattr(result, "ImpNeto", None),
+                imp_iva=getattr(result, "ImpIVA", None),
+                imp_op_ex=getattr(result, "ImpOpEx", None),
+                imp_tot_conc=getattr(result, "ImpTotConc", None),
+                imp_trib=getattr(result, "ImpTrib", None),
+                moneda_id=getattr(result, "MonId", None),
+                moneda_cotiz=getattr(result, "MonCotiz", None),
+                tipo_doc=getattr(result, "DocTipo", None),
+                nro_doc=getattr(result, "DocNro", None),
                 resultado=result.Resultado,
+                concepto=getattr(result, "Concepto", None),
+                emision_tipo=getattr(result, "EmisionTipo", None),
+                cbte_desde=getattr(result, "CbteDesde", None),
+                cbte_hasta=getattr(result, "CbteHasta", None),
+                condicion_iva_receptor_id=getattr(
+                    result, "CondicionIVAReceptorId", None
+                ),
+                fecha_serv_desde=getattr(result, "FchServDesde", None) or None,
+                fecha_serv_hasta=getattr(result, "FchServHasta", None) or None,
+                fecha_vto_pago=getattr(result, "FchVtoPago", None) or None,
+                iva=self._coleccion_consulta(
+                    result,
+                    "Iva",
+                    "AlicIva",
+                    {"id": "Id", "base_imp": "BaseImp", "importe": "Importe"},
+                ),
+                tributos=self._coleccion_consulta(
+                    result,
+                    "Tributos",
+                    "Tributo",
+                    {
+                        "id": "Id",
+                        "descripcion": "Desc",
+                        "base_imp": "BaseImp",
+                        "alic": "Alic",
+                        "importe": "Importe",
+                    },
+                ),
+                cbtes_asoc=self._coleccion_consulta(
+                    result,
+                    "CbtesAsoc",
+                    "CbteAsoc",
+                    {
+                        "tipo": "Tipo",
+                        "punto_venta": "PtoVta",
+                        "numero": "Nro",
+                        "cuit": "Cuit",
+                        "fecha_cbte": "CbteFch",
+                    },
+                ),
+                adicionales_presentes=[
+                    campo
+                    for campo in (
+                        "Opcionales",
+                        "Compradores",
+                        "PeriodoAsoc",
+                        "Actividades",
+                    )
+                    if getattr(result, campo, None) is not None
+                ],
             )
+            try:
+                return ComprobanteResponse.model_validate(datos)
+            except ValidationError as exc:
+                invalidos = {error["loc"][0] for error in exc.errors()}
+                identidad = {
+                    "punto_venta",
+                    "tipo_cbte",
+                    "numero",
+                    "cuit_emisor",
+                    "cae",
+                    "cae_vencimiento",
+                    "resultado",
+                }
+                if invalidos & identidad:
+                    raise ArcaServiceError(
+                        "ARCA devolvió una consulta sin identidad verificable"
+                    ) from exc
+                # Conserva autorización atribuible, nunca reemplaza evidencia inválida por cero.
+                for campo in invalidos:
+                    datos[campo] = None
+                datos["campos_invalidos"] = sorted(invalidos)
+                return ComprobanteResponse.model_validate(datos)
 
         except Fault as e:
             raise ArcaServiceError(f"Error SOAP: {e.message}")
@@ -800,6 +873,30 @@ class WSFEv1Client:
             raise
         except Exception as e:
             raise ArcaServiceError(f"Error inesperado: {str(e)}")
+
+    @staticmethod
+    def _coleccion_consulta(result, contenedor: str, elemento: str, campos: dict):
+        """Lee colecciones SOAP sin convertir la ausencia en datos fiscales."""
+        nodo = getattr(result, contenedor, None)
+        if nodo is None:
+            return None
+        if not hasattr(nodo, elemento):
+            return "coleccion_invalida"
+        items = getattr(nodo, elemento)
+        if items is None:
+            return []
+        items = items if isinstance(items, list) else [items]
+        return [
+            {
+                campo: (
+                    str(getattr(item, atributo))
+                    if campo == "cuit" and getattr(item, atributo, None) is not None
+                    else getattr(item, atributo, None)
+                )
+                for campo, atributo in campos.items()
+            }
+            for item in items
+        ]
 
     # ==================== Métodos de Parámetros ====================
 

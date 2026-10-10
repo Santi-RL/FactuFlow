@@ -184,6 +184,17 @@ post-ARCA.
 
 ## Caso 6: comprobante con incertidumbre post-ARCA
 
+En recuperación legacy, un total igual no demuestra coincidencia fiscal. Si hay
+diferencias o datos insuficientes, conservar reserva y CAE atribuible; consultar
+el comprobante en el ambiente original y reunir la evidencia histórica privada.
+No editar payloads, hashes ni clientes para forzar una coincidencia, borrar la
+reserva o solicitar otro CAE. El código recibido de otro emisor/número o de una
+emisión CAEA no se atribuye como CAE del intento. Una consulta contradictoria
+no borra una autorización ya conocida. El
+[contrato P1](pf-02-04-reconciliacion-integral-design.md) delimita la cobertura;
+recuperación moderna y atribución sin evidencia suficiente requieren su flujo
+de soporte, sin saltar guardas RECE.
+
 Qué revisar:
 
 - Emisor activo, punto de venta, tipo de comprobante y fecha fiscal.

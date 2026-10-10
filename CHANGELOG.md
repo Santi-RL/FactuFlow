@@ -18,6 +18,21 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Comparación fiscal en recuperación legacy P1
+
+- La recuperación antigua compara moneda, cotización, componentes, IVA,
+  concepto, períodos y asociados contra el payload original verificado o los
+  snapshots de un comprobante parcialmente guardado. Un total igual no basta
+  para reconstruir ni vincular una autorización.
+- Diferencias o evidencia insuficiente conservan CAE atribuible y reserva para
+  revisión. Consultas incompletas no se convierten en ceros; una respuesta de
+  inexistencia no libera un intento con CAE conocido. Una resolución concurrente
+  o una guarda moderna impide sobrescribir el estado.
+- La consulta WSFE conserva decimales y detalles fiscales internamente; el HTTP
+  mantiene sus números existentes y exige datos completos. No se modifican
+  solicitudes, hashes, fechas, esquema ni admisibilidad de nuevas emisiones.
+  Recuperación moderna P2 y reconstrucción externa PF-05 mantienen sus alcances.
+
 ### Admisibilidad y revisión de importes P1
 
 - Nuevas emisiones individuales, lotes y reintentos admiten únicamente 0 %,

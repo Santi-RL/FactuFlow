@@ -359,6 +359,15 @@ FactuFlow para el CUIT y ambiente del emisor activo.
 
 ## ARCA
 
+La consulta de comprobante conserva números JSON en los campos de importes y
+cotización y agrega detalle fiscal opcional: concepto, tipo de autorización,
+rango, condición IVA, períodos, IVA, tributos y asociados. Si los datos básicos
+están incompletos o inválidos responde 500, como error de consulta; nunca los
+rellena con cero. El reconciliador interno conserva la autorización atribuible
+y requiere revisión ante evidencia insuficiente o diferente. La recuperación
+legacy no solicita CAE; contrato en
+[PF-02/PF-04](../agents/pf-02-04-reconciliacion-integral-design.md).
+
 ```http
 GET /api/arca/test-conexion
 GET /api/arca/status

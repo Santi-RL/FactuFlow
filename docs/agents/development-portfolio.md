@@ -27,8 +27,8 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 |---|---|---|---|---|
 | PF-13, fidelidad del receptor | Cerrado | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
 | PF-03/PF-13, admisibilidad y revisión | Cerrado | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B; categorías P2 pendientes |
-| PF-02/PF-04, recuperación legacy | Ahora 1 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
-| PF-11/PF-15, recuperación operativa | Ahora 2 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
+| PF-02/PF-04, recuperación legacy | Cerrado | P1 fiscal | Comparación fiscal suficiente antes de reconstruir/vincular; CAE y reserva conservados ante diferencias o evidencia insuficiente | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
+| PF-11/PF-15, recuperación operativa | Ahora 1 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
 | PF-04/PF-02, evidencia y recuperación integral | Después 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 2 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
@@ -61,7 +61,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 - Instantáneas del emisor, moneda, IVA y datos históricos necesarios.
 - Exactitud de PDFs, reportes, paginado y aislamiento.
-- PF-02/PF-04: comparación legacy P1 y recuperación integral P2 en cortes
+- PF-02/PF-04: comparación legacy P1 implementada y recuperación integral P2 en cortes
   separados; usar solicitud congelada, conservar incertidumbre y coordinar
   grafo RECE. [Contrato de reconciliación](pf-02-04-reconciliacion-integral-design.md).
 - Importación histórica externa PF-05 opcional, Más adelante, con alcance,
@@ -264,9 +264,8 @@ unidad antes de convertirse en una tarea ejecutable.
 
 La puerta previa de estabilización precede a capacidades nuevas; sus reparaciones
 se delimitan por contrato, sin mezclar un refactor global. La fidelidad del
-receptor P1 está implementada; admisibilidad/revisión y comparación legacy
-mantienen sus dueños y se coordinan con esa preparación común antes de
-recuperación/trazabilidad.
+receptor P1, la admisibilidad/revisión y la comparación legacy están implementadas.
+Recuperación/trazabilidad conserva su siguiente corte propio.
 Tooling habilita la integración de runtime con CI verde; cada reparación fiscal
 se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
 una única unidad ni se bloquea una reparación esperando su propio resultado.

@@ -1,6 +1,16 @@
 # Integración ARCA
 
-Última revisión: 08/10/2026
+Última revisión: 09/10/2026
+
+## Recuperación legacy P1
+
+La consulta conserva componentes decimales y detalles fiscales para compararlos
+con evidencia original. Igual total no basta: moneda/cotización, IVA, concepto,
+períodos y asociados se verifican según cobertura contractual. Una autorización
+atribuible se conserva aun cuando la consulta esté incompleta; diferencias y
+datos insuficientes mantienen revisión y reserva. Nunca se solicitan CAEs desde
+este circuito ni se saltan guardas modernas. Fuente, compatibilidad y soporte en
+[el contrato de reconciliación](pf-02-04-reconciliacion-integral-design.md).
 
 ## Lecturas fiscales A-03
 

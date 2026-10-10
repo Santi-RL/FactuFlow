@@ -2,7 +2,7 @@
 
 Fecha: 03/10/2026.
 
-Estado: planificación aceptada; implementación pendiente. Refuerza garantías
+Estado: comparación legacy P1 implementada; recuperación moderna P2 pendiente. Refuerza garantías
 existentes por cortes, sin reabrir numeración ni habilitar reemisión automática.
 
 ## Evidencia y cortes
@@ -55,6 +55,65 @@ permitidos; no ocultar diferencias con una tolerancia global arbitraria.
    Si falta evidencia necesaria, documentar la salida de soporte y el efecto
    sobre la operatoria; un bloqueo permanente nuevo requiere la decisión de
    producto aplicable. No relajar la comparación para liberar numeración.
+
+## Diseño previo del P1 — 09/10/2026
+
+El usuario autorizó avanzar después de aceptar que diferencias o evidencia
+insuficiente requieren revisión, conservando CAE y reserva. No se autoriza
+despliegue ni se acredita incidencia productiva.
+
+- Entradas: recuperación de operación individual y reservas stale usadas por
+  emisión individual, lote, batch y reintento. Ambas invocan el mismo método.
+  La clasificación legacy y sus locks antes/después de consultar se conservan;
+  operaciones modernas, terminales, con varios intentos o guardas huérfanas no
+  ingresan. La reconciliación externa de lotes es otro contrato.
+- Fuente: grupo del mismo intento/lote/emisor, payload original cuyo hash
+  coincide sin enriquecerlo; o comprobante autorizado parcialmente persistido,
+  usando exclusivamente sus snapshots e ítems. Una nota sin payload asociado
+  no puede reconstruir sus asociados desde el comprobante local. El vínculo sin
+  grupo se limita a facturas A/B/C con snapshot e ítems completos. La empresa
+  autentica la consulta; no aporta condición, moneda ni otros valores esperados.
+  El ambiente histórico ausente permanece desconocido: no se le asigna el actual.
+- Representación en memoria: comparación fiscal v1, decimales finitos sin
+  tolerancia, componentes e IVA discriminados, moneda/cotización, concepto,
+  períodos y asociados. Se reutiliza el constructor histórico WSFE, no la
+  admisibilidad de nuevas emisiones. No hay migración ni cambio de hashes.
+- El adaptador conserva precisión decimal internamente, incluyendo autorización
+  atribuible cuando un componente está ausente o no es válido. La consulta HTTP mantiene
+  sus números JSON existentes y agrega campos fiscales opcionales. Los consumidores
+  HTTP y PF-05 exigen datos básicos completos como antes. El puerto mínimo PF-19C
+  conserva el grafo ante toda consulta exacta, incluso parcial: no reconstruye ni
+  libera una reserva desde esa respuesta. No se amplía PF-05 ni P2 moderno.
+- Ausencia: concepto, tipo de emisión CAE y componentes necesarios ausentes
+  impiden probar coincidencia. Colecciones opcionales ausentes equivalen a vacías
+  sólo cuando no se enviaron elementos. Condición IVA y atributos opcionales de
+  asociados se contrastan cuando ambos contratos los acreditan; la cobertura
+  antigua desconocida no se inventa. Rango ausente se cubre sólo por el número
+  canónico; un rango presente diferente no se ignora. Una diferencia conocida prevalece sobre
+  campos no disponibles.
+- Orden: guarda vigente, consulta de lectura, guarda vigente con locks, evidencia
+  atribuible de CAE, carga protegida de fuente, comparación, creación/vínculo y
+  actualización de grupo/filas/lote en la misma transacción. Las reservas activas
+  e identidad única del comprobante mantienen sus constraints. Un fallo de
+  persistencia no habilita otra solicitud de CAE.
+- Transiciones: igualdad suficiente -> autorizado; diferencia -> reconciliación;
+  evidencia insuficiente -> reconciliación. Ninguna borra payload, hash ni CAE
+  conocido. «No existe» mantiene el contrato anterior y nunca descarta un CAE
+  ya conocido. Soporte: verificar en el ambiente original y reunir evidencia
+  privada; no editar payloads/hashes ni eliminar reservas para forzar un retry.
+- Matriz: reconstrucción válida y vínculo parcial; moneda/cotización y neto/IVA
+  con igual total; categoría, concepto, condición, fechas, asociados y tributos;
+  respuesta incompleta/no finita; payload cambiado, inválido y de otro emisor;
+  falta de payload con CAE; CAE contradictorio; guardas modernas/huérfanas,
+  sesiones obsoletas y respuesta tardía. Dobles SOAP exclusivamente, sin CAE real.
+  UI, confirmación e idempotencia de emisión no cambian; sus regresiones se
+  verifican con la suite existente. Sin DDL nuevo; PostgreSQL aplica a locks y
+  constraints existentes. Rollback de código no reescribe estados ni evidencia.
+
+Contrato contrastado con el [manual WSFE oficial](https://www.arca.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf),
+versión 4.7, consultado el 09/10/2026: `FECompConsultar` incluye los datos de
+`FECAEDetRequest` y el tipo/código de autorización. La cobertura histórica
+se distingue de los campos que devuelve una consulta actual.
 
 ## Corte integral P2 y PF-04
 

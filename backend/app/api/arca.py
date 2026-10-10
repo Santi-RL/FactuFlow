@@ -549,6 +549,9 @@ async def consultar_comprobante(
             punto_venta=punto_venta, tipo_cbte=tipo_cbte, numero=numero
         )
 
+        if not comprobante.datos_basicos_completos:
+            raise ArcaServiceError("ARCA devolvió datos incompletos del comprobante")
+
         return comprobante
 
     except HTTPException:
