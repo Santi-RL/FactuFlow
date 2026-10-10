@@ -243,6 +243,15 @@ FactuFlow.
 
 ## Caso 8: backup o restauración requerida
 
+`Sistema > Estado` muestra evidencia histórica de instalación si se configuró
+el [resumen privado](../setup/recovery-evidence.md). Leer fecha y alcance de cada
+comprobación: integridad, ensayo, copia externa y último cotejo son hechos
+distintos. `No verificado` indica falta de evidencia utilizable; no demuestra
+pérdida de datos. Incluso un ensayo exitoso no garantiza cobertura actual.
+Antes de recuperar, relacionar cambios posteriores con operaciones existentes,
+actores, emisores y resultados en el plano de control; nunca inferir ausencia
+de actividad desde contadores o timestamps de procedencia desconocida.
+
 Qué revisar:
 
 - Última evidencia privada de backup.

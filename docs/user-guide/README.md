@@ -1092,7 +1092,7 @@ Desde `Sistema > Estado` puedes ver señales operativas básicas:
 - certificado local del emisor activo para el ambiente ARCA configurado
 - conexión ARCA como prueba manual explícita
 - resumen de almacenamiento
-- señales todavía pendientes, como último backup y acceso a logs según entorno
+- evidencia histórica del respaldo de la instalación y acceso a logs según entorno
 - guía rápida de soporte con qué revisar, próximo paso seguro y cuándo detenerse
   ante fallas frecuentes
 - ficha para soporte con datos mínimos: entorno, emisor activo, recurso afectado,
@@ -1120,6 +1120,12 @@ autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA
 La separación `4+1` forma parte del contrato aceptado y fue verificada con una
 prueba PostgreSQL efímera que no creó lotes ni llamó a ARCA. Para una instalación
 concreta, soporte debe confirmar siempre el commit o tag activo.
+
+Antes de una recuperación, soporte comprueba un respaldo apropiado y las
+escrituras posteriores. `Evidencia de recuperación` distingue creación,
+integridad, ensayo, copia externa y último cotejo por sus fechas y componentes.
+Si falta evidencia aparece `No verificado`; incluso un ensayo exitoso no
+garantiza cobertura actual ni autoriza restaurar. No hay pasos nuevos por factura.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -1199,8 +1205,9 @@ limpiables.
   de estas capacidades en una instalación no se infiere desde este manual
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
-  rápida y ficha para soporte; todavía faltan backup visible y trazabilidad
-  histórica más completa
+  rápida, ficha para soporte y evidencia histórica de recuperación cuando el
+  responsable de la instalación aporta el resumen privado; la trazabilidad
+  histórica más completa sigue pendiente
 - la gestión de lotes ya permite cerrar parciales, reconciliar externos,
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica

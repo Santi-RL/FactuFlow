@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 09/10/2026
+Última revisión: 10/10/2026
 
 Estado: VIGENTE.
 
@@ -43,15 +43,17 @@ puede integrarse al cumplir su contrato y sus checks, sin esperar una reparació
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.
 
-### 1. PF-11/PF-15 — recuperación y trazabilidad operativa
+### 1. PF-11/PF-15 — comprobar la recuperación del candidato
 
-**Prioridad:** P1 para recuperación; P2 para señales y soporte.
+**Prioridad:** P1 para recuperación de la operación concreta.
 
-Vincular cada backup previo a una operación con propósito, fecha/hora y
-escrituras intermedias; mostrar señales administrativas útiles; completar
-registros operativos y soporte
-sin exponer evidencia privada. El estado concreto de una instalación permanece
-en `VPS Hostinger` / `vps-admin`.
+Completar el respaldo preoperación y ensayo con código/esquema exactos del
+candidato, vincularlos a la operación y evaluar las escrituras posteriores antes
+de una recuperación. La señal administrativa y el contrato de evidencia están
+implementados; no acreditan la recuperabilidad de una instalación. Resolver
+las puertas de release del [dossier v0.3.8](docs/project/releases/v0.3.8-candidate.md)
+antes de comenzar las capacidades nuevas de «Después». El estado concreto
+permanece en `VPS Hostinger` / `vps-admin`.
 El [diseño de recuperación y trazabilidad](docs/agents/pf-11-15-recuperacion-trazabilidad-design.md)
 separa este corte de la automatización de backups de «Más adelante».
 

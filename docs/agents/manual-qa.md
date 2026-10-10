@@ -13,6 +13,17 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Preparación segura
 
+### Evidencia de recuperación PF-11/PF-15
+
+En entorno sintético, abrir Sistema con resumen completo y cambiar a uno parcial,
+fallido, sin cotejo o sin instante exacto del snapshot. Distinguir componentes,
+fechas y alcance; la cobertura actual debe seguir desconocida. No hay llamadas
+fiscales ni controles de restore. Retirar/inutilizar el archivo y actualizar:
+descartar éxito anterior, sin exponer rutas o errores crudos. Un usuario común
+no puede leer la API; una respuesta atrasada no debe sobrescribir la nueva.
+Verificar hora argentina cerca de medianoche UTC. La recuperación real del
+candidato requiere su ensayo aislado y evidencia privada, no una prueba de UI.
+
 - Usar entorno local o desechable y datos sintéticos.
 - Confirmar emisor y ambiente antes de cualquier prueba ARCA.
 - No guardar credenciales, CUITs, CAEs, PDFs, Excels, capturas o logs reales en

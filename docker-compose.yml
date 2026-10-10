@@ -51,6 +51,8 @@ services:
       BATCH_WORKER_BATCH_SIZE: ${BATCH_WORKER_BATCH_SIZE:-1}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       LOG_FILE: /app/logs/factuflow.log
+      RECOVERY_INSTALLATION_ID: ${RECOVERY_INSTALLATION_ID:-}
+      RECOVERY_EVIDENCE_PATH: ${RECOVERY_EVIDENCE_PATH:-}
       TZ: America/Argentina/Buenos_Aires
     volumes:
       - ./backend/app:/app/app
