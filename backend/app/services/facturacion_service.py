@@ -12,6 +12,7 @@ from sqlalchemy import desc, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.arca.config import ArcaAmbiente
 from app.arca.exceptions import (
@@ -33,6 +34,11 @@ from app.core.condicion_iva_receptor import (
     resolver_condicion_iva_receptor_id,
 )
 from app.core.comprobante_totales import calcular_totales, preparar_importes
+from app.core.comparacion_fiscal import (
+    ComparacionFiscal,
+    comparar_consulta_fiscal,
+    decimal_fiscal,
+)
 from app.core.fiscal_storage import persisted_item_subtotal, validate_storage_request
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.models.certificado import Certificado
@@ -73,6 +79,18 @@ from app.schemas.comprobante import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RecuperacionLegacy:
+    """Fuente histórica ya comprobada y bloqueada durante la recuperación."""
+
+    request: EmitirComprobanteRequest
+    totales: dict
+    punto_venta: PuntoVenta
+    grupo: LoteComprobanteGrupo | None
+    existente: Comprobante | None
+
 
 ERROR_INTERNO_EMISION_PUBLICO = (
     "No se pudo completar la operación. "
@@ -2698,7 +2716,7 @@ class FacturacionService:
                 await self.db.refresh(intento)
                 return intento
             await self.db.refresh(intento)
-            if self._arca_indica_comprobante_inexistente(exc):
+            if self._arca_indica_comprobante_inexistente(exc) and not intento.cae:
                 intento.estado = "fallido_verificado"
                 intento.categoria_error = "arca_no_registrado"
                 intento.mensaje = (
@@ -2726,11 +2744,68 @@ class FacturacionService:
             await self.db.refresh(intento)
             return intento
         await self.db.refresh(intento)
-        if not await self._validar_consulta_intento_stale(intento, consulta_arca):
+        cae_atribuible = await self._consulta_legacy_cae_atribuible(
+            intento, consulta_arca
+        )
+        cae_contradictorio = bool(
+            cae_atribuible
+            and intento.cae
+            and (
+                intento.cae != str(consulta_arca.cae)
+                or (
+                    intento.cae_vencimiento is not None
+                    and intento.cae_vencimiento
+                    != self._parse_fecha_cae(str(consulta_arca.cae_vencimiento))
+                )
+            )
+        )
+        if cae_atribuible and not cae_contradictorio:
+            intento.cae = str(consulta_arca.cae)
+            intento.cae_vencimiento = self._parse_fecha_cae(
+                str(consulta_arca.cae_vencimiento)
+            )
+        cabecera = await self._comparar_cabecera_intento_stale(intento, consulta_arca)
+        if cabecera.estado != "coincidente":
             intento.estado = "requiere_reconciliacion"
-            intento.categoria_error = "arca_consulta_inconsistente"
+            intento.categoria_error = (
+                "arca_consulta_inconsistente"
+                if cabecera.estado == "diferente"
+                else "arca_consulta_incompleta"
+            )
             intento.mensaje = (
-                "ARCA devolvió datos distintos para el comprobante planificado."
+                "No se pudo verificar la identidad fiscal del comprobante planificado. "
+                "Se conserva la reserva para su revisión."
+            )
+            self.db.add(intento)
+            await self.db.commit()
+            return intento
+
+        comparacion, recuperacion = await self._comparar_recuperacion_legacy(
+            intento, consulta_arca
+        )
+        if cae_contradictorio or comparacion.estado != "coincidente":
+            intento.estado = "requiere_reconciliacion"
+            intento.categoria_error = (
+                "arca_consulta_inconsistente"
+                if cae_contradictorio or comparacion.estado == "diferente"
+                else (
+                    "arca_autorizado_sin_payload_local"
+                    if recuperacion is None
+                    else "arca_consulta_incompleta"
+                )
+            )
+            intento.mensaje = (
+                "ARCA informa una autorización, pero sus datos fiscales no coinciden "
+                "con la evidencia original. Se conserva la reserva para su revisión."
+                if cae_contradictorio or comparacion.estado == "diferente"
+                else "ARCA informa una autorización, pero falta evidencia fiscal para "
+                "recuperar el comprobante. Se conserva la reserva para su revisión."
+            )
+            logger.warning(
+                "Recuperación legacy %s: %s; campos %s",
+                intento.id,
+                comparacion.estado,
+                comparacion.campos,
             )
             self.db.add(intento)
             await self.db.commit()
@@ -2739,6 +2814,7 @@ class FacturacionService:
         comprobante = await self._crear_o_vincular_intento_autorizado(
             intento=intento,
             consulta_arca=consulta_arca,
+            recuperacion=recuperacion,
         )
         if comprobante is None:
             intento.estado = "requiere_reconciliacion"
@@ -2879,105 +2955,323 @@ class FacturacionService:
             await self.db.commit()
         return bloquea
 
-    async def _validar_consulta_intento_stale(
+    async def _comparar_cabecera_intento_stale(
         self,
         intento: IntentoEmisionFiscal,
         consulta_arca,
-    ) -> bool:
+    ) -> ComparacionFiscal:
         """Valida que la consulta ARCA coincida con el snapshot del intento."""
-        empresa = await self._obtener_empresa(intento.empresa_id)
-        if empresa is None:
-            return False
+        if not await self._consulta_legacy_cae_atribuible(intento, consulta_arca):
+            falta = any(
+                getattr(consulta_arca, campo, None) is None
+                for campo in (
+                    "resultado",
+                    "cae",
+                    "cae_vencimiento",
+                    "cuit_emisor",
+                    "punto_venta",
+                    "tipo_cbte",
+                    "numero",
+                    "emision_tipo",
+                )
+            )
+            return ComparacionFiscal(
+                "no_disponible" if falta else "diferente", ("identidad_consulta",)
+            )
 
         try:
             fecha_arca = datetime.strptime(
                 str(consulta_arca.fecha_cbte), "%Y%m%d"
             ).date()
-            total_arca = Decimal(str(consulta_arca.imp_total)).quantize(Decimal("0.01"))
+            total_arca = decimal_fiscal(consulta_arca.imp_total)
             tipo_doc_arca = int(consulta_arca.tipo_doc)
-            nro_doc_arca = clean_cuit(str(consulta_arca.nro_doc or ""))
-        except (TypeError, ValueError):
-            return False
+            nro_doc_arca = str(int(consulta_arca.nro_doc))
+            tipo_doc_local = int(intento.receptor_tipo_documento or 0)
+            nro_doc_local = str(
+                int(clean_cuit(str(intento.receptor_numero_documento or "0")))
+            )
+        except (TypeError, ValueError, AttributeError):
+            return ComparacionFiscal("no_disponible", ("cabecera_consulta",))
 
-        return all(
+        coincide = all(
             [
-                consulta_arca.resultado == "A",
-                bool(str(consulta_arca.cae or "").strip()),
-                bool(str(consulta_arca.cae_vencimiento or "").strip()),
-                clean_cuit(str(consulta_arca.cuit_emisor)) == clean_cuit(empresa.cuit),
-                int(consulta_arca.tipo_cbte) == int(intento.tipo_comprobante),
-                int(consulta_arca.punto_venta) == int(intento.punto_venta_numero),
-                int(consulta_arca.numero) == int(intento.numero_planificado),
                 fecha_arca == intento.fecha_emision,
-                total_arca == Decimal(str(intento.total)).quantize(Decimal("0.01")),
-                tipo_doc_arca == int(intento.receptor_tipo_documento or 0),
-                nro_doc_arca
-                == clean_cuit(str(intento.receptor_numero_documento or "")),
+                total_arca == decimal_fiscal(intento.total),
+                tipo_doc_arca == tipo_doc_local,
+                nro_doc_arca == nro_doc_local,
             ]
         )
+        return ComparacionFiscal(
+            "coincidente" if coincide else "diferente",
+            () if coincide else ("cabecera_consulta",),
+        )
+
+    async def _consulta_legacy_cae_atribuible(self, intento, consulta) -> bool:
+        """Un CAE sólo se conserva dentro del emisor y número consultados."""
+        empresa = await self._obtener_empresa(intento.empresa_id)
+        try:
+            cae = str(consulta.cae)
+            vencimiento = self._parse_fecha_cae(str(consulta.cae_vencimiento))
+            return bool(
+                empresa is not None
+                and consulta.resultado == "A"
+                and getattr(consulta, "emision_tipo", "CAE") == "CAE"
+                and len(cae) == 14
+                and cae.isascii()
+                and cae.isdigit()
+                and vencimiento is not None
+                and clean_cuit(str(consulta.cuit_emisor)) == clean_cuit(empresa.cuit)
+                and int(consulta.tipo_cbte) == int(intento.tipo_comprobante)
+                and int(consulta.punto_venta) == int(intento.punto_venta_numero)
+                and int(consulta.numero) == int(intento.numero_planificado)
+            )
+        except (ValueError, TypeError, AttributeError):
+            return False
+
+    async def _comparar_recuperacion_legacy(self, intento, consulta):
+        """Carga sólo evidencia propia y congelada; jamás consulta una ficha actual."""
+        existente = await self.db.scalar(
+            select(Comprobante)
+            .where(
+                Comprobante.empresa_id == intento.empresa_id,
+                Comprobante.punto_venta_id == intento.punto_venta_id,
+                Comprobante.tipo_comprobante == intento.tipo_comprobante,
+                Comprobante.numero == intento.numero_planificado,
+            )
+            .options(selectinload(Comprobante.items))
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        grupo = None
+        if intento.grupo_id is not None:
+            lote = await self.db.scalar(
+                select(LoteComprobante)
+                .where(
+                    LoteComprobante.id == intento.lote_id,
+                    LoteComprobante.empresa_id == intento.empresa_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if lote is None:
+                return ComparacionFiscal("no_disponible", ("lote_original",)), None
+            grupo = await self.db.scalar(
+                select(LoteComprobanteGrupo)
+                .where(
+                    LoteComprobanteGrupo.id == intento.grupo_id,
+                    LoteComprobanteGrupo.lote_id == intento.lote_id,
+                    LoteComprobanteGrupo.empresa_id == intento.empresa_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if grupo is None or not isinstance(grupo.payload_json, dict):
+                return ComparacionFiscal("no_disponible", ("payload_original",)), None
+            if (
+                grupo.estado in {"descartado", "autorizado_externo"}
+                or grupo.numero_asignado not in (None, intento.numero_planificado)
+                or grupo.cae not in (None, str(consulta.cae))
+            ):
+                return ComparacionFiscal("diferente", ("grupo_resuelto",)), None
+            if any(
+                getattr(grupo, campo) is not None
+                for campo in (
+                    "ambiente",
+                    "punto_venta_elegibilidad_revision_id",
+                    "punto_venta_revision_fiscal",
+                )
+            ):
+                return ComparacionFiscal("no_disponible", ("grupo_moderno",)), None
+            if grupo.comprobante_id is not None and (
+                existente is None or grupo.comprobante_id != existente.id
+            ):
+                return ComparacionFiscal("diferente", ("vinculo_grupo",)), None
+            try:
+                request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
+            except PydanticValidationError:
+                logger.warning(
+                    "El payload fiscal del intento autorizado %s no cumple el contrato vigente",
+                    intento.id,
+                )
+                return ComparacionFiscal("no_disponible", ("payload_original",)), None
+            hashes = {
+                IdempotenciaFiscalService.calcular_payload_hash(grupo.payload_json),
+                IdempotenciaFiscalService.calcular_payload_hash(
+                    IdempotenciaFiscalService.payload_sin_confirmacion_duplicado(
+                        grupo.payload_json
+                    )
+                ),
+            }
+            if intento.payload_hash not in hashes:
+                return ComparacionFiscal("diferente", ("payload_hash",)), None
+            # Los defaults del modelo actual no constituyen evidencia histórica.
+            if (
+                not {"moneda", "cotizacion", "condicion_iva", "concepto"}
+                <= grupo.payload_json.keys()
+            ):
+                return (
+                    ComparacionFiscal("no_disponible", ("payload_fiscal_incompleto",)),
+                    None,
+                )
+        elif existente is not None:
+            request = self._request_desde_comprobante_legacy(existente)
+            if request is None:
+                return (
+                    ComparacionFiscal("no_disponible", ("snapshot_comprobante",)),
+                    None,
+                )
+        else:
+            return ComparacionFiscal("no_disponible", ("payload_original",)), None
+
+        punto = await self._obtener_punto_venta(
+            intento.punto_venta_id, intento.empresa_id
+        )
+        if punto is None or punto.numero != intento.punto_venta_numero:
+            return ComparacionFiscal("diferente", ("punto_venta",)), None
+        try:
+            documento_original = int(clean_cuit(request.numero_documento))
+            documento_intento = int(
+                clean_cuit(intento.receptor_numero_documento or "0")
+            )
+        except (ValueError, TypeError):
+            return ComparacionFiscal("no_disponible", ("documento_original",)), None
+        if (
+            request.empresa_id != intento.empresa_id
+            or request.punto_venta_id != intento.punto_venta_id
+            or request.tipo_comprobante != intento.tipo_comprobante
+            or request.fecha_emision != intento.fecha_emision
+            or request.tipo_documento != intento.receptor_tipo_documento
+            or documento_original != documento_intento
+        ):
+            return ComparacionFiscal("diferente", ("identidad_payload",)), None
+        try:
+            totales = self._calcular_totales(request.items)
+            esperado = self._armar_request_arca(
+                request, intento.numero_planificado, totales, intento.punto_venta_numero
+            )
+        except (ValueError, ValidationError, PydanticValidationError):
+            return ComparacionFiscal("no_disponible", ("solicitud_historica",)), None
+        contexto = RecuperacionLegacy(request, totales, punto, grupo, existente)
+        if decimal_fiscal(totales["total"]) != decimal_fiscal(intento.total):
+            return ComparacionFiscal("diferente", ("total_payload",)), contexto
+        comparacion = comparar_consulta_fiscal(esperado, consulta)
+        if existente is not None:
+            if (
+                existente.estado != "autorizado"
+                or existente.cae != str(consulta.cae)
+                or existente.cae_vencimiento
+                != self._parse_fecha_cae(str(consulta.cae_vencimiento))
+            ):
+                return ComparacionFiscal("diferente", ("comprobante_local",)), contexto
+            snapshot = self._request_desde_comprobante_legacy(
+                existente,
+                asociados=request.comprobantes_asociados if grupo is not None else None,
+            )
+            if snapshot is None:
+                return (
+                    ComparacionFiscal("no_disponible", ("snapshot_comprobante",)),
+                    contexto,
+                )
+            try:
+                totales_local = self._calcular_totales(snapshot.items)
+                esperado_local = self._armar_request_arca(
+                    snapshot,
+                    existente.numero,
+                    totales_local,
+                    intento.punto_venta_numero,
+                )
+                local = comparar_consulta_fiscal(esperado_local, consulta)
+            except (ValueError, ValidationError, PydanticValidationError):
+                return (
+                    ComparacionFiscal("no_disponible", ("snapshot_comprobante",)),
+                    contexto,
+                )
+            if local.estado != "coincidente":
+                return local, contexto
+            # Los agregados persistidos también deben coincidir con sus ítems.
+            if any(
+                decimal_fiscal(getattr(existente, campo)) != decimal_fiscal(valor)
+                for campo, valor in (
+                    ("subtotal", esperado_local.imp_neto),
+                    ("total", esperado_local.imp_total),
+                    ("iva_21", totales_local["iva_21"]),
+                    ("iva_10_5", totales_local["iva_10_5"]),
+                    ("iva_27", totales_local["iva_27"]),
+                    ("otros_impuestos", esperado_local.imp_trib),
+                )
+            ):
+                return (
+                    ComparacionFiscal("diferente", ("agregados_comprobante",)),
+                    contexto,
+                )
+        return comparacion, contexto
+
+    def _request_desde_comprobante_legacy(
+        self, comprobante, *, asociados=None
+    ) -> EmitirComprobanteRequest | None:
+        """Usa snapshots persistidos; notas sin asociados conservados requieren soporte."""
+        if comprobante.tipo_comprobante not in {1, 6, 11} and asociados is None:
+            return None
+        try:
+            return EmitirComprobanteRequest(
+                empresa_id=comprobante.empresa_id,
+                punto_venta_id=comprobante.punto_venta_id,
+                tipo_comprobante=comprobante.tipo_comprobante,
+                concepto=comprobante.concepto,
+                fecha_emision=comprobante.fecha_emision,
+                tipo_documento=comprobante.receptor_tipo_documento,
+                numero_documento=comprobante.receptor_numero_documento,
+                razon_social=comprobante.receptor_razon_social,
+                condicion_iva=comprobante.receptor_condicion_iva,
+                moneda=comprobante.moneda,
+                cotizacion=comprobante.cotizacion,
+                guardar_cliente=False,
+                comprobantes_asociados=asociados or [],
+                fecha_servicio_desde=comprobante.fecha_servicio_desde,
+                fecha_servicio_hasta=comprobante.fecha_servicio_hasta,
+                fecha_vto_pago=comprobante.fecha_vto_pago,
+                items=[
+                    ItemComprobanteCreate.model_validate(
+                        {
+                            campo: getattr(item, campo)
+                            for campo in ItemComprobanteCreate.model_fields
+                        }
+                    )
+                    for item in comprobante.items
+                ],
+            )
+        except PydanticValidationError:
+            return None
 
     async def _crear_o_vincular_intento_autorizado(
         self,
         *,
         intento: IntentoEmisionFiscal,
         consulta_arca,
+        recuperacion: RecuperacionLegacy | None = None,
     ) -> Comprobante | None:
         """Crea o vincula el comprobante confirmado por ARCA para un intento."""
-        existente = await self.db.scalar(
-            select(Comprobante).where(
-                Comprobante.empresa_id == intento.empresa_id,
-                Comprobante.punto_venta_id == intento.punto_venta_id,
-                Comprobante.tipo_comprobante == intento.tipo_comprobante,
-                Comprobante.numero == intento.numero_planificado,
+        if recuperacion is None:
+            comparacion, recuperacion = await self._comparar_recuperacion_legacy(
+                intento, consulta_arca
             )
-        )
-        if existente is not None:
-            if (
-                existente.estado == "autorizado"
-                and existente.cae == str(consulta_arca.cae)
-                and existente.fecha_emision == intento.fecha_emision
-                and Decimal(str(existente.total)).quantize(Decimal("0.01"))
-                == Decimal(str(intento.total)).quantize(Decimal("0.01"))
-            ):
-                return existente
-            return None
-
-        if intento.grupo_id is None:
-            return None
-
-        grupo = await self.db.get(LoteComprobanteGrupo, intento.grupo_id)
-        if grupo is None or not grupo.payload_json:
-            return None
-
-        punto_venta = await self._obtener_punto_venta(
-            intento.punto_venta_id,
-            intento.empresa_id,
-        )
-        if punto_venta is None:
-            return None
-
-        try:
-            request = EmitirComprobanteRequest.model_validate(grupo.payload_json)
-        except PydanticValidationError:
-            logger.warning(
-                "El payload fiscal del intento autorizado %s no cumple el contrato vigente",
-                intento.id,
+            if comparacion.estado != "coincidente" or recuperacion is None:
+                return None
+        grupo = recuperacion.grupo
+        comprobante = recuperacion.existente
+        if comprobante is None:
+            if grupo is None:
+                return None
+            comprobante = await self._guardar_comprobante(
+                recuperacion.request,
+                intento.numero_planificado,
+                recuperacion.totales,
+                consulta_arca,
+                recuperacion.punto_venta,
+                commit=False,
             )
-            return None
-        totales = self._calcular_totales(request.items)
-        if Decimal(str(totales["total"])).quantize(Decimal("0.01")) != Decimal(
-            str(intento.total)
-        ).quantize(Decimal("0.01")):
-            return None
-
-        comprobante = await self._guardar_comprobante(
-            request,
-            intento.numero_planificado,
-            totales,
-            consulta_arca,
-            punto_venta,
-            commit=False,
-        )
+        if grupo is None:
+            return comprobante
         grupo.estado = "autorizado"
         grupo.cae = comprobante.cae
         grupo.numero_asignado = comprobante.numero

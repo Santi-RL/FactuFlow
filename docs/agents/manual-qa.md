@@ -49,6 +49,15 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ### Fiscal o ARCA
 
+- Simular recuperación legacy con mismo total y distinta moneda/cotización,
+  neto/IVA, concepto, períodos o asociados: no reconstruye ni vincula; conserva
+  CAE atribuible y reserva. Con evidencia original completa y coincidente,
+  reconstruye o vincula una sola vez. No usar datos actuales del cliente.
+- Devolver una consulta incompleta con CAE: conserva el código y requiere
+  revisión. Un CAE ajeno o CAEA no se atribuye como CAE local; «no existe» no
+  libera un intento que ya conserva autorización. Una resolución concurrente
+  o guarda moderna impide sobrescribir el grafo. Usar sólo dobles locales.
+
 - Con el simulador SOAP local, devolver cabecera de otro emisor/punto/tipo o
   detalle con otro receptor/rango: no se atribuye un CAE ajeno y la operación
   conserva reconciliación. No realizar llamadas fiscales reales.

@@ -146,6 +146,14 @@ vista previa decimal desde backend y resumen de lotes con IVA 27 %. Preserva
 redondeos, hashes, autorizados y reconciliación; categorías completas siguen P2.
 Contrato en [importes/previsualización](pf-03-04-importes-previsualizacion-design.md).
 
+La recuperación legacy P1 compara componentes fiscales contra payload original
+verificado o snapshots completos de un comprobante guardado. Diferencias o
+evidencia insuficiente conservan CAE atribuible y reserva; las consultas no
+solicitan otra autorización. Guardas modernas, hashes y datos históricos se
+conservan. La cobertura antigua desconocida no se inventa; la recuperación
+integral moderna mantiene su corte P2. Contrato y salida de soporte en
+[reconciliación](pf-02-04-reconciliacion-integral-design.md).
+
 Está aceptada la planificación integrada de ampliación de importes/previsualización,
 reconciliación integral, WSAA coordinado/cifrado, padrón para clientes y emisores,
 y notas guiadas. Los ensayos justifican cortes fiscales acotados y el uso de
@@ -203,8 +211,8 @@ permisos. El contrato de código incorpora presupuesto previo a bcrypt y
 restablecimiento por consola de cuentas existentes; límites en
 [SC-08](sc-08-login-recuperacion-design.md), alcance y puertas de publicación en el
 [dossier del candidato](../project/releases/v0.3.8-candidate.md). La siguiente
-unidad fiscal se toma del roadmap; fidelidad del receptor y admisibilidad/revisión
-P1 están implementadas.
+unidad se toma del roadmap; fidelidad del receptor, admisibilidad/revisión y
+comparación fiscal legacy P1 están implementadas.
 Este cierre de código no acredita publicación ni despliegue.
 
 Para continuar desarrollo:

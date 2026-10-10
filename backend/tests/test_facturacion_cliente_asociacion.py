@@ -24,6 +24,7 @@ from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
 from app.models.punto_venta import PuntoVenta
 from app.schemas.comprobante import EmitirComprobanteRequest, ItemComprobanteCreate
 from app.services.facturacion_service import FacturacionService, ValidationError
+from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 from app.services.lote_comprobantes_service import LoteComprobantesService
 from tests.test_facturacion_service import (
     FECHA_FISCAL_PRUEBA,
@@ -583,6 +584,9 @@ async def test_recuperacion_autorizada_y_externa_preservan_snapshot_ambiguo(
         db_session.add(grupo)
         await db_session.flush()
         payload_original = deepcopy(grupo.payload_json)
+        arca_request = service._armar_request_arca(
+            request, 1, service._calcular_totales(request.items), punto.numero
+        )
         comprobante = await service._crear_o_vincular_intento_autorizado(
             intento=SimpleNamespace(
                 id=1,
@@ -593,8 +597,23 @@ async def test_recuperacion_autorizada_y_externa_preservan_snapshot_ambiguo(
                 fecha_emision=request.fecha_emision,
                 total=service._calcular_totales(request.items)["total"],
                 grupo_id=grupo.id,
+                lote_id=lote.id,
+                punto_venta_numero=punto.numero,
+                receptor_tipo_documento=request.tipo_documento,
+                receptor_numero_documento=request.numero_documento,
+                payload_hash=IdempotenciaFiscalService.calcular_payload_hash(
+                    IdempotenciaFiscalService.payload_sin_confirmacion_duplicado(
+                        grupo.payload_json
+                    )
+                ),
             ),
             consulta_arca=SimpleNamespace(
+                **{
+                    campo: getattr(arca_request, campo)
+                    for campo in type(arca_request).model_fields
+                },
+                numero=1,
+                emision_tipo="CAE",
                 cae=CAE_SINTETICO,
                 cae_vencimiento=VENCIMIENTO_CAE_SINTETICO,
             ),

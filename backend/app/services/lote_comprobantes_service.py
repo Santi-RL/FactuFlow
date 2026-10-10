@@ -3830,6 +3830,10 @@ class LoteComprobantesService:
         consulta_arca,
     ) -> None:
         """Valida que ARCA confirme exactamente el comprobante externo."""
+        if not getattr(consulta_arca, "datos_basicos_completos", True):
+            raise LoteComprobanteError(
+                "ARCA devolvió datos incompletos del comprobante"
+            )
         fecha_esperada = self._parse_date(item.get("fecha_emision"))
         total_esperado = self._parse_decimal(item.get("total"))
         if total_esperado is None:

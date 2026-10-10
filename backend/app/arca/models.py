@@ -3,7 +3,14 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
-from pydantic import ConfigDict, BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    BaseModel,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from app.arca.utils import format_date_arca
 
@@ -253,27 +260,79 @@ class ComprobanteResponse(BaseModel):
     cae_vencimiento: str
 
     # Fecha
-    fecha_cbte: str
-    fecha_proceso: str
+    fecha_cbte: Optional[str] = None
+    fecha_proceso: Optional[str] = None
 
     # Importes
-    imp_total: float
-    imp_neto: float
-    imp_iva: float
-    imp_op_ex: float
-    imp_tot_conc: float
-    imp_trib: float
+    imp_total: Optional[Decimal] = None
+    imp_neto: Optional[Decimal] = None
+    imp_iva: Optional[Decimal] = None
+    imp_op_ex: Optional[Decimal] = None
+    imp_tot_conc: Optional[Decimal] = None
+    imp_trib: Optional[Decimal] = None
 
     # Moneda
-    moneda_id: str
-    moneda_cotiz: float
+    moneda_id: Optional[str] = None
+    moneda_cotiz: Optional[Decimal] = None
 
     # Cliente
-    tipo_doc: int
-    nro_doc: int
+    tipo_doc: Optional[int] = None
+    nro_doc: Optional[int] = None
 
     # Estado
     resultado: str
+
+    # None conserva la cobertura desconocida de respuestas antiguas.
+    concepto: Optional[int] = None
+    emision_tipo: Optional[str] = None
+    cbte_desde: Optional[int] = None
+    cbte_hasta: Optional[int] = None
+    condicion_iva_receptor_id: Optional[int] = None
+    fecha_serv_desde: Optional[str] = None
+    fecha_serv_hasta: Optional[str] = None
+    fecha_vto_pago: Optional[str] = None
+    iva: Optional[List[IvaItem]] = None
+    tributos: Optional[List[TributoItem]] = None
+    cbtes_asoc: Optional[List[CbteAsocItem]] = None
+    adicionales_presentes: List[str] = Field(default_factory=list)
+    campos_invalidos: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    @property
+    def datos_basicos_completos(self) -> bool:
+        """Preserva el contrato de consumidores que no admiten consulta parcial."""
+        return not self.campos_invalidos and all(
+            getattr(self, campo) is not None
+            for campo in (
+                "fecha_cbte",
+                "fecha_proceso",
+                "imp_total",
+                "imp_neto",
+                "imp_iva",
+                "imp_op_ex",
+                "imp_tot_conc",
+                "imp_trib",
+                "moneda_id",
+                "moneda_cotiz",
+                "tipo_doc",
+                "nro_doc",
+            )
+        )
+
+    @field_serializer(
+        "imp_total",
+        "imp_neto",
+        "imp_iva",
+        "imp_op_ex",
+        "imp_tot_conc",
+        "imp_trib",
+        "moneda_cotiz",
+        when_used="json",
+    )
+    def serializar_numero_consulta(self, valor: Optional[Decimal]) -> Optional[float]:
+        """Mantiene el contrato HTTP numérico; se compara el Decimal original."""
+        return float(valor) if valor is not None else None
 
 
 # ==================== Parámetros ARCA ====================

@@ -80,7 +80,7 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   [importes y previsualización fiscal común](pf-03-04-importes-previsualizacion-design.md).
   Separa corrección P1 implementada de admisibilidad/revisión, ampliación P2 de categorías y
   consumo por plantillas; preserva redondeos PF-03B.
-- PF-02/PF-04, implementación futura:
+- PF-02/PF-04, P1 implementado y ampliación P2 futura:
   [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
   Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
 - PF-09, implementación futura:

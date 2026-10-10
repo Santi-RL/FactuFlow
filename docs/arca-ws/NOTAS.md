@@ -1,8 +1,17 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 08/10/2026
+Última actualización: 09/10/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
+
+## Consulta y recuperación legacy P1
+
+`FECompConsultar` conserva importes decimales, concepto, tipo de autorización,
+IVA, períodos y asociados. Ausencia o datos inválidos no se convierten en cero.
+La recuperación compara evidencia original verificada, conserva CAE atribuible
+y reserva ante diferencias y no llama a `FECAESolicitar`. Contrato, cobertura
+histórica y soporte en [reconciliación](../agents/pf-02-04-reconciliacion-integral-design.md).
+Manual WSFE v4.7, consultado el 09/10/2026; recuperación moderna P2 separada.
 
 ## Lecturas fiscales A-03
 
