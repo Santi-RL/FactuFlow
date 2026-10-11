@@ -18,6 +18,13 @@
   evidencia pública.
 
 ## Almacenamiento recomendado
+
+El resumen PF-11/PF-15 es una proyección privada producida por el responsable de
+instalación y validada antes de su publicación atómica. Restringir permisos y
+montar sólo el resumen con lectura para el runtime; nunca el almacén de backups.
+La aplicación valida estructura/vínculos, no los archivos de prueba originales.
+No confundir una proyección declarada con procedencia autenticada de un paquete
+de importación. Formato en [evidencia de recuperación](../setup/recovery-evidence.md).
 - Guardar en el filesystem el certificado y la clave.
 - Crear claves privadas nuevas con permisos restrictivos desde la apertura del
   archivo y cifrarlas antes de persistirlas.
@@ -186,6 +193,13 @@ Para recuperar una contraseña sin modificar permisos, usar el restablecimiento
 administrativo o `app.scripts.reset_user_password` desde la consola autorizada
 de la instalación. `create_admin_user` es un alta/promoción con otros efectos.
 La recuperación de credenciales no requiere restaurar ni borrar datos.
+
+Los tokens nuevos de login se vinculan mediante una versión opaca a la
+credencial verificada. Ambos controles de autenticación rechazan versiones
+distintas de la vigente, además de la revocación temporal. La compatibilidad de
+sesiones anteriores y los límites del cierre están en
+[SC-11](sc-11-login-reset-design.md). No registrar contraseñas, hashes ni tokens
+en logs o evidencia pública.
 
 Ejecutar una revisión mínima:
 

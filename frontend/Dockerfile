@@ -1,5 +1,7 @@
+ARG IMAGE_REGISTRY=docker.io/library
+
 # Build stage
-FROM node:24.15.0-alpine AS build
+FROM ${IMAGE_REGISTRY}/node:24.15.0-alpine AS build
 
 WORKDIR /app
 
@@ -19,7 +21,7 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM ${IMAGE_REGISTRY}/nginx:alpine
 
 # Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html

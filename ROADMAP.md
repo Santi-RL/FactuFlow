@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 08/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -38,60 +38,10 @@ El [portafolio](docs/agents/development-portfolio.md) adjudica responsables y
 aceptación. Los cortes P1 conservan sus dueños; coordinar su preparación
 común para no crear validaciones o máquinas fiscales paralelas.
 Cada integración de runtime exige auditoría verde. Las
-reparaciones fiscales se coordinan con los cortes 1–3: cada unidad
+reparaciones fiscales preservan la comparación y recuperación aceptadas: cada unidad
 puede integrarse al cumplir su contrato y sus checks, sin esperar una reparación
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.
-
-### 1. PF-13 — fidelidad del receptor en importación fiscal
-
-**Prioridad:** P1 fiscal.
-
-Conservar documento y nombre suministrados y resolver condición IVA desde el
-archivo o una configuración explícita. Admitir consumidor final identificado
-con CUIT/CUIL: identificación y condición fiscal son datos independientes.
-Corregir conjuntamente la pérdida del documento bajo el umbral y el rechazo
-general de CUIT con consumidor final; señalar diferencias reales entre archivo
-y plantilla antes de emitir, sin inferir una inscripción ni cambiar datos
-silenciosamente. El riesgo demostrado de emitir sin la identificación esperada
-o bloquear una combinación válida justifica adelantar este corte acotado.
-Preservar los casos anónimos permitidos, la compatibilidad RG 5616, duplicados,
-historia e idempotencia. No espera el rediseño P2 del constructor o de la UI.
-Motivo, fuentes, transición legacy y aceptación en el
-[diseño de fidelidad del receptor](docs/agents/pf-13-receptores-importacion-design.md).
-
-### 2. PF-03/PF-13 — admisibilidad y revisión de importes
-
-**Prioridad:** P1 fiscal. Evitar que alícuotas sin soporte se conviertan en IVA
-cero y que la revisión muestre un total distinto del cálculo decimal vigente.
-Usar preparación fiscal común sin cambiar redondeos PF-03B ni agregar pasos.
-La ampliación de categorías permanece P2. Alcance, compatibilidad y aceptación
-en el [diseño de importes y previsualización](docs/agents/pf-03-04-importes-previsualizacion-design.md).
-
-### 3. PF-02/PF-04 — comparación fiscal en recuperación legacy
-
-**Prioridad:** P1 fiscal. Comparar componentes fiscales disponibles antes de
-reconstruir/vincular un autorizado; conservar CAE e incertidumbre ante diferencias.
-Preservar guardas modernas y evidencia antigua. La recuperación integral moderna
-es otro corte P2; alcance y aceptación en el
-[diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
-
-### 4. PF-11/PF-15 — recuperación y trazabilidad operativa
-
-**Prioridad:** P1 para recuperación; P2 para señales y soporte.
-
-Vincular cada backup previo a una operación con propósito, fecha/hora y
-escrituras intermedias; mostrar señales administrativas útiles; completar
-registros operativos y soporte
-sin exponer evidencia privada. El estado concreto de una instalación permanece
-en `VPS Hostinger` / `vps-admin`.
-El [diseño de recuperación y trazabilidad](docs/agents/pf-11-15-recuperacion-trazabilidad-design.md)
-separa este corte de la automatización de backups de «Más adelante».
-
-## Después
-
-El orden de esta sección también es vinculante salvo nueva evidencia o decisión
-explícita del usuario.
 
 ### 1. PF-04/PF-02 — evidencia y reconciliación integral
 
@@ -103,7 +53,12 @@ masivos con seguridad. Extender la comparación y las transiciones modernas sin
 saltar guardas ni reemitir; comparte el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
 PF-05 externo es opcional y no bloquea padrón, notas ni emisión.
 
-### 2. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
+## Después
+
+El orden de esta sección también es vinculante salvo nueva evidencia o decisión
+explícita del usuario.
+
+### 1. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
 
 **Prioridad:** P2, elevable por evidencia.
 
@@ -113,10 +68,14 @@ con identidad, renovación y recuperación seguras. Contrato en el
 Endurecer certificados/ambientes, constraints reversibles y contratos HTTP por
 cortes de dominio; no exigir terminar toda la plataforma para un consumidor.
 
-### 3. PF-18/PF-09 — padrón de clientes y alta de emisores
+### 2. PF-18/PF-09 — padrón de clientes y alta de emisores
 
 **Prioridad:** P2 fiscal y administrativa. Consultar ARCA para completar datos
 por CUIT y detectar cambios de régimen; conservar fuente y fecha de verificación.
+En Excel, ofrecer completar razón social/nombre y condición registral desde
+CUIT como opción explícita por archivo, desactivada por defecto; conservar los
+datos aceptados para reportes y PDFs. No consultar cada Excel automáticamente
+ni prometer obtener CUIT desde cualquier documento.
 Anticipar y agrupar consultas, reutilizar caché y renovar fuera del tramo de CAE.
 Mantener alternativas manual/PDF y resolver credenciales del primer emisor;
 no convertir ausencia de respuesta en CF ni alterar solicitudes congeladas.
@@ -138,6 +97,11 @@ operativos confirmados:
 - **PF-05, P2 fiscal:** reconstrucción histórica externa opcional, reanudable y
   con procedencia desde ARCA, después del snapshot PF-04. No es requisito para
   emitir ni para reconciliar intentos locales. Alcance en el portafolio.
+- **PF-04/PF-17 — atribución del ranking, P2 administrativa:** evitar agrupar
+  receptores sin identificar bajo el nombre de una persona. Separar ese agregado
+  del ranking individual y distinguir tipo y número de documento en los
+  identificados, conservando moneda, importes e historia. No adelanta «Ahora» ni
+  «Después»; alcance y aceptación en el [portafolio](docs/agents/development-portfolio.md#pf-04pf-05).
 - **PF-03/PF-04/PF-13, P2 fiscal:** separar tasa cero, exento, no gravado y
   tributos, y ampliar alícuotas con soporte completo hasta PDF/informes.
   Preservar interpretación histórica y consumir el
@@ -165,11 +129,29 @@ operativos confirmados:
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
   Consume preparación fiscal común y padrón anticipado cuando esté disponible;
   no agrega otro cálculo ni una consulta obligatoria por fila o al emitir.
+- **PF-13 — alícuotas por fila, análisis para la próxima versión:** evaluar
+  cuándo conviene declarar «IVA %» en una columna y cuándo conservar un valor
+  fijo en la plantilla, usando las tasas ya soportadas (0 %, 10,5 %, 21 % y
+  27 %). Revisar la claridad del constructor y la validación de neto, IVA y
+  total, sin ampliar tasas ni reinterpretar lotes históricos. Sin prioridad de
+  implementación asignada; no cambia las configuraciones actuales ni forma
+  parte de v0.3.8. Alcance en el
+  [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
 - **PF-13 — procesos largos y eficiencia, P2:** límites de recursos y tareas
   reanudables generales, conservando invariantes fiscales. El reintento de lotes
   parciales, su progreso y la recuperación de reservas terminales están cubiertos
   por el [contrato del parche cerrado](docs/agents/pf-13-17-reintentos-seguros-parche.md). Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
+- **PF-17/PF-13 — formato argentino y claridad visible, P3:** corregir fechas y números
+  mostrados al usuario, incluidos los ejemplos del constructor de plantillas
+  de emisión masiva (`31/05/2026`, `10.000,00`). Aplicar la regla transversal de
+  [AGENTS.md](AGENTS.md#formato-argentino-en-contenido-visible), conservando
+  contratos internos, precisión e identificadores. Baja prioridad, sin desplazar
+  el orden vigente; alcance y aceptación en el
+  [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
+  Mostrar «Sin identificar» en lugar del documento técnico «0», conservando el
+  nombre y la condición IVA por separado; no asumir «Consumidor final» por falta
+  de documento. Incluir tildes y coma decimal en etiquetas de IVA y almacenamiento.
 - **PF-17 — períodos rápidos, P3:** facilitar el Reporte de ventas con
   «Mes actual», «Mes anterior» y selección
   personalizada, completando Desde/Hasta y mostrando el rango calendario.
@@ -209,6 +191,9 @@ operativos confirmados:
   riesgo y portabilidad de herramientas; accesibilidad, conectividad visible y
   ayudas contextuales. Los cortes se priorizan por riesgo concreto en el
   [portafolio](docs/agents/development-portfolio.md), sin refactor global.
+  Comprobar localmente la previsualización PDF y ofrecer una alternativa clara
+  si el navegador bloquea la ventana (**P3**, elevable ante bloqueo operativo
+  comprobado); no atribuirle una causa sin reproducirla.
   Después del primer release de prevención de duplicados, completar la
   verificación adicional de zoom real al 200 % y lector de pantalla del diálogo,
   junto con ajustes visuales menores que no bloqueen la operación (**P3**).

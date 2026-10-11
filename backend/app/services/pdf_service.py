@@ -16,7 +16,7 @@ from weasyprint import CSS, HTML
 from weasyprint.urls import URLFetcher, URLFetcherResponse
 
 from app.models.comprobante import Comprobante
-from app.core.fiscal_storage import decimal_json_dumps
+from app.core.fiscal_storage import decimal_json_dumps, sum_decimals
 from app.models.empresa import Empresa
 
 # URL oficial heredada del QR ARCA.
@@ -103,6 +103,14 @@ class PDFService:
                 cliente.tipo_documento
             ),
             "ingresos_brutos": getattr(empresa, "ingresos_brutos", None),
+            "iva_guardado": [
+                ("10,5 %", comprobante.iva_10_5),
+                ("21 %", comprobante.iva_21),
+                ("27 %", comprobante.iva_27),
+            ],
+            "iva_total": sum_decimals(
+                [comprobante.iva_10_5, comprobante.iva_21, comprobante.iva_27]
+            ),
         }
 
         # 3. Renderizar HTML

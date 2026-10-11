@@ -9,6 +9,7 @@ import type {
   ComprobanteDetalle,
   PaginatedComprobantesResponse,
   ProximoNumeroResponse,
+  PrevisualizacionComprobanteResponse,
 } from "@/types/comprobante";
 
 export interface ListarComprobantesParams {
@@ -22,6 +23,14 @@ export interface ListarComprobantesParams {
 }
 
 export const comprobantesService = {
+  /** Revisión decimal local: no reserva numeración ni solicita CAE. */
+  async previsualizar(
+    request: EmitirComprobanteRequest,
+  ): Promise<PrevisualizacionComprobanteResponse> {
+    const { data } = await api.post("/api/comprobantes/previsualizar", request);
+    return data;
+  },
+
   /**
    * Lista comprobantes con filtros
    */

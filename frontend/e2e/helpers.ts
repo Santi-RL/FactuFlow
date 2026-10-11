@@ -1086,6 +1086,43 @@ export const mockApi = async (page: Page) => {
     }
 
     if (
+      (path === "/api/comprobantes/previsualizar" ||
+        path === "/comprobantes/previsualizar") &&
+      method === "POST"
+    ) {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      const body = parseBody(route) as any;
+      // La exactitud decimal se verifica en backend; este doble representa el contrato HTTP.
+      const subtotales = body.items.map(
+        (item: any) =>
+          item.cantidad *
+          item.precio_unitario *
+          (1 - item.descuento_porcentaje / 100),
+      );
+      const subtotal = subtotales.reduce((a: number, b: number) => a + b, 0);
+      const iva = (tasa: number) =>
+        body.items.reduce(
+          (sum: number, item: any, index: number) =>
+            sum +
+            (item.iva_porcentaje === tasa
+              ? (subtotales[index] * tasa) / 100
+              : 0),
+          0,
+        );
+      return jsonResponse(route, 200, {
+        subtotal: subtotal.toFixed(2),
+        iva_21: iva(21).toFixed(2),
+        iva_10_5: iva(10.5).toFixed(2),
+        iva_27: iva(27).toFixed(2),
+        total: (subtotal + iva(21) + iva(10.5) + iva(27)).toFixed(2),
+        subtotales_items: subtotales.map((value: number) => value.toFixed(2)),
+        moneda: body.moneda,
+        cotizacion: String(body.cotizacion),
+        receptor: body,
+      });
+    }
+
+    if (
       (path === "/api/comprobantes/emitir" ||
         path === "/comprobantes/emitir") &&
       method === "POST"

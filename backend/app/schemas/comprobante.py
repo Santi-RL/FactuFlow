@@ -164,6 +164,28 @@ class EmitirComprobanteRequest(ComprobanteBase):
         return v
 
 
+class ReceptorPrevisualizacionResponse(BaseModel):
+    tipo_documento: int
+    numero_documento: str
+    razon_social: str
+    condicion_iva: str
+    domicilio: Optional[str] = None
+
+
+class PrevisualizacionComprobanteResponse(BaseModel):
+    """Importes fiscales de lectura, sin reserva ni autorización de emisión."""
+
+    subtotal: Decimal
+    iva_21: Decimal
+    iva_10_5: Decimal
+    iva_27: Decimal
+    total: Decimal
+    subtotales_items: List[Decimal]
+    moneda: str
+    cotizacion: Decimal
+    receptor: ReceptorPrevisualizacionResponse
+
+
 class ErrorArcaFiscalResponse(BaseModel):
     """Error ARCA sanitario apto para persistencia y respuesta pública."""
 

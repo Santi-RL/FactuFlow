@@ -91,11 +91,34 @@
         </section>
 
         <section class="totals">
+            {% if letra == "B" %}
+            <aside class="transparency">
+                <h3>Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</h3>
+                <p><strong>IVA Contenido:</strong> {{ iva_total | importe_ar }}</p>
+                <p><strong>Otros Impuestos Nacionales Indirectos:</strong>
+                    {% if comprobante.otros_impuestos == 0 %}0,00{% else %}No discriminados en los datos guardados{% endif %}
+                </p>
+            </aside>
+            {% endif %}
             <table>
                 <tr>
                     <td>Subtotal:</td>
                     <td>{{ comprobante.subtotal | importe_ar }}</td>
                 </tr>
+                {% if letra == "A" %}
+                {% for tasa, importe in iva_guardado %}
+                {% if importe != 0 %}
+                <tr>
+                    <td>IVA {{ tasa }}:</td>
+                    <td>{{ importe | importe_ar }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                <tr>
+                    <td>IVA total:</td>
+                    <td>{{ iva_total | importe_ar }}</td>
+                </tr>
+                {% endif %}
                 <tr>
                     <td>Importe Otros Tributos:</td>
                     <td>{{ comprobante.otros_impuestos | importe_ar }}</td>

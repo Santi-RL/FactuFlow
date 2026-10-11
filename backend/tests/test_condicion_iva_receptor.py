@@ -94,9 +94,9 @@ def test_condicion_invalida_no_se_infiere_por_documento(condicion, documento):
 
 def test_documento_99_no_reclasifica_una_condicion_explicita_valida():
     request = _request("Exento", 6).model_copy(update={"tipo_documento": 99})
-    assert (
-        FacturacionService(None).normalizar_receptor(request).condicion_iva == "Exento"
-    )
+    with pytest.raises(ValidationError, match="sin identificar"):
+        FacturacionService(None).normalizar_receptor(request)
+    assert request.condicion_iva == "Exento"
 
 
 def test_verificacion_de_hash_historico_conserva_normalizacion_anterior():

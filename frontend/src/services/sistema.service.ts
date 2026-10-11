@@ -5,12 +5,47 @@ export interface SistemaHealthResponse {
   message: string;
 }
 
+export type RecoveryComponentName =
+  "database" | "certificates" | "configuration" | "runtime";
+export type RecoveryChangeResult = "changed" | "not_detected" | "unknown";
+export interface RecoveryHealthResponse {
+  status: "recorded" | "not_verified";
+  reason: "not_configured" | "missing" | "invalid" | "recorded";
+  scope: "installation";
+  current_coverage: "unknown";
+  backup_id: string | null;
+  purpose:
+    "pre_update" | "pre_maintenance" | "pre_resolution" | "manual" | null;
+  captured_at: string | null;
+  source_code_sha: string | null;
+  created_at: string | null;
+  components: {
+    name: RecoveryComponentName;
+    state: "present" | "missing" | "unknown";
+  }[];
+  integrity: RecoveryCheckResponse;
+  restore: RecoveryCheckResponse;
+  external_copy: RecoveryCheckResponse;
+  comparison: {
+    observed_at: string;
+    database: RecoveryChangeResult;
+    managed_files: RecoveryChangeResult;
+    configuration: RecoveryChangeResult;
+    fiscal_writes: RecoveryChangeResult;
+    administrative_writes: RecoveryChangeResult;
+  } | null;
+}
+
+export interface RecoveryCheckResponse {
+  result: "verified" | "failed" | "not_verified";
+  checked_at: string | null;
+  components: RecoveryComponentName[];
+  time_precision: "instant" | "minute" | "unknown";
+}
+
 export type LoteWorkerHealthStatus = "healthy" | "degraded" | "disabled";
 export type LoteWorkerEstado =
-  | "deshabilitado"
-  | "detenido"
-  | "esperando"
-  | "ocupado";
+  "deshabilitado" | "detenido" | "esperando" | "ocupado";
 
 export interface DatabasePoolRoleHealthResponse {
   pool_size: number | null;
@@ -52,6 +87,12 @@ export interface LoteWorkerHealthResponse {
 }
 
 const sistemaService = {
+  async recoveryHealth(): Promise<RecoveryHealthResponse> {
+    const response = await apiClient.get<RecoveryHealthResponse>(
+      "/api/health/recovery",
+    );
+    return response.data;
+  },
   async health(): Promise<SistemaHealthResponse> {
     const response = await apiClient.get<SistemaHealthResponse>("/api/health");
     return response.data;
@@ -64,9 +105,8 @@ const sistemaService = {
   },
 
   async workerHealth(): Promise<LoteWorkerHealthResponse> {
-    const response = await apiClient.get<LoteWorkerHealthResponse>(
-      "/api/health/worker",
-    );
+    const response =
+      await apiClient.get<LoteWorkerHealthResponse>("/api/health/worker");
     return response.data;
   },
 };

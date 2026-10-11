@@ -2,6 +2,9 @@
 
 Instrucciones paso a paso para instalar y configurar FactuFlow.
 
+El [resumen privado de recuperación](recovery-evidence.md) es una integración
+opcional para administradores. No automatiza backups ni restaura datos.
+
 ## Instalación con Docker (Recomendada)
 
 ### Requisitos Previos

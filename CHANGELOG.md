@@ -18,6 +18,102 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+Sin cambios funcionales posteriores a v0.3.8.
+
+### Mantenimiento de herramientas
+
+- CI: `actions/setup-python` 7 en los tres consumidores del workflow,
+  conservando Python 3.11, caché y las comprobaciones completas. No modifica
+  dependencias de ejecución ni despliega la aplicación.
+
+## [0.3.8] — 10/10/2026
+
+Publicada como [v0.3.8](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.8),
+con tag inmutable en `57ecb7c6155ecc661d3572feb06f64659f6342b6`.
+CI de main, QA contable y ensayo aislado de actualización y recuperación
+aprobados; [evidencia y límites](docs/project/releases/v0.3.8-candidate.md).
+La publicación no modifica producción; preflight y despliegue son operaciones
+separadas, con autoridad en el plano de control.
+
+### IVA y legibilidad del PDF
+
+- Los A discriminan IVA guardado por alícuota; los B muestran «IVA Contenido»
+  y transparencia fiscal. No se recalculan bases, totales ni datos históricos.
+  Otros tributos sin clasificación conservada no se atribuyen a impuestos
+  nacionales indirectos. C conserva su representación sin exención inferida.
+- Códigos y decimales extensos se ajustan a su celda sin truncamiento ni
+  superposición. [Contrato y límites](docs/agents/pf-04-pdf-representacion-fiscal-design.md).
+
+### Sesiones y restablecimiento concurrente SC-11
+
+- Cada sesión nueva queda vinculada a la credencial realmente verificada. Un
+  login con la contraseña anterior no concede acceso después de un reset
+  concurrente, aunque el token se genere más tarde.
+- Conservadas las sesiones legacy válidas, la revocación temporal, los límites
+  SC-08 y ambos métodos de recuperación sin alterar permisos ni datos. Sin
+  migraciones; [contrato y límites](docs/agents/sc-11-login-reset-design.md).
+
+### Evidencia de recuperación PF-11/PF-15
+
+- Sistema muestra resumen privado de respaldo, componentes, integridad, ensayo,
+  copia externa y cotejos posteriores con sus fechas originales. La cobertura
+  actual queda desconocida; no autoriza restauraciones.
+- API exclusiva de administradores y validación por consola, con límite de
+  tamaño, identidad de instalación, vínculos y errores sanitizados. Sin
+  migraciones, nuevos journals, llamadas fiscales ni pasos por factura.
+- El contrato reutiliza procedencia de operaciones y exige comprobar la
+  recuperación concreta en el plano de control, incluidas escrituras posteriores.
+
+### Comparación fiscal en recuperación legacy P1
+
+- La recuperación antigua compara moneda, cotización, componentes, IVA,
+  concepto, períodos y asociados contra el payload original verificado o los
+  snapshots de un comprobante parcialmente guardado. Un total igual no basta
+  para reconstruir ni vincular una autorización.
+- Diferencias o evidencia insuficiente conservan CAE atribuible y reserva para
+  revisión. Consultas incompletas no se convierten en ceros; una respuesta de
+  inexistencia no libera un intento con CAE conocido. Una resolución concurrente
+  o una guarda moderna impide sobrescribir el estado.
+- La consulta WSFE conserva decimales y detalles fiscales internamente; el HTTP
+  mantiene sus números existentes y exige datos completos. No se modifican
+  solicitudes, hashes, fechas, esquema ni admisibilidad de nuevas emisiones.
+  Recuperación moderna P2 y reconstrucción externa PF-05 mantienen sus alcances.
+
+### Admisibilidad y revisión de importes P1
+
+- Nuevas emisiones individuales, lotes y reintentos admiten únicamente 0 %,
+  10,5 %, 21 % y 27 %. Una tasa sin soporte identifica el ítem o fila y requiere
+  corrección; no se convierte silenciosamente en IVA cero. Se conservan los
+  schemas, hashes, autorizados y recuperación de evidencia histórica.
+- La vista previa obtiene importes decimales del backend al abrirse, sin
+  solicitar CAE ni reservar numeración. Conserva el redondeo PF-03B e invalida
+  revisiones fiscales viejas, incluidas respuestas tardías y cambios de emisor.
+- El resumen de pendientes suma los importes fiscales por comprobante e
+  incorpora IVA 27 %. La opción 0 % ya no promete una categoría exenta; la
+  ampliación de categorías y alícuotas mantiene su corte P2.
+
+### Descarga de imágenes en CI
+
+- Los servicios PostgreSQL y las bases Node/Nginx de CI usan las imágenes
+  oficiales Docker publicadas en Amazon ECR Public para evitar los errores de
+  límite de descargas y autenticación de Docker Hub en los runners. Se conservan
+  versiones y comprobaciones; el build fuera de CI sigue usando Docker Hub
+  por defecto y no cambia ninguna instalación productiva.
+
+### Fidelidad del receptor PF-13
+
+- Conservados tipo, número y nombre suministrados al importar consumidores
+  finales identificados; CUIT y CUIL mantienen sus códigos y no implican otra
+  condición IVA. La validación de lotes admite esas combinaciones.
+- La condición IVA y el tipo de un documento informado deben provenir de una
+  columna o un valor fijo explícito. Celdas fiscales inválidas y contradicciones
+  reconocibles del archivo requieren corrección antes de emitir; no se borran
+  documentos inválidos ni se infiere CUIT por longitud.
+- Los formatos antiguos ambiguos requieren corregir su configuración para
+  nuevas importaciones; los protegidos se clonan. Se conservan lotes existentes,
+  solicitudes congeladas, normalización de hashes históricos y reconciliación.
+  Contrato y transición en [PF-13](docs/agents/pf-13-receptores-importacion-design.md).
+
 ### Protección de acceso SC-08
 
 - Limitados los intentos de login por cuenta, origen y proceso antes del costo
@@ -31,9 +127,9 @@ Reglas vigentes desde 2026-05-22:
 
 - Alineados los productores técnicos y visibles de versión en `0.3.8`, sin
   cambiar las reglas fiscales. El [dossier del corte](docs/project/releases/v0.3.8-candidate.md)
-  delimita A-01, A-03, SC-09, SC-08, compatibilidad, recuperación y puertas de salida.
-  La release publicada más reciente continúa siendo `v0.3.7`; esta preparación
-  no crea un tag ni acredita un despliegue.
+  delimita A-01, A-03, PF-13, SC-09, SC-08, compatibilidad, recuperación y puertas de salida.
+  Durante esa preparación, `v0.3.7` era la última release publicada;
+  la preparación por sí sola no creó un tag ni acreditó un despliegue.
 
 ### Lecturas fiscales A-03
 
@@ -63,8 +159,9 @@ Reglas vigentes desde 2026-05-22:
 
 ### Alineación documental y planificación de seguridad
 
-- Corregidas dos referencias de diseños vivos para consumir A-01 implementado,
-  manteniendo pendientes las lecturas A-03 y la revisión/admisibilidad de importes.
+- Corregidas dos referencias de diseños vivos para consumir A-01 implementado.
+  En ese antecedente, A-03 y revisión/admisibilidad seguían pendientes;
+  sus cierres posteriores están incluidos en esta release.
 - La receta VPS selecciona y verifica un SHA completo aprobado antes de construir
   o iniciar, y remite al preflight, recuperación y verificación de runtime del
   flujo canónico de producción.
@@ -106,8 +203,9 @@ Reglas vigentes desde 2026-05-22:
   presenta los decimales recibidos y el ranking usa el total del servidor.
 - Paquetes v5 para el esquema ampliado; v3/v4 conservan descriptores, hashes y
   barreras históricos con adaptación explícita al destino. PF-03B, asociación
-  A-02, idempotencia e incertidumbre conservan sus contratos. Bases IVA y política
-  de moneda A-03 continúan pendientes. La versión publicada permanece v0.3.7.
+  A-02, idempotencia e incertidumbre conservan sus contratos. Aquel cierre
+  no incluía bases IVA y política de moneda A-03, incorporadas después en esta
+  release; entonces la última versión publicada era v0.3.7.
 
 ## [0.3.7] — 2026-10-04
 

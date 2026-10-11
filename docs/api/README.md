@@ -36,6 +36,12 @@ los rechazos no prolongan la ventana. Las credenciales incorrectas siguen
 respondiendo `401` y las cuentas inactivas `403` cuando hay presupuesto.
 Límites, origen y recuperación en el [contrato SC-08](../agents/sc-08-login-recuperacion-design.md).
 
+Las sesiones nuevas se vinculan a la credencial verificada. Un restablecimiento
+concurrente invalida el acceso con la contraseña anterior, incluso si el token
+se genera después. Cuando el cambio se detecta durante el login, responde el
+mismo `401` genérico. Los tokens legacy válidos conservan su compatibilidad;
+alcance en [SC-11](../agents/sc-11-login-reset-design.md).
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -93,8 +99,19 @@ resuelve automáticamente y con varias debe enviar una selección explícita.
 GET /api/health
 GET /api/health/db
 GET /api/health/worker
+GET /api/health/recovery
 GET /
 ```
+
+`GET /api/health/recovery` requiere administrador y proyecta evidencia externa
+de instalación: `status=recorded|not_verified`, motivo, respaldo, propósito,
+código de origen, creación y punto respaldado, componentes, integridad, ensayo,
+copia externa y último cotejo. `current_coverage=unknown` siempre: ningún
+resultado histórico garantiza cobertura actual. Sin evidencia utilizable
+responde `200` con `not_verified`; nunca revela rutas, hashes privados, errores
+crudos ni datos de emisores. Usa `Cache-Control: private, no-store`.
+Contrato en [evidencia de recuperación](../setup/recovery-evidence.md).
+No escribe datos ni ejecuta restauración o llamadas fiscales.
 
 `GET /api/health/worker` requiere un usuario administrador y devuelve una
 allowlist sanitizada con el estado del worker y métricas de los pools `api` y
@@ -359,6 +376,15 @@ FactuFlow para el CUIT y ambiente del emisor activo.
 
 ## ARCA
 
+La consulta de comprobante conserva números JSON en los campos de importes y
+cotización y agrega detalle fiscal opcional: concepto, tipo de autorización,
+rango, condición IVA, períodos, IVA, tributos y asociados. Si los datos básicos
+están incompletos o inválidos responde 500, como error de consulta; nunca los
+rellena con cero. El reconciliador interno conserva la autorización atribuible
+y requiere revisión ante evidencia insuficiente o diferente. La recuperación
+legacy no solicita CAE; contrato en
+[PF-02/PF-04](../agents/pf-02-04-reconciliacion-integral-design.md).
+
 ```http
 GET /api/arca/test-conexion
 GET /api/arca/status
@@ -385,6 +411,26 @@ autenticación, pero responde `410 Gone` y no llama a ARCA. Para emitir se debe
 usar `POST /api/comprobantes/emitir` o el flujo de lotes, que aplican
 idempotencia, persistencia de intento fiscal y confirmación irreversible antes
 de solicitar CAE.
+
+## Revisión de importes P1
+
+`POST /api/comprobantes/previsualizar` acepta el body de emisión sin exigir
+`confirmacion_fecha_fiscal=true` ni `X-Idempotency-Key`. Usa los permisos y el
+emisor activo de emisión, valida pertenencia de punto/cliente y reglas locales.
+Responde `subtotal`, `iva_21`, `iva_10_5`, `iva_27`, `total`, `subtotales_items`,
+`moneda`, `cotizacion` y `receptor` efectivo. Los importes son strings decimales;
+errores de negocio usan 400 y errores de contrato 422. No consulta WSAA,
+RECE, padrón o numeración ni escribe clientes, comprobantes u operaciones.
+No solicita CAE ni reserva un número.
+
+Nuevas emisiones admiten 0 %, 10,5 %, 21 % y 27 %. Tasas sin soporte requieren
+corrección por ítem/fila; no se reinterpretan como cero. La emisión revalida
+antes de CAE, también en worker/reintento. Lookup y replay existentes preceden
+a las validaciones nuevas; snapshots históricos conservan su schema y hash.
+Los resúmenes de pendientes incluyen `iva27` y suman los resultados fiscales de
+cada comprobante, sin usar `total_estimado` como autoridad. Cero en A/B representa
+tasa cero gravada; C conserva su regla sin IVA. Exento/no gravado/tributos siguen
+fuera de la preparación actual. [Contrato P1](../agents/pf-03-04-importes-previsualizacion-design.md).
 
 ## Decimales fiscales y compatibilidad A-01
 
@@ -690,6 +736,15 @@ intentar detectar encabezados. Si el archivo es válido, devuelve:
 El cliente debe confirmar el formato antes de validar cualquier archivo externo.
 La deteccion automática es una sugerencia: no crea lotes ni consume numeración.
 
+La importación conserva tipo, número y nombre del receptor, incluidos CF con
+CUIT/CUIL/DNI. `cliente_condicion_iva` debe mapear una columna o constante
+explícita; un documento informado exige `cliente_tipo_documento`. No se infiere
+CUIT por longitud ni se sustituye una celda fiscal inválida o ausente por un
+default. Las contradicciones de columnas fiscales reconocidas se informan con
+fila y campo antes de emitir. Un formato antiguo ambiguo requiere una versión
+corregida; un formato protegido se clona. No se migran lotes, snapshots ni hashes
+existentes. La identificación obligatoria se evalúa sobre el total del grupo.
+
 Formato global inicial:
 
 - Nombre: `Extracto bancario - creditos IVA exento`
@@ -701,6 +756,8 @@ Formato global inicial:
   concepto fiscal ARCA ni la descripción facturada del ítem: el usuario debe
   elegir productos, servicios o archivo para el dato fiscal, y archivo o valor
   fijo para el texto del ítem antes de validar.
+- Si el extracto aporta documento, clonar el formato protegido y configurar
+  `cliente_tipo_documento` desde una columna o constante explícita.
 - Este formato global está pensado para emisores Exento o Monotributo. Si el
   emisor activo es Responsable Inscripto, la validación observa el lote para
   evitar emitir Factura C incorrectamente.
@@ -1036,6 +1093,12 @@ Si falla la generación, descarga y preview responden `500` con un mensaje
 genérico accionable; no devuelven excepciones, rutas internas ni credenciales.
 El diagnóstico técnico queda en registros privados. La autorización y el alcance
 por emisor se comprueban antes de generar el documento.
+
+A discrimina el IVA guardado por alícuota; B muestra «IVA Contenido» y el bloque
+de transparencia fiscal. No se reconstruyen bases ni se corrigen importes
+históricos. Otros tributos sin clasificación no se atribuyen a impuestos
+nacionales indirectos; el agregado original permanece visible. C no se declara
+exento. [Contrato de representación](../agents/pf-04-pdf-representacion-fiscal-design.md).
 
 ## Reportes
 
