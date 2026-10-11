@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 10/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -43,25 +43,6 @@ puede integrarse al cumplir su contrato y sus checks, sin esperar una reparació
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.
 
-### 1. PF-11/PF-15 — comprobar la recuperación del candidato
-
-**Prioridad:** P1 para recuperación de la operación concreta.
-
-Completar el respaldo preoperación y ensayo con código/esquema exactos del
-candidato, vincularlos a la operación y evaluar las escrituras posteriores antes
-de una recuperación. La señal administrativa y el contrato de evidencia están
-implementados; no acreditan la recuperabilidad de una instalación. Resolver
-las puertas de release del [dossier v0.3.8](docs/project/releases/v0.3.8-candidate.md)
-antes de comenzar las capacidades nuevas de «Después». El estado concreto
-permanece en `VPS Hostinger` / `vps-admin`.
-El [diseño de recuperación y trazabilidad](docs/agents/pf-11-15-recuperacion-trazabilidad-design.md)
-separa este corte de la automatización de backups de «Más adelante».
-
-## Después
-
-El orden de esta sección también es vinculante salvo nueva evidencia o decisión
-explícita del usuario.
-
 ### 1. PF-04/PF-02 — evidencia y reconciliación integral
 
 **Prioridad:** P2 fiscal.
@@ -72,7 +53,12 @@ masivos con seguridad. Extender la comparación y las transiciones modernas sin
 saltar guardas ni reemitir; comparte el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
 PF-05 externo es opcional y no bloquea padrón, notas ni emisión.
 
-### 2. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
+## Después
+
+El orden de esta sección también es vinculante salvo nueva evidencia o decisión
+explícita del usuario.
+
+### 1. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
 
 **Prioridad:** P2, elevable por evidencia.
 
@@ -82,7 +68,7 @@ con identidad, renovación y recuperación seguras. Contrato en el
 Endurecer certificados/ambientes, constraints reversibles y contratos HTTP por
 cortes de dominio; no exigir terminar toda la plataforma para un consumidor.
 
-### 3. PF-18/PF-09 — padrón de clientes y alta de emisores
+### 2. PF-18/PF-09 — padrón de clientes y alta de emisores
 
 **Prioridad:** P2 fiscal y administrativa. Consultar ARCA para completar datos
 por CUIT y detectar cambios de régimen; conservar fuente y fecha de verificación.
@@ -138,6 +124,14 @@ operativos confirmados:
   [diseño de plantillas contables](docs/agents/pf-13-plantillas-contables-design.md).
   Consume preparación fiscal común y padrón anticipado cuando esté disponible;
   no agrega otro cálculo ni una consulta obligatoria por fila o al emitir.
+- **PF-13 — alícuotas por fila, análisis para la próxima versión:** evaluar
+  cuándo conviene declarar «IVA %» en una columna y cuándo conservar un valor
+  fijo en la plantilla, usando las tasas ya soportadas (0 %, 10,5 %, 21 % y
+  27 %). Revisar la claridad del constructor y la validación de neto, IVA y
+  total, sin ampliar tasas ni reinterpretar lotes históricos. Sin prioridad de
+  implementación asignada; no cambia las configuraciones actuales ni forma
+  parte de v0.3.8. Alcance en el
+  [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
 - **PF-13 — procesos largos y eficiencia, P2:** límites de recursos y tareas
   reanudables generales, conservando invariantes fiscales. El reintento de lotes
   parciales, su progreso y la recuperación de reservas terminales están cubiertos

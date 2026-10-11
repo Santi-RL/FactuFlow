@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 10/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -186,9 +186,17 @@ delimita el cierre, independiente de constructor, UI y padrón futuros.
 ## Punto de reanudación
 
 `v0.3.8` está publicada, con CI, ensayo aislado y QA contable aprobados.
-El siguiente cierre es el preflight de la instalación real y su recuperación
-preoperación. El despliegue requiere una decisión separada; su estado y evidencia
-permanecen en el plano de control.
+El cierre operativo del corte fue aceptado; su evidencia y el estado de la
+instalación permanecen exclusivamente en el plano de control. No repetir el
+preflight ni el ensayo del corte sin una nueva operación o evidencia que lo
+justifique. El siguiente desarrollo se toma del roadmap, sin iniciarlo por
+este cierre documental.
+
+Antes de usar un formato antiguo para una nueva importación, revisar su tipo
+documental y condición IVA explícitos según PF-13. La adaptación del formato
+seleccionado sigue pendiente y no modifica lotes anteriores. El análisis de
+alícuotas por fila queda para la próxima versión, sin prioridad de implementación
+ni cambios de configuración autorizados por esta anotación.
 
 SC-11 vincula las sesiones nuevas a la credencial verificada, cierra el acceso
 tras un reset concurrente y conserva las sesiones legacy válidas y los

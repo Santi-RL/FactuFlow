@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 10/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -28,19 +28,20 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 | PF-13, fidelidad del receptor | Cerrado | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
 | PF-03/PF-13, admisibilidad y revisión | Cerrado | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B; categorías P2 pendientes |
 | PF-02/PF-04, recuperación legacy | Cerrado | P1 fiscal | Comparación fiscal suficiente antes de reconstruir/vincular; CAE y reserva conservados ante diferencias o evidencia insuficiente | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
-| PF-11/PF-15, recuperación operativa | Ahora 1 | P1 | Comprobar recuperación del candidato exacto y preservar escrituras posteriores | Señal P2 y [contrato implementados](pf-11-15-recuperacion-trazabilidad-design.md); evidencia por operación en plano de control |
+| PF-11/PF-15, recuperación del candidato | Cerrado | P1 | Cierre del corte aceptado; conservar el respaldo y las escrituras posteriores según cada operación | [Contrato implementado](pf-11-15-recuperacion-trazabilidad-design.md); dossier y evidencia por operación en el plano de control; no garantiza cobertura actual |
 | PF-04, representación PDF | Cerrado | P1 fiscal | IVA guardado visible en A/B y detalle sin superposición | [Contrato y límites](pf-04-pdf-representacion-fiscal-design.md); ensayo y QA aprobados, puertas de publicación en el dossier |
-| PF-04/PF-02, evidencia y recuperación integral | Después 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
+| PF-04/PF-02, evidencia y recuperación integral | Ahora 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
-| PF-09 | Después 2 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
-| PF-12 | Después 2 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
-| PF-14 | Después 2 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
-| PF-18/PF-09, padrón | Después 3 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes, alta de emisores y opción para completar receptores de Excel por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
+| PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
+| PF-12 | Después 1 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
+| PF-14 | Después 1 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
+| PF-18/PF-09, padrón | Después 2 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes, alta de emisores y opción para completar receptores de Excel por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
 | PF-03/PF-04/PF-13, categorías de importes | Más adelante | P2 fiscal | Tasa cero, exento, no gravado, tributos y alícuotas con soporte completo | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); PF-04/PF-12 |
 | PF-04/PF-17/PF-13, notas guiadas | Más adelante | P2 fiscal/administrativa | NC/ND desde original autorizado, con asociado y revisión coherentes | [Notas](pf-04-17-notas-guiadas-design.md); snapshot mínimo y preparación común |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
 | PF-11/PF-15, automatización posterior | Más adelante | P2 | Backups cifrados automatizados, retención, alertas y recuperación hacia un VPS nuevo | Recuperación operativa; diseño específico al abrir el corte e instalación en el plano de control |
 | PF-13, plantillas y procesos largos | Más adelante | P2 fiscal/operativa | Interpretación contable verificable y lotes eficientes | PF-01/PF-03, garantías PF-12/PF-14 y UX PF-17; [plantillas](pf-13-plantillas-contables-design.md) |
+| PF-13, alícuotas por fila | Análisis para la próxima versión | Sin prioridad de implementación | Evaluar columna «IVA %» frente a valor fijo con las tasas ya soportadas | Constructor existente, importes comunes y validación de neto/IVA/total; sin cambios en v0.3.8 |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
 | PF-17 | Más adelante | P2/P3 | UX administrativa, accesibilidad y recuperación de errores | PF-03, PF-07, PF-14 y PF-15 |
 | PF-18 | Más adelante | P2/P3 | P2: resumen mensual y cronología; P3: ícono de certificado, distribución e integraciones | PF-04/PF-15 para moneda e historia y PF-17 para UX; [dashboard](pf-18-dashboard-mensual-design.md); PF-10/PF-16 para distribución |
@@ -52,10 +53,13 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - **Implementado:** contrato de proyección privada y señal administrativa de
   respaldo, integridad, ensayo, copia externa y cotejos, sin garantía de cobertura
   actual; procedencia existente reutilizada, sin otro journal.
-- **Ahora:** evidencia de recuperación por operación y candidato exacto;
-  respaldo fresco, ensayo y tratamiento de escrituras intermedias según el
-  [diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md). No se cierra
-  una instalación desde una señal de Sistema.
+- **Cerrado para el candidato:** ensayo y cierre operativo aceptados;
+  antecedentes en el [dossier](../project/releases/v0.3.8-candidate.md).
+  Cada nueva operación conserva las exigencias de respaldo aplicable, ensayo
+  y tratamiento de escrituras posteriores del
+  [diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md). La evidencia
+  concreta vive en el plano de control; ni este cierre ni la señal de Sistema
+  garantizan cobertura actual.
 - **Más adelante:** automatización cifrada, retención, alertas y recuperación
   hacia un VPS nuevo. No es un requisito de automatización completo para cerrar
   el corte actual; sí conserva las exigencias de respaldo de cada operación.
@@ -87,7 +91,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   El corte P1 cerrado corrige tasas convertidas a cero y diferencias de revisión sin
   cambiar redondeos; la ampliación P2 cubre categorías hasta PDF e informes.
   Preparación individual y muestra Excel comparten autoridad decimal.
-- PF-18/PF-09, P2, Después 3: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
+- PF-18/PF-09, P2, Después 2: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
   ARCA acredita situación registral en una consulta fechada; deduplicar/agrupar,
   renovar anticipadamente y emitir con snapshot. En Excel, completar razón
   social/nombre y condición registral sólo al elegir la opción por archivo,
@@ -116,6 +120,15 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   lotes ni incorpora una segunda línea de constructor.
   Consume preparación común y consultas registrales anticipadas cuando estén
   disponibles; no exige terminar el rediseño UI ni consultar ARCA por cada fila.
+- PF-13, **análisis para la próxima versión, sin prioridad de implementación**:
+  evaluar la declaración de «IVA %» por fila para archivos con alícuotas
+  distintas y el valor fijo para archivos homogéneos. El constructor ya admite
+  ambos orígenes; analizar su uso y claridad antes de decidir cambios de
+  configuración o UX. Limitar el análisis a 0 %, 10,5 %, 21 % y 27 %, con casos
+  sintéticos y revisión de «Importe neto», IVA calculado y total de control.
+  Conservar precisión, confirmación fiscal, snapshots y versiones históricas;
+  no confundir tasa cero con las categorías fiscales pendientes. Este análisis
+  no autoriza implementación ni modifica plantillas actuales o v0.3.8.
 - PF-18/PF-17, P2: cantidad y total en pesos del mes actual y anterior por fecha
   del comprobante, períodos explícitos y último comprobante con sus dos fechas.
   Las notas de crédito restan del importe, no de la cantidad. El
@@ -166,7 +179,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   en la tarjeta y cabecera del lote; actividad histórica desplegada únicamente
   al consultar ese lote. El [diseño de actividad](pf-17-actividad-lotes-design.md)
   distingue carga, emisión y acciones posteriores, comparte procedencia con
-  PF-13 y conserva el historial compacto. No altera el corte «Ahora» de PF-15.
+  PF-13 y conserva el historial compacto. No reabre el corte cerrado de PF-15.
 - PF-17: preparación compacta de lotes, resumen de requisitos persistente y
   separación entre archivo en preparación, resultado e historial. Hacer explícito
   el tipo de comprobante del perfil y la procedencia efectiva de documento,
