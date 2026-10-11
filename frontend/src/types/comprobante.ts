@@ -72,6 +72,24 @@ export interface ErrorArcaFiscalResponse {
   mensaje: string;
 }
 
+export interface PrevisualizacionComprobanteResponse {
+  subtotal: FiscalDecimal;
+  iva_21: FiscalDecimal;
+  iva_10_5: FiscalDecimal;
+  iva_27: FiscalDecimal;
+  total: FiscalDecimal;
+  subtotales_items: FiscalDecimal[];
+  moneda: string;
+  cotizacion: FiscalDecimal;
+  receptor: {
+    tipo_documento: number;
+    numero_documento: string;
+    razon_social: string;
+    condicion_iva: string;
+    domicilio?: string | null;
+  };
+}
+
 export interface EmitirComprobanteResponse {
   exito: boolean;
   comprobante_id?: number;
@@ -252,8 +270,8 @@ export const TIPOS_DOCUMENTO_NOMBRES: Record<number, string> = {
 
 // Alícuotas de IVA
 export const ALICUOTAS_IVA = [
-  { value: 0, label: "Exento / 0%", porcentaje: 0 },
-  { value: 10.5, label: "10.5%", porcentaje: 10.5 },
+  { value: 0, label: "0 %", porcentaje: 0 },
+  { value: 10.5, label: "10,5 %", porcentaje: 10.5 },
   { value: 21, label: "21%", porcentaje: 21 },
   { value: 27, label: "27%", porcentaje: 27 },
 ];

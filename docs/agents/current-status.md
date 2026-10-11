@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 09/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -13,11 +13,11 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.7`.
+- La release publicada más reciente es `v0.3.8`.
 - Los productores técnicos y visibles de versión usan `0.3.8`; el
   [dossier del corte](../project/releases/v0.3.8-candidate.md) delimita su
-  publicación y recuperación. La identidad técnica no acredita un tag ni
-  modifica el estado de una instalación.
+  publicación comprobada y recuperación. La identidad técnica o la publicación
+  no modifican el estado de una instalación.
 - El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
   de esquema para PostgreSQL.
 - FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
@@ -141,7 +141,20 @@ prioridades y horizontes diferentes. Los diseños futuros no describen
 capacidades implementadas. La revisión visual local acordada para la UI de
 lotes permanece en su diseño y precede a la publicación de esa implementación.
 
-Está aceptada la planificación integrada de importes/previsualización,
+El P1 de admisibilidad y revisión está implementado: tasas soportadas explícitas,
+vista previa decimal desde backend y resumen de lotes con IVA 27 %. Preserva
+redondeos, hashes, autorizados y reconciliación; categorías completas siguen P2.
+Contrato en [importes/previsualización](pf-03-04-importes-previsualizacion-design.md).
+
+La recuperación legacy P1 compara componentes fiscales contra payload original
+verificado o snapshots completos de un comprobante guardado. Diferencias o
+evidencia insuficiente conservan CAE atribuible y reserva; las consultas no
+solicitan otra autorización. Guardas modernas, hashes y datos históricos se
+conservan. La cobertura antigua desconocida no se inventa; la recuperación
+integral moderna mantiene su corte P2. Contrato y salida de soporte en
+[reconciliación](pf-02-04-reconciliacion-integral-design.md).
+
+Está aceptada la planificación integrada de ampliación de importes/previsualización,
 reconciliación integral, WSAA coordinado/cifrado, padrón para clientes y emisores,
 y notas guiadas. Los ensayos justifican cortes fiscales acotados y el uso de
 padrón anticipado, con fuente fechada y sin consulta obligatoria en el tramo de
@@ -172,6 +185,36 @@ delimita el cierre, independiente de constructor, UI y padrón futuros.
 
 ## Punto de reanudación
 
+`v0.3.8` está publicada, con CI, ensayo aislado y QA contable aprobados.
+El cierre operativo del corte fue aceptado; su evidencia y el estado de la
+instalación permanecen exclusivamente en el plano de control. No repetir el
+preflight ni el ensayo del corte sin una nueva operación o evidencia que lo
+justifique. El siguiente desarrollo se toma del roadmap, sin iniciarlo por
+este cierre documental.
+
+Antes de usar un formato antiguo para una nueva importación, revisar su tipo
+documental y condición IVA explícitos según PF-13. La adaptación del formato
+seleccionado sigue pendiente y no modifica lotes anteriores. El análisis de
+alícuotas por fila queda para la próxima versión, sin prioridad de implementación
+ni cambios de configuración autorizados por esta anotación.
+
+SC-11 vincula las sesiones nuevas a la credencial verificada, cierra el acceso
+tras un reset concurrente y conserva las sesiones legacy válidas y los
+procedimientos de recuperación. [Contrato y límites](sc-11-login-reset-design.md).
+El ensayo aislado y QA del candidato reparado están aprobados; la publicación
+conserva la puerta del SHA aceptado exacto. La corrección no acredita despliegue
+ni cierre remoto del finding.
+
+PF-11/PF-15 incorpora contrato de evidencia externa y señal administrativa en
+Sistema: creación y punto respaldado separados, componentes, integridad,
+ensayo, copia externa y cotejos históricos. Cobertura actual desconocida;
+sin migraciones, llamadas fiscales, restauraciones ni nuevo journal.
+El [contrato](pf-11-15-recuperacion-trazabilidad-design.md) y su
+[instalación opcional](../setup/recovery-evidence.md) delimitan productor y
+consumidores. El ensayo sintético de recuperación está aprobado; la cobertura
+productiva actual requiere su propio preflight, además de las puertas de release
+del dossier.
+
 Los parches de reintentos seguros y condición IVA están cerrados en código.
 La evidencia se consulta en sus dossiers; el estado productivo se acredita sólo
 en el plano de control. Una publicación o despliegue no inicia la siguiente unidad.
@@ -198,9 +241,16 @@ permisos. El contrato de código incorpora presupuesto previo a bcrypt y
 restablecimiento por consola de cuentas existentes; límites en
 [SC-08](sc-08-login-recuperacion-design.md), alcance y puertas de publicación en el
 [dossier del candidato](../project/releases/v0.3.8-candidate.md). La siguiente
-unidad fiscal del roadmap sigue siendo PF-13: fidelidad del receptor en
-importación fiscal.
+unidad se toma del roadmap; fidelidad del receptor, admisibilidad/revisión y
+comparación fiscal legacy P1 están implementadas.
 Este cierre de código no acredita publicación ni despliegue.
+
+La representación PDF discrimina IVA guardado en A y muestra «IVA Contenido»
+en B; los códigos y decimales extensos se ajustan a su celda. No recalcula
+importes ni clasifica tributos históricos sin evidencia. El
+[contrato PDF](pf-04-pdf-representacion-fiscal-design.md) delimita la reparación
+autorizada durante QA. El candidato reparado aprobó ensayo aislado y QA contable;
+el dossier conserva evidencia, límites y puertas del SHA aceptado exacto.
 
 Para continuar desarrollo:
 

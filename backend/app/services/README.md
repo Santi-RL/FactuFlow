@@ -35,6 +35,13 @@ services/
 
 ## Dónde entra cada servicio
 
+- Recuperación legacy P1: el reconciliador compartido compara componentes contra
+  payload original verificado por hash o snapshots de una factura parcialmente
+  persistida. Sólo una coincidencia suficiente permite reconstruir/vincular;
+  diferencias o evidencia insuficiente conservan CAE atribuible y reserva para
+  revisión. Las guardas modernas siguen inmóviles; no cambia hashes ni solicita
+  CAE. Contrato y límites en el diseño PF-02/PF-04 de reconciliación.
+
 - Validaciones y flujo ARCA: ver `backend/app/services/facturacion_service.py` y `backend/app/arca/`.
   `fecha_emision` es obligatoria y se valida contra la ventana ARCA antes de
   solicitar CAE; no usar fecha del día como default fiscal. `concepto` también

@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 08/10/2026
+Última revisión: 10/10/2026
 
 Estado: VIGENTE.
 
@@ -12,6 +12,17 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. Este documento no acredita una instalación.
 
 ## Preparación segura
+
+### Evidencia de recuperación PF-11/PF-15
+
+En entorno sintético, abrir Sistema con resumen completo y cambiar a uno parcial,
+fallido, sin cotejo o sin instante exacto del snapshot. Distinguir componentes,
+fechas y alcance; la cobertura actual debe seguir desconocida. No hay llamadas
+fiscales ni controles de restore. Retirar/inutilizar el archivo y actualizar:
+descartar éxito anterior, sin exponer rutas o errores crudos. Un usuario común
+no puede leer la API; una respuesta atrasada no debe sobrescribir la nueva.
+Verificar hora argentina cerca de medianoche UTC. La recuperación real del
+candidato requiere su ensayo aislado y evidencia privada, no una prueba de UI.
 
 - Usar entorno local o desechable y datos sintéticos.
 - Confirmar emisor y ambiente antes de cualquier prueba ARCA.
@@ -35,6 +46,17 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
    lista/detalle y PDF: moneda nominal y cotización histórica, sin conversión;
    PDF corriente de una página mantiene CAE, fechas e importes legibles.
 
+### IVA y legibilidad de PDF
+
+Descargar A/B/C y notas sintéticas, sin emitir: varias tasas, IVA de un centavo,
+sin detalle y total que difiera de la suma de componentes redondeados.
+Contrastar A por alícuota y B por «IVA Contenido» con lo guardado; no recalcular
+el total ni deducir exención en C. Con otros tributos no cero, verificar que
+la clasificación nacional indirecta se indique desconocida y el agregado se
+conserve. Renderizar las páginas y revisar código ordinario, código largo y
+decimales extensos: sin superposición, recortes ni datos perdidos; QR, CAE,
+fecha y moneda legibles. Una factura corriente debe conservar una página.
+
 ### Instantes operativos y hora argentina
 
 - Abrir el mismo lote con navegadores configurados en Argentina, UTC y otra
@@ -48,6 +70,15 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
   a ARCA. No inventar una hora para campos vacíos o inválidos.
 
 ### Fiscal o ARCA
+
+- Simular recuperación legacy con mismo total y distinta moneda/cotización,
+  neto/IVA, concepto, períodos o asociados: no reconstruye ni vincula; conserva
+  CAE atribuible y reserva. Con evidencia original completa y coincidente,
+  reconstruye o vincula una sola vez. No usar datos actuales del cliente.
+- Devolver una consulta incompleta con CAE: conserva el código y requiere
+  revisión. Un CAE ajeno o CAEA no se atribuye como CAE local; «no existe» no
+  libera un intento que ya conserva autorización. Una resolución concurrente
+  o guarda moderna impide sobrescribir el grafo. Usar sólo dobles locales.
 
 - Con el simulador SOAP local, devolver cabecera de otro emisor/punto/tipo o
   detalle con otro receptor/rango: no se atribuye un CAE ajeno y la operación
@@ -97,6 +128,17 @@ Con Excel sintético y dobles sin salida CAE:
 
 ### Ítems e importes
 
+- Revisar 0 %, 10,5 %, 21 % y 27 % con fracciones y descuentos; mitad de
+  centavo `1,005` debe mostrar `1,00` en la revisión, sin cambiar el cálculo.
+- La revisión HTTP no lleva confirmación ni clave y no consulta ARCA ni crea
+  estado fiscal; sólo se llama al revisar, no al escribir cada valor.
+- Simular respuesta tardía, error HTTP, edición de importe y cambio de emisor:
+  no habilitar una confirmación vieja; repetir la revisión permite recuperarse.
+- Usar tasas 2,5 %, 5 % o desconocidas en API, Excel y pendientes anteriores:
+  error por ítem/fila antes de CAE, sin convertir a cero. Históricos autorizados
+  e inciertos conservan payload, clave y reconciliación.
+- Comparar resumen de dos comprobantes con mitad de centavo y uno con IVA 27 %:
+  sumar los importes fiscales por comprobante; no usar estimados antiguos.
 - vaciar cantidad o precio: el mensaje identifica el campo y no muestra un
   total inventado; corregirlo permite continuar;
 - precio cero y descuento 100 % explícitos conservan su significado;
@@ -187,6 +229,12 @@ con respuestas HTTP simuladas no reemplaza esas pruebas.
 
 ### Multiemisor
 
+- Con cuentas sintéticas, iniciar sesión, restablecer la contraseña desde un
+  administrador y comprobar que la sesión anterior queda rechazada. Entrar con
+  la nueva contraseña y verificar los mismos permisos y emisores. Repetir el
+  procedimiento por consola en una instalación aislada. No usar cuentas reales
+  para ensayar las carreras SC-11: se demuestran con PostgreSQL descartable en
+  la matriz automatizada de su [contrato](sc-11-login-reset-design.md).
 - preparar un administrador, un operador asignado a A/B y un emisor C no
   asignado, todos sintéticos;
 - comprobar cero, uno y varios accesos: login permitido sin accesos, selección

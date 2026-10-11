@@ -6179,6 +6179,7 @@ async def test_obtener_resumen_y_grupos_paginados_lote(
         "neto": "2000.00",
         "iva21": "420.00",
         "iva105": "0.00",
+        "iva27": "0.00",
         "total": "2420.00",
         "valores_invalidos": 0,
     }

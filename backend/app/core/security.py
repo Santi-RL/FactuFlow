@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from calendar import timegm
 from time import time
 from typing import Optional
+import hmac
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
@@ -60,18 +61,35 @@ def _password_bytes(password: str) -> bytes:
     return password.encode("utf-8")[:72]
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def _credential_version(hashed_password: str) -> str:
+    """Vincula la sesión al hash sin divulgar material verificable de bcrypt."""
+    return hmac.new(
+        settings.secret_key.encode("utf-8"),
+        b"factuflow:credential-version:v1\x00" + hashed_password.encode("ascii"),
+        "sha256",
+    ).hexdigest()
+
+
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None,
+    *,
+    verified_password_hash: str | None = None,
+) -> str:
     """
     Crear un JWT access token.
 
     Args:
         data: Datos a incluir en el token (ej: {"sub": user_email})
         expires_delta: Tiempo de expiración personalizado
+        verified_password_hash: Hash exacto comprobado por el login, para SC-11
 
     Returns:
         Token JWT como string
     """
     to_encode = data.copy()
+    if verified_password_hash is not None:
+        to_encode["pwdv"] = _credential_version(verified_password_hash)
 
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -127,6 +145,16 @@ def _token_emitido_antes_de_password(
     return token_timestamp < password_changed_timestamp
 
 
+def _token_credential_changed(payload: dict, hashed_password: str) -> bool:
+    """Los tokens legacy conservan la revocación temporal existente."""
+    if "pwdv" not in payload:
+        return False
+    version = payload["pwdv"]
+    if not isinstance(version, str) or len(version) != 64 or not version.isascii():
+        return True
+    return not hmac.compare_digest(version, _credential_version(hashed_password))
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: AsyncSession = Depends(get_db),
@@ -180,7 +208,9 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
-    if _token_emitido_antes_de_password(payload, user.password_changed_at):
+    if _token_emitido_antes_de_password(
+        payload, user.password_changed_at
+    ) or _token_credential_changed(payload, user.hashed_password):
         raise credentials_exception
 
     if not user.activo:
@@ -241,7 +271,9 @@ async def get_current_user_optional(
     if user is None:
         raise credentials_exception
 
-    if _token_emitido_antes_de_password(payload, user.password_changed_at):
+    if _token_emitido_antes_de_password(
+        payload, user.password_changed_at
+    ) or _token_credential_changed(payload, user.hashed_password):
         raise credentials_exception
 
     if not user.activo:

@@ -149,9 +149,7 @@ test.describe("Emisión de Comprobantes", () => {
     // Cliente manual
     await page.getByTestId("cliente-nuevo-manual").click();
     await page.getByLabel(/número/i).fill("20123456789");
-    await page
-      .getByLabel(/condición iva/i)
-      .selectOption({ label: "Exento" });
+    await page.getByLabel(/condición iva/i).selectOption({ label: "Exento" });
     await page.getByLabel(/razón social/i).fill("Cliente Emitir");
 
     // Item
@@ -185,7 +183,15 @@ test.describe("Emisión de Comprobantes", () => {
       .fill("1000");
 
     // Abrir preview y confirmar
+    const revisionRequest = page.waitForRequest(
+      (req) =>
+        req.url().includes("/comprobantes/previsualizar") &&
+        req.method() === "POST",
+    );
     await page.getByTestId("comprobante-vista-previa").click();
+    const revision = await revisionRequest;
+    expect(revision.postDataJSON().confirmacion_fecha_fiscal).toBe(false);
+    expect(revision.headers()["x-idempotency-key"]).toBeUndefined();
     await expect(
       page.getByTestId("comprobante-confirmar-emitir"),
     ).toBeVisible();
@@ -283,9 +289,7 @@ test.describe("Emisión de Comprobantes", () => {
     await page.locator('input[type="date"]').first().fill("2026-03-09");
     await page.getByTestId("cliente-nuevo-manual").click();
     await page.getByLabel(/número/i).fill("20123456789");
-    await page
-      .getByLabel(/condición iva/i)
-      .selectOption({ label: "Exento" });
+    await page.getByLabel(/condición iva/i).selectOption({ label: "Exento" });
     await page.getByLabel(/razón social/i).fill("Cliente Incierto");
     await page
       .getByLabel(/descripción/i)
