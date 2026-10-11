@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, type Component } from "vue";
+import { computed, onMounted, ref, watch, type Component } from "vue";
 import {
   ArchiveBoxIcon,
   ArrowDownTrayIcon,
@@ -17,6 +17,8 @@ import {
 } from "@heroicons/vue/24/outline";
 
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import RecoveryEvidence from "@/components/sistema/RecoveryEvidence.vue";
+import { useEmpresaStore } from "@/stores/empresa";
 import BaseAlert from "@/components/ui/BaseAlert.vue";
 import BaseBadge from "@/components/ui/BaseBadge.vue";
 import BaseButton from "@/components/ui/BaseButton.vue";
@@ -29,6 +31,7 @@ import { arcaService, type ArcaStatus } from "@/services/arca.service";
 import sistemaService, {
   type LoteWorkerHealthResponse,
   type SistemaHealthResponse,
+  type RecoveryHealthResponse,
 } from "@/services/sistema.service";
 import type {
   AlmacenamientoItem,
@@ -39,13 +42,12 @@ import type {
 
 const { showError, showSuccess } = useNotification();
 const { formatearFecha } = useFormatters();
+const empresaStore = useEmpresaStore();
+let estadoSolicitud = 0;
 
 type SistemaTab = "estado" | "almacenamiento";
 type EstadoOperativo =
-  | "correcto"
-  | "necesita_atencion"
-  | "critico"
-  | "no_disponible";
+  "correcto" | "necesita_atencion" | "critico" | "no_disponible";
 
 interface EstadoSistemaItem {
   id: string;
@@ -95,6 +97,8 @@ const databaseHealth = ref<SistemaHealthResponse | null>(null);
 const databaseHealthError = ref("");
 const workerHealth = ref<LoteWorkerHealthResponse | null>(null);
 const workerHealthError = ref("");
+const recoveryHealth = ref<RecoveryHealthResponse | null>(null);
+const recoveryHealthError = ref("");
 const arcaStatus = ref<ArcaStatus | null>(null);
 const arcaStatusError = ref("");
 const arcaProbe = ref<any | null>(null);
@@ -115,7 +119,9 @@ const totalSeleccionado = computed(
 );
 
 const hayExportacionDescargada = computed(
-  () => exportacion.value?.estado === "descargada" || !!exportacion.value?.downloaded_at,
+  () =>
+    exportacion.value?.estado === "descargada" ||
+    !!exportacion.value?.downloaded_at,
 );
 
 const categoriasOrdenadas = computed(() => resumen.value?.categorias || []);
@@ -321,10 +327,13 @@ const estadoSistemaItems = computed<EstadoSistemaItem[]>(() => [
   },
   {
     id: "backup",
-    titulo: "Último backup",
+    titulo: "Respaldo conocido",
     descripcion: "Evidencia de recuperación",
     detalle:
-      "No hay señal automática en la aplicación. La clave real del backup cifrado y la política de retención siguen pendientes.",
+      recoveryHealthError.value ||
+      (recoveryHealth.value?.status === "recorded"
+        ? "Hay evidencia histórica registrada. La cobertura actual no está verificada; consulta el detalle de recuperación."
+        : "No verificado. Soporte debe comprobar la evidencia privada del respaldo."),
     estado: "necesita_atencion",
     icon: ClockIcon,
   },
@@ -343,10 +352,12 @@ const soporteOperativoItems: SoporteOperativoItem[] = [
   {
     id: "arca-certificado",
     caso: "ARCA o certificado con error",
-    revisar: "Certificado del emisor, ambiente ARCA y prueba manual de conexión.",
+    revisar:
+      "Certificado del emisor, ambiente ARCA y prueba manual de conexión.",
     accion:
       "Verificar certificado activo, vencimiento y autorización WSFE antes de emitir.",
-    detenerse: "No solicitar CAE mientras ARCA o el certificado figuren no disponibles.",
+    detenerse:
+      "No solicitar CAE mientras ARCA o el certificado figuren no disponibles.",
   },
   {
     id: "lote-detenido",
@@ -354,12 +365,14 @@ const soporteOperativoItems: SoporteOperativoItem[] = [
     revisar: "Detalle del lote, estado visible y logs de soporte del entorno.",
     accion:
       "Si el lote requiere reconciliación, consultar evidencia segura antes de reintentar.",
-    detenerse: "No reintentar automáticamente si pudo existir una respuesta de ARCA.",
+    detenerse:
+      "No reintentar automáticamente si pudo existir una respuesta de ARCA.",
   },
   {
     id: "almacenamiento-backup",
     caso: "Almacenamiento o backup pendiente",
-    revisar: "Uso recuperable, resguardo ZIP y última evidencia privada de backup.",
+    revisar:
+      "Uso recuperable, resguardo ZIP y última evidencia privada de backup.",
     accion:
       "Descargar y verificar el resguardo antes de liberar espacio no vital.",
     detenerse: "No limpiar temporales, logs o lotes sin resguardo descargado.",
@@ -382,7 +395,8 @@ const datosSoporteItems: DatoSoporteItem[] = [
   {
     id: "recurso",
     etiqueta: "Recurso afectado",
-    detalle: "Pantalla, lote, comprobante, certificado, backup o acción iniciada.",
+    detalle:
+      "Pantalla, lote, comprobante, certificado, backup o acción iniciada.",
   },
   {
     id: "estado",
@@ -405,7 +419,9 @@ const datosSoporteItems: DatoSoporteItem[] = [
 ];
 
 const estadoGeneral = computed<EstadoOperativo>(() => {
-  if (estadoSistemaItems.value.some((item) => item.estado === "no_disponible")) {
+  if (
+    estadoSistemaItems.value.some((item) => item.estado === "no_disponible")
+  ) {
     return "no_disponible";
   }
   if (estadoSistemaItems.value.some((item) => item.estado === "critico")) {
@@ -432,13 +448,17 @@ const cargarDatos = async () => {
     resumen.value = resumenResponse;
     almacenamientoResumenError.value = "";
 
-    const [lotesResponse, logsResponse, temporalesResponse, certificadosResponse] =
-      await Promise.all([
-        almacenamientoService.lotesCompactables(),
-        almacenamientoService.logs(),
-        almacenamientoService.temporales(),
-        almacenamientoService.certificadosHuerfanos(),
-      ]);
+    const [
+      lotesResponse,
+      logsResponse,
+      temporalesResponse,
+      certificadosResponse,
+    ] = await Promise.all([
+      almacenamientoService.lotesCompactables(),
+      almacenamientoService.logs(),
+      almacenamientoService.temporales(),
+      almacenamientoService.certificadosHuerfanos(),
+    ]);
     lotes.value = lotesResponse;
     logs.value = logsResponse;
     temporales.value = temporalesResponse;
@@ -454,10 +474,13 @@ const cargarDatos = async () => {
 };
 
 const cargarEstadoSistema = async () => {
+  const solicitud = ++estadoSolicitud;
+  const empresaId = empresaStore.empresaActivaId;
   estadoLoading.value = true;
   backendHealthError.value = "";
   databaseHealthError.value = "";
   workerHealthError.value = "";
+  recoveryHealthError.value = "";
   arcaStatusError.value = "";
   almacenamientoResumenError.value = "";
 
@@ -467,13 +490,29 @@ const cargarEstadoSistema = async () => {
     workerResult,
     arcaResult,
     resumenResult,
+    recoveryResult,
   ] = await Promise.allSettled([
     sistemaService.health(),
     sistemaService.databaseHealth(),
     sistemaService.workerHealth(),
     arcaService.getStatus(),
     almacenamientoService.resumen(),
+    sistemaService.recoveryHealth(),
   ]);
+
+  if (
+    solicitud !== estadoSolicitud ||
+    empresaId !== empresaStore.empresaActivaId
+  )
+    return;
+
+  if (recoveryResult.status === "fulfilled") {
+    recoveryHealth.value = recoveryResult.value;
+  } else {
+    recoveryHealth.value = null;
+    recoveryHealthError.value =
+      "No se pudo consultar la evidencia de recuperación.";
+  }
 
   if (backendResult.status === "fulfilled") {
     backendHealth.value = backendResult.value;
@@ -528,6 +567,14 @@ const cargarEstadoSistema = async () => {
   ultimaActualizacionEstado.value = new Date().toISOString();
   estadoLoading.value = false;
 };
+
+watch(
+  () => empresaStore.empresaActivaId,
+  () => {
+    recoveryHealth.value = null;
+    void cargarEstadoSistema();
+  },
+);
 
 const actualizarTodo = async () => {
   if (activeTab.value === "almacenamiento") {
@@ -635,7 +682,9 @@ const descargarExportacion = async () => {
       exportacion.value.token,
     );
     if (!descarga.downloadToken) {
-      throw new Error("No se recibió la confirmación de descarga del servidor.");
+      throw new Error(
+        "No se recibió la confirmación de descarga del servidor.",
+      );
     }
     downloadBlob(descarga.blob, exportacion.value.archivo_nombre);
     exportacion.value = await almacenamientoService.confirmarDescarga(
@@ -647,7 +696,8 @@ const descargarExportacion = async () => {
   } catch (err: any) {
     showError(
       "No se pudo descargar",
-      err.response?.data?.detail || "El archivo de resguardo no está disponible.",
+      err.response?.data?.detail ||
+        "El archivo de resguardo no está disponible.",
     );
   } finally {
     descargando.value = false;
@@ -909,6 +959,8 @@ onMounted(() => {
           </div>
         </div>
       </BaseCard>
+
+      <RecoveryEvidence :evidence="recoveryHealth" />
 
       <BaseCard title="Guía rápida de soporte">
         <div class="grid gap-4 lg:grid-cols-2">

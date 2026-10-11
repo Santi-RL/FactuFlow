@@ -184,6 +184,17 @@ post-ARCA.
 
 ## Caso 6: comprobante con incertidumbre post-ARCA
 
+En recuperación legacy, un total igual no demuestra coincidencia fiscal. Si hay
+diferencias o datos insuficientes, conservar reserva y CAE atribuible; consultar
+el comprobante en el ambiente original y reunir la evidencia histórica privada.
+No editar payloads, hashes ni clientes para forzar una coincidencia, borrar la
+reserva o solicitar otro CAE. El código recibido de otro emisor/número o de una
+emisión CAEA no se atribuye como CAE del intento. Una consulta contradictoria
+no borra una autorización ya conocida. El
+[contrato P1](pf-02-04-reconciliacion-integral-design.md) delimita la cobertura;
+recuperación moderna y atribución sin evidencia suficiente requieren su flujo
+de soporte, sin saltar guardas RECE.
+
 Qué revisar:
 
 - Emisor activo, punto de venta, tipo de comprobante y fecha fiscal.
@@ -231,6 +242,15 @@ No limpiar rutas manuales ni artefactos fuera de carpetas administradas por
 FactuFlow.
 
 ## Caso 8: backup o restauración requerida
+
+`Sistema > Estado` muestra evidencia histórica de instalación si se configuró
+el [resumen privado](../setup/recovery-evidence.md). Leer fecha y alcance de cada
+comprobación: integridad, ensayo, copia externa y último cotejo son hechos
+distintos. `No verificado` indica falta de evidencia utilizable; no demuestra
+pérdida de datos. Incluso un ensayo exitoso no garantiza cobertura actual.
+Antes de recuperar, relacionar cambios posteriores con operaciones existentes,
+actores, emisores y resultados en el plano de control; nunca inferir ausencia
+de actividad desde contadores o timestamps de procedencia desconocida.
 
 Qué revisar:
 

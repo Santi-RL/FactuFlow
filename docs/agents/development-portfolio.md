@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 08/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -25,21 +25,24 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|
-| PF-13, fidelidad del receptor | Ahora 1 | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
-| PF-03/PF-13, admisibilidad y revisión | Ahora 2 | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B |
-| PF-02/PF-04, recuperación legacy | Ahora 3 | P1 fiscal | Comparación fiscal suficiente antes de atribuir/reconstruir un autorizado | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
-| PF-11/PF-15, recuperación operativa | Ahora 4 | P1/P2 | Backups trazables, escrituras posteriores y soporte comprensible | [Contrato acotado](pf-11-15-recuperacion-trazabilidad-design.md); plano de control externo |
-| PF-04/PF-02, evidencia y recuperación integral | Después 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
+| PF-13, fidelidad del receptor | Cerrado | P1 fiscal | Conservar identificación y condición explícitas; admitir CF identificado con CUIT/CUIL | [Contrato acotado](pf-13-receptores-importacion-design.md); preserva RG 5616, duplicados, historia e idempotencia |
+| PF-03/PF-13, admisibilidad y revisión | Cerrado | P1 fiscal | Tasas efectivamente soportadas y revisión igual al cálculo decimal | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); preserva PF-03B; categorías P2 pendientes |
+| PF-02/PF-04, recuperación legacy | Cerrado | P1 fiscal | Comparación fiscal suficiente antes de reconstruir/vincular; CAE y reserva conservados ante diferencias o evidencia insuficiente | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
+| PF-11/PF-15, recuperación del candidato | Cerrado | P1 | Cierre del corte aceptado; conservar el respaldo y las escrituras posteriores según cada operación | [Contrato implementado](pf-11-15-recuperacion-trazabilidad-design.md); dossier y evidencia por operación en el plano de control; no garantiza cobertura actual |
+| PF-04, representación PDF | Cerrado | P1 fiscal | IVA guardado visible en A/B y detalle sin superposición | [Contrato y límites](pf-04-pdf-representacion-fiscal-design.md); ensayo y QA aprobados, puertas de publicación en el dossier |
+| PF-04/PF-02, evidencia y recuperación integral | Ahora 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
+| PF-04/PF-17, atribución del ranking | Más adelante | P2 administrativa | Separar ventas sin receptor identificable y evitar atribuirlas al primer nombre | Identidad fiscal por tipo y número, vínculo opcional y lecturas A-03; sin adelantar Ahora/Después |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
-| PF-09 | Después 2 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
-| PF-12 | Después 2 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
-| PF-14 | Después 2 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
-| PF-18/PF-09, padrón | Después 3 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes y alta de emisores por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
+| PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
+| PF-12 | Después 1 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
+| PF-14 | Después 1 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
+| PF-18/PF-09, padrón | Después 2 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes, alta de emisores y opción para completar receptores de Excel por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
 | PF-03/PF-04/PF-13, categorías de importes | Más adelante | P2 fiscal | Tasa cero, exento, no gravado, tributos y alícuotas con soporte completo | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); PF-04/PF-12 |
 | PF-04/PF-17/PF-13, notas guiadas | Más adelante | P2 fiscal/administrativa | NC/ND desde original autorizado, con asociado y revisión coherentes | [Notas](pf-04-17-notas-guiadas-design.md); snapshot mínimo y preparación común |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
 | PF-11/PF-15, automatización posterior | Más adelante | P2 | Backups cifrados automatizados, retención, alertas y recuperación hacia un VPS nuevo | Recuperación operativa; diseño específico al abrir el corte e instalación en el plano de control |
 | PF-13, plantillas y procesos largos | Más adelante | P2 fiscal/operativa | Interpretación contable verificable y lotes eficientes | PF-01/PF-03, garantías PF-12/PF-14 y UX PF-17; [plantillas](pf-13-plantillas-contables-design.md) |
+| PF-13, alícuotas por fila | Análisis para la próxima versión | Sin prioridad de implementación | Evaluar columna «IVA %» frente a valor fijo con las tasas ya soportadas | Constructor existente, importes comunes y validación de neto/IVA/total; sin cambios en v0.3.8 |
 | PF-16 | Más adelante | P2/P3 | Calidad dirigida por riesgo y puerta para distribución a terceros | CI actual y documentación viva |
 | PF-17 | Más adelante | P2/P3 | UX administrativa, accesibilidad y recuperación de errores | PF-03, PF-07, PF-14 y PF-15 |
 | PF-18 | Más adelante | P2/P3 | P2: resumen mensual y cronología; P3: ícono de certificado, distribución e integraciones | PF-04/PF-15 para moneda e historia y PF-17 para UX; [dashboard](pf-18-dashboard-mensual-design.md); PF-10/PF-16 para distribución |
@@ -48,9 +51,16 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 ### PF-11/PF-15
 
-- **Ahora:** identidad de backups preoperación y escrituras intermedias;
-  señales de recuperación y trazabilidad, sin datos privados, con aceptación
-  en el [diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md).
+- **Implementado:** contrato de proyección privada y señal administrativa de
+  respaldo, integridad, ensayo, copia externa y cotejos, sin garantía de cobertura
+  actual; procedencia existente reutilizada, sin otro journal.
+- **Cerrado para el candidato:** ensayo y cierre operativo aceptados;
+  antecedentes en el [dossier](../project/releases/v0.3.8-candidate.md).
+  Cada nueva operación conserva las exigencias de respaldo aplicable, ensayo
+  y tratamiento de escrituras posteriores del
+  [diseño operativo](pf-11-15-recuperacion-trazabilidad-design.md). La evidencia
+  concreta vive en el plano de control; ni este cierre ni la señal de Sistema
+  garantizan cobertura actual.
 - **Más adelante:** automatización cifrada, retención, alertas y recuperación
   hacia un VPS nuevo. No es un requisito de automatización completo para cerrar
   el corte actual; sí conserva las exigencias de respaldo de cada operación.
@@ -61,7 +71,24 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 - Instantáneas del emisor, moneda, IVA y datos históricos necesarios.
 - Exactitud de PDFs, reportes, paginado y aislamiento.
-- PF-02/PF-04: comparación legacy P1 y recuperación integral P2 en cortes
+- PF-04/PF-17, P2 administrativa, Más adelante: corregir la atribución del
+  ranking. La clave actual usa el número sin tipo para receptores sin cliente
+  vinculado; el número técnico «0» agrupa personas diferentes bajo el primer
+  nombre. Propuesta: agregado explícito «Receptores sin identificar» separado
+  del ranking individual, sin ocupar sus posiciones, y clave de identidad con
+  tipo y número cuando ambos estén acreditados. No deducir identidad común
+  desde el nombre ni convertir falta de evidencia histórica en un cliente
+  conocido. Revisar el vínculo administrativo opcional sin alterar el snapshot
+  fiscal; cerrar su contrato en una unidad propia antes de implementar.
+  Aceptación: nombres diferentes con documento 99/0 no se atribuyen al primero;
+  tipos diferentes con igual número permanecen separados; invertir el orden de
+  comprobantes no cambia la atribución. Conservar totales decimales, notas de
+  crédito, emisor/ambiente, separación y límite por moneda. Probar CF identificado,
+  datos legacy incompletos y clientes vinculados; no migrar comprobantes ni
+  recalcular importes. Se coordina con [A-03](a03-lecturas-fiscales-design.md) y
+  [asociación opcional](pf-03-04-14-asociacion-cliente.md), sin reabrir sus cortes
+  cerrados ni desplazar evidencia/reconciliación integral o WSAA/padrón.
+- PF-02/PF-04: comparación legacy P1 implementada y recuperación integral P2 en cortes
   separados; usar solicitud congelada, conservar incertidumbre y coordinar
   grafo RECE. [Contrato de reconciliación](pf-02-04-reconciliacion-integral-design.md).
 - Importación histórica externa PF-05 opcional, Más adelante, con alcance,
@@ -79,21 +106,23 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 ### PF-10/PF-13/PF-16/PF-17/PF-18
 
 - PF-03/PF-13: [importes y previsualización común](pf-03-04-importes-previsualizacion-design.md).
-  El corte P1 corrige tasas convertidas a cero y diferencias de revisión sin
+  El corte P1 cerrado corrige tasas convertidas a cero y diferencias de revisión sin
   cambiar redondeos; la ampliación P2 cubre categorías hasta PDF e informes.
   Preparación individual y muestra Excel comparten autoridad decimal.
-- PF-18/PF-09, P2, Después 3: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
+- PF-18/PF-09, P2, Después 2: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
   ARCA acredita situación registral en una consulta fechada; deduplicar/agrupar,
-  renovar anticipadamente y emitir con snapshot. Mantener bootstrap manual/PDF,
-  permisos, evidencia histórica y CF identificado válido; no fallback fiscal a CF.
+  renovar anticipadamente y emitir con snapshot. En Excel, completar razón
+  social/nombre y condición registral sólo al elegir la opción por archivo,
+  desactivada por defecto; usar los datos aceptados en reportes y PDFs.
+  Mantener bootstrap manual/PDF, permisos, evidencia histórica y CF identificado
+  válido; no fallback fiscal a CF.
 - PF-04/PF-17/PF-13, P2, Más adelante: [notas guiadas](pf-04-17-notas-guiadas-design.md),
   con asociado y alcance explícitos desde original autorizado. Reutiliza
   validación de notas y revisión común; no implementa cuentas corrientes.
-- PF-13, **P1 fiscal, Ahora 1**: preservar documento/nombre y condición fiscal
-  explícitos, admitiendo consumidor final identificado con CUIT/CUIL. Corregir
+- PF-13, **P1 fiscal cerrado**: conserva documento/nombre y condición fiscal
+  explícitos, admitiendo consumidor final identificado con CUIT/CUIL. Corrige
   la pérdida del documento y el rechazo general de CUIT con CF como una unidad;
-  señalar diferencias reales entre archivo y configuración. El riesgo demostrado
-  justifica adelantarlo sin elevar toda PF-13. El
+  señala diferencias reales entre archivo y configuración. El
   [diseño de fidelidad del receptor](pf-13-receptores-importacion-design.md)
   concentra motivo, fuentes, transición legacy y aceptación; no modifica el
   contrato cerrado de duplicados ni reinterpreta el parche RG 5616.
@@ -109,6 +138,15 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   lotes ni incorpora una segunda línea de constructor.
   Consume preparación común y consultas registrales anticipadas cuando estén
   disponibles; no exige terminar el rediseño UI ni consultar ARCA por cada fila.
+- PF-13, **análisis para la próxima versión, sin prioridad de implementación**:
+  evaluar la declaración de «IVA %» por fila para archivos con alícuotas
+  distintas y el valor fijo para archivos homogéneos. El constructor ya admite
+  ambos orígenes; analizar su uso y claridad antes de decidir cambios de
+  configuración o UX. Limitar el análisis a 0 %, 10,5 %, 21 % y 27 %, con casos
+  sintéticos y revisión de «Importe neto», IVA calculado y total de control.
+  Conservar precisión, confirmación fiscal, snapshots y versiones históricas;
+  no confundir tasa cero con las categorías fiscales pendientes. Este análisis
+  no autoriza implementación ni modifica plantillas actuales o v0.3.8.
 - PF-18/PF-17, P2: cantidad y total en pesos del mes actual y anterior por fecha
   del comprobante, períodos explícitos y último comprobante con sus dos fechas.
   Las notas de crédito restan del importe, no de la cantidad. El
@@ -125,6 +163,16 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - PF-13, P2: tareas reanudables, trazabilidad masiva y límites de recursos.
 - PF-16: cobertura de reportes/PDF y pruebas por riesgo (P2), verificación local
   y portabilidad de herramientas (P3 salvo bloqueo comprobado).
+- PF-16/PF-17, P3, Más adelante: diagnosticar previsualización PDF en navegadores
+  locales con un PDF sintético y API simulada. El servicio abre la ventana tras
+  esperar la descarga y resuelve sin error cuando `window.open` retorna `null`;
+  esto confirma la falta de aviso, no la causa de una ventana ausente en un
+  navegador concreto. Evaluar apertura segura durante la interacción y una
+  alternativa visible de descarga si no se puede abrir; conservar permisos,
+  errores sanitizados y liberación del blob. Aceptación: apertura normal,
+  bloqueo de ventana y error de descarga no dejan un botón sin resultado ni
+  revelan datos privados. No cambia la representación fiscal del PDF ya cerrada;
+  elevar prioridad sólo ante bloqueo operativo reproducido.
 - PF-17: conectividad visible y recuperación/accesibilidad que afecten operación
   (P2); ayuda contextual y ajustes de texto/presentación opcionales (P3).
   [Observabilidad](operational-observability.md) conserva la señal de conexión.
@@ -142,6 +190,29 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   el retorno seguro, el checkbox específico y los controles fiscales del
   [diseño de duplicados](pf-13-duplicados-lotes-design.md). Un defecto comprobado
   que impida utilizar esos controles se atiende antes de publicar.
+- PF-17/PF-13, P3, Más adelante: corregir la presentación de fechas y números
+  según la [regla de formato argentino](../../AGENTS.md#formato-argentino-en-contenido-visible).
+  Incluir ejemplos iniciales y de plantillas existentes o clonadas del constructor
+  de emisión masiva y su hoja de instrucciones descargable; revisar otros
+  contenidos visibles para aplicar la misma convención. Aceptación: mostrar
+  `31/05/2026` y `10.000,00` en lugar de `2026-05-31` y `10000.00`, también con
+  otra región de navegador, conservando el valor y la precisión. Mantener
+  formatos de API/base/ARCA, compatibilidad de importación, redondeos fiscales e
+  identificadores sin cambios. Es un pendiente de baja prioridad, sin compromiso
+  inmediato ni dependencia del rediseño completo P2 del constructor.
+- PF-17, P3, Más adelante: claridad del documento del receptor. La lista muestra
+  directamente `cliente_documento`; su contrato no incluye tipo documental.
+  Propuesta: usar «Sin identificar» cuando se acredite tipo 99, manteniendo el
+  nombre existente y la condición IVA por separado. Si el antecedente carece de
+  evidencia suficiente, mostrar «Sin documento informado», sin inferir CF ni
+  corregir su identidad. Revisar lista/detalle y consumidores visibles con
+  un criterio compartido; conservar «0» donde lo exija el intercambio técnico,
+  los identificadores reales y sus ceros significativos. Aceptación: 99/0 sin
+  documento numérico confuso, CF con DNI/CUIT/CUIL visible, nombre preservado y
+  legacy ambiguo explícito. No reescribir base, hashes, solicitudes ni PDFs
+  históricos. Incluir en el mismo horizonte P3 las tildes de Comprobantes y la
+  coma decimal de etiquetas «10,5 %» y tamaños de almacenamiento. Esta mejora
+  visual es independiente de la corrección P2 de atribución del ranking.
 - PF-17, P3: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
   y rango personalizado. Conservar fechas visibles, generación explícita y
   aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
@@ -149,7 +220,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   en la tarjeta y cabecera del lote; actividad histórica desplegada únicamente
   al consultar ese lote. El [diseño de actividad](pf-17-actividad-lotes-design.md)
   distingue carga, emisión y acciones posteriores, comparte procedencia con
-  PF-13 y conserva el historial compacto. No altera el corte «Ahora» de PF-15.
+  PF-13 y conserva el historial compacto. No reabre el corte cerrado de PF-15.
 - PF-17: preparación compacta de lotes, resumen de requisitos persistente y
   separación entre archivo en preparación, resultado e historial. Hacer explícito
   el tipo de comprobante del perfil y la procedencia efectiva de documento,
@@ -180,7 +251,7 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Frontera de errores técnicos, PF-09/PF-12 | PDF está sanitizado; revisar respuestas ARCA/certificados y diagnóstico SQL sin parámetros sensibles. Conservar errores fiscales públicos controlados. [Auditoría](../project/analysis/auditoria-integral-2026-10.md). |
 | Updates con `null`, PF-12/PF-14 | Validar campos obligatorios de clientes/emisores antes de persistir, conservando restricciones y rollback; no confundir ausencia con `null`. |
 | Guía del wizard por ambiente, PF-09/PF-17 | Homologación necesita WSASS también en el paso de portal; propagar ambiente y comprobar ambas experiencias. |
-| Autenticación, PF-12/PF-14 | SC-08 incorpora presupuesto previo a bcrypt y recuperación asistida que conserva cuentas, datos y permisos; [contrato y límites](sc-08-login-recuperacion-design.md). Su publicación se acredita en el dossier v0.3.8. SC-11 sigue como corte P1 propuesto para vincular el token a la credencial verificada ante reset concurrente. La política de contraseñas requiere una decisión separada. «Olvidé mi contraseña» queda como indicación futura sin prioridad en el [roadmap](../../ROADMAP.md). |
+| Autenticación, PF-12/PF-14 | SC-08 incorpora presupuesto previo a bcrypt y recuperación asistida que conserva cuentas, datos y permisos; [contrato y límites](sc-08-login-recuperacion-design.md). SC-11 vincula los tokens nuevos a la credencial verificada ante reset concurrente; conserva sesiones legacy válidas y sus límites en el [contrato SC-11](sc-11-login-reset-design.md). La publicación se acredita en el dossier v0.3.8. La política de contraseñas requiere una decisión separada. «Olvidé mi contraseña» queda como indicación futura sin prioridad en el [roadmap](../../ROADMAP.md). |
 | Entorno de desarrollo, PF-16 | SC-10, P1 condicionado a acceso desde una red no confiable. Delimitar exposición y configuración local antes del próximo uso compartido; no inferir el estado productivo desde Compose de desarrollo. |
 | Archivos externos, PF-13/PF-09 | SC-02 y SC-07, P2 preferentes: presupuestos de expansión/lectura XLSX y lectura/procesamiento de constancias PDF en cortes propios. Mantener el tamaño máximo de carga y el corte temprano de filas ya existentes. |
 | Paquetes de traslado, PF-11/PF-12 | SC-01/SC-12, P2: procedencia comprobable fuera del paquete y presupuesto de importación. Requisito de la próxima importación autorizada; coordinar compatibilidad del driver, sin repetir un traslado existente. |
@@ -188,7 +259,7 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Almacenamiento y certificados, PF-10/PF-09 | SC-06/SC-18, P2: proteger operaciones ante enlaces/cambios de raíz y delimitar concurrencia/ciclo de CSR en unidades separadas. Conservar certificados activos y la política de resguardo; no imponer borrado o vencimiento nuevos. |
 | Transporte y registros, PF-09/PF-14/PF-15 | SC-13/SC-15/SC-16, P2: presupuesto SOAP sin reenvío ante incertidumbre, sanitización residual de reportes y minimización de logs. Coordinar SC-15 con la frontera de errores ya registrada; PDF está corregido. Cada contrato tiene su unidad, sin un refactor global. |
 | Recursos de reportes, PF-04/PF-17 | SC-17, P2: reducir materialización y delimitar presupuesto/paginación donde corresponda. Preservar precisión A-01 y autoridad A-03; no limitar arbitrariamente períodos válidos. |
-| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #75–#81: actualizar bases anteriores a A-01, resolver compatibilidad de #78 y validar #79 con la puerta de cobertura vigente y #80/#81 con sus reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
+| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #77–#81: actualizar bases contra main vigente, resolver compatibilidad de #78 y validar #79 con la puerta de cobertura vigente y #80/#81 con sus reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
 
 La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
 conserva la evidencia fechada, los 18 casos, su adjudicación, condiciones y
@@ -232,7 +303,7 @@ unidad antes de convertirse en una tarea ejecutable.
 | Corte | Fuente y preparación restante |
 |---|---|
 | Lecturas fiscales actuales | [Contrato A-03](a03-lecturas-fiscales-design.md): corrección implementada con bases contrastadas, cobertura explícita y totales/ranking por moneda. Categorías nuevas e importación externa conservan sus unidades futuras. |
-| Fidelidad del receptor | [Diseño P1](pf-13-receptores-importacion-design.md): consumidores y transición legacy de tipo de documento/condición; lotes preparados, snapshots e intentos congelados; fuentes oficiales antes de implementar. |
+| Fidelidad del receptor | [Contrato P1 cerrado](pf-13-receptores-importacion-design.md): identificación y condición explícitas, transición autorizada para nuevas importaciones; conserva lotes, snapshots y hashes históricos. Constructor y padrón siguen siendo capacidades futuras. |
 | Admisibilidad, revisión y categorías | [Importes](pf-03-04-importes-previsualizacion-design.md): separar P1 de ampliación P2, contrato de preparación, tasas efectivas, lectura legacy y precisión inmutable. |
 | Reconciliación | [Diseño](pf-02-04-reconciliacion-integral-design.md): comparación legacy P1, cobertura del snapshot y recuperación moderna P2; conservar ownership y guardas RECE. |
 | WSAA coordinado/cifrado | [Diseño](pf-09-wsaa-coordinacion-cache-design.md): mecanismo multiproceso, claves, renovación, transición y recuperación; no requiere otro servicio. |
@@ -251,9 +322,9 @@ unidad antes de convertirse en una tarea ejecutable.
 ## Orden aceptado
 
 La puerta previa de estabilización precede a capacidades nuevas; sus reparaciones
-se delimitan por contrato, sin mezclar un refactor global. Los cortes P1 de
-receptor, admisibilidad/revisión y comparación legacy mantienen sus dueños y se
-coordinan con esa preparación común antes de recuperación/trazabilidad.
+se delimitan por contrato, sin mezclar un refactor global. La fidelidad del
+receptor P1, la admisibilidad/revisión y la comparación legacy están implementadas.
+Recuperación/trazabilidad conserva su siguiente corte propio.
 Tooling habilita la integración de runtime con CI verde; cada reparación fiscal
 se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
 una única unidad ni se bloquea una reparación esperando su propio resultado.
@@ -297,6 +368,10 @@ del constructor.
 
 ## Líneas cerradas
 
+El mantenimiento de CI usa `actions/setup-python` 7 en sus tres consumidores,
+conservando Python 3.11, caché y puertas completas. No cambia el runtime de
+FactuFlow, no despliega ni cierra las actualizaciones restantes de dependencias.
+
 SC-09, adelantado con autorización antes de A-03, correlaciona cabecera y detalle
 de WSFE y trata toda respuesta contradictoria como incierta. Conserva evidencia
 atribuible, intentos, guardas y reservas; admite respuestas A/R legítimas y fecha
@@ -317,7 +392,7 @@ actuales conforme a su [contrato](a03-lecturas-fiscales-design.md). El [dossier]
 La cadena vulnerable de construcción frontend se retiró con Tailwind 4.3.3.
 El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
 conserva estilos y foco y acepta Firefox 128+. Las herramientas del backend
-resuelven sus alertas con pytest 9.0.3, pytest-asyncio 1.3.0 y Black 26.3.1;
+resuelven sus alertas con pytest 9.1.1, pytest-asyncio 1.4.0 y Black 26.3.1;
 la auditoría Python abarca ejecución y desarrollo. Estos cortes no cierran la
 evolución de calidad PF-16 ni acreditan una instalación productiva.
 

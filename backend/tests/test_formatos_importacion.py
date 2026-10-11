@@ -24,6 +24,12 @@ def _config_plantilla_basica(tipo_comprobante: int = 1) -> dict:
         "tipo": "plantilla_visual",
         "header_row": 1,
         "modo_agrupacion": "fila",
+        "campos": {
+            "cliente_condicion_iva": {
+                "origen": "constante",
+                "valor": "RI" if tipo_comprobante in {1, 2, 3} else "CF",
+            },
+        },
         "plantilla": {
             "nombre_publico": "Plantilla simple",
             "columnas": [

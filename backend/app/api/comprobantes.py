@@ -19,6 +19,7 @@ from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.usuario import Usuario
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
+    PrevisualizacionComprobanteResponse,
     EmitirComprobanteResponse,
     ComprobanteDetalleResponse,
     ComprobanteListResponse,
@@ -435,6 +436,7 @@ async def _resolver_operacion_emitir(
         if existente is not None:
             return idempotencia, existente, False, None
         try:
+            FacturacionService(db).preparar_importes(request.items)
             FacturacionService(db)._obtener_condicion_iva_receptor_id(
                 request.condicion_iva, request.tipo_comprobante
             )
@@ -733,6 +735,21 @@ async def obtener_comprobante(
             comprobante.punto_venta.numero if comprobante.punto_venta else None
         ),
     )
+
+
+@router.post("/previsualizar", response_model=PrevisualizacionComprobanteResponse)
+async def previsualizar_comprobante(
+    request: EmitirComprobanteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Revisa importes con reglas locales, sin reservar número ni solicitar CAE."""
+    request = request.model_copy(update={"empresa_id": empresa_activa_id})
+    try:
+        return await FacturacionService(db).previsualizar_comprobante(request)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/emitir", response_model=EmitirComprobanteResponse)

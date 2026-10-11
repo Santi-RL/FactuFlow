@@ -113,10 +113,19 @@ async def _login(credentials: UsuarioLogin, db: AsyncSession):
             raise _credentials_exception()
         user = usuarios[0] if usuarios else None
 
-    if not user or not await _verify_password(
-        credentials.password, user.hashed_password
-    ):
+    verified_hash = user.hashed_password if user else None
+    if not user or not await _verify_password(credentials.password, verified_hash):
         logger.warning("Login rechazado para email=%s", email)
+        raise _credentials_exception()
+
+    # bcrypt cede el control; un reset puede haber cambiado la credencial.
+    result = await db.execute(
+        select(Usuario)
+        .where(Usuario.id == user.id)
+        .execution_options(populate_existing=True)
+    )
+    user = result.scalar_one_or_none()
+    if user is None or user.hashed_password != verified_hash:
         raise _credentials_exception()
 
     if not user.activo:
@@ -130,7 +139,9 @@ async def _login(credentials: UsuarioLogin, db: AsyncSession):
     await db.commit()
 
     # Crear token
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(
+        data={"sub": user.email}, verified_password_hash=verified_hash
+    )
     logger.info("Login exitoso usuario_id=%s empresa_id=%s", user.id, user.empresa_id)
 
     return {

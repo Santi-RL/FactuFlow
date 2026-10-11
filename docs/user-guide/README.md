@@ -265,6 +265,20 @@ para usar cero, escribilo explícitamente. Si un importe no es válido, FactuFlo
 identifica el ítem y bloquea la vista previa hasta que lo corrijas. Editar datos
 después de revisar exige abrir nuevamente la vista previa y confirmar.
 
+La vista previa muestra el cálculo fiscal del servidor, conservando el redondeo
+vigente; los importes mientras editás son estimados. Por ejemplo, un subtotal
+de `1,005` se revisa como `1,00`. La revisión no reserva numeración ni solicita
+CAE. Si falla o cambiás datos fiscales o emisor, volvé a abrirla antes de confirmar.
+Una nota en observaciones no cambia por sí sola los importes revisados.
+
+Las tasas disponibles son 0 %, 10,5 %, 21 % y 27 %. Una tasa distinta requiere
+corrección antes de emitir, también en lotes pendientes anteriores. La opción
+0 % no significa una categoría exenta: en A/B representa tasa cero y en C se
+conserva la regla sin IVA. Se mantienen los comprobantes ya autorizados y las
+operaciones pendientes de verificación; no los reemitas para cambiar una tasa.
+El resumen de pendientes incluye el desglose IVA 27 % y suma importes fiscales
+por comprobante.
+
 En un Excel, un descuento ausente significa cero. Un descuento ilegible, fuera
 de rango o un total informado inválido genera un error del grupo: corregí el
 archivo o la plantilla y volvé a validar. La aplicación no inventa un importe
@@ -286,6 +300,12 @@ Si el comprobante está autorizado, verás:
 
 ### Cómo funciona el PDF hoy
 
+- Los comprobantes A muestran el IVA guardado por alícuota. Los B muestran
+  «IVA Contenido» en el bloque de transparencia fiscal. Los valores pertenecen
+  al comprobante original; no se recalculan al descargar.
+- Si otros tributos históricos no tienen clasificación, el PDF lo indica y
+  conserva el agregado en «Importe Otros Tributos».
+
 - El PDF no se genera automáticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
 - Esto evita guardar archivos innecesarios.
@@ -294,7 +314,8 @@ Si el comprobante está autorizado, verás:
   servidor.
 - El PDF muestra `ORIGINAL`, letra y código de comprobante, emisor, receptor,
   período facturado, detalle, totales, CAE, vencimiento CAE y QR ARCA en una
-  hoja A4 con ubicaciones principales similares a la factura oficial ARCA.
+  formato A4 con ubicaciones principales similares a la factura oficial ARCA.
+  Las facturas corrientes ocupan una hoja; un detalle extenso puede ocupar más.
 - Si el receptor es consumidor final sin documento, el PDF muestra `Doc.: -`,
   y consigna `Condición frente al IVA: Consumidor Final`; el número `0` queda
   como dato técnico para ARCA/QR y no se muestra como documento visible. Si el
@@ -726,6 +747,19 @@ Las plantillas pueden mapear datos de cuatro maneras:
 - por emisor, solo para datos que FactuFlow resuelve explícitamente, como el
   CUIT del emisor activo
 
+El tipo de documento del receptor y su condición IVA son datos distintos. Un
+consumidor final puede tener CUIT, CUIL o DNI; FactuFlow conserva el documento
+y nombre informados aunque el importe no obligue a identificarlo. Configurá
+el tipo desde una columna o un valor fijo y declará la condición IVA de la
+misma manera. Una columna fiscal vacía, inválida o contradictoria requiere
+corrección antes de emitir. No se deduce CUIT por la longitud del número.
+
+Si una plantilla antigua no declara esos datos, corregí su configuración antes
+de una nueva importación. Si es del sistema, clonala y configurá la copia; los
+lotes ya guardados conservan sus datos. Un archivo homogéneo puede usar valores
+fijos y no necesita agregar columnas. Para CF sin documento siguen vigentes
+las reglas de identificación por el total del comprobante.
+
 El IVA del ítem debe estar definido de forma explícita en la plantilla: puede
 venir desde una columna del Excel o quedar fijo como constante. Para Factura C,
 esa constante debe ser `0`; FactuFlow no debe completar el IVA por un valor
@@ -769,7 +803,8 @@ persistente por defecto. No define por si solo si el lote es de productos o
 servicios, ni qué descripción del ítem se va a facturar: debes elegir el tipo de
 concepto fiscal ARCA y definir la descripción facturada antes de validar. Si el
 documento o receptor vienen vacíos, aplican las reglas vigentes de consumidor
-final. Para emisores Responsable Inscripto, el lote queda observado y se debe
+final. Si el extracto aporta un documento, cloná la plantilla protegida y
+declará su tipo desde una columna o un valor fijo explícito antes de importar. Para emisores Responsable Inscripto, el lote queda observado y se debe
 crear un formato particular con Factura A/B según corresponda.
 
 En Factura C los ítems deben tener IVA 0. En nueva factura, FactuFlow limita el
@@ -1064,7 +1099,7 @@ Desde `Sistema > Estado` puedes ver señales operativas básicas:
 - certificado local del emisor activo para el ambiente ARCA configurado
 - conexión ARCA como prueba manual explícita
 - resumen de almacenamiento
-- señales todavía pendientes, como último backup y acceso a logs según entorno
+- evidencia histórica del respaldo de la instalación y acceso a logs según entorno
 - guía rápida de soporte con qué revisar, próximo paso seguro y cuándo detenerse
   ante fallas frecuentes
 - ficha para soporte con datos mínimos: entorno, emisor activo, recurso afectado,
@@ -1092,6 +1127,12 @@ autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA
 La separación `4+1` forma parte del contrato aceptado y fue verificada con una
 prueba PostgreSQL efímera que no creó lotes ni llamó a ARCA. Para una instalación
 concreta, soporte debe confirmar siempre el commit o tag activo.
+
+Antes de una recuperación, soporte comprueba un respaldo apropiado y las
+escrituras posteriores. `Evidencia de recuperación` distingue creación,
+integridad, ensayo, copia externa y último cotejo por sus fechas y componentes.
+Si falta evidencia aparece `No verificado`; incluso un ensayo exitoso no
+garantiza cobertura actual ni autoriza restaurar. No hay pasos nuevos por factura.
 
 Desde `Sistema > Almacenamiento` puedes ver:
 - uso medido de la instalación
@@ -1171,8 +1212,9 @@ limpiables.
   de estas capacidades en una instalación no se infiere desde este manual
 - `Sistema > Estado` ya muestra un diagnóstico operativo con API, base, worker,
   separación de pools, certificado local, ARCA manual, almacenamiento, guía
-  rápida y ficha para soporte; todavía faltan backup visible y trazabilidad
-  histórica más completa
+  rápida, ficha para soporte y evidencia histórica de recuperación cuando el
+  responsable de la instalación aporta el resumen privado; la trazabilidad
+  histórica más completa sigue pendiente
 - la gestión de lotes ya permite cerrar parciales, reconciliar externos,
   descartar pendientes, compactar y eliminar cargas sin emisión; todavía falta
   una vista administrativa más completa de eventos y trazabilidad histórica

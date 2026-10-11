@@ -1,8 +1,17 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 08/10/2026
+Última actualización: 09/10/2026
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
+
+## Consulta y recuperación legacy P1
+
+`FECompConsultar` conserva importes decimales, concepto, tipo de autorización,
+IVA, períodos y asociados. Ausencia o datos inválidos no se convierten en cero.
+La recuperación compara evidencia original verificada, conserva CAE atribuible
+y reserva ante diferencias y no llama a `FECAESolicitar`. Contrato, cobertura
+histórica y soporte en [reconciliación](../agents/pf-02-04-reconciliacion-integral-design.md).
+Manual WSFE v4.7, consultado el 09/10/2026; recuperación moderna P2 separada.
 
 ## Lecturas fiscales A-03
 
@@ -11,6 +20,26 @@ El [contrato de lecturas](../agents/a03-lecturas-fiscales-design.md) distingue b
 contrastadas y cobertura desconocida; IVA cero y letra C no prueban categorías
 exenta/no gravada. Monedas nominales separadas, cotización histórica conservada,
 sin conversión automática. Categorías completas siguen en el corte P2.
+
+## Fidelidad del receptor PF-13
+
+Tipo/número de documento y condición IVA son independientes. CF identificado
+con CUIT/CUIL/DNI conserva sus datos hasta request y snapshot PDF/QR; el umbral
+no borra identificación suministrada. Columna o constante explícitas, errores
+por celda inválida y transición de formatos ambiguos antes de nuevas
+importaciones. No se reescriben historia ni hashes.
+[Contrato PF-13](../agents/pf-13-receptores-importacion-design.md).
+
+## Admisibilidad y revisión P1
+
+La preparación nueva valida 0 %, 10,5 %, 21 % y 27 % antes de emitir, sin
+convertir tasas no implementadas a cero. El calculador histórico y sus hashes
+permanecen compatibles. La revisión obtiene importes decimales del backend y
+el resumen de pendientes incluye IVA 27 %, sin consultas WSAA/WSFE ni CAE en
+previsualización. Tasa cero gravada, exento y no gravado son categorías distintas;
+la aplicación no promete las dos últimas por elegir 0 %. C sigue sin objeto IVA.
+[Contrato P1/P2](../agents/pf-03-04-importes-previsualizacion-design.md).
+Manual WSFE v4.7, revisión 01/09/2026, consultado el 09/10/2026.
 
 ## Representación interna A-01
 

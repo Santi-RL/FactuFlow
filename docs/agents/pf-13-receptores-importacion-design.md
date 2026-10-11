@@ -1,14 +1,13 @@
 # PF-13 — fidelidad del receptor en importación fiscal
 
-Fecha: 03/10/2026.
+Última revisión: 09/10/2026.
 
-Estado: alcance y prioridad aceptados para planificación; implementación
-pendiente. Este documento no acredita una corrección aplicada ni autoriza
-emisiones, acceso a producción o despliegue.
+Estado: corte P1 implementado. La transición fue autorizada el 09/10/2026.
+Este contrato no acredita publicación, emisiones ni un despliegue.
 
 ## Problema y justificación
 
-La revisión del flujo confirmó dos reglas que deben corregirse juntas:
+La revisión confirmó dos reglas corregidas conjuntamente por este corte:
 
 - `FormatosImportacionService._armar_fila_canonica` descarta el documento cuando
   la condición es consumidor final y el importe está bajo el umbral de
@@ -30,15 +29,15 @@ identificados y exige CUIT sin considerar el importe cuando se solicita para
 computar una deducción en Ganancias. El
 [manual oficial WSFE](https://www.arca.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf)
 separa tipo/número de documento y condición IVA del receptor. Fuentes consultadas
-el 03/10/2026; verificar normativa, catálogos y versión aplicable antes de
-implementar. No convertir estas referencias en consultas externas por cada fila.
+el 03/10/2026 y contrastadas el 09/10/2026. No convertir estas referencias en
+consultas externas por cada fila.
 
 La evidencia privada permanece fuera del repositorio público. No copiar datos
 de clientes, archivos reales, comprobantes ni identificadores a este diseño.
 
 ## Prioridad y coordinación
 
-**P1 fiscal, Ahora 1:** el riesgo de perder identificación o rechazar una
+**P1 fiscal cerrado:** el riesgo de perder identificación o rechazar una
 combinación fiscal válida está demostrado. Se atiende antes de recuperación y
 trazabilidad; no se clasifica como P0 porque esta planificación no acredita un
 incidente activo. No requiere completar el constructor contable ni la UI compacta.
@@ -82,7 +81,7 @@ incidente activo. No requiere completar el constructor contable ni la UI compact
 8. Ninguna previsualización, importación o prueba solicita CAE. Verificar con
    datos sintéticos la correspondencia del receptor hasta el PDF.
 
-## Compatibilidad y preparación antes de implementar
+## Compatibilidad preservada
 
 - Inventariar importación configurable y canónica, emisión individual, lote,
   worker, batch, reintentos y generación PDF. Usar una regla coherente de receptor
@@ -122,9 +121,87 @@ incidente activo. No requiere completar el constructor contable ni la UI compact
 | Duplicados, concurrencia, reintento parcial y resultado incierto | Mantiene comparación, autorizados previos, reservas y reconciliación; nunca duplica CAE. |
 | Otro emisor, cambio de contexto y respuestas tardías | No cruza datos ni aplica una configuración ajena. |
 
-Antes de implementar completar el [checklist fiscal](fiscal-change-checklist.md)
-y la [puerta de calidad Nivel 2](change-quality-gates.md), incluida la matriz de
-consumidores, pruebas de error/concurrencia y revisión exigida por el runbook.
-Esta actualización de planificación es Nivel 0 y no constituye validación del
-comportamiento futuro. Al implementar, actualizar QA, manual de usuario, API y
-changelog según el cambio efectivo.
+El corte aplica el [checklist fiscal](fiscal-change-checklist.md) y la
+[puerta de calidad Nivel 2](change-quality-gates.md), incluida la matriz de
+consumidores, errores/concurrencia y revisión final. QA, manual de usuario,
+API y changelog describen la conducta resultante.
+
+## Contrato implementado
+
+- La importación configurable conserva datos y distingue CUIT, CUIL y DNI
+  desde una columna o constante explícita. La condición IVA es obligatoria
+  en la configuración; no se usa un default para sustituir una columna ausente.
+- Las columnas fiscales reconocidas por encabezados canónicos y sus alias
+  habituales no se sustituyen por una constante contradictoria. Una columna
+  adicional desconocida no se interpreta automáticamente; debe mapearse para
+  incorporarla al contrato del archivo.
+- El helper de documento conserva caracteres inválidos hasta informar el error.
+  Acepta representación numérica y separadores habituales de CUIT/CUIL y DNI;
+  el tipo sin identificar admite sólo número vacío o cero. Excel numérico
+  integral conserva sus dígitos; un tipo fraccionario no se trunca.
+  `CI` conserva su significado legacy de código `99`, sólo sin identificación;
+  no representa una cédula identificada ni permite descartar su número. Una
+  cédula informada con ese alias ambiguo requiere corregir el tipo; este corte
+  no incorpora ni infiere un código de cédula identificado.
+- El grupo y la preparación común conservan CF identificado. La obligación por
+  importe se evalúa sobre el total calculado del comprobante; no se descarta un
+  documento bajo el umbral. El requisito por deducción se satisface suministrando
+  explícitamente CUIT; no se añade un nuevo selector de deducción.
+- Lotes, snapshots y huellas persistidos no se migran. La normalización histórica
+  usada para verificar hashes permanece separada de las nuevas preparaciones.
+  La identidad explícita de nuevas importaciones informa el tipo numérico al
+  comparador existente; sus controles de nombre, contenido y reservas continúan.
+- PDF y QR consumen el snapshot vigente: número y nombre visibles, tipo correcto
+  en el QR. No se modifica su presentación ni se consulta ARCA durante las pruebas.
+- El código `99/0` no cambia una condición Exento explícita a CF. Se conserva
+  esa compatibilidad; para CF anónimo, cero tampoco permite evitar el umbral.
+- No hay cambios de esquema, dependencias ni configuración operativa. Un rollback
+  de aplicación no restaura archivos ni reescribe historia y reintroduciría las
+  limitaciones originales; preferir una corrección hacia adelante.
+
+## Decisión de transición y checklist del corte del 09/10/2026
+
+Santi autorizó implementar este P1 y exigir corregir una configuración ambigua
+antes de una nueva importación. El tipo de documento y la condición IVA se
+declaran mediante columna o constante; un documento ausente sigue permitido
+para CF cuando corresponde. Una plantilla protegida se clona para configurarla.
+No se agregan consultas de padrón, confirmaciones rutinarias ni columnas para
+archivos homogéneos que puedan declarar valores fijos.
+
+Checklist fiscal previo a código:
+
+- **Alcance y consumidores:** importación configurable y canónica, validación
+  de grupos, preparación individual y masiva, worker y reintentos que consumen
+  ese request, PDF y comparación de duplicados. Cambia receptor; no cambia
+  fecha, numeración, importes, certificados ni reglas de autorización del emisor.
+  El riesgo es perder identificación o transformar un dato inválido en anónimo.
+- **Invariantes:** conservar identificación explícita, separar condición IVA,
+  respetar compatibilidad A/B/C y total agrupado. Mantener fecha explícita,
+  confirmación, idempotencia, aislamiento y reservas; cero llamadas reales a ARCA.
+  No alterar hashes, snapshots ni respuestas terminales históricos. La
+  normalización histórica usada para hashes conserva exactamente su conducta.
+- **Estados y orden:** archivo/configuración → filas normalizadas → validación
+  del grupo → request preparado → flujo fiscal vigente. Los errores de receptor
+  se detectan antes de crear solicitudes o reservar numeración. Lotes existentes,
+  autorizados, intentos activos/inciertos y reconciliación mantienen su evidencia;
+  no se reimportan ni corrigen silenciosamente. La UI conserva invalidaciones y
+  confirmación vigentes; un archivo corregido requiere una nueva validación.
+- **Fallos y concurrencia:** faltantes, contradicciones o documentos inválidos
+  producen mensajes por fila/campo. Las carreras, bloqueos de numeración, fallos
+  pre/post-CAE y reconciliación siguen en sus servicios; se ejecutan sus pruebas
+  de regresión. Esta unidad no crea otro estado ni introduce I/O en normalización.
+- **Recuperación:** no hay DDL ni migración de datos. El rollback de código no
+  recupera identificación descartada anteriormente; conserva registros y
+  evidencia fiscal. Revertir hacia el código anterior reintroduce los defectos,
+  por lo que requiere decisión proporcional antes de volver a importar.
+- **Autoridad:** RG 5866/2026 y manual WSFE consultados el 09/10/2026. WSFE separa
+  DocTipo/DocNro y CondicionIVAReceptorId. Los códigos ya soportados se conservan;
+  no se amplía el dominio documental ni se infiere CUIT frente a CUIL.
+- **Tests y revisión:** casos de la matriz anterior, Excel real sintético hasta
+  request/PDF, origen de campos, plantilla legacy inmutable, documentos inválidos,
+  total de varias filas, anónimo, compatibilidad A/B/C, aislamiento, duplicados,
+  reintentos e incertidumbre. Suite backend, controles frontend y CI Nivel 2;
+  revisión final `autoreview` Codex `gpt-5.6-sol medium` cuando el diff esté estable.
+
+El cambio de presentación argentino P3 y la consulta opcional de padrón recién
+planificados mantienen su horizonte; no se incorporan a este P1.

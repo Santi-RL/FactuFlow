@@ -1,6 +1,16 @@
 # Integración ARCA
 
-Última revisión: 08/10/2026
+Última revisión: 09/10/2026
+
+## Recuperación legacy P1
+
+La consulta conserva componentes decimales y detalles fiscales para compararlos
+con evidencia original. Igual total no basta: moneda/cotización, IVA, concepto,
+períodos y asociados se verifican según cobertura contractual. Una autorización
+atribuible se conserva aun cuando la consulta esté incompleta; diferencias y
+datos insuficientes mantienen revisión y reserva. Nunca se solicitan CAEs desde
+este circuito ni se saltan guardas modernas. Fuente, compatibilidad y soporte en
+[el contrato de reconciliación](pf-02-04-reconciliacion-integral-design.md).
 
 ## Lecturas fiscales A-03
 
@@ -536,21 +546,21 @@ identificar bajo el umbral no obliga a borrar un documento suministrado.
 Referencia verificada el 03/10/2026; revisar la norma y catálogos aplicables antes
 de cambiar validaciones.
 
-Conducta actual y limitación comprobada:
+Conducta implementada:
 
-- En B/C se acepta consumidor final sin documento bajo el umbral y se normaliza
-  a tipo `99`, número `0` y nombre genérico si no se suministró otro nombre.
-- La importación configurable descarta el documento de CF bajo el umbral; la
-  validación de grupos rechaza CUIT con CF. La normalización individual conserva
-  documento suministrado. Estas diferencias no son una exigencia normativa.
-- Desde el umbral se exige identificación. Para A se mantienen CUIT válido,
-  razón social y condición compatible.
+- En B/C se acepta CF identificado con CUIT, CUIL o DNI; importación, grupo y
+  preparación conservan el tipo explícito, número y nombre suministrados.
+- La condición IVA proviene de columna o constante explícita, independiente del
+  documento. Vacíos, incompatibilidades y contradicciones reconocidas dan error.
+- CF sin documento bajo el umbral conserva tipo `99`, número `0` y nombre
+  genérico sólo cuando no se suministró otro. Desde el umbral se exige identidad
+  según el total del comprobante. A mantiene CUIT válido y condición compatible.
+- Formatos legacy ambiguos requieren configuración explícita para nuevas
+  importaciones; no se reescriben lotes, snapshots ni hashes históricos.
 
-La corrección futura, incluidos requisitos independientes del importe y
-compatibilidad legacy, se concentra en el
-[diseño P1 de fidelidad del receptor](pf-13-receptores-importacion-design.md).
-No está implementada por esta actualización documental. Mantener condición IVA
-explícita, matriz RG 5616, historia, snapshots, duplicados y reconciliación.
+El [contrato P1 de fidelidad del receptor](pf-13-receptores-importacion-design.md)
+delimita la transición autorizada y los consumidores. Se conserva RG 5616,
+fecha explícita, duplicados, idempotencia y reconciliación.
 
 ### Fecha de emisión y período de servicios
 
@@ -651,6 +661,12 @@ explícita, matriz RG 5616, historia, snapshots, duplicados y reconciliación.
 
 ## Hallazgos técnicos de integración solucionados
 
+- Admisibilidad y revisión P1 usan el cálculo decimal PF-03B para nuevas
+  solicitudes y admiten sólo 0 %, 10,5 %, 21 % y 27 %. Rechazan tasas sin
+  soporte antes de CAE y conservan lectura/hashes históricos. El endpoint de
+  revisión no consulta WSAA/WSFE ni reserva numeración; lotes incluyen IVA 27 %.
+  Tasa cero no se presenta como exento. El [contrato](pf-03-04-importes-previsualizacion-design.md)
+  separa este cierre de categorías P2; no cambia SOAP ni tolerancias de ARCA.
 - Cache WSAA antes solo en memoria; ahora persiste en `backend/data/arca_token_cache.json`.
 - Los importes del request `FECAESolicitar` deben cuantizarse con
   `Decimal("0.01")` y redondeo `ROUND_HALF_UP` antes del payload SOAP. No usar

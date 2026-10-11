@@ -2,17 +2,34 @@
 import { computed } from "vue";
 import { XMarkIcon, CheckIcon } from "@heroicons/vue/24/outline";
 import { TIPOS_COMPROBANTE_NOMBRES } from "@/types/comprobante";
-import { subtotalItem } from "@/utils/comprobante-items";
+import type { ItemComprobanteCreate } from "@/types/comprobante";
+import {
+  decimalEsPositivo,
+  formatearDecimalFiscal,
+  type FiscalDecimal,
+} from "@/utils/fiscal-decimal";
 
 interface Props {
-  formData: any;
-  totales: {
-    subtotal: number;
-    iva21: number;
-    iva105: number;
-    iva27: number;
-    total: number;
+  formData: {
+    tipo_comprobante: number;
+    fecha_emision: string;
+    cliente: {
+      razon_social: string;
+      numero_documento: string;
+      condicion_iva: string;
+      domicilio?: string | null;
+    };
+    items: ItemComprobanteCreate[];
+    observaciones?: string;
   };
+  totales: {
+    subtotal: FiscalDecimal;
+    iva21: FiscalDecimal;
+    iva105: FiscalDecimal;
+    iva27: FiscalDecimal;
+    total: FiscalDecimal;
+  };
+  subtotalesItems?: FiscalDecimal[];
   proximoNumero: number | null;
   puntoVentaNumero: number | null;
   empresa: any;
@@ -26,12 +43,9 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const formatMonto = (monto: number | null) => {
-  if (monto === null || !Number.isFinite(monto)) return "Revisá los importes";
-  return new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
-  }).format(monto);
+const formatMonto = (monto: FiscalDecimal | null | undefined) => {
+  if (monto === null || monto === undefined) return "Revisá los importes";
+  return `$ ${formatearDecimalFiscal(monto, 2)}`;
 };
 
 const tipoComprobanteNombre = computed(() => {
@@ -173,9 +187,7 @@ const fechaEmision = computed(() => {
                     {{ formatMonto(item.precio_unitario) }}
                   </td>
                   <td class="py-3 text-right font-mono">
-                    {{
-                      formatMonto(subtotalItem(item))
-                    }}
+                    {{ formatMonto(subtotalesItems?.[index]) }}
                   </td>
                 </tr>
               </tbody>
@@ -195,21 +207,21 @@ const fechaEmision = computed(() => {
                 }}</span>
               </div>
               <div
-                v-if="totales.iva21 > 0"
+                v-if="decimalEsPositivo(totales.iva21)"
                 class="flex justify-between"
               >
                 <span class="text-gray-700">IVA 21%:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva21) }}</span>
               </div>
               <div
-                v-if="totales.iva105 > 0"
+                v-if="decimalEsPositivo(totales.iva105)"
                 class="flex justify-between"
               >
-                <span class="text-gray-700">IVA 10.5%:</span>
+                <span class="text-gray-700">IVA 10,5 %:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva105) }}</span>
               </div>
               <div
-                v-if="totales.iva27 > 0"
+                v-if="decimalEsPositivo(totales.iva27)"
                 class="flex justify-between"
               >
                 <span class="text-gray-700">IVA 27%:</span>
@@ -252,8 +264,8 @@ const fechaEmision = computed(() => {
         <!-- Advertencia -->
         <div class="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
           <p class="text-sm text-amber-800">
-            ⚠️ Esta es una vista previa. El CAE se obtendrá al confirmar la
-            emisión.
+            ⚠️ Esta es una vista previa. La emisión está sujeta a la respuesta
+            de ARCA.
           </p>
         </div>
       </div>
