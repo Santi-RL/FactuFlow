@@ -97,6 +97,11 @@ operativos confirmados:
 - **PF-05, P2 fiscal:** reconstrucción histórica externa opcional, reanudable y
   con procedencia desde ARCA, después del snapshot PF-04. No es requisito para
   emitir ni para reconciliar intentos locales. Alcance en el portafolio.
+- **PF-04/PF-17 — atribución del ranking, P2 administrativa:** evitar agrupar
+  receptores sin identificar bajo el nombre de una persona. Separar ese agregado
+  del ranking individual y distinguir tipo y número de documento en los
+  identificados, conservando moneda, importes e historia. No adelanta «Ahora» ni
+  «Después»; alcance y aceptación en el [portafolio](docs/agents/development-portfolio.md#pf-04pf-05).
 - **PF-03/PF-04/PF-13, P2 fiscal:** separar tasa cero, exento, no gravado y
   tributos, y ampliar alícuotas con soporte completo hasta PDF/informes.
   Preservar interpretación histórica y consumir el
@@ -137,13 +142,16 @@ operativos confirmados:
   parciales, su progreso y la recuperación de reservas terminales están cubiertos
   por el [contrato del parche cerrado](docs/agents/pf-13-17-reintentos-seguros-parche.md). Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
-- **PF-17/PF-13 — formato argentino visible, P3:** corregir fechas y números
+- **PF-17/PF-13 — formato argentino y claridad visible, P3:** corregir fechas y números
   mostrados al usuario, incluidos los ejemplos del constructor de plantillas
   de emisión masiva (`31/05/2026`, `10.000,00`). Aplicar la regla transversal de
   [AGENTS.md](AGENTS.md#formato-argentino-en-contenido-visible), conservando
   contratos internos, precisión e identificadores. Baja prioridad, sin desplazar
   el orden vigente; alcance y aceptación en el
   [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
+  Mostrar «Sin identificar» en lugar del documento técnico «0», conservando el
+  nombre y la condición IVA por separado; no asumir «Consumidor final» por falta
+  de documento. Incluir tildes y coma decimal en etiquetas de IVA y almacenamiento.
 - **PF-17 — períodos rápidos, P3:** facilitar el Reporte de ventas con
   «Mes actual», «Mes anterior» y selección
   personalizada, completando Desde/Hasta y mostrando el rango calendario.
@@ -183,6 +191,9 @@ operativos confirmados:
   riesgo y portabilidad de herramientas; accesibilidad, conectividad visible y
   ayudas contextuales. Los cortes se priorizan por riesgo concreto en el
   [portafolio](docs/agents/development-portfolio.md), sin refactor global.
+  Comprobar localmente la previsualización PDF y ofrecer una alternativa clara
+  si el navegador bloquea la ventana (**P3**, elevable ante bloqueo operativo
+  comprobado); no atribuirle una causa sin reproducirla.
   Después del primer release de prevención de duplicados, completar la
   verificación adicional de zoom real al 200 % y lector de pantalla del diálogo,
   junto con ajustes visuales menores que no bloqueen la operación (**P3**).

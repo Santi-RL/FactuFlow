@@ -31,6 +31,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 | PF-11/PF-15, recuperación del candidato | Cerrado | P1 | Cierre del corte aceptado; conservar el respaldo y las escrituras posteriores según cada operación | [Contrato implementado](pf-11-15-recuperacion-trazabilidad-design.md); dossier y evidencia por operación en el plano de control; no garantiza cobertura actual |
 | PF-04, representación PDF | Cerrado | P1 fiscal | IVA guardado visible en A/B y detalle sin superposición | [Contrato y límites](pf-04-pdf-representacion-fiscal-design.md); ensayo y QA aprobados, puertas de publicación en el dossier |
 | PF-04/PF-02, evidencia y recuperación integral | Ahora 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
+| PF-04/PF-17, atribución del ranking | Más adelante | P2 administrativa | Separar ventas sin receptor identificable y evitar atribuirlas al primer nombre | Identidad fiscal por tipo y número, vínculo opcional y lecturas A-03; sin adelantar Ahora/Después |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
 | PF-12 | Después 1 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
@@ -70,6 +71,23 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
 - Instantáneas del emisor, moneda, IVA y datos históricos necesarios.
 - Exactitud de PDFs, reportes, paginado y aislamiento.
+- PF-04/PF-17, P2 administrativa, Más adelante: corregir la atribución del
+  ranking. La clave actual usa el número sin tipo para receptores sin cliente
+  vinculado; el número técnico «0» agrupa personas diferentes bajo el primer
+  nombre. Propuesta: agregado explícito «Receptores sin identificar» separado
+  del ranking individual, sin ocupar sus posiciones, y clave de identidad con
+  tipo y número cuando ambos estén acreditados. No deducir identidad común
+  desde el nombre ni convertir falta de evidencia histórica en un cliente
+  conocido. Revisar el vínculo administrativo opcional sin alterar el snapshot
+  fiscal; cerrar su contrato en una unidad propia antes de implementar.
+  Aceptación: nombres diferentes con documento 99/0 no se atribuyen al primero;
+  tipos diferentes con igual número permanecen separados; invertir el orden de
+  comprobantes no cambia la atribución. Conservar totales decimales, notas de
+  crédito, emisor/ambiente, separación y límite por moneda. Probar CF identificado,
+  datos legacy incompletos y clientes vinculados; no migrar comprobantes ni
+  recalcular importes. Se coordina con [A-03](a03-lecturas-fiscales-design.md) y
+  [asociación opcional](pf-03-04-14-asociacion-cliente.md), sin reabrir sus cortes
+  cerrados ni desplazar evidencia/reconciliación integral o WSAA/padrón.
 - PF-02/PF-04: comparación legacy P1 implementada y recuperación integral P2 en cortes
   separados; usar solicitud congelada, conservar incertidumbre y coordinar
   grafo RECE. [Contrato de reconciliación](pf-02-04-reconciliacion-integral-design.md).
@@ -145,6 +163,16 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - PF-13, P2: tareas reanudables, trazabilidad masiva y límites de recursos.
 - PF-16: cobertura de reportes/PDF y pruebas por riesgo (P2), verificación local
   y portabilidad de herramientas (P3 salvo bloqueo comprobado).
+- PF-16/PF-17, P3, Más adelante: diagnosticar previsualización PDF en navegadores
+  locales con un PDF sintético y API simulada. El servicio abre la ventana tras
+  esperar la descarga y resuelve sin error cuando `window.open` retorna `null`;
+  esto confirma la falta de aviso, no la causa de una ventana ausente en un
+  navegador concreto. Evaluar apertura segura durante la interacción y una
+  alternativa visible de descarga si no se puede abrir; conservar permisos,
+  errores sanitizados y liberación del blob. Aceptación: apertura normal,
+  bloqueo de ventana y error de descarga no dejan un botón sin resultado ni
+  revelan datos privados. No cambia la representación fiscal del PDF ya cerrada;
+  elevar prioridad sólo ante bloqueo operativo reproducido.
 - PF-17: conectividad visible y recuperación/accesibilidad que afecten operación
   (P2); ayuda contextual y ajustes de texto/presentación opcionales (P3).
   [Observabilidad](operational-observability.md) conserva la señal de conexión.
@@ -172,6 +200,19 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   formatos de API/base/ARCA, compatibilidad de importación, redondeos fiscales e
   identificadores sin cambios. Es un pendiente de baja prioridad, sin compromiso
   inmediato ni dependencia del rediseño completo P2 del constructor.
+- PF-17, P3, Más adelante: claridad del documento del receptor. La lista muestra
+  directamente `cliente_documento`; su contrato no incluye tipo documental.
+  Propuesta: usar «Sin identificar» cuando se acredite tipo 99, manteniendo el
+  nombre existente y la condición IVA por separado. Si el antecedente carece de
+  evidencia suficiente, mostrar «Sin documento informado», sin inferir CF ni
+  corregir su identidad. Revisar lista/detalle y consumidores visibles con
+  un criterio compartido; conservar «0» donde lo exija el intercambio técnico,
+  los identificadores reales y sus ceros significativos. Aceptación: 99/0 sin
+  documento numérico confuso, CF con DNI/CUIT/CUIL visible, nombre preservado y
+  legacy ambiguo explícito. No reescribir base, hashes, solicitudes ni PDFs
+  históricos. Incluir en el mismo horizonte P3 las tildes de Comprobantes y la
+  coma decimal de etiquetas «10,5 %» y tamaños de almacenamiento. Esta mejora
+  visual es independiente de la corrección P2 de atribución del ranking.
 - PF-17, P3: períodos rápidos en Reporte de ventas, con «Mes actual», «Mes anterior»
   y rango personalizado. Conservar fechas visibles, generación explícita y
   aislamiento por emisor; [contrato y aceptación](pf-17-reportes-periodos-design.md).
