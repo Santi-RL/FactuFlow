@@ -20,6 +20,12 @@ Reglas vigentes desde 2026-05-22:
 
 Sin cambios funcionales posteriores a v0.3.8.
 
+### Mantenimiento de herramientas
+
+- CI: `actions/setup-python` 7 en los tres consumidores del workflow,
+  conservando Python 3.11, caché y las comprobaciones completas. No modifica
+  dependencias de ejecución ni despliega la aplicación.
+
 ## [0.3.8] — 10/10/2026
 
 Publicada como [v0.3.8](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.8),
