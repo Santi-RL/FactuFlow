@@ -28,6 +28,9 @@ Sin cambios funcionales posteriores a v0.3.8.
 - Pruebas del backend: pytest 9.1.1 y pytest-asyncio 1.4.0, conservando el
   ciclo de eventos de sesión, warnings como errores y la puerta de cobertura.
   La guía local explicita UTF-8 en Windows para los mensajes de subprocesos.
+- Lint del frontend: eslint-plugin-vue 10.11.1 y typescript-eslint 8.71.1,
+  conservando ESLint 9, configuración, reglas efectivas y cero warnings. No
+  cambia el comportamiento de la aplicación ni adelanta la migración a ESLint 10.
 
 ## [0.3.8] — 10/10/2026
 

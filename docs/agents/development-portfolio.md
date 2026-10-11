@@ -259,7 +259,7 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Almacenamiento y certificados, PF-10/PF-09 | SC-06/SC-18, P2: proteger operaciones ante enlaces/cambios de raíz y delimitar concurrencia/ciclo de CSR en unidades separadas. Conservar certificados activos y la política de resguardo; no imponer borrado o vencimiento nuevos. |
 | Transporte y registros, PF-09/PF-14/PF-15 | SC-13/SC-15/SC-16, P2: presupuesto SOAP sin reenvío ante incertidumbre, sanitización residual de reportes y minimización de logs. Coordinar SC-15 con la frontera de errores ya registrada; PDF está corregido. Cada contrato tiene su unidad, sin un refactor global. |
 | Recursos de reportes, PF-04/PF-17 | SC-17, P2: reducir materialización y delimitar presupuesto/paginación donde corresponda. Preservar precisión A-01 y autoridad A-03; no limitar arbitrariamente períodos válidos. |
-| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #77–#81: actualizar bases contra main vigente, resolver compatibilidad de #78 y validar #79 con la puerta de cobertura vigente y #80/#81 con sus reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
+| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #77, #78, #79 y #81: actualizar bases contra main vigente, resolver compatibilidad de #78 y validar #79 con la puerta de cobertura vigente y #81 con las reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
 
 La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
 conserva la evidencia fechada, los 18 casos, su adjudicación, condiciones y
@@ -371,6 +371,10 @@ del constructor.
 El mantenimiento de CI usa `actions/setup-python` 7 en sus tres consumidores,
 conservando Python 3.11, caché y puertas completas. No cambia el runtime de
 FactuFlow, no despliega ni cierra las actualizaciones restantes de dependencias.
+
+El lint del frontend usa eslint-plugin-vue 10.11.1 y typescript-eslint 8.71.1
+con ESLint 9 y conserva configuración, reglas efectivas y cero warnings. La
+migración a ESLint 10 del PR #81 sigue pendiente como unidad separada.
 
 SC-09, adelantado con autorización antes de A-03, correlaciona cabecera y detalle
 de WSFE y trata toda respuesta contradictoria como incierta. Conserva evidencia
