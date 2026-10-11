@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 09/10/2026
+Última revisión: 11/10/2026
 
 Estado: VIGENTE.
 
@@ -75,6 +75,18 @@ normal llama a ARCA real ni solicita CAE.
 como para fixtures, mediante `pytest.ini`; conserva el alcance anterior sin
 redefinir la fixture retirada `event_loop`. El aislamiento de datos sigue siendo
 por prueba y el teardown restaura las claves foráneas de SQLite.
+
+En Windows, ejecutar Python y sus subprocesos con UTF-8 para que las capturas de
+mensajes de migración con tildes conserven la misma codificación. En PowerShell,
+configurar estas variables en la sesión que ejecuta la suite:
+
+```powershell
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
+```
+
+No cambiar las aserciones ni suprimir warnings para compensar una codificación
+distinta entre el proceso de pruebas y sus subprocesos.
 
 ### PostgreSQL desechable
 

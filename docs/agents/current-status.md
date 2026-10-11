@@ -87,7 +87,7 @@ El frontend usa Tailwind 4.3.3 y su plugin PostCSS; la cadena vulnerable de
 construcción anterior fue retirada, conservando marca, escalas y foco accesible.
 El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
 acepta Firefox 128+. CI conserva sus gates y usa Ubuntu 24.04 explícito.
-Las herramientas Python usan pytest 9.0.3, pytest-asyncio 1.3.0 y Black 26.3.1.
+Las herramientas Python usan pytest 9.1.1, pytest-asyncio 1.4.0 y Black 26.3.1.
 La CI y el comando local auditan también `requirements-dev.txt`, incluido el
 runtime. El ciclo de eventos de sesión mantiene su alcance mediante configuración
 del plugin. Este corte no cierra las demás líneas de calidad PF-16.

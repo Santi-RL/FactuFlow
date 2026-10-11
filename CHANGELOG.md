@@ -25,6 +25,9 @@ Sin cambios funcionales posteriores a v0.3.8.
 - CI: `actions/setup-python` 7 en los tres consumidores del workflow,
   conservando Python 3.11, caché y las comprobaciones completas. No modifica
   dependencias de ejecución ni despliega la aplicación.
+- Pruebas del backend: pytest 9.1.1 y pytest-asyncio 1.4.0, conservando el
+  ciclo de eventos de sesión, warnings como errores y la puerta de cobertura.
+  La guía local explicita UTF-8 en Windows para los mensajes de subprocesos.
 
 ## [0.3.8] — 10/10/2026
 
