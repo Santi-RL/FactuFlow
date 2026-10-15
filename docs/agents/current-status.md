@@ -97,9 +97,10 @@ ensaya su rechazo y aceptación con la CLI real antes de medir la suite. El
 contrato y los comandos viven en [testing](testing.md#frontend); la actualización
 de Vitest y las demás líneas PF-16 conservan su alcance pendiente.
 
-El lint del frontend usa eslint-plugin-vue 10.11.1 y typescript-eslint 8.71.1
-con ESLint 9, las mismas reglas efectivas y cero warnings. La migración mayor
-de ESLint conserva su alcance pendiente; no cambia el comportamiento funcional.
+El lint del frontend usa ESLint 10.12.0, @eslint/js 10.0.1, eslint-plugin-vue
+10.11.1 y typescript-eslint 8.71.1, con reglas recomendadas vigentes y cero
+warnings. Los errores de acceso conservan su causa y mensajes públicos; no
+cambian autenticación ni permisos.
 
 SC-09 correlaciona las respuestas WSFE con la solicitud y conserva la
 incertidumbre ante contradicciones. El cierre individual y masivo preserva CAEs
