@@ -22,6 +22,10 @@ Sin cambios funcionales posteriores a v0.3.8.
 
 ### Mantenimiento de herramientas
 
+- Base de datos: SQLAlchemy 2.1.4 con pools SQLite explícitos, conservando
+  `NullPool` para archivos y `StaticPool` para memoria, también por URI.
+  El inventario PF-19 mantiene solo lectura y restaura su protección previa;
+  sus pruebas cubren conexión reutilizada, salida normal y fallo.
 - Lint: ESLint 10.12.0 y @eslint/js 10.0.1 en una migración conjunta, con
   reglas recomendadas vigentes y cero warnings. Los errores de acceso conservan
   su causa interna y los mismos mensajes públicos, sin cambiar autenticación.

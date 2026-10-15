@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from threading import Lock
 from time import perf_counter
 from typing import Any, AsyncGenerator, Literal, TypedDict
+from urllib.parse import unquote
 
 from sqlalchemy import event
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine import Connection, Engine, make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from sqlalchemy.ext.asyncio import (
@@ -20,7 +21,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, ORMExecuteState, Session
-from sqlalchemy.pool import Pool
+from sqlalchemy.pool import NullPool, Pool, StaticPool
 
 from app.core.config import settings
 from app.core import fiscal_storage  # noqa: F401 - registra adaptadores en todo Engine
@@ -466,6 +467,22 @@ def _create_database_engines(
         )
         return api_engine, batch_worker_engine
 
+    if normalized_url.startswith("sqlite+aiosqlite:"):
+        sqlite_url = make_url(normalized_url)
+        uri_value = sqlite_url.query.get("uri", "")
+        sqlite_uri = isinstance(uri_value, str) and uri_value.lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        # Preservar explícitamente archivo y memoria ante cambios del dialecto.
+        sqlite_en_memoria = (
+            sqlite_url.database in {None, "", ":memory:"}
+            or sqlite_url.query.get("mode") == "memory"
+            or (sqlite_uri and unquote(sqlite_url.database or "") == "file::memory:")
+        )
+        common_kwargs["poolclass"] = StaticPool if sqlite_en_memoria else NullPool
     api_engine = create_async_engine(normalized_url, **common_kwargs)
     if normalized_url.startswith("sqlite+aiosqlite:"):
         event.listen(

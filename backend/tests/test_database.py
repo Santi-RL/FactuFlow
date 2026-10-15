@@ -80,14 +80,35 @@ async def test_sqlite_archivo_comparte_engine_y_conserva_nullpool(
 
 
 @pytest.mark.asyncio
-async def test_sqlite_memoria_comparte_engine_y_conserva_staticpool() -> None:
+@pytest.mark.parametrize(
+    "database_name",
+    [
+        ":memory:",
+        "",
+        "file:pool-memory?mode=memory&cache=shared&uri=true",
+        "file::memory:?cache=shared&uri=true",
+        "file:%3Amemory%3A?cache=shared&uri=true",
+    ],
+)
+async def test_sqlite_memoria_comparte_engine_y_conserva_staticpool(
+    database_name: str,
+) -> None:
     """SQLite en memoria debe mantener una sola base visible para ambos roles."""
     api_engine, worker_engine = database._create_database_engines(
-        "sqlite+aiosqlite:///:memory:"
+        f"sqlite+aiosqlite:///{database_name}"
     )
     try:
         assert api_engine is worker_engine
         assert isinstance(api_engine.pool, StaticPool)
+        async with api_engine.begin() as connection:
+            await connection.execute(
+                text("CREATE TABLE memoria_compartida (id INTEGER)")
+            )
+            await connection.execute(text("INSERT INTO memoria_compartida VALUES (1)"))
+        async with worker_engine.connect() as connection:
+            assert (
+                await connection.scalar(text("SELECT id FROM memoria_compartida"))
+            ) == 1
     finally:
         await api_engine.dispose()
 
