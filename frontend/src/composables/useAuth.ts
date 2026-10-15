@@ -23,10 +23,11 @@ export function useAuth() {
       router.push("/");
     } catch (error: any) {
       if (isNetworkError(error)) {
-        throw new Error(SERVER_UNAVAILABLE_MESSAGE);
+        throw new Error(SERVER_UNAVAILABLE_MESSAGE, { cause: error });
       }
       throw new Error(
         error.response?.data?.detail || "Error al iniciar sesión",
+        { cause: error },
       );
     }
   };
