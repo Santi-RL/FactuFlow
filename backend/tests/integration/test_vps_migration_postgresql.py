@@ -55,9 +55,14 @@ async def _preparar_destino_vps(database_url: str) -> AsyncEngine:
 
 
 @pytest.mark.integration
-async def test_postgresql_v5_datos_ampliados_roundtrip(tmp_path: Path) -> None:
+async def test_postgresql_v5_datos_ampliados_roundtrip(
+    tmp_path: Path, monkeypatch
+) -> None:
     database_url = _postgres_url()
     source, certs = _create_source_db(tmp_path, fiscal_head=True)
+    from tests.test_alembic_migrations import _run_alembic as _sqlite_alembic
+
+    _sqlite_alembic("downgrade", A01_HEAD, f"sqlite:///{source.as_posix()}")
     source_engine = create_engine(f"sqlite:///{source}")
     with source_engine.begin() as connection:
         connection.execute(
@@ -78,13 +83,17 @@ async def test_postgresql_v5_datos_ampliados_roundtrip(tmp_path: Path) -> None:
             )
         )
     source_engine.dispose()
-    package = vps_migration.export_package(
-        source,
-        certs,
-        tmp_path / "packages-v5",
-        "clave-destino-larga",
-        source_quiesced=True,
-    )
+    with monkeypatch.context() as historical:
+        historical.setattr(
+            vps_migration, "get_repo_alembic_head", lambda *_args: A01_HEAD
+        )
+        package = vps_migration.export_package(
+            source,
+            certs,
+            tmp_path / "packages-v5",
+            "clave-destino-larga",
+            source_quiesced=True,
+        )
     manifest = vps_migration.load_and_verify_manifest(package)
     assert manifest["package_version"] == 5
     assert manifest["alembic_version"] == A01_HEAD

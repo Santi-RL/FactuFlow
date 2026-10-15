@@ -412,6 +412,16 @@ usar `POST /api/comprobantes/emitir` o el flujo de lotes, que aplican
 idempotencia, persistencia de intento fiscal y confirmación irreversible antes
 de solicitar CAE.
 
+Los intentos nuevos de emisión individual, lote y reintento conservan evidencia
+versionada de la solicitud antes del envío, sin exponer ese documento privado
+en las respuestas. Si el contenido durable o su identidad no verifican antes
+de CAE, la emisión se detiene con
+`categoria_error=evidencia_fiscal_no_verificada`. Un fallo al construir la
+evidencia descarta la preparación incompleta sin enviar. Replay, antecedentes
+sin evidencia y reconciliación conservan su contrato; no hay un endpoint nuevo
+ni recuperación moderna habilitada. Alcance en
+[PF-04/PF-02](../agents/pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
+
 ## Revisión de importes P1
 
 `POST /api/comprobantes/previsualizar` acepta el body de emisión sin exigir

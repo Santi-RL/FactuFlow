@@ -4,6 +4,7 @@ import asyncio
 from copy import deepcopy
 from decimal import Decimal
 from time import perf_counter
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
@@ -52,6 +53,8 @@ async def test_rg5616_worker_rechaza_payload_legacy_antes_de_cae(
 ):
     class WSFE:
         def __init__(self, **kwargs):
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
             pass
 
         async def fe_comp_tot_x_request(self):
@@ -223,6 +226,8 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
 
     class WSFE:
         def __init__(self, **kwargs):
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
             pass
 
         async def fe_comp_ultimo_autorizado(self, *args):
@@ -309,6 +314,8 @@ async def test_reintento_durable_seleccion_bloques_progreso_y_replay(
 
     class WSFE:
         def __init__(self, **kwargs):
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
             inicializaciones.append(1)
 
         async def fe_comp_tot_x_request(self):

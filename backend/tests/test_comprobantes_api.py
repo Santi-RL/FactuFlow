@@ -731,6 +731,8 @@ async def test_emitir_recupera_fallo_durable_al_cerrar_pre_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Fuerza el aborto demostrablemente anterior a FECAE."""
@@ -1645,6 +1647,8 @@ async def test_emitir_comprobante_replay_misma_clave_no_reemite(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable la numeración sintética."""
@@ -1773,6 +1777,8 @@ async def test_replay_individual_10005_adulterado_no_publica_exito_ni_reemite(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable la numeración sintética."""

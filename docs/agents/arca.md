@@ -1,6 +1,15 @@
 # Integración ARCA
 
-Última revisión: 09/10/2026
+Última revisión: 15/10/2026
+
+## Evidencia previa PF-04/PF-02
+
+Cada intento nuevo conserva la solicitud WSFE construida y su presentación
+original mínima antes del envío, en la misma reserva durable. La comprobación
+previa a CAE contrasta contenido e identidad representada; no agrega consultas
+fiscales. El lector/comparador no modifica estados ni habilita recuperación
+moderna. Alcance y continuaciones en el
+[contrato](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
 
 ## Recuperación legacy P1
 

@@ -18,7 +18,18 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-Sin cambios funcionales posteriores a v0.3.8.
+### Evidencia previa PF-04/PF-02
+
+- Los intentos nuevos conservan la solicitud fiscal y la representación mínima
+  original en un sobre decimal versionado, confirmado con la reserva antes del
+  envío individual, masivo o de reintento. Se verifica el contenido durable y la
+  identidad WSFE antes de solicitar CAE, sin alterar hashes ni guardas existentes.
+- El lector y comparador puros distinguen diferencias y cobertura insuficiente;
+  no habilitan recuperación moderna ni modifican estados. Los antecedentes
+  conservan evidencia ausente y las lecturas históricas mantienen su alcance.
+- Migración aditiva y traslado v6 para conservar la evidencia; importación
+  compatible de v3/v4/v5 congelados y downgrade rechazado si elimina evidencia.
+  [Contrato y límites](docs/agents/pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
 
 ### Mantenimiento de herramientas
 

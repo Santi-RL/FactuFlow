@@ -15,6 +15,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
+    inspect,
+    select,
     text,
 )
 from sqlalchemy.orm import relationship
@@ -353,6 +356,16 @@ class IntentoEmisionFiscal(Base):
 
     __tablename__ = "intentos_emision_fiscal"
     __table_args__ = (
+        CheckConstraint(
+            "(evidencia_version IS NULL AND evidencia_json IS NULL AND evidencia_hash IS NULL) OR "
+            "(evidencia_version IS NOT NULL AND evidencia_json IS NOT NULL AND evidencia_hash IS NOT NULL "
+            "AND evidencia_version = 'solicitud_fiscal/1' AND length(evidencia_hash) = 64 AND "
+            + "".join("replace(" for _ in range(16))
+            + "evidencia_hash"
+            + "".join(f", '{char}', '')" for char in "0123456789abcdef")
+            + " = '')",
+            name="ck_intentos_emision_fiscal_evidencia",
+        ),
         UniqueConstraint(
             "id",
             "empresa_id",
@@ -520,6 +533,9 @@ class IntentoEmisionFiscal(Base):
     receptor_razon_social = Column(String(255), nullable=True)
     payload_hash = Column(String(64), nullable=False)
     huella_logica = Column(String(64), nullable=False)
+    evidencia_version = Column(String(30), nullable=True)
+    evidencia_json = Column(Text, nullable=True)
+    evidencia_hash = Column(String(64), nullable=True)
     cae = Column(String(14), nullable=True)
     cae_vencimiento = Column(Date, nullable=True)
     estado = Column(String(40), nullable=False, default="en_proceso")
@@ -703,3 +719,19 @@ class ResolucionLegacyPF19Journal(Base):
     # El journal se escribe con IDs explícitos; la relación del emisor es de lectura.
     empresa = relationship("Empresa", viewonly=True)
     actor_usuario = relationship("Usuario", foreign_keys=[actor_usuario_id])
+
+
+@event.listens_for(IntentoEmisionFiscal, "before_update")
+def _preservar_evidencia_fiscal(_mapper, _connection, intento):
+    """Los updates de resultado no reemplazan ni borran evidencia ya escrita."""
+    names = ("evidencia_version", "evidencia_json", "evidencia_hash")
+    if not any(inspect(intento).attrs[name].history.has_changes() for name in names):
+        return
+    # Consultar la fila también protege atributos expirados/no cargados: su
+    # history.deleted puede estar vacío aunque ya exista evidencia durable.
+    table = IntentoEmisionFiscal.__table__
+    previous = _connection.execute(
+        select(*(table.c[name] for name in names)).where(table.c.id == intento.id)
+    ).one()
+    if any(value is not None for value in previous):
+        raise ValueError("La evidencia fiscal persistida es inmutable")

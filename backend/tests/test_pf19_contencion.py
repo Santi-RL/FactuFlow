@@ -651,6 +651,8 @@ async def test_procesar_lote_bloquea_antes_de_capacidad_y_fecae(
         """Permite RegXReq y prohíbe cualquier solicitud de CAE."""
 
         def __init__(self, **_kwargs) -> None:
+            self.cuit = _kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=_kwargs["ambiente"])
             llamadas["wsfe_inicios"] += 1
 
         async def fe_comp_tot_x_request(self) -> int:

@@ -815,6 +815,8 @@ async def test_verificar_numeracion_segura_para_emision_consulta_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_param_get_ptos_venta(self):
             """Devuelve el punto de venta como habilitado en ARCA."""
@@ -1226,6 +1228,8 @@ async def test_batch_revierte_aprobado_si_falla_cerrar_rechazado_post_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Informa que el rango comienza en uno."""
@@ -1418,6 +1422,8 @@ async def test_dos_sublotes_recuperan_segunda_guarda_pre_arca_sin_segundo_fecae(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma real sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable cada doble preflight de numeración."""
@@ -1677,6 +1683,8 @@ async def test_fecae_observa_guarda_e_intentos_commiteados_en_otra_conexion(
 
                 def __init__(self, *args, **kwargs) -> None:
                     """Acepta la firma productiva sin abrir red."""
+                    self.cuit = kwargs["cuit"]
+                    self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
                 async def fe_comp_ultimo_autorizado(
                     self,
@@ -1832,6 +1840,8 @@ async def test_emitir_rehidrata_grafo_rece_despues_de_rollback(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene el próximo número fiscal en uno."""
@@ -2000,6 +2010,8 @@ async def test_emitir_comprobante_propaga_db_temporal_antes_de_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_cae_solicitar(self, _arca_request):
             """Registra una llamada que nunca debería ocurrir."""
@@ -2073,6 +2085,8 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable el próximo número reservado en la prueba."""
@@ -2491,6 +2505,8 @@ async def test_excepcion_inesperada_post_arca_requiere_reconciliacion(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable el próximo número reservado en la prueba."""
@@ -2740,6 +2756,8 @@ async def test_emitir_comprobante_commit_false_no_confirma_transaccion_externa(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Simula que ARCA no tiene comprobantes previos."""
@@ -2856,6 +2874,8 @@ async def test_sc09_resultado_arca_exige_cierre_durable_o_propaga_error_sanitiza
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_cae_solicitar(self, _arca_request):
             """Devuelve una respuesta no aprobada."""
@@ -3143,6 +3163,8 @@ async def test_emitir_comprobantes_lote_usa_un_request_arca_y_persiste_numeracio
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Simula que ARCA no tiene comprobantes previos."""
@@ -3424,6 +3446,8 @@ async def test_sc09_batch_contradictorio_no_persiste_el_detalle_aprobado(
 
         def __init__(self, *args, **kwargs):
             """Acepta la firma del cliente de WSFE sin usar certificados reales."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Conserva la numeración estable antes y después de reservar."""
@@ -3525,6 +3549,8 @@ async def test_emitir_comprobantes_lote_usa_historia_externa_como_inicio_del_ran
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Informa cinco comprobantes previos ajenos a FactuFlow."""
@@ -3605,6 +3631,8 @@ async def test_emitir_comprobantes_lote_aborta_todo_el_rango_antes_de_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene el primer diagnóstico y desestabiliza el segundo."""
@@ -3705,6 +3733,8 @@ async def test_emitir_comprobantes_lote_distingue_db_temporal_en_reserva_pre_arc
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Simula que ARCA no tiene comprobantes previos."""
@@ -3916,6 +3946,8 @@ async def test_emitir_comprobantes_lote_reconcilia_si_falla_cierre_intento_post_
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Simula que ARCA no tiene comprobantes previos."""
@@ -4154,6 +4186,8 @@ async def test_emitir_comprobante_usa_siguiente_arca_si_historia_local_es_parcia
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Devuelve un último comprobante que no existe localmente."""
@@ -4312,6 +4346,8 @@ async def test_emitir_comprobante_aborta_si_arca_avanza_despues_de_reservar(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Devuelve un último comprobante que no existe localmente."""
@@ -4468,6 +4504,8 @@ async def test_emitir_comprobante_cierra_intento_si_falla_segundo_preflight(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Devuelve un último comprobante que no existe localmente."""
@@ -4640,6 +4678,8 @@ async def test_rechazo_global_10005_cierra_grafo_y_replay_sin_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto, tipo):
             """Mantiene estable la numeración en ambos preflights."""
@@ -4811,6 +4851,8 @@ async def test_codigo_10005_string_permanece_incierto_sin_json_terminal(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto, tipo):
             return 0
@@ -4915,6 +4957,8 @@ async def test_error_global_mixto_preserva_enteros_sanitarios_en_orden(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto, tipo):
             return 0

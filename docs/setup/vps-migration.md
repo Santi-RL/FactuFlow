@@ -1,6 +1,6 @@
 # Migración local a VPS
 
-Última actualización: 2026-10-05
+Última actualización: 15/10/2026
 
 Estado: referencia técnica reutilizable. No describe el estado desplegado de
 ninguna instalación.
@@ -32,6 +32,15 @@ escrituras posteriores. Consultar el [contrato A-01](../agents/pf-03-04-14-persi
 
 ## Alcance migrado
 
+El esquema de evidencia previa PF-04/PF-02 (`c3d4e5f6a7b8`) agrega tres
+columnas opcionales al intento, sin completar antecedentes. El traslado v6
+conserva íntegros versión, documento y hash de los intentos incluidos. Un
+downgrade con evidencia se rechaza; el rollback de aplicación conserva esquema
+y datos, con la cobertura de captura que tenga el runtime utilizado. No borrar
+evidencia ni restaurar datos para retroceder. El
+[contrato](../agents/pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
+delimita el corte; no ejecutarlo contra una instalación sin su autorización.
+
 La migración conserva los datos necesarios para continuar operando desde el
 VPS sin perder continuidad fiscal local:
 
@@ -55,7 +64,7 @@ Quedan fuera del paquete:
 - eventos de sistema y exportaciones de almacenamiento
 - PDFs, XLSX, observados, temporales, cachés, logs y evidencia privada
 
-Los paquetes v4/v5 conservan el scope `operacion_futura_con_comprobantes`. Las filas
+Los paquetes v4/v5/v6 conservan el scope `operacion_futura_con_comprobantes`. Las filas
 excluidas sólo pueden omitirse cuando el preflight demuestra que no contienen
 estado no terminal, incierto, contradictorio ni necesario para continuar una
 operación. Cualquier caso dudoso bloquea la exportación.
@@ -99,28 +108,29 @@ Subcomandos disponibles:
 - `preflight`: valida SQLite local, Alembic head, tablas esperadas, barrera de
   idempotencia, elegibilidad RECE, operaciones y certificados activos.
 - `export`: genera un paquete privado en `.tmp/vps-migration/<timestamp>/`.
-- `import`: restaura v5 o adapta v3/v4 conocidos mediante sus contratos
+- `import`: restaura v6 o adapta v3/v4/v5 conocidos mediante sus contratos
   congelados, sobre PostgreSQL limpio en el head ampliado y bajo locks de tablas.
 - `validate`: compara manifest, datos, relaciones y disponibilidad básica; es
   obligatorio antes de operar.
 
 ## Preflight local
 
-La SQLite fuente debe estar en A-01 (`b2c3d4e5f6a7`) para exportar v5. Si todavía
+La SQLite fuente en `c3d4e5f6a7b8` exporta v6; A-01 (`b2c3d4e5f6a7`) conserva
+exportación v5. Si todavía
 debe cruzar PF-19B, seguir primero el procedimiento de backup de
 [`docs/setup/README.md`](README.md): llegar a `a8b9c0d1e2f3`, crear y verificar un
 backup físico distinto, y declarar `PF19B_SQLITE_BACKUP_CONFIRMED=1` y
 `PF19B_SQLITE_BACKUP_PATH` durante el upgrade. Si ese DDL falla, restaurar el
-backup antes de reintentar. Completar después la cadena hasta A-01:
+backup antes de reintentar. Completar después la cadena hasta el head de evidencia:
 
 ```powershell
 cd backend
-.\.venv\Scripts\alembic.exe upgrade b2c3d4e5f6a7
+.\.venv\Scripts\alembic.exe upgrade c3d4e5f6a7b8
 ```
 
 Como compatibilidad, una fuente que ya esté en `a1b2c3d4e5f6` puede ejecutar el
 preflight y exportar v4 sin aplicar A-01. No basta con detenerse en PF-19B ni en
-`a8b9c0d1e2f3`: sólo esos dos heads de paquete están admitidos.
+`a8b9c0d1e2f3`: sólo los tres heads de paquete indicados están admitidos.
 
 Con la fuente en uno de los heads admitidos, ejecutar desde `backend/`:
 
@@ -195,9 +205,10 @@ a servicios externos.
 
 El importador rechaza paquetes anteriores a v3 porque no pueden preservar los
 accesos explícitos. Deben regenerarse desde la fuente con la versión vigente.
-El exportador selecciona v4 para origen `a1b2c3d4e5f6` y v5 para
-`b2c3d4e5f6a7`. v5 conserva decimales compactos exactos y la clave física de
-búsqueda de cotización. v3/v4 mantienen descriptores, lectura, manifest y hashes
+El exportador selecciona v4 para origen `a1b2c3d4e5f6`, v5 para
+`b2c3d4e5f6a7` y v6 para `c3d4e5f6a7b8`. v5 conserva decimales compactos
+exactos y la clave física de búsqueda de cotización; v6 agrega evidencia previa
+sin cambiar su interpretación. v3/v4/v5 mantienen descriptores, lectura, manifest y hashes
 congelados; el destino A-01 deriva únicamente la clave física necesaria.
 Cada versión admitida valida de forma estricta
 hashes, conteos, rutas, shapes, FKs, asignaciones multiemisor y barrera de

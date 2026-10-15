@@ -1,6 +1,14 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 09/10/2026
+Última actualización: 15/10/2026
+
+## Evidencia previa versionada
+
+El primer corte PF-04/PF-02 conserva exactamente la solicitud construida antes
+de `FECAESolicitar`, con decimales y contexto propios del intento. No cambia
+SOAP ni amplía los campos acreditados por `FECompConsultar`; comparar evidencia
+no autoriza transiciones, libera reservas ni solicita otro CAE. Contrato en
+[evidencia previa](../agents/pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
 
 Este archivo resume lo que conviene recordar rápido sin volver a abrir todos los PDFs.
 
