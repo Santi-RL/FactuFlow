@@ -372,9 +372,9 @@ El mantenimiento de CI usa `actions/setup-python` 7 en sus tres consumidores,
 conservando Python 3.11, caché y puertas completas. No cambia el runtime de
 FactuFlow, no despliega ni cierra las actualizaciones restantes de dependencias.
 
-El lint del frontend usa eslint-plugin-vue 10.11.1 y typescript-eslint 8.71.1
-con ESLint 9 y conserva configuración, reglas efectivas y cero warnings. La
-migración a ESLint 10 del PR #81 sigue pendiente como unidad separada.
+El lint del frontend usa ESLint 10.12.0 y @eslint/js 10.0.1, con
+eslint-plugin-vue 10.11.1 y typescript-eslint 8.71.1. La migración conjunta
+conserva cero warnings y mensajes públicos; los errores preservan su causa.
 
 SC-09, adelantado con autorización antes de A-03, correlaciona cabecera y detalle
 de WSFE y trata toda respuesta contradictoria como incierta. Conserva evidencia

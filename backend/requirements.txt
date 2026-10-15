@@ -1,4 +1,4 @@
-fastapi==0.139.0
+fastapi==0.143.0
 uvicorn[standard]==0.27.0
 sqlalchemy[asyncio]==2.1.4
 aiosqlite==0.19.0
@@ -15,7 +15,7 @@ zeep==4.3.3
 lxml==6.1.0
 cryptography==50.0.0
 # Database
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.13
 asyncpg==0.29.0
 # Utils
 python-dateutil==2.8.2
