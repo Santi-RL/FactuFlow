@@ -22,6 +22,8 @@ Sin cambios funcionales posteriores a v0.3.8.
 
 ### Mantenimiento de herramientas
 
+- PostgreSQL: psycopg2-binary 2.9.13 para herramientas síncronas y traslado de
+  datos, conservando asyncpg en las sesiones asíncronas y los contratos fiscales.
 - CI: `actions/setup-python` 7 en los tres consumidores del workflow,
   conservando Python 3.11, caché y las comprobaciones completas. No modifica
   dependencias de ejecución ni despliega la aplicación.
