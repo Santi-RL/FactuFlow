@@ -83,8 +83,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - PF-02/PF-04, P1 implementado y ampliación P2 futura:
   [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
   Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
-  El primer corte P2 tiene preparación de evidencia previa, invariantes y matriz;
-  implementación, consumo histórico y cierre moderno pendientes.
+  El primer corte P2 incorpora evidencia previa versionada y comparación pura;
+  consumo histórico y cierre moderno conservan sus continuaciones pendientes.
 - PF-09, implementación futura:
   [WSAA coordinado y caché cifrada](pf-09-wsaa-coordinacion-cache-design.md).
 - PF-18/PF-09, implementación futura:

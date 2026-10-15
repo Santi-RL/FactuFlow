@@ -41,6 +41,15 @@ from app.core.comparacion_fiscal import (
 )
 from app.core.fiscal_storage import persisted_item_subtotal, validate_storage_request
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
+from app.core.evidencia_fiscal import (
+    CAMPOS_CONTEXTO,
+    VERSION_EVIDENCIA,
+    EvidenciaFiscalError,
+    hash_evidencia,
+    leer_evidencia,
+    serializar_evidencia,
+    solicitud_historica,
+)
 from app.models.certificado import Certificado
 from app.models.comprobante import Comprobante
 from app.models.comprobante_item import ComprobanteItem
@@ -696,17 +705,25 @@ class FacturacionService:
                             commit=False,
                         )
                         intentos.append(intento)
-                    arca_requests = [
-                        self._armar_request_arca(
+                    arca_requests = []
+                    for request, totales, intento in zip(
+                        requests, totales_por_request, intentos
+                    ):
+                        arca_request = self._armar_request_arca(
                             request,
-                            proximo + index,
+                            intento.numero_planificado,
                             totales,
                             punto_venta_numero,
                         )
-                        for index, (request, totales) in enumerate(
-                            zip(requests, totales_por_request)
+                        self._congelar_evidencia(
+                            intento,
+                            request,
+                            arca_request,
+                            totales,
+                            empresa,
+                            wsfe_client,
                         )
-                    ]
+                        arca_requests.append(arca_request)
                     fase_solicitud_arca.registrar_guarda_pre_arca(guarda)
                     intento_ids_durables = [int(intento.id) for intento in intentos]
                     guarda_id_durable = int(guarda.id)
@@ -756,6 +773,9 @@ class FacturacionService:
                 return respuestas_pre_arca
 
             try:
+                await self._verificar_evidencia_durable(
+                    intentos, arca_requests, wsfe_client
+                )
                 await self._marcar_solicitud_arca_iniciada(
                     elegibilidad=elegibilidad,
                     guarda=guarda,
@@ -1512,6 +1532,24 @@ class FacturacionService:
                         guarda_rece_id=guarda.id,
                         commit=False,
                     )
+                    try:
+                        arca_request = self._armar_request_arca(
+                            request, proximo, totales, punto_venta_numero
+                        )
+                        self._congelar_evidencia(
+                            intento,
+                            request,
+                            arca_request,
+                            totales,
+                            empresa,
+                            wsfe_client,
+                        )
+                    except Exception:
+                        # No hubo commit de reserva ni envío: descartar el conjunto incompleto.
+                        await self._rollback_seguro("evidencia_individual_pre_arca")
+                        intento = None
+                        guarda = None
+                        raise
                     fase_solicitud_arca.registrar_guarda_pre_arca(guarda)
                     intento_id_durable = int(intento.id)
                     guarda_id_durable = int(guarda.id)
@@ -1539,9 +1577,6 @@ class FacturacionService:
                     ),
                 )
 
-            arca_request = self._armar_request_arca(
-                request, proximo, totales, punto_venta_numero
-            )
             respuesta_pre_arca = await self._confirmar_reserva_antes_de_solicitar_cae(
                 request=request,
                 wsfe_client=wsfe_client,
@@ -1564,6 +1599,9 @@ class FacturacionService:
             # 6. Solicitar CAE
             resultado = None
             try:
+                await self._verificar_evidencia_durable(
+                    [intento], [arca_request], wsfe_client
+                )
                 await self._marcar_solicitud_arca_iniciada(
                     elegibilidad=elegibilidad,
                     guarda=guarda,
@@ -1914,6 +1952,114 @@ class FacturacionService:
             if key not in cls._number_locks:
                 cls._number_locks[key] = asyncio.Lock()
             return cls._number_locks[key]
+
+    def _congelar_evidencia(
+        self, intento, request, arca_request, totales, empresa, wsfe_client
+    ):
+        """Captura una sola solicitud dentro de la reserva, antes del commit."""
+        contexto = {name: getattr(intento, name) for name in CAMPOS_CONTEXTO}
+        contexto["cuit"] = clean_cuit(empresa.cuit)
+        self._validar_identidad_evidencia(contexto, wsfe_client)
+        raw = serializar_evidencia(
+            {
+                "version": VERSION_EVIDENCIA,
+                "contexto": contexto,
+                "solicitud_wsfe": arca_request.model_dump(mode="python"),
+                "presentacion": {
+                    "emisor": {
+                        name: getattr(empresa, name, None)
+                        for name in (
+                            "razon_social",
+                            "domicilio",
+                            "localidad",
+                            "provincia",
+                            "condicion_iva",
+                            "ingresos_brutos",
+                            "inicio_actividades",
+                        )
+                    },
+                    "receptor": {
+                        name: getattr(request, name)
+                        for name in (
+                            "tipo_documento",
+                            "numero_documento",
+                            "razon_social",
+                            "condicion_iva",
+                            "domicilio",
+                        )
+                    },
+                    "observaciones": request.observaciones,
+                    "items": [item.model_dump(mode="python") for item in request.items],
+                },
+                "importes_guardado": {
+                    **totales,
+                    "subtotales_items": [
+                        persisted_item_subtotal(item) for item in request.items
+                    ],
+                },
+            }
+        )
+        sha256 = hash_evidencia(raw)
+        leer_evidencia(
+            version=VERSION_EVIDENCIA, raw=raw, sha256=sha256, pertenencia=contexto
+        )
+        intento.evidencia_version = VERSION_EVIDENCIA
+        intento.evidencia_json = raw
+        intento.evidencia_hash = sha256
+
+    @staticmethod
+    def _validar_identidad_evidencia(contexto, wsfe_client):
+        """La identidad representada debe ser la del cliente que enviará a WSFE."""
+        if (
+            getattr(wsfe_client, "cuit", None) != contexto["cuit"]
+            or getattr(getattr(wsfe_client, "config", None), "ambiente", None)
+            != contexto["ambiente"]
+        ):
+            raise EvidenciaFiscalError(
+                "La identidad WSFE no coincide con la evidencia fiscal"
+            )
+
+    async def _verificar_evidencia_durable(self, intentos, arca_requests, wsfe_client):
+        """Recarga el material confirmado y lo contrasta sin usar el identity map."""
+        try:
+            if len(intentos) != len(arca_requests) or not intentos:
+                raise EvidenciaFiscalError(
+                    "El bloque fiscal no tiene evidencia completa"
+                )
+            for intento, arca_request in zip(intentos, arca_requests):
+                row = (
+                    (
+                        await self.db.execute(
+                            select(IntentoEmisionFiscal.__table__).where(
+                                IntentoEmisionFiscal.id == intento.id
+                            )
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+                esperado = {name: getattr(intento, name) for name in CAMPOS_CONTEXTO}
+                if any(row[name] != esperado[name] for name in CAMPOS_CONTEXTO):
+                    raise EvidenciaFiscalError("La reserva durable cambió de contexto")
+                evidencia = leer_evidencia(
+                    version=row["evidencia_version"],
+                    raw=row["evidencia_json"],
+                    sha256=row["evidencia_hash"],
+                    pertenencia=row,
+                )
+                self._validar_identidad_evidencia(
+                    evidencia.contexto.model_dump(), wsfe_client
+                )
+                # Se compara la representación decimal canónica, no floats ni sólo hashes previos.
+                if evidencia.solicitud_wsfe != solicitud_historica(arca_request):
+                    raise EvidenciaFiscalError(
+                        "La solicitud difiere de su evidencia durable"
+                    )
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ElegibilidadReceError(
+                "No se pudo comprobar la preparación de esta emisión.",
+                categoria="evidencia_fiscal_no_verificada",
+            ) from exc
 
     async def _marcar_solicitud_arca_iniciada(
         self,
@@ -3407,7 +3553,11 @@ class FacturacionService:
         detalle = (
             DETALLE_BLOQUEO_PREAUTORIZACION
             if error.categoria == CATEGORIA_BLOQUEO_PREAUTORIZACION
-            else "Revalidá la acreditación RECE del punto de venta."
+            else (
+                "Si el problema persiste, consultá al responsable de la instalación."
+                if error.categoria == "evidencia_fiscal_no_verificada"
+                else "Revalidá la acreditación RECE del punto de venta."
+            )
         )
         return EmitirComprobanteResponse(
             exito=False,

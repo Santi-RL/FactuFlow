@@ -91,11 +91,11 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - PF-02/PF-04: comparación legacy P1 implementada y recuperación integral P2 en cortes
   separados; usar solicitud congelada, conservar incertidumbre y coordinar
   grafo RECE. [Contrato de reconciliación](pf-02-04-reconciliacion-integral-design.md).
-  Primer corte preparado: evidencia previa compartida por emisión individual,
-  lotes y reintentos, con esquema, invariantes y matriz definidos;
-  [alcance de implementación](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
-  Implementación pendiente; las lecturas históricas y el cierre moderno del
-  grafo conservan sus continuaciones dentro de Ahora 1.
+  Primer corte implementado: evidencia previa compartida por emisión individual,
+  lotes y reintentos, verificación durable, lector/comparador puros y traslado v6;
+  [contrato y aceptación](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
+  Las lecturas históricas y el cierre moderno del grafo conservan sus
+  continuaciones pendientes dentro de Ahora 1.
 - Importación histórica externa PF-05 opcional, Más adelante, con alcance,
   límites, journal y cobertura; no retrasa la recuperación local ni nuevos consumidores.
 

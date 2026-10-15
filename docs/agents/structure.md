@@ -44,6 +44,8 @@ Este documento describe dónde vive cada tipo de archivo y qué se espera en cad
 - `backend/app/core/`: configuración, seguridad y utilidades base.
 - `backend/app/core/comprobante_totales.py`: cálculo decimal fiscal compartido
   entre el contrato de entrada y el servicio de facturación.
+- `backend/app/core/evidencia_fiscal.py`: contrato histórico versionado, lector
+  y comparación pura de evidencia previa, sin red ni transiciones fiscales.
 - `backend/app/core/fiscal_storage.py`: representación, comparación y agregados
   exactos; `fiscal_storage_legacy.py` conserva tipos y lectura anteriores para transición.
 - `backend/app/core/database.py`: engines PostgreSQL separados por rol, sesiones

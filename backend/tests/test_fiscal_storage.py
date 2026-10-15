@@ -41,7 +41,7 @@ fixture_escenario_cliente = association_tests.escenario_cliente
 _guardar_sintetico = association_tests._guardar_sintetico
 
 
-def test_paquete_v5_preserva_decimales_y_no_reinterpreta_v4(tmp_path):
+def test_paquete_vigente_preserva_decimales_y_no_reinterpreta_v4(tmp_path):
     from app.core.database import Base
     from app.scripts import vps_migration, vps_migration_v4
     from tests.test_vps_migration import _create_source_db, _build_v4_package
@@ -73,8 +73,10 @@ def test_paquete_v5_preserva_decimales_y_no_reinterpreta_v4(tmp_path):
         source_quiesced=True,
     )
     manifest = vps_migration.load_and_verify_manifest(package)
-    assert manifest["package_version"] == 5
-    assert manifest["alembic_version"] == A01_HEAD
+    from app.core.evidencia_fiscal import EVIDENCIA_HEAD
+
+    assert manifest["package_version"] == 6
+    assert manifest["alembic_version"] == EVIDENCIA_HEAD
     rows = vps_migration.read_package_rows(package, manifest, "comprobante_items")
     assert rows[0]["cantidad"] == Decimal("1.00005")
     assert rows[0]["precio_unitario"] == Decimal("0.1234567890123456789012345678")

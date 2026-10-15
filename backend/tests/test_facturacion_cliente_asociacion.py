@@ -457,7 +457,8 @@ async def test_autorizacion_sintetica_con_duplicados_y_error_post_cae(
 
     class WsfeSintetico:
         def __init__(self, *args, **kwargs):
-            pass
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, *args, **kwargs):
             return 0

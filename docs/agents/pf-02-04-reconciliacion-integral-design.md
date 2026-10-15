@@ -138,11 +138,11 @@ se distingue de los campos que devuelve una consulta actual.
 
 ## Primer corte P2: evidencia previa compartida
 
-Preparación técnica del 14/10/2026; implementación pendiente. El objetivo del
+Preparación técnica del 14/10/2026; primer corte implementado. El objetivo del
 primer corte es que cada intento nuevo conserve evidencia suficiente para
 contrastar lo enviado y recuperar después sus datos originales, incluso sin
 comprobante local. No declara terminada la recuperación moderna integral.
-La preparación documental es nivel 0; su implementación será nivel 2 fiscal.
+La preparación documental es nivel 0; la implementación es nivel 2 fiscal.
 
 ### Alcance y secuencia dentro de PF-04/PF-02
 
@@ -166,8 +166,8 @@ moderno, reconstruye comprobantes o cambia la recuperación legacy P1.
 
 | Frontera actual | Hecho y consecuencia para el corte |
 |---|---|
-| `IntentoEmisionFiscal` e `IdempotenciaFiscalService.crear_intento_emision` | Persisten identidad, total, receptor básico, hash y referencias RECE; falta la solicitud completa recuperable del intento individual |
-| `FacturacionService._emitir_comprobante_locked` | Crea y confirma el intento antes de construir `ComprobanteRequest`; construir una vez y congelarlo dentro de la reserva, antes del commit |
+| `IntentoEmisionFiscal` e `IdempotenciaFiscalService.crear_intento_emision` | Conservan identidad, total, receptor básico, hashes y referencias RECE; la orquestación adjunta evidencia versionada dentro de la misma reserva |
+| `FacturacionService._emitir_comprobante_locked` | Construye una vez `ComprobanteRequest` y congela evidencia dentro de la reserva, antes del commit |
 | `FacturacionService._emitir_comprobantes_lote_locked` | Construye los requests dentro de la reserva del bloque; guardar una evidencia por intento y comprobar la correspondencia por número, sin depender del orden de respuesta |
 | API individual y `resolver_operacion_idempotente_incompleta` | Mantener confirmación, permisos, conflicto de clave y replay; un replay no crea evidencia ni vuelve a enviar |
 | `LoteComprobantesService.procesar_lote`, worker y `reintentar_grupos_fallidos` | Cubrir bloques, procesamiento individual alternativo y reintento síncrono; el reintento en cola vuelve por el procesamiento común, sólo para su selección |
@@ -181,7 +181,7 @@ Conservar las implementaciones A-01/A-03, PF-03B, RG 5616, PF-13 y SC-09.
 
 ### Contrato de evidencia v1
 
-Propuesta de esquema para implementar: tres columnas opcionales en
+Esquema implementado: tres columnas opcionales en
 `intentos_emision_fiscal`: `evidencia_version`, `evidencia_json` y
 `evidencia_hash`. Un CHECK admite las tres ausentes para antecedentes o las tres
 presentes con versión `solicitud_fiscal/1` y hash hexadecimal SHA-256 de 64
@@ -218,6 +218,12 @@ revalida antecedentes mediante la admisibilidad de una emisión nueva ni los
 enriquece desde empresa, cliente, padrón, perfil o configuración actuales.
 CUIT representado y ambiente deben corresponder al cliente WSFE que realizará
 el envío y al contexto RECE congelado, no sólo a la ficha que se leyó primero.
+
+La comparación pura contrasta también el CUIT del emisor de la consulta con el
+del contexto congelado. Otro emisor produce una diferencia; una identidad
+ausente o inválida impide acreditar coincidencia. Una diferencia comprobada
+prevalece sobre campos no disponibles, sin ejecutar transiciones fiscales ni
+alterar el comparador legacy compartido.
 
 ### Invariantes y orden antes de CAE
 
@@ -347,8 +353,10 @@ candidato fuera del contrato, sin declarar publicación ni despliegue.
 Este apartado completa la rúbrica de alcance, invariantes, estados, orden,
 fallos, concurrencia, ARCA, tests, revisión, hallazgos y cierre del
 [checklist fiscal](fiscal-change-checklist.md) para preparar el primer corte.
-Las pruebas y el cierre de implementación siguen pendientes; un hallazgo se
-acepta, rechaza o difiere tras contrastarlo, sin ampliar automáticamente el corte.
+La aceptación se contrasta con esta matriz; su evidencia concreta se conserva
+fuera del contrato. Un hallazgo se acepta, rechaza o difiere tras contrastarlo,
+sin ampliar automáticamente el corte. La publicación y el despliegue requieren
+sus operaciones autorizadas por separado.
 
 Referencia verificada: [manual WSFE v4.7](https://www.arca.gob.ar/ws/documentacion/manuales/manual-desarrollador-ARCA-COMPG.pdf),
 revisión del 01/09/2026, consultado el 14/10/2026, sección `FECompConsultar`.

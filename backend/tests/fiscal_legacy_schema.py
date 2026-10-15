@@ -4,6 +4,7 @@ from sqlalchemy import MetaData, Index
 
 from app.core.database import Base
 from app.core.fiscal_storage_legacy import LEGACY_COLUMNS
+from app.core.evidencia_fiscal import COLUMNAS_EVIDENCIA
 
 
 def legacy_metadata():
@@ -28,4 +29,10 @@ def legacy_metadata():
                     table.indexes.remove(index)
                     Index(index.name, *(table.c[name] for name in names))
             table._columns.remove(table.c.cotizacion_busqueda)
+    attempts = metadata.tables["intentos_emision_fiscal"]
+    for constraint in list(attempts.constraints):
+        if constraint.name == "ck_intentos_emision_fiscal_evidencia":
+            attempts.constraints.remove(constraint)
+    for name in COLUMNAS_EVIDENCIA:
+        attempts._columns.remove(attempts.c[name])
     return metadata

@@ -75,7 +75,13 @@ from app.schemas.lote_comprobante import (
     LoteProcesamientoResponse,
 )
 from app.services.resolucion_legacy_pf19_service import BackupLegacyPF19
-from app.scripts import vps_migration_v3, vps_migration_v4, vps_migration_v5
+from app.scripts import (
+    vps_migration_v3,
+    vps_migration_v4,
+    vps_migration_v5,
+    vps_migration_v6,
+)
+from app.core.evidencia_fiscal import COLUMNAS_EVIDENCIA, EVIDENCIA_HEAD, leer_evidencia
 
 _package_format = ContextVar(
     "fiscal_migration_package_format", default=vps_migration_v4
@@ -122,16 +128,22 @@ def _format_context(function):
                     ]
             except sqlite3.Error:
                 heads = []  # El preflight conserva la autoridad del diagnóstico.
-            if heads == [A01_HEAD]:
+            if heads == [EVIDENCIA_HEAD]:
+                version = 6
+            elif heads == [A01_HEAD]:
                 version = 5
             elif heads == [vps_migration_v4.ALEMBIC_HEAD]:
                 version = 4
-        elif arguments.get("repo_head") == A01_HEAD:
-            version = 5
+        elif arguments.get("repo_head") in {A01_HEAD, EVIDENCIA_HEAD}:
+            version = 6 if arguments["repo_head"] == EVIDENCIA_HEAD else 5
         selected = (
-            vps_migration_v5
-            if version == 5
-            else vps_migration_v4 if version in {3, 4} else _package_format.get()
+            vps_migration_v6
+            if version == 6
+            else (
+                vps_migration_v5
+                if version == 5
+                else vps_migration_v4 if version in {3, 4} else _package_format.get()
+            )
         )
         token = _package_format.set(selected)
         try:
@@ -152,7 +164,7 @@ def _historical_v4_table(table_name: str) -> Table:
         original = current.c[name]
         old_type = (
             vps_migration_v5.DECIMAL_TYPES.get((table_name, name), original.type)
-            if _fiscal_package_format().PACKAGE_VERSION == 5
+            if _fiscal_package_format().PACKAGE_VERSION in {5, 6}
             else LEGACY_COLUMNS.get(table_name, {}).get(name, original.type)
         )
         columns.append(
@@ -375,6 +387,7 @@ def select_import_contract(manifest: dict[str, Any]):
         3: vps_migration_v3.V3_CONTRACT,
         4: vps_migration_v4.V4_CONTRACT,
         5: vps_migration_v5.V4_CONTRACT,
+        6: vps_migration_v6.V4_CONTRACT,
     }
     if version not in contracts:
         raise MigrationError("Versión de paquete de migración no soportada")
@@ -801,7 +814,16 @@ def validate_v4_sqlite_schema(conn: sqlite3.Connection) -> None:
             str(row["name"])
             for row in conn.execute(f'PRAGMA table_info("{table_name}")')
         )
-        if columns != _fiscal_package_format().V4_COLUMNS[table_name]:
+        expected = _fiscal_package_format().V4_COLUMNS[table_name]
+        # Alembic agrega columnas al final; create_all puede ubicarlas antes.
+        # v6 conserva el conjunto exacto y serializa por nombre, sin depender
+        # del orden físico. Los descriptores históricos permanecen congelados.
+        matches = (
+            set(columns) == set(expected)
+            if _fiscal_package_format().PACKAGE_VERSION == 6
+            else columns == expected
+        )
+        if not matches:
             raise MigrationError(
                 f"La fuente SQLite ya no representa el contrato v4 de {table_name}"
             )
@@ -2077,6 +2099,20 @@ def validate_v4_graph(
                 "Comprobante autorizado v4 sin evidencia fiscal completa"
             )
     _validate_v4_pf19c_history(rows)
+    if _fiscal_package_format().PACKAGE_VERSION == 6:
+        for attempt in rows["intentos_emision_fiscal"]:
+            if any(attempt.get(name) is not None for name in COLUMNAS_EVIDENCIA):
+                try:
+                    leer_evidencia(
+                        version=attempt["evidencia_version"],
+                        raw=attempt["evidencia_json"],
+                        sha256=attempt["evidencia_hash"],
+                        pertenencia=attempt,
+                    )
+                except ValueError as exc:
+                    raise MigrationError(
+                        "La evidencia fiscal del paquete no verifica"
+                    ) from exc
 
     expected_closure = _v4_closure_payload(
         rows=rows,
@@ -2170,7 +2206,11 @@ def run_preflight(
 ) -> PreflightResult:
     """Diagnostica si la fuente es apta; export vuelve a validar en snapshot."""
     repo_head = get_repo_alembic_head(backend_dir)
-    if repo_head not in {_fiscal_package_format().ALEMBIC_HEAD, A01_HEAD}:
+    if repo_head not in {
+        _fiscal_package_format().ALEMBIC_HEAD,
+        A01_HEAD,
+        EVIDENCIA_HEAD,
+    }:
         raise MigrationError("El preflight v4 exige el head PF-13 exacto del contrato")
     db_path, certs_base = resolve_source_paths(source_db, certs_dir)
     with connect_sqlite_readonly(db_path) as conn:
@@ -2386,7 +2426,11 @@ def export_package(
         )
 
     repo_head = get_repo_alembic_head(backend_dir)
-    if repo_head not in {_fiscal_package_format().ALEMBIC_HEAD, A01_HEAD}:
+    if repo_head not in {
+        _fiscal_package_format().ALEMBIC_HEAD,
+        A01_HEAD,
+        EVIDENCIA_HEAD,
+    }:
         raise MigrationError(
             "La exportación v4 PF-13 exige el head exacto del contrato"
         )
@@ -6818,6 +6862,16 @@ def canonicalize_table_rows(
         canonical: dict[str, Any] = {}
         for column in table.columns:
             if (
+                table_name == "intentos_emision_fiscal"
+                and column.name in COLUMNAS_EVIDENCIA
+                and _fiscal_package_format().PACKAGE_VERSION < 6
+            ):
+                if row.get(column.name) is not None:
+                    raise MigrationError(
+                        "Un paquete antiguo no admite evidencia fiscal nueva"
+                    )
+                continue
+            if (
                 column.name == "cotizacion_busqueda"
                 and _fiscal_package_format().PACKAGE_VERSION == 4
             ):
@@ -7158,6 +7212,8 @@ def validate_v3_target_table_contract(table_name: str, target_table: Table) -> N
         *historical_columns,
         *vps_migration_v3.TARGET_NULL_ADDITIONS.get(table_name, ()),
     }
+    if table_name == "intentos_emision_fiscal":
+        expected_target_columns.update(COLUMNAS_EVIDENCIA)
     if set(target_table.columns.keys()) != expected_target_columns:
         raise MigrationError(
             f"El destino vigente de {table_name} no coincide con la "
@@ -7224,6 +7280,11 @@ def validate_v4_target_table_contract(table_name: str, target_table: Table) -> N
             _fiscal_package_format().PACKAGE_VERSION == 4
             and table_name == "lotes_comprobantes_grupos"
             and name == "cotizacion_busqueda"
+        )
+        and not (
+            _fiscal_package_format().PACKAGE_VERSION < 6
+            and table_name == "intentos_emision_fiscal"
+            and name in COLUMNAS_EVIDENCIA
         )
     )
     if actual_columns != expected_columns:

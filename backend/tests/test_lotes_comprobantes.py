@@ -5628,6 +5628,8 @@ async def test_reintentar_solo_y_de_lote_autorizado_parcial_alcanza_cae(
         ultimo_autorizado = 0
 
         def __init__(self, *args, **kwargs) -> None:
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
             pass
 
         async def fe_comp_tot_x_request(self):
@@ -5810,6 +5812,8 @@ async def test_guarda_retry_rechaza_grupo_que_deja_estado_reintentando(
         solicitudes_fecae = 0
 
         def __init__(self, *args, **kwargs) -> None:
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
             pass
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
@@ -9200,6 +9204,8 @@ async def test_procesar_lote_10005_cierra_sublote_y_aborta_remanentes_sin_replay
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_tot_x_request(self):
             return 2
@@ -9387,6 +9393,8 @@ async def test_reintento_exitoso_no_publica_10005_historico_y_replay_a_es_exacto
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto, tipo):
             """Mantiene disponible el mismo número tras el rechazo."""
@@ -10761,6 +10769,8 @@ async def test_reintentar_fallidos_usa_historia_externa_y_replay_no_reemite(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Informa un comprobante externo posterior a la historia local."""
@@ -10875,6 +10885,8 @@ async def test_reintentar_10005_reconstruye_publicacion_tras_crash_sin_reemitir(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable la numeración sintética."""
@@ -11027,6 +11039,8 @@ async def test_reintentar_fallidos_replay_terminal_sin_seleccion_no_reemite(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Devuelve una historia vacía y contabiliza FEComp."""
@@ -11189,6 +11203,8 @@ async def test_reintentar_fallidos_aborta_seleccion_si_falla_segundo_preflight(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Cambia o falla después de reservar el primer grupo."""
@@ -11278,6 +11294,8 @@ async def test_reintento_restaura_grupo_si_cambia_evidencia_en_segundo_preflight
         llamadas_cae = 0
 
         def __init__(self, *args, **kwargs) -> None:
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
             pass
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
@@ -11375,6 +11393,8 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable la numeración antes del primer FECAE."""
@@ -11467,6 +11487,8 @@ async def test_reintentar_fallidos_no_degrada_autorizacion_si_falla_capa_lote(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable la numeración sintética."""
@@ -11571,6 +11593,8 @@ async def test_reintentar_fallidos_continua_solo_tras_rechazo_arca_explicito(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene disponible el mismo número tras el rechazo."""
@@ -11680,6 +11704,8 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_bloqueo_propio(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma del cliente real sin usar red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Deja a la historia local exactamente un número adelantada."""
@@ -15975,6 +16001,8 @@ async def test_worker_rechaza_ownership_invalido_antes_de_consultar_arca(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_tot_x_request(self):
             """Registra una consulta de capacidad indebida."""
@@ -16082,6 +16110,8 @@ async def test_worker_revalida_ownership_post_claim_antes_de_capacidad(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_tot_x_request(self):
             """Registra una consulta de capacidad indebida."""
@@ -16252,6 +16282,8 @@ async def test_worker_background_recupera_guarda_pre_arca_con_ownership_durable(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Mantiene estable el doble preflight seguro de numeración."""
@@ -16386,6 +16418,8 @@ async def test_procesar_lote_recupera_fallo_durable_al_cerrar_pre_arca_batch(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma productiva sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_tot_x_request(self):
             """Permite agrupar los dos comprobantes en una única guarda."""
@@ -16535,6 +16569,8 @@ async def test_procesar_lote_recupera_segundo_chunk_pre_arca_automaticamente(
 
         def __init__(self, *args, **kwargs) -> None:
             """Acepta la firma real sin abrir red."""
+            self.cuit = kwargs["cuit"]
+            self.config = SimpleNamespace(ambiente=kwargs["ambiente"])
 
         async def fe_comp_ultimo_autorizado(self, punto_venta_numero, tipo):
             """Refleja el primer CAE antes de evaluar el segundo grupo."""
