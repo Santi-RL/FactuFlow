@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool, Pool
 
 from app.core.database import Base, _habilitar_foreign_keys_sqlite
 from app.models.comprobante import Comprobante
@@ -51,12 +52,14 @@ async def _crear_engine_sintetico(
     tmp_path: Path,
     *,
     habilitar_claves_foraneas: bool = True,
+    poolclass: type[Pool] | None = None,
 ) -> AsyncEngine:
     """Crea una SQLite temporal separada del engine de la aplicación."""
     database_path = tmp_path / "pf19-inventario.db"
     engine = create_async_engine(
         f"sqlite+aiosqlite:///{database_path.as_posix()}",
         echo=False,
+        poolclass=poolclass,
     )
     if habilitar_claves_foraneas:
         event.listen(engine.sync_engine, "connect", _habilitar_foreign_keys_sqlite)
@@ -1081,14 +1084,19 @@ async def test_sqlite_rechaza_dml_durante_inventario(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("poolclass", [NullPool, AsyncAdaptedQueuePool])
+@pytest.mark.parametrize("fallar", [False, True])
 async def test_inventario_restaura_query_only_previo_aun_si_falla(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    poolclass: type[Pool],
+    fallar: bool,
 ) -> None:
     """La salida excepcional no debe reducir una protección previa del engine."""
     engine = await _crear_engine_sintetico(
         tmp_path,
         habilitar_claves_foraneas=False,
+        poolclass=poolclass,
     )
     empresa_id = await _sembrar_candidatos(engine)
     sentencias: list[str] = []
@@ -1110,17 +1118,32 @@ async def test_inventario_restaura_query_only_previo_aun_si_falla(
 
     event.listen(engine.sync_engine, "connect", activar_query_only_inicial)
     event.listen(engine.sync_engine, "before_cursor_execute", registrar_sql)
+    # El listener debe aplicarse también cuando el pool conserve una conexión
+    # usada para sembrar los datos. No modificar la garantía del inventario.
+    await engine.dispose()
 
     def fallar_sanitizacion(_row):
         raise RuntimeError("fallo sintético")
 
-    monkeypatch.setattr(
-        inventario_module,
-        "_sanitizar_registro",
-        fallar_sanitizacion,
-    )
+    if fallar:
+        monkeypatch.setattr(
+            inventario_module,
+            "_sanitizar_registro",
+            fallar_sanitizacion,
+        )
     try:
-        with pytest.raises(RuntimeError, match="fallo sintético"):
+        async with engine.connect() as connection:
+            assert (await connection.scalar(text("PRAGMA query_only"))) == 1
+        if fallar:
+            with pytest.raises(RuntimeError, match="fallo sintético"):
+                await inventariar_legacy_pf19(
+                    engine,
+                    FiltrosInventarioLegacyPF19(
+                        ambiente_runtime="produccion",
+                        empresa_id=empresa_id,
+                    ),
+                )
+        else:
             await inventariar_legacy_pf19(
                 engine,
                 FiltrosInventarioLegacyPF19(
@@ -1128,6 +1151,8 @@ async def test_inventario_restaura_query_only_previo_aun_si_falla(
                     empresa_id=empresa_id,
                 ),
             )
+        async with engine.connect() as connection:
+            assert (await connection.scalar(text("PRAGMA query_only"))) == 1
     finally:
         event.remove(engine.sync_engine, "before_cursor_execute", registrar_sql)
         event.remove(engine.sync_engine, "connect", activar_query_only_inicial)

@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 11/10/2026
+Última revisión: 14/10/2026
 
 Estado: VIGENTE.
 
@@ -93,14 +93,22 @@ runtime. El ciclo de eventos de sesión mantiene su alcance mediante configuraci
 del plugin. Este corte no cierra las demás líneas de calidad PF-16.
 
 La puerta de cobertura del frontend aplica los mínimos globales originales y
-ensaya su rechazo y aceptación con la CLI real antes de medir la suite. El
-contrato y los comandos viven en [testing](testing.md#frontend); la actualización
-de Vitest y las demás líneas PF-16 conservan su alcance pendiente.
+ensaya su rechazo y aceptación con la CLI real antes de medir la suite. Vitest
+y coverage-v8 usan 5.0.3; el contrato y los comandos viven en
+[testing](testing.md#frontend). Las demás líneas PF-16 conservan su alcance.
 
 El lint del frontend usa ESLint 10.12.0, @eslint/js 10.0.1, eslint-plugin-vue
 10.11.1 y typescript-eslint 8.71.1, con reglas recomendadas vigentes y cero
 warnings. Los errores de acceso conservan su causa y mensajes públicos; no
 cambian autenticación ni permisos.
+
+El mantenimiento de dependencias incorpora FastAPI 0.143.0, psycopg2-binary
+2.9.13 y SQLAlchemy 2.1.4. SQLite conserva un engine compartido y pools
+explícitos de archivo/memoria; PostgreSQL mantiene pools API/worker separados.
+El inventario PF-19 conserva solo lectura y restauración del estado previo.
+El [alcance y evidencia](../project/analysis/dependencias-2026-10.md) distingue
+actualización de herramientas, compatibilidad y cierre de PR; no acredita release
+ni instalación y no modifica el orden del roadmap.
 
 SC-09 correlaciona las respuestas WSFE con la solicitud y conserva la
 incertidumbre ante contradicciones. El cierre individual y masivo preserva CAEs

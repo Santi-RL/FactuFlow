@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 11/10/2026
+Última revisión: 14/10/2026
 
 Estado: VIGENTE.
 
@@ -259,7 +259,6 @@ implementación. La corrección necesita una unidad y un alcance explícitos.
 | Almacenamiento y certificados, PF-10/PF-09 | SC-06/SC-18, P2: proteger operaciones ante enlaces/cambios de raíz y delimitar concurrencia/ciclo de CSR en unidades separadas. Conservar certificados activos y la política de resguardo; no imponer borrado o vencimiento nuevos. |
 | Transporte y registros, PF-09/PF-14/PF-15 | SC-13/SC-15/SC-16, P2: presupuesto SOAP sin reenvío ante incertidumbre, sanitización residual de reportes y minimización de logs. Coordinar SC-15 con la frontera de errores ya registrada; PDF está corregido. Cada contrato tiene su unidad, sin un refactor global. |
 | Recursos de reportes, PF-04/PF-17 | SC-17, P2: reducir materialización y delimitar presupuesto/paginación donde corresponda. Preservar precisión A-01 y autoridad A-03; no limitar arbitrariamente períodos válidos. |
-| Mantenimiento de dependencias y CI, PF-12/PF-16 | PR #77, #78, #79 y #81: actualizar bases contra main vigente, resolver compatibilidad de #78 y validar #79 con la puerta de cobertura vigente y #81 con las reglas ESLint. No descontar hallazgos por un bump ni cerrar propuestas sin verificar integración o sustitución completa. |
 
 La [evaluación de Security Cloud y PR](../project/analysis/security-cloud-pr-2026-10.md)
 conserva la evidencia fechada, los 18 casos, su adjudicación, condiciones y
@@ -368,6 +367,14 @@ del constructor.
 
 ## Líneas cerradas
 
+El mantenimiento de dependencias incorpora psycopg2-binary 2.9.13,
+Vitest/coverage-v8 5.0.3, FastAPI 0.143.0 y SQLAlchemy 2.1.4, junto con la
+migración conjunta de ESLint y sus reglas. Conserva los pools SQLite de
+archivo/memoria, la protección de solo lectura PF-19 y los contratos fiscales.
+El [dossier de mantenimiento](../project/analysis/dependencias-2026-10.md)
+conserva alcance, pruebas y trazabilidad de PR. No cierra los hallazgos de
+Security Cloud ni las otras líneas PF-12/PF-16, y no implica despliegue.
+
 El mantenimiento de CI usa `actions/setup-python` 7 en sus tres consumidores,
 conservando Python 3.11, caché y puertas completas. No cambia el runtime de
 FactuFlow, no despliega ni cierra las actualizaciones restantes de dependencias.
@@ -385,8 +392,8 @@ Este cierre de código no acredita cierre remoto de Security Cloud ni despliegue
 La puerta de cobertura del frontend aplica los mínimos globales originales y
 comprueba con la CLI real el rechazo de cobertura insuficiente y la aceptación
 de cobertura suficiente. Su contrato vive en [testing](testing.md#frontend) y
-la evidencia de cierre en el changelog. La actualización de Vitest del PR #79 y
-las demás líneas PF-16 siguen pendientes.
+la evidencia de cierre en el changelog. Vitest/coverage-v8 usan 5.0.3 con la
+misma puerta; las demás líneas PF-16 siguen pendientes.
 
 La capacidad A-01 está implementada mediante el [contrato de persistencia fiel](pf-03-04-14-persistencia-fiel-design.md):
 representación exacta, migración en ambos motores y consumidores integrados, con
