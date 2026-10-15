@@ -22,6 +22,8 @@ Sin cambios funcionales posteriores a v0.3.8.
 
 ### Mantenimiento de herramientas
 
+- API: FastAPI 0.143.0, conservando autenticación, contratos HTTP, validaciones
+  e idempotencia; sin activar configuración automática de telemetría.
 - Pruebas del frontend: Vitest y coverage-v8 5.0.3, con los mismos umbrales
   globales y ensayo real de rechazo/aceptación de cobertura.
 - PostgreSQL: psycopg2-binary 2.9.13 para herramientas síncronas y traslado de
