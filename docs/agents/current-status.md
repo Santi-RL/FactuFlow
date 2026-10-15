@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 14/10/2026
+Última revisión: 15/10/2026
 
 Estado: VIGENTE.
 
@@ -264,6 +264,13 @@ importes ni clasifica tributos históricos sin evidencia. El
 [contrato PDF](pf-04-pdf-representacion-fiscal-design.md) delimita la reparación
 autorizada durante QA. El candidato reparado aprobó ensayo aislado y QA contable;
 el dossier conserva evidencia, límites y puertas del SHA aceptado exacto.
+
+La preparación del [primer corte PF-04/PF-02](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
+delimita evidencia previa versionada para intentos nuevos, consumidores,
+invariantes, migración y pruebas. Su implementación está pendiente; no habilita
+recuperación moderna ni corrige todavía las lecturas históricas del emisor.
+El mantenimiento de dependencias se documenta por separado; el orden del
+roadmap se conserva.
 
 Para continuar desarrollo:
 
