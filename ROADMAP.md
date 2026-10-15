@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 11/10/2026
+Última revisión: 15/10/2026
 
 Estado: VIGENTE.
 
@@ -191,6 +191,10 @@ operativos confirmados:
   riesgo y portabilidad de herramientas; accesibilidad, conectividad visible y
   ayudas contextuales. Los cortes se priorizan por riesgo concreto en el
   [portafolio](docs/agents/development-portfolio.md), sin refactor global.
+  En Clientes, evitar avisos falsos de error al combinar búsqueda y cambio de
+  emisor; en Clientes y Comprobantes, distinguir listas vacías de filtros sin
+  coincidencias y facilitar limpiar los filtros (**PF-17, P3, Más adelante**).
+  Ambos conservan el aislamiento por emisor y el orden vigente.
   Comprobar localmente la previsualización PDF y ofrecer una alternativa clara
   si el navegador bloquea la ventana (**P3**, elevable ante bloqueo operativo
   comprobado); no atribuirle una causa sin reproducirla.

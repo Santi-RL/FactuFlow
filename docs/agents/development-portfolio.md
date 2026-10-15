@@ -181,6 +181,19 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 - PF-17: conectividad visible y recuperación/accesibilidad que afecten operación
   (P2); ayuda contextual y ajustes de texto/presentación opcionales (P3).
   [Observabilidad](operational-observability.md) conserva la señal de conexión.
+- PF-17, P3, Más adelante: evitar avisos falsos de error en Clientes al limpiar
+  una búsqueda y cambiar rápidamente de emisor. La carga puede terminar
+  correctamente mientras aparece «No se pudieron cargar los clientes»; la
+  causa debe diagnosticarse antes de corregir. Aceptación: con respuestas en
+  distinto orden y cambios rápidos de búsqueda/emisor, mostrar sólo los datos
+  del contexto vigente, sin avisos de fallo por cargas descartadas o exitosas,
+  conservando los mensajes de errores reales y el aislamiento multiemisor.
+- PF-17, P3, Más adelante: distinguir listas sin registros de filtros sin
+  coincidencias en Clientes y Comprobantes. Aceptación: una búsqueda o filtro
+  sin resultados comunica esa situación y permite limpiar los filtros; no
+  afirma que faltan todos los registros ni invita a emitir el primer
+  comprobante cuando existen otros fuera del filtro. Conservar el mensaje
+  inicial de una lista realmente vacía y la consulta limitada al emisor activo.
 - PF-16/PF-17, P3, después del primer release de duplicados: completar las
   comprobaciones adicionales de zoom real al 200 % y lector de pantalla del
   diálogo, y corregir detalles visuales menores sin impacto operativo o fiscal.
