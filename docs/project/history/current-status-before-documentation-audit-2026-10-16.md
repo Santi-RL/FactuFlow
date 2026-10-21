@@ -1,0 +1,314 @@
+# Handoff anterior a la auditoría documental del 16/10/2026
+
+Estado: HISTÓRICO; NO AUTORITATIVO.
+
+Origen: `docs/agents/current-status.md` antes de la limpieza documental.
+Incluye la preparación PF-04/PF-02 preexistente. Para continuar usar el
+[handoff vigente](../../agents/current-status.md). Se preserva el contenido;
+los enlaces relativos se ajustaron únicamente por el cambio de ubicación.
+El manifiesto de este archivo registra origen y hashes canónicos.
+
+---
+
+# Estado aceptado del repositorio
+
+Última revisión: 15/10/2026
+
+Estado: VIGENTE.
+
+Este documento es un handoff breve sobre lo aceptado en el repositorio. No
+conserva historia de implementación, evidencia de CI ni el estado de una
+instalación concreta.
+
+El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
+`vps-admin`. No se infiere desde `main`, una release, un tag ni este documento.
+
+## Línea base aceptada
+
+- La release publicada más reciente es `v0.3.8`.
+- Los productores técnicos y visibles de versión usan `0.3.8`; el
+  [dossier del corte](../releases/v0.3.8-candidate.md) delimita su
+  publicación comprobada y recuperación. La identidad técnica o la publicación
+  no modifican el estado de una instalación.
+- El producto usa backend FastAPI, frontend Vue 3 y Alembic como camino canónico
+  de esquema para PostgreSQL.
+- FactuFlow admite emisión individual y masiva, clientes, comprobantes, PDFs,
+  reportes, certificados, puntos de venta, perfiles y formatos de importación.
+- El modelo actual mantiene un emisor activo explícito por vez.
+- Los operadores tienen cero, uno o varios accesos explícitos por emisor. Una
+  capacidad separada permite crear y editar emisores asignados sin conceder
+  administración global ni borrado.
+- Las operaciones fiscales preservan fecha explícita, confirmación irreversible,
+  idempotencia, intentos durables y reconciliación cuando ARCA pudo autorizar.
+- PF-01, PF-02, PF-03A/PF-03B, PF-06/PF-07/PF-08 y
+  PF-19A/PF-19B/PF-19C/PF-19D están cerrados.
+- `v0.3.5` incorpora accesos explícitos de cero, uno o varios emisores por
+  operador y separa la capacidad de crear y editar fichas de la administración
+  global del sistema.
+- `v0.3.4` usa WSFE como autoridad autenticada de puntos CAE por emisor y
+  ambiente, separa su estado técnico de la preferencia compartida de uso y deja
+  la constancia como complemento descriptivo opcional.
+- La selección comprueba puntos WSFE desactualizados antes de habilitar opciones
+  y conserva el preflight final del servidor.
+
+La conducta aceptada de puntos de venta usa `FEParamGetPtosVenta` como autoridad
+técnica por emisor y ambiente. Los puntos CAE compatibles quedan separados de
+la preferencia compartida `Usar en FactuFlow`; la constancia es opcional y sólo
+completa domicilio, nombre de fantasía y puntos informativos de otros sistemas.
+La revisión fiscal, el preflight de 90 días, la idempotencia y la reconciliación
+permanecen vigentes.
+
+## Contrato de prevención de duplicados
+
+La emisión masiva distingue repeticiones internas de receptores identificables
+y coincidencias de contenido entre lotes del mismo emisor y ambiente. Las
+ventas anónimas que sólo repiten fecha e importe dentro del lote no generan
+una advertencia interna. La comparación histórica completa sí incluye lotes
+anónimos; nombre de archivo, cantidad e importe total no bastan para probarla.
+
+El aviso identifica antecedentes y usuario de emisión, prioriza «Volver a
+revisar» y exige una aceptación específica para operaciones nuevas. La
+revalidación y las reservas concurrentes preservan idempotencia, confirmación
+fiscal y estados inciertos. Un reintento parcial conserva los comprobantes
+autorizados y sólo vuelve a enviar los fallidos.
+
+Los remanentes antiguos cuya aceptación no puede reconstruirse y tienen
+coincidencias actuales quedan bloqueados para continuar o reintentar. Se
+conservan historia, replay terminal y reconciliación. El alcance preciso de
+compatibilidad y el contrato técnico viven en el
+[diseño de duplicados](../../agents/pf-13-duplicados-lotes-design.md); los cambios de la
+unidad se consultan en `CHANGELOG.md > 0.3.6`. El corte está publicado en
+`v0.3.6` y su [dossier](../releases/pf13-duplicados-candidate.md) reúne
+evidencia de publicación, migraciones y recuperación. El despliegue requiere
+autorización separada y no se acredita desde este estado.
+
+## Contrato de reintentos seguros
+
+El reintento confirmado usa cola durable y el camino masivo por bloques. Sólo
+procesa su selección y conserva los autorizados anteriores. El progreso de la
+operación actual se recupera al volver al lote. Los fallos demostrados previos
+a CAE cierran pendientes y reservas propias; recuperar reservas antiguas exige
+propietario terminal y ausencia de intentos/guardas activos o inciertos. Los
+resultados posteriores al envío conservan reconciliación. La API síncrona
+anterior permanece compatible. El [contrato](../../agents/pf-13-17-reintentos-seguros-parche.md)
+y el [dossier](../releases/pf13-17-reintentos-seguros.md) delimitan el corte.
+
+## Trabajo aceptado pendiente
+
+El frontend usa Tailwind 4.3.3 y su plugin PostCSS; la cadena vulnerable de
+construcción anterior fue retirada, conservando marca, escalas y foco accesible.
+El [contrato de navegadores](../../../frontend/README.md#navegadores-compatibles)
+acepta Firefox 128+. CI conserva sus gates y usa Ubuntu 24.04 explícito.
+Las herramientas Python usan pytest 9.1.1, pytest-asyncio 1.4.0 y Black 26.3.1.
+La CI y el comando local auditan también `requirements-dev.txt`, incluido el
+runtime. El ciclo de eventos de sesión mantiene su alcance mediante configuración
+del plugin. Este corte no cierra las demás líneas de calidad PF-16.
+
+La puerta de cobertura del frontend aplica los mínimos globales originales y
+ensaya su rechazo y aceptación con la CLI real antes de medir la suite. Vitest
+y coverage-v8 usan 5.0.3; el contrato y los comandos viven en
+[testing](../../agents/testing.md#frontend). Las demás líneas PF-16 conservan su alcance.
+
+El lint del frontend usa ESLint 10.12.0, @eslint/js 10.0.1, eslint-plugin-vue
+10.11.1 y typescript-eslint 8.71.1, con reglas recomendadas vigentes y cero
+warnings. Los errores de acceso conservan su causa y mensajes públicos; no
+cambian autenticación ni permisos.
+
+El mantenimiento de dependencias incorpora FastAPI 0.143.0, psycopg2-binary
+2.9.13 y SQLAlchemy 2.1.4. SQLite conserva un engine compartido y pools
+explícitos de archivo/memoria; PostgreSQL mantiene pools API/worker separados.
+El inventario PF-19 conserva solo lectura y restauración del estado previo.
+El [alcance y evidencia](../analysis/dependencias-2026-10.md) distingue
+actualización de herramientas, compatibilidad y cierre de PR; no acredita release
+ni instalación y no modifica el orden del roadmap.
+
+SC-09 correlaciona las respuestas WSFE con la solicitud y conserva la
+incertidumbre ante contradicciones. El cierre individual y masivo preserva CAEs
+atribuibles y reservas, sin convertirlos en éxito ni permitir otro envío. El
+[contrato](../../agents/sc-09-respuestas-wsfe-design.md) delimita la reparación; los
+restantes candidatos de seguridad conservan su alcance pendiente.
+
+Los instantes operativos de la API comunican UTC explícito y la web muestra
+hora argentina en lotes, usuarios, emisor y Sistema, independientemente de la
+zona del navegador. Fechas fiscales y antecedentes de zona desconocida conservan
+su tratamiento. El [contrato temporal](../../agents/pf-12-15-17-tiempo-operativo.md) delimita
+compatibilidad y consumidores; no hay migración ni desplazamiento de la base.
+
+La auditoría integral corrigió documentación, código sin consumidores, fechas de
+calendario, contexto de detalles/formularios, errores PDF y barreras de
+construcción. Conserva los contratos fiscales y la visión. La capacidad de
+persistencia A-01 y las lecturas funcionales A-03 están corregidas; el siguiente
+corte de estabilización sigue el roadmap; la fidelidad del receptor PF-13 está
+implementada. Evidencia y límites de la auditoría en el
+[dossier de auditoría](../analysis/auditoria-integral-2026-10.md);
+responsabilidades compartidas y horizonte MCP en
+[dirección de arquitectura](../../agents/architecture-direction.md). No acredita despliegue.
+
+La asociación administrativa A-02 está corregida en el guardado compartido:
+varias fichas coincidentes conservan el snapshot receptor sin elegir una al
+azar ni impedir guardar el CAE. Selección explícita, transacción, errores reales
+y reconciliación conservan su conducta. El
+[contrato](../../agents/pf-03-04-14-asociacion-cliente.md) delimita los cuatro consumidores;
+no introduce unicidad de clientes; capacidad A-01 tiene su contrato separado.
+
+La entrega de reintentos incluye correcciones de dependencias y una CI sin
+advertencias: PyJWT/WeasyPrint, auditoría npm completa, compatibilidad bcrypt,
+APIs Pydantic/FastAPI vigentes y puertas estrictas de lint y pytest. El
+[dossier](../releases/pf13-17-reintentos-seguros.md) conserva alcance y
+validación. El despliegue sigue requiriendo SHA exacto y evidencia del plano
+de control; este resumen no acredita una instalación.
+
+El orden y alcance macro del trabajo pendiente se consultan exclusivamente en
+[`ROADMAP.md`](../../../ROADMAP.md). El detalle completo está en
+[`development-portfolio.md`](../../agents/development-portfolio.md) y los diseños enlazados.
+No duplicar aquí la secuencia: una línea puede tener varios cortes con
+prioridades y horizontes diferentes. Los diseños futuros no describen
+capacidades implementadas. La revisión visual local acordada para la UI de
+lotes permanece en su diseño y precede a la publicación de esa implementación.
+
+El P1 de admisibilidad y revisión está implementado: tasas soportadas explícitas,
+vista previa decimal desde backend y resumen de lotes con IVA 27 %. Preserva
+redondeos, hashes, autorizados y reconciliación; categorías completas siguen P2.
+Contrato en [importes/previsualización](../../agents/pf-03-04-importes-previsualizacion-design.md).
+
+La recuperación legacy P1 compara componentes fiscales contra payload original
+verificado o snapshots completos de un comprobante guardado. Diferencias o
+evidencia insuficiente conservan CAE atribuible y reserva; las consultas no
+solicitan otra autorización. Guardas modernas, hashes y datos históricos se
+conservan. La cobertura antigua desconocida no se inventa; la recuperación
+integral moderna mantiene su corte P2. Contrato y salida de soporte en
+[reconciliación](../../agents/pf-02-04-reconciliacion-integral-design.md).
+
+Está aceptada la planificación integrada de ampliación de importes/previsualización,
+reconciliación integral, WSAA coordinado/cifrado, padrón para clientes y emisores,
+y notas guiadas. Los ensayos justifican cortes fiscales acotados y el uso de
+padrón anticipado, con fuente fechada y sin consulta obligatoria en el tramo de
+CAE. La [validación de planificación](../analysis/confiabilidad-arca-roadmap.md)
+conserva evidencia y límites; los contratos futuros se consultan desde el
+[índice de diseños](../../agents/README.md#diseños-activos). Esta planificación no modifica
+runtime, no acredita una instalación ni cambia los cierres históricos.
+
+## Condición IVA del receptor
+
+Toda nueva solicitud individual, masiva o de reintento envía un ID presente y
+compatible con el comprobante. Las condiciones soportadas son RI y Monotributo
+para A, Exento y CF para B, y las cuatro para C. Valores vacíos, desconocidos,
+RNI o incompatibles requieren corrección explícita; no se infieren por documento.
+Los formatos con una condición fija válida conservan su funcionamiento. Replay,
+historia y reconciliación mantienen el contrato vigente. El
+[contrato RG 5616](../../agents/rg-5616-condicion-iva-receptor-parche.md) y su
+[dossier](../releases/rg5616-condicion-iva.md) delimitan el parche.
+
+PF-13 conserva documento y nombre de CF identificado en importación, lote y
+preparación fiscal. Tipo de documento y condición IVA se declaran desde columna
+o constante; no se infiere CUIT ni se reemplazan celdas inválidas por CF. Los
+formatos antiguos ambiguos requieren corregir su configuración para nuevas
+importaciones; los protegidos se clonan. Lotes, snapshots, hashes históricos,
+replay y reconciliación se conservan. El
+[contrato de fidelidad del receptor](../../agents/pf-13-receptores-importacion-design.md)
+delimita el cierre, independiente de constructor, UI y padrón futuros.
+
+## Punto de reanudación
+
+`v0.3.8` está publicada, con CI, ensayo aislado y QA contable aprobados.
+El cierre operativo del corte fue aceptado; su evidencia y el estado de la
+instalación permanecen exclusivamente en el plano de control. No repetir el
+preflight ni el ensayo del corte sin una nueva operación o evidencia que lo
+justifique. El siguiente desarrollo se toma del roadmap, sin iniciarlo por
+este cierre documental.
+
+Antes de usar un formato antiguo para una nueva importación, revisar su tipo
+documental y condición IVA explícitos según PF-13. La adaptación del formato
+seleccionado sigue pendiente y no modifica lotes anteriores. El análisis de
+alícuotas por fila queda para la próxima versión, sin prioridad de implementación
+ni cambios de configuración autorizados por esta anotación.
+
+SC-11 vincula las sesiones nuevas a la credencial verificada, cierra el acceso
+tras un reset concurrente y conserva las sesiones legacy válidas y los
+procedimientos de recuperación. [Contrato y límites](../../agents/sc-11-login-reset-design.md).
+El ensayo aislado y QA del candidato reparado están aprobados; la publicación
+conserva la puerta del SHA aceptado exacto. La corrección no acredita despliegue
+ni cierre remoto del finding.
+
+PF-11/PF-15 incorpora contrato de evidencia externa y señal administrativa en
+Sistema: creación y punto respaldado separados, componentes, integridad,
+ensayo, copia externa y cotejos históricos. Cobertura actual desconocida;
+sin migraciones, llamadas fiscales, restauraciones ni nuevo journal.
+El [contrato](../../agents/pf-11-15-recuperacion-trazabilidad-design.md) y su
+[instalación opcional](../../setup/recovery-evidence.md) delimitan productor y
+consumidores. El ensayo sintético de recuperación está aprobado; la cobertura
+productiva actual requiere su propio preflight, además de las puertas de release
+del dossier.
+
+Los parches de reintentos seguros y condición IVA están cerrados en código.
+La evidencia se consulta en sus dossiers; el estado productivo se acredita sólo
+en el plano de control. Una publicación o despliegue no inicia la siguiente unidad.
+
+`v0.3.7` reúne el mantenimiento aceptado y sus dependencias corregidas. El
+[dossier](../releases/v0.3.7-candidate.md) acredita publicación y
+validaciones del corte. El usuario informó que su revisión manual fue
+satisfactoria y autorizó continuar. Esa aceptación levanta la espera de revisión;
+no cierra los hallazgos fiscales pendientes.
+
+A-01 incorpora persistencia decimal exacta, migración Alembic y traslado v5,
+con v3/v4 congelados, lectura histórica y downgrade sin pérdida. Consulta, PDF,
+lotes y reportes presentan cifras fieles sin alterar PF-03B, asociación A-02,
+idempotencia ni incertidumbre. El [contrato](../../agents/pf-03-04-14-persistencia-fiel-design.md)
+y el [dossier](../analysis/a01-persistencia-fiscal-fiel.md) delimitan el cierre.
+A-03 corrige las lecturas actuales: bases desde detalle contrastado con los
+importes conservados, cobertura desconocida explícita y agregados/ranking por
+moneda nominal. No infiere categorías fiscales de IVA cero ni exención por
+letra C. El [contrato A-03](../../agents/a03-lecturas-fiscales-design.md) conserva la decisión
+de Santi de separar monedas, sin conversión automática. Antes de publicar el
+candidato v0.3.8, Santi autorizó SC-08: limitar intentos de login y conservar
+recuperación administrativa y de emergencia sin perder datos ni alterar
+permisos. El contrato de código incorpora presupuesto previo a bcrypt y
+restablecimiento por consola de cuentas existentes; límites en
+[SC-08](../../agents/sc-08-login-recuperacion-design.md), alcance y puertas de publicación en el
+[dossier del candidato](../releases/v0.3.8-candidate.md). La siguiente
+unidad se toma del roadmap; fidelidad del receptor, admisibilidad/revisión y
+comparación fiscal legacy P1 están implementadas.
+Este cierre de código no acredita publicación ni despliegue.
+
+La representación PDF discrimina IVA guardado en A y muestra «IVA Contenido»
+en B; los códigos y decimales extensos se ajustan a su celda. No recalcula
+importes ni clasifica tributos históricos sin evidencia. El
+[contrato PDF](../../agents/pf-04-pdf-representacion-fiscal-design.md) delimita la reparación
+autorizada durante QA. El candidato reparado aprobó ensayo aislado y QA contable;
+el dossier conserva evidencia, límites y puertas del SHA aceptado exacto.
+
+El [primer corte PF-04/PF-02](../../agents/pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
+incorpora evidencia previa versionada e inmutable para intentos nuevos,
+verificación durable antes de CAE, lector/comparador puros y traslado v6 con
+compatibilidad v3/v4/v5. No habilita recuperación moderna ni corrige todavía
+las lecturas históricas del emisor; ambas continuaciones conservan su alcance.
+El [segundo corte preparado](../../agents/pf-04-lecturas-historicas-design.md), aún sin
+implementar, delimita emisor y punto originales en PDF/QR, comprobantes e informes,
+cobertura antigua explícita y la contención aceptada de PDF/QR ante evidencia
+presente no verificable. Reutiliza el vínculo del intento y no abre recuperación
+moderna ni cambia la compactación o el traslado vigentes.
+El mantenimiento de dependencias se documenta por separado; el orden del
+roadmap se conserva.
+
+Para continuar desarrollo:
+
+1. verificar `git status --short --branch` y sincronía con `origin/main`;
+2. leer `VISION.md` y la primera unidad de `ROADMAP.md`;
+3. abrir únicamente el diseño y los runbooks indicados para esa unidad;
+4. si el cambio es fiscal, completar `fiscal-change-checklist.md` antes de
+   implementar;
+5. no consultar ni modificar producción sin una autorización explícita y el
+   enrutamiento establecido hacia `vps-admin`.
+
+No se debe reconstruir el contexto leyendo auditorías o diseños cerrados. Para
+historia usar `CHANGELOG.md`, dossiers o
+[`docs/project/history/`](README.md).
+
+## Fuentes relacionadas
+
+- Visión y decisiones de producto: [`VISION.md`](../../../VISION.md)
+- Prioridades: [`ROADMAP.md`](../../../ROADMAP.md)
+- Portafolio pendiente: [`development-portfolio.md`](../../agents/development-portfolio.md)
+- Arquitectura estable: [`overview.md`](../../agents/overview.md)
+- Índice para agentes: [`README.md`](../../agents/README.md)
+- Historial de versiones: [`CHANGELOG.md`](../../../CHANGELOG.md)

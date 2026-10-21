@@ -89,6 +89,24 @@ saltos de línea, incluido el final; no se modifica el contenido del snapshot.
 | `integracion-arca-inicial.md` | `80cc5f1642314e5f4a1a8598ccd4bc621daf9ec31d49b47768444687880dc83e` |
 | `../releases/v0.3.2-design-qa.md` | `bd727f1bf3745c8da8964afca699ce2f0ac7ab7ca5ad3ced23903880b0ccddd6` |
 
+## Preservación del handoff anterior — 16/10/2026
+
+Se redujo el handoff vivo a estado aceptado, contratos y continuidad, retirando
+cronologías y repetición del mantenimiento que ya conservan changelog y dossiers.
+La copia anterior incluye la preparación documental PF-04/PF-02 preexistente;
+esa preparación se conserva también en la documentación viva y no se declara
+implementada. Prioridades y visión no se modificaron.
+
+| Snapshot | Origen | Líneas de origen | SHA-256 canónico del origen | SHA-256 canónico del snapshot |
+|---|---|---:|---|---|
+| [Handoff anterior](current-status-before-documentation-audit-2026-10-16.md) | `docs/agents/current-status.md` antes de la limpieza | 302 | `7c59d5da949f7b6750c7218b8e1334a23dbe78a5121af40357cb7819ace8cf64` | `b333419aedfb6145b60b1539c2c2d2d1b8a773097bfadab8b9f719d1700bf437` |
+
+Se aplica el procedimiento canónico UTF-8/LF descrito arriba. El snapshot agrega
+un encabezado histórico y ajusta únicamente los enlaces relativos para mantener
+sus destinos desde la nueva ubicación; no moderniza hechos, decisiones o
+instrucciones. Esas son las únicas diferencias frente al contenido preservado;
+no se anonimizaron ni eliminaron datos de origen en esta copia.
+
 ## Auditoría de reorganización
 
 La clasificación del corpus, las decisiones de migración y la adjudicación de

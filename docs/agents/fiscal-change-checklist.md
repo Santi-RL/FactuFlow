@@ -172,17 +172,25 @@ tests. `autoreview` se reserva como cierre de una unidad lógica ya estabilizada
 no se ejecutan pasadas preliminares o incrementales ni cambios manuales de
 modelo o nivel mientras el diseño o el diff todavía están cambiando.
 
+La configuración predeterminada de cierre es Codex `gpt-5.6-sol medium`.
+Una elección explícita del usuario para la unidad prevalece sobre ese valor;
+mantener la configuración elegida en las repeticiones posteriores a correcciones,
+sin cambiarla para obtener otro veredicto. El uso sigue las condiciones de
+[`AGENTS.md`](../../AGENTS.md) y el runbook de la herramienta; exigir revisión
+por riesgo no amplía por sí solo la autorización para transmitir contexto privado.
+
 Para cambios fiscales críticos confirmados por el usuario:
 
 1. Diseñar invariantes y tests antes o junto al código.
 2. Corregir solo hallazgos aceptados después de verificarlos en el código real.
 3. Ejecutar pruebas enfocadas y controles del área.
-4. Hacer la revisión final directamente con Codex `gpt-5.6-sol` y `medium`.
+4. Hacer la revisión final con la configuración elegida para la unidad.
 5. Si la revisión provoca cambios, repetir pruebas enfocadas y volver a correr
-   exactamente `gpt-5.6-sol medium` sobre el diff corregido.
+   exactamente esa configuración sobre el diff corregido.
 6. Cuando quede limpia, detenerse; no correr otra opinión redundante.
 
-Comando Windows habitual para un diff sin commit:
+Comando Windows con la configuración predeterminada para un diff sin commit;
+si hubo elección explícita, sustituir modelo/esfuerzo por los acordados:
 
 ```powershell
 $env:PYTHONUTF8='1'
@@ -213,8 +221,7 @@ Al aceptar un hallazgo:
 - buscar casos hermanos en rutas vecinas;
 - agregar o ajustar tests;
 - repetir pruebas enfocadas;
-- volver a correr `autoreview` con la misma configuración canónica
-  `gpt-5.6-sol medium`.
+- volver a correr `autoreview` con la misma configuración elegida para la unidad.
 
 No corregir automáticamente todo lo que proponga `autoreview`. La corrección
 debe reducir un riesgo concreto sin sobredimensionar el diseño.
