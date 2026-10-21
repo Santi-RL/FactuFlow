@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 11/10/2026
+Última revisión: 16/10/2026
 
 Estado: VIGENTE.
 
@@ -102,6 +102,20 @@ versionado y una base descartable. Las barreras mínimas son:
 
 Nunca apuntar el harness a producción, una base compartida o un nombre que sólo
 “parezca” de prueba.
+
+### Reutilización de Docker local
+
+Mantener un único proyecto Compose de preview por copia local: actualizar o
+reconstruir sus servicios para probar otro corte, sin acumular un proyecto por
+ensayo. No confundir los servicios frontend/backend del mismo proyecto con
+copias redundantes de la aplicación. Detenerlos cuando no se use la vista local.
+
+Las pruebas PostgreSQL reutilizan un contenedor desechable durante la tanda,
+con las barreras del harness; no crear uno por caso de prueba. Retirarlo al
+terminar con `--rm` o limpieza explícita limitada a ese contenedor. Conservar
+datos persistentes o carpetas bind salvo autorización específica para borrarlos;
+eliminar un contenedor no implica eliminar esos datos. No usar una limpieza
+global de Docker como cierre automático de las pruebas.
 
 ## Frontend
 

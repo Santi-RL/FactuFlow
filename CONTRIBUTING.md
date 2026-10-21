@@ -134,6 +134,11 @@ Bajo / Medio / Alto (opcional)
 interno se realiza en una rama temporal corta por unidad lógica, normalmente una
 sola activa a la vez:
 
+El ciclo describe las etapas del trabajo, no concede permisos para ejecutarlas.
+Push, merge y eliminación remota requieren la autorización explícita de
+[`AGENTS.md`](AGENTS.md); si el usuario ya autorizó una etapa o el ciclo completo,
+no se solicita de nuevo dentro de ese alcance.
+
 1. sincronizar y verificar que `main` esté limpia;
 2. crear la rama temporal desde `main`;
 3. implementar, probar y documentar una única unidad;

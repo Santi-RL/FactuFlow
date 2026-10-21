@@ -1,6 +1,6 @@
 # Gobierno de la documentación
 
-Última revisión: 05/09/2026
+Última revisión: 16/10/2026
 
 Estado: VIGENTE.
 
@@ -82,6 +82,30 @@ Antes de reducir material con información única:
 
 Los documentos históricos no se corrigen para que parezcan actuales. Sólo se
 redactan si contienen información privada o peligrosa.
+Al reubicarlos, los enlaces relativos pueden ajustarse para conservar el mismo
+destino. Registrar ese ajuste y cualquier encabezado de archivo añadido, junto
+con los hashes de origen y destino; no aprovecharlo para modernizar su contenido.
+
+## Auditoría documental y limpieza
+
+1. Registrar el estado de Git y preservar el diff y contenido de trabajo previo,
+   incluidos diseños preparados. La limpieza no los descarta ni los convierte
+   en implementación aceptada.
+2. Inventariar documentos vivos, contratos futuros, referencias e historia.
+   Contrastar enlaces, anchors, índices y comandos con el código y configuración
+   versionados. Un título o versión histórica no es por sí solo un error.
+3. Corregir hechos comprobables en su documento dueño. Distinguir capacidades
+   implementadas, preparaciones y pendientes; mantener el orden del roadmap.
+   Un runbook no sustituye autorizaciones de Git ni del plano productivo.
+4. Reducir duplicaciones enlazando a la fuente dueña. Si se retira información
+   única, aplicar primero la preservación y el manifiesto anteriores.
+5. Verificar idioma, privacidad, enlaces y anchors, hashes del archivo y el diff
+   completo, además de `docs:check`. Este último no reemplaza la revisión
+   semántica ni verifica por sí solo todos los enlaces.
+6. Informar cambios, hallazgos descartados y límites de la revisión. La evidencia
+   detallada puede quedar en una ruta ignorada; no agregar una bitácora extensa
+   a documentos vivos. No modificar runtime, datos ni producción por una limpieza
+   documental; commit, publicación y merge conservan sus autorizaciones propias.
 
 ## Simplicidad segura
 

@@ -1,6 +1,6 @@
 # Puertas de calidad y evidencia de cambios
 
-Última actualización: 2026-08-29
+Última actualización: 16/10/2026
 
 Estado: VIGENTE para todo cambio nuevo.
 
@@ -37,6 +37,10 @@ assets pueden cambiar el comportamiento aunque no sean código de aplicación.
 ## Ciclo único de ramas
 
 `main` es la única rama permanente y la fuente canónica del código aceptado.
+
+Este ciclo no concede autorización para operaciones remotas: push, merge y
+eliminación remota se rigen por [`AGENTS.md`](../../AGENTS.md). Una autorización
+explícita puede cubrir varias etapas; no se vuelve a pedir dentro de su alcance.
 
 Para cada unidad de trabajo:
 

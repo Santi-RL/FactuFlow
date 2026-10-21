@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 15/10/2026
+Última revisión: 16/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -84,7 +84,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
   Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
   El primer corte P2 incorpora evidencia previa versionada y comparación pura;
-  consumo histórico y cierre moderno conservan sus continuaciones pendientes.
+  el [segundo corte preparado](pf-04-lecturas-historicas-design.md) delimita las
+  lecturas históricas de emisor/punto, sin implementación. El cierre moderno
+  conserva su continuación separada pendiente.
 - PF-09, implementación futura:
   [WSAA coordinado y caché cifrada](pf-09-wsaa-coordinacion-cache-design.md).
 - PF-18/PF-09, implementación futura:
@@ -154,11 +156,18 @@ del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 - Antecedente de lotes, cortes cerrados; la evolución pendiente está en PF-17:
   [`lotes-ux-redesign.md`](lotes-ux-redesign.md)
 
-También están cerrados PF-01, PF-02, PF-03A/B y PF-19A/B/C. El contrato de ítems
-vive en
-[`pf-03b-items-importes-design.md`](pf-03b-items-importes-design.md).
-Sus diseños se consultan sólo para
-preservar invariantes o rastrear decisiones.
+- PF-01A/PF-01B: [autorización y estado incierto](pf-01-authorization-integrity-design.md)
+  e [integridad persistente](pf-01b-persistence-integrity-design.md).
+- PF-02A/PF-02B: [numeración individual](pf-02a-numeracion-individual-design.md)
+  y [numeración masiva](pf-02b-numeracion-masiva-design.md). Sus cortes originales
+  están cerrados; no confundirlos con la ampliación moderna PF-04/PF-02 pendiente.
+- PF-03A/PF-03B: [validación fiscal](pf-03-validacion-fiscal-design.md) e
+  [ítems e importes](pf-03b-items-importes-design.md).
+- PF-19A/PF-19B/PF-19C: [contención e inventario](pf-19a-rece-contencion-design.md),
+  [elegibilidad durable](pf-19b-elegibilidad-rece-design.md) y
+  [rechazo global/resolución legacy](pf-19c-rechazo-global-design.md).
+
+Estos diseños se consultan sólo para preservar invariantes o rastrear decisiones.
 
 ## Runbooks
 

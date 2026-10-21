@@ -151,7 +151,10 @@ La preparación documental es nivel 0; la implementación es nivel 2 fiscal.
    comparación pura con consultas simuladas. Mantener las transiciones actuales.
 2. **Continuación histórica:** consumir esa evidencia en comprobantes nuevos,
    PDF/QR y lecturas, con cobertura antigua explícita. Delimitar el vínculo y su
-   conservación ante compactación antes de cambiar consumidores.
+   conservación ante compactación antes de cambiar consumidores. El
+   [segundo corte preparado](pf-04-lecturas-historicas-design.md) delimita emisor
+   y punto de venta, su cobertura y la contención aceptada para evidencia inválida;
+   aún no está implementado.
 3. **Continuación de recuperación:** habilitar el cierre moderno individual y
    luego el de grupos, completando sus contratos atómicos sobre el grafo RECE.
    Cada habilitación exige su propia matriz de fallos y concurrencia.

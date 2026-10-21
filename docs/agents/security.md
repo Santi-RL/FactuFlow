@@ -176,12 +176,12 @@ Referencia: [opciones oficiales de Dependabot](https://docs.github.com/en/code-s
   irreversibles, completar `docs/agents/fiscal-change-checklist.md`.
 - El diseño debe identificar invariantes, estados, fallos intermedios,
   concurrencia, constraints, reconciliación y matriz de tests antes del código.
-- Si se usa `autoreview`, la única configuración de cierre es Codex
-  `gpt-5.6-sol medium`, indicada explícitamente así:
-  `--engine codex --model gpt-5.6-sol --thinking medium`. No aplicar hallazgos
-  automáticamente, cambiar manualmente de modelo/esfuerzo ni ejecutar revisiones
-  incrementales o redundantes. Si un
-  hallazgo aceptado cambia código, repetir las pruebas y la misma revisión.
+- Si se usa `autoreview`, configuración predeterminada, elección explícita del
+  usuario y repetición se rigen por el
+  [checklist fiscal](fiscal-change-checklist.md#9-uso-de-autoreview). No aplicar
+  hallazgos automáticamente ni ejecutar revisiones incrementales o redundantes.
+  Si un hallazgo aceptado cambia código, repetir las pruebas y la misma
+  configuración elegida para la unidad.
 
 ## Checklist antes de commit
 

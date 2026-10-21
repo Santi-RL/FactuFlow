@@ -94,8 +94,11 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   Primer corte implementado: evidencia previa compartida por emisión individual,
   lotes y reintentos, verificación durable, lector/comparador puros y traslado v6;
   [contrato y aceptación](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
-  Las lecturas históricas y el cierre moderno del grafo conservan sus
-  continuaciones pendientes dentro de Ahora 1.
+  Segundo corte preparado, sin implementación: [lecturas históricas de emisor
+  y punto de venta](pf-04-lecturas-historicas-design.md), reutilizando el vínculo
+  del intento, con cobertura explícita y contención de PDF/QR ante evidencia
+  no verificable. Conserva compactación y traslado vigentes. El cierre moderno
+  del grafo continúa pendiente y separado dentro de Ahora 1.
 - Importación histórica externa PF-05 opcional, Más adelante, con alcance,
   límites, journal y cobertura; no retrasa la recuperación local ni nuevos consumidores.
 
