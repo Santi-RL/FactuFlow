@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
 import { ref, onMounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
@@ -354,6 +355,7 @@ const tiposDisponibles = [
                 {{ String(comprobante.punto_venta_numero).padStart(4, "0") }}-{{
                   String(comprobante.numero).padStart(8, "0")
                 }}
+                <HistoriaEmisor :lectura="comprobante.datos_historicos" />
               </td>
               <td class="px-4 py-3 text-sm text-gray-600">
                 {{ formatFecha(comprobante.fecha_emision) }}

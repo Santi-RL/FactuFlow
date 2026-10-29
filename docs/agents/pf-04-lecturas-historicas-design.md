@@ -1,9 +1,9 @@
 # PF-04/PF-02 — lecturas históricas de emisor y punto de venta
 
-Fecha y última revisión: 15/10/2026.
+Fecha: 15/10/2026. Última revisión: 29/10/2026.
 
-Estado: segundo corte preparado; implementación pendiente. Prioridad P2 fiscal,
-dentro de Ahora 1. Preparación documental de nivel 0; implementación de nivel 2.
+Estado: segundo corte implementado. Prioridad P2 fiscal, dentro de Ahora 1.
+Implementación de nivel 2; recuperación moderna pendiente y separada.
 Consume el [primer corte de evidencia previa](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
 No habilita todavía recuperación moderna ni modifica producción.
 
@@ -171,7 +171,7 @@ sus representaciones vuelven a tener la cobertura previa. No afirmar que el
 runtime anterior conserva las nuevas lecturas. Sin downgrade, restauración,
 eliminación de reservas ni cambios de producción.
 
-## Matriz y puertas de aceptación antes de implementar
+## Matriz y puertas de aceptación
 
 | Caso | Resultado exigido |
 |---|---|
@@ -192,7 +192,7 @@ SQLite y PostgreSQL desechable para vínculo, sesiones concurrentes y compactaci
 no hacen falta nuevas carreras de reserva para un lector que no reserva ni envía.
 Comprobar que lectura, error y rollback no cambian filas antes/después.
 
-La implementación deberá completar lint, formato, tipos, suites, auditorías,
+La implementación exige lint, formato, tipos, suites, auditorías,
 CI nivel 2, revisión fiscal final y QA visual sintética. Sin certificados,
 credenciales, bases ni datos fiscales reales en Git. No ejecutar autoreview
 preliminar por preparar el diseño ni presentar esta matriz como pruebas realizadas.
@@ -200,4 +200,25 @@ Resultado y evidencia del candidato quedan en PR o rutas privadas, no en este
 contrato. El [checklist fiscal](fiscal-change-checklist.md) gobierna consumidores,
 errores, concurrencia, revisión y cierre; [calidad](change-quality-gates.md)
 gobierna las puertas. Publicación, integración y despliegue son operaciones
-separadas de esta preparación.
+separadas de este corte.
+
+## Contrato de lectura implementado
+
+`lecturas_historicas_service.py` carga los vínculos después de seleccionar la
+página o el período, en bloques de hasta 100 comprobantes. Una sola consulta por
+bloque observa las fuentes y su pertenencia; las expresiones SQL excluyen el
+documento privado de vínculos ajenos y de intentos no autorizados. La proyección
+no adjunta relaciones, no escribe y no participa en los servicios de emisión.
+
+Listado, detalle y filas de ventas/IVA incorporan `datos_historicos`: cobertura
+`completa`, `incompleta`, `ausente` o `no_verificable`, origen `evidencia_previa`
+o `ficha_actual`, emisor y `punto_venta_numero`. Los campos existentes de punto
+consumen esa misma proyección. `bases_acreditadas` y `origen_bases` mantienen su
+contrato separado. PDF, QR y nombre de descarga comparten identidad; el PDF
+indica la cobertura incompleta o el uso de ficha actual cuando corresponde.
+
+El lector contrasta los hechos de identidad y autorización conservados, sin
+recálculos, locks fiscales o consultas a ARCA. Compactación y traslado conservan
+sus implementaciones y formatos vigentes; las pruebas ejercitan la dependencia
+del lector con ambas operaciones. El cierre moderno individual y luego el de
+grupos siguen requiriendo otra preparación y autorización.

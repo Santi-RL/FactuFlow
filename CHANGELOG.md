@@ -18,6 +18,19 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Lecturas históricas PF-04/PF-02
+
+- Comprobantes, PDF/QR y reportes de ventas e IVA usan el emisor y el punto
+  originales cuando la evidencia previa es verificable y corresponde al
+  comprobante autorizado. Los campos originales ausentes no se completan con
+  fichas actuales; importes, receptor, fechas, moneda y CAE se conservan.
+- Las consultas indican cobertura y procedencia. Los antecedentes sin snapshot
+  mantienen la disponibilidad anterior; la evidencia presente no verificable
+  mantiene consultas e informes con aviso y bloquea sólo PDF/QR con conflicto
+  sanitizado. No habilita recuperación moderna ni cambia estados fiscales,
+  compactación o formatos de traslado.
+  [Contrato del segundo corte](docs/agents/pf-04-lecturas-historicas-design.md).
+
 ### Evidencia previa PF-04/PF-02
 
 - Los intentos nuevos conservan la solicitud fiscal y la representación mínima
@@ -30,6 +43,21 @@ Reglas vigentes desde 2026-05-22:
 - Migración aditiva y traslado v6 para conservar la evidencia; importación
   compatible de v3/v4/v5 congelados y downgrade rechazado si elimina evidencia.
   [Contrato y límites](docs/agents/pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
+
+### Correcciones de seguridad de dependencias
+
+- PDF y QR: Pillow 13.0.0 y pypdf 6.21.2, conservando la lectura de constancias,
+  los datos fiscales guardados y la representación histórica PF-04/PF-02.
+- Se fijan mínimos de seguridad para transitivas Python de ejecución y pruebas,
+  de modo que actualizar un entorno existente tampoco retenga versiones
+  vulnerables; se conservan los contratos de sus dependencias padre.
+- Formato: Black 26.10.1, sin cambios de estilo en los archivos existentes.
+- Frontend: Vite 8.2.4 y su bundler Rolldown 1.2.16; transitivas
+  follow-redirects 1.16.2 y undici 8.12.3 en el lockfile, sin nuevos overrides.
+  Mantiene Node/npm, Axios, Vue, Vitest y los umbrales de auditoría y cobertura.
+- Las versiones corrigen las alertas conocidas detectadas por las auditorías
+  completas de npm y Python; no modifican el alcance fiscal, las prioridades
+  ni producción.
 
 ### Mantenimiento de herramientas
 

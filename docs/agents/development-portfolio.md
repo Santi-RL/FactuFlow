@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 15/10/2026
+Última revisión: 29/10/2026
 
 Estado: VIGENTE.
 
@@ -94,7 +94,7 @@ La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
   Primer corte implementado: evidencia previa compartida por emisión individual,
   lotes y reintentos, verificación durable, lector/comparador puros y traslado v6;
   [contrato y aceptación](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
-  Segundo corte preparado, sin implementación: [lecturas históricas de emisor
+  Segundo corte implementado: [lecturas históricas de emisor
   y punto de venta](pf-04-lecturas-historicas-design.md), reutilizando el vínculo
   del intento, con cobertura explícita y contención de PDF/QR ante evidencia
   no verificable. Conserva compactación y traslado vigentes. El cierre moderno
@@ -424,7 +424,7 @@ actuales conforme a su [contrato](a03-lecturas-fiscales-design.md). El [dossier]
 La cadena vulnerable de construcción frontend se retiró con Tailwind 4.3.3.
 El [contrato de navegadores](../../frontend/README.md#navegadores-compatibles)
 conserva estilos y foco y acepta Firefox 128+. Las herramientas del backend
-resuelven sus alertas con pytest 9.1.1, pytest-asyncio 1.4.0 y Black 26.3.1;
+resuelven sus alertas con pytest 9.1.1, pytest-asyncio 1.4.0 y Black 26.10.1;
 la auditoría Python abarca ejecución y desarrollo. Estos cortes no cierran la
 evolución de calidad PF-16 ni acreditan una instalación productiva.
 

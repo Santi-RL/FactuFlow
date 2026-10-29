@@ -109,6 +109,26 @@ describe("ReporteIvaView", () => {
     vi.clearAllMocks();
   });
 
+  it("retira las filas y su procedencia cuando se revoca el emisor", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const empresa = useEmpresaStore();
+    empresa.empresaActivaId = 1;
+    mockedReportesService.obtenerReporteIVA.mockResolvedValue(
+      reporteIvaMock("Receptor histórico sintético"),
+    );
+    const wrapper = mount(ReporteIvaView, { global: { plugins: [pinia] } });
+    await (
+      wrapper.vm as unknown as { generarReporte: () => Promise<void> }
+    ).generarReporte();
+    await flushPromises();
+    expect(wrapper.text()).toContain("Receptor histórico sintético");
+    empresa.empresaActivaId = null;
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("Receptor histórico sintético");
+    wrapper.unmount();
+  });
+
   it("muestra bases desconocidas y notas de crédito negativas en su moneda", async () => {
     const payload = reporteIvaMock("Nota DOL", -100);
     payload.resumen.moneda = "DOL";

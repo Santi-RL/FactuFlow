@@ -18,6 +18,11 @@ from weasyprint.urls import URLFetcher, URLFetcherResponse
 from app.models.comprobante import Comprobante
 from app.core.fiscal_storage import decimal_json_dumps, sum_decimals
 from app.models.empresa import Empresa
+from app.schemas.lectura_historica import LecturaHistorica
+from app.services.lecturas_historicas_service import (
+    exigir_historia_pdf,
+    lectura_actual,
+)
 
 # URL oficial heredada del QR ARCA.
 ARCA_QR_BASE_URL = "https://www.afip.gob.ar/fe/qr/?p="
@@ -64,7 +69,10 @@ class PDFService:
         self.env.filters["cuit_ar"] = self._format_cuit_ar
 
     async def generar_pdf_comprobante(
-        self, comprobante: Comprobante, empresa: Empresa
+        self,
+        comprobante: Comprobante,
+        empresa: Empresa,
+        lectura: LecturaHistorica | None = None,
     ) -> bytes:
         """
         Genera el PDF de un comprobante.
@@ -76,8 +84,13 @@ class PDFService:
         Returns:
             Bytes del PDF generado
         """
-        # 1. Generar código QR
-        qr_base64 = self._generar_qr_arca(comprobante)
+        lectura = (
+            lectura if lectura is not None else lectura_actual(comprobante, empresa)
+        )
+        exigir_historia_pdf(lectura)
+        empresa = lectura.emisor
+        # Encabezado y QR comparten la misma identidad, sin modificar el ORM.
+        qr_base64 = self._generar_qr_arca(comprobante, lectura)
 
         # 2. Preparar datos para el template
         cliente = self._get_receptor_pdf(comprobante)
@@ -92,7 +105,8 @@ class PDFService:
             "tipo_nombre": self._get_nombre_comprobante(comprobante.tipo_comprobante),
             "tipo_codigo": self._get_codigo_comprobante(comprobante.tipo_comprobante),
             "concepto_nombre": self._get_nombre_concepto(comprobante.concepto),
-            "punto_venta_str": f"{comprobante.punto_venta.numero:04d}",
+            "punto_venta_str": f"{lectura.punto_venta_numero:04d}",
+            "aviso_historia": lectura.aviso,
             "numero_str": f"{comprobante.numero:08d}",
             "empresa_cuit": "".join(filter(str.isdigit, empresa.cuit or "")),
             "receptor_documento": receptor_display["documento"],
@@ -240,7 +254,9 @@ class PDFService:
             return "Consumidor Final"
         return normalizada
 
-    def _generar_qr_arca(self, comprobante: Comprobante) -> str:
+    def _generar_qr_arca(
+        self, comprobante: Comprobante, lectura: LecturaHistorica | None = None
+    ) -> str:
         """
         Genera el código QR según especificación de ARCA.
 
@@ -250,7 +266,7 @@ class PDFService:
         Returns:
             Imagen QR en base64 para embeber en HTML
         """
-        url_qr = self._generar_qr_url_arca(comprobante)
+        url_qr = self._generar_qr_url_arca(comprobante, lectura)
 
         # Generar imagen QR
         qr = qrcode.QRCode(
@@ -271,15 +287,21 @@ class PDFService:
 
         return f"data:image/png;base64,{img_base64}"
 
-    def _generar_qr_url_arca(self, comprobante: Comprobante) -> str:
+    def _generar_qr_url_arca(
+        self, comprobante: Comprobante, lectura: LecturaHistorica | None = None
+    ) -> str:
         """Genera la URL completa del QR con payload ARCA en Base64."""
-        datos_qr = self._generar_qr_payload_arca(comprobante)
+        datos_qr = self._generar_qr_payload_arca(comprobante, lectura)
         json_str = decimal_json_dumps(datos_qr)
         base64_data = base64.b64encode(json_str.encode("utf-8")).decode("ascii")
         return f"{ARCA_QR_BASE_URL}{base64_data}"
 
-    def _generar_qr_payload_arca(self, comprobante: Comprobante) -> dict[str, Any]:
+    def _generar_qr_payload_arca(
+        self, comprobante: Comprobante, lectura: LecturaHistorica | None = None
+    ) -> dict[str, Any]:
         """Arma el payload JSON requerido por la especificación QR de ARCA."""
+        if lectura is not None:
+            exigir_historia_pdf(lectura)
         receptor_tipo_documento = self._get_snapshot_int(
             comprobante, "receptor_tipo_documento"
         )
@@ -289,8 +311,16 @@ class PDFService:
         return {
             "ver": 1,
             "fecha": comprobante.fecha_emision.strftime("%Y-%m-%d"),
-            "cuit": int(comprobante.empresa.cuit.replace("-", "")),
-            "ptoVta": comprobante.punto_venta.numero,
+            "cuit": int(
+                (lectura.emisor.cuit if lectura else comprobante.empresa.cuit).replace(
+                    "-", ""
+                )
+            ),
+            "ptoVta": (
+                lectura.punto_venta_numero
+                if lectura
+                else comprobante.punto_venta.numero
+            ),
             "tipoCmp": comprobante.tipo_comprobante,
             "nroCmp": comprobante.numero,
             "importe": comprobante.total,

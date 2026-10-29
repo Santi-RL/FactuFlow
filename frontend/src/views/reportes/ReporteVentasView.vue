@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useEmpresaStore } from "@/stores/empresa";
@@ -136,16 +137,19 @@ onMounted(async () => {
 watch(
   () => empresaStore.empresaActivaId,
   async (empresaId, previousEmpresaId) => {
-    if (!empresaId || empresaId === previousEmpresaId) return;
+    if (empresaId === previousEmpresaId) return;
 
     const debeRegenerar = !!reporte.value;
+    generarReporteRequestId += 1;
+    loading.value = false;
     reporteCompleto.value = null;
     monedaElegida.value = "";
 
-    if (debeRegenerar) {
+    if (empresaId && debeRegenerar) {
       await generarReporte();
     }
   },
+  { flush: "sync" },
 );
 
 const resumenCards = computed(() => {
@@ -345,8 +349,9 @@ const resumenCards = computed(() => {
             </div>
           </template>
 
-          <template #cell-numero_completo="{ value }">
+          <template #cell-numero_completo="{ value, row }">
             <span class="font-mono text-sm">{{ value }}</span>
+            <HistoriaEmisor :lectura="row.datos_historicos" />
           </template>
 
           <template #cell-cliente_nombre="{ value }">

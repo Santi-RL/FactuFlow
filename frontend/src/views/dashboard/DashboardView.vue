@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
+import type { LecturaHistorica } from "@/types/comprobante";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
@@ -30,6 +32,7 @@ const loading = ref(true);
 const alertasCertificados = ref<CertificadoAlerta[]>([]);
 const totalComprobantesMes = ref(0);
 const ultimoComprobante = ref("-");
+const historiaUltimo = ref<LecturaHistorica>();
 const estadoCertificado = ref("Sin certificado");
 let cargarDashboardRequestId = 0;
 
@@ -44,7 +47,14 @@ onMounted(async () => {
 watch(
   () => empresaStore.empresaActivaId,
   async (empresaId, anteriorId) => {
-    if (!empresaId || empresaId === anteriorId) return;
+    if (empresaId === anteriorId) return;
+    historiaUltimo.value = undefined;
+    ultimoComprobante.value = "-";
+    if (!empresaId) {
+      cargarDashboardRequestId += 1;
+      loading.value = false;
+      return;
+    }
     await cargarDashboard();
   },
 );
@@ -94,6 +104,8 @@ const formatearNumeroComprobante = (puntoVenta: number, numero: number) => {
 
 const cargarDashboard = async () => {
   const requestId = ++cargarDashboardRequestId;
+  historiaUltimo.value = undefined;
+  ultimoComprobante.value = "-";
   const empresaIdSolicitada = empresaStore.empresaActivaId;
   if (!empresaIdSolicitada) {
     loading.value = false;
@@ -159,6 +171,7 @@ const cargarDashboard = async () => {
       ultimoComprobanteResult.value.items.length > 0
     ) {
       const comprobante = ultimoComprobanteResult.value.items[0];
+      historiaUltimo.value = comprobante.datos_historicos;
       ultimoComprobante.value = formatearNumeroComprobante(
         comprobante.punto_venta_numero,
         comprobante.numero,
@@ -231,10 +244,14 @@ const stats = computed(() => [
         type="warning"
         class="mb-6"
       >
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div
+          class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+        >
           <div class="flex-1">
             <p class="mb-2 flex items-center gap-2 font-semibold">
-              <ExclamationTriangleIcon class="h-5 w-5 flex-shrink-0 text-status-warning" />
+              <ExclamationTriangleIcon
+                class="h-5 w-5 flex-shrink-0 text-status-warning"
+              />
               <span>Certificado(s) próximo(s) a vencer</span>
             </p>
             <div
@@ -293,6 +310,10 @@ const stats = computed(() => [
                 <p class="mt-2 text-3xl font-bold text-brand-ink">
                   {{ stat.value }}
                 </p>
+                <HistoriaEmisor
+                  v-if="stat.name === 'Último Comprobante'"
+                  :lectura="historiaUltimo"
+                />
               </div>
               <div :class="['rounded-panel p-3', stat.bg]">
                 <component
@@ -312,7 +333,9 @@ const stats = computed(() => [
             to="/clientes/nuevo"
             class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <UsersIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <UsersIcon
+              class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow"
+            />
             <h3 class="font-medium text-brand-ink">
               Nuevo Cliente
             </h3>
@@ -325,7 +348,9 @@ const stats = computed(() => [
             to="/comprobantes"
             class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <DocumentTextIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <DocumentTextIcon
+              class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow"
+            />
             <h3 class="font-medium text-brand-ink">
               Emitir Factura
             </h3>
@@ -338,7 +363,9 @@ const stats = computed(() => [
             to="/comprobantes/lotes"
             class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <DocumentDuplicateIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <DocumentDuplicateIcon
+              class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow"
+            />
             <h3 class="font-medium text-brand-ink">
               Emisión masiva
             </h3>
@@ -351,7 +378,9 @@ const stats = computed(() => [
             to="/empresa"
             class="group rounded-panel border-2 border-dashed border-border-subtle p-6 text-center transition-colors hover:border-brand-flow hover:bg-brand-mint focus:outline-none focus:ring-2 focus:ring-brand-flow focus:ring-offset-2"
           >
-            <CheckCircleIcon class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow" />
+            <CheckCircleIcon
+              class="mx-auto mb-2 h-8 w-8 text-brand-slate transition-colors group-hover:text-brand-flow"
+            />
             <h3 class="font-medium text-brand-ink">
               Configurar
             </h3>

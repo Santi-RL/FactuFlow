@@ -341,6 +341,11 @@ autorización o rechazo final desbloquea. No persiste payload fiscal en storage
 web; una recarga forzada exige revisar el backend, no crear otra emisión. Diseño:
 `docs/agents/pf-01-authorization-integrity-design.md`.
 
+Las consultas de identidad histórica del emisor reutilizan la evidencia previa
+y el vínculo durable al comprobante según el
+[segundo corte PF-04/PF-02](pf-04-lecturas-historicas-design.md). Esa proyección
+no llama a ARCA, no valida contra certificados actuales ni cierra intentos.
+
 - El CAE es la prueba de autorización fiscal devuelta por ARCA. No es la llave
   primaria de idempotencia: FactuFlow no puede esperar a tener CAE para decidir
   si una operación se repite, porque el riesgo crítico ocurre precisamente

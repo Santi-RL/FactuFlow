@@ -21,11 +21,15 @@ def reportes_service():
 class TestReportesService:
     """Tests para ReportesService."""
 
-    async def test_reportes_ampliados_suman_y_firman_sin_float(self, reportes_service):
+    async def test_reportes_ampliados_suman_y_firman_sin_float(
+        self, reportes_service, db_session, test_empresa
+    ):
         amount = Decimal("10000000000000000000000000.01")
 
         def receipt(kind, number, total):
             return SimpleNamespace(
+                empresa_id=test_empresa.id,
+                empresa=test_empresa,
                 id=number,
                 numero=number,
                 tipo_comprobante=kind,
@@ -50,11 +54,11 @@ class TestReportesService:
         with localcontext() as context:
             context.prec = 8
             sales = await reportes_service.generar_reporte_ventas(
-                None, 1, date(2026, 7, 1), date(2026, 7, 31)
+                db_session, 1, date(2026, 7, 1), date(2026, 7, 31)
             )
-            iva = await reportes_service.generar_reporte_iva(None, 1, 7, 2026)
+            iva = await reportes_service.generar_reporte_iva(db_session, 1, 7, 2026)
             ranking = await reportes_service.obtener_ranking_clientes(
-                None, 1, date(2026, 7, 1), date(2026, 7, 31)
+                db_session, 1, date(2026, 7, 1), date(2026, 7, 31)
             )
         assert sales["comprobantes"][0]["total"] == str(amount)
         assert Decimal(sales["resumen"]["total_neto"]) == Decimal(

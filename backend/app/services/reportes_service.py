@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.models.comprobante import Comprobante
 from app.core.fiscal_storage import sum_decimals
 from app.core.lecturas_fiscales import leer_bases_iva
+from app.services.lecturas_historicas_service import cargar_lecturas_historicas
 
 
 class ReportesService:
@@ -38,6 +39,7 @@ class ReportesService:
                 selectinload(Comprobante.cliente),
                 selectinload(Comprobante.punto_venta),
                 selectinload(Comprobante.items),
+                selectinload(Comprobante.empresa),
             )
             .where(
                 and_(
@@ -84,6 +86,7 @@ class ReportesService:
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
+        lecturas = await cargar_lecturas_historicas(db, comprobantes)
         filas = []
         campos = (
             "total_facturas",
@@ -92,15 +95,17 @@ class ReportesService:
             "total_neto",
         )
         for comp in comprobantes:
+            lectura = lecturas[comp.id]
             fila = {
                 "id": comp.id,
                 "fecha_emision": comp.fecha_emision.isoformat(),
                 "tipo_comprobante": comp.tipo_comprobante,
                 "tipo_nombre": self._get_nombre_tipo_comprobante(comp.tipo_comprobante),
                 "letra": self._get_letra_comprobante(comp.tipo_comprobante),
-                "punto_venta": comp.punto_venta.numero,
+                "punto_venta": lectura.punto_venta_numero,
                 "numero": comp.numero,
-                "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
+                "numero_completo": f"{lectura.punto_venta_numero:04d}-{comp.numero:08d}",
+                "datos_historicos": lectura.model_dump(mode="json"),
                 "cliente_nombre": self._get_receptor_nombre(comp),
                 "moneda": comp.moneda,
                 "cotizacion": str(comp.cotizacion),
@@ -141,6 +146,7 @@ class ReportesService:
         comprobantes = await self.obtener_comprobantes_por_periodo(
             db, empresa_id, desde, hasta
         )
+        lecturas = await cargar_lecturas_historicas(db, comprobantes)
         filas = []
         campos = (
             "gravado_21",
@@ -158,6 +164,7 @@ class ReportesService:
             "total",
         )
         for comp in comprobantes:
+            lectura = lecturas[comp.id]
             bases = leer_bases_iva(comp)
             importes = {
                 key: value
@@ -179,9 +186,10 @@ class ReportesService:
                 "tipo_nombre": self._get_abreviatura_tipo_comprobante(
                     comp.tipo_comprobante
                 ),
-                "punto_venta": comp.punto_venta.numero,
+                "punto_venta": lectura.punto_venta_numero,
                 "numero": comp.numero,
-                "numero_completo": f"{comp.punto_venta.numero:04d}-{comp.numero:08d}",
+                "numero_completo": f"{lectura.punto_venta_numero:04d}-{comp.numero:08d}",
+                "datos_historicos": lectura.model_dump(mode="json"),
                 "cuit_receptor": self._get_receptor_documento(comp),
                 "razon_social_receptor": self._get_receptor_nombre(comp),
                 "moneda": comp.moneda,

@@ -33,6 +33,8 @@ def comprobante(items=None, moneda="PES", tipo=1, numero=1, receptor="0"):
     items = items if items is not None else [item()]
     totales = calcular_totales(items)
     return SimpleNamespace(
+        empresa_id=1,
+        empresa=SimpleNamespace(cuit="20123456789", razon_social="Emisor sintético"),
         **{
             key: totales[key]
             for key in ("subtotal", "iva_21", "iva_10_5", "iva_27", "total")
@@ -133,7 +135,7 @@ def test_c_y_cero_no_acreditan_exencion():
     assert c["exento"] is None and b["no_gravado"] is None
 
 
-async def test_monedas_y_limite_ranking_son_independientes(monkeypatch):
+async def test_monedas_y_limite_ranking_son_independientes(monkeypatch, db_session):
     servicio = ReportesService()
     comps = [
         comprobante([item("100", "0")], moneda="PES", receptor="1"),
@@ -143,8 +145,8 @@ async def test_monedas_y_limite_ranking_son_independientes(monkeypatch):
     ]
     servicio.obtener_comprobantes_por_periodo = AsyncMock(return_value=comps)
     desde, hasta = date(2026, 5, 1), date(2026, 5, 31)
-    ventas = await servicio.generar_reporte_ventas(None, 1, desde, hasta)
-    iva = await servicio.generar_reporte_iva(None, 1, 5, 2026)
+    ventas = await servicio.generar_reporte_ventas(db_session, 1, desde, hasta)
+    iva = await servicio.generar_reporte_iva(db_session, 1, 5, 2026)
     ranking = await servicio.obtener_ranking_clientes(None, 1, desde, hasta, 1)
     assert ventas["resumen"]["total_neto"] is None
     assert iva["resumen"]["total_neto"] is None
@@ -162,13 +164,13 @@ async def test_monedas_y_limite_ranking_son_independientes(monkeypatch):
     assert {g["moneda"] for g in api["por_moneda"]} == {"PES", "DOL"}
 
 
-async def test_nc_y_bases_desconocidas_no_ocultan_totales():
+async def test_nc_y_bases_desconocidas_no_ocultan_totales(db_session):
     servicio = ReportesService()
     nc = comprobante(tipo=3)
     incompleto = comprobante(numero=2)
     incompleto.items = []
     servicio.obtener_comprobantes_por_periodo = AsyncMock(return_value=[nc, incompleto])
-    reporte = await servicio.generar_reporte_iva(None, 1, 5, 2026)
+    reporte = await servicio.generar_reporte_iva(db_session, 1, 5, 2026)
     assert reporte["comprobantes"][0]["gravado_21"] == "-0.03"
     assert reporte["resumen"]["gravado_21"] is None
     assert Decimal(reporte["resumen"]["total_neto"]) == 0
@@ -176,13 +178,13 @@ async def test_nc_y_bases_desconocidas_no_ocultan_totales():
     assert reporte["resumen"]["cantidad_bases_no_acreditadas"] == 1
 
 
-async def test_moneda_desconocida_no_se_convierte_en_pesos():
+async def test_moneda_desconocida_no_se_convierte_en_pesos(db_session):
     servicio = ReportesService()
     servicio.obtener_comprobantes_por_periodo = AsyncMock(
         return_value=[comprobante(moneda="XYZ")]
     )
     reporte = await servicio.generar_reporte_ventas(
-        None, 1, date(2026, 5, 1), date(2026, 5, 31)
+        db_session, 1, date(2026, 5, 1), date(2026, 5, 31)
     )
     assert reporte["resumen"]["moneda"] == "XYZ"
     assert reporte["por_moneda"][0]["moneda"] == "XYZ"

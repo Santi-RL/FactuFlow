@@ -138,6 +138,7 @@ export interface Comprobante {
 }
 
 export interface ComprobanteDetalle extends Comprobante {
+  datos_historicos?: LecturaHistorica;
   items: ItemComprobante[];
   cliente_nombre?: string;
   cliente_cuit?: string;
@@ -145,6 +146,7 @@ export interface ComprobanteDetalle extends Comprobante {
 }
 
 export interface ComprobanteListItem {
+  datos_historicos?: LecturaHistorica;
   moneda?: string;
   cotizacion?: FiscalDecimal;
   id: number;
@@ -157,6 +159,22 @@ export interface ComprobanteListItem {
   cliente_nombre: string;
   cliente_documento: string;
   punto_venta_numero: number;
+}
+
+export interface LecturaHistorica {
+  cobertura: "completa" | "incompleta" | "ausente" | "no_verificable";
+  origen: "evidencia_previa" | "ficha_actual";
+  punto_venta_numero: number;
+  emisor: {
+    cuit: string | null;
+    razon_social: string | null;
+    domicilio: string | null;
+    localidad: string | null;
+    provincia: string | null;
+    condicion_iva: string | null;
+    ingresos_brutos: string | null;
+    inicio_actividades: string | null;
+  };
 }
 
 export interface PaginatedComprobantesResponse {
