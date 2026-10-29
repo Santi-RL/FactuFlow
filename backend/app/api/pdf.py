@@ -11,6 +11,10 @@ from app.api.deps import get_current_empresa_id
 from app.core.database import get_db
 from app.models.comprobante import Comprobante
 from app.services.pdf_service import pdf_service
+from app.services.lecturas_historicas_service import (
+    ERROR_HISTORIA_PDF,
+    cargar_lecturas_historicas,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -75,11 +79,14 @@ async def descargar_pdf_comprobante(
             detail="El comprobante no pertenece a la empresa activa seleccionada",
         )
     _validar_comprobante_autorizado_para_pdf(comprobante)
+    lectura = (await cargar_lecturas_historicas(db, [comprobante]))[comprobante.id]
+    if lectura.cobertura == "no_verificable":
+        raise HTTPException(status_code=409, detail=ERROR_HISTORIA_PDF)
 
     # Generar PDF
     try:
         pdf_bytes = await pdf_service.generar_pdf_comprobante(
-            comprobante, comprobante.empresa
+            comprobante, comprobante.empresa, lectura
         )
     except Exception:
         logger.exception("Error al generar PDF comprobante_id=%s", comprobante_id)
@@ -91,7 +98,7 @@ async def descargar_pdf_comprobante(
     letra = pdf_service._get_letra_comprobante(comprobante.tipo_comprobante)
     tipo_nombre = pdf_service._get_nombre_comprobante(comprobante.tipo_comprobante)
     filename = (
-        f"{tipo_nombre}_{letra}_{comprobante.punto_venta.numero:04d}-"
+        f"{tipo_nombre}_{letra}_{lectura.punto_venta_numero:04d}-"
         f"{comprobante.numero:08d}.pdf"
     )
 
@@ -141,11 +148,14 @@ async def preview_pdf_comprobante(
             detail="El comprobante no pertenece a la empresa activa seleccionada",
         )
     _validar_comprobante_autorizado_para_pdf(comprobante)
+    lectura = (await cargar_lecturas_historicas(db, [comprobante]))[comprobante.id]
+    if lectura.cobertura == "no_verificable":
+        raise HTTPException(status_code=409, detail=ERROR_HISTORIA_PDF)
 
     # Generar PDF
     try:
         pdf_bytes = await pdf_service.generar_pdf_comprobante(
-            comprobante, comprobante.empresa
+            comprobante, comprobante.empresa, lectura
         )
     except Exception:
         logger.exception("Error al generar PDF comprobante_id=%s", comprobante_id)

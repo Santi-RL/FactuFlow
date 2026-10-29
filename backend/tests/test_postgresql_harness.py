@@ -195,13 +195,10 @@ def test_ci_backend_conserva_job_y_habilita_postgres_solo_en_pytest() -> None:
     assert "    timeout-minutes: 30\n" in backend_job
     assert (
         "        image: ${{ needs.scope.outputs.runtime == 'true' && "
-        "'public.ecr.aws/docker/library/postgres:16-bookworm' || '' }}\n" in backend_job
+        "'docker.io/library/postgres:16-bookworm' || '' }}\n" in backend_job
     )
     assert "        image: postgres:16-bookworm\n" not in backend_job
-    assert (
-        "        image: public.ecr.aws/docker/library/postgres:16-bookworm\n"
-        not in backend_job
-    )
+    assert "        image: docker.io/library/postgres:16-bookworm\n" not in backend_job
     assert "          POSTGRES_DB: factuflow_integration_test\n" in backend_job
     assert "          POSTGRES_USER: factuflow_test\n" in backend_job
     assert "pg_isready -U factuflow_test -d factuflow_integration_test" in backend_job

@@ -1,4 +1,5 @@
 import type { FiscalDecimal } from "@/utils/fiscal-decimal";
+import type { LecturaHistorica } from "@/types/comprobante";
 
 /**
  * Servicio para generación de reportes
@@ -13,6 +14,7 @@ export interface ReporteVentas {
 }
 
 export interface ComprobanteReporte {
+  datos_historicos?: LecturaHistorica;
   cotizacion?: FiscalDecimal;
   moneda?: string | null;
   id: number;
@@ -49,6 +51,7 @@ export interface ReporteIVA {
 }
 
 export interface ComprobanteIVA {
+  datos_historicos?: LecturaHistorica;
   bases_acreditadas?: boolean;
   origen_bases?: string;
   sin_clasificacion?: FiscalDecimal | null;

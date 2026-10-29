@@ -130,6 +130,14 @@ body {
     width: 100%;
 }
 
+.history-notice {
+    border: 1.4px solid #111;
+    border-top: 0;
+    font-size: 8pt;
+    margin: 0;
+    padding: 1.5mm 3mm;
+}
+
 .period div {
     display: block;
     min-width: 0;

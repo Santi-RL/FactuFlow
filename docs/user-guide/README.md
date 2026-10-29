@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 08/10/2026
+Última actualización: 29/10/2026
 
 Este manual describe las capacidades aceptadas del producto, no el estado de una
 instalación concreta.
@@ -212,6 +212,18 @@ Datos habituales:
 - email y teléfono si corresponden
 
 ## 5. Comprobantes
+
+Al consultar un comprobante, FactuFlow conserva los datos originales del emisor
+y el punto cuando cuenta con evidencia verificable. Cambiar sus fichas después
+no cambia esa representación ni el número mostrado en PDF, QR o informes.
+«Datos originales incompletos» indica campos que no se conservaron; no se
+completan con datos nuevos. «Sin snapshot histórico» indica que se usan los
+datos de ficha actual, también identificados en el PDF.
+
+Si aparece «Datos históricos no verificados», podés consultar el comprobante
+y los informes, pero su PDF no está disponible. Consultá al responsable de la
+instalación. Este aviso no cambia la autorización, el CAE ni los importes y no
+requiere emitir otra vez.
 
 En `Comprobantes` puedes:
 - ver el listado de comprobantes emitidos

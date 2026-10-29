@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 16/10/2026
+Última revisión: 29/10/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -84,8 +84,8 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
   Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
   El primer corte P2 incorpora evidencia previa versionada y comparación pura;
-  el [segundo corte preparado](pf-04-lecturas-historicas-design.md) delimita las
-  lecturas históricas de emisor/punto, sin implementación. El cierre moderno
+  el [segundo corte](pf-04-lecturas-historicas-design.md) implementa las
+  lecturas históricas de emisor/punto. El cierre moderno
   conserva su continuación separada pendiente.
 - PF-09, implementación futura:
   [WSAA coordinado y caché cifrada](pf-09-wsaa-coordinacion-cache-design.md).

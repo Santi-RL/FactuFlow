@@ -1,7 +1,19 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
 
 import api from "@/services/api";
 import pdfService from "@/services/pdf.service";
+import { mensajeErrorPDF } from "@/services/pdf.service";
+import { createPinia, setActivePinia } from "pinia";
+import { useEmpresaStore } from "@/stores/empresa";
+import { AxiosError } from "axios";
 
 vi.mock("@/services/api", () => ({
   default: {
@@ -18,6 +30,8 @@ const originalRevokeObjectURL = window.URL.revokeObjectURL;
 
 describe("pdfService", () => {
   beforeEach(() => {
+    setActivePinia(createPinia());
+    useEmpresaStore().empresaActivaId = 1;
     vi.useFakeTimers();
     vi.clearAllMocks();
     mockedApi.get.mockResolvedValue({ data: new Uint8Array([37, 80, 68, 70]) });
@@ -75,6 +89,44 @@ describe("pdfService", () => {
     vi.advanceTimersByTime(1);
     expect(revokeObjectURLMock).toHaveBeenCalledWith("blob:factuflow-preview");
   });
+
+  it.each(["preview", "descarga"])(
+    "descarta %s de otro emisor antes de crear el archivo",
+    async (modo) => {
+      let resolver!: (value: unknown) => void;
+      mockedApi.get.mockReturnValue(
+        new Promise((resolve) => {
+          resolver = resolve;
+        }),
+      );
+      const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+      const solicitud =
+        modo === "preview"
+          ? pdfService.previsualizarPDF(42)
+          : pdfService.descargarAutomatico(42);
+      useEmpresaStore().empresaActivaId = 2;
+      resolver({ data: new Uint8Array([37, 80, 68, 70]) });
+      await expect(solicitud).rejects.toThrow("La empresa activa cambió");
+      expect(createObjectURLMock).not.toHaveBeenCalled();
+      expect(openSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it("explica el conflicto histórico sin mostrar el diagnóstico interno", async () => {
+    const error = new AxiosError();
+    error.response = {
+      status: 409,
+      data: { detail: "Datos históricos no verificados. material privado" },
+    } as never;
+    expect(await mensajeErrorPDF(error)).toBe(
+      "Datos históricos no verificados. El PDF no está disponible; consultá al responsable de la instalación.",
+    );
+    error.response = {
+      status: 409,
+      data: { detail: "otro diagnóstico privado" },
+    } as never;
+    expect(await mensajeErrorPDF(error)).not.toContain("privado");
+  });
 });
 
 function buildPreviewWindow(listeners: Map<string, EventListener>): Window {
@@ -91,7 +143,8 @@ function buildPreviewWindow(listeners: Map<string, EventListener>): Window {
 
 function restoreURLMethod(
   method: "createObjectURL" | "revokeObjectURL",
-  original: typeof window.URL.createObjectURL | typeof window.URL.revokeObjectURL,
+  original:
+    typeof window.URL.createObjectURL | typeof window.URL.revokeObjectURL,
 ): void {
   if (original) {
     Object.defineProperty(window.URL, method, {

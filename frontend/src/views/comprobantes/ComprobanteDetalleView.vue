@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
+import { mensajeErrorPDF } from "@/services/pdf.service";
 import {
   decimalEsPositivo,
   formatearDecimalFiscal,
@@ -117,37 +119,45 @@ const volver = () => {
 };
 
 const descargandoPDF = ref(false);
+const pdfNoDisponible = computed(
+  () => comprobante.value?.datos_historicos?.cobertura === "no_verificable",
+);
 
 const descargarPDF = async () => {
-  if (!comprobante.value) return;
+  if (!comprobante.value || pdfNoDisponible.value) return;
 
+  const empresaId = empresaStore.empresaActivaId;
+  const comprobanteId = comprobante.value.id;
+  const sigueVigente = () =>
+    empresaStore.empresaActivaId === empresaId &&
+    comprobante.value?.id === comprobanteId;
   descargandoPDF.value = true;
   try {
     const letra = obtenerLetraComprobante(comprobante.value.tipo_comprobante);
     const filename = `${tipoComprobanteNombre.value}_${letra}_${numeroCompleto.value}.pdf`;
     await pdfService.descargarAutomatico(comprobante.value.id, filename);
   } catch (error) {
-    console.error("Error al descargar PDF:", error);
-    showError(
-      "No se pudo descargar el PDF",
-      "Intentalo nuevamente en unos segundos. Si el problema sigue, revisa el estado del comprobante.",
-    );
+    const mensaje = await mensajeErrorPDF(error);
+    if (sigueVigente()) showError("No se pudo descargar el PDF", mensaje);
   } finally {
     descargandoPDF.value = false;
   }
 };
 
 const previsualizarPDF = async () => {
-  if (!comprobante.value) return;
+  if (!comprobante.value || pdfNoDisponible.value) return;
 
+  const empresaId = empresaStore.empresaActivaId;
+  const comprobanteId = comprobante.value.id;
   try {
     await pdfService.previsualizarPDF(comprobante.value.id);
   } catch (error) {
-    console.error("Error al previsualizar PDF:", error);
-    showError(
-      "No se pudo abrir el PDF",
-      "Intentalo nuevamente en unos segundos.",
-    );
+    const mensaje = await mensajeErrorPDF(error);
+    if (
+      empresaStore.empresaActivaId === empresaId &&
+      comprobante.value?.id === comprobanteId
+    )
+      showError("No se pudo abrir el PDF", mensaje);
   }
 };
 
@@ -182,7 +192,8 @@ const obtenerLetraComprobante = (tipo: number): string => {
         class="flex gap-2"
       >
         <button
-          class="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          class="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="pdfNoDisponible"
           @click="previsualizarPDF"
         >
           <svg
@@ -207,7 +218,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
           Ver PDF
         </button>
         <button
-          :disabled="descargandoPDF"
+          :disabled="descargandoPDF || pdfNoDisponible"
           class="inline-flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           @click="descargarPDF"
         >
@@ -236,6 +247,12 @@ const obtenerLetraComprobante = (tipo: number): string => {
       v-else-if="comprobante"
       class="space-y-6"
     >
+      <BaseCard v-if="comprobante.datos_historicos">
+        <HistoriaEmisor
+          :lectura="comprobante.datos_historicos"
+          detalle
+        />
+      </BaseCard>
       <!-- Información general -->
       <BaseCard>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">

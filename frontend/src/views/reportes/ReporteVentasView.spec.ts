@@ -88,6 +88,26 @@ describe("ReporteVentasView", () => {
     vi.clearAllMocks();
   });
 
+  it("retira las filas y su procedencia cuando se revoca el emisor", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const empresa = useEmpresaStore();
+    empresa.empresaActivaId = 1;
+    mockedReportesService.obtenerReporteVentas.mockResolvedValue(
+      reporteVentasMock("Receptor histórico sintético"),
+    );
+    const wrapper = mount(ReporteVentasView, { global: { plugins: [pinia] } });
+    await (
+      wrapper.vm as unknown as { generarReporte: () => Promise<void> }
+    ).generarReporte();
+    await flushPromises();
+    expect(wrapper.text()).toContain("Receptor histórico sintético");
+    empresa.empresaActivaId = null;
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("Receptor histórico sintético");
+    wrapper.unmount();
+  });
+
   it("separa filas y totales por moneda sin sumar pesos y dólares", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);

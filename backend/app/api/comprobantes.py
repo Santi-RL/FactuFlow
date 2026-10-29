@@ -38,6 +38,7 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceService,
 )
 from app.services.puntos_venta_arca_service import PuntosVentaArcaService
+from app.services.lecturas_historicas_service import cargar_lecturas_historicas
 from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
     IdempotenciaFiscalError,
@@ -568,7 +569,11 @@ async def listar_comprobantes(
     stmt = (
         select(Comprobante)
         .where(Comprobante.empresa_id == empresa_activa_id)
-        .options(joinedload(Comprobante.cliente), joinedload(Comprobante.punto_venta))
+        .options(
+            joinedload(Comprobante.cliente),
+            joinedload(Comprobante.punto_venta),
+            joinedload(Comprobante.empresa),
+        )
     )
 
     # Aplicar filtros
@@ -607,6 +612,7 @@ async def listar_comprobantes(
     # Ejecutar query
     result = await db.execute(stmt)
     comprobantes = result.scalars().all()
+    lecturas = await cargar_lecturas_historicas(db, comprobantes)
 
     # Mapear a response
     items = [
@@ -629,7 +635,8 @@ async def listar_comprobantes(
                 c.receptor_numero_documento
                 or (c.cliente.numero_documento if c.cliente else "N/A")
             ),
-            punto_venta_numero=c.punto_venta.numero if c.punto_venta else 0,
+            punto_venta_numero=lecturas[c.id].punto_venta_numero,
+            datos_historicos=lecturas[c.id],
         )
         for c in comprobantes
     ]
@@ -661,6 +668,7 @@ async def obtener_comprobante(
             joinedload(Comprobante.items),
             joinedload(Comprobante.cliente),
             joinedload(Comprobante.punto_venta),
+            joinedload(Comprobante.empresa),
         )
     )
 
@@ -674,6 +682,8 @@ async def obtener_comprobante(
             status_code=403,
             detail="El comprobante no pertenece a la empresa activa seleccionada",
         )
+
+    lectura = (await cargar_lecturas_historicas(db, [comprobante]))[comprobante.id]
 
     # Mapear items
     items = [
@@ -731,9 +741,8 @@ async def obtener_comprobante(
             comprobante.receptor_numero_documento
             or (comprobante.cliente.numero_documento if comprobante.cliente else None)
         ),
-        punto_venta_numero=(
-            comprobante.punto_venta.numero if comprobante.punto_venta else None
-        ),
+        punto_venta_numero=lectura.punto_venta_numero,
+        datos_historicos=lectura,
     )
 
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
 import { decimalEsDistintoDeCero } from "@/utils/fiscal-decimal";
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
@@ -172,16 +173,19 @@ onMounted(async () => {
 watch(
   () => empresaStore.empresaActivaId,
   async (empresaId, previousEmpresaId) => {
-    if (!empresaId || empresaId === previousEmpresaId) return;
+    if (empresaId === previousEmpresaId) return;
 
     const debeRegenerar = !!reporte.value;
+    generarReporteRequestId += 1;
+    loading.value = false;
     reporteCompleto.value = null;
     monedaElegida.value = "";
 
-    if (debeRegenerar) {
+    if (empresaId && debeRegenerar) {
       await generarReporte();
     }
   },
+  { flush: "sync" },
 );
 
 const resumenIVA = computed(() => {
@@ -450,6 +454,7 @@ const resumenTotales = computed(() => {
 
             <template #cell-numero="{ row }">
               <span class="font-mono text-xs">{{ row.numero_completo }}</span>
+              <HistoriaEmisor :lectura="row.datos_historicos" />
             </template>
 
             <template #cell-cuit_receptor="{ value }">

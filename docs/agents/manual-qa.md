@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 10/10/2026
+Última revisión: 29/10/2026
 
 Estado: VIGENTE.
 
@@ -56,6 +56,22 @@ la clasificación nacional indirecta se indique desconocida y el agregado se
 conserve. Renderizar las páginas y revisar código ordinario, código largo y
 decimales extensos: sin superposición, recortes ni datos perdidos; QR, CAE,
 fecha y moneda legibles. Una factura corriente debe conservar una página.
+
+### Identidad histórica de comprobantes
+
+Con datos sintéticos, consultar un autorizado con evidencia previa y cambiar
+después la ficha del emisor y el número del punto. Contrastar listado, detalle,
+dashboard, PDF, QR decodificado localmente, descarga y número completo de ventas
+e IVA: todos conservan la identidad original; CAE, fechas, receptor e importes
+siguen iguales. No visitar la URL del QR ni emitir para demostrar la lectura.
+
+Repetir con campos originales nulos, antecedente sin snapshot y evidencia
+alterada/cruzada. Los primeros muestran ausencia sin completar; el antecedente
+mantiene PDF disponible con procedencia actual indicada; el último conserva
+consultas e informes con aviso y bloquea sólo PDF/QR con mensaje accionable.
+Comprobar que otra empresa o una respuesta tardía no aporta datos, que la
+compactación conserva la lectura y que la identidad no cambia tras traslado v6.
+La cobertura de identidad no acredita bases IVA ni habilita recuperación.
 
 ### Instantes operativos y hora argentina
 

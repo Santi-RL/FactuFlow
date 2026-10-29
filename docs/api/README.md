@@ -460,6 +460,9 @@ define la lectura de bases y la separación nominal de monedas.
 
 ## Comprobantes
 
+Listado y detalle comparten la [identidad histórica de lectura](#identidad-histórica-en-lecturas)
+con PDF e informes, sin modificar los endpoints de emisión o recuperación.
+
 ```http
 GET /api/comprobantes/
 GET /api/comprobantes/{comprobante_id}
@@ -1086,6 +1089,27 @@ perfil como predeterminado, la API desmarca cualquier otro predeterminado del
 mismo emisor.
 
 ## PDF
+
+### Identidad histórica en lecturas
+
+Listado y detalle de comprobantes y filas de ventas/IVA incluyen el objeto
+aditivo `datos_historicos`, con `cobertura` (`completa`, `incompleta`, `ausente`,
+`no_verificable`), `origen` (`evidencia_previa`, `ficha_actual`), `emisor` y
+`punto_venta_numero`. No contiene documentos internos, hashes o identificadores
+de operaciones. No reemplaza `bases_acreditadas` ni `origen_bases`.
+
+Con evidencia verificable y vínculo inequívoco al autorizado se proyectan el
+emisor y el punto originales, sin completar campos nulos desde fichas actuales.
+Los campos existentes de punto/número completo, PDF, QR y descarga comparten
+esa identidad. Un antecedente sin snapshot conserva las fuentes y disponibilidad
+previas con cobertura `ausente`; no se clasifica por ello como legacy fiscal.
+La evidencia presente no verificable mantiene consultas e informes con origen
+actual explícito, pero descarga y preview responden `409` sanitizado sin generar
+PDF/QR. La autorización y el aislamiento por emisor siguen siendo previos.
+No modifica hechos fiscales ni habilita recuperación moderna.
+[Contrato PF-04/PF-02](../agents/pf-04-lecturas-historicas-design.md).
+
+### Descarga y preview
 
 ```http
 GET /api/pdf/comprobante/{comprobante_id}

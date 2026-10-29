@@ -1,9 +1,158 @@
 import { test, expect } from "@playwright/test";
 import { mockApi, loginAsAdmin } from "./helpers";
+import type { LecturaHistorica } from "../src/types/comprobante";
 
 /**
  * Tests E2E para emisión de comprobantes en FactuFlow
  */
+
+test.describe("Lecturas históricas de comprobantes", () => {
+  test.beforeEach(async ({ page }) => {
+    await mockApi(page);
+    // El doble común incluye paths legacy; la navegación de documento debe
+    // llegar al servidor Vite mientras las peticiones API siguen simuladas.
+    await page.route("**/comprobantes/901", (route) =>
+      route.request().isNavigationRequest()
+        ? route.continue()
+        : route.fallback(),
+    );
+  });
+  for (const cobertura of [
+    "completa",
+    "incompleta",
+    "ausente",
+    "no_verificable",
+  ] as const) {
+    test(`consulta con cobertura ${cobertura} sin emitir`, async ({
+      page,
+    }, testInfo) => {
+      const historia: LecturaHistorica = {
+        cobertura,
+        origen: ["ausente", "no_verificable"].includes(cobertura)
+          ? "ficha_actual"
+          : "evidencia_previa",
+        punto_venta_numero: 5,
+        emisor: {
+          cuit: "20123456789",
+          razon_social: ["ausente", "no_verificable"].includes(cobertura)
+            ? "Ficha actual sintética"
+            : "Emisor original sintético",
+          domicilio: null,
+          localidad: null,
+          provincia: null,
+          condicion_iva: null,
+          ingresos_brutos: null,
+          inicio_actividades: "2020-01-01",
+        },
+      };
+      await page.route("**/api/comprobantes/901", (route) =>
+        route.fulfill({
+          json: {
+            id: 901,
+            empresa_id: 1,
+            punto_venta_id: 1,
+            tipo_comprobante: 6,
+            concepto: 1,
+            numero: 7,
+            punto_venta_numero: 5,
+            fecha_emision: "2026-08-09",
+            subtotal: "100",
+            descuento: "0",
+            iva_21: "21",
+            iva_10_5: "0",
+            iva_27: "0",
+            otros_impuestos: "0",
+            total: "121",
+            moneda: "PES",
+            cotizacion: "1",
+            estado: "autorizado",
+            cae: "12345678901234",
+            cae_vencimiento: "2026-08-18",
+            items: [],
+            datos_historicos: historia,
+          },
+        }),
+      );
+      let solicitudesFiscales = 0;
+      page.on("request", (request) => {
+        if (
+          request.method() === "POST" &&
+          request.url().includes("/comprobantes/emitir")
+        )
+          solicitudesFiscales += 1;
+      });
+      await loginAsAdmin(page);
+      await page.goto("/comprobantes/901");
+      await expect(
+        page.getByRole("heading", { name: "Factura B 0005-00000007" }),
+      ).toBeVisible();
+      await expect(page.getByText(historia.emisor.razon_social!)).toBeVisible();
+      const descargar = page.getByRole("button", { name: "Descargar PDF" });
+      if (cobertura === "no_verificable") {
+        await expect(descargar).toBeDisabled();
+        await expect(
+          page.getByRole("button", { name: "Ver PDF" }),
+        ).toBeDisabled();
+        await expect(page.getByText(/El PDF no está disponible/)).toBeVisible();
+      } else {
+        await expect(descargar).toBeEnabled();
+      }
+      await page.screenshot({
+        path: testInfo.outputPath("historia.png"),
+        fullPage: true,
+      });
+      expect(solicitudesFiscales).toBe(0);
+    });
+  }
+
+  test("explica un conflicto histórico recibido al descargar", async ({
+    page,
+  }) => {
+    await page.route("**/api/comprobantes/901", (route) =>
+      route.fulfill({
+        json: {
+          id: 901,
+          empresa_id: 1,
+          punto_venta_id: 1,
+          tipo_comprobante: 6,
+          concepto: 1,
+          numero: 7,
+          punto_venta_numero: 5,
+          fecha_emision: "2026-08-09",
+          subtotal: "100",
+          total: "121",
+          descuento: "0",
+          iva_21: "21",
+          iva_10_5: "0",
+          iva_27: "0",
+          otros_impuestos: "0",
+          moneda: "PES",
+          cotizacion: "1",
+          estado: "autorizado",
+          items: [],
+        },
+      }),
+    );
+    await page.route("**/api/pdf/comprobante/901", (route) =>
+      route.fulfill({
+        status: 409,
+        json: {
+          detail:
+            "Datos históricos no verificados. Diagnóstico que no debe mostrarse.",
+        },
+      }),
+    );
+    await loginAsAdmin(page);
+    await page.goto("/comprobantes/901");
+    await page.getByRole("button", { name: "Descargar PDF" }).click();
+    await expect(
+      page.getByText(/El PDF no está disponible; consultá al responsable/),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Diagnóstico que no debe mostrarse/),
+    ).toHaveCount(0);
+  });
+});
 
 test.describe("Emisión de Comprobantes", () => {
   // Antes de cada test, simular login

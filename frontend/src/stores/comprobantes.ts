@@ -3,7 +3,7 @@
  */
 
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import comprobantesService, {
   type ListarComprobantesParams,
 } from "@/services/comprobantes.service";
@@ -37,6 +37,18 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   const error = ref<string | null>(null);
   let solicitudListarComprobantesId = 0;
   let solicitudObtenerComprobanteId = 0;
+  const empresaStore = useEmpresaStore();
+  watch(
+    () => empresaStore.empresaActivaId,
+    () => {
+      solicitudListarComprobantesId += 1;
+      comprobantes.value = [];
+      paginacion.value = crearPaginacionVacia();
+      error.value = null;
+      loading.value = false;
+    },
+    { flush: "sync" },
+  );
 
   const esSolicitudListarActual = (solicitudId: number) =>
     solicitudId === solicitudListarComprobantesId;
@@ -74,7 +86,7 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
         await comprobantesService.listar(params);
 
       if (!esSolicitudListarActual(solicitudId)) {
-        return response;
+        return undefined;
       }
 
       comprobantes.value = response.items;

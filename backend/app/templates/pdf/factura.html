@@ -15,13 +15,13 @@
             </div>
 
             <section class="header-cell left">
-                <h1 class="brand">{{ empresa.razon_social }}</h1>
-                <p class="field"><strong>Razón Social:</strong> {{ empresa.razon_social }}</p>
+                <h1 class="brand">{{ empresa.razon_social or "No informado" }}</h1>
+                <p class="field"><strong>Razón Social:</strong> {{ empresa.razon_social or "No informado" }}</p>
                 <p class="field">
                     <strong>Domicilio Comercial:</strong>
-                    {{ empresa.domicilio }}{% if empresa.localidad %} - {{ empresa.localidad }}{% endif %}{% if empresa.provincia %}, {{ empresa.provincia }}{% endif %}
+                    {{ empresa.domicilio or "No informado" }}{% if empresa.localidad %} - {{ empresa.localidad }}{% endif %}{% if empresa.provincia %}, {{ empresa.provincia }}{% endif %}
                 </p>
-                <p class="field"><strong>Condición frente al IVA:</strong> {{ empresa.condicion_iva }}</p>
+                <p class="field"><strong>Condición frente al IVA:</strong> {{ empresa.condicion_iva or "No informado" }}</p>
             </section>
 
             <section class="header-cell right">
@@ -37,6 +37,9 @@
             </section>
         </section>
 
+        {% if aviso_historia %}
+        <p class="history-notice">{{ aviso_historia }}</p>
+        {% endif %}
         <section class="period">
             <div><strong>Período Facturado Desde:</strong> {{ comprobante.fecha_servicio_desde | fecha_ar }}</div>
             <div><strong>Hasta:</strong> {{ comprobante.fecha_servicio_hasta | fecha_ar }}</div>

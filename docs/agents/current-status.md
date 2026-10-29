@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 16/10/2026.
+Última revisión: 29/10/2026.
 
 Estado: VIGENTE.
 
@@ -53,11 +53,12 @@ incorpora evidencia previa versionada e inmutable para intentos nuevos,
 verificación durable antes de CAE, lector/comparador puros y traslado v6 con
 compatibilidad v3/v4/v5. No habilita recuperación moderna ni corrige todavía
 las lecturas históricas del emisor; ambas continuaciones conservan su alcance.
-El [segundo corte preparado](pf-04-lecturas-historicas-design.md), aún sin
-implementar, delimita emisor y punto originales en PDF/QR, comprobantes e informes,
+El [segundo corte](pf-04-lecturas-historicas-design.md) implementa la lectura
+de emisor y punto originales en PDF/QR, comprobantes e informes,
 cobertura antigua explícita y la contención aceptada de PDF/QR ante evidencia
 presente no verificable. Reutiliza el vínculo del intento y no abre recuperación
-moderna ni cambia la compactación o el traslado vigentes.
+moderna ni cambia la compactación o el traslado vigentes. La continuación de
+Ahora 1 requiere preparar primero el cierre moderno individual, antes del masivo.
 
 El orden y alcance macro se toman exclusivamente de
 [`ROADMAP.md`](../../ROADMAP.md); el inventario y dependencias están en el

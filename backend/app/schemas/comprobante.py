@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from app.core.date_parsing import parse_fecha_input
 from app.core.comprobante_totales import calcular_totales
 from app.core.fiscal_storage import validate_storage_request
+from app.schemas.lectura_historica import LecturaHistorica
 
 # ==================== Items ====================
 
@@ -262,6 +263,7 @@ class ComprobanteDetalleResponse(ComprobanteResponse):
 
     # Datos del punto de venta
     punto_venta_numero: Optional[int] = None
+    datos_historicos: LecturaHistorica | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -287,6 +289,7 @@ class ComprobanteListResponse(BaseModel):
 
     # Datos del punto de venta
     punto_venta_numero: int
+    datos_historicos: LecturaHistorica | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

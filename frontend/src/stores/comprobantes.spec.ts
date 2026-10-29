@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import comprobantesService from "@/services/comprobantes.service";
 import { useComprobantesStore } from "@/stores/comprobantes";
+import { useEmpresaStore } from "@/stores/empresa";
 import type {
   ComprobanteDetalle,
   ComprobanteListItem,
@@ -131,6 +132,25 @@ describe("comprobantes store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+  });
+
+  it("retira la identidad histórica al revocar el emisor y descarta respuestas tardías", async () => {
+    const empresa = useEmpresaStore();
+    empresa.empresaActivaId = 1;
+    const store = useComprobantesStore();
+    store.comprobantes = [comprobanteListItemMock(1)];
+    const tardia = crearDiferido<PaginatedComprobantesResponse>();
+    mockedComprobantesService.listar.mockReturnValue(tardia.promise);
+    const carga = store.listarComprobantes(
+      {},
+      { conservarResultadosEnError: true },
+    );
+    empresa.empresaActivaId = null;
+    expect(store.comprobantes).toEqual([]);
+    tardia.resolve(paginaComprobantesMock([comprobanteListItemMock(2)]));
+    expect(await carga).toBeUndefined();
+    expect(store.comprobantes).toEqual([]);
+    expect(store.error).toBeNull();
   });
 
   it("limpia el comprobante actual si falla una carga de detalle", async () => {
