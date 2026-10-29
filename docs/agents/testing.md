@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 16/10/2026
+Última revisión: 29/10/2026
 
 Estado: VIGENTE.
 
@@ -132,10 +132,11 @@ sobre las instaladas dentro de la imagen.
 El control usa Node, disponible por `setup-node`, y falla si el log no se puede
 leer. Los tests de scripts verifican logs limpios, advertencias y lectura fallida.
 
-Los servicios PostgreSQL de CI y las bases Node/Nginx del build de CI se
-descargan desde `public.ecr.aws/docker/library`, la publicación de imágenes
-oficiales Docker en Amazon ECR Public. Esto evita depender del acceso a Docker
-Hub en los runners, sin credenciales nuevas ni cambios en versiones o gates.
+Los servicios PostgreSQL de CI usan la imagen oficial
+`docker.io/library/postgres:16-bookworm`. Los runners alojados por GitHub están
+exentos del límite de descargas públicas de Docker Hub; no se agregan credenciales.
+Las bases Node/Nginx del build de CI conservan `public.ecr.aws/docker/library`,
+la publicación de imágenes oficiales Docker en Amazon ECR Public.
 El Dockerfile conserva Docker Hub como origen predeterminado fuera de CI;
 `IMAGE_REGISTRY` cambia únicamente el registro de sus bases. Al cambiar ese
 origen, contrastar los digests de las etiquetas con las imágenes oficiales y

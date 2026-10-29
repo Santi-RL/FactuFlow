@@ -151,11 +151,11 @@ separadas, con autoridad en el plano de control.
 
 ### Descarga de imágenes en CI
 
-- Los servicios PostgreSQL y las bases Node/Nginx de CI usan las imágenes
-  oficiales Docker publicadas en Amazon ECR Public para evitar los errores de
-  límite de descargas y autenticación de Docker Hub en los runners. Se conservan
-  versiones y comprobaciones; el build fuera de CI sigue usando Docker Hub
-  por defecto y no cambia ninguna instalación productiva.
+- Los servicios PostgreSQL 16-bookworm de CI usan Docker Hub ante el bloqueo
+  por cuota de Amazon ECR Public. Sus manifiestos oficiales se contrastan sin
+  cambiar versión ni comprobaciones; las bases Node/Nginx de CI conservan ECR
+  Public. El build fuera de CI sigue usando Docker Hub por defecto y no cambia
+  ninguna instalación productiva.
 
 ### Fidelidad del receptor PF-13
 
