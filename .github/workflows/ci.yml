@@ -237,7 +237,7 @@ jobs:
         run: |
           set -o pipefail
           docker build --progress=plain --build-arg VITE_API_URL=/api \
-            --build-arg IMAGE_REGISTRY=public.ecr.aws/docker/library \
+            --build-arg IMAGE_REGISTRY=docker.io/library \
             -t factuflow-frontend-ci . 2>&1 | tee "$RUNNER_TEMP/frontend-docker-build.log"
           node --input-type=module - "$RUNNER_TEMP/frontend-docker-build.log" <<'NODE'
           import { readFileSync } from 'node:fs';

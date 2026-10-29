@@ -132,19 +132,17 @@ sobre las instaladas dentro de la imagen.
 El control usa Node, disponible por `setup-node`, y falla si el log no se puede
 leer. Los tests de scripts verifican logs limpios, advertencias y lectura fallida.
 
-Los servicios PostgreSQL de CI usan la imagen oficial
-`docker.io/library/postgres:16-bookworm`. Los runners alojados por GitHub están
-exentos del límite de descargas públicas de Docker Hub; no se agregan credenciales.
-Las bases Node/Nginx del build de CI conservan `public.ecr.aws/docker/library`,
-la publicación de imágenes oficiales Docker en Amazon ECR Public.
+Los servicios PostgreSQL de CI y las bases Node/Nginx de su build usan las
+imágenes oficiales de `docker.io/library`, conservando las etiquetas definidas
+en el workflow y el Dockerfile. Los runners alojados por GitHub están exentos
+del límite de descargas públicas de Docker Hub; no se agregan credenciales.
 El Dockerfile conserva Docker Hub como origen predeterminado fuera de CI;
 `IMAGE_REGISTRY` cambia únicamente el registro de sus bases. Al cambiar ese
 origen, contrastar los digests de las etiquetas con las imágenes oficiales y
 comprobar PostgreSQL, build, Nginx y smoke. La disponibilidad de un registro
 externo no está garantizada; sus fallos deben mantenerse visibles.
 
-Fuentes: [publicación oficial en ECR](https://aws.amazon.com/blogs/containers/docker-official-images-now-available-on-amazon-elastic-container-registry-public/)
-y [límites documentados de los runners GitHub](https://docs.github.com/en/actions/reference/limits#docker-hubs-rate-limit-for-github-actions).
+Fuente: [límites documentados de los runners GitHub](https://docs.github.com/en/actions/reference/limits#docker-hubs-rate-limit-for-github-actions).
 
 Desde `frontend/`:
 
