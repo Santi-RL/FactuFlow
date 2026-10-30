@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 29/10/2026
+Última revisión: 30/10/2026
 
 Estado: VIGENTE.
 
@@ -22,6 +22,13 @@ producto.
 Un PF puede contener cortes distintos: la prioridad corresponde al resultado
 concreto, y el horizonte no convierte toda la línea en una dependencia previa.
 La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
+
+La [puerta previa de release y migración](../../ROADMAP.md#puerta-previa-de-release-y-migración)
+precede al siguiente corte. Reutiliza los controles PF-16 y los contratos
+operativos PF-11/PF-15 aplicables al rango aceptado, sin convertir sus
+evoluciones futuras en requisitos del corte ni alterar las prioridades de
+esta tabla. El dossier conserva la evidencia; el plano de control acredita
+la operación productiva.
 
 | Línea | Estado | Prioridad | Resultado buscado | Dependencias / detalle |
 |---|---|---|---|---|

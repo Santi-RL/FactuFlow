@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 29/10/2026.
+Última revisión: 30/10/2026.
 
 Estado: VIGENTE.
 
@@ -46,7 +46,16 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 otra release ni acredita una instalación. Versiones, comandos y políticas de
 pruebas se consultan en sus archivos dueños y en [testing](testing.md).
 
-## PF-04/PF-02: punto de continuación
+## Siguiente unidad: release y migración
+
+Cerrar y verificar el mantenimiento de dependencias autorizado. Preparar
+después la próxima release del código aceptado y completar su migración a
+producción antes de implementar otro corte del roadmap. El alcance y las
+puertas se toman de la [prioridad acordada](../../ROADMAP.md#puerta-previa-de-release-y-migración)
+y del [flujo de producción](production-workflow.md). La integración de
+dependencias no constituye una release ni acredita un despliegue.
+
+## PF-04/PF-02: continuación tras la release
 
 El [primer corte PF-04/PF-02](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
 incorpora evidencia previa versionada e inmutable para intentos nuevos,
@@ -83,7 +92,8 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de la unidad concreta.
+2. Leer `VISION.md` y la puerta previa de release y migración del roadmap;
+   retomar Ahora 1 y su diseño sólo después de cerrar esa puerta.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el

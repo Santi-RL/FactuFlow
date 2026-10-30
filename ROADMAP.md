@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 15/10/2026
+Última revisión: 30/10/2026
 
 Estado: VIGENTE.
 
@@ -42,6 +42,17 @@ reparaciones fiscales preservan la comparación y recuperación aceptadas: cada 
 puede integrarse al cumplir su contrato y sus checks, sin esperar una reparación
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.
+
+### Puerta previa de release y migración
+
+Preparar y publicar la próxima release con el código aceptado y completar
+su migración a producción antes de implementar nuevos cortes del roadmap.
+El rango, las evidencias, el ensayo y la recuperación se documentan en el
+dossier del corte, aplicando la [puerta adicional de release](docs/agents/change-quality-gates.md#puerta-adicional-de-release)
+y el [flujo de producción](docs/agents/production-workflow.md). La operación
+productiva se ejecuta por SHA inmutable y se acredita en su plano de control.
+Esta puerta conserva las prioridades y el orden relativo de las líneas
+siguientes; no exige completar iniciativas ajenas al rango aceptado.
 
 ### 1. PF-04/PF-02 — evidencia y reconciliación integral
 
