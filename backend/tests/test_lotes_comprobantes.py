@@ -4737,10 +4737,14 @@ class _FechaFiscalControlada(date):
 
 @pytest.fixture(autouse=True)
 def _controlar_reloj_fecha_fiscal(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Fija el reloj de facturación sin omitir su validación de ventana ARCA."""
+    """Fija los relojes fiscal y técnico sin omitir las validaciones de ARCA."""
     monkeypatch.setattr(
         "app.services.facturacion_service.date",
         _FechaFiscalControlada,
+    )
+    monkeypatch.setattr(
+        "app.services.puntos_venta_arca_service.PuntosVentaArcaService._obtener_ahora",
+        lambda self: self._ahora or datetime(2026, 8, 9, 12, 0, 0),
     )
 
 
