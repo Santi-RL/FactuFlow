@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 29/10/2026
+Última revisión: 30/10/2026
 
 Estado: VIGENTE.
 
@@ -41,6 +41,9 @@ modifican archivos y no se usan como verificaciones pasivas.
 La CI debe finalizar sin advertencias: ESLint aplica `--max-warnings 0` y
 pytest convierte warnings en errores mediante `filterwarnings = error`.
 Corregir la causa; no desactivar reglas ni añadir filtros para ocultarla.
+El presupuesto del trabajo backend incluye la instalación y la suite completa;
+su límite se define en el workflow. Conservar los casos, los umbrales y los
+parámetros de seguridad al ajustar ese presupuesto.
 La auditoría de npm abarca dependencias productivas y de desarrollo.
 La auditoría Python usa `pip-audit -r requirements-dev.txt`, que también incluye
 las dependencias productivas. Las herramientas de pruebas y formato conservan
@@ -71,6 +74,9 @@ pytest tests/ruta_relevante.py -k caso_relevante -q
 
 Las pruebas deben usar fechas explícitas y datos sintéticos. Ninguna suite
 normal llama a ARCA real ni solicita CAE.
+Al sembrar una comprobación técnica con fecha fija, controlar también el reloj
+que mide su antigüedad. Los ensayos específicos de vencimiento conservan sus
+relojes y límites; no cambiar ventanas productivas para estabilizar las suites.
 `pytest-asyncio` gestiona un único ciclo de eventos de sesión, tanto para pruebas
 como para fixtures, mediante `pytest.ini`; conserva el alcance anterior sin
 redefinir la fixture retirada `event_loop`. El aislamiento de datos sigue siendo
