@@ -41,15 +41,14 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 | Respaldo | PF-11/PF-15 conserva evidencia externa y señal administrativa de Sistema; cobertura actual desconocida. No garantiza un respaldo actual ni crea otro journal. [Contrato](pf-11-15-recuperacion-trazabilidad-design.md) |
 
 `main` incluye el mantenimiento posterior descrito en
-[`CHANGELOG.md > Unreleased`](../../CHANGELOG.md#unreleased) y su
-[análisis](../project/analysis/dependencias-2026-10.md). No constituye por sí solo
+[`CHANGELOG.md > Unreleased`](../../CHANGELOG.md#unreleased), con antecedentes
+en el [análisis](../project/analysis/dependencias-2026-10.md). No constituye por sí solo
 otra release ni acredita una instalación. Versiones, comandos y políticas de
 pruebas se consultan en sus archivos dueños y en [testing](testing.md).
 
 ## Siguiente unidad: release y migración
 
-Cerrar y verificar el mantenimiento de dependencias autorizado. Preparar
-después la próxima release del código aceptado y completar su migración a
+Preparar la próxima release del código aceptado y completar su migración a
 producción antes de implementar otro corte del roadmap. El alcance y las
 puertas se toman de la [prioridad acordada](../../ROADMAP.md#puerta-previa-de-release-y-migración)
 y del [flujo de producción](production-workflow.md). La integración de

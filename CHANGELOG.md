@@ -52,9 +52,9 @@ Reglas vigentes desde 2026-05-22:
   de modo que actualizar un entorno existente tampoco retenga versiones
   vulnerables; se conservan los contratos de sus dependencias padre.
 - Formato: Black 26.10.1, sin cambios de estilo en los archivos existentes.
-- Frontend: Vite 8.2.4 y su bundler Rolldown 1.2.16; transitivas
+- Frontend: Vite 8.3.5 y su bundler Rolldown 1.2.16; transitivas
   follow-redirects 1.16.2 y undici 8.12.3 en el lockfile, sin nuevos overrides.
-  Mantiene Node/npm, Axios, Vue, Vitest y los umbrales de auditoría y cobertura.
+  Mantiene Node/npm, Axios, Vue y los umbrales de auditoría y cobertura.
 - Las versiones corrigen las alertas conocidas detectadas por las auditorías
   completas de npm y Python; no modifican el alcance fiscal, las prioridades
   ni producción.
@@ -72,12 +72,16 @@ Reglas vigentes desde 2026-05-22:
   `NullPool` para archivos y `StaticPool` para memoria, también por URI.
   El inventario PF-19 mantiene solo lectura y restaura su protección previa;
   sus pruebas cubren conexión reutilizada, salida normal y fallo.
-- Lint: ESLint 10.12.0 y @eslint/js 10.0.1 en una migración conjunta, con
+- Lint: ESLint 10.13.0 y @eslint/js 10.0.1 en una migración conjunta, con
   reglas recomendadas vigentes y cero warnings. Los errores de acceso conservan
   su causa interna y los mismos mensajes públicos, sin cambiar autenticación.
-- API: FastAPI 0.143.0, conservando autenticación, contratos HTTP, validaciones
+- Migraciones: Alembic 1.20.1 y separación nativa de rutas explícita,
+  conservando el grafo, las revisiones y las protecciones de evidencia y traslado.
+- Contraseñas: bcrypt 5.0.0, con hashes históricos, UTF-8, costo 12 y límites
+  de entrada vigentes; sin migrar credenciales ni regenerar hashes.
+- API: FastAPI 0.162.0, conservando autenticación, contratos HTTP, validaciones
   e idempotencia; sin activar configuración automática de telemetría.
-- Pruebas del frontend: Vitest y coverage-v8 5.0.3, con los mismos umbrales
+- Pruebas del frontend: Vitest y coverage-v8 5.0.5, con los mismos umbrales
   globales y ensayo real de rechazo/aceptación de cobertura.
 - PostgreSQL: psycopg2-binary 2.9.13 para herramientas síncronas y traslado de
   datos, conservando asyncpg en las sesiones asíncronas y los contratos fiscales.
@@ -87,8 +91,8 @@ Reglas vigentes desde 2026-05-22:
 - Pruebas del backend: pytest 9.1.1 y pytest-asyncio 1.4.0, conservando el
   ciclo de eventos de sesión, warnings como errores y la puerta de cobertura.
   La guía local explicita UTF-8 en Windows para los mensajes de subprocesos.
-- Plugins de lint del frontend: eslint-plugin-vue 10.11.1 y typescript-eslint
-  8.71.1, conservados en la migración conjunta a ESLint 10.
+- Plugins de lint del frontend: eslint-plugin-vue 10.12.0 y typescript-eslint
+  8.72.1, compatibles con las reglas vigentes de ESLint 10.
 
 ## [0.3.8] — 10/10/2026
 
