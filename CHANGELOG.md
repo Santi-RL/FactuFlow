@@ -61,6 +61,10 @@ Reglas vigentes desde 2026-05-22:
 
 ### Mantenimiento de herramientas
 
+- Las pruebas de lotes y reintentos controlan también el reloj técnico de
+  comprobación de puntos de venta, para que su evidencia sintética no venza
+  con el calendario del runner. Conservan la vigencia productiva de 90 días
+  y sus ensayos de límite.
 - Base de datos: SQLAlchemy 2.1.4 con pools SQLite explícitos, conservando
   `NullPool` para archivos y `StaticPool` para memoria, también por URI.
   El inventario PF-19 mantiene solo lectura y restaura su protección previa;

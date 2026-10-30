@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 29/10/2026
+Última revisión: 30/10/2026
 
 Estado: VIGENTE.
 
@@ -71,6 +71,9 @@ pytest tests/ruta_relevante.py -k caso_relevante -q
 
 Las pruebas deben usar fechas explícitas y datos sintéticos. Ninguna suite
 normal llama a ARCA real ni solicita CAE.
+Al sembrar una comprobación técnica con fecha fija, controlar también el reloj
+que mide su antigüedad. Los ensayos específicos de vencimiento conservan sus
+relojes y límites; no cambiar ventanas productivas para estabilizar las suites.
 `pytest-asyncio` gestiona un único ciclo de eventos de sesión, tanto para pruebas
 como para fixtures, mediante `pytest.ini`; conserva el alcance anterior sin
 redefinir la fixture retirada `event_loop`. El aislamiento de datos sigue siendo
