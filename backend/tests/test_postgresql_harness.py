@@ -192,7 +192,7 @@ def test_ci_backend_conserva_job_y_habilita_postgres_solo_en_pytest() -> None:
     )[0]
 
     assert "    name: Backend Tests\n" in backend_job
-    assert "    timeout-minutes: 30\n" in backend_job
+    assert "    timeout-minutes: 45\n" in backend_job
     assert (
         "        image: ${{ needs.scope.outputs.runtime == 'true' && "
         "'docker.io/library/postgres:16-bookworm' || '' }}\n" in backend_job

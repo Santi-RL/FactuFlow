@@ -41,6 +41,9 @@ modifican archivos y no se usan como verificaciones pasivas.
 La CI debe finalizar sin advertencias: ESLint aplica `--max-warnings 0` y
 pytest convierte warnings en errores mediante `filterwarnings = error`.
 Corregir la causa; no desactivar reglas ni añadir filtros para ocultarla.
+El presupuesto del trabajo backend incluye la instalación y la suite completa;
+su límite se define en el workflow. Conservar los casos, los umbrales y los
+parámetros de seguridad al ajustar ese presupuesto.
 La auditoría de npm abarca dependencias productivas y de desarrollo.
 La auditoría Python usa `pip-audit -r requirements-dev.txt`, que también incluye
 las dependencias productivas. Las herramientas de pruebas y formato conservan
