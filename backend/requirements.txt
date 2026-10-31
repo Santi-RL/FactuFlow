@@ -28,7 +28,7 @@ Pillow==13.0.0
 # Excel export
 openpyxl==3.1.2
 # PDF parsing
-pypdf==6.21.2
+pypdf==6.21.4
 
 # Security floors for transitive runtime dependencies, including in-place upgrades.
 anyio>=4.14.2
