@@ -20,6 +20,12 @@ de `docs/project/releases/`.
 Su alcance, compatibilidad, evidencia de publicación y recuperación se conservan en
 el [dossier de v0.3.8](docs/project/releases/v0.3.8-candidate.md).
 
+La próxima candidata es `v0.3.9`: evidencia previa e identidad histórica
+PF-04/PF-02 y mantenimiento de dependencias. Su
+[dossier de preparación](docs/project/releases/v0.3.9-candidate.md) reúne
+alcance, compatibilidad, pruebas y ensayo de recuperación. La publicación más
+reciente continúa siendo `v0.3.8`.
+
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
 
