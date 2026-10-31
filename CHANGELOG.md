@@ -18,6 +18,8 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+Preparación de `v0.3.9`: [alcance, compatibilidad y evidencia del corte](docs/project/releases/v0.3.9-candidate.md).
+
 ### Lecturas históricas PF-04/PF-02
 
 - Comprobantes, PDF/QR y reportes de ventas e IVA usan el emisor y el punto
