@@ -46,14 +46,16 @@ Reglas vigentes desde 2026-05-22:
 
 ### Correcciones de seguridad de dependencias
 
-- PDF y QR: Pillow 13.0.0 y pypdf 6.21.2, conservando la lectura de constancias,
+- PDF y QR: Pillow 13.0.0 y pypdf 6.21.4, conservando la lectura de constancias,
   los datos fiscales guardados y la representación histórica PF-04/PF-02.
 - Se fijan mínimos de seguridad para transitivas Python de ejecución y pruebas,
   de modo que actualizar un entorno existente tampoco retenga versiones
   vulnerables; se conservan los contratos de sus dependencias padre.
 - Formato: Black 26.10.1, sin cambios de estilo en los archivos existentes.
 - Frontend: Vite 8.3.5 y su bundler Rolldown 1.2.16; transitivas
-  follow-redirects 1.16.2 y undici 8.12.3 en el lockfile, sin nuevos overrides.
+  follow-redirects 1.16.2 y undici 8.12.3 en el lockfile.
+  Las herramientas fijan glob 14.0.2 y minimatch 11.0.1 mediante overrides de
+  seguridad, conservando los consumidores y la configuración de lint.
   Mantiene Node/npm, Axios, Vue y los umbrales de auditoría y cobertura.
 - Las versiones corrigen las alertas conocidas detectadas por las auditorías
   completas de npm y Python; no modifican el alcance fiscal, las prioridades
