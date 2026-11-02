@@ -14,9 +14,9 @@ autoriza producción.
 
 ## Índice
 
-- [`v0.3.9-candidate.md`](v0.3.9-candidate.md): preparación de evidencia previa
+- [`v0.3.9-candidate.md`](v0.3.9-candidate.md): publicación de evidencia previa
   e identidad histórica PF-04/PF-02, mantenimiento, migración y recuperación;
-  publicación y despliegue conservan sus operaciones separadas.
+  CI y cierre de publicación separados de la operación productiva.
 - [`v0.3.8-candidate.md`](v0.3.8-candidate.md): publicación de persistencia fiel,
   lecturas por moneda, receptor/importes P1, recuperación legacy, PDF y protección
   de acceso/sesiones; compatibilidad, ensayo y cierre documental operativo,
