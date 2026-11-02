@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 31/10/2026.
+Última revisión: 01/11/2026.
 
 Estado: VIGENTE.
 
@@ -11,12 +11,10 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.8`. El
-  [dossier](../project/releases/v0.3.8-candidate.md)
-  conserva publicación, ensayo, QA contable y límites del corte.
-- Los productores técnicos y visibles de la próxima candidata usan `0.3.9`.
-  Su [dossier](../project/releases/v0.3.9-candidate.md) conserva alcance,
-  compatibilidad, evidencias y puertas de publicación y despliegue.
+- La release publicada más reciente es `v0.3.9`; los productores técnicos y
+  visibles usan `0.3.9`. Su [dossier](../project/releases/v0.3.9-candidate.md)
+  conserva publicación, compatibilidad, CI, ensayo y QA contable. La publicación
+  no determina ni modifica el estado desplegado.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.
@@ -43,21 +41,22 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 | Acceso y recuperación | Presupuesto de login previo a bcrypt, recuperación asistida y sesiones nuevas vinculadas a la credencial verificada, con compatibilidad legacy. [SC-08](sc-08-login-recuperacion-design.md), [SC-11](sc-11-login-reset-design.md) |
 | Respaldo | PF-11/PF-15 conserva evidencia externa y señal administrativa de Sistema; cobertura actual desconocida. No garantiza un respaldo actual ni crea otro journal. [Contrato](pf-11-15-recuperacion-trazabilidad-design.md) |
 
-`main` incluye el mantenimiento posterior descrito en
-[`CHANGELOG.md > Unreleased`](../../CHANGELOG.md#unreleased), con antecedentes
-en el [análisis](../project/analysis/dependencias-2026-10.md). No constituye por sí solo
-otra release ni acredita una instalación. Versiones, comandos y políticas de
-pruebas se consultan en sus archivos dueños y en [testing](testing.md).
+El mantenimiento publicado se resume en la sección `v0.3.9` del
+[`CHANGELOG.md`](../../CHANGELOG.md), con antecedentes en el
+[análisis](../project/analysis/dependencias-2026-10.md). No acredita una instalación.
+Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
+en [testing](testing.md).
 
-## Siguiente unidad: release y migración
+## Siguiente unidad: preflight y migración
 
-Continuar con la candidata `v0.3.9` del código aceptado y completar su migración a
-producción antes de implementar otro corte del roadmap. El alcance y las
-puertas se toman de la [prioridad acordada](../../ROADMAP.md#puerta-previa-de-release-y-migración)
-y del [flujo de producción](production-workflow.md). La integración de
-dependencias no constituye una release ni acredita un despliegue.
+Preparar el preflight y completar la migración de `v0.3.9` a producción antes de
+implementar otro corte del roadmap, con autorización productiva separada.
+El alcance y las puertas se toman de la
+[prioridad acordada](../../ROADMAP.md#puerta-previa-de-release-y-migración)
+y del [flujo de producción](production-workflow.md). La release publicada no
+acredita un despliegue; se opera únicamente sobre el SHA inmutable aprobado.
 
-## PF-04/PF-02: continuación tras la release
+## PF-04/PF-02: continuación tras la migración
 
 El [primer corte PF-04/PF-02](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
 incorpora evidencia previa versionada e inmutable para intentos nuevos,

@@ -18,7 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-Preparación de `v0.3.9`: [alcance, compatibilidad y evidencia del corte](docs/project/releases/v0.3.9-candidate.md).
+## [0.3.9] - 01/11/2026
+
+Publicada sobre `e4e6c168f302f66794aa9f779d1a82ed668f3210`, sin desplegar por esta
+operación. [Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.9) y
+[alcance, compatibilidad y evidencia del corte](docs/project/releases/v0.3.9-candidate.md).
 
 ### Lecturas históricas PF-04/PF-02
 

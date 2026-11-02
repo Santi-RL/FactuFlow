@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 30/10/2026
+Última revisión: 01/11/2026
 
 Estado: VIGENTE.
 
@@ -45,8 +45,8 @@ P1 que afectan sus consumidores.
 
 ### Puerta previa de release y migración
 
-Preparar y publicar la próxima release con el código aceptado y completar
-su migración a producción antes de implementar nuevos cortes del roadmap.
+Completar el preflight y la migración a producción de la release publicada,
+por su SHA inmutable, antes de implementar nuevos cortes del roadmap.
 El rango, las evidencias, el ensayo y la recuperación se documentan en el
 dossier del corte, aplicando la [puerta adicional de release](docs/agents/change-quality-gates.md#puerta-adicional-de-release)
 y el [flujo de producción](docs/agents/production-workflow.md). La operación
