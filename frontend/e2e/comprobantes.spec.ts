@@ -87,6 +87,11 @@ test.describe("Lecturas históricas de comprobantes", () => {
         page.getByRole("heading", { name: "Factura B 0005-00000007" }),
       ).toBeVisible();
       await expect(page.getByText(historia.emisor.razon_social!)).toBeVisible();
+      await expect(
+        page.getByText(
+          /Sin snapshot histórico|Datos de ficha actual|Datos originales (conservados|incompletos)|Datos históricos no verificados/,
+        ),
+      ).toHaveCount(0);
       const descargar = page.getByRole("button", { name: "Descargar PDF" });
       if (cobertura === "no_verificable") {
         await expect(descargar).toBeDisabled();
@@ -151,6 +156,7 @@ test.describe("Lecturas históricas de comprobantes", () => {
     await expect(
       page.getByText(/Diagnóstico que no debe mostrarse/),
     ).toHaveCount(0);
+    await expect(page.getByText(/Datos históricos no verificados/)).toHaveCount(0);
   });
 });
 

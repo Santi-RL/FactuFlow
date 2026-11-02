@@ -27,28 +27,59 @@ describe("HistoriaEmisor", () => {
         detalle: true,
       },
     });
-    expect(wrapper.text()).toContain("Datos originales incompletos");
+    expect(wrapper.text()).not.toContain("Datos originales incompletos");
     expect(wrapper.text()).toContain("Emisor original sintético");
     expect(wrapper.text()).toContain("No informado");
     expect(wrapper.text()).toContain("03/02/2020");
     expect(wrapper.text()).not.toContain("ficha actual");
   });
 
-  it.each(["ausente", "no_verificable"] as const)(
-    "indica origen actual con cobertura %s",
+  it.each(["completa", "incompleta", "ausente", "no_verificable"] as const)(
+    "conserva los datos con cobertura %s sin leyendas técnicas",
     (cobertura) => {
       const wrapper = mount(HistoriaEmisor, {
         props: {
-          lectura: { ...historiaSintetica, cobertura, origen: "ficha_actual" },
+          lectura: {
+            ...historiaSintetica,
+            cobertura,
+            origen:
+              cobertura === "ausente" || cobertura === "no_verificable"
+                ? "ficha_actual"
+                : "evidencia_previa",
+          },
           detalle: true,
         },
       });
-      expect(wrapper.text()).toContain("Datos de ficha actual");
+      expect(wrapper.text()).toContain("Emisor original sintético");
+      expect(wrapper.text()).not.toMatch(
+        /snapshot|ficha actual|datos originales|datos históricos no verificados/i,
+      );
       if (cobertura === "no_verificable")
         expect(wrapper.text()).toContain("El PDF no está disponible");
-      else expect(wrapper.text()).toContain("Sin snapshot histórico");
+      else expect(wrapper.text()).not.toContain("El PDF no está disponible");
     },
   );
+
+  it.each(["completa", "incompleta", "ausente"] as const)(
+    "no muestra avisos en filas con cobertura %s",
+    (cobertura) => {
+      const wrapper = mount(HistoriaEmisor, {
+        props: { lectura: { ...historiaSintetica, cobertura } },
+      });
+      expect(wrapper.text()).toBe("");
+    },
+  );
+
+  it("explica el PDF bloqueado también en filas compactas", () => {
+    const wrapper = mount(HistoriaEmisor, {
+      props: {
+        lectura: { ...historiaSintetica, cobertura: "no_verificable" },
+      },
+    });
+    expect(wrapper.text()).toBe(
+      "El PDF no está disponible; consultá al responsable de la instalación.",
+    );
+  });
 
   it("escapa textos y oculta avisos innecesarios en filas con cobertura completa", () => {
     const lectura = {

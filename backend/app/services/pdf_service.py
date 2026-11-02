@@ -106,7 +106,6 @@ class PDFService:
             "tipo_codigo": self._get_codigo_comprobante(comprobante.tipo_comprobante),
             "concepto_nombre": self._get_nombre_concepto(comprobante.concepto),
             "punto_venta_str": f"{lectura.punto_venta_numero:04d}",
-            "aviso_historia": lectura.aviso,
             "numero_str": f"{comprobante.numero:08d}",
             "empresa_cuit": "".join(filter(str.isdigit, empresa.cuit or "")),
             "receptor_documento": receptor_display["documento"],

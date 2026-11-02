@@ -1103,9 +1103,12 @@ emisor y el punto originales, sin completar campos nulos desde fichas actuales.
 Los campos existentes de punto/número completo, PDF, QR y descarga comparten
 esa identidad. Un antecedente sin snapshot conserva las fuentes y disponibilidad
 previas con cobertura `ausente`; no se clasifica por ello como legacy fiscal.
-La evidencia presente no verificable mantiene consultas e informes con origen
-actual explícito, pero descarga y preview responden `409` sanitizado sin generar
-PDF/QR. La autorización y el aislamiento por emisor siguen siendo previos.
+La cobertura y el origen se conservan en los metadatos de lectura; la interfaz
+habitual y el PDF no incluyen leyendas técnicas de procedencia. La evidencia
+presente no verificable mantiene consultas e informes, pero descarga y preview
+responden `409` sanitizado sin generar PDF/QR; la web muestra sólo el mensaje
+accionable de indisponibilidad. La autorización y el aislamiento por emisor
+siguen siendo previos.
 No modifica hechos fiscales ni habilita recuperación moderna.
 [Contrato PF-04/PF-02](../agents/pf-04-lecturas-historicas-design.md).
 

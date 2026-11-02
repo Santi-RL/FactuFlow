@@ -18,6 +18,13 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Presentación de comprobantes
+
+- Se retiran las leyendas técnicas de cobertura histórica y procedencia del
+  PDF, listado, detalle, dashboard e informes. Se conservan los metadatos y la
+  evidencia interna, los datos fiscales y el bloqueo de PDF/QR ante evidencia
+  inválida, con un mensaje accionable para la persona usuaria.
+
 ## [0.3.9] - 01/11/2026
 
 Publicada sobre `e4e6c168f302f66794aa9f779d1a82ed668f3210`, sin desplegar por esta

@@ -3,12 +3,6 @@ import type { LecturaHistorica } from "@/types/comprobante";
 import { formatearFecha } from "@/composables/useFormatters";
 
 defineProps<{ lectura?: LecturaHistorica; detalle?: boolean }>();
-const avisos = {
-  completa: "Datos originales conservados",
-  incompleta: "Datos originales incompletos",
-  ausente: "Sin snapshot histórico",
-  no_verificable: "Datos históricos no verificados",
-};
 </script>
 
 <template>
@@ -17,24 +11,12 @@ const avisos = {
     class="text-xs font-sans font-normal whitespace-normal"
   >
     <p
-      v-if="detalle || lectura.cobertura !== 'completa'"
-      :class="
-        lectura.cobertura === 'no_verificable'
-          ? 'text-amber-800'
-          : 'text-gray-600'
-      "
+      v-if="lectura.cobertura === 'no_verificable'"
+      class="text-amber-800"
     >
-      {{ avisos[lectura.cobertura]
-      }}<span v-if="lectura.origen === 'ficha_actual'">
-        · Datos de ficha actual</span>
+      El PDF no está disponible; consultá al responsable de la instalación.
     </p>
     <template v-if="detalle">
-      <p
-        v-if="lectura.cobertura === 'no_verificable'"
-        class="text-amber-800 mt-1"
-      >
-        El PDF no está disponible; consultá al responsable de la instalación.
-      </p>
       <dl class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
         <div>
           <dt class="inline font-medium">

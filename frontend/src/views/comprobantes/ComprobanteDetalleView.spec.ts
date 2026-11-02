@@ -101,7 +101,8 @@ describe("ComprobanteDetalleView, historia fiscal", () => {
 
   it("mantiene la consulta y bloquea sólo los botones PDF ante evidencia inválida", async () => {
     const wrapper = await cargar("no_verificable");
-    expect(wrapper.text()).toContain("Datos históricos no verificados");
+    expect(wrapper.text()).not.toContain("Datos históricos no verificados");
+    expect(wrapper.text()).not.toContain("Datos de ficha actual");
     expect(wrapper.text()).toContain("consultá al responsable");
     const botones = wrapper
       .findAll("button")
@@ -114,15 +115,30 @@ describe("ComprobanteDetalleView, historia fiscal", () => {
     wrapper.unmount();
   });
 
-  it("conserva PDF disponible para antecedentes sin snapshot", async () => {
-    const wrapper = await cargar("ausente");
-    expect(wrapper.text()).toContain("Sin snapshot histórico");
-    const boton = wrapper
-      .findAll("button")
-      .find((b) => b.text().includes("Descargar PDF"))!;
-    expect(boton.attributes("disabled")).toBeUndefined();
-    wrapper.unmount();
-  });
+  it.each(["completa", "incompleta", "ausente"] as const)(
+    "conserva descarga y preview para cobertura %s sin avisos técnicos",
+    async (cobertura) => {
+      const wrapper = await cargar(cobertura);
+      expect(wrapper.text()).not.toMatch(
+        /snapshot|ficha actual|datos originales|datos históricos no verificados/i,
+      );
+      const botones = wrapper
+        .findAll("button")
+        .filter((b) => b.text().includes("PDF"));
+      expect(botones).toHaveLength(2);
+      expect(botones.every((b) => b.attributes("disabled") === undefined)).toBe(
+        true,
+      );
+      for (const boton of botones) await boton.trigger("click");
+      await flushPromises();
+      expect(pdfService.previsualizarPDF).toHaveBeenCalledWith(1);
+      expect(pdfService.descargarAutomatico).toHaveBeenCalledWith(
+        1,
+        expect.stringContaining("0005-00000007.pdf"),
+      );
+      wrapper.unmount();
+    },
+  );
 
   it("descarta una consulta tardía al revocar el emisor", async () => {
     let resolver!: (comp: ComprobanteDetalle) => void;

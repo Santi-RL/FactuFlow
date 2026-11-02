@@ -20,7 +20,7 @@ export async function mensajeErrorPDF(error: unknown): Promise<string> {
       typeof data?.detail === "string" &&
       data.detail.startsWith("Datos históricos no verificados.")
     ) {
-      return "Datos históricos no verificados. El PDF no está disponible; consultá al responsable de la instalación.";
+      return "El PDF no está disponible; consultá al responsable de la instalación.";
     }
   }
   return "No se pudo obtener el PDF. Intentá nuevamente y, si el problema continúa, consultá al responsable de la instalación.";
