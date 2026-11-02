@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 30/10/2026.
+Última revisión: 31/10/2026.
 
 Estado: VIGENTE.
 
@@ -11,9 +11,12 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.8`; los productores técnicos y
-  visibles usan `0.3.8`. El [dossier](../project/releases/v0.3.8-candidate.md)
+- La release publicada más reciente es `v0.3.8`. El
+  [dossier](../project/releases/v0.3.8-candidate.md)
   conserva publicación, ensayo, QA contable y límites del corte.
+- Los productores técnicos y visibles de la próxima candidata usan `0.3.9`.
+  Su [dossier](../project/releases/v0.3.9-candidate.md) conserva alcance,
+  compatibilidad, evidencias y puertas de publicación y despliegue.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.
@@ -48,7 +51,7 @@ pruebas se consultan en sus archivos dueños y en [testing](testing.md).
 
 ## Siguiente unidad: release y migración
 
-Preparar la próxima release del código aceptado y completar su migración a
+Continuar con la candidata `v0.3.9` del código aceptado y completar su migración a
 producción antes de implementar otro corte del roadmap. El alcance y las
 puertas se toman de la [prioridad acordada](../../ROADMAP.md#puerta-previa-de-release-y-migración)
 y del [flujo de producción](production-workflow.md). La integración de

@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 30/10/2026
+Última revisión: 31/10/2026
 
 Estado: VIGENTE.
 
@@ -207,6 +207,9 @@ la operación productiva.
 - PF-16/PF-17, P3, después del primer release de duplicados: completar las
   comprobaciones adicionales de zoom real al 200 % y lector de pantalla del
   diálogo, y corregir detalles visuales menores sin impacto operativo o fiscal.
+  Incluye el favicon que aún apunta a un recurso inexistente y la separación
+  ajustada de etiquetas de condición IVA/domicilio del receptor en PDF,
+  observados en el ensayo sintético de la próxima release.
   Incluye aclarar el resumen y la atribución de emisiones coincidentes todavía
   en curso, preservando su bloqueo.
   También unificar el estado del DTO cuando coexisten una coincidencia
