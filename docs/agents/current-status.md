@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 01/11/2026.
+Última revisión: 02/11/2026.
 
 Estado: VIGENTE.
 
@@ -47,14 +47,13 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: preflight y migración
+## Siguiente unidad: corte del parche de presentación
 
-Preparar el preflight y completar la migración de `v0.3.9` a producción antes de
-implementar otro corte del roadmap, con autorización productiva separada.
-El alcance y las puertas se toman de la
-[prioridad acordada](../../ROADMAP.md#puerta-previa-de-release-y-migración)
-y del [flujo de producción](production-workflow.md). La release publicada no
-acredita un despliegue; se opera únicamente sobre el SHA inmutable aprobado.
+Decidir el corte de release de la corrección de presentación antes de retomar
+capacidades del roadmap. Publicación y despliegue conservan decisiones separadas
+y las puertas del [flujo de producción](production-workflow.md). El estado de la
+instalación se consulta en el plano de control; no se deduce de la release ni de
+este handoff. La preparación PF-04/PF-02 y su orden relativo se conservan.
 
 ## PF-04/PF-02: continuación tras la migración
 
@@ -65,9 +64,11 @@ compatibilidad v3/v4/v5. No habilita recuperación moderna ni corrige todavía
 las lecturas históricas del emisor; ambas continuaciones conservan su alcance.
 El [segundo corte](pf-04-lecturas-historicas-design.md) implementa la lectura
 de emisor y punto originales en PDF/QR, comprobantes e informes,
-cobertura antigua explícita y la contención aceptada de PDF/QR ante evidencia
-presente no verificable. Reutiliza el vínculo del intento y no abre recuperación
-moderna ni cambia la compactación o el traslado vigentes. La continuación de
+cobertura antigua en los metadatos internos y la contención aceptada de PDF/QR
+ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
+leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
+vínculo del intento y no abre recuperación moderna ni cambia la compactación
+o el traslado vigentes. La continuación de
 Ahora 1 requiere preparar primero el cierre moderno individual, antes del masivo.
 
 El orden y alcance macro se toman exclusivamente de

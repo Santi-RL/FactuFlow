@@ -67,8 +67,10 @@ siguen iguales. No visitar la URL del QR ni emitir para demostrar la lectura.
 
 Repetir con campos originales nulos, antecedente sin snapshot y evidencia
 alterada/cruzada. Los primeros muestran ausencia sin completar; el antecedente
-mantiene PDF disponible con procedencia actual indicada; el último conserva
-consultas e informes con aviso y bloquea sólo PDF/QR con mensaje accionable.
+mantiene PDF disponible y cobertura/procedencia en los metadatos; el último
+conserva consultas e informes y bloquea sólo PDF/QR con mensaje accionable.
+Verificar que listado, detalle, dashboard, informes y PDF no muestran leyendas
+técnicas de cobertura o procedencia. La clasificación interna permanece intacta.
 Comprobar que otra empresa o una respuesta tardía no aporta datos, que la
 compactación conserva la lectura y que la identidad no cambia tras traslado v6.
 La cobertura de identidad no acredita bases IVA ni habilita recuperación.

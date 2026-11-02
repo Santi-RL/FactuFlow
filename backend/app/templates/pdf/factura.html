@@ -37,9 +37,6 @@
             </section>
         </section>
 
-        {% if aviso_historia %}
-        <p class="history-notice">{{ aviso_historia }}</p>
-        {% endif %}
         <section class="period">
             <div><strong>Período Facturado Desde:</strong> {{ comprobante.fecha_servicio_desde | fecha_ar }}</div>
             <div><strong>Hasta:</strong> {{ comprobante.fecha_servicio_hasta | fecha_ar }}</div>

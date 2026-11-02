@@ -1,6 +1,6 @@
 # PF-04/PF-02 — lecturas históricas de emisor y punto de venta
 
-Fecha: 15/10/2026. Última revisión: 29/10/2026.
+Fecha: 15/10/2026. Última revisión: 02/11/2026.
 
 Estado: segundo corte implementado. Prioridad P2 fiscal, dentro de Ahora 1.
 Implementación de nivel 2; recuperación moderna pendiente y separada.
@@ -18,7 +18,7 @@ siguen siendo hechos persistidos, no el resultado de recalcular una solicitud.
 
 Incluye listado y detalle de comprobantes; PDF descargado y preview; identidad
 del QR y nombre de descarga; número completo en ventas e IVA; consumidores web
-de esas respuestas y una indicación breve de cobertura histórica. No agrega
+de esas respuestas y cobertura histórica en los metadatos de lectura. No agrega
 endpoints, acciones administrativas, confirmaciones ni consultas fiscales.
 
 Se excluyen recuperación moderna individual/masiva, reconstrucción o vínculo de
@@ -38,7 +38,7 @@ grupos en su preparación posterior, según el diseño integral.
 | `api/comprobantes.py` | Listado y detalle usan el número actual del punto; aplicar una proyección común después de seleccionar la página |
 | `PDFService` / `api/pdf.py` / template | Emisor, CUIT, punto del encabezado, QR y descarga usan relaciones actuales; deben consumir la misma proyección histórica |
 | `ReportesService` | Ventas e IVA usan el punto actual; cambiar sólo identidad/procedencia, conservando importes, signos, moneda y bases A-03 |
-| Web de comprobantes, dashboard y reportes | Reutilizar número devuelto y presentar cobertura; conservar permisos, descarte de respuestas de otro emisor y contratos numéricos |
+| Web de comprobantes, dashboard y reportes | Reutilizar número devuelto y conservar cobertura interna; mostrar sólo el mensaje accionable cuando el PDF está bloqueado, conservando permisos, descarte de respuestas de otro emisor y contratos numéricos |
 | `LoteComprobantesService.compactar_lote` / almacenamiento | Compactan filas detalladas, conservando grupos y resumen; demostrar que la fuente histórica y su vínculo sobreviven |
 | Traslado v6 | Conserva evidencia de intentos incluidos y vínculos terminales; demostrar lectura equivalente tras traslado sin modificar formatos congelados |
 
@@ -79,8 +79,8 @@ presente no verificable no se resuelven eligiendo la primera.
 | Cobertura | Conducta |
 |---|---|
 | V1 verificable y atribuible | Usar emisor y punto originales. Si un dato de presentación era nulo, mostrar su ausencia sin enriquecerlo |
-| Sin snapshot | Conservar la lectura y disponibilidad previas, incluidas las fuentes legacy actuales que ya se usan; indicar que los datos del emisor/punto no tienen snapshot acreditado |
-| Evidencia presente no verificable | Consultas e informes disponibles con aviso; no generar PDF ni QR desde esa fuente ni sustituirla silenciosamente por fichas actuales |
+| Sin snapshot | Conservar la lectura y disponibilidad previas, incluidas las fuentes legacy actuales que ya se usan; registrar cobertura y procedencia en los metadatos internos |
+| Evidencia presente no verificable | Consultas e informes disponibles con mensaje accionable sobre el PDF bloqueado; no generar PDF ni QR desde esa fuente ni atribuir originalidad a datos de fichas actuales |
 
 La ausencia puede corresponder a un antecedente, importación externa o cobertura
 parcial: **no prueba antigüedad ni habilita clasificación legacy**. Esta lectura
@@ -90,25 +90,27 @@ al usuario una alteración ni tratarla como snapshot ausente.
 
 ## Decisión de producto e interfaz
 
-Santi aceptó el 15/10/2026 mantener consultas e informes con aviso y rechazar
-únicamente PDF/QR cuando la evidencia esté alterada, cruzada o contradiga al
-comprobante. Los antecedentes sin snapshot conservan la operación previa con
-cobertura indicada. Esta es una contención concreta para una representación
-fiscal no verificable, no un requisito de reparación periódica de antecedentes.
+Santi aceptó el 15/10/2026 mantener consultas e informes y rechazar únicamente
+PDF/QR cuando la evidencia esté alterada, cruzada o contradiga al comprobante.
+El 02/11/2026 autorizó retirar las leyendas de cobertura y procedencia de la
+interfaz habitual y del PDF, conservando la trazabilidad interna y los bloqueos.
+Los antecedentes sin snapshot conservan la operación previa. Esta es una
+contención concreta para una representación fiscal no verificable, no un
+requisito de reparación periódica de antecedentes.
 
 Metadatos aditivos de lectura: cobertura y origen de emisor/punto, separados de
 `bases_acreditadas` y `origen_bases`. No exponer JSON, hashes, IDs de operación,
 guardas o diagnósticos internos. Las claves y tipos existentes conservan su
 contrato; con fuente válida, el número visible corresponde al histórico.
-En una fila no verificable, no presentar un valor de ficha actual como acreditado:
-identificar su procedencia y advertirlo en la presentación. Conteos e importes
-del informe siguen disponibles y sin cambios.
+En una fila no verificable, los metadatos conservan su procedencia y cobertura;
+la interfaz no atribuye originalidad a los valores de ficha actual. Conteos e
+importes del informe siguen disponibles y sin cambios.
 
-La web y el PDF deben expresar «Datos originales incompletos», «Sin snapshot
-histórico» o «Datos históricos no verificados» según corresponda, con lenguaje
-administrativo y sin mostrar versiones o hashes. No agregar modales ni pasos.
-En antecedentes sin snapshot, el PDF indica que usa datos de ficha actual
-cuando los utilice; esa leyenda no acredita su originalidad.
+La web habitual y el PDF no muestran leyendas técnicas de cobertura o
+procedencia, incluidas las referencias a snapshot, ficha actual o datos
+originales incompletos. La clasificación, el origen, el vínculo y la evidencia
+se conservan internamente y en el contrato aditivo de lectura, sin backfill ni
+alteración de hashes. No agregar modales ni pasos.
 Ante fuente no verificable, la API PDF responde conflicto 409 sanitizado y la
 web explica que el PDF no está disponible y que se consulte al responsable de
 la instalación. La guarda existente de autorizado/CAE y el aislamiento siguen
@@ -177,7 +179,7 @@ eliminación de reservas ni cambios de producción.
 |---|---|
 | A/B/C y notas soportadas; cambio de razón social, CUIT, domicilio, IVA, ingresos brutos, inicio y número del punto | PDF/QR/descarga, lista/detalle e informes conservan emisor/punto originales; demás hechos fiscales iguales |
 | Campos originales nulos | Ausencia explícita, sin completar desde ficha actual ni inventar condición/fecha |
-| Legacy, PF-05 y traslado antiguo sin snapshot | Misma disponibilidad previa, cobertura explícita; sin nueva clasificación fiscal ni backfill |
+| Legacy, PF-05 y traslado antiguo sin snapshot | Misma disponibilidad previa, cobertura explícita en metadatos y sin leyendas técnicas en PDF/UI; sin nueva clasificación fiscal ni backfill |
 | Hash/JSON/versión inválidos, vínculo cruzado, doble fuente y contradicción con comprobante/CAE | Aviso en consultas e informes; PDF y QR bloqueados con 409 sanitizado; estados e importes intactos |
 | Igual número en dos emisores/ambientes; cambio de emisor durante carga y permiso revocado | Ninguna fuente, respuesta tardía o mensaje filtra datos de otro emisor; autorización vigente respetada |
 | Individual, bloque, camino alternativo y retries; lote aún parcial con autorización persistida | Misma proyección para comprobantes ya autorizados; sin esperar un cierre adicional del lote ni tocar su grafo |
@@ -215,7 +217,8 @@ Listado, detalle y filas de ventas/IVA incorporan `datos_historicos`: cobertura
 o `ficha_actual`, emisor y `punto_venta_numero`. Los campos existentes de punto
 consumen esa misma proyección. `bases_acreditadas` y `origen_bases` mantienen su
 contrato separado. PDF, QR y nombre de descarga comparten identidad; el PDF
-indica la cobertura incompleta o el uso de ficha actual cuando corresponde.
+no incluye leyendas de cobertura o procedencia. La UI conserva únicamente el
+mensaje accionable de indisponibilidad del PDF ante evidencia no verificable.
 
 El lector contrasta los hechos de identidad y autorización conservados, sin
 recálculos, locks fiscales o consultas a ARCA. Compactación y traslado conservan

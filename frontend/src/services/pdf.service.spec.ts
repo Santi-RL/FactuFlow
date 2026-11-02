@@ -119,7 +119,7 @@ describe("pdfService", () => {
       data: { detail: "Datos históricos no verificados. material privado" },
     } as never;
     expect(await mensajeErrorPDF(error)).toBe(
-      "Datos históricos no verificados. El PDF no está disponible; consultá al responsable de la instalación.",
+      "El PDF no está disponible; consultá al responsable de la instalación.",
     );
     error.response = {
       status: 409,

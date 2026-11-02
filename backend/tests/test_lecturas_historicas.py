@@ -23,6 +23,7 @@ from app.services.facturacion_service import FacturacionService
 from app.services.lecturas_historicas_service import (
     HistoriaNoVerificableError,
     cargar_lecturas_historicas,
+    lectura_actual,
     proyectar_original,
 )
 from app.services.pdf_service import PDFService
@@ -468,6 +469,44 @@ async def test_lectura_y_error_preservan_todas_las_filas(historia, db_session):
             lectura.model_copy(update={"cobertura": "no_verificable"}),
         )
     assert before == await snapshot()
+
+
+@pytest.mark.parametrize("cobertura", ["completa", "incompleta", "ausente"])
+async def test_pdf_sin_leyendas_conserva_identidad_y_trazabilidad(
+    historia, db_session, cobertura
+):
+    comps, _ = historia
+    comp = comps[0]
+    lectura = (await cargar_lecturas_historicas(db_session, comps))[comp.id]
+    if cobertura == "ausente":
+        lectura = lectura_actual(comp)
+    elif cobertura == "incompleta":
+        lectura = lectura.model_copy(
+            update={
+                "cobertura": cobertura,
+                "emisor": lectura.emisor.model_copy(update={"domicilio": None}),
+            }
+        )
+    metadata = lectura.model_dump()
+    aviso = lectura.aviso
+    pdf = await PDFService().generar_pdf_comprobante(comp, comp.empresa, lectura)
+    documento = PdfReader(BytesIO(pdf))
+    assert len(documento.pages) == 1
+    texto = " ".join(documento.pages[0].extract_text().split())
+    for leyenda in (
+        "Sin snapshot histórico",
+        "Datos de ficha actual",
+        "Datos originales incompletos",
+        "Datos originales conservados",
+    ):
+        assert leyenda not in texto
+    assert lectura.emisor.razon_social in texto
+    assert f"{lectura.punto_venta_numero:04d}" in texto
+    assert f"{comp.numero:08d}" in texto
+    assert comp.fecha_emision.strftime("%d/%m/%Y") in texto
+    assert comp.cae in texto
+    assert lectura.model_dump() == metadata
+    assert lectura.aviso == aviso
 
 
 @pytest.mark.parametrize("caso", ["version", "json", "contexto", "fecha", "parcial"])
