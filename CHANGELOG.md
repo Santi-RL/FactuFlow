@@ -20,8 +20,10 @@ Reglas vigentes desde 2026-05-22:
 
 ## [0.3.11] - 03/11/2026
 
-Corte preparado, todavía sin tag ni release publicada.
-[Alcance, compatibilidad y evidencia](docs/project/releases/v0.3.11-candidate.md).
+Publicada sobre `e42cc8d11217234b7f8aba3770ea483f8b26a373`, sin desplegar por esta
+operación. [Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.11),
+alcance, compatibilidad y evidencia en el
+[dossier](docs/project/releases/v0.3.11-candidate.md).
 
 ### Pruebas y CI
 
