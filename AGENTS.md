@@ -61,6 +61,15 @@
   separadores de miles como si fueran cantidades.
 - Esta regla rige los cambios nuevos; las inconsistencias existentes se corrigen
   según el pendiente PF-17/PF-13 del roadmap, sin adelantarlo por cuenta propia.
+- El PDF en pesos (`PES`) omite el bloque visible de moneda y cotización;
+  ambos datos se conservan en almacenamiento, API, evidencia y QR.
+- Si se implementa facturación en dólares u otra moneda extranjera, el
+  comprobante debe identificar la moneda y mostrar el tipo de cambio utilizado.
+  La obligación de consignar ese tipo de cambio surge de la RG 1415/2003,
+  Anexo II, apartado A, título III, inciso d), sustituido por el
+  [artículo 1 de la RG 5616/2024](https://biblioteca.arca.gob.ar/search/query/norma.aspx?p=t:RAG%7Cn:5616%7Co:9%7Ca:2024%7Cf:17/12/2024).
+  Revalidar la norma al implementar esa capacidad; esta regla no la incorpora
+  al alcance actual ni autoriza su desarrollo.
 
 ## Invariantes fiscales
 

@@ -1131,6 +1131,10 @@ genérico accionable; no devuelven excepciones, rutas internas ni credenciales.
 El diagnóstico técnico queda en registros privados. La autorización y el alcance
 por emisor se comprueban antes de generar el documento.
 
+El bloque visible de moneda y cotización se omite sólo para `PES`; se conserva
+para las demás monedas. No cambia los campos de la API, la evidencia, los
+valores almacenados ni `moneda`/`ctz` del QR.
+
 A discrimina el IVA guardado por alícuota; B muestra «IVA Contenido» y el bloque
 de transparencia fiscal. No se reconstruyen bases ni se corrigen importes
 históricos. Otros tributos sin clasificación no se atribuyen a impuestos

@@ -488,6 +488,7 @@ class TestPDFService:
     ):
         """Debe generar un PDF válido."""
         # Este test requiere que weasyprint esté instalado y configurado
+        payload_qr = pdf_service._generar_qr_payload_arca(comprobante_mock)
         pdf_bytes = await pdf_service.generar_pdf_comprobante(
             comprobante_mock, empresa_mock
         )
@@ -502,19 +503,29 @@ class TestPDFService:
         assert "03/02/2026" in texto
         assert "90.750,00" in texto
         assert comprobante_mock.cae in texto
-        assert "PES" in texto
-        assert "Cotización conservada" in texto
+        assert "Moneda:" not in texto
+        assert "Cotización conservada:" not in texto
+        assert comprobante_mock.moneda == "PES"
+        assert comprobante_mock.cotizacion == 1
+        assert payload_qr["moneda"] == "PES" and payload_qr["ctz"] == 1
+        assert pdf_service._generar_qr_payload_arca(comprobante_mock) == payload_qr
 
+    @pytest.mark.parametrize("moneda", ["DOL", "XXX"])
     async def test_pdf_divisa_conserva_moneda_y_cotizacion(
-        self, pdf_service, comprobante_mock, empresa_mock
+        self, pdf_service, comprobante_mock, empresa_mock, moneda
     ):
-        comprobante_mock.moneda = "DOL"
+        comprobante_mock.moneda = moneda
         comprobante_mock.cotizacion = Decimal("1500.123456")
+        payload_qr = pdf_service._generar_qr_payload_arca(comprobante_mock)
         contenido = await pdf_service.generar_pdf_comprobante(
             comprobante_mock, empresa_mock
         )
         documento = PdfReader(BytesIO(contenido))
         assert len(documento.pages) == 1
         texto = documento.pages[0].extract_text()
-        assert "DOL" in texto and "1500,123456" in texto
+        assert f"Moneda: {moneda}" in texto
+        assert "Cotización conservada: 1500,123456" in texto
         assert "90.750,00" in texto
+        assert comprobante_mock.moneda == moneda
+        assert comprobante_mock.cotizacion == Decimal("1500.123456")
+        assert pdf_service._generar_qr_payload_arca(comprobante_mock) == payload_qr

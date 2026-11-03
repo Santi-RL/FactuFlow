@@ -316,6 +316,9 @@ Si el comprobante está autorizado, verás:
   al comprobante original; no se recalculan al descargar.
 - Si otros tributos históricos no tienen clasificación, el PDF lo indica y
   conserva el agregado en «Importe Otros Tributos».
+- En comprobantes en pesos no se muestra el bloque de moneda y cotización.
+  Si un comprobante guardado está expresado en otra moneda, conserva esos datos
+  visibles. Los valores originales no cambian al descargar.
 
 - El PDF no se genera automáticamente al emitir.
 - Se genera bajo demanda cuando usas `Ver PDF` o `Descargar PDF`.
@@ -902,8 +905,9 @@ Ventas, IVA y ranking muestran una moneda por vez. Si el período contiene varia
 podés cambiar `Moneda del reporte` para consultar sus filas, totales y posiciones.
 Cada moneda tiene un ranking independiente; no se suman pesos con dólares ni se
 convierten importes automáticamente. El total del ranking corresponde a los
-clientes mostrados. La lista, el detalle y el PDF identifican la moneda nominal;
-detalle y PDF incluyen la cotización conservada al emitir.
+clientes mostrados. La lista y el detalle identifican la moneda nominal; el
+detalle incluye la cotización guardada. El PDF omite ese bloque en pesos y lo
+conserva para comprobantes guardados en otras monedas.
 
 Las bases de IVA se obtienen del detalle guardado y se contrastan con los
 importes del comprobante. Si la historia no permite acreditarlas, se indica

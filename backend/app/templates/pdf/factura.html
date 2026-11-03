@@ -55,7 +55,11 @@
                 </tr>
                 <tr>
                     <td><strong>Condición de venta:</strong> Contado</td>
-                    <td><strong>Moneda:</strong> {{ comprobante.moneda }} · <strong>Cotización conservada:</strong> {{ comprobante.cotizacion | cantidad_ar }}</td>
+                    <td>
+                        {% if comprobante.moneda != "PES" %}
+                        <strong>Moneda:</strong> {{ comprobante.moneda }} · <strong>Cotización conservada:</strong> {{ comprobante.cotizacion | cantidad_ar }}
+                        {% endif %}
+                    </td>
                 </tr>
             </table>
         </section>
