@@ -4,27 +4,21 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-El repositorio prepara `v0.3.11`: PDF en pesos sin el bloque visible de moneda
-y cotización, junto con el mantenimiento de CI ya aceptado. No incorpora
-migraciones, dependencias ni capacidades del roadmap. Su
-[dossier](docs/project/releases/v0.3.11-candidate.md) distingue validaciones,
-publicación y despliegue.
+Versión publicada más reciente: `v0.3.11`
 
-Versión publicada más reciente: `v0.3.10`
+[GitHub Release v0.3.11](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.11)
 
-[GitHub Release v0.3.10](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.10)
-
-`v0.3.10` corrige la presentación de comprobantes: PDF y consultas omiten las
-leyendas técnicas, conservando trazabilidad interna y bloqueos por evidencia
-inválida. No incorpora nuevas migraciones ni dependencias. El tag inmutable
-apunta a `4965d8dc666566480c7913b3aa991d27a57b292c`; la publicación no
-determina ni modifica el estado desplegado.
+`v0.3.11` omite el bloque visible de moneda y cotización en el PDF en pesos,
+conservando los datos, la evidencia y el QR. Incluye el mantenimiento de CI
+aceptado, sin nuevas migraciones, dependencias ni capacidades del roadmap.
+El tag inmutable apunta a `e42cc8d11217234b7f8aba3770ea483f8b26a373`;
+la publicación no determina ni modifica el estado desplegado.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
 Su alcance, compatibilidad, evidencia de publicación y recuperación se conservan en
-el [dossier de v0.3.10](docs/project/releases/v0.3.10-candidate.md).
+el [dossier de v0.3.11](docs/project/releases/v0.3.11-candidate.md).
 
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
