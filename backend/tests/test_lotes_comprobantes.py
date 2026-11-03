@@ -14589,13 +14589,28 @@ async def test_reconciliacion_local_rechaza_intento_incierto_del_grupo(
     )
 
 
-@pytest.mark.asyncio
-async def test_reconciliacion_local_rechaza_payload_drift(
-    db_session: AsyncSession,
-    test_empresa,
-    test_punto_venta,
+class _SesionProhibidaComparacion:
+    """Impide introducir consultas en una comparación fiscal pura."""
+
+    def __getattr__(self, name: str):
+        raise RuntimeError(f"La comparación pura no debe acceder a la base: {name}")
+
+
+@pytest.fixture
+def contexto_comparacion_local():
+    """Identidades transitorias por caso, sin usuario, conexiones ni escrituras."""
+    return (
+        _SesionProhibidaComparacion(),
+        Empresa(id=1),
+        PuntoVenta(id=1, numero=1, empresa_id=1),
+    )
+
+
+def test_reconciliacion_local_rechaza_payload_drift(
+    contexto_comparacion_local,
 ) -> None:
     """La reconciliación local exige que la huella fiscal completa coincida."""
+    db_session, test_empresa, test_punto_venta = contexto_comparacion_local
     request_original = EmitirComprobanteRequest.model_validate(
         {
             "empresa_id": test_empresa.id,
@@ -14701,13 +14716,11 @@ async def test_reconciliacion_local_rechaza_payload_drift(
     )
 
 
-@pytest.mark.asyncio
-async def test_reconciliacion_local_nota_usa_huella_del_intento_con_asociado(
-    db_session: AsyncSession,
-    test_empresa,
-    test_punto_venta,
+def test_reconciliacion_local_nota_usa_huella_del_intento_con_asociado(
+    contexto_comparacion_local,
 ) -> None:
     """La huella autorizada del intento conserva el asociado fiscal de la nota."""
+    db_session, test_empresa, test_punto_venta = contexto_comparacion_local
     request = EmitirComprobanteRequest.model_validate(
         {
             "empresa_id": test_empresa.id,
@@ -14823,13 +14836,11 @@ async def test_reconciliacion_local_nota_usa_huella_del_intento_con_asociado(
     )
 
 
-@pytest.mark.asyncio
-async def test_reconciliacion_local_rechaza_snapshot_comprobante_distinto(
-    db_session: AsyncSession,
-    test_empresa,
-    test_punto_venta,
+def test_reconciliacion_local_rechaza_snapshot_comprobante_distinto(
+    contexto_comparacion_local,
 ) -> None:
     """El comprobante local debe conservar el snapshot completo del request."""
+    db_session, test_empresa, test_punto_venta = contexto_comparacion_local
     request = EmitirComprobanteRequest.model_validate(
         {
             "empresa_id": test_empresa.id,
@@ -14933,13 +14944,11 @@ async def test_reconciliacion_local_rechaza_snapshot_comprobante_distinto(
     )
 
 
-@pytest.mark.asyncio
-async def test_reconciliacion_local_rechaza_cae_vencimiento_distinto(
-    db_session: AsyncSession,
-    test_empresa,
-    test_punto_venta,
+def test_reconciliacion_local_rechaza_cae_vencimiento_distinto(
+    contexto_comparacion_local,
 ) -> None:
     """El vencimiento de CAE local debe coincidir con el intento autorizado."""
+    db_session, test_empresa, test_punto_venta = contexto_comparacion_local
     request = EmitirComprobanteRequest.model_validate(
         {
             "empresa_id": test_empresa.id,
@@ -15043,13 +15052,11 @@ async def test_reconciliacion_local_rechaza_cae_vencimiento_distinto(
     )
 
 
-@pytest.mark.asyncio
-async def test_reconciliacion_local_rechaza_fechas_servicio_distintas(
-    db_session: AsyncSession,
-    test_empresa,
-    test_punto_venta,
+def test_reconciliacion_local_rechaza_fechas_servicio_distintas(
+    contexto_comparacion_local,
 ) -> None:
     """Las fechas fiscales de servicio deben coincidir con el request."""
+    db_session, test_empresa, test_punto_venta = contexto_comparacion_local
     request = EmitirComprobanteRequest.model_validate(
         {
             "empresa_id": test_empresa.id,
@@ -15160,13 +15167,11 @@ async def test_reconciliacion_local_rechaza_fechas_servicio_distintas(
     )
 
 
-@pytest.mark.asyncio
-async def test_reconciliacion_local_rechaza_comprobante_con_tipo_doc_distinto(
-    db_session: AsyncSession,
-    test_empresa,
-    test_punto_venta,
+def test_reconciliacion_local_rechaza_comprobante_con_tipo_doc_distinto(
+    contexto_comparacion_local,
 ) -> None:
     """La reconciliación local exige identidad fiscal completa del receptor."""
+    db_session, test_empresa, test_punto_venta = contexto_comparacion_local
     request = EmitirComprobanteRequest.model_validate(
         {
             "empresa_id": test_empresa.id,

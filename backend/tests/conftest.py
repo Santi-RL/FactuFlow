@@ -116,12 +116,28 @@ async def test_empresa(db_session: AsyncSession) -> Empresa:
     return empresa
 
 
+@pytest.fixture(scope="session")
+def synthetic_user_password_hash() -> str:
+    """Reutiliza sólo el hash inmutable; conserva bcrypt real de costo 12."""
+    return get_password_hash("testpassword123")
+
+
+@pytest.fixture(scope="session")
+def synthetic_admin_password_hash() -> str:
+    """El administrador conserva otra contraseña sintética y su hash real."""
+    return get_password_hash("adminpass123")
+
+
 @pytest.fixture
-async def test_user(db_session: AsyncSession, test_empresa: Empresa) -> Usuario:
+async def test_user(
+    db_session: AsyncSession,
+    test_empresa: Empresa,
+    synthetic_user_password_hash: str,
+) -> Usuario:
     """Create a test user."""
     user = Usuario(
         email="test@user.com",
-        hashed_password=get_password_hash("testpassword123"),
+        hashed_password=synthetic_user_password_hash,
         nombre="Test User",
         activo=True,
         es_admin=False,
@@ -145,11 +161,13 @@ async def test_user(db_session: AsyncSession, test_empresa: Empresa) -> Usuario:
 
 
 @pytest.fixture
-async def test_admin(db_session: AsyncSession) -> Usuario:
+async def test_admin(
+    db_session: AsyncSession, synthetic_admin_password_hash: str
+) -> Usuario:
     """Create a test admin user."""
     admin = Usuario(
         email="admin@test.com",
-        hashed_password=get_password_hash("adminpass123"),
+        hashed_password=synthetic_admin_password_hash,
         nombre="Admin User",
         activo=True,
         es_admin=True,

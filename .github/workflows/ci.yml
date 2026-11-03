@@ -162,18 +162,27 @@ jobs:
         if: needs.scope.outputs.runtime == 'true'
         run: black --check app/ tests/
 
+      - name: Test backend evidence contracts
+        if: needs.scope.outputs.runtime == 'true'
+        run: python -m unittest discover -s ../tools/ci -p test_backend_report.py -v
+
       - name: Run tests
         if: needs.scope.outputs.runtime == 'true'
         env:
           FACTUFLOW_TEST_POSTGRES_URL: postgresql+asyncpg://factuflow_test:synthetic_test_password@127.0.0.1:5432/factuflow_integration_test
           FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET: "1"
-        run: pytest tests/ -q
+        run: >-
+          python ../tools/ci/backend_report.py run
+          --output-dir "$RUNNER_TEMP/backend-report"
+          --source-sha "$GITHUB_SHA"
 
       - name: Publish backend coverage summary
         if: always() && needs.scope.outputs.runtime == 'true'
+        env:
+          COVERAGE_JSON: ${{ runner.temp }}/backend-report/coverage.json
         run: |
-          if [ -f coverage.json ]; then
-            python -c "import json, os; totals = json.load(open('coverage.json', encoding='utf-8'))['totals']; summary = '## Cobertura backend\\n\\n| Métrica | Cobertura | Umbral |\\n| --- | ---: | ---: |\\n| Total (líneas + ramas) | {:.2f}% | 69% |\\n| Líneas | {:.2f}% | — |\\n| Ramas | {:.2f}% | — |\\n'.format(totals['percent_covered'], totals['percent_statements_covered'], totals['percent_branches_covered']); open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write(summary)"
+          if [ -f "$COVERAGE_JSON" ]; then
+            python -c "import json, os; totals = json.load(open(os.environ['COVERAGE_JSON'], encoding='utf-8'))['totals']; summary = '## Cobertura backend\\n\\n| Métrica | Cobertura | Umbral |\\n| --- | ---: | ---: |\\n| Total (líneas + ramas) | {:.2f}% | 69% |\\n| Líneas | {:.2f}% | — |\\n| Ramas | {:.2f}% | — |\\n'.format(totals['percent_covered'], totals['percent_statements_covered'], totals['percent_branches_covered']); open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8').write(summary)"
           else
             echo "## Cobertura backend" >> "$GITHUB_STEP_SUMMARY"
             echo "No se generó coverage.json." >> "$GITHUB_STEP_SUMMARY"
@@ -184,9 +193,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
-          path: |
-            backend/coverage.xml
-            backend/coverage.json
+          path: ${{ runner.temp }}/backend-report/
           if-no-files-found: error
           retention-days: 14
 
