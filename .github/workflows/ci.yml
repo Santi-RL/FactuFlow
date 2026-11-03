@@ -101,10 +101,15 @@ jobs:
         run: npm run clawpatch:test-seeds
 
   backend:
-    name: Backend Tests
+    name: Backend Group ${{ matrix.group }}
     needs: scope
+    if: needs.scope.outputs.runtime == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
     permissions:
       contents: read
       id-token: write
@@ -128,14 +133,77 @@ jobs:
           --health-retries 10
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libharfbuzz-subset0
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          FACTUFLOW_TEST_POSTGRES_URL: postgresql+asyncpg://factuflow_test:synthetic_test_password@127.0.0.1:5432/factuflow_integration_test
+          FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET: "1"
+          GROUP_ID: ${{ matrix.group }}
+          RUN_IDENTITY: ${{ github.run_id }}:${{ github.run_attempt }}
+        run: >-
+          python ../tools/ci/backend_shards.py run
+          --group "$GROUP_ID"
+          --output-dir "$RUNNER_TEMP/backend-report"
+          --source-sha "$GITHUB_SHA"
+          --run-id "$RUN_IDENTITY"
+
+      - name: Upload group evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-group-${{ matrix.group }}
+          path: ${{ runner.temp }}/backend-report/
+          if-no-files-found: error
+          retention-days: 14
+
+  backend-final:
+    name: Backend Tests
+    needs: [scope, backend]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Require scope and all four groups
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          RUNTIME: ${{ needs.scope.outputs.runtime }}
+          LEVEL_ZERO: ${{ needs.scope.outputs.level0 }}
+          GROUPS_RESULT: ${{ needs.backend.result }}
+        run: >-
+          python3 ../tools/ci/backend_shards.py gate
+          --scope-result "$SCOPE_RESULT" --runtime "$RUNTIME"
+          --level0 "$LEVEL_ZERO" --groups-result "$GROUPS_RESULT"
+
       - name: Nivel 0 documental
         if: needs.scope.outputs.runtime != 'true'
-        working-directory: .
         run: echo "Cambio exclusivamente documental; backend omitido."
-
-      - name: Checkout
-        if: needs.scope.outputs.runtime == 'true'
-        uses: actions/checkout@v6
 
       - name: Setup Python
         if: needs.scope.outputs.runtime == 'true'
@@ -156,25 +224,34 @@ jobs:
 
       - name: Run Ruff
         if: needs.scope.outputs.runtime == 'true'
-        run: ruff check app/ tests/
+        run: ruff check app/ tests/ ../tools/ci/backend*.py ../tools/ci/test_backend*.py
 
       - name: Check Black formatting
         if: needs.scope.outputs.runtime == 'true'
-        run: black --check app/ tests/
+        run: black --check app/ tests/ ../tools/ci/backend*.py ../tools/ci/test_backend*.py
 
       - name: Test backend evidence contracts
         if: needs.scope.outputs.runtime == 'true'
-        run: python -m unittest discover -s ../tools/ci -p test_backend_report.py -v
+        run: python -m unittest discover -s ../tools/ci -p 'test_backend*.py' -v
 
-      - name: Run tests
+      - name: Download all group reports from this run
+        if: needs.scope.outputs.runtime == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: backend-group-*
+          path: ${{ runner.temp }}/backend-groups
+          merge-multiple: false
+
+      - name: Verify every case and combine native coverage
         if: needs.scope.outputs.runtime == 'true'
         env:
-          FACTUFLOW_TEST_POSTGRES_URL: postgresql+asyncpg://factuflow_test:synthetic_test_password@127.0.0.1:5432/factuflow_integration_test
-          FACTUFLOW_TEST_POSTGRES_ALLOW_SCHEMA_RESET: "1"
+          RUN_IDENTITY: ${{ github.run_id }}:${{ github.run_attempt }}
         run: >-
-          python ../tools/ci/backend_report.py run
+          python ../tools/ci/backend_shards.py aggregate
+          --inputs "$RUNNER_TEMP/backend-groups"
           --output-dir "$RUNNER_TEMP/backend-report"
           --source-sha "$GITHUB_SHA"
+          --run-id "$RUN_IDENTITY"
 
       - name: Publish backend coverage summary
         if: always() && needs.scope.outputs.runtime == 'true'
@@ -357,7 +434,7 @@ jobs:
 
   e2e:
     name: E2E Tests
-    needs: [scope, repository, backend, frontend]
+    needs: scope
     runs-on: ubuntu-24.04
 
     steps:

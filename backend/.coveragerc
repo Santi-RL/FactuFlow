@@ -1,0 +1,5 @@
+[run]
+branch = True
+source = app
+relative_files = True
+concurrency = thread,greenlet

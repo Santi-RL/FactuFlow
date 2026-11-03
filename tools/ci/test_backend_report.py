@@ -151,7 +151,13 @@ class BackendReportTests(unittest.TestCase):
                     backend_report.compare_reports(self.reference, candidate)
 
     def test_missing_native_report_or_changed_environment_fails(self):
-        for mutation in ("missing_native", "environment", "application", "inventory"):
+        for mutation in (
+            "missing_native",
+            "environment",
+            "application",
+            "inventory",
+            "configuration",
+        ):
             with self.subTest(mutation=mutation):
                 candidate = self.candidate()
                 if mutation == "missing_native":
@@ -162,6 +168,8 @@ class BackendReportTests(unittest.TestCase):
                         report["environment"]["python"] = "different"
                     elif mutation == "application":
                         report["application_fingerprint"] = "different"
+                    elif mutation == "configuration":
+                        report["coverage_config_sha256"] = "different"
                     else:
                         removed = report["collected"].pop()
                         report["results"] = [

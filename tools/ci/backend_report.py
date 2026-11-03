@@ -121,6 +121,11 @@ def run_suite(output: Path, source_sha: str, run_id: str) -> int:
         "run_id": run_id,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "environment": environment(),
+        "coverage_config_sha256": (
+            hashlib.sha256((root / ".coveragerc").read_bytes()).hexdigest()
+            if (root / ".coveragerc").is_file()
+            else None
+        ),
     }
     try:
         import pytest
@@ -136,6 +141,11 @@ def run_suite(output: Path, source_sha: str, run_id: str) -> int:
                     "junit_duration_report=total",
                     f"--cov-report=xml:{output / 'coverage.xml'}",
                     f"--cov-report=json:{output / 'coverage.json'}",
+                    *(
+                        [f"--cov-config={root / '.coveragerc'}"]
+                        if (root / ".coveragerc").is_file()
+                        else []
+                    ),
                 ],
                 plugins=[observer],
             )
@@ -158,6 +168,7 @@ def run_suite(output: Path, source_sha: str, run_id: str) -> int:
         return exit_code
     validate_execution(report)
     validate_artifacts(output)
+    validate_native_coverage(output, root)
     return 0
 
 
@@ -166,6 +177,38 @@ def validate_artifacts(directory: Path) -> None:
     for name in ARTIFACTS:
         if not (directory / name).is_file() or (directory / name).stat().st_size == 0:
             raise ValueError(f"Falta el artefacto obligatorio: {name}")
+
+
+def validate_native_coverage(
+    directory: Path, source_root: Path, *, relative_only: bool = False
+) -> None:
+    """Detecta trazas incoherentes, incluidas líneas de otro contexto greenlet."""
+    from coverage import CoverageData
+
+    native = CoverageData(basename=str(directory / "coverage.raw"))
+    native.read()
+    if not native.has_arcs() or not native.measured_files():
+        raise ValueError("La cobertura nativa no contiene líneas y ramas")
+    application = (source_root / "app").resolve()
+    for name in native.measured_files():
+        if relative_only and (not name.startswith("app/") or ".." in name.split("/")):
+            raise ValueError(
+                "La cobertura nativa debe usar rutas relativas de aplicación"
+            )
+        path = (source_root / name).resolve()
+        if not path.is_relative_to(application) or not path.is_file():
+            raise ValueError(
+                f"La cobertura no corresponde a una fuente de aplicación: {name}"
+            )
+        # Jinja conserva el nombre HTML para código Python generado con otras líneas.
+        # Sus datos nativos se conservan; el límite textual aplica a fuentes Python.
+        if path.suffix != ".py":
+            continue
+        last_line = max(1, len(path.read_text(encoding="utf-8").splitlines()))
+        if any(
+            abs(line) > last_line for arc in native.arcs(name) or [] for line in arc
+        ):
+            raise ValueError(f"La cobertura contiene arcos fuera del archivo: {name}")
 
 
 def covered_statements(directory: Path) -> dict[str, dict[str, set]]:
@@ -201,6 +244,8 @@ def compare_reports(reference: Path, candidate: Path) -> dict:
         raise ValueError("Cambió la aplicación o las migraciones comparadas")
     if before["environment"] != after["environment"]:
         raise ValueError("Los entornos o dependencias de las corridas no coinciden")
+    if before.get("coverage_config_sha256") != after.get("coverage_config_sha256"):
+        raise ValueError("Cambió la configuración de cobertura comparada")
     old_coverage = covered_statements(reference)
     new_coverage = covered_statements(candidate)
     losses = {}

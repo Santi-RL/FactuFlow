@@ -96,7 +96,8 @@ concurrencia.
 
 ### Evidencia de una ejecución completa
 
-El job backend sigue siendo secuencial y usa el recolector versionado:
+Para obtener una referencia secuencial completa se conserva el recolector
+versionado:
 
 ```bash
 python ../tools/ci/backend_report.py run --output-dir /ruta/nueva/reporte --source-sha SHA_COMPLETO
@@ -122,6 +123,63 @@ de cualquier línea o rama previamente cubierta. No se limita a comparar el
 porcentaje global. El contraste es una validación puntual de la optimización;
 no fija un inventario que impida agregar pruebas nuevas. Los resultados
 concretos pertenecen al PR o a una ruta de evidencia ignorada.
+
+### Cuatro grupos independientes en CI
+
+El workflow distribuye archivos completos entre cuatro runners, cada uno con
+PostgreSQL y temporales propios. Dentro de cada grupo pytest sigue siendo
+secuencial, incluidos los escenarios que prueban concurrencia. No se usa
+paralelismo entre casos que comparta una base.
+
+`tools/ci/backend-file-durations.json` conserva los pesos y la identidad de la
+referencia completa. Cada peso suma las fases de preparación, ejecución y
+limpieza del archivo. El reparto ordena por duración descendente y ruta, y
+asigna al grupo menos cargado, desempatando por número. Un archivo nuevo entra
+automáticamente con un segundo de peso inicial; el inventario se descubre de
+nuevo en cada ejecución.
+
+Desde `backend/`, los comandos usados por CI son:
+
+```bash
+python ../tools/ci/backend_shards.py run --group 1 --output-dir /ruta/nueva/grupos/grupo-1 --source-sha SHA_COMPLETO --run-id EJECUCION_INTENTO
+python ../tools/ci/backend_shards.py aggregate --inputs /ruta/grupos --output-dir /ruta/nueva/combinado --source-sha SHA_COMPLETO --run-id EJECUCION_INTENTO
+python -m unittest discover -s ../tools/ci -p 'test_backend*.py' -v
+```
+
+Repetir `run` con los números del 1 al 4 en entornos aislados. Cada salida
+incluye selección, inventario completo, resultados, JUnit, tiempos, SHA,
+ejecución e intento, versiones, huellas de los recolectores y cobertura nativa,
+XML y JSON. Los artefactos `backend-group-*` duran 14 días.
+
+`Backend Tests` se ejecuta después de los grupos incluso si fallan, se cancelan
+o faltan. Exige su éxito y vuelve a descubrir la suite sin ejecutar fixtures;
+rechaza casos faltantes, duplicados, omitidos o con fallo esperado, archivos
+repartidos entre grupos e informes de otro código, ejecución o versión. También
+comprueba la integridad y presencia de los artefactos. Ruff, Black y los
+contratos de evidencia se ejecutan una vez, en esta comprobación final.
+
+Los parciales miden cobertura sin aplicarles el umbral global. La comprobación
+final usa `coverage combine --keep` sobre los cuatro archivos nativos y exige
+el 69 % sobre la unión de líneas y ramas, nunca sobre un promedio. La
+configuración compartida `backend/.coveragerc` guarda rutas relativas para
+combinar runners distintos y declara `thread,greenlet`, porque la extensión
+asíncrona de SQLAlchemy usa cambios de contexto greenlet. Sin esa declaración,
+coverage puede atribuir líneas a otro contexto y producir resultados incorrectos,
+como advierte su [documentación](https://coverage.readthedocs.io/en/latest/config.html#run-concurrency).
+El recolector registra la huella de esa configuración y la comparación exige
+que coincida; los reportes nativos con arcos fuera de los fuentes Python se
+rechazan. Las plantillas compiladas de Jinja usan otra numeración y conservan
+sus datos nativos. La referencia secuencial y los grupos usan la misma
+instrumentación.
+`pytest.ini` y los comandos secuenciales conservan su umbral habitual.
+El artefacto `backend-coverage` contiene el resultado completo y permite usar
+la comparación detallada descrita arriba.
+
+E2E depende únicamente de `Change Scope` y corre en paralelo con backend y
+frontend. Se conservan los siete checks obligatorios y la excepción de Nivel 0
+para cambios exclusivamente documentales.
+
+### Codificación de subprocesos en Windows
 
 En Windows, ejecutar Python y sus subprocesos con UTF-8 para que las capturas de
 mensajes de migración con tildes conserven la misma codificación. En PowerShell,

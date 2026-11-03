@@ -159,6 +159,21 @@ Los checks decorativos que ignoran su código de salida no cuentan como puertas.
 Ruff, Black, tests, build, auditorías y scripts deben fallar de forma visible
 cuando detectan un problema.
 
+`Backend Tests` es la puerta agregada de cuatro grupos independientes. Debe
+ejecutarse aunque alguno falle o se cancele, y rechazar una ejecución incompleta.
+Los checks `Backend Group 1` a `Backend Group 4` aportan evidencia; la puerta
+obligatoria conserva su nombre y exige todos los casos descubiertos exactamente
+una vez y el 69 % sobre la cobertura nativa combinada. E2E comienza después de
+`Change Scope`, sin esperar a backend ni frontend. Nivel 0 conserva sus omisiones
+de runtime; un fallo de clasificación no permite aprobar como documental.
+
+La instrumentación de cobertura declara threads y greenlets y se comparte entre
+la referencia secuencial y los grupos. Se rechazan diferencias de configuración
+y arcos nativos que apunten fuera de los fuentes Python. Las plantillas de
+Jinja conservan su numeración de código generado y sus datos nativos. Una atribución
+incorrecta de líneas no es evidencia de cobertura; corregir la medición exige
+repetir la referencia y la comparación completa, conservando el umbral.
+
 Una simplificación de preparación de pruebas conserva los escenarios y sus
 comprobaciones. Su evidencia antes/después debe identificar el código probado,
 contrastar el inventario y los resultados completos y verificar las líneas y
