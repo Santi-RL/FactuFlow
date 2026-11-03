@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 02/11/2026.
+Última revisión: 03/11/2026.
 
 Estado: VIGENTE.
 
@@ -11,14 +11,12 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.9`. Su
-  [dossier](../project/releases/v0.3.9-candidate.md) conserva publicación,
-  compatibilidad, CI, ensayo y QA contable. La publicación
-  no determina ni modifica el estado desplegado.
-- La candidata `v0.3.10` contiene sólo el parche de presentación de leyendas
-  técnicas; los productores técnicos y visibles usan `0.3.10`. Alcance,
-  validaciones, compatibilidad y retorno en su
-  [dossier](../project/releases/v0.3.10-candidate.md). No está publicada.
+- La release publicada más reciente es `v0.3.10`; los productores técnicos y
+  visibles usan `0.3.10`. Contiene sólo el parche de presentación de leyendas
+  técnicas, sin migraciones ni dependencias nuevas. Su
+  [dossier](../project/releases/v0.3.10-candidate.md) conserva publicación,
+  compatibilidad, CI, ensayo y recuperación. La publicación no determina ni
+  modifica el estado desplegado.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.
@@ -51,14 +49,14 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: publicación de v0.3.10
+## Siguiente unidad: preflight y despliegue de v0.3.10
 
-El corte de `v0.3.10` incluye únicamente la corrección de presentación y su
-preparación de versión. Su publicación requiere completar las puertas de Git y
-CI y contar con autorización explícita. El despliegue conserva una decisión
-separada y las puertas del [flujo de producción](production-workflow.md), con
-origen real, respaldo fresco y retorno verificados. La preparación PF-04/PF-02
-y su orden relativo se conservan; no se incorporan capacidades del roadmap.
+La release está publicada. La siguiente operación requiere autorización
+separada para el preflight productivo y despliegue del SHA inmutable, con origen
+real, respaldo fresco, copia externa verificada y retorno comprobable según el
+[flujo de producción](production-workflow.md). La publicación no acredita el
+estado de la instalación. La preparación PF-04/PF-02 y su orden relativo se
+conservan; no se incorporan capacidades del roadmap.
 
 ## PF-04/PF-02: continuación tras la migración
 
