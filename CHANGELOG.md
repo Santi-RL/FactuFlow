@@ -27,6 +27,13 @@ Reglas vigentes desde 2026-05-22:
   sintéticos reutilizan únicamente hashes inmutables de costo 12, conservando
   el login real y el aislamiento de datos y credenciales por prueba.
 
+### Presentación de PDF
+
+- Los PDF en pesos omiten el bloque visible de moneda y cotización. Los datos
+  guardados, la evidencia, la API y el QR se conservan; otras monedas mantienen
+  ambos campos visibles. Se registra la regla normativa para una futura emisión
+  en dólares, sin incorporar esa funcionalidad.
+
 ## [0.3.10] - 03/11/2026
 
 Publicada sobre `4965d8dc666566480c7913b3aa991d27a57b292c`, sin desplegar por esta

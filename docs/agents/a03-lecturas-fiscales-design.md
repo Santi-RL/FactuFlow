@@ -61,9 +61,13 @@ consultado el 07/10/2026: distingue `ImpNeto`, `ImpTotConc`, `ImpOpEx`,
   cambiarla para ver sus filas, resumen y posiciones. No agregan una acción
   obligatoria antes de generar el reporte. Nombres y códigos explícitos evitan
   atribuir pesos a divisas desconocidas.
-- Lista, detalle y PDF muestran moneda nominal. Detalle y PDF muestran la
-  cotización conservada, también disponible en la API de listado;
-  no recalculan ni convierten importes.
+- Lista y detalle muestran moneda nominal; el detalle muestra la cotización
+  conservada, también disponible en la API de listado. El PDF omite ese bloque
+  visible sólo para pesos (`PES`); otras monedas conservan moneda y cotización.
+  No se recalculan ni convierten importes ni se modifican los datos guardados,
+  la evidencia o el QR. La futura emisión en dólares debe respetar la
+  [instrucción de representación y su referencia normativa](../../AGENTS.md#formato-argentino-en-contenido-visible),
+  sin considerarse una capacidad incorporada por este ajuste de presentación.
 
 ## Checklist fiscal: orden, estados y recuperación
 

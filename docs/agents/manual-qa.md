@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 29/10/2026
+Última revisión: 03/11/2026
 
 Estado: VIGENTE.
 
@@ -43,8 +43,10 @@ candidato requiere su ensayo aislado y evidencia privada, no una prueba de UI.
    IVA y ranking. Totales y posiciones pertenecen sólo a esa moneda y el límite
    del ranking se aplica por moneda. Un código desconocido no se rotula pesos.
 4. Cambiar emisor durante la carga: descartar la respuesta anterior. Revisar
-   lista/detalle y PDF: moneda nominal y cotización histórica, sin conversión;
-   PDF corriente de una página mantiene CAE, fechas e importes legibles.
+   lista/detalle: moneda nominal y, en el detalle, cotización histórica, sin
+   conversión. En el PDF, PES omite el bloque de moneda/cotización y DOL lo
+   conserva; ambos mantienen esos valores en el QR y los datos guardados.
+   El PDF corriente de una página mantiene CAE, fechas e importes legibles.
 
 ### IVA y legibilidad de PDF
 
@@ -55,7 +57,8 @@ el total ni deducir exención en C. Con otros tributos no cero, verificar que
 la clasificación nacional indirecta se indique desconocida y el agregado se
 conserve. Renderizar las páginas y revisar código ordinario, código largo y
 decimales extensos: sin superposición, recortes ni datos perdidos; QR, CAE,
-fecha y moneda legibles. Una factura corriente debe conservar una página.
+fecha y, para monedas distintas de PES, moneda/cotización legibles. Una factura
+corriente debe conservar una página.
 
 ### Identidad histórica de comprobantes
 
