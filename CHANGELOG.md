@@ -18,6 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.11] - 03/11/2026
+
+Corte preparado, todavía sin tag ni release publicada.
+[Alcance, compatibilidad y evidencia](docs/project/releases/v0.3.11-candidate.md).
+
 ### Pruebas y CI
 
 - La suite backend completa se distribuye por archivos entre cuatro runners

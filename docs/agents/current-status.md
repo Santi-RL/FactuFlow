@@ -11,9 +11,13 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.10`; los productores técnicos y
-  visibles usan `0.3.10`. Contiene sólo el parche de presentación de leyendas
-  técnicas, sin migraciones ni dependencias nuevas. Su
+- Los productores técnicos y visibles se alinean con la candidata `0.3.11`:
+  PDF en pesos sin moneda/cotización visibles y mantenimiento de CI aceptado,
+  sin nuevas migraciones, dependencias ni capacidades del roadmap. El
+  [dossier del corte](../project/releases/v0.3.11-candidate.md) conserva alcance,
+  controles y recuperación; preparar la versión no publica un tag ni despliega.
+- La release publicada más reciente sigue siendo `v0.3.10`, con el parche de
+  presentación de leyendas técnicas. Su
   [dossier](../project/releases/v0.3.10-candidate.md) conserva publicación,
   compatibilidad, CI, ensayo y recuperación. La publicación no determina ni
   modifica el estado desplegado.
@@ -49,14 +53,15 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: preflight y despliegue de v0.3.10
+## Siguiente unidad: cerrar la release v0.3.11
 
-La release está publicada. La siguiente operación requiere autorización
-separada para el preflight productivo y despliegue del SHA inmutable, con origen
-real, respaldo fresco, copia externa verificada y retorno comprobable según el
-[flujo de producción](production-workflow.md). La publicación no acredita el
-estado de la instalación. La preparación PF-04/PF-02 y su orden relativo se
-conservan; no se incorporan capacidades del roadmap.
+La candidata conserva el alcance aceptado y requiere CI verde del PR y de
+`main` antes de publicar su tag inmutable. Publicación y operación productiva
+son decisiones separadas. El preflight y despliegue posteriores requieren
+verificar el origen real, respaldo fresco, copia externa verificada y retorno
+comprobable según el [flujo de producción](production-workflow.md). La
+preparación PF-04/PF-02 y su orden relativo se conservan; no se incorporan
+capacidades del roadmap.
 
 ## PF-04/PF-02: continuación tras la migración
 

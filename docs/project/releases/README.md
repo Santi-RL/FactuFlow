@@ -14,6 +14,10 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.11-candidate.md`](v0.3.11-candidate.md): preparación del PDF en pesos
+  sin moneda/cotización visibles y mantenimiento de CI aceptado; datos, QR y
+  bloqueos conservados, sin nuevas migraciones ni dependencias. Publicación
+  y despliegue separados.
 - [`v0.3.10-candidate.md`](v0.3.10-candidate.md): publicación del parche de
   presentación de comprobantes, sin leyendas técnicas; trazabilidad y bloqueos
   conservados, CI, compatibilidad y retorno sin cambios de esquema;

@@ -4,6 +4,12 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
+El repositorio prepara `v0.3.11`: PDF en pesos sin el bloque visible de moneda
+y cotización, junto con el mantenimiento de CI ya aceptado. No incorpora
+migraciones, dependencias ni capacidades del roadmap. Su
+[dossier](docs/project/releases/v0.3.11-candidate.md) distingue validaciones,
+publicación y despliegue.
+
 Versión publicada más reciente: `v0.3.10`
 
 [GitHub Release v0.3.10](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.10)
