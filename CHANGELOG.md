@@ -20,9 +20,19 @@ Reglas vigentes desde 2026-05-22:
 
 ### Pruebas y CI
 
-- Se conserva la suite backend completa y secuencial, con evidencia de casos,
-  fases, tiempos, entorno y cobertura nativa. La comparación antes/después
-  rechaza casos faltantes y pérdidas de líneas o ramas cubiertas.
+- La suite backend completa se distribuye por archivos entre cuatro runners
+  con bases aisladas; pytest sigue siendo secuencial dentro de cada grupo.
+  `Backend Tests` exige todos los casos exactamente una vez y el 69 % sobre
+  cobertura nativa combinada, con Ruff y Black una sola vez. E2E comienza en
+  paralelo después de clasificar el cambio; se mantienen los siete checks y
+  la política documental. Los grupos y su agregación fijan la misma versión
+  exacta de Python para evitar diferencias entre cachés de runners.
+- Se conserva la referencia secuencial con evidencia de casos, fases, tiempos,
+  entorno y cobertura nativa. La comparación antes/después rechaza casos
+  faltantes y pérdidas de líneas o ramas cubiertas.
+- La medición declara threads y greenlets para atribuir correctamente la
+  ejecución asíncrona de SQLAlchemy. Las comparaciones exigen la misma
+  configuración y se rechazan trazas que apunten fuera de sus fuentes Python.
 - Las comparaciones fiscales puras evitan preparar una base y los usuarios
   sintéticos reutilizan únicamente hashes inmutables de costo 12, conservando
   el login real y el aislamiento de datos y credenciales por prueba.

@@ -107,3 +107,34 @@ test("configura explícitamente la caché de cada setup-node", () => {
     "La raíz no tiene lockfile de dependencias y no debe usarse como caché",
   );
 });
+
+test("la puerta backend se ejecuta tras fallos y exige los cuatro grupos", () => {
+  const groups = extractJob("backend");
+  const backend = extractJob("backend-final");
+  assert.match(groups, /if: needs\.scope\.outputs\.runtime == 'true'/u);
+  assert.match(groups, /fail-fast: false/u);
+  assert.match(groups, /group: \[1, 2, 3, 4\]/u);
+  assert.match(groups, /services:\n      postgres:/u);
+  assert.match(groups, /backend_shards\.py run/u);
+  assert.match(groups, /--group "\$GROUP_ID"/u);
+  assert.match(groups, /name: backend-group-\$\{\{ matrix\.group \}\}/u);
+  assert.match(backend, /name: Backend Tests/u);
+  assert.match(backend, /needs: \[scope, backend\]\n    if: always\(\)/u);
+  assert.match(backend, /GROUPS_RESULT: \$\{\{ needs\.backend\.result \}\}/u);
+  assert.match(backend, /backend_shards\.py gate/u);
+  assert.match(backend, /backend_shards\.py aggregate/u);
+  assert.match(backend, /merge-multiple: false/u);
+  assert.doesNotMatch(groups + backend, /continue-on-error/u);
+  assert.equal(workflow.match(/run: ruff check/gu)?.length, 1);
+  assert.equal(workflow.match(/run: black --check/gu)?.length, 1);
+  assert.match(extractJob("e2e"), /needs: scope\n/u);
+});
+
+test("los grupos y la agregación usan la misma versión exacta de Python", () => {
+  const versions = ["backend", "backend-final"].map((jobId) => {
+    const version = extractJob(jobId).match(/python-version: "([^"]+)"/u)?.[1];
+    assert.match(version ?? "", /^\d+\.\d+\.\d+$/u, jobId);
+    return version;
+  });
+  assert.equal(versions[0], versions[1]);
+});
