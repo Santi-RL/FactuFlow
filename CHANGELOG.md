@@ -18,6 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.10] - En preparación
+
+Candidata de alcance acotado; publicación no ejecutada. Compatibilidad,
+validaciones y recuperación en el
+[dossier](docs/project/releases/v0.3.10-candidate.md).
+
 ### Presentación de comprobantes
 
 - Se retiran las leyendas técnicas de cobertura histórica y procedencia del

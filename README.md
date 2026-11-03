@@ -21,6 +21,13 @@ de `docs/project/releases/`.
 Su alcance, compatibilidad, evidencia de publicación y recuperación se conservan en
 el [dossier de v0.3.9](docs/project/releases/v0.3.9-candidate.md).
 
+La candidata `v0.3.10` reúne exclusivamente el parche de presentación: quita
+las leyendas técnicas del PDF y de las consultas, conservando trazabilidad y
+bloqueos por evidencia inválida. Su
+[dossier](docs/project/releases/v0.3.10-candidate.md) conserva el alcance,
+validaciones, compatibilidad y retorno. Los productores técnicos y visibles
+usan `0.3.10`; la candidata todavía no está publicada.
+
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
 
