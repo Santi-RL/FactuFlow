@@ -1,6 +1,6 @@
 # Guía de testing
 
-Última revisión: 30/10/2026
+Última revisión: 03/11/2026
 
 Estado: VIGENTE.
 
@@ -81,6 +81,47 @@ relojes y límites; no cambiar ventanas productivas para estabilizar las suites.
 como para fixtures, mediante `pytest.ini`; conserva el alcance anterior sin
 redefinir la fixture retirada `event_loop`. El aislamiento de datos sigue siendo
 por prueba y el teardown restaura las claves foráneas de SQLite.
+
+Los hashes de las contraseñas sintéticas de usuario y administrador se calculan
+una vez por sesión con la función real y bcrypt de costo 12. Sólo se reutilizan
+cadenas inmutables: usuarios, permisos, sesiones y tokens conservan aislamiento
+por prueba, y los headers autenticados siguen obteniéndose mediante el login
+real. Las pruebas específicas de generación, verificación y recuperación de
+credenciales conservan sus operaciones criptográficas.
+
+Las comparaciones locales puras de intento, comprobante y request usan objetos
+transitorios y una sesión que rechaza cualquier acceso a base. Esto no cambia
+los fixtures ni los recorridos que prueban persistencia, migraciones o
+concurrencia.
+
+### Evidencia de una ejecución completa
+
+El job backend sigue siendo secuencial y usa el recolector versionado:
+
+```bash
+python ../tools/ci/backend_report.py run --output-dir /ruta/nueva/reporte --source-sha SHA_COMPLETO
+```
+
+Ejecutar desde `backend/` con PostgreSQL desechable configurado como en CI.
+El directorio de salida debe ser nuevo y quedar fuera de los archivos
+versionados. El comando conserva la selección completa, los warnings como
+errores y el umbral del 69%; registra inventario, resultados y duración de las
+tres fases de cada caso, JUnit, entorno y cobertura nativa, XML y JSON. Un caso
+omitido, con fallo esperado, duplicado o incompleto impide aprobar la evidencia.
+El artefacto `backend-coverage` conserva esos archivos durante 14 días.
+
+Para contrastar una simplificación sin cambios de aplicación ni migraciones:
+
+```bash
+python ../tools/ci/backend_report.py compare /ruta/referencia /ruta/candidata
+python -m unittest discover -s ../tools/ci -p test_backend_report.py -v
+```
+
+La comparación exige los mismos casos aprobados y entornos, y rechaza la pérdida
+de cualquier línea o rama previamente cubierta. No se limita a comparar el
+porcentaje global. El contraste es una validación puntual de la optimización;
+no fija un inventario que impida agregar pruebas nuevas. Los resultados
+concretos pertenecen al PR o a una ruta de evidencia ignorada.
 
 En Windows, ejecutar Python y sus subprocesos con UTF-8 para que las capturas de
 mensajes de migración con tildes conserven la misma codificación. En PowerShell,

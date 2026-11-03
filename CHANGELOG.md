@@ -18,6 +18,15 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Pruebas y CI
+
+- Se conserva la suite backend completa y secuencial, con evidencia de casos,
+  fases, tiempos, entorno y cobertura nativa. La comparación antes/después
+  rechaza casos faltantes y pérdidas de líneas o ramas cubiertas.
+- Las comparaciones fiscales puras evitan preparar una base y los usuarios
+  sintéticos reutilizan únicamente hashes inmutables de costo 12, conservando
+  el login real y el aislamiento de datos y credenciales por prueba.
+
 ## [0.3.10] - 03/11/2026
 
 Publicada sobre `4965d8dc666566480c7913b3aa991d27a57b292c`, sin desplegar por esta

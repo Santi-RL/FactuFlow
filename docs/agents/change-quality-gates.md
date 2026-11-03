@@ -1,6 +1,6 @@
 # Puertas de calidad y evidencia de cambios
 
-Última actualización: 16/10/2026
+Última actualización: 03/11/2026
 
 Estado: VIGENTE para todo cambio nuevo.
 
@@ -158,6 +158,12 @@ SHA concreto ya haya ocurrido.
 Los checks decorativos que ignoran su código de salida no cuentan como puertas.
 Ruff, Black, tests, build, auditorías y scripts deben fallar de forma visible
 cuando detectan un problema.
+
+Una simplificación de preparación de pruebas conserva los escenarios y sus
+comprobaciones. Su evidencia antes/después debe identificar el código probado,
+contrastar el inventario y los resultados completos y verificar las líneas y
+ramas cubiertas, además del umbral global. El recolector y la comparación se
+describen en [`testing.md`](testing.md#evidencia-de-una-ejecución-completa).
 
 ## Alcance de la auditoría de dependencias
 
