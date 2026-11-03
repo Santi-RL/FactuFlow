@@ -14,6 +14,9 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.10-candidate.md`](v0.3.10-candidate.md): candidata del parche de
+  presentación de comprobantes, sin leyendas técnicas; trazabilidad y bloqueos
+  conservados, compatibilidad y retorno sin cambios de esquema.
 - [`v0.3.9-candidate.md`](v0.3.9-candidate.md): publicación de evidencia previa
   e identidad histórica PF-04/PF-02, mantenimiento, migración y recuperación;
   CI y cierre de publicación separados de la operación productiva.
