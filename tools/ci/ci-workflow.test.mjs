@@ -129,3 +129,12 @@ test("la puerta backend se ejecuta tras fallos y exige los cuatro grupos", () =>
   assert.equal(workflow.match(/run: black --check/gu)?.length, 1);
   assert.match(extractJob("e2e"), /needs: scope\n/u);
 });
+
+test("los grupos y la agregación usan la misma versión exacta de Python", () => {
+  const versions = ["backend", "backend-final"].map((jobId) => {
+    const version = extractJob(jobId).match(/python-version: "([^"]+)"/u)?.[1];
+    assert.match(version ?? "", /^\d+\.\d+\.\d+$/u, jobId);
+    return version;
+  });
+  assert.equal(versions[0], versions[1]);
+});

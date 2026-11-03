@@ -51,6 +51,9 @@ versiones explícitas; no resolver alertas debilitando esta auditoría.
 Los runners de CI usan Ubuntu 24.04 explícito. Cambiar su versión requiere
 comprobar instalación, PDF, build, PostgreSQL y smoke; no depender del cambio
 automático de `ubuntu-latest`.
+Los cuatro grupos backend y su agregación fijan la misma versión completa de
+Python, incluido el parche. Una referencia como `3.11` puede resolver parches
+distintos según la caché del runner y no garantiza entornos comparables.
 Los runners Linux instalan HarfBuzz-Subset para generar PDFs; en Windows,
 usar un runtime compatible de WeasyPrint y sus bibliotecas nativas mediante
 `WEASYPRINT_DLL_DIRECTORIES` y `PATH`, sin mezclar versiones de GTK/Pango.

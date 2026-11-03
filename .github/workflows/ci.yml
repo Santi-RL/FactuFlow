@@ -139,7 +139,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.11.17"
           cache: pip
           cache-dependency-path: backend/requirements*.txt
 
@@ -209,7 +209,7 @@ jobs:
         if: needs.scope.outputs.runtime == 'true'
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.11.17"
           cache: pip
           cache-dependency-path: backend/requirements*.txt
 
