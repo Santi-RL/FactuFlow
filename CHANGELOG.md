@@ -18,10 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-## [0.3.10] - En preparación
+## [0.3.10] - 03/11/2026
 
-Candidata de alcance acotado; publicación no ejecutada. Compatibilidad,
-validaciones y recuperación en el
+Publicada sobre `4965d8dc666566480c7913b3aa991d27a57b292c`, sin desplegar por esta
+operación. [Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.10),
+compatibilidad, validaciones y recuperación en el
 [dossier](docs/project/releases/v0.3.10-candidate.md).
 
 ### Presentación de comprobantes
