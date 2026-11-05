@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 04/11/2026.
+Última revisión: 05/11/2026.
 
 Estado: VIGENTE.
 
@@ -11,13 +11,16 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.11`; los productores técnicos y
-  visibles usan `0.3.11`. Incluye el parche que omite moneda/cotización visibles
-  en el PDF en pesos y el mantenimiento de CI aceptado,
+- La release publicada más reciente es `v0.3.11`. Incluye el parche que omite
+  moneda/cotización visibles en el PDF en pesos y el mantenimiento de CI aceptado,
   sin nuevas migraciones, dependencias ni capacidades del roadmap. El
   [dossier del corte](../project/releases/v0.3.11-candidate.md) conserva alcance,
   publicación, compatibilidad, CI, ensayo y recuperación. La publicación no
   determina ni modifica el estado desplegado.
+- Los productores técnicos y visibles usan `0.3.12` para la candidata de
+  descargas PF-18/PF-17. Su [dossier](../project/releases/v0.3.12-candidate.md)
+  delimita alcance, validaciones, compatibilidad y retorno; no crea un tag,
+  publica una release ni acredita un despliegue.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.
@@ -50,7 +53,7 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: cierre y salida del corte de descargas
+## Siguiente unidad: salida de la candidata v0.3.12
 
 El [corte PF-18/PF-17](pf-18-17-descargas-pdf-design.md) implementa
 PDF por fila junto al ojo, selección individual y de todos
@@ -60,10 +63,11 @@ generación bajo demanda sin archivos permanentes. La decisión del usuario
 adelanta este corte P3 como Ahora 1 para preparar una salida pequeña a producción;
 no agrega correo, resguardo ni rediseño de Lotes.
 
-El siguiente paso es cerrar sus controles y seguir el ciclo de Git con las
-autorizaciones aplicables; después, preparar una release pequeña. Publicación,
-integración y despliegue mantienen sus autorizaciones propias. No fijar todavía
-versión ni fecha. Consultar los
+La implementación está aceptada en `main` y la candidata v0.3.12 conserva ese
+alcance. El siguiente paso es completar el ciclo de Git y la CI de su
+preparación; publicación del tag/release y despliegue mantienen sus
+autorizaciones propias. Las evidencias de cada etapa viven en el dossier.
+Consultar los
 cierres operativos existentes en el plano de control; no repetir el preflight
 anterior por una instrucción de handoff que ya fue reemplazada.
 

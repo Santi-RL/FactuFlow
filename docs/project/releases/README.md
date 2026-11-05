@@ -14,6 +14,9 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.12-candidate.md`](v0.3.12-candidate.md): candidata de descarga directa
+  de PDF y ZIP completo de selección PF-18/PF-17; controles, actualización,
+  respaldo/restauración y retorno; publicación y producción separadas.
 - [`v0.3.11-candidate.md`](v0.3.11-candidate.md): publicación del PDF en pesos
   sin moneda/cotización visibles y mantenimiento de CI aceptado; datos, QR y
   bloqueos conservados, sin nuevas migraciones ni dependencias; CI, ensayo y

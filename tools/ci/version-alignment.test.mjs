@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const PRODUCT_VERSION = "0.3.11";
+const PRODUCT_VERSION = "0.3.12";
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -26,8 +26,8 @@ test("alinea los productores técnicos y visibles de la versión candidata", asy
   assert.equal(frontendLock.version, PRODUCT_VERSION);
   assert.equal(frontendLock.packages[""].version, PRODUCT_VERSION);
   assert.equal(backendPackage.version, PRODUCT_VERSION);
-  assert.match(pyproject, /^version = "0\.3\.11"$/mu);
-  assert.match(appInit, /^__version__ = "0\.3\.11"$/mu);
-  assert.match(config, /^    app_version: str = "0\.3\.11"$/mu);
-  assert.match(sidebar, /FactuFlow v0\.3\.11/u);
+  assert.match(pyproject, /^version = "0\.3\.12"$/mu);
+  assert.match(appInit, /^__version__ = "0\.3\.12"$/mu);
+  assert.match(config, /^    app_version: str = "0\.3\.12"$/mu);
+  assert.match(sidebar, /FactuFlow v0\.3\.12/u);
 });
