@@ -62,16 +62,6 @@ class UsuarioAdminCreate(BaseModel):
         return self
 
 
-class UsuarioUpdate(BaseModel):
-    """Schema para actualizar Usuario."""
-
-    nombre: Optional[str] = Field(None, min_length=1, max_length=255)
-    email: Optional[EmailStr] = None
-    password: Optional[str] = Field(None, min_length=6, max_length=100)
-    activo: Optional[bool] = None
-    empresa_id: Optional[int] = None
-
-
 class UsuarioAdminUpdate(BaseModel):
     """Schema para administrar datos y rol de un usuario existente."""
 

@@ -1,5 +1,4 @@
 import apiClient from "./api";
-import type { PuntoVentaArca } from "@/types/punto_venta";
 
 export interface ArcaStatus {
   ambiente: "homologacion" | "produccion";
@@ -21,10 +20,4 @@ export const arcaService = {
     return response.data;
   },
 
-  async getPuntosVenta(): Promise<PuntoVentaArca[]> {
-    const response = await apiClient.get<PuntoVentaArca[]>(
-      "/api/arca/puntos-venta",
-    );
-    return response.data;
-  },
 };

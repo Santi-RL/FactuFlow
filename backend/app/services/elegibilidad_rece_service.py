@@ -45,10 +45,6 @@ CATEGORIA_ELEGIBILIDAD_RECE = "elegibilidad_rece_no_verificada"
 MENSAJE_ELEGIBILIDAD_RECE = (
     "El punto de venta no tiene una acreditación RECE válida para este ambiente."
 )
-DETALLE_ELEGIBILIDAD_RECE = (
-    "Comprobá el estado del punto con ARCA y verificá que esté habilitado "
-    "para usar en FactuFlow."
-)
 CLASIFICADOR_WSFE_VERSION = "wsfe_emision_tipo_cae_v1"
 _ZONA_ARGENTINA = timezone(
     timedelta(hours=-3),

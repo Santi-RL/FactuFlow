@@ -13,7 +13,7 @@ services/
 ├── clientes.service.ts       # Clientes
 ├── puntos_venta.service.ts   # Puntos de venta
 ├── certificados.service.ts   # Certificados
-├── arca.service.ts           # ARCA (tipos, puntos de venta, dummy, etc.)
+├── arca.service.ts           # Estado y prueba explícita de conexión con ARCA
 ├── sistema.service.ts        # Health de aplicación y base para Estado del sistema
 ├── almacenamiento.service.ts # Gestor administrativo de almacenamiento
 ├── comprobantes.service.ts   # Comprobantes

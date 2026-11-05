@@ -2,7 +2,6 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import type {
   PuntoVenta,
-  PuntoVentaCreate,
   PuntoVentaUpdate,
   SincronizarPuntosVentaResponse,
 } from "@/types/punto_venta";
@@ -59,24 +58,6 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     }
   };
 
-  const createPuntoVenta = async (data: PuntoVentaCreate) => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const nuevo = await puntosVentaService.create(data);
-      puntosVenta.value = [...puntosVenta.value, nuevo].sort(
-        (a, b) => a.numero - b.numero,
-      );
-      return nuevo;
-    } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || "Error al crear el punto de venta";
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  };
-
   const updatePuntoVenta = async (id: number, data: PuntoVentaUpdate) => {
     const empresaStore = useEmpresaStore();
     const empresaIdSolicitada = empresaStore.empresaActivaId;
@@ -107,21 +88,6 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
         error.value =
           err.response?.data?.detail || "Error al actualizar el punto de venta";
       }
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const deletePuntoVenta = async (id: number) => {
-    loading.value = true;
-    error.value = null;
-    try {
-      await puntosVentaService.delete(id);
-      puntosVenta.value = puntosVenta.value.filter((pv) => pv.id !== id);
-    } catch (err: any) {
-      error.value =
-        err.response?.data?.detail || "Error al eliminar el punto de venta";
       throw err;
     } finally {
       loading.value = false;
@@ -294,9 +260,7 @@ export const usePuntosVentaStore = defineStore("puntosVenta", () => {
     preparationError,
     error,
     fetchPuntosVenta,
-    createPuntoVenta,
     updatePuntoVenta,
-    deletePuntoVenta,
     importarConstancia,
     syncFromArca,
     prepareForSelection,

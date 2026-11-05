@@ -296,10 +296,6 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
     loading.value = false;
   }
 
-  function limpiarError() {
-    error.value = null;
-  }
-
   async function cambiarPagina(pagina: number) {
     if (Object.keys(filtros.value).length === 0) return;
 
@@ -347,7 +343,6 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
     emitirComprobante,
     obtenerProximoNumero,
     limpiarComprobanteActual,
-    limpiarError,
     cambiarPagina,
   };
 });

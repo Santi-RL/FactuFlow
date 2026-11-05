@@ -9,9 +9,3 @@ export interface PaginatedResponse<T> {
   per_page: number;
   pages: number;
 }
-
-export interface ListParams {
-  page?: number;
-  per_page?: number;
-  search?: string;
-}
