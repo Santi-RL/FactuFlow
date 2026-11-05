@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 04/11/2026
+Última revisión: 05/11/2026
 
 Estado: VIGENTE.
 
@@ -58,8 +58,8 @@ por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado
 **Prioridad:** P3 administrativa; ejecución adelantada por decisión explícita
 del usuario, como próximo corte pequeño para llevar a producción.
 
-Completar las puertas de calidad y preparar una release pequeña del corte de
-descargas, con publicación y despliegue por SHA cuando se autoricen. Conservar
+Completar el preflight y el despliegue autorizado del corte de descargas por
+SHA inmutable, con recuperación y verificaciones finales. Conservar
 ZIP completo o ninguno, permisos, historia, bloqueos y archivos bajo demanda.
 Alcance, invariantes, solapamientos y aceptación en el
 [diseño de descargas](docs/agents/pf-18-17-descargas-pdf-design.md).
