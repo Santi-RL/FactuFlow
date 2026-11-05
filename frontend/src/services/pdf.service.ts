@@ -37,13 +37,25 @@ class PDFService {
   /**
    * Descarga el PDF de un comprobante
    */
-  async descargarPDF(comprobanteId: number): Promise<Blob> {
+  async descargarPDF(
+    comprobanteId: number,
+    signal?: AbortSignal,
+    recibirNombre?: (nombre: string) => void,
+  ): Promise<Blob> {
     const empresaId = useEmpresaStore().empresaActivaId;
     const response = await api.get(`/api/pdf/comprobante/${comprobanteId}`, {
       responseType: "blob",
+      ...(signal ? { signal } : {}),
     });
     if (useEmpresaStore().empresaActivaId !== empresaId)
       throw new Error("La empresa activa cambió");
+    const disposition = response.headers?.["content-disposition"];
+    const nombre =
+      typeof disposition === "string"
+        ? /(?:^|;)\s*filename="([^"]+)"/i.exec(disposition)?.[1]
+        : undefined;
+    if (nombre && /^[\p{L}\p{N}][\p{L}\p{N} ._-]*\.pdf$/u.test(nombre))
+      recibirNombre?.(nombre);
     return response.data;
   }
 
@@ -113,9 +125,15 @@ class PDFService {
   async descargarAutomatico(
     comprobanteId: number,
     filename?: string,
+    vigente: () => boolean = () => true,
+    signal?: AbortSignal,
   ): Promise<void> {
     const empresaId = useEmpresaStore().empresaActivaId;
-    const blob = await this.descargarPDF(comprobanteId);
+    let nombreCanonico: string | undefined;
+    const blob = await this.descargarPDF(comprobanteId, signal, (nombre) => {
+      nombreCanonico = nombre;
+    });
+    if (!vigente()) return;
     if (useEmpresaStore().empresaActivaId !== empresaId) {
       throw new Error("La empresa activa cambió");
     }
@@ -123,14 +141,16 @@ class PDFService {
     // Crear un enlace temporal y hacer click
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.download = filename || `Comprobante_${comprobanteId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Liberar el objeto URL
-    window.URL.revokeObjectURL(url);
+    try {
+      link.href = url;
+      link.download =
+        nombreCanonico || filename || `Comprobante_${comprobanteId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+    } finally {
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
   }
 }
 

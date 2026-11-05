@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 31/10/2026
+Última revisión: 04/11/2026
 
 Estado: VIGENTE.
 
@@ -23,9 +23,9 @@ Un PF puede contener cortes distintos: la prioridad corresponde al resultado
 concreto, y el horizonte no convierte toda la línea en una dependencia previa.
 La secuencia de ejecución se toma del roadmap, no del orden de estas filas.
 
-La [puerta previa de release y migración](../../ROADMAP.md#puerta-previa-de-release-y-migración)
-precede al siguiente corte. Reutiliza los controles PF-16 y los contratos
-operativos PF-11/PF-15 aplicables al rango aceptado, sin convertir sus
+La [puerta de release y despliegue](../../ROADMAP.md#puerta-de-release-y-despliegue)
+rige cada corte destinado a producción. Reutiliza los controles PF-16 y los
+contratos operativos PF-11/PF-15 aplicables al rango aceptado, sin convertir sus
 evoluciones futuras en requisitos del corte ni alterar las prioridades de
 esta tabla. El dossier conserva la evidencia; el plano de control acredita
 la operación productiva.
@@ -37,7 +37,8 @@ la operación productiva.
 | PF-02/PF-04, recuperación legacy | Cerrado | P1 fiscal | Comparación fiscal suficiente antes de reconstruir/vincular; CAE y reserva conservados ante diferencias o evidencia insuficiente | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); guardas modernas intactas |
 | PF-11/PF-15, recuperación del candidato | Cerrado | P1 | Cierre del corte aceptado; conservar el respaldo y las escrituras posteriores según cada operación | [Contrato implementado](pf-11-15-recuperacion-trazabilidad-design.md); dossier y evidencia por operación en el plano de control; no garantiza cobertura actual |
 | PF-04, representación PDF | Cerrado | P1 fiscal | IVA guardado visible en A/B y detalle sin superposición | [Contrato y límites](pf-04-pdf-representacion-fiscal-design.md); ensayo y QA aprobados, puertas de publicación en el dossier |
-| PF-04/PF-02, evidencia y recuperación integral | Ahora 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
+| PF-18/PF-17, descargas PDF y ZIP | Ahora 1, cierre y salida del corte | P3 administrativa, ejecución adelantada por decisión del usuario | Descargar desde cada fila o reunir la selección individual/todos los resultados filtrados en un ZIP completo | [Contrato implementado](pf-18-17-descargas-pdf-design.md); permisos e historia vigentes, sin archivo permanente; publicación/despliegue separados |
+| PF-04/PF-02, evidencia y recuperación integral | Ahora 2 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
 | PF-04/PF-17, atribución del ranking | Más adelante | P2 administrativa | Separar ventas sin receptor identificable y evitar atribuirlas al primer nombre | Identidad fiscal por tipo y número, vínculo opcional y lecturas A-03; sin adelantar Ahora/Después |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
@@ -105,7 +106,8 @@ la operación productiva.
   y punto de venta](pf-04-lecturas-historicas-design.md), reutilizando el vínculo
   del intento, con cobertura explícita y contención de PDF/QR ante evidencia
   no verificable. Conserva compactación y traslado vigentes. El cierre moderno
-  del grafo continúa pendiente y separado dentro de Ahora 1.
+  del grafo continúa pendiente y separado dentro de Ahora 2, después del corte
+  pequeño de descargas y su salida autorizada.
 - Importación histórica externa PF-05 opcional, Más adelante, con alcance,
   límites, journal y cobertura; no retrasa la recuperación local ni nuevos consumidores.
 
@@ -170,11 +172,16 @@ la operación productiva.
   PF-13 sin sustituir su control previo a emitir ni abrir otro motor de duplicados.
   El ajuste P3 del certificado es independiente: tilde de éxito para «Válido» e
   ícono/color coherentes para los demás estados; no espera nuevos agregados.
-- PF-18, P3: ZIP de PDFs del lote y selección múltiple para evitar descargas
-  individuales repetidas; generar bajo demanda y coordinar limpieza de temporales
-  y resguardo con PF-10, sin duplicar políticas de almacenamiento. La comodidad
-  de descarga no desplaza correcciones fiscales ni implica controlar el diálogo
-  de guardado del sistema operativo.
+- PF-18/PF-17, P3 administrativa, Ahora 1 por decisión explícita de Santi:
+  [descarga directa y ZIP desde Comprobantes](pf-18-17-descargas-pdf-design.md).
+  Delimita el pendiente existente de ZIP y selección múltiple, incluyendo desde
+  el listado los comprobantes provenientes de lotes. Agrega descarga junto al
+  ojo, selección entre páginas y de todos los resultados filtrados; ZIP completo
+  o ninguno, según la decisión funcional aceptada. Generación bajo demanda,
+  permisos e historia comunes, temporales propios sin resguardo ni limpieza
+  administrativa PF-10. Sin controlar el diálogo de guardado del sistema.
+  Un botón específico de ZIP en Lotes permanece fuera de este corte y sólo
+  reutilizaría la misma capacidad; no es otro motor o pendiente ZIP duplicado.
 - PF-13, P2: tareas reanudables, trazabilidad masiva y límites de recursos.
 - PF-16: cobertura de reportes/PDF y pruebas por riesgo (P2), verificación local
   y portabilidad de herramientas (P3 salvo bloqueo comprobado).
@@ -336,6 +343,7 @@ unidad antes de convertirse en una tarea ejecutable.
 | Fidelidad del receptor | [Contrato P1 cerrado](pf-13-receptores-importacion-design.md): identificación y condición explícitas, transición autorizada para nuevas importaciones; conserva lotes, snapshots y hashes históricos. Constructor y padrón siguen siendo capacidades futuras. |
 | Admisibilidad, revisión y categorías | [Importes](pf-03-04-importes-previsualizacion-design.md): separar P1 de ampliación P2, contrato de preparación, tasas efectivas, lectura legacy y precisión inmutable. |
 | Reconciliación | [Diseño](pf-02-04-reconciliacion-integral-design.md): comparación legacy P1, cobertura del snapshot y recuperación moderna P2; conservar ownership y guardas RECE. |
+| Descargas PDF y ZIP | [Contrato](pf-18-17-descargas-pdf-design.md): selección completa entre páginas, ZIP atómico, errores y recursos; completar puertas y release sin ampliar el corte. |
 | WSAA coordinado/cifrado | [Diseño](pf-09-wsaa-coordinacion-cache-design.md): mecanismo multiproceso, claves, renovación, transición y recuperación; no requiere otro servicio. |
 | Padrón de clientes/emisores | [Diseño](pf-18-09-padron-clientes-emisores-design.md): mapeo oficial, permisos del servicio, datos actuales frente a operación, caché/renovación y bootstrap del primer emisor. |
 | Notas guiadas | [Diseño](pf-04-17-notas-guiadas-design.md): evidencia mínima del original, asociados y alcance parcial/total; reutiliza preparación y controles vigentes. |
@@ -358,10 +366,14 @@ Recuperación/trazabilidad conserva su siguiente corte propio.
 Tooling habilita la integración de runtime con CI verde; cada reparación fiscal
 se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
 una única unidad ni se bloquea una reparación esperando su propio resultado.
-Después: evidencia/reconciliación integral, WSAA y capacidades de plataforma
-necesarias, y padrón para clientes/emisores. La historia externa PF-05 pasa a
+Por decisión explícita del usuario, el próximo corte pequeño es descarga directa
+y ZIP desde Comprobantes, con su salida autorizada antes de continuar el roadmap.
+Conserva P3 administrativa: el adelanto cambia su orden de ejecución, no lo
+convierte en una emergencia fiscal. Después se retoma evidencia/reconciliación
+integral, WSAA y capacidades de plataforma necesarias, y padrón para
+clientes/emisores. La historia externa PF-05 pasa a
 Más adelante y no bloquea estos consumidores. Constructor, categorías completas
-y notas guiadas son P2; ZIP permanece P3. El orden autoritativo está en el roadmap.
+y notas guiadas son P2. El orden autoritativo está en el roadmap.
 El parche RG 5616 cerrado se
 consulta en su [contrato](rg-5616-condicion-iva-receptor-parche.md) y
 [dossier fiscal](../project/releases/rg5616-condicion-iva.md).

@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 03/11/2026
+Última revisión: 04/11/2026
 
 Estado: VIGENTE.
 
@@ -59,6 +59,27 @@ conserve. Renderizar las páginas y revisar código ordinario, código largo y
 decimales extensos: sin superposición, recortes ni datos perdidos; QR, CAE,
 fecha y, para monedas distintas de PES, moneda/cotización legibles. Una factura
 corriente debe conservar una página.
+
+### Descargas desde Comprobantes PF-18/PF-17
+
+Usar datos sintéticos y API local; no emitir ni descargar documentos reales.
+Comprobar PDF por fila junto al ojo, doble clic, error y permanencia del listado.
+Con más de una página, probar casilla individual, selección de esta página,
+selección de todos los resultados y exclusiones. Verificar cantidad y contenido
+del ZIP, sin duplicados; nuevas facturas no se suman a una selección congelada.
+Aplicar/limpiar filtros reinicia la selección; volver del detalle conserva
+filtros, página y selección del mismo emisor. Cambio A→B→A, sesión cerrada y
+acceso revocado no descargan respuestas atrasadas ni muestran errores ajenos.
+
+Introducir una falla en el primer PDF, en uno intermedio y en el último:
+ningún ZIP debe entregarse; el aviso identifica fallidos y conserva la selección.
+Repetir historia completa, incompleta, ausente y no verificable según el contrato
+de lecturas; no retirar bloqueos ni agregar leyendas técnicas. Verificar nombres,
+QR, importes y contenido fiscal iguales a la descarga individual. Ensayar
+desconexión/fallo de transferencia y comprobar cierre de temporales y blobs.
+Medir recursos y respuesta de la API durante un ZIP nativo representativo.
+Usar teclado, foco visible y casillas con selección parcial. No confundir esta
+descarga con el ZIP de resguardo ni ejecutar limpieza administrativa.
 
 ### Identidad histórica de comprobantes
 

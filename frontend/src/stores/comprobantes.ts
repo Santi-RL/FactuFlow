@@ -8,6 +8,8 @@ import comprobantesService, {
   type ListarComprobantesParams,
 } from "@/services/comprobantes.service";
 import { useEmpresaStore } from "@/stores/empresa";
+import { useAuthStore } from "@/stores/auth";
+import { resolverSeleccionPDF } from "@/services/descargas-pdf.service";
 import type {
   ComprobanteListItem,
   ComprobanteDetalle,
@@ -38,9 +40,88 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   let solicitudListarComprobantesId = 0;
   let solicitudObtenerComprobanteId = 0;
   const empresaStore = useEmpresaStore();
+  const authStore = useAuthStore();
+  const seleccionPDF = ref<number[]>([]);
+  const resolviendoSeleccionPDF = ref(false);
+  const descargasFilaPDF = ref(new Set<number>());
+  const zipPDFEnCurso = ref(false);
+  const errorDescargaPDF = ref("");
+  const cancelacionesPDF = new Map<AbortController, boolean>();
+  let contextoPDF = 0;
+  let revisionSeleccionPDF = 0;
+  let solicitudSeleccionPDF = 0;
+
+  function cancelarDescargasPDF(soloSeleccion = false) {
+    for (const [controller, seleccion] of cancelacionesPDF) {
+      if (!soloSeleccion || seleccion) {
+        controller.abort();
+        cancelacionesPDF.delete(controller);
+      }
+    }
+  }
+
+  function registrarDescargaPDF(conSeleccion = false) {
+    const controller = new AbortController();
+    cancelacionesPDF.set(controller, conSeleccion);
+    return {
+      signal: controller.signal,
+      finalizar: () => cancelacionesPDF.delete(controller),
+    };
+  }
+
+  function invalidarSeleccionPDF() {
+    solicitudSeleccionPDF += 1;
+    revisionSeleccionPDF += 1;
+    cancelarDescargasPDF(true);
+    seleccionPDF.value = [];
+    resolviendoSeleccionPDF.value = false;
+  }
+
+  function contextoDescargaPDF(conSeleccion = false) {
+    const contexto = contextoPDF;
+    const revision = revisionSeleccionPDF;
+    return () =>
+      contextoPDF === contexto &&
+      (!conSeleccion || revisionSeleccionPDF === revision);
+  }
+
+  function seleccionarPDF(id: number, seleccionado: boolean) {
+    solicitudSeleccionPDF += 1;
+    resolviendoSeleccionPDF.value = false;
+    revisionSeleccionPDF += 1;
+    cancelarDescargasPDF(true);
+    seleccionPDF.value = seleccionado
+      ? [...new Set([...seleccionPDF.value, id])]
+      : seleccionPDF.value.filter((actual) => actual !== id);
+  }
+
+  async function seleccionarTodosPDF() {
+    if (resolviendoSeleccionPDF.value) return;
+    const solicitud = ++solicitudSeleccionPDF;
+    const vigente = contextoDescargaPDF(true);
+    resolviendoSeleccionPDF.value = true;
+    try {
+      const ids = await resolverSeleccionPDF(filtros.value);
+      if (vigente()) {
+        revisionSeleccionPDF += 1;
+        cancelarDescargasPDF(true);
+        seleccionPDF.value = ids;
+      }
+    } finally {
+      if (solicitud === solicitudSeleccionPDF)
+        resolviendoSeleccionPDF.value = false;
+    }
+  }
   watch(
-    () => empresaStore.empresaActivaId,
+    [() => empresaStore.empresaActivaId, () => authStore.token],
     () => {
+      contextoPDF += 1;
+      cancelarDescargasPDF();
+      descargasFilaPDF.value.clear();
+      zipPDFEnCurso.value = false;
+      errorDescargaPDF.value = "";
+      invalidarSeleccionPDF();
+      filtros.value = {};
       solicitudListarComprobantesId += 1;
       comprobantes.value = [];
       paginacion.value = crearPaginacionVacia();
@@ -236,6 +317,16 @@ export const useComprobantesStore = defineStore("comprobantes", () => {
   }
 
   return {
+    registrarDescargaPDF,
+    descargasFilaPDF,
+    zipPDFEnCurso,
+    errorDescargaPDF,
+    seleccionPDF,
+    resolviendoSeleccionPDF,
+    invalidarSeleccionPDF,
+    contextoDescargaPDF,
+    seleccionarPDF,
+    seleccionarTodosPDF,
     // State
     comprobantes,
     comprobanteActual,

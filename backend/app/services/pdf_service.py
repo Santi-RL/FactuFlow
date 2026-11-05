@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
+import anyio
 import qrcode
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from weasyprint import CSS, HTML
@@ -84,6 +85,22 @@ class PDFService:
         Returns:
             Bytes del PDF generado
         """
+        return await anyio.to_thread.run_sync(
+            self._generar_pdf_sync,
+            comprobante,
+            empresa,
+            lectura,
+            limiter=self._render_limiter,
+        )
+
+    @property
+    def _render_limiter(self):
+        # Lazy: shared by single downloads, preview and ZIP in this process.
+        if not hasattr(self, "_limiter"):
+            self._limiter = anyio.CapacityLimiter(1)
+        return self._limiter
+
+    def _generar_pdf_sync(self, comprobante, empresa, lectura):
         lectura = (
             lectura if lectura is not None else lectura_actual(comprobante, empresa)
         )

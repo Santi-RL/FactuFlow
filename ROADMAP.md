@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 01/11/2026
+Última revisión: 04/11/2026
 
 Estado: VIGENTE.
 
@@ -43,18 +43,33 @@ puede integrarse al cumplir su contrato y sus checks, sin esperar una reparació
 conjunta de todo el proyecto. Las capacidades nuevas esperan el cierre de los
 P1 que afectan sus consumidores.
 
-### Puerta previa de release y migración
+### Puerta de release y despliegue
 
-Completar el preflight y la migración a producción de la release publicada,
-por su SHA inmutable, antes de implementar nuevos cortes del roadmap.
-El rango, las evidencias, el ensayo y la recuperación se documentan en el
+Cada corte destinado a producción completa validaciones, dossier y publicación
+antes de su preflight y despliegue por SHA inmutable, con las autorizaciones
+aplicables. El rango, las evidencias, el ensayo y la recuperación van en el
 dossier del corte, aplicando la [puerta adicional de release](docs/agents/change-quality-gates.md#puerta-adicional-de-release)
 y el [flujo de producción](docs/agents/production-workflow.md). La operación
-productiva se ejecuta por SHA inmutable y se acredita en su plano de control.
-Esta puerta conserva las prioridades y el orden relativo de las líneas
-siguientes; no exige completar iniciativas ajenas al rango aceptado.
+productiva se acredita en su plano de control; no repetir operaciones cerradas
+por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado.
 
-### 1. PF-04/PF-02 — evidencia y reconciliación integral
+### 1. PF-18/PF-17 — descarga directa y ZIP de comprobantes
+
+**Prioridad:** P3 administrativa; ejecución adelantada por decisión explícita
+del usuario, como próximo corte pequeño para llevar a producción.
+
+Completar las puertas de calidad y preparar una release pequeña del corte de
+descargas, con publicación y despliegue por SHA cuando se autoricen. Conservar
+ZIP completo o ninguno, permisos, historia, bloqueos y archivos bajo demanda.
+Alcance, invariantes, solapamientos y aceptación en el
+[diseño de descargas](docs/agents/pf-18-17-descargas-pdf-design.md).
+Delimita el pendiente ZIP de PF-18 existente, sin duplicarlo ni incluir correo,
+resguardo o un rediseño de Lotes. El estado del código vive en el handoff;
+no inferir desde allí la disponibilidad productiva.
+Completar este corte y su salida autorizada antes de retomar PF-04/PF-02;
+las demás líneas conservan su prioridad y orden relativo.
+
+### 2. PF-04/PF-02 — evidencia y reconciliación integral
 
 **Prioridad:** P2 fiscal.
 
@@ -219,11 +234,13 @@ operativos confirmados:
   evidencia ni las restricciones de emisión del control de duplicados.
   Este seguimiento no retrasa el control fiscal; cualquier defecto que impida
   revisar, cancelar o confirmar conscientemente conserva prioridad de bloqueo.
-- **PF-18 — distribución e integraciones, P3:** ZIP de PDFs del lote para evitar
-  descargas individuales repetidas, soporte, correo e integraciones;
+- **PF-18 — distribución e integraciones, P3:** soporte, correo e integraciones;
   instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar
-  almacenamiento seguro PF-10. Alcance en el [portafolio](docs/agents/development-portfolio.md).
+  almacenamiento seguro PF-10. La descarga ZIP y selección múltiple se delimitan
+  en Ahora 1; no se mantienen como otro pendiente equivalente aquí. Un acceso
+  específico desde Lotes queda fuera de ese corte. Alcance restante en el
+  [portafolio](docs/agents/development-portfolio.md).
 - **PF-18 — operación asistida mediante MCP, horizonte futuro:** permitir que
   un agente consulte, revise un Excel y prepare facturas o lotes sobre los mismos
   casos de uso de la web. La emisión conserva autorización humana verificable

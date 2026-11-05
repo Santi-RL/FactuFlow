@@ -1,6 +1,6 @@
 # API REST de FactuFlow
 
-Última actualización: 08/10/2026
+Última actualización: 04/11/2026
 
 Esta documentación resume el contrato real expuesto por `backend/app/main.py` y
 `backend/app/api/*.py`.
@@ -1112,6 +1112,41 @@ siguen siendo previos.
 No modifica hechos fiscales ni habilita recuperación moderna.
 [Contrato PF-04/PF-02](../agents/pf-04-lecturas-historicas-design.md).
 
+### Selección completa y ZIP PF-18/PF-17
+
+`GET /api/pdf/seleccion` acepta `desde`, `hasta`, `tipo`, `cliente_id` y `buscar`,
+con los mismos predicados del listado y fechas de emisión inclusivas. Devuelve
+`{"ids": [1, 2], "total": 2}` sin paginación, ítems ni evidencia fiscal.
+La web congela esos IDs; comprobantes posteriores no se incorporan al ZIP.
+
+`POST /api/pdf/zip` recibe `{"ids": [1, 2]}`: enteros positivos, sin duplicados
+ni campos extra. Una selección vacía o mal formada devuelve `422`. Todos deben
+pertenecer al emisor autorizado de la petición; un ID inexistente o ajeno
+rechaza todo con `404` genérico antes de generar documentos o revelar fallos.
+La selección no concede permisos; sesión y acceso se revalidan antes y después
+de generar el ZIP. Un permiso revocado impide su entrega.
+
+Éxito: `application/zip`, attachment `Comprobantes_N.zip`, un PDF por seleccionado,
+nombres históricos sin colisiones, `Cache-Control: no-store`. No hay enlace
+público ni archivo persistente. Los PDF usan las mismas guardas, lectura
+histórica, plantilla y QR que la descarga individual. El vencimiento de CAE
+debe estar guardado, no ser una fecha futura; no se consulta ARCA.
+
+Si falla un documento, no se entrega ningún ZIP y se responde `409` con
+`detail.mensaje` y `detail.fallidos`: elementos con `comprobante_id`,
+`comprobante` (nombre de archivo) y `mensaje` sanitizado. No desmarcar ni omitir
+fallidos automáticamente. Fallas generales de recursos/acceso no se presentan
+como un ZIP parcial ni como una inconsistencia histórica. La desconexión aborta
+el trabajo cuando se detecta y cierra el temporal; no hay transición fiscal,
+clave idempotente, reserva, migración o escritura de comprobantes.
+
+La composición es secuencial en un temporal privado por petición. Un ZIP se
+prepara a la vez por proceso; el renderizador nativo compartido por PDF,
+preview y ZIP usa un solo cupo fuera del bucle de la API. La conexión de base
+se libera antes de renderizar o transferir. La capacidad está sujeta a los
+recursos y timeouts HTTP de cada instalación; no se truncan selecciones para
+simular éxito. Esta descarga no usa el resguardo/confirmación de PF-10.
+
 ### Descarga y preview
 
 ```http
@@ -1130,6 +1165,10 @@ Si falla la generación, descarga y preview responden `500` con un mensaje
 genérico accionable; no devuelven excepciones, rutas internas ni credenciales.
 El diagnóstico técnico queda en registros privados. La autorización y el alcance
 por emisor se comprueban antes de generar el documento.
+El nombre canónico de descarga se toma de `Content-Disposition`, expuesto
+también a los clientes web de orígenes ya autorizados; no amplía esos orígenes
+ni sus permisos. La web lo prefiere a datos del listado/detalle que hayan quedado
+desactualizados, conservando el fallback anterior si la respuesta no lo incluye.
 
 El bloque visible de moneda y cotización se omite sólo para `PES`; se conserva
 para las demás monedas. No cambia los campos de la API, la evidencia, los

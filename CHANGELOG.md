@@ -18,6 +18,18 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Comprobantes
+
+- Descarga directa de PDF junto al ojo del listado, sin entrar al detalle.
+- Selección individual, por página o de todos los resultados filtrados para
+  descargar un ZIP. La selección conserva sus miembros entre páginas y no suma
+  automáticamente comprobantes nuevos. El ZIP se entrega sólo si contiene
+  todos los PDF elegidos; ante un fallo se informa cuál falta y no se descarga
+  un archivo parcial. Se conservan permisos, historia y bloqueos vigentes.
+- Filtros, página y selección se conservan al volver del detalle; cambiar de
+  emisor o aplicar otros filtros limpia la selección. PDF/ZIP bajo demanda,
+  renderizado fuera del bucle de la API y temporales sin archivo permanente.
+
 ## [0.3.11] - 03/11/2026
 
 Publicada sobre `e42cc8d11217234b7f8aba3770ea483f8b26a373`, sin desplegar por esta
