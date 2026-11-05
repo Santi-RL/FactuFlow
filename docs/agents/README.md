@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 04/11/2026
+Última revisión: 05/11/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -66,7 +66,7 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
-- PF-18/PF-17, contrato implementado, cierre y salida del corte pendientes:
+- PF-18/PF-17, contrato implementado y publicado; salida productiva pendiente:
   [descarga directa y ZIP de comprobantes](pf-18-17-descargas-pdf-design.md).
   PDF junto al ojo, selección individual/de todos los resultados filtrados y
   ZIP completo o ninguno; conserva historia, permisos y recursos acotados.

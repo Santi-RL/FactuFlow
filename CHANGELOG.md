@@ -18,8 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
-El corte PF-18/PF-17 se prepara como candidata **v0.3.12**, sin publicación ni
-despliegue. Alcance, compatibilidad, validaciones y recuperación en el
+## [0.3.12] - 05/11/2026
+
+Publicada sobre `7870e52200404a175d119de5f5444d201403be34`, sin desplegar por esta
+operación. [Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.12),
+alcance, compatibilidad, validaciones y recuperación en el
 [dossier](docs/project/releases/v0.3.12-candidate.md).
 
 ### Comprobantes
