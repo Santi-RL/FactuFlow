@@ -20,6 +20,13 @@ de `docs/project/releases/`.
 Su alcance, compatibilidad, evidencia de publicación y recuperación se conservan en
 el [dossier de v0.3.11](docs/project/releases/v0.3.11-candidate.md).
 
+Candidata preparada: **v0.3.12**, con descarga directa de PDF y ZIP de la
+selección desde Comprobantes. Los productores técnicos y visibles usan
+`0.3.12`; la última release publicada sigue siendo `v0.3.11`. Alcance,
+validaciones, actualización y retorno en el
+[dossier de v0.3.12](docs/project/releases/v0.3.12-candidate.md).
+La preparación no publica un tag o una release ni modifica producción.
+
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
 
@@ -39,7 +46,9 @@ Capacidades actuales:
 - puntos de venta descubiertos y validados con la autoridad WSFE del emisor;
   sólo los CAE compatibles, disponibles, frescos y habilitados para usar en
   FactuFlow pueden emitirse. La constancia PDF es descriptiva y opcional
-- PDF de comprobantes y reportes básicos de ventas, IVA y ranking de clientes
+- PDF de comprobantes, descarga por fila y ZIP completo de la selección
+  individual o de todos los resultados filtrados; reportes básicos de ventas,
+  IVA y ranking de clientes
 - selector de emisor activo para que un contador independiente o estudio chico
   opere varios CUITs sin mezclar información
 - administradores con acceso operativo a todos los emisores y gestión de

@@ -18,6 +18,10 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+El corte PF-18/PF-17 se prepara como candidata **v0.3.12**, sin publicación ni
+despliegue. Alcance, compatibilidad, validaciones y recuperación en el
+[dossier](docs/project/releases/v0.3.12-candidate.md).
+
 ### Comprobantes
 
 - Descarga directa de PDF junto al ojo del listado, sin entrar al detalle.
