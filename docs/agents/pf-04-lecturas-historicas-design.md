@@ -2,7 +2,7 @@
 
 Fecha: 15/10/2026. Última revisión: 02/11/2026.
 
-Estado: segundo corte implementado. Prioridad P2 fiscal, dentro de Ahora 1.
+Estado: segundo corte implementado. Prioridad P2 fiscal; continuación según roadmap.
 Implementación de nivel 2; recuperación moderna pendiente y separada.
 Consume el [primer corte de evidencia previa](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida).
 No habilita todavía recuperación moderna ni modifica producción.

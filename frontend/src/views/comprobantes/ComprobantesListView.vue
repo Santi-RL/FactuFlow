@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
 import { ref, onMounted, computed, watch } from "vue";
+import { storeToRefs } from "pinia";
+import pdfService, { mensajeErrorPDF } from "@/services/pdf.service";
+import {
+  descargarZIP,
+  mensajeErrorZIP,
+} from "@/services/descargas-pdf.service";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
 import {
   formatearFecha as formatFecha,
   formatearMoneda,
+  formatearNumero,
 } from "@/composables/useFormatters";
 import { useEmpresaStore } from "@/stores/empresa";
 import {
@@ -14,6 +21,7 @@ import {
   PlusIcon,
   MagnifyingGlassIcon,
   EyeIcon,
+  ArrowDownTrayIcon,
   FunnelIcon,
 } from "@heroicons/vue/24/outline";
 import BaseCard from "@/components/ui/BaseCard.vue";
@@ -29,11 +37,79 @@ const empresaStore = useEmpresaStore();
 
 // Filtros
 const filtros = ref({
-  buscar: "",
-  desde: "",
-  hasta: "",
-  tipo: null as number | null,
+  buscar: comprobantesStore.filtros.buscar || "",
+  desde: comprobantesStore.filtros.desde || "",
+  hasta: comprobantesStore.filtros.hasta || "",
+  tipo: comprobantesStore.filtros.tipo || (null as number | null),
 });
+
+const { descargasFilaPDF: descargasFila, zipPDFEnCurso: preparandoZIP, errorDescargaPDF: errorDescarga } = storeToRefs(comprobantesStore);
+const contexto = (seleccion = false) => {
+  const vigente = comprobantesStore.contextoDescargaPDF(seleccion);
+  return vigente;
+};
+const seleccionados = computed(() => new Set(comprobantesStore.seleccionPDF));
+const todosPagina = computed(
+  () =>
+    comprobantesStore.comprobantes.length > 0 &&
+    comprobantesStore.comprobantes.every((c) => seleccionados.value.has(c.id)),
+);
+const algunoPagina = computed(() =>
+  comprobantesStore.comprobantes.some((c) => seleccionados.value.has(c.id)),
+);
+const seleccionarPagina = (checked: boolean) => {
+  for (const c of comprobantesStore.comprobantes)
+    comprobantesStore.seleccionarPDF(c.id, checked);
+};
+const seleccionarTodos = async () => {
+  const vigente = contexto(true);
+  errorDescarga.value = "";
+  try {
+    await comprobantesStore.seleccionarTodosPDF();
+  } catch {
+    if (vigente())
+      errorDescarga.value =
+        "No se pudieron seleccionar los resultados. Intentá nuevamente.";
+  }
+};
+const descargarFila = async (id: number, punto: number, numero: number, tipo: number) => {
+  if (descargasFila.value.has(id)) return;
+  const vigente = contexto();
+  const registro = comprobantesStore.registrarDescargaPDF();
+  descargasFila.value.add(id);
+  errorDescarga.value = "";
+  try {
+    await pdfService.descargarAutomatico(
+      id,
+      `${getTipoNombre(tipo)}_${getTipoNombre(tipo).slice(-1)}_${String(punto).padStart(4, "0")}-${String(numero).padStart(8, "0")}.pdf`,
+      vigente,
+      registro.signal,
+    );
+  } catch (error) {
+    const mensaje = await mensajeErrorPDF(error);
+    if (vigente()) errorDescarga.value = mensaje;
+  } finally {
+    registro.finalizar();
+    if (vigente()) descargasFila.value.delete(id);
+  }
+};
+const descargarSeleccion = async () => {
+  if (preparandoZIP.value || !comprobantesStore.seleccionPDF.length) return;
+  const vigente = contexto(true);
+  const mismoEmisor = contexto();
+  const registro = comprobantesStore.registrarDescargaPDF(true);
+  preparandoZIP.value = true;
+  errorDescarga.value = "";
+  try {
+    await descargarZIP([...comprobantesStore.seleccionPDF], vigente, registro.signal);
+  } catch (error) {
+    const mensaje = await mensajeErrorZIP(error);
+    if (vigente()) errorDescarga.value = mensaje;
+  } finally {
+    registro.finalizar();
+    if (mismoEmisor()) preparandoZIP.value = false;
+  }
+};
 
 const loading = ref(false);
 
@@ -41,6 +117,7 @@ const empresaId = computed(() => empresaStore.empresaActivaId || 0);
 
 const cargarComprobantes = async (page = 1) => {
   if (!empresaId.value) return;
+  const vigente = contexto();
 
   loading.value = true;
 
@@ -56,7 +133,7 @@ const cargarComprobantes = async (page = 1) => {
   } catch (error) {
     console.error("Error al cargar comprobantes:", error);
   } finally {
-    loading.value = false;
+    if (vigente()) loading.value = false;
   }
 };
 
@@ -67,22 +144,32 @@ onMounted(async () => {
     await empresaStore.cargarEmpresa();
   }
 
-  await cargarComprobantes();
+  await cargarComprobantes(comprobantesStore.paginaActual);
 });
 
 watch(
   () => empresaStore.empresaActivaId,
   async (nuevoEmpresaId, anteriorEmpresaId) => {
+    loading.value = false;
+    filtros.value = { buscar: "", desde: "", hasta: "", tipo: null };
+    descargasFila.value.clear();
+    preparandoZIP.value = false;
+    errorDescarga.value = "";
     if (!nuevoEmpresaId || nuevoEmpresaId === anteriorEmpresaId) return;
     await cargarComprobantes(1);
   },
+  { flush: "sync" },
 );
 
 const aplicarFiltros = () => {
+  comprobantesStore.invalidarSeleccionPDF();
+  errorDescarga.value = "";
   cargarComprobantes(1);
 };
 
 const limpiarFiltros = () => {
+  comprobantesStore.invalidarSeleccionPDF();
+  errorDescarga.value = "";
   filtros.value = {
     buscar: "",
     desde: "",
@@ -105,6 +192,8 @@ const verDetalle = (id: number) => {
 };
 
 const formatMonto = formatearMoneda;
+const numeroVisible = (punto: number, numero: number) =>
+  `${String(punto).padStart(4, "0")}-${String(numero).padStart(8, "0")}`;
 
 const getTipoNombre = (tipo: number) => {
   return TIPOS_COMPROBANTE_NOMBRES[tipo] || `Tipo ${tipo}`;
@@ -264,6 +353,13 @@ const tiposDisponibles = [
 
     <!-- Loading -->
     <div
+      v-if="errorDescarga"
+      role="alert"
+      class="mb-4 whitespace-pre-line rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
+    >
+      {{ errorDescarga }}
+    </div>
+    <div
       v-if="loading"
       class="text-center py-12"
     >
@@ -302,9 +398,69 @@ const tiposDisponibles = [
       </div>
 
       <div class="overflow-x-auto">
+        <div
+          class="mb-4 flex flex-wrap items-center gap-3"
+          aria-label="Selección de comprobantes"
+        >
+          <span aria-live="polite">{{ formatearNumero(comprobantesStore.seleccionPDF.length) }} {{ comprobantesStore.seleccionPDF.length === 1 ? 'seleccionado' : 'seleccionados' }}</span>
+          <button
+            class="rounded border px-3 py-2 text-blue-700"
+            :disabled="
+              comprobantesStore.loading ||
+                comprobantesStore.resolviendoSeleccionPDF
+            "
+            @click="seleccionarTodos"
+          >
+            {{
+              comprobantesStore.resolviendoSeleccionPDF
+                ? "Seleccionando…"
+                : comprobantesStore.totalComprobantes === 1 ? 'Seleccionar el resultado filtrado' : `Seleccionar los ${formatearNumero(comprobantesStore.totalComprobantes)} resultados filtrados`
+            }}
+          </button>
+          <button
+            v-if="comprobantesStore.seleccionPDF.length"
+            class="rounded border px-3 py-2"
+            @click="
+              comprobantesStore.invalidarSeleccionPDF();
+              errorDescarga = '';
+            "
+          >
+            Quitar selección
+          </button>
+          <button
+            class="rounded bg-blue-600 px-3 py-2 text-white disabled:opacity-50"
+            :disabled="
+              !comprobantesStore.seleccionPDF.length ||
+                preparandoZIP ||
+                comprobantesStore.loading ||
+                comprobantesStore.resolviendoSeleccionPDF
+            "
+            @click="descargarSeleccion"
+          >
+            {{
+              preparandoZIP
+                ? "Preparando ZIP…"
+                : `Descargar ${formatearNumero(comprobantesStore.seleccionPDF.length)} PDF en ZIP`
+            }}
+          </button>
+        </div>
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th class="px-4 py-3">
+                <input
+                  type="checkbox"
+                  aria-label="Seleccionar esta página"
+                  :checked="todosPagina"
+                  :indeterminate="algunoPagina && !todosPagina"
+                  :disabled="comprobantesStore.loading"
+                  @change="
+                    seleccionarPagina(
+                      ($event.target as HTMLInputElement).checked,
+                    )
+                  "
+                >
+              </th>
               <th
                 class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
               >
@@ -348,6 +504,20 @@ const tiposDisponibles = [
               :key="comprobante.id"
               class="hover:bg-gray-50"
             >
+              <td class="px-4 py-3">
+                <input
+                  type="checkbox"
+                  :aria-label="`Seleccionar comprobante ${numeroVisible(comprobante.punto_venta_numero, comprobante.numero)}`"
+                  :checked="seleccionados.has(comprobante.id)"
+                  :disabled="comprobantesStore.loading"
+                  @change="
+                    comprobantesStore.seleccionarPDF(
+                      comprobante.id,
+                      ($event.target as HTMLInputElement).checked,
+                    )
+                  "
+                >
+              </td>
               <td class="px-4 py-3 text-sm text-gray-900">
                 {{ getTipoNombre(comprobante.tipo_comprobante) }}
               </td>
@@ -389,6 +559,28 @@ const tiposDisponibles = [
                   @click="verDetalle(comprobante.id)"
                 >
                   <EyeIcon class="h-5 w-5" />
+                </button>
+                <button
+                  class="text-blue-600 p-1 rounded hover:bg-blue-50 disabled:opacity-50"
+                  title="Descargar PDF"
+                  :aria-label="`Descargar PDF ${numeroVisible(comprobante.punto_venta_numero, comprobante.numero)}`"
+                  :aria-busy="descargasFila.has(comprobante.id)"
+                  :disabled="descargasFila.has(comprobante.id)"
+                  @click="
+                    descargarFila(
+                      comprobante.id,
+                      comprobante.punto_venta_numero,
+                      comprobante.numero,
+                      comprobante.tipo_comprobante,
+                    )
+                  "
+                >
+                  <ArrowDownTrayIcon
+                    class="h-5 w-5"
+                    :class="{
+                      'animate-pulse': descargasFila.has(comprobante.id),
+                    }"
+                  />
                 </button>
               </td>
             </tr>

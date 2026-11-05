@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 03/11/2026.
+Última revisión: 04/11/2026.
 
 Estado: VIGENTE.
 
@@ -50,17 +50,24 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: preflight y despliegue de v0.3.11
+## Siguiente unidad: cierre y salida del corte de descargas
 
-La release está publicada y verificada. La siguiente operación requiere
-autorización separada para el preflight productivo y despliegue del SHA
-inmutable, con origen real, respaldo fresco, copia externa cifrada verificada y
-retorno comprobable según el [flujo de producción](production-workflow.md).
-La publicación no acredita el estado de la instalación. La preparación
-PF-04/PF-02 y su orden relativo se conservan; no se incorporan capacidades del
-roadmap.
+El [corte PF-18/PF-17](pf-18-17-descargas-pdf-design.md) implementa
+PDF por fila junto al ojo, selección individual y de todos
+los resultados filtrados entre páginas, y ZIP sólo si contiene todos los PDF
+seleccionados. Conserva historia, permisos, bloqueos por evidencia inválida y
+generación bajo demanda sin archivos permanentes. La decisión del usuario
+adelanta este corte P3 como Ahora 1 para preparar una salida pequeña a producción;
+no agrega correo, resguardo ni rediseño de Lotes.
 
-## PF-04/PF-02: continuación tras la migración
+El siguiente paso es cerrar sus controles y seguir el ciclo de Git con las
+autorizaciones aplicables; después, preparar una release pequeña. Publicación,
+integración y despliegue mantienen sus autorizaciones propias. No fijar todavía
+versión ni fecha. Consultar los
+cierres operativos existentes en el plano de control; no repetir el preflight
+anterior por una instrucción de handoff que ya fue reemplazada.
+
+## PF-04/PF-02: continuación conservada después de las descargas
 
 El [primer corte PF-04/PF-02](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
 incorpora evidencia previa versionada e inmutable para intentos nuevos,
@@ -74,7 +81,9 @@ ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
 leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
 vínculo del intento y no abre recuperación moderna ni cambia la compactación
 o el traslado vigentes. La continuación de
-Ahora 1 requiere preparar primero el cierre moderno individual, antes del masivo.
+Ahora 2 requiere preparar primero el cierre moderno individual, antes del masivo.
+Se retoma después del corte de descargas y su salida autorizada; sus invariantes
+y el orden relativo de las demás líneas permanecen intactos.
 
 El orden y alcance macro se toman exclusivamente de
 [`ROADMAP.md`](../../ROADMAP.md); el inventario y dependencias están en el
@@ -99,8 +108,9 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md` y la puerta previa de release y migración del roadmap;
-   retomar Ahora 1 y su diseño sólo después de cerrar esa puerta.
+2. Leer `VISION.md`, Ahora 1 del roadmap y su diseño de descargas; distinguir
+   preparación de implementación y aplicar la puerta de release/despliegue
+   cuando se autorice esa etapa.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el

@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 29/10/2026
+Última revisión: 04/11/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -65,6 +65,11 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - `production-workflow.md` sólo con autorización productiva.
 
 ## Diseños activos
+
+- PF-18/PF-17, contrato implementado, cierre y salida del corte pendientes:
+  [descarga directa y ZIP de comprobantes](pf-18-17-descargas-pdf-design.md).
+  PDF junto al ojo, selección individual/de todos los resultados filtrados y
+  ZIP completo o ninguno; conserva historia, permisos y recursos acotados.
 
 - PF-03/PF-04/PF-17: [lecturas fiscales A-03](a03-lecturas-fiscales-design.md).
   Bases contrastadas, cobertura histórica explícita y moneda nominal separada.

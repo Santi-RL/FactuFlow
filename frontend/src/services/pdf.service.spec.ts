@@ -127,6 +127,25 @@ describe("pdfService", () => {
     } as never;
     expect(await mensajeErrorPDF(error)).not.toContain("privado");
   });
+
+  it("prefiere el nombre canónico de la respuesta frente a los datos anteriores del listado", async () => {
+    mockedApi.get.mockResolvedValue({
+      data: new Blob(["%PDF-test"]),
+      headers: {
+        "content-disposition":
+          'attachment; filename="FACTURA_B_0099-00000127.pdf"',
+      },
+    });
+    let nombre = "";
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      nombre = this.download;
+    });
+    await pdfService.descargarAutomatico(42, "Factura_B_0001-00000127.pdf");
+    expect(nombre).toBe("FACTURA_B_0099-00000127.pdf");
+    expect(revokeObjectURLMock).toHaveBeenCalledOnce();
+  });
 });
 
 function buildPreviewWindow(listeners: Map<string, EventListener>): Window {

@@ -22,7 +22,7 @@ Evidencia, alcance y reproducción en la
 | Corte | Prioridad / horizonte | Resultado |
 |---|---|---|
 | Comparación y recuperación legacy | P1 fiscal, cerrado | Evitar reconstruir o vincular como coincidente una respuesta fiscal diferente |
-| Snapshot y recuperación integral | P2 fiscal, Ahora 1 con PF-04 | Evidencia mínima suficiente y reconciliación segura de caminos modernos, unitarios y masivos |
+| Snapshot y recuperación integral | P2 fiscal con PF-04; orden según roadmap | Evidencia mínima suficiente y reconciliación segura de caminos modernos, unitarios y masivos |
 
 ## Invariantes y fuente de comparación
 
@@ -159,8 +159,9 @@ La preparación documental es nivel 0; la implementación es nivel 2 fiscal.
    luego el de grupos, completando sus contratos atómicos sobre el grafo RECE.
    Cada habilitación exige su propia matriz de fallos y concurrencia.
 
-Son subcortes de «Ahora 1», sin adelantar WSAA, padrón, notas, categorías de
-importes, ranking ni mejoras de UI. PF-05 externo sigue siendo opcional.
+Son subcortes de PF-04/PF-02, en el orden del roadmap, sin adelantar WSAA,
+padrón, notas, categorías de importes, ranking ni mejoras de UI.
+PF-05 externo sigue siendo opcional.
 Este primer corte no agrega endpoints, tareas periódicas, confirmaciones ni
 acciones administrativas; tampoco habilita «No existe» para liberar un intento
 moderno, reconstruye comprobantes o cambia la recuperación legacy P1.

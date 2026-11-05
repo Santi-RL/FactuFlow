@@ -1,6 +1,6 @@
 # Manual de usuario - FactuFlow
 
-Última actualización: 29/10/2026
+Última actualización: 04/11/2026
 
 Este manual describe las capacidades aceptadas del producto, no el estado de una
 instalación concreta.
@@ -294,6 +294,34 @@ En un Excel, un descuento ausente significa cero. Un descuento ilegible, fuera
 de rango o un total informado inválido genera un error del grupo: corregí el
 archivo o la plantilla y volvé a validar. La aplicación no inventa un importe
 para continuar.
+
+### Descargas desde el listado
+
+En **Acciones**, el ojo abre el detalle y el botón **Descargar PDF** obtiene el
+archivo de esa fila sin salir del listado. Para reunir varios comprobantes:
+
+1. Seleccionar el emisor y aplicar los filtros deseados. Las fechas filtran la
+   fecha de emisión, no el período del servicio.
+2. Marcar casillas individuales o **Seleccionar esta página**. Para incluir
+   también las demás páginas, usar **Seleccionar los N resultados filtrados**.
+3. Desmarcar las excepciones y pulsar **Descargar N PDF en ZIP**. Cada
+   comprobante sigue siendo un PDF separado dentro del ZIP.
+
+La cantidad seleccionada permanece visible al cambiar de página. Aplicar o
+limpiar filtros, cambiar de emisor o cerrar sesión limpia la selección. Volver
+del detalle conserva el contexto del listado; recargar la aplicación puede
+limpiarlo. Los comprobantes nuevos no se suman solos a una selección ya hecha.
+
+El ZIP se entrega completo o no se entrega. Si algún PDF no puede generarse,
+se informa cuál falla y se conserva la selección: podés quitarlo explícitamente
+o descargar los demás por sus botones individuales. No reemitas una factura
+para resolver un problema de descarga. Si el aviso lo indica, consultá al
+responsable de la instalación.
+
+La preparación de archivos puede tardar según la cantidad y extensión de los
+comprobantes. El navegador controla la carpeta de destino. No quedan PDF ni ZIP
+como archivo permanente en el servidor; esta descarga no reemplaza un backup
+ni habilita borrar información.
 
 ### Detalle de comprobante
 
@@ -1202,7 +1230,8 @@ limpiables.
 
 ## 13. Limitaciones actuales
 
-- no existe todavía descarga masiva de PDFs desde el listado
+- la descarga conjunta desde Comprobantes es un ZIP de la selección; no envía
+  archivos por correo ni genera un único PDF combinado
 - el PDF se genera bajo demanda y no debe quedar como archivo permanente en el
   servidor cuando la instalación corre en VPS
 - los artefactos descargables no vitales, como PDFs, ZIPs, archivos observados

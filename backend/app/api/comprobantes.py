@@ -6,14 +6,14 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import String, and_, cast, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user, get_db
 from app.core.config import settings
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
-from app.models.cliente import Cliente
+from app.services.comprobantes_consulta import filtrar_comprobantes
 from app.models.comprobante import Comprobante
 from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.usuario import Usuario
@@ -576,29 +576,15 @@ async def listar_comprobantes(
         )
     )
 
-    # Aplicar filtros
-    if desde:
-        stmt = stmt.where(Comprobante.fecha_emision >= desde)
-    if hasta:
-        stmt = stmt.where(Comprobante.fecha_emision <= hasta)
-    if tipo:
-        stmt = stmt.where(Comprobante.tipo_comprobante == tipo)
-    if cliente_id:
-        stmt = stmt.where(Comprobante.cliente_id == cliente_id)
-    if buscar:
-        stmt = stmt.where(
-            or_(
-                cast(Comprobante.numero, String).like(f"%{buscar}%"),
-                Comprobante.receptor_razon_social.like(f"%{buscar}%"),
-                Comprobante.receptor_numero_documento.like(f"%{buscar}%"),
-                Comprobante.cliente.has(
-                    or_(
-                        Cliente.razon_social.like(f"%{buscar}%"),
-                        Cliente.numero_documento.like(f"%{buscar}%"),
-                    )
-                ),
-            )
-        )
+    stmt = filtrar_comprobantes(
+        stmt,
+        empresa_activa_id,
+        desde=desde,
+        hasta=hasta,
+        tipo=tipo,
+        cliente_id=cliente_id,
+        buscar=buscar,
+    )
 
     # Contar total
     count_stmt = select(func.count()).select_from(stmt.subquery())
