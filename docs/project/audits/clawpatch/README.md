@@ -1,5 +1,23 @@
 # Puesta a punto de Clawpatch
 
+Estado: HISTÓRICO; NO AUTORITATIVO. Clasificación aclarada el 06/11/2026.
+
+Conforme al [índice histórico del proyecto](../../README.md), este archivo
+conserva el procedimiento anterior y los registros de los ciclos documentados.
+El texto que sigue se preserva íntegro: sus referencias a «runbook operativo
+obligatorio», «Estado Actual», configuración «canónica» o «nuevas revisiones»
+pertenecen a ese procedimiento histórico. Sus modelos, comandos y cadencia por
+commit no establecen instrucciones para trabajo nuevo.
+
+Toda nueva revisión con `autoreview` se rige exclusivamente por la
+[política central del proyecto](../../../agents/change-quality-gates.md#revisión-independiente-con-autoreview).
+Para una nueva auditoría con Clawpatch, consultar las reglas de `AGENTS.md` del
+repositorio y el procedimiento compartido indicado por el `AGENTS.md` de la
+carpeta de proyectos. Este archivo no es un runbook vigente ni autoriza ejecutar
+ninguna de las herramientas.
+
+## Procedimiento histórico conservado
+
 Este documento define que debe hacer un agente cuando el usuario pida:
 
 > Hagamos los cambios necesarios para ejecutar clawpatch

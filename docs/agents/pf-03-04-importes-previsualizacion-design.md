@@ -1,6 +1,6 @@
 # PF-03/PF-04/PF-13 — importes y previsualización fiscal común
 
-Última revisión: 09/10/2026.
+Última revisión: 06/11/2026.
 
 Estado: admisibilidad y revisión P1 implementadas; categorías y reutilización
 en plantillas P2 pendientes. Preserva el contrato decimal cerrado PF-03B.
@@ -123,9 +123,15 @@ replay/conflicto, fallos pre/post-CAE y reconciliación; no se introducen locks.
 
 Rollback técnico por commit, sin reescritura de datos. Revertir runtime
 reintroduce el riesgo: preferir corrección hacia adelante. No restaurar ni
-reemitir autorizados. Suites completas, QA y revisión final `autoreview`
-`gpt-5.6-sol medium` preceden al cierre; release y despliegue tienen puertas
-propias. El adaptador WSFE y sus tolerancias mantienen su contrato vigente.
+reemitir autorizados. Release y despliegue tienen puertas propias. El adaptador
+WSFE y sus tolerancias mantienen su contrato vigente.
+
+El criterio original de cierre del P1 exigía suites completas, QA y revisión
+final `autoreview` con `gpt-5.6-sol medium`. Se conserva como antecedente de ese
+corte cerrado, no como configuración para trabajo nuevo ni como registro de
+una ejecución. Las futuras revisiones de esta línea, incluidas las ampliaciones
+P2, se rigen por la
+[política central de autoreview](change-quality-gates.md#revisión-independiente-con-autoreview).
 
 ## Ampliación P2 del dominio
 

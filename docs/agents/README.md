@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 05/11/2026
+Última revisión: 06/11/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -56,7 +56,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 - `testing.md` para comandos y políticas;
 - `manual-qa.md` para recorridos reutilizables;
-- `change-quality-gates.md` para riesgo, PR y CI.
+- `change-quality-gates.md` para riesgo, PR y CI, y su
+  [política central de autoreview](change-quality-gates.md#revisión-independiente-con-autoreview)
+  para la revisión independiente.
 
 ### Seguridad, soporte o despliegue
 

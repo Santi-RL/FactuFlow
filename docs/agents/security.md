@@ -176,12 +176,8 @@ Referencia: [opciones oficiales de Dependabot](https://docs.github.com/en/code-s
   irreversibles, completar `docs/agents/fiscal-change-checklist.md`.
 - El diseño debe identificar invariantes, estados, fallos intermedios,
   concurrencia, constraints, reconciliación y matriz de tests antes del código.
-- Si se usa `autoreview`, configuración predeterminada, elección explícita del
-  usuario y repetición se rigen por el
-  [checklist fiscal](fiscal-change-checklist.md#9-uso-de-autoreview). No aplicar
-  hallazgos automáticamente ni ejecutar revisiones incrementales o redundantes.
-  Si un hallazgo aceptado cambia código, repetir las pruebas y la misma
-  configuración elegida para la unidad.
+- La revisión independiente y el tratamiento de sus resultados se rigen por la
+  [política central de autoreview](change-quality-gates.md#revisión-independiente-con-autoreview).
 
 ## Checklist antes de commit
 

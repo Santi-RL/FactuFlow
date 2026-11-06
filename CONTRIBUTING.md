@@ -186,8 +186,9 @@ que no pertenezca al alcance.
 
 Después de implementar:
 
-- ejecutar la verificación proporcional definida en
-  `docs/agents/change-quality-gates.md`;
+- ejecutar la verificación proporcional y la revisión independiente que
+  correspondan según
+  [`docs/agents/change-quality-gates.md`](docs/agents/change-quality-gates.md#revisión-independiente-con-autoreview);
 - completar la puerta documental después de estabilizar comportamiento y tests,
   antes de `autoreview`, staging y commit. Los documentos deben describir el
   estado objetivo de `main`, distinguirlo de la versión desplegada y no

@@ -45,6 +45,50 @@
   fail-closed ante riesgo inmediato no autoriza a diseñar una política permanente
   ni ampliar el alcance por cuenta propia.
 
+## UI y UX: herramientas y criterio visual
+
+- Elegir y aplicar la skill pertinente por el objetivo del pedido, sin exigir
+  que el usuario recuerde su nombre. Consultar sus instrucciones vigentes antes
+  de ejecutarla. Usar esta matriz como criterio de selección:
+
+| Objetivo | Herramienta preferida | Para qué usarla |
+| --- | --- | --- |
+| Auditar una tarea o recorrido completo | Product Design — Audit | Recorrer el flujo, capturar sus pasos y vincular hallazgos de claridad, navegación y accesibilidad con evidencia visual. |
+| Evaluar una pantalla o conjunto de pantallas | Impeccable — `critique` | Revisar jerarquía visual, usabilidad, carga cognitiva, coherencia y claridad de la siguiente acción. |
+| Auditar la implementación del frontend | Impeccable — `audit` | Verificar accesibilidad técnica, adaptación a pantallas, temas, rendimiento e integridad de la implementación. |
+| Planificar una función nueva o reorganizar una pantalla | Impeccable — `shape` | Definir primero la tarea, la ubicación, la jerarquía y la interacción; integrar la función con los patrones existentes. |
+| Refinar una interfaz existente | Impeccable — comando específico | Usar `clarify`, `layout`, `distill`, `harden`, `adapt` o `polish` según el problema concreto. |
+| Explorar alternativas visuales o prototipos | Product Design | Comparar direcciones antes de implementar cuando el pedido requiera exploración. |
+| Validar comportamiento de usuarios reales | Pruebas con usuarios y analítica de producto | Contrastar hipótesis de usabilidad con uso observado; incorporar una integración de analítica sólo con autorización. |
+
+- Para una auditoría general de UI y UX, comenzar por los recorridos relevantes
+  con Product Design y profundizar con Impeccable en las pantallas y aspectos
+  técnicos que lo requieran. Evitar repetir evaluaciones sin una pregunta nueva.
+  Una revisión experta no sustituye pruebas con usuarios ni acredita por sí
+  sola accesibilidad completa o corrección fiscal.
+- En funciones nuevas y cambios de interfaz, aplicar Impeccable con alcance
+  proporcional antes de editar: identificar la tarea del usuario, inspeccionar
+  la pantalla actual y sus componentes, y definir dónde encaja el cambio.
+  Usar el modo `Operate`: claridad, previsibilidad y eficiencia administrativa.
+  Una mejora acotada no requiere una auditoría integral ni explorar variantes.
+- Que una función opere correctamente no basta: debe entenderse qué hacer,
+  qué información se necesita y cuál fue el resultado. Mantener una acción
+  principal clara por contexto y agrupar datos y acciones por tarea.
+- Reutilizar componentes, patrones, espaciado, tipografía y jerarquías vigentes.
+  No agregar ventanas, tarjetas, botones o selectores por acumulación: cada
+  control debe resolver una necesidad concreta y ocupar un lugar coherente en
+  el flujo. Evaluar primero su integración en la estructura existente.
+- Mostrar opciones secundarias y ayudas en el contexto donde se necesitan,
+  conservando visibles los datos y advertencias necesarios para decidir con
+  seguridad. Preservar la identidad existente salvo pedido de rediseño.
+- Verificar el resultado renderizado en los tamaños pertinentes y los estados
+  afectados, incluidos carga, vacío, error y éxito cuando correspondan; revisar
+  claridad, teclado, foco y desbordamientos. Informar lo que no pudo verificarse.
+- Las skills no autorizan ampliar el alcance, modificar protecciones fiscales,
+  instalar herramientas, acceder a producción ni emitir comprobantes reales.
+  Si una skill necesaria no está disponible, informar la limitación y acordar
+  una alternativa sin afirmar que se ejecutó.
+
 ## Formato argentino en contenido visible
 
 - Las fechas y los números destinados al usuario usan formato argentino en la
@@ -146,9 +190,12 @@ cuando se quiera aplicar formato. Los detalles y matrices vigentes viven en
 - No hacer push, merge ni eliminación remota sin autorización explícita. Una
   autorización puede cubrir el ciclo completo solo si su alcance lo dice con
   claridad.
-- `autoreview` y Clawpatch se ejecutan únicamente cuando el usuario los pide o
-  cuando el riesgo y el runbook aplicable realmente los exigen. Seguir sus
-  runbooks vigentes; no incrustar aquí workarounds operativos extensos.
+- La política de `autoreview` vive en
+  [`docs/agents/change-quality-gates.md`](docs/agents/change-quality-gates.md#revisión-independiente-con-autoreview).
+  Consultar allí obligatoriedad, configuración, alcance y tratamiento de
+  resultados, y seguir la skill instalada para la ejecución. Clawpatch se
+  ejecuta sólo por pedido explícito o exigencia del runbook aplicable; no
+  incrustar aquí workarounds operativos extensos.
 
 ## Despliegue por SHA exacto
 
