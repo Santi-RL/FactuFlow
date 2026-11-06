@@ -128,8 +128,9 @@ Antes de actualizar producción:
 2. Ejecutar las pruebas relevantes al cambio.
 3. Completar la puerta de alineación documental de
    `docs/agents/change-quality-gates.md` antes de staging y commit.
-4. Para cambios sensibles, considerar `autoreview` con confirmación explícita
-   del usuario después de pruebas y documentación estabilizadas.
+4. Verificar el cierre de la revisión exigida por la
+   [política central de autoreview](change-quality-gates.md#revisión-independiente-con-autoreview)
+   para el candidato que se pretende integrar.
 5. Preparar commit, push y PR del cambio aceptado; antes de marcar el PR como
    listo, revisar el rango completo y completar la matriz documental.
 6. Integrar solo con CI verde y verificar después del merge que `main` y su

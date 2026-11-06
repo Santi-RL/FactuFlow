@@ -22,6 +22,8 @@
 - Suites y controles completos:
 - QA manual:
 - CI:
+- Revisión independiente (resultado y alcance, o motivo de no aplicación
+  conforme a `docs/agents/change-quality-gates.md`):
 
 ## Alineación documental
 

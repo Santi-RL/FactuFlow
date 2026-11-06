@@ -190,9 +190,12 @@ cuando se quiera aplicar formato. Los detalles y matrices vigentes viven en
 - No hacer push, merge ni eliminación remota sin autorización explícita. Una
   autorización puede cubrir el ciclo completo solo si su alcance lo dice con
   claridad.
-- `autoreview` y Clawpatch se ejecutan únicamente cuando el usuario los pide o
-  cuando el riesgo y el runbook aplicable realmente los exigen. Seguir sus
-  runbooks vigentes; no incrustar aquí workarounds operativos extensos.
+- La política de `autoreview` vive en
+  [`docs/agents/change-quality-gates.md`](docs/agents/change-quality-gates.md#revisión-independiente-con-autoreview).
+  Consultar allí obligatoriedad, configuración, alcance y tratamiento de
+  resultados, y seguir la skill instalada para la ejecución. Clawpatch se
+  ejecuta sólo por pedido explícito o exigencia del runbook aplicable; no
+  incrustar aquí workarounds operativos extensos.
 
 ## Despliegue por SHA exacto
 
