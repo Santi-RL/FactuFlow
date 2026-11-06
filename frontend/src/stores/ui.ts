@@ -12,7 +12,6 @@ export interface Notification {
 const DEFAULT_NOTIFICATION_DURATION = 5000;
 
 export const useUIStore = defineStore("ui", () => {
-  const loading = ref(false);
   const sidebarOpen = ref(false);
   const notifications = ref<Notification[]>([]);
 
@@ -46,17 +45,11 @@ export const useUIStore = defineStore("ui", () => {
     sidebarOpen.value = !sidebarOpen.value;
   };
 
-  const setLoading = (value: boolean) => {
-    loading.value = value;
-  };
-
   return {
-    loading,
     sidebarOpen,
     notifications,
     showNotification,
     hideNotification,
     toggleSidebar,
-    setLoading,
   };
 });

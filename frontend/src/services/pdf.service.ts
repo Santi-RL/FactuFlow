@@ -28,11 +28,6 @@ export async function mensajeErrorPDF(error: unknown): Promise<string> {
 
 const PDF_PREVIEW_URL_FALLBACK_REVOKE_MS = 5 * 60 * 1000;
 
-export interface PDFDownloadOptions {
-  comprobanteId: number;
-  preview?: boolean;
-}
-
 class PDFService {
   /**
    * Descarga el PDF de un comprobante

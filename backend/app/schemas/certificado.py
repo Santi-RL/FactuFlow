@@ -17,20 +17,6 @@ class CertificadoBase(BaseModel):
     ambiente: str = Field(..., pattern=r"^(homologacion|produccion)$")
 
 
-class CertificadoCreate(CertificadoBase):
-    """Schema para crear Certificado."""
-
-    archivo_crt: str
-    archivo_key: str
-
-
-class CertificadoUpdate(BaseModel):
-    """Schema para actualizar Certificado."""
-
-    nombre: Optional[str] = Field(None, min_length=1, max_length=255)
-    activo: Optional[bool] = None
-
-
 class CertificadoResponse(CertificadoBase):
     """Schema de respuesta de Certificado."""
 
@@ -80,17 +66,6 @@ class GenerarCSRResponse(BaseModel):
     csr: str = Field(..., description="Contenido del CSR en formato PEM")
     key_filename: str = Field(..., description="Nombre del archivo de clave privada")
     mensaje: str
-
-
-class SubirCertificadoRequest(BaseModel):
-    """Request para subir certificado."""
-
-    cuit: str = Field(..., min_length=11, max_length=11, pattern=r"^\d{11}$")
-    nombre: str = Field(..., min_length=1, max_length=255)
-    ambiente: Literal["homologacion", "produccion"]
-    key_filename: str = Field(
-        ..., description="Nombre del archivo de clave privada generado"
-    )
 
 
 class VerificacionResponse(BaseModel):

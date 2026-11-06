@@ -80,10 +80,8 @@ TIPO_ORDEN_PUBLICO = {
     "parcial_documento": 2,
     "individual_legacy": 3,
 }
-COBERTURAS = {"completa", "parcial_legacy", "no_comprobable"}
 ESTADOS_AUTORIZADOS = {"autorizado", "autorizado_externo"}
 ESTADOS_INCIERTOS = {"requiere_reconciliacion"}
-ESTADOS_RESERVADOS = {"en_cola", "procesando", "reintentando"}
 ESTADOS_SELECCION_ORIGINAL = {
     "cargado",
     "validado",

@@ -1,5 +1,4 @@
 import { useUIStore } from "@/stores/ui";
-import type { Notification } from "@/stores/ui";
 
 export function useNotification() {
   const uiStore = useUIStore();
@@ -40,20 +39,10 @@ export function useNotification() {
     });
   };
 
-  const show = (notification: Omit<Notification, "id">) => {
-    return uiStore.showNotification(notification);
-  };
-
-  const hide = (id: string) => {
-    uiStore.hideNotification(id);
-  };
-
   return {
     showSuccess,
     showError,
     showWarning,
     showInfo,
-    show,
-    hide,
   };
 }

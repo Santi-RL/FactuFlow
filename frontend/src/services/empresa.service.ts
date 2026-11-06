@@ -41,8 +41,4 @@ export const empresaService = {
     const response = await apiClient.put<Empresa>(`/api/empresas/${id}`, data);
     return response.data;
   },
-
-  async delete(id: number): Promise<void> {
-    await apiClient.delete(`/api/empresas/${id}`);
-  },
 };

@@ -302,15 +302,6 @@ export const CONDICIONES_IVA = [
   "Consumidor Final",
 ];
 
-// Estados de comprobante
-export const ESTADOS_COMPROBANTE = {
-  BORRADOR: "borrador",
-  PENDIENTE: "pendiente",
-  AUTORIZADO: "autorizado",
-  RECHAZADO: "rechazado",
-  ANULADO: "anulado",
-} as const;
-
 export const ESTADOS_COMPROBANTE_NOMBRES: Record<string, string> = {
   borrador: "Borrador",
   pendiente: "Pendiente",
