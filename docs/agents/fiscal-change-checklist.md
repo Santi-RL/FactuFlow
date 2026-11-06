@@ -164,67 +164,15 @@ Si un invariante no se testea, dejar una justificación explícita.
 
 ## 9. Uso de autoreview
 
-`autoreview` no reemplaza el diseño ni el criterio del agente. Se usa para
-encontrar contratos rotos, casos omitidos y riesgos que el autor no vio.
-
-Antes de escribir código, aplicar esta misma rúbrica al diseño y a la matriz de
-tests. `autoreview` se reserva como cierre de una unidad lógica ya estabilizada;
-no se ejecutan pasadas preliminares o incrementales ni cambios manuales de
-modelo o nivel mientras el diseño o el diff todavía están cambiando.
-
-La configuración predeterminada de cierre es Codex `gpt-5.6-sol medium`.
-Una elección explícita del usuario para la unidad prevalece sobre ese valor;
-mantener la configuración elegida en las repeticiones posteriores a correcciones,
-sin cambiarla para obtener otro veredicto. El uso sigue las condiciones de
-[`AGENTS.md`](../../AGENTS.md) y el runbook de la herramienta; exigir revisión
-por riesgo no amplía por sí solo la autorización para transmitir contexto privado.
-
-Para cambios fiscales críticos confirmados por el usuario:
-
-1. Diseñar invariantes y tests antes o junto al código.
-2. Corregir solo hallazgos aceptados después de verificarlos en el código real.
-3. Ejecutar pruebas enfocadas y controles del área.
-4. Hacer la revisión final con la configuración elegida para la unidad.
-5. Si la revisión provoca cambios, repetir pruebas enfocadas y volver a correr
-   exactamente esa configuración sobre el diff corregido.
-6. Cuando quede limpia, detenerse; no correr otra opinión redundante.
-
-Comando Windows con la configuración predeterminada para un diff sin commit;
-si hubo elección explícita, sustituir modelo/esfuerzo por los acordados:
-
-```powershell
-$env:PYTHONUTF8='1'
-$env:PYTHONIOENCODING='utf-8'
-$autoreview = Join-Path $env:USERPROFILE '.codex\skills\autoreview\scripts\autoreview'
-$codexBin = Join-Path $env:LOCALAPPDATA 'OpenAI\Codex\bin\codex.exe'
-python $autoreview --mode local --engine codex --model gpt-5.6-sol --thinking medium --codex-bin $codexBin
-```
-
-Para un commit ya creado, reemplazar `--mode local` por
-`--mode commit --commit HEAD`.
+Aplicar la [política central de revisión independiente](change-quality-gates.md#revisión-independiente-con-autoreview).
+Este checklist aporta los invariantes, consumidores, estados y pruebas fiscales
+que deben formar parte del contexto de la unidad.
 
 ## 10. Manejo de hallazgos
 
-Cada hallazgo debe clasificarse antes de tocar código:
-
-- Aceptado: bug real, riesgo fiscal, regresión, contrato roto, carrera,
-  pérdida de trazabilidad, fuga de datos, mezcla de emisores o test faltante
-  relevante.
-- Rechazado: edge case irreal, recomendación especulativa, refactor excesivo,
-  cambio fuera de alcance o hallazgo basado en una premisa incorrecta.
-- Diferido: riesgo real pero fuera del alcance seguro del cambio actual; debe
-  quedar documentado en roadmap o estado operativo si corresponde.
-
-Al aceptar un hallazgo:
-
-- corregir el bug class completo dentro del alcance tocado;
-- buscar casos hermanos en rutas vecinas;
-- agregar o ajustar tests;
-- repetir pruebas enfocadas;
-- volver a correr `autoreview` con la misma configuración elegida para la unidad.
-
-No corregir automáticamente todo lo que proponga `autoreview`. La corrección
-debe reducir un riesgo concreto sin sobredimensionar el diseño.
+La clasificación, corrección y repetición se rigen por
+[resultado y manejo de hallazgos](change-quality-gates.md#resultado-y-manejo-de-hallazgos).
+Contrastar cada hallazgo fiscal con los contratos y la matriz de este checklist.
 
 ## 11. Cierre
 
