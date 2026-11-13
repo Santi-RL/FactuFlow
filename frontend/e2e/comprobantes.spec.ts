@@ -183,7 +183,7 @@ test.describe("Emisión de Comprobantes", () => {
 
     // Verificar que se abre el formulario
     await expect(page).toHaveURL(/comprobantes\/nuevo/);
-    await expect(page.getByTestId("page-title")).toHaveText(/nueva factura/i);
+    await expect(page.getByTestId("page-title")).toHaveText(/nuevo comprobante/i);
     await expect(page.getByLabel(/tipo de comprobante/i)).toBeVisible();
     await expect(page.getByLabel(/punto de venta/i)).toBeVisible();
   });

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.api.deps import get_current_empresa_id, get_current_empresa_user, get_db
+from app.arca.exceptions import ArcaServiceError
 from app.core.config import settings
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.services.comprobantes_consulta import filtrar_comprobantes
@@ -26,7 +27,9 @@ from app.schemas.comprobante import (
     PaginatedComprobantesResponse,
     ProximoNumeroResponse,
     ItemComprobanteResponse,
+    PreparacionNotaResponse,
 )
+from app.services.notas_service import NotasService
 from app.services.facturacion_service import (
     FacturacionService,
     FaseSolicitudArca,
@@ -437,6 +440,7 @@ async def _resolver_operacion_emitir(
         if existente is not None:
             return idempotencia, existente, False, None
         try:
+            await NotasService(db).validar(request)
             FacturacionService(db).preparar_importes(request.items)
             FacturacionService(db)._obtener_condicion_iva_receptor_id(
                 request.condicion_iva, request.tipo_comprobante
@@ -636,6 +640,29 @@ async def listar_comprobantes(
     )
 
 
+@router.get("/notas/original", response_model=PreparacionNotaResponse)
+async def preparar_original_nota(
+    tipo: int = Query(...),
+    punto_venta: int = Query(..., ge=1, le=99999),
+    numero: int = Query(..., ge=1, le=99999999),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Consulta un original local o externo sin reservar número ni solicitar CAE."""
+    try:
+        return await NotasService(db).original(
+            empresa_activa_id, tipo, punto_venta, numero
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ArcaServiceError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo consultar ARCA. Volvé a intentar la consulta.",
+        ) from exc
+
+
 @router.get("/{comprobante_id}", response_model=ComprobanteDetalleResponse)
 async def obtener_comprobante(
     comprobante_id: int,
@@ -742,6 +769,7 @@ async def previsualizar_comprobante(
     """Revisa importes con reglas locales, sin reservar número ni solicitar CAE."""
     request = request.model_copy(update={"empresa_id": empresa_activa_id})
     try:
+        await NotasService(db).validar(request)
         return await FacturacionService(db).previsualizar_comprobante(request)
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

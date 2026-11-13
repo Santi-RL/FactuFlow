@@ -18,6 +18,8 @@ from app.models.comprobante import Comprobante
 from app.models.empresa import Empresa
 from app.models.cliente import Cliente
 from app.models.punto_venta import PuntoVenta
+from app.services.lecturas_historicas_service import lectura_actual
+from app.schemas.lectura_historica import AsociadoLectura
 
 
 @pytest.fixture
@@ -98,6 +100,34 @@ def comprobante_mock(empresa_mock, cliente_mock, punto_venta_mock):
 
 class TestPDFService:
     """Tests para PDFService."""
+
+    async def test_nota_muestra_asociado_conservado_en_el_pdf(
+        self, pdf_service, comprobante_mock, empresa_mock
+    ):
+        comprobante_mock.tipo_comprobante = 8
+        lectura = lectura_actual(comprobante_mock, empresa_mock).model_copy(
+            update={
+                "comprobantes_asociados": [
+                    AsociadoLectura(
+                        tipo_comprobante=6,
+                        punto_venta=4,
+                        numero=12,
+                        fecha=date(2026, 2, 1),
+                        cuit="20123456789",
+                    )
+                ]
+            }
+        )
+        pdf = await pdf_service.generar_pdf_comprobante(
+            comprobante_mock, empresa_mock, lectura
+        )
+        documento = PdfReader(BytesIO(pdf))
+        assert len(documento.pages) == 1
+        texto = " ".join(documento.pages[0].extract_text().split())
+        assert "NOTA DE CRÉDITO" in texto
+        assert "Comprobante asociado" in texto
+        assert "FACTURA B" in texto and "00004-00000012" in texto
+        assert "01/02/2026" in texto
 
     @pytest.mark.parametrize("tipo", [1, 2, 3])
     async def test_pdf_a_discrimina_iva_guardado_sin_reconstruir_bases(

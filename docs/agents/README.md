@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 06/11/2026
+Última revisión: 13/11/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -99,8 +99,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - PF-18/PF-09, implementación futura:
   [padrón para clientes y alta de emisores](pf-18-09-padron-clientes-emisores-design.md),
   con consultas anticipadas, situación registral fechada y bootstrap sin dependencia circular.
-- PF-04/PF-17/PF-13, implementación futura:
-  [notas de crédito y débito guiadas](pf-04-17-notas-guiadas-design.md).
+- PF-04/PF-17/PF-13, Ahora 1, salida productiva pendiente:
+  [notas de crédito y débito individuales](pf-04-17-notas-guiadas-design.md),
+  desde factura y desde «Nuevo comprobante».
 - PF-11/PF-15, señal implementada y recuperación por operación pendiente:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:

@@ -18,6 +18,18 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+### Comprobantes individuales
+
+- «Nuevo comprobante» permite preparar facturas, notas de crédito totales o
+  parciales y notas de débito. Desde una factura autorizada se puede preparar
+  una NC o ND con el original asociado.
+- Las notas pueden referenciar facturas externas consultables en ARCA, sin
+  importarlas al historial. El formulario conserva pesos y las categorías de
+  importes ya soportadas; no inventa nombres ni detalle comercial desde WSFE.
+- El asociado se muestra en la revisión, el detalle y el PDF desde la evidencia
+  fiscal. Se conservan fecha explícita, confirmación, numeración, idempotencia,
+  incertidumbre y el contrato técnico anterior sin alcance declarado.
+
 ## [0.3.12] - 05/11/2026
 
 Publicada sobre `7870e52200404a175d119de5f5444d201403be34`, sin desplegar por esta

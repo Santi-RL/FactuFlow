@@ -1,6 +1,17 @@
 # Integración ARCA
 
-Última revisión: 15/10/2026
+Última revisión: 13/11/2026
+
+## Notas individuales
+
+La preparación usa el original local autorizado o FECompConsultar para facturas
+externas verificables. La revisión y una emisión individual nueva con alcance
+declarado contrastan asociado, receptor, clase, fecha, moneda e importes; replay
+precede a consultas mutables. No se importa historia ni se solicita CAE al
+preparar. El motor existente conserva reserva, evidencia previa, numeración e
+incertidumbre. Detalle y PDF leen los asociados de esa evidencia. Contrato,
+compatibilidad técnica y límites de pesos/importes en el
+[diseño de notas](pf-04-17-notas-guiadas-design.md).
 
 ## Evidencia previa PF-04/PF-02
 

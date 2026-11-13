@@ -124,6 +124,14 @@ class PDFService:
             "concepto_nombre": self._get_nombre_concepto(comprobante.concepto),
             "punto_venta_str": f"{lectura.punto_venta_numero:04d}",
             "numero_str": f"{comprobante.numero:08d}",
+            "comprobantes_asociados": [
+                {
+                    **asociado.model_dump(),
+                    "nombre": self._get_nombre_comprobante(asociado.tipo_comprobante),
+                    "letra": self._get_letra_comprobante(asociado.tipo_comprobante),
+                }
+                for asociado in lectura.comprobantes_asociados
+            ],
             "empresa_cuit": "".join(filter(str.isdigit, empresa.cuit or "")),
             "receptor_documento": receptor_display["documento"],
             "receptor_nombre": receptor_display["nombre"],

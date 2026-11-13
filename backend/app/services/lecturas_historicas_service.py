@@ -95,6 +95,24 @@ def proyectar_original(comprobante, intento) -> LecturaHistorica:
         origen="evidencia_previa",
         punto_venta_numero=evidencia.contexto.punto_venta_numero,
         emisor=EmisorLectura(cuit=evidencia.contexto.cuit, **datos),
+        comprobantes_asociados=[
+            dict(
+                tipo_comprobante=a.tipo,
+                punto_venta=a.punto_venta,
+                numero=a.numero,
+                cuit=a.cuit,
+                fecha=(
+                    date(
+                        int(a.fecha_cbte[:4]),
+                        int(a.fecha_cbte[4:6]),
+                        int(a.fecha_cbte[6:]),
+                    )
+                    if a.fecha_cbte
+                    else None
+                ),
+            )
+            for a in solicitud.cbtes_asoc
+        ],
     )
 
 

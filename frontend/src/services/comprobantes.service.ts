@@ -10,6 +10,7 @@ import type {
   PaginatedComprobantesResponse,
   ProximoNumeroResponse,
   PrevisualizacionComprobanteResponse,
+  PreparacionNota,
 } from "@/types/comprobante";
 
 export interface ListarComprobantesParams {
@@ -23,6 +24,16 @@ export interface ListarComprobantesParams {
 }
 
 export const comprobantesService = {
+  async originalNota(
+    tipo: number,
+    puntoVenta: number,
+    numero: number,
+  ): Promise<PreparacionNota> {
+    const { data } = await api.get("/api/comprobantes/notas/original", {
+      params: { tipo, punto_venta: puntoVenta, numero },
+    });
+    return data;
+  },
   /** Revisión decimal local: no reserva numeración ni solicita CAE. */
   async previsualizar(
     request: EmitirComprobanteRequest,

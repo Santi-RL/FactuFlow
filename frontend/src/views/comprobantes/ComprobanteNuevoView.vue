@@ -6,7 +6,7 @@ import {
 } from "@/utils/fiscal-decimal";
 import comprobantesService from "@/services/comprobantes.service";
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { onBeforeRouteLeave, useRouter } from "vue-router";
+import { onBeforeRouteLeave, useRouter, useRoute } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useComprobantesStore } from "@/stores/comprobantes";
@@ -24,6 +24,7 @@ import ClienteSelector from "@/components/comprobantes/ClienteSelector.vue";
 import ItemsTable from "@/components/comprobantes/ItemsTable.vue";
 import TotalesPanel from "@/components/comprobantes/TotalesPanel.vue";
 import ComprobantePreview from "@/components/comprobantes/ComprobantePreview.vue";
+import FacturaAsociada from "@/components/comprobantes/FacturaAsociada.vue";
 import {
   calcularImportesItems,
   crearItemsEmision,
@@ -36,6 +37,7 @@ import type {
   EmitirComprobanteResponse,
   ProximoNumeroResponse,
   PrevisualizacionComprobanteResponse,
+  PreparacionNota,
 } from "@/types/comprobante";
 import {
   TIPOS_COMPROBANTE,
@@ -57,6 +59,7 @@ interface OperacionInciertaEmision {
 }
 
 const router = useRouter();
+const route = useRoute();
 const empresaStore = useEmpresaStore();
 const comprobantesStore = useComprobantesStore();
 const puntosVentaStore = usePuntosVentaStore();
@@ -64,7 +67,7 @@ const { showError, showSuccess, showWarning } = useNotification();
 
 // Estado del formulario
 const formData = ref({
-  tipo_comprobante: TIPOS_COMPROBANTE.FACTURA_B,
+  tipo_comprobante: TIPOS_COMPROBANTE.FACTURA_B as number,
   punto_venta_id: 0,
   concepto: "" as number | "",
   fecha_emision: "",
@@ -89,6 +92,57 @@ const formData = ref({
 
   // Observaciones
   observaciones: "",
+});
+
+const tiposNota = [2, 3, 7, 8, 12, 13];
+if (tiposNota.includes(Number(route.query.tipo)))
+  formData.value.tipo_comprobante = Number(route.query.tipo);
+const esNota = computed(() =>
+  tiposNota.includes(formData.value.tipo_comprobante),
+);
+const esCredito = computed(() =>
+  [3, 8, 13].includes(formData.value.tipo_comprobante),
+);
+const originalNota = ref<PreparacionNota | null>(null);
+const alcanceNota = ref<"total" | "parcial" | "ajuste">("total");
+const copiarItemsOriginal = (original: PreparacionNota) =>
+  original.items.map((item) => ({
+    ...item,
+    cantidad: Number(item.cantidad),
+    precio_unitario: Number(item.precio_unitario),
+    subtotal: item.subtotal === undefined ? undefined : Number(item.subtotal),
+    descuento_porcentaje: Number(item.descuento_porcentaje),
+    iva_porcentaje: Number(item.iva_porcentaje),
+  }));
+const prepararNota = (original: PreparacionNota | null) => {
+  if (operacionIncierta.value) return;
+  if (!original) {
+    if (originalNota.value) {
+      limpiarClienteSeleccionado();
+      formData.value.items = [];
+    }
+    originalNota.value = null;
+    return;
+  }
+  const conservarEdicion = originalNota.value === original;
+  originalNota.value = original;
+  alcanceNota.value = esCredito.value ? "total" : "ajuste";
+  if (!conservarEdicion) {
+  formData.value.cliente = {
+    cliente_id: undefined,
+    ...original.receptor,
+    domicilio: original.receptor.domicilio || "",
+  };
+  formData.value.concepto = original.concepto;
+  formData.value.fecha_servicio_desde = original.fecha_servicio_desde || "";
+  formData.value.fecha_servicio_hasta = original.fecha_servicio_hasta || "";
+  formData.value.fecha_vto_pago = original.fecha_vto_pago || "";
+  }
+  formData.value.items = esCredito.value ? copiarItemsOriginal(original) : [];
+};
+watch(alcanceNota, (alcance) => {
+  if (alcance === "total" && originalNota.value && !operacionIncierta.value)
+    formData.value.items = copiarItemsOriginal(originalNota.value);
 });
 
 // Estados
@@ -119,6 +173,8 @@ const totalesRevisados = computed(() => ({
 }));
 const datosVistaPrevia = computed(() => ({
   ...formData.value,
+  comprobantes_asociados:
+    esNota.value && originalNota.value ? [originalNota.value.asociado] : [],
   cliente: revisionImportes.value?.resultado.receptor ?? formData.value.cliente,
 }));
 const mostrarCancelacion = ref(false);
@@ -146,7 +202,7 @@ const tiposComprobanteA = new Set<number>([
   TIPOS_COMPROBANTE.NOTA_DEBITO_A,
   TIPOS_COMPROBANTE.NOTA_CREDITO_A,
 ]);
-const tiposComprobanteC = new Set<number>([TIPOS_COMPROBANTE.FACTURA_C]);
+const tiposComprobanteC = new Set<number>([11, 12, 13]);
 
 const requiereClienteCuit = computed(() =>
   tiposComprobanteA.has(formData.value.tipo_comprobante),
@@ -230,6 +286,15 @@ const crearSnapshotInmutable = (
   return Object.freeze({
     ...request,
     items: Object.freeze(items),
+    ...(request.comprobantes_asociados
+      ? {
+          comprobantes_asociados: Object.freeze(
+            request.comprobantes_asociados.map((asociado) =>
+              Object.freeze({ ...asociado }),
+            ),
+          ),
+        }
+      : {}),
   }) as unknown as EmitirComprobanteRequest;
 };
 
@@ -403,7 +468,7 @@ onMounted(async () => {
       unidad: "unidades",
       precio_unitario: 0,
       descuento_porcentaje: 0,
-      iva_porcentaje: 21,
+      iva_porcentaje: esComprobanteC.value ? 0 : 21,
       orden: 0,
     });
   }
@@ -465,15 +530,10 @@ onBeforeRouteLeave(() => {
 });
 
 const tiposComprobanteDisponibles = computed(() => {
-  // TODO: Filtrar según configuración de empresa
-  return [
-    { value: TIPOS_COMPROBANTE.FACTURA_A, label: TIPOS_COMPROBANTE_NOMBRES[1] },
-    { value: TIPOS_COMPROBANTE.FACTURA_B, label: TIPOS_COMPROBANTE_NOMBRES[6] },
-    {
-      value: TIPOS_COMPROBANTE.FACTURA_C,
-      label: TIPOS_COMPROBANTE_NOMBRES[11],
-    },
-  ];
+  return [1, 6, 11, 3, 8, 13, 2, 7, 12].map((value) => ({
+    value,
+    label: TIPOS_COMPROBANTE_NOMBRES[value],
+  }));
 });
 
 const normalizarIvaComprobanteC = () => {
@@ -524,6 +584,7 @@ const totales = computed(
 
 const formularioValido = computed(() => {
   return (
+    (!esNota.value || originalNota.value !== null) &&
     proximoNumero.value !== null &&
     !consultandoProximoNumero.value &&
     formData.value.punto_venta_id > 0 &&
@@ -747,6 +808,16 @@ const solicitarConfirmacionFechaFiscal = () => {
 
 function construirRequestEmision(): EmitirComprobanteRequest {
   return {
+    ...(esNota.value
+      ? {
+          comprobantes_asociados: originalNota.value
+            ? [{ ...originalNota.value.asociado }]
+            : [],
+          alcance_nota: esCredito.value
+            ? alcanceNota.value
+            : ("ajuste" as const),
+        }
+      : {}),
     empresa_id: empresaId.value,
     punto_venta_id: formData.value.punto_venta_id,
     tipo_comprobante: formData.value.tipo_comprobante,
@@ -994,7 +1065,7 @@ const confirmarCancelacion = () => {
         data-testid="page-title"
       >
         <DocumentTextIcon class="h-8 w-8" />
-        Nueva Factura
+        Nuevo comprobante
       </h1>
       <p class="mt-2 text-gray-600">
         Complete los datos para emitir un nuevo comprobante electrónico
@@ -1352,10 +1423,53 @@ const confirmarCancelacion = () => {
         </div>
       </BaseCard>
 
+      <FacturaAsociada
+        v-if="esNota"
+        :tipo-nota="formData.tipo_comprobante"
+        :empresa-id="empresaId"
+        @preparada="prepararNota"
+      >
+        <fieldset
+          v-if="originalNota"
+          class="mt-4"
+        >
+          <legend class="mb-2 font-medium text-gray-900">
+            {{ esCredito ? 'Alcance del crédito' : 'Ajuste de débito' }}
+          </legend>
+          <div
+            v-if="esCredito"
+            class="flex flex-wrap gap-6"
+          >
+            <label class="inline-flex items-center gap-2"><input
+              v-model="alcanceNota"
+              type="radio"
+              value="total"
+              name="alcance-nota"
+            >
+              Crédito total</label>
+            <label class="inline-flex items-center gap-2"><input
+              v-model="alcanceNota"
+              type="radio"
+              value="parcial"
+              name="alcance-nota"
+            >
+              Crédito parcial</label>
+          </div>
+          <p class="mt-2 text-sm text-gray-600">
+            {{
+              esCredito
+                ? "Revisá los conceptos e importes que se acreditan. El total del original no representa un saldo disponible: puede haber otras notas emitidas."
+                : "Ingresá los conceptos y el importe adicional que corresponde debitar."
+            }}
+          </p>
+        </fieldset>
+      </FacturaAsociada>
+
       <!-- Sección 2: Cliente -->
       <ClienteSelector
         v-model="formData.cliente"
         :tipo-comprobante="formData.tipo_comprobante"
+        :mostrar-datos="esNota && !!originalNota"
       />
 
       <!-- Sección 3: Items -->
@@ -1395,7 +1509,7 @@ const confirmarCancelacion = () => {
       </BaseCard>
 
       <!-- Botones de acción -->
-      <div class="flex items-center justify-end gap-4">
+      <div class="flex flex-wrap items-center justify-end gap-3">
         <button
           type="button"
           data-testid="comprobante-cancelar"
@@ -1434,7 +1548,7 @@ const confirmarCancelacion = () => {
           class="inline-flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <PaperAirplaneIcon class="h-5 w-5" />
-          {{ loading ? "Emitiendo..." : "Emitir Factura" }}
+          {{ loading ? "Emitiendo..." : "Emitir comprobante" }}
         </button>
       </div>
     </form>

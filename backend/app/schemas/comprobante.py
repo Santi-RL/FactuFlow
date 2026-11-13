@@ -122,6 +122,9 @@ class EmitirComprobanteRequest(ComprobanteBase):
     comprobantes_asociados: List[ComprobanteAsociadoCreate] = Field(
         default_factory=list
     )
+    alcance_nota: Optional[Literal["total", "parcial", "ajuste"]] = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def validate_persistence(self):
@@ -171,6 +174,22 @@ class ReceptorPrevisualizacionResponse(BaseModel):
     razon_social: str
     condicion_iva: str
     domicilio: Optional[str] = None
+
+
+class PreparacionNotaResponse(BaseModel):
+    origen: Literal["factuflow", "arca"]
+    fecha: date
+    concepto: int
+    moneda: str
+    cotizacion: Decimal
+    total: Decimal
+    receptor: ReceptorPrevisualizacionResponse
+    items: list[dict[str, Any]]
+    fecha_servicio_desde: Optional[date] = None
+    fecha_servicio_hasta: Optional[date] = None
+    fecha_vto_pago: Optional[date] = None
+    importes: dict[str, Decimal]
+    asociado: ComprobanteAsociadoCreate
 
 
 class PrevisualizacionComprobanteResponse(BaseModel):

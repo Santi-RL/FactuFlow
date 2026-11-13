@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 05/11/2026.
+Última revisión: 13/11/2026.
 
 Estado: VIGENTE.
 
@@ -49,14 +49,32 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: preflight y despliegue de v0.3.12
+## Siguiente unidad: notas de crédito y débito individuales
+
+El usuario adelanta las notas individuales como máxima prioridad de ejecución,
+Ahora 1 y P1 por bloqueo operativo. El
+[diseño de notas](pf-04-17-notas-guiadas-design.md) define acceso desde factura
+autorizada y desde «Nuevo comprobante», reemplazando «Nueva factura», con una
+misma preparación y revisión fiscal. El flujo incluye originales externos
+consultables por WSFE en pesos y con importes soportados, sin importar historia.
+El asociado se conserva en la evidencia previa y se presenta en revisión,
+detalle y PDF. Los consumidores técnicos sin alcance declarado mantienen su
+contrato y los hashes existentes.
+
+Retomar completando la aceptación fiscal, revisión independiente y las puertas
+de release del corte. El checklist vive en el diseño. Preservar evidencia,
+aislamiento, fecha explícita, confirmación, numeración, idempotencia e
+incertidumbre. Preparar la salida productiva por SHA exacto con sus controles;
+este handoff no acredita una instalación ni autoriza emisiones reales.
+
+## Descargas: continuación conservada después de las notas
 
 El [corte PF-18/PF-17](pf-18-17-descargas-pdf-design.md) implementa
 PDF por fila junto al ojo, selección individual y de todos
 los resultados filtrados entre páginas, y ZIP sólo si contiene todos los PDF
 seleccionados. Conserva historia, permisos, bloqueos por evidencia inválida y
-generación bajo demanda sin archivos permanentes. La decisión del usuario
-adelanta este corte P3 como Ahora 1 para preparar una salida pequeña a producción;
+generación bajo demanda sin archivos permanentes. Este corte P3 conserva su
+salida productiva pendiente como Ahora 2, después de las notas individuales;
 no agrega correo, resguardo ni rediseño de Lotes.
 
 La release está publicada y verificada. El siguiente paso requiere autorización
@@ -81,7 +99,7 @@ ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
 leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
 vínculo del intento y no abre recuperación moderna ni cambia la compactación
 o el traslado vigentes. La continuación de
-Ahora 2 requiere preparar primero el cierre moderno individual, antes del masivo.
+Ahora 3 requiere preparar primero el cierre moderno individual, antes del masivo.
 Se retoma después del corte de descargas y su salida autorizada; sus invariantes
 y el orden relativo de las demás líneas permanecen intactos.
 
@@ -108,9 +126,9 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y el dossier de v0.3.12; aplicar la
-   puerta de preflight/despliegue cuando se autorice esa operación, antes de
-   continuar PF-04/PF-02.
+2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de notas individuales;
+   cerrar la aceptación y preparar la salida del corte fiscal. Las descargas
+   y PF-04/PF-02 conservan su continuación posterior.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el

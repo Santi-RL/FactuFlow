@@ -1,6 +1,16 @@
 # ARCA WS - Notas prácticas
 
-Última actualización: 15/10/2026
+Última actualización: 13/11/2026
+
+## Preparación individual de notas
+
+El formulario común admite NC/ND A/B/C con un original local o externo
+verificable mediante FECompConsultar. La consulta no devuelve nombres ni detalle
+comercial: no inventarlos desde IVA o importes. Asociados y fecha explícita se
+transportan por el motor vigente y su evidencia previa; el replay precede a la
+validación mutable del original. No cambia SOAP, batch ni la recuperación
+moderna. Contrato, fuentes oficiales revalidadas y matriz de aceptación en
+[notas individuales](../agents/pf-04-17-notas-guiadas-design.md).
 
 ## Evidencia previa versionada
 

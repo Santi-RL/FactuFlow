@@ -258,7 +258,7 @@ const tiposDisponibles = [
           @click="nuevaFactura"
         >
           <PlusIcon class="h-5 w-5" />
-          Nueva factura
+          Nuevo comprobante
         </button>
       </div>
     </div>

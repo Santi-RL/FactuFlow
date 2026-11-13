@@ -67,6 +67,25 @@ onBeforeUnmount(() => {
 });
 
 const comprobante = computed(() => comprobantesStore.comprobanteActual);
+const puedeCrearNota = computed(
+  () =>
+    comprobante.value?.estado === "autorizado" &&
+    [1, 6, 11].includes(comprobante.value.tipo_comprobante),
+);
+const crearNota = (credito: boolean) => {
+  const original = comprobante.value;
+  if (!original || !puedeCrearNota.value) return;
+  void router.push({
+    path: "/comprobantes/nuevo",
+    query: {
+      tipo: String(original.tipo_comprobante + (credito ? 2 : 1)),
+      originalTipo: String(original.tipo_comprobante),
+      originalPunto: String(original.punto_venta_numero),
+      originalNumero: String(original.numero),
+      emisor: String(empresaStore.empresaActivaId),
+    },
+  });
+};
 
 const tipoComprobanteNombre = computed(() => {
   if (!comprobante.value) return "";
@@ -172,7 +191,9 @@ const obtenerLetraComprobante = (tipo: number): string => {
 <template>
   <div>
     <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
+    <div
+      class="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
+    >
       <div>
         <button
           class="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-2"
@@ -189,8 +210,24 @@ const obtenerLetraComprobante = (tipo: number): string => {
 
       <div
         v-if="comprobante && comprobante.estado === 'autorizado'"
-        class="flex gap-2"
+        class="flex flex-wrap gap-2"
       >
+        <button
+          v-if="puedeCrearNota"
+          type="button"
+          class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500"
+          @click="crearNota(true)"
+        >
+          Crear nota de crédito
+        </button>
+        <button
+          v-if="puedeCrearNota"
+          type="button"
+          class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:ring-2 focus:ring-blue-500"
+          @click="crearNota(false)"
+        >
+          Crear nota de débito
+        </button>
         <button
           class="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="pdfNoDisponible"
@@ -254,6 +291,21 @@ const obtenerLetraComprobante = (tipo: number): string => {
         />
       </BaseCard>
       <!-- Información general -->
+      <BaseCard
+        v-if="comprobante.datos_historicos?.comprobantes_asociados?.length"
+        title="Comprobante asociado"
+      >
+        <p
+          v-for="asociado in comprobante.datos_historicos
+            .comprobantes_asociados"
+          :key="`${asociado.tipo_comprobante}-${asociado.punto_venta}-${asociado.numero}`"
+        >
+          {{ TIPOS_COMPROBANTE_NOMBRES[asociado.tipo_comprobante] }}
+          {{ String(asociado.punto_venta).padStart(5, "0") }}-{{
+            String(asociado.numero).padStart(8, "0")
+          }}
+        </p>
+      </BaseCard>
       <BaseCard>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>

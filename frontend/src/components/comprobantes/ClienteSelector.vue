@@ -21,6 +21,7 @@ interface ClienteData {
 interface Props {
   modelValue: ClienteData;
   tipoComprobante: number;
+  mostrarDatos?: boolean;
 }
 
 interface Emits {
@@ -35,6 +36,9 @@ const clientesStore = useClientesStore();
 const busqueda = ref("");
 const mostrarResultados = ref(false);
 const modoManual = ref(false);
+watch(() => props.mostrarDatos, (mostrar) => {
+  if (mostrar) modoManual.value = true;
+}, { immediate: true });
 const condicionesCompatibles = computed(() =>
   condicionesIvaReceptor(props.tipoComprobante),
 );
