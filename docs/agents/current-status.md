@@ -11,12 +11,16 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.12`; los productores técnicos y
-  visibles usan `0.3.12`. Incluye descarga directa de PDF y ZIP de selección
+- La release publicada más reciente es `v0.3.12`. Incluye descarga directa de PDF
+  y ZIP de selección
   PF-18/PF-17, conservando permisos, historia y bloqueos, sin nuevas migraciones
   ni dependencias. El [dossier del corte](../project/releases/v0.3.12-candidate.md)
-  conserva alcance, publicación, compatibilidad, CI, ensayo y recuperación. La publicación no
-  determina ni modifica el estado desplegado.
+  conserva alcance, publicación, compatibilidad, CI, ensayo y recuperación.
+  La publicación no determina ni modifica el estado desplegado.
+- La preparación de `v0.3.13` alinea los productores técnicos y visibles en
+  `0.3.13` para el corte NC/ND aceptado. El
+  [dossier](../project/releases/v0.3.13-candidate.md) conserva las puertas de
+  publicación y recuperación; esta preparación no acredita un despliegue.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.
@@ -61,9 +65,10 @@ El asociado se conserva en la evidencia previa y se presenta en revisión,
 detalle y PDF. Los consumidores técnicos sin alcance declarado mantienen su
 contrato y los hashes existentes.
 
-Retomar completando la aceptación fiscal, revisión independiente y las puertas
-de release del corte. El checklist vive en el diseño. Preservar evidencia,
-aislamiento, fecha explícita, confirmación, numeración, idempotencia e
+La implementación se aceptó mediante el PR #145 con CI completa verde y revisión
+independiente `scoped-clean` P0–P2. Retomar cerrando las puertas de release y la
+operación autorizada por SHA exacto. El checklist vive en el diseño. Preservar
+evidencia, aislamiento, fecha explícita, confirmación, numeración, idempotencia e
 incertidumbre. Preparar la salida productiva por SHA exacto con sus controles;
 este handoff no acredita una instalación ni autoriza emisiones reales.
 

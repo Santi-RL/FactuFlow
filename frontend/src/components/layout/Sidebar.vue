@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
 
         <!-- Version info -->
         <div class="border-t border-border-subtle p-4 text-xs text-brand-slate">
-          FactuFlow v0.3.12
+          FactuFlow v0.3.13
         </div>
       </div>
     </aside>
