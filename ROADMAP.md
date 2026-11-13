@@ -53,41 +53,7 @@ y el [flujo de producción](docs/agents/production-workflow.md). La operación
 productiva se acredita en su plano de control; no repetir operaciones cerradas
 por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado.
 
-### 1. PF-04/PF-17/PF-13 — notas de crédito y débito individuales
-
-**Prioridad:** P1 por bloqueo operativo; máxima prioridad de ejecución por
-decisión explícita del usuario.
-
-Permitir emitir NC y ND individuales desde una factura autorizada y desde
-«Nuevo comprobante», nombre que reemplaza «Nueva factura». Ambos accesos
-convergen en la misma preparación, asociación del original, revisión y
-confirmación fiscal. Incluir crédito total o parcial y ajuste de débito, sin
-duplicar el motor de emisión ni ampliar la emisión masiva.
-
-Adelantar este corte antes de los pendientes anteriores y preparar su salida
-productiva con las puertas fiscales, de revisión y release vigentes. Incluir
-originales externos verificables por WSFE, sin importación histórica. No
-requiere terminar la importación histórica PF-05 ni toda la reconciliación
-moderna. Contrato y aceptación en el
-[diseño de notas individuales](docs/agents/pf-04-17-notas-guiadas-design.md).
-
-### 2. PF-18/PF-17 — descarga directa y ZIP de comprobantes
-
-**Prioridad:** P3 administrativa; ejecución adelantada por decisión explícita
-del usuario; conserva su lugar después de las notas individuales.
-
-Completar el preflight y el despliegue autorizado del corte de descargas por
-SHA inmutable, con recuperación y verificaciones finales. Conservar
-ZIP completo o ninguno, permisos, historia, bloqueos y archivos bajo demanda.
-Alcance, invariantes, solapamientos y aceptación en el
-[diseño de descargas](docs/agents/pf-18-17-descargas-pdf-design.md).
-Delimita el pendiente ZIP de PF-18 existente, sin duplicarlo ni incluir correo,
-resguardo o un rediseño de Lotes. El estado del código vive en el handoff;
-no inferir desde allí la disponibilidad productiva.
-Completar este corte y su salida autorizada antes de retomar PF-04/PF-02;
-las demás líneas conservan su prioridad y orden relativo.
-
-### 3. PF-04/PF-02 — evidencia y reconciliación integral
+### 1. PF-04/PF-02 — evidencia y reconciliación integral
 
 **Prioridad:** P2 fiscal.
 
@@ -252,8 +218,9 @@ operativos confirmados:
 - **PF-18 — distribución e integraciones, P3:** soporte, correo e integraciones;
   instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar
-  almacenamiento seguro PF-10. La descarga ZIP y selección múltiple se delimitan
-  en Ahora 2; no se mantienen como otro pendiente equivalente aquí. Un acceso
+  almacenamiento seguro PF-10 y consumir el
+  [contrato de descarga ZIP y selección múltiple](docs/agents/pf-18-17-descargas-pdf-design.md),
+  sin crear otro pendiente equivalente aquí. Un acceso
   específico desde Lotes queda fuera de ese corte. Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
 - **PF-18 — operación asistida mediante MCP, horizonte futuro:** permitir que

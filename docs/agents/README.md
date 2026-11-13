@@ -68,11 +68,6 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 
 ## Diseños activos
 
-- PF-18/PF-17, contrato implementado y publicado; salida productiva pendiente:
-  [descarga directa y ZIP de comprobantes](pf-18-17-descargas-pdf-design.md).
-  PDF junto al ojo, selección individual/de todos los resultados filtrados y
-  ZIP completo o ninguno; conserva historia, permisos y recursos acotados.
-
 - PF-03/PF-04/PF-17: [lecturas fiscales A-03](a03-lecturas-fiscales-design.md).
   Bases contrastadas, cobertura histórica explícita y moneda nominal separada.
 
@@ -99,9 +94,6 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - PF-18/PF-09, implementación futura:
   [padrón para clientes y alta de emisores](pf-18-09-padron-clientes-emisores-design.md),
   con consultas anticipadas, situación registral fechada y bootstrap sin dependencia circular.
-- PF-04/PF-17/PF-13, Ahora 1, salida productiva pendiente:
-  [notas de crédito y débito individuales](pf-04-17-notas-guiadas-design.md),
-  desde factura y desde «Nuevo comprobante».
 - PF-11/PF-15, señal implementada y recuperación por operación pendiente:
   [recuperación y trazabilidad operativa](pf-11-15-recuperacion-trazabilidad-design.md).
 - PF-13/PF-17, contrato del control de emisión masiva:
@@ -134,6 +126,13 @@ candidatas y dependencias se consultan en el portafolio. No modifica el orden
 del roadmap ni acredita cierres de Security Cloud o una instalación productiva.
 
 ## Diseños cerrados de consulta
+
+- PF-04/PF-17/PF-13: [notas de crédito y débito individuales](pf-04-17-notas-guiadas-design.md),
+  desde factura o «Nuevo comprobante», con originales locales/externos verificables.
+
+- PF-18/PF-17: [descarga directa y ZIP de comprobantes](pf-18-17-descargas-pdf-design.md).
+  PDF junto al ojo, selección entre páginas y ZIP completo o ninguno; conserva
+  historia, permisos y recursos acotados.
 
 - PF-04: [IVA y legibilidad de PDF](pf-04-pdf-representacion-fiscal-design.md).
   Representación de importes guardados, sin recalcular ni reclasificar historia.

@@ -11,16 +11,12 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.12`. Incluye descarga directa de PDF
-  y ZIP de selección
-  PF-18/PF-17, conservando permisos, historia y bloqueos, sin nuevas migraciones
-  ni dependencias. El [dossier del corte](../project/releases/v0.3.12-candidate.md)
-  conserva alcance, publicación, compatibilidad, CI, ensayo y recuperación.
-  La publicación no determina ni modifica el estado desplegado.
-- La preparación de `v0.3.13` alinea los productores técnicos y visibles en
-  `0.3.13` para el corte NC/ND aceptado. El
-  [dossier](../project/releases/v0.3.13-candidate.md) conserva las puertas de
-  publicación y recuperación; esta preparación no acredita un despliegue.
+- La release publicada más reciente es `v0.3.13`; los productores técnicos y
+  visibles usan `0.3.13`. Incorpora NC/ND individuales desde una factura o desde
+  «Nuevo comprobante», con originales locales o externos verificables por WSFE.
+  El [dossier](../project/releases/v0.3.13-candidate.md) conserva alcance,
+  publicación, CI, compatibilidad y recuperación, sin nuevas migraciones ni
+  dependencias. La publicación no determina el estado desplegado.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.
@@ -41,6 +37,8 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 | Importes e historia | PF-03B calcula; A-01 conserva decimales exactos; A-03 lee bases contrastadas y separa monedas sin conversión. No inferir categorías desde IVA cero o letra C. [Persistencia](pf-03-04-14-persistencia-fiel-design.md), [lecturas](a03-lecturas-fiscales-design.md) |
 | Receptor y asociación | Condición IVA explícita y compatible; PF-13 conserva documento/nombre y CF identificado, sin inferir por documento ni reemplazar inválidos por CF. A-02 no elige al azar entre fichas coincidentes. [RG 5616](rg-5616-condicion-iva-receptor-parche.md), [PF-13](pf-13-receptores-importacion-design.md), [A-02](pf-03-04-14-asociacion-cliente.md) |
 | Admisibilidad y revisión | P1 cerrado: tasas soportadas explícitas, vista previa decimal del backend y revisión masiva coherente con IVA 27 %. Categorías completas siguen P2. [Contrato](pf-03-04-importes-previsualizacion-design.md) |
+| Notas individuales | NC total/parcial y ND A/B/C en pesos desde factura o «Nuevo comprobante», originales locales/externos verificables y asociado en revisión/detalle/PDF. Consumidores técnicos sin alcance declarado conservados. [Contrato y límites](pf-04-17-notas-guiadas-design.md) |
+| Descargas | PDF por fila y ZIP completo de la selección entre páginas o de todos los resultados filtrados; permisos, historia y errores conservados. [Contrato](pf-18-17-descargas-pdf-design.md) |
 | Duplicados y retries | Aceptación específica y revalidación; autorizados anteriores intactos y retry sólo de fallidos seleccionados por cola durable. Replay, ownership y reservas conservados. [Duplicados](pf-13-duplicados-lotes-design.md), [reintentos](pf-13-17-reintentos-seguros-parche.md) |
 | Respuestas y recuperación legacy | SC-09 conserva correlación e incertidumbre. El P1 legacy exige comparación suficiente; diferencias o cobertura insuficiente conservan CAE atribuible y reserva. No abrir guardas modernas. [SC-09](sc-09-respuestas-wsfe-design.md), [reconciliación](pf-02-04-reconciliacion-integral-design.md) |
 | PDF y tiempo | IVA guardado en A/B y detalle legible, sin recalcular; el PDF en pesos omite el bloque visible de moneda/cotización y conserva los datos y el QR. Instantes UTC explícitos y presentación argentina, sin desplazar fechas fiscales. [PDF](pf-04-pdf-representacion-fiscal-design.md), [moneda](a03-lecturas-fiscales-design.md#monedas-y-compatibilidad-http), [tiempo](pf-12-15-17-tiempo-operativo.md) |
@@ -53,44 +51,7 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: notas de crédito y débito individuales
-
-El usuario adelanta las notas individuales como máxima prioridad de ejecución,
-Ahora 1 y P1 por bloqueo operativo. El
-[diseño de notas](pf-04-17-notas-guiadas-design.md) define acceso desde factura
-autorizada y desde «Nuevo comprobante», reemplazando «Nueva factura», con una
-misma preparación y revisión fiscal. El flujo incluye originales externos
-consultables por WSFE en pesos y con importes soportados, sin importar historia.
-El asociado se conserva en la evidencia previa y se presenta en revisión,
-detalle y PDF. Los consumidores técnicos sin alcance declarado mantienen su
-contrato y los hashes existentes.
-
-La implementación se aceptó mediante el PR #145 con CI completa verde y revisión
-independiente `scoped-clean` P0–P2. Retomar cerrando las puertas de release y la
-operación autorizada por SHA exacto. El checklist vive en el diseño. Preservar
-evidencia, aislamiento, fecha explícita, confirmación, numeración, idempotencia e
-incertidumbre. Preparar la salida productiva por SHA exacto con sus controles;
-este handoff no acredita una instalación ni autoriza emisiones reales.
-
-## Descargas: continuación conservada después de las notas
-
-El [corte PF-18/PF-17](pf-18-17-descargas-pdf-design.md) implementa
-PDF por fila junto al ojo, selección individual y de todos
-los resultados filtrados entre páginas, y ZIP sólo si contiene todos los PDF
-seleccionados. Conserva historia, permisos, bloqueos por evidencia inválida y
-generación bajo demanda sin archivos permanentes. Este corte P3 conserva su
-salida productiva pendiente como Ahora 2, después de las notas individuales;
-no agrega correo, resguardo ni rediseño de Lotes.
-
-La release está publicada y verificada. El siguiente paso requiere autorización
-separada para preflight y despliegue de su SHA inmutable, con origen real,
-respaldo fresco, copia externa cifrada verificada, rollback y controles finales
-sin emisiones reales. La publicación no acredita el estado de la instalación.
-Las evidencias del corte viven en el dossier. Consultar los
-cierres operativos existentes en el plano de control; no repetir el preflight
-anterior por una instrucción de handoff que ya fue reemplazada.
-
-## PF-04/PF-02: continuación conservada después de las descargas
+## Siguiente unidad: PF-04/PF-02, recuperación moderna
 
 El [primer corte PF-04/PF-02](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
 incorpora evidencia previa versionada e inmutable para intentos nuevos,
@@ -103,10 +64,10 @@ cobertura antigua en los metadatos internos y la contención aceptada de PDF/QR
 ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
 leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
 vínculo del intento y no abre recuperación moderna ni cambia la compactación
-o el traslado vigentes. La continuación de
-Ahora 3 requiere preparar primero el cierre moderno individual, antes del masivo.
-Se retoma después del corte de descargas y su salida autorizada; sus invariantes
-y el orden relativo de las demás líneas permanecen intactos.
+o el traslado vigentes. Ahora 1 requiere preparar primero el cierre moderno
+individual, antes del masivo. Sus invariantes y el orden relativo de las demás
+líneas permanecen intactos. Consultar los cierres operativos de notas y descargas
+en el plano de control; no repetir sus preflight por un handoff reemplazado.
 
 El orden y alcance macro se toman exclusivamente de
 [`ROADMAP.md`](../../ROADMAP.md); el inventario y dependencias están en el
@@ -131,9 +92,8 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de notas individuales;
-   cerrar la aceptación y preparar la salida del corte fiscal. Las descargas
-   y PF-04/PF-02 conservan su continuación posterior.
+2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de reconciliación;
+   delimitar el siguiente cierre moderno individual antes del masivo.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el

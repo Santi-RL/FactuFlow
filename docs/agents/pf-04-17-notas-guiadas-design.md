@@ -2,11 +2,12 @@
 
 Última revisión: 13/11/2026.
 
-Estado: contrato del corte individual. Ahora 1, P1 por bloqueo operativo y máxima
-prioridad de ejecución por decisión del usuario. Consume evidencia histórica
+Estado: contrato implementado del corte individual. Consume evidencia histórica
 mínima PF-04 y preparación común; no espera importar toda la historia externa
-PF-05 ni terminar la reconciliación moderna. La prioridad no omite las puertas
-fiscales, de revisión, release y despliegue vigentes.
+PF-05 ni terminar la reconciliación moderna. El corte conserva las puertas
+fiscales, de revisión, release y despliegue vigentes. El
+[dossier de v0.3.13](../project/releases/v0.3.13-candidate.md) conserva su cierre;
+la operación de cada instalación se consulta en el plano de control.
 
 ## Resultado
 
