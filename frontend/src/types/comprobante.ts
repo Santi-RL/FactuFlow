@@ -42,6 +42,8 @@ export interface EmitirComprobanteRequest {
   fecha_emision: string;
   confirmacion_fecha_fiscal: boolean;
   confirmacion_duplicado_logico?: boolean;
+  comprobantes_asociados?: ComprobanteAsociado[];
+  alcance_nota?: "total" | "parcial" | "ajuste";
 
   // Cliente
   cliente_id?: number;
@@ -64,6 +66,29 @@ export interface EmitirComprobanteRequest {
   observaciones?: string;
   moneda: string;
   cotizacion: number;
+}
+
+export interface ComprobanteAsociado {
+  tipo_comprobante: number;
+  punto_venta: number;
+  numero: number;
+  fecha: string | null;
+  cuit: string | null;
+}
+
+export interface PreparacionNota {
+  origen: "factuflow" | "arca";
+  fecha: string;
+  concepto: number;
+  moneda: string;
+  cotizacion: FiscalDecimal;
+  total: FiscalDecimal;
+  receptor: PrevisualizacionComprobanteResponse["receptor"];
+  items: ItemComprobante[];
+  fecha_servicio_desde: string | null;
+  fecha_servicio_hasta: string | null;
+  fecha_vto_pago: string | null;
+  asociado: ComprobanteAsociado;
 }
 
 export interface ErrorArcaFiscalResponse {
@@ -162,6 +187,7 @@ export interface ComprobanteListItem {
 }
 
 export interface LecturaHistorica {
+  comprobantes_asociados?: ComprobanteAsociado[];
   cobertura: "completa" | "incompleta" | "ausente" | "no_verificable";
   origen: "evidencia_previa" | "ficha_actual";
   punto_venta_numero: number;

@@ -21,6 +21,7 @@ import type { PuntoVenta } from "@/types/punto_venta";
 import ComprobanteNuevoView from "./ComprobanteNuevoView.vue";
 
 vi.mock("vue-router", () => ({
+  useRoute: () => ({ query: {} }),
   useRouter: () => ({
     push: vi.fn(),
   }),
@@ -34,6 +35,7 @@ vi.mock("@/services/comprobantes.service", () => ({
     obtener: vi.fn(),
     proximoNumero: vi.fn(),
     previsualizar: vi.fn(),
+    originalNota: vi.fn(),
   },
 }));
 
@@ -146,6 +148,7 @@ const mockedPuntosVentaService = puntosVentaService as unknown as {
 
 interface ComprobanteNuevoViewModel {
   formData: {
+    tipo_comprobante: number;
     punto_venta_id: number;
     concepto: number | "";
     fecha_emision: string;
@@ -262,6 +265,27 @@ const mountView = async () => {
 };
 
 describe("ComprobanteNuevoView", () => {
+  it("NC conserva la referencia, alcance y fecha explícita en la revisión", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(diagnosticoNumeracionMock(1));
+    const wrapper = await mountView();
+    const vm = await completarFormulario(wrapper);
+    vm.formData.tipo_comprobante = 8;
+    await flushPromises();
+    const asociado = { tipo_comprobante: 6, punto_venta: 4, numero: 12, fecha: "2026-05-19", cuit: "20123456789" };
+    wrapper.getComponent({ name: "FacturaAsociada" }).vm.$emit("preparada", {
+      origen: "factuflow", asociado, concepto: 1, total: "121.00", items: [...vm.formData.items],
+      receptor: { ...vm.formData.cliente }, fecha_servicio_desde: null, fecha_servicio_hasta: null, fecha_vto_pago: null,
+    });
+    await flushPromises();
+    await vm.abrirVistaPrevia();
+    const pedido = mockedComprobantesService.previsualizar.mock.calls.slice(-1)[0]?.[0];
+    expect(pedido).toMatchObject({ tipo_comprobante: 8, fecha_emision: "2026-05-20", alcance_nota: "total", comprobantes_asociados: [asociado] });
+    expect(wrapper.getComponent({ name: "ComprobantePreview" }).text()).toContain("00004-00000012");
+    expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+    wrapper.getComponent({ name: "FacturaAsociada" }).vm.$emit("preparada", null);
+    await flushPromises();
+    expect(wrapper.findComponent({ name: "ComprobantePreview" }).exists()).toBe(false);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mockedComprobantesService.previsualizar

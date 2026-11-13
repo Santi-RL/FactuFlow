@@ -15,7 +15,7 @@ from sqlalchemy.orm import joinedload
 
 from app.arca.models import CAEResponse
 from app.core.config import settings
-from app.core.evidencia_fiscal import hash_evidencia
+from app.core.evidencia_fiscal import hash_evidencia, serializar_evidencia
 from app.models.comprobante import Comprobante
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal as Intento
 from app.models.punto_venta import PuntoVenta
@@ -196,6 +196,33 @@ def test_campos_originales_nulos_no_se_enriquecen(evidencia):
     assert lectura.emisor.domicilio is None
     assert lectura.emisor.razon_social == "Emisor original"
     assert lectura.punto_venta_numero == 5
+
+
+def test_nota_proyecta_asociado_desde_la_evidencia_previa(evidencia):
+    comp, intento = comp_de_evidencia(evidencia)
+    documento = json.loads(intento.evidencia_json)
+    documento["contexto"]["tipo_comprobante"] = 8
+    documento["solicitud_wsfe"]["tipo_cbte"] = 8
+    documento["solicitud_wsfe"]["cbtes_asoc"] = [
+        {
+            "tipo": 6,
+            "punto_venta": 4,
+            "numero": 12,
+            "fecha_cbte": "20260808",
+            "cuit": "20123456789",
+        }
+    ]
+    intento.evidencia_json = serializar_evidencia(documento)
+    intento.evidencia_hash = hash_evidencia(intento.evidencia_json)
+    comp.tipo_comprobante = intento.tipo_comprobante = 8
+    lectura = proyectar_original(comp, intento)
+    assert lectura.comprobantes_asociados[0].model_dump() == {
+        "tipo_comprobante": 6,
+        "punto_venta": 4,
+        "numero": 12,
+        "fecha": date(2026, 8, 8),
+        "cuit": "20123456789",
+    }
 
 
 @pytest.mark.parametrize("batch", [False, True])

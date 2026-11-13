@@ -94,6 +94,17 @@
             {% endfor %}
         </section>
 
+        {% if comprobantes_asociados %}
+        <section>
+            <h3>Comprobante asociado</h3>
+            {% for asociado in comprobantes_asociados %}
+            <p>{{ asociado.nombre }} {{ asociado.letra }}
+                {{ '%05d' | format(asociado.punto_venta) }}-{{ '%08d' | format(asociado.numero) }}
+                {% if asociado.fecha %} · {{ asociado.fecha | fecha_ar }}{% endif %}</p>
+            {% endfor %}
+        </section>
+        {% endif %}
+
         <section class="totals">
             {% if letra == "B" %}
             <aside class="transparency">

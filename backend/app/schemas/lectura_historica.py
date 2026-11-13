@@ -3,7 +3,15 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class AsociadoLectura(BaseModel):
+    tipo_comprobante: int
+    punto_venta: int
+    numero: int
+    fecha: date | None = None
+    cuit: str | None = None
 
 
 class EmisorLectura(BaseModel):
@@ -26,6 +34,7 @@ class LecturaHistorica(BaseModel):
     origen: Literal["evidencia_previa", "ficha_actual"]
     punto_venta_numero: int
     emisor: EmisorLectura
+    comprobantes_asociados: list[AsociadoLectura] = Field(default_factory=list)
 
     @property
     def aviso(self) -> str | None:

@@ -91,6 +91,13 @@ def _configurar_contexto_rece_productivo(monkeypatch: pytest.MonkeyPatch) -> Non
         "__init__",
         inicializar_con_reloj_fiscal,
     )
+    # La frescura técnica usa el mismo instante que los fixtures RECE; el reloj
+    # real no debe convertir estas pruebas de emisión en consultas externas.
+    monkeypatch.setattr(
+        PuntosVentaArcaService,
+        "_obtener_ahora",
+        lambda _self: AHORA_FISCAL_PRUEBA,
+    )
 
 
 def _crear_error_db_temporal(

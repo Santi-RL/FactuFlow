@@ -35,6 +35,7 @@ from app.services.contencion_fiscal_service import (
 )
 from app.services.facturacion_service import FacturacionService, FaseSolicitudArca
 from app.services.duplicados_lotes_service import DuplicadosLotesService
+from app.services.puntos_venta_arca_service import PuntosVentaArcaService
 from app.services.elegibilidad_rece_service import (
     ContextoElegibilidadRece,
     ElegibilidadReceService,
@@ -549,6 +550,11 @@ async def test_procesar_lote_bloquea_antes_de_capacidad_y_fecae(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """La contención corta antes de WSAA, capacidad y cualquier FECAE."""
+    monkeypatch.setattr(
+        PuntosVentaArcaService,
+        "_obtener_ahora",
+        lambda _self: datetime(2026, 8, 9, 12, 0, 0),
+    )
     punto = PuntoVenta(
         numero=7,
         nombre="Web Services batch sintético",

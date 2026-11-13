@@ -2,7 +2,10 @@
 import { computed } from "vue";
 import { XMarkIcon, CheckIcon } from "@heroicons/vue/24/outline";
 import { TIPOS_COMPROBANTE_NOMBRES } from "@/types/comprobante";
-import type { ItemComprobanteCreate } from "@/types/comprobante";
+import type {
+  ItemComprobanteCreate,
+  ComprobanteAsociado,
+} from "@/types/comprobante";
 import {
   decimalEsPositivo,
   formatearDecimalFiscal,
@@ -21,6 +24,7 @@ interface Props {
     };
     items: ItemComprobanteCreate[];
     observaciones?: string;
+    comprobantes_asociados?: ComprobanteAsociado[];
   };
   totales: {
     subtotal: FiscalDecimal;
@@ -127,6 +131,23 @@ const fechaEmision = computed(() => {
             </div>
           </div>
 
+          <div
+            v-if="formData.comprobantes_asociados?.length"
+            class="mb-6 text-sm text-gray-700"
+          >
+            <p class="font-medium">
+              Comprobante asociado
+            </p>
+            <p
+              v-for="asociado in formData.comprobantes_asociados"
+              :key="`${asociado.tipo_comprobante}-${asociado.punto_venta}-${asociado.numero}`"
+            >
+              {{ TIPOS_COMPROBANTE_NOMBRES[asociado.tipo_comprobante] }}
+              {{ String(asociado.punto_venta).padStart(5, "0") }}-{{
+                String(asociado.numero).padStart(8, "0")
+              }}
+            </p>
+          </div>
           <!-- Separador -->
           <div class="border-t-2 border-gray-300 my-6" />
 

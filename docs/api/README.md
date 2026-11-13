@@ -433,6 +433,23 @@ errores de negocio usan 400 y errores de contrato 422. No consulta WSAA,
 RECE, padrón o numeración ni escribe clientes, comprobantes u operaciones.
 No solicita CAE ni reserva un número.
 
+La preparación individual de notas declara `alcance_nota` (`total`, `parcial` o
+`ajuste`) y un único `comprobantes_asociados` con `tipo_comprobante`,
+`punto_venta`, `numero`, `fecha` y `cuit`. `GET /api/comprobantes/notas/original`
+recibe `tipo`, `punto_venta` y `numero`, bajo autenticación y emisor activo.
+Devuelve una factura local autorizada o consulta FECompConsultar para un
+original externo, sin importarlo ni solicitar CAE. Los decimales se conservan
+como strings. WSFE no acredita nombres ni descripciones comerciales.
+
+En esas notas, la revisión y una emisión nueva validan también el original,
+receptor, clase, moneda, fecha y alcance; pueden consultar WSAA/WSFE si el
+original es externo. La revisión de facturas conserva su carácter local. El
+replay de emisión se resuelve antes de consultas mutables. El campo de alcance
+se omite cuando no fue declarado para conservar hashes y consumidores técnicos
+anteriores, que mantienen su contrato y validaciones vigentes. Las notas nuevas
+exponen asociados en `datos_historicos.comprobantes_asociados`, desde la evidencia
+previa; su ausencia en historia legacy no se completa artificialmente.
+
 Nuevas emisiones admiten 0 %, 10,5 %, 21 % y 27 %. Tasas sin soporte requieren
 corrección por ítem/fila; no se reinterpretan como cero. La emisión revalida
 antes de CAE, también en worker/reintento. Lookup y replay existentes preceden

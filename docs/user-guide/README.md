@@ -230,6 +230,31 @@ En `Comprobantes` puedes:
 - crear un comprobante puntual
 - abrir el detalle de un comprobante autorizado
 
+### Notas de crédito y débito individuales
+
+El botón **Nuevo comprobante** permite elegir factura, nota de crédito o nota
+de débito A/B/C. También podés abrir una factura autorizada y usar **Crear nota
+de crédito** o **Crear nota de débito**: se prepara la referencia y los datos
+compatibles del original en el mismo formulario.
+
+Para una factura emitida fuera de FactuFlow, elegí la clase de nota e indicá el
+punto de venta y número del original en **Factura que se ajusta**. **Consultar
+factura** obtiene sus datos desde ARCA; no la incorpora al historial. Completá
+el nombre del receptor, su condición IVA y las descripciones comerciales que
+ARCA no devuelve, usando la factura original. Si la consulta no puede verificar
+el comprobante, revisá sus datos y volvé a consultar; no significa que haya sido
+rechazado. Este formulario admite originales A/B/C consultables por WSFE, en
+pesos y con las categorías de importes ya soportadas.
+
+Para NC, elegí **Crédito total** o **Crédito parcial** y revisá los conceptos e
+importes. Para ND, ingresá el ajuste adicional; no se copia una devolución total.
+El importe original no representa un saldo disponible: puede haber otras notas
+emitidas en FactuFlow o fuera del sistema. La nota conserva el receptor y la
+clase del original. El punto de venta de la nota se elige por separado del punto
+del original. Indicá explícitamente la fecha de la nota, revisá el asociado y
+los totales y confirmá la emisión irreversible. El detalle y el PDF muestran la
+referencia conservada en la evidencia fiscal de las notas nuevas.
+
 Al crear un comprobante puntual, el selector sólo ofrece puntos `Listos para
 emitir`: ARCA debe informarlos como compatibles con CAE, deben estar presentes,
 activos, sin bloqueo ni baja, con una comprobación de menos de 90 días y con

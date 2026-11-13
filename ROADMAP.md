@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 05/11/2026
+Última revisión: 13/11/2026
 
 Estado: VIGENTE.
 
@@ -53,10 +53,28 @@ y el [flujo de producción](docs/agents/production-workflow.md). La operación
 productiva se acredita en su plano de control; no repetir operaciones cerradas
 por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado.
 
-### 1. PF-18/PF-17 — descarga directa y ZIP de comprobantes
+### 1. PF-04/PF-17/PF-13 — notas de crédito y débito individuales
+
+**Prioridad:** P1 por bloqueo operativo; máxima prioridad de ejecución por
+decisión explícita del usuario.
+
+Permitir emitir NC y ND individuales desde una factura autorizada y desde
+«Nuevo comprobante», nombre que reemplaza «Nueva factura». Ambos accesos
+convergen en la misma preparación, asociación del original, revisión y
+confirmación fiscal. Incluir crédito total o parcial y ajuste de débito, sin
+duplicar el motor de emisión ni ampliar la emisión masiva.
+
+Adelantar este corte antes de los pendientes anteriores y preparar su salida
+productiva con las puertas fiscales, de revisión y release vigentes. Incluir
+originales externos verificables por WSFE, sin importación histórica. No
+requiere terminar la importación histórica PF-05 ni toda la reconciliación
+moderna. Contrato y aceptación en el
+[diseño de notas individuales](docs/agents/pf-04-17-notas-guiadas-design.md).
+
+### 2. PF-18/PF-17 — descarga directa y ZIP de comprobantes
 
 **Prioridad:** P3 administrativa; ejecución adelantada por decisión explícita
-del usuario, como próximo corte pequeño para llevar a producción.
+del usuario; conserva su lugar después de las notas individuales.
 
 Completar el preflight y el despliegue autorizado del corte de descargas por
 SHA inmutable, con recuperación y verificaciones finales. Conservar
@@ -69,7 +87,7 @@ no inferir desde allí la disponibilidad productiva.
 Completar este corte y su salida autorizada antes de retomar PF-04/PF-02;
 las demás líneas conservan su prioridad y orden relativo.
 
-### 2. PF-04/PF-02 — evidencia y reconciliación integral
+### 3. PF-04/PF-02 — evidencia y reconciliación integral
 
 **Prioridad:** P2 fiscal.
 
@@ -132,9 +150,6 @@ operativos confirmados:
   tributos, y ampliar alícuotas con soporte completo hasta PDF/informes.
   Preservar interpretación histórica y consumir el
   [dominio común de importes](docs/agents/pf-03-04-importes-previsualizacion-design.md).
-- **PF-04/PF-17/PF-13, P2:** preparar NC/ND desde un comprobante autorizado,
-  con asociado, alcance e importes explícitos; usar evidencia histórica y
-  revisión común. Contrato en el [diseño de notas guiadas](docs/agents/pf-04-17-notas-guiadas-design.md).
 - **PF-10:** exportaciones, resguardo confirmado y liberación segura de
   almacenamiento. **P2**; depende de preservación histórica PF-04 y recuperación
   PF-11. Alcance en el [portafolio](docs/agents/development-portfolio.md).
@@ -238,7 +253,7 @@ operativos confirmados:
   instalación simplificada y demo controlada para terceros tras
   estabilizar operación y cumplir la puerta de calidad PF-16. Preservar
   almacenamiento seguro PF-10. La descarga ZIP y selección múltiple se delimitan
-  en Ahora 1; no se mantienen como otro pendiente equivalente aquí. Un acceso
+  en Ahora 2; no se mantienen como otro pendiente equivalente aquí. Un acceso
   específico desde Lotes queda fuera de ese corte. Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
 - **PF-18 — operación asistida mediante MCP, horizonte futuro:** permitir que

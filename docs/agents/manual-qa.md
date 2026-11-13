@@ -1,6 +1,6 @@
 # QA manual reutilizable
 
-Última revisión: 04/11/2026
+Última revisión: 13/11/2026
 
 Estado: VIGENTE.
 
@@ -12,6 +12,20 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. Este documento no acredita una instalación.
 
 ## Preparación segura
+
+### Notas individuales con dobles fiscales
+
+Desde una factura autorizada A/B/C preparar NC total/parcial y ND; repetir
+desde «Nuevo comprobante» con referencia de factura externa sintética. Comprobar
+receptor visible, descripciones por completar cuando WSFE no las conserva,
+fecha de nota vacía, PV de nota separado del original y asociado en vista
+previa, detalle y PDF. Para ND no copiar un crédito total. Alterar receptor,
+referencia o desglose: rechazar antes de CAE. Cambiar emisor o referencia durante
+la consulta: descartar respuestas tardías e invalidar la revisión. Cubrir error
+de consulta, teclado/foco, escritorio/móvil y estados inciertos con la misma
+operación. No emitir comprobantes reales ni interpretar el total original como
+saldo disponible. Usar las guardas y escenarios del
+[contrato fiscal](pf-04-17-notas-guiadas-design.md).
 
 ### Evidencia de recuperación PF-11/PF-15
 
