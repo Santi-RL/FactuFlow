@@ -14,8 +14,8 @@ autoriza producción.
 
 ## Índice
 
-- [`v0.3.13-candidate.md`](v0.3.13-candidate.md): corte de notas de crédito y
-  débito individuales; alcance fiscal, revisión, compatibilidad y recuperación.
+- [`v0.3.13-candidate.md`](v0.3.13-candidate.md): publicación de notas de crédito
+  y débito individuales; alcance fiscal, revisión, CI, compatibilidad y recuperación.
 - [`v0.3.12-candidate.md`](v0.3.12-candidate.md): publicación de descarga directa
   de PDF y ZIP completo de selección PF-18/PF-17; controles, actualización,
   respaldo/restauración y retorno; publicación y producción separadas.

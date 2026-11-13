@@ -4,21 +4,22 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-Versión publicada más reciente: `v0.3.12`
+Versión publicada más reciente: `v0.3.13`
 
-[GitHub Release v0.3.12](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.12)
+[GitHub Release v0.3.13](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.13)
 
-`v0.3.12` incorpora descarga directa de PDF y ZIP de selección desde
-Comprobantes. Conserva permisos, historia y bloqueos, con entrega completa o
-ninguna, sin nuevas migraciones ni dependencias. El tag inmutable apunta a
-`7870e52200404a175d119de5f5444d201403be34`;
+`v0.3.13` incorpora notas de crédito y débito individuales desde una factura
+autorizada o desde «Nuevo comprobante», con originales locales o externos
+verificables por WSFE. Conserva los controles fiscales y admite pesos e importes
+soportados, sin nuevas migraciones ni dependencias. El tag inmutable apunta a
+`ef61675b690d845cebcc25ac442ac0d062975a6a`;
 la publicación no determina ni modifica el estado desplegado.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
 Su alcance, compatibilidad, evidencia de publicación y recuperación se conservan en
-el [dossier de v0.3.12](docs/project/releases/v0.3.12-candidate.md).
+el [dossier de v0.3.13](docs/project/releases/v0.3.13-candidate.md).
 
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
@@ -28,7 +29,8 @@ Capacidades actuales:
 - configuración inicial de empresa y usuario administrador propietario
 - gestión de usuarios desde la aplicación: solo administradores pueden crear,
   desactivar, reactivar o resetear usuarios
-- emisión individual de comprobantes con CAE
+- emisión individual de facturas, notas de crédito totales/parciales y notas de
+  débito, con CAE y comprobante asociado cuando corresponde
 - emisión masiva desde Excel con validación previa, seguimiento adaptativo del
   lote y archivo observado
 - prevención de duplicados en lotes con evidencia del antecedente y aceptación

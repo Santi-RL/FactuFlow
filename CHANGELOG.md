@@ -18,6 +18,15 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.13] - 13/11/2026
+
+Publicada sobre `ef61675b690d845cebcc25ac442ac0d062975a6a`.
+[Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.13), alcance,
+compatibilidad, validaciones y recuperación en el
+[dossier](docs/project/releases/v0.3.13-candidate.md). La publicación y la
+operación productiva se verifican por separado; el estado de la instalación
+permanece en su plano de control.
+
 ### Comprobantes individuales
 
 - «Nuevo comprobante» permite preparar facturas, notas de crédito totales o
