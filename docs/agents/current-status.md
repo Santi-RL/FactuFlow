@@ -63,9 +63,11 @@ ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
 leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
 vínculo del intento y no abre recuperación moderna ni cambia la compactación
 o el traslado vigentes. Ahora 1 requiere preparar primero el cierre moderno
-individual, antes del masivo. Sus invariantes y el orden relativo de las demás
-líneas permanecen intactos. Consultar los cierres operativos de notas y descargas
-en el plano de control; no repetir sus preflight por un handoff reemplazado.
+individual, antes del masivo. Ahora 2 reúne el
+[formato argentino y el precio unitario legible](pf-17-13-formato-argentino-design.md)
+en un corte de presentación pendiente. Consultar los cierres operativos de
+notas y descargas en el plano de control. No repetir sus preflight por un
+handoff reemplazado.
 
 El orden y alcance macro se toman exclusivamente de
 [`ROADMAP.md`](../../ROADMAP.md); el inventario y dependencias están en el

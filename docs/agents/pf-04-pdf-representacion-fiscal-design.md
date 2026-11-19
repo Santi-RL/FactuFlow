@@ -31,6 +31,12 @@ sin truncar ni convertir a float. Los comprobantes corrientes conservan una
 página A4 y QR/CAE legibles. Un detalle extenso puede ocupar más páginas;
 este corte no rediseña la paginación ni su contador preexistente.
 
+Esta regla y su matriz describen el corte implementado. Para el precio
+unitario, el [corte de formato argentino](pf-17-13-formato-argentino-design.md#precio-unitario-en-comprobantes)
+define la presentación futura con decimales según el renglón. Conserva las
+reglas de este contrato sobre importes fiscales, ajuste de celdas y fidelidad
+histórica.
+
 ## Checklist fiscal y consumidores
 
 Orden: API autentica y comprueba permiso del emisor, autorización y CAE;
