@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 13/11/2026.
+Última revisión: 19/11/2026.
 
 Estado: VIGENTE.
 
@@ -11,12 +11,10 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.13`; los productores técnicos y
-  visibles usan `0.3.13`. Incorpora NC/ND individuales desde una factura o desde
-  «Nuevo comprobante», con originales locales o externos verificables por WSFE.
-  El [dossier](../project/releases/v0.3.13-candidate.md) conserva alcance,
-  publicación, CI, compatibilidad y recuperación, sin nuevas migraciones ni
-  dependencias. La publicación no determina el estado desplegado.
+- La release publicada más reciente es `v0.3.14`. Valida el vencimiento de pago
+  en las notas individuales por servicios y muestra el motivo de los rechazos
+  confirmados de ARCA. El [dossier](../project/releases/v0.3.14-candidate.md)
+  conserva alcance, CI, compatibilidad y recuperación del parche.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.

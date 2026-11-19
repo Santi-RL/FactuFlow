@@ -18,6 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.14] - 19/11/2026
+
+Publicada sobre `60d0ae36a96cff4cd33a1688ed83caa9354a2fc2`.
+[Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.14) y
+[dossier](docs/project/releases/v0.3.14-candidate.md).
+
 - Las notas individuales por servicios validan el vencimiento de pago antes
   de la revisión y de solicitar CAE. Si ARCA confirma un rechazo, el
   formulario muestra los motivos devueltos por la API.
