@@ -27,6 +27,13 @@ operación. No emitir comprobantes reales ni interpretar el total original como
 saldo disponible. Usar las guardas y escenarios del
 [contrato fiscal](pf-04-17-notas-guiadas-design.md).
 
+Con una nota de servicios, preparar un original con vencimiento anterior a la
+fecha de la nota. Verificar el mensaje junto al campo, la revisión bloqueada
+y que un vencimiento ingresado igual a la fecha de la nota permita revisar.
+Simular un rechazo confirmado y comprobar que se muestra el motivo oficial
+devuelto por la API. Una respuesta incierta sigue usando la verificación de la
+misma operación.
+
 ### Evidencia de recuperación PF-11/PF-15
 
 En entorno sintético, abrir Sistema con resumen completo y cambiar a uno parcial,

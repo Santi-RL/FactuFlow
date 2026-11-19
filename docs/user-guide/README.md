@@ -248,6 +248,10 @@ pesos y con las categorías de importes ya soportadas.
 
 Para NC, elegí **Crédito total** o **Crédito parcial** y revisá los conceptos e
 importes. Para ND, ingresá el ajuste adicional; no se copia una devolución total.
+Para una nota por servicios, revisá el vencimiento de pago heredado. Si es
+anterior a la fecha de emisión de la nota, indicá un vencimiento igual o
+posterior antes de continuar. Si ARCA rechaza la emisión, el formulario muestra
+el motivo cuando está disponible.
 El importe original no representa un saldo disponible: puede haber otras notas
 emitidas en FactuFlow o fuera del sistema. La nota conserva el receptor y la
 clase del original. El punto de venta de la nota se elige por separado del punto

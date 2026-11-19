@@ -279,6 +279,14 @@ class NotasService:
         # preparación individual siempre declara total, parcial o ajuste.
         if request.tipo_comprobante not in TIPOS_NOTA or request.alcance_nota is None:
             return
+        if (
+            request.concepto in (2, 3)
+            and request.fecha_vto_pago is not None
+            and request.fecha_vto_pago < request.fecha_emision
+        ):
+            raise ValidationError(
+                "El vencimiento de pago debe ser igual o posterior a la fecha de emisión de la nota."
+            )
         if len(request.comprobantes_asociados) != 1:
             raise ValidationError("Seleccioná la factura que se ajusta con esta nota.")
         asociado = request.comprobantes_asociados[0]

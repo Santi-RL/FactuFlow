@@ -45,9 +45,11 @@ vi.mock("@/services/puntos_venta.service", () => ({
   },
 }));
 
+const { showError } = vi.hoisted(() => ({ showError: vi.fn() }));
+
 vi.mock("@/composables/useNotification", () => ({
   useNotification: () => ({
-    showError: vi.fn(),
+    showError,
     showSuccess: vi.fn(),
     showWarning: vi.fn(),
   }),
@@ -265,6 +267,81 @@ const mountView = async () => {
 };
 
 describe("ComprobanteNuevoView", () => {
+  it("marca el vencimiento heredado y permite revisar tras corregirlo", async () => {
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(1),
+    );
+    const wrapper = await mountView();
+    const vm = await completarFormulario(wrapper);
+    vm.formData.tipo_comprobante = 8;
+    await flushPromises();
+    wrapper.getComponent({ name: "FacturaAsociada" }).vm.$emit("preparada", {
+      origen: "arca",
+      asociado: { tipo_comprobante: 6, punto_venta: 4, numero: 12 },
+      concepto: TIPOS_CONCEPTO.SERVICIOS,
+      items: [...vm.formData.items],
+      receptor: { ...vm.formData.cliente },
+      fecha_servicio_desde: "2026-04-01",
+      fecha_servicio_hasta: "2026-04-30",
+      fecha_vto_pago: "2026-05-19",
+    });
+    await flushPromises();
+    mockedComprobantesService.previsualizar.mockClear();
+    const vencimiento = wrapper.get("#fecha-vencimiento-pago");
+    expect(vencimiento.attributes("aria-invalid")).toBe("true");
+    expect(wrapper.get("#error-vencimiento-nota").text()).toContain(
+      "igual o posterior a la fecha de emisión",
+    );
+    await vm.abrirVistaPrevia();
+    expect(mockedComprobantesService.previsualizar).not.toHaveBeenCalled();
+
+    await vencimiento.setValue("2026-05-20");
+    expect(wrapper.find("#error-vencimiento-nota").exists()).toBe(false);
+    await vm.abrirVistaPrevia();
+    expect(mockedComprobantesService.previsualizar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fecha_emision: "2026-05-20",
+        fecha_vto_pago: "2026-05-20",
+        fecha_servicio_hasta: "2026-04-30",
+      }),
+    );
+    expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
+  it("muestra el motivo devuelto por ARCA en un rechazo confirmado", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const motivo = "10036: El vencimiento es anterior a la fecha del comprobante.";
+    mockedComprobantesService.proximoNumero.mockResolvedValue(
+      diagnosticoNumeracionMock(100),
+    );
+    mockedComprobantesService.emitir.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          detail: {
+            categoria_error: "arca_no_aprobado",
+            mensaje: "ARCA no aprobó el comprobante",
+            errores: [motivo],
+          },
+        },
+      },
+    });
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      await vm.confirmarEmision();
+      expect(showError).toHaveBeenCalledWith(
+        "Error al emitir comprobante",
+        expect.stringContaining(motivo),
+      );
+      expect(vm.operacionIncierta).toBeNull();
+      wrapper.unmount();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("NC conserva la referencia, alcance y fecha explícita en la revisión", async () => {
     mockedComprobantesService.proximoNumero.mockResolvedValue(diagnosticoNumeracionMock(1));
     const wrapper = await mountView();

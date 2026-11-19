@@ -144,6 +144,29 @@ async def test_total_parcial_y_debito_comparten_original(externo):
     await servicio.validar(debito)  # No aplica un tope de crédito al débito.
 
 
+@pytest.mark.parametrize("concepto", [2, 3])
+async def test_nota_servicios_exige_vencimiento_desde_su_fecha_de_emision(
+    externo, concepto
+):
+    servicio, wsfe = externo
+    original = await servicio.original(1, 6, 4, 12)
+    wsfe.fe_comp_consultar.reset_mock()
+    nota = request(
+        original,
+        concepto=concepto,
+        fecha_servicio_desde=date(2026, 7, 1),
+        fecha_servicio_hasta=date(2026, 7, 31),
+        fecha_vto_pago=date(2026, 8, 9),
+    )
+    with pytest.raises(ValidationError, match="vencimiento.*igual o posterior"):
+        await servicio.validar(nota)
+    wsfe.fe_comp_consultar.assert_not_awaited()
+
+    nota.fecha_vto_pago = nota.fecha_emision
+    await servicio.validar(nota)
+    wsfe.fe_comp_consultar.assert_awaited_once()
+
+
 @pytest.mark.parametrize(
     "cambio",
     [

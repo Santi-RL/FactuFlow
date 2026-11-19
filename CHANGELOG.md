@@ -18,6 +18,10 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+- Las notas individuales por servicios validan el vencimiento de pago antes
+  de la revisión y de solicitar CAE. Si ARCA confirma un rechazo, el
+  formulario muestra los motivos devueltos por la API.
+
 ## [0.3.13] - 13/11/2026
 
 Publicada sobre `ef61675b690d845cebcc25ac442ac0d062975a6a`.
