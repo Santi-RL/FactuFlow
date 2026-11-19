@@ -14,6 +14,8 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.14-candidate.md`](v0.3.14-candidate.md): vencimiento de pago en notas
+  individuales y detalle de rechazos confirmados.
 - [`v0.3.13-candidate.md`](v0.3.13-candidate.md): publicación de notas de crédito
   y débito individuales; alcance fiscal, revisión, CI, compatibilidad y recuperación.
 - [`v0.3.12-candidate.md`](v0.3.12-candidate.md): publicación de descarga directa

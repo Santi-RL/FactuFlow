@@ -441,8 +441,10 @@ Devuelve una factura local autorizada o consulta FECompConsultar para un
 original externo, sin importarlo ni solicitar CAE. Los decimales se conservan
 como strings. WSFE no acredita nombres ni descripciones comerciales.
 
-En esas notas, la revisión y una emisión nueva validan también el original,
-receptor, clase, moneda, fecha y alcance; pueden consultar WSAA/WSFE si el
+En esas notas, si el concepto incluye servicios, `fecha_vto_pago` debe ser
+igual o posterior a `fecha_emision`. La revisión y una emisión nueva rechazan
+con 400 un vencimiento anterior, antes de consultar el original. También
+validan el original, receptor, clase, moneda, fecha y alcance. Pueden consultar WSAA/WSFE si el
 original es externo. La revisión de facturas conserva su carácter local. El
 replay de emisión se resuelve antes de consultas mutables. El campo de alcance
 se omite cuando no fue declarado para conservar hashes y consumidores técnicos

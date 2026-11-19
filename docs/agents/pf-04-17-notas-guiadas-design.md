@@ -98,6 +98,27 @@ El campo ausente se omite al serializar para no alterar sus hashes idempotentes.
 
 ## Contrato y límites
 
+### Vencimiento en notas por servicios y motivo del rechazo
+
+- WSFE valida que `FchVtoPago` sea igual o posterior a `CbteFch` (10036).
+  La nota guiada conserva las fechas de servicio y muestra el vencimiento
+  heredado como dato editable. Si es anterior a la fecha de la nota, se
+  indica el problema en ese campo y se bloquea la revisión. La corrección
+  exige una fecha ingresada por el usuario y conserva la emisión explícita.
+- El mismo control corre en la preparación y en solicitudes nuevas de
+  emisión de notas guiadas, antes de consultar el original o reservar número.
+  En emisión, la búsqueda de la operación idempotente existente precede al
+  control para preservar replays y conciliación. Los consumidores sin
+  `alcance_nota`, lotes y reintentos masivos conservan su camino vigente.
+- Un rechazo confirmado de WSFE muestra los motivos que ya devuelve la API.
+  La incertidumbre mantiene su bloqueo y la verificación con la misma clave.
+  No hay cambios de estado, locks, persistencia fiscal ni solicitudes nuevas
+  a ARCA para recuperar el motivo. El rollback vuelve al código anterior y
+  conserva las operaciones ya registradas.
+- Verificar con datos sintéticos la fecha anterior e igual, una corrección
+  manual y el detalle de un rechazo confirmado. Los escenarios de replay,
+  concurrencia y respuesta incierta conservan sus pruebas existentes.
+
 - Consultar el original local y su evidencia histórica, con autorización y emisor
   activo. Conservar identidad del receptor, clase, moneda/cotización y referencia
   del original como punto de partida, sin reconstruirlos desde la ficha actual.
