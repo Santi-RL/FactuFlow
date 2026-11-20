@@ -2,7 +2,7 @@
 
 Fecha: 03/10/2026.
 
-Última revisión: 15/10/2026.
+Última revisión: 19/11/2026.
 
 Estado: comparación legacy P1 implementada; recuperación moderna P2 pendiente. Refuerza garantías
 existentes por cortes, sin reabrir numeración ni habilitar reemisión automática.
@@ -155,8 +155,8 @@ La preparación documental es nivel 0; la implementación es nivel 2 fiscal.
    [segundo corte implementado](pf-04-lecturas-historicas-design.md) conserva emisor
    y punto de venta, su cobertura y la contención aceptada para evidencia inválida;
    no habilita recuperación moderna.
-3. **Continuación de recuperación:** habilitar el cierre moderno individual y
-   luego el de grupos, completando sus contratos atómicos sobre el grafo RECE.
+3. **Continuación de recuperación:** preparar el
+   [cierre moderno individual](#cierre-moderno-individual) y luego el de grupos.
    Cada habilitación exige su propia matriz de fallos y concurrencia.
 
 Son subcortes de PF-04/PF-02, en el orden del roadmap, sin adelantar WSAA,
@@ -366,6 +366,95 @@ Referencia verificada: [manual WSFE v4.7](https://www.arca.gob.ar/ws/documentaci
 revisión del 01/09/2026, consultado el 14/10/2026, sección `FECompConsultar`.
 Devuelve datos fiscales y autorización; no sustituye el detalle administrativo
 original. Esta preparación no depende de llamadas fiscales reales.
+
+## Cierre moderno individual
+
+Diseño pendiente de implementación para facturas, NC y ND individuales. Ante
+una interrupción posterior al envío, el operador debe poder verificar la
+operación original y, si ARCA la autorizó, recuperar el mismo comprobante.
+Los lotes, incluso los que procesan sus filas de a una, tendrán un corte
+posterior por sus autorizaciones parciales, reservas compartidas y contadores.
+
+### Verificación desde la aplicación
+
+Hoy «Verificar estado» repite la solicitud a `/emitir` con la clave original.
+Cuando la API encuentra una respuesta incierta ya guardada, puede devolverla
+otra vez. Además, el formulario conserva la referencia en memoria mientras
+permanece abierto. [Formulario](../../frontend/src/views/comprobantes/ComprobanteNuevoView.vue)
+y [API individual](../../backend/app/api/comprobantes.py).
+
+La acción existente debe consultar y, cuando corresponda, cerrar una **operación
+ya registrada**. Al reabrir FactuFlow, el operador debe poder retomarla sin
+volver a cargar el comprobante, incluso si se perdió la primera respuesta HTTP.
+El servidor identifica el intento por una referencia persistente dentro del
+emisor autorizado. Seleccionar otro emisor o perder el permiso impide consultar
+los datos. Una referencia
+desconocida tampoco permite crear una operación. La única operación de WSFE
+que invoca la verificación es la consulta de comprobante `FECompConsultar`.
+
+### Evidencia suficiente para el cierre
+
+Validar la evidencia v1 y su pertenencia a la operación, intento y guarda.
+Usar el CUIT representado y el ambiente originales al autenticar la consulta.
+El cierre individual interpreta el resultado del
+[comparador existente](../../backend/app/core/comparacion_fiscal.py) según la
+evidencia exigida para cada caso.
+
+| Caso | Evidencia exigida |
+|---|---|
+| Toda autorización | Resultado aprobado, tipo de emisión CAE, código y vencimiento válidos y atribuibles al mismo emisor, ambiente, punto de venta, tipo y número. Un CAE o vencimiento ya guardado debe coincidir. |
+| Toda factura o nota | Identificación del receptor, fecha, concepto, moneda, cotización, importes y desglose de IVA y tributos según la solicitud congelada. Comparar decimales exactos y componentes, incluso cuando coincida el total. |
+| Servicios o productos y servicios | Contrastar las fechas de servicio y de vencimiento enviadas. |
+| NC o ND con factura asociada | Acreditar el tipo, punto de venta y número de cada asociado enviado. Contrastar también CUIT y fecha del asociado cuando estén disponibles. Dos originales distintos con igual importe siguen siendo una diferencia. |
+
+El comparador puede devolver `coincidente` con `cobertura_desconocida`.
+Evaluar esa cobertura por campo y tipo de comprobante. Por ejemplo, un número
+canónico inequívoco puede acreditar el número aunque falten los extremos del
+rango. Contrastar la condición IVA del receptor cuando figure en la solicitud
+y en la respuesta. Si la consulta omite esa condición o los atributos opcionales
+del asociado, conservar explícitamente esa falta de cobertura. Antes de habilitar
+el cierre, especificar y probar en qué casos esa cobertura permite acreditar la
+identidad y los datos exigidos. Una diferencia comprobada, un campo indispensable
+ausente, una consulta fallida o «no encontrado» conservan el estado pendiente,
+el CAE atribuible conocido y la reserva. La consulta nunca libera la numeración.
+
+### Cierre y reconstrucción
+
+1. Identificar una operación individual con su intento y guarda correspondientes.
+   Devolver el resultado durable si ya es terminal. Un envío todavía en curso
+   conserva su protección. Para un intento recuperable, verificar la pertenencia
+   antes de consultar a ARCA y hacer la llamada fuera de los bloqueos de escritura.
+2. Al recibir la respuesta, recargar y bloquear los registros en el orden del
+   flujo individual. Revalidar identidad, evidencia, fase y respuesta guardada.
+   Si otro proceso ya cerró el intento, devolver su resultado. Una respuesta
+   incierta publicada sólo podrá sustituirse si sigue siendo la del mismo intento
+   y se acredita la autorización. Para pasar de `requiere_reconciliacion` a
+   cierre terminal, condicionar la escritura a la fase y a la respuesta que se
+   acaban de verificar. Una actualización concurrente exige releer el resultado.
+3. Si ya existe un comprobante, verificar su identidad, CAE, detalle y vínculo
+   antes de asociarlo. Si falta, reconstruirlo desde la evidencia congelada.
+   Guardar en **una transacción** el comprobante y sus ítems, el intento
+   autorizado, el cierre de la guarda y la respuesta de la operación. Ante un
+   commit de resultado desconocido, releer el estado durable antes de actuar.
+4. Usar los conceptos, cantidades, precios, descuentos, subtotales y datos del
+   receptor originales. El guardado habitual también puede resolver o crear una
+   ficha de cliente. Si la evidencia acredita la ficha original, conservar el
+   vínculo. Si falta esa referencia, preservar los datos fiscales del receptor
+   sin asignarle una ficha por coincidencia con el padrón actual. El detalle,
+   PDF y QR deben reflejar los datos originales que les corresponden.
+   Para NC/ND, el detalle y el PDF deben
+   identificar la factura ajustada. Los informes de ventas e IVA deben contabilizar
+   una sola vez el comprobante con su fecha fiscal, moneda e importes originales.
+
+### Pruebas de aceptación del cierre individual
+
+| Escenario con ARCA simulada | Resultado exigido |
+|---|---|
+| ARCA autoriza una NC. El servidor cae antes de guardar el CAE. Se reinicia, se reabre la aplicación y dos sesiones verifican a la vez. | Ambas recuperan el mismo número y CAE. Hay un único comprobante vinculado a la factura correcta, una autorización en la emisión original y cero solicitudes nuevas de CAE durante la recuperación. Probar la concurrencia con conexiones independientes a PostgreSQL. |
+| La respuesta incierta ya está guardada, se perdió la respuesta HTTP o llega tarde la respuesta original. | La verificación puede recuperar el intento desde una nueva sesión. El cierre confirmado prevalece en todas las consultas posteriores. |
+| Ya existe el comprobante o falla el commit al crearlo o vincularlo. | Verificar el registro existente. Tras recargar, hay un único cierre completo o continúa la reserva pendiente. |
+| Mismo total con otro IVA o factura asociada, evidencia insuficiente, CAE contradictorio, guarda huérfana, timeout o «no encontrado». | Se conserva la evidencia atribuible y la reserva. El operador ve que la emisión sigue pendiente de verificación. |
+| Cambio de emisor, ambiente o permisos. Cambio posterior de datos del cliente o del punto de venta. | Las consultas respetan el acceso y la identidad originales. Tras una recuperación válida, contrastar detalle, PDF, QR y reportes de ventas e IVA con la evidencia previa. |
 
 ## Dependencias y exclusiones
 

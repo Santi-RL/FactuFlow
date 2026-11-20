@@ -62,8 +62,10 @@ cobertura antigua en los metadatos internos y la contención aceptada de PDF/QR
 ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
 leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
 vínculo del intento y no abre recuperación moderna ni cambia la compactación
-o el traslado vigentes. Ahora 1 requiere preparar primero el cierre moderno
-individual, antes del masivo. Ahora 2 reúne el
+o el traslado vigentes. La siguiente unidad de Ahora 1 es el
+[cierre moderno individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual).
+Su diseño incorpora la verificación después de reabrir la aplicación y los
+criterios de cierre. La implementación individual precede a la masiva. Ahora 2 reúne el
 [formato argentino y el precio unitario legible](pf-17-13-formato-argentino-design.md)
 en un corte de presentación pendiente. Consultar los cierres operativos de
 notas y descargas en el plano de control. No repetir sus preflight por un
@@ -92,8 +94,9 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de reconciliación;
-   delimitar el siguiente cierre moderno individual antes del masivo.
+2. Leer `VISION.md`, Ahora 1 del roadmap y los criterios de aceptación del
+   cierre moderno individual. Precisar los casos de cobertura fiscal opcional
+   antes de habilitar la recuperación.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el
