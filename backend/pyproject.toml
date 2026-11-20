@@ -1,5 +1,5 @@
 [project]
 name = "factuflow-backend"
-version = "0.3.14"
+version = "0.3.15"
 description = "Backend FastAPI de FactuFlow"
 requires-python = ">=3.11"

@@ -14,6 +14,8 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.15-candidate.md`](v0.3.15-candidate.md): recuperación de la emisión
+  individual interrumpida de facturas y notas.
 - [`v0.3.14-candidate.md`](v0.3.14-candidate.md): vencimiento de pago en notas
   individuales y detalle de rechazos confirmados.
 - [`v0.3.13-candidate.md`](v0.3.13-candidate.md): publicación de notas de crédito
