@@ -1,6 +1,6 @@
 # Documentación para agentes
 
-Última revisión: 13/11/2026
+Última revisión: 19/11/2026
 
 Este índice evita reconstruir el proyecto leyendo historia irrelevante. Abrir
 sólo la fuente que gobierna la tarea actual.
@@ -67,6 +67,9 @@ o reduce una protección, detener la decisión e involucrar al usuario.
 - `production-workflow.md` sólo con autorización productiva.
 
 ## Diseños activos
+
+- PF-17/PF-13, formato argentino y precio unitario:
+  [diseño del corte de presentación](pf-17-13-formato-argentino-design.md).
 
 - PF-03/PF-04/PF-17: [lecturas fiscales A-03](a03-lecturas-fiscales-design.md).
   Bases contrastadas, cobertura histórica explícita y moneda nominal separada.

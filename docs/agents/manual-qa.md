@@ -374,10 +374,15 @@ El contrato completo vive en el
 En un entorno sintético con ARCA simulado, cargar cantidad `1.00005`, precio
 `0.1234567890123456789012345678`, descuento `0.00123` y cotización con más de
 seis decimales. Revisar un código superior a 50 caracteres y un total superior
-a `9007199254740992`. Comprobar detalle, listado, lote, PDF y reporte: conservar
-cifras recibidas, sin redondeo del navegador. Reconciliación externa envía el
-mismo importe. La revisión previa conserva el contrato vigente; su unificación
-funcional y las bases IVA/moneda tienen cortes separados.
+a `9007199254740992`. Contrastar los datos exactos guardados y su lectura en
+detalle, listado, lote, PDF y reporte. La reconciliación externa utiliza el
+mismo importe. La revisión previa y las bases IVA/moneda se rigen por sus
+contratos respectivos.
+
+Al probar el corte de [formato argentino](pf-17-13-formato-argentino-design.md),
+verificar por separado el precio unitario visible con la matriz de ese diseño.
+El formato de presentación queda fuera del cálculo y de la evidencia
+conservada.
 
 Repetir la clave de una autorización y simular falla de guardado posterior a
 CAE: una sola llamada, estado reconciliable y solicitud durable intacta. Para

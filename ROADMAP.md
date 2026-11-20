@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 13/11/2026
+Última revisión: 19/11/2026
 
 Estado: VIGENTE.
 
@@ -62,6 +62,21 @@ y la solicitud fiscal mínima necesaria para recuperar intentos unitarios y
 masivos con seguridad. Extender la comparación y las transiciones modernas sin
 saltar guardas ni reemitir; comparte el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
 PF-05 externo es opcional y no bloquea padrón, notas ni emisión.
+
+### 2. PF-17/PF-13 — formato argentino y claridad visible
+
+**Prioridad:** P3 administrativa.
+
+Unificar el formato de fechas y números visibles en la interfaz, los PDF,
+los reportes y las ayudas y ejemplos del constructor de plantillas. Incluir
+en el mismo corte el precio unitario de facturas, notas de crédito y notas de
+débito: mostrar dos decimales cuando sean suficientes para explicar el subtotal
+visible y usar la precisión necesaria en los demás casos.
+
+La mejora reutiliza la presentación de comprobantes y el cálculo decimal
+vigentes. Preserva importes autorizados, precisión guardada, identificadores y
+contratos de intercambio. Alcance y aceptación en el
+[diseño de formato y precio unitario](docs/agents/pf-17-13-formato-argentino-design.md).
 
 ## Después
 
@@ -149,16 +164,11 @@ operativos confirmados:
   parciales, su progreso y la recuperación de reservas terminales están cubiertos
   por el [contrato del parche cerrado](docs/agents/pf-13-17-reintentos-seguros-parche.md). Alcance restante en el
   [portafolio](docs/agents/development-portfolio.md).
-- **PF-17/PF-13 — formato argentino y claridad visible, P3:** corregir fechas y números
-  mostrados al usuario, incluidos los ejemplos del constructor de plantillas
-  de emisión masiva (`31/05/2026`, `10.000,00`). Aplicar la regla transversal de
-  [AGENTS.md](AGENTS.md#formato-argentino-en-contenido-visible), conservando
-  contratos internos, precisión e identificadores. Baja prioridad, sin desplazar
-  el orden vigente; alcance y aceptación en el
-  [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
-  Mostrar «Sin identificar» en lugar del documento técnico «0», conservando el
-  nombre y la condición IVA por separado; no asumir «Consumidor final» por falta
-  de documento. Incluir tildes y coma decimal en etiquetas de IVA y almacenamiento.
+- **PF-17 — claridad del documento del receptor, P3:** mostrar «Sin identificar»
+  cuando se acredite el tipo documental 99. Conservar nombre y condición IVA
+  por separado, sin inferir consumidor final por falta de documento. Si la
+  historia no acredita el tipo, usar «Sin documento informado».
+  Alcance en el [portafolio](docs/agents/development-portfolio.md#trabajo-agrupado-por-línea).
 - **PF-17 — períodos rápidos, P3:** facilitar el Reporte de ventas con
   «Mes actual», «Mes anterior» y selección
   personalizada, completando Desde/Hasta y mostrando el rango calendario.

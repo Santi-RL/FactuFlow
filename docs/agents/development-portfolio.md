@@ -1,6 +1,6 @@
 # Portafolio activo de desarrollo
 
-Última revisión: 13/11/2026
+Última revisión: 19/11/2026
 
 Estado: VIGENTE.
 
@@ -40,6 +40,7 @@ la operación productiva.
 | PF-04/PF-17/PF-13, notas individuales | Cerrado | P1 por bloqueo operativo | NC/ND desde factura autorizada y desde «Nuevo comprobante», con asociado y revisión comunes | [Notas](pf-04-17-notas-guiadas-design.md); evidencia mínima y preparación compartida; originales externos verificables por WSFE |
 | PF-18/PF-17, descargas PDF y ZIP | Cerrado | P3 administrativa | Descargar desde cada fila o reunir la selección individual/todos los resultados filtrados en un ZIP completo | [Contrato implementado](pf-18-17-descargas-pdf-design.md); permisos e historia vigentes, sin archivo permanente; operación en el plano de control |
 | PF-04/PF-02, evidencia y recuperación integral | Ahora 1 | P2 fiscal | Historia inmutable y solicitud mínima para recuperar intentos modernos, unitarios y masivos | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); contratos de moneda, IVA, emisor y paginado |
+| PF-17/PF-13, formato argentino y claridad visible | Ahora 2 | P3 administrativa | Unificar fechas y números visibles e incluir el precio unitario legible en facturas y notas | [Diseño del corte](pf-17-13-formato-argentino-design.md); representación PDF PF-04, precisión A-01 y constructor vigente |
 | PF-04/PF-17, atribución del ranking | Más adelante | P2 administrativa | Separar ventas sin receptor identificable y evitar atribuirlas al primer nombre | Identidad fiscal por tipo y número, vínculo opcional y lecturas A-03; sin adelantar Ahora/Después |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
@@ -231,16 +232,11 @@ la operación productiva.
   el retorno seguro, el checkbox específico y los controles fiscales del
   [diseño de duplicados](pf-13-duplicados-lotes-design.md). Un defecto comprobado
   que impida utilizar esos controles se atiende antes de publicar.
-- PF-17/PF-13, P3, Más adelante: corregir la presentación de fechas y números
-  según la [regla de formato argentino](../../AGENTS.md#formato-argentino-en-contenido-visible).
-  Incluir ejemplos iniciales y de plantillas existentes o clonadas del constructor
-  de emisión masiva y su hoja de instrucciones descargable; revisar otros
-  contenidos visibles para aplicar la misma convención. Aceptación: mostrar
-  `31/05/2026` y `10.000,00` en lugar de `2026-05-31` y `10000.00`, también con
-  otra región de navegador, conservando el valor y la precisión. Mantener
-  formatos de API/base/ARCA, compatibilidad de importación, redondeos fiscales e
-  identificadores sin cambios. Es un pendiente de baja prioridad, sin compromiso
-  inmediato ni dependencia del rediseño completo P2 del constructor.
+- PF-17/PF-13, P3, Ahora 2:
+  [formato argentino y precio unitario legible](pf-17-13-formato-argentino-design.md).
+  Un solo corte de presentación para PDF, interfaz, reportes y ayudas del
+  constructor existente. Depende de conservar la representación histórica y
+  la precisión fiscal. El diseño concentra casos, límites y aceptación.
 - PF-17, P3, Más adelante: claridad del documento del receptor. La lista muestra
   directamente `cliente_documento`; su contrato no incluye tipo documental.
   Propuesta: usar «Sin identificar» cuando se acredite tipo 99, manteniendo el
@@ -372,7 +368,8 @@ una única unidad ni se bloquea una reparación esperando su propio resultado.
 Los cortes de notas individuales y descarga directa/ZIP tienen contratos
 implementados; su publicación se consulta en sus dossiers y su operación en el
 plano de control. Ahora 1 retoma evidencia/reconciliación integral, comenzando
-por el cierre moderno individual; después siguen WSAA, las capacidades de
+por el cierre moderno individual. Ahora 2 reúne el formato argentino con
+el precio unitario legible. Después siguen WSAA, las capacidades de
 plataforma necesarias y padrón para clientes/emisores. La historia externa PF-05
 permanece Más adelante y no bloquea estos consumidores. El constructor y las categorías
 completas son P2. El orden autoritativo está en el roadmap.
