@@ -235,6 +235,14 @@ class EmitirComprobanteResponse(BaseModel):
     categoria_error: Optional[str] = None
 
 
+class EmisionIndividualPendiente(BaseModel):
+    operacion_id: int
+    tipo_comprobante: int
+    punto_venta: int
+    numero: int
+    fecha: date
+
+
 class ComprobanteResponse(ComprobanteBase):
     """Schema de respuesta de Comprobante."""
 

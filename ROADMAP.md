@@ -57,10 +57,10 @@ por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado
 
 **Prioridad:** P2 fiscal.
 
-Preservar instantáneas históricas correctas en comprobantes, PDFs e informes,
-y la solicitud fiscal mínima necesaria para recuperar intentos unitarios y
-masivos con seguridad. Extender la comparación y las transiciones modernas sin
-saltar guardas ni reemitir; comparte el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
+Extender la recuperación moderna a lotes. Usar la evidencia original de cada
+intento para recuperar las autorizaciones acreditadas, conservar las reservas
+inciertas y cerrar los grupos y sus contadores de forma consistente.
+El alcance pendiente vive en el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
 PF-05 externo es opcional y no bloquea padrón, notas ni emisión.
 
 ### 2. PF-17/PF-13 — formato argentino y claridad visible

@@ -5,8 +5,9 @@ import {
   type FiscalDecimal,
 } from "@/utils/fiscal-decimal";
 import comprobantesService from "@/services/comprobantes.service";
+import { isAxiosError, isCancel } from "axios";
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
-import { onBeforeRouteLeave, useRouter, useRoute } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useNotification } from "@/composables/useNotification";
 import { useEmpresaStore } from "@/stores/empresa";
 import { useComprobantesStore } from "@/stores/comprobantes";
@@ -504,29 +505,8 @@ watch(
   },
 );
 
-const manejarBeforeUnload = (event: BeforeUnloadEvent) => {
-  if (!operacionIncierta.value) return;
-  event.preventDefault();
-  event.returnValue = "";
-};
-
-onMounted(() => {
-  window.addEventListener("beforeunload", manejarBeforeUnload);
-});
-
 onBeforeUnmount(() => {
   revisionRequestId++;
-  window.removeEventListener("beforeunload", manejarBeforeUnload);
-});
-
-onBeforeRouteLeave(() => {
-  if (!operacionIncierta.value) return true;
-
-  showWarning(
-    "Verificación fiscal pendiente",
-    "No salgas de esta pantalla hasta verificar el resultado con la misma operación.",
-  );
-  return false;
 });
 
 const tiposComprobanteDisponibles = computed(() => {
@@ -880,10 +860,9 @@ const ejecutarEmision = async (
     operacionIncierta.value?.totalPlanificado ?? totalesRevisados.value.total;
 
   try {
-    const resultado = await comprobantesStore.emitirComprobante(
-      request,
-      idempotencyKey,
-    );
+    const resultado = esVerificacion
+      ? await comprobantesService.verificarEmision({ clave: idempotencyKey })
+      : await comprobantesStore.emitirComprobante(request, idempotencyKey);
     const respuestaIncierta = normalizarRespuestaReconciliacion(
       resultado,
       request,
@@ -894,13 +873,14 @@ const ejecutarEmision = async (
 
     if (respuestaIncierta) {
       registrarOperacionIncierta(request, idempotencyKey, respuestaIncierta);
+      if (esVerificacion) showWarning("Emisión pendiente", resultado.mensaje);
       return;
     }
 
     if (resultado.exito) {
       finalizarOperacionIncierta();
       showSuccess(
-        "Comprobante emitido",
+        esVerificacion ? "Comprobante recuperado" : "Comprobante emitido",
         `CAE ${resultado.cae || "sin informar"} | Total $${formatearDecimalFiscal(resultado.total, 2)}`,
       );
 
@@ -942,6 +922,25 @@ const ejecutarEmision = async (
       return;
     }
 
+    const status = obtenerStatusHttpError(error);
+    if (
+      !esVerificacion &&
+      !isCancel(error) &&
+      ((isAxiosError(error) && error.request && !error.response) ||
+        status === 502 ||
+        status === 504)
+    ) {
+      const pendiente = normalizarRespuestaReconciliacion(
+        { requiere_reconciliacion: true },
+        request,
+        puntoVentaNumero,
+        null,
+        totalPlanificado,
+      );
+      if (pendiente) registrarOperacionIncierta(request, idempotencyKey, pendiente);
+      return;
+    }
+
     if (
       !esVerificacion &&
       esRegistroDesconocido(detail) &&
@@ -976,23 +975,10 @@ const ejecutarEmision = async (
       return;
     }
     const mensajeRechazoFinal = obtenerMensajeRechazoFinal(detail);
-    if (
-      esVerificacion &&
-      obtenerStatusHttpError(error) === 400 &&
-      mensajeRechazoFinal
-    ) {
-      finalizarOperacionIncierta();
-      showError(
-        "ARCA confirmó que el comprobante no fue autorizado",
-        mensajeRechazoFinal,
-      );
-      return;
-    }
-
     if (esVerificacion) {
       showWarning(
         "No se pudo verificar el estado",
-        "La operación continúa bloqueada. Conservá esta pantalla y volvé a verificar con la misma clave.",
+        "Volvé a verificar el estado o retomá la emisión desde Comprobantes.",
       );
       return;
     }
@@ -1113,9 +1099,9 @@ const confirmarCancelacion = () => {
             </h2>
           </div>
           <p class="mt-2 max-w-3xl text-sm">
-            ARCA pudo haber procesado esta solicitud. Los datos y la clave
-            quedaron congelados: no generes otra factura ni cambies la
-            operación.
+            ARCA pudo haber autorizado este comprobante. Verificá el estado
+            antes de volver a emitirlo. También podés retomar la verificación
+            desde Comprobantes.
           </p>
         </div>
         <button
@@ -1171,7 +1157,7 @@ const confirmarCancelacion = () => {
           <span class="block text-xs font-semibold uppercase text-orange-700">
             Total
           </span>
-          <span>ARS {{ Number(totalOperacionIncierta).toFixed(2) }}</span>
+          <span>{{ formatearDecimalFiscal(totalOperacionIncierta, 2) }}</span>
         </div>
       </div>
 
@@ -1193,6 +1179,12 @@ const confirmarCancelacion = () => {
         Volvé a seleccionar {{ operacionIncierta.empresaNombre }} para
         verificar. La operación permanece bloqueada.
       </p>
+      <RouterLink
+        :to="{ name: 'comprobantes' }"
+        class="mt-4 inline-block text-sm font-medium text-orange-900 underline underline-offset-2"
+      >
+        Volver a Comprobantes
+      </RouterLink>
     </section>
 
     <form

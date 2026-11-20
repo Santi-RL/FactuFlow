@@ -1088,6 +1088,7 @@ class IdempotenciaFiscalService:
         response: EmitirComprobanteResponse,
         *,
         commit: bool = True,
+        conservar_instante_fiscal: bool = False,
     ) -> None:
         """Actualiza un intento fiscal con el resultado conocido."""
         if intento is None:
@@ -1105,7 +1106,8 @@ class IdempotenciaFiscalService:
         if response.exito:
             intento.estado = "autorizado"
             intento.comprobante_id = response.comprobante_id
-            intento.resultado_fiscal_at = datetime.now(timezone.utc)
+            if not conservar_instante_fiscal:
+                intento.resultado_fiscal_at = datetime.now(timezone.utc)
         elif response.requiere_reconciliacion:
             intento.estado = "requiere_reconciliacion"
         elif response.categoria_error in {

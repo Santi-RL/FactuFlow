@@ -230,6 +230,15 @@ En `Comprobantes` puedes:
 - crear un comprobante puntual
 - abrir el detalle de un comprobante autorizado
 
+### Emisiones individuales pendientes de verificación
+
+Si FactuFlow pierde la respuesta de ARCA mientras emitís una factura o una
+nota, elegí **Verificar estado** antes de volver a emitir. Si cerraste la
+aplicación, entrá a **Comprobantes** con el mismo emisor y buscá la operación
+en **Emisiones pendientes de verificación**. Cuando FactuFlow pueda acreditar
+la autorización, vas a poder abrir el comprobante con su número y CAE
+originales. Si sigue pendiente, volvé a verificar o pedí revisión a soporte.
+
 ### Notas de crédito y débito individuales
 
 El botón **Nuevo comprobante** permite elegir factura, nota de crédito o nota
@@ -1190,8 +1199,8 @@ clave. Ante `409 pre_arca_estado_bloqueado`, conservá la clave y pedí revisió
 esperá, sin abrir otra operación ni reconciliar ARCA si FECAE no comenzó. Si el
 `409` es posterior a esa frontera, indica `Requiere reconciliación` o no sabés si
 ARCA fue llamada, no generes otra clave ni cambies los datos: conservá la
-operación y pedí revisión. La pantalla dedicada de emisión individual congela y
-verifica esa misma operación. La acción `Probar conexión`
+operación y verificá su estado. Para una emisión individual, podés retomarla
+desde **Comprobantes** con el emisor original. La acción `Probar conexión`
 puede llamar a ARCA; no se ejecuta automáticamente al abrir la pantalla. La guía
 rápida y la ficha para soporte no reemplazan el runbook privado del VPS ni
 autorizan reintentos fiscales automáticos cuando existe incertidumbre post-ARCA.

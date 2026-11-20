@@ -1,4 +1,5 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
+import { AxiosError } from "axios";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
@@ -32,6 +33,7 @@ vi.mock("@/services/comprobantes.service", () => ({
   default: {
     listar: vi.fn(),
     emitir: vi.fn(),
+    verificarEmision: vi.fn(),
     obtener: vi.fn(),
     proximoNumero: vi.fn(),
     previsualizar: vi.fn(),
@@ -142,6 +144,7 @@ const deferred = <T>() => {
 const mockedComprobantesService = comprobantesService as unknown as {
   proximoNumero: Mock;
   emitir: Mock;
+  verificarEmision: Mock;
   previsualizar: Mock;
 };
 const mockedPuntosVentaService = puntosVentaService as unknown as {
@@ -900,7 +903,7 @@ describe("ComprobanteNuevoView", () => {
     },
   );
 
-  it("PF03B envía y congela solo campos fiscales, conservando descuento y replay", async () => {
+  it("PF03B congela los campos fiscales originales y verifica por clave", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -936,10 +939,10 @@ describe("ComprobanteNuevoView", () => {
       vm.formData.items[0].precio_unitario = NaN;
       await flushPromises();
       await vm.verificarEstado();
-      expect(mockedComprobantesService.emitir.mock.calls[1]).toEqual([
-        request,
-        key,
-      ]);
+      expect(mockedComprobantesService.emitir).toHaveBeenCalledTimes(1);
+      expect(mockedComprobantesService.verificarEmision).toHaveBeenCalledWith({
+        clave: key,
+      });
     } finally {
       consoleError.mockRestore();
     }
@@ -1118,36 +1121,57 @@ describe("ComprobanteNuevoView", () => {
     }
   });
 
-  it("verifica con la misma clave y el mismo payload hasta obtener autorización", async () => {
+  it("verifica con la misma clave mediante la acción de recuperación", async () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
     mockedComprobantesService.proximoNumero.mockResolvedValue(
       diagnosticoNumeracionMock(100),
     );
-    mockedComprobantesService.emitir
-      .mockRejectedValueOnce(errorReconciliacion())
-      .mockResolvedValueOnce(respuestaFinal());
+    mockedComprobantesService.emitir.mockRejectedValueOnce(errorReconciliacion());
+    mockedComprobantesService.verificarEmision.mockResolvedValueOnce(respuestaFinal());
 
     try {
       const wrapper = await mountView();
       const vm = await completarFormulario(wrapper);
 
       await vm.confirmarEmision();
-      const [requestInicial, claveInicial] =
+      const [, claveInicial] =
         mockedComprobantesService.emitir.mock.calls[0];
 
       await vm.verificarEstado();
 
-      const [requestReplay, claveReplay] =
-        mockedComprobantesService.emitir.mock.calls[1];
-      expect(claveReplay).toBe(claveInicial);
-      expect(requestReplay).toEqual(requestInicial);
+      expect(mockedComprobantesService.emitir).toHaveBeenCalledTimes(1);
+      expect(mockedComprobantesService.verificarEmision).toHaveBeenCalledWith({
+        clave: claveInicial,
+      });
       expect(vm.operacionIncierta).toBeNull();
       expect(vm.idempotencyKeyEmision).toBeNull();
       expect(wrapper.find('[data-testid="operacion-incierta"]').exists()).toBe(
         false,
       );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("conserva la operación cuando se corta la conexión antes de recibir respuesta", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockedComprobantesService.proximoNumero.mockResolvedValue(diagnosticoNumeracionMock(100));
+    mockedComprobantesService.emitir.mockRejectedValueOnce(
+      new AxiosError("Conexión interrumpida", "ERR_NETWORK", undefined, {}),
+    );
+    try {
+      const wrapper = await mountView();
+      const vm = await completarFormulario(wrapper);
+      await vm.confirmarEmision();
+      expect(vm.operacionIncierta?.idempotencyKey).toBe(
+        mockedComprobantesService.emitir.mock.calls[0][1],
+      );
+      expect(wrapper.get('[data-testid="operacion-incierta"]').text()).toContain(
+        "Volver a Comprobantes",
+      );
+      expect(mockedComprobantesService.emitir).toHaveBeenCalledTimes(1);
     } finally {
       consoleError.mockRestore();
     }
@@ -1215,19 +1239,14 @@ describe("ComprobanteNuevoView", () => {
     mockedComprobantesService.proximoNumero.mockResolvedValue(
       diagnosticoNumeracionMock(100),
     );
-    mockedComprobantesService.emitir
-      .mockRejectedValueOnce(errorReconciliacion())
-      .mockRejectedValueOnce({
-        response: {
-          status: 400,
-          data: {
-            detail: {
-              mensaje: "Rechazado por ARCA",
-              errores: ["Dato fiscal inválido"],
-            },
-          },
-        },
-      });
+    mockedComprobantesService.emitir.mockRejectedValueOnce(errorReconciliacion());
+    mockedComprobantesService.verificarEmision.mockResolvedValueOnce({
+      ...respuestaFinal(),
+      exito: false,
+      requiere_reconciliacion: false,
+      mensaje: "Rechazado por ARCA",
+      errores: ["Dato fiscal inválido"],
+    });
 
     try {
       const wrapper = await mountView();

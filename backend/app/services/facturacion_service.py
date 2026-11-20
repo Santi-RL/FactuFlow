@@ -23,7 +23,12 @@ from app.arca.exceptions import (
     ArcaValidationError,
     clasificar_error_global_fecae,
 )
-from app.arca.models import CbteAsocItem, ComprobanteRequest, IvaItem
+from app.arca.models import (
+    CbteAsocItem,
+    ComprobanteRequest,
+    ComprobanteResponse,
+    IvaItem,
+)
 from app.arca.utils import clean_cuit, validate_cuit
 from app.arca.wsaa import WSAAClient
 from app.arca.wsfev1 import WSFEv1Client
@@ -43,6 +48,7 @@ from app.core.fiscal_storage import persisted_item_subtotal, validate_storage_re
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.core.evidencia_fiscal import (
     CAMPOS_CONTEXTO,
+    ContextoFiscalV1,
     VERSION_EVIDENCIA,
     EvidenciaFiscalError,
     hash_evidencia,
@@ -1711,6 +1717,32 @@ class FacturacionService:
                     contexto="respuesta_incierta_arca",
                 )
                 return respuesta
+
+            if lote_id is None:
+                operacion_post_arca = (
+                    await self.db.execute(
+                        select(OperacionIdempotente)
+                        .where(OperacionIdempotente.id == operacion_id)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
+                ).scalar_one_or_none()
+                if (
+                    operacion_post_arca is not None
+                    and operacion_post_arca.estado == "finalizado"
+                ):
+                    cierre_ya_publicado = (
+                        await idempotencia.validar_replay_individual_durable(
+                            operacion_id=operacion_id,
+                            empresa_id=request.empresa_id,
+                            respuesta_raw=operacion_post_arca.response_json,
+                        )
+                    )
+                    if cierre_ya_publicado is None:
+                        raise SQLAlchemyTimeoutError(
+                            "El cierre fiscal no se pudo corroborar."
+                        )
+                    return cierre_ya_publicado
 
             respuesta_no_aprobada = self._respuesta_si_arca_no_autorizo(
                 request=request,
@@ -3582,6 +3614,28 @@ class FacturacionService:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def consultar_intento_individual(
+        self, contexto: ContextoFiscalV1
+    ) -> ComprobanteResponse:
+        """Consulta la identidad fiscal original con las credenciales del mismo emisor."""
+        empresa = await self._obtener_empresa(contexto.empresa_id)
+        if (
+            empresa is None
+            or clean_cuit(empresa.cuit) != contexto.cuit
+            or self._get_arca_ambiente().value != contexto.ambiente
+        ):
+            raise EvidenciaFiscalError(
+                "El emisor o ambiente actual difiere del histórico"
+            )
+        certificado = await self._obtener_certificado_activo(contexto.empresa_id)
+        cliente = await self._obtener_cliente_wsfe(empresa, certificado)
+        self._validar_identidad_evidencia(contexto.model_dump(), cliente)
+        return await cliente.fe_comp_consultar(
+            punto_venta=contexto.punto_venta_numero,
+            tipo_cbte=contexto.tipo_comprobante,
+            numero=contexto.numero_planificado,
+        )
 
     async def _obtener_certificado_activo(self, empresa_id: int) -> Certificado:
         """Obtiene el certificado activo para la empresa y el ambiente actual."""

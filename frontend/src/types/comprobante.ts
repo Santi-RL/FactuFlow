@@ -132,6 +132,14 @@ export interface EmitirComprobanteResponse {
   categoria_error?: string | null;
 }
 
+export interface EmisionIndividualPendiente {
+  operacion_id: number;
+  tipo_comprobante: number;
+  punto_venta: number;
+  numero: number;
+  fecha: string;
+}
+
 export interface Comprobante {
   id: number;
   tipo_comprobante: number;

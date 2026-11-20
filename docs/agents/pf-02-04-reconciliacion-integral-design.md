@@ -2,10 +2,10 @@
 
 Fecha: 03/10/2026.
 
-Última revisión: 19/11/2026.
+Última revisión: 20/11/2026.
 
-Estado: comparación legacy P1 implementada; recuperación moderna P2 pendiente. Refuerza garantías
-existentes por cortes, sin reabrir numeración ni habilitar reemisión automática.
+Estado: comparación legacy P1 y recuperación moderna individual P2 implementadas.
+La recuperación moderna de lotes sigue pendiente.
 
 ## Evidencia y cortes
 
@@ -22,7 +22,8 @@ Evidencia, alcance y reproducción en la
 | Corte | Prioridad / horizonte | Resultado |
 |---|---|---|
 | Comparación y recuperación legacy | P1 fiscal, cerrado | Evitar reconstruir o vincular como coincidente una respuesta fiscal diferente |
-| Snapshot y recuperación integral | P2 fiscal con PF-04; orden según roadmap | Evidencia mínima suficiente y reconciliación segura de caminos modernos, unitarios y masivos |
+| Snapshot y recuperación individual | P2 fiscal con PF-04, implementado | Evidencia previa y recuperación de facturas y notas individuales |
+| Recuperación moderna de grupos | P2 fiscal con PF-04, pendiente | Cierre consistente de grupos y filas ante autorizaciones parciales |
 
 ## Invariantes y fuente de comparación
 
@@ -155,9 +156,9 @@ La preparación documental es nivel 0; la implementación es nivel 2 fiscal.
    [segundo corte implementado](pf-04-lecturas-historicas-design.md) conserva emisor
    y punto de venta, su cobertura y la contención aceptada para evidencia inválida;
    no habilita recuperación moderna.
-3. **Continuación de recuperación:** preparar el
-   [cierre moderno individual](#cierre-moderno-individual) y luego el de grupos.
-   Cada habilitación exige su propia matriz de fallos y concurrencia.
+3. **Continuación de recuperación:** el
+   [cierre moderno individual](#cierre-moderno-individual) precede al de grupos,
+   que tendrá su propia matriz de fallos y concurrencia.
 
 Son subcortes de PF-04/PF-02, en el orden del roadmap, sin adelantar WSAA,
 padrón, notas, categorías de importes, ranking ni mejoras de UI.
@@ -369,27 +370,23 @@ original. Esta preparación no depende de llamadas fiscales reales.
 
 ## Cierre moderno individual
 
-Diseño pendiente de implementación para facturas, NC y ND individuales. Ante
-una interrupción posterior al envío, el operador debe poder verificar la
+Contrato implementado para facturas, NC y ND individuales. Ante
+una interrupción posterior al envío, el operador puede verificar la
 operación original y, si ARCA la autorizó, recuperar el mismo comprobante.
 Los lotes, incluso los que procesan sus filas de a una, tendrán un corte
 posterior por sus autorizaciones parciales, reservas compartidas y contadores.
 
 ### Verificación desde la aplicación
 
-Hoy «Verificar estado» repite la solicitud a `/emitir` con la clave original.
-Cuando la API encuentra una respuesta incierta ya guardada, puede devolverla
-otra vez. Además, el formulario conserva la referencia en memoria mientras
-permanece abierto. [Formulario](../../frontend/src/views/comprobantes/ComprobanteNuevoView.vue)
-y [API individual](../../backend/app/api/comprobantes.py).
-
-La acción existente debe consultar y, cuando corresponda, cerrar una **operación
-ya registrada**. Al reabrir FactuFlow, el operador debe poder retomarla sin
+«Verificar estado» consulta y, cuando corresponde, cierra una **operación
+ya registrada**. Al reabrir FactuFlow, el operador puede retomarla sin
 volver a cargar el comprobante, incluso si se perdió la primera respuesta HTTP.
 El servidor identifica el intento por una referencia persistente dentro del
 emisor autorizado. Seleccionar otro emisor o perder el permiso impide consultar
-los datos. Una referencia
-desconocida tampoco permite crear una operación. La única operación de WSFE
+los datos. Desde «Comprobantes» se listan las emisiones individuales pendientes
+del emisor activo que llegaron a la frontera de ARCA. El formulario de emisión
+verifica con su clave original y el listado retoma por identificador de operación.
+Una referencia desconocida no crea una operación. La única operación de WSFE
 que invoca la verificación es la consulta de comprobante `FECompConsultar`.
 
 ### Evidencia suficiente para el cierre
@@ -408,15 +405,14 @@ evidencia exigida para cada caso.
 | NC o ND con factura asociada | Acreditar el tipo, punto de venta y número de cada asociado enviado. Contrastar también CUIT y fecha del asociado cuando estén disponibles. Dos originales distintos con igual importe siguen siendo una diferencia. |
 
 El comparador puede devolver `coincidente` con `cobertura_desconocida`.
-Evaluar esa cobertura por campo y tipo de comprobante. Por ejemplo, un número
-canónico inequívoco puede acreditar el número aunque falten los extremos del
-rango. Contrastar la condición IVA del receptor cuando figure en la solicitud
-y en la respuesta. Si la consulta omite esa condición o los atributos opcionales
-del asociado, conservar explícitamente esa falta de cobertura. Antes de habilitar
-el cierre, especificar y probar en qué casos esa cobertura permite acreditar la
-identidad y los datos exigidos. Una diferencia comprobada, un campo indispensable
-ausente, una consulta fallida o «no encontrado» conservan el estado pendiente,
-el CAE atribuible conocido y la reserva. La consulta nunca libera la numeración.
+El número canónico acredita los extremos ausentes de una solicitud individual.
+La condición IVA del receptor y el CUIT y la fecha de los asociados se
+contrastan cuando están presentes. Su ausencia se admite sólo si coinciden
+todos los datos exigidos en la tabla, incluida la identidad completa de cada
+asociado. Conservar la falta de cobertura en el diagnóstico por campo. Un
+campo malformado en la respuesta, cualquier otra falta de cobertura, una
+diferencia, una consulta fallida o «no encontrado» conservan la reserva y
+la reconciliación. La consulta nunca libera numeración.
 
 ### Cierre y reconstrucción
 
@@ -455,6 +451,21 @@ el CAE atribuible conocido y la reserva. La consulta nunca libera la numeración
 | Ya existe el comprobante o falla el commit al crearlo o vincularlo. | Verificar el registro existente. Tras recargar, hay un único cierre completo o continúa la reserva pendiente. |
 | Mismo total con otro IVA o factura asociada, evidencia insuficiente, CAE contradictorio, guarda huérfana, timeout o «no encontrado». | Se conserva la evidencia atribuible y la reserva. El operador ve que la emisión sigue pendiente de verificación. |
 | Cambio de emisor, ambiente o permisos. Cambio posterior de datos del cliente o del punto de venta. | Las consultas respetan el acceso y la identidad originales. Tras una recuperación válida, contrastar detalle, PDF, QR y reportes de ventas e IVA con la evidencia previa. |
+
+### Límites de la implementación y recuperación del cambio
+
+Los consumidores directos son la verificación del formulario, el listado de
+comprobantes y el servicio individual. Se prueban como regresiones la emisión
+normal, el replay idempotente y los caminos legacy y de lotes que comparten
+reserva, consulta fiscal, persistencia y lectura histórica. El cierre nuevo
+admite una guarda `arca_iniciada` vencida o explícitamente en reconciliación,
+con un único intento, evidencia verificable y asociación RECE exacta. Un
+antecedente sin evidencia, una guarda incompleta y una fase previa al envío
+siguen el flujo de contención vigente. Ante revocación, la aplicación deja de
+mostrar el intento al operador y vuelve a validar su acceso antes del cierre.
+Conservar la auditoría del cierre y los instantes fiscales históricos. Los
+índices y columnas actuales bastan para el corte y su reversión conserva los
+resultados terminales y las reservas.
 
 ## Dependencias y exclusiones
 
