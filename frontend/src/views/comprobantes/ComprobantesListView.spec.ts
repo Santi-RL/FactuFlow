@@ -11,9 +11,10 @@ import {
 import { useEmpresaStore } from "@/stores/empresa";
 import { useComprobantesStore } from "@/stores/comprobantes";
 
-vi.mock("vue-router", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("vue-router", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/services/comprobantes.service", () => ({
-  default: { listar: vi.fn() },
+  default: { listar: vi.fn(), emisionesPendientes: vi.fn(), verificarEmision: vi.fn() },
 }));
 vi.mock("@/services/pdf.service", () => ({
   default: { descargarAutomatico: vi.fn() },
@@ -58,11 +59,31 @@ describe("descargas desde el listado", () => {
     vi.mocked(comprobantesService.listar).mockImplementation(
       async (params) => pagina(params.page) as never,
     );
+    vi.mocked(comprobantesService.emisionesPendientes).mockResolvedValue([]);
     vi.mocked(resolverSeleccionPDF).mockResolvedValue(
       Array.from({ length: 25 }, (_, i) => i + 1),
     );
     vi.mocked(pdfService.descargarAutomatico).mockResolvedValue();
     vi.mocked(descargarZIP).mockResolvedValue();
+  });
+
+  it("retoma una nota pendiente directamente desde Comprobantes", async () => {
+    vi.mocked(comprobantesService.emisionesPendientes).mockResolvedValue([
+      { operacion_id: 42, tipo_comprobante: 8, punto_venta: 5, numero: 9, fecha: "2026-11-19" },
+    ]);
+    vi.mocked(comprobantesService.verificarEmision).mockResolvedValue(
+      { exito: true, comprobante_id: 15 } as never,
+    );
+    const wrapper = montar();
+    await flushPromises();
+    expect(wrapper.get('[aria-labelledby="titulo-emisiones-pendientes"]').text()).toContain(
+      "0005-00000009",
+    );
+    await wrapper.get('button[aria-label^="Verificar estado"]').trigger("click");
+    await flushPromises();
+    expect(comprobantesService.verificarEmision).toHaveBeenCalledWith({ operacionId: 42 });
+    expect(push).toHaveBeenCalledWith({ name: "comprobante-detalle", params: { id: 15 } });
+    wrapper.unmount();
   });
 
   it("descarga junto al ojo sin navegar ni perder los filtros", async () => {

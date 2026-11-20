@@ -6,6 +6,7 @@ import api from "./api";
 import type {
   EmitirComprobanteRequest,
   EmitirComprobanteResponse,
+  EmisionIndividualPendiente,
   ComprobanteDetalle,
   PaginatedComprobantesResponse,
   ProximoNumeroResponse,
@@ -72,6 +73,24 @@ export const comprobantesService = {
         "X-Idempotency-Key": idempotencyKey,
       },
     });
+    return data;
+  },
+
+  async emisionesPendientes(): Promise<EmisionIndividualPendiente[]> {
+    const { data } = await api.get("/api/comprobantes/emisiones-pendientes");
+    return data;
+  },
+
+  async verificarEmision(
+    referencia: { clave: string } | { operacionId: number },
+  ): Promise<EmitirComprobanteResponse> {
+    const { data } = await api.post(
+      "/api/comprobantes/verificar-emision",
+      undefined,
+      "clave" in referencia
+        ? { headers: { "X-Idempotency-Key": referencia.clave } }
+        : { params: { operacion_id: referencia.operacionId } },
+    );
     return data;
   },
 

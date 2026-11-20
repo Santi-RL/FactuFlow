@@ -18,6 +18,10 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+- Facturas y notas individuales pendientes se pueden verificar desde la pantalla
+  de emisión o desde **Comprobantes**. Cuando ARCA acredita la autorización, se
+  recupera el comprobante con el CAE y los datos originales sin pedir otro CAE.
+
 ## [0.3.14] - 19/11/2026
 
 Publicada sobre `60d0ae36a96cff4cd33a1688ed83caa9354a2fc2`.

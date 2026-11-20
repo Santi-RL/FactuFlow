@@ -85,13 +85,14 @@ o reduce una protección, detener la decisión e involucrar al usuario.
   [importes y previsualización fiscal común](pf-03-04-importes-previsualizacion-design.md).
   Separa corrección P1 implementada de admisibilidad/revisión, ampliación P2 de categorías y
   consumo por plantillas; preserva redondeos PF-03B.
-- PF-02/PF-04, P1 implementado y ampliación P2 futura:
+- PF-02/PF-04, recuperación legacy e individual implementadas:
   [reconciliación fiscal integral](pf-02-04-reconciliacion-integral-design.md).
   Distingue comparación legacy P1 de snapshot/recuperación moderna P2.
   El primer corte P2 incorpora evidencia previa versionada y comparación pura;
   el [segundo corte](pf-04-lecturas-historicas-design.md) implementa las
-  lecturas históricas de emisor/punto. El cierre moderno
-  conserva su continuación separada pendiente.
+  lecturas históricas de emisor/punto. El
+  [cierre moderno individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual)
+  precede a la recuperación masiva pendiente.
 - PF-09, implementación futura:
   [WSAA coordinado y caché cifrada](pf-09-wsaa-coordinacion-cache-design.md).
 - PF-18/PF-09, implementación futura:

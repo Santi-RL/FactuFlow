@@ -614,6 +614,11 @@ export const mockApi = async (page: Page) => {
     }
 
     // Comprobantes
+    if (path === "/api/comprobantes/emisiones-pendientes" && method === "GET") {
+      if (!hasAuthHeader(route)) return unauthorized(route);
+      return jsonResponse(route, 200, []);
+    }
+
     if (
       [
         "/api/comprobantes",

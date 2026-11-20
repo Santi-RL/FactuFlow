@@ -2078,6 +2078,8 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
 ):
     """Si falla la persistencia posterior a CAE, la respuesta no es reintentable."""
 
+    empresa_id = test_empresa.id
+
     class FakeWSFEClient:
         """Cliente WSFE simulado con CAE autorizado."""
 
@@ -2246,7 +2248,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
         comprobantes = (
             (
                 await db_session.execute(
-                    select(Comprobante).where(Comprobante.empresa_id == test_empresa.id)
+                    select(Comprobante).where(Comprobante.empresa_id == empresa_id)
                 )
             )
             .scalars()
@@ -2285,9 +2287,7 @@ async def test_emitir_comprobante_post_arca_requiere_reconciliacion(
             comprobantes = (
                 (
                     await observador.execute(
-                        select(Comprobante).where(
-                            Comprobante.empresa_id == test_empresa.id
-                        )
+                        select(Comprobante).where(Comprobante.empresa_id == empresa_id)
                     )
                 )
                 .scalars()

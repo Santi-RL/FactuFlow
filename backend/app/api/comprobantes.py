@@ -28,8 +28,12 @@ from app.schemas.comprobante import (
     ProximoNumeroResponse,
     ItemComprobanteResponse,
     PreparacionNotaResponse,
+    EmisionIndividualPendiente,
 )
 from app.services.notas_service import NotasService
+from app.services.reconciliacion_individual_service import (
+    ReconciliacionIndividualService,
+)
 from app.services.facturacion_service import (
     FacturacionService,
     FaseSolicitudArca,
@@ -315,6 +319,12 @@ async def _publicar_resultado_individual(
     resultado: EmitirComprobanteResponse,
 ) -> EmitirComprobanteResponse:
     """Publica el terminal individual y reconstruye un 10005 si pierde el CAS."""
+    if operacion.estado == "finalizado" and operacion.response_json is not None:
+        return await _respuesta_individual_replay_validada(
+            idempotencia=idempotencia,
+            operacion=operacion,
+            empresa_id=operacion.empresa_id,
+        )
     if resultado.categoria_error != "arca_rechazo_global_excluyente":
         await idempotencia.guardar_resultado_operacion_sync(
             operacion,
@@ -661,6 +671,40 @@ async def preparar_original_nota(
             status_code=503,
             detail="No se pudo consultar ARCA. Volvé a intentar la consulta.",
         ) from exc
+
+
+@router.get("/emisiones-pendientes", response_model=list[EmisionIndividualPendiente])
+async def listar_emisiones_pendientes(
+    db: AsyncSession = Depends(get_db),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    return await ReconciliacionIndividualService(db).pendientes(empresa_activa_id)
+
+
+@router.post("/verificar-emision", response_model=EmitirComprobanteResponse)
+async def verificar_emision_individual(
+    operacion_id: int | None = Query(default=None, gt=0),
+    x_idempotency_key: str | None = Header(default=None, min_length=1, max_length=128),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    if (operacion_id is None) == (x_idempotency_key is None):
+        raise HTTPException(
+            status_code=400, detail="Identificá una operación existente."
+        )
+    resultado = await ReconciliacionIndividualService(db).verificar(
+        empresa_id=empresa_activa_id,
+        usuario_id=current_user.id,
+        operacion_id=operacion_id,
+        clave=x_idempotency_key,
+    )
+    if resultado is None:
+        raise HTTPException(
+            status_code=404,
+            detail="La emisión no está disponible para verificar en este emisor.",
+        )
+    return resultado
 
 
 @router.get("/{comprobante_id}", response_model=ComprobanteDetalleResponse)

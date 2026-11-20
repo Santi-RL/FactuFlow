@@ -30,7 +30,7 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 | Área | Conducta aceptada y fuente dueña |
 |---|---|
-| Numeración e integridad | Cortes originales PF-01/PF-02 y PF-19A/B/C/D cerrados; la recuperación integral moderna sigue pendiente. [Índice de contratos cerrados](README.md#diseños-cerrados-de-consulta) |
+| Numeración e integridad | Cortes originales PF-01/PF-02 y PF-19A/B/C/D cerrados. La recuperación moderna individual usa el mismo comprobante y CAE acreditados. [Recuperación individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual) |
 | Puntos de venta | WSFE acredita puntos CAE por emisor/ambiente; preferencia compartida de uso y constancia descriptiva opcional separadas. Revisión fiscal y preflight vigentes. [PF-19D](pf-19d-puntos-venta-authority-design.md) |
 | Importes e historia | PF-03B calcula; A-01 conserva decimales exactos; A-03 lee bases contrastadas y separa monedas sin conversión. No inferir categorías desde IVA cero o letra C. [Persistencia](pf-03-04-14-persistencia-fiel-design.md), [lecturas](a03-lecturas-fiscales-design.md) |
 | Receptor y asociación | Condición IVA explícita y compatible; PF-13 conserva documento/nombre y CF identificado, sin inferir por documento ni reemplazar inválidos por CF. A-02 no elige al azar entre fichas coincidentes. [RG 5616](rg-5616-condicion-iva-receptor-parche.md), [PF-13](pf-13-receptores-importacion-design.md), [A-02](pf-03-04-14-asociacion-cliente.md) |
@@ -49,7 +49,7 @@ El mantenimiento publicado se resume en la sección `v0.3.9` del
 Versiones, comandos y políticas de pruebas se consultan en sus archivos dueños y
 en [testing](testing.md).
 
-## Siguiente unidad: PF-04/PF-02, recuperación moderna
+## Siguiente unidad de PF-04/PF-02: recuperación moderna de lotes
 
 El [primer corte PF-04/PF-02](pf-02-04-reconciliacion-integral-design.md#primer-corte-p2-evidencia-previa-compartida)
 incorpora evidencia previa versionada e inmutable para intentos nuevos,
@@ -62,10 +62,11 @@ cobertura antigua en los metadatos internos y la contención aceptada de PDF/QR
 ante evidencia presente no verificable. La interfaz habitual y el PDF omiten
 leyendas técnicas; el bloqueo conserva un mensaje accionable. Reutiliza el
 vínculo del intento y no abre recuperación moderna ni cambia la compactación
-o el traslado vigentes. La siguiente unidad de Ahora 1 es el
-[cierre moderno individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual).
-Su diseño incorpora la verificación después de reabrir la aplicación y los
-criterios de cierre. La implementación individual precede a la masiva. Ahora 2 reúne el
+o el traslado vigentes. El
+[cierre moderno individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual)
+permite retomar la verificación desde Comprobantes, acreditar la autorización
+y registrar el comprobante original en una transacción. Ahora 1 conserva
+la recuperación de lotes como continuación pendiente. Ahora 2 reúne el
 [formato argentino y el precio unitario legible](pf-17-13-formato-argentino-design.md)
 en un corte de presentación pendiente. Consultar los cierres operativos de
 notas y descargas en el plano de control. No repetir sus preflight por un
@@ -94,9 +95,8 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y los criterios de aceptación del
-   cierre moderno individual. Precisar los casos de cobertura fiscal opcional
-   antes de habilitar la recuperación.
+2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de reconciliación para
+   delimitar el cierre moderno de lotes ante autorizaciones parciales.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el

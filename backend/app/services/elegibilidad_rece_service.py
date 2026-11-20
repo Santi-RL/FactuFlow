@@ -2587,6 +2587,20 @@ class ElegibilidadReceService:
             commit=commit,
         )
 
+    async def cerrar_reconciliacion_individual(
+        self, guarda: PuntoVentaGuardaEmisionRece
+    ) -> None:
+        """Cierra con evidencia contrastada dentro de la transacción de recuperación."""
+        if guarda.fase not in {"arca_iniciada", "requiere_reconciliacion"}:
+            raise ElegibilidadReceError("La guarda RECE no admite reconciliación.")
+        await self._cambiar_fase_guarda(
+            guarda,
+            desde={guarda.fase},
+            hacia="cerrada_terminal",
+            cerrada_en=datetime.utcnow(),
+            commit=False,
+        )
+
     async def marcar_requiere_reconciliacion(
         self,
         guarda: PuntoVentaGuardaEmisionRece,

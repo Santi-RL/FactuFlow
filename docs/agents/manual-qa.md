@@ -34,6 +34,16 @@ Simular un rechazo confirmado y comprobar que se muestra el motivo oficial
 devuelto por la API. Una respuesta incierta sigue usando la verificación de la
 misma operación.
 
+### Recuperación individual después de la autorización
+
+Con ARCA simulada, autorizar una NC y cortar el proceso antes de guardar el
+CAE. Reabrir FactuFlow y usar **Comprobantes > Emisiones pendientes de
+verificación** desde dos sesiones. Comprobar que ambas recuperan el mismo
+número y CAE sin otra solicitud. Abrir el detalle y el PDF, verificar la
+factura ajustada y comprobar una única inclusión en los informes. Ante una
+consulta inconclusa, el intento conserva su reserva y aparece como pendiente
+al volver al listado del emisor original.
+
 ### Evidencia de recuperación PF-11/PF-15
 
 En entorno sintético, abrir Sistema con resumen completo y cambiar a uno parcial,

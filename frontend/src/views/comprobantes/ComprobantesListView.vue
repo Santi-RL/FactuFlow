@@ -9,6 +9,8 @@ import {
 } from "@/services/descargas-pdf.service";
 import { useRouter } from "vue-router";
 import { useComprobantesStore } from "@/stores/comprobantes";
+import comprobantesService from "@/services/comprobantes.service";
+import { useNotification } from "@/composables/useNotification";
 import {
   formatearFecha as formatFecha,
   formatearMoneda,
@@ -29,11 +31,13 @@ import BaseEmpty from "@/components/ui/BaseEmpty.vue";
 import {
   TIPOS_COMPROBANTE_NOMBRES,
   ESTADOS_COMPROBANTE_NOMBRES,
+  type EmisionIndividualPendiente,
 } from "@/types/comprobante";
 
 const router = useRouter();
 const comprobantesStore = useComprobantesStore();
 const empresaStore = useEmpresaStore();
+const { showWarning } = useNotification();
 
 // Filtros
 const filtros = ref({
@@ -114,6 +118,43 @@ const descargarSeleccion = async () => {
 const loading = ref(false);
 
 const empresaId = computed(() => empresaStore.empresaActivaId || 0);
+const pendientes = ref<EmisionIndividualPendiente[]>([]);
+const errorPendientes = ref(false);
+const verificando = ref<number | null>(null);
+let revisionPendientes = 0;
+
+const cargarPendientes = async () => {
+  if (!empresaId.value) return;
+  const revision = ++revisionPendientes;
+  errorPendientes.value = false;
+  try {
+    const resultado = await comprobantesService.emisionesPendientes();
+    if (revision === revisionPendientes) pendientes.value = resultado;
+  } catch {
+    if (revision === revisionPendientes) errorPendientes.value = true;
+  }
+};
+
+const verificarPendiente = async (operacionId: number) => {
+  if (verificando.value !== null) return;
+  const vigente = contexto();
+  verificando.value = operacionId;
+  try {
+    const resultado = await comprobantesService.verificarEmision({ operacionId });
+    if (!vigente()) return;
+    if (resultado.exito && resultado.comprobante_id) {
+      verDetalle(resultado.comprobante_id);
+    } else {
+      showWarning("Estado de la emisión", resultado.mensaje);
+      if (!resultado.requiere_reconciliacion) await cargarPendientes();
+    }
+  } catch {
+    if (vigente())
+      showWarning("No se pudo verificar la emisión", "Volvé a verificar el estado en unos minutos.");
+  } finally {
+    if (vigente()) verificando.value = null;
+  }
+};
 
 const cargarComprobantes = async (page = 1) => {
   if (!empresaId.value) return;
@@ -144,19 +185,23 @@ onMounted(async () => {
     await empresaStore.cargarEmpresa();
   }
 
-  await cargarComprobantes(comprobantesStore.paginaActual);
+  await Promise.all([cargarComprobantes(comprobantesStore.paginaActual), cargarPendientes()]);
 });
 
 watch(
   () => empresaStore.empresaActivaId,
   async (nuevoEmpresaId, anteriorEmpresaId) => {
+    revisionPendientes++;
+    pendientes.value = [];
+    errorPendientes.value = false;
+    verificando.value = null;
     loading.value = false;
     filtros.value = { buscar: "", desde: "", hasta: "", tipo: null };
     descargasFila.value.clear();
     preparandoZIP.value = false;
     errorDescarga.value = "";
     if (!nuevoEmpresaId || nuevoEmpresaId === anteriorEmpresaId) return;
-    await cargarComprobantes(1);
+    await Promise.all([cargarComprobantes(1), cargarPendientes()]);
   },
   { flush: "sync" },
 );
@@ -262,6 +307,60 @@ const tiposDisponibles = [
         </button>
       </div>
     </div>
+
+    <section
+      v-if="pendientes.length || errorPendientes"
+      aria-labelledby="titulo-emisiones-pendientes"
+      class="mb-6 rounded-lg border border-orange-200 bg-orange-50 p-4 text-orange-950"
+    >
+      <h2
+        id="titulo-emisiones-pendientes"
+        class="font-semibold"
+      >
+        Emisiones pendientes de verificación
+      </h2>
+      <p
+        v-if="errorPendientes"
+        class="mt-2 text-sm"
+        role="status"
+      >
+        No se pudieron consultar las emisiones pendientes.
+        <button
+          class="font-medium underline"
+          type="button"
+          @click="cargarPendientes"
+        >
+          Volver a consultar
+        </button>
+      </p>
+      <ul
+        v-if="pendientes.length"
+        class="mt-2 divide-y divide-orange-200"
+      >
+        <li
+          v-for="pendiente in pendientes"
+          :key="pendiente.operacion_id"
+          class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2 text-sm"
+        >
+          <div>
+            <strong class="font-medium">
+              {{ getTipoNombre(pendiente.tipo_comprobante) }}
+              {{ numeroVisible(pendiente.punto_venta, pendiente.numero) }}
+            </strong>
+            <span class="ml-2">{{ formatFecha(pendiente.fecha) }}</span>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg border border-orange-300 px-3 py-1.5 font-semibold hover:bg-orange-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-700 disabled:opacity-60"
+            :disabled="verificando !== null"
+            :aria-label="`Verificar estado de ${getTipoNombre(pendiente.tipo_comprobante)} ${numeroVisible(pendiente.punto_venta, pendiente.numero)}`"
+            @click="verificarPendiente(pendiente.operacion_id)"
+          >
+            {{ verificando === pendiente.operacion_id ? "Verificando..." : "Verificar estado" }}
+          </button>
+        </li>
+      </ul>
+    </section>
 
     <!-- Filtros -->
     <BaseCard class="mb-6">

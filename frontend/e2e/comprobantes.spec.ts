@@ -393,10 +393,25 @@ test.describe("Emisión de Comprobantes", () => {
     await expect(page).toHaveURL(/comprobantes$/);
     await expect(page.getByText(/comprobante emitido/i)).toBeVisible();
   });
-  test("debe conservar clave y payload al verificar una emisión incierta", async ({
+  test("debe verificar una emisión incierta por su clave sin volver a emitir", async ({
     page,
   }) => {
-    const solicitudes: Array<{ clave: string; payload: unknown }> = [];
+    const emisiones: string[] = [];
+    const verificaciones: Array<{ clave: string; cuerpo: string | null }> = [];
+    const pendiente = {
+      exito: false,
+      tipo_comprobante: 6,
+      punto_venta: 1,
+      numero: 1,
+      fecha: "2026-03-09",
+      cae: null,
+      cae_vencimiento: null,
+      total: 1210,
+      mensaje: "Respuesta incierta",
+      errores: ["No reintentar con otra clave"],
+      requiere_reconciliacion: true,
+      categoria_error: "arca_respuesta_incierta",
+    };
 
     await page.route("**/api/comprobantes/emitir", async (route) => {
       if (route.request().method() !== "POST") {
@@ -404,33 +419,23 @@ test.describe("Emisión de Comprobantes", () => {
         return;
       }
 
-      solicitudes.push({
-        clave: route.request().headers()["x-idempotency-key"] || "",
-        payload: route.request().postDataJSON(),
-      });
+      emisiones.push(route.request().headers()["x-idempotency-key"] || "");
       await route.fulfill({
         status: 409,
-        contentType: "application/json",
-        headers: {
-          "access-control-allow-origin": "*",
-        },
-        body: JSON.stringify({
-          detail: {
-            exito: false,
-            tipo_comprobante: 6,
-            punto_venta: 1,
-            numero: 1,
-            fecha: "2026-03-09",
-            cae: null,
-            cae_vencimiento: null,
-            total: 1210,
-            mensaje: "Respuesta incierta",
-            errores: ["No reintentar con otra clave"],
-            requiere_reconciliacion: true,
-            categoria_error: "arca_respuesta_incierta",
-          },
-        }),
+        headers: { "access-control-allow-origin": "*" },
+        json: { detail: pendiente },
       });
+    });
+    await page.route("**/api/comprobantes/verificar-emision", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      verificaciones.push({
+        clave: route.request().headers()["x-idempotency-key"] || "",
+        cuerpo: route.request().postData(),
+      });
+      await route.fulfill({ json: pendiente, headers: { "access-control-allow-origin": "*" } });
     });
 
     await Promise.all([
@@ -470,10 +475,10 @@ test.describe("Emisión de Comprobantes", () => {
     );
     await expect(page.getByTestId("comprobante-emitir")).toBeDisabled();
     await page.getByTestId("verificar-operacion-incierta").click();
-    await expect.poll(() => solicitudes.length).toBe(2);
-
-    expect(solicitudes[1].clave).toBe(solicitudes[0].clave);
-    expect(solicitudes[1].payload).toEqual(solicitudes[0].payload);
+    await expect.poll(() => verificaciones.length).toBe(1);
+    expect(emisiones).toHaveLength(1);
+    expect(emisiones[0]).not.toBe("");
+    expect(verificaciones[0]).toEqual({ clave: emisiones[0], cuerpo: null });
     await expect(page.getByTestId("operacion-incierta")).toBeVisible();
   });
 });
