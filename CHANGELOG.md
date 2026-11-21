@@ -18,6 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.15] - 21/11/2026
+
+Publicada sobre `5f82ff305278e3b36b8bc4b5d48b3e7efdcc32b9`.
+[Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.15) y
+[dossier](docs/project/releases/v0.3.15-candidate.md).
+
 - Facturas y notas individuales pendientes se pueden verificar desde la pantalla
   de emisión o desde **Comprobantes**. Cuando ARCA acredita la autorización, se
   recupera el comprobante con el CAE y los datos originales sin pedir otro CAE.
