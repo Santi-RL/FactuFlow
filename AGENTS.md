@@ -2,9 +2,8 @@
 
 ## Alcance y fuentes de verdad
 
-- Esta guía rige el repositorio `FactuFlow`; las reglas compartidas de
-  `C:\Users\SANTI\Documents\Proyectos\AGENTS.md` se aplican cuando no haya
-  conflicto.
+- Esta guía rige el repositorio `FactuFlow`. Si el entorno de trabajo aporta
+  instrucciones locales, esta guía tiene prioridad en caso de conflicto.
 - `VISION.md` es la fuente canónica y protegida de la visión. Solo se modifica por
   pedido explícito del usuario; si un cambio la contradice, detenerse hasta que
   el usuario autorice cambiar primero la visión.
