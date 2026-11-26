@@ -18,6 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+- En **Resolver pendientes del lote**, **Verificar estado** recupera los
+  comprobantes que ARCA confirma y conserva el bloqueo de los inciertos.
+  El remanente acreditado como **Sin enviar** queda disponible para un nuevo
+  reintento con confirmación fiscal al cerrar la operación.
+
 ## [0.3.15] - 21/11/2026
 
 Publicada sobre `5f82ff305278e3b36b8bc4b5d48b3e7efdcc32b9`.

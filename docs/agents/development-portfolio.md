@@ -39,8 +39,7 @@ la operación productiva.
 | PF-04, representación PDF | Cerrado | P1 fiscal | IVA guardado visible en A/B y detalle sin superposición | [Contrato y límites](pf-04-pdf-representacion-fiscal-design.md); ensayo y QA aprobados, puertas de publicación en el dossier |
 | PF-04/PF-17/PF-13, notas individuales | Cerrado | P1 por bloqueo operativo | NC/ND desde factura autorizada y desde «Nuevo comprobante», con asociado y revisión comunes | [Notas](pf-04-17-notas-guiadas-design.md); evidencia mínima y preparación compartida; originales externos verificables por WSFE |
 | PF-18/PF-17, descargas PDF y ZIP | Cerrado | P3 administrativa | Descargar desde cada fila o reunir la selección individual/todos los resultados filtrados en un ZIP completo | [Contrato implementado](pf-18-17-descargas-pdf-design.md); permisos e historia vigentes, sin archivo permanente; operación en el plano de control |
-| PF-04/PF-02, recuperación moderna de lotes | Ahora 1 | P2 fiscal | Recuperar grupos modernos respetando autorizaciones parciales, reservas y contadores | [Reconciliación](pf-02-04-reconciliacion-integral-design.md); evidencia previa y cierre individual implementados |
-| PF-17/PF-13, formato argentino y claridad visible | Ahora 2 | P3 administrativa | Unificar fechas y números visibles e incluir el precio unitario legible en facturas y notas | [Diseño del corte](pf-17-13-formato-argentino-design.md); representación PDF PF-04, precisión A-01 y constructor vigente |
+| PF-17/PF-13, formato argentino y claridad visible | Ahora 1 | P3 administrativa | Unificar fechas y números visibles e incluir el precio unitario legible en facturas y notas | [Diseño del corte](pf-17-13-formato-argentino-design.md); representación PDF PF-04, precisión A-01 y constructor vigente |
 | PF-04/PF-17, atribución del ranking | Más adelante | P2 administrativa | Separar ventas sin receptor identificable y evitar atribuirlas al primer nombre | Identidad fiscal por tipo y número, vínculo opcional y lecturas A-03; sin adelantar Ahora/Después |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
 | PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
@@ -108,8 +107,7 @@ la operación productiva.
   del intento, con cobertura explícita y contención de PDF/QR ante evidencia
   no verificable. Conserva compactación y traslado vigentes. El
   [cierre moderno individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual)
-  verifica y recupera facturas y notas. La recuperación de grupos y sus
-  contadores continúa pendiente en Ahora 1.
+  verifica y recupera facturas y notas. La recuperación de lotes actualiza los grupos, las filas y el progreso de la selección en el cierre por comprobante.
 - Importación histórica externa PF-05 opcional, Más adelante, con alcance,
   límites, journal y cobertura; no retrasa la recuperación local ni nuevos consumidores.
 
@@ -233,7 +231,7 @@ la operación productiva.
   el retorno seguro, el checkbox específico y los controles fiscales del
   [diseño de duplicados](pf-13-duplicados-lotes-design.md). Un defecto comprobado
   que impida utilizar esos controles se atiende antes de publicar.
-- PF-17/PF-13, P3, Ahora 2:
+- PF-17/PF-13, P3, Ahora 1:
   [formato argentino y precio unitario legible](pf-17-13-formato-argentino-design.md).
   Un solo corte de presentación para PDF, interfaz, reportes y ayudas del
   constructor existente. Depende de conservar la representación histórica y
@@ -368,8 +366,7 @@ se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
 una única unidad ni se bloquea una reparación esperando su propio resultado.
 Los cortes de notas individuales y descarga directa/ZIP tienen contratos
 implementados; su publicación se consulta en sus dossiers y su operación en el
-plano de control. Ahora 1 conserva la recuperación moderna de lotes como
-continuación del cierre individual. Ahora 2 reúne el formato argentino con
+plano de control. Ahora 1 reúne el formato argentino con
 el precio unitario legible. Después siguen WSAA, las capacidades de
 plataforma necesarias y padrón para clientes/emisores. La historia externa PF-05
 permanece Más adelante y no bloquea estos consumidores. El constructor y las categorías

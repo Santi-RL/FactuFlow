@@ -52,6 +52,7 @@ class LoteComprobanteGrupoResponse(BaseModel):
 class LoteComprobanteGrupoDetalleResponse(LoteComprobanteGrupoResponse):
     """Representa un comprobante agrupado con datos derivados para la UI."""
 
+    verificacion_propia: bool = False
     descripcion_facturada: Optional[str] = None
 
 
@@ -242,9 +243,19 @@ class ControlDuplicadosLote(BaseModel):
     detalle_url: str | None
 
 
+class VerificacionLote(BaseModel):
+    operacion_id: int
+    autorizados: int
+    pendientes: int
+    sin_enviar: int
+    rechazados: int
+    siguiente: int | None = None
+
+
 class LoteComprobanteResumenResponse(LoteComprobanteResponse):
     """Resumen operativo liviano para abrir lotes grandes."""
 
+    verificacion: VerificacionLote | None = None
     confirmacion_fecha_fiscal: str = ""
     mensaje_confirmacion_fecha_fiscal: str = ""
     confirmacion_reintento_fallidos: str = ""

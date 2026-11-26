@@ -121,6 +121,9 @@ const gruposLoteTotalPages = ref(0);
 const grupoEstadoFiltro = ref<string | number>("");
 const detalleComprobantesAbierto = ref(false);
 const resolucionPendientesAbierta = ref(false);
+const verificando = ref(false);
+const siguienteVerificacion = ref<number | null>(null);
+
 const loadingLotes = ref(false);
 const loadingGruposLote = ref(false);
 const loadingPerfiles = ref(false);
@@ -538,14 +541,16 @@ const gruposDescartablesVisibles = computed(() =>
   ),
 );
 const gruposReconciliablesVisibles = computed(() =>
-  gruposLote.value.filter((grupo) =>
-    [
-      "validado",
-      "con_error",
-      "fallido",
-      "requiere_reconciliacion",
-      "reintentando",
-    ].includes(grupo.estado),
+  gruposLote.value.filter(
+    (grupo) =>
+      !grupo.verificacion_propia &&
+      [
+        "validado",
+        "con_error",
+        "fallido",
+        "requiere_reconciliacion",
+        "reintentando",
+      ].includes(grupo.estado),
   ),
 );
 const gruposDescartablesVisiblesIds = computed(() =>
@@ -1409,6 +1414,16 @@ const cargarGruposLote = async (
     }
   }
 };
+watch(
+  [
+    empresaActivaId,
+    () => loteActual.value?.id,
+    () => loteActual.value?.verificacion?.operacion_id,
+  ],
+  () => {
+    siguienteVerificacion.value = null;
+  },
+);
 const cargarDetalleLote = async (
   loteId: number,
   silent = false,
@@ -1949,6 +1964,44 @@ const descartarGruposVisibles = async () => {
     );
   } finally {
     resolviendoLote.value = null;
+  }
+};
+
+const verificarEstadoLote = async () => {
+  const lote = loteActual.value;
+  const empresa = empresaActivaId.value;
+  if (!lote?.verificacion || verificando.value) return;
+  const operacion = lote.verificacion.operacion_id;
+  const vigente = () =>
+    !componenteDesmontado &&
+    empresaActivaId.value === empresa &&
+    loteActual.value?.id === lote.id &&
+    loteActual.value?.verificacion?.operacion_id === operacion;
+  verificando.value = true;
+  try {
+    const avance = await lotesComprobantesService.verificarEstado(
+      lote.id,
+      operacion,
+      siguienteVerificacion.value ?? 0,
+    );
+    if (!vigente()) return;
+    siguienteVerificacion.value = avance.siguiente;
+    await cargarDetalleLote(lote.id, true);
+    if (
+      !componenteDesmontado &&
+      empresaActivaId.value === empresa &&
+      loteActual.value?.id === lote.id
+    ) {
+      showInfo(
+        "Verificación del lote",
+        `${avance.autorizados} emitidos · ${avance.pendientes} pendientes de verificación · ${avance.sin_enviar} sin enviar.`,
+      );
+    }
+  } catch (error: any) {
+    if (vigente())
+      showError("No se pudo verificar el lote", mensajeErrorDetalleLote(error));
+  } finally {
+    verificando.value = false;
   }
 };
 
@@ -3511,7 +3564,9 @@ onBeforeUnmount(() => {
             </details>
             <details
               v-if="
-                totalPendientesResolucion > 0 || hayPendientesResolucionVisibles
+                loteActual.verificacion ||
+                  totalPendientesResolucion > 0 ||
+                  hayPendientesResolucionVisibles
               "
               data-testid="resolucion-pendientes-lote"
               :open="resolucionPendientesAbierta"
@@ -3535,8 +3590,14 @@ onBeforeUnmount(() => {
                     class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end"
                   >
                     <p class="text-sm font-medium text-amber-900">
-                      {{ totalPendientesResolucion }} pendientes visibles
-                      contabilizados
+                      <template v-if="loteActual.verificacion">
+                        {{ loteActual.verificacion.pendientes }} pendientes de
+                        verificación en la operación
+                      </template>
+                      <template v-else>
+                        {{ totalPendientesResolucion }} pendientes visibles
+                        contabilizados
+                      </template>
                     </p>
                     <span
                       class="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-950"
@@ -3547,6 +3608,46 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </summary>
+
+              <div
+                v-if="loteActual.verificacion"
+                class="mt-4"
+              >
+                <p
+                  class="text-sm text-amber-950"
+                  role="status"
+                >
+                  {{ loteActual.verificacion.autorizados }} emitidos ·
+                  {{ loteActual.verificacion.pendientes }} pendientes de
+                  verificación · {{ loteActual.verificacion.sin_enviar }} sin
+                  enviar
+                </p>
+                <p class="mt-1 text-sm text-amber-900">
+                  Consultá en ARCA los comprobantes de esta operación. Si quedan
+                  pendientes, podés volver más tarde.
+                </p>
+                <BaseButton
+                  class="mt-3"
+                  size="sm"
+                  :disabled="verificando"
+                  @click="verificarEstadoLote"
+                >
+                  {{
+                    verificando
+                      ? "Verificando…"
+                      : siguienteVerificacion
+                        ? "Continuar verificación"
+                        : "Verificar estado"
+                  }}
+                </BaseButton>
+              </div>
+
+              <p
+                v-if="!loteActual.verificacion && gruposRequierenReconciliacionVisibles.some(grupo => grupo.verificacion_propia)"
+                class="mt-4 text-sm text-amber-950"
+              >
+                Hay un envío propio cuya evidencia requiere revisión. Consultá al responsable de la instalación antes de reintentar.
+              </p>
 
               <p class="mt-4 text-sm text-amber-900">
                 Reintenta fallidos cuando quieras emitirlos desde FactuFlow.

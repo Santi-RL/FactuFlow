@@ -2587,7 +2587,7 @@ class ElegibilidadReceService:
             commit=commit,
         )
 
-    async def cerrar_reconciliacion_individual(
+    async def cerrar_reconciliacion_verificada(
         self, guarda: PuntoVentaGuardaEmisionRece
     ) -> None:
         """Cierra con evidencia contrastada dentro de la transacción de recuperación."""

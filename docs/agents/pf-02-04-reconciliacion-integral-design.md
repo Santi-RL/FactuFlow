@@ -5,8 +5,7 @@ Fecha: 03/10/2026.
 Última revisión: 26/11/2026.
 
 Estado: comparación legacy P1 y recuperación moderna individual P2 implementadas.
-La [recuperación moderna de lotes](#recuperación-moderna-de-lotes) tiene diseño
-y criterios de aceptación. Su implementación está pendiente.
+La [recuperación moderna de lotes](#recuperación-moderna-de-lotes) se implementa con cierre por comprobante y selección original verificable.
 
 ## Evidencia y cortes
 
@@ -470,7 +469,7 @@ resultados terminales y las reservas.
 
 ## Recuperación moderna de lotes
 
-Diseño para implementación posterior, nivel 2 fiscal. Ante una interrupción,
+Corte de nivel 2 fiscal. Ante una interrupción,
 la persona que opera el lote debe poder recuperar cada comprobante autorizado y
 entender qué falta resolver. La verificación admite lotes procesados por bloques,
 grupos emitidos de a uno y la selección original de un reintento síncrono o en cola.
@@ -586,15 +585,18 @@ consultar o publicar resultados para el operador revocado.
 | Mismo total con otro IVA o asociado, permisos revocados, otro emisor o ambiente, selección o hash alterados, guarda sin membresía y D sin prueba suficiente. | Sin cierre indebido, liberación de números ni sobrescritura de evidencia. La reconciliación externa tampoco permite eludir el bloqueo. |
 | Más grupos que una página, ARCA indisponible y regreso al detalle desde móvil y escritorio. | Avance recuperable, totales sin duplicación, acción accesible por teclado y grupos inconclusos visibles. Verificar detalle, PDF e informes de B aunque C siga pendiente. |
 
-Se prevé usar el esquema actual de intentos, guardas, eventos y grupos. Si
-resulta insuficiente para demostrar una transición, documentar la evidencia
-faltante antes de ampliar el esquema. El retorno debe conservar comprobantes,
-evidencia y reservas. Ensayar la lectura con la versión anterior en PostgreSQL
-aislado, incluida la vía externa sobre pendientes modernos. Si la versión
-anterior permite un cierre externo incompatible sobre un pendiente real,
-resolver el riesgo en el plan de retorno antes de reabrir esa vía. La revisión
-fiscal independiente y el QA se completan sobre la
-implementación estabilizada.
+### Operación y retorno
+
+La API limita cada recorrido a cinco grupos por llamada. El evento
+`frontera_envio_lote` conserva la partición de la selección en el mismo cierre
+que inmoviliza el envío. Los comprobantes recuperados utilizan los modelos,
+ítems y vínculos históricos existentes. El esquema de almacenamiento se conserva.
+El ensayo en PostgreSQL con el código anterior confirmó la lectura del comprobante
+recuperado y que esa versión admite reclamar un pendiente propio por la vía
+externa. Antes de un retorno a una versión que admite reconciliación externa de envíos
+propios inciertos, suspender esa acción en la instalación mientras existan esos
+grupos. Retomar el flujo con una versión que compruebe la guarda y la propiedad.
+El retorno conserva la base y el historial fiscal.
 
 ## Dependencias y exclusiones
 

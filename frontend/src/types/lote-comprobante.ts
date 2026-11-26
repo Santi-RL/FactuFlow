@@ -33,6 +33,7 @@ export interface LoteComprobanteGrupo {
 }
 
 export interface LoteComprobanteGrupoDetalle extends LoteComprobanteGrupo {
+  verificacion_propia?: boolean;
   descripcion_facturada: string | null;
 }
 
@@ -248,7 +249,17 @@ export interface DuplicadosErrorDetail {
   confirmacion_duplicado_logico?: string;
 }
 
+export interface VerificacionLote {
+  operacion_id: number;
+  autorizados: number;
+  pendientes: number;
+  sin_enviar: number;
+  rechazados: number;
+  siguiente: number | null;
+}
+
 export interface LoteComprobanteResumen extends LoteComprobante {
+  verificacion?: VerificacionLote | null;
   confirmacion_fecha_fiscal: string;
   mensaje_confirmacion_fecha_fiscal: string;
   confirmacion_reintento_fallidos: string;

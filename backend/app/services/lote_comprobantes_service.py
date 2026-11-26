@@ -2660,6 +2660,7 @@ class LoteComprobantesService:
                             empresa_id=empresa_id,
                             operacion_id=operacion_id,
                             grupos_seleccionados_ids=grupos_seleccionados_ids,
+                            grupos_sublote_ids={grupo_reclamado_id},
                             grupos_inmovilizados_ids=(
                                 grupos_seleccionados_ids
                                 - (grupos_procesados_ids - {grupo_reclamado_id})
@@ -2869,6 +2870,10 @@ class LoteComprobantesService:
                         "Solo pueden reconciliarse comprobantes pendientes del lote activo"
                     ),
                 )
+                if await self.grupos_con_verificacion_propia(lote, [grupo.id]):
+                    raise LoteComprobanteConflictoError(
+                        "Este comprobante pertenece a una emisión de FactuFlow. Usá Verificar estado."
+                    )
                 try:
                     request = EmitirComprobanteRequest.model_validate(
                         grupo.payload_json or {}
@@ -2944,6 +2949,45 @@ class LoteComprobantesService:
         await self._actualizar_estado_lote(lote)
         await self.db.commit()
         return await self.obtener_lote_resumen(lote_id, empresa.id)
+
+    async def grupos_con_verificacion_propia(self, lote, grupo_ids):
+        """Impide registrar como externo un envío propio pendiente o ambiguo."""
+        ids = set(grupo_ids)
+        if not ids:
+            return set()
+        conflictos = set(
+            await self.db.scalars(
+                select(IntentoEmisionFiscal.grupo_id).where(
+                    IntentoEmisionFiscal.lote_id == lote.id,
+                    IntentoEmisionFiscal.empresa_id == lote.empresa_id,
+                    IntentoEmisionFiscal.grupo_id.in_(ids),
+                    IntentoEmisionFiscal.guarda_rece_id.is_not(None),
+                    IntentoEmisionFiscal.estado.in_(
+                        {"en_proceso", "requiere_reconciliacion", "autorizado"}
+                    ),
+                )
+            )
+        )
+        meta = lote.metadata_json or {}
+        if lote.estado == "requiere_reconciliacion":
+            owner = meta.get("operacion_idempotente_id")
+            material = meta.get("pf19b_rece_material")
+            moderna = await self.db.scalar(
+                select(IntentoEmisionFiscal.id)
+                .where(
+                    IntentoEmisionFiscal.operacion_id == owner,
+                    IntentoEmisionFiscal.lote_id == lote.id,
+                    IntentoEmisionFiscal.guarda_rece_id.is_not(None),
+                )
+                .limit(1)
+            )
+            if moderna is not None:
+                if not IdempotenciaFiscalService.material_rece_valido(
+                    material, empresa_id=lote.empresa_id
+                ):
+                    return ids
+                conflictos.update(ids.intersection(material["grupo_ids"]))
+        return conflictos
 
     async def validar_lote_para_reconciliacion_externa(
         self,
@@ -4608,6 +4652,7 @@ class LoteComprobantesService:
                             empresa_id=empresa_id,
                             operacion_id=operacion_id,
                             grupos_seleccionados_ids=grupos_seleccionados_ids,
+                            grupos_sublote_ids={int(pendiente.grupo.id)},
                             grupos_inmovilizados_ids=ids_inmovilizados,
                         )
                         incertidumbre_post_arca_detectada = True
@@ -4749,6 +4794,7 @@ class LoteComprobantesService:
                     empresa_id=empresa_id,
                     operacion_id=operacion_id,
                     grupos_seleccionados_ids=grupos_seleccionados_ids,
+                    grupos_sublote_ids=ids_sublote,
                     grupos_inmovilizados_ids=(
                         grupos_seleccionados_ids - (grupos_procesados_ids - ids_sublote)
                     ),
@@ -4900,6 +4946,7 @@ class LoteComprobantesService:
         operacion_id: int | None,
         grupos_seleccionados_ids: set[int],
         grupos_inmovilizados_ids: set[int],
+        grupos_sublote_ids: set[int] | None = None,
     ) -> LoteComprobante:
         """Inmoviliza el sublote incierto y todo remanente sin volver a ARCA."""
         if (
@@ -5035,8 +5082,60 @@ class LoteComprobantesService:
             raise SQLAlchemyTimeoutError(
                 "La operación perdió ownership antes de inmovilizar la incertidumbre."
             )
+        if grupos_sublote_ids and grupos_sublote_ids <= grupos_inmovilizados_ids:
+            self._registrar_evento_lote(
+                lote_id=lote_id,
+                accion="frontera_envio_lote",
+                usuario_id=operacion.usuario_id,
+                metadata_json={
+                    "operacion_id": operacion_id,
+                    "seleccion_hash": material_rece["grupos_hash"],
+                    "procesados": sorted(
+                        grupos_seleccionados_ids - grupos_inmovilizados_ids
+                    ),
+                    "sublote": sorted(grupos_sublote_ids),
+                    "remanente": sorted(grupos_inmovilizados_ids - grupos_sublote_ids),
+                    "guardas": {
+                        str(guarda.id): sorted(
+                            i.grupo_id
+                            for i in intentos
+                            if i.guarda_rece_id == guarda.id and i.grupo_id is not None
+                        )
+                        for guarda in guardas
+                    },
+                },
+            )
+        terminales = {
+            i.grupo_id: i
+            for i in intentos
+            if (i.estado == "autorizado" and i.comprobante_id and i.cae)
+            or (i.estado == "rechazado_arca" and i.resultado_fiscal_at and not i.cae)
+        }
+        grupos_terminales = set()
+        for grupo in grupos:
+            intento = terminales.get(grupo.id)
+            if intento is None:
+                continue
+            if (
+                intento.estado == "autorizado"
+                and grupo.estado == "autorizado"
+                and grupo.comprobante_id == intento.comprobante_id
+                and grupo.cae == intento.cae
+                and grupo.numero_asignado == intento.numero_planificado
+            ):
+                grupos_terminales.add(grupo.id)
+            if (
+                intento.estado == "rechazado_arca"
+                and grupo.estado == "fallido"
+                and not grupo.cae
+                and not grupo.comprobante_id
+            ):
+                grupos_terminales.add(grupo.id)
         for intento in intentos:
-            if intento.grupo_id in grupos_inmovilizados_ids:
+            if (
+                intento.grupo_id in grupos_inmovilizados_ids
+                and intento.grupo_id not in terminales
+            ):
                 intento.estado = "requiere_reconciliacion"
                 intento.categoria_error = (
                     intento.categoria_error or "arca_respuesta_incierta"
@@ -5056,7 +5155,7 @@ class LoteComprobantesService:
         await self._marcar_lote_y_grupos_requieren_reconciliacion(
             lote_id=lote_id,
             empresa_id=empresa_id,
-            grupo_ids=sorted(grupos_inmovilizados_ids),
+            grupo_ids=sorted(grupos_inmovilizados_ids - grupos_terminales),
             mensaje_reconciliacion=(
                 "El resultado del sublote enviado a ARCA es incierto. No se "
                 "enviaron grupos posteriores; reconciliá antes de reintentar."
@@ -5358,6 +5457,31 @@ class LoteComprobantesService:
                 "El worker perdió la operación idempotente del lote."
             )
         operacion = fila_operacion[0]
+        publicada = operacion.response_json
+        if isinstance(publicada, dict) and operacion.estado in {
+            "finalizado",
+            "requiere_reconciliacion",
+        }:
+            ganador = publicada.get("lote")
+            if (
+                isinstance(ganador, dict)
+                and ganador.get("id") == lote.id
+                and ganador.get("empresa_id") == lote.empresa_id
+            ):
+                metadata_ganadora = ganador.get("metadata_json") or {}
+                avance = metadata_ganadora.get(
+                    "verificacion_final"
+                    if operacion.estado == "finalizado"
+                    else "verificacion_parcial"
+                )
+                if (
+                    isinstance(avance, dict)
+                    and avance.get("operacion_id") == operacion_id
+                ):
+                    # Deshacer cualquier cálculo del worker anterior, incluso si fue flusheado.
+                    await self.db.rollback()
+                    await self.db.refresh(lote)
+                    return
         material_rece = (lote.metadata_json or {}).get("pf19b_rece_material")
         publicacion_reconciliacion = (
             lote.estado == "requiere_reconciliacion"

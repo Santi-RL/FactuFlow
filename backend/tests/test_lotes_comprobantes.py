@@ -11408,7 +11408,25 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
         async def fe_cae_solicitar(self, arca_request):
             """Falla sin confirmar si ARCA autorizó el comprobante."""
             FakeWSFEClient.llamadas_cae += 1
+            FakeWSFEClient.solicitud = arca_request
             raise ArcaServiceError("respuesta sintética incierta")
+
+        async def fe_comp_consultar(self, *, punto_venta, tipo_cbte, numero):
+            original = FakeWSFEClient.solicitud
+            assert (punto_venta, tipo_cbte, numero) == (
+                original.punto_venta,
+                original.tipo_cbte,
+                original.cbte_desde,
+            )
+            return ArcaComprobanteResponse(
+                **original.model_dump(),
+                numero=numero,
+                cuit_emisor=self.cuit,
+                resultado="A",
+                emision_tipo="CAE",
+                cae=CAE_TEST_NO_REAL,
+                cae_vencimiento="20260831",
+            )
 
     lote_id, grupos = await _preparar_reintento_manual_pf02b2(
         client,
@@ -11419,9 +11437,10 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
         test_punto_venta,
         FakeWSFEClient,
         nombre_archivo="lote-reintento-incierto.xlsx",
-        total_grupos=2,
+        total_grupos=3,
     )
-    grupo_ids = [grupo.id for grupo in grupos]
+    grupo_ids = [grupo.id for grupo in grupos[:2]]
+    fuera_de_seleccion = grupos[2].id
     headers_reintento = await _confirmacion_fecha_fiscal_header_lote(
         db_session,
         lote_id=lote_id,
@@ -11470,6 +11489,23 @@ async def test_reintentar_fallidos_detiene_seleccion_ante_respuesta_incierta(
     )
     assert operacion is not None
     assert operacion.estado == "requiere_reconciliacion"
+    verificada = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/verificar-estado",
+        params={"operacion_id": operacion.id},
+        headers=auth_headers,
+    )
+    assert verificada.status_code == 200, verificada.text
+    assert verificada.json()["autorizados"] == verificada.json()["sin_enviar"] == 1
+    assert verificada.json()["pendientes"] == 0
+    assert FakeWSFEClient.llamadas_cae == 1
+    sin_cambio = await db_session.get(
+        LoteComprobanteGrupo, fuera_de_seleccion, populate_existing=True
+    )
+    assert sin_cambio.estado == "fallido" and not sin_cambio.numero_asignado
+    await db_session.refresh(operacion)
+    assert operacion.estado == "finalizado"
+    assert "en_progreso" not in operacion.response_json
+    assert operacion.response_json["lote"]["grupos_fallidos"] == 2
 
 
 @pytest.mark.asyncio
