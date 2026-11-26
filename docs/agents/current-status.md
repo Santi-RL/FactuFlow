@@ -11,11 +11,10 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.15`. Permite verificar una emisión
-  individual pendiente y recuperar el comprobante con su CAE original cuando
-  ARCA acredita la autorización y los datos coinciden. El
-  [dossier](../project/releases/v0.3.15-candidate.md) conserva alcance, CI,
-  compatibilidad y retorno del corte.
+- La release publicada más reciente es `v0.3.16`. Permite verificar lotes
+  interrumpidos, recuperar autorizaciones confirmadas y conservar las guardas
+  de los grupos inciertos. El [dossier](../project/releases/v0.3.16-candidate.md)
+  conserva alcance, CI, compatibilidad y retorno del corte.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se
   consultan en el plano de control.

@@ -18,6 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.16] - 26/11/2026
+
+Publicada sobre `121fce33af26ebbfe2e2ffdfbc169a442e660ae8`.
+[Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.16) y
+[dossier](docs/project/releases/v0.3.16-candidate.md).
+
 - En **Resolver pendientes del lote**, **Verificar estado** recupera los
   comprobantes que ARCA confirma y conserva el bloqueo de los inciertos.
   El remanente acreditado como **Sin enviar** queda disponible para un nuevo
