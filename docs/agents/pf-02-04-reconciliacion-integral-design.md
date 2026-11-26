@@ -2,10 +2,11 @@
 
 Fecha: 03/10/2026.
 
-Última revisión: 20/11/2026.
+Última revisión: 26/11/2026.
 
 Estado: comparación legacy P1 y recuperación moderna individual P2 implementadas.
-La recuperación moderna de lotes sigue pendiente.
+La [recuperación moderna de lotes](#recuperación-moderna-de-lotes) tiene diseño
+y criterios de aceptación. Su implementación está pendiente.
 
 ## Evidencia y cortes
 
@@ -157,8 +158,8 @@ La preparación documental es nivel 0; la implementación es nivel 2 fiscal.
    y punto de venta, su cobertura y la contención aceptada para evidencia inválida;
    no habilita recuperación moderna.
 3. **Continuación de recuperación:** el
-   [cierre moderno individual](#cierre-moderno-individual) precede al de grupos,
-   que tendrá su propia matriz de fallos y concurrencia.
+   [cierre moderno individual](#cierre-moderno-individual) precede al
+   [cierre de grupos](#recuperación-moderna-de-lotes) y su matriz de concurrencia.
 
 Son subcortes de PF-04/PF-02, en el orden del roadmap, sin adelantar WSAA,
 padrón, notas, categorías de importes, ranking ni mejoras de UI.
@@ -466,6 +467,134 @@ mostrar el intento al operador y vuelve a validar su acceso antes del cierre.
 Conservar la auditoría del cierre y los instantes fiscales históricos. Los
 índices y columnas actuales bastan para el corte y su reversión conserva los
 resultados terminales y las reservas.
+
+## Recuperación moderna de lotes
+
+Diseño para implementación posterior, nivel 2 fiscal. Ante una interrupción,
+la persona que opera el lote debe poder recuperar cada comprobante autorizado y
+entender qué falta resolver. La verificación admite lotes procesados por bloques,
+grupos emitidos de a uno y la selección original de un reintento síncrono o en cola.
+Su única consulta fiscal es `FECompConsultar`, por número planificado y bajo el
+emisor y ambiente originales. La acción realiza cero solicitudes de CAE.
+
+### Lote de referencia y resultados visibles
+
+Cada grupo representa un comprobante, aunque tenga varias filas de Excel.
+En el ejemplo, B y C comparten una guarda RECE del punto de venta.
+
+| Grupo y evidencia | Resultado de «Verificar estado» |
+|---|---|
+| A tiene una autorización, intento y comprobante local coherentes. | Conservar el comprobante y sus filas. Si falta el vínculo del grupo, repararlo sólo después de acreditar identidad y contenido. A cuenta una vez. |
+| B fue enviado. ARCA confirma la autorización y falta el registro local. | Reconstruir desde la evidencia inmutable. Vincular el número, CAE, vencimiento, ítems y asociados originales. B figura como emitido por FactuFlow en el lote, PDF e informes. |
+| C fue enviado. La consulta falla, informa «no encontrado» o devuelve evidencia incompleta o contradictoria. | Mantener el resultado pendiente, el CAE conocido si lo hubiera y la guarda compartida. B ya puede consultarse. |
+| D pertenecía a la selección y se acredita que quedó sin enviar en esa operación. | Mostrar «Sin enviar». Mientras C esté pendiente, la verificación termina sin habilitar la emisión del remanente. |
+
+Con A y B recuperados, el resumen muestra dos emitidos, uno pendiente de
+verificación y uno sin enviar. Cuando C también se acredita como autorizado,
+el lote queda parcial con tres emitidos y D disponible para una nueva selección
+y confirmación fiscal. Un rechazo terminal ya acreditado conserva su motivo y
+su propio tratamiento. La fecha y el punto de venta siguen siendo explícitos.
+
+### Evidencia para distinguir un grupo sin enviar
+
+Hoy el cierre por incertidumbre inmoviliza el sublote alcanzado y el remanente.
+El conjunto de grupos procesados se calcula en memoria. Tras reiniciar, el
+estado del grupo, el orden del Excel, la ausencia aislada de un intento y
+«no encontrado» en ARCA son insuficientes para acreditar D.
+
+Para interrupciones nuevas, registrar en el mismo commit de inmovilización el
+ID de operación, la huella de la selección confirmada y la pertenencia de sus
+grupos al sublote alcanzado y al remanente. Usar un evento durable del lote
+ligado a esa operación. Bajo bloqueo, cotejar la partición con los grupos ya
+procesados, cada guarda y sus intentos. Sólo clasificar D si el propietario ya
+quedó impedido de enviar, la selección es íntegra, el envío exige un intento
+durable previo y ningún intento de D cruzó la frontera en esa operación.
+Contrastar las señales locales de número, CAE, comprobante, reservas y actividad
+de otras operaciones. Un rechazo anterior de un reintento debe ser terminal y
+atribuible a su propia operación.
+
+Para operaciones anteriores, admitir la misma prueba mediante evidencia durable
+equivalente o un cierre pre-ARCA comprobado del grupo. Una selección sobrescrita,
+una guarda huérfana o una partición incompleta dejan al grupo pendiente de
+revisión. No inferir historia ni rellenarla con una migración. D es una
+clasificación operativa. En el cierre completo puede usar el estado de grupo
+`fallido` que admite el circuito de reintentos, con motivo durable «Sin enviar»,
+sin atribuirle un rechazo de ARCA ni contarlo dos veces en el resumen.
+
+### Recuperación y cierre
+
+1. Identificar la operación propietaria, emisor, lote, selección y generación de
+   duplicados originales. Contrastar grupos, filas, intentos y revisiones RECE.
+   Admitir operaciones inmovilizadas o cuya ejecución vencida ya quedó contenida
+   mediante el flujo vigente. El trabajo activo del worker conserva su propiedad.
+2. Verificar cada intento recuperable por su identidad fiscal. Reutilizar el
+   lector, comparador y reglas de cobertura del corte individual, incluidos IVA,
+   moneda y asociados. Consultar ARCA fuera de los bloqueos de escritura. Antes
+   del cierre, revalidar el permiso del operador, la huella de evidencia, el
+   propietario y el token y fase de la guarda.
+3. Dentro de una transacción por resultado, tomar bloqueos en el orden del
+   cierre post-ARCA del lote (operación, intentos, guardas, lote, grupos y filas,
+   con orden estable dentro de cada conjunto). Crear o vincular un único
+   comprobante idéntico, actualizar intento, grupo, filas y auditoría y
+   recalcular contadores desde los grupos. Si corresponde publicar avance
+   parcial, guardar en ese commit la respuesta todavía incierta con sus totales.
+   Un vínculo con otro intento o grupo,
+   o dos candidatos al mismo número, conservan la incertidumbre. Un commit
+   ambiguo obliga a releer antes de volver a actuar.
+4. Cerrar cada guarda sólo al acreditar la membresía completa de su sublote y
+   el resultado terminal de **todos** sus intentos. Un rechazo exige evidencia
+   terminal atribuible. Una guarda de otro punto u operación y una reserva de
+   duplicados ajena quedan fuera del cierre. Liberar reservas propias sólo por
+   el contrato aplicable a cada grupo. Un resultado parcial de B conserva la
+   guarda de C y el bloqueo del lote.
+5. Recalcular el estado global del lote y, por separado, el progreso sobre la
+   selección original del reintento. Guardar junto al cierre la respuesta
+   idempotente de esa operación con su formato de procesamiento o de acción.
+   Condicionar la actualización al estado y respuesta observados. Una respuesta
+   tardía del worker o un segundo operador deben releer el resultado ganador.
+   Un replay terminal devuelve el resultado ya publicado. Al reabrir el lote,
+   el detalle y los contadores leen el mismo avance durable.
+
+### Acción en el detalle del lote
+
+En el panel existente **Resolver pendientes del lote**, ofrecer **Verificar
+estado** cuando el backend identifique una operación propia recuperable del
+emisor activo. La disponibilidad y los totales corresponden a la operación
+completa, también si el grupo pendiente está en otra página. El servidor resuelve
+el número y el alcance a partir de la operación. Cada pulsación consulta una
+porción acotada y conserva los resultados. Una continuación puede avanzar más
+allá de un grupo inconcluso y una verificación posterior puede volver a consultarlo.
+Mostrar el progreso, los comprobantes recuperados, los pendientes y los que
+quedaron sin enviar. Si ARCA está indisponible, conservar el avance y permitir
+volver más tarde, sin recargar el Excel.
+
+La API y la pantalla deben aplicar la misma frontera con **Reconciliar ARCA
+Web**. Esa acción conserva los casos externos legítimos y la compatibilidad
+documentada para antecedentes sin un intento moderno propio en conflicto. Ante
+un intento moderno pendiente o ambiguo, impedir que la vía externa registre el
+grupo como `autorizado_externo` y deje abierta su guarda. Ofrecer la verificación
+propia o indicar qué requiere revisión. Una revocación de acceso impide
+consultar o publicar resultados para el operador revocado.
+
+### Aceptación del corte de lotes
+
+| Ensayo previsto con datos sintéticos | Evidencia que debe observarse |
+|---|---|
+| PostgreSQL, lote A/B/C/D, dos sesiones verifican el mismo grupo y grupos distintos de la misma guarda mientras llega una respuesta tardía del worker. | Un único B y una sola contabilización. C mantiene la guarda. Al resolver C, un solo cierre durable y D únicamente disponible mediante confirmación. Cero llamadas a `FECAESolicitar` durante la verificación. |
+| Caídas antes del envío, después de la consulta, durante el commit y después de guardar antes de responder. Reabrir desde otra sesión. | Estado anterior completo o avance confirmado. Respeto del CAE conocido, las reservas, los resultados terminales y el replay. |
+| Bloque con respuesta parcial, desordenada o incompleta, emisión unitaria dentro del lote, reintento síncrono y reintento por worker con selección parcial. | Asociación por número e identidad. Un rechazo probado conserva su alcance. Las filas no seleccionadas y los grupos ya autorizados conservan su historia. |
+| Mismo total con otro IVA o asociado, permisos revocados, otro emisor o ambiente, selección o hash alterados, guarda sin membresía y D sin prueba suficiente. | Sin cierre indebido, liberación de números ni sobrescritura de evidencia. La reconciliación externa tampoco permite eludir el bloqueo. |
+| Más grupos que una página, ARCA indisponible y regreso al detalle desde móvil y escritorio. | Avance recuperable, totales sin duplicación, acción accesible por teclado y grupos inconclusos visibles. Verificar detalle, PDF e informes de B aunque C siga pendiente. |
+
+Se prevé usar el esquema actual de intentos, guardas, eventos y grupos. Si
+resulta insuficiente para demostrar una transición, documentar la evidencia
+faltante antes de ampliar el esquema. El retorno debe conservar comprobantes,
+evidencia y reservas. Ensayar la lectura con la versión anterior en PostgreSQL
+aislado, incluida la vía externa sobre pendientes modernos. Si la versión
+anterior permite un cierre externo incompatible sobre un pendiente real,
+resolver el riesgo en el plan de retorno antes de reabrir esa vía. La revisión
+fiscal independiente y el QA se completan sobre la
+implementación estabilizada.
 
 ## Dependencias y exclusiones
 

@@ -1,6 +1,6 @@
 # Estado aceptado del repositorio
 
-Última revisión: 21/11/2026.
+Última revisión: 26/11/2026.
 
 Estado: VIGENTE.
 
@@ -66,8 +66,10 @@ vínculo del intento y no abre recuperación moderna ni cambia la compactación
 o el traslado vigentes. El
 [cierre moderno individual](pf-02-04-reconciliacion-integral-design.md#cierre-moderno-individual)
 permite retomar la verificación desde Comprobantes, acreditar la autorización
-y registrar el comprobante original en una transacción. Ahora 1 conserva
-la recuperación de lotes como continuación pendiente. Ahora 2 reúne el
+y registrar el comprobante original en una transacción. Ahora 1 cuenta con el
+[diseño de lotes](pf-02-04-reconciliacion-integral-design.md#recuperación-moderna-de-lotes)
+para recuperar por comprobante, cerrar las guardas compartidas y distinguir el
+remanente sin enviar. La implementación de ese corte está pendiente. Ahora 2 reúne el
 [formato argentino y el precio unitario legible](pf-17-13-formato-argentino-design.md)
 en un corte de presentación pendiente. Consultar los cierres operativos de
 notas y descargas en el plano de control. No repetir sus preflight por un
@@ -96,8 +98,9 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de reconciliación para
-   delimitar el cierre moderno de lotes ante autorizaciones parciales.
+2. Leer `VISION.md`, Ahora 1 del roadmap y el caso de referencia A/B/C/D del
+   diseño de lotes. Al implementar, demostrar el cierre parcial y la prueba de
+   «Sin enviar» en PostgreSQL con ARCA simulada antes de habilitar la acción.
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el
