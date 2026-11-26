@@ -837,6 +837,16 @@ confirma. Lotes grandes pueden quedar en cola y continuar por worker. La UI usa
 `POST /api/lotes-comprobantes/{lote_id}/procesar?background=true` también para
 lotes chicos, para mostrar progreso real por polling.
 
+El resumen incluye `verificacion` cuando el emisor activo tiene una operación
+inmovilizada con evidencia recuperable. `POST /api/lotes-comprobantes/{lote_id}/verificar-estado`
+recibe `operacion_id` y el cursor opcional `despues`. Consulta hasta cinco grupos
+por identidad original mediante `FECompConsultar`. Devuelve los totales de
+autorizados, pendientes, rechazados y sin enviar de la selección completa.
+`siguiente` permite continuar y un recorrido nuevo vuelve sobre los pendientes.
+Cada recuperación se publica en su propia transacción. El detalle paginado
+identifica con `verificacion_propia` los grupos excluidos de la reconciliación
+externa. Un cambio de operación o una selección no verificable devuelve 409.
+
 Para el ciclo de polling de un lote activo, usar
 `GET /api/lotes-comprobantes/{lote_id}/seguimiento`. Es una allowlist mínima:
 devuelve identidad y estado operativo, modo de procesamiento, contadores,

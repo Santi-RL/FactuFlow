@@ -437,3 +437,13 @@ Simular timeout después del envío: conservar incertidumbre, bloquear reintento
 reconciliar antes de repetir. Repetir la misma clave y competir desde otra sesión:
 una sola ejecución, sin liberar reservas ajenas, activas o inciertas. No ejecutar
 estos fallos ni pedir CAE reales como smoke productivo.
+
+
+### Verificación de un lote interrumpido
+
+Con ARCA simulada, abrir el lote A/B/C/D del [diseño fiscal](pf-02-04-reconciliacion-integral-design.md#recuperación-moderna-de-lotes).
+Verificar B desde dos sesiones, dejar que C siga inconcluso y reabrir el detalle.
+Comprobar que B tiene un único comprobante y puede abrirse desde Comprobantes,
+que C conserva la guarda y que D figura sin enviar. Resolver C y revisar que
+sólo D pueda volver a seleccionarse con confirmación fiscal. Repetir con el
+pendiente en otra página, por teclado y en pantalla pequeña.

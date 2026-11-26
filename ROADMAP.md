@@ -53,17 +53,7 @@ y el [flujo de producción](docs/agents/production-workflow.md). La operación
 productiva se acredita en su plano de control; no repetir operaciones cerradas
 por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado.
 
-### 1. PF-04/PF-02 — evidencia y reconciliación integral
-
-**Prioridad:** P2 fiscal.
-
-Extender la recuperación moderna a lotes. Usar la evidencia original de cada
-intento para recuperar las autorizaciones acreditadas, conservar las reservas
-inciertas y cerrar los grupos y sus contadores de forma consistente.
-El alcance pendiente vive en el [diseño de reconciliación](docs/agents/pf-02-04-reconciliacion-integral-design.md).
-PF-05 externo es opcional y no bloquea padrón, notas ni emisión.
-
-### 2. PF-17/PF-13 — formato argentino y claridad visible
+### 1. PF-17/PF-13 — formato argentino y claridad visible
 
 **Prioridad:** P3 administrativa.
 

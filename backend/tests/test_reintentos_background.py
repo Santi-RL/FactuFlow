@@ -10,10 +10,11 @@ import pytest
 from sqlalchemy import select
 
 from app.arca.exceptions import ArcaConnectionError
-from app.arca.models import CAEResponse
+from app.arca.models import CAEResponse, ComprobanteResponse
 from app.core.config import settings
 from app.core.comprobante_totales import calcular_totales
 from app.models.comprobante_item import ComprobanteItem
+from app.models.elegibilidad_rece import PuntoVentaGuardaEmisionRece
 from app.schemas.comprobante import EmitirComprobanteRequest
 from app.models.idempotencia_fiscal import IntentoEmisionFiscal, OperacionIdempotente
 from app.models.lote_comprobante import LoteComprobante, LoteComprobanteGrupo
@@ -212,6 +213,7 @@ async def test_conflicto_previo_a_cola_cierra_operacion_y_replay(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("fallo_previo", [False, True])
 async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incertidumbre(
     client,
     auth_headers,
@@ -220,9 +222,11 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
     test_empresa,
     test_punto_venta,
     test_certificado,
+    fallo_previo,
 ):
     empresa_id = test_empresa.id
     llamadas = []
+    consultas_numeracion = 0
 
     class WSFE:
         def __init__(self, **kwargs):
@@ -231,11 +235,33 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
             pass
 
         async def fe_comp_ultimo_autorizado(self, *args):
+            nonlocal consultas_numeracion
+            consultas_numeracion += 1
+            if fallo_previo and consultas_numeracion == 2:
+                raise ArcaConnectionError("Preflight interrumpido antes del envío")
             return 0
 
         async def fe_cae_solicitar(self, request):
+            WSFE.original = request
             llamadas.append(request.cbte_desde)
             raise ArcaConnectionError("Timeout después del envío simulado")
+
+        async def fe_comp_consultar(self, *, punto_venta, tipo_cbte, numero):
+            request = WSFE.original
+            assert (punto_venta, tipo_cbte, numero) == (
+                request.punto_venta,
+                request.tipo_cbte,
+                request.cbte_desde,
+            )
+            return ComprobanteResponse(
+                **request.model_dump(),
+                numero=numero,
+                cuit_emisor=self.cuit,
+                resultado="A",
+                emision_tipo="CAE",
+                cae=CAE_TEST_NO_REAL,
+                cae_vencimiento="20260831",
+            )
 
     lote_id, _ = await _preparar_reintento_manual_pf02b2(
         client,
@@ -252,6 +278,35 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
     monkeypatch.setattr(
         "app.api.lotes_comprobantes.ensure_lote_worker_running", lambda app: True
     )
+    url = f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos?background=true"
+    if fallo_previo:
+        headers_previo = {
+            **auth_headers,
+            **await _confirmacion_fecha_fiscal_header_lote(
+                db_session,
+                lote_id=lote_id,
+                estados={"fallido"},
+                idempotency_key="primer-reintento-sin-envio",
+            ),
+        }
+        previo = await client.post(url, headers=headers_previo, json={"grupo_ids": []})
+        assert previo.status_code == 200, previo.text
+        await LoteComprobantesService(db_session).procesar_lote(
+            lote_id, empresa_id, reanudar=True
+        )
+        intento_previo = (
+            await db_session.execute(
+                select(IntentoEmisionFiscal.estado, PuntoVentaGuardaEmisionRece.fase)
+                .join(
+                    PuntoVentaGuardaEmisionRece,
+                    PuntoVentaGuardaEmisionRece.id
+                    == IntentoEmisionFiscal.guarda_rece_id,
+                )
+                .where(IntentoEmisionFiscal.lote_id == lote_id)
+            )
+        ).one()
+        assert intento_previo == ("fallido_verificado", "cerrada_pre_arca")
+        assert llamadas == []
     headers = {
         **auth_headers,
         **await _confirmacion_fecha_fiscal_header_lote(
@@ -260,7 +315,6 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
             estados={"fallido"},
         ),
     }
-    url = f"/api/lotes-comprobantes/{lote_id}/reintentar-fallidos?background=true"
     respuesta = await client.post(url, headers=headers, json={"grupo_ids": []})
     assert respuesta.status_code == 200, respuesta.text
     lote = await LoteComprobantesService(db_session).procesar_lote(
@@ -287,6 +341,23 @@ async def test_timeout_post_cae_reintento_background_no_reenvia_ni_libera_incert
         ).scalars()
     )
     assert all(g.duplicados_reserva_operacion_id is not None for g in grupos)
+    op_id = progreso["operacion_id"]
+    consulta = await client.post(
+        f"/api/lotes-comprobantes/{lote_id}/verificar-estado",
+        params={"operacion_id": op_id},
+        headers=auth_headers,
+    )
+    assert consulta.status_code == 200, consulta.text
+    assert consulta.json()["autorizados"] == consulta.json()["sin_enviar"] == 1
+    assert consulta.json()["pendientes"] == 0
+    replay = await client.post(url, headers=headers, json={"grupo_ids": []})
+    assert replay.status_code == 200 and replay.json()["lote"]["grupos_emitidos"] == 1
+    op = await db_session.get(OperacionIdempotente, op_id, populate_existing=True)
+    assert op.response_json["en_progreso"] is False
+    assert (
+        op.response_json["lote"]["metadata_json"]["operacion_progreso"]["fallidos"] == 1
+    )
+    assert llamadas == [1]
 
 
 @pytest.mark.asyncio

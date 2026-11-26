@@ -587,6 +587,13 @@ puede mostrar acciones de resolución. Estas acciones aparecen agrupadas bajo
 `Resolver pendientes` y el panel arranca cerrado para no mezclar casos
 excepcionales con la revisión normal del lote:
 
+- **Verificar estado** consulta en ARCA los comprobantes enviados desde FactuFlow.
+  Podés abrir un comprobante recuperado aunque queden otros pendientes. Elegí
+  **Continuar verificación** para consultar el siguiente bloque. Si ARCA todavía
+  no confirma el resultado, volvé más tarde al mismo lote.
+  **Sin enviar** identifica comprobantes que quedaron fuera del envío. Al
+  terminar la verificación podés seleccionarlos y confirmar la fecha fiscal
+  para un nuevo reintento.
 - `Reintentar fallidos`: procesa en segundo plano los fallidos seleccionados. La
   pantalla muestra una confirmación de fecha fiscal y punto de venta; si esos
   datos no son correctos, cancela y revisa el lote. No se habilita para lotes en
@@ -604,8 +611,7 @@ excepcionales con la revisión normal del lote:
 - `Reconciliar ARCA Web`: úsalo cuando el comprobante pendiente ya fue emitido
   manualmente desde ARCA Web. Debes cargar el comprobante visible, número
   autorizado, CAE si lo tienes y motivo operativo. FactuFlow consulta ARCA antes
-  de registrar el comprobante localmente. También se usa para cerrar reintentos
-  interrumpidos que quedaron pendientes de verificación.
+  de registrar el comprobante localmente. Los envíos propios con evidencia de FactuFlow se resuelven desde **Verificar estado**.
 - `Descartar visibles`: cierra comprobantes pendientes que no deben emitirse
   desde ese lote. No se usa para comprobantes con incertidumbre post-ARCA.
 

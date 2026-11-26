@@ -51,6 +51,7 @@ from app.schemas.comprobante import ErrorArcaFiscalResponse
 from app.schemas.lote_comprobante import (
     DuplicadosCoincidenciasPageResponse,
     LoteAccionResponse,
+    VerificacionLote,
     LoteComprobanteDetalleResponse,
     LoteComprobanteGrupoDetalleResponse,
     LoteComprobanteGruposPageResponse,
@@ -80,6 +81,7 @@ from app.services.lote_comprobantes_service import (
     OpcionesFechasLote,
     OpcionesPuntoVentaLote,
 )
+from app.services.reconciliacion_lote_service import ReconciliacionLoteService
 from app.services.lote_worker import ensure_lote_worker_running
 from app.services.idempotencia_fiscal_service import (
     CreacionOperacionAmbiguaError,
@@ -2061,6 +2063,28 @@ async def reintentar_fallidos_lote(
     return respuesta
 
 
+@router.post("/{lote_id}/verificar-estado", response_model=VerificacionLote)
+async def verificar_estado_lote(
+    lote_id: int,
+    operacion_id: int = Query(..., gt=0),
+    despues: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_empresa_user),
+    empresa_activa_id: int = Depends(get_current_empresa_id),
+):
+    """Consulta una porción de la operación inmovilizada y conserva su avance."""
+    try:
+        return await ReconciliacionLoteService(db).verificar(
+            lote_id, empresa_activa_id, current_user.id, operacion_id, despues
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LoteComprobanteConflictoError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except LoteComprobanteError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/{lote_id}/reconciliar-externos", response_model=LoteAccionResponse)
 async def reconciliar_emitidos_externos(
     lote_id: int,
@@ -2073,10 +2097,16 @@ async def reconciliar_emitidos_externos(
     service = LoteComprobantesService(db)
     empresa = await _get_empresa(db, empresa_activa_id)
     try:
-        await service.validar_lote_para_reconciliacion_externa(
+        lote = await service.validar_lote_para_reconciliacion_externa(
             lote_id=lote_id,
             empresa_id=empresa_activa_id,
         )
+        if await service.grupos_con_verificacion_propia(
+            lote, [item.grupo_id for item in request_body.comprobantes]
+        ):
+            raise LoteComprobanteConflictoError(
+                "Este comprobante pertenece a una emisión de FactuFlow. Usá Verificar estado."
+            )
         wsfe_client = await get_wsfe_client(db, current_user, empresa_activa_id)
         lote = await service.reconciliar_emitidos_externos(
             lote_id=lote_id,
@@ -2200,6 +2230,9 @@ async def obtener_resumen_lote(
         )
     except LoteComprobanteError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    resumen_operativo["verificacion"] = await ReconciliacionLoteService(db).resumen(
+        lote
+    )
     return _serialize_lote_resumen(lote, resumen_operativo)
 
 
@@ -2244,9 +2277,16 @@ async def listar_grupos_lote(
     except LoteComprobanteError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    lote = await service.obtener_lote_resumen(lote_id, empresa_activa_id)
+    propios = await service.grupos_con_verificacion_propia(lote, [g.id for g in grupos])
     total_pages = (total + per_page - 1) // per_page if total else 0
     return LoteComprobanteGruposPageResponse(
-        items=[_serialize_grupo_detalle(grupo) for grupo in grupos],
+        items=[
+            _serialize_grupo_detalle(grupo).model_copy(
+                update={"verificacion_propia": grupo.id in propios}
+            )
+            for grupo in grupos
+        ],
         page=page,
         per_page=per_page,
         total=total,

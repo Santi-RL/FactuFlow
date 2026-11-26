@@ -46,6 +46,7 @@ vi.mock("@/services/lotes-comprobantes.service", () => ({
     obtener: vi.fn(),
     obtenerResumen: vi.fn(),
     obtenerSeguimiento: vi.fn(),
+    verificarEstado: vi.fn(),
     obtenerGrupos: vi.fn(),
     obtenerCoincidencias: vi.fn(),
     reintentarFallidos: vi.fn(),
@@ -1476,6 +1477,55 @@ describe("LotesComprobantesView", () => {
       "ARCA no informó la capacidad máxima por request",
     );
     expect(wrapper.text()).toContain("ARCA no devolvió RegXReq");
+  });
+
+  it("verifica pendientes fuera de la página y permite continuar sin reintentar", async () => {
+    const verificacion = {
+      operacion_id: 31,
+      autorizados: 4,
+      pendientes: 6,
+      sin_enviar: 1,
+      rechazados: 0,
+      siguiente: null,
+    };
+    const lote = {
+      ...loteResumenMock(),
+      estado: "requiere_reconciliacion",
+      grupos_validos: 0,
+      verificacion,
+    };
+    const wrapper = await mountView([], [lote], lote, {
+      items: [],
+      page: 1,
+      per_page: 100,
+      total: 0,
+      total_pages: 0,
+      estado: null,
+    });
+    vi.mocked(lotesComprobantesService.obtenerResumen).mockImplementation(
+      async () => structuredClone(lote),
+    );
+    vi.mocked(lotesComprobantesService.verificarEstado).mockResolvedValue({
+      ...verificacion,
+      siguiente: 14,
+    });
+    const panel = wrapper.get('[data-testid="resolucion-pendientes-lote"]');
+    const accion = () =>
+      panel
+        .findAll("button")
+        .find((b) => /Verificar estado|Continuar verificación/.test(b.text()))!;
+    expect(panel.text()).toContain("6 pendientes de verificación");
+    await accion().trigger("click");
+    await flushPromises();
+    expect(accion().text()).toContain("Continuar verificación");
+    await accion().trigger("click");
+    await flushPromises();
+    expect(lotesComprobantesService.verificarEstado).toHaveBeenLastCalledWith(
+      lote.id,
+      31,
+      14,
+    );
+    expect(lotesComprobantesService.reintentarFallidos).not.toHaveBeenCalled();
   });
 
   it("cuenta pendientes de reconciliación en el avance de lote incierto", async () => {

@@ -782,3 +782,9 @@ y ticket. El reintento background conserva las guardas de emisión masiva y
 reconciliación; un fallo de preparación acreditado no equivale a un rechazo
 fiscal ni autoriza repetir un resultado incierto. El contrato vive en
 [reintentos seguros](pf-13-17-reintentos-seguros-parche.md).
+
+La recuperación por grupo consulta el número original mediante `FECompConsultar`.
+La guarda compartida permanece activa mientras un resultado sea incierto.
+El remanente sin enviar exige evidencia de pertenencia a la selección y de la
+frontera de envío. El cierre y las pruebas se describen en el
+[contrato de recuperación de lotes](pf-02-04-reconciliacion-integral-design.md#recuperación-moderna-de-lotes).

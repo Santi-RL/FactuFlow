@@ -1,28 +1,19 @@
 """Recuperación de una emisión individual ya enviada a ARCA."""
 
 import logging
-import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.arca.exceptions import ArcaError
-from app.arca.utils import clean_cuit
 from app.core.config import settings
 from app.core.database import DATABASE_TEMPORARILY_UNAVAILABLE_ERRORS
 from app.core.evidencia_fiscal import (
-    CAMPOS_CONTEXTO,
     EvidenciaFiscalError,
     EvidenciaFiscalV1,
-    comparar_evidencia,
-    leer_evidencia,
 )
-from app.models.comprobante import Comprobante
-from app.models.comprobante_item import ComprobanteItem
 from app.models.elegibilidad_rece import (
     OperacionIdempotenteElegibilidadRece,
     PuntoVentaGuardaEmisionRece,
@@ -39,19 +30,16 @@ from app.services.elegibilidad_rece_service import (
     ElegibilidadReceError,
     ElegibilidadReceService,
 )
-from app.services.facturacion_service import FacturacionService, ValidationError
+from app.services.recuperacion_comprobante_service import (
+    consultar_autorizacion_coincidente,
+    evidencia_del_intento,
+    recuperar_comprobante,
+)
 from app.services.idempotencia_fiscal_service import IdempotenciaFiscalService
 
 logger = logging.getLogger(__name__)
 
 ESTADOS_PENDIENTES = {"en_proceso", "requiere_reconciliacion"}
-COBERTURA_OPCIONAL = {
-    "cbte_desde",
-    "cbte_hasta",
-    "condicion_iva_receptor_id",
-    "cbtes_asoc.cuit",
-    "cbtes_asoc.fecha_cbte",
-}
 
 
 @dataclass(frozen=True)
@@ -59,68 +47,6 @@ class IntentoRecuperable:
     intento: IntentoEmisionFiscal
     guarda: PuntoVentaGuardaEmisionRece
     evidencia: EvidenciaFiscalV1
-
-
-def _fecha_fiscal(valor: str | None) -> date | None:
-    if valor is None:
-        return None
-    if not re.fullmatch(r"[0-9]{8}", valor):
-        raise ValueError("Fecha fiscal inválida")
-    return date(int(valor[:4]), int(valor[4:6]), int(valor[6:]))
-
-
-def _datos_comprobante(evidencia: EvidenciaFiscalV1, cae: str, vencimiento: date):
-    contexto = evidencia.contexto
-    solicitud = evidencia.solicitud_wsfe
-    receptor = evidencia.presentacion.receptor
-    importes = evidencia.importes_guardado
-    return {
-        "empresa_id": contexto.empresa_id,
-        "punto_venta_id": contexto.punto_venta_id,
-        "tipo_comprobante": contexto.tipo_comprobante,
-        "numero": contexto.numero_planificado,
-        "concepto": solicitud.concepto,
-        "fecha_emision": _fecha_fiscal(solicitud.fecha_cbte),
-        "fecha_servicio_desde": _fecha_fiscal(solicitud.fecha_serv_desde),
-        "fecha_servicio_hasta": _fecha_fiscal(solicitud.fecha_serv_hasta),
-        "fecha_vto_pago": _fecha_fiscal(solicitud.fecha_vto_pago),
-        "fecha_vencimiento": _fecha_fiscal(solicitud.fecha_vto_pago),
-        "subtotal": importes.subtotal,
-        "iva_21": importes.iva_21,
-        "iva_10_5": importes.iva_10_5,
-        "iva_27": importes.iva_27,
-        "total": importes.total,
-        "descuento": 0,
-        "otros_impuestos": solicitud.imp_trib,
-        "moneda": solicitud.moneda_id,
-        "cotizacion": solicitud.moneda_cotiz,
-        "observaciones": evidencia.presentacion.observaciones,
-        "receptor_tipo_documento": receptor.tipo_documento,
-        "receptor_numero_documento": clean_cuit(receptor.numero_documento),
-        "receptor_razon_social": receptor.razon_social,
-        "receptor_condicion_iva": receptor.condicion_iva,
-        "receptor_domicilio": receptor.domicilio,
-        "estado": "autorizado",
-        "cae": cae,
-        "cae_vencimiento": vencimiento,
-        "origen_emision": "factuflow",
-    }
-
-
-def _datos_items(evidencia: EvidenciaFiscalV1):
-    return [
-        {
-            **item.model_dump(),
-            "orden": item.orden if item.orden > 0 else indice,
-            "subtotal": subtotal,
-        }
-        for indice, (item, subtotal) in enumerate(
-            zip(
-                evidencia.presentacion.items,
-                evidencia.importes_guardado.subtotales_items,
-            )
-        )
-    ]
 
 
 class ReconciliacionIndividualService:
@@ -325,21 +251,7 @@ class ReconciliacionIndividualService:
         ):
             return None
         try:
-            evidencia = leer_evidencia(
-                version=intento.evidencia_version,
-                raw=intento.evidencia_json,
-                sha256=intento.evidencia_hash,
-                pertenencia={
-                    campo: getattr(intento, campo)
-                    for campo in (
-                        *CAMPOS_CONTEXTO,
-                        "total",
-                        "fecha_emision",
-                        "receptor_tipo_documento",
-                        "receptor_numero_documento",
-                    )
-                },
-            )
+            evidencia = evidencia_del_intento(intento)
         except EvidenciaFiscalError:
             return None
         return IntentoRecuperable(intento, guarda, evidencia)
@@ -354,36 +266,8 @@ class ReconciliacionIndividualService:
         )
         return intento.estado == "en_proceso" and guarda.arca_iniciada_en <= limite
 
-    async def _consultar(self, evidencia) -> tuple[str, date] | None:
-        try:
-            respuesta = await FacturacionService(self.db).consultar_intento_individual(
-                evidencia.contexto
-            )
-            vencimiento = _fecha_fiscal(respuesta.cae_vencimiento)
-        except (ArcaError, EvidenciaFiscalError, ValidationError, ValueError):
-            return None
-        if (
-            respuesta.resultado != "A"
-            or respuesta.emision_tipo != "CAE"
-            or not re.fullmatch(r"[0-9]{14}", respuesta.cae or "")
-            or vencimiento is None
-        ):
-            return None
-        comparacion = comparar_evidencia(evidencia, respuesta)
-        logger.info(
-            "event=reconciliacion_individual_consulta intento=%s estado=%s campos=%s cobertura=%s",
-            evidencia.contexto.id,
-            comparacion.estado,
-            comparacion.campos,
-            comparacion.cobertura_desconocida,
-        )
-        if (
-            respuesta.campos_invalidos
-            or comparacion.estado != "coincidente"
-            or not COBERTURA_OPCIONAL.issuperset(comparacion.cobertura_desconocida)
-        ):
-            return None
-        return respuesta.cae, vencimiento
+    async def _consultar(self, evidencia):
+        return await consultar_autorizacion_coincidente(self.db, evidencia)
 
     @staticmethod
     def _pendiente(intento):
@@ -424,54 +308,10 @@ class ReconciliacionIndividualService:
         ):
             return self._pendiente(intento)
 
-        datos = _datos_comprobante(grafo.evidencia, cae, vencimiento)
-        items = _datos_items(grafo.evidencia)
-        comprobante = (
-            await self.db.execute(
-                select(Comprobante)
-                .where(
-                    Comprobante.empresa_id == intento.empresa_id,
-                    Comprobante.punto_venta_id == intento.punto_venta_id,
-                    Comprobante.tipo_comprobante == intento.tipo_comprobante,
-                    Comprobante.numero == intento.numero_planificado,
-                )
-                .options(selectinload(Comprobante.items))
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-        if intento.comprobante_id is not None and (
-            comprobante is None or comprobante.id != intento.comprobante_id
-        ):
-            return self._pendiente(intento)
+        comprobante = await recuperar_comprobante(
+            self.db, intento, grafo.evidencia, cae, vencimiento
+        )
         if comprobante is None:
-            comprobante = Comprobante(
-                **datos,
-                items=[ComprobanteItem(**item) for item in items],
-            )
-            self.db.add(comprobante)
-            await self.db.flush()
-        elif (
-            any(getattr(comprobante, k) != v for k, v in datos.items())
-            or len(comprobante.items) != len(items)
-            or any(
-                any(getattr(guardado, k) != v for k, v in original.items())
-                for guardado, original in zip(
-                    sorted(comprobante.items, key=lambda item: item.id), items
-                )
-            )
-        ):
-            return self._pendiente(intento)
-        elif (
-            await self.db.scalar(
-                select(IntentoEmisionFiscal.id)
-                .where(
-                    IntentoEmisionFiscal.comprobante_id == comprobante.id,
-                    IntentoEmisionFiscal.id != intento.id,
-                )
-                .limit(1)
-            )
-            is not None
-        ):
             return self._pendiente(intento)
         respuesta = EmitirComprobanteResponse(
             exito=True,
@@ -489,7 +329,7 @@ class ReconciliacionIndividualService:
         await self.idempotencia.actualizar_intento_desde_respuesta(
             intento, respuesta, commit=False, conservar_instante_fiscal=True
         )
-        await ElegibilidadReceService(self.db).cerrar_reconciliacion_individual(guarda)
+        await ElegibilidadReceService(self.db).cerrar_reconciliacion_verificada(guarda)
         publicada = await self.idempotencia.guardar_respuesta_operacion_cas(
             operacion_id=operacion.id,
             response_json=respuesta,
