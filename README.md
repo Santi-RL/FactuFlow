@@ -4,21 +4,19 @@ Sistema de facturación electrónica ARCA enfocado en usuarios administrativos n
 
 ## Release publicada y estado desplegado
 
-Versión publicada más reciente: `v0.3.15`
+Versión publicada más reciente: `v0.3.16`
 
-[GitHub Release v0.3.15](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.15)
+[GitHub Release v0.3.16](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.16)
 
-`v0.3.15` permite verificar desde **Comprobantes** o la pantalla de emisión
-las facturas y notas individuales pendientes. Cuando ARCA confirma una
-autorización y los datos coinciden, FactuFlow recupera el comprobante con
-su CAE original. El tag inmutable apunta a
-`5f82ff305278e3b36b8bc4b5d48b3e7efdcc32b9`.
+`v0.3.16` permite verificar un lote interrumpido, recuperar las autorizaciones
+confirmadas por ARCA y conservar las guardas de los grupos inciertos. El tag
+inmutable apunta a `121fce33af26ebbfe2e2ffdfbc169a442e660ae8`.
 
 El historial de versiones se conserva en `CHANGELOG.md`, los tags y los dossiers
 de `docs/project/releases/`.
 
 Su alcance, compatibilidad, evidencia de publicación y recuperación se conservan en
-el [dossier de v0.3.15](docs/project/releases/v0.3.15-candidate.md).
+el [dossier de v0.3.16](docs/project/releases/v0.3.16-candidate.md).
 
 El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 `vps-admin`. No debe inferirse desde este README, `main`, una release ni un tag.
