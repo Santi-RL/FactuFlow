@@ -14,6 +14,8 @@ autoriza producción.
 
 ## Índice
 
+- [`v0.3.16-candidate.md`](v0.3.16-candidate.md): recuperación de autorizaciones
+  de lotes interrumpidos, con cierre por grupo y rollback acotado.
 - [`v0.3.15-candidate.md`](v0.3.15-candidate.md): recuperación de la emisión
   individual interrumpida de facturas y notas.
 - [`v0.3.14-candidate.md`](v0.3.14-candidate.md): vencimiento de pago en notas
