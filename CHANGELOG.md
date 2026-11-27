@@ -18,6 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.17] - 26/11/2026
+
+Publicada sobre `1566eebfdf2bc889293ac576b2c6d3cd51214756`.
+[Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.17) y
+[dossier](docs/project/releases/v0.3.17-candidate.md).
+
 - En la revisión, el detalle y el PDF de facturas y notas, el precio unitario
   usa los decimales necesarios para explicar el subtotal y la bonificación.
   Al editar se dispone del precio completo, incluso al copiar una factura.
