@@ -277,7 +277,17 @@ test.describe("Emisión de Comprobantes", () => {
     await page
       .getByLabel(/precio unitario/i)
       .first()
-      .fill("1000");
+      .fill("27.272,727272727272");
+    await page.route("**/comprobantes/previsualizar", async (route) => {
+      const pedido = route.request().postDataJSON();
+      expect(pedido.items[0].precio_unitario).toBe("27272.727272727272");
+      await route.fulfill({ json: {
+        subtotal: "27272.73", iva_21: "5727.27", iva_10_5: "0.00",
+        iva_27: "0.00", total: "33000.00", subtotales_items: ["27272.73"],
+        precios_unitarios_visibles: ["27.272,73"], moneda: "PES",
+        cotizacion: "1", receptor: pedido,
+      } });
+    });
 
     // Click en vista previa
     await page.getByTestId("comprobante-vista-previa").click();
@@ -286,6 +296,9 @@ test.describe("Emisión de Comprobantes", () => {
     await expect(
       page.getByTestId("comprobante-confirmar-emitir"),
     ).toBeVisible();
+    const fila = page.getByRole("row").filter({ hasText: "Servicio de prueba" });
+    await expect(fila.getByRole("cell", { name: "$ 27.272,73", exact: true })).toHaveCount(2);
+    await page.screenshot({ path: "../output/playwright/pf17-precio-vista-previa.png" });
   });
 
   test("debe emitir comprobante (mock) al confirmar desde la vista previa", async ({

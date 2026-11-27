@@ -99,6 +99,21 @@ describe("ComprobanteDetalleView, historia fiscal", () => {
     wrapper.unmount();
   });
 
+  it("muestra el precio legible del renglón conservando su valor fiscal", async () => {
+    const comprobante = crearComprobante("completa");
+    comprobante.items = [{
+      id: 1, descripcion: "Servicio", cantidad: "1", unidad: "unidad",
+      precio_unitario: "27272.727272727272", precio_unitario_visible: "27.272,73",
+      descuento_porcentaje: "0", iva_porcentaje: "21", subtotal: "27272.73", orden: 0,
+    }];
+    vi.mocked(comprobantesService.obtener).mockResolvedValue(comprobante);
+    const wrapper = mount(ComprobanteDetalleView);
+    await flushPromises();
+    expect(wrapper.text()).toContain("27.272,73");
+    expect(wrapper.text()).not.toContain("27.272,727272727272");
+    wrapper.unmount();
+  });
+
   it("mantiene la consulta y bloquea sólo los botones PDF ante evidencia inválida", async () => {
     const wrapper = await cargar("no_verificable");
     expect(wrapper.text()).not.toContain("Datos históricos no verificados");

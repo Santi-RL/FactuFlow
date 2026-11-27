@@ -345,26 +345,38 @@ describe("ComprobanteNuevoView", () => {
     }
   });
 
-  it("NC conserva la referencia, alcance y fecha explícita en la revisión", async () => {
+  it.each(["factuflow", "arca"])("NC conserva el original de %s en revisión y emisión", async (origen) => {
     mockedComprobantesService.proximoNumero.mockResolvedValue(diagnosticoNumeracionMock(1));
     const wrapper = await mountView();
     const vm = await completarFormulario(wrapper);
     vm.formData.tipo_comprobante = 8;
     await flushPromises();
     const asociado = { tipo_comprobante: 6, punto_venta: 4, numero: 12, fecha: "2026-05-19", cuit: "20123456789" };
-    wrapper.getComponent({ name: "FacturaAsociada" }).vm.$emit("preparada", {
-      origen: "factuflow", asociado, concepto: 1, total: "121.00", items: [...vm.formData.items],
+    const original = {
+      origen, asociado, concepto: 1, total: "121.00",
+      items: [{ ...vm.formData.items[0], precio_unitario: "100.0000000000000000001" }],
       receptor: { ...vm.formData.cliente }, fecha_servicio_desde: null, fecha_servicio_hasta: null, fecha_vto_pago: null,
-    });
+    };
+    const asociada = wrapper.getComponent({ name: "FacturaAsociada" });
+    asociada.vm.$emit("preparada", original);
     await flushPromises();
     await vm.abrirVistaPrevia();
     const pedido = mockedComprobantesService.previsualizar.mock.calls.slice(-1)[0]?.[0];
     expect(pedido).toMatchObject({ tipo_comprobante: 8, fecha_emision: "2026-05-20", alcance_nota: "total", comprobantes_asociados: [asociado] });
+    expect(pedido?.items[0].precio_unitario).toBe("100.0000000000000000001");
+    expect(wrapper.getComponent({ name: "ComprobantePreview" }).text()).toContain("$ 100,00");
+    expect(wrapper.getComponent({ name: "ComprobantePreview" }).text()).not.toContain("100,0000000000000000001");
     expect(wrapper.getComponent({ name: "ComprobantePreview" }).text()).toContain("00004-00000012");
     expect(mockedComprobantesService.emitir).not.toHaveBeenCalled();
-    wrapper.getComponent({ name: "FacturaAsociada" }).vm.$emit("preparada", null);
+    asociada.vm.$emit("preparada", null);
     await flushPromises();
     expect(wrapper.findComponent({ name: "ComprobantePreview" }).exists()).toBe(false);
+    asociada.vm.$emit("preparada", original);
+    await flushPromises();
+    await vm.abrirVistaPrevia();
+    mockedComprobantesService.emitir.mockResolvedValueOnce(respuestaFinal());
+    await vm.confirmarEmision();
+    expect(mockedComprobantesService.emitir.mock.calls[0][0].items).toEqual(pedido?.items);
   });
   beforeEach(() => {
     vi.clearAllMocks();
@@ -380,6 +392,7 @@ describe("ComprobanteNuevoView", () => {
           iva_27: "0.00",
           total: "121.00",
           subtotales_items: ["100.00"],
+          precios_unitarios_visibles: ["100,00"],
           moneda: request.moneda,
           cotizacion: "1",
           receptor: request,

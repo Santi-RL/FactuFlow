@@ -3,11 +3,19 @@
 from datetime import date
 from decimal import Decimal
 from typing import Any, List, Literal, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from app.core.date_parsing import parse_fecha_input
 from app.core.comprobante_totales import calcular_totales
 from app.core.fiscal_storage import validate_storage_request
+from app.core.precio_visible import precio_unitario_visible as formatear_precio_unitario
 from app.schemas.lectura_historica import LecturaHistorica
 
 # ==================== Items ====================
@@ -58,6 +66,16 @@ class ItemComprobanteResponse(ItemComprobanteBase):
     comprobante_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def precio_unitario_visible(self) -> str:
+        return formatear_precio_unitario(
+            self.cantidad,
+            self.precio_unitario,
+            self.descuento_porcentaje,
+            self.subtotal,
+        )
 
 
 # ==================== Comprobante ====================
@@ -201,6 +219,7 @@ class PrevisualizacionComprobanteResponse(BaseModel):
     iva_27: Decimal
     total: Decimal
     subtotales_items: List[Decimal]
+    precios_unitarios_visibles: List[str]
     moneda: str
     cotizacion: Decimal
     receptor: ReceptorPrevisualizacionResponse

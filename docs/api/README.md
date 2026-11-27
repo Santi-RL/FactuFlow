@@ -434,6 +434,12 @@ errores de negocio usan 400 y errores de contrato 422. No consulta WSAA,
 RECE, padrón o numeración ni escribe clientes, comprobantes u operaciones.
 No solicita CAE ni reserva un número.
 
+Para lectura, la respuesta agrega `precios_unitarios_visibles` en el orden de
+los ítems. El detalle devuelve `precio_unitario_visible` junto al precio
+decimal de cada ítem. Estos textos en formato argentino se usan en la UI y
+comparten la regla del PDF. La emisión sigue recibiendo `precio_unitario`
+como decimal técnico.
+
 La preparación individual de notas declara `alcance_nota` (`total`, `parcial` o
 `ajuste`) y un único `comprobantes_asociados` con `tipo_comprobante`,
 `punto_venta`, `numero`, `fecha` y `cuit`. `GET /api/comprobantes/notas/original`

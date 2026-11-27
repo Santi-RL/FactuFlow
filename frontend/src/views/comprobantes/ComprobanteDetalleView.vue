@@ -436,9 +436,9 @@ const obtenerLetraComprobante = (tipo: number): string => {
                   {{ formatearDecimalFiscal(item.cantidad) }} {{ item.unidad }}
                 </td>
                 <td
-                  class="px-4 py-3 text-sm text-right font-mono text-gray-900"
+                  class="px-4 py-3 text-sm text-right font-mono text-gray-900 [overflow-wrap:anywhere]"
                 >
-                  {{ formatearDecimalFiscal(item.precio_unitario, 2) }}
+                  {{ item.precio_unitario_visible ?? formatearDecimalFiscal(item.precio_unitario, 2) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-center text-gray-600">
                   {{ item.iva_porcentaje }}%

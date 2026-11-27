@@ -18,6 +18,7 @@ from app.services.comprobantes_consulta import filtrar_comprobantes
 from app.models.comprobante import Comprobante
 from app.models.idempotencia_fiscal import OperacionIdempotente
 from app.models.usuario import Usuario
+from app.core.precio_visible import precio_unitario_visible
 from app.schemas.comprobante import (
     EmitirComprobanteRequest,
     PrevisualizacionComprobanteResponse,
@@ -814,7 +815,21 @@ async def previsualizar_comprobante(
     request = request.model_copy(update={"empresa_id": empresa_activa_id})
     try:
         await NotasService(db).validar(request)
-        return await FacturacionService(db).previsualizar_comprobante(request)
+        revision = await FacturacionService(db).previsualizar_comprobante(request)
+        return {
+            **revision,
+            "precios_unitarios_visibles": [
+                precio_unitario_visible(
+                    item.cantidad,
+                    item.precio_unitario,
+                    item.descuento_porcentaje,
+                    subtotal,
+                )
+                for item, subtotal in zip(
+                    request.items, revision["subtotales_items"], strict=True
+                )
+            ],
+        }
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

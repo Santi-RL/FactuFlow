@@ -32,5 +32,18 @@ describe("ItemRow PF-03B", () => {
     expect(cero.precio_unitario).toBe(0);
     await wrapper.setProps({ item: cero });
     expect(wrapper.text()).not.toContain("Revisá los importes");
+    await precio.setValue("27.272,727272727272123456");
+    const editado = wrapper.emitted("update:item")!.slice(-1)[0][0] as ItemComprobante;
+    expect(editado.precio_unitario).toBe("27272.727272727272123456");
+    await wrapper.setProps({ item: editado });
+    await precio.trigger("blur");
+    expect((precio.element as HTMLInputElement).value).toBe("27.272,727272727272123456");
+    await precio.setValue("1.234");
+    const ambiguo = wrapper.emitted("update:item")!.slice(-1)[0][0] as ItemComprobante;
+    expect(Number.isNaN(ambiguo.precio_unitario)).toBe(true);
+    await wrapper.setProps({ item: ambiguo });
+    await precio.trigger("blur");
+    expect((precio.element as HTMLInputElement).value).toBe("1.234");
+    expect(wrapper.text()).toContain("Usá coma decimal");
   });
 });

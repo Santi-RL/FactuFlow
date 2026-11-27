@@ -7,17 +7,17 @@ import type { FiscalDecimal } from "@/utils/fiscal-decimal";
 export interface ItemComprobanteCreate {
   codigo?: string;
   descripcion: string;
-  cantidad: number;
+  cantidad: FiscalDecimal;
   unidad: string;
-  precio_unitario: number;
-  descuento_porcentaje: number;
+  precio_unitario: FiscalDecimal;
+  descuento_porcentaje: FiscalDecimal;
   iva_porcentaje: number;
   orden: number;
 }
 
 export interface EditableItemComprobante extends ItemComprobanteCreate {
   id?: number;
-  subtotal?: number;
+  subtotal?: FiscalDecimal;
   comprobante_id?: number;
 }
 
@@ -32,6 +32,7 @@ export interface ItemComprobante extends Omit<
   id?: number;
   subtotal?: FiscalDecimal;
   comprobante_id?: number;
+  precio_unitario_visible?: string;
 }
 
 export interface EmitirComprobanteRequest {
@@ -104,6 +105,7 @@ export interface PrevisualizacionComprobanteResponse {
   iva_27: FiscalDecimal;
   total: FiscalDecimal;
   subtotales_items: FiscalDecimal[];
+  precios_unitarios_visibles?: string[];
   moneda: string;
   cotizacion: FiscalDecimal;
   receptor: {

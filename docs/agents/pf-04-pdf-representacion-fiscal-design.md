@@ -33,7 +33,7 @@ este corte no rediseña la paginación ni su contador preexistente.
 
 Esta regla y su matriz describen el corte implementado. Para el precio
 unitario, el [corte de formato argentino](pf-17-13-formato-argentino-design.md#precio-unitario-en-comprobantes)
-define la presentación futura con decimales según el renglón. Conserva las
+define la presentación vigente con decimales según el renglón. Conserva las
 reglas de este contrato sobre importes fiscales, ajuste de celdas y fidelidad
 histórica.
 

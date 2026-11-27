@@ -57,11 +57,10 @@ por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado
 
 **Prioridad:** P3 administrativa.
 
-Unificar el formato de fechas y números visibles en la interfaz, los PDF,
-los reportes y las ayudas y ejemplos del constructor de plantillas. Incluir
-en el mismo corte el precio unitario de facturas, notas de crédito y notas de
-débito: mostrar dos decimales cuando sean suficientes para explicar el subtotal
-visible y usar la precisión necesaria en los demás casos.
+Completar el formato argentino de fechas y números visibles en la interfaz,
+los PDF, los reportes y las ayudas y ejemplos del constructor de plantillas.
+Incluir los controles de entrada y la hoja de instrucciones de Excel con
+pruebas de lectura en distintas regiones y de equivalencia al importar.
 
 La mejora reutiliza la presentación de comprobantes y el cálculo decimal
 vigentes. Preserva importes autorizados, precisión guardada, identificadores y

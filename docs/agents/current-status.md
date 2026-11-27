@@ -69,9 +69,9 @@ y registrar el comprobante original en una transacción. En los lotes, el
 [cierre por grupo](pf-02-04-reconciliacion-integral-design.md#recuperación-moderna-de-lotes)
 recupera los comprobantes confirmados y conserva pendientes los resultados
 inciertos. El reintento del remanente requiere una nueva confirmación fiscal.
-La próxima unidad reúne el
-[formato argentino y el precio unitario legible](pf-17-13-formato-argentino-design.md)
-en un corte de presentación pendiente. Consultar los cierres operativos de
+La revisión, el detalle y el PDF comparten el
+[precio unitario legible](pf-17-13-formato-argentino-design.md).
+Quedan los demás formatos visibles, reportes y plantillas. Consultar los cierres operativos de
 notas y descargas en el plano de control. No repetir sus preflight por un
 handoff reemplazado.
 

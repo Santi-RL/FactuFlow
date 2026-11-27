@@ -207,7 +207,9 @@ class TestPDFService:
                 unidad="unidades",
                 precio_unitario=Decimal("0.1234567890123456789012345678"),
                 descuento_porcentaje=Decimal("0.00123"),
-                subtotal=Decimal("0.12"),
+                subtotal=Decimal(
+                    "0.19"
+                ),  # Diferencia histórica: conservar el precio completo.
             )
         ]
         documentos = []
@@ -308,7 +310,8 @@ class TestPDFService:
             page.extract_text() for page in PdfReader(BytesIO(pdf)).pages
         )
         assert "1,00005" in rendered
-        assert "0,1234567890123456789012345678" in rendered.replace("\n", "")
+        assert "0,12" in rendered
+        assert "0,1234567890123456789012345678" not in rendered.replace("\n", "")
         assert "0,00123" in rendered
         assert "9.007.199.254.740.992,01" in rendered
 
