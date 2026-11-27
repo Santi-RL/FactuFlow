@@ -11,9 +11,9 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Línea base aceptada
 
-- La release publicada más reciente es `v0.3.17`. Facturas y notas comparten
-  el precio unitario legible en la revisión, el detalle y el PDF. El
-  [dossier](../project/releases/v0.3.17-candidate.md) conserva el alcance,
+- La release publicada más reciente es `v0.3.18`. Completa el formato
+  argentino en formularios, reportes, PDF y ejemplos de plantillas de Excel.
+  El [dossier](../project/releases/v0.3.18-candidate.md) conserva el alcance,
   la revisión, la CI y el retorno del corte.
 - FastAPI, Vue 3 y persistencia SQLAlchemy; Alembic es el camino canónico de
   esquema fuera de tests controlados. Topología y salud de cada instalación se

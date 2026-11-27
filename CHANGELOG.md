@@ -18,6 +18,12 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+## [0.3.18] - 27/11/2026
+
+Publicada sobre `f52e1c2a33c0be6f205c8adbcbcae778e4baf35d`.
+[Release](https://github.com/Santi-RL/FactuFlow/releases/tag/v0.3.18) y
+[dossier](docs/project/releases/v0.3.18-candidate.md).
+
 - Las fechas se ingresan en formato argentino en emisión, lotes, configuración
   y reportes. Las cantidades, las tasas de IVA y los ejemplos de plantillas
   usan coma decimal y punto de miles. El PDF agrupa las cantidades y conserva
