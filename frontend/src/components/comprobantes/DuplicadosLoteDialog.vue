@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearNumero } from "@/composables/useFormatters";
 import { computed, nextTick, ref, watch } from "vue";
 
 import type {
@@ -62,7 +63,7 @@ const hasPartial = computed(() =>
   ),
 );
 const formatCount = (count: number, singular: string, plural: string) =>
-  `${count} ${count === 1 ? singular : plural}`;
+  `${formatearNumero(count)} ${count === 1 ? singular : plural}`;
 const formatComprobantes = (count: number) =>
   formatCount(count, "comprobante", "comprobantes");
 const formatCoincidentes = (count: number) =>
@@ -701,7 +702,7 @@ const onKeydown = (event: KeyboardEvent) => {
                 >
                   Anterior
                 </button>
-                <span class="text-sm text-gray-600">Página {{ details.page }} de {{ details.total_pages }}</span>
+                <span class="text-sm text-gray-600">Página {{ formatearNumero(details.page) }} de {{ formatearNumero(details.total_pages) }}</span>
                 <button
                   type="button"
                   class="rounded border border-gray-300 px-3 py-2 text-sm disabled:opacity-50"

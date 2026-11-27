@@ -537,10 +537,9 @@ class PDFService:
         number = Decimal(str(value))
         if abs(number.adjusted()) > 1000:
             return str(number).replace(".", ",")
-        formatted = f"{number:f}"
-        if "." in formatted:
-            formatted = formatted.rstrip("0").rstrip(".")
-        return formatted.replace(".", ",")
+        entero, _, decimales = format(number, ",f").partition(".")
+        fraccion = decimales.rstrip("0")
+        return entero.replace(",", ".") + ("," + fraccion if fraccion else "")
 
     def _format_cuit_ar(self, value: str | None) -> str:
         """Formatea CUIT de 11 dígitos para lectura humana."""

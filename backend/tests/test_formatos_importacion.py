@@ -646,6 +646,8 @@ async def test_plantilla_protegida_sistema_no_editable_y_clonable(
 async def test_analizar_y_descargar_excel_de_plantilla(
     client: AsyncClient,
     auth_headers: dict,
+    db_session: AsyncSession,
+    test_empresa: Empresa,
 ):
     """La API debe leer encabezados y descargar un XLSX generado."""
     analizar = await client.post(
@@ -697,6 +699,28 @@ async def test_analizar_y_descargar_excel_de_plantilla(
         for index in range(1, 4)
     ] == [None, None, None]
     assert workbook["Instrucciones"].cell(row=7, column=4).value == "Ejemplo"
+    assert workbook["Instrucciones"]["D8"].value == "31/05/2026"
+    assert workbook["Instrucciones"]["D10"].value == "10.000,00"
+    datos = workbook["Comprobantes"]
+    datos["A2"] = date(2026, 5, 31)
+    datos["B2"] = "Servicio"
+    datos["C2"] = 10000.25
+    salida = BytesIO()
+    workbook.save(salida)
+    service = FormatosImportacionService(db_session)
+    version = await service.obtener_version(
+        crear.json()["version_vigente"]["id"], test_empresa.id
+    )
+    importado = await service.importar_con_version(
+        salida.getvalue(), test_empresa, version
+    )
+    referencia = await service.importar_con_version(
+        _xlsx_con_filas(headers, [[date(2026, 5, 31), "Servicio", 10000.25]]),
+        test_empresa,
+        version,
+    )
+    assert importado.filas == referencia.filas
+    assert len(importado.filas) == 1
 
 
 @pytest.mark.asyncio

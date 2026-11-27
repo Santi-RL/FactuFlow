@@ -18,7 +18,7 @@ import { ArrowLeftIcon, DocumentChartBarIcon } from "@heroicons/vue/24/outline";
 const router = useRouter();
 const empresaStore = useEmpresaStore();
 const { showError } = useNotification();
-const { formatearFecha, formatearMoneda: formatearImporte } = useFormatters();
+const { formatearNumero, formatearFecha, formatearMoneda: formatearImporte } = useFormatters();
 
 const loading = ref(false);
 const reporteCompleto = ref<ReporteVentas | null>(null);
@@ -313,7 +313,7 @@ const resumenCards = computed(() => {
         </p>
         <p>
           <span class="font-medium">Total comprobantes:</span>
-          {{ reporte.resumen.cantidad_comprobantes }}
+          {{ formatearNumero(reporte.resumen.cantidad_comprobantes) }}
         </p>
       </div>
 

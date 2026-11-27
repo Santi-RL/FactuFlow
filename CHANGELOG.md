@@ -18,6 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+- Las fechas se ingresan en formato argentino en emisión, lotes, configuración
+  y reportes. Las cantidades, las tasas de IVA y los ejemplos de plantillas
+  usan coma decimal y punto de miles. El PDF agrupa las cantidades y conserva
+  la precisión del renglón y de la cotización.
+
 ## [0.3.17] - 26/11/2026
 
 Publicada sobre `1566eebfdf2bc889293ac576b2c6d3cd51214756`.

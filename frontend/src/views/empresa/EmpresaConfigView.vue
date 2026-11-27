@@ -34,6 +34,7 @@ import type {
 } from "@/types/perfil-carga-masiva";
 import type { PuntoVenta } from "@/types/punto_venta";
 import { configuracionPerfilVacia } from "@/utils/perfiles-carga-masiva";
+import { ejemploVisible } from "@/utils/ejemplo-plantilla";
 import { formatearFechaHoraArgentina } from "@/utils/instantes";
 import {
   ArrowDownIcon,
@@ -315,7 +316,7 @@ const crearColumnaPlantilla = (
   valor: data.valor || "",
   transformacion: data.transformacion || "",
   requerido: data.requerido ?? false,
-  ejemplo: data.ejemplo || "",
+  ejemplo: ejemploVisible(data.campo_destino || "", data.ejemplo || ""),
   letra_columna: data.letra_columna || "",
   indice_columna: data.indice_columna || "",
 });
@@ -337,7 +338,7 @@ const resetPlantillaForm = () => {
       campo_destino: "fecha_emision",
       requerido: true,
       transformacion: "fecha",
-      ejemplo: "2026-05-31",
+      ejemplo: "31/05/2026",
     }),
     crearColumnaPlantilla({
       etiqueta: "Documento receptor",
@@ -357,7 +358,7 @@ const resetPlantillaForm = () => {
       campo_destino: "item_precio_unitario",
       requerido: true,
       transformacion: "decimal",
-      ejemplo: "10000.00",
+      ejemplo: "10.000,00",
     }),
     crearColumnaPlantilla({
       etiqueta: "IVA",
@@ -399,6 +400,7 @@ const columnasDesdeConfiguracion = (
           ? String(detalle.encabezados[0])
           : campo.replace(/_/g, " "),
       campo_destino: campo,
+      ejemplo: String(detalle.ejemplo ?? ""),
       origen:
         (String(detalle.origen || "header") as PlantillaOrigen) || "header",
       valor: String(detalle.valor ?? ""),
@@ -422,7 +424,7 @@ const columnasDesdeConfiguracion = (
         valor: String(columna.valor ?? ""),
         transformacion: String(columna.transformacion || ""),
         requerido: Boolean(columna.requerido),
-        ejemplo: String(columna.ejemplo || ""),
+        ejemplo: String(columna.ejemplo ?? ""),
         letra_columna: String(columna.letra_columna || ""),
         indice_columna:
           columna.indice_columna === undefined

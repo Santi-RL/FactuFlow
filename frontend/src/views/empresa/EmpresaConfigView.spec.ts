@@ -145,8 +145,8 @@ describe("EmpresaConfigView", () => {
 
     expect(wrapper.text()).toContain("31/12/2025, 22:00");
     expect(
-      (wrapper.get('input[type="date"]').element as HTMLInputElement).value,
-    ).toBe("2024-01-01");
+      (wrapper.get('input[placeholder="DD/MM/AAAA"]').element as HTMLInputElement).value,
+    ).toBe("01/01/2024");
     wrapper.unmount();
   });
 

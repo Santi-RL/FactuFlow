@@ -16,6 +16,14 @@ describe("ItemRow PF-03B", () => {
     };
     const wrapper = mount(ItemRow, { props: { item, index: 0 } });
     const precio = wrapper.get('input[aria-label="Precio Unitario"]');
+    const cantidad = wrapper.get('input[aria-label="Cantidad"]');
+    await cantidad.setValue("1.234,56");
+    const conCantidad = wrapper.emitted("update:item")!.slice(-1)[0][0] as ItemComprobante;
+    expect(conCantidad.cantidad).toBe("1234.56");
+    expect(conCantidad.precio_unitario).toBe(100);
+    await wrapper.setProps({ item: conCantidad });
+    await cantidad.trigger("blur");
+    expect((cantidad.element as HTMLInputElement).value).toBe("1.234,56");
     await precio.setValue("");
     const vacio = wrapper
       .emitted("update:item")!

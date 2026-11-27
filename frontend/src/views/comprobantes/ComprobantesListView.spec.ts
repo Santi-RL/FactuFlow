@@ -139,7 +139,7 @@ describe("descargas desde el listado", () => {
     await flushPromises();
     const store = useComprobantesStore();
     store.seleccionarPDF(1, true);
-    await wrapper.get('input[type="date"]').setValue("2026-11-01");
+    await wrapper.get('#filtros-desde').setValue("01/11/2026");
     await wrapper
       .findAll("button")
       .find((b) => b.text() === "Aplicar Filtros")!
@@ -152,8 +152,8 @@ describe("descargas desde el listado", () => {
     wrapper = montar();
     await flushPromises();
     expect(
-      (wrapper.get('input[type="date"]').element as HTMLInputElement).value,
-    ).toBe("2026-11-01");
+      (wrapper.get('#filtros-desde').element as HTMLInputElement).value,
+    ).toBe("01/11/2026");
     expect(store.paginaActual).toBe(2);
     expect(store.seleccionPDF).toEqual([2]);
     wrapper.unmount();

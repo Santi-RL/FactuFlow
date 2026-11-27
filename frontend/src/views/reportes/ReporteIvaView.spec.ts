@@ -147,7 +147,7 @@ describe("ReporteIvaView", () => {
     expect(wrapper.text()).toContain("sin detalle suficiente");
   });
 
-  it("muestra columnas y valores de IVA 27% en el detalle", async () => {
+  it("muestra columnas y valores de IVA 27 % en el detalle", async () => {
     mockedReportesService.obtenerReporteIVA.mockResolvedValue(
       reporteIvaMock("Cliente 27", 1000),
     );
@@ -157,8 +157,8 @@ describe("ReporteIvaView", () => {
     await vm.generarReporte();
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Gravado 27%");
-    expect(wrapper.text()).toContain("IVA 27%");
+    expect(wrapper.text()).toContain("Gravado 27 %");
+    expect(wrapper.text()).toContain("IVA 27 %");
     expect(wrapper.text()).toContain("Cliente 27");
     expect(wrapper.text()).toContain("1.000,00");
     expect(wrapper.text()).toContain("270,00");

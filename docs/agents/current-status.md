@@ -71,7 +71,8 @@ recupera los comprobantes confirmados y conserva pendientes los resultados
 inciertos. El reintento del remanente requiere una nueva confirmación fiscal.
 La revisión, el detalle y el PDF comparten el
 [precio unitario legible](pf-17-13-formato-argentino-design.md).
-Quedan los demás formatos visibles, reportes y plantillas. Consultar los cierres operativos de
+Los formularios muestran fechas argentinas y transmiten ISO. Los reportes y los
+ejemplos de plantillas comparten la presentación argentina. Consultar los cierres operativos de
 notas y descargas en el plano de control. No repetir sus preflight por un
 handoff reemplazado.
 
@@ -98,8 +99,7 @@ publicar o desplegar; cada operación conserva su alcance autorizado.
 ## Cómo retomar
 
 1. Revisar estado de Git y sincronía con `origin/main`, preservando cambios ajenos.
-2. Leer `VISION.md`, Ahora 1 del roadmap y el diseño de presentación fiscal
-   aplicable al formato argentino y al precio unitario.
+2. Leer `VISION.md`, Ahora 1 del roadmap y el [diseño de coordinación WSAA](pf-09-wsaa-coordinacion-cache-design.md).
 3. Usar el [índice de agentes](README.md) para abrir sólo contratos/runbooks
    aplicables; completar el checklist fiscal antes de implementar si corresponde.
 4. No consultar ni modificar producción sin autorización explícita y el

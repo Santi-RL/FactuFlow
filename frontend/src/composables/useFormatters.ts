@@ -20,17 +20,17 @@ const formatearFechaLocal = (fecha: Date): string => {
   return fecha.toLocaleDateString("es-AR", DATE_FORMAT_OPTIONS);
 };
 
-const esFechaCalendarioValida = (
-  fecha: Date,
-  year: number,
-  month: number,
-  day: number,
-): boolean => {
-  return (
-    fecha.getFullYear() === year &&
-    fecha.getMonth() === month - 1 &&
-    fecha.getDate() === day
-  );
+/** Convierte sólo una fecha argentina completa y válida al contrato ISO. */
+export const fechaArgentinaAIso = (valor: string): string => {
+  const partes = ARGENTINE_DATE_PATTERN.exec(valor);
+  if (!partes) return "";
+  const [, dia, mes, anio] = partes;
+  const fecha = new Date(0);
+  fecha.setUTCFullYear(Number(anio), Number(mes) - 1, Number(dia));
+  return Number(anio) > 0 && fecha.getUTCFullYear() === Number(anio)
+    && fecha.getUTCMonth() + 1 === Number(mes) && fecha.getUTCDate() === Number(dia)
+    ? `${anio}-${mes}-${dia}`
+    : "";
 };
 
 /**
@@ -55,16 +55,11 @@ export const formatearFecha = (fecha: string | Date): string => {
     }
 
     const [, firstPart, secondPart, thirdPart] = match;
-    const year = Number(isoMatch ? firstPart : thirdPart);
-    const month = Number(secondPart);
-    const day = Number(isoMatch ? thirdPart : firstPart);
-    const date = new Date(year, month - 1, day);
-
-    if (!esFechaCalendarioValida(date, year, month, day)) {
-      return fecha;
-    }
-
-    return formatearFechaLocal(date);
+    const [dia, mes, anio] = isoMatch
+      ? [thirdPart, secondPart, firstPart]
+      : [firstPart, secondPart, thirdPart];
+    const visible = [dia, mes, anio].join("/");
+    return fechaArgentinaAIso(visible) ? visible : fecha;
   }
 
   if (Number.isNaN(fecha.getTime())) {

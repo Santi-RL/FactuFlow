@@ -441,7 +441,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
                   {{ item.precio_unitario_visible ?? formatearDecimalFiscal(item.precio_unitario, 2) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-center text-gray-600">
-                  {{ item.iva_porcentaje }}%
+                  {{ formatearDecimalFiscal(item.iva_porcentaje) }} %
                 </td>
                 <td
                   class="px-4 py-3 text-sm text-right font-mono text-gray-900"
@@ -469,7 +469,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
               v-if="decimalEsPositivo(comprobante.iva_21)"
               class="flex justify-between text-gray-700"
             >
-              <span class="font-medium">IVA 21%:</span>
+              <span class="font-medium">IVA 21 %:</span>
               <span class="font-mono">{{
                 formatMonto(comprobante.iva_21)
               }}</span>
@@ -479,7 +479,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
               v-if="decimalEsPositivo(comprobante.iva_10_5)"
               class="flex justify-between text-gray-700"
             >
-              <span class="font-medium">IVA 10.5%:</span>
+              <span class="font-medium">IVA 10,5 %:</span>
               <span class="font-mono">{{
                 formatMonto(comprobante.iva_10_5)
               }}</span>
@@ -489,7 +489,7 @@ const obtenerLetraComprobante = (tipo: number): string => {
               v-if="decimalEsPositivo(comprobante.iva_27)"
               class="flex justify-between text-gray-700"
             >
-              <span class="font-medium">IVA 27%:</span>
+              <span class="font-medium">IVA 27 %:</span>
               <span class="font-mono">{{
                 formatMonto(comprobante.iva_27)
               }}</span>

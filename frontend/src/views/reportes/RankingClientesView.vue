@@ -25,6 +25,7 @@ const empresaStore = useEmpresaStore();
 const { showError } = useNotification();
 const {
   formatearFecha,
+  formatearNumero,
   formatearMoneda: formatearImporte,
   formatearCUIT,
 } = useFormatters();
@@ -363,7 +364,7 @@ const totalGeneral = computed(() =>
               >
                 <span class="text-sm text-brand-slate">Comprobantes</span>
                 <span class="font-semibold text-brand-ink">
-                  {{ cliente.cantidad_comprobantes }}
+                  {{ formatearNumero(cliente.cantidad_comprobantes) }}
                 </span>
               </div>
             </div>
@@ -410,7 +411,7 @@ const totalGeneral = computed(() =>
                     Comprobantes
                   </p>
                   <p class="font-semibold text-brand-ink">
-                    {{ cliente.cantidad_comprobantes }}
+                    {{ formatearNumero(cliente.cantidad_comprobantes) }}
                   </p>
                 </div>
                 <div class="text-right">
@@ -430,7 +431,7 @@ const totalGeneral = computed(() =>
                 {{ formatearMoneda(cliente.total_facturado) }}
               </p>
               <p class="text-sm text-brand-slate">
-                {{ cliente.cantidad_comprobantes }} docs
+                {{ formatearNumero(cliente.cantidad_comprobantes) }} docs
               </p>
             </div>
           </div>
