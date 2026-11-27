@@ -165,6 +165,8 @@ test.describe("Emisión de Comprobantes", () => {
   test.beforeEach(async ({ page }) => {
     await mockApi(page);
     await loginAsAdmin(page);
+    const menuMovil = page.getByTestId("sidebar-toggle");
+    if (await menuMovil.isVisible()) await menuMovil.click();
     await Promise.all([
       page.waitForURL(/comprobantes/),
       page.getByTestId("nav-comprobantes").click(),
