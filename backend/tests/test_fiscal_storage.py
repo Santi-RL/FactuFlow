@@ -320,6 +320,10 @@ async def test_guardado_ampliado_y_consulta_preservan_pf03b(
         mode="json"
     )
     assert Decimal(response["cotizacion"]) == Decimal(payload["cotizacion"])
+    assert Decimal(response["items"][0]["precio_unitario"]) == item.precio_unitario
+    assert response["items"][0]["precio_unitario_visible"] == (
+        "1,2345E-200000" if compensado else "123.456.789.012.345,12"
+    )
     assert (
         Decimal(response["total"]) == service._calcular_totales(request.items)["total"]
     )

@@ -752,12 +752,6 @@ async def obtener_comprobante(
             cantidad=item.cantidad,
             unidad=item.unidad,
             precio_unitario=item.precio_unitario,
-            precio_unitario_visible=precio_unitario_visible(
-                item.cantidad,
-                item.precio_unitario,
-                item.descuento_porcentaje,
-                item.subtotal,
-            ),
             descuento_porcentaje=item.descuento_porcentaje,
             iva_porcentaje=item.iva_porcentaje,
             subtotal=item.subtotal,
