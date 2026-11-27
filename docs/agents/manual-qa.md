@@ -13,6 +13,16 @@ El estado desplegado autoritativo vive en el plano de control `VPS Hostinger` /
 
 ## Preparación segura
 
+### Formato argentino
+
+En un navegador argentino y otro estadounidense, ingresar 09/03/2026 en la
+emisión simulada y cotejar el 9 de marzo en la revisión y en el pedido. Borrar
+la fecha o escribir 31/02/2026 y verificar que no se reutilice la anterior.
+Probar también calendario, teclado y vencimiento mínimo. En el constructor,
+abrir una plantilla antigua, clonarla y contrastar los ejemplos con la hoja
+de instrucciones descargada. Importar una fecha de Excel y un importe numérico
+en la hoja de datos y cotejar los valores de la revisión.
+
 ### Notas individuales con dobles fiscales
 
 Desde una factura autorizada A/B/C preparar NC total/parcial y ND; repetir

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
 import { TrashIcon } from "@heroicons/vue/24/outline";
 import type { EditableItemComprobante as ItemComprobante } from "@/types/comprobante";
 import { ALICUOTAS_IVA } from "@/types/comprobante";
 import { subtotalItem } from "@/utils/comprobante-items";
-import { formatearDecimalFiscal } from "@/utils/fiscal-decimal";
+import DecimalEditable from "./DecimalEditable.vue";
 
 interface Props {
   item: ItemComprobante;
@@ -37,39 +37,6 @@ const updateField = (field: keyof ItemComprobante, value: any) => {
     [field]: value,
   });
 };
-
-const textoPrecioEnEdicion = ref<string | null>(null);
-const errorSeparador = computed(() =>
-  Number.isNaN(props.item.precio_unitario) && !!textoPrecioEnEdicion.value,
-);
-const precioCompleto = computed(() =>
-  Number.isNaN(props.item.precio_unitario)
-    ? ""
-    : formatearDecimalFiscal(props.item.precio_unitario, 2),
-);
-
-const interpretarPrecio = (texto: string) => {
-  // Un punto aislado puede ser decimal o de miles. Sólo se admite la
-  // agrupación pegada si la coma hace inequívoca la lectura argentina.
-  const valido = /^(?:\d+(?:,\d*)?|\d{1,3}(?:\.\d{3})+,\d*|,\d+)(?:e[+-]?\d+)?$/i.test(texto);
-  const decimal = texto.replace(/\./g, "").replace(",", ".");
-  // Los enteros seguros conservan el contrato numérico anterior.
-  if (!valido) return NaN;
-  return /^\d+$/.test(decimal) && Number.isSafeInteger(Number(decimal))
-    ? Number(decimal)
-    : decimal.replace(/^\./, "0.");
-};
-
-const editarPrecio = (texto: string) => {
-  textoPrecioEnEdicion.value = texto;
-  updateField("precio_unitario", interpretarPrecio(texto));
-};
-
-watch(() => props.item.precio_unitario, (nuevo) => {
-  const texto = textoPrecioEnEdicion.value;
-  if (texto !== null && !Object.is(interpretarPrecio(texto), nuevo))
-    textoPrecioEnEdicion.value = null;
-});
 
 const formatMonto = (monto: number | null) => {
   if (monto === null) return "Revisá los importes";
@@ -114,22 +81,16 @@ const formatMonto = (monto: number | null) => {
 
     <!-- Cantidad -->
     <td class="px-4 py-3">
-      <input
-        type="number"
+      <DecimalEditable
         aria-label="Cantidad"
-        :value="Number.isFinite(Number(item.cantidad)) ? item.cantidad : ''"
+        paso="0.01"
+        :model-value="item.cantidad"
+        :ayuda-id="'ayuda-cantidad-' + index"
         placeholder="0"
-        step="0.01"
-        min="0"
         required
         class="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="
-          updateField(
-            'cantidad',
-            ($event.target as HTMLInputElement).valueAsNumber,
-          )
-        "
-      >
+        @update:model-value="updateField('cantidad', $event)"
+      />
     </td>
 
     <!-- Unidad -->
@@ -148,26 +109,16 @@ const formatMonto = (monto: number | null) => {
 
     <!-- Precio Unitario -->
     <td class="px-4 py-3">
-      <input
-        type="text"
-        inputmode="decimal"
+      <DecimalEditable
         aria-label="Precio Unitario"
-        :value="textoPrecioEnEdicion ?? precioCompleto"
-        :aria-invalid="errorSeparador"
-        :aria-describedby="errorSeparador ? 'ayuda-precio-' + index : undefined"
+        :model-value="item.precio_unitario"
+        :ayuda-id="'ayuda-precio_unitario-' + index"
+        :decimales-minimos="2"
         placeholder="0,00"
         required
         class="w-28 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        @input="editarPrecio(($event.target as HTMLInputElement).value)"
-        @blur="!errorSeparador && (textoPrecioEnEdicion = null)"
-      >
-      <small
-        v-if="errorSeparador"
-        :id="'ayuda-precio-' + index"
-        class="block text-red-700"
-      >
-        Usá coma decimal, por ejemplo 1,234 o 1.234,00.
-      </small>
+        @update:model-value="updateField('precio_unitario', $event)"
+      />
     </td>
 
     <!-- IVA -->

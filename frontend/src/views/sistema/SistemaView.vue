@@ -41,7 +41,7 @@ import type {
 } from "@/types/almacenamiento";
 
 const { showError, showSuccess } = useNotification();
-const { formatearFecha } = useFormatters();
+const { formatearFecha, formatearNumero } = useFormatters();
 const empresaStore = useEmpresaStore();
 let estadoSolicitud = 0;
 
@@ -770,7 +770,8 @@ const formatBytes = (bytes: number | null | undefined) => {
     size /= 1024;
     unitIndex += 1;
   }
-  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[unitIndex]}`;
+  const precision = size >= 10 ? 1 : 2;
+  return `${size.toLocaleString("es-AR", { minimumFractionDigits: precision, maximumFractionDigits: precision })} ${units[unitIndex]}`;
 };
 
 const formatDateTime = (value: string | null) => {
@@ -1154,7 +1155,7 @@ onMounted(() => {
                       {{ lote.etiqueta_emisor }}
                     </td>
                     <td class="px-4 py-3 text-right text-sm text-gray-700">
-                      {{ lote.filas_persistidas }}
+                      {{ formatearNumero(lote.filas_persistidas) }}
                     </td>
                     <td class="px-4 py-3 text-right text-sm text-gray-700">
                       {{ formatBytes(lote.bytes_recuperables) }}
@@ -1287,8 +1288,8 @@ onMounted(() => {
                   Seleccionados: {{ totalSeleccionado }}
                 </p>
                 <p class="mt-1 text-sm text-gray-600">
-                  Lotes {{ selectedLotes.length }} · Logs {{ selectedLogs.length }} ·
-                  Temporales {{ selectedTemporales.length }}
+                  Lotes {{ formatearNumero(selectedLotes.length) }} · Logs {{ formatearNumero(selectedLogs.length) }} ·
+                  Temporales {{ formatearNumero(selectedTemporales.length) }}
                 </p>
               </div>
               <BaseButton

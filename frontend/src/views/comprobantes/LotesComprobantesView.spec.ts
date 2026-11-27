@@ -531,11 +531,11 @@ describe("LotesComprobantesView", () => {
         "Sin errores de validación en este comprobante. La revisión general de coincidencias del lote sigue pendiente.",
       );
       expect(wrapper.get('[data-testid="lote-reciente-12"]').text()).toContain(
-        "1432 comprobantes validados",
+        "1.432 comprobantes validados",
       );
       expect(
         wrapper.get('[data-testid="lote-reciente-12"]').text(),
-      ).not.toContain("1432 listos");
+      ).not.toContain("1.432 listos");
 
       const emitButton = wrapper
         .findAll("button")
@@ -1131,7 +1131,7 @@ describe("LotesComprobantesView", () => {
       perPage: 100,
       estado: null,
     });
-    expect(wrapper.text()).toContain("Mostrando 1 a 100 de 1432 comprobantes");
+    expect(wrapper.text()).toContain("Mostrando 1 a 100 de 1.432 comprobantes");
     expect(wrapper.text()).toContain(
       "El resumen fiscal considera el lote completo",
     );
@@ -1160,7 +1160,7 @@ describe("LotesComprobantesView", () => {
     const wrapper = await mountView([], [lote, loteObservado]);
 
     const lista = wrapper.get('[data-testid="lotes-recientes-lista"]');
-    expect(lista.text()).toContain("1432 listos");
+    expect(lista.text()).toContain("1.432 listos");
     expect(lista.text()).toContain("2 observados");
     expect(lista.text()).not.toContain("Válidos:");
     expect(lista.text()).not.toContain("Externos:");

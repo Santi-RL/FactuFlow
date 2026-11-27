@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FechaArgentina from "@/components/ui/FechaArgentina.vue";
 import HistoriaEmisor from "@/components/comprobantes/HistoriaEmisor.vue";
 import { ref, onMounted, computed, watch } from "vue";
 import { storeToRefs } from "pinia";
@@ -386,26 +387,32 @@ const tiposDisponibles = [
 
         <!-- Desde -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            for="filtros-desde"
+            class="block text-sm font-medium text-gray-700 mb-1"
+          >
             Desde
           </label>
-          <input
+          <FechaArgentina
+            id="filtros-desde"
             v-model="filtros.desde"
-            type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
+          />
         </div>
 
         <!-- Hasta -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            for="filtros-hasta"
+            class="block text-sm font-medium text-gray-700 mb-1"
+          >
             Hasta
           </label>
-          <input
+          <FechaArgentina
+            id="filtros-hasta"
             v-model="filtros.hasta"
-            type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
+          />
         </div>
 
         <!-- Tipo -->

@@ -232,7 +232,7 @@ const fechaEmision = computed(() => {
                 v-if="decimalEsPositivo(totales.iva21)"
                 class="flex justify-between"
               >
-                <span class="text-gray-700">IVA 21%:</span>
+                <span class="text-gray-700">IVA 21 %:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva21) }}</span>
               </div>
               <div
@@ -246,7 +246,7 @@ const fechaEmision = computed(() => {
                 v-if="decimalEsPositivo(totales.iva27)"
                 class="flex justify-between"
               >
-                <span class="text-gray-700">IVA 27%:</span>
+                <span class="text-gray-700">IVA 27 %:</span>
                 <span class="font-mono">{{ formatMonto(totales.iva27) }}</span>
               </div>
               <div class="border-t border-gray-300 pt-2">

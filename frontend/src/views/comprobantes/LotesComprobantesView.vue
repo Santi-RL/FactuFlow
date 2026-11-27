@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { formatearMoneda } from "@/composables/useFormatters";
+import FechaArgentina from "@/components/ui/FechaArgentina.vue";
+import { formatearFecha, formatearMoneda, formatearNumero } from "@/composables/useFormatters";
 import {
   computed,
   nextTick,
@@ -712,7 +713,7 @@ const detalleAvanceLote = computed(() => {
   if (loteActual.value?.estado === "requiere_reconciliacion") {
     return `Emitidos ${loteActual.value?.grupos_emitidos || 0} · Fallidos ${
       loteActual.value?.grupos_fallidos || 0
-    } · Pendientes visibles ${totalPendientesResolucion.value}`;
+    } · Pendientes visibles ${formatearNumero(totalPendientesResolucion.value)}`;
   }
   return `Emitidos ${loteActual.value?.grupos_emitidos || 0} · Fallidos ${
     loteActual.value?.grupos_fallidos || 0
@@ -828,7 +829,7 @@ const resumenPaginacionGrupos = computed(() => {
   if (gruposLoteTotal.value === 0) {
     return "No hay comprobantes para el filtro seleccionado.";
   }
-  return `Mostrando ${paginaGruposInicio.value} a ${paginaGruposFin.value} de ${gruposLoteTotal.value} comprobantes.`;
+  return `Mostrando ${formatearNumero(paginaGruposInicio.value)} a ${formatearNumero(paginaGruposFin.value)} de ${formatearNumero(gruposLoteTotal.value)} comprobantes.`;
 });
 
 const formatDateTime = (value: string | null) => {
@@ -839,11 +840,7 @@ const formatDateTime = (value: string | null) => {
   );
 };
 
-const formatDate = (value: string | null) => {
-  if (!value) return "-";
-  const [year, month, day] = value.split("T")[0].split("-");
-  return `${day}/${month}/${year}`;
-};
+const formatDate = (value: string | null) => value ? formatearFecha(value) : "-";
 
 const formatMoney = formatearMoneda;
 
@@ -855,16 +852,16 @@ const formatImportesDuplicados = (value: DuplicadosImportes | undefined) => {
       ? `${match[1]}${match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${match[3]}`
       : "importe no disponible";
     const prefix = item.moneda === "PES" ? "$" : item.moneda;
-    return `${prefix} ${amount} en ${item.cantidad} comprobante${item.cantidad === 1 ? "" : "s"}`;
+    return `${prefix} ${amount} en ${formatearNumero(item.cantidad)} comprobante${item.cantidad === 1 ? "" : "s"}`;
   });
   if (value.cantidad_sin_moneda_acreditada > 0) {
-    lines.push(`${value.cantidad_sin_moneda_acreditada} sin moneda acreditada`);
+    lines.push(`${formatearNumero(value.cantidad_sin_moneda_acreditada)} sin moneda acreditada`);
   }
   return lines.length ? lines.join("; ") : "sin importes afectados";
 };
 
 const pluralizar = (cantidad: number, singular: string, plural: string) => {
-  return `${cantidad} ${cantidad === 1 ? singular : plural}`;
+  return `${formatearNumero(cantidad)} ${cantidad === 1 ? singular : plural}`;
 };
 
 const resumenPrincipalLote = (lote: LoteComprobante) => {
@@ -3045,21 +3042,22 @@ onBeforeUnmount(() => {
                     >
                     Utilizar la fecha del archivo
                   </label>
-                  <label class="flex flex-wrap items-center gap-2">
-                    <input
-                      v-model="fechaEmisionModo"
-                      type="radio"
-                      value="fija"
-                      class="h-4 w-4 text-primary-600"
-                    >
-                    Utilizar esta fecha para todos
-                    <input
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="flex items-center gap-2">
+                      <input
+                        v-model="fechaEmisionModo"
+                        type="radio"
+                        value="fija"
+                        class="h-4 w-4 text-primary-600"
+                      >
+                      Utilizar esta fecha para todos</label>
+                    <FechaArgentina
                       v-model="fechaEmisionFija"
-                      type="date"
+                      aria-label="Fecha de emisión fija"
                       :disabled="fechaEmisionModo !== 'fija'"
                       class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                    >
-                  </label>
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -3081,21 +3079,22 @@ onBeforeUnmount(() => {
                       >
                       Utilizar la fecha del archivo
                     </label>
-                    <label class="mt-2 flex flex-wrap items-center gap-2">
-                      <input
-                        v-model="fechaServicioDesdeModo"
-                        type="radio"
-                        value="fija"
-                        class="h-4 w-4 text-primary-600"
-                      >
-                      Fijar
-                      <input
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                      <label class="flex items-center gap-2">
+                        <input
+                          v-model="fechaServicioDesdeModo"
+                          type="radio"
+                          value="fija"
+                          class="h-4 w-4 text-primary-600"
+                        >
+                        Fijar</label>
+                      <FechaArgentina
                         v-model="fechaServicioDesdeFija"
-                        type="date"
+                        aria-label="Inicio del servicio fijo"
                         :disabled="fechaServicioDesdeModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      >
-                    </label>
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -3111,21 +3110,22 @@ onBeforeUnmount(() => {
                       >
                       Utilizar la fecha del archivo
                     </label>
-                    <label class="mt-2 flex flex-wrap items-center gap-2">
-                      <input
-                        v-model="fechaServicioHastaModo"
-                        type="radio"
-                        value="fija"
-                        class="h-4 w-4 text-primary-600"
-                      >
-                      Fijar
-                      <input
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                      <label class="flex items-center gap-2">
+                        <input
+                          v-model="fechaServicioHastaModo"
+                          type="radio"
+                          value="fija"
+                          class="h-4 w-4 text-primary-600"
+                        >
+                        Fijar</label>
+                      <FechaArgentina
                         v-model="fechaServicioHastaFija"
-                        type="date"
+                        aria-label="Fin del servicio fijo"
                         :disabled="fechaServicioHastaModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      >
-                    </label>
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -3141,21 +3141,22 @@ onBeforeUnmount(() => {
                       >
                       Utilizar la fecha del archivo
                     </label>
-                    <label class="mt-2 flex flex-wrap items-center gap-2">
-                      <input
-                        v-model="fechaVtoPagoModo"
-                        type="radio"
-                        value="fija"
-                        class="h-4 w-4 text-primary-600"
-                      >
-                      Fijar
-                      <input
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                      <label class="flex items-center gap-2">
+                        <input
+                          v-model="fechaVtoPagoModo"
+                          type="radio"
+                          value="fija"
+                          class="h-4 w-4 text-primary-600"
+                        >
+                        Fijar</label>
+                      <FechaArgentina
                         v-model="fechaVtoPagoFija"
-                        type="date"
+                        aria-label="Vencimiento de pago fijo"
                         :disabled="fechaVtoPagoModo !== 'fija'"
                         class="rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
-                      >
-                    </label>
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3351,7 +3352,7 @@ onBeforeUnmount(() => {
                     Hay coincidencias que requieren revisión
                   </p>
                   <p class="mt-1 text-sm">
-                    {{ loteActual.control_duplicados.cantidad_afectada }} de
+                    {{ formatearNumero(loteActual.control_duplicados.cantidad_afectada) }} de
                     {{
                       pluralizar(
                         loteActual.control_duplicados.cantidad_actual,
@@ -3427,7 +3428,7 @@ onBeforeUnmount(() => {
                   class="rounded-lg border border-border-subtle bg-surface-card p-3"
                 >
                   <p class="text-xs font-medium uppercase text-brand-slate">
-                    IVA 21%
+                    IVA 21 %
                   </p>
                   <p class="mt-1 text-lg font-semibold text-brand-ink">
                     {{ formatMoney(totalesListosParaEmitir.iva21) }}
@@ -3437,7 +3438,7 @@ onBeforeUnmount(() => {
                   class="rounded-lg border border-border-subtle bg-surface-card p-3"
                 >
                   <p class="text-xs font-medium uppercase text-brand-slate">
-                    IVA 10,5%
+                    IVA 10,5 %
                   </p>
                   <p class="mt-1 text-lg font-semibold text-brand-ink">
                     {{ formatMoney(totalesListosParaEmitir.iva105) }}
@@ -3490,7 +3491,7 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
                 <p class="text-sm font-semibold text-primary-700">
-                  {{ porcentajeProcesado }}% procesado
+                  {{ formatearNumero(porcentajeProcesado) }} % procesado
                 </p>
               </div>
               <div

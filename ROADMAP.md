@@ -1,6 +1,6 @@
 # Roadmap de FactuFlow
 
-Última revisión: 19/11/2026
+Última revisión: 26/11/2026
 
 Estado: VIGENTE.
 
@@ -53,25 +53,6 @@ y el [flujo de producción](docs/agents/production-workflow.md). La operación
 productiva se acredita en su plano de control; no repetir operaciones cerradas
 por un handoff anterior ni exigir completar iniciativas ajenas al rango aceptado.
 
-### 1. PF-17/PF-13 — formato argentino y claridad visible
-
-**Prioridad:** P3 administrativa.
-
-Completar el formato argentino de fechas y números visibles en la interfaz,
-los PDF, los reportes y las ayudas y ejemplos del constructor de plantillas.
-Incluir los controles de entrada y la hoja de instrucciones de Excel con
-pruebas de lectura en distintas regiones y de equivalencia al importar.
-
-La mejora reutiliza la presentación de comprobantes y el cálculo decimal
-vigentes. Preserva importes autorizados, precisión guardada, identificadores y
-contratos de intercambio. Alcance y aceptación en el
-[diseño de formato y precio unitario](docs/agents/pf-17-13-formato-argentino-design.md).
-
-## Después
-
-El orden de esta sección también es vinculante salvo nueva evidencia o decisión
-explícita del usuario.
-
 ### 1. PF-09/PF-12/PF-14 — contratos e invariantes de plataforma
 
 **Prioridad:** P2, elevable por evidencia.
@@ -82,7 +63,9 @@ con identidad, renovación y recuperación seguras. Contrato en el
 Endurecer certificados/ambientes, constraints reversibles y contratos HTTP por
 cortes de dominio; no exigir terminar toda la plataforma para un consumidor.
 
-### 2. PF-18/PF-09 — padrón de clientes y alta de emisores
+## Después
+
+### 1. PF-18/PF-09 — padrón de clientes y alta de emisores
 
 **Prioridad:** P2 fiscal y administrativa. Consultar ARCA para completar datos
 por CUIT y detectar cambios de régimen; conservar fuente y fecha de verificación.

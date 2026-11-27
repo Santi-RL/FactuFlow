@@ -39,13 +39,13 @@ la operación productiva.
 | PF-04, representación PDF | Cerrado | P1 fiscal | IVA guardado visible en A/B y detalle sin superposición | [Contrato y límites](pf-04-pdf-representacion-fiscal-design.md); ensayo y QA aprobados, puertas de publicación en el dossier |
 | PF-04/PF-17/PF-13, notas individuales | Cerrado | P1 por bloqueo operativo | NC/ND desde factura autorizada y desde «Nuevo comprobante», con asociado y revisión comunes | [Notas](pf-04-17-notas-guiadas-design.md); evidencia mínima y preparación compartida; originales externos verificables por WSFE |
 | PF-18/PF-17, descargas PDF y ZIP | Cerrado | P3 administrativa | Descargar desde cada fila o reunir la selección individual/todos los resultados filtrados en un ZIP completo | [Contrato implementado](pf-18-17-descargas-pdf-design.md); permisos e historia vigentes, sin archivo permanente; operación en el plano de control |
-| PF-17/PF-13, formato argentino y claridad visible | Ahora 1 | P3 administrativa | Completar fechas y números visibles en formularios, reportes, PDF y plantillas | [Diseño de ambos cortes](pf-17-13-formato-argentino-design.md); precio unitario de facturas y notas implementado |
+| PF-17/PF-13, formato argentino y claridad visible | Cerrado | P3 administrativa | Fechas y números argentinos en formularios, reportes, PDF y ejemplos de plantillas | [Diseño de ambos cortes](pf-17-13-formato-argentino-design.md); precio unitario de facturas y notas implementado |
 | PF-04/PF-17, atribución del ranking | Más adelante | P2 administrativa | Separar ventas sin receptor identificable y evitar atribuirlas al primer nombre | Identidad fiscal por tipo y número, vínculo opcional y lecturas A-03; sin adelantar Ahora/Después |
 | PF-05 | Más adelante | P2 fiscal | Reconstrucción histórica externa opcional, reanudable y con procedencia desde ARCA | PF-04; no bloquea emisión, padrón, notas ni reconciliación local |
-| PF-09 | Después 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
-| PF-12 | Después 1 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
-| PF-14 | Después 1 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
-| PF-18/PF-09, padrón | Después 2 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes, alta de emisores y opción para completar receptores de Excel por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
+| PF-09 | Ahora 1 | P2 elevable | WSAA coordinado y tickets cifrados; propiedad/rotación de certificados y ambientes | [Contrato WSAA](pf-09-wsaa-coordinacion-cache-design.md); seguridad y migraciones |
+| PF-12 | Ahora 1 | P2 elevable | Constraints y migraciones reversibles para invariantes críticas | Acompaña cortes de dominio; no es migración masiva aislada |
+| PF-14 | Ahora 1 | P2 | Contratos HTTP, errores y concurrencia CRUD coherentes | Consumido por UI, soporte y procesos largos |
+| PF-18/PF-09, padrón | Después 1 | P2 fiscal/administrativa | Situación registral desde ARCA, actualización de clientes, alta de emisores y opción para completar receptores de Excel por CUIT | [Padrón](pf-18-09-padron-clientes-emisores-design.md); WSAA necesario y receptor/preparación comunes |
 | PF-03/PF-04/PF-13, categorías de importes | Más adelante | P2 fiscal | Tasa cero, exento, no gravado, tributos y alícuotas con soporte completo | [Importes/previsualización](pf-03-04-importes-previsualizacion-design.md); PF-04/PF-12 |
 | PF-10 | Más adelante | P2 | Resguardo confirmado, exportaciones y liberación segura de almacenamiento | PF-04, PF-11 y propiedad de artefactos |
 | PF-11/PF-15, automatización posterior | Más adelante | P2 | Backups cifrados automatizados, retención, alertas y recuperación hacia un VPS nuevo | Recuperación operativa; diseño específico al abrir el corte e instalación en el plano de control |
@@ -126,7 +126,7 @@ la operación productiva.
   El corte P1 cerrado corrige tasas convertidas a cero y diferencias de revisión sin
   cambiar redondeos; la ampliación P2 cubre categorías hasta PDF e informes.
   Preparación individual y muestra Excel comparten autoridad decimal.
-- PF-18/PF-09, P2, Después 2: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
+- PF-18/PF-09, P2, Después 1: [padrón para clientes y emisores](pf-18-09-padron-clientes-emisores-design.md).
   ARCA acredita situación registral en una consulta fechada; deduplicar/agrupar,
   renovar anticipadamente y emitir con snapshot. En Excel, completar razón
   social/nombre y condición registral sólo al elegir la opción por archivo,
@@ -231,11 +231,9 @@ la operación productiva.
   el retorno seguro, el checkbox específico y los controles fiscales del
   [diseño de duplicados](pf-13-duplicados-lotes-design.md). Un defecto comprobado
   que impida utilizar esos controles se atiende antes de publicar.
-- PF-17/PF-13, P3, Ahora 1:
-  [formato argentino y precio unitario legible](pf-17-13-formato-argentino-design.md).
-  El primer corte resuelve el precio unitario. El segundo abarca los demás
-  formatos visibles y las ayudas del constructor. Depende de la representación histórica y
-  la precisión fiscal. El diseño concentra casos, límites y aceptación.
+- PF-17/PF-13, P3, cerrado en dos cortes. El
+  [diseño de presentación](pf-17-13-formato-argentino-design.md) conserva la
+  regla del precio unitario y los contratos de fechas, números y ejemplos.
 - PF-17, P3, Más adelante: claridad del documento del receptor. La lista muestra
   directamente `cliente_documento`; su contrato no incluye tipo documental.
   Propuesta: usar «Sin identificar» cuando se acredite tipo 99, manteniendo el
@@ -366,9 +364,8 @@ se integra por su propio contrato y checks. No se exige cerrar todos los P1 en
 una única unidad ni se bloquea una reparación esperando su propio resultado.
 Los cortes de notas individuales y descarga directa/ZIP tienen contratos
 implementados; su publicación se consulta en sus dossiers y su operación en el
-plano de control. Ahora 1 continúa el formato argentino después del
-corte de precio unitario. Después siguen WSAA, las capacidades de
-plataforma necesarias y padrón para clientes/emisores. La historia externa PF-05
+plano de control. Ahora 1 abarca WSAA y los contratos de plataforma necesarios.
+Después sigue el padrón para clientes y emisores. La historia externa PF-05
 permanece Más adelante y no bloquea estos consumidores. El constructor y las categorías
 completas son P2. El orden autoritativo está en el roadmap.
 El parche RG 5616 cerrado se

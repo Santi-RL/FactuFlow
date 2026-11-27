@@ -2,8 +2,7 @@
 
 Última revisión: 26/11/2026.
 
-Estado: primer corte de precio unitario en comprobantes. El formato argentino
-en las demás superficies continúa en el [roadmap](../../ROADMAP.md#1-pf-17pf-13--formato-argentino-y-claridad-visible).
+Estado: ambos cortes implementados.
 
 ## Alcance
 
@@ -78,9 +77,20 @@ centavo, bonificación total, precisión del original y revisión/confirmación 
 una nota. Comparar QR, importes y geometría del PDF con datos sintéticos.
 Los estados de emisión y las reservas no tienen transiciones en la lectura.
 
-El segundo corte cubre fechas y sus controles, los demás números, reportes,
-ayudas, constructor e instrucciones de Excel. Incluye pruebas en regiones
-argentina y estadounidense y de equivalencia de celdas importables.
+### Controles del segundo corte
+
+El campo de fecha acepta día, mes y año y permite usar el calendario. Cada
+edición valida el día civil antes de actualizar el valor ISO. Borrar o dejar la
+fecha incompleta descarta el valor anterior. Los mínimos de vencimiento y la
+confirmación irreversible continúan en el flujo de emisión. Las pruebas en
+las regiones argentina y estadounidense cotejan el pedido de previsualización.
+
+Los ejemplos de las plantillas se presentan según el campo, incluso al abrir
+o clonar configuraciones antiguas. La hoja de instrucciones usa la misma
+convención. Los identificadores, el texto libre y los ejemplos ambiguos se
+conservan. La prueba de ida y vuelta completa las celdas de fecha e importe en
+el archivo descargado y compara las filas con las de una planilla equivalente.
+Las operaciones de emisión, reserva y recuperación conservan sus transiciones.
 
 La regla sustituye únicamente la exigencia de mostrar siempre el precio
 unitario completo del [corte original de PDF](pf-04-pdf-representacion-fiscal-design.md),

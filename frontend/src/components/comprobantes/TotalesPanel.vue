@@ -32,16 +32,16 @@ const tieneIva = computed(() => {
         <span class="font-mono">{{ formatMonto(subtotal) }}</span>
       </div>
 
-      <!-- IVA 21% -->
+      <!-- IVA 21 % -->
       <div
         v-if="iva21 > 0"
         class="flex justify-between text-gray-700"
       >
-        <span class="font-medium">IVA 21%:</span>
+        <span class="font-medium">IVA 21 %:</span>
         <span class="font-mono">{{ formatMonto(iva21) }}</span>
       </div>
 
-      <!-- IVA 10.5% -->
+      <!-- IVA 10,5 % -->
       <div
         v-if="iva105 > 0"
         class="flex justify-between text-gray-700"
@@ -50,12 +50,12 @@ const tieneIva = computed(() => {
         <span class="font-mono">{{ formatMonto(iva105) }}</span>
       </div>
 
-      <!-- IVA 27% -->
+      <!-- IVA 27 % -->
       <div
         v-if="iva27 > 0"
         class="flex justify-between text-gray-700"
       >
-        <span class="font-medium">IVA 27%:</span>
+        <span class="font-medium">IVA 27 %:</span>
         <span class="font-mono">{{ formatMonto(iva27) }}</span>
       </div>
 

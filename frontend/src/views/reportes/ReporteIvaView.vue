@@ -21,6 +21,7 @@ const empresaStore = useEmpresaStore();
 const { showError } = useNotification();
 const {
   formatearFecha,
+  formatearNumero,
   formatearMoneda: formatearImporte,
   formatearCUIT,
 } = useFormatters();
@@ -94,12 +95,12 @@ const columns = [
   { key: "numero", label: "Número", sortable: false },
   { key: "cuit_receptor", label: "CUIT", sortable: false },
   { key: "razon_social_receptor", label: "Razón Social", sortable: false },
-  { key: "gravado_21", label: "Gravado 21%", sortable: false },
-  { key: "iva_21", label: "IVA 21%", sortable: false },
-  { key: "gravado_10_5", label: "Gravado 10.5%", sortable: false },
-  { key: "iva_10_5", label: "IVA 10.5%", sortable: false },
-  { key: "gravado_27", label: "Gravado 27%", sortable: false },
-  { key: "iva_27", label: "IVA 27%", sortable: false },
+  { key: "gravado_21", label: "Gravado 21 %", sortable: false },
+  { key: "iva_21", label: "IVA 21 %", sortable: false },
+  { key: "gravado_10_5", label: "Gravado 10,5 %", sortable: false },
+  { key: "iva_10_5", label: "IVA 10,5 %", sortable: false },
+  { key: "gravado_27", label: "Gravado 27 %", sortable: false },
+  { key: "iva_27", label: "IVA 27 %", sortable: false },
   {
     key: "sin_clasificacion",
     label: "Sin clasificación acreditada",
@@ -199,7 +200,7 @@ const resumenIVA = computed(() => {
     decimalEsDistintoDeCero(reporte.value.resumen.iva_21)
   ) {
     items.push({
-      label: "IVA 21%",
+      label: "IVA 21 %",
       gravado: formatearMoneda(reporte.value.resumen.gravado_21),
       iva: formatearMoneda(reporte.value.resumen.iva_21),
       color: "text-brand-flow",
@@ -213,7 +214,7 @@ const resumenIVA = computed(() => {
     decimalEsDistintoDeCero(reporte.value.resumen.iva_10_5)
   ) {
     items.push({
-      label: "IVA 10.5%",
+      label: "IVA 10,5 %",
       gravado: formatearMoneda(reporte.value.resumen.gravado_10_5),
       iva: formatearMoneda(reporte.value.resumen.iva_10_5),
       color: "text-status-success",
@@ -227,7 +228,7 @@ const resumenIVA = computed(() => {
     decimalEsDistintoDeCero(reporte.value.resumen.iva_27)
   ) {
     items.push({
-      label: "IVA 27%",
+      label: "IVA 27 %",
       gravado: formatearMoneda(reporte.value.resumen.gravado_27),
       iva: formatearMoneda(reporte.value.resumen.iva_27),
       color: "text-brand-teal",
@@ -297,7 +298,7 @@ const resumenTotales = computed(() => {
       class="mb-4 text-status-warning"
       role="status"
     >
-      {{ reporte.resumen.cantidad_bases_no_acreditadas }} comprobante(s) sin
+      {{ formatearNumero(reporte.resumen.cantidad_bases_no_acreditadas) }} comprobante(s) sin
       detalle suficiente para acreditar las bases. Neto e IVA conservan los
       importes guardados.
     </p>

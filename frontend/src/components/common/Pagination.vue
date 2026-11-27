@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatearNumero } from "@/composables/useFormatters";
 import { computed } from "vue";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/outline";
 
@@ -98,11 +99,11 @@ const endItem = computed(() =>
       <div>
         <p class="text-sm text-brand-slate">
           Mostrando
-          <span class="font-medium text-brand-ink">{{ startItem }}</span>
+          <span class="font-medium text-brand-ink">{{ formatearNumero(startItem) }}</span>
           a
-          <span class="font-medium text-brand-ink">{{ endItem }}</span>
+          <span class="font-medium text-brand-ink">{{ formatearNumero(endItem) }}</span>
           de
-          <span class="font-medium text-brand-ink">{{ total }}</span>
+          <span class="font-medium text-brand-ink">{{ formatearNumero(total) }}</span>
           resultados
         </p>
       </div>
@@ -135,7 +136,7 @@ const endItem = computed(() =>
             :disabled="page === '...'"
             @click="goToPage(page)"
           >
-            {{ page }}
+            {{ typeof page === "number" ? formatearNumero(page) : page }}
           </button>
 
           <button

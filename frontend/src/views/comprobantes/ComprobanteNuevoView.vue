@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FechaArgentina from "@/components/ui/FechaArgentina.vue";
 import {
   decimalEsPositivo,
   formatearDecimalFiscal,
@@ -1303,15 +1304,18 @@ const confirmarCancelacion = () => {
 
         <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              for="formData-fecha-emision"
+              class="block text-sm font-medium text-gray-700 mb-1"
+            >
               Fecha de emisión *
             </label>
-            <input
+            <FechaArgentina
+              id="formData-fecha-emision"
               v-model="formData.fecha_emision"
-              type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
         </div>
 
@@ -1395,27 +1399,33 @@ const confirmarCancelacion = () => {
           class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4"
         >
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              for="formData-fecha-servicio-desde"
+              class="block text-sm font-medium text-gray-700 mb-1"
+            >
               Fecha Servicio Desde *
             </label>
-            <input
+            <FechaArgentina
+              id="formData-fecha-servicio-desde"
               v-model="formData.fecha_servicio_desde"
-              type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              for="formData-fecha-servicio-hasta"
+              class="block text-sm font-medium text-gray-700 mb-1"
+            >
               Fecha Servicio Hasta *
             </label>
-            <input
+            <FechaArgentina
+              id="formData-fecha-servicio-hasta"
               v-model="formData.fecha_servicio_hasta"
-              type="date"
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
           </div>
 
           <div>
@@ -1425,16 +1435,15 @@ const confirmarCancelacion = () => {
             >
               Fecha de vencimiento de pago *
             </label>
-            <input
+            <FechaArgentina
               id="fecha-vencimiento-pago"
               v-model="formData.fecha_vto_pago"
-              type="date"
               required
               :min="esNota ? formData.fecha_emision || undefined : undefined"
               :aria-invalid="errorVencimientoNota ? 'true' : undefined"
               :aria-describedby="errorVencimientoNota ? 'error-vencimiento-nota' : undefined"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            />
             <p
               v-if="errorVencimientoNota"
               id="error-vencimiento-nota"

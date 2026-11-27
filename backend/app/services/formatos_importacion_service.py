@@ -109,6 +109,39 @@ class CompatibilidadPlantilla:
     conflictos: list[CompatibilidadMensaje]
 
 
+def _ejemplo_visible(columna: dict[str, Any]) -> str:
+    """Presentación de ejemplos históricos y clonados, sin interpretar celdas."""
+    campo = columna["campo_destino"]
+    ejemplo = columna.get("ejemplo")
+    texto = "" if ejemplo is None else str(ejemplo)
+    if campo in {
+        "fecha_origen",
+        "fecha_emision",
+        "fecha_servicio_desde",
+        "fecha_servicio_hasta",
+        "fecha_vto_pago",
+        "asociado_fecha",
+    } and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", texto):
+        try:
+            fecha = date.fromisoformat(texto)
+            return f"{fecha.day:02}/{fecha.month:02}/{fecha.year:04}"
+        except ValueError:
+            return texto
+    if campo in {
+        "importe_total",
+        "item_precio_unitario",
+        "item_cantidad",
+        "item_iva_porcentaje",
+        "item_descuento_porcentaje",
+    } and re.fullmatch(r"-?[0-9]+(?:\.[0-9]+)?", texto):
+        if re.fullmatch(r"-?[0-9]{1,3}(?:\.[0-9]{3})+", texto):
+            return texto
+        entero, punto, decimales = texto.partition(".")
+        entero = re.sub(r"\B(?=(?:[0-9]{3})+$)", ".", entero)
+        return entero + ("," + decimales if punto else "")
+    return texto
+
+
 FORMATO_BANCARIO_CONFIG: dict[str, Any] = {
     "tipo": "extracto_bancario_creditos",
     "plantilla_sistema_protegida": True,
@@ -123,7 +156,7 @@ FORMATO_BANCARIO_CONFIG: dict[str, Any] = {
                 "origen": "header",
                 "requerido": False,
                 "transformacion": "fecha",
-                "ejemplo": "2026-05-31",
+                "ejemplo": "31/05/2026",
             },
             {
                 "campo_destino": "importe_total",
@@ -131,7 +164,7 @@ FORMATO_BANCARIO_CONFIG: dict[str, Any] = {
                 "origen": "header",
                 "requerido": True,
                 "transformacion": "decimal",
-                "ejemplo": "10000.00",
+                "ejemplo": "10.000,00",
             },
             {
                 "campo_destino": "cliente_razon_social",
@@ -1277,7 +1310,7 @@ class FormatosImportacionService:
             instrucciones.cell(
                 row=fila,
                 column=4,
-                value=self._valor_excel_seguro(columna.get("ejemplo", "")),
+                value=self._valor_excel_seguro(_ejemplo_visible(columna)),
             )
             fila += 1
         instrucciones.column_dimensions["A"].width = 32

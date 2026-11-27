@@ -102,8 +102,8 @@
 - CUIT, CAE, documentos, códigos y números de comprobante son identificadores:
   conservar su representación específica y sus ceros significativos; no aplicar
   separadores de miles como si fueran cantidades.
-- Esta regla rige los cambios nuevos; las inconsistencias existentes se corrigen
-  según el pendiente PF-17/PF-13 del roadmap, sin adelantarlo por cuenta propia.
+- Para cambios nuevos, reutilizar los controles de fecha y presentación decimal
+  del [diseño PF-17/PF-13](docs/agents/pf-17-13-formato-argentino-design.md).
 - El PDF en pesos (`PES`) omite el bloque visible de moneda y cotización;
   ambos datos se conservan en almacenamiento, API, evidencia y QR.
 - Si se implementa facturación en dólares u otra moneda extranjera, el

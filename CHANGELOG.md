@@ -18,6 +18,11 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+- Las fechas se ingresan en formato argentino en emisión, lotes, configuración
+  y reportes. Las cantidades, las tasas de IVA y los ejemplos de plantillas
+  usan coma decimal y punto de miles. El PDF agrupa las cantidades y conserva
+  la precisión del renglón y de la cotización.
+
 - En la revisión, el detalle y el PDF de facturas y notas, el precio unitario
   usa los decimales necesarios para explicar el subtotal y la bonificación.
   Al editar se dispone del precio completo, incluso al copiar una factura.

@@ -557,7 +557,7 @@ class TestPDFService:
         assert len(documento.pages) == 1
         texto = documento.pages[0].extract_text()
         assert f"Moneda: {moneda}" in texto
-        assert "Cotización conservada: 1500,123456" in texto
+        assert "Cotización conservada: 1.500,123456" in texto
         assert "90.750,00" in texto
         assert comprobante_mock.moneda == moneda
         assert comprobante_mock.cotizacion == Decimal("1500.123456")

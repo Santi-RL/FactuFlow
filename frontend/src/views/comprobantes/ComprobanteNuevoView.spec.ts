@@ -298,7 +298,7 @@ describe("ComprobanteNuevoView", () => {
     await vm.abrirVistaPrevia();
     expect(mockedComprobantesService.previsualizar).not.toHaveBeenCalled();
 
-    await vencimiento.setValue("2026-05-20");
+    await vencimiento.setValue("20/05/2026");
     expect(wrapper.find("#error-vencimiento-nota").exists()).toBe(false);
     await vm.abrirVistaPrevia();
     expect(mockedComprobantesService.previsualizar).toHaveBeenCalledWith(

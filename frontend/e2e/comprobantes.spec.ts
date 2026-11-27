@@ -250,56 +250,65 @@ test.describe("Emisión de Comprobantes", () => {
     await expect(page.getByText(/1\.210/)).toBeVisible();
   });
 
-  test("debe mostrar vista previa antes de emitir", async ({ page }) => {
-    await Promise.all([
-      page.waitForURL(/comprobantes\/nuevo/),
-      page.getByTestId("comprobantes-nueva-factura").click(),
-    ]);
+  for (const locale of ["es-AR", "en-US"]) {
+    test.describe(locale, () => {
+      test.use({ locale });
+      test("debe mostrar vista previa antes de emitir", async ({ page }) => {
+        await Promise.all([
+          page.waitForURL(/comprobantes\/nuevo/),
+          page.getByTestId("comprobantes-nueva-factura").click(),
+        ]);
 
-    // Completar formulario básico
-    await page.getByLabel(/tipo de comprobante/i).selectOption("1");
-    await page.getByLabel(/concepto/i).selectOption("1");
-    await page.locator('input[type="date"]').first().fill("2026-03-09");
-    await page.getByTestId("cliente-nuevo-manual").click();
-    await page.getByLabel(/número/i).fill("20123456789");
-    await page
-      .getByLabel(/condición iva/i)
-      .selectOption({ label: "Responsable Inscripto" });
-    await page.getByLabel(/razón social/i).fill("Cliente Preview");
-    await page
-      .getByLabel(/descripción/i)
-      .first()
-      .fill("Servicio de prueba");
-    await page
-      .getByLabel(/cantidad/i)
-      .first()
-      .fill("1");
-    await page
-      .getByLabel(/precio unitario/i)
-      .first()
-      .fill("27.272,727272727272");
-    await page.route("**/comprobantes/previsualizar", async (route) => {
-      const pedido = route.request().postDataJSON();
-      expect(pedido.items[0].precio_unitario).toBe("27272.727272727272");
-      await route.fulfill({ json: {
-        subtotal: "27272.73", iva_21: "5727.27", iva_10_5: "0.00",
-        iva_27: "0.00", total: "33000.00", subtotales_items: ["27272.73"],
-        precios_unitarios_visibles: ["27.272,73"], moneda: "PES",
-        cotizacion: "1", receptor: pedido,
-      } });
+        // Completar formulario básico
+        await page.getByLabel(/tipo de comprobante/i).selectOption("1");
+        await page.getByLabel(/concepto/i).selectOption("1");
+        const fecha = page.getByRole("textbox", { name: "Fecha de emisión" });
+        await fecha.fill("09/03/2026");
+        await expect(fecha).toHaveValue("09/03/2026");
+        await fecha.locator("..").screenshot({ path: "../output/playwright/pf17-fecha-" + locale + ".png" });
+        await page.getByTestId("cliente-nuevo-manual").click();
+        await page.getByLabel(/número/i).fill("20123456789");
+        await page
+          .getByLabel(/condición iva/i)
+          .selectOption({ label: "Responsable Inscripto" });
+        await page.getByLabel(/razón social/i).fill("Cliente Preview");
+        await page
+          .getByLabel(/descripción/i)
+          .first()
+          .fill("Servicio de prueba");
+        await page
+          .getByLabel(/cantidad/i)
+          .first()
+          .fill("1");
+        await page
+          .getByLabel(/precio unitario/i)
+          .first()
+          .fill("27.272,727272727272");
+        await page.route("**/comprobantes/previsualizar", async (route) => {
+          const pedido = route.request().postDataJSON();
+          expect(pedido.fecha_emision).toBe("2026-03-09");
+          expect(pedido.items[0].precio_unitario).toBe("27272.727272727272");
+          await route.fulfill({ json: {
+            subtotal: "27272.73", iva_21: "5727.27", iva_10_5: "0.00",
+            iva_27: "0.00", total: "33000.00", subtotales_items: ["27272.73"],
+            precios_unitarios_visibles: ["27.272,73"], moneda: "PES",
+            cotizacion: "1", receptor: pedido,
+          } });
+        });
+
+        // Click en vista previa
+        await page.getByTestId("comprobante-vista-previa").click();
+
+        // Verificar que se muestra el modal de preview
+        await expect(
+          page.getByTestId("comprobante-confirmar-emitir"),
+        ).toBeVisible();
+        const fila = page.getByRole("row").filter({ hasText: "Servicio de prueba" });
+        await expect(fila.getByRole("cell", { name: "$ 27.272,73", exact: true })).toHaveCount(2);
+        await page.screenshot({ path: "../output/playwright/pf17-precio-" + locale + ".png" });
+      });
     });
-
-    // Click en vista previa
-    await page.getByTestId("comprobante-vista-previa").click();
-
-    // Verificar que se muestra el modal de preview
-    await expect(
-      page.getByTestId("comprobante-confirmar-emitir"),
-    ).toBeVisible();
-    const fila = page.getByRole("row").filter({ hasText: "Servicio de prueba" });
-    await expect(fila.getByRole("cell", { name: "$ 27.272,73", exact: true })).toHaveCount(2);
-    await page.screenshot({ path: "../output/playwright/pf17-precio-vista-previa.png" });
-  });
+  }
 
   test("debe emitir comprobante (mock) al confirmar desde la vista previa", async ({
     page,
@@ -312,7 +321,7 @@ test.describe("Emisión de Comprobantes", () => {
     await page.getByLabel(/tipo de comprobante/i).selectOption("6"); // Factura B
     await page.getByLabel(/punto de venta/i).selectOption("1");
     await page.getByLabel(/concepto/i).selectOption("1");
-    await page.locator('input[type="date"]').first().fill("2026-03-09");
+    await page.getByRole("textbox", { name: "Fecha de emisión" }).fill("09/03/2026");
 
     // Cliente manual
     await page.getByTestId("cliente-nuevo-manual").click();
@@ -459,7 +468,7 @@ test.describe("Emisión de Comprobantes", () => {
     await page.getByLabel(/tipo de comprobante/i).selectOption("6");
     await page.getByLabel(/punto de venta/i).selectOption("1");
     await page.getByLabel(/concepto/i).selectOption("1");
-    await page.locator('input[type="date"]').first().fill("2026-03-09");
+    await page.getByRole("textbox", { name: "Fecha de emisión" }).fill("09/03/2026");
     await page.getByTestId("cliente-nuevo-manual").click();
     await page.getByLabel(/número/i).fill("20123456789");
     await page.getByLabel(/condición iva/i).selectOption({ label: "Exento" });

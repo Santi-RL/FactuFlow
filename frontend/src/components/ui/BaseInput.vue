@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, useAttrs, useId } from "vue";
 
+import FechaArgentina from "./FechaArgentina.vue";
+
+defineOptions({ inheritAttrs: false });
+
 interface Props {
   label?: string;
   type?: "text" | "email" | "password" | "number" | "tel" | "date";
@@ -48,7 +52,10 @@ const handleInput = (event: Event) => {
 </script>
 
 <template>
-  <div class="w-full">
+  <div
+    class="w-full"
+    :class="attrs.class"
+  >
     <label
       v-if="label"
       :for="inputId"
@@ -61,7 +68,18 @@ const handleInput = (event: Event) => {
       >*</span>
     </label>
 
+    <FechaArgentina
+      v-if="type === 'date'"
+      v-bind="attrs"
+      :id="inputId"
+      :model-value="String(modelValue ?? '')"
+      :required="required"
+      :disabled="disabled"
+      :class="inputClasses"
+      @update:model-value="emit('update:modelValue', $event)"
+    />
     <input
+      v-else
       :id="inputId"
       :type="type"
       :placeholder="placeholder"
