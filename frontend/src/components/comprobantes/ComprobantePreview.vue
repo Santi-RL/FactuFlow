@@ -34,6 +34,7 @@ interface Props {
     total: FiscalDecimal;
   };
   subtotalesItems?: FiscalDecimal[];
+  preciosUnitariosVisibles?: string[];
   proximoNumero: number | null;
   puntoVentaNumero: number | null;
   empresa: any;
@@ -202,10 +203,10 @@ const fechaEmision = computed(() => {
                     >({{ item.codigo }})</span>
                   </td>
                   <td class="py-3 text-center">
-                    {{ item.cantidad }} {{ item.unidad }}
+                    {{ formatearDecimalFiscal(item.cantidad) }} {{ item.unidad }}
                   </td>
-                  <td class="py-3 text-right font-mono">
-                    {{ formatMonto(item.precio_unitario) }}
+                  <td class="py-3 text-right font-mono [overflow-wrap:anywhere]">
+                    $ {{ preciosUnitariosVisibles?.[index] ?? formatearDecimalFiscal(item.precio_unitario, 2) }}
                   </td>
                   <td class="py-3 text-right font-mono">
                     {{ formatMonto(subtotalesItems?.[index]) }}

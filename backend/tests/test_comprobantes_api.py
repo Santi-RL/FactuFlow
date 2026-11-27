@@ -1997,7 +1997,7 @@ async def test_get_comprobante_detalle_con_items(
         descripcion="Producto API Test",
         cantidad=Decimal("1.00"),
         unidad="unidades",
-        precio_unitario=Decimal("1000.00"),
+        precio_unitario=Decimal("1000.00000000000000001"),
         descuento_porcentaje=Decimal("0.00"),
         iva_porcentaje=Decimal("21.00"),
         subtotal=Decimal("1000.00"),
@@ -2019,6 +2019,8 @@ async def test_get_comprobante_detalle_con_items(
     assert data["punto_venta_numero"] == 5
     assert len(data["items"]) == 1
     assert data["items"][0]["descripcion"] == "Producto API Test"
+    assert data["items"][0]["precio_unitario"] == "1000.00000000000000001"
+    assert data["items"][0]["precio_unitario_visible"] == "1.000,00"
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,10 @@ Reglas vigentes desde 2026-05-22:
 
 ## [Unreleased]
 
+- En la revisión, el detalle y el PDF de facturas y notas, el precio unitario
+  usa los decimales necesarios para explicar el subtotal y la bonificación.
+  Al editar se dispone del precio completo, incluso al copiar una factura.
+
 ## [0.3.16] - 26/11/2026
 
 Publicada sobre `121fce33af26ebbfe2e2ffdfbc169a442e660ae8`.

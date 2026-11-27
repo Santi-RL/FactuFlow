@@ -109,10 +109,6 @@ const alcanceNota = ref<"total" | "parcial" | "ajuste">("total");
 const copiarItemsOriginal = (original: PreparacionNota) =>
   original.items.map((item) => ({
     ...item,
-    cantidad: Number(item.cantidad),
-    precio_unitario: Number(item.precio_unitario),
-    subtotal: item.subtotal === undefined ? undefined : Number(item.subtotal),
-    descuento_porcentaje: Number(item.descuento_porcentaje),
     iva_porcentaje: Number(item.iva_porcentaje),
   }));
 const prepararNota = (original: PreparacionNota | null) => {
@@ -598,8 +594,6 @@ const formularioValido = computed(() => {
     formData.value.items.every(
       (item) =>
         item.descripcion.length > 0 &&
-        item.cantidad > 0 &&
-        item.precio_unitario >= 0 &&
         (!esComprobanteC.value || item.iva_porcentaje === 0),
     ) &&
     (!mostrarFechasServicios.value ||
@@ -1589,6 +1583,7 @@ const confirmarCancelacion = () => {
       :form-data="datosVistaPrevia"
       :totales="totalesRevisados"
       :subtotales-items="revisionImportes.resultado.subtotales_items"
+      :precios-unitarios-visibles="revisionImportes.resultado.precios_unitarios_visibles"
       :proximo-numero="proximoNumero"
       :punto-venta-numero="puntoVentaSeleccionado?.numero || null"
       :empresa="empresaActiva"

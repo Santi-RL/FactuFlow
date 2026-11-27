@@ -389,8 +389,10 @@ detalle, listado, lote, PDF y reporte. La reconciliación externa utiliza el
 mismo importe. La revisión previa y las bases IVA/moneda se rigen por sus
 contratos respectivos.
 
-Al probar el corte de [formato argentino](pf-17-13-formato-argentino-design.md),
-verificar por separado el precio unitario visible con la matriz de ese diseño.
+Contrastar la revisión, el detalle y el PDF (descarga individual y dentro de
+un ZIP) con la [matriz de precios](pf-17-13-formato-argentino-design.md).
+Preparar una nota desde una factura sintética y comprobar que revisar el
+precio abreviado conserva el precio completo en la emisión simulada.
 El formato de presentación queda fuera del cálculo y de la evidencia
 conservada.
 

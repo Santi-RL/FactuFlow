@@ -225,6 +225,7 @@ async def test_api_revision_exacta_sin_confirmacion_clave_io_ni_escrituras(
     result = response.json()
     assert result["total"] == result["subtotal"] == "1.00"
     assert result["subtotales_items"] == ["1.00"]
+    assert result["precios_unitarios_visibles"] == ["1,00"]
     assert result["receptor"]["tipo_documento"] == 99
     assert result["moneda"] == "PES"
     assert result["cotizacion"] == "1"

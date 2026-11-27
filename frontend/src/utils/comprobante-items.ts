@@ -1,4 +1,11 @@
 import type { ItemComprobanteCreate } from "@/types/comprobante";
+import type { FiscalDecimal } from "./fiscal-decimal";
+
+// Sólo la estimación del editor usa Number. El DTO conserva el decimal original.
+const numeroEstimado = (valor: FiscalDecimal) =>
+  typeof valor === "number" || /^-?\d+(?:\.\d*)?(?:e[+-]?\d+)?$/i.test(valor)
+    ? Number(valor)
+    : NaN;
 
 export const crearItemsEmision = (
   items: ItemComprobanteCreate[],
@@ -17,14 +24,15 @@ export const crearItemsEmision = (
 export const errorImportesItem = (
   item: ItemComprobanteCreate,
 ): string | null => {
-  if (!Number.isFinite(item.cantidad) || item.cantidad <= 0)
+  const cantidad = numeroEstimado(item.cantidad);
+  const precio = numeroEstimado(item.precio_unitario);
+  const descuento = numeroEstimado(item.descuento_porcentaje);
+  if (!Number.isFinite(cantidad) || cantidad <= 0)
     return "La cantidad debe ser un número mayor a cero.";
-  if (!Number.isFinite(item.precio_unitario) || item.precio_unitario < 0)
+  if (!Number.isFinite(precio) || precio < 0)
     return "El precio unitario debe ser un número mayor o igual a cero.";
   if (
-    !Number.isFinite(item.descuento_porcentaje) ||
-    item.descuento_porcentaje < 0 ||
-    item.descuento_porcentaje > 100
+    !Number.isFinite(descuento) || descuento < 0 || descuento > 100
   )
     return "El descuento debe ser un número entre 0 y 100.";
   if (!Number.isFinite(item.iva_porcentaje) || item.iva_porcentaje < 0)
@@ -36,8 +44,8 @@ export const errorImportesItem = (
 
 export const subtotalItem = (item: ItemComprobanteCreate): number | null => {
   if (errorImportesItem(item)) return null;
-  const bruto = item.cantidad * item.precio_unitario;
-  const subtotal = bruto - bruto * (item.descuento_porcentaje / 100);
+  const bruto = Number(item.cantidad) * Number(item.precio_unitario);
+  const subtotal = bruto - bruto * (Number(item.descuento_porcentaje) / 100);
   return Number.isFinite(subtotal) ? subtotal : null;
 };
 

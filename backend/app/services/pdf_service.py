@@ -17,6 +17,7 @@ from weasyprint import CSS, HTML
 from weasyprint.urls import URLFetcher, URLFetcherResponse
 
 from app.models.comprobante import Comprobante
+from app.core.precio_visible import precio_unitario_visible
 from app.core.fiscal_storage import decimal_json_dumps, sum_decimals
 from app.models.empresa import Empresa
 from app.schemas.lectura_historica import LecturaHistorica
@@ -187,16 +188,19 @@ class PDFService:
             importe_bonificacion = (
                 cantidad * precio_unitario * descuento_porcentaje / Decimal("100")
             )
+            subtotal = Decimal(str(getattr(item, "subtotal", 0) or 0))
             filas.append(
                 SimpleNamespace(
                     codigo=getattr(item, "codigo", None),
                     descripcion=getattr(item, "descripcion", ""),
                     cantidad=cantidad,
                     unidad=getattr(item, "unidad", "unidades"),
-                    precio_unitario=precio_unitario,
+                    precio_unitario_visible=precio_unitario_visible(
+                        cantidad, precio_unitario, descuento_porcentaje, subtotal
+                    ),
                     descuento_porcentaje=descuento_porcentaje,
                     importe_bonificacion=importe_bonificacion,
-                    subtotal=getattr(item, "subtotal", Decimal("0")),
+                    subtotal=subtotal,
                 )
             )
         return filas

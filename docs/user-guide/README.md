@@ -176,8 +176,13 @@ perfiles de carga y formatos de importación: no deben mezclarse entre emisores.
 
 ### Cifras conservadas al consultar
 
-El detalle de comprobantes y el PDF muestran las cifras guardadas de cantidad,
-precio y descuento, incluyendo decimales adicionales. Los importes de listados,
+En la revisión, el detalle y el PDF de facturas y notas, el precio unitario
+se muestra con dos decimales cuando alcanzan para explicar el renglón. Por
+ejemplo, con una unidad y un subtotal de $ 27.272,73, el precio puede verse como
+27.272,73. Si se necesitan más cifras para explicar el subtotal o el descuento,
+aparecen automáticamente. Al editar el precio se ve el valor completo y se
+usa la coma decimal. Las cantidades y los descuentos conservan sus cifras.
+Los importes de listados,
 lotes y reportes conservan su precisión al mostrarse. No se agregan pasos de
 confirmación; la fecha fiscal y la confirmación irreversible siguen vigentes.
 

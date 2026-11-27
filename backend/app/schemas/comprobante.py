@@ -54,6 +54,7 @@ class ItemComprobanteResponse(ItemComprobanteBase):
     """Schema de respuesta de Item de Comprobante."""
 
     id: int
+    precio_unitario_visible: str
     subtotal: Decimal
     comprobante_id: int
 
@@ -201,6 +202,7 @@ class PrevisualizacionComprobanteResponse(BaseModel):
     iva_27: Decimal
     total: Decimal
     subtotales_items: List[Decimal]
+    precios_unitarios_visibles: List[str]
     moneda: str
     cotizacion: Decimal
     receptor: ReceptorPrevisualizacionResponse

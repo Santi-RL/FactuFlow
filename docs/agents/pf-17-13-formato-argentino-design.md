@@ -1,8 +1,9 @@
 # PF-17/PF-13 — formato argentino y precio unitario legible
 
-Última revisión: 19/11/2026.
+Última revisión: 26/11/2026.
 
-Estado: diseño del corte previsto en el [roadmap](../../ROADMAP.md#2-pf-17pf-13--formato-argentino-y-claridad-visible).
+Estado: primer corte de precio unitario en comprobantes. El formato argentino
+en las demás superficies continúa en el [roadmap](../../ROADMAP.md#1-pf-17pf-13--formato-argentino-y-claridad-visible).
 
 ## Alcance
 
@@ -31,17 +32,20 @@ independiente del rediseño y la ampliación de plantillas contables.
 
 ## Precio unitario en comprobantes
 
-La plantilla común de facturas, notas de crédito y notas de débito A/B/C muestra
-hoy la precisión completa del precio unitario, lo que puede partir un importe
-en varias líneas aun cuando dos decimales bastan para leerlo. El subtotal se
-presenta con dos decimales a partir del valor guardado.
+La revisión, el detalle y el PDF de facturas, notas de crédito y notas de débito
+A/B/C comparten la elección de precisión. La referencia es el subtotal de la
+previsualización decimal o el subtotal guardado del comprobante. El importe de
+bonificación del PDF se sigue obteniendo de la cantidad, el precio completo y
+el porcentaje del renglón.
 
 - Mostrar el precio con dos decimales si, con la cantidad y la bonificación
   del renglón, explica el subtotal visible y conserva el importe de bonificación
   visible cuando corresponda. Comparar con los importes guardados, bajo el
   redondeo vigente de presentación y con aritmética decimal.
 - Si dos decimales no alcanzan, usar la menor cantidad de decimales adicionales
-  que conserve esa correspondencia. Si el detalle histórico difiere aun con
+  que conserve esa correspondencia. Un precio positivo conserva por lo menos
+  un dígito significativo: `0,004` sigue siendo `0,004` aunque el subtotal sea
+  `0,00`. Antes de abreviar, comprobar el detalle original. Si difiere aun con
   la precisión completa, mostrar el precio guardado completo y conservar la
   discrepancia histórica. El ancho de la celda se resuelve sin cortar dígitos
   ni superponer columnas.
@@ -49,13 +53,34 @@ presenta con dos decimales a partir del valor guardado.
   histórico, en vista previa y en descarga individual o ZIP. En
   las vistas de lectura y revisión que muestran el precio junto con los
   importes del renglón, usar el mismo criterio con los importes de referencia
-  de esa vista. En los campos de edición se conserva el valor editable.
+  de esa vista. El editor muestra el precio completo con coma decimal. Al abrir
+  una factura para preparar una nota, se conservan los decimales del original
+  en el pedido de revisión y en el de emisión, también si se editó otro campo.
 
 Ejemplos sintéticos: con cantidad 1 y sin bonificación, el precio
 `27.272,727272727272` puede mostrarse como `27.272,73` si el subtotal visible es
 `27.272,73`. Con cantidad `1.000`, precio `0,123456` y subtotal `123,46`,
-`0,12` sugeriría un subtotal distinto. En ese caso deben aparecer los
-decimales adicionales necesarios.
+`0,12` sugeriría un subtotal distinto. El precio visible es `0,12346`. Con
+dos unidades al mismo precio y bonificación del 100 %, se muestra `0,123`
+para explicar la bonificación de `0,25` aunque el subtotal sea cero.
+
+### Controles del primer corte
+
+El selector es de lectura, sin escrituras ni llamadas a ARCA. Las respuestas
+de revisión y detalle transportan el texto de presentación separado del precio
+decimal. El PDF usa el mismo selector. El editor conserva el valor técnico
+por separado y el DTO de emisión sólo admite los campos fiscales vigentes.
+Para escribir un precio se usa coma decimal. Ante una entrada ambigua como
+`1.234`, el editor conserva el texto y admite `1,234` o `1.234,00` según
+el valor deseado.
+Probar medio centavo, históricos discrepantes, precios positivos menores a un
+centavo, bonificación total, precisión del original y revisión/confirmación de
+una nota. Comparar QR, importes y geometría del PDF con datos sintéticos.
+Los estados de emisión y las reservas no tienen transiciones en la lectura.
+
+El segundo corte cubre fechas y sus controles, los demás números, reportes,
+ayudas, constructor e instrucciones de Excel. Incluye pruebas en regiones
+argentina y estadounidense y de equivalencia de celdas importables.
 
 La regla sustituye únicamente la exigencia de mostrar siempre el precio
 unitario completo del [corte original de PDF](pf-04-pdf-representacion-fiscal-design.md),
