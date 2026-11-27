@@ -85,7 +85,7 @@ describe("Sidebar", () => {
   it("muestra la versión del candidato local", () => {
     const wrapper = mountSidebar();
 
-    expect(wrapper.text()).toContain("FactuFlow v0.3.16");
+    expect(wrapper.text()).toContain("FactuFlow v0.3.17");
 
     wrapper.unmount();
   });

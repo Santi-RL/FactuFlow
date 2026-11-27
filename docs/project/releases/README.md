@@ -14,6 +14,7 @@ autoriza producción.
 
 ## Índice
 
+- [v0.3.17](v0.3.17-candidate.md) incorpora el precio unitario legible en la revisión, el detalle y el PDF.
 - [`v0.3.16-candidate.md`](v0.3.16-candidate.md): recuperación de autorizaciones
   de lotes interrumpidos, con cierre por grupo y rollback acotado.
 - [`v0.3.15-candidate.md`](v0.3.15-candidate.md): recuperación de la emisión
